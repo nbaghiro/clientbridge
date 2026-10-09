@@ -44,25 +44,25 @@ export const demoSnapshot = {
     estimateCount: 4,
     services: [
         {
-            image: "/images/demo/it_groom_lg.png",
+            image: "/images/demo/it_groom_lg.jpg",
             name: "Full Groom - Large Dog",
             length: "120 min",
             price: "$110.00",
         },
         {
-            image: "/images/demo/it_bath.png",
+            image: "/images/demo/it_bath.jpg",
             name: "Bath & Tidy",
             length: "45 min",
             price: "$45.00",
         },
         {
-            image: "/images/demo/it_cat.png",
+            image: "/images/demo/it_cat.jpg",
             name: "Cat Groom",
             length: "75 min",
             price: "$85.00",
         },
         {
-            image: "/images/demo/it_nails.png",
+            image: "/images/demo/it_nails.jpg",
             name: "Nail Trim & File",
             length: "15 min",
             price: "$18.00",
@@ -70,7 +70,7 @@ export const demoSnapshot = {
     ],
     stockRows: [
         {
-            image: "/images/demo/it_shampoo.png",
+            image: "/images/demo/it_shampoo.jpg",
             name: "Oatmeal Soothe Shampoo (500ml)",
             sku: "BB-SHAMPOO",
             price: "$24.00",
@@ -79,7 +79,7 @@ export const demoSnapshot = {
             restock: false,
         },
         {
-            image: "/images/demo/it_brush.png",
+            image: "/images/demo/it_brush.jpg",
             name: "Self-Cleaning Slicker Brush",
             sku: "BB-BRUSH",
             price: "$29.00",
@@ -88,7 +88,7 @@ export const demoSnapshot = {
             restock: true,
         },
         {
-            image: "/images/demo/it_nails.png",
+            image: "/images/demo/it_nails.jpg",
             name: "Nail Trim & File",
             sku: "Service",
             price: "$18.00",
@@ -276,14 +276,14 @@ export const demoSnapshot = {
     shop: {
         items: [
             {
-                image: "/images/demo/it_shampoo.png",
+                image: "/images/demo/it_shampoo.jpg",
                 name: "Oatmeal Soothe Shampoo (500ml)",
                 detail: "25 in stock",
                 price: "$24.00",
                 qty: 1,
             },
             {
-                image: "/images/demo/it_brush.png",
+                image: "/images/demo/it_brush.jpg",
                 name: "Self-Cleaning Slicker Brush",
                 detail: "2 in stock",
                 price: "$29.00",

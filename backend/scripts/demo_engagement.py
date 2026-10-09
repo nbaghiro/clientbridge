@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from clientbridge.core.config import get_settings
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Consent, Subject
@@ -676,13 +675,6 @@ def _reviews(ctx: DemoContext) -> None:
 
 def _profile(ctx: DemoContext) -> None:
     business = ctx.get(Business, ctx.business_id)
-    base = get_settings().api_base_url.rstrip("/")
-    files = [
-        f
-        for f in ctx.all(File)
-        if (f.parent_type, f.purpose) in {("business", "logo"), ("item", "image")}
-    ]
-    gallery = [f"{base}/media/{file.id}" for file in files if file.parent_type == "item"][:4]
     brand = BrandInput.model_validate(
         {
             **business.brand,
@@ -695,8 +687,8 @@ def _profile(ctx: DemoContext) -> None:
             "phone": "+1 250-555-0110",
             "email": "hello@birchbark.example",
             "neighbourhood": "Downtown Victoria",
-            "gallery_urls": gallery,
-            "cover_url": gallery[0] if gallery else None,
+            "gallery_urls": [],
+            "cover_url": None,
             "public_staff_ids": [
                 s.id for s in ctx.all(Staff) if s.status == "active" and s.bookable_online
             ],

@@ -131,9 +131,9 @@ def engagement() -> DemoContext:
             parent_type="item",
             parent_id="it_groom",
             purpose="image",
-            s3_key=f"{ctx.business_id}/demo/it_bath.png",
-            content_type="image/png",
-            size=(ASSETS / "it_bath.png").stat().st_size,
+            s3_key=f"{ctx.business_id}/demo/it_bath.jpg",
+            content_type="image/jpeg",
+            size=(ASSETS / "it_bath.jpg").stat().st_size,
         )
     )
     build_engagement(ctx)
@@ -275,4 +275,4 @@ def test_public_profile_uses_brand_contract_and_only_active_team(engagement: Dem
     profile = BrandInput.model_validate(brand)
     assert profile.about and profile.address and profile.phone and profile.email
     assert profile.public_staff_ids == ["st_owner"]
-    assert profile.gallery_urls and all("/media/" in url for url in profile.gallery_urls)
+    assert profile.gallery_urls == [] and profile.cover_url is None

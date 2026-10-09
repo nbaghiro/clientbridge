@@ -235,7 +235,7 @@ async def main() -> None:
             low = item.track_stock and (item.stock_on_hand or 0) <= (item.low_stock_at or 0)
             stock.append(
                 {
-                    "image": f"/images/demo/{item.id}.png",
+                    "image": f"/images/demo/{item.id}.jpg",
                     "name": label(item.name),
                     "sku": item.sku or "Service",
                     "price": money(item.price_cents),
@@ -258,7 +258,7 @@ async def main() -> None:
             "estimateCount": count_estimates,
             "services": [
                 {
-                    "image": f"/images/demo/{iid}.png",
+                    "image": f"/images/demo/{iid}.jpg",
                     "name": label(items[iid].name),
                     "length": f"{items[iid].duration_min} min",
                     "price": money(items[iid].price_cents),
@@ -285,7 +285,7 @@ async def main() -> None:
             "shop": {
                 "items": [
                     {
-                        "image": f"/images/demo/{iid}.png",
+                        "image": f"/images/demo/{iid}.jpg",
                         "name": label(items[iid].name),
                         "detail": f"{items[iid].stock_on_hand} in stock",
                         "price": money(items[iid].price_cents),

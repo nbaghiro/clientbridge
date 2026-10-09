@@ -39,6 +39,7 @@ from clientbridge.models.scheduling import (
     Slot,
 )
 from scripts.demo_calendar import build_calendar
+from scripts.demo_catalog import add_catalog_images
 from scripts.demo_chronology import align_chronology, chronology_errors
 from scripts.demo_context import DEMO_VERSION, DemoContext
 from scripts.demo_engagement import build_engagement
@@ -82,6 +83,17 @@ ITEM_COLORS = {
     "it_gift": "#A44A5F",
     "it_shampoo": "#5E7391",
     "it_brush": "#7A6A55",
+    "it_spray": "#5E7391",
+    "it_balm": "#3F5E50",
+    "it_comb": "#6B7280",
+    "it_clippers": "#3F5E50",
+    "it_treats": "#A0703A",
+    "it_chews": "#86621E",
+    "it_leash": "#2E4A3F",
+    "it_bandana": "#5C6B3A",
+    "it_rope": "#2E4A3F",
+    "it_plush": "#A95C43",
+    "it_towel": "#2E4A3F",
 }
 
 
@@ -337,7 +349,7 @@ ITEMS = [
         None,
         None,
         PST,
-        "Retail",
+        "Bath and coat",
         "Vet-formulated oatmeal shampoo for itchy, sensitive skin.",
     ),
     (
@@ -348,8 +360,129 @@ ITEMS = [
         None,
         None,
         PST,
-        "Retail",
+        "Brushes and tools",
         "De-mats and de-sheds; one-click bristle retract.",
+    ),
+    (
+        "it_spray",
+        "product",
+        "Coat Detangling Spray (250ml)",
+        1900,
+        None,
+        None,
+        PST,
+        "Bath and coat",
+        "Leave-in spray that loosens knots and adds shine between grooms.",
+    ),
+    (
+        "it_balm",
+        "product",
+        "Paw & Nose Balm (60g)",
+        1600,
+        None,
+        None,
+        PST,
+        "Bath and coat",
+        "Shea and beeswax balm for dry, cracked paw pads and noses.",
+    ),
+    (
+        "it_comb",
+        "product",
+        "Wide-Tooth Steel Comb",
+        1800,
+        None,
+        None,
+        PST,
+        "Brushes and tools",
+        "Stainless steel finishing comb with wide and fine teeth.",
+    ),
+    (
+        "it_clippers",
+        "product",
+        "Nail Clippers",
+        2200,
+        None,
+        None,
+        PST,
+        "Brushes and tools",
+        "Scissor-style clippers with a safety stop for small to large dogs.",
+    ),
+    (
+        "it_treats",
+        "product",
+        "Salmon Training Bites (200g)",
+        1200,
+        None,
+        None,
+        PST,
+        "Treats",
+        "Soft, single-protein salmon bites sized for training.",
+    ),
+    (
+        "it_chews",
+        "product",
+        "Peanut Butter Dental Chews (6 pack)",
+        1500,
+        None,
+        None,
+        PST,
+        "Treats",
+        "Ridged chews that help keep teeth clean between brushings.",
+    ),
+    (
+        "it_leash",
+        "product",
+        "Waxed Cotton Leash",
+        3800,
+        None,
+        None,
+        PST,
+        "Walk and wear",
+        "1.5 m waxed cotton lead with a brass clip and leather-wrapped handle.",
+    ),
+    (
+        "it_bandana",
+        "product",
+        "Birchbark Bandana",
+        1400,
+        None,
+        None,
+        PST,
+        "Walk and wear",
+        "Soft cotton bandana in our leaf print; one size ties to fit.",
+    ),
+    (
+        "it_rope",
+        "product",
+        "Rope Tug Toy",
+        1600,
+        None,
+        None,
+        PST,
+        "Toys and comfort",
+        "Braided cotton rope for tug and fetch; machine washable.",
+    ),
+    (
+        "it_plush",
+        "product",
+        "Plush Fox Toy",
+        1800,
+        None,
+        None,
+        PST,
+        "Toys and comfort",
+        "Soft plush fox with a quiet squeaker for gentle players.",
+    ),
+    (
+        "it_towel",
+        "product",
+        "Quick-Dry Grooming Towel",
+        2600,
+        None,
+        None,
+        PST,
+        "Toys and comfort",
+        "Absorbent microfibre towel that dries a coat in half the time.",
     ),
     (
         "it_gift",
@@ -366,7 +499,21 @@ ITEMS = [
 
 
 # tracked products: (on hand, low-stock line, unit cost); the brush sits under its line
-STOCK = {"it_shampoo": (24, 6, 1100), "it_brush": (2, 5, 1300)}
+STOCK = {
+    "it_shampoo": (24, 6, 1100),
+    "it_brush": (2, 5, 1300),
+    "it_spray": (14, 4, 800),
+    "it_balm": (3, 4, 650),
+    "it_comb": (9, 3, 700),
+    "it_clippers": (7, 3, 900),
+    "it_treats": (30, 8, 500),
+    "it_chews": (22, 6, 650),
+    "it_leash": (6, 2, 1700),
+    "it_bandana": (12, 4, 500),
+    "it_rope": (15, 4, 600),
+    "it_plush": (1, 3, 750),
+    "it_towel": (8, 3, 1100),
+}
 
 
 def seed_items(owner: str) -> None:
@@ -391,7 +538,7 @@ def seed_items(owner: str) -> None:
                 category=cat,
                 color=ITEM_COLORS[iid],
                 online_bookable=kind in {"service", "class"},
-                sell_online=iid in {"it_shampoo", "it_brush"},
+                sell_online=kind == "product",
                 addon=iid in {"it_shampoo", "it_brush"},
                 buffer_before_min=0,
                 buffer_after_min=10 if kind == "service" else 0,
@@ -421,18 +568,6 @@ def seed_items(owner: str) -> None:
                     created_by=owner,
                 )
             )
-        rows.append(
-            File(
-                id=f"fl_img_{iid}",
-                business_id=BIZ,
-                parent_type="item",
-                parent_id=iid,
-                purpose="image",
-                s3_key=f"{BIZ}/demo/{iid}.png",
-                content_type="image/png",
-                size=(ASSETS / f"{iid}.png").stat().st_size,
-            )
-        )
 
 
 # id, name, email, phone, tags, ltv($), face-seed, status, [pets], note
@@ -2042,6 +2177,7 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
     seed_dispute()
     ctx = DemoContext(NOW, BIZ, owner, rows)
     add_scenarios(ctx)
+    add_catalog_images(ctx)
     add_finance_scenarios(ctx)
     build_calendar(ctx)
     prepare_finance(ctx)
