@@ -80,7 +80,6 @@ export function PublicPay() {
                     <span className="hidden sm:inline">{pp.downloadInvoice}</span>
                 </Button>
             }
-            footer={pp.poweredBy}
             hero={
                 <div>
                     <p className="text-sm font-medium text-ink-soft">
@@ -165,9 +164,7 @@ export function PublicPay() {
                 <aside className="order-1 rounded-2xl border border-line bg-surface p-5 shadow-card sm:p-7">
                     {invoice.status === "paid" ? (
                         <div className="flex flex-col items-center py-6 text-center">
-                            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-ok-bg text-ok-fg">
-                                <Icon name="check" size={28} />
-                            </span>
+                            <Icon name="check" size={32} className="text-ink-soft" />
                             <h2 className="mt-4 font-display text-xl font-bold text-ink">
                                 {pp.paidTitle}
                             </h2>

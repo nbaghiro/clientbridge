@@ -103,7 +103,7 @@ def _file_out(file: File) -> FileOut:
 
 
 # The only files served without auth: what a business shows customers, never client data.
-PUBLIC_MEDIA = {("item", "image"), ("business", "logo")}
+PUBLIC_MEDIA = {("item", "image"), ("business", "logo"), ("business", "image")}
 
 
 def media_url(file_id: str) -> str:

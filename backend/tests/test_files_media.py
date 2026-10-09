@@ -81,3 +81,33 @@ async def test_avatar_uses_an_owned_logo_and_keeps_wordmark(as_owner: httpx.Asyn
         "/v1/business", json={"brand": {"avatar_file_id": private_file}}
     )
     assert rejected.status_code == 404
+
+
+async def test_cover_upload_is_public_and_used_by_customer_pages(
+    as_owner: httpx.AsyncClient, unauth: httpx.AsyncClient
+) -> None:
+    uploaded = await _image(as_owner, "business", BIZ, "image")
+    assert uploaded.status_code == 201
+    file_id = uploaded.json()["file"]["id"]
+    cover = f"http://localhost:8701/media/{file_id}"
+    changed = await as_owner.patch("/v1/business", json={"brand": {"cover_url": cover}})
+    assert changed.status_code == 200
+    assert (await unauth.get(f"/media/{file_id}", follow_redirects=False)).status_code == 302
+    for path in ("/book/birchbark/services", "/book/birchbark/profile"):
+        assert (await unauth.get(path)).json()["brand"]["cover_url"] == cover
+    removed = await as_owner.patch("/v1/business", json={"brand": {"cover_url": None}})
+    assert removed.status_code == 200
+    assert (await unauth.get("/book/birchbark/services")).json()["brand"]["cover_url"] is None
+
+
+async def test_cover_upload_requires_public_image_permissions(
+    as_staff: httpx.AsyncClient,
+) -> None:
+    assert (await _image(as_staff, "business", BIZ, "image")).status_code == 403
+
+
+async def test_cover_upload_cannot_target_another_business(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    other = await Factory(db).business()
+    assert (await _image(as_owner, "business", other.id, "image")).status_code == 404

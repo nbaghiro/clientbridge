@@ -22,11 +22,11 @@ import {
     Icon,
 } from "@clientbridge/ui";
 import { type ReactNode, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { PublicPage } from "../components/PublicPage";
 import { PublicStatus } from "../components/PublicStatus";
 import { config } from "../config";
-import { useEmbedSuccess } from "../embed";
+import { isEmbedded, useEmbedSuccess } from "../embed";
 
 const shopClient = createPublicShopClient(config.apiUrl);
 const s = strings.publicShop;
@@ -47,10 +47,35 @@ function ShopPage({ slug }: { slug: string }) {
     const navigate = useNavigate();
     const checkoutRoute = useLocation().pathname.endsWith("/checkout");
     const shop = useShopFlow(shopClient, slug, cartStorage);
-    const [cartOpen, setCartOpen] = useState(false);
+    const [params, setParams] = useSearchParams();
+    const cartOpen = params.get("cart") === "1";
+    const setCartOpen = (open: boolean) => {
+        setParams(
+            (previous) => {
+                const next = new URLSearchParams(previous);
+                if (open) {
+                    next.set("cart", "1");
+                    next.delete("product");
+                } else next.delete("cart");
+                return next;
+            },
+            { replace: true },
+        );
+    };
     const [summaryOpen, setSummaryOpen] = useState(false);
     const [variantId, setVariantId] = useState("");
-    const [productId, setProductId] = useState<string | null>(null);
+    const productId = params.get("product");
+    const setProductId = (id: string | null) => {
+        setParams(
+            (previous) => {
+                const next = new URLSearchParams(previous);
+                if (id) next.set("product", id);
+                else next.delete("product");
+                return next;
+            },
+            { replace: true },
+        );
+    };
     const page = shop.shop;
     useEmbedSuccess(shop.status === "paid", "shop");
     if (shop.status === "loading") return <PublicStatus kind="loading" />;
@@ -59,7 +84,9 @@ function ShopPage({ slug }: { slug: string }) {
     if (shop.status === "error" || page === null)
         return <PublicStatus kind="error" title={s.loadErrorTitle} />;
     const go = (path: string): void => {
-        const result = navigate(path);
+        const result = navigate(
+            isEmbedded() ? `${path}${path.includes("?") ? "&" : "?"}embed=1` : path,
+        );
         if (result) result.catch(() => undefined);
     };
     const currency = page.items[0]?.currency ?? "CAD";
@@ -72,34 +99,11 @@ function ShopPage({ slug }: { slug: string }) {
         : product;
     const summary = <OrderSummary shop={shop} />;
     const hero = (
-        <div className="max-w-3xl">
-            <h1 className="max-w-2xl font-display text-3xl font-bold leading-tight tracking-tight sm:text-[2.75rem]">
-                {checkingOut
-                    ? shop.status === "paid"
-                        ? s.doneTitle
-                        : s.checkoutTitle
-                    : s.heroTitle}
+        <div>
+            <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+                {checkingOut ? (shop.status === "paid" ? s.doneTitle : s.checkout) : s.title}
             </h1>
-            <p className="mt-3 max-w-xl text-base leading-relaxed text-muted">
-                {checkingOut ? s.checkoutBody : s.heroBody}
-            </p>
-            {!checkingOut ? (
-                <ul className="mt-5 flex flex-wrap gap-2 text-sm">
-                    {[
-                        { icon: "clock" as const, text: s.pickupTitle },
-                        { icon: "pin" as const, text: s.noShipping },
-                        { icon: "card" as const, text: s.paidOnline },
-                    ].map((item) => (
-                        <li
-                            key={item.text}
-                            className="flex items-center gap-1.5 rounded-full bg-bg px-3 py-1.5 text-ink-soft"
-                        >
-                            <Icon name={item.icon} size={14} />
-                            {item.text}
-                        </li>
-                    ))}
-                </ul>
-            ) : null}
+            <p className="mt-2 text-sm text-muted">{checkingOut ? s.checkoutBody : s.subtitle}</p>
         </div>
     );
     return (
@@ -107,6 +111,7 @@ function ShopPage({ slug }: { slug: string }) {
             name={page.business_name}
             brand={page.brand}
             hero={hero}
+            cartCount={shop.count}
             actions={
                 checkingOut ? (
                     <Button
@@ -114,38 +119,12 @@ function ShopPage({ slug }: { slug: string }) {
                         variant="outline"
                         icon="chevronLeft"
                         onPress={() => {
-                            go(`/shop/${encodeURIComponent(slug)}`);
+                            go(`/b/${encodeURIComponent(slug)}/shop`);
                         }}
                     >
                         {s.backToShop}
                     </Button>
-                ) : (
-                    <div className="flex gap-2">
-                        <span className="hidden sm:block">
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                icon="calendar"
-                                onPress={() => {
-                                    go(`/book/${encodeURIComponent(slug)}`);
-                                }}
-                            >
-                                {s.bookVisit}
-                            </Button>
-                        </span>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            icon="bag"
-                            label={s.viewOrder}
-                            onPress={() => {
-                                setCartOpen(true);
-                            }}
-                        >
-                            {String(shop.count)}
-                        </Button>
-                    </div>
-                )
+                ) : undefined
             }
         >
             {shop.status === "paid" ? (
@@ -383,26 +362,27 @@ function ShopPage({ slug }: { slug: string }) {
                 }}
             >
                 {summary}
-                {shop.count > 0 ? (
+                <div className="mt-6 flex flex-col gap-2">
+                    {shop.count > 0 ? (
+                        <Button
+                            full
+                            size="lg"
+                            onPress={() => {
+                                go(`/b/${encodeURIComponent(slug)}/shop/checkout`);
+                            }}
+                        >
+                            {s.checkout}
+                        </Button>
+                    ) : null}
                     <Button
-                        full
-                        size="lg"
+                        variant="quiet"
                         onPress={() => {
                             setCartOpen(false);
-                            go(`/shop/${encodeURIComponent(slug)}/checkout`);
                         }}
                     >
-                        {s.checkout}
+                        {s.close}
                     </Button>
-                ) : null}
-                <Button
-                    variant="quiet"
-                    onPress={() => {
-                        setCartOpen(false);
-                    }}
-                >
-                    {s.close}
-                </Button>
+                </div>
             </Modal>
             <Modal
                 open={product !== null}
@@ -478,7 +458,6 @@ function ShopPage({ slug }: { slug: string }) {
                                     onPress={() => {
                                         if (!chosen) return;
                                         shop.addOne(chosen);
-                                        setProductId(null);
                                         setCartOpen(true);
                                     }}
                                 >

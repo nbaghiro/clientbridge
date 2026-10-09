@@ -3821,11 +3821,6 @@ export const strings = {
         total: "Total",
     },
     publicShop: {
-        heroTitle: "Good things for between visits.",
-        heroBody: "Shop the studio’s favourites. Pay online and collect when your order is ready.",
-        noShipping: "Pickup only · No shipping",
-        paidOnline: "Paid securely online",
-        checkoutTitle: "A few details, then it’s yours.",
         checkoutBody: "Choose when to collect, tell us who’s coming, and pay securely.",
         pickupDay: "Pickup day",
         sectionPickup: "When will you pick up?",
@@ -3843,13 +3838,10 @@ export const strings = {
         pickupHold: (days: number) =>
             `We hold your order for ${String(days)} days after it's ready.`,
         search: "Search products",
-        productDetails: "Product details",
         addToOrder: "Add to order",
         checkout: "Checkout",
         backToShop: "Back to shop",
         close: "Close",
-        browse: "Browse products",
-        pickupOnly: "Collect at the studio · No shipping",
         noMatches: "No products match your search.",
         title: "Shop",
         subtitle: "Order online, pick up at the studio.",
@@ -3892,7 +3884,6 @@ export const strings = {
         emptyTitle: "Nothing for sale online right now",
         emptyBody: "The studio hasn't put any products online yet. You can still book a visit.",
         notTakingPayments: "This shop isn't taking online payments right now.",
-        bookVisit: "Book a visit",
     },
     onlineBooking: {
         title: "Online booking",

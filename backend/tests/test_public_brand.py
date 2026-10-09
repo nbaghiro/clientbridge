@@ -23,11 +23,13 @@ def test_malformed_values_are_dropped() -> None:
             {
                 "logo_url": "javascript:alert(1)",  # not http(s)
                 "primary": "red; } body{display:none}",  # not a hex colour
+                "cover_url": "javascript:alert(1)",
                 "tagline": 42,  # not a string
             }
         )
     )
     assert out.logo_url is None
+    assert out.cover_url is None
     assert out.primary is None
     assert out.tagline is None
 
@@ -43,3 +45,12 @@ def test_avatar_keeps_square_mark_separate_from_letterhead() -> None:
     assert out.avatar_url is not None and out.avatar_url.endswith("/media/fl_square")
     fallback = public_brand(_business({"logo_url": "https://cdn/logo.png"}))
     assert fallback.avatar_url == fallback.logo_url
+
+
+def test_public_navigation_identifies_active_business_only() -> None:
+    business = _business({})
+    brand = public_brand(business)
+    assert brand.public_slug == "x"
+    assert brand.business_name == "X"
+    business.status = "closed"
+    assert public_brand(business).public_slug is None

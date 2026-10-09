@@ -11,6 +11,10 @@ HEX_COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\Z")
 class PublicBrand(BaseModel):
     """A business's validated public brand; unset or malformed fields are None."""
 
+    public_slug: str | None = None
+    business_name: str | None = None
+    cover_url: str | None = None
+
     logo_url: str | None = None
     avatar_url: str | None = None
     primary: str | None = None

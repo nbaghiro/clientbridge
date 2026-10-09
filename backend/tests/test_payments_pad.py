@@ -93,6 +93,7 @@ async def test_pad_link_stores_only_hash_and_does_not_start_until_client_action(
     assert response.headers["cache-control"] == "no-store"
     assert response.json()["client_secret"] is None
     assert response.json()["status"] == "not_started"
+    assert response.json()["brand"]["public_slug"] == "birchbark"
     assert not gateway.pad_intents
     first = await _start(as_owner, token)
     second = await _start(as_owner, token)

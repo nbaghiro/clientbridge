@@ -302,6 +302,7 @@ class PaymentSetupLinkOut(BaseModel):
 
 
 class PublicPaymentSetup(BaseModel):
+    brand: PublicBrand
     business_name: str
     client_name: str
     expires_at: datetime

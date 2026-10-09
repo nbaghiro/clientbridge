@@ -476,12 +476,7 @@ function ManageDone({ mg }: { mg: ManageBookingFlow }) {
     const moved = mg.mode === "moved";
     return (
         <div className="text-center">
-            <span
-                aria-hidden
-                className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full ${moved ? "bg-ok-bg text-ok-fg" : "bg-bg text-muted"}`}
-            >
-                <Icon name={moved ? "check" : "x"} size={26} />
-            </span>
+            <Icon name={moved ? "check" : "x"} size={32} className="mx-auto block text-ink-soft" />
             <h1 className="mt-4 font-display text-2xl font-bold text-ink">
                 {moved ? s.movedTitle : s.canceledTitle}
             </h1>
@@ -517,7 +512,7 @@ function ManageDone({ mg }: { mg: ManageBookingFlow }) {
                         icon="calendar"
                         onPress={() => {
                             const done = navigate(
-                                `/book/${encodeURIComponent(mg.booking?.slug ?? "")}`,
+                                `/b/${encodeURIComponent(mg.booking?.slug ?? "")}/book`,
                             );
                             if (done) done.catch(() => undefined);
                         }}

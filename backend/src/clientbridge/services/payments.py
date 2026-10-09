@@ -2413,7 +2413,10 @@ class PublicPaymentSetupService:
         business = await self.db.get(Business, link.business_id)
         client = await self.db.get(Client, link.client_id)
         assert business is not None and client is not None
+        from clientbridge.services.public import public_brand
+
         result = PublicPaymentSetup(
+            brand=public_brand(business),
             business_name=business.name,
             client_name=client.name,
             expires_at=link.expires_at,

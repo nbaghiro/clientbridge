@@ -40,7 +40,6 @@ export function PublicEstimate() {
             brand={est.brand}
             businessName={biz}
             contact={est.contact_email}
-            footer={pe.poweredBy}
             width="narrow"
             hero={
                 <>
@@ -83,11 +82,11 @@ export function PublicEstimate() {
                 <article className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
                     {page.status === "accepted" || page.status === "declined" ? (
                         <section className="flex flex-col items-center border-b border-line-soft px-6 py-10 text-center">
-                            <span
-                                className={`flex h-14 w-14 items-center justify-center rounded-full ${page.status === "accepted" ? "bg-ok-bg text-ok-fg" : "bg-bg text-muted"}`}
-                            >
-                                <Icon name={page.status === "accepted" ? "check" : "x"} size={26} />
-                            </span>
+                            <Icon
+                                name={page.status === "accepted" ? "check" : "x"}
+                                size={32}
+                                className="text-ink-soft"
+                            />
                             <h1 className="mt-4 font-display text-xl font-bold text-ink">
                                 {page.status === "accepted" ? pe.acceptedTitle : pe.declinedTitle}
                             </h1>

@@ -4,6 +4,7 @@ import {
     type BrandForm,
     bookingPageUrl,
     logoTarget,
+    coverTarget,
     mediaUrl,
     strings,
     useBookingPreview,
@@ -136,7 +137,9 @@ function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null
                     </div>
                 ) : null}
             </div>
-            <p className="pb-4 text-center text-[11px] text-muted">{b.poweredBy}</p>
+            <p className="pb-4 text-center text-[11px] text-muted">
+                {strings.publicLanding.poweredBy}
+            </p>
         </figure>
     );
 }
@@ -144,6 +147,11 @@ function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null
 function BrandPanel({ brand }: { brand: BrandForm }) {
     const upload = useFileUpload(api, brand.setLogoFileId);
     const input = useRef<HTMLInputElement>(null);
+    const coverInput = useRef<HTMLInputElement>(null);
+    const coverUpload = useFileUpload(api, (id) => {
+        brand.setProfile("cover_url", mediaUrl(apiBaseUrl, id) ?? "");
+    });
+
     const logo = brand.logoFileId === "" ? null : mediaUrl(apiBaseUrl, brand.logoFileId);
     const onPick = (e: ChangeEvent<HTMLInputElement>): void => {
         const file = e.target.files?.[0];
@@ -186,6 +194,66 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                     />
                 </div>
                 {upload.error !== null ? <Notice tone="danger">{upload.error}</Notice> : null}
+                <Field label={o.coverPhoto}>
+                    <div className="space-y-3">
+                        <div
+                            className="aspect-[3/1] overflow-hidden rounded-lg"
+                            style={{ backgroundColor: brand.colour }}
+                        >
+                            {brand.profile.cover_url ? (
+                                <img
+                                    src={brand.profile.cover_url}
+                                    alt=""
+                                    className="h-full w-full object-cover"
+                                />
+                            ) : null}
+                        </div>
+                        <p className="text-sm text-muted">{o.coverHint}</p>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                busy={coverUpload.busy}
+                                onPress={() => {
+                                    coverInput.current?.click();
+                                }}
+                            >
+                                {brand.profile.cover_url ? o.replaceCover : o.uploadCover}
+                            </Button>
+                            {brand.profile.cover_url ? (
+                                <Button
+                                    size="sm"
+                                    variant="link"
+                                    onPress={() => {
+                                        brand.setProfile("cover_url", "");
+                                    }}
+                                >
+                                    {o.removeCover}
+                                </Button>
+                            ) : null}
+                        </div>
+                        <input
+                            ref={coverInput}
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            hidden
+                            onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                if (file && brand.businessId)
+                                    coverUpload.upload(
+                                        file,
+                                        coverTarget(brand.businessId),
+                                        file.type,
+                                        file.size,
+                                    );
+                                event.target.value = "";
+                            }}
+                        />
+                        {coverUpload.error ? (
+                            <Notice tone="danger">{coverUpload.error}</Notice>
+                        ) : null}
+                    </div>
+                </Field>
                 <Field label={o.colour}>
                     <SwatchPicker
                         label={o.colour}
@@ -243,7 +311,11 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                 <BookingPreview brand={brand} logo={logo} />
                 {brand.error !== null ? <Notice tone="danger">{brand.error}</Notice> : null}
                 <div className="flex items-center gap-3">
-                    <Button onPress={brand.submit} busy={brand.busy}>
+                    <Button
+                        onPress={brand.submit}
+                        busy={brand.busy}
+                        disabled={coverUpload.busy || upload.busy}
+                    >
                         {brand.busy ? o.saving : o.save}
                     </Button>
                     {brand.saved ? <Notice tone="success">{o.saved}</Notice> : null}

@@ -1,15 +1,15 @@
+import { BusinessNavigation } from "./BusinessNavigation";
 import { type PrintedDoc, type PublicBrand, strings } from "@clientbridge/app-core/public";
-import { Avatar, Button, IconButton, Modal, PrintedDocument } from "@clientbridge/ui";
+import { Button, IconButton, Modal, PrintedDocument } from "@clientbridge/ui";
 import type { ReactNode } from "react";
 
-import { brandStyle, ON_BRAND } from "./PublicPage";
+import { brandStyle, BusinessCover, PoweredBy } from "./PublicPage";
 
 /** The page around a client's invoice or estimate: the business's name and colour, then the document. */
 export function PublicDocument({
     brand,
     businessName,
     contact,
-    footer,
     children,
     hero,
     actions,
@@ -18,7 +18,6 @@ export function PublicDocument({
     brand: PublicBrand;
     businessName: string;
     contact: string | null;
-    footer: string;
     children: ReactNode;
     hero?: ReactNode;
     actions?: ReactNode;
@@ -27,43 +26,27 @@ export function PublicDocument({
     const style = brandStyle(brand);
     const max = width === "narrow" ? "max-w-3xl" : "max-w-6xl";
     return (
-        <div style={style} className="min-h-screen bg-bg">
-            <header
-                style={hero === undefined ? undefined : ON_BRAND}
-                className={
-                    hero === undefined ? "border-b border-line bg-surface" : "bg-accent text-ink"
-                }
-            >
-                <div
-                    className={`mx-auto flex ${max} items-center justify-between gap-4 px-4 py-4 sm:px-6`}
-                >
-                    <div className="flex min-w-0 items-center gap-3">
-                        <Avatar
-                            name={businessName}
-                            src={brand.avatar_url ?? brand.logo_url}
-                            size="lg"
-                            className="rounded-xl !bg-surface p-1 shadow-sm"
-                        />
-                        <div className="min-w-0">
-                            <p className="truncate font-display text-lg font-bold leading-tight text-ink">
-                                {businessName}
-                            </p>
-                            {brand.tagline !== null ? (
-                                <p className="truncate text-xs text-muted">{brand.tagline}</p>
-                            ) : null}
-                        </div>
+        <div style={style} className="flex min-h-screen flex-col bg-bg">
+            <BusinessNavigation brand={{ ...brand, business_name: businessName }} />
+            <BusinessCover brand={brand}>
+                {actions || contact ? (
+                    <div
+                        className={`mx-auto flex ${max} items-center justify-between gap-4 px-4 py-4 sm:px-6`}
+                    >
+                        {actions}
+                        {contact !== null && actions === undefined ? (
+                            <span className="hidden text-sm text-muted sm:block">{contact}</span>
+                        ) : null}
                     </div>
-                    {actions}
-                    {contact !== null && actions === undefined ? (
-                        <span className="hidden text-sm text-muted sm:block">{contact}</span>
-                    ) : null}
-                </div>
+                ) : null}
                 {hero !== undefined ? (
                     <div className={`mx-auto ${max} px-4 pb-16 pt-3 sm:px-6`}>{hero}</div>
                 ) : null}
-            </header>
-            <div className={hero !== undefined ? "relative -mt-10" : undefined}>{children}</div>
-            <p className="py-8 text-center text-xs text-muted">{footer}</p>
+            </BusinessCover>
+            <div className={hero !== undefined ? "relative -mt-10 flex-1" : "flex-1"}>
+                {children}
+            </div>
+            <PoweredBy />
         </div>
     );
 }
@@ -90,7 +73,6 @@ export function DocumentLetter({
             brand={brand}
             businessName={businessName}
             contact={null}
-            footer={strings.publicPay.poweredBy}
             width="narrow"
             hero={
                 <>

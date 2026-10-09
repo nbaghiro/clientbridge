@@ -1,5 +1,6 @@
+import { useLayoutEffect } from "react";
 import { strings } from "@clientbridge/app-core/public";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 
 import { PublicStatus } from "./components/PublicStatus";
 import { useEmbedResize } from "./embed";
@@ -23,10 +24,11 @@ export function App() {
     useEmbedResize();
     return (
         <BrowserRouter>
+            <PageScroll />
             <Routes>
                 <Route path="/payment-method" element={<PublicPaymentSetup />} />
-                <Route path="/b/:slug" element={<PublicLanding />} />
-                <Route path="/book/:slug" element={<PublicBooking />} />
+                <Route path="/b/:slug/*" element={<BusinessRoutes />} />
+                <Route path="/book/:slug" element={<LegacyBusinessRoute section="book" />} />
                 <Route path="/m/:token" element={<PublicManage />} />
                 <Route path="/i/:token" element={<PublicPay />} />
                 <Route path="/i/:token/etransfer" element={<PublicInterac />} />
@@ -37,8 +39,11 @@ export function App() {
                 <Route path="/review/:token" element={<PublicReview />} />
                 <Route path="/prefs/:token" element={<PublicPreferences />} />
                 <Route path="/order/:token" element={<PublicOrder />} />
-                <Route path="/shop/:slug" element={<PublicShop />} />
-                <Route path="/shop/:slug/checkout" element={<PublicShop />} />
+                <Route path="/shop/:slug" element={<LegacyBusinessRoute section="shop" />} />
+                <Route
+                    path="/shop/:slug/checkout"
+                    element={<LegacyBusinessRoute section="shop/checkout" />}
+                />
                 <Route path="*" element={<NotFound />} />
             </Routes>
         </BrowserRouter>
@@ -53,4 +58,40 @@ function NotFound() {
             body={strings.publicLanding.pageNotFoundBody}
         />
     );
+}
+
+function BusinessRoutes() {
+    const { slug } = useParams();
+    return (
+        <Routes key={slug}>
+            <Route index element={<PublicLanding />} />
+            <Route path="book" element={<PublicBooking key="booking" />} />
+            <Route path="shop/*" element={<ShopRoutes />} />
+            <Route path="*" element={<NotFound />} />
+        </Routes>
+    );
+}
+
+function ShopRoutes() {
+    const { "*": path } = useParams();
+    return path === "" || path === "checkout" ? <PublicShop /> : <NotFound />;
+}
+
+function LegacyBusinessRoute({ section }: { section: string }) {
+    const { slug = "" } = useParams();
+    const location = useLocation();
+    return (
+        <Navigate
+            replace
+            to={`/b/${encodeURIComponent(slug)}/${section}${location.search}${location.hash}`}
+        />
+    );
+}
+
+function PageScroll() {
+    const { pathname } = useLocation();
+    useLayoutEffect(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    }, [pathname]);
+    return null;
 }

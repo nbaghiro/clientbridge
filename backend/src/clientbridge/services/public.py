@@ -825,9 +825,13 @@ def public_brand(business: Business) -> PublicBrand:
     logo_url = media_url(logo_file_id) if isinstance(logo_file_id, str) else brand.get("logo_url")
     avatar_file_id = brand.get("avatar_file_id")
     avatar_url = media_url(avatar_file_id) if isinstance(avatar_file_id, str) else logo_url
+    cover_url = brand.get("cover_url")
     primary = brand.get("primary")
     tagline = brand.get("tagline")
     return PublicBrand(
+        public_slug=business.slug if business.status != "closed" else None,
+        business_name=business.name,
+        cover_url=cover_url if isinstance(cover_url, str) and _is_http(cover_url) else None,
         logo_url=logo_url if isinstance(logo_url, str) and _is_http(logo_url) else None,
         avatar_url=avatar_url if isinstance(avatar_url, str) and _is_http(avatar_url) else None,
         primary=(

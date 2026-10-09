@@ -58,7 +58,7 @@ export function ServicePicker({ flow }: { flow: PublicBookingFlow }) {
                                 ]
                                     .filter(Boolean)
                                     .join(" · ")}
-                                leading={<ItemImage src={x.image_url} name={x.name} size={56} />}
+                                leading={<ItemImage src={x.image_url} name={x.name} size={48} />}
                                 trailing={
                                     <span className="font-mono text-sm font-semibold text-ink">
                                         {money(x.price_cents, x.currency)}
@@ -336,12 +336,11 @@ export function DoneCard({
     const pending = flow.result?.status === "pending";
     return (
         <div className="text-center">
-            <span
-                aria-hidden
-                className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-ok-bg text-ok-fg"
-            >
-                <Icon name={pending ? "clock" : "check"} size={26} />
-            </span>
+            <Icon
+                name={pending ? "clock" : "check"}
+                size={32}
+                className="mx-auto block text-ink-soft"
+            />
             <h1 className="mt-4 font-display text-2xl font-bold text-ink">
                 {pending ? s.pendingTitle : s.doneTitle}
             </h1>

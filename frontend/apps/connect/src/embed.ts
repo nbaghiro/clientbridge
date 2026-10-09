@@ -93,7 +93,7 @@ export function useEmbedBrand(page: { business_name: string; brand: PublicBrand 
                     primary: primary ?? null,
                     mark: mark ?? null,
                     title: strings.publicBooking.title,
-                    footer: strings.publicBooking.poweredBy,
+                    footer: strings.publicLanding.poweredBy,
                 },
             });
         };

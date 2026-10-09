@@ -34,7 +34,6 @@ export function PublicReceipt() {
             brand={receipt.brand}
             businessName={receipt.business_name}
             contact={null}
-            footer={strings.publicPay.poweredBy}
             width="narrow"
             hero={
                 <>

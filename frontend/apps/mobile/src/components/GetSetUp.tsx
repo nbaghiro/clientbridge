@@ -4,6 +4,10 @@ import {
     type BrandForm,
     bookingPageUrl,
     mediaUrl,
+    coverTarget,
+    logoTarget,
+    useFileUpload,
+    useAsyncAction,
     strings,
     useBookingPreview,
     useBrandForm,
@@ -12,6 +16,7 @@ import {
 import { theme } from "@clientbridge/tokens/native";
 import {
     Badge,
+    Avatar,
     Checkbox,
     Button,
     Checklist,
@@ -29,6 +34,7 @@ import {
     TextField,
 } from "@clientbridge/ui";
 import { useState } from "react";
+import { launchImageLibraryAsync } from "expo-image-picker";
 import { Image, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 
 import { api, apiBaseUrl } from "../lib/api";
@@ -37,24 +43,6 @@ import { useOpenLink } from "../lib/links";
 
 const c = theme.colors;
 const o = strings.business.getSetUp;
-
-function Mark({ brand, logo, size }: { brand: BrandForm; logo: string | null; size: number }) {
-    if (logo !== null) {
-        return (
-            <Image
-                source={{ uri: logo }}
-                style={[styles.logoImage, { width: size, height: size }]}
-            />
-        );
-    }
-    return (
-        <View style={[styles.mark, { backgroundColor: brand.colour, width: size, height: size }]}>
-            <Text style={[styles.markText, { fontSize: size * 0.36 }]}>
-                {(brand.name || "B").charAt(0).toUpperCase()}
-            </Text>
-        </View>
-    );
-}
 
 /** The booking page as a phone shows it, with the brand being edited. */
 function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null }) {
@@ -69,7 +57,7 @@ function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null
                 </Text>
             </View>
             <View style={styles.head}>
-                <Mark brand={brand} logo={logo} size={36} />
+                <Avatar name={brand.name} src={logo} color={brand.colour} />
                 <View style={styles.grow}>
                     <Text style={styles.name} numberOfLines={1}>
                         {brand.name}
@@ -110,86 +98,199 @@ function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null
                         <FactList facts={preview.facts} label={b.summary} />
                     </View>
                 ) : null}
-                <Text style={styles.powered}>{b.poweredBy}</Text>
+                <Text style={styles.powered}>{strings.publicLanding.poweredBy}</Text>
             </View>
         </View>
     );
 }
 
 function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void }) {
-    const logo = brand.logoFileId === "" ? null : mediaUrl(apiBaseUrl, brand.logoFileId);
+    const upload = useFileUpload(api, (id) => {
+        brand.setProfile("cover_url", mediaUrl(apiBaseUrl, id) ?? "");
+    });
+    const logoUpload = useFileUpload(api, brand.setLogoFileId);
+    const picker = useAsyncAction();
+    const pickImage = (kind: "logo" | "cover"): void => {
+        picker.run(
+            async () => {
+                const result = await launchImageLibraryAsync({
+                    mediaTypes: ["images"],
+                    quality: 0.85,
+                });
+                const asset = result.assets?.[0];
+                if (!asset || !brand.businessId) return;
+                const blob = await (await fetch(asset.uri)).blob();
+                const target = kind === "logo" ? logoTarget : coverTarget;
+                const flow = kind === "logo" ? logoUpload : upload;
+                flow.upload(
+                    blob,
+                    target(brand.businessId),
+                    asset.mimeType ?? "image/jpeg",
+                    asset.fileSize,
+                );
+            },
+            { errorMessage: strings.common.fileUploadError },
+        );
+    };
+
+    const logo = brand.avatarFileId === "" ? null : mediaUrl(apiBaseUrl, brand.avatarFileId);
     return (
         <Modal open onClose={onClose} size="xl">
-            <Text style={styles.sheetTitle}>{o.brandTitle}</Text>
-            <Text style={styles.small}>{o.brandBody}</Text>
-            <View style={styles.logoRow}>
-                <Mark brand={brand} logo={logo} size={40} />
-                <Text style={[styles.small, styles.grow]}>{o.logoOnWeb}</Text>
-            </View>
-            <Field label={o.colour}>
-                <SwatchPicker
-                    label={o.colour}
-                    colours={BRAND_COLOURS}
-                    value={brand.colour}
-                    onChange={brand.setColour}
-                />
-            </Field>
-            <TextField
-                label={o.tagline}
-                value={brand.tagline}
-                onChange={brand.setTagline}
-                placeholder={o.taglinePlaceholder}
-                maxLength={60}
-                optional
-                surface="surface"
-            />
-            <View style={{ gap: 12 }}>
-                <Text style={styles.sheetTitle}>{o.profileTitle}</Text>
-                <Text>{o.profileHint}</Text>
-                {PUBLIC_PROFILE_FIELDS.map((field) =>
-                    field.multiline ? (
-                        <TextField
-                            multiline
-                            key={field.key}
-                            label={field.label}
-                            value={brand.profile[field.key]}
-                            onChange={(value) => {
-                                brand.setProfile(field.key, value);
+            <View style={styles.brandSections}>
+                <View style={styles.stack}>
+                    <Text style={styles.sheetTitle}>{o.brandTitle}</Text>
+                    <Text style={styles.small}>{o.brandBody}</Text>
+                </View>
+                <View style={styles.logoRow}>
+                    <Avatar name={brand.name} src={logo} color={brand.colour} size="lg" />
+                    <View style={[styles.stack, styles.grow]}>
+                        <Text style={styles.section}>{o.logo}</Text>
+                        <Text style={styles.small}>{o.logoHint}</Text>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            busy={logoUpload.busy || picker.busy}
+                            disabled={upload.busy}
+                            onPress={() => {
+                                pickImage("logo");
                             }}
-                        />
-                    ) : (
-                        <TextField
-                            key={field.key}
-                            label={field.label}
-                            type={field.numeric ? "number" : "text"}
-                            value={brand.profile[field.key]}
-                            onChange={(value) => {
-                                brand.setProfile(field.key, value);
+                        >
+                            {logo !== null ? strings.files.replaceLogo : strings.files.uploadLogo}
+                        </Button>
+                    </View>
+                </View>
+                <Field label={o.coverPhoto}>
+                    <View style={styles.stack}>
+                        {brand.profile.cover_url ? (
+                            <Image
+                                source={{ uri: brand.profile.cover_url }}
+                                style={{
+                                    width: "100%",
+                                    aspectRatio: 3,
+                                    borderRadius: theme.radius,
+                                }}
+                            />
+                        ) : (
+                            <View
+                                style={{
+                                    height: 90,
+                                    backgroundColor: brand.colour,
+                                    borderRadius: theme.radius,
+                                }}
+                            />
+                        )}
+                        <Text style={styles.small}>{o.coverHint}</Text>
+                        <View
+                            style={{
+                                flexDirection: "row",
+                                flexWrap: "wrap",
+                                alignItems: "center",
+                                gap: 12,
                             }}
-                        />
-                    ),
-                )}
-                <Text>{o.publicTeamHint}</Text>
-                {brand.publicTeam.map((person) => (
-                    <Checkbox
-                        key={person.id}
-                        label={person.name}
-                        value={person.selected}
-                        onChange={(selected) => {
-                            brand.setPublicTeam(person.id, selected);
-                        }}
+                        >
+                            <Button
+                                style={{ alignSelf: "center" }}
+                                size="sm"
+                                variant="outline"
+                                busy={upload.busy || picker.busy}
+                                disabled={logoUpload.busy}
+                                onPress={() => {
+                                    pickImage("cover");
+                                }}
+                            >
+                                {brand.profile.cover_url ? o.replaceCover : o.uploadCover}
+                            </Button>
+                            {brand.profile.cover_url ? (
+                                <Button
+                                    style={{ alignSelf: "center" }}
+                                    size="sm"
+                                    variant="link"
+                                    onPress={() => {
+                                        brand.setProfile("cover_url", "");
+                                    }}
+                                >
+                                    {o.removeCover}
+                                </Button>
+                            ) : null}
+                        </View>
+                        {upload.error || logoUpload.error || picker.error ? (
+                            <Notice tone="danger">
+                                {upload.error ?? logoUpload.error ?? picker.error}
+                            </Notice>
+                        ) : null}
+                    </View>
+                </Field>
+                <Field label={o.colour}>
+                    <SwatchPicker
+                        label={o.colour}
+                        colours={BRAND_COLOURS}
+                        value={brand.colour}
+                        onChange={brand.setColour}
                     />
-                ))}
-            </View>
-            <View style={styles.gap}>
-                <BookingPreview brand={brand} logo={logo} />
-            </View>
-            {brand.error !== null ? <Notice tone="danger">{brand.error}</Notice> : null}
-            {brand.saved ? <Notice tone="success">{o.saved}</Notice> : null}
-            <View style={styles.gap}>
-                <Button size="lg" full busy={brand.busy} onPress={brand.submit}>
-                    {brand.busy ? o.saving : o.save}
-                </Button>
+                </Field>
+                <TextField
+                    label={o.tagline}
+                    value={brand.tagline}
+                    onChange={brand.setTagline}
+                    placeholder={o.taglinePlaceholder}
+                    maxLength={60}
+                    optional
+                    surface="surface"
+                />
+                <View style={styles.profileSection}>
+                    <Text style={styles.sheetTitle}>{o.profileTitle}</Text>
+                    <Text style={styles.small}>{o.profileHint}</Text>
+                    {PUBLIC_PROFILE_FIELDS.map((field) =>
+                        field.multiline ? (
+                            <TextField
+                                multiline
+                                key={field.key}
+                                label={field.label}
+                                value={brand.profile[field.key]}
+                                onChange={(value) => {
+                                    brand.setProfile(field.key, value);
+                                }}
+                            />
+                        ) : (
+                            <TextField
+                                key={field.key}
+                                label={field.label}
+                                type={field.numeric ? "number" : "text"}
+                                value={brand.profile[field.key]}
+                                onChange={(value) => {
+                                    brand.setProfile(field.key, value);
+                                }}
+                            />
+                        ),
+                    )}
+                    <Text style={styles.small}>{o.publicTeamHint}</Text>
+                    {brand.publicTeam.map((person) => (
+                        <Checkbox
+                            key={person.id}
+                            label={person.name}
+                            value={person.selected}
+                            onChange={(selected) => {
+                                brand.setPublicTeam(person.id, selected);
+                            }}
+                        />
+                    ))}
+                </View>
+                <View style={styles.gap}>
+                    <BookingPreview brand={brand} logo={logo} />
+                </View>
+                {brand.error !== null ? <Notice tone="danger">{brand.error}</Notice> : null}
+                {brand.saved ? <Notice tone="success">{o.saved}</Notice> : null}
+                <View style={styles.gap}>
+                    <Button
+                        size="lg"
+                        full
+                        busy={brand.busy}
+                        disabled={upload.busy || logoUpload.busy || picker.busy}
+                        onPress={brand.submit}
+                    >
+                        {brand.busy ? o.saving : o.save}
+                    </Button>
+                </View>
             </View>
         </Modal>
     );
@@ -288,7 +389,13 @@ export function GetSetUpScreen() {
                 <View style={[styles.card, styles.share]}>
                     <View style={styles.shareHead}>
                         <Text style={styles.shareTitle}>{o.shareTitle}</Text>
-                        {list.live ? <Badge label={o.live} intent="success" /> : null}
+                        {list.live ? (
+                            <Badge
+                                style={{ alignSelf: "center" }}
+                                label={o.live}
+                                intent="success"
+                            />
+                        ) : null}
                     </View>
                     <Text style={styles.small}>{list.live ? o.shareBody : o.notLive}</Text>
                     <CopyField
@@ -353,8 +460,10 @@ const styles = StyleSheet.create({
     shareTitle: { color: c.ink, fontSize: 16, fontWeight: "700" },
     small: { color: c.muted, fontSize: 13, lineHeight: 18 },
     sheetTitle: { color: c.ink, fontSize: 20, fontWeight: "700", marginBottom: 4 },
-    logoRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 16 },
-    logoImage: { borderRadius: 10, backgroundColor: c.surface },
+    logoRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+    brandSections: { gap: 16 },
+    stack: { gap: 8 },
+    profileSection: { gap: 12, borderTopWidth: 1, borderTopColor: c.border, paddingTop: 20 },
     gap: { marginTop: 16 },
     grow: { flex: 1, minWidth: 0 },
     preview: {
@@ -411,6 +520,4 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     powered: { color: c.muted, fontSize: 11, textAlign: "center", marginTop: 14 },
-    mark: { borderRadius: 10, alignItems: "center", justifyContent: "center" },
-    markText: { color: c.surface, fontWeight: "700" },
 });

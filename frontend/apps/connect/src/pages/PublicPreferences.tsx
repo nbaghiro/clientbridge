@@ -67,11 +67,11 @@ export function PublicPreferences() {
             >
                 <div className="text-center">
                     <p className="text-sm font-semibold text-ink-soft">{prefs.business_name}</p>
-                    <span
-                        className={`mx-auto mt-5 flex h-12 w-12 items-center justify-center rounded-full ${subscribed ? "bg-accent-weak text-accent" : "bg-ok-bg text-ok-fg"}`}
-                    >
-                        <Icon name={subscribed ? "mail" : "checkCircle"} size={24} />
-                    </span>
+                    <Icon
+                        name={subscribed ? "mail" : "checkCircle"}
+                        size={32}
+                        className="mx-auto mt-5 block text-ink-soft"
+                    />
                     <p className="mt-2 text-sm leading-relaxed text-ink-soft">
                         {subscribed
                             ? s.resubscribedBody(prefs.business_name)

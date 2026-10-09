@@ -1,3 +1,4 @@
+import { BusinessNavigation } from "../components/BusinessNavigation";
 import {
     createPublicBookingClient,
     createReturningClient,
@@ -37,12 +38,21 @@ const booking = createPublicBookingClient(config.apiUrl);
 const returningClient = createReturningClient(config.apiUrl);
 const s = strings.publicBooking;
 
+const draftStorage = (() => {
+    try {
+        return window.sessionStorage;
+    } catch {
+        return undefined;
+    }
+})();
+
 export function PublicBooking() {
     const { slug = "" } = useParams<{ slug: string }>();
     const navigate = useNavigate();
     const [params] = useSearchParams();
     const guided = params.get("presentation") === "guided";
     const flow = usePublicBookingFlow(booking, slug, {
+        storage: draftStorage,
         itemId: params.get("service") ?? undefined,
         staffId: params.get("staff") ?? undefined,
         startsAt: params.get("starts") ?? params.get("at") ?? undefined,
@@ -113,27 +123,20 @@ export function PublicBooking() {
     const hasExtras = flow.offered.length > 0;
 
     return (
-        <PublicPage
-            name={page.business_name}
-            brand={page.brand}
-            onBack={() => {
-                const back = navigate(`/b/${encodeURIComponent(slug)}`);
-                if (back) back.catch(() => undefined);
-            }}
-            actions={
-                <div className="flex items-center gap-4">
-                    {rating}
-                    <span className="hidden items-center gap-1.5 text-xs text-muted sm:flex">
-                        <Icon name="lock" size={13} />
-                        {s.secureBooking}
-                    </span>
-                </div>
-            }
-        >
+        <PublicPage name={page.business_name} brand={page.brand}>
             <div className="mb-6">
-                <h1 className="font-display text-[28px] font-bold tracking-tight text-ink md:text-[32px]">
-                    {s.title}
-                </h1>
+                <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+                    <h1 className="font-display text-[28px] font-bold tracking-tight text-ink md:text-[32px]">
+                        {s.title}
+                    </h1>
+                    <div className="flex items-center gap-4">
+                        {rating}
+                        <span className="hidden items-center gap-1.5 text-xs text-muted sm:flex">
+                            <Icon name="lock" size={13} />
+                            {s.secureBooking}
+                        </span>
+                    </div>
+                </div>
                 {page.policy?.self_service ? (
                     <p className="mt-1 text-sm text-muted">
                         {s.payPolicy(
@@ -393,6 +396,7 @@ function GuidedBooking({
     };
     return (
         <div style={brandStyle(page.brand)} className="min-h-screen bg-surface text-ink">
+            <BusinessNavigation brand={page.brand} />
             <div className="px-5 pt-5 pb-32">
                 {flow.step !== "pay" && (!welcome || entry === "returning") ? (
                     <Button variant="quiet" size="sm" icon="chevronLeft" onPress={back}>

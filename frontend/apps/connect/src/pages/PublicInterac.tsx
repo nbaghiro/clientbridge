@@ -35,7 +35,6 @@ export function PublicInterac() {
             brand={invoice.brand}
             businessName={invoice.business_name}
             contact={invoice.interac_email}
-            footer={pp.poweredBy}
         >
             <main className="flex justify-center px-4 py-8 sm:py-10">
                 <div className="w-full max-w-md rounded-xl border border-line bg-surface p-6 shadow-card sm:p-8">

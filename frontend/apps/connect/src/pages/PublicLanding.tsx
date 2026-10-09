@@ -1,13 +1,26 @@
+import { useBusinessFavicon } from "../branding";
+import { BusinessShopAction, BusinessSections } from "../components/BusinessNavigation";
 import {
     createPublicProfileClient,
     serviceSummary,
     strings,
     usePublicProfile,
 } from "@clientbridge/app-core/public";
-import { Avatar, ActionTile, Button, Icon, ItemImage, OptionCard, Notice } from "@clientbridge/ui";
-import { useNavigate, useParams } from "react-router-dom";
+import {
+    Avatar,
+    ActionTile,
+    Button,
+    Icon,
+    ItemImage,
+    OptionCard,
+    Notice,
+    Stars,
+    Panel,
+} from "@clientbridge/ui";
+import { useEffect } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
-import { brandStyle } from "../components/PublicPage";
+import { brandStyle, BusinessCover, PoweredBy } from "../components/PublicPage";
 import { PublicStatus } from "../components/PublicStatus";
 import { isEmbedded } from "../embed";
 import { config } from "../config";
@@ -20,6 +33,17 @@ export function PublicLanding() {
     const view = usePublicProfile(client, slug);
     const navigate = useNavigate();
     const page = view.page;
+    useBusinessFavicon(page?.brand);
+    const { hash } = useLocation();
+    useEffect(() => {
+        if (!page || !hash) return;
+        const section = hash.slice(1);
+        const target =
+            section === "visit" && window.matchMedia("(min-width: 768px)").matches
+                ? "visit-desktop"
+                : section;
+        document.getElementById(target)?.scrollIntoView();
+    }, [page, hash]);
     const go = (to: string): void => {
         const result = navigate(to);
         if (result) result.catch(() => undefined);
@@ -30,7 +54,7 @@ export function PublicLanding() {
         if (service) query.set("service", service);
         if (starts) query.set("starts", starts);
         if (staff) query.set("staff", staff);
-        go(`/book/${encodeURIComponent(slug)}?${query.toString()}`);
+        go(`/b/${encodeURIComponent(slug)}/book?${query.toString()}`);
     };
     if (view.status === "loading") return <PublicStatus kind="loading" />;
     if (view.status === "not-found")
@@ -38,13 +62,6 @@ export function PublicLanding() {
     if (view.status === "error" || page === null) return <PublicStatus kind="error" />;
     const style = brandStyle(page.brand);
     const hasServices = page.services.length > 0;
-    const sections = [
-        { key: "services", label: s.servicesTitle },
-        ...(page.staff.length > 0 ? [{ key: "team", label: s.team }] : []),
-        ...(page.review_count > 0 ? [{ key: "reviews", label: s.reviews }] : []),
-        { key: "visit", label: s.visit },
-        { key: "policies", label: s.policies },
-    ];
     const contact = (
         <div className="space-y-5">
             {page.address ? <p className="text-sm text-ink-soft">{page.address}</p> : null}
@@ -109,20 +126,9 @@ export function PublicLanding() {
         </div>
     );
     return (
-        <div style={style} className="min-h-screen bg-bg pb-24 text-ink md:pb-0">
-            <header className="relative isolate overflow-hidden bg-accent">
-                {page.cover_url ? (
-                    <img
-                        src={page.cover_url}
-                        alt=""
-                        className="absolute inset-0 -z-20 h-full w-full object-cover"
-                    />
-                ) : null}
-                <div
-                    aria-hidden
-                    className="absolute inset-0 -z-10 bg-gradient-to-r from-black/75 via-black/50 to-black/25"
-                />
-                <div className="mx-auto flex min-h-[420px] max-w-6xl flex-col px-4 py-8 text-inverse sm:px-6 md:min-h-[460px] md:py-12">
+        <div style={style} className="flex min-h-screen flex-col bg-bg pb-24 text-ink md:pb-0">
+            <BusinessCover brand={page.brand}>
+                <div className="mx-auto flex min-h-[420px] max-w-6xl flex-col px-4 py-8 text-ink sm:px-6 md:min-h-[460px] md:py-12">
                     {page.neighbourhood ? (
                         <p className="text-xs font-medium uppercase tracking-widest">
                             {page.neighbourhood}
@@ -134,13 +140,13 @@ export function PublicLanding() {
                             src={page.brand.avatar_url ?? page.brand.logo_url}
                             color={page.brand.primary}
                             size="xl"
-                            className="mb-4"
+                            className="mb-4 !bg-surface p-1"
                         />
                         <h1 className="font-display text-4xl font-bold tracking-tight md:text-5xl">
                             {page.business_name}
                         </h1>
                         {page.brand.tagline ? (
-                            <p className="mt-3 text-lg text-inverse/90">{page.brand.tagline}</p>
+                            <p className="mt-3 text-lg text-muted">{page.brand.tagline}</p>
                         ) : null}
                         {page.rating !== null && page.review_count > 0 ? (
                             <p className="mt-4 flex items-center gap-2 text-sm">
@@ -148,7 +154,7 @@ export function PublicLanding() {
                                 {s.rating(page.rating.toFixed(1), page.review_count)}
                             </p>
                         ) : null}
-                        <div className="mt-6 flex flex-wrap gap-3">
+                        <div className="mt-6 flex flex-col gap-3 min-[400px]:flex-row min-[400px]:flex-wrap">
                             {hasServices ? (
                                 <Button
                                     tone="inverse"
@@ -160,48 +166,12 @@ export function PublicLanding() {
                                     {s.book}
                                 </Button>
                             ) : null}
-                            {page.addons.length > 0 ? (
-                                <Button
-                                    tone="inverse"
-                                    variant="outline"
-                                    size="lg"
-                                    onPress={() => {
-                                        go(`/shop/${encodeURIComponent(slug)}`);
-                                    }}
-                                >
-                                    {strings.publicBooking.shopLink}
-                                </Button>
-                            ) : null}
+                            <BusinessShopAction />
                         </div>
                     </div>
                 </div>
-            </header>
-            <nav
-                aria-label={s.jumpTo}
-                className="sticky top-0 z-20 border-b border-line bg-surface/95 backdrop-blur"
-            >
-                <div className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 py-2">
-                    {sections.map((section) => (
-                        <Button
-                            key={section.key}
-                            variant="quiet"
-                            size="sm"
-                            onPress={() => {
-                                document
-                                    .getElementById(
-                                        section.key === "visit" &&
-                                            window.matchMedia("(min-width: 768px)").matches
-                                            ? "visit-desktop"
-                                            : section.key,
-                                    )
-                                    ?.scrollIntoView({ behavior: "smooth" });
-                            }}
-                        >
-                            {section.label}
-                        </Button>
-                    ))}
-                </div>
-            </nav>
+            </BusinessCover>
+            <BusinessSections brand={page.brand} />
             <div className="mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-6 md:grid-cols-[minmax(0,1fr)_330px]">
                 <main className="min-w-0 space-y-12">
                     {page.about ? (
@@ -211,7 +181,7 @@ export function PublicLanding() {
                             </p>
                         </section>
                     ) : null}
-                    <section id="services" className="scroll-mt-20">
+                    <section id="services" className="scroll-mt-40">
                         <h2 className="mb-6 font-display text-2xl font-bold">{s.servicesTitle}</h2>
                         {!hasServices ? (
                             <Notice tone="info">{s.noServices}</Notice>
@@ -228,7 +198,7 @@ export function PublicLanding() {
                                                     <ItemImage
                                                         src={service.image_url}
                                                         name={service.name}
-                                                        size={72}
+                                                        size={48}
                                                     />
                                                     <div className="min-w-0 flex-1">
                                                         <h4 className="font-semibold text-ink">
@@ -253,7 +223,7 @@ export function PublicLanding() {
                                                         {s.book}
                                                     </Button>
                                                 </div>
-                                                <div className="mt-3 flex flex-wrap gap-2 sm:pl-[88px]">
+                                                <div className="mt-3 flex flex-wrap gap-2 pl-16">
                                                     {view.openingsStatus === "loading" ? (
                                                         <p className="text-xs text-muted">
                                                             {s.loadingOpenings}
@@ -320,7 +290,7 @@ export function PublicLanding() {
                         </section>
                     ) : null}
                     {page.staff.length > 0 ? (
-                        <section id="team" className="scroll-mt-20">
+                        <section id="team" className="scroll-mt-40">
                             <h2 className="mb-4 font-display text-2xl font-bold">{s.team}</h2>
                             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                 {page.staff.map((person) => (
@@ -342,62 +312,67 @@ export function PublicLanding() {
                         </section>
                     ) : null}
                     {page.review_count > 0 ? (
-                        <section id="reviews" className="scroll-mt-20">
+                        <section id="reviews" className="scroll-mt-40">
                             <h2 className="mb-2 font-display text-2xl font-bold">{s.reviews}</h2>
                             {page.rating !== null ? (
-                                <div className="mb-5 flex max-w-md items-center gap-5 rounded-2xl border border-line bg-surface p-5 shadow-card">
-                                    <p className="font-display text-5xl font-bold">
-                                        {page.rating.toFixed(1)}
-                                    </p>
-                                    <div>
-                                        <div className="flex gap-1 text-accent">
-                                            {[1, 2, 3, 4, 5].map((star) => (
-                                                <Icon key={star} name="star" size={18} />
-                                            ))}
+                                <Panel className="mb-4 !bg-surface p-1">
+                                    <div className="flex flex-wrap items-center gap-4">
+                                        <p className="font-display text-4xl font-bold tabular-nums">
+                                            {page.rating.toFixed(1)}
+                                        </p>
+                                        <div className="space-y-1">
+                                            <Stars value={Math.round(page.rating)} />
+                                            <p className="text-sm text-muted">
+                                                {s.rating(
+                                                    page.rating.toFixed(1),
+                                                    page.review_count,
+                                                )}
+                                            </p>
                                         </div>
-                                        <p className="mt-2 text-sm text-muted">
-                                            {s.rating(page.rating.toFixed(1), page.review_count)}
-                                        </p>
                                     </div>
-                                </div>
+                                </Panel>
                             ) : null}
-                            <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="grid items-start gap-4 sm:grid-cols-2">
                                 {page.reviews.slice(0, 4).map((review) => (
-                                    <article
-                                        key={review.id}
-                                        className="rounded-xl border border-line bg-surface p-5"
-                                    >
-                                        <p className="flex items-center gap-1 font-semibold">
-                                            <Icon name="star" size={15} />
-                                            {review.rating}
-                                            <span className="ml-2 text-sm font-normal text-muted">
-                                                {s.reviewer}
-                                            </span>
-                                        </p>
+                                    <Panel key={review.id}>
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <p className="text-sm font-semibold">{s.reviewer}</p>
+                                            <Stars value={review.rating} size="sm" />
+                                        </div>
                                         {review.body ? (
                                             <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed">
                                                 {review.body}
                                             </p>
                                         ) : null}
                                         {review.response ? (
-                                            <div className="mt-4 border-l-2 border-accent pl-3 text-sm">
-                                                <p className="font-semibold">{s.response}</p>
+                                            <div className="mt-4 border-t border-line-soft pt-3 text-sm">
+                                                <div className="flex items-center gap-2">
+                                                    <Avatar
+                                                        name={page.business_name}
+                                                        src={
+                                                            page.brand.avatar_url ??
+                                                            page.brand.logo_url
+                                                        }
+                                                        size="sm"
+                                                    />
+                                                    <p className="font-semibold">{s.response}</p>
+                                                </div>
                                                 <p className="mt-1 whitespace-pre-wrap text-muted">
                                                     {review.response}
                                                 </p>
                                             </div>
                                         ) : null}
-                                    </article>
+                                    </Panel>
                                 ))}
                             </div>
                         </section>
                     ) : null}
-                    <section id="visit" className="scroll-mt-20 md:hidden">
+                    <section id="visit" className="scroll-mt-40 md:hidden">
                         <h2 className="mb-4 font-display text-2xl font-bold">{s.visit}</h2>
                         {contact}
                     </section>
                     {page.policy ? (
-                        <section id="policies" className="scroll-mt-20">
+                        <section id="policies" className="scroll-mt-40">
                             <h2 className="mb-4 font-display text-2xl font-bold">{s.policies}</h2>
                             <ul className="space-y-2 text-sm text-ink-soft">
                                 {page.policy.self_service ? (
@@ -419,7 +394,7 @@ export function PublicLanding() {
                         </section>
                     ) : null}
                 </main>
-                <aside id="visit-desktop" className="hidden scroll-mt-20 md:block">
+                <aside id="visit-desktop" className="hidden scroll-mt-40 md:block">
                     <div className="sticky top-20 space-y-4">
                         <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
                             <h2 className="font-display text-lg font-bold">{s.visit}</h2>
@@ -459,7 +434,7 @@ export function PublicLanding() {
                     </div>
                 </aside>
             </div>
-            <p className="pb-8 text-center text-xs text-muted">{strings.publicBooking.poweredBy}</p>
+            <PoweredBy />
             {hasServices ? (
                 <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:hidden">
                     <Button

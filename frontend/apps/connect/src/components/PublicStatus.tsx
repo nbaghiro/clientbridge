@@ -1,7 +1,9 @@
 import { type PublicBrand, strings } from "@clientbridge/app-core/public";
-import { Button, Loading } from "@clientbridge/ui";
+import { Avatar, Button, Empty, Icon, Logo } from "@clientbridge/ui";
 import type { ReactNode } from "react";
 
+import { isEmbedded } from "../embed";
+import { brandStyle } from "./PublicPage";
 import { PublicFrame } from "./PublicFrame";
 
 export function PublicStatus({
@@ -17,27 +19,41 @@ export function PublicStatus({
     brand?: PublicBrand | null;
     onRetry?: () => void;
 }) {
-    if (kind === "loading") {
-        return (
-            <PublicFrame brand={brand}>
-                <Loading />
-            </PublicFrame>
-        );
-    }
+    const loading = kind === "loading";
+    const logo = brand?.avatar_url ?? brand?.logo_url;
     return (
-        <PublicFrame brand={brand}>
-            <h1 className="font-display text-xl font-bold text-ink">
-                {title ?? strings.common.somethingWrong}
-            </h1>
-            <p className="mt-2 text-sm text-muted">{body ?? strings.common.tryAgainLater}</p>
-            {kind === "error" && onRetry !== undefined ? (
-                <div className="mt-4">
-                    <Button size="sm" variant="outline" icon="refresh" onPress={onRetry}>
-                        {strings.ui.retry}
-                    </Button>
-                </div>
-            ) : null}
-        </PublicFrame>
+        <main
+            style={brandStyle(brand)}
+            className={`flex flex-col items-center justify-center gap-6 px-4 py-10 ${isEmbedded() ? "min-h-64" : "min-h-dvh bg-bg"}`}
+        >
+            <div className={loading ? "motion-safe:animate-pulse" : undefined}>
+                {logo ? (
+                    <Avatar src={logo} name="" size="lg" />
+                ) : (
+                    <Logo className="h-12 w-auto text-accent" />
+                )}
+            </div>
+            {loading ? (
+                <p role="status" className="sr-only">
+                    {strings.common.loading}
+                </p>
+            ) : (
+                <Empty
+                    className="w-full max-w-md rounded-xl border border-line bg-surface shadow-card"
+                    icon={kind === "notFound" ? "search" : "cloudOff"}
+                    intent={kind === "error" ? "danger" : "neutral"}
+                    message={title ?? strings.common.somethingWrong}
+                    body={body ?? strings.common.tryAgainLater}
+                    actions={
+                        kind === "error" && onRetry !== undefined ? (
+                            <Button icon="refresh" onPress={onRetry}>
+                                {strings.ui.retry}
+                            </Button>
+                        ) : undefined
+                    }
+                />
+            )}
+        </main>
     );
 }
 
@@ -59,14 +75,11 @@ export function PublicDone({
     return (
         <PublicFrame brand={brand}>
             <div className="py-4 text-center">
-                <span
-                    aria-hidden
-                    className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full text-2xl ${
-                        closed ? "bg-bg text-muted" : "bg-ok-bg text-ok-fg"
-                    }`}
-                >
-                    {closed ? "—" : "✓"}
-                </span>
+                <Icon
+                    name={closed ? "minus" : "check"}
+                    size={32}
+                    className={`mx-auto block ${closed ? "text-muted" : "text-ink-soft"}`}
+                />
                 <div className="mt-4 flex items-center justify-center gap-2">
                     <h1 className="font-display text-xl font-bold text-ink">{title}</h1>
                     {aside}

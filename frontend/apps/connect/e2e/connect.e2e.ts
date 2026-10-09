@@ -29,7 +29,7 @@ test.beforeEach(async ({ context }, info) => {
         .slice(0, 16);
     const address = `2001:db8:${suffix.match(/.{4}/g)?.join(":")}::1`;
     await context.route(
-        `${process.env.VITE_API_URL ?? "http://localhost:8701"}/**`,
+        `${process.env.VITE_API_URL ?? "http://127.0.0.1:8701"}/**`,
         async (route) => {
             await route.continue({
                 headers: { ...route.request().headers(), "X-Forwarded-For": address },
@@ -60,8 +60,11 @@ test("a client books a visit online and opens the manage link", async ({ page })
     const openings = (await (await openingsResponse).json()) as {
         days: { count: number; closed: boolean }[];
     };
-    const availableDay = openings.days.findIndex((day) => day.count > 0 && !day.closed);
-    expect(availableDay).toBeGreaterThanOrEqual(0);
+    // two days out keeps the visit past the 24-hour cancellation cutoff the manage link enforces
+    const availableDay = openings.days.findIndex(
+        (day, index) => index >= 2 && day.count > 0 && !day.closed,
+    );
+    expect(availableDay).toBeGreaterThanOrEqual(2);
     await page
         .getByRole("radiogroup", { name: b.date })
         .getByRole("radio")
@@ -119,18 +122,15 @@ test("a client finds the shop from the landing page and fills a cart", async ({ 
         page.getByRole("button", { name: strings.publicLanding.book }).first(),
     ).toBeVisible();
     await page.getByRole("button", { name: strings.publicBooking.shopLink }).click();
-    await expect(page).toHaveURL(new RegExp(`/shop/${links.slug}$`));
-    await expect(page.getByRole("heading", { name: shop.heroTitle, level: 1 })).toBeVisible();
-    await page
-        .getByRole("button", { name: /Shampoo|Brush/i })
-        .first()
-        .click();
+    await expect(page).toHaveURL(new RegExp(`/b/${links.slug}/shop$`));
+    await expect(page.getByRole("heading", { name: shop.title, level: 1 })).toBeVisible();
+    await page.getByRole("button", { name: "Self-Cleaning Slicker Brush", exact: true }).click();
     await page.getByRole("button", { name: shop.addToOrder }).click();
     const drawer = page.getByRole("dialog");
     await expect(drawer.getByRole("button", { name: shop.remove })).toBeVisible();
     await drawer.getByRole("button", { name: shop.checkout }).click();
     await expect(page).toHaveURL(/\/checkout$/);
-    await expect(page.getByRole("heading", { name: shop.checkoutTitle })).toBeVisible();
+    await expect(page.getByRole("heading", { name: shop.checkout, level: 1 })).toBeVisible();
     await page.reload();
     await expect(page.getByRole("button", { name: shop.remove })).toBeVisible();
     expect(errors).toEqual([]);
@@ -233,31 +233,28 @@ const PUBLIC_PAGES = [
         landmark: strings.publicPreferences.title,
     },
     { name: "order", path: `/order/${links.order}`, landmark: strings.publicOrder.title },
-    { name: "shop", path: `/shop/${links.slug}`, landmark: strings.publicShop.heroTitle },
+    { name: "shop", path: `/b/${links.slug}/shop`, landmark: strings.publicShop.subtitle },
 ];
 
-test("every client page renders without overflow at phone width", async ({ page }) => {
-    test.setTimeout(240_000);
-    const errors = watchErrors(page);
-    await page.setViewportSize({ width: 390, height: 844 });
-    for (const surface of PUBLIC_PAGES) {
-        await test.step(surface.name, async () => {
-            await page.goto(surface.path);
-            await expect(page.getByText(surface.landmark, { exact: true }).first()).toBeVisible();
-            await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
-            expect(
-                await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
-            ).toBeLessThanOrEqual(0);
-            if (process.env.E2E_CAPTURE_SURFACES === "1") {
-                await test.info().attach(surface.name, {
-                    body: await page.screenshot({ fullPage: true }),
-                    contentType: "image/png",
-                });
-            }
-        });
-    }
-    expect(errors).toEqual([]);
-});
+for (const surface of PUBLIC_PAGES) {
+    test(`the ${surface.name} page renders without overflow at phone width`, async ({ page }) => {
+        const errors = watchErrors(page);
+        await page.setViewportSize({ width: 390, height: 844 });
+        await page.goto(surface.path);
+        await expect(page.getByText(surface.landmark, { exact: true }).first()).toBeVisible();
+        await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
+        expect(
+            await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
+        ).toBeLessThanOrEqual(0);
+        if (process.env.E2E_CAPTURE_SURFACES === "1") {
+            await test.info().attach(surface.name, {
+                body: await page.screenshot({ fullPage: true }),
+                contentType: "image/png",
+            });
+        }
+        expect(errors).toEqual([]);
+    });
+}
 
 const MISSING_PAGES = [
     ["/b/missing-business", strings.publicLanding.notFoundTitle],
@@ -284,7 +281,7 @@ test("every client page explains an invalid link without offering a transaction"
     page.on("request", (request) => {
         if (
             new URL(request.url()).origin ===
-                new URL(process.env.VITE_API_URL ?? "http://localhost:8701").origin &&
+                new URL(process.env.VITE_API_URL ?? "http://127.0.0.1:8701").origin &&
             ["POST", "PUT", "PATCH", "DELETE"].includes(request.method())
         ) {
             writes.push(`${request.method()} ${new URL(request.url()).pathname}`);

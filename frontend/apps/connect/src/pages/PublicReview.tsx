@@ -142,9 +142,11 @@ function ReviewThanks({ page }: { page: ReviewPage }) {
             }
         >
             <div className="text-center">
-                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-bg text-ok-fg">
-                    <Icon name={google !== null ? "star" : "check"} size={24} />
-                </span>
+                <Icon
+                    name={google !== null ? "star" : "check"}
+                    size={32}
+                    className="mx-auto block text-ink-soft"
+                />
             </div>
             {google !== null && closed ? (
                 <p className="mt-5 text-center text-sm text-muted">{s.closePage}</p>
