@@ -29,6 +29,7 @@ jobs:
           RUSTFS_ACCESS_KEY: minio
           RUSTFS_SECRET_KEY: minio12345
           RUSTFS_CONSOLE_ENABLE: "true"
+          RUSTFS_CORS_ALLOWED_ORIGINS: "*"
         ports: ["8705:9000"]
     env:
       DATABASE_URL: postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge_test_ci
@@ -160,6 +161,7 @@ jobs:
           RUSTFS_ACCESS_KEY: minio
           RUSTFS_SECRET_KEY: minio12345
           RUSTFS_CONSOLE_ENABLE: "true"
+          RUSTFS_CORS_ALLOWED_ORIGINS: "*"
         ports: ["8705:9000"]
     env:
       DATABASE_URL: postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge_test_ci
