@@ -1,0 +1,468 @@
+{
+  "reviewed_at": "2026-10-08T22:11:47.854553+00:00",
+  "head_at_report": "dc594143e6f7c384b5055579bdfb06839bbe503b",
+  "scope": "Architecture and failure-mode assessment. No application code changes. Other sessions were editing UI/domain files during review; hashes record key source versions at report creation.",
+  "conclusion": "Retain PowerSync. The most urgent gaps are in our upload/session/context contracts and integration coverage, rather than the replication transport.",
+  "architecture": {
+    "web": "@powersync/web with persistent clientbridge.db; shared app-core reactive SQL; browser token storage and a Web Lock around refresh.",
+    "ios_and_android": "One React Native implementation using @powersync/react-native, native SQLite, SecureStore tokens, the same shared connector and app-core queries.",
+    "connect": "Public HTTP endpoints with scoped capability/verification flows; no application PowerSync replica.",
+    "marketing_and_playground": "Static/generated examples and component previews; not business-data replication clients.",
+    "download": "Postgres WAL -> PowerSync source replication -> powersync_storage bucket state -> authorized token stream -> local SQLite -> reactive useQuery views.",
+    "upload": "Recurring hours local write transaction -> persistent CRUD queue -> shared connector -> authenticated /sync/upload -> server ownership validation and commit -> queue acknowledgement -> authoritative rows return through replication.",
+    "commands": "Bookings, money, clients and other invariants use HTTP commands, not offline CRUD. Local device preferences never upload. Reports and notifications include server reads.",
+    "authentication": "15-minute access token -> /sync/token -> one-hour PowerSync token. Shared authFetch retries after 401 via a rotating 30-day refresh session.",
+    "authorization": "Shared business bucket, limited staff projection, own staff rows and owner/admin full bucket. Active membership governs read replication; API services and upload policy separately govern writes.",
+    "schema": "Generated from backend model types and table names in sync rules: 35 synced tables plus device_prefs. Backend indexes are mirrored, not independently tuned to all SQLite query patterns."
+  },
+  "strengths": [
+    "Shared web/native connector and domain queries",
+    "Narrow offline write surface keeps financial invariants server authoritative",
+    "Tenant/role-filtered streams; separate upload ownership and concurrency guards",
+    "Single-flight refresh and web refresh lock",
+    "Network/5xx refresh failures retain credentials",
+    "Explicit sign-out warns about queued work",
+    "Server commit precedes upload acknowledgement",
+    "Generated schema and strong existing backend test coverage"
+  ],
+  "findings": [
+    {
+      "id": "S01",
+      "priority": "P1",
+      "status": "reproduced",
+      "title": "A replayed upload can permanently block the upload queue",
+      "evidence": [
+        "backend/src/clientbridge/sync/upload.py:104 returns 403 when DELETE target no longer exists",
+        "frontend/packages/sync/src/connector.ts:39 throws on every non-2xx and never completes the transaction",
+        "Rollback-isolated API probe: insert 200, first delete 200, repeated delete 403; connector probe: two 403 attempts, zero completions"
+      ],
+      "impact": "If the server commits a recurring-hours replacement but its response is lost, replay starts with already-deleted IDs and cannot complete. Later queued edits remain behind it. Pending writes can also delay application of downloaded checkpoints.",
+      "recommendation": "Give upload transactions stable client/device operation IDs and persist their results atomically with writes. Replay the recorded result. Treat authorized already-applied deletes as successful where safe; a blind no-op delete alone is not enough to replay a whole replacement transaction. Distinguish retryable failures from permanent validation or permission rejections, preserve a recoverable rejected-change record, and reconcile the local optimistic state before acknowledging a permanent rejection.",
+      "acceptance": [
+        "Drop HTTP response after database commit and replay: exactly one logical change, queue drains",
+        "Queue a forbidden edit then an allowed edit: show the rejection and allow recovery without discarding silently",
+        "Test permission loss while hours changes are offline"
+      ]
+    },
+    {
+      "id": "S02",
+      "priority": "P1",
+      "status": "reproduced",
+      "title": "The upload endpoint does not validate working-hours shape",
+      "evidence": [
+        "backend/src/clientbridge/sync/upload.py:20 accepts unbounded generic ops/data",
+        "backend/src/clientbridge/sync/upload.py:41 uses bool(value) and direct ISO parsing",
+        "backend/src/clientbridge/models/scheduling.py:100 only constrains exception windows and staff presence",
+        "API probe accepted weekday=42 and start=17:00,end=09:00 with 200; string false stored true; malformed time and unknown column returned 500"
+      ],
+      "impact": "Invalid schedules can reach the authoritative database. Malformed requests become server errors and are retried by the connector.",
+      "recommendation": "Use a typed hours mutation schema with a writable-column allowlist, strict booleans, weekday bounds, basis-specific required fields and ordered time windows. Merge PATCH with the locked row before validating. Limit operation count/body size and return structured 422 errors. Mirror durable invariants with database checks after auditing existing rows.",
+      "acceptance": [
+        "Reject invalid weekdays, reversed/missing windows, unsupported columns and ambiguous booleans with 422",
+        "Invalid operation rolls back the entire batch",
+        "An accepted local hours edit remains compatible with the typed API"
+      ]
+    },
+    {
+      "id": "S03",
+      "priority": "P1",
+      "status": "confirmed code path plus conditional failure probe",
+      "title": "Refresh failure can destroy unsynced work",
+      "evidence": [
+        "frontend/packages/api-client/src/session.ts:63 clears credentials and calls onSignedOut for refresh 401/403",
+        "Both application roots call disconnectAndClear for automatic and explicit sign-out",
+        "backend/src/clientbridge/services/auth.py:119 revokes old refresh tokens on rotation and treats replay as family compromise",
+        "Session probe simulated loss of an already-rotated response: first attempt retains old token, second signs out"
+      ],
+      "impact": "A lost rotation response, revoked session or demo reset can lead to automatic replica/queue deletion without the explicit sign-out pending-work prompt. This is a possible cause of idle/reconnect trouble, not a diagnosis of the previously reported device incident.",
+      "recommendation": "Separate reauthentication-required from explicit discard/sign-out. Disconnect and lock the replica to its existing user, preserve queued work, reauthenticate that same user and reconcile; never expose it to a different user. Make refresh rotation safely retryable using an explicit request identifier or tightly bounded, device-bound replay design with stored replacement results. Keep reuse detection; do not simply disable it.",
+      "acceptance": [
+        "Expire access token with valid refresh: silent recovery",
+        "Drop refresh response after commit: safe bounded retry",
+        "Revoke session with pending hours: retain locked changes and show recovery",
+        "Login as a different user never sees or uploads old-user changes"
+      ]
+    },
+    {
+      "id": "S04",
+      "priority": "P1",
+      "status": "confirmed code design",
+      "title": "Session and replica lifecycle is not coordinated across browser tabs",
+      "evidence": [
+        "Web token storage is shared localStorage, guarded only for refresh by navigator.locks",
+        "frontend/apps/web/src/App.tsx keeps authentication in per-tab React state",
+        "No app-level storage/BroadcastChannel handler coordinates login/logout; each platform uses clientbridge.db",
+        "Session recover treats any changed access token as a successful refresh without checking user identity"
+      ],
+      "impact": "A second tab can remain in the old authenticated state after logout or account change. A late refresh can race sign-out and persist tokens again. Requests in flight may retry under a changed session. Precise cross-tab behavior still needs browser reproduction; SDK database locks do not implement the application auth state machine.",
+      "recommendation": "Centralize an auth generation and user binding, coordinate token writes/login/logout/refresh under one session lock, notify tabs, cancel stale requests and reject cross-generation responses. Serialize connection/clear/login transitions. Bind the database or its metadata to environment and user; distinguish authentication changes from ordinary token rotation.",
+      "acceptance": [
+        "Two tabs, concurrent refresh, logout during refresh, and login as another user",
+        "Reload/crash between credential clearing and database clearing",
+        "Exactly one active session identity and no stale-token resurrection"
+      ]
+    },
+    {
+      "id": "S05",
+      "priority": "P1",
+      "status": "confirmed code design",
+      "title": "Multiple memberships produce mixed local context",
+      "evidence": [
+        "infra/powersync/sync-rules.yaml syncs every active membership",
+        "frontend/packages/app-core/src/domain/business.ts uses businesses LIMIT 1",
+        "frontend/packages/app-core/src/domain/auth.ts uses staff by user LIMIT 1",
+        "Client and other list queries lack an active business filter",
+        "backend/src/clientbridge/core/deps.py requires X-Business-Id for multi-business users; shared client does not consistently attach one"
+      ],
+      "impact": "A legitimately multi-business user can see combined lists with an arbitrary brand/role context, while API commands reject ambiguous business selection. This is a client context gap, not proof that an unauthorized business is replicated.",
+      "recommendation": "Choose an explicit product contract: support a selected business throughout local SQL, role resolution, command headers, pending edits and navigation, or enforce single membership consistently. Keep selected business as a narrowing filter, never as the authority granting sync access.",
+      "acceptance": [
+        "One user belongs to A and B with different roles; lists, totals, logos and commands agree",
+        "Switch business with pending edits",
+        "Unrelated C remains absent from the local database"
+      ]
+    },
+    {
+      "id": "S06",
+      "priority": "P1",
+      "status": "confirmed missing integration coverage",
+      "title": "Read authorization rules are not tested through a real sync service in CI",
+      "evidence": [
+        "Existing backend sync tests cover token and upload endpoints",
+        "CI provisions Postgres/object storage but no PowerSync service; Connect browser tests use public HTTP routes",
+        "Local SQLite query tests do not execute sync-rules.yaml"
+      ],
+      "impact": "An error in bucket membership, limited staff projections or revocation can ship even while backend authorization tests pass.",
+      "recommendation": "Add a pinned Postgres + PowerSync + actual SDK integration harness. Assert rows and sensitive columns at the local replica, not just server responses. Keep public/admin tokens, financial fields, membership removal and role downgrade in the test matrix.",
+      "acceptance": [
+        "Owner/admin/staff/contractor/removed-member and multi-business fixtures",
+        "Foreign-tenant rows absent; staff pay columns and server-only tables absent",
+        "Online role downgrade removes prior full projections",
+        "Offline removal/reconnect behavior explicitly documented and tested"
+      ]
+    },
+    {
+      "id": "S07",
+      "priority": "P2",
+      "status": "confirmed code design",
+      "title": "Recurring hours are a delete-and-reinsert aggregate without conflict control",
+      "evidence": [
+        "frontend/packages/app-core/src/domain/hours.ts:207 deletes all recurring rows and allocates fresh IDs",
+        "No aggregate revision or stable weekday identity is sent"
+      ],
+      "impact": "Two devices editing the same old week can conflict on deleted IDs; treating missing deletes as no-ops alone can leave duplicate replacement schedules. Empty-baseline concurrent inserts can also coexist.",
+      "recommendation": "Model a staff week as a versioned aggregate with stable entries and an atomic replace operation. Preserve offline capability with a queued domain envelope if required; return the current version and a clear conflict choice. Select and document merge semantics instead of relying on row last-write-wins.",
+      "acceptance": [
+        "Two devices edit the same baseline offline and reconnect in both orders",
+        "Exactly one valid schedule or an explicit resolvable conflict; no duplicate week",
+        "Response-loss replay is safe with S01"
+      ]
+    },
+    {
+      "id": "S08",
+      "priority": "P2",
+      "status": "confirmed code design",
+      "title": "Sync status hides upload failures and initial connection errors",
+      "evidence": [
+        "frontend/packages/app-core/src/domain/sync.ts exposes connected/hasSynced but not uploadError/downloadError",
+        "getCrudBatch(50) is presented as the total pending count",
+        "Mobile offline banner is on Today, not the app shell",
+        "Both roots swallow connectPowerSync rejection; mobile SecureStore-read rejection leaves authed null",
+        "useReplicaLoad waits on hasSynced without a transport error source"
+      ],
+      "impact": "A connected downloader with a blocked uploader can appear healthy. A first-run failure can look like indefinite loading. Large queues are undercounted and authentication, API and transport outages are indistinguishable.",
+      "recommendation": "Expose a shared sync-health state with separate auth, API, download, upload, first-sync and stale-data states. Report true queue count plus a bounded preview and oldest pending age. Render recovery actions globally; label connected separately from internet available. Add bounded initialization and visible storage failures.",
+      "acceptance": [
+        "Connected plus upload 403 produces action-required state",
+        "First sync while API or PowerSync is unavailable shows retryable error",
+        "More than 50 pending operations report an accurate total",
+        "Diagnostics redact tokens and personal payloads"
+      ]
+    },
+    {
+      "id": "S09",
+      "priority": "P2",
+      "status": "confirmed code design",
+      "title": "Remote commands and local replica reads have an unmodeled catch-up interval",
+      "evidence": [
+        "Most business actions POST directly to the API while their resulting views read useQuery from SQLite",
+        "No shared row-observation/catch-up utility or checkpoint request mode was found",
+        "hasSynced records completed initial sync, not freshness after the latest command"
+      ],
+      "impact": "A successful create, payment, notification tap or refresh may lead to a row or balance that has not arrived locally yet. A generic sync-success flag cannot prove read-your-write consistency.",
+      "recommendation": "Use command response data for the immediate success view, then observe the expected row/version with timeout and cancellation. Evaluate PowerSync checkpoint requests for a general catch-up barrier only after version and failure tests; the current upstream feature is alpha. Keep offline read availability instead of blocking all views behind freshness.",
+      "acceptance": [
+        "Artificial CDC delay after successful commands",
+        "Open notification before its row arrives",
+        "Bounded wait gives useful pending state and cannot hang indefinitely"
+      ]
+    },
+    {
+      "id": "S10",
+      "priority": "P2",
+      "status": "confirmed architecture limitation",
+      "title": "Replica size and query result size are unbounded",
+      "evidence": [
+        "Owner buckets sync all historical ledger entries, invoices, payments, messages and bookings",
+        "Staff shared bucket includes all client records and messages",
+        "Several lists hydrate complete SQLite result sets before client-side filtering/slicing"
+      ],
+      "impact": "As businesses grow, initial sync, local storage, reactive queries and JS rendering grow together. UI infinite scrolling alone does not reduce replicated data.",
+      "recommendation": "Measure cold sync and query plans at realistic multi-year volumes. Separate hot offline datasets, aggregates and on-demand historical detail. Add keyset pagination and virtualization to local lists and pagination to remote-only reads. Use Sync Streams/on-demand subscriptions where appropriate, preserving report correctness when history is not local.",
+      "acceptance": [
+        "Define and meet cold-start, replica-size and list-latency budgets",
+        "Large clients/messages/ledger fixtures",
+        "Explicit offline availability and retention behavior for historical data"
+      ]
+    },
+    {
+      "id": "S11",
+      "priority": "P2",
+      "status": "confirmed configuration",
+      "title": "Replication and database privilege are development-grade",
+      "evidence": [
+        "Makefile creates FOR ALL TABLES publication and hides provisioning errors",
+        "PowerSync source and storage use clientbridge credentials",
+        "Live local role clientbridge is superuser and replication-enabled; no public table has RLS enabled",
+        "docker-compose.yml uses PowerSync latest without a dedicated healthcheck"
+      ],
+      "impact": "The local setup is convenient, but is not a deployable least-privilege/observable production configuration. PostgreSQL RLS alone would not define PowerSync client read authorization.",
+      "recommendation": "Pin the PowerSync image, separate backend application, replication reader and storage roles, grant only documented privileges, scope publication appropriately, fail clearly on provisioning errors and monitor readiness/replication lag/WAL retention. Add backend RLS as defense in depth using non-bypass roles if adopting it, while retaining independently tested sync authorization.",
+      "acceptance": [
+        "Least-privilege service boots, snapshots and streams",
+        "Replication stalls trigger alerts before WAL fills disk",
+        "Schema and service upgrade/rollback rehearsed",
+        "Do not drop powersync_storage: it is required bucket storage"
+      ]
+    },
+    {
+      "id": "S12",
+      "priority": "P2",
+      "status": "confirmed configuration",
+      "title": "JWT revocation and production signing need an explicit policy",
+      "evidence": [
+        "Access tokens live 15 minutes; PowerSync tokens one hour",
+        "/sync/token validates JWT but does not consult the session/user table or token type",
+        "Production settings do not require stable RS256 key configuration",
+        "An absent RS256 PEM falls back to process-local generated keys"
+      ],
+      "impact": "Session logout/revocation does not immediately invalidate already-issued JWTs. Membership changes are separately reflected through sync rules, but an offline client retains already-downloaded data. Multi-worker ephemeral signing keys would produce inconsistent production verification.",
+      "recommendation": "Validate token purpose and user/session validity before minting sync credentials, define bounded revocation expectations, require durable production keys/JWKS with rotation, and test the production configuration. Do not promise remote erasure of an offline device; define its local lock/retention policy.",
+      "acceptance": [
+        "Revoked session cannot mint new credentials under the chosen policy",
+        "Signing keys survive worker restarts and rotate with overlap",
+        "Removed member gets no new data once rule changes reach sync",
+        "Offline cached-data behavior matches explicit policy"
+      ]
+    },
+    {
+      "id": "S13",
+      "priority": "P2",
+      "status": "confirmed broad projections; access policy review required",
+      "title": "Broad SELECT star projections can expand the data sent to devices",
+      "evidence": [
+        "Most sync rule data queries use SELECT *",
+        "Synced models contain capability links/provider references and shared personal data",
+        "Schema generation emits all model columns for detected tables even if a role receives a limited projection"
+      ],
+      "impact": "Adding a backend column can silently expand a broad sync projection. Capability tokens may be intentional workflow data but need explicit audience approval. Generated local columns do not themselves prove that values are synced.",
+      "recommendation": "Maintain an allowlisted per-role sync data contract. Keep secrets/session material server-only and retrieve narrowly authorized public-share links through commands where needed. Add projection tests and schema-change review for newly added sensitive columns.",
+      "acceptance": [
+        "A synthetic newly added sensitive column is not automatically exposed",
+        "Audit each capability URL and shared financial/personal field by role",
+        "Validate sparse staff projections separately from full admin schema"
+      ]
+    },
+    {
+      "id": "S14",
+      "priority": "P2",
+      "status": "improvement requiring product/security decision",
+      "title": "Offline device data and attachments need explicit guarantees",
+      "evidence": [
+        "No application-level SQLite encryption or browser persistence request configured in database constructors",
+        "Mobile tokens use SecureStore while web uses localStorage",
+        "File metadata syncs, but file bytes use presigned HTTP uploads/downloads with no durable attachment queue"
+      ],
+      "impact": "Offline availability covers synced rows, not necessarily images, documents or unfinished uploads. Browser eviction and lost/shared devices need a defined recovery/privacy policy; platform storage protection may exist but was not verified here.",
+      "recommendation": "Document offline/read-only versus online-command capabilities. Evaluate native encrypted SQLite and browser storage persistence with platform tests, define logout/reauth retention, and add durable attachment caching/upload recovery only for required offline file workflows.",
+      "acceptance": [
+        "Airplane-mode walkthrough states exactly which actions work",
+        "Cold restart, browser eviction and low disk space tests",
+        "File upload interruption can retry without orphaned user workflow"
+      ]
+    },
+    {
+      "id": "S15",
+      "priority": "P2",
+      "status": "upstream verified change",
+      "title": "Sync Rules should be migrated to supported Sync Streams",
+      "evidence": [
+        "Current configuration uses bucket_definitions",
+        "Official September 22, 2026 announcement deprecates Sync Rules while keeping them supported today",
+        "Upstream migration can preserve current authorization with auto_subscribe streams"
+      ],
+      "impact": "Continuing on unpinned latest risks a future incompatible service update. Migration is planned maintenance, not an immediate outage or reason to rewrite sync.",
+      "recommendation": "Pin the current service first, establish replica authorization tests, migrate to edition 3 streams preserving row sets and column visibility, then add on-demand history as a separate change. Test timestamp compatibility changes and the one-time resync.",
+      "acceptance": [
+        "Parity of owner/staff/multi-business rows and columns",
+        "Older released clients reconnect successfully",
+        "One-time resync does not lose queued writes",
+        "Schedule before upstream removal/support deadlines"
+      ]
+    },
+    {
+      "id": "S16",
+      "priority": "P2",
+      "status": "confirmed code design",
+      "title": "Refresh requests have no application timeout or comprehensive client regression suite",
+      "evidence": [
+        "createSession fetch calls do not provide an application timeout/AbortSignal",
+        "A shared pending refresh promise gates concurrent recovering requests",
+        "No dedicated session/connector tests exist in the API client and sync packages; current sync.test.ts covers labels"
+      ],
+      "impact": "A request that never settles can stall multiple callers. Existing backend endpoint tests cannot verify the client recovery and lifecycle behavior that produced the observed logs.",
+      "recommendation": "Add bounded, cancellable auth requests and distinct failure reasons, with single-flight refresh tests and connector fault injection. Test mobile foreground/reconnect and browser multi-tab behavior against the installed SDK; do not assume the SDK lacks its own reconnect handling.",
+      "acceptance": [
+        "Hung refresh releases waiting callers with a recoverable state",
+        "Concurrent 401s perform one refresh",
+        "Network/5xx preserves credentials; true revocation requires reauth",
+        "Real iOS/Android background and network transition tests"
+      ]
+    }
+  ],
+  "validation": {
+    "existing_sync_tests": "34 passed",
+    "upload_probe": "Real FastAPI app and PostgreSQL via rollback-only outer transaction; no test rows persisted",
+    "upload_results": {
+      "insert": 200,
+      "delete_first": 200,
+      "delete_replay": 403,
+      "invalid_weekday_and_reversed_window": 200,
+      "string_false_stored": true,
+      "malformed_time": 500,
+      "unknown_column": 500
+    },
+    "session_probe": "Actual createSession and connector modules under a controlled transport; simulated lost refresh response signs out on retry, repeated permanent upload rejection does not complete queue entry",
+    "infrastructure": "Earlier HTTP readiness checks passed; replication slot active with 656 bytes retained at sample time. This is a point-in-time check, not an operational SLA. Local clientbridge role is superuser/replication-enabled; public RLS table count was zero.",
+    "not_run": [
+      "Real multi-device offline conflict run",
+      "Cross-tab identity-switch reproduction",
+      "Full replica authorization test matrix",
+      "Large-dataset benchmark",
+      "Native at-rest encryption or OS backup verification"
+    ]
+  },
+  "implementation_order": [
+    {
+      "phase": 1,
+      "title": "Protect queued edits and make uploads retry-safe",
+      "findings": [
+        "S01",
+        "S02",
+        "S03",
+        "S07"
+      ],
+      "exit": "Lost responses, concurrent offline edits and rejected operations cannot silently lose work or block forever."
+    },
+    {
+      "phase": 2,
+      "title": "Unify session lifecycle and business context",
+      "findings": [
+        "S04",
+        "S05",
+        "S12",
+        "S16"
+      ],
+      "exit": "Idle, foreground, revoked sessions, multi-tab and multi-membership have explicit tested behavior."
+    },
+    {
+      "phase": 3,
+      "title": "Expose health and read-after-command progress",
+      "findings": [
+        "S08",
+        "S09"
+      ],
+      "exit": "Users can distinguish saved locally, uploaded, caught up, stale and action required."
+    },
+    {
+      "phase": 4,
+      "title": "Test the actual replication security boundary",
+      "findings": [
+        "S06",
+        "S13"
+      ],
+      "exit": "CI executes real PowerSync with role/tenant/column/revocation assertions."
+    },
+    {
+      "phase": 5,
+      "title": "Harden operations and migrate configuration",
+      "findings": [
+        "S11",
+        "S15"
+      ],
+      "exit": "Pinned least-privilege deployment, lag monitoring and tested Streams parity."
+    },
+    {
+      "phase": 6,
+      "title": "Set scalability and offline-data guarantees",
+      "findings": [
+        "S10",
+        "S14"
+      ],
+      "exit": "Measured data budgets, deliberate retention, paginated views and documented offline file behavior."
+    }
+  ],
+  "upstream_sources": [
+    {
+      "url": "https://releases.powersync.com/announcements/our-plan-for-phasing-out-sync-rules",
+      "verified": "2026-10-08",
+      "note": "Deprecated now but supported; new major removes Rules September 15, 2027; support ends December 15, 2027. Migration and timestamp compatibility need review."
+    },
+    {
+      "url": "https://docs.powersync.com/sync/rules/migrate-to-sync-streams",
+      "note": "Preserve existing authorization semantics before adopting selective replication."
+    },
+    {
+      "url": "https://docs.powersync.com/client-sdks/advanced/checkpoint-requests",
+      "note": "Alpha catch-up API; requires Service >=1.24.0 and explicit opt-in. hasSynced does not prove current freshness."
+    },
+    {
+      "url": "https://powersync-ja.github.io/powersync-js/web-sdk/globals",
+      "note": "Web SDK has its own multi-tab machinery; application auth coordination is a separate concern."
+    }
+  ],
+  "source_fingerprints": {
+    "frontend/packages/sync/src/connector.ts": "82357600c6f05dee752e67f4d77d56f7bd41c6a64fc2957a10bbfbdf3fe2a41e",
+    "frontend/packages/sync/src/schema.ts": "4a8dac51ea2595cde1c5fb09c3ebcb3b3bb27acf003bb9866ee2ffdc2346d014",
+    "frontend/packages/api-client/src/session.ts": "e198b7ebf0c05ecb5fb25009a88b6077f1a4af2d686461ecdbc01f2b085d38de",
+    "frontend/apps/web/src/lib/powersync.ts": "8a8880d803cd2bc81d5f2f1253e61209bf6b93dc6335de43224cfb202c3258a4",
+    "frontend/apps/mobile/src/lib/powersync.ts": "2dc5678427ef1990f196c07010675420f85b5c66ff3b7a8db050a49584ab8a94",
+    "frontend/apps/web/src/lib/api.ts": "6fc8cc02cdf3c36977c744f50904e4e5984406dee983679dff6154a2bf819489",
+    "frontend/apps/mobile/src/lib/api.ts": "da80ccda2afd1fb982e220daa04709bfb6d74d029eb335012fac3771224d12e8",
+    "frontend/apps/web/src/lib/auth.ts": "f938a9b2b04421ca1c337eb4b4b1605857a9ea4849dfb195ff5b41d9cf299828",
+    "frontend/apps/mobile/src/lib/auth.ts": "927a8a31951ae4ca134b6c9c0299b5cf5ec8813a1d3412ef271477678c6b6dde",
+    "frontend/apps/web/src/App.tsx": "e323ddddaf717e188faaab909e9cf48ceb7d4ac68ecd0dd539ce7629ec897745",
+    "frontend/apps/mobile/App.tsx": "afa3647219313455036d073018f3f0a33c432e8a28420fd014310ead875aeec9",
+    "frontend/apps/mobile/src/lib/session.ts": "2f6277d79076c0c891b9cf5dd0f3c78f1f48704d3098c7a3eaee2ff62910b1d5",
+    "frontend/packages/app-core/src/domain/sync.ts": "6846a45468e9808788376c1e94f3436c6372a473eecf658b4006f00dec6f66fa",
+    "frontend/packages/app-core/src/domain/hours.ts": "1e39f135674e4a641876edfe3df6323f8871d09854eeabf07e537afe8987ec3b",
+    "frontend/packages/app-core/src/domain/auth.ts": "be447ad7d73b5204af070772b60be54f77ba52c7124ff1555bc885897395003f",
+    "frontend/packages/app-core/src/domain/business.ts": "1692930fffff8a23d62a0b12dae4610b9227725f11163f4b468e2eb22ae9f09d",
+    "frontend/packages/app-core/src/domain/clients.ts": "2b0512f9df6ee7d9bf361719c02c8ba47611cedd940e43921f014426e7b1ba01",
+    "frontend/packages/app-core/src/domain/messaging.ts": "8a8fc6e007bed9894a6fe1797bfa9e96660f7ca7b09a9250e3553fdb90eb1950",
+    "frontend/packages/app-core/src/domain/files.ts": "b976bf85f07976a41c0cb89f968aed859c8ebdcb5bb1b56390a3ea712c519733",
+    "backend/src/clientbridge/sync/upload.py": "d0665dd171ee39b68550a5f37fa0676d19e043ab6fb4c747b4fe4c768c34a705",
+    "backend/src/clientbridge/sync/auth.py": "02d046150887f565e7007f127ae20a1885085916f4bff1f160bd9aefe2ff5c25",
+    "backend/src/clientbridge/core/security.py": "6b3694a83019722bec55ae853dc7e026acd74f4c1831fcd4ea1f65903f6dba44",
+    "backend/src/clientbridge/core/config.py": "1aaf27746aef3cf62a66dcb78ef0cca77b40479d694a842dca9890c05b4b2146",
+    "backend/src/clientbridge/core/deps.py": "329c6d31c75aea699938a11b722bf0b03fd5ae5da50fbdb09dd11fd37000496b",
+    "backend/src/clientbridge/services/auth.py": "eff103353805ef9752d8fdcb48d77bdfa2ffcdf627c44f203e7caeab5280fee3",
+    "backend/src/clientbridge/models/scheduling.py": "f48bf6ccef694abe89bd8ad5eda92f27c077abf40ded3aa377820ac47b3f3462",
+    "backend/scripts/gen_sync_schema.py": "591077ce1748c25198393bfe9cfe44a31de69c893b03577a686651f42c003d60",
+    "infra/powersync/sync-rules.yaml": "852ac2b90b4b13abace00eeeca58334933c1bf3c4842c6b2af83537d8e071dc0",
+    "infra/powersync/powersync.yaml": "0f4b8e72616b451582dd04c21aa289920dbcb7aa72315fc344169627d4d07da2",
+    "docker-compose.yml": "fa0516b53371743da21f5687b10996b49eaf0f6d132a9e9b389af8227b018074",
+    "Makefile": "4e002cdbff44e539098939bb9c65ca7231ada30274630d049035829cbf544365",
+    ".github/workflows/ci.yml": "c0559c5f19ccdc5dd05dca154135e73a680b393def03eb2d4dddcd27138f3e0f"
+  }
+}

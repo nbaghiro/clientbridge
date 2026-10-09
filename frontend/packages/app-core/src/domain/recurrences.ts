@@ -1,4 +1,5 @@
-import { useQuery } from "@powersync/react";
+import { useBusinessQuery as useQuery } from "../hooks";
+
 import { useMemo, useRef, useState } from "react";
 
 import { type ApiLike, newIdempotencyKey } from "../api";

@@ -9,6 +9,10 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 - **Single-line, concise, imperative subject. No body.** e.g. `Add Phase 1 auth: sessions, invites, OAuth`.
 - Commit or push **only when asked**.
 
+## Schema approval and early-development scope
+- Obtain explicit user approval for each concrete database schema change before editing schema/model definitions or creating/applying migrations, including local and disposable test databases. Present the exact change, purpose, data impact and rollback first; a general instruction to execute a plan is not schema approval.
+- The app is in early development. Use one current implementation; do not add old-client compatibility paths, legacy adapters or migration bridges without an explicit requirement. Removing compatibility code does not authorize deleting existing data or reverting applied database changes.
+
 ## Backend — layer-first, one file per concept
 - **File naming:** `models/` is grouped by domain; every other layer (`api`, `schemas`, `services`, `tests`)
   holds one file per concept with the same plain plural name and no suffix (`api/bookings.py` →
@@ -24,7 +28,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   `business_id` filter. Money / uniqueness / cross-tenant mutations additionally go through
   `run_command` (atomic + audited + idempotency-replay).
 - **5 surfaces** — every capability is exactly one (see `.docs/architecture.md`): sync-read (PowerSync
-  rules) · sync-write (`/sync/upload` + `WRITE_POLICY`) · command/RPC (FastAPI `POST`) · webhook/public ·
+  rules) · offline command (durable local-only outbox → typed `/v1` command) · command/RPC (FastAPI `POST`) · webhook/public ·
   job. A **server-only invariant** (uniqueness/numbering, capacity, money, secrets, cross-tenant) → a
   **command, NOT a sync write**.
 - **Role gates** live where the method lives: the service method that does the work gates itself with
@@ -79,7 +83,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   router → service; routers never query; every tenant query goes through
   `scoped()` — never a hand-written `business_id` filter); the **5
   surfaces** (sync-write vs
-  command) chosen correctly; **role gates** match `WRITE_POLICY` + the **4-part test matrix** is cleared
+  command) chosen correctly; **role gates** match the typed command contract + the **4-part test matrix** is cleared
   (happy · each 4xx · security/tenant-isolation · idempotency); **web↔mobile duplication** (share the
   UI-agnostic data layer via `@clientbridge/app-core`, keep only rendering platform-specific); stray
   comments. The Catalog & Tax audit (2026-06-26) caught an unguarded REST write + a router running raw

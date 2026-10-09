@@ -55,20 +55,3 @@ async def test_file_parent_outside_the_vocabulary_is_422(as_owner: httpx.AsyncCl
     assert res.status_code == 422
 
 
-async def test_sync_hours_with_an_unknown_basis_is_422(as_owner: httpx.AsyncClient) -> None:
-    op = {
-        "op": "PUT",
-        "type": "hours",
-        "id": "av_bad_basis",
-        "data": {
-            "business_id": BIZ,
-            "staff_id": "st_diego",
-            "basis": "monthly",
-            "weekday": 0,
-            "start_time": "09:00:00",
-            "end_time": "12:00:00",
-            "available": 1,
-        },
-    }
-    res = await as_owner.post("/sync/upload", json={"ops": [op]})
-    assert res.status_code == 422

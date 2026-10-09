@@ -3,35 +3,6 @@
 // `id` is the implicit text PK; money = integer cents; json/arrays/timestamps stored as text.
 import { column, Schema, Table } from "@powersync/common";
 
-const staff = new Table(
-    {
-        business_id: column.text,
-        user_id: column.text,
-        role: column.text,
-        payee: column.integer,
-        rate_type: column.text,
-        rate_bps: column.integer,
-        rate_cents: column.integer,
-        retail_rate_bps: column.integer,
-        name: column.text,
-        title: column.text,
-        color: column.text,
-        status: column.text,
-        invite_email: column.text,
-        invite_token: column.text,
-        invited_at: column.text,
-        invited_by: column.text,
-        bookable_online: column.integer,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            staff_business_id: ["business_id"],
-        },
-    },
-);
-
 const clients = new Table(
     {
         created_by: column.text,
@@ -42,7 +13,6 @@ const clients = new Table(
         tags: column.text,
         status: column.text,
         custom_fields: column.text,
-        stripe_customer_id: column.text,
         preferred_channel: column.text,
         archived_at: column.text,
         business_id: column.text,
@@ -188,7 +158,6 @@ const items = new Table(
         visits_per_period: column.integer,
         member_discount_bps: column.integer,
         gift_amounts: column.text,
-        stripe_price_id: column.text,
         tax_class: column.text,
         sku: column.text,
         cost_cents: column.integer,
@@ -240,7 +209,6 @@ const subscriptions = new Table(
         current_period_start: column.text,
         current_period_end: column.text,
         payment_method_id: column.text,
-        provider_ref: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
@@ -250,7 +218,6 @@ const subscriptions = new Table(
             subscriptions_active_unique: ["business_id", "client_id", "item_id"],
             subscriptions_business_id: ["business_id"],
             subscriptions_client_status: ["business_id", "client_id", "status"],
-            subscriptions_provider_ref: ["provider_ref"],
         },
     },
 );
@@ -338,7 +305,6 @@ const files = new Table(
         parent_type: column.text,
         parent_id: column.text,
         purpose: column.text,
-        s3_key: column.text,
         content_type: column.text,
         size: column.integer,
         business_id: column.text,
@@ -378,7 +344,6 @@ const messages = new Table(
         body: column.text,
         status: column.text,
         broadcast_id: column.text,
-        provider_ref: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
@@ -411,19 +376,39 @@ const businesses = new Table(
         stripe_account_id: column.text,
         stripe_terminal_location_id: column.text,
         stripe_charges_enabled: column.integer,
-        stripe_payouts_enabled: column.integer,
-        stripe_details_submitted: column.integer,
-        stripe_requirements: column.text,
-        booking_policy: column.text,
-        status: column.text,
         staff_discount_limit_bps: column.integer,
         filing_frequency: column.text,
+    },
+    {
+        indexes: {
+            businesses_stripe_account: ["stripe_account_id"],
+        },
+    },
+);
+
+const staff = new Table(
+    {
+        business_id: column.text,
+        user_id: column.text,
+        hours_revision: column.integer,
+        role: column.text,
+        payee: column.integer,
+        rate_type: column.text,
+        rate_bps: column.integer,
+        rate_cents: column.integer,
+        retail_rate_bps: column.integer,
+        name: column.text,
+        title: column.text,
+        color: column.text,
+        status: column.text,
+        invite_email: column.text,
+        invited_at: column.text,
         created_at: column.text,
         updated_at: column.text,
     },
     {
         indexes: {
-            businesses_stripe_account: ["stripe_account_id"],
+            staff_business_id: ["business_id"],
         },
     },
 );
@@ -450,8 +435,6 @@ const orders = new Table(
         picked_up_at: column.text,
         note: column.text,
         approved_by: column.text,
-        status_token: column.text,
-        receipt_token: column.text,
         receipt_channel: column.text,
         receipt_sent_at: column.text,
         business_id: column.text,
@@ -549,7 +532,6 @@ const bookings = new Table(
         completed_at: column.text,
         canceled_at: column.text,
         reminded_at: column.text,
-        manage_token: column.text,
         reschedule_count: column.integer,
         custom_fields: column.text,
         business_id: column.text,
@@ -768,7 +750,6 @@ const payments = new Table(
         currency: column.text,
         method: column.text,
         provider: column.text,
-        provider_ref: column.text,
         reference_code: column.text,
         reference: column.text,
         note: column.text,
@@ -794,7 +775,6 @@ const payments = new Table(
             payments_business_id: ["business_id"],
             payments_invoice: ["invoice_id"],
             payments_order: ["order_id"],
-            payments_provider_ref: ["provider_ref"],
             payments_reference_code: ["reference_code"],
             payments_refund_parent: ["parent_payment_id"],
             payments_status: ["business_id", "status"],
@@ -810,7 +790,6 @@ const payment_methods = new Table(
         brand: column.text,
         last4: column.text,
         provider: column.text,
-        provider_ref: column.text,
         preferred: column.integer,
         mandate_status: column.text,
         status: column.text,
@@ -826,7 +805,6 @@ const payment_methods = new Table(
         indexes: {
             payment_methods_business_id: ["business_id"],
             payment_methods_client: ["business_id", "client_id"],
-            payment_methods_provider: ["business_id", "provider_ref"],
         },
     },
 );
@@ -836,7 +814,6 @@ const reviews = new Table(
         client_id: column.text,
         booking_id: column.text,
         channel: column.text,
-        token: column.text,
         status: column.text,
         requested_at: column.text,
         submitted_at: column.text,
@@ -887,7 +864,6 @@ const responses = new Table(
         client_id: column.text,
         parent_type: column.text,
         parent_id: column.text,
-        token: column.text,
         status: column.text,
         submitted_at: column.text,
         opened_at: column.text,
@@ -942,8 +918,32 @@ const device_prefs = new Table(
     { localOnly: true },
 );
 
+const business_selection = new Table(
+    {
+        business_id: column.text,
+    },
+    { localOnly: true },
+);
+
+const hours_outbox = new Table(
+    {
+        business_id: column.text,
+        staff_id: column.text,
+        actor_id: column.text,
+        payload: column.text,
+        state: column.text,
+        predecessor_id: column.text,
+        result_revision: column.integer,
+        attempt_count: column.integer,
+        retry_at: column.integer,
+        error_code: column.text,
+        created_at: column.text,
+        sequence: column.integer,
+    },
+    { localOnly: true },
+);
+
 export const AppSchema = new Schema({
-    staff,
     clients,
     subjects,
     notes,
@@ -961,6 +961,7 @@ export const AppSchema = new Schema({
     threads,
     messages,
     businesses,
+    staff,
     orders,
     lines,
     slots,
@@ -979,6 +980,8 @@ export const AppSchema = new Schema({
     responses,
     signatures,
     device_prefs,
+    business_selection,
+    hours_outbox,
 });
 
 export type Database = (typeof AppSchema)["types"];

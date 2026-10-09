@@ -106,6 +106,24 @@ class Hours(PKMixin, BusinessScoped, TimestampMixin, Base):
             name="ck_hours_exception_window",
         ),
         CheckConstraint("basis = 'exception' OR staff_id IS NOT NULL", name="ck_hours_staff"),
+        CheckConstraint(
+            "basis != 'recurring' OR "
+            "(weekday IS NOT NULL AND weekday BETWEEN 0 AND 6 AND date IS NULL)",
+            name="ck_hours_recurring_day",
+        ),
+        CheckConstraint(
+            "basis != 'date' OR (date IS NOT NULL AND weekday IS NULL)",
+            name="ck_hours_explicit_date",
+        ),
+        CheckConstraint(
+            "(start_time IS NULL AND end_time IS NULL) OR "
+            "(start_time IS NOT NULL AND end_time IS NOT NULL AND end_time > start_time)",
+            name="ck_hours_local_window",
+        ),
+        CheckConstraint(
+            "basis = 'exception' OR (starts_at IS NULL AND ends_at IS NULL AND reason IS NULL)",
+            name="ck_hours_exception_fields",
+        ),
         Index("ix_hours_staff", "business_id", "staff_id", "basis"),
         Index("ix_hours_exception", "business_id", "basis", "starts_at"),
     )

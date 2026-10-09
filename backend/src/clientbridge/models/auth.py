@@ -24,6 +24,10 @@ class AuthSession(PKMixin, Base):
     device: Mapped[str | None] = mapped_column(String)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    replay_attempt_id: Mapped[str | None] = mapped_column(String)
+    replay_ciphertext: Mapped[str | None] = mapped_column(String)
+    replay_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    replay_session_id: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

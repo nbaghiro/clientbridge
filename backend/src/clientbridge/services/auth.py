@@ -15,6 +15,7 @@ from clientbridge.core.security import (
     hash_password,
     hash_token,
     issue_access_token,
+    refresh_cipher,
     verify_password,
 )
 from clientbridge.integrations.google import OAuthProfile
@@ -98,51 +99,88 @@ class AuthService:
         login_guard.succeeded(email)
         return user
 
+    def _new_session(
+        self, user_id: str, *, family_id: str | None = None, device: str | None = None
+    ) -> tuple[AuthSession, TokenPair]:
+        refresh = secrets.token_urlsafe(32)
+        session = AuthSession(
+            id=new_id("auth_session"),
+            user_id=user_id,
+            family_id=family_id or new_id("auth_session"),
+            token_hash=hash_token(refresh),
+            device=device,
+            expires_at=datetime.now(UTC) + timedelta(days=get_settings().refresh_token_ttl_days),
+        )
+        self.db.add(session)
+        return session, TokenPair(
+            access_token=issue_access_token(user_id, family_id=session.family_id),
+            refresh_token=refresh,
+        )
+
     async def issue_session(
         self, user_id: str, *, family_id: str | None = None, device: str | None = None
     ) -> TokenPair:
-        refresh = secrets.token_urlsafe(32)
-        ttl = timedelta(days=get_settings().refresh_token_ttl_days)
-        self.db.add(
-            AuthSession(
-                id=new_id("auth_session"),
-                user_id=user_id,
-                family_id=family_id or new_id("auth_session"),
-                token_hash=hash_token(refresh),
-                device=device,
-                expires_at=datetime.now(UTC) + ttl,
-            )
-        )
+        await self.db.scalar(select(User.id).where(User.id == user_id).with_for_update())
+        _, pair = self._new_session(user_id, family_id=family_id, device=device)
         await self.db.commit()
-        return TokenPair(access_token=issue_access_token(user_id), refresh_token=refresh)
+        return pair
 
-    async def rotate(self, refresh_token: str) -> TokenPair:
-        session = (
-            await self.db.execute(
-                select(AuthSession).where(AuthSession.token_hash == hash_token(refresh_token))
+    async def _locked_session(self, refresh_token: str) -> AuthSession | None:
+        session = await self.db.scalar(
+            select(AuthSession).where(AuthSession.token_hash == hash_token(refresh_token))
+        )
+        if session is not None:
+            await self.db.scalar(
+                select(User.id).where(User.id == session.user_id).with_for_update()
             )
-        ).scalar_one_or_none()
+            await self.db.refresh(session, with_for_update=True)
+        return session
+
+    async def rotate(self, refresh_token: str, *, attempt_id: str) -> TokenPair:
+        session = await self._locked_session(refresh_token)
         if session is None:
             raise Unauthorized("invalid refresh token")
+        now = datetime.now(UTC)
         if session.revoked_at is not None:
-            # replay of an already-rotated token → kill the whole family
+            if (
+                session.replay_attempt_id == attempt_id
+                and session.replay_expires_at is not None
+                and session.replay_expires_at > now
+                and session.replay_ciphertext is not None
+                and session.replay_session_id is not None
+            ):
+                replacement = await self.db.get(AuthSession, session.replay_session_id)
+                if (
+                    replacement is not None
+                    and replacement.revoked_at is None
+                    and replacement.expires_at > now
+                ):
+                    pair = TokenPair.model_validate_json(
+                        refresh_cipher().decrypt(session.replay_ciphertext.encode())
+                    )
+                    await self.db.commit()
+                    return pair
             await self._revoke_family(session.family_id)
             await self.db.commit()
             raise Unauthorized("refresh token reuse detected")
-        if session.expires_at < datetime.now(UTC):
+        if session.expires_at < now:
             raise Unauthorized("refresh token expired")
-        session.revoked_at = datetime.now(UTC)
-        await self.db.flush()
-        return await self.issue_session(
+        session.revoked_at = now
+        replacement, pair = self._new_session(
             session.user_id, family_id=session.family_id, device=session.device
         )
+        await self.db.flush()
+        session.replay_attempt_id = attempt_id
+        session.replay_session_id = replacement.id
+        session.replay_expires_at = now + timedelta(minutes=5)
+        session.replay_ciphertext = (
+            refresh_cipher().encrypt(pair.model_dump_json().encode()).decode()
+        )
+        await self.db.commit()
+        return pair
 
     async def revoke(self, refresh_token: str) -> None:
-        session = (
-            await self.db.execute(
-                select(AuthSession).where(AuthSession.token_hash == hash_token(refresh_token))
-            )
-        ).scalar_one_or_none()
+        session = await self._locked_session(refresh_token)
         if session is not None:
             await self._revoke_family(session.family_id)
             await self.db.commit()
@@ -197,7 +235,7 @@ class AuthService:
 
     async def reset_password(self, token: str, new_password: str) -> None:
         tok = await self._consume_token(token, "reset")
-        user = await self.db.get(User, tok.user_id)
+        user = await self.db.get(User, tok.user_id, with_for_update=True)
         if user is None:
             raise Unauthorized("invalid token")
         user.password_hash = hash_password(new_password)
@@ -218,8 +256,26 @@ class AuthService:
 
     async def verify_email(self, token: str) -> None:
         tok = await self._consume_token(token, "verify")
-        user = await self.db.get(User, tok.user_id)
+        user = await self.db.get(User, tok.user_id, with_for_update=True)
         if user is None:
             raise Unauthorized("invalid token")
         user.email_verified_at = datetime.now(UTC)
         await self.db.commit()
+
+
+async def run_prune_refreshes(db: AsyncSession, now: datetime) -> int:
+    ids = list(
+        await db.scalars(
+            select(AuthSession.id)
+            .where(AuthSession.replay_expires_at <= now, AuthSession.replay_ciphertext.is_not(None))
+            .order_by(AuthSession.replay_expires_at, AuthSession.id)
+            .limit(1000)
+            .with_for_update(skip_locked=True)
+        )
+    )
+    if ids:
+        await db.execute(
+            update(AuthSession).where(AuthSession.id.in_(ids)).values(replay_ciphertext=None)
+        )
+    await db.commit()
+    return len(ids)

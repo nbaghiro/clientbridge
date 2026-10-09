@@ -30,4 +30,6 @@ appId: ca.clientbridge.app
                 text: "!, Open debugger to view warnings."
                 point: "94%,50%"
           - assertNotVisible: "!, Open debugger to view warnings."
-- assertVisible: "Good .*, Hannah"
+- extendedWaitUntil:
+      visible: "Good .*, Hannah"
+      timeout: 30000

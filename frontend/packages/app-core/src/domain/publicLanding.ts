@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { strings } from "../strings";
 import { type PublicBrand, usePublicResource } from "./publicResource";
@@ -120,4 +120,65 @@ export function usePublicProfile(client: PublicProfileClient, slug: string) {
             new Date(Date.UTC(2026, 0, 5 + day)),
         );
     return { page, status, retry, categories, openings, openingsStatus, openingLabel, weekday };
+}
+
+interface BusinessNavigationAvailability {
+    booking: boolean;
+    shop: boolean;
+    reviews: boolean;
+    team: boolean;
+    policies: boolean;
+}
+
+const navigationCache = new WeakMap<
+    PublicProfileClient,
+    Map<
+        string,
+        {
+            expires: number;
+            value: Promise<BusinessNavigationAvailability>;
+        }
+    >
+>();
+
+export function usePublicBusinessNavigation(
+    client: PublicProfileClient,
+    shop: { getShop: (slug: string) => Promise<{ items: readonly unknown[] }> },
+    slug: string,
+) {
+    const load = useMemo(
+        () => (key: string) => {
+            let cache = navigationCache.get(client);
+            if (!cache) {
+                cache = new Map();
+                navigationCache.set(client, cache);
+            }
+            const existing = cache.get(key);
+            if (existing && existing.expires > Date.now()) return existing.value;
+            const value = Promise.all([client.get(key), shop.getShop(key)])
+                .then(([profile, products]) => ({
+                    booking: profile.services.length > 0,
+                    shop: products.items.length > 0,
+                    reviews: profile.review_count > 0,
+                    team: profile.staff.length > 0,
+                    policies: Boolean(profile.policy),
+                }))
+                .catch((error: unknown) => {
+                    cache.delete(key);
+                    throw error;
+                });
+            cache.set(key, { expires: Date.now() + 30_000, value });
+            return value;
+        },
+        [client, shop],
+    );
+    return (
+        usePublicResource(load, slug).data ?? {
+            booking: false,
+            shop: false,
+            reviews: false,
+            team: false,
+            policies: false,
+        }
+    );
 }

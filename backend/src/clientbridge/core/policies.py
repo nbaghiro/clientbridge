@@ -57,6 +57,7 @@ TABLE_POLICIES: Mapping[str, TablePolicy] = MappingProxyType(
         "staff": TablePolicy("tenant", "business_id", "business"),
         "subjects": TablePolicy("tenant", "business_id", "clients"),
         "subscriptions": TablePolicy("tenant", "business_id", "catalog"),
+        "sync_receipts": TablePolicy("tenant", "business_id", "platform"),
         "threads": TablePolicy("tenant", "business_id", "messaging"),
         "tokens": TablePolicy("identity", None, "auth"),
         "users": TablePolicy("identity", None, "business"),

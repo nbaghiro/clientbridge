@@ -1,7 +1,9 @@
-import { usePowerSync, useQuery } from "@powersync/react";
+import { discardRejectedHours, enqueueHours, type WeekDay } from "@clientbridge/sync";
+import { useBusinessQuery as useQuery } from "../hooks";
+import { usePowerSync } from "@powersync/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { type ApiLike, newIdempotencyKey, newRowId } from "../api";
+import { type ApiLike, newIdempotencyKey } from "../api";
 import {
     addDays,
     dateKey,
@@ -61,12 +63,6 @@ interface RecurringRow {
 export const RECURRING_HOURS_SQL =
     "SELECT weekday, start_time, end_time, available FROM hours WHERE staff_id = ? AND basis = 'recurring' ORDER BY start_time";
 
-export const CLEAR_RECURRING_HOURS_SQL =
-    "DELETE FROM hours WHERE staff_id = ? AND basis = 'recurring'";
-
-export const INSERT_RECURRING_HOURS_SQL =
-    "INSERT INTO hours (id, business_id, staff_id, basis, weekday, start_time, end_time, available, note) VALUES (?, ?, ?, 'recurring', ?, ?, ?, ?, NULL)";
-
 /** Days with no rows default to weekdays 9 to 5 and weekends closed; split days keep their span. */
 export function seedDays(rows: RecurringRow[]): DayHours[] {
     return WEEKDAYS.map(({ weekday }) => {
@@ -125,6 +121,9 @@ interface WeekEditor {
     saved: boolean;
     submit: () => void;
     timeOptions: { key: string; label: string }[];
+    saveLabel: string;
+    saveMessage: string | null;
+    discardRejected: (() => void) | null;
 }
 
 const TIME_OPTIONS = Array.from({ length: 33 }, (_, i) => {
@@ -133,18 +132,81 @@ const TIME_OPTIONS = Array.from({ length: 33 }, (_, i) => {
     return { key, label: formatHhmm(key) };
 });
 
-/** One person's regular week, saved straight to the replica and uploaded through sync. Key it by staff id. */
-export function useWeekEditor(staffId: string | null): WeekEditor {
+/** Key the editor by staff ID; pending proposals remain separate from authoritative hours. */
+export function useWeekEditor(api: ApiLike, staffId: string | null): WeekEditor {
     const db = usePowerSync();
     const businessId = useBusinessId();
     const { data, isLoading } = useQuery<RecurringRow>(RECURRING_HOURS_SQL, [staffId ?? ""]);
+    const staff = useQuery<{ hours_revision: number }>(
+        "SELECT hours_revision FROM staff WHERE id = ? AND business_id = ?",
+        [staffId ?? "", businessId ?? ""],
+    );
+    const queued = useQuery<{
+        id: string;
+        payload: string;
+        state: string;
+        result_revision: number | null;
+    }>(
+        "SELECT id, payload, state, result_revision FROM hours_outbox WHERE staff_id = ? AND business_id = ? ORDER BY sequence DESC LIMIT 1",
+        [staffId ?? "", businessId ?? ""],
+    );
+    const rejected =
+        useQuery<{ id: string }>(
+            "SELECT id FROM hours_outbox WHERE staff_id = ? AND business_id = ? AND state = 'rejected' LIMIT 1",
+            [staffId ?? "", businessId ?? ""],
+        ).data.length > 0;
+    const latest = queued.data[0];
+    const revision = staff.data[0]?.hours_revision;
+    const waiting =
+        latest !== undefined &&
+        (latest.state !== "accepted" ||
+            revision === undefined ||
+            revision < (latest.result_revision ?? Infinity));
     const { busy, error, setError, run } = useAsyncAction();
     const [days, setDays] = useState<DayHours[] | null>(null);
+    const basis = useRef<{ revision: number; id: string | null; payload: string } | null>(null);
     const [saved, setSaved] = useState(false);
 
     useEffect(() => {
-        if (days === null && !isLoading && staffId !== null) setDays(seedDays(data));
-    }, [days, isLoading, data, staffId]);
+        if (
+            days === null &&
+            !isLoading &&
+            !queued.isLoading &&
+            revision !== undefined &&
+            staffId !== null
+        ) {
+            if (waiting) {
+                try {
+                    const proposal = JSON.parse(latest.payload) as {
+                        days: WeekDay[];
+                        expected_revision: number;
+                    };
+                    basis.current = {
+                        revision: proposal.expected_revision + 1,
+                        id: latest.id,
+                        payload: latest.payload,
+                    };
+                    setDays(
+                        seedDays(
+                            proposal.days.map((day) => ({
+                                ...day,
+                                available: day.available ? 1 : 0,
+                            })),
+                        ),
+                    );
+                } catch {
+                    setError(s.saveError);
+                }
+            } else {
+                basis.current = {
+                    revision,
+                    id: latest?.id ?? null,
+                    payload: latest?.payload ?? "",
+                };
+                setDays(seedDays(data));
+            }
+        }
+    }, [days, isLoading, queued.isLoading, data, staffId, waiting, latest, revision, setError]);
 
     const edit = (weekday: number, patch: Partial<DayHours>): void => {
         setSaved(false);
@@ -183,8 +245,25 @@ export function useWeekEditor(staffId: string | null): WeekEditor {
             );
         },
         busy,
-        error,
+        error: error ?? (rejected ? s.conflict : null),
         saved,
+        saveLabel: rejected ? s.applyChanges : s.saveHours,
+        saveMessage: rejected ? null : waiting ? s.savedLocally : saved ? s.saved : null,
+        discardRejected: rejected
+            ? () => {
+                  run(
+                      async () => {
+                          if (businessId === null || staffId === null) return;
+                          await discardRejectedHours(db, businessId, staffId);
+                          basis.current =
+                              revision === undefined ? null : { revision, id: null, payload: "" };
+                          setDays(seedDays(data));
+                          setSaved(false);
+                      },
+                      { errorMessage: s.saveError },
+                  );
+              }
+            : null,
         submit: () => {
             if (days === null || staffId === null) return;
             if (businessId === null) {
@@ -204,20 +283,27 @@ export function useWeekEditor(staffId: string | null): WeekEditor {
             }
             run(
                 async () => {
-                    await db.writeTransaction(async (tx) => {
-                        await tx.execute(CLEAR_RECURRING_HOURS_SQL, [staffId]);
-                        for (const d of days) {
-                            await tx.execute(INSERT_RECURRING_HOURS_SQL, [
-                                newRowId("av"),
-                                businessId,
-                                staffId,
-                                d.weekday,
-                                d.open ? `${d.start}:00` : null,
-                                d.open ? `${d.end}:00` : null,
-                                d.open ? 1 : 0,
-                            ]);
-                        }
-                    });
+                    if (basis.current === null) throw new Error("working week has not synced");
+                    const base = rejected
+                        ? (await api.get<{ revision: number }>(`/v1/hours/${staffId}/week`))
+                              .revision
+                        : basis.current.revision;
+                    basis.current = await enqueueHours(
+                        db,
+                        staffId,
+                        businessId,
+                        base,
+                        days.map((day) => ({
+                            weekday: day.weekday,
+                            available: day.open,
+                            start_time: day.open ? `${day.start}:00` : null,
+                            end_time: day.open ? `${day.end}:00` : null,
+                        })),
+                        rejected,
+                        basis.current.id === null
+                            ? null
+                            : { id: basis.current.id, payload: basis.current.payload },
+                    );
                 },
                 {
                     onSuccess: () => {

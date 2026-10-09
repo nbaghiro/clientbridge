@@ -5,6 +5,7 @@ from clientbridge.schemas.auth import (
     AcceptInviteBody,
     ForgotPasswordBody,
     LoginBody,
+    LogoutBody,
     OAuthGoogleBody,
     RefreshBody,
     RegisterBody,
@@ -36,11 +37,11 @@ async def login(body: LoginBody, db: DbSession) -> TokenPair:
 
 @router.post("/refresh", response_model=TokenPair)
 async def refresh(body: RefreshBody, db: DbSession) -> TokenPair:
-    return await AuthService(db).rotate(body.refresh_token)
+    return await AuthService(db).rotate(body.refresh_token, attempt_id=str(body.attempt_id))
 
 
 @router.post("/logout", status_code=204)
-async def logout(body: RefreshBody, db: DbSession) -> None:
+async def logout(body: LogoutBody, db: DbSession) -> None:
     await AuthService(db).revoke(body.refresh_token)
 
 

@@ -7,23 +7,25 @@ const t = strings.sync;
 export function SignOutDialog({
     open,
     pending,
+    pendingCount,
     onCancel,
     onConfirm,
 }: {
     open: boolean;
     pending: PendingChange[];
+    pendingCount: number | null;
     onCancel: () => void;
     onConfirm: () => void;
 }) {
     return (
         <Modal open={open} onClose={onCancel} size="md">
             <div className="flex items-start gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-danger-bg text-danger">
-                    <Icon name="alert" size={19} />
-                </span>
+                <Icon name="alert" size={22} className="mt-1 text-ink-soft" />
                 <div>
                     <h2 className="font-display text-lg font-bold text-ink">{t.signOutTitle}</h2>
-                    <p className="mt-1 text-sm text-muted">{t.signOutBody(pending.length)}</p>
+                    <p className="mt-1 text-sm text-muted">
+                        {pendingCount === null ? t.signOutUnknown : t.signOutBody(pendingCount)}
+                    </p>
                 </div>
             </div>
             <div className="mt-4 rounded-md border border-line bg-bg px-4 py-3">

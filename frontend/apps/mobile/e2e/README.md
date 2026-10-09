@@ -77,3 +77,9 @@ The estimate test expects the correct product behavior (`New estimate`), so a fa
 ## Boundaries
 
 These are navigation and composition walkthroughs, not exhaustive transaction tests. Real card charging, terminal hardware, push delivery/taps, reset email completion, fresh-business onboarding, offline reconnect/conflicts, every empty/error state, release builds, iPad layout and further Android device/OS combinations require additional runs. Passing browser “iPhone/Android” frames does not cover those native concerns.
+
+## Sync startup regression
+
+`regressions/sync-startup.yaml` verifies saved-session restoration, selection of the scoped business, and the recurring-hours editor on the actual native app without submitting a business change. Run it against the existing simulator/emulator; it neither clears application storage nor reseeds the server. The owner helper waits for the asynchronously loaded viewer name.
+
+Use normal simulator signing when building iOS. A build produced with signing disabled can make SecureStore fail with a missing Keychain entitlement before the replica opens. Rebuilding/installing the same bundle with normal signing preserves app data; deleting the database does not resolve this credential-storage failure.

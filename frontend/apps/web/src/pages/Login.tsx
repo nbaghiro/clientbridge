@@ -155,9 +155,7 @@ function EmailCard({ auth }: { auth: Auth }) {
             </Button>
             {auth.mode === "sent" ? (
                 <div className="mt-8">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-weak text-accent">
-                        <Icon name="mail" size={22} />
-                    </span>
+                    <Icon name="mail" size={32} className="block text-ink-soft" />
                     <h1 className="mt-5 font-display text-2xl font-bold text-ink">{a.sentTitle}</h1>
                     <p className="mt-2 text-sm leading-relaxed text-muted">
                         {a.sentBody(auth.email.trim())}

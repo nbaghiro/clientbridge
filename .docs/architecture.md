@@ -35,18 +35,18 @@ type/lint-compatibility. The `pyproject` floor is `>=3.12`.
 
 **Every capability is exactly one of five surfaces. Choosing the surface is the main design decision per
 feature.** The rule: a **server-only invariant** — uniqueness/numbering, capacity/conflict, money,
-secrets, cross-tenant — must be a **command**, never a sync-write.
+secrets, cross-tenant — must be a **command**, never unvalidated replica CRUD.
 
 | # | Surface | What it is | Auth | Examples |
 |---|---|---|---|---|
 | 1 | **Sync-read** | PowerSync streams each device its authorized rows into local SQLite | Sync Rules (buckets) | calendar, clients, invoices on-device |
-| 2 | **Sync-write** | `POST /sync/upload` applies simple CRUD the device queued | `WRITE_POLICY` | edit working hours |
+| 2 | **Offline command** | Local-only durable intent → typed `/v1` command → authoritative replication | JWT + service role/tenant checks + expected revision | edit working hours |
 | 3 | **Command / RPC** | FastAPI `POST/PATCH/DELETE` under `/v1/*`, wrapped in `run_command` (atomic + audited + idempotent) → writes Postgres → flows back via sync | JWT + role | book a slot, issue an invoice, take a payment |
 | 4 | **Webhook / public** | inbound provider callbacks + unauthenticated public pages | signature / token / slug | Stripe/Interac/SMS webhooks; book/pay/form/contract/review |
 | 5 | **Job** | arq background work on Redis | system | reminders, reap-unpaid, broadcasts, overdue sweep |
 
 **Decision rule** — where does a new operation go?
-- Client can compute it locally, it's just data and needs no service validation → **sync-write (2)**.
+- An edit must survive offline use → **offline command (2)** with explicit replay, conflict and recovery semantics.
 - Needs a server-only invariant (uniqueness/numbering, capacity/conflict, money, secrets, cross-tenant) → **command (3)**.
 - A third party initiates it → **webhook (4)**.
 - Time-based or async → **job (5)**.
@@ -76,7 +76,7 @@ clientbridge/
 │       ├── schemas/            Pydantic DTOs — one file per concept
 │       ├── services/           business logic — one file per concept (28)
 │       ├── api/                router.py (mounts /v1) · one router file per concept · public.py · webhooks.py
-│       ├── sync/               auth.py (token/JWKS) · upload.py (WRITE_POLICY)
+│       ├── sync/               auth.py (token/JWKS)
 │       ├── integrations/       stripe · postmark · twilio · expo · google · s3 (provider adapters)
 │       └── tasks/              worker.py: the arq cron schedule
 ├── frontend/           ── TypeScript · pnpm + turbo ──
@@ -131,13 +131,13 @@ with the subclass's HTTP status.
 | `ids.py` | Prefixed-ULID PKs (`bz_…`, `bk_…`), time-sortable. |
 | `errors.py` | `AppError` taxonomy → HTTP status (`NotFound` 404, `Conflict` 409, `CardDeclined` 402, `TooManyRequests` 429…). |
 | `ratelimit.py` | In-process fixed-window limiter for the five public surfaces (30/60s each). |
-| `db.py` | Async engine + `SessionLocal` + the `Base` metadata that `sync/upload.py` reflects over. |
+| `db.py` | Async engine + `SessionLocal` + the `Base` model metadata. |
 
 ### Role gates
 A gate lives in the service method that does the work, via `assert_role(self.principal, …)`, because the
 same services also run from jobs and public flows. Services whose every method is owner/admin (reports,
 the dashboard) gate once in their constructor; others gate per method (POS order-create is staff, void is
-admin). `is_manager(role)` covers the one place that holds a bare role string (`sync/upload.py`). Never a
+admin). `is_manager(role)` covers the one place that holds a bare role string (service authorization). Never a
 hand-written role tuple check.
 
 ### External services
@@ -307,46 +307,27 @@ build + permanent maintenance.)
  Web (WASM)        ─┤── WebSocket (read sync) ─► PowerSync Service ◄────────────┤ Postgres (source of truth)
        ▲ reads local SQLite (offline-first)      (Sync Rules bucket by           │
        │                                           business_id + role, from JWT)  │
-       └── local writes → uploadData() ─► FastAPI /sync/upload ─(authz+validate)─┘ writes
+       └── local-only hours outbox ─► FastAPI /v1/hours/{staff}/week─┘ writes
 ```
 
 - **Reads** are governed by **Sync Rules** + JWT claims; FastAPI is *not* in the read loop. The on-device
   SQLite already holds only the rows this user may see, so the client never filters for *security* — it just
   queries its local DB. Reactive `useQuery(sql)` re-runs on any sync push or local write.
-- **Writes** go local-SQLite (optimistic) → upload queue → `POST /sync/upload` → authz/validate → Postgres.
+- **Hours writes** persist proposals separately from canonical rows in a local-only outbox. The typed week command validates authorization, seven weekdays and the expected revision atomically with its replay receipt. Other writes use their existing online commands.
 - **Server-initiated push:** *any* write that hits Postgres — a Stripe/Interac webhook, a cron job, another
   staff member's action — flows back out via the WAL automatically, sub-second, to the relevant devices.
-- **Conflicts** are server-authoritative: benign concurrent field edits are last-write-wins by `updated_at`;
-  the backend rejects/transforms invariant violations (no double-booking, no paying a paid invoice). Money
-  creation is backend/webhook-only, so it never originates as an offline client write.
+- **Hours conflicts** reject stale revisions and preserve the proposal for explicit review. The editor offers apply-again against a fresh revision or discard. Money creation remains backend/webhook-only.
 
 ### `/sync/token` + JWKS (`sync/auth.py`)
 Exchanges an authenticated app JWT for a short-lived PowerSync token in every environment; serves the RS256 JWKS at `/sync/keys`. Development uses HS256. Production uses RS256 with `POWERSYNC_USE_RS256=true` and `powersync.yaml` `jwks_uri` pointing to `/sync/keys`.
 
-### The write path — `WRITE_POLICY` (`sync/upload.py`)
-The server-authoritative write choke point. `WRITE_POLICY` is an allowlist mapping **table → own_only**
-(staff may write only their own rows; owners and admins write any row of their business). Only the
-tables the apps actually write offline are sync-writable:
-- **team-writable** (any active staff, own rows only): `hours`, except exception rows (time off and
-  closures), which only their command writes (`COMMAND_ONLY_ROWS`).
-- **not sync-writable**: everything else. Clients, pets, notes, catalog items, resources, and forms,
-  fields and contracts (whose edits are versioned) go through
-  their `/v1` commands so the service validation applies; money, capacity, secrets and uniqueness
-  (`payments`, `accounts`/`entries`, `gift_cards`, `subscriptions`, `packages`, `slots`/`bookings`/
-  `recurrences`, `invoices`/`estimates`/`orders`/`lines`, `threads`/`messages`, `broadcasts`,
-  `businesses`, `staff`, `reviews`, files, audit and webhook logs) are command-only by nature.
-
-Per op: resolve the actor's active `staff` rows → look up policy (unknown table → 403) → block cross-tenant
-`business_id` change → ownership authz → reject server-owned timestamps (`SYSTEM_FIELDS`) → apply
-(PUT = `on_conflict` upsert, PATCH = partial, DELETE = delete), coercing
-SQLite types back to Postgres. The whole
-batch commits as one transaction; any auth failure rolls it all back.
+### The hours write path
+`POST /v1/hours/{staff_id}/week` is the single recurring-week mutation. Owners/admins may edit any active member in their business; other members may edit only themselves. Each operation includes a device/operation identity, business, creation time, expected revision and all seven weekdays. The service serializes replacement, keeps row IDs stable, increments `staff.hours_revision`, and commits the replay receipt with the write. The same identity and payload replay the original result; changed payloads or stale revisions fail. Existing split-day schedules are rejected for explicit review, never flattened silently.
 
 ### The client (`packages/sync`)
-`schema.ts` is the **generated** `AppSchema` (the synced tables, from models + sync-rules). `connector.ts`
-is the `PowerSyncBackendConnector`: `fetchCredentials()` → `GET /sync/token`, `uploadData()` drains the
-local CRUD queue → `POST /sync/upload`. Server-only tables (`sessions`, `tokens`, `commands`, `webhooks`,
-`audits`) are absent from sync-rules, so they never reach the client schema.
+`schema.ts` is generated from explicit sync projections. The connector exchanges live session credentials at `/sync/token`; PowerSync downloads canonical data. `hours_outbox` and device preferences are local-only tables. The outbox coalesces unattempted changes, freezes attempted payloads, backs off transient failures, and blocks only successors of a rejected staff-week. Accepted proposals remain pending until their revision is observed in the replica. Pausing authentication cancels uploads without deleting intent; explicit discard clears the account-scoped replica.
+
+Direct writes to synchronized tables are programming errors. There is no generic CRUD endpoint or old-client fallback. Receipts, sessions, commands, webhooks and audits remain server-only.
 
 ---
 
@@ -398,7 +379,7 @@ broadcasts) are not synced; each comes back with its story.
 
 Device read scope: staff = `business_shared` + `staff_limited` + `staff_self` · owner/admin =
 `business_shared` + `staff_self` + `business_full`. Writes
-are authorized separately in `/sync/upload` (`WRITE_POLICY`). Postgres RLS is an optional future
+are authorized separately by typed services. Postgres RLS is an optional future
 defense-in-depth for the API, not the sync filter.
 
 ---
@@ -524,9 +505,7 @@ Everything else — SQL, mutations, validation, status→`Intent` decisions, cop
 
 ### `app-core` (the view-model layer, no JSX)
 - **Reads** = a `useX()` hook wrapping `useQuery` over a SQL constant against the local replica.
-- **Writes** = plain functions taking `(api: ApiLike, …)` (money/uniqueness attach an idempotency key). A
-  few invariant-free admin tables write **directly** to local SQLite (hours, the form builder, contract
-  drafts), uploaded via `/sync/upload`.
+- **Writes** = plain functions taking `(api: ApiLike, …)` (money/uniqueness attach an idempotency key). Hours proposals use the durable local-only outbox; form and contract edits use their typed online commands.
 - **Forms** = `useXForm` hooks on the `useAsyncAction` busy/error primitive.
 - Each domain exports a status→`Intent` mapper (the platform maps `Intent` → its own tokens).
 - **`strings.ts`** is the copy catalog (one object, a group per concept) — the single home of UI copy.

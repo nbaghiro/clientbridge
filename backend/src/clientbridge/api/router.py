@@ -12,6 +12,7 @@ from clientbridge.api import (
     entitlements,
     files,
     forms,
+    hours,
     messaging,
     notes,
     notifications,
@@ -49,6 +50,7 @@ api_router.include_router(entitlements.subscriptions_router)
 api_router.include_router(tax.router)
 api_router.include_router(business.onboarding_router)
 api_router.include_router(staff.router)
+api_router.include_router(hours.router)
 api_router.include_router(reports.dashboard_router)
 api_router.include_router(notifications.router)
 api_router.include_router(reports.reports_router)

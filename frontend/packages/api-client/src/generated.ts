@@ -181,10 +181,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Sync Token
-         * @description Exchange the app session for a short-lived PowerSync token.
-         */
+        /** Sync Token */
         get: operations["sync_token_sync_token_get"];
         put?: never;
         post?: never;
@@ -208,23 +205,6 @@ export interface paths {
         get: operations["jwks_sync_keys_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/sync/upload": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Sync Upload */
-        post: operations["sync_upload_sync_upload_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2398,6 +2378,24 @@ export interface paths {
         patch: operations["change_role_v1_staff__staff_id__patch"];
         trace?: never;
     };
+    "/v1/hours/{staff_id}/week": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Week */
+        get: operations["week_v1_hours__staff_id__week_get"];
+        put?: never;
+        /** Replace Week */
+        post: operations["replace_week_v1_hours__staff_id__week_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dashboard/summary": {
         parameters: {
             query?: never;
@@ -2986,16 +2984,25 @@ export interface components {
             staff_id: string | null;
             /** Item Id */
             item_id: string;
-            /** Status */
-            status: string;
-            /** Source */
-            source: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "confirmed" | "completed" | "canceled" | "no_show" | "waitlisted";
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "online" | "manual";
             /** Price Cents */
             price_cents: number;
             /** Deposit Amount Cents */
             deposit_amount_cents: number;
-            /** Deposit Status */
-            deposit_status: string;
+            /**
+             * Deposit Status
+             * @enum {string}
+             */
+            deposit_status: "none" | "pending" | "collected" | "applied" | "forfeited" | "refunded";
             /** Checked In At */
             checked_in_at: string | null;
             /**
@@ -3169,10 +3176,16 @@ export interface components {
             id: string;
             /** Name */
             name: string;
-            /** Channel */
-            channel: string;
-            /** Status */
-            status: string;
+            /**
+             * Channel
+             * @enum {string}
+             */
+            channel: "sms" | "email";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "scheduled" | "sending" | "sent" | "canceled";
             /** Recipient Count */
             recipient_count: number;
             /**
@@ -3219,13 +3232,16 @@ export interface components {
             /** Slug */
             slug: string;
             /** Province */
-            province: string | null;
+            province: ("AB" | "BC" | "MB" | "NB" | "NL" | "NS" | "NT" | "NU" | "ON" | "PE" | "QC" | "SK" | "YT") | null;
             /** Timezone */
             timezone: string;
             /** Locale */
             locale: string;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "closed";
             /** Billing Email */
             billing_email: string | null;
             /** Gst Hst Number */
@@ -3238,9 +3254,9 @@ export interface components {
             tax_registered: boolean;
             /**
              * Filing Frequency
-             * @default quarterly
+             * @enum {string}
              */
-            filing_frequency: string;
+            filing_frequency: "monthly" | "quarterly" | "annual";
             /** Setup Dismissed At */
             setup_dismissed_at: string | null;
             /** Review Hold At */
@@ -3252,10 +3268,7 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /**
-         * BusinessSettingsUpdate
-         * @description Partial update of account fields; tax numbers accept an empty string to clear.
-         */
+        /** BusinessSettingsUpdate */
         BusinessSettingsUpdate: {
             /** Name */
             name?: string | null;
@@ -3748,12 +3761,15 @@ export interface components {
             id: string;
             /** Business Id */
             business_id: string;
-            /** Parent Type */
-            parent_type: string;
+            /**
+             * Parent Type
+             * @enum {string}
+             */
+            parent_type: "business" | "client" | "subject" | "item" | "signature" | "form_response";
             /** Parent Id */
             parent_id: string;
             /** Purpose */
-            purpose: string | null;
+            purpose: ("logo" | "image" | "photo" | "signature" | "attachment") | null;
             /** S3 Key */
             s3_key: string;
             /** Content Type */
@@ -3898,8 +3914,11 @@ export interface components {
             name: string;
             /** Require Signature */
             require_signature: boolean;
-            /** Send On */
-            send_on: string;
+            /**
+             * Send On
+             * @enum {string}
+             */
+            send_on: "booking" | "manual";
             /** Active */
             active: boolean;
             /** Fields */
@@ -3915,8 +3934,11 @@ export interface components {
             form_id: string;
             /** Client Id */
             client_id: string | null;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "submitted";
             /** Token */
             token: string;
             /** Submitted At */
@@ -4035,6 +4057,28 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** HoursWeekBody */
+        HoursWeekBody: {
+            request: components["schemas"]["OperationIdentity"];
+            /** Expected Revision */
+            expected_revision: number;
+            /** Days */
+            days: components["schemas"]["WeekDay"][];
+        };
+        /** HoursWeekOut */
+        HoursWeekOut: {
+            /** Revision */
+            revision: number;
+            /** Staff Id */
+            staff_id: string;
+            /** Days */
+            days: components["schemas"]["WeekDay"][];
+        };
+        /** HoursWeekResult */
+        HoursWeekResult: {
+            /** Revision */
+            revision: number;
+        };
         /** IncomeSummary */
         IncomeSummary: {
             /**
@@ -4088,7 +4132,7 @@ export interface components {
             /** Amount Cents */
             amount_cents: number;
             /** Channel */
-            channel?: string | null;
+            channel?: ("sms" | "email") | null;
             /** Expires At */
             expires_at?: string | null;
         };
@@ -4104,7 +4148,7 @@ export interface components {
              * @default email
              * @enum {string}
              */
-            channel: "email" | "sms";
+            channel: "sms" | "email";
             /**
              * Expires In Days
              * @default 14
@@ -4125,8 +4169,9 @@ export interface components {
             /**
              * Role
              * @default staff
+             * @enum {string}
              */
-            role: string;
+            role: "admin" | "staff" | "contractor";
         };
         /** InviteOut */
         InviteOut: {
@@ -4134,10 +4179,16 @@ export interface components {
             id: string;
             /** Email */
             email: string;
-            /** Role */
-            role: string;
-            /** Status */
-            status: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "admin" | "staff" | "contractor";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "invited" | "removed";
             /**
              * Invite Token
              * @description Raw invite token, returned once and also emailed
@@ -4250,8 +4301,11 @@ export interface components {
         InvoicePaymentOut: {
             /** Payment Id */
             payment_id: string;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "succeeded" | "failed" | "refunded" | "canceled";
             /** Amount Cents */
             amount_cents: number;
             /** Change Cents */
@@ -4634,8 +4688,11 @@ export interface components {
             amount_cents: number;
             /** Tax Amount Cents */
             tax_amount_cents: number;
-            /** Tax Class */
-            tax_class: string;
+            /**
+             * Tax Class
+             * @enum {string}
+             */
+            tax_class: "standard" | "federal_only" | "exempt";
             /** Item Id */
             item_id: string | null;
             /** Booking Id */
@@ -4674,6 +4731,11 @@ export interface components {
             email: string;
             /** Password */
             password: string;
+        };
+        /** LogoutBody */
+        LogoutBody: {
+            /** Refresh Token */
+            refresh_token: string;
         };
         /** ManageCancelResult */
         ManageCancelResult: {
@@ -4743,12 +4805,18 @@ export interface components {
              * Format: date-time
              */
             ends_at: string;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "confirmed" | "completed" | "canceled" | "no_show" | "waitlisted";
             /** Deposit Cents */
             deposit_cents: number;
-            /** Deposit Status */
-            deposit_status: string;
+            /**
+             * Deposit Status
+             * @enum {string}
+             */
+            deposit_status: "none" | "pending" | "collected" | "applied" | "forfeited" | "refunded";
             /** Addons */
             addons: components["schemas"]["ManagedAddon"][];
             /** Reschedules Used */
@@ -4775,14 +4843,23 @@ export interface components {
             id: string;
             /** Thread Id */
             thread_id: string;
-            /** Direction */
-            direction: string;
-            /** Channel */
-            channel: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "in" | "out";
+            /**
+             * Channel
+             * @enum {string}
+             */
+            channel: "sms" | "email";
             /** Body */
             body: string | null;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "queued" | "sent" | "delivered" | "read" | "failed";
         };
         /** MessageSend */
         MessageSend: {
@@ -4832,8 +4909,11 @@ export interface components {
             id: string;
             /** Business Id */
             business_id: string;
-            /** Parent Type */
-            parent_type: string;
+            /**
+             * Parent Type
+             * @enum {string}
+             */
+            parent_type: "client" | "subject" | "booking";
             /** Parent Id */
             parent_id: string;
             /** Body */
@@ -4937,16 +5017,22 @@ export interface components {
             id: string;
             /** Name */
             name: string;
-            /** Kind */
-            kind: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "service" | "class" | "product" | "package" | "subscription" | "gift";
             /** Duration Min */
             duration_min: number | null;
             /** Price Cents */
             price_cents: number;
             /** Color */
             color: string | null;
-            /** Deposit Type */
-            deposit_type: string;
+            /**
+             * Deposit Type
+             * @enum {string}
+             */
+            deposit_type: "none" | "fixed" | "percent";
             /** Deposit Cents */
             deposit_cents: number;
             /** Online Bookable */
@@ -4964,6 +5050,31 @@ export interface components {
             color: string | null;
             /** Bookable Online */
             bookable_online: boolean;
+        };
+        /** OperationIdentity */
+        OperationIdentity: {
+            /**
+             * Version
+             * @constant
+             */
+            version: 2;
+            /**
+             * Device Id
+             * Format: uuid
+             */
+            device_id: string;
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /** Business Id */
+            business_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** OrderCashIn */
         OrderCashIn: {
@@ -5070,10 +5181,11 @@ export interface components {
             /**
              * Source
              * @default pos
+             * @enum {string}
              */
-            source: string;
+            source: "pos" | "online";
             /** Pickup Status */
-            pickup_status?: string | null;
+            pickup_status?: ("unfulfilled" | "preparing" | "ready" | "picked_up") | null;
             /** Ready At */
             ready_at?: string | null;
             /** Picked Up At */
@@ -5106,7 +5218,7 @@ export interface components {
              */
             tip_cents: number;
             /** Receipt Channel */
-            receipt_channel?: string | null;
+            receipt_channel?: ("sms" | "email") | null;
             /** Receipt Sent At */
             receipt_sent_at?: string | null;
             /** Lines */
@@ -5145,7 +5257,7 @@ export interface components {
              * Channel
              * @enum {string}
              */
-            channel: "email" | "sms";
+            channel: "sms" | "email";
             /**
              * To
              * @description An email address or phone number
@@ -5184,8 +5296,11 @@ export interface components {
             sessions_total: number;
             /** Sessions Used */
             sessions_used: number;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "used" | "expired" | "canceled" | "pending";
         };
         /** PackagePurchase */
         PackagePurchase: {
@@ -5394,8 +5509,9 @@ export interface components {
             /**
              * Status
              * @default confirmed
+             * @enum {string}
              */
-            status: string;
+            status: "pending" | "confirmed" | "completed" | "canceled" | "no_show" | "waitlisted";
             /** Manage Token */
             manage_token?: string | null;
             /**
@@ -5416,6 +5532,12 @@ export interface components {
          * @description A business's validated public brand; unset or malformed fields are None.
          */
         PublicBrand: {
+            /** Public Slug */
+            public_slug?: string | null;
+            /** Business Name */
+            business_name?: string | null;
+            /** Cover Url */
+            cover_url?: string | null;
             /** Logo Url */
             logo_url?: string | null;
             /** Avatar Url */
@@ -5490,7 +5612,7 @@ export interface components {
              */
             kind: "payment" | "deposit";
             /** Method */
-            method: string | null;
+            method: ("card" | "interac" | "bank_eft" | "cash" | "cheque" | "other") | null;
             /** Amount Cents */
             amount_cents: number;
             /** At */
@@ -5673,8 +5795,11 @@ export interface components {
         PublicFormField: {
             /** Id */
             id: string;
-            /** Input */
-            input: string;
+            /**
+             * Input
+             * @enum {string}
+             */
+            input: "text" | "longtext" | "number" | "currency" | "select" | "multiselect" | "checkbox" | "date" | "time" | "email" | "phone" | "address" | "file" | "image" | "signature" | "rating";
             /** Name */
             name: string;
             /** Label */
@@ -5809,7 +5934,7 @@ export interface components {
             /** Status */
             status: string;
             /** Pickup Status */
-            pickup_status: string | null;
+            pickup_status: ("unfulfilled" | "preparing" | "ready" | "picked_up") | null;
             /**
              * Created At
              * Format: date-time
@@ -5856,6 +5981,7 @@ export interface components {
         };
         /** PublicPaymentSetup */
         PublicPaymentSetup: {
+            brand: components["schemas"]["PublicBrand"];
             /** Business Name */
             business_name: string;
             /** Client Name */
@@ -5902,8 +6028,11 @@ export interface components {
             cancel_cutoff_hours: number;
             /** Reschedule Cutoff Hours */
             reschedule_cutoff_hours: number;
-            /** Late Cancel Deposit */
-            late_cancel_deposit: string;
+            /**
+             * Late Cancel Deposit
+             * @enum {string}
+             */
+            late_cancel_deposit: "keep" | "refund";
             /** Max Reschedules */
             max_reschedules: number;
         };
@@ -6083,8 +6212,11 @@ export interface components {
              * @enum {string}
              */
             kind: "payment" | "deposit" | "refund";
-            /** Method */
-            method: string;
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "card" | "interac" | "bank_eft" | "cash" | "cheque" | "other";
             /** Amount Cents */
             amount_cents: number;
             /**
@@ -6153,8 +6285,9 @@ export interface components {
             /**
              * Kind
              * @default service
+             * @enum {string}
              */
-            kind: string;
+            kind: "service" | "class" | "product" | "package" | "subscription" | "gift";
             /** Category */
             category?: string | null;
             /** Color */
@@ -6315,8 +6448,11 @@ export interface components {
         RecurrenceCancelOut: {
             /** Id */
             id: string;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "ended" | "canceled";
             /** Canceled */
             canceled: string[];
             /**
@@ -6481,12 +6617,18 @@ export interface components {
             staff_id: string | null;
             /** Client Id */
             client_id: string | null;
-            /** Frequency */
-            frequency: string;
+            /**
+             * Frequency
+             * @enum {string}
+             */
+            frequency: "day" | "week" | "month";
             /** Interval */
             interval: number;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "ended" | "canceled";
             /**
              * Created
              * @description Occurrences that became bookings
@@ -6504,6 +6646,11 @@ export interface components {
         RefreshBody: {
             /** Refresh Token */
             refresh_token: string;
+            /**
+             * Attempt Id
+             * Format: uuid
+             */
+            attempt_id: string;
         };
         /** RefundIn */
         RefundIn: {
@@ -6525,8 +6672,11 @@ export interface components {
         RefundOut: {
             /** Refund Id */
             refund_id: string;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "succeeded" | "failed" | "refunded" | "canceled";
             /** Credit Note */
             credit_note?: string | null;
         };
@@ -6831,10 +6981,13 @@ export interface components {
             responded_at: string | null;
             /** Sent To Google */
             sent_to_google: boolean;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "requested" | "opened" | "submitted" | "published" | "hidden";
             /** Channel */
-            channel: string | null;
+            channel: ("sms" | "email") | null;
             /** Requested At */
             requested_at: string | null;
             /** Submitted At */
@@ -6865,10 +7018,13 @@ export interface components {
             responded_at: string | null;
             /** Sent To Google */
             sent_to_google: boolean;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "requested" | "opened" | "submitted" | "published" | "hidden";
             /** Channel */
-            channel: string | null;
+            channel: ("sms" | "email") | null;
             /** Requested At */
             requested_at: string | null;
             /** Submitted At */
@@ -6925,8 +7081,11 @@ export interface components {
             client_id: string;
             /** Subject Id */
             subject_id: string | null;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "confirmed" | "completed" | "canceled" | "no_show" | "waitlisted";
             /** Checked In At */
             checked_in_at: string | null;
             /**
@@ -6975,8 +7134,11 @@ export interface components {
             contract_id: string;
             /** Client Id */
             client_id: string;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "signed" | "declined" | "expired";
             /** Token */
             token: string;
             /** Signed At */
@@ -6991,7 +7153,7 @@ export interface components {
             /** Payee */
             payee: boolean;
             /** Rate Type */
-            rate_type: string | null;
+            rate_type: ("percent" | "fixed" | "hourly") | null;
             /** Rate Bps */
             rate_bps: number | null;
             /** Rate Cents */
@@ -7073,8 +7235,11 @@ export interface components {
             business_id: string;
             /** Client Id */
             client_id: string;
-            /** Kind */
-            kind: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "pet" | "vehicle" | "child" | "property";
             /** Name */
             name: string;
             /** Attributes */
@@ -7115,8 +7280,11 @@ export interface components {
             client_id: string;
             /** Item Id */
             item_id: string;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "paused" | "canceled" | "past_due";
             /** Current Period Start */
             current_period_start: string | null;
             /** Current Period End */
@@ -7212,10 +7380,16 @@ export interface components {
             name: string | null;
             /** Email */
             email: string | null;
-            /** Role */
-            role: string;
-            /** Status */
-            status: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "owner" | "admin" | "staff" | "contractor";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "invited" | "removed";
             /**
              * Last Active At
              * @description When the member last signed in or refreshed a session
@@ -7244,8 +7418,11 @@ export interface components {
             id: string;
             /** Unread Count */
             unread_count: number;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "closed";
         };
         /** TimeOffCreate */
         TimeOffCreate: {
@@ -7312,24 +7489,6 @@ export interface components {
              */
             token_type: string;
         };
-        /** UploadBody */
-        UploadBody: {
-            /** Ops */
-            ops: components["schemas"]["UploadOp"][];
-        };
-        /** UploadOp */
-        UploadOp: {
-            /** Op */
-            op: string;
-            /** Type */
-            type: string;
-            /** Id */
-            id: string;
-            /** Data */
-            data?: {
-                [key: string]: unknown;
-            } | null;
-        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -7347,6 +7506,17 @@ export interface components {
         VerifyEmailBody: {
             /** Token */
             token: string;
+        };
+        /** WeekDay */
+        WeekDay: {
+            /** Weekday */
+            weekday: number;
+            /** Available */
+            available: boolean;
+            /** Start Time */
+            start_time?: string | null;
+            /** End Time */
+            end_time?: string | null;
         };
     };
     responses: never;
@@ -7487,7 +7657,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RefreshBody"];
+                "application/json": components["schemas"]["LogoutBody"];
             };
         };
         responses: {
@@ -7725,43 +7895,6 @@ export interface operations {
                             [key: string]: string;
                         }[];
                     };
-                };
-            };
-        };
-    };
-    sync_upload_sync_upload_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UploadBody"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: number;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -12476,6 +12609,78 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    week_v1_hours__staff_id__week_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HoursWeekOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_week_v1_hours__staff_id__week_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HoursWeekBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HoursWeekResult"];
+                };
             };
             /** @description Validation Error */
             422: {

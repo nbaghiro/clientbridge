@@ -59,11 +59,15 @@ export function TodayScreen() {
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
             <StatusBar style="dark" />
-            {!sync.online && sync.hasSynced ? (
+            {sync.problem || (!sync.online && sync.hasSynced) ? (
                 <SyncBanner
-                    state="offline"
-                    title={strings.sync.offlineTitle}
-                    detail={strings.sync.offlineStrip(sync.pendingCount)}
+                    state={sync.problem ? "error" : "offline"}
+                    title={sync.problem ? strings.sync.problemTitle : strings.sync.offlineTitle}
+                    detail={
+                        sync.problem
+                            ? strings.sync.problems[sync.problem]
+                            : strings.sync.offlineStrip(sync.pendingCount)
+                    }
                 />
             ) : null}
             {viewer === null ? null : canManagePayments(viewer.role) ? (

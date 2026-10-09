@@ -22,8 +22,3 @@ export function failedStatus(e: unknown): number | null {
 export function newIdempotencyKey(): string {
     return crypto.randomUUID();
 }
-
-/** The client id is authoritative on `/sync/upload`, so it only has to be unique. */
-export function newRowId(prefix: string): string {
-    return `${prefix}_${crypto.randomUUID()}`;
-}

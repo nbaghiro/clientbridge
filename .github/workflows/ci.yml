@@ -264,3 +264,33 @@ jobs:
       - run: pnpm install --frozen-lockfile --ignore-scripts
         working-directory: frontend
       - run: make codegen-check
+
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: uv sync
+        working-directory: backend
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: frontend
+      - run: pnpm exec playwright install --with-deps chromium
+        working-directory: frontend
+      - run: make test-sync
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: sync-verification
+          path: .scratchpad/sync-hardening/service-verification.log
+          retention-days: 7

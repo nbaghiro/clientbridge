@@ -361,7 +361,7 @@ interface BookkeeperPack {
     download: () => void;
 }
 
-/** The bookkeeper's ZIP of CSVs; `downloadZip` posts the request and saves the file (web only). */
+/** The platform callback saves or shares the generated ZIP. */
 export function useBookkeeperPack(
     span: ReportSpan,
     downloadZip: (request: PackRequest, filename: string) => Promise<void>,

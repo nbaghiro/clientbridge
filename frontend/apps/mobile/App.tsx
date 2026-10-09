@@ -1,20 +1,27 @@
-import { strings, useBusinessLoad } from "@clientbridge/app-core";
+import { StatusBar } from "expo-status-bar";
+import type { ReactNode } from "react";
+import {
+    strings,
+    useBusinessLoad,
+    useBusinessSelection,
+    useReplicaSession,
+} from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { PowerSyncContext } from "@powersync/react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { ConfirmHost, configureStripe, LoadFailed, Loading } from "@clientbridge/ui";
+import { Button, ConfirmHost, configureStripe, LoadFailed, Select } from "@clientbridge/ui";
 
 import { StripeAppProvider } from "./src/components/Stripe";
+import { Splash, revealApp } from "./src/components/Splash";
 import { TabBar } from "./src/components/TabBar";
-import { api, onSignedOut } from "./src/lib/api";
+import { api, onSignedOut, selectBusiness } from "./src/lib/api";
 import { clearTokens, getTokens } from "./src/lib/auth";
 import { stripePublishableKey } from "./src/lib/config";
-import { connectPowerSync, db, signOut } from "./src/lib/powersync";
+import { connectPowerSync, replica, signOut } from "./src/lib/powersync";
 import { registerForPush } from "./src/lib/push";
 import { SignOutContext } from "./src/lib/session";
 import type { RootStackParamList, TabParamList } from "./src/navigation";
@@ -69,66 +76,79 @@ function Tabs() {
 
 export function App() {
     return (
-        <SafeAreaProvider>
+        <SafeAreaProvider onLayout={revealApp}>
+            <StatusBar style="dark" />
             <Root />
             <ConfirmHost />
         </SafeAreaProvider>
     );
 }
 
-function Root() {
-    const [authed, setAuthed] = useState<boolean | null>(null);
-
-    const handleSignOut = useCallback(async (): Promise<void> => {
+const lifecycle = {
+    restore: async () => {
+        if (await getTokens()) return connectPowerSync(api);
+        await replica.pause();
+        return null;
+    },
+    pause: () => replica.pause(),
+    discard: async () => {
         await clearTokens();
         await signOut();
-        setAuthed(false);
-    }, []);
+    },
+    subscribe: onSignedOut,
+    clearCredentials: clearTokens,
+    onReady: () => {
+        registerForPush().catch(() => undefined);
+    },
+};
 
-    useEffect(() => {
-        onSignedOut(() => {
-            handleSignOut().catch(() => undefined);
-        });
-    }, [handleSignOut]);
-
-    useEffect(() => {
-        getTokens()
-            .then((t) => {
-                setAuthed(t !== null);
-            })
-            .catch(() => undefined);
-    }, []);
-
-    useEffect(() => {
-        if (authed) {
-            connectPowerSync(api.authFetch).catch(() => undefined);
-            registerForPush().catch(() => undefined);
-        }
-    }, [authed]);
-
-    if (authed === null) {
+function Root() {
+    const { db, loading, failed, restore, discard, retry, reauthenticate } =
+        useReplicaSession(lifecycle);
+    if (loading || failed) {
         return (
             <View style={styles.boot}>
-                <Loading />
+                {failed ? (
+                    <>
+                        <LoadFailed
+                            variant="page"
+                            onRetry={() => {
+                                retry();
+                            }}
+                            retrying={loading}
+                            actions={
+                                <Button variant="quiet" onPress={reauthenticate}>
+                                    {strings.sync.signInAgain}
+                                </Button>
+                            }
+                        />
+                    </>
+                ) : (
+                    <Splash />
+                )}
             </View>
         );
     }
-    if (!authed) {
+    if (!db)
         return (
             <LoginScreen
                 onSuccess={() => {
-                    setAuthed(true);
+                    restore();
                 }}
             />
         );
-    }
     return (
         <PowerSyncContext.Provider value={db}>
-            <AuthedApp
-                onSignOut={() => {
-                    handleSignOut().catch(() => undefined);
-                }}
-            />
+            <BusinessScope onRetry={restore}>
+                {(businessKey) => (
+                    <AuthedApp
+                        key={businessKey}
+                        onSignOut={() => {
+                            discard();
+                        }}
+                    />
+                )}
+            </BusinessScope>
         </PowerSyncContext.Provider>
     );
 }
@@ -140,9 +160,13 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
         return (
             <View style={styles.boot}>
                 {business.state === "error" ? (
-                    <LoadFailed onRetry={business.retry} retrying={business.retrying} />
+                    <LoadFailed
+                        variant="page"
+                        onRetry={business.retry}
+                        retrying={business.retrying}
+                    />
                 ) : (
-                    <Loading />
+                    <Splash />
                 )}
             </View>
         );
@@ -251,3 +275,35 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
 const styles = StyleSheet.create({
     boot: { flex: 1, alignItems: "center", justifyContent: "center" },
 });
+
+function BusinessScope({
+    children,
+    onRetry,
+}: {
+    children: (key: string) => ReactNode;
+    onRetry: () => void;
+}) {
+    const business = useBusinessSelection(selectBusiness);
+    return (
+        <>
+            {business.options.length > 1 ? (
+                <Select
+                    label={strings.business.selectBusiness}
+                    placeholder={strings.business.chooseBusiness}
+                    options={business.options}
+                    value={business.selectedId ?? ""}
+                    onChange={business.choose}
+                    disabled={business.busy}
+                    error={business.error}
+                />
+            ) : null}
+            {business.ready ? (
+                children(business.selectedId ?? "onboarding")
+            ) : business.error ? (
+                <LoadFailed variant="page" onRetry={onRetry} retrying={false} />
+            ) : business.needsChoice ? null : (
+                <Splash />
+            )}
+        </>
+    );
+}

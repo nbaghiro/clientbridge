@@ -1,4 +1,5 @@
-import { useQuery } from "@powersync/react";
+import { useBusinessQuery as useQuery } from "../hooks";
+
 import { useEffect, useMemo, useState } from "react";
 
 import { useAsyncAction } from "../hooks";

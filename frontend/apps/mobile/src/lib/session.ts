@@ -9,7 +9,7 @@ export function useSignOut(): () => void {
     const signOut = useContext(SignOutContext);
     const sync = useSyncState();
     return useCallback(() => {
-        if (sync.pendingCount === 0) {
+        if (sync.queueKnown && sync.pendingCount === 0) {
             signOut();
             return;
         }
@@ -17,7 +17,7 @@ export function useSignOut(): () => void {
         const list = sync.pending.map((p) => `• ${p.label}`).join("\n");
         confirm({
             title: t.signOutTitle,
-            message: `${t.signOutBody(sync.pendingCount)}\n\n${list}\n\n${t.signOutSafe}`,
+            message: `${sync.queueKnown ? t.signOutBody(sync.pendingCount) : t.signOutUnknown}\n\n${list}\n\n${t.signOutSafe}`,
             confirmLabel: t.signOutConfirm,
             cancelLabel: t.signOutCancel,
             destructive: true,
@@ -26,5 +26,5 @@ export function useSignOut(): () => void {
                 if (ok) signOut();
             })
             .catch(() => undefined);
-    }, [signOut, sync.pendingCount, sync.pending]);
+    }, [signOut, sync.pendingCount, sync.pending, sync.queueKnown]);
 }

@@ -1,6 +1,15 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, String, UniqueConstraint, func
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    ForeignKey,
+    Index,
+    SmallInteger,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -89,3 +98,21 @@ class IdempotencyKey(PKMixin, BusinessScoped, TimestampMixin, Base):
     scope: Mapped[str] = mapped_column(String, nullable=False)
     key: Mapped[str] = mapped_column(String, nullable=False)
     response: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+
+
+class SyncReceipt(PKMixin, BusinessScoped, Base):
+    __tablename__ = "sync_receipts"
+    __table_args__ = (
+        UniqueConstraint("user_id", "device_id", "operation_id", name="uq_sync_receipt_operation"),
+        Index("ix_sync_receipt_created", "created_at"),
+    )
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    device_id: Mapped[str] = mapped_column(String, nullable=False)
+    operation_id: Mapped[str] = mapped_column(String, nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    version: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    result: Mapped[dict[str, int]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

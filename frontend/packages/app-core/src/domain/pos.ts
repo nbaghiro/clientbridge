@@ -1,4 +1,5 @@
-import { useQuery } from "@powersync/react";
+import { useBusinessQuery as useQuery } from "../hooks";
+
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { daysUntil, parseTimestamp, relativeDay, relativeDayTime } from "../datetime";
@@ -15,7 +16,7 @@ import {
     docRates,
     priceDoc,
 } from "./billing";
-import { utcSql } from "./bookings";
+import { utcSql } from "../datetime";
 import { type ItemRow, ITEMS_SQL, sellableItems, stockState } from "./catalog";
 import { type Checkout, NEW_CARD, useCheckout } from "./checkout";
 import { orderStatusSql } from "./ledger";

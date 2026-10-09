@@ -1,9 +1,8 @@
-import { useQuery } from "@powersync/react";
+import { useBusinessQuery as useQuery } from "../hooks";
 
 import type { IconName } from "../icons";
 import { strings } from "../strings";
 import type { Viewer } from "./auth";
-import { utcSql } from "./bookings";
 import { type SetupProgress, useSetupProgress } from "./business";
 import { invoiceStatusSql } from "./ledger";
 import { canManagePayments } from "./payments";
@@ -267,12 +266,6 @@ export const UNREAD_MESSAGES_SQL =
 
 export const OVERDUE_INVOICES_SQL = `SELECT COUNT(*) AS n FROM invoices i WHERE ${invoiceStatusSql("i")} = 'overdue'`;
 
-export const RECENT_CLIENTS_SQL = `
-SELECT c.id, c.name FROM bookings b
-JOIN slots s ON s.id = b.slot_id JOIN clients c ON c.id = b.client_id
-WHERE b.deleted_at IS NULL AND b.status != 'canceled' AND c.status = 'active'
-GROUP BY c.id, c.name ORDER BY MAX(${utcSql("s.starts_at")}) DESC LIMIT 6`;
-
 interface ShellNav {
     name: string;
     color: string | null;
@@ -280,7 +273,6 @@ interface ShellNav {
     roleLabel: string;
     badges: Partial<Record<DestinationKey, number>>;
     create: CreateAction[];
-    recentClients: { id: string; name: string }[];
     setup: SetupProgress;
     // Staff don't see setup progress: most steps are the owner's.
     showSetup: boolean;
@@ -298,7 +290,6 @@ export function useShellNav(viewer: Viewer | null): ShellNav {
     }>(VIEWER_STAFF_SQL, [viewer?.staffId ?? ""]).data[0];
     const unread = useQuery<{ n: number }>(UNREAD_MESSAGES_SQL).data[0]?.n ?? 0;
     const overdue = useQuery<{ n: number }>(OVERDUE_INVOICES_SQL).data[0]?.n ?? 0;
-    const recent = useQuery<{ id: string; name: string }>(RECENT_CLIENTS_SQL).data;
     const setup = useSetupProgress();
     return {
         name: me === undefined ? "" : staffName(me),
@@ -307,7 +298,6 @@ export function useShellNav(viewer: Viewer | null): ShellNav {
         roleLabel: roleLabel(role),
         badges: { inbox: unread, ...(manager ? { payments: overdue } : {}) },
         create: createActionsFor(role),
-        recentClients: recent.slice(0, 4),
         setup,
         showSetup: manager && !setup.complete && !setup.dismissed,
     };

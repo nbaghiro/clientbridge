@@ -99,6 +99,7 @@ class Staff(PKMixin, TimestampMixin, Base):
             name="ck_staff_rate_unit",
         ),
         UniqueConstraint("business_id", "user_id", name="uq_staff_business_user"),
+        CheckConstraint("hours_revision >= 0", name="ck_staff_hours_revision"),
     )
 
     business_id: Mapped[str] = mapped_column(
@@ -106,6 +107,7 @@ class Staff(PKMixin, TimestampMixin, Base):
     )
     user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     role: Mapped[str] = mapped_column(String, nullable=False)
+    hours_revision: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
     payee: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     rate_type: Mapped[str | None] = mapped_column(String)
     rate_bps: Mapped[int | None] = mapped_column(Integer)

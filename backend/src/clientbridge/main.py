@@ -21,6 +21,7 @@ from clientbridge.api.router import api_router
 from clientbridge.api.webhooks import router as webhooks_router
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import AppError, UnhandledErrors, app_error_handler
+from clientbridge.core.uploads import UploadSizeLimit
 from clientbridge.sync import router as sync_router
 
 
@@ -29,6 +30,8 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Clientbridge API", version="0.1.0")
     app.add_exception_handler(AppError, app_error_handler)
     app.add_middleware(UnhandledErrors)  # added first, so it runs inside CORS
+
+    app.add_middleware(UploadSizeLimit)
 
     # Dev allows any localhost origin; prod allows the configured ones, including Connect.
     extra_origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]

@@ -1,4 +1,5 @@
-import { useQuery } from "@powersync/react";
+import { useBusinessQuery as useQuery } from "../hooks";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { type ApiLike, newIdempotencyKey } from "../api";
@@ -13,6 +14,7 @@ import {
     sameDay,
     startOfDay,
     startOfWeek,
+    utcSql,
 } from "../datetime";
 import { firstName, formatMoney, formatPhone, initials } from "../format";
 import { type Load, useAsyncAction } from "../hooks";
@@ -135,10 +137,6 @@ export function layoutDay(events: CalendarEvent[], opts: LayoutOptions): Positio
 }
 
 // The replica stores timestamptz as "...Z" or a bare "+00" offset, which SQLite only parses as "+00:00".
-export function utcSql(column: string): string {
-    return `datetime(CASE WHEN ${column} LIKE '%+__' THEN ${column} || ':00' ELSE ${column} END)`;
-}
-
 type EventSource = "online" | "staff";
 
 const omitKey = <T>(rec: Record<string, T>, key: string): Record<string, T> =>

@@ -32,4 +32,6 @@ def test_server_only_tables_are_not_synced() -> None:
         Path(__file__).resolve().parents[2] / "infra" / "powersync" / "sync-rules.yaml"
     ).read_text()
     synced = set(re.findall(r"FROM\s+(\w+)", rules))
-    assert synced.isdisjoint({"sessions", "tokens", "commands", "webhooks", "audits"})
+    assert synced.isdisjoint(
+        {"sessions", "tokens", "commands", "webhooks", "audits", "sync_receipts"}
+    )

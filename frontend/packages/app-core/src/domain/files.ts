@@ -59,6 +59,10 @@ export function logoTarget(businessId: string): UploadTarget {
     return { parentType: "business", parentId: businessId, purpose: "logo" };
 }
 
+export function coverTarget(businessId: string): UploadTarget {
+    return { parentType: "business", parentId: businessId, purpose: "image" };
+}
+
 interface FileUpload {
     busy: boolean;
     error: string | null;

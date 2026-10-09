@@ -1,18 +1,24 @@
-// PowerSync connector: fetchCredentials() calls /sync/token and uploadData() posts to /sync/upload.
+// PowerSync downloads canonical data; the durable hours outbox owns offline writes.
 import type {
     CommonPowerSyncDatabase,
-    CrudEntry,
     PowerSyncBackendConnector,
     PowerSyncCredentials,
 } from "@powersync/common";
+
+import { startHoursUploads } from "./hours";
 
 interface ConnectorOptions {
     powersyncUrl: string;
     authFetch: (path: string, init?: RequestInit) => Promise<Response>;
 }
 
-export function createConnector(opts: ConnectorOptions): PowerSyncBackendConnector {
+export interface ManagedConnector extends PowerSyncBackendConnector {
+    startUploads?: (db: CommonPowerSyncDatabase) => () => Promise<void>;
+}
+
+export function createConnector(opts: ConnectorOptions): ManagedConnector {
     return {
+        startUploads: (db) => startHoursUploads(db, opts.authFetch),
         async fetchCredentials(): Promise<PowerSyncCredentials> {
             const res = await opts.authFetch("/sync/token");
             if (!res.ok) throw new Error(`sync token failed: ${res.status}`);
@@ -20,27 +26,10 @@ export function createConnector(opts: ConnectorOptions): PowerSyncBackendConnect
             return { endpoint: opts.powersyncUrl, token };
         },
 
-        async uploadData(database: CommonPowerSyncDatabase): Promise<void> {
-            const tx = await database.getNextCrudTransaction();
-            if (!tx) return;
-
-            const ops = tx.crud.map((e: CrudEntry) => ({
-                op: e.op, // PUT | PATCH | DELETE
-                type: e.table,
-                id: e.id,
-                data: e.opData,
-            }));
-
-            const res = await opts.authFetch("/sync/upload", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ops }),
-            });
-            if (!res.ok) {
-                // Throwing leaves the transaction queued for retry on the next sync.
-                throw new Error(`sync upload failed: ${res.status}`);
-            }
-            await tx.complete();
+        uploadData(): Promise<void> {
+            return Promise.reject(
+                new Error("Unexpected direct replica write; use the hours outbox"),
+            );
         },
     };
 }

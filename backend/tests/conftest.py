@@ -20,7 +20,7 @@ from clientbridge.core.ratelimit import (
     public_prefs_rate_limit,
     public_review_rate_limit,
 )
-from clientbridge.core.security import hash_password, issue_access_token
+from clientbridge.core.security import hash_password
 from clientbridge.integrations.expo import Push, get_push_sender
 from clientbridge.integrations.google import OAuthProfile, get_oauth_verifier
 from clientbridge.integrations.postmark import Email, EmailSender, get_email_sender
@@ -438,19 +438,23 @@ async def api(
     app.dependency_overrides.clear()
 
 
-def _bearer(user_id: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {issue_access_token(user_id)}"}
+async def access_token(db: AsyncSession, user_id: str) -> str:
+    from clientbridge.services.auth import AuthService
+
+    return (await AuthService(db).issue_session(user_id)).access_token
 
 
 @pytest.fixture
-def as_owner(api: httpx.AsyncClient) -> httpx.AsyncClient:
-    api.headers.update({**_bearer(OWNER_USER), "X-Business-Id": BIZ})
+async def as_owner(api: httpx.AsyncClient, db: AsyncSession) -> httpx.AsyncClient:
+    token = await access_token(db, OWNER_USER)
+    api.headers.update({"Authorization": f"Bearer {token}", "X-Business-Id": BIZ})
     return api
 
 
 @pytest.fixture
-def as_staff(api: httpx.AsyncClient) -> httpx.AsyncClient:
-    api.headers.update(_bearer(STAFF_USER))
+async def as_staff(api: httpx.AsyncClient, db: AsyncSession) -> httpx.AsyncClient:
+    token = await access_token(db, STAFF_USER)
+    api.headers.update({"Authorization": f"Bearer {token}"})
     return api
 
 

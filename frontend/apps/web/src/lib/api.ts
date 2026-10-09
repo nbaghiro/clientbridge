@@ -1,7 +1,7 @@
 import { type Session, createSession } from "@clientbridge/api-client";
 
 import { config } from "../config";
-import { clearTokens, getTokens, setTokens } from "./auth";
+import { clearSavedTokens, getTokens, saveTokens, sessionEpoch, withSessionLock } from "./auth";
 
 export const apiBaseUrl = config.apiUrl;
 
@@ -11,22 +11,18 @@ export function onSignedOut(handler: () => void): void {
     signedOutHandler = handler;
 }
 
-export const api: Session = createSession({
+const session = createSession({
     baseUrl: apiBaseUrl,
-    store: {
-        get: () => Promise.resolve(getTokens()),
-        set: (tokens) => {
-            setTokens(tokens);
-            return Promise.resolve();
-        },
-        clear: () => {
-            clearTokens();
-            return Promise.resolve();
-        },
-    },
+    epoch: sessionEpoch,
+    lock: withSessionLock,
+    store: { get: () => Promise.resolve(getTokens()), set: saveTokens, clear: clearSavedTokens },
     onSignedOut: () => {
         signedOutHandler();
     },
-    // Serialize refresh across tabs so two tabs can't replay the same refresh token.
-    lock: <T>(fn: () => Promise<T>): Promise<T> => navigator.locks.request("cb-token-refresh", fn),
 });
+
+export let api: Session = session;
+
+export function selectBusiness(businessId: string | null): void {
+    api = session.forBusiness(businessId);
+}

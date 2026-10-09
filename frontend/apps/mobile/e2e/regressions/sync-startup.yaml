@@ -1,0 +1,14 @@
+appId: ca.clientbridge.app
+name: Scoped replica startup and hours editor
+---
+- runFlow: ../helpers/owner.yaml
+- tapOn: "Setup"
+- tapOn: "Team & hours"
+- scrollUntilVisible:
+      element: "Regular hours"
+      direction: DOWN
+- scrollUntilVisible:
+      element: "Save hours"
+      direction: DOWN
+- assertNotVisible: "This didn't load."
+- takeScreenshot: scoped-hours-ready

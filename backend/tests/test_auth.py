@@ -1,6 +1,7 @@
 """Password auth + JWT sessions: register/login, refresh rotation/reuse, logout, token rejection."""
 
 import time
+from uuid import uuid4
 
 import httpx
 import jwt
@@ -111,28 +112,43 @@ async def _login(api: httpx.AsyncClient, factory: Factory) -> tuple[str, str]:
 
 async def test_refresh_rotates(api: httpx.AsyncClient, factory: Factory) -> None:
     _, refresh = await _login(api, factory)
-    res = await api.post("/auth/refresh", json={"refresh_token": refresh})
+    res = await api.post(
+        "/auth/refresh", json={"refresh_token": refresh, "attempt_id": str(uuid4())}
+    )
     assert res.status_code == 200
     assert res.json()["refresh_token"] != refresh  # rotated to a new token
 
 
 async def test_refresh_invalid_401(api: httpx.AsyncClient) -> None:
-    res = await api.post("/auth/refresh", json={"refresh_token": "not-a-real-token"})
+    res = await api.post(
+        "/auth/refresh", json={"refresh_token": "not-a-real-token", "attempt_id": str(uuid4())}
+    )
     assert res.status_code == 401
+
+
+async def test_refresh_requires_an_attempt_identity(api: httpx.AsyncClient) -> None:
+    response = await api.post("/auth/refresh", json={"refresh_token": "unused"})
+    assert response.status_code == 422
 
 
 async def test_refresh_reuse_revokes_family(api: httpx.AsyncClient, factory: Factory) -> None:
     _, refresh = await _login(api, factory)
-    first = await api.post("/auth/refresh", json={"refresh_token": refresh})
+    first = await api.post(
+        "/auth/refresh", json={"refresh_token": refresh, "attempt_id": str(uuid4())}
+    )
     assert first.status_code == 200
     new_refresh = first.json()["refresh_token"]
 
     # replaying the OLD (already-rotated) refresh → reuse detected → 401
-    replay = await api.post("/auth/refresh", json={"refresh_token": refresh})
+    replay = await api.post(
+        "/auth/refresh", json={"refresh_token": refresh, "attempt_id": str(uuid4())}
+    )
     assert replay.status_code == 401
 
     # ...and the whole family is now revoked: the legit NEW refresh no longer works either
-    after = await api.post("/auth/refresh", json={"refresh_token": new_refresh})
+    after = await api.post(
+        "/auth/refresh", json={"refresh_token": new_refresh, "attempt_id": str(uuid4())}
+    )
     assert after.status_code == 401
 
 
@@ -140,7 +156,9 @@ async def test_logout_revokes(api: httpx.AsyncClient, factory: Factory) -> None:
     _, refresh = await _login(api, factory)
     res = await api.post("/auth/logout", json={"refresh_token": refresh})
     assert res.status_code == 204
-    after = await api.post("/auth/refresh", json={"refresh_token": refresh})
+    after = await api.post(
+        "/auth/refresh", json={"refresh_token": refresh, "attempt_id": str(uuid4())}
+    )
     assert after.status_code == 401
 
 
@@ -152,7 +170,7 @@ async def test_logout_unknown_token_204(api: httpx.AsyncClient) -> None:
 
 async def test_tampered_access_token_rejected(api: httpx.AsyncClient) -> None:
     # real header + payload, but a signature that can't match the HMAC → always rejected
-    header, payload, _sig = issue_access_token(OWNER_USER).split(".")
+    header, payload, _sig = issue_access_token(OWNER_USER, family_id="test-family").split(".")
     tampered = f"{header}.{payload}.wrongsignature"
     assert (await api.get("/v1/staff/team", headers=_auth(tampered))).status_code == 401
 
@@ -263,7 +281,9 @@ async def test_reset_invalidates_sessions(
     token = email.sent[-1].body.split()[-1]
     await api.post("/auth/reset-password", json={"token": token, "new_password": "new-password"})
     # the pre-reset session is dead
-    refresh = await api.post("/auth/refresh", json={"refresh_token": old_refresh})
+    refresh = await api.post(
+        "/auth/refresh", json={"refresh_token": old_refresh, "attempt_id": str(uuid4())}
+    )
     assert refresh.status_code == 401
 
 
@@ -289,3 +309,130 @@ async def test_register_sends_and_verifies_email(
 async def test_verify_invalid_token_401(api: httpx.AsyncClient) -> None:
     res = await api.post("/auth/verify-email", json={"token": "bogus"})
     assert res.status_code == 401
+
+
+async def test_refresh_replays_same_attempt_without_revoking_family(
+    api: httpx.AsyncClient, factory: Factory, db: AsyncSession
+) -> None:
+    from uuid import uuid4
+
+    from sqlalchemy import select
+
+    from clientbridge.core.security import hash_token
+    from clientbridge.models.auth import AuthSession
+
+    _, refresh = await _login(api, factory)
+    body = {"refresh_token": refresh, "attempt_id": str(uuid4())}
+    first = await api.post("/auth/refresh", json=body)
+    replay = await api.post("/auth/refresh", json=body)
+    assert first.status_code == replay.status_code == 200
+    assert first.json() == replay.json()
+    stored = await db.scalar(
+        select(AuthSession).where(AuthSession.token_hash == hash_token(refresh))
+    )
+    assert stored is not None and stored.replay_ciphertext is not None
+    assert first.json()["refresh_token"] not in stored.replay_ciphertext
+    assert first.json()["access_token"] not in stored.replay_ciphertext
+    next_refresh = await api.post(
+        "/auth/refresh",
+        json={"refresh_token": first.json()["refresh_token"], "attempt_id": str(uuid4())},
+    )
+    assert next_refresh.status_code == 200, next_refresh.text
+
+
+async def test_refresh_different_attempt_revokes_family(
+    api: httpx.AsyncClient, factory: Factory
+) -> None:
+    from uuid import uuid4
+
+    _, refresh = await _login(api, factory)
+    first = await api.post(
+        "/auth/refresh", json={"refresh_token": refresh, "attempt_id": str(uuid4())}
+    )
+    assert first.status_code == 200
+    replay = await api.post(
+        "/auth/refresh", json={"refresh_token": refresh, "attempt_id": str(uuid4())}
+    )
+    assert replay.status_code == 401
+    after = await api.post(
+        "/auth/refresh",
+        json={"refresh_token": first.json()["refresh_token"], "attempt_id": str(uuid4())},
+    )
+    assert after.status_code == 401
+
+
+async def test_logout_prevents_refresh_replay(api: httpx.AsyncClient, factory: Factory) -> None:
+    from uuid import uuid4
+
+    _, refresh = await _login(api, factory)
+    body = {"refresh_token": refresh, "attempt_id": str(uuid4())}
+    first = await api.post("/auth/refresh", json=body)
+    assert first.status_code == 200
+    assert (
+        await api.post("/auth/logout", json={"refresh_token": first.json()["refresh_token"]})
+    ).status_code == 204
+    assert (await api.post("/auth/refresh", json=body)).status_code == 401
+
+
+async def test_expired_refresh_replay_is_pruned_and_refused(
+    api: httpx.AsyncClient, factory: Factory, db: AsyncSession
+) -> None:
+    from datetime import UTC, datetime, timedelta
+    from uuid import uuid4
+
+    from sqlalchemy import update
+
+    from clientbridge.models.auth import AuthSession
+    from clientbridge.services.auth import run_prune_refreshes
+
+    _, refresh = await _login(api, factory)
+    body = {"refresh_token": refresh, "attempt_id": str(uuid4())}
+    assert (await api.post("/auth/refresh", json=body)).status_code == 200
+    now = datetime.now(UTC)
+    await db.execute(
+        update(AuthSession)
+        .where(AuthSession.replay_ciphertext.is_not(None))
+        .values(replay_expires_at=now - timedelta(seconds=1))
+    )
+    assert await run_prune_refreshes(db, now) >= 1
+    assert (await api.post("/auth/refresh", json=body)).status_code == 401
+
+
+async def test_concurrent_same_refresh_attempt_returns_one_rotation(db: AsyncSession) -> None:
+    import asyncio
+    from uuid import uuid4
+
+    from sqlalchemy import delete, select
+
+    from clientbridge.core.db import SessionLocal
+    from clientbridge.core.security import decode_jwt
+    from clientbridge.main import create_app
+    from clientbridge.models.auth import AuthSession
+    from clientbridge.services.auth import AuthService
+
+    async with SessionLocal() as session:
+        pair = await AuthService(session).issue_session(OWNER_USER)
+    family = str(decode_jwt(pair.access_token)["sid"])
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=create_app()), base_url="http://test"
+        ) as client:
+            body = {"refresh_token": pair.refresh_token, "attempt_id": str(uuid4())}
+            first, second = await asyncio.gather(
+                client.post("/auth/refresh", json=body), client.post("/auth/refresh", json=body)
+            )
+            assert first.status_code == second.status_code == 200, (first.text, second.text)
+            assert first.json() == second.json()
+        async with SessionLocal() as session:
+            active = list(
+                await session.scalars(
+                    select(AuthSession).where(
+                        AuthSession.family_id == family, AuthSession.revoked_at.is_(None)
+                    )
+                )
+            )
+            assert len(active) == 1
+    finally:
+        async with SessionLocal() as session:
+            await session.execute(delete(AuthSession).where(AuthSession.family_id == family))
+            await session.commit()

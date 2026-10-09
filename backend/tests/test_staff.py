@@ -5,10 +5,9 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.security import issue_access_token
 from clientbridge.models.business import Business
 from clientbridge.models.platform import Audit
-from tests.conftest import Factory, FakeEmailSender
+from tests.conftest import Factory, FakeEmailSender, access_token
 
 BIZ = "bz_birchbark"
 
@@ -329,7 +328,7 @@ async def _as_admin(api: httpx.AsyncClient, db: AsyncSession, factory: Factory) 
     assert biz is not None
     user = await factory.user()
     await factory.staff(business=biz, user=user, role="admin")
-    api.headers.update({"Authorization": f"Bearer {issue_access_token(user.id)}"})
+    api.headers.update({"Authorization": f"Bearer {await access_token(factory.db, user.id)}"})
 
 
 async def test_an_admin_cannot_change_or_remove_the_owner_403(

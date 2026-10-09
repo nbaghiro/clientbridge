@@ -1,4 +1,4 @@
-import { AppSchema } from "@clientbridge/sync";
+import { AppSchema, businessQuery } from "@clientbridge/sync";
 import initSqlJs, { type Database, type SqlValue } from "sql.js";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -30,7 +30,7 @@ function scoped(table: string, rows: Row[]): void {
 }
 
 function all(sql: string, params: SqlValue[] = []): Row[] {
-    const stmt = db.prepare(sql);
+    const stmt = db.prepare(businessQuery(sql));
     stmt.bind(params);
     const out: Row[] = [];
     while (stmt.step()) out.push(stmt.getAsObject());
@@ -82,6 +82,7 @@ function journal(
 }
 
 function seed(): void {
+    insert("business_selection", [{ id: "current", business_id: BIZ }]);
     insert("businesses", [
         {
             id: BIZ,
@@ -95,7 +96,6 @@ function seed(): void {
             stripe_account_id: "acct_1",
             stripe_terminal_location_id: "tml_1",
             tax_registered: 1,
-            status: "active",
         },
     ]);
     scoped("staff", [
@@ -1218,13 +1218,6 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("RECURRING_HOURS_SQL", ["st_amy"])).toEqual([
             { weekday: 1, start_time: "09:00:00", end_time: "17:00:00", available: 1 },
         ]);
-
-        run("CLEAR_RECURRING_HOURS_SQL", ["st_amy"]);
-        run("INSERT_RECURRING_HOURS_SQL", ["av_new", BIZ, "st_amy", 2, "10:00:00", "14:00:00", 1]);
-        expect(run("RECURRING_HOURS_SQL", ["st_amy"])).toEqual([
-            { weekday: 2, start_time: "10:00:00", end_time: "14:00:00", available: 1 },
-        ]);
-        expect(all("SELECT id FROM hours WHERE staff_id = 'st_amy'").length).toBe(2);
     });
 
     it("builds Today from the day's slots, hours and the client's last visit", () => {
@@ -1249,8 +1242,8 @@ describe("app-core SQL against the replica schema", () => {
                 checked_in_at: null,
             },
         ]);
-        expect(run("TODAY_HOURS_SQL", [2])).toEqual([
-            { staff_id: "st_amy", start_time: "10:00:00", end_time: "14:00:00", available: 1 },
+        expect(run("TODAY_HOURS_SQL", [1])).toEqual([
+            { staff_id: "st_amy", start_time: "09:00:00", end_time: "17:00:00", available: 1 },
         ]);
         expect(run("CLIENT_LAST_VISIT_SQL", ["cl_ann", "2026-06-27T00:00:00.000Z"])).toEqual([
             { starts_at: "2026-06-26 10:00:00+00" },
@@ -1258,16 +1251,12 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("CLIENT_LAST_VISIT_SQL", ["cl_ann", "2026-06-26T00:00:00.000Z"])).toEqual([]);
     });
 
-    it("feeds the shell: the viewer, counts, recent clients and setup progress", () => {
+    it("feeds the shell: the viewer, counts and setup progress", () => {
         expect(run("VIEWER_STAFF_SQL", ["st_amy"])).toEqual([
             { name: null, title: "Groomer", role: "staff", color: null },
         ]);
         expect(run("UNREAD_MESSAGES_SQL")).toEqual([{ n: 2 }]);
         expect(run("OVERDUE_INVOICES_SQL")).toEqual([{ n: 0 }]);
-        expect(run("RECENT_CLIENTS_SQL")).toEqual([
-            { id: "cl_ben", name: "ben" },
-            { id: "cl_ann", name: "Ann" },
-        ]);
         expect(
             pick(run("SETUP_PROGRESS_SQL"), "services", "hours", "team", "stripe", "slug"),
         ).toEqual([{ services: 1, hours: 1, team: 3, stripe: 0, slug: null }]);

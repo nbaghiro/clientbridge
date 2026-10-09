@@ -4,19 +4,18 @@ import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.security import issue_access_token
-from tests.conftest import Factory
+from tests.conftest import Factory, access_token
 
 
-def _auth(api: httpx.AsyncClient, user_id: str) -> None:
-    api.headers.update({"Authorization": f"Bearer {issue_access_token(user_id)}"})
+async def _auth(api: httpx.AsyncClient, factory: Factory, user_id: str) -> None:
+    api.headers.update({"Authorization": f"Bearer {await access_token(factory.db, user_id)}"})
 
 
 async def test_onboard_creates_business_owner_and_taxes(
     api: httpx.AsyncClient, factory: Factory, db: AsyncSession
 ) -> None:
     user = await factory.user()
-    _auth(api, user.id)
+    await _auth(api, factory, user.id)
     res = await api.post(
         "/v1/onboarding", json={"name": "Acme Cleaning", "slug": "acme-clean", "province": "BC"}
     )
@@ -41,7 +40,7 @@ async def test_onboard_creates_business_owner_and_taxes(
 
 async def test_onboard_province_drives_taxes(api: httpx.AsyncClient, factory: Factory) -> None:
     user = await factory.user()
-    _auth(api, user.id)
+    await _auth(api, factory, user.id)
     res = await api.post(
         "/v1/onboarding", json={"name": "ON Biz", "slug": "on-biz", "province": "ON"}
     )
@@ -54,7 +53,7 @@ async def test_onboard_owner_can_access_their_team(
     api: httpx.AsyncClient, factory: Factory
 ) -> None:
     user = await factory.user()
-    _auth(api, user.id)
+    await _auth(api, factory, user.id)
     res = await api.post("/v1/onboarding", json={"name": "X", "slug": "x-co", "province": "AB"})
     assert res.status_code == 201
     res = await api.get("/v1/staff/team")
@@ -66,7 +65,7 @@ async def test_onboard_duplicate_slug_409_no_partial(
     api: httpx.AsyncClient, factory: Factory, db: AsyncSession
 ) -> None:
     user = await factory.user()
-    _auth(api, user.id)
+    await _auth(api, factory, user.id)
     first = await api.post(
         "/v1/onboarding", json={"name": "A", "slug": "dup-slug", "province": "AB"}
     )
@@ -90,7 +89,7 @@ async def test_invalid_province_422(
     api: httpx.AsyncClient, factory: Factory, db: AsyncSession
 ) -> None:
     user = await factory.user()
-    _auth(api, user.id)
+    await _auth(api, factory, user.id)
     res = await api.post("/v1/onboarding", json={"name": "X", "slug": "bad-prov", "province": "XX"})
     assert res.status_code == 422  # an unsupported province must be rejected, not stored
     n = (await db.execute(text("SELECT count(*) FROM businesses WHERE slug = 'bad-prov'"))).scalar()

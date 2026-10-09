@@ -1,4 +1,5 @@
-import { useQuery } from "@powersync/react";
+import { useBusinessQuery as useQuery } from "../hooks";
+
 import { useMemo, useState } from "react";
 
 import { formatTime, parseTimestamp, sameDay, startOfDay, weekdayDay } from "../datetime";
@@ -9,7 +10,7 @@ import { strings } from "../strings";
 import type { Intent } from "../ui";
 import type { Viewer } from "./auth";
 import { invoiceStatusSql } from "./ledger";
-import { utcSql } from "./bookings";
+import { utcSql } from "../datetime";
 import { type CreateAction, type ShellTarget, createActionsFor } from "./navigation";
 import { canManagePayments } from "./payments";
 import { staffName } from "./staff";

@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from pydantic import BaseModel
 
 
@@ -12,8 +14,12 @@ class LoginBody(BaseModel):
     password: str
 
 
-class RefreshBody(BaseModel):
+class LogoutBody(BaseModel):
     refresh_token: str
+
+
+class RefreshBody(LogoutBody):
+    attempt_id: UUID
 
 
 class TokenPair(BaseModel):

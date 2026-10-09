@@ -1,6 +1,6 @@
 import { type Session, createSession } from "@clientbridge/api-client";
 
-import { clearTokens, getTokens, setTokens } from "./auth";
+import { clearSavedTokens, getTokens, saveTokens, sessionEpoch, withSessionLock } from "./auth";
 import { apiUrl } from "./config";
 
 export const apiBaseUrl = apiUrl;
@@ -11,10 +11,18 @@ export function onSignedOut(handler: () => void): void {
     signedOutHandler = handler;
 }
 
-export const api: Session = createSession({
+const session = createSession({
     baseUrl: apiBaseUrl,
-    store: { get: getTokens, set: setTokens, clear: clearTokens },
+    epoch: sessionEpoch,
+    lock: withSessionLock,
+    store: { get: () => Promise.resolve(getTokens()), set: saveTokens, clear: clearSavedTokens },
     onSignedOut: () => {
         signedOutHandler();
     },
 });
+
+export let api: Session = session;
+
+export function selectBusiness(businessId: string | null): void {
+    api = session.forBusiness(businessId);
+}

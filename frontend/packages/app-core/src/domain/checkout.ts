@@ -1,3 +1,4 @@
+import type { PublicBrand } from "./publicResource";
 import { useRef, useState } from "react";
 
 import { usePublicResource } from "./publicResource";
@@ -210,6 +211,7 @@ export function useAddPaymentMethod(
 }
 
 interface PublicPaymentSetup {
+    brand: PublicBrand;
     business_name: string;
     client_name: string;
     expires_at: string;

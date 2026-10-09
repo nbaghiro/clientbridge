@@ -1,4 +1,5 @@
-import { useQuery } from "@powersync/react";
+import { useBusinessQuery as useQuery } from "../hooks";
+
 import { useMemo, useState } from "react";
 
 import { formatDate, formatTime, parseTimestamp } from "../datetime";

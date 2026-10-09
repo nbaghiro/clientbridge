@@ -92,7 +92,7 @@ function Overlay({ onClose }: { onClose: () => void }) {
 
     const reconnect = async (): Promise<void> => {
         await db.disconnect();
-        await connectPowerSync(api.authFetch);
+        await connectPowerSync(api);
     };
 
     const testWrite = async (): Promise<void> => {

@@ -1,0 +1,1182 @@
+{
+  "title": "Sync reliability execution queue",
+  "status": "in_progress",
+  "created_at": "2026-10-08T23:43:39.615733+00:00",
+  "plan": "plan.md",
+  "assessment": "../../reviews/sync/assessment.json",
+  "execution_order": [
+    "SH00",
+    "SH01",
+    "SH02",
+    "SH03",
+    "SH07",
+    "SH04",
+    "SH08",
+    "SH12",
+    "SH09",
+    "SH11",
+    "SH16",
+    "SH05",
+    "SH10",
+    "SH17",
+    "SH06",
+    "SH13",
+    "SH21",
+    "SH14",
+    "SH15",
+    "SH18",
+    "SH23",
+    "SH19",
+    "SH24",
+    "SH20",
+    "SH22",
+    "SH25",
+    "SH26"
+  ],
+  "execution_policy": {
+    "auto_commit": false,
+    "auto_push": false,
+    "auto_deploy": false,
+    "shared_demo_reset": false,
+    "preserve_concurrent_edits": true,
+    "one_writer_per_shared_contract": true,
+    "delegation": "No agents are started by this plan; any later delegation follows the user and active tool instructions.",
+    "schema_changes_require_explicit_approval": true,
+    "old_client_compatibility": false,
+    "current_schema_authorization": "User explicitly authorized continuing the updated plan, including needed database reverts and updates, after reviewing the current changes. Applies to this execution; future unrelated schema work still requires approval."
+  },
+  "tasks": [
+    {
+      "id": "SH00",
+      "title": "Capture current baseline and reconcile concurrent work",
+      "status": "complete",
+      "depends_on": [],
+      "findings": [],
+      "scope": [
+        ".docs/executions/sync-hardening/",
+        ".scratchpad/sync-hardening/"
+      ],
+      "deliverables": [
+        "Record HEAD, dirty-file hashes, SDK/service/image versions and environment readiness",
+        "Map overlapping backend-hardening tasks and their actual current implementation",
+        "Establish disposable test infrastructure lifecycle; no shared reseed"
+      ],
+      "acceptance": [
+        "Baseline known failures are recorded separately from newly introduced failures",
+        "Relevant sync files have one identified writer and migration head is recorded",
+        "No extra persistent database or simulator is created"
+      ],
+      "verification": [
+        "Read-only inventory",
+        "Existing sync auth/upload tests",
+        "Store command logs and source fingerprints"
+      ],
+      "owner": "current session",
+      "evidence": [
+        ".scratchpad/sync-hardening/baseline.json",
+        "Baseline auth/upload: 34 passed; isolated pg_dump copy, no live database writes",
+        "HEAD dc594143e6f7c384b5055579bdfb06839bbe503b; migration head cbpayments02; current dirty UI/public/demo changes preserved"
+      ],
+      "blocked_by": null
+    },
+    {
+      "id": "SH01",
+      "title": "Prove queue metadata and SDK recovery primitives",
+      "status": "complete",
+      "depends_on": [
+        "SH00"
+      ],
+      "findings": [
+        "S01",
+        "S07",
+        "S09",
+        "S16"
+      ],
+      "scope": [
+        "frontend/packages/sync/",
+        "frontend/packages/api-client/",
+        ".scratchpad/sync-hardening/"
+      ],
+      "deliverables": [
+        "Prove a durable transaction-ID mapping using documented installed SDK APIs",
+        "Reproduce queue completion, rejected-overlay reconciliation and queued successor behavior",
+        "Evaluate checkpoint catch-up, cancellation, queue count and supported identity migration; record stable fallbacks"
+      ],
+      "acceptance": [
+        "Crash/restart retains the same upload identity",
+        "No direct writes to PowerSync internal tables are required",
+        "A rejection preserves intent before acknowledgement and cannot contaminate later operations",
+        "No assumed alpha API becomes a required runtime dependency without compatibility evidence"
+      ],
+      "verification": [
+        "Executable connector/SDK fault probes",
+        "Record versions and exact supported methods"
+      ],
+      "owner": "current session",
+      "evidence": [
+        "Actual SQLite browser SDK tests: transaction/client IDs and durable local-only metadata survive reopen; completion leaves optimistic rows until service checkpoint reconciliation",
+        "Real-service rejection and successor recovery probe passes; no internal PowerSync SQL writes",
+        "Installed common/native 2.3.1, web 2.4.2; service 1.26.1. Alpha requestCheckpoint is not a runtime dependency; bounded authoritative-row observation remains the fallback"
+      ],
+      "blocked_by": null
+    },
+    {
+      "id": "SH02",
+      "title": "Build a real PowerSync integration harness",
+      "status": "complete",
+      "depends_on": [
+        "SH00"
+      ],
+      "findings": [
+        "S06"
+      ],
+      "scope": [
+        "infra/",
+        "backend/tests/",
+        "frontend/packages/sync/",
+        ".github/workflows/ci.yml",
+        "Makefile"
+      ],
+      "deliverables": [
+        "Pinned disposable Postgres/PowerSync and actual SQLite client SDK harness",
+        "Deterministic owner/admin/staff/contractor/multi-business fixtures",
+        "Proxy fault controls and bounded wait helpers; cleanup on success/failure"
+      ],
+      "acceptance": [
+        "Server row appears in actual replica through configured rules",
+        "Unrelated tenant is absent",
+        "CI can collect sanitized diagnostics and always clean up",
+        "No dependence on main demo database"
+      ],
+      "verification": [
+        "Small real-service smoke suite",
+        "Run harness twice to verify deterministic cleanup"
+      ],
+      "owner": "current session",
+      "evidence": [
+        "Repeated disposable pinned-image runs pass 13 actual SDK/service cases and clean all per-run resources. CI uses the same harness.",
+        "Offline transport and lost-response/reopen probes use deterministic fixtures independent of demo data."
+      ],
+      "blocked_by": null
+    },
+    {
+      "id": "SH03",
+      "title": "Implement typed and bounded hours commands",
+      "status": "complete",
+      "depends_on": [
+        "SH00"
+      ],
+      "findings": [
+        "S02"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/hours.py",
+        "backend/src/clientbridge/schemas/hours.py",
+        "backend/tests/test_hours.py",
+        "backend/tests/test_hours_constraints.py"
+      ],
+      "deliverables": [
+        "Exactly seven unique weekdays, strict local times/booleans, scoped member authorization and revision validation",
+        "256 KiB command body bound and database hours constraints",
+        "Remove superseded generic CRUD endpoint and reflection policy"
+      ],
+      "acceptance": [
+        "Malformed week or cross-tenant/unauthorized staff update cannot mutate hours",
+        "Failed operation rolls back both receipt and hours",
+        "Raw CRUD endpoint is absent"
+      ],
+      "verification": [
+        "Extend existing rollback-only reproductions into regression tests",
+        "Boundary, tenancy, authorization, concurrency and full-batch rollback tests",
+        "Backend lint/types; codegen when contract changes"
+      ],
+      "owner": "current session",
+      "evidence": [
+        "65 focused auth/upload/flow/constraint cases passed before receipt additions",
+        "Strict mypy/ruff pass; generated OpenAPI contract refreshed",
+        "cbsync01 applied only to isolated verification resources; no existing invalid schedules in baseline copy",
+        "Current command replaces the interim generic uploader; 37 focused hours/receipt/constraint/time-off cases pass."
+      ],
+      "blocked_by": null
+    },
+    {
+      "id": "SH04",
+      "title": "Persist atomic upload receipts and replay results",
+      "status": "complete",
+      "depends_on": [
+        "SH01",
+        "SH03"
+      ],
+      "findings": [
+        "S01"
+      ],
+      "scope": [
+        "backend/src/clientbridge/core/command.py",
+        "backend/src/clientbridge/models/platform.py",
+        "backend/src/clientbridge/services/",
+        "backend/src/clientbridge/sync/upload.py",
+        "backend/migrations/versions/",
+        "backend/tests/",
+        "frontend/packages/sync/"
+      ],
+      "deliverables": [
+        "Implement versioned envelope and stable persisted request identity",
+        "Atomic actor/device/operation uniqueness, payload hash and mutation result",
+        "90-day receipt horizon with fail-closed old request handling; server-only retention job",
+        "Remove superseded upload handling when the single replacement path is verified"
+      ],
+      "acceptance": [
+        "Drop success response after commit: retry changes data once and returns original success",
+        "Same key with different payload returns 409",
+        "Concurrent identical uploads produce one effect",
+        "Expired receipt requests cannot be accepted as fresh",
+        "Receipts never appear in client sync rules"
+      ],
+      "verification": [
+        "Real response-drop integration test",
+        "Concurrent transaction test",
+        "Retention boundary and permission-change tests"
+      ],
+      "owner": "current session",
+      "evidence": [
+        "Typed hours command commits actor/device/operation receipt and mutation atomically; mismatched payload, stale operation age, cross-tenant and membership replay rejection tests pass.",
+        "Concurrent separate-connection tests prove identical operations affect the week once; different operations at the same revision conflict.",
+        "Actual-service test commits through the real ASGI API, drops the response, reopens SQLite, replays unchanged payload, observes revision 1 through PowerSync, and prunes the accepted outbox item.",
+        "Server-only receipt model is excluded from the generated projection schema."
+      ],
+      "blocked_by": null
+    },
+    {
+      "id": "SH05",
+      "title": "Recover rejected edits without blocking unrelated work",
+      "status": "in_progress",
+      "depends_on": [
+        "SH01",
+        "SH03",
+        "SH04",
+        "SH07",
+        "SH09"
+      ],
+      "findings": [
+        "S01",
+        "S08"
+      ],
+      "scope": [
+        "frontend/packages/sync/",
+        "frontend/packages/app-core/src/domain/sync.ts",
+        "frontend/packages/ui/",
+        "frontend/packages/app-core/src/strings.ts",
+        "backend/src/clientbridge/services/"
+      ],
+      "deliverables": [
+        "Structured outcome classifier and bounded retry policy",
+        "Durable user-bound rejected-change records with repair/discard actions",
+        "Reconcile optimistic state before completing rejected CRUD entries; preserve dependent operation order"
+      ],
+      "acceptance": [
+        "Permanent rejection does not retry forever",
+        "Original user intent remains recoverable after restart",
+        "Unrelated later edits proceed while dependent edits wait",
+        "Explicit repair issues a new immutable operation identity",
+        "No rejection payload or token appears in telemetry"
+      ],
+      "verification": [
+        "403/422/409 versus 408/429/5xx fault tests",
+        "Whole-batch rejection and queued-successor tests",
+        "Web/native recovery component checks"
+      ],
+      "owner": "current session",
+      "evidence": [
+        "Single typed hours command and local-only outbox implemented; 37 backend, four outbox fault, and 19 actual-service suite cases pass. Native device/UI acceptance remains outstanding."
+      ],
+      "blocked_by": null
+    },
+    {
+      "id": "SH06",
+      "title": "Replace recurring-hours row churn with a versioned offline aggregate",
+      "status": "in_progress",
+      "depends_on": [
+        "SH04",
+        "SH05",
+        "SH09",
+        "SH12"
+      ],
+      "findings": [
+        "S07",
+        "S01"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/",
+        "backend/src/clientbridge/api/",
+        "backend/src/clientbridge/schemas/",
+        "backend/src/clientbridge/models/scheduling.py",
+        "backend/migrations/versions/",
+        "frontend/packages/app-core/src/domain/hours.ts",
+        "frontend/packages/sync/",
+        "backend/scripts/gen_sync_schema.py"
+      ],
+      "deliverables": [
+        "Atomic versioned staff-week command and stable canonical rows",
+        "Local-only durable hours outbox and explicit pending overlay",
+        "Immutable attempted operations, unsent coalescing and revision-linked successors",
+        "Remove direct CRUD hours writes when the current command/outbox path is verified"
+      ],
+      "acceptance": [
+        "Concurrent offline edits produce one accepted version and a visible resolvable conflict",
+        "No duplicate recurring rows or silent lost edits",
+        "Crash at every persistence/commit/ack boundary preserves intent",
+        "Switching business never changes operation ownership",
+        "No old-client runtime adapter remains; existing development data is not silently deleted"
+      ],
+      "verification": [
+        "Two real clients editing same baseline in both reconnect orders",
+        "Empty-baseline concurrency",
+        "Foreground/crash recovery for the current client",
+        "Generated contracts and both UI platforms"
+      ],
+      "owner": "current session",
+      "evidence": [
+        "Single typed hours command and local-only outbox implemented; 37 backend, four outbox fault, and 19 actual-service suite cases pass. Native device/UI acceptance remains outstanding.",
+        "Actual iOS and Android scoped-startup/hours-editor smoke tests pass after fixing view-safe business selection and the iPhone development build signing. No native offline-write/conflict claim yet."
+      ],
+      "blocked_by": null
+    },
+    {
+      "id": "SH07",
+      "title": "Separate reauthentication from destructive sign-out",
+      "status": "in_progress",
+      "depends_on": [
+        "SH00"
+      ],
+      "findings": [
+        "S03"
+      ],
+      "scope": [
+        "frontend/packages/api-client/src/session.ts",
+        "frontend/apps/web/src/App.tsx",
+        "frontend/apps/mobile/App.tsx",
+        "frontend/apps/web/src/lib/",
+        "frontend/apps/mobile/src/lib/",
+        "frontend/packages/app-core/src/domain/sync.ts"
+      ],
+      "deliverables": [
+        "Shared explicit session state/generation contract",
+        "Automatic failure disconnects and locks business views without clearing pending work",
+        "Explicit sign-out retains confirmation and visible failure handling",
+        "Same-user recovery and different-user denial behavior"
+      ],
+      "acceptance": [
+        "Revoked refresh with queued changes preserves them across restart",
+        "No unauthorized cached view is shown while reauthentication is required",
+        "Manual discard is explicit and finishes before next login",
+        "Initialization/storage failure cannot leave an unexplained infinite spinner"
+      ],
+      "verification": [
+        "Session lifecycle tests",
+        "Web/native sign-out and reauth flows",
+        "Offline pending-hours recovery"
+      ],
+      "owner": "current session",
+      "evidence": [],
+      "blocked_by": null
+    },
+    {
+      "id": "SH08",
+      "title": "Make refresh rotation retry-safe and bounded",
+      "status": "in_progress",
+      "depends_on": [
+        "SH07"
+      ],
+      "findings": [
+        "S03",
+        "S16"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/auth.py",
+        "backend/src/clientbridge/schemas/auth.py",
+        "backend/src/clientbridge/models/platform.py",
+        "backend/src/clientbridge/core/config.py",
+        "backend/migrations/versions/",
+        "frontend/packages/api-client/src/session.ts",
+        "frontend/apps/web/src/lib/auth.ts",
+        "frontend/apps/mobile/src/lib/auth.ts"
+      ],
+      "deliverables": [
+        "Persisted refresh-attempt IDs and locked atomic rotation results",
+        "Encrypted five-minute replacement response cache and purge",
+        "Atomic client credential persistence, timeout/abort and session-generation checks",
+        "Preserve family revocation for unrelated reuse"
+      ],
+      "acceptance": [
+        "Lost rotation response retries the same result within the window",
+        "Outside the window, reauth preserves work",
+        "Different-attempt reuse is rejected and revoked family never replays successfully",
+        "Concurrent 401s produce one refresh",
+        "Hung network and storage-write failure have bounded recovery"
+      ],
+      "verification": [
+        "Auth API happy/security/replay/concurrency tests",
+        "Shared createSession fault suite",
+        "No plaintext token logging/storage audit"
+      ],
+      "owner": "current session",
+      "evidence": [],
+      "blocked_by": null
+    },
+    {
+      "id": "SH09",
+      "title": "Bind replicas and queues to environment and identity",
+      "status": "in_progress",
+      "depends_on": [
+        "SH01",
+        "SH07",
+        "SH08"
+      ],
+      "findings": [
+        "S04",
+        "S14"
+      ],
+      "scope": [
+        "frontend/apps/web/src/lib/powersync.ts",
+        "frontend/apps/mobile/src/lib/powersync.ts",
+        "frontend/packages/sync/",
+        "frontend/apps/web/src/lib/auth.ts",
+        "frontend/apps/mobile/src/lib/auth.ts"
+      ],
+      "deliverables": [
+        "Database binding metadata/name contract for API environment and user",
+        "Use current identity-scoped replicas without legacy-file discovery or retained bindings",
+        "Serialize open/connect/disconnect/clear and reject stale session completions"
+      ],
+      "acceptance": [
+        "Different user cannot see or upload old-user data",
+        "Crash during current-replica initialization/teardown is recoverable",
+        "Abandoned development files are neither loaded nor silently deleted",
+        "No second connection races an unfinished clear"
+      ],
+      "verification": [
+        "Same-user/different-user cold-start tests",
+        "Current account-bound queue preservation test",
+        "Environment-switch and low-storage fault tests"
+      ],
+      "owner": "current session",
+      "evidence": [
+        "Actual iOS and Android scoped-startup/hours-editor smoke tests pass after fixing view-safe business selection and the iPhone development build signing. No native offline-write/conflict claim yet."
+      ],
+      "blocked_by": null
+    },
+    {
+      "id": "SH10",
+      "title": "Coordinate browser tabs and native resume",
+      "status": "planned",
+      "depends_on": [
+        "SH08",
+        "SH09"
+      ],
+      "findings": [
+        "S04",
+        "S16"
+      ],
+      "scope": [
+        "frontend/apps/web/src/lib/",
+        "frontend/apps/web/src/App.tsx",
+        "frontend/apps/mobile/src/lib/",
+        "frontend/apps/mobile/App.tsx",
+        "frontend/packages/api-client/"
+      ],
+      "deliverables": [
+        "Shared auth lock for all browser identity mutations and inter-tab notifications",
+        "Generation-aware cancellation and no stale credential resurrection",
+        "Native lifecycle handling integrated with SDK reconnect rather than duplicate retry loops"
+      ],
+      "acceptance": [
+        "Logout during refresh cannot restore old credentials",
+        "Two tabs agree on identity and replica lifecycle",
+        "Unsupported browser primitives have tested explicit behavior",
+        "iOS/Android foreground and network restoration recover without repeated invalid-token loops"
+      ],
+      "verification": [
+        "Two-tab Playwright scenarios",
+        "Native background/airplane/force-close walkthroughs",
+        "Token expiry tests with controlled clock"
+      ],
+      "owner": null,
+      "evidence": [],
+      "blocked_by": null
+    },
+    {
+      "id": "SH11",
+      "title": "Validate live session and token purpose at sync exchange",
+      "status": "in_progress",
+      "depends_on": [
+        "SH08"
+      ],
+      "findings": [
+        "S12"
+      ],
+      "scope": [
+        "backend/src/clientbridge/sync/auth.py",
+        "backend/src/clientbridge/core/security.py",
+        "backend/src/clientbridge/core/deps.py",
+        "backend/src/clientbridge/services/auth.py",
+        "backend/tests/test_sync_auth.py",
+        "frontend/packages/api-client/"
+      ],
+      "deliverables": [
+        "Token purpose and live user/session-family validation",
+        "Require session-family access tokens without a sidless compatibility path",
+        "Explicit revocation and existing PowerSync-token lifetime behavior"
+      ],
+      "acceptance": [
+        "Wrong-purpose, revoked-family and removed-user tokens cannot mint new sync credentials",
+        "Expired or missing-family credentials require reauthentication without discarding bound pending work",
+        "Already-issued credential lifetime is tested and documented, not described as instant revocation"
+      ],
+      "verification": [
+        "JWT/session security matrix",
+        "Logout/revoke then exchange tests",
+        "Legacy client transition tests"
+      ],
+      "owner": "current session",
+      "evidence": [],
+      "blocked_by": null
+    },
+    {
+      "id": "SH12",
+      "title": "Make selected business explicit across clients",
+      "status": "in_progress",
+      "depends_on": [
+        "SH00",
+        "SH07"
+      ],
+      "findings": [
+        "S05"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/domain/",
+        "frontend/packages/api-client/",
+        "frontend/apps/web/",
+        "frontend/apps/mobile/",
+        "backend/src/clientbridge/core/deps.py",
+        "backend/tests/"
+      ],
+      "deliverables": [
+        "Shared selected-business state and chooser",
+        "Tenant-scoped local SQL, role lookup, branding, navigation and command headers",
+        "Business-bound pending operations and deep-link resolution",
+        "Coordinate backend-hardening T12 rather than duplicate it"
+      ],
+      "acceptance": [
+        "Owner in A/staff in B sees correct role and data in each context",
+        "Lists and financial totals cannot mix A/B data",
+        "Ambiguous membership presents selection; single membership is deterministic",
+        "Unrelated tenant remains inaccessible",
+        "Audit each domain in bounded implementation slices"
+      ],
+      "verification": [
+        "Multi-business SQL tests",
+        "Real-service fixture matrix",
+        "Web/native switch with queued changes"
+      ],
+      "owner": "current session",
+      "evidence": [
+        "Selected-business SQL and API context verified by actual-service multi-business role/list/detail/aggregate case; 205 domain tests and seven session tests pass. Native acceptance outstanding.",
+        "Actual iOS and Android scoped-startup/hours-editor smoke tests pass after fixing view-safe business selection and the iPhone development build signing. No native offline-write/conflict claim yet."
+      ],
+      "blocked_by": null
+    },
+    {
+      "id": "SH13",
+      "title": "Expose actionable sync health in every app shell",
+      "status": "in_progress",
+      "depends_on": [
+        "SH05",
+        "SH07",
+        "SH09"
+      ],
+      "findings": [
+        "S08"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/domain/sync.ts",
+        "frontend/packages/app-core/src/strings.ts",
+        "frontend/packages/app-core/src/ui.ts",
+        "frontend/packages/ui/",
+        "frontend/apps/web/src/components/AppShell.tsx",
+        "frontend/apps/mobile/App.tsx"
+      ],
+      "deliverables": [
+        "Shared health state and accurate totals across CRUD/outbox/rejections",
+        "Global web/native error and pending-work UI",
+        "Visible first-sync/storage failure and bounded recovery",
+        "Queue preview separate from total count"
+      ],
+      "acceptance": [
+        "Connected downloader plus rejected uploader shows needs-attention state",
+        "More than 50 pending edits are not misreported as exactly 50",
+        "No-initial-sync outage produces usable error/retry state",
+        "Saving locally is not labeled server-saved",
+        "Rows remain readable offline when permitted"
+      ],
+      "verification": [
+        "Status-state unit/integration matrix",
+        "UI twin stories and accessibility tests",
+        "iOS/Android and browser navigation checks"
+      ],
+      "owner": "current session",
+      "evidence": [],
+      "blocked_by": null
+    },
+    {
+      "id": "SH14",
+      "title": "Add sanitized sync diagnostics and retention",
+      "status": "planned",
+      "depends_on": [
+        "SH04",
+        "SH05",
+        "SH13"
+      ],
+      "findings": [
+        "S08",
+        "S11"
+      ],
+      "scope": [
+        "frontend/packages/sync/",
+        "frontend/packages/app-core/src/domain/sync.ts",
+        "backend/src/clientbridge/services/",
+        "backend/src/clientbridge/tasks/",
+        ".docs/engineering.md"
+      ],
+      "deliverables": [
+        "Stable errors/request IDs, queue age and rejection metrics",
+        "Bounded rejected-payload storage and receipt cleanup",
+        "Diagnostic export without secrets or client content"
+      ],
+      "acceptance": [
+        "Support can distinguish auth/API/replication/upload failure",
+        "Diagnostic export contains no JWT/capability URL/personal payload",
+        "Retention preserves supported retry guarantees and fails closed outside horizon"
+      ],
+      "verification": [
+        "Telemetry redaction tests",
+        "Retention jobs with fixed clocks",
+        "Fault-matrix diagnostic review"
+      ],
+      "owner": null,
+      "evidence": [],
+      "blocked_by": null
+    },
+    {
+      "id": "SH15",
+      "title": "Add bounded read-after-command catch-up",
+      "status": "planned",
+      "depends_on": [
+        "SH01",
+        "SH13"
+      ],
+      "findings": [
+        "S09"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/hooks.ts",
+        "frontend/packages/app-core/src/domain/",
+        "frontend/packages/sync/",
+        "frontend/apps/web/",
+        "frontend/apps/mobile/"
+      ],
+      "deliverables": [
+        "Expected-row/version observation utility with timeout/cancellation",
+        "Immediate safe rendering of command responses and pending-replica states",
+        "Optional checkpoint-request experiment with stable fallback",
+        "Notification/deep-link wait behavior"
+      ],
+      "acceptance": [
+        "Delayed replication never turns an already-successful payment into a failed-payment prompt",
+        "User can navigate away and cancel waits",
+        "Replica timeout cannot trigger duplicate command submission",
+        "hasSynced is not used as proof of latest command visibility"
+      ],
+      "verification": [
+        "CDC delay tests for booking/payment/client creation",
+        "Notification before replica arrival",
+        "Optional alpha API compatibility tests only if adopted"
+      ],
+      "owner": null,
+      "evidence": [],
+      "blocked_by": null
+    },
+    {
+      "id": "SH16",
+      "title": "Define and allowlist role-specific replica projections",
+      "status": "in_progress",
+      "depends_on": [
+        "SH02",
+        "SH12"
+      ],
+      "findings": [
+        "S13"
+      ],
+      "scope": [
+        "infra/powersync/sync-rules.yaml",
+        "backend/src/clientbridge/core/policies.py",
+        "backend/scripts/gen_sync_schema.py",
+        "frontend/packages/sync/src/schema.ts",
+        ".docs/architecture.md"
+      ],
+      "deliverables": [
+        "Table/role/column/capability classification matrix",
+        "Explicit projections replacing broad stars",
+        "Schema/projection drift assertions",
+        "Coordinate backend-hardening T11"
+      ],
+      "acceptance": [
+        "New sensitive model column is excluded by default",
+        "Required share/receipt workflows still function",
+        "Server-only credentials/receipts/recovery data never sync",
+        "Generated null-capable limited-role schemas remain usable"
+      ],
+      "verification": [
+        "Real replica column assertions",
+        "Schema regeneration and intentional-new-column test",
+        "Public share-flow authorization review"
+      ],
+      "owner": "current session",
+      "evidence": [
+        "Explicit data projections; schema uses projection union. Seven projection tests and real-service role pay/tax tests pass. Forbidden-column and live-revocation probes in progress."
+      ],
+      "blocked_by": null
+    },
+    {
+      "id": "SH17",
+      "title": "Gate CI on actual replica authorization and revocation",
+      "status": "in_progress",
+      "depends_on": [
+        "SH02",
+        "SH11",
+        "SH12",
+        "SH16"
+      ],
+      "findings": [
+        "S06",
+        "S12",
+        "S13"
+      ],
+      "scope": [
+        ".github/workflows/ci.yml",
+        "infra/",
+        "backend/tests/",
+        "frontend/packages/sync/"
+      ],
+      "deliverables": [
+        "Full role/tenant/column matrix in actual service CI",
+        "Role downgrade, membership removal, soft-delete and reconnect coverage",
+        "Sensitive-value absence assertions rather than UI-only assertions"
+      ],
+      "acceptance": [
+        "Foreign rows and unauthorized pay/security fields are absent from SQLite",
+        "Downgrade removes formerly visible full columns once synced",
+        "Offline retained-data behavior matches locked-data policy",
+        "CI fails on intentional over-broad sync-rule mutation"
+      ],
+      "verification": [
+        "Repeatable full real-service matrix",
+        "Negative mutation test",
+        "Current-client smoke"
+      ],
+      "owner": "current session",
+      "evidence": [],
+      "blocked_by": null
+    },
+    {
+      "id": "SH18",
+      "title": "Pin and harden replication infrastructure",
+      "status": "in_progress",
+      "depends_on": [
+        "SH02",
+        "SH14"
+      ],
+      "findings": [
+        "S11"
+      ],
+      "scope": [
+        "docker-compose.yml",
+        "infra/powersync/",
+        "Makefile",
+        "backend/src/clientbridge/core/config.py",
+        ".docs/engineering.md"
+      ],
+      "deliverables": [
+        "Pinned service image, explicit healthchecks and observable bootstrap",
+        "Dedicated source/storage/runtime/migration roles with verified grants",
+        "Lag/WAL/storage alerts and failure runbooks",
+        "Coordinate existing backend RLS roles without claiming RLS secures the sync stream"
+      ],
+      "acceptance": [
+        "Non-superuser replication supports snapshot and WAL updates",
+        "Provisioning errors are visible; idempotent setup succeeds",
+        "Stalled replication alerts before disk exhaustion",
+        "Disposable infra cleanup leaves main database and powersync_storage intact"
+      ],
+      "verification": [
+        "Least-privilege integration suite",
+        "Stall/restart/WAL alert drills",
+        "Document measured alert thresholds and operational owner"
+      ],
+      "owner": "current session",
+      "evidence": [
+        "Pinned main PostgreSQL and PowerSync to the exact currently running, harness-tested image digests. Config read-only; bootstrap existence checks run twice successfully with fail-fast SQL. Separate non-superuser roles, restricted publication and operational alert drills remain pending."
+      ],
+      "blocked_by": null
+    },
+    {
+      "id": "SH19",
+      "title": "Require durable production signing and rehearse rotation",
+      "status": "in_progress",
+      "depends_on": [
+        "SH11",
+        "SH18"
+      ],
+      "findings": [
+        "S12"
+      ],
+      "scope": [
+        "backend/src/clientbridge/core/config.py",
+        "backend/src/clientbridge/core/security.py",
+        "infra/powersync/",
+        "backend/tests/test_sync_auth.py",
+        ".docs/engineering.md"
+      ],
+      "deliverables": [
+        "Fail-closed production key/JWKS configuration validation",
+        "Stable multi-worker keys with overlapping rotation IDs",
+        "Configuration template without real credentials"
+      ],
+      "acceptance": [
+        "Missing key fails production startup",
+        "Tokens minted by any worker verify across restart",
+        "Old/new key overlap works and retirement is bounded",
+        "Development convenience does not weaken production checks"
+      ],
+      "verification": [
+        "Multi-worker/restart and key rotation tests",
+        "Production config negative tests"
+      ],
+      "owner": "current session",
+      "evidence": [
+        "Production fails closed without durable RSA signing configuration; overlap public JWKS supported. 25 signing/auth/harness cases pass. Actual-service cache/rotation and multi-worker drill pending."
+      ],
+      "blocked_by": null
+    },
+    {
+      "id": "SH20",
+      "title": "Migrate Sync Rules to equivalent Sync Streams",
+      "status": "planned",
+      "depends_on": [
+        "SH16",
+        "SH17",
+        "SH18",
+        "SH19"
+      ],
+      "findings": [
+        "S15"
+      ],
+      "scope": [
+        "infra/powersync/",
+        "backend/scripts/gen_sync_schema.py",
+        "frontend/packages/sync/",
+        ".docs/architecture.md",
+        ".docs/engineering.md"
+      ],
+      "deliverables": [
+        "Edition 3 migration preserving current automatic subscriptions",
+        "Timestamp/type parity and schema-generator compatibility",
+        "Current-client resync and approved rollout/rollback rehearsal"
+      ],
+      "acceptance": [
+        "Before/after row and column sets agree by role and tenant",
+        "Pending queues survive migration and rollback",
+        "Pinned previous config/service remains recoverable",
+        "No selective retention change is bundled into parity migration"
+      ],
+      "verification": [
+        "Real-service parity suite",
+        "Current-client fixtures only",
+        "Resync cost measurement and rollback drill"
+      ],
+      "owner": null,
+      "evidence": [],
+      "blocked_by": null
+    },
+    {
+      "id": "SH21",
+      "title": "Measure multi-year replica and query performance",
+      "status": "planned",
+      "depends_on": [
+        "SH02",
+        "SH12",
+        "SH17"
+      ],
+      "findings": [
+        "S10"
+      ],
+      "scope": [
+        "backend/scripts/",
+        "frontend/packages/app-core/",
+        "frontend/packages/sync/",
+        ".scratchpad/sync-hardening/",
+        ".docs/executions/sync-hardening/"
+      ],
+      "deliverables": [
+        "Deterministic 1k/10k/50k client and 100k/1m history datasets",
+        "Cold/warm startup, bytes, disk, query plans and render measurements",
+        "Measured offline retention and hot-history budgets"
+      ],
+      "acceptance": [
+        "Measurements include browser and representative existing iOS/Android devices",
+        "No benchmark reseeds the shared demo",
+        "Target failures are recorded with a specific change plan rather than hidden"
+      ],
+      "verification": [
+        "Automated benchmark harness",
+        "Constrained-network runs",
+        "Document hardware, counts, p50/p95 and repeatability"
+      ],
+      "owner": null,
+      "evidence": [],
+      "blocked_by": null
+    },
+    {
+      "id": "SH22",
+      "title": "Bound local lists and selective history without changing totals",
+      "status": "planned",
+      "depends_on": [
+        "SH15",
+        "SH20",
+        "SH21"
+      ],
+      "findings": [
+        "S10"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/domain/",
+        "frontend/apps/web/",
+        "frontend/apps/mobile/",
+        "infra/powersync/",
+        "backend/src/clientbridge/services/",
+        "backend/src/clientbridge/schemas/"
+      ],
+      "deliverables": [
+        "Domain-by-domain keyset pagination and virtualization",
+        "Measured hot dataset/on-demand history streams",
+        "Complete aggregate/report strategy and HTTP continuation integration",
+        "Coordinate backend-hardening bounded-read tasks"
+      ],
+      "acceptance": [
+        "No skipped/duplicated rows across tied keys and concurrent insert/delete",
+        "Financial totals do not depend on a truncated local history",
+        "Offline availability boundaries are visible",
+        "Query/render performance meets measured budgets"
+      ],
+      "verification": [
+        "Large dataset query/render tests",
+        "Pagination completeness and ties tests",
+        "Offline expired-history walkthrough"
+      ],
+      "owner": null,
+      "evidence": [],
+      "blocked_by": null
+    },
+    {
+      "id": "SH23",
+      "title": "Implement device-storage identity protection and retention",
+      "status": "planned",
+      "depends_on": [
+        "SH09",
+        "SH14",
+        "SH21"
+      ],
+      "findings": [
+        "S14"
+      ],
+      "scope": [
+        "frontend/apps/web/src/lib/",
+        "frontend/apps/mobile/src/lib/",
+        "frontend/packages/sync/",
+        "frontend/packages/app-core/src/domain/sync.ts",
+        ".docs/engineering.md"
+      ],
+      "deliverables": [
+        "Verify supported native encrypted database options and key lifecycle",
+        "Browser persistence/eviction handling and honest security guarantees",
+        "User-bound local retention and recovery behavior",
+        "If encryption is unsupported, record exact unmet release guarantee and viable implementation path"
+      ],
+      "acceptance": [
+        "Reauth retains but locks same-user data",
+        "Wrong/missing encryption key cannot expose previous-user content",
+        "Low disk/eviction fails visibly and preserves recoverable user intent where possible",
+        "No blanket claim that browser encryption prevents XSS"
+      ],
+      "verification": [
+        "Platform storage/reinstall/key-loss tests",
+        "Browser quota/eviction tests",
+        "Backup policy verification on supported devices"
+      ],
+      "owner": null,
+      "evidence": [],
+      "blocked_by": null
+    },
+    {
+      "id": "SH24",
+      "title": "Make attachment availability and interrupted uploads recoverable",
+      "status": "planned",
+      "depends_on": [
+        "SH09",
+        "SH23"
+      ],
+      "findings": [
+        "S14"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/domain/files.ts",
+        "frontend/apps/web/",
+        "frontend/apps/mobile/",
+        "backend/src/clientbridge/services/files.py",
+        "backend/tests/test_files_media.py"
+      ],
+      "deliverables": [
+        "Explicit online-only versus downloaded-file indicators",
+        "Bounded identity-scoped cache for explicitly downloaded files",
+        "Persisted foreground upload retry metadata and orphan cleanup contract",
+        "No new promise of background uploads or offline payments"
+      ],
+      "acceptance": [
+        "Airplane-mode file access is correctly labeled",
+        "Interrupted upload can resume/retry without duplicate logical attachment",
+        "Different user cannot access prior private cached files",
+        "Missing bytes are not treated as a successful attachment"
+      ],
+      "verification": [
+        "Presigned expiry and network interruption tests",
+        "Native/browser cache eviction and identity tests",
+        "File record/object reconciliation checks"
+      ],
+      "owner": null,
+      "evidence": [],
+      "blocked_by": null
+    },
+    {
+      "id": "SH25",
+      "title": "Run full current-client failure matrix",
+      "status": "planned",
+      "depends_on": [
+        "SH06",
+        "SH10",
+        "SH13",
+        "SH15",
+        "SH17",
+        "SH19",
+        "SH20",
+        "SH22",
+        "SH23",
+        "SH24"
+      ],
+      "findings": [
+        "S01",
+        "S02",
+        "S03",
+        "S04",
+        "S05",
+        "S06",
+        "S07",
+        "S08",
+        "S09",
+        "S10",
+        "S11",
+        "S12",
+        "S13",
+        "S14",
+        "S15",
+        "S16"
+      ],
+      "scope": [
+        "backend/tests/",
+        "frontend/apps/web/e2e/",
+        "frontend/apps/mobile/e2e/",
+        "frontend/packages/sync/",
+        ".docs/executions/sync-hardening/"
+      ],
+      "deliverables": [
+        "Web multi-tab plus real iOS/Android fault walkthroughs",
+        "Current-client pending-work preservation coverage",
+        "Closed finding-by-finding acceptance evidence with source hashes"
+      ],
+      "acceptance": [
+        "Every P1 scenario passes on final candidate",
+        "No silent queued-work loss or wrong-user/business exposure",
+        "All remaining limits are explicit and not reported as passed",
+        "Use existing single iOS simulator; do not multiply device resources"
+      ],
+      "verification": [
+        "Plan test matrix",
+        "Full checks/builds and real-service CI suite",
+        "Native foreground/background/force-close runs"
+      ],
+      "owner": null,
+      "evidence": [],
+      "blocked_by": null
+    },
+    {
+      "id": "SH26",
+      "title": "Prepare rollout rollback and final handoff",
+      "status": "planned",
+      "depends_on": [
+        "SH25"
+      ],
+      "findings": [
+        "S01",
+        "S02",
+        "S03",
+        "S04",
+        "S05",
+        "S06",
+        "S07",
+        "S08",
+        "S09",
+        "S10",
+        "S11",
+        "S12",
+        "S13",
+        "S14",
+        "S15",
+        "S16"
+      ],
+      "scope": [
+        ".docs/architecture.md",
+        ".docs/engineering.md",
+        ".docs/launch-readiness.md",
+        ".docs/executions/sync-hardening/"
+      ],
+      "deliverables": [
+        "Current-client offline guarantees and approved migration order",
+        "Rollback procedure preserving receipts/queues and production monitoring checklist",
+        "Reconciled backend-hardening tracker and implementation-specific commit proposal"
+      ],
+      "acceptance": [
+        "Expand-contract rollout and rollback are rehearsed in disposable environment",
+        "No extra test databases/containers remain",
+        "Progress distinguishes implemented, verified and deferred work",
+        "No commit/push/production deployment without subsequent instruction"
+      ],
+      "verification": [
+        "Documentation/link validation",
+        "Final clean candidate gate",
+        "Task and finding coverage audit"
+      ],
+      "owner": null,
+      "evidence": [],
+      "blocked_by": null
+    }
+  ],
+  "started_at": "2026-10-08T23:47:25.552263+00:00"
+}

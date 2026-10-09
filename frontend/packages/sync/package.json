@@ -12,5 +12,12 @@
     },
     "peerDependencies": {
         "@powersync/common": "^2.3.1"
+    },
+    "devDependencies": {
+        "@clientbridge/api-client": "workspace:*",
+        "@playwright/test": "^1.63.0",
+        "@powersync/web": "^2.4.2",
+        "@types/node": "^24.0.0",
+        "vite": "^8.3.2"
     }
 }

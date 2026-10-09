@@ -1404,7 +1404,6 @@ export const strings = {
         },
         method: { typed: "Typed name", drawn: "Drawn signature" } as Record<string, string>,
         signatureHeading: "Signed by",
-        editOnWeb: "Edit contract text on the web app.",
     },
     clients: {
         title: "Clients",
@@ -1661,8 +1660,6 @@ export const strings = {
             title: "Payment methods",
             subtitle: "Saved securely. Card numbers are never stored by Clientbridge.",
             addCard: "Add card",
-            bankOnWebOnly:
-                "Bank accounts are added from the web app for now; cards can be added here.",
             makeDefault: "Make default",
             remove: "Remove",
             removeTitle: (label: string) => `Remove ${label}?`,
@@ -2038,6 +2035,9 @@ export const strings = {
         sendRequestError: "Couldn't send the review request. Please try again.",
     },
     business: {
+        selectBusiness: "Business",
+        chooseBusiness: "Choose a business to continue",
+        switchError: "Could not switch businesses. Try again.",
         subtitle: "Your business profile. Sales tax numbers are in Sales tax.",
         getSetUp: {
             title: "Get set up",
@@ -2057,7 +2057,6 @@ export const strings = {
             copyLink: "Copy link",
             copied: "Copied",
             share: "Share link",
-            logoOnWeb: "Upload or change the logo from the web app.",
             tasks: {
                 business: { label: "Create your business", action: "Edit" },
                 services: { label: "Add your services", action: "Edit" },
@@ -2095,6 +2094,12 @@ export const strings = {
             taxHint: (pst: boolean) => (pst ? "GST and PST registered" : "GST/HST registered"),
             loading: "Loading your setup",
             loadError: "We couldn't load your setup progress.",
+            coverPhoto: "Cover photo",
+            coverHint:
+                "Use a wide photo of your business. Without a photo, clients see your brand colour.",
+            uploadCover: "Upload cover photo",
+            replaceCover: "Replace cover photo",
+            removeCover: "Remove cover photo",
             profileTitle: "Public business page",
             profileHint:
                 "Only publish contact details and images you want clients to see. List one gallery image URL per line.",
@@ -2211,6 +2216,11 @@ export const strings = {
         saveHours: "Save hours",
         saving: "Saving…",
         saved: "Saved. Online booking uses the new hours now.",
+        savedLocally: "Saved on this device. Waiting for the server to confirm these hours.",
+        conflict:
+            "These hours could not be saved. Review your changes, then apply them to the current server version or discard them.",
+        applyChanges: "Apply my changes",
+        discardChanges: "Discard my changes",
         saveError: "Couldn't save hours. Please try again.",
         timeFormatError: "Times must be in HH:MM format.",
         timeOrderError: "Each open day needs a start time before its end time.",
@@ -2564,8 +2574,6 @@ export const strings = {
         changePhoto: "Change photo",
         photoHint: "Square photos look best. JPG or PNG, up to 10 MB. Drop a file here or click.",
         photoAfterSave: "Save the product first, then add its photo.",
-        photoOnWeb:
-            "Taking or choosing a photo on the phone comes with the next app update. Add it from the web for now.",
         photoUploaded: "Photo updated.",
         sku: "SKU",
         skuHint: "Optional. Your own code or the barcode number.",
@@ -3308,7 +3316,6 @@ export const strings = {
         packWorking: "Preparing…",
         packDone: "Your ZIP is ready. Check your downloads.",
         packEmailLater: "Emailing the pack to your bookkeeper is coming; for now, attach the ZIP.",
-        packMobile: "Share each report as a CSV here, or download them all as one ZIP on the web.",
         shareCsv: "Share",
         pickReport: "Pick at least one report.",
         packFailed: "Couldn't prepare the pack. Please try again.",
@@ -3573,7 +3580,6 @@ export const strings = {
             refunded: "Refunded",
             void: "Void",
         } as Record<string, string>,
-        poweredBy: "Sent with Clientbridge",
         seeSteps: "See how to send it",
         etransferTitle: (biz: string) => `Pay ${biz} by e‑Transfer`,
         amountToSend: "Amount to send",
@@ -3636,7 +3642,6 @@ export const strings = {
         expiredBody: (biz: string) => `Ask ${biz} for an updated one.`,
         downloadPdf: "Download PDF",
         answerError: "We couldn't send your answer. Please try again.",
-        poweredBy: "Sent with Clientbridge",
     },
     publicReturning: {
         title: "Been here before?",
@@ -3770,7 +3775,6 @@ export const strings = {
             "This link is invalid or the business isn't taking online bookings right now.",
         errorTitle: "We couldn't load the booking page",
         errorBody: "Check your connection and try again.",
-        poweredBy: "Booking by Clientbridge",
         minutes: (n: number) => `${String(n)} min`,
         hoursMinutes: (h: number, m: number) =>
             m === 0 ? `${String(h)} h` : `${String(h)} h ${String(m)} min`,
@@ -4091,9 +4095,7 @@ export const strings = {
         finishSetup: "Finish setting up",
         setupProgress: (done: number, total: number) =>
             `${String(done)} of ${String(total)} set up`,
-        recentClients: "Book again",
         yourHours: "Your hours",
-        bookAgain: (name: string) => `Book ${name}`,
         more: "More",
         createActions: {
             booking: { label: "Booking", hint: "Book a client into a service or class" },
@@ -4270,6 +4272,13 @@ export const strings = {
         closePage: "All done. You can close this page.",
     },
     publicLanding: {
+        poweredBy: "Powered by Clientbridge",
+        menu: "Menu",
+        navigation: "Business navigation",
+        home: "Home",
+        booking: "Book",
+        shop: "Shop",
+        cart: "Cart",
         about: "About us",
         team: "Meet the team",
         reviews: "Client reviews",
@@ -4291,6 +4300,7 @@ export const strings = {
         reviewer: "Verified client",
         response: "Business response",
         rating: (rating: string, count: number) => `${rating} · ${String(count)} reviews`,
+        reviewCount: (count: number) => `${String(count)} review${count === 1 ? "" : "s"}`,
         cancelPolicy: (hours: number) =>
             `Cancel at least ${String(hours)} hours before your visit.`,
         reschedulePolicy: (hours: number) =>
@@ -4422,6 +4432,15 @@ export const strings = {
         },
     },
     sync: {
+        problemTitle: "Sync needs attention",
+        problems: {
+            storage:
+                "We can’t read unsent changes on this device. Keep this account signed in while storage recovers.",
+            upload: "Some changes haven’t reached the server. They remain on this device while sync retries.",
+            download:
+                "We can’t get the latest updates. Showing the data already saved on this device.",
+        },
+        signInAgain: "Sign in again",
         offlineTitle: "You’re offline",
         offlineStrip: (n: number) =>
             n === 0
@@ -4431,6 +4450,8 @@ export const strings = {
                   : `${String(n)} changes will sync when you reconnect`,
         lastSynced: (time: string) => `Last synced at ${time}`,
         signOutTitle: "Sign out with changes not synced?",
+        signOutUnknown:
+            "We could not check for unsent changes. Signing out will discard any changes that are still only on this device.",
         signOutBody: (n: number) =>
             n === 1
                 ? "1 change is only on this device. If you sign out before reconnecting, it will be lost."

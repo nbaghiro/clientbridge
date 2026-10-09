@@ -24,6 +24,24 @@ const config: ExpoConfig = {
         },
     },
     plugins: [
+        [
+            "expo-splash-screen",
+            {
+                image: "./assets/splash-icon.png",
+                imageWidth: 144,
+                resizeMode: "contain",
+                backgroundColor: "#F3F4F6",
+            },
+        ],
+        "expo-sharing",
+        [
+            "expo-image-picker",
+            {
+                cameraPermission: false,
+                microphonePermission: false,
+                photosPermission: "Choose a photo for your business logo or cover.",
+            },
+        ],
         ["expo-notifications", { icon: "./assets/notification-icon.png", color: "#3F5E80" }],
         [
             "@stripe/stripe-react-native",
@@ -35,8 +53,8 @@ const config: ExpoConfig = {
         ["expo-build-properties", { android: { minSdkVersion: 26 } }],
     ],
     extra: {
-        apiUrl: process.env.API_URL ?? "http://localhost:8701",
-        powersyncUrl: process.env.POWERSYNC_URL ?? "http://localhost:8704",
+        apiUrl: process.env.API_URL ?? "http://127.0.0.1:8701",
+        powersyncUrl: process.env.POWERSYNC_URL ?? "http://127.0.0.1:8704",
         publicWebUrl: process.env.PUBLIC_WEB_URL ?? "https://app.clientbridge.ca",
         payUrl: process.env.PAY_URL ?? "https://pay.clientbridge.ca",
         bookUrl: process.env.BOOK_URL ?? "https://book.clientbridge.ca",

@@ -1,4 +1,5 @@
-import { useQuery } from "@powersync/react";
+import { useBusinessQuery as useQuery } from "../hooks";
+
 import { useMemo, useState } from "react";
 
 import { strings } from "../strings";
@@ -20,7 +21,7 @@ import type { IconName } from "../icons";
 import type { Intent } from "../ui";
 import type { Viewer } from "./auth";
 import { useInvoices } from "./billing";
-import { utcSql } from "./bookings";
+import { utcSql } from "../datetime";
 import { useCatalogItems } from "./catalog";
 import { useEarnings } from "./earnings";
 import { useThreads } from "./messaging";

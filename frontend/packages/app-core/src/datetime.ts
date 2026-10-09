@@ -246,3 +246,7 @@ export function clockOptions(
     }
     return keys.map((key) => ({ key, label: formatClock(key) }));
 }
+
+export function utcSql(column: string): string {
+    return `datetime(CASE WHEN ${column} LIKE '%+__' THEN ${column} || ':00' ELSE ${column} END)`;
+}

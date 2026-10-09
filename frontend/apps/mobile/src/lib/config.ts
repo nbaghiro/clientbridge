@@ -17,12 +17,12 @@ function developmentUrl(value: unknown): string | undefined {
 }
 
 export const apiUrl =
-    developmentUrl(process.env.EXPO_PUBLIC_API_URL) ?? extra.apiUrl ?? "http://localhost:8701";
+    developmentUrl(process.env.EXPO_PUBLIC_API_URL) ?? extra.apiUrl ?? "http://127.0.0.1:8701";
 
 export const powersyncUrl =
     developmentUrl(process.env.EXPO_PUBLIC_POWERSYNC_URL) ??
     extra.powersyncUrl ??
-    "http://localhost:8704";
+    "http://127.0.0.1:8704";
 
 /** Web app origin for staff invites and payment account management. */
 export const publicWebUrl =

@@ -48,6 +48,7 @@ PREFIXES: dict[str, str] = {
     "auth_session": "ase",
     "auth_token": "atk",
     "returning_challenge": "rtc",
+    "sync_receipt": "sur",
 }
 
 

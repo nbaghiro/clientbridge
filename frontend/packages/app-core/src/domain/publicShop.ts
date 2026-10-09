@@ -3,7 +3,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import { newIdempotencyKey } from "../api";
-import { type PublicBrand, usePublicResource } from "./publicResource";
+import {
+    type PublicBrand,
+    readPublicDraft,
+    writePublicDraft,
+    usePublicResource,
+} from "./publicResource";
 
 interface PublicShopItem {
     variant_parent_id?: string | null;
@@ -170,13 +175,15 @@ function usePublicShop(
 ): PublicShopForm {
     const { status: load, data: shop } = usePublicResource(client.getShop, slug);
     const [cart, setCart] = useState<Record<string, number>>(() => storedCart(storage, slug));
-    const [name, setName] = useState("");
+    const draftKey = `connect-checkout:${slug}`;
+    const [draft] = useState(() => readPublicDraft(storage, draftKey));
+    const [name, setName] = useState(draft.name ?? "");
     const pickup = usePublicResource(client.getPickup, slug).data;
-    const [pickupFrom, setPickupFrom] = useState("");
-    const [note, setNote] = useState("");
-    const [notifySms, setNotifySms] = useState(true);
-    const [email, setEmail] = useState("");
-    const [phone, setPhone] = useState("");
+    const [pickupFrom, setPickupFrom] = useState(draft.pickupFrom ?? "");
+    const [note, setNote] = useState(draft.note ?? "");
+    const [notifySms, setNotifySms] = useState(draft.notifySms !== "false");
+    const [email, setEmail] = useState(draft.email ?? "");
+    const [phone, setPhone] = useState(draft.phone ?? "");
     const [order, setOrder] = useState<PublicShopOrderResult | null>(null);
     const [paid, setPaid] = useState(false);
     const key = useRef<string | null>(null);
@@ -190,6 +197,23 @@ function usePublicShop(
             /* Storage can be disabled by the host browser. */
         }
     }, [cart, slug, storage]);
+
+    useEffect(() => {
+        writePublicDraft(
+            storage,
+            draftKey,
+            paid ? null : { name, email, phone, note, pickupFrom, notifySms: String(notifySms) },
+        );
+    }, [storage, draftKey, paid, name, email, phone, note, pickupFrom, notifySms]);
+
+    useEffect(() => {
+        if (
+            pickup &&
+            pickupFrom &&
+            !pickup.windows.some((window) => window.starts_at === pickupFrom)
+        )
+            setPickupFrom("");
+    }, [pickup, pickupFrom]);
 
     const setQuantity = (itemId: string, quantity: number): void => {
         key.current = null;
@@ -305,7 +329,7 @@ export function useShopFlow(client: PublicShopClient, slug: string, storage?: Sh
     const base = usePublicShop(client, slug, storage);
     const [search, setSearch] = useState("");
     const [category, setCategory] = useState("all");
-    const [pickupDay, setPickupDay] = useState("asap");
+    const pickupDay = base.pickupFrom.slice(0, 10) || "asap";
     const items = useMemo(() => base.shop?.items ?? [], [base.shop]);
     const cap = (item: PublicShopItem): number => Math.min(MAX_EACH, item.stock_left ?? MAX_EACH);
     const lines = items
@@ -351,7 +375,6 @@ export function useShopFlow(client: PublicShopClient, slug: string, storage?: Sh
                 }),
             })),
         setPickupDay: (day: string) => {
-            setPickupDay(day);
             base.setPickupFrom(
                 base.pickup?.windows.find((window) => window.starts_at.slice(0, 10) === day)
                     ?.starts_at ?? "",

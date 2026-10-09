@@ -1,0 +1,20 @@
+replication:
+  connections:
+    - type: postgresql
+      uri: postgresql://verification:verification@postgres:5432/clientbridge_test_sync
+      sslmode: disable
+storage:
+  type: postgresql
+  uri: postgresql://verification:verification@postgres:5432/powersync_storage
+  sslmode: disable
+port: 8080
+sync_rules:
+  path: /config/sync-rules.yaml
+client_auth:
+  jwks:
+    keys:
+      - kty: oct
+        alg: HS256
+        kid: verification
+        k: dmVyaWZpY2F0aW9uLW9ubHktc3luYy1zZWNyZXQtbm90LXByb2R1Y3Rpb24
+  audience: [powersync]

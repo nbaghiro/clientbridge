@@ -24,7 +24,24 @@ import { column, Schema, Table } from "@powersync/common";
 
 
 # Device-only tables: kept in local SQLite, never uploaded or synced (recent searches, read marks).
-LOCAL_ONLY = {"device_prefs": {"value": "text", "updated_at": "text"}}
+LOCAL_ONLY = {
+    "device_prefs": {"value": "text", "updated_at": "text"},
+    "business_selection": {"business_id": "text"},
+    "hours_outbox": {
+        "business_id": "text",
+        "staff_id": "text",
+        "actor_id": "text",
+        "payload": "text",
+        "state": "text",
+        "predecessor_id": "text",
+        "result_revision": "integer",
+        "attempt_count": "integer",
+        "retry_at": "integer",
+        "error_code": "text",
+        "created_at": "text",
+        "sequence": "integer",
+    },
+}
 
 
 def gen_local_table(name: str, columns: dict[str, str]) -> str:
@@ -34,15 +51,40 @@ def gen_local_table(name: str, columns: dict[str, str]) -> str:
     )
 
 
+def synced_columns(rules: str | None = None) -> dict[str, list[str]]:
+    """Union explicit data projections; reject syntax that could broaden the replica."""
+    projections: dict[str, list[str]] = {}
+    in_data = False
+    for line in (SYNC_RULES.read_text() if rules is None else rules).splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if len(line) - len(line.lstrip()) <= 4:
+            in_data = stripped == "data:"
+            continue
+        if not in_data:
+            continue
+        match = re.fullmatch(r"- SELECT (.+?) FROM (\w+)(?:\s+WHERE .+)?", stripped)
+        if match is None:
+            raise ValueError(f"Unsupported sync data projection: {stripped}")
+        columns, table = match.groups()
+        names = [column.strip() for column in columns.split(",")]
+        if not names or any(re.fullmatch(r"[a-z_][a-z_0-9]*", n) is None for n in names):
+            raise ValueError(f"Explicit column names required for {table}")
+        if "id" not in names:
+            raise ValueError(f"Missing replica id for {table}")
+        for name in names:
+            if name not in Base.metadata.tables[table].c:
+                raise ValueError(f"Unknown replica column: {table}.{name}")
+            if name not in projections.setdefault(table, []):
+                projections[table].append(name)
+    if not projections:
+        raise ValueError("No sync data projections found")
+    return projections
+
+
 def synced_tables() -> list[str]:
-    """Table names appearing in any `FROM <table>` clause of the sync rules, in first-seen order."""
-    text = SYNC_RULES.read_text()
-    ordered: list[str] = []
-    for match in re.finditer(r"FROM\s+(\w+)", text):
-        name = match.group(1)
-        if name not in ordered:
-            ordered.append(name)
-    return ordered
+    return list(synced_columns())
 
 
 def ps_type(type_: TypeEngine[object]) -> str:
@@ -56,18 +98,18 @@ def ps_type(type_: TypeEngine[object]) -> str:
     return "text"  # String/Text/Enum/DateTime/Date/Time/JSONB/ARRAY → text
 
 
-def gen_table(name: str) -> str:
+def gen_table(name: str, projected: list[str]) -> str:
     table = Base.metadata.tables[name]
     cols = [
         f"        {col.name}: column.{ps_type(col.type)},"
         for col in table.columns
-        if col.name != "id"
+        if col.name != "id" and col.name in projected
     ]
     indexes = [
         f"            {re.sub(r'^ix_', '', idx.name or '')}: "
         f"[{', '.join(repr(c.name) for c in idx.columns)}],"
         for idx in sorted(table.indexes, key=lambda i: i.name or "")
-        if idx.name
+        if idx.name and all(c.name in projected for c in idx.columns)
     ]
 
     out = [f"const {name} = new Table(", "    {", *cols, "    },"]
@@ -78,9 +120,13 @@ def gen_table(name: str) -> str:
 
 
 def main() -> None:
-    names = [t for t in synced_tables() if t in Base.metadata.tables]
+    projections = synced_columns()
+    names = list(projections)
     body = "\n\n".join(
-        [*(gen_table(n) for n in names), *(gen_local_table(n, c) for n, c in LOCAL_ONLY.items())]
+        [
+            *(gen_table(n, projections[n]) for n in names),
+            *(gen_local_table(n, c) for n, c in LOCAL_ONLY.items()),
+        ]
     )
     members = ",\n".join(f"    {n}" for n in [*names, *LOCAL_ONLY])
     content = (

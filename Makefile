@@ -45,11 +45,8 @@ help:
 	@echo "check            lint + codegen-check + test (the full local gate; CI runs the same targets)"
 
 up:
-	docker compose up -d postgres
-	@echo "waiting for postgres..."; until docker compose exec -T postgres pg_isready -U clientbridge -d clientbridge >/dev/null 2>&1; do sleep 1; done
-	@# PowerSync needs a WAL publication on the source DB + a separate bucket-storage DB (idempotent).
-	-@docker compose exec -T postgres psql -U clientbridge -d clientbridge -c "CREATE PUBLICATION powersync FOR ALL TABLES;" 2>/dev/null || true
-	-@docker compose exec -T postgres psql -U clientbridge -d postgres -c "CREATE DATABASE powersync_storage;" 2>/dev/null || true
+	docker compose up -d --wait --wait-timeout 60 postgres
+	docker compose exec -T postgres psql -U clientbridge -d clientbridge -f - < infra/powersync/bootstrap.sql
 	docker compose up -d
 	@echo "infra up. PowerSync on :8704 (run 'make migrate seed' if the DB is fresh)."
 
@@ -212,3 +209,7 @@ demo-check:
 
 demo-snapshot:
 	cd backend && uv run python -m scripts.demo_snapshot
+
+.PHONY: test-sync
+test-sync:
+	cd backend && uv run python -m scripts.verify_sync

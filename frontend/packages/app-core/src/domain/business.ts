@@ -1,5 +1,7 @@
-import { usePowerSync, useQuery, useStatus } from "@powersync/react";
-import { useEffect, useRef, useState } from "react";
+import { businessQuery, selectReplicaBusiness } from "@clientbridge/sync";
+import { useBusinessQuery as useQuery } from "../hooks";
+import { usePowerSync, useStatus, useQuery as useGlobalQuery } from "@powersync/react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { type Load, useAsyncAction, useLoad } from "../hooks";
 import { strings } from "../strings";
@@ -237,7 +239,7 @@ export function useBusinessLoad(): Load {
         setError(null);
         if (synced && !business.isLoading && empty) {
             // Sync status can arrive before the watched query observes the committed business row.
-            db.getOptional<{ id: string }>(BUSINESS_ID_SQL)
+            db.getOptional<{ id: string }>(businessQuery(BUSINESS_ID_SQL))
                 .then((row) => {
                     if (active) setConfirmedEmpty(row === null);
                 })
@@ -592,6 +594,7 @@ export interface BrandForm {
     slug: string;
     province: string | null;
     logoFileId: string;
+    avatarFileId: string;
     setLogoFileId: (id: string) => void;
     colour: string;
     setColour: (v: string) => void;
@@ -635,8 +638,9 @@ export function useBrandForm(api: ApiLike): BrandForm {
         slug: row?.slug ?? "",
         province: row?.province ?? null,
         logoFileId: current.logo_file_id,
+        avatarFileId: current.avatar_file_id || current.logo_file_id,
         setLogoFileId: (id) => {
-            edit({ logo_file_id: id });
+            edit({ logo_file_id: id, avatar_file_id: "" });
         },
         colour: current.primary || BRAND_COLOURS[1],
         setColour: (v) => {
@@ -772,5 +776,81 @@ export function useBookingPreview(limit: number): BookingPreview {
             rating?.average === null || rating === undefined || rating.n === 0
                 ? null
                 : b.reviews(rating.average.toFixed(1), rating.n),
+    };
+}
+
+export function useBusinessSelection(bindApi: (businessId: string | null) => void) {
+    const db = usePowerSync();
+    const businesses = useGlobalQuery<{ id: string; name: string }>(
+        "SELECT id, name FROM businesses ORDER BY name, id",
+    );
+    const selection = useGlobalQuery<{ business_id: string }>(
+        "SELECT business_id FROM business_selection WHERE id = 'current'",
+    );
+    const selectedId =
+        businesses.data.find((row) => row.id === selection.data[0]?.business_id)?.id ?? null;
+    const synced = useStatus().hasSynced ?? false;
+    const onlyId = businesses.data.length === 1 ? businesses.data[0]?.id : undefined;
+    const [applied, setApplied] = useState<string | null | undefined>(undefined);
+    const [error, setError] = useState<string | null>(null);
+    const [busy, setBusy] = useState(false);
+    const [firstSyncTimedOut, setFirstSyncTimedOut] = useState(false);
+    useEffect(() => {
+        if (synced || businesses.data.length > 0) return;
+        const timer = setTimeout(() => {
+            setFirstSyncTimedOut(true);
+        }, 30_000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, [synced, businesses.data.length]);
+    const choose = useCallback(
+        (id: string): void => {
+            if (!businesses.data.some((row) => row.id === id)) return;
+            setBusy(true);
+            selectReplicaBusiness(db, id)
+                .then(
+                    () => {
+                        setError(null);
+                    },
+                    () => {
+                        setError(strings.business.switchError);
+                    },
+                )
+                .finally(() => {
+                    setBusy(false);
+                });
+        },
+        [db, businesses.data],
+    );
+    useEffect(() => {
+        if (onlyId && !selectedId) choose(onlyId);
+    }, [onlyId, selectedId, choose]);
+    const ready =
+        !businesses.error &&
+        !selection.error &&
+        !businesses.isLoading &&
+        !selection.isLoading &&
+        (selectedId !== null || (synced && businesses.data.length === 0));
+    useEffect(() => {
+        if (ready) {
+            bindApi(selectedId);
+            setApplied(selectedId);
+        }
+    }, [bindApi, selectedId, ready]);
+    return {
+        options: businesses.data.map((row) => ({ key: row.id, label: row.name })),
+        selectedId,
+        choose,
+        ready: ready && applied === selectedId,
+        needsChoice: businesses.data.length > 1 && selectedId === null,
+        busy,
+        error:
+            error ??
+            (businesses.error ||
+            selection.error ||
+            (firstSyncTimedOut && !synced && businesses.data.length === 0)
+                ? strings.business.switchError
+                : null),
     };
 }

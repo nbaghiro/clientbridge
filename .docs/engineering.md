@@ -241,3 +241,9 @@ replication slot (Postgres PANICs on next start), remove `pg_replslot/powersync_
 Demo accounts are normal tenants in the main local `clientbridge` database, using the standard servers and provider integrations. `make seed` adds them when absent; `make demo-reset` refreshes only the seeded accounts and preserves unrelated tenants. `make demo-check` validates their scenario and ledger. There is no demo runtime mode or separate presentation database.
 
 See the [seeded account guide](executions/demo-data/README.md) for logins, data architecture, provider requirements and reset behavior. Integration tests use normal dependency-injected recording adapters and per-test rollback; CI databases use the `clientbridge_test*` prefix.
+
+### PowerSync signing-key rotation
+
+Production requires `POWERSYNC_USE_RS256=true`, a durable RSA private PEM of at least 2048 bits, and a unique `POWERSYNC_KID`. Keep the private PEM in the deployment secret manager. Every API worker must use the same active configuration. The application rejects missing production keys at startup.
+
+To rotate, first publish the next public PEM under its new key ID in `POWERSYNC_PREVIOUS_PUBLIC_KEYS` (a JSON object); keep signing with the current key. Verify that PowerSync can obtain the expanded `/sync/keys` response before changing the signer. Then deploy the new private PEM/key ID, retaining the former public key in the overlap map. Keep both public keys available until all workers have switched and the last old token has expired, plus the measured verifier cache/clock-skew margin. Remove the former public key only after verification. Rollback uses the former signer while retaining both public verification keys; it never requires clearing client queues. The actual-service cache/rotation drill is still an execution gate, not a claimed production guarantee.

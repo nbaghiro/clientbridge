@@ -8,7 +8,13 @@ import { formatMoney, formatMoneyWithCurrency } from "../format";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { DocTotalLine, ProgressStep } from "../ui";
-import { type PublicBrand, usePublicResource } from "./publicResource";
+import {
+    type PublicBrand,
+    type PublicDraftStorage,
+    readPublicDraft,
+    writePublicDraft,
+    usePublicResource,
+} from "./publicResource";
 
 const s = strings.publicBooking;
 const m = strings.publicManage;
@@ -315,6 +321,7 @@ export function usePublicBookingFlow(
     client: PublicBookingClient,
     slug: string,
     initial?: {
+        storage?: PublicDraftStorage | undefined;
         itemId?: string | undefined;
         staffId?: string | undefined;
         startsAt?: string | undefined;
@@ -322,9 +329,17 @@ export function usePublicBookingFlow(
 ) {
     const { status, data: page } = usePublicResource(client.getServices, slug);
     const today = page?.now ? page.now.slice(0, 10) : dateKey(new Date());
+    const storage = initial?.storage;
+    const draftKey = `connect-booking:${slug}`;
+    const [draft] = useState(() => readPublicDraft(storage, draftKey));
+    const selection = useRef({
+        itemId: initial?.itemId ?? draft.itemId,
+        staffId: initial?.itemId ? initial.staffId : draft.staffId,
+        startsAt: initial?.itemId ? initial.startsAt : draft.startsAt,
+    }).current;
     const [step, setStep] = useState<BookingStep>("service");
     const initialApplied = useRef(false);
-    const initialTime = useRef(initial?.startsAt ?? "");
+    const initialTime = useRef(selection.startsAt ?? "");
     const [itemId, setItemId] = useState("");
     const [staffId, setStaffId] = useState<string>(ANY_STAFF);
     const [weekFrom, setWeekFrom] = useState<string | null>(null);
@@ -335,17 +350,26 @@ export function usePublicBookingFlow(
     const [reload, setReload] = useState(0);
     const [startsAt, setStartsAt] = useState("");
     const [addons, setAddons] = useState<Record<string, number>>({});
-    const [name, setName] = useState("");
-    const [phone, setPhone] = useState("");
-    const [email, setEmail] = useState("");
-    const [petName, setPetName] = useState("");
+    const [name, setName] = useState(draft.name ?? "");
+    const [phone, setPhone] = useState(draft.phone ?? "");
+    const [email, setEmail] = useState(draft.email ?? "");
+    const [petName, setPetName] = useState(draft.petName ?? "");
     const [returningToken, setReturningToken] = useState<string | null>(null);
     const [subjectId, setSubjectId] = useState<string | null>(null);
-    const [note, setNote] = useState("");
+    const [note, setNote] = useState(draft.note ?? "");
     const [touched, setTouched] = useState(false);
     const [result, setResult] = useState<PublicBookingResult | null>(null);
     const key = useRef<string | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
+
+    useEffect(() => {
+        if (!initialApplied.current) return;
+        writePublicDraft(
+            storage,
+            draftKey,
+            result ? null : { itemId, staffId, startsAt, name, phone, email, petName, note },
+        );
+    }, [storage, draftKey, result, itemId, staffId, startsAt, name, phone, email, petName, note]);
 
     const clearReturning = (): void => {
         setReturningToken(null);
@@ -368,18 +392,18 @@ export function usePublicBookingFlow(
     useEffect(() => {
         if (initialApplied.current || page === null || status !== "ready") return;
         initialApplied.current = true;
-        const selected = page.services.find((candidate) => candidate.id === initial?.itemId);
+        const selected = page.services.find((candidate) => candidate.id === selection.itemId);
         if (!selected) return;
         setItemId(selected.id);
-        if (initial?.staffId && selected.staff_ids.includes(initial.staffId))
-            setStaffId(initial.staffId);
-        const starts = initial?.startsAt;
+        if (selection.staffId && selected.staff_ids.includes(selection.staffId))
+            setStaffId(selection.staffId);
+        const starts = selection.startsAt;
         if (starts && Number.isFinite(Date.parse(starts)) && starts.slice(0, 10) >= today) {
             setDate(starts.slice(0, 10));
             setWeekFrom(starts.slice(0, 10));
         }
         setStep("time");
-    }, [page, status, initial?.itemId, initial?.staffId, initial?.startsAt, today]);
+    }, [page, status, selection.itemId, selection.staffId, selection.startsAt, today]);
 
     useEffect(() => {
         if (itemId === "" || status !== "ready") return;

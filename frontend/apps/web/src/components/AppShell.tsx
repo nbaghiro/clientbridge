@@ -91,7 +91,7 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
     }, [location.pathname, location.search]);
 
     const signOut = (): void => {
-        if (sync.pendingCount > 0) setLeaving(true);
+        if (!sync.queueKnown || sync.pendingCount > 0) setLeaving(true);
         else onSignOut();
     };
     const nextStep = nav.setup.steps.find((s) => !s.done);
@@ -113,6 +113,7 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
                 onSignOut={signOut}
                 setupHref={nextStep === undefined ? "/setup" : linkPath(nextStep.target)}
                 offline={!sync.online && sync.hasSynced}
+                syncProblem={sync.problem}
                 pendingCount={sync.pendingCount}
                 lastSynced={sync.lastSynced}
             />
@@ -127,6 +128,7 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
             <SignOutDialog
                 open={leaving}
                 pending={sync.pending}
+                pendingCount={sync.queueKnown ? sync.pendingCount : null}
                 onCancel={() => {
                     setLeaving(false);
                 }}
@@ -152,6 +154,7 @@ function ShellBody({
     onSignOut,
     setupHref,
     offline,
+    syncProblem,
     pendingCount,
     lastSynced,
 }: {
@@ -167,6 +170,7 @@ function ShellBody({
     onSignOut: () => void;
     setupHref: string;
     offline: boolean;
+    syncProblem: ReturnType<typeof useSyncState>["problem"];
     pendingCount: number;
     lastSynced: string | null;
 }) {
@@ -328,15 +332,19 @@ function ShellBody({
             </aside>
 
             <main className="relative flex-1 overflow-y-auto">
-                {offline ? (
+                {syncProblem || offline ? (
                     <div className="sticky top-0 z-10">
                         <SyncBanner
-                            state="offline"
-                            title={strings.sync.offlineTitle}
+                            state={syncProblem ? "error" : "offline"}
+                            title={
+                                syncProblem ? strings.sync.problemTitle : strings.sync.offlineTitle
+                            }
                             detail={
-                                lastSynced === null
-                                    ? strings.sync.offlineStrip(pendingCount)
-                                    : `${strings.sync.offlineStrip(pendingCount)}. ${strings.sync.lastSynced(lastSynced)}`
+                                syncProblem
+                                    ? strings.sync.problems[syncProblem]
+                                    : lastSynced === null
+                                      ? strings.sync.offlineStrip(pendingCount)
+                                      : `${strings.sync.offlineStrip(pendingCount)}. ${strings.sync.lastSynced(lastSynced)}`
                             }
                         />
                     </div>

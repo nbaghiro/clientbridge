@@ -9,22 +9,22 @@ bucket_definitions:
       SELECT business_id FROM staff
       WHERE user_id = request.user_id() AND status = 'active'
     data:
-      - SELECT * FROM clients         WHERE business_id = bucket.business_id AND deleted_at IS NULL
-      - SELECT * FROM subjects        WHERE business_id = bucket.business_id AND deleted_at IS NULL
-      - SELECT * FROM notes           WHERE business_id = bucket.business_id
-      - SELECT * FROM consents        WHERE business_id = bucket.business_id
-      - SELECT * FROM resources       WHERE business_id = bucket.business_id
-      - SELECT * FROM hours           WHERE business_id = bucket.business_id AND staff_id IS NULL
-      - SELECT * FROM items           WHERE business_id = bucket.business_id
-      - SELECT * FROM packages        WHERE business_id = bucket.business_id
-      - SELECT * FROM subscriptions   WHERE business_id = bucket.business_id
-      - SELECT * FROM gift_cards      WHERE business_id = bucket.business_id
-      - SELECT * FROM forms           WHERE business_id = bucket.business_id
-      - SELECT * FROM fields          WHERE business_id = bucket.business_id
-      - SELECT * FROM contracts       WHERE business_id = bucket.business_id
-      - SELECT * FROM files           WHERE business_id = bucket.business_id
-      - SELECT * FROM threads         WHERE business_id = bucket.business_id
-      - SELECT * FROM messages        WHERE business_id = bucket.business_id
+      - SELECT created_by, name, email, phone, user_id, tags, status, custom_fields, preferred_channel, archived_at, id, business_id, created_at, updated_at, deleted_at FROM clients         WHERE business_id = bucket.business_id AND deleted_at IS NULL
+      - SELECT client_id, kind, name, attributes, id, business_id, created_at, updated_at, deleted_at FROM subjects        WHERE business_id = bucket.business_id AND deleted_at IS NULL
+      - SELECT created_by, parent_type, parent_id, body, pinned, id, business_id, created_at, updated_at FROM notes           WHERE business_id = bucket.business_id
+      - SELECT client_id, channel, status, source, recorded_by, expires_at, id, business_id, created_at, updated_at FROM consents        WHERE business_id = bucket.business_id
+      - SELECT name, category, capacity, active, id, business_id, created_at, updated_at FROM resources       WHERE business_id = bucket.business_id
+      - SELECT staff_id, basis, weekday, date, start_time, end_time, available, note, starts_at, ends_at, reason, id, business_id, created_at, updated_at FROM hours           WHERE business_id = bucket.business_id AND staff_id IS NULL
+      - SELECT created_by, kind, name, description, variant_parent_id, variant_label, price_cents, currency, duration_min, capacity, category, color, online_bookable, sell_online, buffer_before_min, buffer_after_min, deposit_type, deposit_value, interval, frequency, session_count, validity_days, covers_item_id, visits_per_period, member_discount_bps, gift_amounts, tax_class, sku, cost_cents, track_stock, stock_on_hand, low_stock_at, active, addon, addon_for, custom_fields, id, business_id, created_at, updated_at FROM items           WHERE business_id = bucket.business_id
+      - SELECT client_id, item_id, sessions_total, expires_at, status, payment_id, id, business_id, created_at, updated_at FROM packages        WHERE business_id = bucket.business_id
+      - SELECT client_id, item_id, status, current_period_start, current_period_end, payment_method_id, id, business_id, created_at, updated_at FROM subscriptions   WHERE business_id = bucket.business_id
+      - SELECT code, item_id, initial_cents, purchaser_client_id, recipient, expires_at, status, payment_id, id, business_id, created_at, updated_at FROM gift_cards      WHERE business_id = bucket.business_id
+      - SELECT name, require_signature, active, send_on, id, business_id, created_at, updated_at FROM forms           WHERE business_id = bucket.business_id
+      - SELECT form_id, input, name, label, help, required, options, validation, position, id, business_id, created_at, updated_at FROM fields          WHERE business_id = bucket.business_id
+      - SELECT name, body, version, active, id, business_id, created_at, updated_at FROM contracts       WHERE business_id = bucket.business_id
+      - SELECT parent_type, parent_id, purpose, content_type, size, id, business_id, created_at, updated_at FROM files           WHERE business_id = bucket.business_id
+      - SELECT client_id, channel, status, id, business_id, created_at, updated_at FROM threads         WHERE business_id = bucket.business_id
+      - SELECT thread_id, direction, channel, sent_by, body, status, broadcast_id, id, business_id, created_at, updated_at FROM messages        WHERE business_id = bucket.business_id
 
   # What staff and contractors read with fewer columns: the business without its tax numbers and
   # billing email, and the team without pay. Owner/admin read the same rows with more columns from
@@ -35,7 +35,7 @@ bucket_definitions:
       - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'contractor'
     data:
       - SELECT id, name, slug, timezone, locale, province, brand, stripe_account_id, stripe_terminal_location_id, stripe_charges_enabled, tax_registered, setup_dismissed_at, staff_discount_limit_bps FROM businesses WHERE id = bucket.business_id
-      - SELECT id, business_id, user_id, role, name, title, color, status, invite_email, invited_at, created_at, updated_at FROM staff WHERE business_id = bucket.business_id
+      - SELECT id, hours_revision, business_id, user_id, role, name, title, color, status, invite_email, invited_at, created_at, updated_at FROM staff WHERE business_id = bucket.business_id
       # The pickup queue: paid online orders (pickup_status is set only once paid) and what to pack, without prices.
       - SELECT id, business_id, number, client_id, source, pickup_status, preparing_at, ready_at, picked_up_at, pickup_from, pickup_to, note, notify_sms, created_at, updated_at FROM orders WHERE business_id = bucket.business_id AND pickup_status IS NOT NULL
       - SELECT id, business_id, order_id, item_id, description, quantity, position, created_at, updated_at FROM lines WHERE business_id = bucket.business_id AND for_pickup = true
@@ -47,13 +47,13 @@ bucket_definitions:
       SELECT id AS staff_id, business_id FROM staff
       WHERE user_id = request.user_id() AND status = 'active'
     data:
-      - SELECT * FROM slots              WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
-      - SELECT * FROM bookings           WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id AND deleted_at IS NULL
-      - SELECT * FROM addons             WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
-      - SELECT * FROM hours              WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
-      - SELECT * FROM recurrences        WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
-      - SELECT * FROM accounts           WHERE owner_type = 'staff' AND owner_id = bucket.staff_id AND business_id = bucket.business_id
-      - SELECT * FROM entries            WHERE owner_type = 'staff' AND owner_id = bucket.staff_id AND business_id = bucket.business_id
+      - SELECT item_id, staff_id, resource_id, recurrence_id, starts_at, ends_at, capacity, status, id, business_id, created_at, updated_at FROM slots              WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
+      - SELECT slot_id, staff_id, client_id, subject_id, package_id, invoice_id, status, source, price_cents, deposit_amount_cents, deposit_status, confirmed_at, checked_in_at, order_id, charged_at, completed_at, canceled_at, reminded_at, reschedule_count, custom_fields, id, business_id, created_at, updated_at, deleted_at FROM bookings           WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id AND deleted_at IS NULL
+      - SELECT booking_id, staff_id, item_id, description, quantity, unit_amount_cents, id, business_id, created_at, updated_at FROM addons             WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
+      - SELECT staff_id, basis, weekday, date, start_time, end_time, available, note, starts_at, ends_at, reason, id, business_id, created_at, updated_at FROM hours              WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
+      - SELECT item_id, staff_id, client_id, frequency, interval, byday, monthly_by, count, until, status, id, business_id, created_at, updated_at FROM recurrences        WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
+      - SELECT owner_type, owner_id, category, code, currency, balance_cents, id, business_id, created_at, updated_at FROM accounts           WHERE owner_type = 'staff' AND owner_id = bucket.staff_id AND business_id = bucket.business_id
+      - SELECT journal_id, account_id, owner_type, owner_id, amount_cents, currency, event, source_type, source_id, subject_type, subject_id, ref, leg, meta, occurred_at, available_at, created_at, id, business_id FROM entries            WHERE owner_type = 'staff' AND owner_id = bucket.staff_id AND business_id = bucket.business_id
 
   # 3) BUSINESS-FULL — owner/admin only: ALL members' work, financials and inbox.
   #    This is how an owner sees the activities of every worker.
@@ -65,22 +65,22 @@ bucket_definitions:
       - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'admin'
     data:
       - SELECT id, name, slug, timezone, locale, province, billing_email, gst_hst_number, qst_number, pst_number, filing_frequency, review_hold_at, google_review_url, brand, stripe_account_id, stripe_terminal_location_id, stripe_charges_enabled, tax_registered, setup_dismissed_at, staff_discount_limit_bps FROM businesses WHERE id = bucket.business_id
-      - SELECT id, business_id, user_id, role, name, payee, rate_type, rate_bps, rate_cents, retail_rate_bps, title, color, status, invite_email, invited_at, created_at, updated_at FROM staff WHERE business_id = bucket.business_id
-      - SELECT * FROM slots              WHERE business_id = bucket.business_id
-      - SELECT * FROM bookings           WHERE business_id = bucket.business_id AND deleted_at IS NULL
-      - SELECT * FROM addons             WHERE business_id = bucket.business_id
-      - SELECT * FROM hours              WHERE business_id = bucket.business_id
-      - SELECT * FROM recurrences        WHERE business_id = bucket.business_id
-      - SELECT * FROM invoices           WHERE business_id = bucket.business_id
-      - SELECT * FROM estimates          WHERE business_id = bucket.business_id
-      - SELECT * FROM orders             WHERE business_id = bucket.business_id
-      - SELECT * FROM lines              WHERE business_id = bucket.business_id
-      - SELECT * FROM inventory          WHERE business_id = bucket.business_id
-      - SELECT * FROM payments           WHERE business_id = bucket.business_id
-      - SELECT * FROM payment_methods    WHERE business_id = bucket.business_id
-      - SELECT * FROM accounts           WHERE business_id = bucket.business_id
-      - SELECT * FROM entries            WHERE business_id = bucket.business_id
-      - SELECT * FROM reviews            WHERE business_id = bucket.business_id
-      - SELECT * FROM broadcasts         WHERE business_id = bucket.business_id
-      - SELECT * FROM responses          WHERE business_id = bucket.business_id
-      - SELECT * FROM signatures         WHERE business_id = bucket.business_id
+      - SELECT id, hours_revision, business_id, user_id, role, name, payee, rate_type, rate_bps, rate_cents, retail_rate_bps, title, color, status, invite_email, invited_at, created_at, updated_at FROM staff WHERE business_id = bucket.business_id
+      - SELECT item_id, staff_id, resource_id, recurrence_id, starts_at, ends_at, capacity, status, id, business_id, created_at, updated_at FROM slots              WHERE business_id = bucket.business_id
+      - SELECT slot_id, staff_id, client_id, subject_id, package_id, invoice_id, status, source, price_cents, deposit_amount_cents, deposit_status, confirmed_at, checked_in_at, order_id, charged_at, completed_at, canceled_at, reminded_at, reschedule_count, custom_fields, id, business_id, created_at, updated_at, deleted_at FROM bookings           WHERE business_id = bucket.business_id AND deleted_at IS NULL
+      - SELECT booking_id, staff_id, item_id, description, quantity, unit_amount_cents, id, business_id, created_at, updated_at FROM addons             WHERE business_id = bucket.business_id
+      - SELECT staff_id, basis, weekday, date, start_time, end_time, available, note, starts_at, ends_at, reason, id, business_id, created_at, updated_at FROM hours              WHERE business_id = bucket.business_id
+      - SELECT item_id, staff_id, client_id, frequency, interval, byday, monthly_by, count, until, status, id, business_id, created_at, updated_at FROM recurrences        WHERE business_id = bucket.business_id
+      - SELECT client_id, number, status, currency, subtotal_cents, tax_total_cents, total_cents, issued_at, due_at, overdue_notified_at, voided_at, notes, pay_token, id, business_id, created_at, updated_at, discount_kind, discount_value, discount_reason FROM invoices           WHERE business_id = bucket.business_id
+      - SELECT client_id, number, status, subtotal_cents, tax_total_cents, total_cents, valid_until, accepted_at, declined_at, converted_invoice_id, notes, decline_reason, view_token, id, business_id, created_at, updated_at, discount_kind, discount_value, discount_reason FROM estimates          WHERE business_id = bucket.business_id
+      - SELECT client_id, staff_id, number, status, currency, subtotal_cents, tax_total_cents, total_cents, receipt_email, receipt_phone, source, pickup_status, preparing_at, pickup_from, pickup_to, notify_sms, ready_at, picked_up_at, note, approved_by, receipt_channel, receipt_sent_at, id, business_id, created_at, updated_at, discount_kind, discount_value, discount_reason FROM orders             WHERE business_id = bucket.business_id
+      - SELECT estimate_id, invoice_id, order_id, description, item_id, booking_id, quantity, unit_amount_cents, amount_cents, tax_amount_cents, tax_class, position, staff_id, discount_cents, sale_discount_cents, for_pickup, optional, selected, id, business_id, created_at, updated_at, discount_kind, discount_value, discount_reason FROM lines              WHERE business_id = bucket.business_id
+      - SELECT item_id, line_id, reason, quantity, unit_cost_cents, note, created_by, id, business_id, created_at, updated_at FROM inventory          WHERE business_id = bucket.business_id
+      - SELECT client_id, kind, parent_payment_id, invoice_id, order_id, booking_id, amount_cents, currency, method, provider, reference_code, reference, note, tendered_cents, status, paid_at, refund_notify, reason, credit_note, channel, expires_at, dispute_status, dispute_reason, dispute_respond_by, tip_cents, tip_split, id, business_id, created_at, updated_at FROM payments           WHERE business_id = bucket.business_id
+      - SELECT client_id, method, brand, last4, provider, preferred, mandate_status, status, exp_month, exp_year, holder_name, bank_name, id, business_id, created_at, updated_at FROM payment_methods    WHERE business_id = bucket.business_id
+      - SELECT owner_type, owner_id, category, code, currency, balance_cents, id, business_id, created_at, updated_at FROM accounts           WHERE business_id = bucket.business_id
+      - SELECT journal_id, account_id, owner_type, owner_id, amount_cents, currency, event, source_type, source_id, subject_type, subject_id, ref, leg, meta, occurred_at, available_at, created_at, id, business_id FROM entries            WHERE business_id = bucket.business_id
+      - SELECT client_id, booking_id, channel, status, requested_at, submitted_at, rating, body, response, responded_at, sent_to_google, id, business_id, created_at, updated_at FROM reviews            WHERE business_id = bucket.business_id
+      - SELECT created_by, name, channel, body, audience, status, scheduled_at, recipient_count, excluded_count, id, business_id, created_at, updated_at FROM broadcasts         WHERE business_id = bucket.business_id
+      - SELECT form_id, client_id, parent_type, parent_id, status, submitted_at, opened_at, answers, id, business_id, created_at, updated_at FROM responses          WHERE business_id = bucket.business_id
+      - SELECT contract_id, client_id, parent_type, parent_id, token, signed_at, signed_body, ip, status, contract_version, opened_at, method, signer_name, strokes, id, business_id, created_at, updated_at FROM signatures         WHERE business_id = bucket.business_id

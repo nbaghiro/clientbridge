@@ -67,6 +67,7 @@ function Credentials({ auth }: { auth: Auth }) {
                 <Checkbox label={a.showPassword} value={auth.reveal} onChange={auth.toggleReveal} />
                 {signup ? null : (
                     <Button
+                        style={{ alignSelf: "center" }}
                         variant="link"
                         onPress={() => {
                             auth.setMode("reset");
@@ -132,7 +133,7 @@ function EmailStep({ auth }: { auth: Auth }) {
             {auth.mode === "sent" ? (
                 <View>
                     <View style={styles.mailIcon}>
-                        <Icon name="mail" size={24} color={c.accent} />
+                        <Icon name="mail" size={32} color={c.inkSoft} />
                     </View>
                     <Text style={styles.title}>{a.sentTitle}</Text>
                     <Text style={styles.body}>{a.sentBody(auth.email.trim())}</Text>
@@ -220,6 +221,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
                                 {signup ? a.haveAccount : a.newToApp}
                             </Text>
                             <Button
+                                style={{ alignSelf: "center" }}
                                 variant="link"
                                 onPress={() => {
                                     auth.setMode(signup ? "signin" : "signup");
@@ -260,16 +262,7 @@ const styles = StyleSheet.create({
     error: { marginTop: 14 },
     submit: { marginTop: 18 },
     terms: { color: c.muted, fontSize: 12, textAlign: "center", marginTop: 14, lineHeight: 17 },
-    mailIcon: {
-        width: 52,
-        height: 52,
-        borderRadius: 26,
-        backgroundColor: c.accentWeak,
-        alignItems: "center",
-        justifyContent: "center",
-        marginTop: 20,
-        marginBottom: 16,
-    },
+    mailIcon: { marginTop: 20, marginBottom: 12 },
     toggleRow: {
         flexDirection: "row",
         justifyContent: "center",

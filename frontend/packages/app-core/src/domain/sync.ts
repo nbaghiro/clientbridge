@@ -1,5 +1,6 @@
+import type { CommonPowerSyncDatabase } from "@powersync/common";
 import { usePowerSync, useQuery, useStatus } from "@powersync/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { formatTime } from "../datetime";
 import { type Load, type LoadSource, useLoad } from "../hooks";
@@ -62,8 +63,18 @@ interface SyncState {
     online: boolean;
     hasSynced: boolean;
     pendingCount: number;
+    queueKnown: boolean;
     pending: PendingChange[];
     lastSynced: string | null;
+    problem: "storage" | "upload" | "download" | null;
+}
+
+export function syncProblem(
+    storageFailed: boolean,
+    uploadFailed: boolean,
+    downloadFailed: boolean,
+): SyncState["problem"] {
+    return storageFailed ? "storage" : uploadFailed ? "upload" : downloadFailed ? "download" : null;
 }
 
 const TABLE_LABEL: Record<string, string> = {
@@ -81,20 +92,53 @@ export function useSyncState(pollMs = 3000): SyncState {
     const db = usePowerSync();
     const status = useStatus();
     const [pending, setPending] = useState<PendingChange[]>([]);
+    const [pendingCount, setPendingCount] = useState(0);
+    const [queueKnown, setQueueKnown] = useState(false);
+    const [queueFailed, setQueueFailed] = useState(false);
+    const [outboxFailed, setOutboxFailed] = useState(false);
     useEffect(() => {
         let live = true;
+        setQueueKnown(false);
+        setQueueFailed(false);
+        setOutboxFailed(false);
+        setPending([]);
+        setPendingCount(0);
         const read = (): void => {
-            db.getCrudBatch(50)
-                .then((batch) => {
+            Promise.all([
+                db.getCrudBatch(50),
+                db.getUploadQueueStats(),
+                db.getAll<{ id: string; error_code: string | null }>(
+                    "SELECT o.id, o.error_code FROM hours_outbox o LEFT JOIN staff s ON s.id = o.staff_id WHERE o.state != 'accepted' OR s.hours_revision IS NULL OR s.hours_revision < o.result_revision ORDER BY o.sequence LIMIT 50",
+                ),
+                db.get<{ count: number; failed: number }>(
+                    "SELECT count(*) AS count, COALESCE(SUM(CASE WHEN o.error_code IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed FROM hours_outbox o LEFT JOIN staff s ON s.id = o.staff_id WHERE o.state != 'accepted' OR s.hours_revision IS NULL OR s.hours_revision < o.result_revision",
+                ),
+            ])
+                .then(([batch, stats, outbox, total]) => {
                     if (!live) return;
+                    setPendingCount(stats.count + total.count);
+                    setOutboxFailed(total.failed > 0);
+                    setQueueKnown(true);
+                    setQueueFailed(false);
                     setPending(
-                        (batch?.crud ?? []).map((c) => ({
-                            id: String(c.clientId),
-                            label: pendingLabel(c.table, c.op),
-                        })),
+                        [
+                            ...(batch?.crud ?? []).map((c) => ({
+                                id: String(c.clientId),
+                                label: pendingLabel(c.table, c.op),
+                            })),
+                            ...outbox.map((row) => ({
+                                id: row.id,
+                                label: pendingLabel("hours", "PATCH"),
+                            })),
+                        ].slice(0, 50),
                     );
                 })
-                .catch(() => undefined);
+                .catch(() => {
+                    if (live) {
+                        setQueueKnown(false);
+                        setQueueFailed(true);
+                    }
+                });
         };
         read();
         const timer = setInterval(read, pollMs);
@@ -107,8 +151,119 @@ export function useSyncState(pollMs = 3000): SyncState {
     return {
         online: status.connected,
         hasSynced: status.hasSynced ?? false,
-        pendingCount: pending.length,
+        pendingCount,
+        queueKnown,
         pending,
         lastSynced: last === undefined ? null : formatTime(last),
+        problem: syncProblem(
+            queueFailed,
+            outboxFailed || !!status.uploadError,
+            !!status.downloadError,
+        ),
+    };
+}
+
+interface ReplicaSessionOptions {
+    restore: () => Promise<CommonPowerSyncDatabase | null>;
+    pause: () => Promise<void>;
+    discard: () => Promise<void>;
+    clearCredentials: () => Promise<void>;
+    subscribe: (handler: () => void) => void;
+    subscribeChanged?: (handler: () => void) => void;
+    onReady?: () => void;
+}
+
+function bounded<T>(work: Promise<T>): Promise<T> {
+    let timer: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+            reject(new Error("session initialization timed out"));
+        }, 30_000);
+    });
+    return Promise.race([work, timeout]).finally(() => {
+        clearTimeout(timer);
+    });
+}
+
+export function useReplicaSession(options: ReplicaSessionOptions) {
+    const [db, setDb] = useState<CommonPowerSyncDatabase | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [failed, setFailed] = useState<"load" | "discard" | "reauthenticate" | null>(null);
+    const generation = useRef(0);
+    const run = useCallback(
+        async (action: "load" | "discard" | "reauthenticate"): Promise<void> => {
+            const current = ++generation.current;
+            setDb(null);
+            setLoading(true);
+            setFailed(null);
+            try {
+                const next =
+                    action === "load"
+                        ? await bounded(options.restore())
+                        : await bounded(
+                              action === "discard" ? options.discard() : options.clearCredentials(),
+                          ).then(() => null);
+                if (current === generation.current) {
+                    setDb(next);
+                    if (next) options.onReady?.();
+                }
+            } catch {
+                if (current === generation.current) {
+                    setFailed(action);
+                    options.pause().catch(() => undefined);
+                }
+            } finally {
+                if (current === generation.current) setLoading(false);
+            }
+        },
+        [options],
+    );
+    const restore = useCallback(() => {
+        run("load").catch(() => {
+            setFailed("load");
+        });
+    }, [run]);
+    const discard = useCallback(() => {
+        run("discard").catch(() => {
+            setFailed("discard");
+        });
+    }, [run]);
+    const reauthenticate = useCallback(() => {
+        run("reauthenticate").catch(() => {
+            setFailed("reauthenticate");
+        });
+    }, [run]);
+    useEffect(() => {
+        options.subscribe(() => {
+            const current = ++generation.current;
+            setDb(null);
+            setLoading(true);
+            setFailed(null);
+            bounded(options.pause())
+                .catch(() => {
+                    if (current === generation.current) setFailed("load");
+                })
+                .finally(() => {
+                    if (current === generation.current) setLoading(false);
+                });
+        });
+        options.subscribeChanged?.(restore);
+        restore();
+        return () => {
+            ++generation.current;
+            options.subscribe(() => undefined);
+            options.subscribeChanged?.(() => undefined);
+            options.pause().catch(() => undefined);
+        };
+    }, [options, restore]);
+    return {
+        db,
+        loading,
+        failed,
+        restore,
+        discard,
+        reauthenticate,
+        retry:
+            failed === "discard" ? discard : failed === "reauthenticate" ? reauthenticate : restore,
     };
 }

@@ -1,4 +1,5 @@
-import { useQuery } from "@powersync/react";
+import { useBusinessQuery as useQuery } from "../hooks";
+
 import { useMemo, useState } from "react";
 
 import { type ApiLike, newIdempotencyKey } from "../api";
@@ -9,7 +10,7 @@ import type { Load } from "../hooks";
 import type { IconName } from "../icons";
 import { strings } from "../strings";
 import type { Intent, TimelineEntry } from "../ui";
-import { utcSql } from "./bookings";
+import { utcSql } from "../datetime";
 import { clientValueSql, invoiceStatusSql } from "./ledger";
 import {
     type SavedCardRow,

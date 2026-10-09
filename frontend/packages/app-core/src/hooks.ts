@@ -1,3 +1,5 @@
+import { businessQuery } from "@clientbridge/sync";
+import { type AdditionalOptions, useQuery } from "@powersync/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -248,4 +250,12 @@ export function useMonthGrid(value: string, min?: string, max?: string): MonthGr
             setView("days");
         },
     };
+}
+
+export function useBusinessQuery<Row = Record<string, unknown>>(
+    sql: string,
+    parameters: unknown[] = [],
+    options?: AdditionalOptions,
+) {
+    return useQuery<Row>(businessQuery(sql), parameters, options);
 }

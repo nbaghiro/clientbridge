@@ -1,4 +1,5 @@
-import { useQuery } from "@powersync/react";
+import { useBusinessQuery as useQuery } from "../hooks";
+
 import { useState } from "react";
 
 import type { ApiLike } from "../api";
@@ -6,7 +7,8 @@ import { addDays, formatTime, parseTimestamp, relativeDay, sameDay, startOfDay }
 import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
-import { type ScheduleEvent, useNow, utcSql } from "./bookings";
+import { type ScheduleEvent, useNow } from "./bookings";
+import { utcSql } from "../datetime";
 import { staffName, useStaff } from "./staff";
 import { useReplicaLoad } from "./sync";
 

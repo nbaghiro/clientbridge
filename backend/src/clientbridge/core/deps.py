@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import get_session
 from clientbridge.core.errors import AppError, Forbidden, Unauthorized
-from clientbridge.core.security import decode_jwt
 from clientbridge.integrations.expo import PushSender, get_push_sender
 from clientbridge.integrations.google import OAuthVerifier, get_oauth_verifier
 from clientbridge.integrations.postmark import EmailSender, get_email_sender
@@ -16,6 +15,7 @@ from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.integrations.stripe import PaymentGateway, get_payment_gateway
 from clientbridge.integrations.twilio import SmsSender, get_sms_sender
 from clientbridge.models.business import Staff, User
+from clientbridge.services.sessions import authenticate_access
 
 DbSession = Annotated[AsyncSession, Depends(get_session)]
 EmailDep = Annotated[EmailSender, Depends(get_email_sender)]
@@ -40,13 +40,8 @@ def get_sms_webhook_secret() -> str:
 SmsWebhookSecretDep = Annotated[str, Depends(get_sms_webhook_secret)]
 
 
-async def current_user_id(authorization: str = Header(default="")) -> str:
-    if not authorization.startswith("Bearer "):
-        raise Unauthorized("missing bearer token")
-    try:
-        return str(decode_jwt(authorization.removeprefix("Bearer ").strip())["sub"])
-    except Exception as e:
-        raise Unauthorized("invalid token") from e
+async def current_user_id(db: DbSession, authorization: str = Header(default="")) -> str:
+    return await authenticate_access(db, authorization)
 
 
 CurrentUserId = Annotated[str, Depends(current_user_id)]

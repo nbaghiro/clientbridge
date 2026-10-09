@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16
+    image: postgres@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54
     command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=4"]
     environment:
       POSTGRES_USER: clientbridge
@@ -17,12 +17,12 @@ services:
   # Self-hosted PowerSync. Replicates the clientbridge DB's WAL; bucket storage lives in a SEPARATE
   # database on the same Postgres (powersync_storage) — both created by `make up`.
   powersync:
-    image: journeyapps/powersync-service:latest
+    image: journeyapps/powersync-service@sha256:413a0c813e96935ebe7203b5759f8a594a7b7cd8aa42134713e63af637e0f079
     depends_on:
       postgres:
         condition: service_healthy
     ports: ["8704:8080"]   # host 8704 → powersync 8080
-    volumes: ["./infra/powersync:/config"]
+    volumes: ["./infra/powersync:/config:ro"]
     environment:
       POWERSYNC_CONFIG_PATH: /config/powersync.yaml
     command: ["start", "-r", "unified"]
@@ -44,6 +44,8 @@ services:
       RUSTFS_ACCESS_KEY: minio
       RUSTFS_SECRET_KEY: minio12345
       RUSTFS_CONSOLE_ENABLE: "true"
+      # Presigned URLs carry the credential; a redirected browser fetch arrives with Origin: null.
+      RUSTFS_CORS_ALLOWED_ORIGINS: "*"
     ports: ["8705:9000", "8706:9001"]   # host 8705 → S3 API, 8706 → console
     volumes: ["s3data:/data"]
 

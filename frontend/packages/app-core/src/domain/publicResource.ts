@@ -68,8 +68,47 @@ export function usePublicResource<T>(
 
 /** Pre-validated by the server: `primary` is a hex colour and `logo_url` an http(s) URL. */
 export interface PublicBrand {
+    public_slug?: string | null;
+    business_name?: string | null;
+    cover_url?: string | null;
     avatar_url?: string | null;
     logo_url: string | null;
     primary: string | null;
     tagline: string | null;
+}
+
+export interface PublicDraftStorage {
+    getItem: (key: string) => string | null;
+    setItem: (key: string, value: string) => void;
+    removeItem: (key: string) => void;
+}
+
+export function readPublicDraft(
+    storage: PublicDraftStorage | undefined,
+    key: string,
+): Record<string, string> {
+    try {
+        const value: unknown = JSON.parse(storage?.getItem(key) ?? "{}");
+        if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+        return Object.fromEntries(
+            Object.entries(value).filter(
+                (entry): entry is [string, string] => typeof entry[1] === "string",
+            ),
+        );
+    } catch {
+        return {};
+    }
+}
+
+export function writePublicDraft(
+    storage: PublicDraftStorage | undefined,
+    key: string,
+    value: Record<string, string> | null,
+): void {
+    try {
+        if (value) storage?.setItem(key, JSON.stringify(value));
+        else storage?.removeItem(key);
+    } catch {
+        // A disabled browser store must not interrupt the public flow.
+    }
 }

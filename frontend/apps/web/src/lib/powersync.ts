@@ -1,24 +1,32 @@
-import { AppSchema, createConnector } from "@clientbridge/sync";
+import { type Session, sessionSubject } from "@clientbridge/api-client";
+import { AppSchema, createConnector, ReplicaController } from "@clientbridge/sync";
 import { PowerSyncDatabase } from "@powersync/web";
-
+import { beforeSessionReplace, getTokens } from "./auth";
 import { config } from "../config";
 
-const powersyncUrl = config.powersyncUrl;
+const { apiUrl, powersyncUrl } = config;
 
-export const db = new PowerSyncDatabase({
-    schema: AppSchema,
-    database: { dbFilename: "clientbridge.db" },
-});
+export const replica = new ReplicaController(
+    (dbFilename) =>
+        new PowerSyncDatabase({
+            schema: AppSchema,
+            database: { dbFilename },
+        }),
+);
 
-type AuthFetch = (path: string, init?: RequestInit) => Promise<Response>;
+beforeSessionReplace(() => replica.pause());
 
-export async function connectPowerSync(authFetch: AuthFetch): Promise<void> {
-    await db.connect(createConnector({ powersyncUrl, authFetch }));
+export async function connectPowerSync(api: Session) {
+    const userId = sessionSubject(getTokens()?.access_token);
+    if (!userId) throw new Error("a valid account identity is required");
+    return replica.activate(
+        { userId, apiUrl, powersyncUrl },
+        createConnector({ powersyncUrl, authFetch: api.forBusiness(null).authFetchFor(userId) }),
+    );
 }
 
-/** Disconnect and wipe the local DB — used on sign-out so the next user starts clean. */
-export async function signOut(): Promise<void> {
-    await db.disconnectAndClear();
+export function signOut(): Promise<void> {
+    return replica.discard();
 }
 
 export { powersyncUrl };

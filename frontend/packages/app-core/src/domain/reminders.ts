@@ -1,4 +1,5 @@
-import { useQuery } from "@powersync/react";
+import { useBusinessQuery as useQuery } from "../hooks";
+
 import { useState } from "react";
 
 import type { ApiLike } from "../api";
@@ -12,7 +13,8 @@ import {
 } from "../datetime";
 import { type Load, useAsyncAction, useRemote } from "../hooks";
 import { strings } from "../strings";
-import { type ScheduleEvent, needsClosing, useNow, useScheduleEvents, utcSql } from "./bookings";
+import { type ScheduleEvent, needsClosing, useNow, useScheduleEvents } from "./bookings";
+import { utcSql } from "../datetime";
 import { useReplicaLoad } from "./sync";
 
 const s = strings.reminders;

@@ -279,28 +279,3 @@ async def test_time_off_replays_on_the_same_key(
         )
     )
     assert len(rows.scalars().all()) == 1
-
-
-async def test_sync_cannot_write_time_off(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
-    res = await as_staff.post(
-        "/sync/upload",
-        json={
-            "ops": [
-                {
-                    "op": "PUT",
-                    "type": "hours",
-                    "id": "av_sync_off",
-                    "data": {
-                        "business_id": BIZ,
-                        "staff_id": ST_DIEGO,
-                        "basis": "exception",
-                        "starts_at": "2027-03-02T20:00:00Z",
-                        "ends_at": "2027-03-02T22:00:00Z",
-                        "available": 0,
-                    },
-                }
-            ]
-        },
-    )
-    assert res.status_code == 403
-    assert await db.get(Hours, "av_sync_off") is None

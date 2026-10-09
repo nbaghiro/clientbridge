@@ -5,8 +5,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.security import issue_access_token
-from tests.conftest import STAFF_USER, Factory
+from tests.conftest import STAFF_USER, Factory, access_token
 
 
 async def _note(api: httpx.AsyncClient, body: str = "x") -> str:
@@ -73,7 +72,7 @@ async def test_staff_change_only_their_own_notes_403(
     theirs = await _note(as_owner)
     mine = await _note(as_owner)
     await db.execute(text("UPDATE notes SET created_by = 'us_diego' WHERE id = :i"), {"i": mine})
-    as_owner.headers["Authorization"] = f"Bearer {issue_access_token(STAFF_USER)}"
+    as_owner.headers["Authorization"] = f"Bearer {await access_token(db, STAFF_USER)}"
     assert (await as_owner.patch(f"/v1/notes/{mine}", json={"pinned": True})).status_code == 200
     assert (await as_owner.patch(f"/v1/notes/{theirs}", json={"pinned": True})).status_code == 403
     assert (await as_owner.delete(f"/v1/notes/{theirs}")).status_code == 403
