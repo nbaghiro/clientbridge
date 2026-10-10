@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { useAsyncAction } from "../hooks";
+import { isConnectionFailure, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import { type PublicBrand, usePublicResource } from "./publicResource";
 
@@ -76,6 +76,10 @@ export function createPublicFormClient(baseUrl: string): PublicFormClient {
             const put = await fetch(meta.upload_url, { method: "PUT", headers, body: file });
             if (!put.ok)
                 throw new PublicFormError(put.status, strings.publicForm.fileUploadFailedDetail);
+            await request(
+                `/form/${encodeURIComponent(token)}/upload/${encodeURIComponent(meta.file_id)}/complete`,
+                { method: "POST" },
+            );
             return meta.file_id;
         },
     };
@@ -142,7 +146,12 @@ export function usePublicFormFill(forms: PublicFormClient, token: string): Publi
             async () => {
                 setAnswer(name, await forms.upload(token, file));
             },
-            { errorMessage: strings.publicForm.fileUploadError },
+            {
+                errorMessage: (error) =>
+                    isConnectionFailure(error)
+                        ? strings.publicForm.fileUploadOffline
+                        : strings.publicForm.fileUploadError,
+            },
         );
     };
 

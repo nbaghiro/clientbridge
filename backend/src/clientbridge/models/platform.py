@@ -38,6 +38,8 @@ class File(PKMixin, BusinessScoped, TimestampMixin, Base):
     s3_key: Mapped[str] = mapped_column(String, nullable=False)
     content_type: Mapped[str | None] = mapped_column(String)
     size: Mapped[int | None] = mapped_column(BigInteger)
+    # set once the bytes are confirmed in storage; until then the row is a pending upload
+    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Audit(PKMixin, BusinessScoped, Base):

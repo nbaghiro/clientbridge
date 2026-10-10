@@ -335,6 +335,7 @@ export const ADDON_PRODUCTS_SQL = `
 SELECT i.id, i.name, i.price_cents, i.color, i.track_stock, i.stock_on_hand,
        (SELECT f.id FROM files f
         WHERE f.parent_type = 'item' AND f.parent_id = i.id AND f.purpose = 'image'
+          AND f.uploaded_at IS NOT NULL
         ORDER BY f.created_at DESC LIMIT 1) AS image_file_id,
        i.addon, i.addon_for,
        (SELECT COUNT(DISTINCT a.booking_id) FROM addons a JOIN bookings b ON b.id = a.booking_id

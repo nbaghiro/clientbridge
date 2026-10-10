@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { useAsyncAction } from "../hooks";
+import { isConnectionFailure, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { ApiLike } from "../api";
 
@@ -91,10 +91,17 @@ export function useFileUpload(api: ApiLike, onUploaded?: (fileId: string) => voi
                     sizeBytes,
                 );
                 await putToPresignedUrl(uploadUrl, body, contentType);
+                // the server confirms the bytes arrived before the file counts as attached
+                await api.post(`/v1/files/${id}/complete`, {});
                 setFileId(id);
                 onUploaded?.(id);
             },
-            { errorMessage: strings.common.fileUploadError },
+            {
+                errorMessage: (error) =>
+                    isConnectionFailure(error)
+                        ? strings.common.fileUploadOffline
+                        : strings.common.fileUploadError,
+            },
         );
     };
 

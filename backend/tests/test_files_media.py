@@ -7,9 +7,14 @@ from tests.conftest import BIZ, Factory, FakeFileStorage
 
 
 async def _image(
-    api: httpx.AsyncClient, parent_type: str, parent_id: str, purpose: str
+    api: httpx.AsyncClient,
+    storage: FakeFileStorage,
+    parent_type: str,
+    parent_id: str,
+    purpose: str,
 ) -> httpx.Response:
-    return await api.post(
+    """Create an image, put its bytes in storage and confirm it, as the apps do."""
+    created = await api.post(
         "/v1/files",
         json={
             "parent_type": parent_type,
@@ -18,12 +23,17 @@ async def _image(
             "content_type": "image/png",
         },
     )
+    if created.status_code == 201:
+        storage.stored[created.json()["file"]["s3_key"]] = 1
+        done = await api.post(f"/v1/files/{created.json()['file']['id']}/complete")
+        assert done.status_code == 200, done.text
+    return created
 
 
 async def test_item_image_redirects_to_storage_and_shows_on_the_booking_page(
     as_owner: httpx.AsyncClient, storage: FakeFileStorage
 ) -> None:
-    res = await _image(as_owner, "item", "it_bath", "image")
+    res = await _image(as_owner, storage, "item", "it_bath", "image")
     assert res.status_code == 201, res.text
     file = res.json()["file"]
     media = await as_owner.get(f"/media/{file['id']}", follow_redirects=False)
@@ -34,49 +44,59 @@ async def test_item_image_redirects_to_storage_and_shows_on_the_booking_page(
     assert bath["image_url"].endswith(f"/media/{file['id']}")
 
 
-async def test_uploaded_logo_becomes_the_public_logo(as_owner: httpx.AsyncClient) -> None:
-    file_id = (await _image(as_owner, "business", BIZ, "logo")).json()["file"]["id"]
+async def test_uploaded_logo_becomes_the_public_logo(
+    as_owner: httpx.AsyncClient, storage: FakeFileStorage
+) -> None:
+    file_id = (await _image(as_owner, storage, "business", BIZ, "logo")).json()["file"]["id"]
     res = await as_owner.patch("/v1/business", json={"brand": {"logo_file_id": file_id}})
     assert res.status_code == 200, res.text
     page = (await as_owner.get("/book/birchbark/services")).json()
     assert page["brand"]["logo_url"].endswith(f"/media/{file_id}")
 
 
-async def test_logo_must_be_an_uploaded_logo_404(as_owner: httpx.AsyncClient) -> None:
-    item_image = (await _image(as_owner, "item", "it_bath", "image")).json()["file"]["id"]
+async def test_logo_must_be_an_uploaded_logo_404(
+    as_owner: httpx.AsyncClient, storage: FakeFileStorage
+) -> None:
+    item_image = (await _image(as_owner, storage, "item", "it_bath", "image")).json()["file"]["id"]
     res = await as_owner.patch("/v1/business", json={"brand": {"logo_file_id": item_image}})
     assert res.status_code == 404
 
 
-async def test_staff_cannot_set_public_images_403(as_staff: httpx.AsyncClient) -> None:
-    assert (await _image(as_staff, "item", "it_bath", "image")).status_code == 403
+async def test_staff_cannot_set_public_images_403(
+    as_staff: httpx.AsyncClient, storage: FakeFileStorage
+) -> None:
+    assert (await _image(as_staff, storage, "item", "it_bath", "image")).status_code == 403
 
 
 async def test_public_image_for_another_business_item_404(
-    as_owner: httpx.AsyncClient, db: AsyncSession
+    as_owner: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
 ) -> None:
     other = await Factory(db).business()
-    res = await _image(as_owner, "business", other.id, "logo")
+    res = await _image(as_owner, storage, "business", other.id, "logo")
     assert res.status_code == 404
-    assert (await _image(as_owner, "item", "it_missing", "image")).status_code == 404
+    assert (await _image(as_owner, storage, "item", "it_missing", "image")).status_code == 404
 
 
 async def test_client_files_are_never_served_publicly(
-    as_owner: httpx.AsyncClient, unauth: httpx.AsyncClient
+    as_owner: httpx.AsyncClient, unauth: httpx.AsyncClient, storage: FakeFileStorage
 ) -> None:
-    file_id = (await _image(as_owner, "subject", "sj_bella", "photo")).json()["file"]["id"]
+    file_id = (await _image(as_owner, storage, "subject", "sj_bella", "photo")).json()["file"]["id"]
     assert (await unauth.get(f"/media/{file_id}", follow_redirects=False)).status_code == 404
     assert (await unauth.get("/media/fl_nope", follow_redirects=False)).status_code == 404
 
 
-async def test_avatar_uses_an_owned_logo_and_keeps_wordmark(as_owner: httpx.AsyncClient) -> None:
-    avatar = (await _image(as_owner, "business", BIZ, "logo")).json()["file"]["id"]
+async def test_avatar_uses_an_owned_logo_and_keeps_wordmark(
+    as_owner: httpx.AsyncClient, storage: FakeFileStorage
+) -> None:
+    avatar = (await _image(as_owner, storage, "business", BIZ, "logo")).json()["file"]["id"]
     response = await as_owner.patch("/v1/business", json={"brand": {"avatar_file_id": avatar}})
     assert response.status_code == 200, response.text
     brand = (await as_owner.get("/book/birchbark/services")).json()["brand"]
     assert brand["avatar_url"].endswith(f"/media/{avatar}")
     assert brand["logo_url"].endswith("/media/fl_logo")
-    private_file = (await _image(as_owner, "subject", "sj_bella", "photo")).json()["file"]["id"]
+    private_file = (await _image(as_owner, storage, "subject", "sj_bella", "photo")).json()["file"][
+        "id"
+    ]
     rejected = await as_owner.patch(
         "/v1/business", json={"brand": {"avatar_file_id": private_file}}
     )
@@ -84,9 +104,9 @@ async def test_avatar_uses_an_owned_logo_and_keeps_wordmark(as_owner: httpx.Asyn
 
 
 async def test_cover_upload_is_public_and_used_by_customer_pages(
-    as_owner: httpx.AsyncClient, unauth: httpx.AsyncClient
+    as_owner: httpx.AsyncClient, unauth: httpx.AsyncClient, storage: FakeFileStorage
 ) -> None:
-    uploaded = await _image(as_owner, "business", BIZ, "image")
+    uploaded = await _image(as_owner, storage, "business", BIZ, "image")
     assert uploaded.status_code == 201
     file_id = uploaded.json()["file"]["id"]
     cover = f"http://localhost:8701/media/{file_id}"
@@ -101,13 +121,13 @@ async def test_cover_upload_is_public_and_used_by_customer_pages(
 
 
 async def test_cover_upload_requires_public_image_permissions(
-    as_staff: httpx.AsyncClient,
+    as_staff: httpx.AsyncClient, storage: FakeFileStorage
 ) -> None:
-    assert (await _image(as_staff, "business", BIZ, "image")).status_code == 403
+    assert (await _image(as_staff, storage, "business", BIZ, "image")).status_code == 403
 
 
 async def test_cover_upload_cannot_target_another_business(
-    as_owner: httpx.AsyncClient, db: AsyncSession
+    as_owner: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
 ) -> None:
     other = await Factory(db).business()
-    assert (await _image(as_owner, "business", other.id, "image")).status_code == 404
+    assert (await _image(as_owner, storage, "business", other.id, "image")).status_code == 404

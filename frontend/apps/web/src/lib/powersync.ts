@@ -19,6 +19,8 @@ beforeSessionReplace(() => replica.pause());
 export async function connectPowerSync(api: Session) {
     const userId = sessionSubject(getTokens()?.access_token);
     if (!userId) throw new Error("a valid account identity is required");
+    // without persistence the browser may evict the replica, and unsent hours edits with it
+    if ("storage" in navigator) navigator.storage.persist().catch(() => undefined);
     return replica.activate(
         { userId, apiUrl, powersyncUrl },
         createConnector({ powersyncUrl, authFetch: api.forBusiness(null).authFetchFor(userId) }),

@@ -89,6 +89,7 @@ SELECT i.variant_parent_id, i.variant_label, i.id, i.kind, i.name, i.description
        i.covers_item_id, i.visits_per_period, i.member_discount_bps, i.gift_amounts,
        (SELECT f.id FROM files f
         WHERE f.parent_type = 'item' AND f.parent_id = i.id AND f.purpose = 'image'
+          AND f.uploaded_at IS NOT NULL
         ORDER BY f.created_at DESC LIMIT 1) AS image_file_id
 FROM items i ORDER BY i.active DESC, i.name COLLATE NOCASE`;
 

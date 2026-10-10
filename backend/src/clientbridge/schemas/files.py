@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 from clientbridge.core.mirrors import Mirror
@@ -25,6 +27,7 @@ class FileOut(Mirror):
     s3_key: str
     content_type: str | None
     size: int | None
+    uploaded_at: datetime | None
 
 
 class FileUpload(BaseModel):
@@ -42,3 +45,7 @@ class PublicFileCreate(Mirror):
 class PublicFileUpload(BaseModel):
     file_id: str
     upload_url: str
+
+
+class PublicFileComplete(BaseModel):
+    file_id: str

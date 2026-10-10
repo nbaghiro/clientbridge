@@ -10,12 +10,14 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal
 from clientbridge.integrations.expo import get_push_sender
 from clientbridge.integrations.postmark import get_email_sender
+from clientbridge.integrations.s3 import get_file_storage
 from clientbridge.integrations.stripe import get_payment_gateway
 from clientbridge.integrations.twilio import get_sms_sender
 from clientbridge.services.auth import run_prune_refreshes
 from clientbridge.services.billing import run_overdue_sweep
 from clientbridge.services.bookings import run_reap_unpaid_bookings, run_reminders
 from clientbridge.services.entitlements import run_expiry_sweeps
+from clientbridge.services.files import run_prune_pending_files
 from clientbridge.services.forms import run_intake_forms
 from clientbridge.services.ledger import run_reconcile_ledger
 from clientbridge.services.messaging import run_due_broadcasts
@@ -86,9 +88,14 @@ async def reap_unpaid_orders(ctx: Context) -> int:
         return await run_reap_unpaid_orders(db, get_payment_gateway(), datetime.now(UTC))
 
 
-async def prune_uploads(ctx: Context) -> int:
+async def prune_receipts(ctx: Context) -> int:
     async with SessionLocal() as db:
         return await run_prune_receipts(db, datetime.now(UTC))
+
+
+async def prune_pending_files(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_prune_pending_files(db, get_file_storage(), datetime.now(UTC))
 
 
 async def prune_refreshes(ctx: Context) -> int:
@@ -106,7 +113,8 @@ class WorkerSettings:
         cron(sweep_overdue_invoices, hour=7, minute=0),
         cron(expire_entitlements, hour=3, minute=30),
         cron(prune_devices, hour=3, minute=30),
-        cron(prune_uploads, minute={10, 40}),
+        cron(prune_receipts, minute={10, 40}),
+        cron(prune_pending_files, minute=20),
         cron(prune_refreshes, second=0),
         cron(reconcile_ledger, hour=4, minute=0),
         cron(send_review_requests, hour=8, minute=0),

@@ -3,6 +3,7 @@
 from typing import Protocol
 
 import boto3
+from botocore.exceptions import ClientError
 
 from clientbridge.core.config import get_settings
 
@@ -10,6 +11,8 @@ from clientbridge.core.config import get_settings
 class FileStorage(Protocol):
     def presign_upload(self, key: str, content_type: str) -> str: ...
     def presign_download(self, key: str) -> str: ...
+    def head(self, key: str) -> int | None: ...
+    def delete(self, key: str) -> None: ...
 
 
 class S3Storage:
@@ -50,6 +53,19 @@ class S3Storage:
                 ExpiresIn=self._ttl,
             )
         )
+
+    def head(self, key: str) -> int | None:  # pragma: no cover
+        """The stored object's size in bytes, or None when nothing was uploaded under the key."""
+        try:
+            response = self._client.head_object(Bucket=self._bucket, Key=key)
+        except ClientError as error:
+            if error.response.get("Error", {}).get("Code") in {"404", "NoSuchKey", "NotFound"}:
+                return None
+            raise
+        return int(response["ContentLength"])
+
+    def delete(self, key: str) -> None:  # pragma: no cover
+        self._client.delete_object(Bucket=self._bucket, Key=key)
 
 
 def get_file_storage() -> FileStorage:  # pragma: no cover - constructs the real client

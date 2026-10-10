@@ -1782,7 +1782,8 @@ SELECT l.id, l.item_id, l.description, l.quantity, l.unit_amount_cents, l.amount
        l.staff_id, l.booking_id, l.discount_kind, l.discount_value, l.discount_reason,
        i.kind AS item_kind, i.color AS item_color,
        (SELECT f.id FROM files f WHERE f.parent_type = 'item' AND f.parent_id = l.item_id
-          AND f.purpose = 'image' ORDER BY f.created_at DESC LIMIT 1) AS image_file_id
+          AND f.purpose = 'image' AND f.uploaded_at IS NOT NULL
+          ORDER BY f.created_at DESC LIMIT 1) AS image_file_id
 FROM lines l LEFT JOIN items i ON i.id = l.item_id
 WHERE l.order_id = ? ORDER BY l.position`;
 

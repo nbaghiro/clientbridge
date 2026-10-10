@@ -8,9 +8,9 @@ from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import RateLimiter, public_form_rate_limit
 from clientbridge.main import app
-from clientbridge.models.documents import Form, FormResponse
+from clientbridge.models.documents import Form, FormField, FormResponse
 from clientbridge.models.platform import File
-from tests.conftest import Factory, FakeEmailSender
+from tests.conftest import Factory, FakeEmailSender, FakeFileStorage
 from tests.helpers import client_id, new_client
 
 BIZ = "bz_birchbark"
@@ -164,3 +164,68 @@ async def test_public_get_is_rate_limited(api: httpx.AsyncClient, db: AsyncSessi
     token = await _a_response(db)
     assert (await api.get(f"/form/{token}")).status_code == 200
     assert (await api.get(f"/form/{token}")).status_code == 429
+
+
+async def _file_form(db: AsyncSession) -> str:
+    form = Form(id="frm_waiver_upload", business_id=BIZ, name="Waiver upload")
+    db.add(form)
+    await db.flush()
+    db.add(
+        FormField(
+            id="fld_waiver_scan",
+            business_id=BIZ,
+            form_id=form.id,
+            input="file",
+            name="waiver",
+            label="Signed waiver",
+        )
+    )
+    await db.flush()
+    return await _a_response(db, form_id=form.id)
+
+
+async def _upload(api: httpx.AsyncClient, token: str) -> str:
+    up = await api.post(
+        f"/form/{token}/upload", json={"content_type": "application/pdf", "size": 52000}
+    )
+    assert up.status_code == 200, up.text
+    file_id: str = up.json()["file_id"]
+    return file_id
+
+
+async def _store(db: AsyncSession, storage: FakeFileStorage, file_id: str) -> None:
+    file = await db.get(File, file_id)
+    assert file is not None
+    storage.stored[file.s3_key] = 52000
+
+
+async def test_public_upload_counts_once_its_bytes_arrive(
+    api: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
+) -> None:
+    token = await _a_response(db)
+    file_id = await _upload(api, token)
+    complete = f"/form/{token}/upload/{file_id}/complete"
+    assert (await api.post(complete)).status_code == 409
+    await _store(db, storage, file_id)
+    assert (await api.post(complete)).json() == {"file_id": file_id}
+
+
+async def test_submit_refuses_a_file_that_has_not_finished_uploading(
+    api: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
+) -> None:
+    token = await _file_form(db)
+    file_id = await _upload(api, token)
+    answers = {"answers": {"waiver": file_id}}
+    assert (await api.post(f"/form/{token}", json=answers)).status_code == 422
+    await _store(db, storage, file_id)
+    assert (await api.post(f"/form/{token}/upload/{file_id}/complete")).status_code == 200
+    assert (await api.post(f"/form/{token}", json=answers)).status_code == 200
+
+
+async def test_public_complete_cannot_reach_another_responses_file(
+    api: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
+) -> None:
+    mine, theirs = await _a_response(db), await _a_response(db)
+    file_id = await _upload(api, theirs)
+    await _store(db, storage, file_id)
+    assert (await api.post(f"/form/{mine}/upload/{file_id}/complete")).status_code == 404

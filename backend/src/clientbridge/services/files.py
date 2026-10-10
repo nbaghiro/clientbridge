@@ -1,11 +1,13 @@
 from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role
-from clientbridge.core.errors import NotFound
+from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.s3 import FileStorage
@@ -14,6 +16,8 @@ from clientbridge.models.platform import File
 from clientbridge.schemas.files import FileCreate, FileOut, FileUpload
 
 _DEFAULT_CONTENT_TYPE = "application/octet-stream"
+# an upload whose bytes never arrived is removed after this long
+PENDING_UPLOAD_TTL = timedelta(hours=24)
 
 
 class FileService:
@@ -46,6 +50,23 @@ class FileService:
         return await run_command(
             self.db, self.principal, action="file.create", run=run, response_model=FileUpload
         )
+
+    async def complete(self, file_id: str) -> FileOut:
+        file = (
+            await self.db.execute(scoped(File, self.biz).where(File.id == file_id))
+        ).scalar_one_or_none()
+        if file is None:
+            raise NotFound("file not found")
+        if (file.parent_type, file.purpose) in PUBLIC_MEDIA:
+            assert_role(
+                self.principal,
+                "owner",
+                "admin",
+                message="only an owner or admin can set public images",
+            )
+        out = confirm_upload(file, self.storage)
+        await self.db.commit()
+        return out
 
     async def _assert_public_parent(self, data: FileCreate) -> None:
         assert_role(
@@ -89,6 +110,33 @@ async def mint_upload(
     return FileUpload(file=_file_out(file), upload_url=url)
 
 
+def confirm_upload(file: File, storage: FileStorage) -> FileOut:
+    """Mark a file uploaded once its bytes are in storage at the size it was created with."""
+    if file.uploaded_at is None:
+        stored = storage.head(file.s3_key)
+        if stored is None:
+            raise Conflict("the file has not finished uploading", code="upload_missing")
+        if file.size is not None and stored != file.size:
+            raise Unprocessable("the uploaded file is not the size that was declared")
+        file.uploaded_at = datetime.now(UTC)
+    return _file_out(file)
+
+
+async def run_prune_pending_files(db: AsyncSession, storage: FileStorage, now: datetime) -> int:
+    stale = (
+        await db.scalars(
+            select(File)
+            .where(File.uploaded_at.is_(None), File.created_at < now - PENDING_UPLOAD_TTL)
+            .limit(500)
+        )
+    ).all()
+    for file in stale:
+        storage.delete(file.s3_key)
+        await db.delete(file)
+    await db.commit()
+    return len(stale)
+
+
 def _file_out(file: File) -> FileOut:
     return FileOut(
         id=file.id,
@@ -99,6 +147,7 @@ def _file_out(file: File) -> FileOut:
         s3_key=file.s3_key,
         content_type=file.content_type,
         size=file.size,
+        uploaded_at=file.uploaded_at,
     )
 
 
@@ -112,7 +161,11 @@ def media_url(file_id: str) -> str:
 
 async def public_media_location(db: AsyncSession, storage: FileStorage, file_id: str) -> str:
     file = await db.get(File, file_id)
-    if file is None or (file.parent_type, file.purpose) not in PUBLIC_MEDIA:
+    if (
+        file is None
+        or file.uploaded_at is None
+        or (file.parent_type, file.purpose) not in PUBLIC_MEDIA
+    ):
         raise NotFound("not found")
     return storage.presign_download(file.s3_key)
 
@@ -123,7 +176,12 @@ async def item_images(
     """Each item's latest image as a public media URL."""
     rows = await db.execute(
         scoped(File, business_id)
-        .where(File.parent_type == "item", File.purpose == "image", File.parent_id.in_(item_ids))
+        .where(
+            File.parent_type == "item",
+            File.purpose == "image",
+            File.parent_id.in_(item_ids),
+            File.uploaded_at.is_not(None),
+        )
         .order_by(File.created_at)
     )
     return {file.parent_id: media_url(file.id) for file in rows.scalars().all()}
