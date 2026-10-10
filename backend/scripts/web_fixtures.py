@@ -1,4 +1,4 @@
-"""Give the web smoke test a client series, a low-stock product and a dispute, through the API."""
+"""Give the web smoke test a series, a low-stock product, a dispute and a duplicate client."""
 
 import asyncio
 import hashlib
@@ -24,6 +24,8 @@ from clientbridge.models.scheduling import Recurrence, Slot
 BIZ = "bz_birchbark"
 OWNER = {"email": "hannah@birchbarkpets.ca", "password": "demo1234"}
 API = os.environ.get("API_URL", "http://127.0.0.1:8701")
+# a near-duplicate with no money or saved cards, so the merge flow is not blocked
+DUPLICATE = "Robin Test"
 
 
 async def _has_series(db: AsyncSession) -> bool:
@@ -50,6 +52,15 @@ async def _has_low_stock(db: AsyncSession) -> bool:
             Item.active.is_(True),
             Item.stock_on_hand <= Item.low_stock_at,
         )
+        .limit(1)
+    )
+    return found.first() is not None
+
+
+async def _has_duplicate(db: AsyncSession) -> bool:
+    found = await db.execute(
+        select(Client.id)
+        .where(Client.business_id == BIZ, Client.name == DUPLICATE, Client.deleted_at.is_(None))
         .limit(1)
     )
     return found.first() is not None
@@ -165,6 +176,7 @@ async def main() -> None:
         need_series = not await _has_series(db)
         need_stock = not await _has_low_stock(db)
         need_dispute = not await _has_dispute(db)
+        need_duplicate = not await _has_duplicate(db)
         series = await _series_body(db) if need_series else None
         dispute = await _dispute_event(db) if need_dispute else None
     await engine.dispose()
@@ -206,6 +218,14 @@ async def main() -> None:
             )
             restocked.raise_for_status()
             added.append("a low-stock product")
+        if need_duplicate:
+            client = await http.post(
+                "/v1/clients",
+                json={"name": DUPLICATE, "email": "robin@example.com"},
+                headers={"Idempotency-Key": f"web-fixtures-duplicate-{stamp}"},
+            )
+            client.raise_for_status()
+            added.append("a duplicate client")
         if dispute is not None:
             hook = await http.post(
                 "/webhooks/stripe",

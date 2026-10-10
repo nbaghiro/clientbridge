@@ -63,7 +63,7 @@ Runs on every push to `main` + all PRs; concurrency-cancels stale runs.
 | **playground** | `make test-playground`: every story on web and both phone frames |
 | **sync** | `make test-sync`: disposable Postgres and PowerSync, per-role replica rows and columns, revocation, hours uploads, the signing-key rotation drill and the replication health check |
 | **web** | `make up migrate seed` · the API on :8701 · `make test-web`: sign-in, every page and dialog, record flows, history older than the device window, no console errors |
-| **mobile** | a release APK from `expo prebuild` (bundle embedded, no Metro) · `make up migrate seed` · the API · the Maestro walkthroughs on an Android 14 emulator with `adb reverse` for 8701 and 8704 |
+| **mobile** | a release APK from `expo prebuild` (bundle embedded, no Metro; Gradle's dependencies and build cache are cached) · `make up migrate seed` · the API · the Maestro walkthroughs on an Android 14 emulator booted from a cached snapshot, with `adb reverse` for 8701 and 8704 |
 | **contract** | stripe-mock service · real `StripeGateway` validated against Stripe's OpenAPI mock |
 | **codegen-drift** | `make codegen-check`: `make gen-api` + `make gen-sync-schema` + `make gen-themes`, then a diff check on the four generated artifacts (`api-client/src/generated.ts`, `sync/src/schema.ts`, `tokens/src/themes.css`, `tokens/src/themes.ts`) — the committed generated code can't drift from its source |
 
@@ -225,7 +225,8 @@ make dev-site              # marketing site from source on :8710
 make build-site            # static build in frontend/apps/site/dist (pnpm --filter site preview serves it on :8710)
 make test-site             # build + Playwright pass over every page (links, images, 390px, axe)
 make test-web              # web smoke test: sign in, every page and dialog, no console errors (needs the local stack + seed;
-                           # scripts/web_fixtures.py first adds a client series, low stock and a dispute through the API if missing)
+                           # scripts/web_fixtures.py first adds a client series, low stock, a dispute and a
+                           # duplicate client through the API if missing)
 make test-connect          # Connect e2e: book to the deposit step, manage link, shop and every client page (needs the API + seed)
 make test-mobile           # Maestro native walkthroughs (development build + local stack + seed)
 make lighthouse-site       # Lighthouse budget (desktop >= 95 in every category) against the :8710 preview
