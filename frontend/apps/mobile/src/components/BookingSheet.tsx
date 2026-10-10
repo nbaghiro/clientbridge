@@ -85,8 +85,10 @@ function DepositDue({ event }: { event: ScheduleEvent }) {
                 />
             ) : (
                 <>
-                    <Text style={styles.dueBody}>{s.depositDueBody}</Text>
-                    {canCollectDeposit(event, viewer) ? (
+                    <Text style={styles.dueBody}>
+                        {deposit.settling !== null ? s.depositSettling : s.depositDueBody}
+                    </Text>
+                    {canCollectDeposit(event, viewer) && deposit.settling === null ? (
                         <View style={styles.dueActions}>
                             <Button
                                 size="sm"

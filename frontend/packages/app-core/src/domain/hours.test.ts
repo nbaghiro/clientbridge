@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { formatTime } from "../datetime";
 import type { ScheduleEvent } from "./bookings";
-import { affectedBy, seedDays, shiftLabel } from "./hours";
+import { affectedBy, rebaseWeek, seedDays, shiftLabel } from "./hours";
 
 type RecurringRow = Parameters<typeof seedDays>[0][number];
 
@@ -72,5 +72,37 @@ describe("affectedBy", () => {
             "e",
         ]);
         expect(affectedBy(events, "st_bo", at(9), at(10))).toEqual([]);
+    });
+});
+
+describe("rebaseWeek", () => {
+    const day = (weekday: number, start: string | null, end: string | null) => ({
+        weekday,
+        available: start !== null,
+        start_time: start,
+        end_time: end,
+    });
+    const base = [day(0, null, null), day(1, "09:00:00", "17:00:00")];
+
+    it("keeps another device's change to a day this person left alone", () => {
+        const proposal = [day(0, "09:00:00", "17:00:00"), day(1, "09:00:00", "17:00:00")];
+        const current = [day(0, null, null), day(1, "10:00:00", "15:00:00")];
+        const merged = rebaseWeek(base, proposal, current);
+        expect(merged[0]).toEqual(day(0, "09:00:00", "17:00:00"));
+        expect(merged[1]).toEqual(day(1, "10:00:00", "15:00:00"));
+        expect(merged).toHaveLength(7);
+    });
+    it("lets this person's change win on a day both devices changed", () => {
+        const proposal = [day(0, null, null), day(1, "08:00:00", "12:00:00")];
+        const current = [day(0, null, null), day(1, "10:00:00", "15:00:00")];
+        expect(rebaseWeek(base, proposal, current)[1]).toEqual(day(1, "08:00:00", "12:00:00"));
+    });
+    it("treats a closed day's leftover times as unchanged", () => {
+        const proposal = [day(0, null, null), day(1, "09:00:00", "17:00:00")];
+        const current = [
+            { ...day(0, null, null), start_time: "09:00:00" },
+            day(1, "09:00:00", "17:00:00"),
+        ];
+        expect(rebaseWeek(base, proposal, current)[0]?.start_time).toBe("09:00:00");
     });
 });

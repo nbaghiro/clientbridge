@@ -18,9 +18,9 @@ import type {
 import { invoiceStatusSql, subjectNetSql } from "./ledger";
 import { taxOptions } from "./catalog";
 import { mediaUrl } from "./files";
-import { type PaymentRow, payLinkUrl, useInvoicePayments } from "./payments";
+import { type PaymentRow, invoiceBalanceKey, payLinkUrl, useInvoicePayments } from "./payments";
 import { type Letterhead, longDate, printedDoc, ratePct, shortDate } from "./printing";
-import { useReplicaLoad } from "./sync";
+import { type Arrival, useArrival, useReplicaLoad } from "./sync";
 import { type TaxRate, useTaxSetup } from "./taxes";
 import type { Load } from "../hooks";
 
@@ -89,7 +89,7 @@ interface LineRow {
     discount_reason?: string | null;
 }
 
-export const INVOICES_SQL = `
+const INVOICE_SELECT = `
 SELECT i.id, i.client_id, c.name AS client_name, c.email AS client_email, c.phone AS client_phone,
        i.number, ${invoiceStatusSql("i")} AS status,
        i.subtotal_cents, i.tax_total_cents, i.total_cents,
@@ -103,8 +103,12 @@ SELECT i.id, i.client_id, c.name AS client_name, c.email AS client_email, c.phon
           AND pe.amount_cents < 0) AS paid_at,
        i.issued_at, i.due_at, i.voided_at, i.pay_token, i.notes, i.created_at
 FROM invoices i
-LEFT JOIN clients c ON c.id = i.client_id
+LEFT JOIN clients c ON c.id = i.client_id`;
+
+export const INVOICES_SQL = `${INVOICE_SELECT}
 ORDER BY COALESCE(i.issued_at, i.created_at) DESC, i.number DESC`;
+
+export const INVOICE_SQL = `${INVOICE_SELECT} WHERE i.id = ?`;
 
 export const ESTIMATES_SQL = `
 SELECT e.id, e.client_id, c.name AS client_name, c.email AS client_email, c.phone AS client_phone,
@@ -186,12 +190,11 @@ export function useLetterhead(apiBaseUrl: string): Letterhead {
     const row = useQuery<LetterheadRow>(LETTERHEAD_SQL).data[0];
     return {
         name: row?.name ?? "",
-        avatarUrl:
-            mediaUrl(
-                apiBaseUrl,
-                brandField(row?.brand ?? null, "avatar_file_id") ??
-                    brandField(row?.brand ?? null, "logo_file_id"),
-            ) ?? brandField(row?.brand ?? null, "logo_url"),
+        avatarUrl: mediaUrl(
+            apiBaseUrl,
+            brandField(row?.brand ?? null, "avatar_file_id") ??
+                brandField(row?.brand ?? null, "logo_file_id"),
+        ),
         tagline: brandField(row?.brand ?? null, "tagline"),
         brandColor: brandField(row?.brand ?? null, "primary"),
         email: row?.billing_email ?? null,
@@ -547,6 +550,8 @@ export interface InvoiceRecord {
     taxes: PrintedDocTax[];
     totals: DocTotalLine[];
     balanceCents: number;
+    // a just-recorded payment whose new balance has not reached this device yet
+    settling: Arrival;
     facts: { label: string; value: string }[];
     payments: DocPaymentView[];
     timeline: TimelineEntry[];
@@ -605,7 +610,7 @@ export function useInvoiceRecord(
     id: string | null,
     payBase: string,
 ): InvoiceRecord | null {
-    const invoices = useQuery<InvoiceRow>(INVOICES_SQL).data;
+    const row = useQuery<InvoiceRow>(INVOICE_SQL, [id ?? ""]).data[0] ?? null;
     const lines = useQuery<LineRow>(LINES_SQL, [id ?? ""]).data;
     const journal = useQuery<{ code: string; cents: number }>(TAX_BY_CODE_SQL, [
         id === null ? "" : `invoice:${id}`,
@@ -613,7 +618,10 @@ export function useInvoiceRecord(
     const credits = useQuery<CreditRow>(INVOICE_CREDITS_SQL, [id ?? ""]).data;
     const payments = useInvoicePayments(id ?? "");
     const tax = useTaxSetup(api);
-    const row = invoices.find((r) => r.id === id) ?? null;
+    const settling = useArrival(
+        id === null ? null : invoiceBalanceKey(id),
+        row?.balance_cents ?? 0,
+    );
     if (row === null) return null;
     const now = new Date();
     const status = invoiceStatus(row, now);
@@ -722,6 +730,7 @@ export function useInvoiceRecord(
         taxes,
         totals,
         balanceCents,
+        settling,
         facts: [
             {
                 label: s.balanceDue,
@@ -740,7 +749,7 @@ export function useInvoiceRecord(
         canEdit: draft,
         canSend: draft,
         canRemind: open,
-        canRecord: open && balanceCents > 0,
+        canRecord: open && balanceCents > 0 && settling !== "arriving",
         canVoid:
             draft ||
             (status !== "void" &&

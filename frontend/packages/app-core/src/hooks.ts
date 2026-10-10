@@ -22,7 +22,7 @@ interface AsyncAction {
     // Fire-and-forget: failures are captured into `error`, so callers never await or handle it.
     run: (
         fn: () => Promise<unknown>,
-        opts?: { onSuccess?: () => void; errorMessage?: string },
+        opts?: { onSuccess?: () => void; errorMessage?: string | ((error: unknown) => string) },
     ) => void;
 }
 
@@ -32,7 +32,7 @@ export function useAsyncAction(): AsyncAction {
 
     const run = (
         fn: () => Promise<unknown>,
-        opts?: { onSuccess?: () => void; errorMessage?: string },
+        opts?: { onSuccess?: () => void; errorMessage?: string | ((error: unknown) => string) },
     ): void => {
         const go = async (): Promise<void> => {
             setBusy(true);
@@ -40,8 +40,13 @@ export function useAsyncAction(): AsyncAction {
             try {
                 await fn();
                 opts?.onSuccess?.();
-            } catch {
-                setError(opts?.errorMessage ?? strings.common.somethingWrongRetry);
+            } catch (failure) {
+                const message = opts?.errorMessage;
+                setError(
+                    typeof message === "function"
+                        ? message(failure)
+                        : (message ?? strings.common.somethingWrongRetry),
+                );
             } finally {
                 setBusy(false);
             }
@@ -50,6 +55,11 @@ export function useAsyncAction(): AsyncAction {
     };
 
     return { busy, error, setError, run };
+}
+
+// fetch rejects with a TypeError when the request never reached a server
+export function isConnectionFailure(error: unknown): boolean {
+    return error instanceof TypeError;
 }
 
 // A value a component owns until its parent passes `value`, like a native input.

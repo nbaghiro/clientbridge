@@ -7,7 +7,6 @@ import {
     useOwnerToday,
     useSetupProgress,
     useStaffToday,
-    useSyncState,
     useTodayActions,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
@@ -15,7 +14,7 @@ import { StatusBar } from "expo-status-bar";
 import { type ReactNode, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button, Empty, Notice, SyncBanner } from "@clientbridge/ui";
+import { Button, Empty, Notice } from "@clientbridge/ui";
 
 import { DebugOverlay } from "../components/DebugOverlay";
 import {
@@ -44,7 +43,6 @@ const t = strings.today;
 export function TodayScreen() {
     const viewer = useViewer();
     const notifications = useNotifications(viewer);
-    const sync = useSyncState();
     const [debugOpen, setDebugOpen] = useState(false);
     const taps = useRef<number[]>([]);
     const onSecretTap = (): void => {
@@ -59,17 +57,6 @@ export function TodayScreen() {
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
             <StatusBar style="dark" />
-            {sync.problem || (!sync.online && sync.hasSynced) ? (
-                <SyncBanner
-                    state={sync.problem ? "error" : "offline"}
-                    title={sync.problem ? strings.sync.problemTitle : strings.sync.offlineTitle}
-                    detail={
-                        sync.problem
-                            ? strings.sync.problems[sync.problem]
-                            : strings.sync.offlineStrip(sync.pendingCount)
-                    }
-                />
-            ) : null}
             {viewer === null ? null : canManagePayments(viewer.role) ? (
                 <OwnerToday bell={notifications.unread} onSecretTap={onSecretTap} />
             ) : (

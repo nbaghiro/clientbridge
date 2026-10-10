@@ -424,6 +424,11 @@ function InvoicePanel({
                     </>
                 }
             >
+                {rec.settling !== null ? (
+                    <Notice tone="info" banner>
+                        {rec.settling === "arriving" ? s.settling : s.settlingLate}
+                    </Notice>
+                ) : null}
                 {act.notice !== null ? (
                     <Notice tone="success" banner>
                         {act.notice}

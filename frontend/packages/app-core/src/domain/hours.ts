@@ -80,6 +80,37 @@ export function seedDays(rows: RecurringRow[]): DayHours[] {
     });
 }
 
+function toWeekDays(days: DayHours[]): WeekDay[] {
+    return days.map((day) => ({
+        weekday: day.weekday,
+        available: day.open,
+        start_time: day.open ? `${day.start}:00` : null,
+        end_time: day.open ? `${day.end}:00` : null,
+    }));
+}
+
+function fromWeekDays(days: WeekDay[]): DayHours[] {
+    return seedDays(days.map((day) => ({ ...day, available: day.available ? 1 : 0 })));
+}
+
+/** The server's current week with only the days this proposal changed from its base laid over it. */
+export function rebaseWeek(base: WeekDay[], proposal: WeekDay[], current: WeekDay[]): WeekDay[] {
+    const day = (week: WeekDay[], weekday: number): WeekDay =>
+        week.find((d) => d.weekday === weekday) ?? {
+            weekday,
+            available: false,
+            start_time: null,
+            end_time: null,
+        };
+    const same = (a: WeekDay, b: WeekDay): boolean =>
+        a.available === b.available &&
+        (!a.available || (a.start_time === b.start_time && a.end_time === b.end_time));
+    return WEEKDAYS.map(({ weekday }) => {
+        const mine = day(proposal, weekday);
+        return same(mine, day(base, weekday)) ? day(current, weekday) : mine;
+    });
+}
+
 const toMin = (hhmm: string): number => {
     const [h = 0, m = 0] = hhmm.split(":").map(Number);
     return h * 60 + m;
@@ -144,17 +175,18 @@ export function useWeekEditor(api: ApiLike, staffId: string | null): WeekEditor 
     const queued = useQuery<{
         id: string;
         payload: string;
+        base: string;
         state: string;
         result_revision: number | null;
     }>(
-        "SELECT id, payload, state, result_revision FROM hours_outbox WHERE staff_id = ? AND business_id = ? ORDER BY sequence DESC LIMIT 1",
+        "SELECT id, payload, base, state, result_revision FROM hours_outbox WHERE staff_id = ? AND business_id = ? ORDER BY sequence DESC LIMIT 1",
         [staffId ?? "", businessId ?? ""],
     );
-    const rejected =
-        useQuery<{ id: string }>(
-            "SELECT id FROM hours_outbox WHERE staff_id = ? AND business_id = ? AND state = 'rejected' LIMIT 1",
-            [staffId ?? "", businessId ?? ""],
-        ).data.length > 0;
+    const rejection = useQuery<{ id: string; error_code: string | null }>(
+        "SELECT id, error_code FROM hours_outbox WHERE staff_id = ? AND business_id = ? AND state = 'rejected' LIMIT 1",
+        [staffId ?? "", businessId ?? ""],
+    ).data[0];
+    const rejected = rejection !== undefined;
     const latest = queued.data[0];
     const revision = staff.data[0]?.hours_revision;
     const waiting =
@@ -164,7 +196,13 @@ export function useWeekEditor(api: ApiLike, staffId: string | null): WeekEditor 
             revision < (latest.result_revision ?? Infinity));
     const { busy, error, setError, run } = useAsyncAction();
     const [days, setDays] = useState<DayHours[] | null>(null);
-    const basis = useRef<{ revision: number; id: string | null; payload: string } | null>(null);
+    const basis = useRef<{
+        revision: number;
+        id: string | null;
+        payload: string;
+        base: WeekDay[];
+    } | null>(null);
+    const rebased = useRef<string | null>(null);
     const [saved, setSaved] = useState(false);
 
     useEffect(() => {
@@ -185,15 +223,9 @@ export function useWeekEditor(api: ApiLike, staffId: string | null): WeekEditor 
                         revision: proposal.expected_revision + 1,
                         id: latest.id,
                         payload: latest.payload,
+                        base: JSON.parse(latest.base) as WeekDay[],
                     };
-                    setDays(
-                        seedDays(
-                            proposal.days.map((day) => ({
-                                ...day,
-                                available: day.available ? 1 : 0,
-                            })),
-                        ),
-                    );
+                    setDays(fromWeekDays(proposal.days));
                 } catch {
                     setError(s.saveError);
                 }
@@ -202,11 +234,35 @@ export function useWeekEditor(api: ApiLike, staffId: string | null): WeekEditor 
                     revision,
                     id: latest?.id ?? null,
                     payload: latest?.payload ?? "",
+                    base: toWeekDays(seedDays(data)),
                 };
                 setDays(seedDays(data));
             }
         }
     }, [days, isLoading, queued.isLoading, data, staffId, waiting, latest, revision, setError]);
+
+    // A conflict shows the server's current week with only this person's own changes laid over it.
+    useEffect(() => {
+        if (
+            rejection?.error_code !== "http_409" ||
+            rebased.current === rejection.id ||
+            latest?.id !== rejection.id ||
+            revision === undefined ||
+            basis.current === null
+        )
+            return;
+        const proposal = JSON.parse(latest.payload) as {
+            days: WeekDay[];
+            expected_revision: number;
+        };
+        if (revision <= proposal.expected_revision) return;
+        const current = toWeekDays(seedDays(data));
+        rebased.current = rejection.id;
+        basis.current = { ...basis.current, base: current };
+        setDays(
+            fromWeekDays(rebaseWeek(JSON.parse(latest.base) as WeekDay[], proposal.days, current)),
+        );
+    }, [rejection, latest, revision, data]);
 
     const edit = (weekday: number, patch: Partial<DayHours>): void => {
         setSaved(false);
@@ -245,7 +301,9 @@ export function useWeekEditor(api: ApiLike, staffId: string | null): WeekEditor 
             );
         },
         busy,
-        error: error ?? (rejected ? s.conflict : null),
+        error:
+            error ??
+            (rejected ? (rejection.error_code === "http_409" ? s.conflict : s.refused) : null),
         saved,
         saveLabel: rejected ? s.applyChanges : s.saveHours,
         saveMessage: rejected ? null : waiting ? s.savedLocally : saved ? s.saved : null,
@@ -256,7 +314,14 @@ export function useWeekEditor(api: ApiLike, staffId: string | null): WeekEditor 
                           if (businessId === null || staffId === null) return;
                           await discardRejectedHours(db, businessId, staffId);
                           basis.current =
-                              revision === undefined ? null : { revision, id: null, payload: "" };
+                              revision === undefined
+                                  ? null
+                                  : {
+                                        revision,
+                                        id: null,
+                                        payload: "",
+                                        base: toWeekDays(seedDays(data)),
+                                    };
                           setDays(seedDays(data));
                           setSaved(false);
                       },
@@ -288,22 +353,20 @@ export function useWeekEditor(api: ApiLike, staffId: string | null): WeekEditor 
                         ? (await api.get<{ revision: number }>(`/v1/hours/${staffId}/week`))
                               .revision
                         : basis.current.revision;
-                    basis.current = await enqueueHours(
+                    const from = basis.current.base;
+                    const queued = await enqueueHours(
                         db,
                         staffId,
                         businessId,
                         base,
-                        days.map((day) => ({
-                            weekday: day.weekday,
-                            available: day.open,
-                            start_time: day.open ? `${day.start}:00` : null,
-                            end_time: day.open ? `${day.end}:00` : null,
-                        })),
+                        toWeekDays(days),
+                        from,
                         rejected,
                         basis.current.id === null
                             ? null
                             : { id: basis.current.id, payload: basis.current.payload },
                     );
+                    basis.current = { ...queued, base: from };
                 },
                 {
                     onSuccess: () => {

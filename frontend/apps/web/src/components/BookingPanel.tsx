@@ -461,8 +461,10 @@ function DepositDue({ event }: { event: ScheduleEvent }) {
                 </div>
             ) : (
                 <>
-                    <p className="mt-1 text-sm text-ink-soft">{s.depositDueBody}</p>
-                    {canCollectDeposit(event, viewer) ? (
+                    <p className="mt-1 text-sm text-ink-soft">
+                        {deposit.settling !== null ? s.depositSettling : s.depositDueBody}
+                    </p>
+                    {canCollectDeposit(event, viewer) && deposit.settling === null ? (
                         <div className="mt-3 flex gap-2">
                             <Button
                                 size="sm"

@@ -4,6 +4,7 @@ import {
     DESTINATION_TARGET,
     type DestinationKey,
     type IconName,
+    type SyncNotice,
     strings,
     useNotifications,
     useShellNav,
@@ -23,7 +24,8 @@ import {
     setStripeAccount,
 } from "@clientbridge/ui";
 
-import { apiBaseUrl } from "../lib/api";
+import { api, apiBaseUrl } from "../lib/api";
+import { connectPowerSync } from "../lib/powersync";
 import { useViewer } from "../lib/auth";
 import { ShellContext, linkPath, useOpenLink } from "../lib/links";
 import { CommandPalette } from "./CommandPalette";
@@ -112,10 +114,10 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
                 }}
                 onSignOut={signOut}
                 setupHref={nextStep === undefined ? "/setup" : linkPath(nextStep.target)}
-                offline={!sync.online && sync.hasSynced}
-                syncProblem={sync.problem}
-                pendingCount={sync.pendingCount}
-                lastSynced={sync.lastSynced}
+                notice={sync.notice}
+                onRetrySync={() => {
+                    connectPowerSync(api).catch(() => undefined);
+                }}
             />
             {searchOpen ? (
                 <CommandPalette
@@ -153,10 +155,8 @@ function ShellBody({
     onSearch,
     onSignOut,
     setupHref,
-    offline,
-    syncProblem,
-    pendingCount,
-    lastSynced,
+    notice,
+    onRetrySync,
 }: {
     nav: ReturnType<typeof useShellNav>;
     notifications: ReturnType<typeof useNotifications>;
@@ -169,10 +169,8 @@ function ShellBody({
     onSearch: () => void;
     onSignOut: () => void;
     setupHref: string;
-    offline: boolean;
-    syncProblem: ReturnType<typeof useSyncState>["problem"];
-    pendingCount: number;
-    lastSynced: string | null;
+    notice: SyncNotice | null;
+    onRetrySync: () => void;
 }) {
     const openLink = useOpenLink();
     const n = strings.navigation;
@@ -332,19 +330,16 @@ function ShellBody({
             </aside>
 
             <main className="relative flex-1 overflow-y-auto">
-                {syncProblem || offline ? (
+                {notice !== null ? (
                     <div className="sticky top-0 z-10">
                         <SyncBanner
-                            state={syncProblem ? "error" : "offline"}
-                            title={
-                                syncProblem ? strings.sync.problemTitle : strings.sync.offlineTitle
-                            }
-                            detail={
-                                syncProblem
-                                    ? strings.sync.problems[syncProblem]
-                                    : lastSynced === null
-                                      ? strings.sync.offlineStrip(pendingCount)
-                                      : `${strings.sync.offlineStrip(pendingCount)}. ${strings.sync.lastSynced(lastSynced)}`
+                            state={notice.state}
+                            title={notice.title}
+                            detail={notice.detail}
+                            action={
+                                notice.retry
+                                    ? { label: strings.sync.retry, onPress: onRetrySync }
+                                    : undefined
                             }
                         />
                     </div>

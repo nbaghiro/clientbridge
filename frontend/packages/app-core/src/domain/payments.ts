@@ -8,7 +8,12 @@ import { formatDate } from "../datetime";
 import { blankToNull, formatMoney, formatPhone, parseCents } from "../format";
 import { type ApiLike, newIdempotencyKey } from "../api";
 import type { CheckoutMethod } from "./checkout";
+import { expectArrival } from "./sync";
 import type { Intent } from "../ui";
+
+export function invoiceBalanceKey(invoiceId: string): string {
+    return `invoice-balance:${invoiceId}`;
+}
 
 export interface PaymentRow {
     id: string;
@@ -300,6 +305,13 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
                     { idempotencyKey: key },
                 );
                 keyRef.current = null;
+                const before = target.balanceCents;
+                expectArrival(
+                    invoiceBalanceKey(target.invoiceId),
+                    res.status === "pending"
+                        ? (current) => current < before
+                        : (current) => current <= res.balance_cents,
+                );
                 if (res.status === "pending") {
                     setDone({ title: r.cardTitle, lines: [r.cardBody], paidInFull: false });
                     return;

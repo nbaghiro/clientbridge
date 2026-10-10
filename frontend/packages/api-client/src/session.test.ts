@@ -102,12 +102,12 @@ describe("session recovery", () => {
         expect(state.signedOut).not.toHaveBeenCalled();
     });
 
-    it("refuses to upload an old replica with a different actor's credentials", async () => {
+    it("refuses to send a replica's request with a different actor's credentials", async () => {
         const state = setup();
         const transport = vi.fn();
         vi.stubGlobal("fetch", transport);
         state.replace({ access_token: token("second"), refresh_token: "second" });
-        await expect(state.api.authFetchFor("first")("/sync/upload")).rejects.toThrow(
+        await expect(state.api.authFetchFor("first")("/v1/hours/st_first/week")).rejects.toThrow(
             "identity changed",
         );
         expect(transport).not.toHaveBeenCalled();
@@ -244,4 +244,56 @@ it("accepts a successful command with no response body", async () => {
     await expect(
         api.post<undefined>("/auth/logout", { refresh_token: "old" }),
     ).resolves.toBeUndefined();
+});
+
+it("retries the same refresh attempt after the rotated tokens fail to save", async () => {
+    let saved: TokenPair | null = { access_token: token("first"), refresh_token: "old" };
+    let failNextSave = false;
+    const signedOut = vi.fn();
+    const api = createSession({
+        baseUrl: "https://api.test",
+        store: {
+            get: () => Promise.resolve(saved),
+            set: (tokens) => {
+                if (failNextSave && tokens.refresh_token === "new") {
+                    failNextSave = false;
+                    return Promise.reject(new Error("disk full"));
+                }
+                saved = tokens;
+                return Promise.resolve();
+            },
+            clear: () => {
+                saved = null;
+                return Promise.resolve();
+            },
+        },
+        onSignedOut: signedOut,
+    });
+    const attempts: string[] = [];
+    vi.stubGlobal(
+        "fetch",
+        vi.fn((url: string, init?: RequestInit) => {
+            if (url.endsWith("/auth/refresh")) {
+                attempts.push(
+                    (JSON.parse(init?.body as string) as { attempt_id: string }).attempt_id,
+                );
+                return Promise.resolve(
+                    Response.json({ access_token: token("first", "new"), refresh_token: "new" }),
+                );
+            }
+            const auth = new Headers(init?.headers).get("Authorization") ?? "";
+            return Promise.resolve(
+                auth.endsWith(".new")
+                    ? Response.json({ ok: true })
+                    : new Response(null, { status: 401 }),
+            );
+        }),
+    );
+    failNextSave = true;
+    await expect(api.get("/one")).rejects.toThrow();
+    expect(saved).toMatchObject({ refresh_token: "old" });
+    await expect(api.get("/one")).resolves.toEqual({ ok: true });
+    expect(attempts).toHaveLength(2);
+    expect(attempts[0]).toBe(attempts[1]);
+    expect(signedOut).not.toHaveBeenCalled();
 });

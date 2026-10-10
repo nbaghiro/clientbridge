@@ -11,7 +11,7 @@ import { PowerSyncContext } from "@powersync/react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { StyleSheet, View } from "react-native";
+import { LogBox, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Button, ConfirmHost, configureStripe, LoadFailed, Select } from "@clientbridge/ui";
 
@@ -50,6 +50,8 @@ import { RecurrencesScreen } from "./src/screens/Recurrences";
 import { RemindersScreen } from "./src/screens/Reminders";
 
 configureStripe(stripePublishableKey);
+// transport failures already show in the shell's sync banner; the dev overlay only repeats them
+LogBox.ignoreLogs([/^\[PowerSync\]: Sync error/]);
 
 const Tab = createBottomTabNavigator<TabParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();

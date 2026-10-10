@@ -5,6 +5,7 @@ export const strings = {
         appName: "Clientbridge",
         somethingWrongRetry: "Something went wrong. Please try again.",
         fileUploadError: "Couldn't upload that file. Please try again.",
+        fileUploadOffline: "Uploading needs a connection. Try again when you're back online.",
         loading: "Loading…",
         saved: "Saved.",
         save: "Save changes",
@@ -160,6 +161,9 @@ export const strings = {
         sendInvoice: "Send invoice",
         remind: "Remind",
         recordPayment: "Record payment",
+        settling: "Payment received. Updating the balance on this device.",
+        settlingLate:
+            "The payment went through. The balance on this device is taking longer than usual to update.",
         void: "Void",
         voidConfirmTitle: (n: number) => `Void invoice #${n}?`,
         voidConfirmBody:
@@ -991,6 +995,7 @@ export const strings = {
         depositDueBody: "Collect it now with a saved card or a new one.",
         collectNow: "Collect now",
         collectDepositError: "Couldn't collect the deposit. Please try again.",
+        depositSettling: "Deposit received. Updating the booking on this device.",
         collecting: "Collecting…",
         collectAmount: (amount: string) => `Collect ${amount}`,
         addonRemove: "Remove",
@@ -1415,7 +1420,6 @@ export const strings = {
         addCard: "Add card",
         addBankWeb: "Request bank authorization",
         cardNoun: "card",
-        bankAccountNoun: "bank account",
         saveMethod: (noun: string) => `Save ${noun}`,
         subscriptions: "Subscriptions",
         startSubscriptionLink: "+ Start subscription",
@@ -1777,6 +1781,10 @@ export const strings = {
         selectThread: "Choose a conversation to read and reply.",
         thread: {
             automatic: "Automatic",
+            showEarlier: "Show earlier messages",
+            earlierFailed: "We couldn't load earlier messages. Please try again.",
+            earlierOffline:
+                "Earlier messages need a connection. Try again when you're back online.",
             status: {
                 delivered: "Delivered",
                 sent: "Sent",
@@ -2130,7 +2138,6 @@ export const strings = {
             preview: "Booking page preview",
             previewNoServices: "Your services will appear here.",
         },
-        language: "Language",
         nameLabel: "Business name",
         namePlaceholder: "Birch Bark Pet Care",
         timezoneLabel: "Time zone",
@@ -2219,6 +2226,8 @@ export const strings = {
         savedLocally: "Saved on this device. Waiting for the server to confirm these hours.",
         conflict:
             "These hours could not be saved. Review your changes, then apply them to the current server version or discard them.",
+        refused:
+            "The server refused these hours. Change them and apply them again, or discard them.",
         applyChanges: "Apply my changes",
         discardChanges: "Discard my changes",
         saveError: "Couldn't save hours. Please try again.",
@@ -2830,8 +2839,6 @@ export const strings = {
         refundPending: "The refund is processing. Its credit note will appear after it succeeds.",
         refundFailed:
             "The refund did not complete. No money was recorded as returned. Try again or review the payment.",
-        evidenceInStripe:
-            "Submitting evidence and accepting disputes aren't available in Clientbridge yet.",
         disputeReasons: {
             fraudulent: "Didn't recognise the charge",
             duplicate: "Charged twice",
@@ -2998,8 +3005,6 @@ export const strings = {
         disputeHelp:
             "Open payments to review the disputed charge and submit your response. Refunds stay in Clientbridge so your records remain up to date.",
         expired: "This payment account session has closed. Open it again to continue.",
-        localRefunds:
-            "Issue refunds from Refunds & disputes in Clientbridge to keep your books up to date.",
     },
     gettingPaid: {
         reqExternalAccount: "Bank account for payouts",
@@ -3049,9 +3054,6 @@ export const strings = {
         loadError: "We couldn't check your payment setup. Try again.",
         loadingStatus: "Checking your payment setup",
         connectTitle: "Card payments aren't set up yet",
-        openedOnboarding:
-            "Payment setup opened in a new tab. When you're done there, come back and choose Check again.",
-        onboardingStartError: "Couldn't start payment setup. Please try again.",
         whatsNeeded: "What we need from you",
         nothingNeeded: "Nothing is needed from you right now.",
         pastDue: "Overdue",
@@ -3539,10 +3541,8 @@ export const strings = {
             "This payment link is invalid or has expired. Please check with the business that sent it to you.",
         cardNotConfigured: "Card payments aren't configured. Please use Interac e-Transfer.",
         details: "What this is for",
-        requesting: (businessName: string) => `${businessName} sent you an invoice`,
         invoice: "Invoice",
         invoiceNumber: (n: number) => `Invoice #${n}`,
-        billedTo: "Billed to",
         issued: "Issued",
         due: "Due",
         dueOn: (when: string) => `Due ${when}`,
@@ -3572,14 +3572,6 @@ export const strings = {
             other: "Payment",
         } as Record<string, string>,
         downloadInvoice: "Download invoice",
-        statusLabel: {
-            sent: "Sent",
-            partial: "Partly paid",
-            overdue: "Overdue",
-            paid: "Paid",
-            refunded: "Refunded",
-            void: "Void",
-        } as Record<string, string>,
         seeSteps: "See how to send it",
         etransferTitle: (biz: string) => `Pay ${biz} by e‑Transfer`,
         amountToSend: "Amount to send",
@@ -3687,11 +3679,9 @@ export const strings = {
         secureBooking: "Secure booking",
         stepDetails: "Your details",
         stepPay: "Deposit",
-        stepsLabel: "Booking steps",
         stepOf: (i: number, n: number) => `Step ${String(i)} of ${String(n)}`,
         chooseService: "Choose a service",
         chooseServiceHint: "Choose a service to see the price.",
-        chooseTime: "Pick a time",
         with: "With",
         anyone: "Anyone available",
         anyoneHint: "Most open times",
@@ -3882,7 +3872,6 @@ export const strings = {
         notFoundBody: "This link is invalid or the studio isn't selling online right now.",
         loadErrorTitle: "We couldn't load the shop",
         emptyTitle: "Nothing for sale online right now",
-        emptyBody: "The studio hasn't put any products online yet. You can still book a visit.",
         notTakingPayments: "This shop isn't taking online payments right now.",
     },
     onlineBooking: {
@@ -4024,7 +4013,6 @@ export const strings = {
         messageError: "We couldn't send your message. Try again.",
         cancelDeadline: (when: string) => `Cancel before ${when}`,
         moveDeadline: (when: string) => `Reschedule before ${when}`,
-        changeWindow: "Your change window",
         title: "Your booking",
         hello: (name: string) => `Hi ${name.split(" ")[0] ?? name}`,
         extras: "Extras",
@@ -4184,6 +4172,7 @@ export const strings = {
         fileUploadFailedDetail: "the file upload failed",
         answerRequired: (label: string) => `“${label}” is required.`,
         fileUploadError: "We couldn't upload that file. Please try again.",
+        fileUploadOffline: "Uploading needs a connection. Try again when you're back online.",
         submitAnswersError: "We couldn't submit your answers. Please try again.",
         intro: (business: string) => `${business} reads this before your visit.`,
         progress: (done: number, total: number) => `${String(done)} of ${String(total)} answered`,
@@ -4284,14 +4273,12 @@ export const strings = {
         hours: "Regular booking hours",
         hoursHint: "Hours may change on holidays. Choose a service to see live availability.",
         noServices: "Contact us to arrange your visit.",
-        nextOpenings: "Next openings",
         loadingOpenings: "Checking availability…",
         openingsUnavailable: "View booking calendar for availability",
         noOpenings: "No openings in the next 7 days",
         reviewer: "Verified client",
         response: "Business response",
         rating: (rating: string, count: number) => `${rating} · ${String(count)} reviews`,
-        reviewCount: (count: number) => `${String(count)} review${count === 1 ? "" : "s"}`,
         cancelPolicy: (hours: number) =>
             `Cancel at least ${String(hours)} hours before your visit.`,
         reschedulePolicy: (hours: number) =>
@@ -4311,7 +4298,6 @@ export const strings = {
         replaceLogo: "Replace logo",
     },
     checkout: {
-        bankLinkTitle: "Client bank authorization",
         bankLinkHelp:
             "Share this private link with the client. They enter their bank details and authorize payments with Stripe. The client must start within 24 hours, then has 10 days to finish bank verification. Creating another link replaces it.",
         bankLinkLabel: "Private authorization link",
@@ -4430,8 +4416,17 @@ export const strings = {
             upload: "Some changes haven’t reached the server. They remain on this device while sync retries.",
             download:
                 "We can’t get the latest updates. Showing the data already saved on this device.",
+            full: "This device is out of storage, so new updates can’t be saved. Free up space and sync resumes.",
         },
         signInAgain: "Sign in again",
+        retry: "Try again",
+        firstSyncTitle: "Your data hasn’t loaded yet",
+        firstSyncBody: "We can’t reach the server to load this account. We’ll keep trying.",
+        uploadingTitle: "Still uploading",
+        uploadingStrip: (n: number) =>
+            n === 1
+                ? "1 change is saved on this device and still on its way to the server"
+                : `${String(n)} changes are saved on this device and still on their way to the server`,
         offlineTitle: "You’re offline",
         offlineStrip: (n: number) =>
             n === 0
@@ -4451,11 +4446,6 @@ export const strings = {
         signOutSafe: "Reconnect first and they sync on their own.",
         signOutConfirm: "Sign out anyway",
         signOutCancel: "Stay signed in",
-        changed: (kind: string) => `${kind} changed`,
-        removed: (kind: string) => `${kind} removed`,
-        tables: {
-            hours: "Working hours",
-            other: "A record",
-        },
+        hoursChanged: "Working hours changed",
     },
 } as const;

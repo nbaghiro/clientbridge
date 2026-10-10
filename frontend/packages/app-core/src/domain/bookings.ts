@@ -26,7 +26,7 @@ import { type Checkout, useCheckout } from "./checkout";
 import { type ClientRow, useClients } from "./clients";
 import { canManagePayments } from "./payments";
 import { type StaffRow, staffName, useStaff } from "./staff";
-import { useReplicaLoad } from "./sync";
+import { type Arrival, expectArrival, useArrival, useReplicaLoad } from "./sync";
 
 const MIN = 60_000;
 const s = strings.bookings;
@@ -202,6 +202,11 @@ interface EventRow {
     note: string | null;
 }
 
+// SQLite ignores a replica index on the right side of a LEFT JOIN, so the slot's bookings join by id.
+export function slotBookingsJoin(conditions: string): string {
+    return `LEFT JOIN bookings b ON b.id IN (SELECT x.id FROM bookings x WHERE x.slot_id = s.id ${conditions})`;
+}
+
 // One row per visit; a class session (capacity over one) is one row with its seats counted.
 export const EVENTS_SQL = `
 SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.status AS slot_status,
@@ -217,8 +222,7 @@ SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.status
           ORDER BY n.created_at LIMIT 1) AS note
 FROM slots s
 JOIN items i ON i.id = s.item_id
-LEFT JOIN bookings b ON s.capacity <= 1 AND b.slot_id = s.id AND b.deleted_at IS NULL
-  AND b.status != 'canceled'
+${slotBookingsJoin("AND s.capacity <= 1 AND x.deleted_at IS NULL AND x.status != 'canceled'")}
 LEFT JOIN clients c ON c.id = b.client_id
 LEFT JOIN subjects sj ON sj.id = b.subject_id
 LEFT JOIN resources r ON r.id = s.resource_id
@@ -1844,6 +1848,8 @@ export function canCollectDeposit(event: CalendarEvent, viewer: Viewer | null): 
 interface CollectDeposit {
     checkout: Checkout;
     submit: () => void;
+    // a collected deposit whose booking has not reached this device yet
+    settling: Arrival;
 }
 
 /** A saved method charges now; otherwise the platform card form confirms the returned client secret. */
@@ -1853,7 +1859,13 @@ export function useCollectDeposit(
     onDone: () => void,
     defaultMethod?: string,
 ): CollectDeposit {
-    const checkout = useCheckout(onDone, defaultMethod !== undefined ? { defaultMethod } : {});
+    const key = event.bookingId === null ? null : `booking-deposit:${event.bookingId}`;
+    const settling = useArrival(key, event.depositStatus === "pending" ? 0 : 1);
+    const collected = (): void => {
+        if (key !== null) expectArrival(key, (current) => current > 0);
+        onDone();
+    };
+    const checkout = useCheckout(collected, defaultMethod !== undefined ? { defaultMethod } : {});
     const submit = (): void => {
         const bookingId = event.bookingId;
         if (bookingId === null) return;
@@ -1869,7 +1881,7 @@ export function useCollectDeposit(
             );
         }, s.collectDepositError);
     };
-    return { checkout, submit };
+    return { checkout, submit, settling };
 }
 
 interface BookingAddonRow {

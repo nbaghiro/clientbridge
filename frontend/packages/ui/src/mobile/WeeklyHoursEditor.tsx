@@ -43,6 +43,7 @@ export function WeeklyHoursEditor({
                                 onOpen(d.weekday, v);
                             }}
                             accessibilityLabel={d.label}
+                            testID={`hours-day-${String(d.weekday)}`}
                             trackColor={{ true: c.accent, false: c.border }}
                             thumbColor={c.surface}
                         />
