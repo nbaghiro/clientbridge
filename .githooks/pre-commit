@@ -1,9 +1,30 @@
 #!/bin/sh
-# Pre-commit gate: format-check, lint, generated-code drift and the backend and frontend tests (the
-# backend suite needs the local Postgres from `make up`). Browser, device and sync e2e run in CI.
-#
-# Default a writable uv cache: this machine's ~/.cache/uv can be root-owned, which breaks `uv run`
-# from inside a hook. Respects an already-exported UV_CACHE_DIR.
+# Pre-commit gate on exactly what is being committed: the staged changes are applied to a temporary
+# worktree at HEAD, so unstaged edits (including other sessions' work in this checkout) can't fail or
+# pass a commit. Runs format-check, lint, generated-code drift and the backend and frontend tests; the
+# backend suite needs the local Postgres from `make up`. Browser, device and sync e2e run in CI.
+set -e
+
+# this machine's ~/.cache/uv can be root-owned, which breaks `uv` inside a hook
 export UV_CACHE_DIR="${UV_CACHE_DIR:-/tmp/uv-cache}"
 
-exec make precommit
+root=$(git rev-parse --show-toplevel)
+tree=$(mktemp -d "${TMPDIR:-/tmp}/clientbridge-precommit.XXXXXX")
+cleanup() {
+    git -C "$root" worktree remove --force "$tree" > /dev/null 2>&1 || rm -rf "$tree"
+    rm -f "$tree.patch"
+}
+trap cleanup EXIT INT TERM
+
+# read the staged diff with git's hook environment (a partial commit stages into a temporary index),
+# then drop that environment so the worktree commands use the worktree's own index
+staged="$tree.patch"
+git -C "$root" diff --cached --binary > "$staged"
+unset GIT_INDEX_FILE GIT_DIR GIT_WORK_TREE GIT_PREFIX
+git -C "$root" worktree add --quiet --detach "$tree" HEAD
+(cd "$tree" && git apply --index --allow-empty "$staged")
+
+echo "pre-commit: checking the staged changes in $tree"
+(cd "$tree/backend" && uv sync --frozen --quiet)
+(cd "$tree/frontend" && pnpm install --frozen-lockfile --offline --silent)
+make -C "$tree" precommit

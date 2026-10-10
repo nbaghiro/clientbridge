@@ -42,8 +42,10 @@ make codegen-check # regenerate api-client, sync schema and themes; fail if they
 make precommit     # format-check + lint + codegen-check + test  (the pre-commit hook; e2e runs in CI)
 make check         # lint + codegen-check + test          (the full local gate)
 ```
-The pre-commit hook (`.githooks/pre-commit`, installed once via `make hooks`) runs `make precommit`, which
-includes the backend and frontend tests, so the local Postgres from `make up` must be running. The browser,
+The pre-commit hook (`.githooks/pre-commit`, installed once via `make hooks`) applies only the staged
+changes to a temporary worktree at `HEAD`, installs dependencies there from the local caches and runs
+`make precommit`, so unstaged edits never decide a commit. It includes the backend and frontend tests, so
+the local Postgres from `make up` must be running. The browser,
 device and real-service suites (`test-web`, `test-connect`, `test-mobile`, `test-sync`, `test-site`,
 `test-playground`) run in CI. The hook sets a writable `UV_CACHE_DIR=/tmp/uv-cache` to work around a
 root-owned `~/.cache/uv`.

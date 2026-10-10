@@ -49,8 +49,16 @@ const config: ExpoConfig = {
         ],
         // Tap to Pay; the plugin reads its options without a null check, so pass an object.
         ["@stripe/stripe-terminal-react-native", {}],
-        // Stripe Terminal's Android SDK requires minSdk 26 (React Native defaults to 24).
-        ["expo-build-properties", { android: { minSdkVersion: 26 } }],
+        // minSdk 26 for Stripe Terminal; E2E_CLEARTEXT lets the CI release build reach a local http API.
+        [
+            "expo-build-properties",
+            {
+                android: {
+                    minSdkVersion: 26,
+                    ...(process.env.E2E_CLEARTEXT === "1" ? { usesCleartextTraffic: true } : {}),
+                },
+            },
+        ],
     ],
     extra: {
         apiUrl: process.env.API_URL ?? "http://127.0.0.1:8701",

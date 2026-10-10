@@ -371,6 +371,8 @@ jobs:
         working-directory: frontend
       - name: build the release APK
         working-directory: frontend/apps/mobile
+        env:
+          E2E_CLEARTEXT: "1"
         run: |
           pnpm exec expo prebuild --platform android --no-install
           cd android && ./gradlew assembleRelease --build-cache
