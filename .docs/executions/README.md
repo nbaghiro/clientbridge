@@ -1,13 +1,9 @@
 # Executions
 
-Each execution owns its plan and progress so unrelated work does not accumulate in the documentation root.
+Each execution that is planned or in progress owns its plan and progress so unrelated work does not accumulate in the documentation root. When an execution is implemented, move anything durable into the main docs and delete its folder.
 
 | Execution         | Plan and tracking                                                                                                                                                |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Demo data         | [Accounts, launch commands, architecture and validation](demo-data/README.md).                                                                                   |
 | Backend hardening | [Plan](backend-hardening/plan.md), [task queue](backend-hardening/tasks.json), [progress](backend-hardening/progress.md).                                        |
-| Sync reliability  | [Plan](sync-hardening/plan.md), [task queue](sync-hardening/tasks.json), [progress](sync-hardening/progress.md). Closed on 2026-10-10 after sync P2.             |
-| Sync P2 hardening | [Plan](sync-p2/plan.md), [task queue](sync-p2/tasks.json), [progress](sync-p2/progress.md).                                                                      |
-| Product port      | [Plan](product-port/plan.md) for moving approved explorations into the apps.                                                                                     |
 
 Use a new folder for a separate execution. Record tested behavior, remaining work and snapshot-specific evidence in its progress document; keep reusable system decisions in the main docs.

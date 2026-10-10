@@ -16,7 +16,7 @@ net-new product, built around a first-class configurable tax engine and modern p
 - **White space** — beauty/personal-care + multi-discipline wellness solos + cleaning, where Jane App
   (clinical health) and Jobber (home services) don't reach.
 
-For realistic local demo accounts and reusable demo checks, see the [demo guide](.docs/executions/demo-data/README.md).
+For the seeded demo accounts and demo checks, see the [demo section of the engineering guide](.docs/engineering.md#the-demo--qa-account).
 
 ## Architecture
 
@@ -74,7 +74,7 @@ See the [documentation index](.docs/README.md) for core references, reviews and 
 make hooks                    # install the pre-commit hook
 make install                  # backend (uv sync) + frontend (pnpm install) deps
 make up                       # local infra: postgres · powersync · redis · s3 (RustFS) (87xx ports)
-make migrate                  # apply the development schema; use the demo guide for seeded accounts
+make migrate                  # apply the development schema; `make seed` adds the demo accounts
 
 # run (separate terminals)
 make dev-api                  # FastAPI        → http://localhost:8701
@@ -84,7 +84,7 @@ make dev-site                 # marketing site → http://localhost:8710
 make worker                   # arq background jobs (reminders, sweeps, reconciliation)
 ```
 
-Host ports use the **87xx** block so it runs alongside sibling projects — see
+Host ports use the **87xx** block; see
 [`.docs/engineering.md`](.docs/engineering.md#ports--the-87xx-block).
 
 ## Development

@@ -195,11 +195,9 @@ Read local, write via command/sync — the server is the source of truth; client
 ## Local development
 
 ### Ports — the 87xx block
-Clientbridge owns the **8700–8799** block so it runs alongside sibling projects in `~/Documents/code`; the
+Clientbridge owns the **8700–8799** block, so a new local service picks a free port inside it. The
 services below use 8700–8712, and test-only servers (web e2e, the sync verification page) use other ports
-in the block. Container-internal ports stay conventional; only host mappings use 87xx. The other projects
-hold their own blocks (as of October 10, 2026): 82xx nbaghiro, 83xx usebuta, 84xx flowmaestro, 85xx
-lumischool, 86xx galleo and PocketSuite, 88xx llamatrade, 89xx sourcewell. A new local service picks a free port inside its project's block.
+in the block. Container-internal ports stay conventional; only host mappings use 87xx.
 
 | Port | Service | Container | Set in |
 |---|---|---|---|
@@ -254,7 +252,17 @@ DB owned by `powersync_storage_owner`),
 
 Demo accounts are normal tenants in the main local `clientbridge` database, using the standard servers and provider integrations. `make seed` adds them when absent; `make demo-reset` refreshes only the seeded accounts and preserves unrelated tenants. `make demo-check` validates their scenario and ledger. There is no demo runtime mode or separate presentation database.
 
-See the [seeded account guide](executions/demo-data/README.md) for logins, data architecture, provider requirements and reset behavior. Two manual Stripe tools need `STRIPE_SECRET_KEY` (test mode): `uv run python -m scripts.stripe_demo_account` connects the demo business to a verified Stripe test account and reuses it on later runs, and `uv run python -m scripts.payment_accounts` audits one connected account's profile and statement descriptor, writing missing fields only with `--apply`. Integration tests use normal dependency-injected recording adapters and per-test rollback; CI databases use the `clientbridge_test*` prefix.
+| Login | Role |
+|---|---|
+| hannah@birchbarkpets.ca | Hannah, owner of Birchbark Pet Studio |
+| admin@birchbarkpets.ca | Alex, administrator |
+| diego@birchbarkpets.ca | Diego, commissioned staff |
+| priya@birchbarkpets.ca | Priya, employee |
+| owner@cedarcoast.example.test | Rowan, a separate business used for isolation checks |
+
+The password is `demo1234` and the approval PIN is `2468`. The scenario is anchored to the current Vancouver date: `seed_demo.build_demo(as_of)` builds the fixture graph, the seed modules enrich it, and it is validated before it is written. Assets in `backend/scripts/demo_assets/` upload to the configured bucket first. A reset replaces only the seeded businesses, their rows and their users' sessions, and refuses when a seeded user also belongs to another business; it pauses the ledger's append-only trigger inside the transaction. Historical provider references are fixture data, not usable Stripe objects, so new card payments, onboarding and message delivery need test-provider credentials as for any account; without them use cash or manual payments.
+
+Two manual Stripe tools need `STRIPE_SECRET_KEY` (test mode): `uv run python -m scripts.stripe_demo_account` connects the demo business to a verified Stripe test account and reuses it on later runs, and `uv run python -m scripts.payment_accounts` audits one connected account's profile and statement descriptor, writing missing fields only with `--apply`. Integration tests use normal dependency-injected recording adapters and per-test rollback; CI databases use the `clientbridge_test*` prefix.
 
 ### PowerSync signing-key rotation
 

@@ -124,5 +124,6 @@ Keep only the documentation index and main docs at the root: **architecture** (s
 sync · authorization · frontend), **engineering** (gate · testing · shipping · ports · demo · conventions),
 and **launch-readiness** (launch work and deferred scope). Use `.docs/reviews/<area>/` for dated audits,
 `.docs/explorations/<topic>/` for investigations, and `.docs/executions/<name>/` for each execution's plan,
-task queue and progress. Keep raw logs and temporary artifacts in `.scratchpad/`. Update links after
+task queue and progress; delete an execution's folder once it is implemented, after moving anything durable
+into the main docs. Keep raw logs and temporary artifacts in `.scratchpad/`. Update links after
 moves. See `.docs/README.md`; design system and IA remain in `.docs/design/app-explorer.html`.
