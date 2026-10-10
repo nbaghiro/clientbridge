@@ -108,6 +108,30 @@ class BookingOut(Mirror):
     ends_at: datetime
 
 
+class VisitOut(Mirror):
+    mirrors = Booking
+
+    id: str
+    status: BookingStatus
+    subject_id: str | None
+    staff_id: str | None
+    deposit_amount_cents: int
+    deposit_status: DepositStatus
+    starts_at: datetime
+    ends_at: datetime
+    item_name: str
+    item_color: str | None
+    staff_name: str | None
+
+
+class VisitPage(BaseModel):
+    visits: list[VisitOut]
+    more: bool
+    # completed visits before `before`, however many pages they span
+    completed: int
+    last_completed_at: datetime | None
+
+
 class DepositOut(BaseModel):
     booking_id: str
     payment_id: str

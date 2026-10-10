@@ -157,6 +157,7 @@ async def _book(db: AsyncSession, client_id: str, created_at: datetime) -> str:
         id=new_id("booking"),
         business_id=BIZ,
         slot_id=slot.id,
+        starts_at=slot.starts_at,
         staff_id="st_owner",
         client_id=client_id,
         status="confirmed",

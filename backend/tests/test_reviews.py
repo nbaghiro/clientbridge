@@ -44,6 +44,7 @@ async def _booking(db: AsyncSession, *, status: str = "completed") -> str:
         id=new_id("booking"),
         business_id=BIZ,
         slot_id=sess.id,
+        starts_at=sess.starts_at,
         staff_id=ST_OWNER,
         client_id=await client_id(db),
         status=status,

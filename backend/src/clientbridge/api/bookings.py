@@ -1,6 +1,7 @@
+from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, Query
 
 from clientbridge.core.deps import (
     CurrentPrincipal,
@@ -35,6 +36,7 @@ from clientbridge.schemas.bookings import (
     RosterEntry,
     TimeOffCreate,
     TimeOffOut,
+    VisitPage,
 )
 from clientbridge.services.bookings import (
     BookingService,
@@ -94,6 +96,19 @@ async def check_booking_move(
     gateway: GatewayDep,
 ) -> BookingCheck:
     return await BookingService(db, principal, gateway).check(booking_id, body)
+
+
+@router.get("/visits", response_model=VisitPage)
+async def client_visits(
+    client_id: str,
+    before: datetime,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    before_id: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> VisitPage:
+    return await BookingService(db, principal, gateway).visits(client_id, before, before_id, limit)
 
 
 @router.get("/{booking_id}/reminder", response_model=ReminderPreview)

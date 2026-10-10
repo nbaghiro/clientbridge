@@ -22,6 +22,7 @@ import {
     type Availability,
     CLIENT_PETS_SQL,
     type CalendarEvent,
+    slotBookingsJoin,
     slotProblem,
     useAvailability,
     useNow,
@@ -478,7 +479,7 @@ export const SERIES_VISITS_SQL = `
 SELECT s.id AS slot_id, s.recurrence_id, s.starts_at, s.ends_at, s.staff_id, b.id AS booking_id,
        b.status, b.deposit_status, sj.name AS pet_name
 FROM slots s JOIN recurrences r ON r.id = s.recurrence_id AND r.client_id IS NOT NULL
-LEFT JOIN bookings b ON b.slot_id = s.id AND b.deleted_at IS NULL
+${slotBookingsJoin("AND x.deleted_at IS NULL")}
 LEFT JOIN subjects sj ON sj.id = b.subject_id
 ORDER BY s.starts_at`;
 

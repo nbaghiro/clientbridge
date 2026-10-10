@@ -88,7 +88,6 @@ function seed(): void {
             id: BIZ,
             name: "Birch Studio",
             timezone: "America/Vancouver",
-            locale: "en",
             billing_email: "billing@birch.test",
             gst_hst_number: "123456789RT0001",
             qst_number: null,
@@ -149,13 +148,27 @@ function seed(): void {
         { id: "it_old", kind: "service", name: "Archived", price_cents: 100, active: 0 },
     ]);
     scoped("files", [
-        { id: "fl_old", parent_type: "item", parent_id: "it_cut", purpose: "image" },
+        {
+            id: "fl_old",
+            parent_type: "item",
+            parent_id: "it_cut",
+            purpose: "image",
+            uploaded_at: TS,
+        },
         {
             id: "fl_new",
             parent_type: "item",
             parent_id: "it_cut",
             purpose: "image",
             created_at: "2026-06-27T00:00:00Z",
+            uploaded_at: "2026-06-27T00:00:00Z",
+        },
+        {
+            id: "fl_pending",
+            parent_type: "item",
+            parent_id: "it_cut",
+            purpose: "image",
+            created_at: "2026-06-28T00:00:00Z",
         },
     ]);
     scoped("slots", [
@@ -858,6 +871,9 @@ describe("app-core SQL against the replica schema", () => {
             { id: "inv_3", client_email: null, paid_cents: 2000, paid_at: TS },
             { id: "inv_2", client_email: null, paid_cents: 0, paid_at: null },
         ]);
+        const list = run("INVOICES_SQL").find((r) => r.id === "inv_3");
+        expect(run("INVOICE_SQL", ["inv_3"])).toEqual([list]);
+        expect(run("INVOICE_SQL", ["inv_missing"])).toEqual([]);
     });
 
     it("lists clients by name with their lifetime value", () => {

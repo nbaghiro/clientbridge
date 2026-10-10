@@ -21,6 +21,7 @@ import type { IconName } from "../icons";
 import type { Intent } from "../ui";
 import type { Viewer } from "./auth";
 import { useInvoices } from "./billing";
+import { slotBookingsJoin } from "./bookings";
 import { utcSql } from "../datetime";
 import { useCatalogItems } from "./catalog";
 import { useEarnings } from "./earnings";
@@ -81,7 +82,7 @@ SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity,
        st.name AS staff_name, st.title AS staff_title, st.role AS staff_role, st.color AS staff_color
 FROM slots s
 JOIN items i ON i.id = s.item_id
-LEFT JOIN bookings b ON b.slot_id = s.id AND b.deleted_at IS NULL AND b.status != 'canceled'
+${slotBookingsJoin("AND x.deleted_at IS NULL AND x.status != 'canceled'")}
 LEFT JOIN clients c ON c.id = b.client_id
 LEFT JOIN staff st ON st.id = s.staff_id
 WHERE s.status != 'canceled'

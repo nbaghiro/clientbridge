@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints
 
 from clientbridge.core.mirrors import Mirror
 from clientbridge.models.clients import Channel
@@ -33,6 +33,23 @@ class MessageOut(Mirror):
     channel: Channel
     body: str | None
     status: MessageStatus
+
+
+class ConversationMessage(Mirror):
+    mirrors = Message
+
+    id: str
+    direction: Direction
+    channel: Channel
+    body: str | None
+    status: MessageStatus
+    created_at: datetime
+    author: str | None
+
+
+class ConversationPage(BaseModel):
+    messages: list[ConversationMessage]
+    more: bool
 
 
 class BroadcastSend(Mirror):

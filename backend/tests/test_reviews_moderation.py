@@ -47,6 +47,7 @@ async def _visit(db: AsyncSession) -> str:
         id=new_id("booking"),
         business_id=BIZ,
         slot_id=slot.id,
+        starts_at=slot.starts_at,
         staff_id="st_owner",
         client_id=cid,
         subject_id=pet.id,

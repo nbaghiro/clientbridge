@@ -7,7 +7,7 @@ import { addDays, formatTime, parseTimestamp, relativeDay, sameDay, startOfDay }
 import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
-import { type ScheduleEvent, useNow } from "./bookings";
+import { type ScheduleEvent, slotBookingsJoin, useNow } from "./bookings";
 import { utcSql } from "../datetime";
 import { staffName, useStaff } from "./staff";
 import { useReplicaLoad } from "./sync";
@@ -382,7 +382,7 @@ export const STATIONS_HELD_SQL = `
 SELECT s.id AS slot_id, s.resource_id, s.starts_at, s.ends_at, sj.name AS pet_name,
        c.name AS client_name, i.name AS item_name
 FROM slots s JOIN items i ON i.id = s.item_id
-LEFT JOIN bookings b ON b.slot_id = s.id AND b.deleted_at IS NULL AND b.status != 'canceled'
+${slotBookingsJoin("AND x.deleted_at IS NULL AND x.status != 'canceled'")}
 LEFT JOIN clients c ON c.id = b.client_id
 LEFT JOIN subjects sj ON sj.id = b.subject_id
 WHERE s.resource_id IS NOT NULL AND s.status != 'canceled'

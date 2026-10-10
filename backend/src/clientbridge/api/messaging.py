@@ -1,11 +1,13 @@
+from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, Query
 
 from clientbridge.core.deps import CurrentPrincipal, DbSession, EmailDep, SmsDep
 from clientbridge.schemas.messaging import (
     BroadcastOut,
     BroadcastSend,
+    ConversationPage,
     MessageOut,
     MessageSend,
     ThreadOut,
@@ -59,3 +61,18 @@ async def mark_thread_read(
     email: EmailDep,
 ) -> ThreadOut:
     return await MessageService(db, principal, sms, email).mark_thread_read(thread_id)
+
+
+@router.get("/threads/{thread_id}/messages", response_model=ConversationPage)
+async def thread_messages(
+    thread_id: str,
+    before: datetime,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    sms: SmsDep,
+    email: EmailDep,
+    before_id: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> ConversationPage:
+    service = MessageService(db, principal, sms, email)
+    return await service.conversation(thread_id, before, before_id, limit)

@@ -2,7 +2,7 @@ import logging
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, literal, select, tuple_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,13 +13,15 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.postmark import Email, EmailSender
 from clientbridge.integrations.twilio import Sms, SmsSender
-from clientbridge.models.business import Business
+from clientbridge.models.business import Business, Staff
 from clientbridge.models.clients import Channel, Client
 from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.models.platform import Webhook
 from clientbridge.schemas.messaging import (
     BroadcastOut,
     BroadcastSend,
+    ConversationMessage,
+    ConversationPage,
     MessageOut,
     MessageSend,
     ThreadOut,
@@ -368,6 +370,44 @@ class MessageService:
 
         return await run_command(
             self.db, self.principal, action="thread.read", run=run, response_model=ThreadOut
+        )
+
+    async def conversation(
+        self, thread_id: str, before: datetime, before_id: str | None, limit: int
+    ) -> ConversationPage:
+        """A thread's older messages, newest first: the history the device no longer keeps."""
+        thread = await self._thread(thread_id)
+        author = scoped(Staff, self.biz).subquery()
+        rows = (
+            await self.db.execute(
+                scoped(Message, self.biz)
+                .add_columns(author.c.name)
+                .outerjoin(author, author.c.user_id == Message.sent_by)
+                .where(
+                    Message.thread_id == thread.id,
+                    Message.created_at < before
+                    if before_id is None
+                    else tuple_(Message.created_at, Message.id)
+                    < tuple_(literal(before), literal(before_id)),
+                )
+                .order_by(Message.created_at.desc(), Message.id.desc())
+                .limit(limit + 1)
+            )
+        ).all()
+        return ConversationPage(
+            messages=[
+                ConversationMessage(
+                    id=message.id,
+                    direction=message.direction,
+                    channel=message.channel,
+                    body=message.body,
+                    status=message.status,
+                    created_at=message.created_at,
+                    author=name,
+                )
+                for message, name in rows[:limit]
+            ],
+            more=len(rows) > limit,
         )
 
     async def _business_name(self) -> str:

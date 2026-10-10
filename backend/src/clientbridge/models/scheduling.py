@@ -64,7 +64,9 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     )
 
     slot_id: Mapped[str] = mapped_column(ForeignKey("slots.id"), nullable=False)
-    # Denormalized from the slot's staff — lets per-staff sync rules slice bookings directly.
+    # the slot's start, copied so device sync can window bookings by month
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # copied from the slot's staff so the per-staff sync streams slice bookings directly
     staff_id: Mapped[str | None] = mapped_column(ForeignKey("staff.id"))
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
     subject_id: Mapped[str | None] = mapped_column(ForeignKey("subjects.id"))

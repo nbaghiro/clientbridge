@@ -1,3 +1,5 @@
+import { historyStart } from "@clientbridge/sync";
+
 import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useEffect, useMemo, useState } from "react";
@@ -13,7 +15,7 @@ import {
     sameDay,
 } from "../datetime";
 import { formatPhone } from "../format";
-import { type Load, useAsyncAction } from "../hooks";
+import { isConnectionFailure, type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
 import { type ChannelConsent, consentFor, smsSegments, useConsents } from "./broadcasts";
@@ -235,6 +237,13 @@ export interface Conversation {
     client: ClientContextRow | null;
     consent: Record<Channel, ChannelConsent>;
     nextVisit: string | null;
+    // messages older than this device keeps, fetched page by page while online
+    earlier: { show: boolean; busy: boolean; error: string | null; load: () => void };
+}
+
+interface ConversationPage {
+    messages: ConversationRow[];
+    more: boolean;
 }
 
 const MESSAGE_STATUS: Record<string, string> = {
@@ -255,10 +264,45 @@ function visitWhen(d: Date, now: Date): string {
 }
 
 /** Messages grouped by day; outbound ones carry who sent them, or Automatic for the system. */
-export function useConversation(thread: InboxThread): Conversation {
+export function useConversation(api: ApiLike, thread: InboxThread): Conversation {
     const now = useMemo(() => new Date(), []);
     const iso = now.toISOString();
-    const rows = useQuery<ConversationRow>(CONVERSATION_SQL, [thread.id]).data;
+    const local = useQuery<ConversationRow>(CONVERSATION_SQL, [thread.id]).data;
+    const [older, setOlder] = useState<{ thread: string; rows: ConversationRow[]; more: boolean }>({
+        thread: thread.id,
+        rows: [],
+        more: true,
+    });
+    const earlier = older.thread === thread.id ? older : { rows: [], more: true };
+    const fetching = useAsyncAction();
+    const loadEarlier = (): void => {
+        const oldest = earlier.rows[0] ?? local[0];
+        const params = new URLSearchParams({
+            before: oldest?.created_at.replace(" ", "T") ?? historyStart(now).toISOString(),
+        });
+        if (earlier.rows[0] !== undefined) params.set("before_id", earlier.rows[0].id);
+        fetching.run(
+            async () => {
+                const page = await api.get<ConversationPage>(
+                    `/v1/threads/${thread.id}/messages?${params.toString()}`,
+                );
+                const known = new Set(local.map((r) => r.id));
+                setOlder({
+                    thread: thread.id,
+                    rows: [
+                        ...page.messages.filter((r) => !known.has(r.id)).reverse(),
+                        ...earlier.rows,
+                    ],
+                    more: page.more,
+                });
+            },
+            {
+                errorMessage: (error) =>
+                    isConnectionFailure(error) ? m.thread.earlierOffline : m.thread.earlierFailed,
+            },
+        );
+    };
+    const rows = useMemo(() => [...earlier.rows, ...local], [earlier.rows, local]);
     const client =
         useQuery<ClientContextRow>(INBOX_CLIENT_SQL, [iso, iso, thread.client_id]).data[0] ?? null;
     const consents = useConsents();
@@ -300,6 +344,12 @@ export function useConversation(thread: InboxThread): Conversation {
                 : [client.next_service, visitWhen(parseTimestamp(client.next_at), now)]
                       .filter((v) => v !== null)
                       .join(" · "),
+        earlier: {
+            show: earlier.more,
+            busy: fetching.busy,
+            error: fetching.error,
+            load: loadEarlier,
+        },
     };
 }
 

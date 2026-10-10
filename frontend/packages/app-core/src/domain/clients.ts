@@ -1,3 +1,5 @@
+import { historyStart } from "@clientbridge/sync";
+
 import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useMemo, useState } from "react";
@@ -5,7 +7,7 @@ import { useMemo, useState } from "react";
 import { type ApiLike, newIdempotencyKey } from "../api";
 import { formatDate, formatMonthYear, formatTime, parseTimestamp, relativeDay } from "../datetime";
 import { blankToNull, formatMoney, formatPhone, phoneDigits } from "../format";
-import { useAsyncAction } from "../hooks";
+import { useAsyncAction, useRemote } from "../hooks";
 import type { Load } from "../hooks";
 import type { IconName } from "../icons";
 import { strings } from "../strings";
@@ -461,18 +463,41 @@ export interface ClientRecord {
     pets: SubjectRow[];
     notes: ClientNote[];
     upcoming: ClientVisit[];
-    lastVisit: ClientVisit | null;
+    lastVisitAt: Date | null;
     visits: number;
     methods: SavedCardRow[];
     plans: ClientPlan[];
 }
 
+interface EarlierVisits {
+    completed: number;
+    last_completed_at: string | null;
+}
+
+// Visits before the device's history window; null offline, when the record counts only the window.
+function useEarlierVisits(api: ApiLike, clientId: string): EarlierVisits | null {
+    const params = new URLSearchParams({
+        client_id: clientId,
+        before: historyStart().toISOString(),
+        limit: "1",
+    });
+    return useRemote(
+        () =>
+            clientId === ""
+                ? Promise.resolve(null)
+                : api.get<EarlierVisits>(`/v1/bookings/visits?${params.toString()}`),
+        clientId,
+    ).data;
+}
+
 /** One client's record: facts, pets, what is booked, notes and how they pay. */
 export function useClientRecord(
+    api: ApiLike,
     clientId: string | null,
     viewerStaffId: string | null = null,
 ): { load: Load; record: ClientRecord | null } {
     const id = clientId ?? "";
+    const earlier = useEarlierVisits(api, id);
     const client = useQuery<DirectoryRow>(CLIENT_SQL, [id]);
     const visits = useQuery<VisitRow>(CLIENT_VISITS_SQL, [id]);
     const subjects = useQuery<SubjectDbRow>(CLIENT_SUBJECTS_SQL, [id]);
@@ -491,12 +516,25 @@ export function useClientRecord(
             pets: subjects.data.map(toSubject),
             notes: notes.data.map((n) => toNote(n, viewerStaffId)),
             upcoming: all.filter((v) => isAhead(v, now)).reverse(),
-            lastVisit: done[0] ?? null,
-            visits: done.length,
+            lastVisitAt:
+                done[0]?.start ??
+                (earlier?.last_completed_at == null
+                    ? null
+                    : parseTimestamp(earlier.last_completed_at)),
+            visits: done.length + (earlier?.completed ?? 0),
             methods: methods.data,
             plans: plans.data.map(toPlan),
         };
-    }, [row, visits.data, subjects.data, notes.data, methods.data, plans.data, viewerStaffId]);
+    }, [
+        row,
+        visits.data,
+        subjects.data,
+        notes.data,
+        methods.data,
+        plans.data,
+        viewerStaffId,
+        earlier,
+    ]);
     return { load, record };
 }
 

@@ -213,14 +213,14 @@ function Thread({
     details: boolean;
     onDetails: (v: boolean) => void;
 }) {
-    const conversation = useConversation(thread);
+    const conversation = useConversation(api, thread);
     const composer = useThreadComposer(api, thread);
     useMarkThreadRead(api, thread);
     const end = useRef<HTMLDivElement>(null);
-    const count = conversation.days.reduce((n, d) => n + d.items.length, 0);
+    const newest = conversation.days.at(-1)?.items.at(-1)?.id;
     useEffect(() => {
         end.current?.scrollIntoView({ block: "end" });
-    }, [count, thread.id]);
+    }, [newest, thread.id]);
     const contact = thread.channel === "email" ? thread.email : formatPhone(thread.phone);
 
     return (
@@ -261,6 +261,21 @@ function Thread({
                     </div>
                 ) : null}
                 <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4" aria-live="polite">
+                    {conversation.earlier.show ? (
+                        <div className="flex flex-col items-center gap-2">
+                            <Button
+                                size="sm"
+                                variant="quiet"
+                                busy={conversation.earlier.busy}
+                                onPress={conversation.earlier.load}
+                            >
+                                {s.thread.showEarlier}
+                            </Button>
+                            {conversation.earlier.error !== null ? (
+                                <Notice tone="danger">{conversation.earlier.error}</Notice>
+                            ) : null}
+                        </div>
+                    ) : null}
                     {conversation.days.map((day) => (
                         <div key={day.label} className="space-y-3">
                             <div className="flex items-center gap-3 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">

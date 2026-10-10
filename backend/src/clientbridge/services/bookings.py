@@ -4,13 +4,13 @@ from collections.abc import Sequence
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import ColumnElement, Exists, func, or_, select, text
+from sqlalchemy import ColumnElement, Exists, func, literal, or_, select, text, tuple_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
-from clientbridge.core.deps import Principal, assert_can_act_as, assert_role
+from clientbridge.core.deps import Principal, assert_can_act_as, assert_role, is_manager
 from clientbridge.core.errors import (
     AppError,
     CardDeclined,
@@ -72,6 +72,8 @@ from clientbridge.schemas.bookings import (
     RosterEntry,
     TimeOffCreate,
     TimeOffOut,
+    VisitOut,
+    VisitPage,
 )
 from clientbridge.services import ledger
 from clientbridge.services.business import business_tz
@@ -342,6 +344,7 @@ async def create_booking_core(
         id=new_id("booking"),
         business_id=business_id,
         slot_id=slot.id,
+        starts_at=slot.starts_at,
         staff_id=staff_id,
         client_id=client_id,
         subject_id=subject_id,
@@ -356,6 +359,17 @@ async def create_booking_core(
     db.add(booking)
     await db.flush()
     return booking, slot
+
+
+async def move_slot(
+    db: AsyncSession, business_id: str, slot: Slot, starts_at: datetime, ends_at: datetime
+) -> None:
+    slot.starts_at, slot.ends_at = starts_at, ends_at
+    await db.execute(
+        scoped_update(Booking, business_id)
+        .where(Booking.slot_id == slot.id)
+        .values(starts_at=starts_at)
+    )
 
 
 async def _lock_staff(db: AsyncSession, business_id: str, staff_id: str) -> None:
@@ -555,7 +569,7 @@ class BookingService:
                 )
                 if problem is not None:
                     raise Conflict(problem.message or _OVERLAP)
-                slot.starts_at, slot.ends_at = starts_at, ends_at
+                await move_slot(self.db, self.biz, slot, starts_at, ends_at)
                 slot.staff_id, slot.resource_id = staff_id, resource_id
                 if booking.staff_id != staff_id:
                     booking.staff_id = staff_id
@@ -649,6 +663,64 @@ class BookingService:
         if resource_id is not None and resource_id != slot.resource_id:
             await load_resource(self.db, self.biz, resource_id)
         return staff_id, starts_at, ends_at, resource_id
+
+    async def visits(
+        self, client_id: str, before: datetime, before_id: str | None, limit: int
+    ) -> VisitPage:
+        """A client's older visits, newest first: the history the device no longer keeps."""
+        await self._client(client_id)
+        stmt = (
+            scoped(Booking, self.biz, soft_delete=True)
+            .add_columns(Slot.starts_at, Slot.ends_at, Item.name, Item.color, Staff.name)
+            .join(Slot, Slot.id == Booking.slot_id)
+            .join(Item, Item.id == Slot.item_id)
+            .outerjoin(Staff, Staff.id == Booking.staff_id)
+            .where(
+                Booking.client_id == client_id,
+                Slot.starts_at < before
+                if before_id is None
+                else tuple_(Slot.starts_at, Booking.id)
+                < tuple_(literal(before), literal(before_id)),
+            )
+            .order_by(Slot.starts_at.desc(), Booking.id.desc())
+            .limit(limit + 1)
+        )
+        done = (
+            scoped(Booking, self.biz, soft_delete=True)
+            .with_only_columns(func.count(Booking.id), func.max(Slot.starts_at))
+            .join(Slot, Slot.id == Booking.slot_id)
+            .where(
+                Booking.client_id == client_id,
+                Booking.status == "completed",
+                Slot.starts_at < before,
+            )
+        )
+        if not is_manager(self.principal.role):
+            stmt = stmt.where(Booking.staff_id == self.principal.staff_id)
+            done = done.where(Booking.staff_id == self.principal.staff_id)
+        rows = (await self.db.execute(stmt)).all()
+        completed, last_completed_at = (await self.db.execute(done)).one()
+        return VisitPage(
+            visits=[
+                VisitOut(
+                    id=booking.id,
+                    status=booking.status,
+                    subject_id=booking.subject_id,
+                    staff_id=booking.staff_id,
+                    deposit_amount_cents=booking.deposit_amount_cents,
+                    deposit_status=booking.deposit_status,
+                    starts_at=starts_at,
+                    ends_at=ends_at,
+                    item_name=item_name,
+                    item_color=item_color,
+                    staff_name=staff_name,
+                )
+                for booking, starts_at, ends_at, item_name, item_color, staff_name in rows[:limit]
+            ],
+            more=len(rows) > limit,
+            completed=completed,
+            last_completed_at=last_completed_at,
+        )
 
     async def reminder(self, booking_id: str) -> ReminderPreview:
         booking = await self._booking(booking_id)
@@ -1156,7 +1228,8 @@ class RecurrenceService:
                         )
                     )
                     continue
-                slot.starts_at, slot.ends_at, slot.staff_id = starts_at, ends_at, staff_id
+                await move_slot(self.db, self.biz, slot, starts_at, ends_at)
+                slot.staff_id = staff_id
                 if booking.staff_id != staff_id:
                     booking.staff_id = staff_id
                     await self.db.execute(
@@ -1347,6 +1420,7 @@ class ClassService:
                 id=new_id("booking"),
                 business_id=self.biz,
                 slot_id=slot.id,
+                starts_at=slot.starts_at,
                 staff_id=slot.staff_id,
                 client_id=data.client_id,
                 subject_id=data.subject_id,

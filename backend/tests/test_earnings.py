@@ -79,6 +79,7 @@ async def _paid_booking(
         id=new_id("booking"),
         business_id=BIZ,
         slot_id=sess.id,
+        starts_at=sess.starts_at,
         staff_id="st_diego",
         client_id=cid,
         status="confirmed",

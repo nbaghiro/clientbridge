@@ -64,6 +64,7 @@ async def _seed_session(db: AsyncSession, *, item: str, staff: str, starts: date
             id=new_id("booking"),
             business_id=BIZ,
             slot_id=slot.id,
+            starts_at=slot.starts_at,
             staff_id=staff,
             client_id="cl_amelie",
             status="confirmed",

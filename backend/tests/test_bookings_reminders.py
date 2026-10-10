@@ -42,6 +42,7 @@ async def _booking(
         id=new_id("booking"),
         business_id=business_id,
         slot_id=slot.id,
+        starts_at=slot.starts_at,
         staff_id=staff_id,
         client_id=client_id,
         status="confirmed",

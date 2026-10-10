@@ -39,6 +39,7 @@ async def test_billing_lines_cannot_reference_a_foreign_booking(
         id=new_id("booking"),
         business_id=other.id,
         slot_id=slot.id,
+        starts_at=slot.starts_at,
         staff_id=staff.id,
         client_id=client.id,
         price_cents=10000,

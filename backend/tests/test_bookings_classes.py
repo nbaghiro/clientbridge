@@ -259,10 +259,13 @@ async def test_staff_cannot_change_another_members_roster(
     as_staff: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     sid = await _class(db, staff="st_owner")
+    slot = await db.get(Slot, sid)
+    assert slot is not None
     booking = Booking(
         id=new_id("booking"),
         business_id=BIZ,
         slot_id=sid,
+        starts_at=slot.starts_at,
         staff_id="st_owner",
         client_id=CLIENTS[0],
         status="confirmed",

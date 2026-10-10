@@ -432,7 +432,7 @@ function RecordSheet({
     onSheet: (s: Sheet) => void;
 }) {
     const viewer = useViewer();
-    const { load, record } = useClientRecord(clientId, viewer?.staffId ?? null);
+    const { load, record } = useClientRecord(api, clientId, viewer?.staffId ?? null);
     const nav = useNavigation<Nav>();
     const open = useOpenLink();
     if (record === null) {
@@ -656,10 +656,8 @@ function RecordSheet({
                         </View>
                     );
                 })}
-                {record.lastVisit !== null ? (
-                    <Text style={styles.muted}>
-                        {r.lastVisit(formatDate(record.lastVisit.start))}
-                    </Text>
+                {record.lastVisitAt !== null ? (
+                    <Text style={styles.muted}>{r.lastVisit(formatDate(record.lastVisitAt))}</Text>
                 ) : null}
             </DetailSection>
             <DetailSection

@@ -706,7 +706,7 @@ function RecordPanel({
     onDialog: (d: Dialog) => void;
 }) {
     const viewer = useViewer();
-    const { load, record } = useClientRecord(clientId, viewer?.staffId ?? null);
+    const { load, record } = useClientRecord(api, clientId, viewer?.staffId ?? null);
     const navigate = useNavigate();
     const go = (path: string): void => {
         const done = navigate(path);
@@ -862,9 +862,9 @@ function RecordPanel({
                         })}
                     </ul>
                 )}
-                {record.lastVisit !== null ? (
+                {record.lastVisitAt !== null ? (
                     <p className="mt-2 text-xs text-muted">
-                        {r.lastVisit(formatDate(record.lastVisit.start))}
+                        {r.lastVisit(formatDate(record.lastVisitAt))}
                     </p>
                 ) : null}
             </DetailSection>
@@ -946,7 +946,7 @@ const VIEW_TITLE: Record<View, string> = {
 function ClientPage({ clientId, view }: { clientId: string; view: View }) {
     const viewer = useViewer();
     const manager = canManagePayments(useRole());
-    const { load, record } = useClientRecord(clientId, viewer?.staffId ?? null);
+    const { load, record } = useClientRecord(api, clientId, viewer?.staffId ?? null);
     const open = useOpenLink();
     const c = record?.client;
 

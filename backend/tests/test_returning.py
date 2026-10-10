@@ -213,6 +213,7 @@ async def test_previous_completed_visit_is_available_only_after_proof(
         id=new_id("booking"),
         business_id=BIZ,
         slot_id=slot.id,
+        starts_at=slot.starts_at,
         staff_id=slot.staff_id,
         client_id=client.id,
         status="completed",

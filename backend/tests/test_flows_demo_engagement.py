@@ -101,6 +101,7 @@ def engagement() -> DemoContext:
                     client_id=client_id,
                     subject_id=pet_id,
                     slot_id=f"slot_{slug}",
+                    starts_at=start,
                     status="completed",
                     completed_at=start + timedelta(hours=1),
                 )
@@ -121,6 +122,7 @@ def engagement() -> DemoContext:
             client_id="cl_sophie",
             subject_id="sj_mochi",
             slot_id="slot_future",
+            starts_at=now + timedelta(days=2),
             status="confirmed",
         )
     )

@@ -220,11 +220,13 @@ function Messages() {
 }
 
 function ThreadView({ thread, onBack }: { thread: InboxThread; onBack: () => void }) {
-    const conversation = useConversation(thread);
+    const conversation = useConversation(api, thread);
     const composer = useThreadComposer(api, thread);
     useMarkThreadRead(api, thread);
     const [details, setDetails] = useState(false);
     const scroll = useRef<ScrollView>(null);
+    const newest = conversation.days.at(-1)?.items.at(-1)?.id;
+    const scrolledTo = useRef<string | undefined>(undefined);
     return (
         <KeyboardAvoidingView
             style={styles.screen}
@@ -265,9 +267,26 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack: () => voi
                 style={styles.flex}
                 contentContainerStyle={styles.messages}
                 onContentSizeChange={() => {
+                    if (scrolledTo.current === newest) return;
+                    scrolledTo.current = newest;
                     scroll.current?.scrollToEnd({ animated: false });
                 }}
             >
+                {conversation.earlier.show ? (
+                    <View style={styles.earlier}>
+                        <Button
+                            size="sm"
+                            variant="quiet"
+                            busy={conversation.earlier.busy}
+                            onPress={conversation.earlier.load}
+                        >
+                            {s.thread.showEarlier}
+                        </Button>
+                        {conversation.earlier.error !== null ? (
+                            <Notice tone="danger">{conversation.earlier.error}</Notice>
+                        ) : null}
+                    </View>
+                ) : null}
                 {conversation.days.map((day) => (
                     <View key={day.label} style={styles.day}>
                         <Text style={styles.dayLabel}>{day.label}</Text>
@@ -472,6 +491,7 @@ function NewMessageSheet({
 }
 
 const styles = StyleSheet.create({
+    earlier: { alignItems: "center", gap: 8 },
     inboxTitle: {
         color: c.ink,
         fontSize: 28,

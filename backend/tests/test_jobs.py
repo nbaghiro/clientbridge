@@ -159,6 +159,7 @@ async def _completed_booking(
         id=new_id("booking"),
         business_id=BIZ,
         slot_id=sess.id,
+        starts_at=sess.starts_at,
         staff_id=ST_OWNER,
         client_id=cid,
         status=status,
