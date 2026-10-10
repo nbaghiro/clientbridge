@@ -5,6 +5,7 @@ from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.billing import Order
+from clientbridge.schemas.business import BrandInput
 from clientbridge.schemas.orders import PublicOrderAlerts, PublicOrderStatus
 from clientbridge.services import ledger
 from clientbridge.services.lines import fetch_lines
@@ -36,11 +37,12 @@ class PublicOrderService:
         doc_lines, taxes = await public_doc_lines(self.db, order.business_id, lines)
         status, _ = await ledger.order_state(self.db, order)
         pending = await has_pending_order_refund(self.db, order)
+        brand = BrandInput.model_validate(business.brand or {})
         return PublicOrderStatus(
             pickup_from=order.pickup_from,
             pickup_to=order.pickup_to,
-            address=str(business.brand.get("address")) if business.brand.get("address") else None,
-            phone=str(business.brand.get("phone")) if business.brand.get("phone") else None,
+            address=brand.address,
+            phone=brand.phone,
             number=order.number,
             business_name=business.name,
             brand=public_brand(business),

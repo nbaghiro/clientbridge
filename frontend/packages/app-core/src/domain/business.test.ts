@@ -63,7 +63,7 @@ describe("setupTasks", () => {
 describe("bookingPageUrl", () => {
     it("joins the Connect host and the slug without a doubled slash", () => {
         expect(bookingPageUrl("https://book.example.ca/", "birch")).toBe(
-            "https://book.example.ca/book/birch",
+            "https://book.example.ca/b/birch/book",
         );
     });
 });

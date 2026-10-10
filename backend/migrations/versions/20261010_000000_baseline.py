@@ -1,11 +1,4 @@
-"""Baseline schema: every table, constraint, index and ledger trigger as of the squash.
-
-Keeps the id of the last pre-squash revision so databases created before the squash count as at baseline.
-
-Revision ID: 8f2d5b7a1c94
-Revises:
-Create Date: 2026-10-05 00:00:00
-"""
+"""Baseline schema: every table, constraint, index, exclusion constraint and ledger trigger."""
 
 from collections.abc import Sequence
 
@@ -13,7 +6,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "8f2d5b7a1c94"
+revision: str = "cb0001"
 down_revision: str | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -25,12 +18,15 @@ def upgrade() -> None:
         "businesses",
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("slug", sa.String(), nullable=False),
-        sa.Column("locale", sa.String(), nullable=False),
         sa.Column("timezone", sa.String(), nullable=False),
         sa.Column("province", sa.String(), nullable=True),
         sa.Column("gst_hst_number", sa.String(), nullable=True),
         sa.Column("qst_number", sa.String(), nullable=True),
         sa.Column("tax_registered", sa.Boolean(), nullable=False),
+        sa.Column("pst_number", sa.String(), nullable=True),
+        sa.Column("setup_dismissed_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("review_hold_at", sa.SmallInteger(), server_default="3", nullable=False),
+        sa.Column("google_review_url", sa.String(), nullable=True),
         sa.Column("brand", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("billing_email", sa.String(), nullable=True),
         sa.Column("stripe_account_id", sa.String(), nullable=True),
@@ -39,7 +35,15 @@ def upgrade() -> None:
         sa.Column("stripe_payouts_enabled", sa.Boolean(), nullable=False),
         sa.Column("stripe_details_submitted", sa.Boolean(), nullable=False),
         sa.Column("stripe_requirements", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column(
+            "booking_policy",
+            postgresql.JSONB(astext_type=sa.Text()),
+            server_default="{}",
+            nullable=False,
+        ),
         sa.Column("status", sa.String(), nullable=False),
+        sa.Column("staff_discount_limit_bps", sa.Integer(), server_default="1500", nullable=False),
+        sa.Column("filing_frequency", sa.String(), server_default="quarterly", nullable=False),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column(
             "created_at",
@@ -53,7 +57,12 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
+        sa.CheckConstraint(
+            "filing_frequency IN ('monthly', 'quarterly', 'annual')",
+            name="ck_businesses_filing_frequency",
+        ),
         sa.CheckConstraint("status IN ('active', 'closed')", name="ck_businesses_status"),
+        sa.CheckConstraint("review_hold_at BETWEEN 0 AND 5", name="ck_businesses_review_hold_at"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("slug"),
     )
@@ -64,6 +73,7 @@ def upgrade() -> None:
         "users",
         sa.Column("email", sa.String(), nullable=False),
         sa.Column("password_hash", sa.String(), nullable=True),
+        sa.Column("pin_hash", sa.String(), nullable=True),
         sa.Column("oauth", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("name", sa.String(), nullable=True),
         sa.Column("phone", sa.String(), nullable=True),
@@ -136,7 +146,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.CheckConstraint(
-            "category IN ('stripe', 'bank', 'cash', 'receivable', 'tax', 'gift_card', 'deposit', 'deferred', 'payable', 'revenue', 'fee_revenue', 'processing_fee', 'platform_fee', 'staff_cost')",
+            "category IN ('stripe', 'bank', 'cash', 'receivable', 'tax', 'gift_card', 'deposit', 'deferred', 'payable', 'revenue', 'fee_revenue', 'processing_fee', 'platform_fee', 'staff_cost', 'itc')",
             name="ck_accounts_category",
         ),
         sa.CheckConstraint(
@@ -195,6 +205,8 @@ def upgrade() -> None:
         sa.Column("audience", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("status", sa.String(), nullable=False),
         sa.Column("scheduled_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("recipient_count", sa.Integer(), server_default="0", nullable=False),
+        sa.Column("excluded_count", sa.Integer(), server_default="0", nullable=False),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
         sa.Column(
@@ -237,6 +249,8 @@ def upgrade() -> None:
         sa.Column("status", sa.String(), nullable=False),
         sa.Column("custom_fields", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("stripe_customer_id", sa.String(), nullable=True),
+        sa.Column("preferred_channel", sa.String(), server_default="sms", nullable=False),
+        sa.Column("archived_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
         sa.Column(
@@ -252,6 +266,9 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
+        sa.CheckConstraint(
+            "preferred_channel IN ('sms', 'email')", name="ck_clients_preferred_channel"
+        ),
         sa.CheckConstraint("status IN ('active', 'inactive')", name="ck_clients_status"),
         sa.ForeignKeyConstraint(
             ["business_id"],
@@ -302,7 +319,6 @@ def upgrade() -> None:
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("body", sa.String(), nullable=False),
         sa.Column("version", sa.Integer(), nullable=False),
-        sa.Column("always_require", sa.Boolean(), nullable=False),
         sa.Column("active", sa.Boolean(), nullable=False),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
@@ -366,6 +382,7 @@ def upgrade() -> None:
         sa.Column("s3_key", sa.String(), nullable=False),
         sa.Column("content_type", sa.String(), nullable=True),
         sa.Column("size", sa.BigInteger(), nullable=True),
+        sa.Column("uploaded_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
         sa.Column(
@@ -401,9 +418,9 @@ def upgrade() -> None:
     op.create_table(
         "forms",
         sa.Column("name", sa.String(), nullable=False),
-        sa.Column("attach_to", postgresql.ARRAY(sa.String()), nullable=False),
         sa.Column("require_signature", sa.Boolean(), nullable=False),
         sa.Column("active", sa.Boolean(), nullable=False),
+        sa.Column("send_on", sa.String(), server_default="manual", nullable=False),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
         sa.Column(
@@ -418,6 +435,7 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
+        sa.CheckConstraint("send_on IN ('booking', 'manual')", name="ck_forms_send_on"),
         sa.ForeignKeyConstraint(
             ["business_id"],
             ["businesses.id"],
@@ -431,6 +449,8 @@ def upgrade() -> None:
         sa.Column("kind", sa.String(), nullable=False),
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("description", sa.String(), nullable=True),
+        sa.Column("variant_parent_id", sa.String(), nullable=True),
+        sa.Column("variant_label", sa.String(), nullable=True),
         sa.Column("price_cents", sa.BigInteger(), nullable=False),
         sa.Column("currency", sa.String(length=3), nullable=False),
         sa.Column("duration_min", sa.Integer(), nullable=True),
@@ -447,6 +467,10 @@ def upgrade() -> None:
         sa.Column("frequency", sa.String(), nullable=True),
         sa.Column("session_count", sa.Integer(), nullable=True),
         sa.Column("validity_days", sa.Integer(), nullable=True),
+        sa.Column("covers_item_id", sa.String(), nullable=True),
+        sa.Column("visits_per_period", sa.Integer(), nullable=True),
+        sa.Column("member_discount_bps", sa.Integer(), nullable=True),
+        sa.Column("gift_amounts", postgresql.ARRAY(sa.BigInteger()), nullable=True),
         sa.Column("stripe_price_id", sa.String(), nullable=True),
         sa.Column("tax_class", sa.String(), nullable=False),
         sa.Column("sku", sa.String(), nullable=True),
@@ -455,6 +479,8 @@ def upgrade() -> None:
         sa.Column("stock_on_hand", sa.Integer(), nullable=True),
         sa.Column("low_stock_at", sa.Integer(), nullable=True),
         sa.Column("active", sa.Boolean(), nullable=False),
+        sa.Column("addon", sa.Boolean(), server_default="false", nullable=False),
+        sa.Column("addon_for", postgresql.ARRAY(sa.String()), server_default="{}", nullable=False),
         sa.Column("custom_fields", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
@@ -470,6 +496,7 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
+        sa.CheckConstraint("addon = false OR kind = 'product'", name="ck_items_addon_kind"),
         sa.CheckConstraint(
             "deposit_type IN ('none', 'fixed', 'percent')", name="ck_items_deposit_type"
         ),
@@ -491,13 +518,25 @@ def upgrade() -> None:
             "tax_class IN ('standard', 'federal_only', 'exempt')", name="ck_items_tax_class"
         ),
         sa.CheckConstraint("track_stock = false OR kind = 'product'", name="ck_items_stock_kind"),
+        sa.CheckConstraint(
+            "variant_parent_id IS NULL OR (kind = 'product' AND variant_parent_id != id)",
+            name="ck_items_variant_kind",
+        ),
         sa.ForeignKeyConstraint(
             ["business_id"],
             ["businesses.id"],
         ),
         sa.ForeignKeyConstraint(
+            ["covers_item_id"],
+            ["items.id"],
+        ),
+        sa.ForeignKeyConstraint(
             ["created_by"],
             ["users.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["variant_parent_id"],
+            ["items.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -518,6 +557,7 @@ def upgrade() -> None:
         sa.Column("parent_type", sa.String(), nullable=False),
         sa.Column("parent_id", sa.String(), nullable=False),
         sa.Column("body", sa.String(), nullable=False),
+        sa.Column("pinned", sa.Boolean(), server_default="false", nullable=False),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
         sa.Column(
@@ -553,6 +593,8 @@ def upgrade() -> None:
         "resources",
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("category", sa.String(), nullable=False),
+        sa.Column("capacity", sa.Integer(), server_default="1", nullable=False),
+        sa.Column("active", sa.Boolean(), server_default="true", nullable=False),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
         sa.Column(
@@ -567,7 +609,10 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.CheckConstraint("category IN ('room', 'equipment')", name="ck_resources_category"),
+        sa.CheckConstraint(
+            "category IN ('room', 'station', 'equipment')", name="ck_resources_category"
+        ),
+        sa.CheckConstraint("capacity > 0", name="ck_resources_capacity"),
         sa.ForeignKeyConstraint(
             ["business_id"],
             ["businesses.id"],
@@ -583,6 +628,10 @@ def upgrade() -> None:
         sa.Column("device", sa.String(), nullable=True),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("replay_attempt_id", sa.String(), nullable=True),
+        sa.Column("replay_ciphertext", sa.String(), nullable=True),
+        sa.Column("replay_expires_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("replay_session_id", sa.String(), nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -602,17 +651,22 @@ def upgrade() -> None:
         "staff",
         sa.Column("business_id", sa.String(), nullable=False),
         sa.Column("user_id", sa.String(), nullable=True),
+        sa.Column("hours_revision", sa.BigInteger(), server_default="0", nullable=False),
         sa.Column("role", sa.String(), nullable=False),
         sa.Column("payee", sa.Boolean(), nullable=False),
         sa.Column("rate_type", sa.String(), nullable=True),
         sa.Column("rate_bps", sa.Integer(), nullable=True),
         sa.Column("rate_cents", sa.BigInteger(), nullable=True),
         sa.Column("retail_rate_bps", sa.Integer(), nullable=True),
+        sa.Column("name", sa.String(), nullable=True),
         sa.Column("title", sa.String(), nullable=True),
         sa.Column("color", sa.String(), nullable=True),
         sa.Column("status", sa.String(), nullable=False),
         sa.Column("invite_email", sa.String(), nullable=True),
         sa.Column("invite_token", sa.String(), nullable=True),
+        sa.Column("invited_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("invited_by", sa.String(), nullable=True),
+        sa.Column("bookable_online", sa.Boolean(), server_default="true", nullable=False),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column(
             "created_at",
@@ -636,10 +690,15 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "role IN ('owner', 'admin', 'staff', 'contractor')", name="ck_staff_role"
         ),
-        sa.CheckConstraint("status IN ('active', 'invited')", name="ck_staff_status"),
+        sa.CheckConstraint("status IN ('active', 'invited', 'removed')", name="ck_staff_status"),
+        sa.CheckConstraint("hours_revision >= 0", name="ck_staff_hours_revision"),
         sa.ForeignKeyConstraint(
             ["business_id"],
             ["businesses.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["invited_by"],
+            ["users.id"],
         ),
         sa.ForeignKeyConstraint(
             ["user_id"],
@@ -649,6 +708,39 @@ def upgrade() -> None:
         sa.UniqueConstraint("business_id", "user_id", name="uq_staff_business_user"),
     )
     op.create_index(op.f("ix_staff_business_id"), "staff", ["business_id"], unique=False)
+    op.create_table(
+        "sync_receipts",
+        sa.Column("user_id", sa.String(), nullable=False),
+        sa.Column("device_id", sa.String(), nullable=False),
+        sa.Column("operation_id", sa.String(), nullable=False),
+        sa.Column("payload_hash", sa.String(length=64), nullable=False),
+        sa.Column("version", sa.SmallInteger(), nullable=False),
+        sa.Column("result", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column("id", sa.String(), nullable=False),
+        sa.Column("business_id", sa.String(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["business_id"],
+            ["businesses.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "user_id", "device_id", "operation_id", name="uq_sync_receipt_operation"
+        ),
+    )
+    op.create_index("ix_sync_receipt_created", "sync_receipts", ["created_at"], unique=False)
+    op.create_index(
+        op.f("ix_sync_receipts_business_id"), "sync_receipts", ["business_id"], unique=False
+    )
     op.create_table(
         "tokens",
         sa.Column("user_id", sa.String(), nullable=False),
@@ -671,6 +763,57 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_tokens_user", "tokens", ["user_id"], unique=False)
+    op.create_table(
+        "consents",
+        sa.Column("client_id", sa.String(), nullable=False),
+        sa.Column("channel", sa.String(), nullable=False),
+        sa.Column("status", sa.String(), nullable=False),
+        sa.Column("source", sa.String(), nullable=False),
+        sa.Column("recorded_by", sa.String(), nullable=True),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("id", sa.String(), nullable=False),
+        sa.Column("business_id", sa.String(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.CheckConstraint("channel IN ('sms', 'email')", name="ck_consents_channel"),
+        sa.CheckConstraint(
+            "source IN ('in_person', 'form', 'online_booking', 'reply', 'unsubscribe', 'import', 'preferences')",
+            name="ck_consents_source",
+        ),
+        sa.CheckConstraint(
+            "status IN ('granted', 'implied', 'withdrawn')", name="ck_consents_status"
+        ),
+        sa.ForeignKeyConstraint(
+            ["business_id"],
+            ["businesses.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["client_id"],
+            ["clients.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["recorded_by"],
+            ["users.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_consents_business_id"), "consents", ["business_id"], unique=False)
+    op.create_index(
+        "ix_consents_client",
+        "consents",
+        ["business_id", "client_id", "channel", "created_at"],
+        unique=False,
+    )
     op.create_table(
         "entries",
         sa.Column("journal_id", sa.String(), nullable=False),
@@ -703,7 +846,7 @@ def upgrade() -> None:
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
         sa.CheckConstraint(
-            "event IN ('invoice', 'sale', 'payment', 'fee', 'refund', 'dispute', 'payout', 'redemption', 'consumption', 'forfeit', 'application', 'breakage', 'remittance', 'earning', 'approval', 'staff_payment', 'adjustment', 'reversal')",
+            "event IN ('invoice', 'sale', 'payment', 'fee', 'refund', 'dispute', 'payout', 'redemption', 'consumption', 'forfeit', 'application', 'breakage', 'remittance', 'earning', 'approval', 'staff_payment', 'adjustment', 'reversal', 'tip')",
             name="ck_entries_event",
         ),
         sa.ForeignKeyConstraint(["account_id"], ["accounts.id"], ondelete="RESTRICT"),
@@ -763,7 +906,7 @@ def upgrade() -> None:
     op.create_index("ix_fields_form", "fields", ["form_id", "position"], unique=False)
     op.create_table(
         "hours",
-        sa.Column("staff_id", sa.String(), nullable=False),
+        sa.Column("staff_id", sa.String(), nullable=True),
         sa.Column("basis", sa.String(), nullable=False),
         sa.Column("weekday", sa.SmallInteger(), nullable=True),
         sa.Column("date", sa.Date(), nullable=True),
@@ -771,6 +914,9 @@ def upgrade() -> None:
         sa.Column("end_time", sa.Time(), nullable=True),
         sa.Column("available", sa.Boolean(), nullable=False),
         sa.Column("note", sa.String(), nullable=True),
+        sa.Column("starts_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("ends_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("reason", sa.String(), nullable=True),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
         sa.Column(
@@ -785,7 +931,28 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.CheckConstraint("basis IN ('recurring', 'date')", name="ck_hours_basis"),
+        sa.CheckConstraint(
+            "basis != 'date' OR (date IS NOT NULL AND weekday IS NULL)",
+            name="ck_hours_explicit_date",
+        ),
+        sa.CheckConstraint(
+            "basis != 'exception' OR (starts_at IS NOT NULL AND ends_at > starts_at)",
+            name="ck_hours_exception_window",
+        ),
+        sa.CheckConstraint(
+            "basis != 'recurring' OR (weekday IS NOT NULL AND weekday BETWEEN 0 AND 6 AND date IS NULL)",
+            name="ck_hours_recurring_day",
+        ),
+        sa.CheckConstraint(
+            "basis = 'exception' OR (starts_at IS NULL AND ends_at IS NULL AND reason IS NULL)",
+            name="ck_hours_exception_fields",
+        ),
+        sa.CheckConstraint("basis = 'exception' OR staff_id IS NOT NULL", name="ck_hours_staff"),
+        sa.CheckConstraint("basis IN ('recurring', 'date', 'exception')", name="ck_hours_basis"),
+        sa.CheckConstraint(
+            "(start_time IS NULL AND end_time IS NULL) OR (start_time IS NOT NULL AND end_time IS NOT NULL AND end_time > start_time)",
+            name="ck_hours_local_window",
+        ),
         sa.ForeignKeyConstraint(
             ["business_id"],
             ["businesses.id"],
@@ -797,6 +964,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_hours_business_id"), "hours", ["business_id"], unique=False)
+    op.create_index(
+        "ix_hours_exception", "hours", ["business_id", "basis", "starts_at"], unique=False
+    )
     op.create_index("ix_hours_staff", "hours", ["business_id", "staff_id", "basis"], unique=False)
     op.create_table(
         "invoices",
@@ -827,6 +997,13 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
+        sa.Column("discount_kind", sa.String(), nullable=True),
+        sa.Column("discount_value", sa.BigInteger(), nullable=True),
+        sa.Column("discount_reason", sa.String(), nullable=True),
+        sa.CheckConstraint(
+            "discount_kind IS NULL OR discount_kind IN ('percent', 'amount')",
+            name="ck_invoices_discount_kind",
+        ),
         sa.CheckConstraint("status IN ('draft', 'sent', 'void')", name="ck_invoices_status"),
         sa.ForeignKeyConstraint(
             ["business_id"],
@@ -847,6 +1024,7 @@ def upgrade() -> None:
         "orders",
         sa.Column("client_id", sa.String(), nullable=True),
         sa.Column("staff_id", sa.String(), nullable=False),
+        sa.Column("number", sa.BigInteger(), nullable=True),
         sa.Column("status", sa.String(), nullable=False),
         sa.Column("currency", sa.String(length=3), nullable=False),
         sa.Column("subtotal_cents", sa.BigInteger(), nullable=False),
@@ -856,6 +1034,18 @@ def upgrade() -> None:
         sa.Column("receipt_phone", sa.String(), nullable=True),
         sa.Column("source", sa.String(), nullable=False),
         sa.Column("pickup_status", sa.String(), nullable=True),
+        sa.Column("preparing_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("pickup_from", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("pickup_to", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("notify_sms", sa.Boolean(), server_default="true", nullable=False),
+        sa.Column("ready_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("picked_up_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("note", sa.String(), nullable=True),
+        sa.Column("approved_by", sa.String(), nullable=True),
+        sa.Column("status_token", sa.String(), nullable=True),
+        sa.Column("receipt_token", sa.String(), nullable=True),
+        sa.Column("receipt_channel", sa.String(), nullable=True),
+        sa.Column("receipt_sent_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
         sa.Column(
@@ -870,12 +1060,27 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
+        sa.Column("discount_kind", sa.String(), nullable=True),
+        sa.Column("discount_value", sa.BigInteger(), nullable=True),
+        sa.Column("discount_reason", sa.String(), nullable=True),
         sa.CheckConstraint(
-            "pickup_status IS NULL OR pickup_status IN ('unfulfilled', 'ready', 'picked_up')",
+            "discount_kind IS NULL OR discount_kind IN ('percent', 'amount')",
+            name="ck_orders_discount_kind",
+        ),
+        sa.CheckConstraint(
+            "pickup_status IS NULL OR pickup_status IN ('unfulfilled', 'preparing', 'ready', 'picked_up')",
             name="ck_orders_pickup_status",
+        ),
+        sa.CheckConstraint(
+            "receipt_channel IS NULL OR receipt_channel IN ('sms', 'email')",
+            name="ck_orders_receipt_channel",
         ),
         sa.CheckConstraint("source IN ('pos', 'online')", name="ck_orders_source"),
         sa.CheckConstraint("status IN ('open', 'void')", name="ck_orders_status"),
+        sa.ForeignKeyConstraint(
+            ["approved_by"],
+            ["users.id"],
+        ),
         sa.ForeignKeyConstraint(
             ["business_id"],
             ["businesses.id"],
@@ -889,6 +1094,9 @@ def upgrade() -> None:
             ["staff.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("business_id", "number", name="uq_orders_business_number"),
+        sa.UniqueConstraint("receipt_token"),
+        sa.UniqueConstraint("status_token"),
     )
     op.create_index(op.f("ix_orders_business_id"), "orders", ["business_id"], unique=False)
     op.create_index("ix_orders_status", "orders", ["business_id", "status"], unique=False)
@@ -903,6 +1111,10 @@ def upgrade() -> None:
         sa.Column("preferred", sa.Boolean(), nullable=False),
         sa.Column("mandate_status", sa.String(), nullable=False),
         sa.Column("status", sa.String(), nullable=False),
+        sa.Column("exp_month", sa.SmallInteger(), nullable=True),
+        sa.Column("exp_year", sa.SmallInteger(), nullable=True),
+        sa.Column("holder_name", sa.String(), nullable=True),
+        sa.Column("bank_name", sa.String(), nullable=True),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
         sa.Column(
@@ -947,6 +1159,61 @@ def upgrade() -> None:
         unique=True,
     )
     op.create_table(
+        "payment_setup_links",
+        sa.Column("client_id", sa.String(), nullable=False),
+        sa.Column("account_id", sa.String(), nullable=False),
+        sa.Column("customer_id", sa.String(), nullable=False),
+        sa.Column("purpose", sa.String(), nullable=False),
+        sa.Column("token_hash", sa.String(), nullable=False),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("setup_intent_id", sa.String(), nullable=True),
+        sa.Column("mandate_ref", sa.String(), nullable=True),
+        sa.Column("setup_status", sa.String(), nullable=False),
+        sa.Column("id", sa.String(), nullable=False),
+        sa.Column("business_id", sa.String(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.CheckConstraint("purpose IN ('pad_setup')", name="ck_payment_setup_links_purpose"),
+        sa.ForeignKeyConstraint(
+            ["business_id"],
+            ["businesses.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["client_id"],
+            ["clients.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_payment_setup_links_business_id"),
+        "payment_setup_links",
+        ["business_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_payment_setup_links_client",
+        "payment_setup_links",
+        ["business_id", "client_id"],
+        unique=False,
+    )
+    op.create_index(
+        "uq_payment_setup_links_hash", "payment_setup_links", ["token_hash"], unique=True
+    )
+    op.create_index(
+        "uq_payment_setup_links_intent", "payment_setup_links", ["setup_intent_id"], unique=True
+    )
+    op.create_table(
         "recurrences",
         sa.Column("item_id", sa.String(), nullable=False),
         sa.Column("staff_id", sa.String(), nullable=True),
@@ -954,9 +1221,9 @@ def upgrade() -> None:
         sa.Column("frequency", sa.String(), nullable=False),
         sa.Column("interval", sa.Integer(), nullable=False),
         sa.Column("byday", postgresql.ARRAY(sa.String()), nullable=True),
+        sa.Column("monthly_by", sa.String(), server_default="date", nullable=False),
         sa.Column("count", sa.Integer(), nullable=True),
         sa.Column("until", sa.Date(), nullable=True),
-        sa.Column("start_date", sa.Date(), nullable=False),
         sa.Column("status", sa.String(), nullable=False),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
@@ -975,6 +1242,7 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "frequency IN ('day', 'week', 'month')", name="ck_recurrences_frequency"
         ),
+        sa.CheckConstraint("monthly_by IN ('date', 'weekday')", name="ck_recurrences_monthly_by"),
         sa.CheckConstraint(
             "status IN ('active', 'ended', 'canceled')", name="ck_recurrences_status"
         ),
@@ -1009,6 +1277,7 @@ def upgrade() -> None:
         sa.Column("token", sa.String(), nullable=True),
         sa.Column("status", sa.String(), nullable=False),
         sa.Column("submitted_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("opened_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("answers", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
@@ -1047,6 +1316,47 @@ def upgrade() -> None:
     op.create_index("ix_responses_form", "responses", ["business_id", "form_id"], unique=False)
     op.create_index("ix_responses_parent", "responses", ["parent_type", "parent_id"], unique=False)
     op.create_table(
+        "returning_challenges",
+        sa.Column("client_id", sa.String(), nullable=True),
+        sa.Column("destination_hash", sa.String(), nullable=False),
+        sa.Column("code_hash", sa.String(), nullable=False),
+        sa.Column("attempts", sa.Integer(), nullable=False),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("verified_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("session_hash", sa.String(), nullable=True),
+        sa.Column("session_expires_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column("id", sa.String(), nullable=False),
+        sa.Column("business_id", sa.String(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["business_id"],
+            ["businesses.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["client_id"],
+            ["clients.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_returning_challenges_business_id"),
+        "returning_challenges",
+        ["business_id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_returning_destination",
+        "returning_challenges",
+        ["business_id", "destination_hash", "created_at"],
+        unique=False,
+    )
+    op.create_index("ix_returning_session", "returning_challenges", ["session_hash"], unique=True)
+    op.create_table(
         "signatures",
         sa.Column("contract_id", sa.String(), nullable=False),
         sa.Column("client_id", sa.String(), nullable=False),
@@ -1054,10 +1364,14 @@ def upgrade() -> None:
         sa.Column("parent_id", sa.String(), nullable=True),
         sa.Column("token", sa.String(), nullable=True),
         sa.Column("signed_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("signature_image_id", sa.String(), nullable=True),
         sa.Column("signed_body", sa.String(), nullable=True),
         sa.Column("ip", sa.String(), nullable=True),
         sa.Column("status", sa.String(), nullable=False),
+        sa.Column("contract_version", sa.Integer(), nullable=True),
+        sa.Column("opened_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("method", sa.String(), nullable=True),
+        sa.Column("signer_name", sa.String(), nullable=True),
+        sa.Column("strokes", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
         sa.Column(
@@ -1072,6 +1386,7 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
+        sa.CheckConstraint("method IN ('typed', 'drawn')", name="ck_signatures_method"),
         sa.CheckConstraint(
             "parent_type IN ('client', 'subject', 'booking')", name="ck_signatures_parent_type"
         ),
@@ -1089,10 +1404,6 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["contract_id"],
             ["contracts.id"],
-        ),
-        sa.ForeignKeyConstraint(
-            ["signature_image_id"],
-            ["files.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("token", name="uq_signatures_token"),
@@ -1124,6 +1435,7 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
+        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.CheckConstraint(
             "kind IN ('pet', 'vehicle', 'child', 'property')", name="ck_subjects_kind"
         ),
@@ -1189,6 +1501,8 @@ def upgrade() -> None:
         sa.Column("declined_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("converted_invoice_id", sa.String(), nullable=True),
         sa.Column("notes", sa.String(), nullable=True),
+        sa.Column("decline_reason", sa.String(), nullable=True),
+        sa.Column("view_token", sa.String(), nullable=True),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
         sa.Column(
@@ -1202,6 +1516,13 @@ def upgrade() -> None:
             sa.DateTime(timezone=True),
             server_default=sa.text("now()"),
             nullable=False,
+        ),
+        sa.Column("discount_kind", sa.String(), nullable=True),
+        sa.Column("discount_value", sa.BigInteger(), nullable=True),
+        sa.Column("discount_reason", sa.String(), nullable=True),
+        sa.CheckConstraint(
+            "discount_kind IS NULL OR discount_kind IN ('percent', 'amount')",
+            name="ck_estimates_discount_kind",
         ),
         sa.CheckConstraint(
             "status IN ('draft', 'sent', 'accepted', 'declined')", name="ck_estimates_status"
@@ -1220,6 +1541,7 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("business_id", "number", name="uq_estimates_business_number"),
+        sa.UniqueConstraint("view_token"),
     )
     op.create_index(op.f("ix_estimates_business_id"), "estimates", ["business_id"], unique=False)
     op.create_index("ix_estimates_status", "estimates", ["business_id", "status"], unique=False)
@@ -1233,7 +1555,6 @@ def upgrade() -> None:
         sa.Column("status", sa.String(), nullable=False),
         sa.Column("broadcast_id", sa.String(), nullable=True),
         sa.Column("provider_ref", sa.String(), nullable=True),
-        sa.Column("attachments", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
         sa.Column(
@@ -1288,8 +1609,21 @@ def upgrade() -> None:
         sa.Column("provider", sa.String(), nullable=False),
         sa.Column("provider_ref", sa.String(), nullable=True),
         sa.Column("reference_code", sa.String(), nullable=True),
+        sa.Column("reference", sa.String(), nullable=True),
+        sa.Column("note", sa.String(), nullable=True),
+        sa.Column("tendered_cents", sa.BigInteger(), nullable=True),
         sa.Column("status", sa.String(), nullable=False),
         sa.Column("paid_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("refund_notify", sa.Boolean(), server_default="true", nullable=False),
+        sa.Column("reason", sa.String(), nullable=True),
+        sa.Column("credit_note", sa.String(), nullable=True),
+        sa.Column("channel", sa.String(), nullable=True),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("dispute_status", sa.String(), nullable=True),
+        sa.Column("dispute_reason", sa.String(), nullable=True),
+        sa.Column("dispute_respond_by", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("tip_cents", sa.BigInteger(), server_default="0", nullable=False),
+        sa.Column("tip_split", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
         sa.Column(
@@ -1308,9 +1642,17 @@ def upgrade() -> None:
             "(kind = 'refund') = (parent_payment_id IS NOT NULL) AND num_nonnulls(invoice_id, order_id) <= 1 AND (order_id IS NULL OR booking_id IS NULL)",
             name="ck_payments_target",
         ),
+        sa.CheckConstraint(
+            "channel IS NULL OR channel IN ('sms', 'email')", name="ck_payments_channel"
+        ),
+        sa.CheckConstraint(
+            "dispute_status IS NULL OR dispute_status IN ('needs_response', 'under_review', 'won', 'lost')",
+            name="ck_payments_dispute_status",
+        ),
         sa.CheckConstraint("kind IN ('payment', 'deposit', 'refund')", name="ck_payments_kind"),
         sa.CheckConstraint(
-            "method IN ('card', 'interac', 'bank_eft', 'cash', 'other')", name="ck_payments_method"
+            "method IN ('card', 'interac', 'bank_eft', 'cash', 'cheque', 'other')",
+            name="ck_payments_method",
         ),
         sa.CheckConstraint(
             "provider IN ('stripe', 'interac', 'manual')", name="ck_payments_provider"
@@ -1348,6 +1690,13 @@ def upgrade() -> None:
     op.create_index("ix_payments_reference_code", "payments", ["reference_code"], unique=True)
     op.create_index("ix_payments_refund_parent", "payments", ["parent_payment_id"], unique=False)
     op.create_index("ix_payments_status", "payments", ["business_id", "status"], unique=False)
+    op.create_index(
+        "ux_payments_credit_note",
+        "payments",
+        ["business_id", "credit_note"],
+        unique=True,
+        postgresql_where=sa.text("credit_note IS NOT NULL"),
+    )
     op.create_table(
         "slots",
         sa.Column("item_id", sa.String(), nullable=False),
@@ -1564,6 +1913,7 @@ def upgrade() -> None:
     op.create_table(
         "bookings",
         sa.Column("slot_id", sa.String(), nullable=False),
+        sa.Column("starts_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("staff_id", sa.String(), nullable=True),
         sa.Column("client_id", sa.String(), nullable=False),
         sa.Column("subject_id", sa.String(), nullable=True),
@@ -1575,9 +1925,14 @@ def upgrade() -> None:
         sa.Column("deposit_amount_cents", sa.BigInteger(), nullable=False),
         sa.Column("deposit_status", sa.String(), nullable=False),
         sa.Column("confirmed_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("checked_in_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("order_id", sa.String(), nullable=True),
+        sa.Column("charged_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("canceled_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("reminded_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("manage_token", sa.String(), nullable=True),
+        sa.Column("reschedule_count", sa.Integer(), server_default="0", nullable=False),
         sa.Column("custom_fields", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
@@ -1600,7 +1955,7 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint("source IN ('online', 'manual')", name="ck_bookings_source"),
         sa.CheckConstraint(
-            "status IN ('pending', 'confirmed', 'completed', 'canceled', 'no_show')",
+            "status IN ('pending', 'confirmed', 'completed', 'canceled', 'no_show', 'waitlisted')",
             name="ck_bookings_status",
         ),
         sa.ForeignKeyConstraint(
@@ -1614,6 +1969,10 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["invoice_id"],
             ["invoices.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["order_id"],
+            ["orders.id"],
         ),
         sa.ForeignKeyConstraint(
             ["package_id"],
@@ -1632,6 +1991,7 @@ def upgrade() -> None:
             ["subjects.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("manage_token"),
     )
     op.create_index(op.f("ix_bookings_business_id"), "bookings", ["business_id"], unique=False)
     op.create_index("ix_bookings_client", "bookings", ["business_id", "client_id"], unique=False)
@@ -1695,6 +2055,12 @@ def upgrade() -> None:
         sa.Column("tax_amount_cents", sa.BigInteger(), nullable=False),
         sa.Column("tax_class", sa.String(), nullable=False),
         sa.Column("position", sa.Integer(), nullable=False),
+        sa.Column("staff_id", sa.String(), nullable=True),
+        sa.Column("discount_cents", sa.BigInteger(), server_default="0", nullable=False),
+        sa.Column("sale_discount_cents", sa.BigInteger(), server_default="0", nullable=False),
+        sa.Column("for_pickup", sa.Boolean(), server_default=sa.text("false"), nullable=False),
+        sa.Column("optional", sa.Boolean(), server_default=sa.text("false"), nullable=False),
+        sa.Column("selected", sa.Boolean(), server_default=sa.text("false"), nullable=False),
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("business_id", sa.String(), nullable=False),
         sa.Column(
@@ -1708,6 +2074,13 @@ def upgrade() -> None:
             sa.DateTime(timezone=True),
             server_default=sa.text("now()"),
             nullable=False,
+        ),
+        sa.Column("discount_kind", sa.String(), nullable=True),
+        sa.Column("discount_value", sa.BigInteger(), nullable=True),
+        sa.Column("discount_reason", sa.String(), nullable=True),
+        sa.CheckConstraint(
+            "discount_kind IS NULL OR discount_kind IN ('percent', 'amount')",
+            name="ck_lines_discount_kind",
         ),
         sa.CheckConstraint(
             "tax_class IN ('standard', 'federal_only', 'exempt')", name="ck_lines_tax_class"
@@ -1738,6 +2111,10 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["order_id"],
             ["orders.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["staff_id"],
+            ["staff.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -1818,6 +2195,7 @@ def upgrade() -> None:
         sa.Column("line_id", sa.String(), nullable=True),
         sa.Column("reason", sa.String(), nullable=False),
         sa.Column("quantity", sa.Integer(), nullable=False),
+        sa.Column("unit_cost_cents", sa.BigInteger(), nullable=True),
         sa.Column("note", sa.String(), nullable=True),
         sa.Column("created_by", sa.String(), nullable=True),
         sa.Column("id", sa.String(), nullable=False),
@@ -1834,7 +2212,9 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.CheckConstraint("reason IN ('sale', 'refund', 'restock')", name="ck_inventory_reason"),
+        sa.CheckConstraint(
+            "reason IN ('sale', 'refund', 'restock', 'correction')", name="ck_inventory_reason"
+        ),
         sa.ForeignKeyConstraint(
             ["business_id"],
             ["businesses.id"],
@@ -1959,6 +2339,11 @@ def downgrade() -> None:
     op.drop_index("ix_slots_business_start", table_name="slots")
     op.drop_index(op.f("ix_slots_business_id"), table_name="slots")
     op.drop_table("slots")
+    op.drop_index(
+        "ux_payments_credit_note",
+        table_name="payments",
+        postgresql_where=sa.text("credit_note IS NOT NULL"),
+    )
     op.drop_index("ix_payments_status", table_name="payments")
     op.drop_index("ix_payments_refund_parent", table_name="payments")
     op.drop_index("ix_payments_reference_code", table_name="payments")
@@ -1983,6 +2368,10 @@ def downgrade() -> None:
     op.drop_index("ix_signatures_contract", table_name="signatures")
     op.drop_index(op.f("ix_signatures_business_id"), table_name="signatures")
     op.drop_table("signatures")
+    op.drop_index("ix_returning_session", table_name="returning_challenges")
+    op.drop_index("ix_returning_destination", table_name="returning_challenges")
+    op.drop_index(op.f("ix_returning_challenges_business_id"), table_name="returning_challenges")
+    op.drop_table("returning_challenges")
     op.drop_index("ix_responses_parent", table_name="responses")
     op.drop_index("ix_responses_form", table_name="responses")
     op.drop_index(op.f("ix_responses_business_id"), table_name="responses")
@@ -1990,6 +2379,11 @@ def downgrade() -> None:
     op.drop_index("ix_recurrences_status", table_name="recurrences")
     op.drop_index(op.f("ix_recurrences_business_id"), table_name="recurrences")
     op.drop_table("recurrences")
+    op.drop_index("uq_payment_setup_links_intent", table_name="payment_setup_links")
+    op.drop_index("uq_payment_setup_links_hash", table_name="payment_setup_links")
+    op.drop_index("ix_payment_setup_links_client", table_name="payment_setup_links")
+    op.drop_index(op.f("ix_payment_setup_links_business_id"), table_name="payment_setup_links")
+    op.drop_table("payment_setup_links")
     op.drop_index("ix_payment_methods_provider", table_name="payment_methods")
     op.drop_index("ix_payment_methods_client", table_name="payment_methods")
     op.drop_index(op.f("ix_payment_methods_business_id"), table_name="payment_methods")
@@ -2002,6 +2396,7 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_invoices_business_id"), table_name="invoices")
     op.drop_table("invoices")
     op.drop_index("ix_hours_staff", table_name="hours")
+    op.drop_index("ix_hours_exception", table_name="hours")
     op.drop_index(op.f("ix_hours_business_id"), table_name="hours")
     op.drop_table("hours")
     op.drop_index("ix_fields_form", table_name="fields")
@@ -2015,8 +2410,14 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_entries_business_id"), table_name="entries")
     op.drop_index("ix_entries_account", table_name="entries")
     op.drop_table("entries")
+    op.drop_index("ix_consents_client", table_name="consents")
+    op.drop_index(op.f("ix_consents_business_id"), table_name="consents")
+    op.drop_table("consents")
     op.drop_index("ix_tokens_user", table_name="tokens")
     op.drop_table("tokens")
+    op.drop_index(op.f("ix_sync_receipts_business_id"), table_name="sync_receipts")
+    op.drop_index("ix_sync_receipt_created", table_name="sync_receipts")
+    op.drop_table("sync_receipts")
     op.drop_index(op.f("ix_staff_business_id"), table_name="staff")
     op.drop_table("staff")
     op.drop_index("ix_sessions_user", table_name="sessions")
@@ -2065,5 +2466,5 @@ def downgrade() -> None:
     op.drop_table("users")
     op.drop_index("ix_businesses_stripe_account", table_name="businesses")
     op.drop_table("businesses")
-    op.execute("DROP FUNCTION IF EXISTS entries_append_only()")
-    op.execute("DROP FUNCTION IF EXISTS entries_balanced()")
+    op.execute("DROP FUNCTION entries_balanced()")
+    op.execute("DROP FUNCTION entries_append_only()")

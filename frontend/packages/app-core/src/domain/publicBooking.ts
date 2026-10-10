@@ -774,7 +774,6 @@ export type PublicBookingFlow = ReturnType<typeof usePublicBookingFlow>;
 
 interface ManagedBooking {
     address?: string | null;
-    parking_note?: string | null;
     booking_id: string;
     business_name: string;
     brand: PublicBrand;

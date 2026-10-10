@@ -66,7 +66,7 @@ export function usePublicResource<T>(
     };
 }
 
-/** Pre-validated by the server: `primary` is a hex colour and `logo_url` an http(s) URL. */
+/** Validated by the server: `primary` is a hex colour and the image URLs are http(s). */
 export interface PublicBrand {
     public_slug?: string | null;
     business_name?: string | null;

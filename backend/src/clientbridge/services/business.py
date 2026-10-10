@@ -101,7 +101,10 @@ class BusinessService:
         logo = (
             await self.db.execute(
                 scoped(File, self.principal.business_id).where(
-                    File.id == file_id, File.parent_type == "business", File.purpose == "logo"
+                    File.id == file_id,
+                    File.parent_type == "business",
+                    File.purpose == "logo",
+                    File.uploaded_at.is_not(None),
                 )
             )
         ).scalar_one_or_none()
@@ -152,20 +155,12 @@ class BusinessService:
                 if len({member.id for member in staff}) != len(set(data.brand.public_staff_ids)):
                     raise NotFound("public team member not found")
             merged = dict(business.brand or {})
-            logo_changed = any(
-                key in data.brand.model_fields_set
-                and (getattr(data.brand, key) != merged.get(key) or merged.get(other) is not None)
-                for key, other in (("logo_file_id", "logo_url"), ("logo_url", "logo_file_id"))
+            logo_changed = (
+                "logo_file_id" in data.brand.model_fields_set
+                and data.brand.logo_file_id != merged.get("logo_file_id")
             )
             if logo_changed and "avatar_file_id" not in data.brand.model_fields_set:
                 merged.pop("avatar_file_id", None)
-            if (
-                "logo_url" in data.brand.model_fields_set
-                and "logo_file_id" not in data.brand.model_fields_set
-            ):
-                merged.pop("logo_file_id", None)
-            if "logo_file_id" in data.brand.model_fields_set:
-                merged.pop("logo_url", None)
             for key, value in data.brand.model_dump(exclude_unset=True).items():
                 if value is None:
                     merged.pop(key, None)
@@ -195,7 +190,6 @@ class OnboardingService:
             slug=data.slug,
             province=data.province,
             timezone=data.timezone or "America/Toronto",
-            locale=data.locale,
         )
         self.db.add(biz)
         await self.db.flush()  # insert the business first so the Staff FK resolves

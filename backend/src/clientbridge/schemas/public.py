@@ -15,7 +15,7 @@ HEX_COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\Z")
 
 
 class PublicBrand(BaseModel):
-    """A business's validated public brand; unset or malformed fields are None."""
+    """A business's public brand; unset fields are None."""
 
     public_slug: str | None = None
     business_name: str | None = None
@@ -135,7 +135,6 @@ class ManagedBooking(Mirror):
 
     booking_id: str
     address: str | None = None
-    parking_note: str | None = None
     business_name: str
     brand: PublicBrand
     slug: str

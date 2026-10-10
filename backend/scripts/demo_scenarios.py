@@ -1,6 +1,6 @@
 from clientbridge.models.catalog import Item, StockMovement
 from clientbridge.models.clients import Client, Subject
-from clientbridge.models.scheduling import Booking
+from clientbridge.models.scheduling import Booking, Slot
 from scripts.demo_context import DemoContext
 
 
@@ -105,6 +105,7 @@ def add_scenarios(ctx: DemoContext) -> None:
                 id=f"bk_class_extra_{index}",
                 business_id=ctx.business_id,
                 slot_id="ses_class",
+                starts_at=next(s.starts_at for s in ctx.all(Slot) if s.id == "ses_class"),
                 staff_id="st_owner",
                 client_id=client_id,
                 subject_id=pet_id,

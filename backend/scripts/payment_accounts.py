@@ -97,7 +97,7 @@ async def reconcile(business_id: str, *, apply: bool) -> None:
             current,
             name=business.name,
             email=business.billing_email,
-            url=f"{settings.connect_base_url.rstrip('/')}/book/{business.slug}",
+            url=f"{settings.connect_base_url.rstrip('/')}/b/{business.slug}",
         )
         report = audit_account(current, changes)
         report.update(business_id=business.id, account_id=account_id, mode="dry_run", applied=False)

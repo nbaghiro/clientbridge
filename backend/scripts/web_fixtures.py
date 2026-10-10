@@ -23,7 +23,7 @@ from clientbridge.models.scheduling import Recurrence, Slot
 
 BIZ = "bz_birchbark"
 OWNER = {"email": "hannah@birchbarkpets.ca", "password": "demo1234"}
-API = os.environ.get("API_URL", "http://localhost:8701")
+API = os.environ.get("API_URL", "http://127.0.0.1:8701")
 
 
 async def _has_series(db: AsyncSession) -> bool:

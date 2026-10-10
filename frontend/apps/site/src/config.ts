@@ -12,5 +12,5 @@ export const config = {
 export const links = {
     signIn: `${config.appUrl}/`,
     startFree: `${config.appUrl}/`,
-    demoBusiness: `${config.bookUrl}/book/birchbark`,
+    demoBusiness: `${config.bookUrl}/b/birchbark`,
 };

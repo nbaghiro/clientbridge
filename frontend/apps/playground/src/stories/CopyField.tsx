@@ -18,7 +18,7 @@ export default story<CopyFieldProps>({
             title: "Link",
             props: () => ({
                 label: "Booking page",
-                value: "https://book.clientbridge.app/book/birchbark",
+                value: "https://book.clientbridge.app/b/birchbark/book",
                 hint: "Share it on Instagram or your website.",
             }),
         },
@@ -28,7 +28,7 @@ export default story<CopyFieldProps>({
             props: () => ({
                 label: "Embed code",
                 variant: "snippet",
-                value: '<script src="https://book.clientbridge.app/embed.js" async></script>\n<connect-booking business="birchbark"></connect-booking>',
+                value: '<script src="https://book.clientbridge.app/embed.js" async></script>\n<connect-booking slug="birchbark"></connect-booking>',
             }),
         },
         {
@@ -37,7 +37,7 @@ export default story<CopyFieldProps>({
             props: () => ({
                 label: "Add to your website",
                 variant: "snippet",
-                value: '<iframe src="https://book.clientbridge.app/book/birchbark?embed=1&theme=pewter" title="Book with Birchbark Pet Studio" width="100%" height="720" style="border:0" loading="lazy"></iframe>\n<a href="https://book.clientbridge.app/book/birchbark">Book a visit</a>',
+                value: '<iframe src="https://book.clientbridge.app/b/birchbark/book?embed=1&theme=pewter" title="Book with Birchbark Pet Studio" width="100%" height="720" style="border:0" loading="lazy"></iframe>\n<a href="https://book.clientbridge.app/b/birchbark/book">Book a visit</a>',
             }),
         },
         {
@@ -77,7 +77,7 @@ export default story<CopyFieldProps>({
             title: "Long link, no hint",
             props: () => ({
                 label: "Intake form for new clients who book a first full groom online",
-                value: "https://book.clientbridge.app/forms/birchbark/new-client-intake-and-vaccination-record?ref=instagram-bio&utm_campaign=autumn",
+                value: "https://book.clientbridge.app/form/7c2e9d4b8a1f6e3d5c0b9a8f7e6d5c4b3a2f1e0d9c8b7a6f5e4d3c2b1a0f9e8d",
             }),
         },
         {
@@ -85,7 +85,7 @@ export default story<CopyFieldProps>({
             title: "Right-to-left label",
             props: () => ({
                 label: "رابط الحجز",
-                value: "https://book.clientbridge.app/book/birchbark",
+                value: "https://book.clientbridge.app/b/birchbark/book",
                 hint: "شارك هذا الرابط مع عملائك.",
             }),
         },

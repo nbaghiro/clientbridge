@@ -41,7 +41,7 @@ export default story<PayCodeProps>({
             key: "long-url",
             title: "A long URL (denser code)",
             props: () => ({
-                value: "https://book.clientbridge.app/accept/est_2087?token=9f8e7d6c5b4a39281706f5e4d3c2b1a0e9f8d7c6b5a4",
+                value: "https://book.clientbridge.app/e/9f8e7d6c5b4a39281706f5e4d3c2b1a0e9f8d7c6b5a4",
                 size: 120,
                 label: "Scan to accept estimate 2087",
             }),

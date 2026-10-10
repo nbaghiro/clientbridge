@@ -15,7 +15,7 @@ from botocore.config import Config as BotoConfig
 from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import delete, select, text, update
 from sqlalchemy.engine import make_url
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base, SessionLocal, engine
@@ -104,7 +104,6 @@ def seed_identity() -> tuple[str, str]:
             id=BIZ,
             name="Birchbark Pet Studio",
             slug="birchbark",
-            locale="en",
             timezone="America/Vancouver",
             province="BC",
             gst_hst_number="84720 1539 RT0001",
@@ -903,6 +902,7 @@ def seed_appointments() -> None:
                 id=bk,
                 business_id=BIZ,
                 slot_id=ses,
+                starts_at=at(d, h),
                 staff_id=member,  # denormalized from the session — drives per-member sync
                 client_id=client,
                 subject_id=pet,
@@ -1592,6 +1592,7 @@ def seed_coverage() -> None:
                 id=f"bk_class_{j}",
                 business_id=BIZ,
                 slot_id="ses_class",
+                starts_at=at(4, 11),
                 staff_id="st_owner",
                 client_id=cl,
                 subject_id=pet,
@@ -1640,6 +1641,7 @@ def seed_coverage() -> None:
             id="bk_refund",
             business_id=BIZ,
             slot_id="ses_refund",
+            starts_at=at(-9, 14),
             staff_id="st_diego",
             client_id="cl_olivia",
             subject_id="sj_bandit",
@@ -2062,6 +2064,7 @@ def seed_calendar_filler() -> None:
                         id=bk,
                         business_id=BIZ,
                         slot_id=ses,
+                        starts_at=start,
                         staff_id=member,
                         client_id=client,
                         subject_id=pet,
@@ -2126,6 +2129,7 @@ def seed_client_series() -> None:
                 id=bk,
                 business_id=BIZ,
                 slot_id=ses,
+                starts_at=start,
                 staff_id="st_owner",
                 client_id="cl_sophie",
                 subject_id="sj_mochi",
@@ -2201,6 +2205,8 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
             created_at=NOW,
         )
     )
+    for file in ctx.all(File):
+        file.uploaded_at = NOW  # every demo file's bytes are uploaded before its row is written
     errors = validate_graph(ctx) + chronology_errors(ctx)
     if errors:
         raise ValueError("Invalid demo graph: " + "; ".join(errors[:20]))
@@ -2209,7 +2215,7 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
 
 def validate_seed_target(reset_demo: bool) -> None:
     settings = get_settings()
-    url = make_url(settings.database_url)
+    url = make_url(settings.migration_database_url)
     if settings.env != "dev" or url.host not in {"localhost", "127.0.0.1", "::1"}:
         raise SystemExit("Demo seeding requires ENV=dev and a localhost database.")
     if url.database != "clientbridge" and not (url.database or "").startswith("clientbridge_test"):
@@ -2250,7 +2256,9 @@ async def main(*, reset_demo: bool = False, as_of: datetime | None = None) -> No
     validate_seed_target(reset_demo)
     ctx = build_demo(as_of)
     upload_demo_assets()
-    async with SessionLocal() as session:
+    # replacing demo rows pauses the ledger's append-only trigger, which only the owner may do
+    owner = create_async_engine(get_settings().migration_database_url)
+    async with async_sessionmaker(owner, expire_on_commit=False)() as session:
         business_ids = [row.id for row in ctx.all(Business)]
         exists = await session.scalar(select(Business.id).where(Business.id.in_(business_ids)))
         if exists and not reset_demo:
@@ -2268,6 +2276,7 @@ async def main(*, reset_demo: bool = False, as_of: datetime | None = None) -> No
         if not report["ok"]:
             raise ValueError(f"Demo validation failed: {report['errors']}")
         await session.commit()
+    await owner.dispose()
     await engine.dispose()
     print(f"Seeded {len(ctx.rows)} rows; demo {DEMO_VERSION}, as of {NOW.isoformat()}.")
 
@@ -2326,6 +2335,7 @@ async def refresh_demo_avatar() -> None:
                     s3_key=key,
                     content_type="image/png",
                     size=path.stat().st_size,
+                    uploaded_at=datetime.now(UTC),
                 )
             )
             await db.flush()

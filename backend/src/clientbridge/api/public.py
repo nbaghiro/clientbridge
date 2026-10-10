@@ -25,7 +25,7 @@ from clientbridge.schemas.consents import (
     PublicUnsubscribe,
 )
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
-from clientbridge.schemas.files import PublicFileCreate, PublicFileUpload
+from clientbridge.schemas.files import PublicFileComplete, PublicFileCreate, PublicFileUpload
 from clientbridge.schemas.forms import PublicFormContext, PublicFormSubmit
 from clientbridge.schemas.orders import PublicReceipt
 from clientbridge.schemas.payments import (
@@ -192,6 +192,17 @@ async def public_form_upload(
     _: FormRateLimited,
 ) -> PublicFileUpload:
     return await PublicFormService(db).upload(token, body, storage)
+
+
+@form_router.post("/{token}/upload/{file_id}/complete", response_model=PublicFileComplete)
+async def public_form_upload_complete(
+    token: str,
+    file_id: str,
+    db: DbSession,
+    storage: StorageDep,
+    _: FormRateLimited,
+) -> PublicFileComplete:
+    return await PublicFormService(db).complete_upload(token, file_id, storage)
 
 
 contract_router = APIRouter(prefix="/contract", tags=["public-contract"])

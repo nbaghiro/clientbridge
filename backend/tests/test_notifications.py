@@ -7,7 +7,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
-from clientbridge.models.business import Business, Staff
+from clientbridge.models.business import Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
@@ -187,27 +187,6 @@ async def test_push_target_is_business_scoped(
 async def test_device_register_rejects_bad_platform(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.post("/v1/devices/register", json={"token": "T", "platform": "blackberry"})
     assert res.status_code == 422
-
-
-async def test_receipt_is_english_regardless_of_locale(
-    as_owner: httpx.AsyncClient,
-    db: AsyncSession,
-    email: FakeEmailSender,
-    sms: FakeSmsSender,
-) -> None:
-    # copy is English-only now — a non-English locale no longer changes the notification language
-    await enable_payments(db)
-    await db.execute(update(Business).where(Business.id == BIZ).values(locale="fr"))
-    await db.flush()
-    cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
-    inv_id = await sent_invoice(db, client=cid, number=9600)
-    await _pay_and_settle(as_owner, db, inv_id, "evt_loc")
-
-    assert email.sent[0].subject == "Receipt from Birchbark Pet Studio"
-    assert email.sent[0].body == (
-        "Thank you! Your payment of $50.00 CAD to Birchbark Pet Studio was received."
-    )
-    assert sms.sent[0].body.startswith("Thank you!")
 
 
 async def test_invoice_sent_carries_pay_link(

@@ -99,7 +99,7 @@ class PaymentService:
                 account_id = await self.gateway.create_connected_account(
                     business_name=business.name,
                     email=business.billing_email,
-                    url=f"{settings.connect_base_url}/book/{business.slug}",
+                    url=f"{settings.connect_base_url}/b/{business.slug}",
                     idempotency_key=f"connect-account:{business.id}",
                 )
                 business.stripe_account_id = account_id
@@ -137,7 +137,7 @@ class PaymentService:
             business.stripe_account_id = await self.gateway.create_connected_account(
                 business_name=business.name,
                 email=business.billing_email,
-                url=f"{get_settings().connect_base_url}/book/{business.slug}",
+                url=f"{get_settings().connect_base_url}/b/{business.slug}",
                 idempotency_key=f"connect-account:{business.id}",
             )
             apply_account_status(

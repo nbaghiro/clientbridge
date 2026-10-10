@@ -240,11 +240,6 @@ export function PublicManage() {
                                 </Button>
                             </>
                         ) : null}
-                        {v.parking_note ? (
-                            <p className="mt-4 rounded-xl bg-bg p-3 text-sm text-ink-soft">
-                                {v.parking_note}
-                            </p>
-                        ) : null}
                     </section>
                     <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
                         <h2 className="mb-3 font-display text-lg font-bold">{s.payment}</h2>

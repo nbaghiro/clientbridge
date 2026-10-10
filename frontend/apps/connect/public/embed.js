@@ -17,7 +17,12 @@
     );
 
     var TYPES = {
-        "connect-booking": { path: "/book/", attr: "slug", title: "Book an appointment" },
+        "connect-booking": {
+            path: "/b/",
+            attr: "slug",
+            suffix: "/book",
+            title: "Book an appointment",
+        },
         "connect-pay": { path: "/i/", attr: "token", title: "Pay" },
         "connect-form": { path: "/form/", attr: "token", title: "Complete form" },
         "connect-contract": { path: "/contract/", attr: "token", title: "Review & sign" },
@@ -41,6 +46,7 @@
                         base +
                         cfg.path +
                         encodeURIComponent(id) +
+                        (cfg.suffix || "") +
                         "?embed=1" +
                         (this.getAttribute("mode") === "drawer" ? "&presentation=guided" : "");
                     iframe.title = cfg.title;

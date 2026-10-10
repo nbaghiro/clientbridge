@@ -4,7 +4,6 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
-from clientbridge.models.business import Business
 from clientbridge.models.reviews import Review
 from tests.conftest import BIZ, Factory
 
@@ -143,19 +142,6 @@ async def test_next_openings_match_live_availability_and_validate_input(
     assert (
         await api.get("/book/missing/next-openings", params={"item_ids": "it_groom_sm"})
     ).status_code == 404
-
-
-async def test_malformed_legacy_profile_does_not_break_public_page(
-    api: httpx.AsyncClient,
-    db: AsyncSession,
-) -> None:
-    business = await db.get(Business, BIZ)
-    assert business is not None
-    business.brand = {"cover_url": "javascript:bad", "public_staff_ids": ["st_owner"]}
-    await db.flush()
-    data = (await api.get("/book/birchbark/profile")).json()
-    assert data["cover_url"] is None
-    assert data["staff"] == []
 
 
 async def test_staff_cannot_publish_profile(as_staff: httpx.AsyncClient) -> None:

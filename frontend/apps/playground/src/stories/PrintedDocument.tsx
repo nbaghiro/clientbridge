@@ -141,7 +141,7 @@ const estimate: PrintedDoc = {
         { key: "total", label: "Estimate total", cents: 17_241, kind: "total" },
     ],
     headline: { label: "Estimate total", cents: 17_241 },
-    payUrl: "https://book.clientbridge.app/accept/est_0042",
+    payUrl: "https://book.clientbridge.app/e/3d9f2a7c1b8e4d6f0a5c9e2b7d4f1a8c",
     instructions: ["Accept online with the link or code."],
     message: null,
 };

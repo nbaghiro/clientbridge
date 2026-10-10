@@ -1,4 +1,3 @@
-from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,10 +28,7 @@ class PublicProfilesService:
         if business is None:
             raise NotFound("business not found")
         page = await self.booking.page(slug)
-        try:
-            brand = BrandInput.model_validate(business.brand or {})
-        except ValidationError:
-            brand = BrandInput()
+        brand = BrandInput.model_validate(business.brand or {})
         reviews = (
             (
                 await self.db.execute(

@@ -51,6 +51,7 @@ def add_finance_scenarios(ctx: DemoContext) -> None:
                     id=booking_id,
                     business_id=ctx.business_id,
                     slot_id=slot_id,
+                    starts_at=start,
                     staff_id="st_priya",
                     client_id=client_id,
                     subject_id=pet_id,

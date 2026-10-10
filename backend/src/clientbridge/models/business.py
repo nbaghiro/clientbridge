@@ -39,7 +39,6 @@ class Business(PKMixin, TimestampMixin, Base):
 
     name: Mapped[str] = mapped_column(String, nullable=False)
     slug: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    locale: Mapped[str] = mapped_column(String, default="en", nullable=False)
     timezone: Mapped[str] = mapped_column(String, default="America/Toronto", nullable=False)
     province: Mapped[ProvinceCode | None] = mapped_column(String)
     gst_hst_number: Mapped[str | None] = mapped_column(String)

@@ -50,7 +50,7 @@ function watchErrors(page: Page): string[] {
 test("a client books a visit online and opens the manage link", async ({ page }) => {
     const errors = watchErrors(page);
     const b = strings.publicBooking;
-    await page.goto(`/book/${links.slug}`);
+    await page.goto(`/b/${links.slug}/book`);
     await expect(page.getByRole("heading", { name: b.stepService })).toBeVisible();
     const openingsResponse = page.waitForResponse(
         (response) => response.url().includes(`/book/${links.slug}/days?`) && response.ok(),
@@ -206,7 +206,7 @@ test("a client opens their message preferences and an unknown link", async ({ pa
 
 const PUBLIC_PAGES = [
     { name: "business", path: `/b/${links.slug}`, landmark: "Birchbark Pet Studio" },
-    { name: "booking", path: `/book/${links.slug}`, landmark: strings.publicBooking.title },
+    { name: "booking", path: `/b/${links.slug}/book`, landmark: strings.publicBooking.title },
     { name: "manage", path: `/m/${links.manage}`, landmark: strings.publicManage.title },
     { name: "invoice", path: `/i/${links.invoice}`, landmark: strings.publicPay.chooseHowToPay },
     {
@@ -258,8 +258,8 @@ for (const surface of PUBLIC_PAGES) {
 
 const MISSING_PAGES = [
     ["/b/missing-business", strings.publicLanding.notFoundTitle],
-    ["/book/missing-business", strings.publicBooking.notFoundTitle],
-    ["/shop/missing-business", strings.publicShop.notFoundTitle],
+    ["/b/missing-business/book", strings.publicBooking.notFoundTitle],
+    ["/b/missing-business/shop", strings.publicShop.notFoundTitle],
     ["/m/missing-token", strings.publicManage.notFoundTitle],
     ["/i/missing-token", strings.publicPay.notFoundTitle],
     ["/i/missing-token/etransfer", strings.publicPay.notFoundTitle],

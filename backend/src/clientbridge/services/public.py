@@ -21,7 +21,7 @@ from clientbridge.models.clients import Channel, Client, Note, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
 from clientbridge.models.messaging import Message
 from clientbridge.models.payments import Payment
-from clientbridge.models.platform import IdempotencyKey
+from clientbridge.models.platform import File, IdempotencyKey
 from clientbridge.models.reviews import REVIEW_OPEN, Review
 from clientbridge.models.scheduling import Addon, Booking, Slot
 from clientbridge.schemas.billing import (
@@ -32,9 +32,10 @@ from clientbridge.schemas.billing import (
     PublicEstimateLine,
 )
 from clientbridge.schemas.bookings import BookingPolicy
+from clientbridge.schemas.business import BrandInput
 from clientbridge.schemas.consents import PublicPreferences, PublicPreferencesUpdate
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
-from clientbridge.schemas.files import PublicFileCreate, PublicFileUpload
+from clientbridge.schemas.files import PublicFileComplete, PublicFileCreate, PublicFileUpload
 from clientbridge.schemas.forms import PublicFormContext, PublicFormField, PublicFormSubmit
 from clientbridge.schemas.orders import PublicReceipt, PublicReceiptPayment
 from clientbridge.schemas.payments import (
@@ -46,7 +47,6 @@ from clientbridge.schemas.payments import (
     PublicPayIn,
 )
 from clientbridge.schemas.public import (
-    HEX_COLOR,
     ManageCancelResult,
     ManagedAddon,
     ManagedBooking,
@@ -80,6 +80,7 @@ from clientbridge.services.billing import estimate_status
 from clientbridge.services.bookings import (
     create_booking_core,
     exceptions_between,
+    move_slot,
     open_slots,
     policy_of,
     release_slot,
@@ -94,7 +95,7 @@ from clientbridge.services.consents import (
     latest_consents,
     set_channel_consent,
 )
-from clientbridge.services.files import item_images, media_url, mint_upload
+from clientbridge.services.files import confirm_upload, item_images, media_url, mint_upload
 from clientbridge.services.lines import (
     apply_totals,
     fetch_lines,
@@ -630,7 +631,7 @@ class PublicManageService:
         )
         if problem is not None:
             raise Conflict(problem.message or "that time isn't open")
-        slot.starts_at, slot.ends_at = data.starts_at, ends_at
+        await move_slot(self.db, business.id, slot, data.starts_at, ends_at)
         booking.reschedule_count += 1
         if key is not None:
             _remember(self.db, business.id, _MANAGE_SCOPE, key, {"booking_id": booking.id})
@@ -767,12 +768,7 @@ class PublicManageService:
         cancel = self._blocked(booking, slot, business, "cancel")
         return ManagedBooking(
             refund_status=await booking_refund_status(self.db, booking),
-            address=business.brand.get("address")
-            if isinstance(business.brand.get("address"), str)
-            else None,
-            parking_note=business.brand.get("parking_note")
-            if isinstance(business.brand.get("parking_note"), str)
-            else None,
+            address=BrandInput.model_validate(business.brand or {}).address,
             booking_id=booking.id,
             business_name=business.name,
             brand=public_brand(business),
@@ -820,30 +816,19 @@ async def business_or_404(db: AsyncSession, business_id: str, message: str) -> B
 
 
 def public_brand(business: Business) -> PublicBrand:
-    """A business's brand as a validated public DTO; malformed values are dropped."""
-    brand = business.brand or {}
-    logo_file_id = brand.get("logo_file_id")
-    logo_url = media_url(logo_file_id) if isinstance(logo_file_id, str) else brand.get("logo_url")
-    avatar_file_id = brand.get("avatar_file_id")
-    avatar_url = media_url(avatar_file_id) if isinstance(avatar_file_id, str) else logo_url
-    cover_url = brand.get("cover_url")
-    primary = brand.get("primary")
-    tagline = brand.get("tagline")
+    brand = BrandInput.model_validate(business.brand or {})
+    logo_url = media_url(brand.logo_file_id) if brand.logo_file_id is not None else None
     return PublicBrand(
         public_slug=business.slug if business.status != "closed" else None,
         business_name=business.name,
-        cover_url=cover_url if isinstance(cover_url, str) and _is_http(cover_url) else None,
-        logo_url=logo_url if isinstance(logo_url, str) and _is_http(logo_url) else None,
-        avatar_url=avatar_url if isinstance(avatar_url, str) and _is_http(avatar_url) else None,
-        primary=(
-            primary if isinstance(primary, str) and HEX_COLOR.match(primary) is not None else None
+        cover_url=brand.cover_url,
+        logo_url=logo_url,
+        avatar_url=(
+            media_url(brand.avatar_file_id) if brand.avatar_file_id is not None else logo_url
         ),
-        tagline=(tagline.strip() or None) if isinstance(tagline, str) else None,
+        primary=brand.primary,
+        tagline=brand.tagline,
     )
-
-
-def _is_http(url: str) -> bool:
-    return url.startswith(("http://", "https://"))
 
 
 class PublicContractService:
@@ -1010,12 +995,57 @@ class PublicFormService:
         await self.db.commit()
         return PublicFileUpload(file_id=result.file.id, upload_url=result.upload_url)
 
+    async def complete_upload(
+        self, token: str, file_id: str, storage: FileStorage
+    ) -> PublicFileComplete:
+        response, _, _ = await self._resolve(token)
+        file = (
+            await self.db.execute(
+                scoped(File, response.business_id).where(
+                    File.id == file_id,
+                    File.parent_type == "form_response",
+                    File.parent_id == response.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if file is None:
+            raise NotFound("upload not found")
+        confirm_upload(file, storage)
+        await self.db.commit()
+        return PublicFileComplete(file_id=file.id)
+
+    async def _assert_uploaded(
+        self, response: FormResponse, fields: list[FormField], answers: dict[str, object]
+    ) -> None:
+        """A file answer must name a finished upload attached to this response."""
+        wanted = {
+            str(answers[f.name])
+            for f in fields
+            if f.input in ("file", "image") and answers.get(f.name) not in (None, "")
+        }
+        if not wanted:
+            return
+        uploaded = {
+            file.id
+            for file in await self.db.scalars(
+                scoped(File, response.business_id).where(
+                    File.parent_type == "form_response",
+                    File.parent_id == response.id,
+                    File.id.in_(wanted),
+                    File.uploaded_at.is_not(None),
+                )
+            )
+        }
+        if wanted - uploaded:
+            raise Unprocessable("an attached file has not finished uploading")
+
     async def submit(self, token: str, data: PublicFormSubmit) -> PublicFormContext:
         response, form, business = await self._resolve(token)
         if response.status == "submitted":
             raise Conflict("this form was already submitted")
         fields = await self._fields(form.id)
         _validate(fields, data.answers)
+        await self._assert_uploaded(response, fields, data.answers)
         response.status = "submitted"
         response.answers = data.answers
         response.submitted_at = datetime.now(UTC)

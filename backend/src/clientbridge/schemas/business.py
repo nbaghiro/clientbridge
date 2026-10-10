@@ -21,7 +21,6 @@ class OnboardBody(Mirror):
     slug: str
     province: ProvinceCode
     timezone: str | None = None
-    locale: str = "en"
 
 
 class BusinessOut(Mirror):
@@ -33,7 +32,6 @@ class BusinessOut(Mirror):
     slug: str
     province: ProvinceCode | None
     timezone: str
-    locale: str
     status: BusinessStatus
     billing_email: str | None
     gst_hst_number: str | None
@@ -50,10 +48,7 @@ class BusinessOut(Mirror):
 class BrandInput(BaseModel):
     """The public brand; values are validated and trimmed so clients can apply them directly."""
 
-    logo_url: str | None = None
-    logo_file_id: str | None = Field(
-        default=None, description="An uploaded logo; used instead of logo_url on public pages"
-    )
+    logo_file_id: str | None = None
     avatar_file_id: str | None = None
     primary: str | None = None
     tagline: str | None = None
@@ -101,16 +96,6 @@ class BrandInput(BaseModel):
             raise ValueError("email must be a valid email address")
         return value or None
 
-    @field_validator("logo_url")
-    @classmethod
-    def _check_logo(cls, v: str | None) -> str | None:
-        v = (v or "").strip()
-        if v == "":
-            return None
-        if not v.startswith(("http://", "https://")):
-            raise ValueError("logo URL must start with http:// or https://")
-        return v
-
     @field_validator("primary")
     @classmethod
     def _check_primary(cls, v: str | None) -> str | None:
@@ -134,7 +119,6 @@ class BusinessSettingsUpdate(Mirror):
 
     name: str | None = None
     timezone: str | None = None
-    locale: str | None = None
     billing_email: str | None = None
     gst_hst_number: str | None = None
     qst_number: str | None = None

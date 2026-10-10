@@ -33,20 +33,6 @@ test.afterEach(async ({ page }) => {
     await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
-test("existing links preserve booking selections and embed mode", async ({ page }) => {
-    await page.goto(`/book/${slug}?service=it_unknown&embed=1#details`);
-    await expect(page).toHaveURL(`${home}/book?service=it_unknown&embed=1#details`);
-    await expect(
-        page.getByRole("heading", { name: strings.publicBooking.stepService }),
-    ).toBeVisible();
-    await expect(
-        page.getByRole("navigation", { name: strings.publicLanding.navigation }),
-    ).toHaveCount(0);
-    await page.goto(`/shop/${slug}/checkout?embed=1`);
-    await expect(page).toHaveURL(`${home}/shop/checkout?embed=1`);
-    await expect(page.getByText(strings.publicShop.cartEmpty).first()).toBeVisible();
-});
-
 test("business navigation connects the shop, booking, and homepage sections on mobile", async ({
     page,
 }) => {

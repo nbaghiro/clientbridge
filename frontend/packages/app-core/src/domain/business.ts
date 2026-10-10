@@ -1,4 +1,4 @@
-import { businessQuery, selectReplicaBusiness } from "@clientbridge/sync";
+import { selectReplicaBusiness } from "@clientbridge/sync";
 import { useBusinessQuery as useQuery } from "../hooks";
 import { usePowerSync, useStatus, useQuery as useGlobalQuery } from "@powersync/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -17,7 +17,6 @@ interface BusinessRow {
     id: string;
     name: string;
     timezone: string;
-    locale: string;
     billing_email: string | null;
     gst_hst_number: string | null;
     qst_number: string | null;
@@ -27,7 +26,6 @@ interface BusinessRow {
 interface BusinessFields {
     name: string;
     timezone: string;
-    locale: string;
     billing_email: string;
     logo_file_id: string;
     primary: string;
@@ -140,8 +138,6 @@ export const BUSINESS_TEXT_FIELDS: {
     },
 ];
 
-export const LOCALES: { code: string; label: string }[] = [{ code: "en", label: "English" }];
-
 interface BusinessForm {
     fields: BusinessFields | null; // null until the synced business row loads
     businessId: string | null;
@@ -155,7 +151,7 @@ interface BusinessForm {
 }
 
 export const BUSINESS_SQL =
-    "SELECT id, name, timezone, locale, billing_email, gst_hst_number, qst_number, brand FROM businesses LIMIT 1";
+    "SELECT id, name, timezone, billing_email, gst_hst_number, qst_number, brand FROM businesses LIMIT 1";
 
 /** The saved row flows back through sync, so the form shows the server's values on the next render. */
 export function useBusinessForm(api: ApiLike): BusinessForm {
@@ -172,7 +168,6 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
             setFields({
                 name: row.name,
                 timezone: row.timezone,
-                locale: row.locale,
                 billing_email: row.billing_email ?? "",
                 logo_file_id: brand.logo_file_id,
                 primary: brand.primary,
@@ -238,8 +233,8 @@ export function useBusinessLoad(): Load {
         setConfirmedEmpty(false);
         setError(null);
         if (synced && !business.isLoading && empty) {
-            // Sync status can arrive before the watched query observes the committed business row.
-            db.getOptional<{ id: string }>(businessQuery(BUSINESS_ID_SQL))
+            // sync status can lead the watched query and the selection, so read the replica unscoped
+            db.getOptional<{ id: string }>(BUSINESS_ID_SQL)
                 .then((row) => {
                     if (active) setConfirmedEmpty(row === null);
                 })
@@ -301,7 +296,6 @@ interface OnboardInput {
     slug: string;
     province: ProvinceCode;
     timezone?: string;
-    locale?: string;
 }
 
 /** Matches the backend BusinessOut; kept local so app-core needn't depend on api-client for it. */
@@ -311,7 +305,6 @@ export interface Business {
     slug: string;
     province: string | null;
     timezone: string;
-    locale: string;
     status: string;
 }
 
@@ -321,7 +314,6 @@ function onboard(api: ApiLike, input: OnboardInput): Promise<Business> {
         slug: input.slug.trim(),
         province: input.province,
         timezone: input.timezone ?? null,
-        locale: input.locale ?? "en",
     });
 }
 
@@ -505,7 +497,7 @@ export interface SetupProgress {
 
 /** The public booking page for a business, on the Connect host the app is configured with. */
 export function bookingPageUrl(base: string, slug: string): string {
-    return `${base.replace(/\/+$/, "")}/book/${slug}`;
+    return `${base.replace(/\/+$/, "")}/b/${slug}/book`;
 }
 
 function progressOf(row: SetupCounts | undefined): SetupProgress {
@@ -795,6 +787,23 @@ export function useBusinessSelection(bindApi: (businessId: string | null) => voi
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const [firstSyncTimedOut, setFirstSyncTimedOut] = useState(false);
+    const [confirmedEmpty, setConfirmedEmpty] = useState(false);
+    const noBusinesses = synced && !businesses.isLoading && businesses.data.length === 0;
+    useEffect(() => {
+        let active = true;
+        setConfirmedEmpty(false);
+        if (noBusinesses) {
+            // the watched list can trail the sync status, so read the replica before onboarding
+            db.getOptional<{ id: string }>(BUSINESS_ID_SQL)
+                .then((row) => {
+                    if (active) setConfirmedEmpty(row === null);
+                })
+                .catch(() => undefined);
+        }
+        return () => {
+            active = false;
+        };
+    }, [db, noBusinesses]);
     useEffect(() => {
         if (synced || businesses.data.length > 0) return;
         const timer = setTimeout(() => {
@@ -831,7 +840,7 @@ export function useBusinessSelection(bindApi: (businessId: string | null) => voi
         !selection.error &&
         !businesses.isLoading &&
         !selection.isLoading &&
-        (selectedId !== null || (synced && businesses.data.length === 0));
+        (selectedId !== null || (noBusinesses && confirmedEmpty));
     useEffect(() => {
         if (ready) {
             bindApi(selectedId);
