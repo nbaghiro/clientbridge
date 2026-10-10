@@ -1,7 +1,7 @@
 appId: ca.clientbridge.app
 name: Create Estimate opens the estimate composer
 ---
-- runFlow: ../helpers/owner.yaml
+- runFlow: helpers/owner.yaml
 - tapOn: "Create"
 - tapOn: "Estimate.*"
 - takeScreenshot: estimate-shortcut

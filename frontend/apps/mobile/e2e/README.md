@@ -60,19 +60,15 @@ The suite does not submit business forms, messages, broadcasts or payments, or d
 
 ## Known regressions
 
-The Create → Estimate shortcut routes to a new invoice. Keep this independently runnable assertion until the routing is fixed:
+`regressions/client-editor.yaml` reproduces the client-record Edit transition and expects the editor to appear. It fails on the reviewed iPhone and passes on Android, so it stays outside the shared default suite until the iOS issue is investigated:
 
 ```sh
-maestro --device <simulator-udid> test e2e/regressions/estimate-shortcut.yaml \
+maestro --device <simulator-udid> test e2e/regressions/client-editor.yaml \
   --test-output-dir test-results/regressions --format HTML \
   --output test-results/regressions/index.html
 ```
 
-`regressions/staff-pay-labels.yaml` asserts that the three Staff pay totals retain their labels; the reviewed iPhone and Android screens show only the amounts.
-
-The separate `regressions/client-editor.yaml` reproduces the client-record Edit transition and expects the editor to appear. It fails on the reviewed iPhone and passes on Android; it remains outside the shared default suite while the iOS issue is investigated.
-
-The estimate test expects the correct product behavior (`New estimate`), so a failure showing `New invoice` is a product regression, not a passing smoke check. It is deliberately outside the default top-level suite.
+The Create → Estimate shortcut (`08-estimate-shortcut.yaml`), the Staff pay total labels (`09-staff-pay-labels.yaml`) and inbox navigation (`10-inbox-navigation.yaml`) were fixed on October 10, 2026 and run with the default suite.
 
 ## Boundaries
 
@@ -80,6 +76,6 @@ These are navigation and composition walkthroughs, not exhaustive transaction te
 
 ## Sync startup regression
 
-`regressions/sync-startup.yaml` verifies saved-session restoration, selection of the scoped business, and the recurring-hours editor on the actual native app without submitting a business change. Run it against the existing simulator/emulator; it neither clears application storage nor reseeds the server. The owner helper waits for the asynchronously loaded viewer name.
+`07-sync-startup.yaml` verifies saved-session restoration, selection of the scoped business, and the recurring-hours editor on the actual native app without submitting a business change. Run it against the existing simulator/emulator; it neither clears application storage nor reseeds the server. The owner helper waits for the asynchronously loaded viewer name.
 
 Use normal simulator signing when building iOS. A build produced with signing disabled can make SecureStore fail with a missing Keychain entitlement before the replica opens. Rebuilding/installing the same bundle with normal signing preserves app data; deleting the database does not resolve this credential-storage failure.

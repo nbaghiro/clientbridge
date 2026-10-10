@@ -6,6 +6,15 @@ name: Owner inbox surfaces
       id: "tab-inbox"
 - assertVisible: "Search name, pet or message"
 - takeScreenshot: messages
+- tapOn: "Amélie Tremblay.*"
+- tapOn: "Show earlier messages"
+- assertNotVisible: "We couldn't load earlier messages.*"
+- assertNotVisible: "Earlier messages need a connection.*"
+- takeScreenshot: earlier-messages
+- tapOn:
+      text: "Inbox"
+      below: "Messages"
+- assertVisible: "Search name, pet or message"
 - tapOn: "New"
 - assertVisible: "New message"
 - assertVisible: "Send message"

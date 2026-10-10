@@ -20,12 +20,14 @@ help:
 	@echo "test-connect     Connect e2e: booking, manage link, shop and every client page (needs the API + seed)"
 	@echo "test-playground  build the playground, then open every story on web, iPhone and Android"
 	@echo "test-mobile      Maestro native walkthroughs (needs a development build, local stack + seed)"
+	@echo "test-sync        disposable Postgres + PowerSync: replica rows per role, revocation, key rotation"
+	@echo "replication-health  local PowerSync readiness, slot, retained WAL and replay lag"
 	@echo "lighthouse-site  Lighthouse budget against the site preview on :8710"
 	@echo "migrate          alembic upgrade head"
 	@echo "revision         alembic autogenerate (name=...)"
 	@echo "seed             load the Birchbark Pet Studio demo business (idempotent)"
 	@echo "gen-api          regenerate the frontend api-client from the backend OpenAPI"
-	@echo "gen-sync-schema  regenerate the PowerSync client schema from models + sync-rules"
+	@echo "gen-sync-schema  regenerate the PowerSync client schema from models + sync streams"
 	@echo "gen-themes       regenerate the theme tokens from .docs/design/app-explorer.html"
 	@echo "codegen-check    regenerate client, sync schema and themes; fail if they were stale"
 	@echo "test             test-backend + test-frontend"
@@ -40,13 +42,13 @@ help:
 	@echo "typecheck        mypy (backend) and tsc (frontend)"
 	@echo "format           ruff format and prettier --write"
 	@echo "format-check     ruff format --check and prettier --check"
-	@echo "precommit        format-check + lint + codegen-check (the pre-commit hook)"
+	@echo "precommit        format-check + lint + codegen-check + test (the pre-commit hook; e2e runs in CI)"
 	@echo "hooks            install the versioned hooks (.githooks)"
 	@echo "check            lint + codegen-check + test (the full local gate; CI runs the same targets)"
 
 up:
 	docker compose up -d --wait --wait-timeout 60 postgres
-	docker compose exec -T postgres psql -U clientbridge -d clientbridge -f - < infra/powersync/bootstrap.sql
+	cd backend && uv run python -m scripts.db_access roles
 	docker compose up -d
 	@echo "infra up. PowerSync on :8704 (run 'make migrate seed' if the DB is fresh)."
 
@@ -115,7 +117,9 @@ test-mobile:
 	cd frontend && pnpm --filter mobile e2e
 
 migrate:
+	cd backend && uv run python -m scripts.db_access roles
 	cd backend && uv run alembic upgrade head
+	cd backend && uv run python -m scripts.db_access grants
 
 revision:
 	cd backend && uv run alembic revision --autogenerate -m "$(name)"
@@ -188,7 +192,7 @@ codegen-check: gen-api gen-sync-schema gen-themes
 	@git diff --quiet -- $(GENERATED) || { git --no-pager diff --stat -- $(GENERATED); \
 		echo "generated files were stale and have been regenerated: review and stage them"; exit 1; }
 
-precommit: format-check lint codegen-check
+precommit: format-check lint codegen-check test
 
 # Point git at the versioned hooks (run once per clone).
 hooks:
@@ -197,9 +201,7 @@ hooks:
 
 check: lint codegen-check test
 
-.PHONY: demo-seed demo-reset demo-check demo-snapshot
-
-demo-seed: seed
+.PHONY: demo-reset demo-check demo-snapshot
 
 demo-reset:
 	cd backend && uv run python -m scripts.seed_demo --reset-demo
@@ -210,6 +212,10 @@ demo-check:
 demo-snapshot:
 	cd backend && uv run python -m scripts.demo_snapshot
 
-.PHONY: test-sync
+.PHONY: test-sync replication-health
 test-sync:
 	cd backend && uv run python -m scripts.verify_sync
+
+# Readiness, an active replication slot, retained WAL (alert above 1 GiB) and lag (above 60 s).
+replication-health:
+	cd backend && uv run python -m scripts.replication_health

@@ -1,8 +1,8 @@
 appId: ca.clientbridge.app
 name: Staff pay totals retain their labels
 ---
-- runFlow: ../helpers/owner.yaml
-- tapOn: "View payments"
+- runFlow: helpers/owner.yaml
+- tapOn: "View all"
 - swipe:
       from:
           text: "Refunds"

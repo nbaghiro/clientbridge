@@ -20,10 +20,7 @@ onFlowComplete:
 - assertVisible: "Reset your password"
 - takeScreenshot: password-reset
 - tapOn: "Back to sign in"
-- tapOn:
-      text: "hannah@birchbarkpets.ca"
-      point: "95%,50%"
-- eraseText
+- tapOn: "you@business.ca"
 - inputText: "diego@birchbarkpets.ca"
 - assertVisible: "diego@birchbarkpets.ca"
 - tapOn: "••••••••"

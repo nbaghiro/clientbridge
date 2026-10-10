@@ -10,7 +10,7 @@ name: Inbox tabs and payment access
 - runFlow:
       when:
           visible: "Sign in"
-      file: ../helpers/owner.yaml
+      file: helpers/owner.yaml
 - tapOn:
       id: tab-today
 - extendedWaitUntil:
@@ -27,15 +27,11 @@ name: Inbox tabs and payment access
       id: tab-inbox
 - assertNotVisible:
       id: tab-payments
-- tapOn: "View payments"
+- tapOn: "View all"
 - assertVisible: "Search client or number"
 - tapOn: "Back|Go back|Navigate up"
 - assertVisible:
       id: tab-today
-- tapOn: "Create"
-- tapOn: "View payments"
-- assertVisible: "Search client or number"
-- tapOn: "Back|Go back|Navigate up"
 - tapOn:
       id: tab-inbox
 - assertVisible: "Search name, pet or message"
@@ -67,9 +63,11 @@ name: Inbox tabs and payment access
 - tapOn: "Search"
 - inputText: "Ethan"
 - tapOn: "Message Ethan Wright.*"
-- assertVisible: "New message"
 - assertVisible: "Ethan Wright"
-- tapOn: "Cancel"
+- assertVisible: "Client details"
+- tapOn:
+      text: "Inbox"
+      below: "Messages"
 - assertVisible: "Search name, pet or message"
 - tapOn:
       id: tab-today

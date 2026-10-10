@@ -361,7 +361,9 @@ test("owner: schedule, booking panel, classes and repeat visits", async ({ page 
 
     await walk.step("classes: roster and message everyone", async () => {
         await navigate(page, "/schedule/classes");
-        await expect(main.getByRole("heading", { name: strings.classes.title })).toBeVisible();
+        await expect(
+            main.getByRole("heading", { name: strings.classes.title, exact: true }),
+        ).toBeVisible();
         await main.getByRole("button", { name: strings.classes.messageClass }).click();
         await expect(page.getByRole("dialog")).toBeVisible();
         await escapeDialog(page);
@@ -410,11 +412,13 @@ test("owner: clients, records, notes, pets, wallet and merge", async ({ page }) 
         const record = page.getByRole("dialog");
         await record.getByRole("button", { name: r.addNote }).click();
         await expect(page.getByRole("dialog", { name: r.addNoteTitle })).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(record.getByRole("button", { name: r.addNote })).toBeVisible();
         await escapeDialog(page);
     });
 
     await walk.step("record: note actions", async () => {
-        await main.locator("button.block").first().click();
+        await main.getByRole("button", { name: /^Amélie Tremblay/ }).click();
         const record = page.getByRole("dialog");
         await record
             .getByRole("listitem")
@@ -530,7 +534,7 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
             .getByRole("dialog")
             .getByRole("button", { name: strings.payments.interac.open })
             .click();
-        await expect(page.getByRole("dialog")).not.toContainText(s.lines);
+        await expect(page.getByRole("dialog")).not.toContainText(s.lines, { useInnerText: true });
         await page.keyboard.press("Escape");
         await expect(page.getByRole("dialog")).toContainText(s.lines);
         await cancelConfirm(
@@ -550,7 +554,8 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
                 .first()
                 .click();
         }
-        await main.getByRole("button", { name: startsWith(s.estimateSegments.all) }).click();
+        // a waiting estimate can still be converted; an accepted one may already be
+        await main.getByRole("button", { name: startsWith(s.estimateSegments.sent) }).click();
         await main.locator("button.block").first().click();
         const record = page.getByRole("dialog");
         await cancelConfirm(page, record.getByRole("button", { name: s.convert }), s.convertTitle);
@@ -892,7 +897,9 @@ test("staff: today, schedule and clients", async ({ page }) => {
         const views = main.getByRole("group", { name: b.viewLabel });
         await views.getByRole("button", { name: b.viewClasses }).click();
         await expect(page).toHaveURL(/\/schedule\/classes$/);
-        await expect(main.getByRole("heading", { name: strings.classes.title })).toBeVisible();
+        await expect(
+            main.getByRole("heading", { name: strings.classes.title, exact: true }),
+        ).toBeVisible();
         await views.getByRole("button", { name: b.viewSeries }).click();
         await expect(page).toHaveURL(/\/schedule\/series$/);
         await openAndClose(page, exactly(strings.recurrences.newShort));
@@ -909,6 +916,10 @@ test("staff: today, schedule and clients", async ({ page }) => {
         await record.getByRole("button", { name: strings.clients.record.addNote }).click();
         await expect(
             page.getByRole("dialog", { name: strings.clients.record.addNoteTitle }),
+        ).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(
+            record.getByRole("button", { name: strings.clients.record.addNote }),
         ).toBeVisible();
         await escapeDialog(page);
     });

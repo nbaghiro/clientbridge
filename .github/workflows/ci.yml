@@ -26,18 +26,21 @@ jobs:
       rustfs:
         image: rustfs/rustfs:latest
         env:
-          RUSTFS_ACCESS_KEY: minio
-          RUSTFS_SECRET_KEY: minio12345
+          RUSTFS_ACCESS_KEY: rustfs
+          RUSTFS_SECRET_KEY: rustfs-dev-secret
           RUSTFS_CONSOLE_ENABLE: "true"
           RUSTFS_CORS_ALLOWED_ORIGINS: "*"
         ports: ["8705:9000"]
     env:
-      DATABASE_URL: postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge_test_ci
+      # the service's superuser only creates roles and grants; the API and tests use clientbridge_api
+      ADMIN_DATABASE_URL: postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge_test_ci
+      MIGRATION_DATABASE_URL: postgresql+asyncpg://clientbridge_migrator:clientbridge_migrator@localhost:8702/clientbridge_test_ci
+      DATABASE_URL: postgresql+asyncpg://clientbridge_api:clientbridge_api@localhost:8702/clientbridge_test_ci
       ENV: dev
       S3_ENDPOINT: http://localhost:8705
       S3_BUCKET: clientbridge-demo-ci
-      S3_ACCESS_KEY: minio
-      S3_SECRET_KEY: minio12345
+      S3_ACCESS_KEY: rustfs
+      S3_SECRET_KEY: rustfs-dev-secret
       S3_REGION: us-east-1
     steps:
       - uses: actions/checkout@v4
@@ -158,18 +161,21 @@ jobs:
       rustfs:
         image: rustfs/rustfs:latest
         env:
-          RUSTFS_ACCESS_KEY: minio
-          RUSTFS_SECRET_KEY: minio12345
+          RUSTFS_ACCESS_KEY: rustfs
+          RUSTFS_SECRET_KEY: rustfs-dev-secret
           RUSTFS_CONSOLE_ENABLE: "true"
           RUSTFS_CORS_ALLOWED_ORIGINS: "*"
         ports: ["8705:9000"]
     env:
-      DATABASE_URL: postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge_test_ci
+      # the service's superuser only creates roles and grants; the API and tests use clientbridge_api
+      ADMIN_DATABASE_URL: postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge_test_ci
+      MIGRATION_DATABASE_URL: postgresql+asyncpg://clientbridge_migrator:clientbridge_migrator@localhost:8702/clientbridge_test_ci
+      DATABASE_URL: postgresql+asyncpg://clientbridge_api:clientbridge_api@localhost:8702/clientbridge_test_ci
       ENV: dev
       S3_ENDPOINT: http://localhost:8705
       S3_BUCKET: clientbridge-demo-ci
-      S3_ACCESS_KEY: minio
-      S3_SECRET_KEY: minio12345
+      S3_ACCESS_KEY: rustfs
+      S3_SECRET_KEY: rustfs-dev-secret
       S3_REGION: us-east-1
     steps:
       - uses: actions/checkout@v4
@@ -296,3 +302,98 @@ jobs:
           name: sync-verification
           path: .scratchpad/sync-hardening/service-verification.log
           retention-days: 7
+
+  web:
+    # The web smoke suite against the full local stack: Postgres, PowerSync, Redis, S3, the API and the seed.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: uv sync
+        working-directory: backend
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: frontend
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+        working-directory: frontend
+      - run: make up migrate seed
+      - run: uv run uvicorn clientbridge.main:app --host 127.0.0.1 --port 8701 > /tmp/api.log 2>&1 &
+        working-directory: backend
+      - run: until curl -sf 127.0.0.1:8701/health; do sleep 1; done
+        timeout-minutes: 2
+      - run: make test-web
+      - if: failure()
+        run: |
+          cat /tmp/api.log
+          docker compose logs --no-color powersync | tail -200
+
+  mobile:
+    # The Maestro walkthroughs on an Android 14 emulator, using a release build so the bundle is embedded.
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - run: uv sync
+        working-directory: backend
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - name: build the release APK
+        working-directory: frontend/apps/mobile
+        run: |
+          pnpm exec expo prebuild --platform android --no-install
+          cd android && ./gradlew assembleRelease --no-daemon
+      - run: make up migrate seed
+      - run: uv run uvicorn clientbridge.main:app --host 127.0.0.1 --port 8701 > /tmp/api.log 2>&1 &
+        working-directory: backend
+      - run: until curl -sf 127.0.0.1:8701/health; do sleep 1; done
+        timeout-minutes: 2
+      - run: curl -fsSL "https://get.maestro.mobile.dev" | bash
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: |
+            adb reverse tcp:8701 tcp:8701
+            adb reverse tcp:8704 tcp:8704
+            adb install frontend/apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+            cd frontend/apps/mobile && "$HOME/.maestro/bin/maestro" test e2e --test-output-dir test-results
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: mobile-walkthroughs
+          path: frontend/apps/mobile/test-results
+          retention-days: 7
+      - if: failure()
+        run: cat /tmp/api.log

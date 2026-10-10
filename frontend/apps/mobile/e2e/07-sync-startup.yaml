@@ -1,7 +1,7 @@
 appId: ca.clientbridge.app
 name: Scoped replica startup and hours editor
 ---
-- runFlow: ../helpers/owner.yaml
+- runFlow: helpers/owner.yaml
 - tapOn: "Setup"
 - tapOn: "Team & hours"
 - scrollUntilVisible:

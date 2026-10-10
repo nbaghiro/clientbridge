@@ -1,6 +1,6 @@
 #!/bin/sh
-# Fast pre-commit gate: format-check + lint + generated-code drift. No tests here;
-# run `make check` before pushing for the full suite. Install with `make hooks`.
+# Pre-commit gate: format-check, lint, generated-code drift and the backend and frontend tests (the
+# backend suite needs the local Postgres from `make up`). Browser, device and sync e2e run in CI.
 #
 # Default a writable uv cache: this machine's ~/.cache/uv can be root-owned, which breaks `uv run`
 # from inside a hook. Respects an already-exported UV_CACHE_DIR.
