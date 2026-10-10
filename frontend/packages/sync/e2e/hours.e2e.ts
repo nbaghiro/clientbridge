@@ -18,8 +18,24 @@ test("hours proposals coalesce before upload and retain immutable identities aft
                 start_time: start,
                 end_time: "17:00:00",
             }));
-        let first = await enqueueHours(db, "staff", "business", 0, days("09:00:00"));
-        first = await enqueueHours(db, "staff", "business", 0, days("10:00:00"), false, first);
+        let first = await enqueueHours(
+            db,
+            "staff",
+            "business",
+            0,
+            days("09:00:00"),
+            days("09:00:00"),
+        );
+        first = await enqueueHours(
+            db,
+            "staff",
+            "business",
+            0,
+            days("10:00:00"),
+            days("10:00:00"),
+            false,
+            first,
+        );
         const coalesced = await db.get<{ count: number }>(
             "SELECT count(*) AS count FROM hours_outbox",
         );
@@ -33,7 +49,16 @@ test("hours proposals coalesce before upload and retain immutable identities aft
             },
             new AbortController().signal,
         );
-        await enqueueHours(db, "staff", "business", first.revision, days("11:00:00"), false, first);
+        await enqueueHours(
+            db,
+            "staff",
+            "business",
+            first.revision,
+            days("11:00:00"),
+            days("11:00:00"),
+            false,
+            first,
+        );
         await db.execute("UPDATE hours_outbox SET retry_at = 0");
         await db.close();
         db = await openReplica(name);
@@ -92,14 +117,14 @@ test("a rejected week blocks its successors while unrelated staff edits proceed"
             start_time: "09:00:00",
             end_time: "17:00:00",
         }));
-        const first = await enqueueHours(db, "first", "business", 0, days);
+        const first = await enqueueHours(db, "first", "business", 0, days, days);
         await uploadHoursOnce(
             db,
             () => Promise.reject(new Error("offline")),
             new AbortController().signal,
         );
-        await enqueueHours(db, "first", "business", first.revision, days, false, first);
-        await enqueueHours(db, "second", "business", 0, days);
+        await enqueueHours(db, "first", "business", first.revision, days, days, false, first);
+        await enqueueHours(db, "second", "business", 0, days, days);
         await db.execute("UPDATE hours_outbox SET retry_at = 0");
         await uploadHoursOnce(
             db,
@@ -118,7 +143,7 @@ test("a rejected week blocks its successors while unrelated staff edits proceed"
         const states = await db.getAll(
             "SELECT staff_id, state FROM hours_outbox ORDER BY sequence",
         );
-        await enqueueHours(db, "first", "business", 5, days, true);
+        await enqueueHours(db, "first", "business", 5, days, days, true);
         const repaired = await db.getAll<{ payload: string }>(
             "SELECT payload FROM hours_outbox WHERE staff_id = 'first'",
         );
@@ -157,6 +182,7 @@ test("a paused upload releases its lease even if its transport ignores cancellat
                 start_time: null,
                 end_time: null,
             })),
+            [],
         );
         const controller = new AbortController();
         let started!: () => void;
@@ -206,12 +232,12 @@ test("another editor cannot overwrite a proposal it did not observe", async ({ p
             start_time: null,
             end_time: null,
         }));
-        const original = await enqueueHours(db, "staff", "business", 7, days);
+        const original = await enqueueHours(db, "staff", "business", 7, days, days);
         const edited = days.map((day) => ({ ...day, available: true }));
-        await enqueueHours(db, "staff", "business", 8, edited, false, original);
+        await enqueueHours(db, "staff", "business", 8, edited, edited, false, original);
         let rejected = false;
         try {
-            await enqueueHours(db, "staff", "business", 8, days, false, original);
+            await enqueueHours(db, "staff", "business", 8, days, days, false, original);
         } catch {
             rejected = true;
         }

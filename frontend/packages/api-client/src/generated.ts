@@ -519,6 +519,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/form/{token}/upload/{file_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Form Upload Complete */
+        post: operations["public_form_upload_complete_form__token__upload__file_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/contract/{token}": {
         parameters: {
             query?: never;
@@ -1247,6 +1264,23 @@ export interface paths {
         put?: never;
         /** Check Booking Move */
         post: operations["check_booking_move_v1_bookings__booking_id__check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/visits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Client Visits */
+        get: operations["client_visits_v1_bookings_visits_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2736,6 +2770,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/threads/{thread_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Thread Messages */
+        get: operations["thread_messages_v1_threads__thread_id__messages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/forms/send": {
         parameters: {
             query?: never;
@@ -2866,6 +2917,23 @@ export interface paths {
         put?: never;
         /** Create File */
         post: operations["create_file_v1_files_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/files/{file_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete File */
+        post: operations["complete_file_v1_files__file_id__complete_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3123,12 +3191,7 @@ export interface components {
          * @description The public brand; values are validated and trimmed so clients can apply them directly.
          */
         BrandInput: {
-            /** Logo Url */
-            logo_url?: string | null;
-            /**
-             * Logo File Id
-             * @description An uploaded logo; used instead of logo_url on public pages
-             */
+            /** Logo File Id */
             logo_file_id?: string | null;
             /** Avatar File Id */
             avatar_file_id?: string | null;
@@ -3235,8 +3298,6 @@ export interface components {
             province: ("AB" | "BC" | "MB" | "NB" | "NL" | "NS" | "NT" | "NU" | "ON" | "PE" | "QC" | "SK" | "YT") | null;
             /** Timezone */
             timezone: string;
-            /** Locale */
-            locale: string;
             /**
              * Status
              * @enum {string}
@@ -3274,8 +3335,6 @@ export interface components {
             name?: string | null;
             /** Timezone */
             timezone?: string | null;
-            /** Locale */
-            locale?: string | null;
             /** Billing Email */
             billing_email?: string | null;
             /** Gst Hst Number */
@@ -3566,6 +3625,42 @@ export interface components {
             /** Body */
             body: string;
         };
+        /** ConversationMessage */
+        ConversationMessage: {
+            /** Id */
+            id: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "in" | "out";
+            /**
+             * Channel
+             * @enum {string}
+             */
+            channel: "sms" | "email";
+            /** Body */
+            body: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "queued" | "sent" | "delivered" | "read" | "failed";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Author */
+            author: string | null;
+        };
+        /** ConversationPage */
+        ConversationPage: {
+            /** Messages */
+            messages: components["schemas"]["ConversationMessage"][];
+            /** More */
+            more: boolean;
+        };
         /** DashboardSummary */
         DashboardSummary: {
             /**
@@ -3776,6 +3871,8 @@ export interface components {
             content_type: string | null;
             /** Size */
             size: number | null;
+            /** Uploaded At */
+            uploaded_at: string | null;
         };
         /** FileUpload */
         FileUpload: {
@@ -4782,8 +4879,6 @@ export interface components {
             booking_id: string;
             /** Address */
             address?: string | null;
-            /** Parking Note */
-            parking_note?: string | null;
             /** Business Name */
             business_name: string;
             brand: components["schemas"]["PublicBrand"];
@@ -4958,11 +5053,6 @@ export interface components {
             province: "AB" | "BC" | "MB" | "NB" | "NL" | "NS" | "NT" | "NU" | "ON" | "PE" | "QC" | "SK" | "YT";
             /** Timezone */
             timezone?: string | null;
-            /**
-             * Locale
-             * @default en
-             */
-            locale: string;
         };
         /** OnboardingLink */
         OnboardingLink: {
@@ -5529,7 +5619,7 @@ export interface components {
         };
         /**
          * PublicBrand
-         * @description A business's validated public brand; unset or malformed fields are None.
+         * @description A business's public brand; unset fields are None.
          */
         PublicBrand: {
             /** Public Slug */
@@ -5764,6 +5854,11 @@ export interface components {
             tax_by_code: {
                 [key: string]: number;
             };
+        };
+        /** PublicFileComplete */
+        PublicFileComplete: {
+            /** File Id */
+            file_id: string;
         };
         /** PublicFileCreate */
         PublicFileCreate: {
@@ -7507,6 +7602,54 @@ export interface components {
             /** Token */
             token: string;
         };
+        /** VisitOut */
+        VisitOut: {
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "confirmed" | "completed" | "canceled" | "no_show" | "waitlisted";
+            /** Subject Id */
+            subject_id: string | null;
+            /** Staff Id */
+            staff_id: string | null;
+            /** Deposit Amount Cents */
+            deposit_amount_cents: number;
+            /**
+             * Deposit Status
+             * @enum {string}
+             */
+            deposit_status: "none" | "pending" | "collected" | "applied" | "forfeited" | "refunded";
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Item Name */
+            item_name: string;
+            /** Item Color */
+            item_color: string | null;
+            /** Staff Name */
+            staff_name: string | null;
+        };
+        /** VisitPage */
+        VisitPage: {
+            /** Visits */
+            visits: components["schemas"]["VisitOut"][];
+            /** More */
+            more: boolean;
+            /** Completed */
+            completed: number;
+            /** Last Completed At */
+            last_completed_at: string | null;
+        };
         /** WeekDay */
         WeekDay: {
             /** Weekday */
@@ -8540,6 +8683,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicFileUpload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_form_upload_complete_form__token__upload__file_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicFileComplete"];
                 };
             };
             /** @description Validation Error */
@@ -10144,6 +10319,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingCheck"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    client_visits_v1_bookings_visits_get: {
+        parameters: {
+            query: {
+                client_id: string;
+                before: string;
+                before_id?: string | null;
+                limit?: number;
+            };
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitPage"];
                 };
             };
             /** @description Validation Error */
@@ -13395,6 +13607,44 @@ export interface operations {
             };
         };
     };
+    thread_messages_v1_threads__thread_id__messages_get: {
+        parameters: {
+            query: {
+                before: string;
+                before_id?: string | null;
+                limit?: number;
+            };
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     send_form_v1_forms_send_post: {
         parameters: {
             query?: never;
@@ -13678,6 +13928,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FileUpload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_file_v1_files__file_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileOut"];
                 };
             };
             /** @description Validation Error */

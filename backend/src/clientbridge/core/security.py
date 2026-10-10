@@ -52,7 +52,7 @@ def decode_jwt(token: str) -> dict[str, object]:
 
 
 def issue_powersync_token(user_id: str) -> str:
-    """Short-lived PowerSync token; `sub` is the user, the sync rules derive their businesses."""
+    """Short-lived PowerSync token; `sub` is the user, the sync streams derive their businesses."""
     s = get_settings()
     now = int(time.time())
     payload: dict[str, object] = {

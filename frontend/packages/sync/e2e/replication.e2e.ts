@@ -1,3 +1,5 @@
+import { writeFileSync } from "node:fs";
+
 import { expect, test } from "@playwright/test";
 
 const endpoint = process.env.SYNC_TEST_URL;
@@ -85,128 +87,6 @@ for (const role of ["owner", "admin", "staff", "contractor", "multi", "foreign"]
     });
 }
 
-test("rejected intent is durable before acknowledgement and service restores authoritative rows", async ({
-    page,
-}) => {
-    test.skip(!endpoint, "Run make test-sync for disposable services");
-    await page.goto("/");
-    const result = await page.evaluate(
-        async ({ endpoint, token }) => {
-            const { openReplica } = await import("./database");
-            const filename = `rejection-${crypto.randomUUID()}.db`;
-            const db = await openReplica(filename);
-            const connector = {
-                fetchCredentials: () => Promise.resolve({ endpoint, token }),
-                uploadData: () => Promise.resolve(),
-            };
-            await db.connect(connector);
-            await db.waitForFirstSync(AbortSignal.timeout(20_000));
-            await db.disconnect();
-            await db.execute("UPDATE hours SET note = 'rejected' WHERE id = 'av_owner'");
-            await db.execute("UPDATE hours SET note = 'dependent' WHERE id = 'av_owner'");
-            await db.execute("UPDATE hours SET note = 'independent' WHERE id = 'av_staff'");
-            const held = [];
-            for await (const tx of db.getCrudTransactions()) {
-                held.push({ id: tx.transactionId, crud: tx.crud });
-            }
-            await db.execute("INSERT INTO device_prefs (id, value) VALUES (?, ?)", [
-                "rejected",
-                JSON.stringify(held),
-            ]);
-            await db.close();
-            const reopened = await openReplica(filename);
-            const durable = await reopened.get<{ value: string }>(
-                "SELECT value FROM device_prefs WHERE id = 'rejected'",
-            );
-            const countBefore = (await reopened.getUploadQueueStats()).count;
-            let pending = await reopened.getNextCrudTransaction();
-            while (pending) {
-                await pending.complete();
-                pending = await reopened.getNextCrudTransaction();
-            }
-            await reopened.connect(connector);
-            const deadline = Date.now() + 10_000;
-            let notes: { note: string }[] = [];
-            while (Date.now() < deadline) {
-                notes = await reopened.getAll<{ note: string }>(
-                    "SELECT note FROM hours ORDER BY id",
-                );
-                if (notes.every((row) => row.note === "server baseline")) break;
-                await new Promise((resolve) => setTimeout(resolve, 50));
-            }
-            const result = { durable: JSON.parse(durable.value) as unknown[], countBefore, notes };
-            await reopened.disconnectAndClear();
-            await reopened.close();
-            return result;
-        },
-        { endpoint: endpoint ?? "", token: tokens.owner ?? "" },
-    );
-    expect(result.countBefore).toBe(3);
-    expect(result.durable).toHaveLength(3);
-    expect(result.notes).toEqual([{ note: "server baseline" }, { note: "server baseline" }]);
-});
-
-test("transport outage preserves offline work through reconnection", async ({ page, context }) => {
-    test.skip(!endpoint, "Run make test-sync for disposable services");
-    await page.goto("/");
-    await page.evaluate(
-        async ({ endpoint, token }) => {
-            const { openReplica, liveReplicas } = await import("./database");
-            const db = await openReplica(`outage-${crypto.randomUUID()}.db`);
-            liveReplicas.set("outage", db);
-            await db.connect({
-                fetchCredentials: () => Promise.resolve({ endpoint, token }),
-                uploadData: () => Promise.resolve(),
-            });
-            await db.waitForFirstSync(AbortSignal.timeout(20_000));
-        },
-        { endpoint: endpoint ?? "", token: tokens.owner ?? "" },
-    );
-    try {
-        await context.setOffline(true);
-        const pending = await page.evaluate(async () => {
-            const { liveReplicas } = await import("./database");
-            const db = liveReplicas.get("outage");
-            if (!db) throw new Error("missing test replica");
-            await db.execute("UPDATE hours SET note = 'offline intent' WHERE id = 'av_owner'");
-            return (await db.getUploadQueueStats()).count;
-        });
-        expect(pending).toBe(1);
-        await context.setOffline(false);
-        const result = await page.evaluate(
-            async ({ endpoint, token }) => {
-                const { liveReplicas } = await import("./database");
-                const db = liveReplicas.get("outage");
-                if (!db) throw new Error("missing test replica");
-                await db.disconnect();
-                await db.connect({
-                    fetchCredentials: () => Promise.resolve({ endpoint, token }),
-                    uploadData: () => Promise.resolve(),
-                });
-                return {
-                    count: (await db.getUploadQueueStats()).count,
-                    row: await db.get<{ note: string }>(
-                        "SELECT note FROM hours WHERE id = 'av_owner'",
-                    ),
-                };
-            },
-            { endpoint: endpoint ?? "", token: tokens.owner ?? "" },
-        );
-        expect(result).toEqual({ count: 1, row: { note: "offline intent" } });
-    } finally {
-        await context.setOffline(false);
-        await page.evaluate(async () => {
-            const { liveReplicas } = await import("./database");
-            const db = liveReplicas.get("outage");
-            if (db) {
-                await db.disconnectAndClear();
-                await db.close();
-            }
-            liveReplicas.delete("outage");
-        });
-    }
-});
-
 test("selected-business queries isolate lists, details and aggregate subqueries", async ({
     page,
 }) => {
@@ -257,3 +137,123 @@ test("selected-business queries isolate lists, details and aggregate subqueries"
     expect(result.role).toEqual([{ role: "staff" }]);
     expect(JSON.stringify(result.plan)).toContain("INDEX");
 });
+
+const model = JSON.parse(process.env.SYNC_TEST_MODEL ?? "{}") as Record<string, string[]>;
+const projections = JSON.parse(process.env.SYNC_TEST_PROJECTIONS ?? "{}") as Record<
+    string,
+    Record<string, string[]>
+>;
+const FULL = [
+    "business_shared",
+    "business_full",
+    "staff_self",
+    "history_shared",
+    "history_self",
+    "history_full",
+];
+const LIMITED = [
+    "business_shared",
+    "staff_limited",
+    "staff_self",
+    "history_shared",
+    "history_self",
+];
+// which buckets each identity receives in each business it belongs to
+const AUDIENCE: Record<string, Record<string, string[]>> = {
+    owner: { bz_first: FULL },
+    admin: { bz_first: FULL },
+    staff: { bz_first: LIMITED },
+    contractor: { bz_first: LIMITED },
+    multi: { bz_first: FULL, bz_second: LIMITED },
+    foreign: { bz_foreign: FULL },
+};
+const OWNER_ROWS = {
+    bookings: ["bk_owner", "bk_staff"],
+    invoices: ["inv_first"],
+    payments: ["pay_first"],
+    entries: ["en_0", "en_1"],
+    orders: ["ord_first"],
+    lines: ["ln_pickup"],
+};
+const EXPECTED_ROWS: Record<string, Record<string, string[]>> = {
+    owner: OWNER_ROWS,
+    admin: OWNER_ROWS,
+    multi: OWNER_ROWS,
+    staff: {
+        bookings: ["bk_staff"],
+        invoices: [],
+        payments: [],
+        entries: ["en_0"],
+        orders: [],
+        lines: ["ln_pickup"],
+    },
+    contractor: {
+        bookings: [],
+        invoices: [],
+        payments: [],
+        entries: [],
+        orders: [],
+        lines: ["ln_pickup"],
+    },
+    foreign: { bookings: [], invoices: [], payments: [], entries: [], orders: [], lines: [] },
+};
+
+function allowed(role: string, business: string, table: string): Set<string> {
+    const buckets = AUDIENCE[role]?.[business] ?? [];
+    return new Set(["id", ...buckets.flatMap((bucket) => projections[bucket]?.[table] ?? [])]);
+}
+
+for (const role of Object.keys(AUDIENCE)) {
+    test(`${role} receives no column outside its reviewed projection in any synced table`, async ({
+        page,
+    }) => {
+        test.skip(!endpoint, "Run make test-sync for disposable source and PowerSync services");
+        await page.goto("/");
+        const tables = await page.evaluate(
+            async ({ endpoint, token, model }) => {
+                const { openModelReplica, subscribeHistory } = await import("./database");
+                const db = await openModelReplica(`model-${crypto.randomUUID()}.db`, model);
+                try {
+                    const history = await subscribeHistory(db);
+                    await db.connect({
+                        fetchCredentials: () => Promise.resolve({ endpoint, token }),
+                        uploadData: () => Promise.resolve(),
+                    });
+                    await db.waitForFirstSync(AbortSignal.timeout(20_000));
+                    await Promise.all(
+                        history.map((s) => s.waitForFirstSync(AbortSignal.timeout(20_000))),
+                    );
+                    const out: Record<string, Record<string, unknown>[]> = {};
+                    for (const table of Object.keys(model)) {
+                        out[table] = await db.getAll(`SELECT * FROM ${table} ORDER BY id`);
+                    }
+                    return out;
+                } finally {
+                    await db.disconnectAndClear();
+                    await db.close();
+                }
+            },
+            { endpoint: endpoint ?? "", token: tokens[role] ?? "", model },
+        );
+        const dump = process.env.SYNC_TEST_DUMP;
+        if (dump) writeFileSync(`${dump}/${role}.json`, JSON.stringify(tables, null, 1));
+        const leaks: string[] = [];
+        for (const [table, rows] of Object.entries(tables)) {
+            for (const row of rows) {
+                const business = String(table === "businesses" ? row.id : row.business_id);
+                const permitted = allowed(role, business, table);
+                if (permitted.size === 1)
+                    leaks.push(`${table}.${String(row.id)} row from ${business}`);
+                for (const [name, value] of Object.entries(row)) {
+                    if (value !== null && !permitted.has(name))
+                        leaks.push(`${table}.${String(row.id)}.${name}`);
+                }
+            }
+        }
+        expect(leaks).toEqual([]);
+        const ids = (table: string) => (tables[table] ?? []).map((row) => String(row.id));
+        for (const [table, expected] of Object.entries(EXPECTED_ROWS[role] ?? {})) {
+            expect(ids(table), table).toEqual(expected);
+        }
+    });
+}

@@ -1,7 +1,10 @@
 """Replication is a reviewed column allowlist, independent of model expansion."""
 
+import json
+from pathlib import Path
+
 import pytest
-from scripts.gen_sync_schema import gen_table, synced_columns
+from scripts.gen_sync_schema import SYNC_STREAMS, gen_table, stream_columns, synced_columns
 from sqlalchemy import Column, String
 
 from clientbridge.core.db import Base
@@ -43,16 +46,18 @@ def test_new_model_column_is_excluded_by_default() -> None:
 @pytest.mark.parametrize("projection", ["*", "id, unknown_secret", "id, name AS label"])
 def test_unsupported_projections_fail_closed(projection: str) -> None:
     with pytest.raises(ValueError):
-        synced_columns(f"    data:\n      - SELECT {projection} FROM clients")
+        synced_columns(f"  team:\n    queries:\n      - SELECT {projection} FROM clients")
 
 
-def test_parameter_columns_are_not_replica_columns() -> None:
+def test_stream_cte_columns_are_not_replica_columns() -> None:
     rules = """
-    parameters:
-      - SELECT invite_token FROM staff
-    data:
-      - SELECT id, name FROM staff WHERE business_id = bucket.business_id
-      - SELECT id, rate_cents FROM staff WHERE business_id = bucket.business_id
+streams:
+  team:
+    with:
+      member: SELECT invite_token FROM staff WHERE user_id = auth.user_id()
+    queries:
+      - SELECT id, name FROM staff WHERE business_id IN member
+      - SELECT id, rate_cents FROM staff WHERE business_id IN member
 """
     assert synced_columns(rules) == {"staff": ["id", "name", "rate_cents"]}
 
@@ -65,3 +70,53 @@ def test_required_share_capabilities_remain_available() -> None:
         ("signatures", "token"),
     ):
         assert column in projections[table]
+
+
+SNAPSHOT = Path(__file__).parent / "fixtures" / "sync_projections.json"
+# what owner and admin may read and nobody else: pay, tax registration and billing contacts
+OWNER_ONLY = {
+    "staff": {"payee", "rate_type", "rate_bps", "rate_cents", "retail_rate_bps"},
+    "businesses": {"gst_hst_number", "qst_number", "pst_number", "billing_email"},
+}
+LIMITED_STREAMS = (
+    "business_shared",
+    "staff_limited",
+    "staff_self",
+    "history_shared",
+    "history_self",
+)
+
+
+def projection_errors(streams: dict[str, dict[str, list[str]]]) -> list[str]:
+    reviewed = json.loads(SNAPSHOT.read_text())
+    errors = []
+    for stream in sorted(streams.keys() | reviewed.keys()):
+        tables = streams.get(stream, {})
+        approved = reviewed.get(stream, {})
+        for table in sorted(tables.keys() | approved.keys()):
+            for column in sorted(set(tables.get(table, [])) - set(approved.get(table, []))):
+                errors.append(f"{stream}.{table}.{column} is not in the reviewed snapshot")
+            for column in sorted(set(approved.get(table, [])) - set(tables.get(table, []))):
+                errors.append(f"{stream}.{table}.{column} was removed; update the snapshot")
+    for stream in LIMITED_STREAMS:
+        for table, columns in OWNER_ONLY.items():
+            for column in sorted(columns & set(streams.get(stream, {}).get(table, []))):
+                errors.append(f"{stream}.{table}.{column} reaches members who are not owner/admin")
+    return errors
+
+
+def test_projections_match_the_reviewed_snapshot() -> None:
+    assert projection_errors(stream_columns()) == []
+
+
+def test_an_over_broad_rule_change_is_reported() -> None:
+    rules = SYNC_STREAMS.read_text().replace(
+        "SELECT id, hours_revision, business_id, user_id, role,",
+        "SELECT id, hours_revision, rate_cents, business_id, user_id, role,",
+        1,
+    )
+    assert rules != SYNC_STREAMS.read_text()
+    assert projection_errors(stream_columns(rules)) == [
+        "staff_limited.staff.rate_cents is not in the reviewed snapshot",
+        "staff_limited.staff.rate_cents reaches members who are not owner/admin",
+    ]

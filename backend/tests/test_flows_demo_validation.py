@@ -38,7 +38,8 @@ async def test_demo_preflight_rejects_cross_business_consent(db: AsyncSession) -
     assert "consents/cns_test_cross_demo: cross-business parent" in errors
 
 
-async def test_seed_reset_preserves_unrelated_accounts(db: AsyncSession) -> None:
+async def test_seed_reset_preserves_unrelated_accounts(owner_db: AsyncSession) -> None:
+    db = owner_db
     from scripts.seed_demo import replace_demo_rows
     from sqlalchemy import select
 

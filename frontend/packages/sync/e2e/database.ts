@@ -2,21 +2,32 @@ import { AppSchema } from "../src/schema";
 import { PowerSyncDatabase } from "@powersync/web";
 import { Schema, Table, column } from "@powersync/common";
 
-export async function openDatabase(filename: string) {
+export async function openReplica(filename: string) {
     const db = new PowerSyncDatabase({
-        schema: new Schema({
-            hours: new Table({ note: column.text }),
-            identities: new Table({ operation: column.text }, { localOnly: true }),
-        }),
+        schema: AppSchema,
         database: { dbFilename: filename },
     });
     await db.init();
     return db;
 }
 
-export async function openReplica(filename: string) {
+// Every model column, so any column the service sends is stored where a test can see it.
+export async function openModelReplica(filename: string, model: Record<string, string[]>) {
     const db = new PowerSyncDatabase({
-        schema: AppSchema,
+        schema: new Schema(
+            Object.fromEntries(
+                Object.entries(model).map(([table, columns]) => [
+                    table,
+                    new Table(
+                        Object.fromEntries(
+                            columns
+                                .filter((name) => name !== "id")
+                                .map((name) => [name, column.text]),
+                        ),
+                    ),
+                ]),
+            ),
+        ),
         database: { dbFilename: filename },
     });
     await db.init();
@@ -51,3 +62,4 @@ export function replicaDatabase(filename: string) {
 export const liveReplicas = new Map<string, PowerSyncDatabase>();
 export { businessQuery, selectReplicaBusiness } from "../src/scoping";
 export { enqueueHours, uploadHoursOnce } from "../src/hours";
+export { subscribeHistory } from "../src/history";

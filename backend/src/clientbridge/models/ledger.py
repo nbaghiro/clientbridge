@@ -90,7 +90,7 @@ class Entry(PKMixin, BusinessScoped, Base):
     account_id: Mapped[str] = mapped_column(
         ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False
     )
-    # copied from the account so sync rules can slice a party's own entries (rows never change)
+    # copied from the account so sync streams can slice a party's own entries (rows never change)
     owner_type: Mapped[str] = mapped_column(String, nullable=False)
     owner_id: Mapped[str] = mapped_column(String, nullable=False)
     amount_cents: Mapped[int] = mapped_column(BigInteger, nullable=False)

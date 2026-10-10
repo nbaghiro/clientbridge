@@ -4,3 +4,4 @@ export * from "./debug";
 export * from "./lifecycle";
 export * from "./scoping";
 export * from "./hours";
+export * from "./history";

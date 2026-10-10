@@ -18,8 +18,9 @@ services:
       postgres:
         condition: service_healthy
     ports: ["127.0.0.1::8080"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
     volumes:
-      - ./powersync.yaml:/config/powersync.yaml:ro
+      - ${SYNC_TEST_CONFIG:-./powersync.yaml}:/config/powersync.yaml:ro
       - ${SYNC_TEST_RULES:-../sync-rules.yaml}:/config/sync-rules.yaml:ro
     environment:
       POWERSYNC_CONFIG_PATH: /config/powersync.yaml

@@ -1,6 +1,7 @@
-import type { CommonPowerSyncDatabase } from "@powersync/common";
+import type { CommonPowerSyncDatabase, SyncStreamSubscription } from "@powersync/common";
 
 import type { ManagedConnector } from "./connector";
+import { subscribeHistory } from "./history";
 
 interface ReplicaIdentity {
     userId: string;
@@ -22,6 +23,7 @@ export class ReplicaController {
     private tail: Promise<void> = Promise.resolve();
     private generation = 0;
     private stopUploads: (() => Promise<void>) | null = null;
+    private history: SyncStreamSubscription[] = [];
     private active: { db: CommonPowerSyncDatabase; identity: string } | null = null;
 
     constructor(private readonly open: (filename: string) => CommonPowerSyncDatabase) {}
@@ -51,6 +53,8 @@ export class ReplicaController {
             this.stopUploads = null;
             if (this.active?.identity !== key) {
                 if (this.active) {
+                    for (const subscription of this.history) subscription.unsubscribe();
+                    this.history = [];
                     await this.active.db.disconnect();
                     await this.active.db.close();
                     this.active = null;
@@ -65,11 +69,7 @@ export class ReplicaController {
                     if (!owner) {
                         const rows = await db.getAll("SELECT id FROM businesses LIMIT 1");
                         const proposals = await db.getAll("SELECT id FROM hours_outbox LIMIT 1");
-                        if (
-                            rows.length ||
-                            proposals.length ||
-                            (await db.getUploadQueueStats()).count
-                        )
+                        if (rows.length || proposals.length)
                             throw new Error("unassigned replica requires recovery");
                         await db.execute(
                             "INSERT INTO device_prefs (id, value) VALUES ('sync.identity', ?)",
@@ -86,12 +86,19 @@ export class ReplicaController {
             if (generation !== this.generation) throw new Error("replica activation superseded");
             await db.disconnect();
             if (generation !== this.generation) throw new Error("replica activation superseded");
+            const previous = this.history;
+            this.history = await subscribeHistory(db);
+            for (const subscription of previous) subscription.unsubscribe();
             await db.connect(connector);
             if (generation !== this.generation) {
                 await db.disconnect();
                 throw new Error("replica activation superseded");
             }
             this.stopUploads = connector.startUploads?.(db) ?? null;
+            // without table statistics SQLite prefers the business_id index, scanning a whole business per row
+            db.waitForFirstSync()
+                .then(() => db.execute("PRAGMA optimize=0x10002"))
+                .catch(() => undefined);
             return db;
         });
     }
@@ -110,6 +117,8 @@ export class ReplicaController {
         return this.serialize(async () => {
             await this.stopUploads?.();
             this.stopUploads = null;
+            for (const subscription of this.history) subscription.unsubscribe();
+            this.history = [];
             if (this.active) {
                 await this.active.db.disconnectAndClear();
                 await this.active.db.close();

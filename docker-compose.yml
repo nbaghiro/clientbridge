@@ -41,8 +41,8 @@ services:
   s3:
     image: rustfs/rustfs:latest   # S3-compatible; MinIO no longer publishes free images
     environment:
-      RUSTFS_ACCESS_KEY: minio
-      RUSTFS_SECRET_KEY: minio12345
+      RUSTFS_ACCESS_KEY: rustfs
+      RUSTFS_SECRET_KEY: rustfs-dev-secret
       RUSTFS_CONSOLE_ENABLE: "true"
       # Presigned URLs carry the credential; a redirected browser fetch arrives with Origin: null.
       RUSTFS_CORS_ALLOWED_ORIGINS: "*"

@@ -1,10 +1,16 @@
 import asyncio
-from datetime import time
+from datetime import UTC, datetime, time, timedelta
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.db import SessionLocal, engine
+from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
+from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
-from clientbridge.models.scheduling import Hours
+from clientbridge.models.ledger import Account, Entry
+from clientbridge.models.payments import Payment
+from clientbridge.models.scheduling import Booking, Hours, Slot
 
 
 async def seed() -> None:
@@ -77,8 +83,132 @@ async def seed() -> None:
                     note="server baseline",
                 )
             )
+        await financial(db)
         await db.commit()
     await engine.dispose()
+
+
+async def financial(db: AsyncSession) -> None:
+    """One row of each owner-only or self-only record type, so the replica check covers them."""
+    today = datetime.now(UTC).replace(hour=15, minute=0, second=0, microsecond=0)
+    start = today + timedelta(days=7)
+    db.add(Item(id="it_first", business_id="bz_first", kind="service", name="Groom"))
+    db.add(Invoice(id="inv_first", business_id="bz_first", client_id="cl_first", status="sent"))
+    db.add(Order(id="ord_first", business_id="bz_first", staff_id="st_staff", source="online"))
+    for staff in ("owner", "staff"):
+        db.add(
+            Account(
+                id=f"ac_{staff}",
+                business_id="bz_first",
+                owner_type="staff",
+                owner_id=f"st_{staff}",
+                category="payable",
+            )
+        )
+    db.add(
+        Account(
+            id="ac_revenue",
+            business_id="bz_first",
+            owner_type="business",
+            owner_id="bz_first",
+            category="revenue",
+        )
+    )
+    await db.flush()
+    for staff in ("owner", "staff"):
+        db.add(
+            Slot(
+                id=f"sl_{staff}",
+                business_id="bz_first",
+                item_id="it_first",
+                staff_id=f"st_{staff}",
+                starts_at=start,
+                ends_at=start + timedelta(hours=1),
+            )
+        )
+    db.add(
+        Payment(
+            id="pay_first",
+            business_id="bz_first",
+            client_id="cl_first",
+            invoice_id="inv_first",
+            amount_cents=4200,
+            method="card",
+            provider="stripe",
+            provider_ref="private-provider-payment",
+            status="succeeded",
+        )
+    )
+    db.add(
+        Line(
+            id="ln_pickup",
+            business_id="bz_first",
+            order_id="ord_first",
+            description="Shampoo",
+            unit_amount_cents=2400,
+            amount_cents=2400,
+            for_pickup=True,
+        )
+    )
+    for leg, (account, owner_type, owner, cents) in enumerate(
+        (
+            ("ac_staff", "staff", "st_staff", 1500),
+            ("ac_revenue", "business", "bz_first", -1500),
+        )
+    ):
+        db.add(
+            Entry(
+                id=f"en_{leg}",
+                business_id="bz_first",
+                journal_id="jr_earning",
+                account_id=account,
+                owner_type=owner_type,
+                owner_id=owner,
+                amount_cents=cents,
+                event="earning",
+                ref="earning:fixture",
+                leg=leg,
+            )
+        )
+    await db.flush()
+    # older than the device history window, so no identity receives it
+    db.add(
+        Slot(
+            id="sl_archive",
+            business_id="bz_first",
+            item_id="it_first",
+            staff_id="st_owner",
+            starts_at=start - timedelta(days=3 * 365),
+            ends_at=start - timedelta(days=3 * 365) + timedelta(hours=1),
+        )
+    )
+    await db.flush()
+    for staff in ("owner", "staff"):
+        db.add(
+            Booking(
+                id=f"bk_{staff}",
+                business_id="bz_first",
+                slot_id=f"sl_{staff}",
+                starts_at=start,
+                staff_id=f"st_{staff}",
+                client_id="cl_first",
+                status="confirmed",
+                price_cents=6000,
+                manage_token=f"private-manage-{staff}",
+            )
+        )
+    db.add(
+        Booking(
+            id="bk_archive",
+            business_id="bz_first",
+            slot_id="sl_archive",
+            starts_at=start - timedelta(days=3 * 365),
+            staff_id="st_owner",
+            client_id="cl_first",
+            status="completed",
+            price_cents=6000,
+        )
+    )
 
 
 if __name__ == "__main__":

@@ -17,32 +17,34 @@ test("reauthentication preserves edits and account/environment switches isolate 
             powersyncUrl: "https://sync.test",
         };
         const db = await manager.activate(first, connector);
-        await db.execute(
-            "INSERT INTO hours (id, business_id, note) VALUES ('a', 'bz_a', 'private first')",
-        );
+        await db.execute("INSERT INTO device_prefs (id, value) VALUES ('note.a', 'private first')");
         const days = Array.from({ length: 7 }, (_, weekday) => ({
             weekday,
             available: false,
             start_time: null,
             end_time: null,
         }));
-        await enqueueHours(db, "first-staff", "bz_a", 0, days);
+        await enqueueHours(db, "first-staff", "bz_a", 0, days, days);
         await manager.pause();
         const preserved = (await db.getAll("SELECT id FROM hours_outbox")).length;
         const other = await manager.activate({ ...first, userId: "second" }, connector);
-        const otherRows = await other.getAll("SELECT id FROM hours");
+        const otherRows = await other.getAll("SELECT id FROM device_prefs WHERE id LIKE 'note.%'");
         await other.execute(
-            "INSERT INTO hours (id, business_id, note) VALUES ('b', 'bz_b', 'private second')",
+            "INSERT INTO device_prefs (id, value) VALUES ('note.b', 'private second')",
         );
-        await enqueueHours(other, "second-staff", "bz_b", 0, days);
+        await enqueueHours(other, "second-staff", "bz_b", 0, days, days);
         const original = await manager.activate(first, connector);
-        const originalRows = await original.getAll<{ id: string }>("SELECT id FROM hours");
+        const originalRows = await original.getAll<{ id: string }>(
+            "SELECT id FROM device_prefs WHERE id LIKE 'note.%'",
+        );
         const originalPending = (await original.getAll("SELECT id FROM hours_outbox")).length;
         const environment = await manager.activate(
             { ...first, apiUrl: "https://other-api.test" },
             connector,
         );
-        const environmentRows = await environment.getAll("SELECT id FROM hours");
+        const environmentRows = await environment.getAll(
+            "SELECT id FROM device_prefs WHERE id LIKE 'note.%'",
+        );
         await manager.discard();
         await manager.activate(first, connector);
         await manager.discard();
@@ -66,7 +68,7 @@ test("reauthentication preserves edits and account/environment switches isolate 
         discardedPending: [],
         preserved: 1,
         otherRows: [],
-        originalRows: [{ id: "a" }],
+        originalRows: [{ id: "note.a" }],
         originalPending: 1,
         environmentRows: [],
         secondPending: 1,

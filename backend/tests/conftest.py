@@ -6,8 +6,9 @@ from datetime import UTC, datetime
 
 import httpx
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from clientbridge.core.config import get_settings
 from clientbridge.core.db import engine, get_session
 from clientbridge.core.deps import get_interac_secret, get_sms_webhook_secret
 from clientbridge.core.errors import CardDeclined, Conflict, PaymentActionRequired, Unauthorized
@@ -64,6 +65,22 @@ async def book_invoice(db: AsyncSession, invoice: Invoice) -> None:
             invoice.subtotal_cents, tax, invoice.total_cents, {"GST": tax} if tax else {}, []
         ),
     )
+
+
+@pytest.fixture
+async def owner_db() -> AsyncIterator[AsyncSession]:
+    """A rolled-back session as the schema owner, for admin tools such as the demo reset."""
+    owner = create_async_engine(get_settings().migration_database_url)
+    conn = await owner.connect()
+    trans = await conn.begin()
+    session = AsyncSession(bind=conn, join_transaction_mode="create_savepoint")
+    try:
+        yield session
+    finally:
+        await session.close()
+        await trans.rollback()
+        await conn.close()
+        await owner.dispose()
 
 
 @pytest.fixture
@@ -125,6 +142,8 @@ class FakeFileStorage:
     def __init__(self) -> None:
         self.uploads: list[tuple[str, str]] = []
         self.downloads: list[str] = []
+        self.stored: dict[str, int] = {}
+        self.deleted: list[str] = []
 
     def presign_upload(self, key: str, content_type: str) -> str:
         self.uploads.append((key, content_type))
@@ -133,6 +152,13 @@ class FakeFileStorage:
     def presign_download(self, key: str) -> str:
         self.downloads.append(key)
         return f"https://files.test/{key}"
+
+    def head(self, key: str) -> int | None:
+        return self.stored.get(key)
+
+    def delete(self, key: str) -> None:
+        self.stored.pop(key, None)
+        self.deleted.append(key)
 
 
 @pytest.fixture

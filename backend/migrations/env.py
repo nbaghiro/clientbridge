@@ -14,7 +14,7 @@ if config.config_file_name:
     fileConfig(config.config_file_name)
 
 # psycopg/asyncpg URL from settings (not from alembic.ini)
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+config.set_main_option("sqlalchemy.url", get_settings().migration_database_url)
 
 target_metadata = Base.metadata
 

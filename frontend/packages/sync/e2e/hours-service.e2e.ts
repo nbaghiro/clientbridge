@@ -62,6 +62,7 @@ test("lost command response replays once and the accepted week returns through P
                             start_time: "10:00:00",
                             end_time: "16:00:00",
                         })),
+                        [],
                     );
                     await uploadHoursOnce(db, fetch, new AbortController().signal);
                     await db.close();

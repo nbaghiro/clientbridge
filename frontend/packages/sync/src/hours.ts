@@ -23,6 +23,7 @@ interface OutboxRow {
     staff_id: string;
     actor_id: string;
     payload: string;
+    base: string;
     state: string;
     predecessor_id: string | null;
     result_revision: number | null;
@@ -36,6 +37,7 @@ export async function enqueueHours(
     businessId: string,
     revision: number,
     days: WeekDay[],
+    base: WeekDay[],
     repair = false,
     predecessor: { id: string; payload: string } | null = null,
 ): Promise<{ id: string; revision: number; payload: string }> {
@@ -109,14 +111,17 @@ export async function enqueueHours(
                 : revision,
             days,
         };
+        // a proposal chained after one already sent starts from that one's week
+        const from = previous ? (JSON.parse(previous.payload) as WeekRequest).days : base;
         await tx.execute(
-            "INSERT INTO hours_outbox (id, business_id, staff_id, actor_id, payload, state, predecessor_id, attempt_count, retry_at, created_at, sequence) VALUES (?, ?, ?, ?, ?, 'queued', ?, 0, 0, ?, ?)",
+            "INSERT INTO hours_outbox (id, business_id, staff_id, actor_id, payload, base, state, predecessor_id, attempt_count, retry_at, created_at, sequence) VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, 0, 0, ?, ?)",
             [
                 id,
                 businessId,
                 staffId,
                 actorId,
                 JSON.stringify(body),
+                JSON.stringify(from),
                 previous?.id ?? null,
                 created,
                 order.next,

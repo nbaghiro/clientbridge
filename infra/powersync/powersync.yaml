@@ -1,10 +1,12 @@
 # PowerSync service config (local dev). See .docs/architecture.md.
-# Prereqs (created by `make up`): wal_level=logical, a `powersync` publication on the source DB, and
-# a separate `powersync_storage` database for bucket storage.
+# Prereqs (created by `make up` and `make migrate` through backend/scripts/db_access.py):
+# wal_level=logical, a `powersync` publication limited to the synced tables, the replication role
+# and a separate `powersync_storage` database owned by the storage role.
 replication:
   connections:
     - type: postgresql
-      uri: postgresql://clientbridge:clientbridge@postgres:5432/clientbridge
+      # replication only: REPLICATION plus SELECT on the published tables
+      uri: postgresql://powersync_source:powersync_source@postgres:5432/clientbridge
       sslmode: disable
 
 # Bucket storage = a SEPARATE Postgres database on the same instance (so its tables aren't picked up
@@ -12,7 +14,7 @@ replication:
 # query param, and our dev Postgres runs with ssl=off.
 storage:
   type: postgresql
-  uri: postgresql://clientbridge:clientbridge@postgres:5432/powersync_storage
+  uri: postgresql://powersync_storage_owner:powersync_storage_owner@postgres:5432/powersync_storage
   sslmode: disable
 
 port: 8080

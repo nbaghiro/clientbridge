@@ -1,11 +1,11 @@
 replication:
   connections:
     - type: postgresql
-      uri: postgresql://verification:verification@postgres:5432/clientbridge_test_sync
+      uri: postgresql://powersync_source:powersync_source@postgres:5432/clientbridge_test_sync
       sslmode: disable
 storage:
   type: postgresql
-  uri: postgresql://verification:verification@postgres:5432/powersync_storage
+  uri: postgresql://powersync_storage_owner:powersync_storage_owner@postgres:5432/powersync_storage
   sslmode: disable
 port: 8080
 sync_rules:

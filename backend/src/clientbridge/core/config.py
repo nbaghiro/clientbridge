@@ -13,7 +13,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     env: str = "dev"
-    database_url: str = "postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge"
+    # the API reads and writes data; only migrations and the demo seed change the schema
+    database_url: str = (
+        "postgresql+asyncpg://clientbridge_api:clientbridge_api@localhost:8702/clientbridge"
+    )
+    migration_database_url: str = "postgresql+asyncpg://clientbridge_migrator:clientbridge_migrator@localhost:8702/clientbridge"
 
     jwt_secret: str = _DEV_JWT_SECRET  # matches infra/powersync jwks
     jwt_issuer: str = "clientbridge"
@@ -27,8 +31,8 @@ class Settings(BaseSettings):
     # Object storage: RustFS in dev, S3 in prod; clients upload and download via presigned URLs.
     s3_endpoint: str = "http://localhost:8705"
     s3_bucket: str = "clientbridge"
-    s3_access_key: str = "minio"
-    s3_secret_key: str = "minio12345"
+    s3_access_key: str = "rustfs"
+    s3_secret_key: str = "rustfs-dev-secret"
     s3_region: str = "us-east-1"
     s3_presign_ttl_seconds: int = 3600
 
