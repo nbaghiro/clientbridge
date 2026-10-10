@@ -1,6 +1,6 @@
 # Sync reliability progress
 
-Status: executing after the user’s “go”. See tasks.json for individual acceptance status; the full plan is not complete.
+Status: closed on 2026-10-10. tasks.json records where each task was finished; SH10 and SH14 remain open in launch readiness.
 
 The [plan](plan.md) defines implementation contracts and release criteria. The [task queue](tasks.json) contains 27 dependency-ordered tasks covering all 16 findings in the [assessment](../../reviews/sync/assessment.json).
 

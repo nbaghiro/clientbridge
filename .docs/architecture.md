@@ -22,7 +22,7 @@ Canadian tax built in. All user-facing copy is centralized in one place. The cus
 | Web | **React + Vite + Tailwind** (provider/admin app) |
 | Mobile | **React Native (Expo)** (provider/admin app) |
 | Customer | **React + Vite** (Connect — public, PowerSync-free, embeddable) |
-| Offline sync | **PowerSync** — on-device SQLite (web WASM on IndexedDB · Expo op-sqlite), WAL server-push, per-business Sync Rules; writes through FastAPI |
+| Offline sync | **PowerSync** — on-device SQLite (web WASM on IndexedDB · Expo op-sqlite), WAL server-push, per-business Sync Streams; writes through FastAPI |
 | Payments | **Stripe Connect** (Custom accounts, direct charges) + **Interac e-Transfer** + PAD/EFT |
 | Repo | **Polyglot monorepo** — backend (uv) + frontend (pnpm + turbo), one root Makefile |
 
@@ -39,7 +39,7 @@ secrets, cross-tenant — must be a **command**, never unvalidated replica CRUD.
 
 | # | Surface | What it is | Auth | Examples |
 |---|---|---|---|---|
-| 1 | **Sync-read** | PowerSync streams each device its authorized rows into local SQLite | Sync Rules (buckets) | calendar, clients, invoices on-device |
+| 1 | **Sync-read** | PowerSync streams each device its authorized rows into local SQLite | Sync Streams | calendar, clients, invoices on-device |
 | 2 | **Offline command** | Local-only durable intent → typed `/v1` command → authoritative replication | JWT + service role/tenant checks + expected revision | edit working hours |
 | 3 | **Command / RPC** | FastAPI `POST/PATCH/DELETE` under `/v1/*`, wrapped in `run_command` (atomic + audited + idempotent) → writes Postgres → flows back via sync | JWT + role | book a slot, issue an invoice, take a payment |
 | 4 | **Webhook / public** | inbound provider callbacks + unauthenticated public pages | signature / token / slug | Stripe/Interac/SMS webhooks; book/pay/form/contract/review |
@@ -51,7 +51,7 @@ secrets, cross-tenant — must be a **command**, never unvalidated replica CRUD.
 - A third party initiates it → **webhook (4)**.
 - Time-based or async → **job (5)**.
 
-This is why *"create a booking" is a command (`POST /v1/bookings`), not a raw sync-write*: the
+This is why *"create a booking" is a command (`POST /v1/bookings`), not an offline edit of the replica*: the
 capacity/conflict check must be atomic and server-authoritative. The resulting row then syncs back to
 every device for free. The same logic makes invoice numbering, payments, and broadcasts commands.
 
@@ -312,18 +312,29 @@ build + permanent maintenance.)
 ```
  Expo (op-sqlite) ─┐                            ┌── logical replication (WAL) ──┐
  Web (WASM)        ─┤── WebSocket (read sync) ─► PowerSync Service ◄────────────┤ Postgres (source of truth)
-       ▲ reads local SQLite (offline-first)      (Sync Rules bucket by           │
+       ▲ reads local SQLite (offline-first)      (Sync Streams keyed by           │
        │                                           business_id + role, from JWT)  │
        └── local-only hours outbox ─► FastAPI /v1/hours/{staff}/week─┘ writes
 ```
 
-- **Reads** are governed by **Sync Rules** + JWT claims; FastAPI is *not* in the read loop. The on-device
+- **Reads** are governed by **Sync Streams** + JWT claims; FastAPI is *not* in the read loop. The on-device
   SQLite already holds only the rows this user may see, so the client never filters for *security* — it just
   queries its local DB. Reactive `useQuery(sql)` re-runs on any sync push or local write.
 - **Hours writes** persist proposals separately from canonical rows in a local-only outbox. The typed week command validates authorization, seven weekdays and the expected revision atomically with its replay receipt. Other writes use their existing online commands.
 - **Server-initiated push:** *any* write that hits Postgres — a Stripe/Interac webhook, a cron job, another
   staff member's action — flows back out via the WAL automatically, sub-second, to the relevant devices.
 - **Hours conflicts** reject stale revisions and preserve the proposal for explicit review. The editor offers apply-again against a fresh revision or discard. Money creation remains backend/webhook-only.
+- **History window.** Messages, slots and bookings sync for the past 12 months and the next 24, by UTC month. The replica controller subscribes the three history streams with those months before it connects, so the first sync includes them. A month that leaves the window is unsubscribed and its rows leave the device when the 24-hour TTL ends. Older history is read from the API while online: `GET /v1/bookings/visits` (a client's older visits, plus the count and date of completed ones) and `GET /v1/threads/{id}/messages`. Money tables (invoices, payments, accounts, entries) sync in full, so balances and invoice status stay correct offline. Streams cannot use the current time, so each windowed row needs its own timestamp; bookings carry `starts_at`, a copy of the slot start that `move_slot` keeps in step.
+- **Device query planning.** PowerSync stores each table as JSON behind a view and indexes JSON expressions. Replica indexes are the model indexes without a leading `business_id`, because a device reads one business at a time. The controller runs `PRAGMA optimize=0x10002` after the first sync, because without statistics SQLite prefers the `business_id` index. SQLite ignores a replica index on the right side of a LEFT JOIN, so a one-to-many join goes through the parent's id (`slotBookingsJoin`).
+
+### Database roles and replication
+`scripts/db_access.py` creates four roles and is run by `make up` and `make migrate`. `clientbridge_migrator` owns the schema and runs Alembic and the demo seed (`MIGRATION_DATABASE_URL`). `clientbridge_api` has data access without DDL (`DATABASE_URL`). `powersync_source` has `REPLICATION` and `SELECT` on synced tables only. `powersync_storage_owner` owns the `powersync_storage` database. The `powersync` publication lists exactly the synced tables, generated from the stream config, so sessions, tokens, receipts, commands, audits and webhooks never reach the replication service. `make replication-health` fails when PowerSync is not ready, its slot is inactive, retained WAL exceeds 1 GiB or replay lag exceeds 60 seconds.
+
+### Attachments
+`POST /v1/files` creates a pending row and a presigned upload URL. After the upload, `POST /v1/files/{id}/complete` (or the public form's `/upload/{file_id}/complete`) checks the object's size in storage and sets `uploaded_at`. A missing object returns 409 `upload_missing`, and a different size returns 422. Readers ignore rows without `uploaded_at`: public media, item images, the logo, form answers and the replica queries. `prune_pending_files` removes pending rows older than 24 hours together with their objects. File metadata syncs, but bytes do not; an image that cannot load falls back to its initial.
+
+### Device storage
+Replicas are named per API, PowerSync URL and user, and refuse a database that belongs to another account. When a refresh is refused, the shell removes the replica from the screen and shows sign-in; the data and pending work stay on the device for the same account, and sign-out clears them. Web asks the browser to keep its storage persistent. A full device shows its own sync problem. Neither platform encrypts the database at the application level: browser storage does not protect against a script running on the same origin, mobile relies on the platform's file protection, and tokens are in SecureStore on mobile and `localStorage` on web.
 
 ### `/sync/token` + JWKS (`sync/auth.py`)
 Exchanges an authenticated app JWT for a short-lived PowerSync token in every environment; serves the RS256 JWKS at `/sync/keys`. Development uses HS256. Production uses RS256 with `POWERSYNC_USE_RS256=true` and `powersync.yaml` `jwks_uri` pointing to `/sync/keys`.
@@ -341,7 +352,7 @@ Direct writes to synchronized tables are programming errors. There is no generic
 ## Authorization & visibility
 
 Reads and writes are authorized by **different** mechanisms. The sync stream reads the WAL and *bypasses*
-Postgres RLS, so read policy lives in the **Sync Rules**, not the DB. Writes are authorized in FastAPI.
+Postgres RLS, so read policy lives in the **Sync Streams**, not the DB. Writes are authorized in FastAPI.
 
 ### User tiers & provider roles
 | Tier | Modeled as | Scope |
@@ -365,27 +376,32 @@ currently same perms as staff).
 | Broadcasts and reviews | ✅ | ❌ |
 | Settings / billing / staff management | owner (+ admin ops) | ❌ |
 
-### Enforcement — the sync buckets (`infra/powersync/sync-rules.yaml`)
-Four buckets implement the read model (owner-sees-workers'-activity is carried by
+### Enforcement — the sync streams (`infra/powersync/sync-rules.yaml`)
+Four auto-subscribed streams and three history streams implement the read model (owner-sees-workers'-activity is carried by
 `bookings.staff_id` and the ledger's `owner_type`/`owner_id`; the `audits` trail is server-only):
 - **`business_shared`** (every active member): the catalog and entitlements, the client book, forms,
-  fields, contracts, files, threads and messages.
+  fields, contracts, files and threads.
 - **`staff_limited`** (staff and contractors): the business row without its tax numbers and billing
   email, and the team without pay rates or payee flags. Owner/admin read both from `business_full` with
   more columns, so a row never reaches one device with two different column sets. No bucket syncs
   `invite_token` or the Stripe verification fields.
-- **`staff_self`** (per staff, sliced by `staff_id`) — a member's **own** slots/bookings/addons/
-  hours, plus their own staff `accounts` and `entries` (earnings).
-- **`business_full`** (owner/admin only) — **all** members' work + all financials (including the whole
-  ledger) + reviews.
+- **`staff_self`** (per staff, sliced by `staff_id`) — a member's **own** addons, hours and recurrences,
+  plus their own staff `accounts` and `entries` (earnings).
+- **`business_full`** (owner/admin only) — **all** members' addons, hours and recurrences, all financials
+  (including the whole ledger), reviews, broadcasts, form responses and signatures.
+- **`history_shared`**, **`history_self`**, **`history_full`**: messages for every member, a member's own
+  slots and bookings, and every member's slots and bookings for owner/admin, each limited to the months
+  the device subscribes (see the history window above).
 
 `business_shared` also carries pets (`subjects`), `notes`, `resources` and closures (hours rows with no
 `staff_id`), so every member's calendar can name the pet, the room and the day the business is shut;
-`recurrences` follow their member like slots do. Tables no app reads yet (responses, signatures,
-broadcasts) are not synced; each comes back with its story.
+`recurrences` follow their member like slots do.
 
-Device read scope: staff = `business_shared` + `staff_limited` + `staff_self` · owner/admin =
-`business_shared` + `staff_self` + `business_full`. Writes
+Device read scope: staff = `business_shared` + `staff_limited` + `staff_self` + `history_shared` +
+`history_self` · owner/admin = `business_shared` + `staff_self` + `business_full` + all three history
+streams. `tests/fixtures/sync_projections.json` is the reviewed column list per stream, and
+`test_sync_projections` fails when a stream adds a column or sends pay, tax or billing columns to staff.
+Writes
 are authorized separately by typed services. Postgres RLS is an optional future
 defense-in-depth for the API, not the sync filter.
 
@@ -396,7 +412,8 @@ defense-in-depth for the API, not the sync filter.
 ### Public media
 Business logos and catalog item images are `files` rows (`parent_type` business/item, `purpose` logo/image)
 uploaded by an owner or admin. `GET /media/{file_id}` serves only those two kinds, by redirecting to a
-short-lived presigned S3 URL, so they have stable links for the public pages and the apps. Every other
+short-lived presigned S3 URL, so they have stable links for the public pages and the apps. Only files whose
+upload was completed are served. Every other
 file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it into the media URL.
 
 ### Payments — Stripe Connect custody
@@ -471,7 +488,7 @@ entitlement and its liability are created.
   shop refuses an order larger than the stock.
 - **Retail commission:** a paid sale accrues an earning for its staff member at `staff.retail_rate_bps` on the
   product lines before tax, using the same earning journals as bookings.
-- **Online shop:** products marked `sell_online` are listed at `/shop/<slug>` on Connect. An order is paid by
+- **Online shop:** products marked `sell_online` are listed at `/b/<slug>/shop` on Connect. An order is paid by
   card, has `source = online`, and moves through `pickup_status` (unfulfilled, ready, picked up) from Sales.
 - **Booking add-ons:** products the owner offers at booking (`items.addon`, with `addon_for` naming the
   services each goes with) and the client chose on the booking page are stored in `addons` and become lines

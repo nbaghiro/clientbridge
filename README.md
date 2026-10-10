@@ -27,8 +27,8 @@ detail in [`.docs/architecture.md`](.docs/architecture.md).
 - **Backend** (`backend/`) — Python 3.14 · FastAPI · SQLAlchemy (async) · Postgres · Alembic · `arq`
   (Redis jobs) · `uv`. Layered **router → service → models**; tenancy always via `core.scoping`; money
   / uniqueness / cross-tenant writes go through `run_command` (atomic + audited + idempotent). Every
-  capability is exactly one of **5 surfaces**: sync-read · sync-write (`/sync/upload`) · command (`POST
-/v1`) · webhook/public · job. Payments are Stripe Connect (Custom accounts, direct charges + app fee).
+  capability is exactly one of **5 surfaces**: sync-read · offline command (a local outbox replayed to a
+typed `/v1` command) · command (`POST /v1`) · webhook/public · job. Payments are Stripe Connect (Custom accounts, direct charges + app fee).
 - **Frontend** (`frontend/`) — pnpm + turbo. Web (React · Vite · Tailwind) and mobile (Expo RN) render
   **one shared view-model layer** (`@clientbridge/app-core` hooks); only rendering, navigation, and
   platform APIs differ. Design tokens are one source → a Tailwind theme (web) + an RN theme (mobile).

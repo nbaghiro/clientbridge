@@ -1,6 +1,6 @@
 {
   "title": "Sync reliability execution queue",
-  "status": "in_progress",
+  "status": "closed",
   "created_at": "2026-10-08T23:43:39.615733+00:00",
   "plan": "plan.md",
   "assessment": "../../reviews/sync/assessment.json",
@@ -249,7 +249,7 @@
     {
       "id": "SH05",
       "title": "Recover rejected edits without blocking unrelated work",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "SH01",
         "SH03",
@@ -289,12 +289,13 @@
       "evidence": [
         "Single typed hours command and local-only outbox implemented; 37 backend, four outbox fault, and 19 actual-service suite cases pass. Native device/UI acceptance remains outstanding."
       ],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "sync-p2 W4: rejected and conflicting edits recovered on Android without blocking other work"
     },
     {
       "id": "SH06",
       "title": "Replace recurring-hours row churn with a versioned offline aggregate",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "SH04",
         "SH05",
@@ -339,12 +340,13 @@
         "Single typed hours command and local-only outbox implemented; 37 backend, four outbox fault, and 19 actual-service suite cases pass. Native device/UI acceptance remains outstanding.",
         "Actual iOS and Android scoped-startup/hours-editor smoke tests pass after fixing view-safe business selection and the iPhone development build signing. No native offline-write/conflict claim yet."
       ],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "versioned week command with hours_revision; device conflict and rebase verified in sync-p2 W4"
     },
     {
       "id": "SH07",
       "title": "Separate reauthentication from destructive sign-out",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "SH00"
       ],
@@ -378,12 +380,13 @@
       ],
       "owner": "current session",
       "evidence": [],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "sync-p2 W8: a refused refresh hides the replica and keeps same-account work; sign-out clears it"
     },
     {
       "id": "SH08",
       "title": "Make refresh rotation retry-safe and bounded",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "SH07"
       ],
@@ -421,12 +424,13 @@
       ],
       "owner": "current session",
       "evidence": [],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "sync-p2 W1: a failed token save keeps the old tokens and retries the same attempt"
     },
     {
       "id": "SH09",
       "title": "Bind replicas and queues to environment and identity",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "SH01",
         "SH07",
@@ -463,12 +467,13 @@
       "evidence": [
         "Actual iOS and Android scoped-startup/hours-editor smoke tests pass after fixing view-safe business selection and the iPhone development build signing. No native offline-write/conflict claim yet."
       ],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "replicas are named per API, PowerSync URL and user and refuse another account's database"
     },
     {
       "id": "SH10",
       "title": "Coordinate browser tabs and native resume",
-      "status": "planned",
+      "status": "open",
       "depends_on": [
         "SH08",
         "SH09"
@@ -502,12 +507,13 @@
       ],
       "owner": null,
       "evidence": [],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "not covered by sync P2: browser-tab coordination and native resume; recorded in launch-readiness"
     },
     {
       "id": "SH11",
       "title": "Validate live session and token purpose at sync exchange",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "SH08"
       ],
@@ -539,12 +545,13 @@
       ],
       "owner": "current session",
       "evidence": [],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "implemented before the stop (token type, live user and family checked at sync exchange); covered by the backend suite, not re-audited in sync P2"
     },
     {
       "id": "SH12",
       "title": "Make selected business explicit across clients",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "SH00",
         "SH07"
@@ -583,12 +590,13 @@
         "Selected-business SQL and API context verified by actual-service multi-business role/list/detail/aggregate case; 205 domain tests and seven session tests pass. Native acceptance outstanding.",
         "Actual iOS and Android scoped-startup/hours-editor smoke tests pass after fixing view-safe business selection and the iPhone development build signing. No native offline-write/conflict claim yet."
       ],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "implemented before the stop (selected business scopes SQL and API actions); multi-business case passes in make test-sync"
     },
     {
       "id": "SH13",
       "title": "Expose actionable sync health in every app shell",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "SH05",
         "SH07",
@@ -625,12 +633,13 @@
       ],
       "owner": "current session",
       "evidence": [],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "sync-p2 W1"
     },
     {
       "id": "SH14",
       "title": "Add sanitized sync diagnostics and retention",
-      "status": "planned",
+      "status": "open",
       "depends_on": [
         "SH04",
         "SH05",
@@ -664,12 +673,13 @@
       ],
       "owner": null,
       "evidence": [],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "not covered by sync P2: sanitized sync diagnostics and retention; recorded in launch-readiness"
     },
     {
       "id": "SH15",
       "title": "Add bounded read-after-command catch-up",
-      "status": "planned",
+      "status": "complete",
       "depends_on": [
         "SH01",
         "SH13"
@@ -703,12 +713,13 @@
       ],
       "owner": null,
       "evidence": [],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "sync-p2 W2"
     },
     {
       "id": "SH16",
       "title": "Define and allowlist role-specific replica projections",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "SH02",
         "SH12"
@@ -744,12 +755,13 @@
       "evidence": [
         "Explicit data projections; schema uses projection union. Seven projection tests and real-service role pay/tax tests pass. Forbidden-column and live-revocation probes in progress."
       ],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "sync-p2 W3"
     },
     {
       "id": "SH17",
       "title": "Gate CI on actual replica authorization and revocation",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "SH02",
         "SH11",
@@ -785,12 +797,13 @@
       ],
       "owner": "current session",
       "evidence": [],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "sync-p2 W3: per-role rows and columns in make test-sync, which CI-equivalent runs use"
     },
     {
       "id": "SH18",
       "title": "Pin and harden replication infrastructure",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "SH02",
         "SH14"
@@ -826,12 +839,13 @@
       "evidence": [
         "Pinned main PostgreSQL and PowerSync to the exact currently running, harness-tested image digests. Config read-only; bootstrap existence checks run twice successfully with fail-fast SQL. Separate non-superuser roles, restricted publication and operational alert drills remain pending."
       ],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "sync-p2 W6"
     },
     {
       "id": "SH19",
       "title": "Require durable production signing and rehearse rotation",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "SH11",
         "SH18"
@@ -865,12 +879,13 @@
       "evidence": [
         "Production fails closed without durable RSA signing configuration; overlap public JWKS supported. 25 signing/auth/harness cases pass. Actual-service cache/rotation and multi-worker drill pending."
       ],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "sync-p2 W3 rotation drill; production key requirements enforced at startup"
     },
     {
       "id": "SH20",
       "title": "Migrate Sync Rules to equivalent Sync Streams",
-      "status": "planned",
+      "status": "complete",
       "depends_on": [
         "SH16",
         "SH17",
@@ -905,12 +920,13 @@
       ],
       "owner": null,
       "evidence": [],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "sync-p2 W5"
     },
     {
       "id": "SH21",
       "title": "Measure multi-year replica and query performance",
-      "status": "planned",
+      "status": "complete",
       "depends_on": [
         "SH02",
         "SH12",
@@ -943,12 +959,13 @@
       ],
       "owner": null,
       "evidence": [],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "sync-p2 W7 measurements"
     },
     {
       "id": "SH22",
       "title": "Bound local lists and selective history without changing totals",
-      "status": "planned",
+      "status": "complete",
       "depends_on": [
         "SH15",
         "SH20",
@@ -984,12 +1001,13 @@
       ],
       "owner": null,
       "evidence": [],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "sync-p2 W7 history window; money tables stay full, so the 50k tier keeps slow ledger screens (recorded in launch-readiness)"
     },
     {
       "id": "SH23",
       "title": "Implement device-storage identity protection and retention",
-      "status": "planned",
+      "status": "complete",
       "depends_on": [
         "SH09",
         "SH14",
@@ -1024,12 +1042,13 @@
       ],
       "owner": null,
       "evidence": [],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "sync-p2 W8; application-level database encryption is out of scope"
     },
     {
       "id": "SH24",
       "title": "Make attachment availability and interrupted uploads recoverable",
-      "status": "planned",
+      "status": "complete",
       "depends_on": [
         "SH09",
         "SH23"
@@ -1063,12 +1082,13 @@
       ],
       "owner": null,
       "evidence": [],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "sync-p2 W8"
     },
     {
       "id": "SH25",
       "title": "Run full current-client failure matrix",
-      "status": "planned",
+      "status": "complete",
       "depends_on": [
         "SH06",
         "SH10",
@@ -1124,12 +1144,13 @@
       ],
       "owner": null,
       "evidence": [],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "sync-p2 W9 failure matrix and QA pass"
     },
     {
       "id": "SH26",
       "title": "Prepare rollout rollback and final handoff",
-      "status": "planned",
+      "status": "complete",
       "depends_on": [
         "SH25"
       ],
@@ -1175,8 +1196,11 @@
       ],
       "owner": null,
       "evidence": [],
-      "blocked_by": null
+      "blocked_by": null,
+      "closed_by": "sync-p2 W9 close-out; commits and push wait for a request"
     }
   ],
-  "started_at": "2026-10-08T23:47:25.552263+00:00"
+  "started_at": "2026-10-08T23:47:25.552263+00:00",
+  "closed_at": "2026-10-10",
+  "closing_note": "Closed after sync P2. Remaining open items (SH10, SH14) are tracked in launch-readiness."
 }

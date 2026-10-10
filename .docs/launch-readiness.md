@@ -1058,9 +1058,14 @@ Not tracked in Jira yet. These are pulled in by demand once the launch stories a
   expenses and input tax credits for net profit, real T4A slips and e-filing, client statements, dunning
   and subscription retry.
 - **Platform hygiene:** access-token revocation (removed staff keep access for up to 15 minutes), retention
-  and PII purge, metrics and tracing, a query and sync-rule performance audit, blue-green deploys and
-  rollback, more than one currency (CAD is fixed on create), a decision on `custom_fields`, offline
-  conflict handling in the apps.
+  and PII purge, metrics and tracing, blue-green deploys and rollback, more than one currency (CAD is fixed
+  on create), a decision on `custom_fields`.
+- **Sync follow-ups** (from [sync P2](executions/sync-p2/progress.md)): window the money tables with
+  balances, lifetime value and old invoice status served by the API, because at 50k clients the ledger
+  screens take 3 to 12 seconds on a device; browser-tab coordination and native resume (SH10); sanitized
+  sync diagnostics and retention (SH14); the cold start that leaves Today blank for about 44 seconds;
+  whether the hours editor can express "no hours set"; an offline check on iOS, which the simulator cannot
+  do per app.
 
 ### Connect, the client experience
 

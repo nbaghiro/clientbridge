@@ -1,6 +1,6 @@
 # Sync reliability implementation plan
 
-Status: executing after the user’s “go”; see the task queue and progress log for verified completion.
+Status: closed on 2026-10-10. The work finished in [sync P2](../sync-p2/progress.md); SH10 and SH14 remain open in [launch readiness](../../launch-readiness.md).
 
 Keep PowerSync as the replication layer for web, iOS and Android. Harden the application contracts around it so queued edits survive authentication failures, retries cannot corrupt or block uploads, each screen has one explicit business context, and replica authorization is tested against the real service. Connect remains an HTTP client. Marketing and playground do not become sync clients.
 

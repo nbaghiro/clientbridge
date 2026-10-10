@@ -33,7 +33,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 - **5 surfaces** — every capability is exactly one (see `.docs/architecture.md`): sync-read (PowerSync
   rules) · offline command (durable local-only outbox → typed `/v1` command) · command/RPC (FastAPI `POST`) · webhook/public ·
   job. A **server-only invariant** (uniqueness/numbering, capacity, money, secrets, cross-tenant) → a
-  **command, NOT a sync write**.
+  **command, NOT an offline edit of the replica**.
 - **Role gates** live where the method lives: the service method that does the work gates itself with
   `assert_role(self.principal, …, message=…)` (`core/deps`), because jobs and public flows call services
   too. A router gates only when it has no service to call. Use `is_manager(role)` for a bare role
@@ -49,6 +49,15 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 - External services = an **adapter interface + `get_*` dependency** (e.g. `EmailSender`, `OAuthVerifier`);
   prod implements it, tests override with a recording fake.
 - Server-only tables (`sessions`, `tokens`, `commands`, `webhooks`, `audits`) are **not** in `sync-rules.yaml` → excluded from the client AppSchema.
+- Sync config is edition 3 Sync Streams. Tables that grow with time (messages, slots, bookings) sync through
+  the `history_*` streams for a window of months and need a timestamp column of their own; older rows come
+  from keyset-paged `GET` reads. Money tables sync in full. Review `tests/fixtures/sync_projections.json`
+  whenever a stream's columns change.
+- Database roles come from `scripts/db_access.py`: the API runs as `clientbridge_api` (`DATABASE_URL`),
+  Alembic and the seed as `clientbridge_migrator` (`MIGRATION_DATABASE_URL`), and the `powersync`
+  publication lists only synced tables.
+- A file counts as attached only after its complete command confirms the bytes in storage (`uploaded_at`);
+  readers ignore pending rows.
 
 ## Frontend — share the view-model, render per-platform
 - Web (React/Vite/Tailwind) + mobile (Expo RN) share everything UI-agnostic via `@clientbridge/app-core`; only rendering, navigation, and platform APIs differ.
@@ -86,7 +95,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   changeset against these principles and fix High/Medium findings *then*, not later: layering (thin
   router → service; routers never query; every tenant query goes through
   `scoped()` — never a hand-written `business_id` filter); the **5
-  surfaces** (sync-write vs
+  surfaces** (offline command vs
   command) chosen correctly; **role gates** match the typed command contract + the **4-part test matrix** is cleared
   (happy · each 4xx · security/tenant-isolation · idempotency); **web↔mobile duplication** (share the
   UI-agnostic data layer via `@clientbridge/app-core`, keep only rendering platform-specific); stray
@@ -99,10 +108,10 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   fails on a multi-line comment in any tracked JS/TS file, a lowercase component file, and a concept named differently across app-core, strings, web and mobile (pages named by their nav label map to their concept: Invoices → billing, Inbox → messaging, Team → staff, Schedule → bookings, Gift cards → entitlements, Onboarding → business), and a package export used only in its own file. `knip` (also
   in `pnpm lint`, config in `frontend/knip.json`) fails on unused files, dependencies and exports.
 - Migrations live only in `backend/migrations/versions/` (timestamp-prefixed): one baseline
-  (`20261005_000000_baseline.py`, squashed before launch) plus linear increments after it. Hand-written
+  (`20261010_000000_baseline.py`, squashed before launch) plus linear increments after it. Hand-written
   SQL that autogenerate can't see (the `btree_gist` extension, slot exclusion constraints, ledger
   triggers) lives in the migration, so add it there when a new one is needed. `make migrate` alone brings any
-  local database to head; the baseline keeps the last pre-squash revision id so older databases upgrade too.
+  local database to head.
 - **Regenerate `api-client` (`make gen-api`) whenever the API contract changes**; `make gen-sync-schema`
   after model/sync-rule changes (`make codegen-check` in the pre-commit hook, `make check` and CI fails on drift).
 - Python import package = `clientbridge` (at `backend/src/clientbridge/`); the DB name + project are also `clientbridge`.

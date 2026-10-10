@@ -39,11 +39,14 @@ make typecheck     # backend: mypy strict                 |  frontend: tsc --noE
 make format        # backend: ruff format                 |  frontend: prettier --write
 make format-check
 make codegen-check # regenerate api-client, sync schema and themes; fail if they were stale
-make precommit     # format-check + lint + codegen-check  (the pre-commit hook, no tests)
+make precommit     # format-check + lint + codegen-check + test  (the pre-commit hook; e2e runs in CI)
 make check         # lint + codegen-check + test          (the full local gate)
 ```
-The pre-commit hook (`.githooks/pre-commit`, installed once via `make hooks`) runs `make precommit`. It sets
-a writable `UV_CACHE_DIR=/tmp/uv-cache` to work around a root-owned `~/.cache/uv`.
+The pre-commit hook (`.githooks/pre-commit`, installed once via `make hooks`) runs `make precommit`, which
+includes the backend and frontend tests, so the local Postgres from `make up` must be running. The browser,
+device and real-service suites (`test-web`, `test-connect`, `test-mobile`, `test-sync`, `test-site`,
+`test-playground`) run in CI. The hook sets a writable `UV_CACHE_DIR=/tmp/uv-cache` to work around a
+root-owned `~/.cache/uv`.
 
 ---
 
@@ -58,6 +61,9 @@ Runs on every push to `main` + all PRs; concurrency-cancels stale runs.
 | **site** | Node from `.nvmrc` · `make test-site`: a fresh build, then Playwright e2e on it (the copy rules and content tests run in the frontend job): every page returns 200 with its content in the HTML, no console errors, no broken images or internal links, no sideways scroll at 390 and 1440px, axe with no serious or critical issues, 404 page served with a 404 |
 | **connect** | Postgres 16 service · `make migrate seed` · the API on :8701 · `make test-connect`: Connect's Playwright walk (book a visit, cancel it from its manage link, shop, invoice and e-Transfer, estimate, receipt, review, form, contract, preferences, not found), failing on any console error |
 | **playground** | `make test-playground`: every story on web and both phone frames |
+| **sync** | `make test-sync`: disposable Postgres and PowerSync, per-role replica rows and columns, revocation, hours uploads, the signing-key rotation drill and the replication health check |
+| **web** | `make up migrate seed` · the API on :8701 · `make test-web`: sign-in, every page and dialog, record flows, history older than the device window, no console errors |
+| **mobile** | a release APK from `expo prebuild` (bundle embedded, no Metro) · `make up migrate seed` · the API · the Maestro walkthroughs on an Android 14 emulator with `adb reverse` for 8701 and 8704 |
 | **contract** | stripe-mock service · real `StripeGateway` validated against Stripe's OpenAPI mock |
 | **codegen-drift** | `make codegen-check`: `make gen-api` + `make gen-sync-schema` + `make gen-themes`, then a diff check on the four generated artifacts (`api-client/src/generated.ts`, `sync/src/schema.ts`, `tokens/src/themes.css`, `tokens/src/themes.ts`) — the committed generated code can't drift from its source |
 
@@ -130,14 +136,14 @@ untested code — the matrix above is the standard; don't chase the number with 
 ## Shipping method — vertical product slices
 
 We ship in **vertical product slices**: each delivers one product area end-to-end — backend surface(s) →
-sync rules → web screens → mobile screens → tests — and is demoable on **both** platforms before the next
+sync streams → web screens → mobile screens → tests — and is demoable on **both** platforms before the next
 starts. Chosen over backend-first because it's always demoable, validates the backend against real UI so it
 can't drift, and matches how the product was designed (by screen). The data-dependency chain still sets the
 order (Clients → Catalog/Tax → Booking → Invoices → Payments).
 
 ### The within-slice rhythm
 1. **Backend** — model (if new) → migration → service/command → `api` router + DTOs → tests → `make gen-api`.
-2. **Sync** — add table(s) to `sync-rules.yaml` → `make gen-sync-schema`.
+2. **Sync** — add table(s) to a stream in `sync-rules.yaml` (a history stream if rows accumulate over time) → `make gen-sync-schema` → update `tests/fixtures/sync_projections.json` after reviewing the new columns.
 3. **Web** — page(s) under `apps/web/src/pages`; read via `useQuery`, write via the typed api-client. **Put
    UI-agnostic logic (row types, query hooks, mutations, formatters) in `@clientbridge/app-core`, not the screen.**
 4. **Mobile** — screen(s) importing the same `@clientbridge/app-core`; only the markup differs.
@@ -173,7 +179,7 @@ Read local, write via command/sync — the server is the source of truth; client
   one line. Never narrate *what* the code does, restate types, write multi-clause block/file-header comments,
   or add decorative divider banners.
 - **Migrations** live only in `backend/migrations/versions/` (timestamp-prefixed). The history was squashed
-  into one baseline before launch (`20261005_000000_baseline.py`, built from the models plus the
+  into one baseline before launch (`20261010_000000_baseline.py`, built from the models plus the
   hand-written extension, exclusion constraints and ledger triggers); new changes are increments on it.
 - **Regenerate** `api-client` (`make gen-api`) whenever the API contract changes; `gen-sync-schema` after
   model/sync-rule changes; `gen-themes` after editing `app-explorer.html`. `make codegen-check` (in the pre-commit hook, `make check` and CI) fails if any of the three is stale.
@@ -189,14 +195,17 @@ Read local, write via command/sync — the server is the source of truth; client
 ## Local development
 
 ### Ports — the 87xx block
-Clientbridge claims **8700–8712** so it runs simultaneously with sibling projects in `~/Documents/code`.
-Container-internal ports stay conventional; only host mappings use 87xx.
+Clientbridge owns the **8700–8799** block so it runs alongside sibling projects in `~/Documents/code`; the
+services below use 8700–8712, and test-only servers (web e2e, the sync verification page) use other ports
+in the block. Container-internal ports stay conventional; only host mappings use 87xx. The other projects
+hold their own blocks (as of October 10, 2026): 82xx nbaghiro, 83xx usebuta, 84xx flowmaestro, 85xx
+lumischool, 86xx galleo and PocketSuite, 88xx llamatrade, 89xx sourcewell. A new local service picks a free port inside its project's block.
 
 | Port | Service | Container | Set in |
 |---|---|---|---|
 | **8700** | Web (Vite) — provider app | — | `apps/web` vite (strictPort) · `make dev-web` |
 | **8701** | Backend API (FastAPI/uvicorn) | — | `make dev-api` |
-| **8702** | Postgres (source + `powersync_storage`) | 5432 | docker-compose · `DATABASE_URL` |
+| **8702** | Postgres (source + `powersync_storage`) | 5432 | docker-compose · `DATABASE_URL` (API role) · `MIGRATION_DATABASE_URL` (schema owner) · `ADMIN_DATABASE_URL` (role setup) |
 | **8703** | Redis | 6379 | docker-compose · `REDIS_URL` |
 | **8704** | PowerSync service | 8080 | docker-compose · `POWERSYNC_URL` |
 | **8705 / 8706** | S3 (RustFS): API / console | 9000 / 9001 | docker-compose · `S3_ENDPOINT` |
@@ -210,8 +219,8 @@ Container-internal ports stay conventional; only host mappings use 87xx.
 ```
 make hooks                 # once per clone — install the pre-commit gate
 make install               # uv sync + pnpm install (applies the two op-sqlite patches)
-make up                    # Postgres (logical WAL) + powersync publication + storage DB, then powersync/redis/s3
-make migrate               # main development schema; demo accounts use the same database
+make up                    # Postgres (logical WAL), the four database roles and the storage DB, then powersync/redis/s3
+make migrate               # roles, then Alembic as the migrator, then grants and the publication of synced tables
 # separate terminals:
 make dev-api  dev-web  dev-connect  dev-mobile  worker
 make dev-site              # marketing site from source on :8710
@@ -224,14 +233,19 @@ make test-mobile           # Maestro native walkthroughs (development build + lo
 make lighthouse-site       # Lighthouse budget (desktop >= 95 in every category) against the :8710 preview
 make dev-playground        # every shared component on web, iPhone and Android on :8712 (no backend needed)
 make test-playground       # build + Playwright pass over every story page and phone frame, no console errors
+make test-sync             # disposable Postgres + PowerSync: per-role replica rows and columns, revocation,
+                           # hours uploads, the signing-key rotation drill, then the replication health check
+make replication-health    # local PowerSync readiness, slot, retained WAL (1 GiB) and replay lag (60 s)
 ```
 Devices authenticate to the API, exchange a JWT at `/sync/token` for a PowerSync token, and stream their
-buckets from powersync (:8704) into on-device SQLite. If a hard Docker shutdown corrupts the PowerSync
+Sync Streams from powersync (:8704) into on-device SQLite. After changing `sync-rules.yaml`, restart the
+powersync container so it loads the new streams. If a hard Docker shutdown corrupts the PowerSync
 replication slot (Postgres PANICs on next start), remove `pg_replslot/powersync_*` to recover.
 
 ### Infra services (`docker-compose.yml`)
 `postgres:16` (`wal_level=logical`, `max_replication_slots=4`), `journeyapps/powersync-service` (mounts
-`infra/powersync/`, bucket storage in a separate `powersync_storage` DB on the same Postgres),
+`infra/powersync/`, replicates as `powersync_source` and stores buckets in a separate `powersync_storage`
+DB owned by `powersync_storage_owner`),
 `redis:7` (arq queue), `s3` (RustFS, an S3-compatible dev store; MinIO no longer publishes free images), `stripe-mock` (test profile only).
 
 ---
@@ -240,10 +254,10 @@ replication slot (Postgres PANICs on next start), remove `pg_replslot/powersync_
 
 Demo accounts are normal tenants in the main local `clientbridge` database, using the standard servers and provider integrations. `make seed` adds them when absent; `make demo-reset` refreshes only the seeded accounts and preserves unrelated tenants. `make demo-check` validates their scenario and ledger. There is no demo runtime mode or separate presentation database.
 
-See the [seeded account guide](executions/demo-data/README.md) for logins, data architecture, provider requirements and reset behavior. Integration tests use normal dependency-injected recording adapters and per-test rollback; CI databases use the `clientbridge_test*` prefix.
+See the [seeded account guide](executions/demo-data/README.md) for logins, data architecture, provider requirements and reset behavior. Two manual Stripe tools need `STRIPE_SECRET_KEY` (test mode): `uv run python -m scripts.stripe_demo_account` connects the demo business to a verified Stripe test account and reuses it on later runs, and `uv run python -m scripts.payment_accounts` audits one connected account's profile and statement descriptor, writing missing fields only with `--apply`. Integration tests use normal dependency-injected recording adapters and per-test rollback; CI databases use the `clientbridge_test*` prefix.
 
 ### PowerSync signing-key rotation
 
 Production requires `POWERSYNC_USE_RS256=true`, a durable RSA private PEM of at least 2048 bits, and a unique `POWERSYNC_KID`. Keep the private PEM in the deployment secret manager. Every API worker must use the same active configuration. The application rejects missing production keys at startup.
 
-To rotate, first publish the next public PEM under its new key ID in `POWERSYNC_PREVIOUS_PUBLIC_KEYS` (a JSON object); keep signing with the current key. Verify that PowerSync can obtain the expanded `/sync/keys` response before changing the signer. Then deploy the new private PEM/key ID, retaining the former public key in the overlap map. Keep both public keys available until all workers have switched and the last old token has expired, plus the measured verifier cache/clock-skew margin. Remove the former public key only after verification. Rollback uses the former signer while retaining both public verification keys; it never requires clearing client queues. The actual-service cache/rotation drill is still an execution gate, not a claimed production guarantee.
+To rotate, first publish the next public PEM under its new key ID in `POWERSYNC_PREVIOUS_PUBLIC_KEYS` (a JSON object); keep signing with the current key. Verify that PowerSync can obtain the expanded `/sync/keys` response before changing the signer. Then deploy the new private PEM/key ID, retaining the former public key in the overlap map. Keep both public keys available until all workers have switched and the last old token has expired, plus the measured verifier cache/clock-skew margin. Remove the former public key only after verification. Rollback uses the former signer while retaining both public verification keys; it never requires clearing client queues. `make test-sync` runs the rotation drill against the pinned service: a new key is accepted about half a second after rotation and a retired key is refused after about 299 seconds, matching the five-minute token lifetime; the drill fails if retirement takes longer than six minutes. Production timing still depends on the deployed verifier cache.

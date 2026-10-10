@@ -1,0 +1,101 @@
+{
+  "title": "Sync P2 hardening",
+  "status": "complete",
+  "plan": "plan.md",
+  "assessment": "../../reviews/sync/assessment.json",
+  "tasks": [
+    {
+      "id": "W1",
+      "title": "Sync health in every shell",
+      "findings": [
+        "S08",
+        "S16"
+      ],
+      "status": "complete",
+      "evidence": "progress.md#w1"
+    },
+    {
+      "id": "W2",
+      "title": "Read-after-command catch-up",
+      "findings": [
+        "S09"
+      ],
+      "status": "complete",
+      "evidence": "progress.md#w2"
+    },
+    {
+      "id": "W3",
+      "title": "Replica security evidence",
+      "findings": [
+        "S12",
+        "S13",
+        "S06"
+      ],
+      "status": "complete",
+      "evidence": "progress.md#w3"
+    },
+    {
+      "id": "W4",
+      "title": "Hours conflicts on device",
+      "findings": [
+        "S07"
+      ],
+      "status": "complete",
+      "evidence": "progress.md#w4"
+    },
+    {
+      "id": "W5",
+      "title": "Sync Streams",
+      "findings": [
+        "S15"
+      ],
+      "status": "complete",
+      "evidence": "progress.md#w5"
+    },
+    {
+      "id": "W6",
+      "title": "Replication least privilege and monitoring",
+      "findings": [
+        "S11"
+      ],
+      "status": "complete",
+      "evidence": "progress.md#w6"
+    },
+    {
+      "id": "W7",
+      "title": "Scale",
+      "findings": [
+        "S10"
+      ],
+      "status": "complete",
+      "evidence": "progress.md#w7"
+    },
+    {
+      "id": "W8",
+      "title": "Attachments and device storage",
+      "findings": [
+        "S14"
+      ],
+      "status": "complete",
+      "evidence": "progress.md#w8"
+    },
+    {
+      "id": "W9",
+      "title": "Close-out",
+      "findings": [
+        "S07",
+        "S08",
+        "S09",
+        "S10",
+        "S11",
+        "S12",
+        "S13",
+        "S14",
+        "S15",
+        "S16"
+      ],
+      "status": "complete",
+      "evidence": "progress.md#w9"
+    }
+  ]
+}
