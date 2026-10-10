@@ -172,7 +172,7 @@ export function Earnings() {
 const styles = StyleSheet.create({
     screen: { flex: 1 },
     page: { gap: 12, padding: 16, paddingBottom: 32 },
-    stats: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
+    stats: { gap: 12 },
     actions: { flexDirection: "row", gap: 8 },
     meta: { alignItems: "flex-end", gap: 4 },
     amount: { color: c.ink, fontSize: 14, fontWeight: "600", fontVariant: ["tabular-nums"] },

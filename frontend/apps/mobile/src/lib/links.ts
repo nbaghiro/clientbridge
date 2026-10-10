@@ -47,7 +47,7 @@ export function useOpenLink(): (target: ShellTarget, refId?: string | null) => v
                     return;
                 case "invoice":
                 case "estimate":
-                    nav.navigate("Payments", { tab: "invoices", ...ref });
+                    nav.navigate("Payments", { tab: "invoices", compose: target, ...ref });
                     return;
                 case "giftCards":
                     nav.navigate("Payments", { tab: "giftCards" });

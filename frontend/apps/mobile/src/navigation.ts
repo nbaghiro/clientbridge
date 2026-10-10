@@ -21,7 +21,9 @@ export type TabParamList = {
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 export type RootStackParamList = {
     Tabs: NavigatorScreenParams<TabParamList> | undefined;
-    Payments: { tab?: PaymentsTabKey; create?: number; open?: string } | undefined;
+    Payments:
+        | { tab?: PaymentsTabKey; create?: number; compose?: "invoice" | "estimate"; open?: string }
+        | undefined;
     Search: undefined;
     Notifications: undefined;
     Setup: undefined;

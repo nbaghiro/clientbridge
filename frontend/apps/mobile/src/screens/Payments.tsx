@@ -35,6 +35,7 @@ export function PaymentsScreen() {
                         {tabBody(
                             current.key,
                             tab === "invoices" ? params?.create : undefined,
+                            params?.compose ?? "invoice",
                             tab === "invoices" || tab === "refunds" ? params?.open : undefined,
                         )}
                     </View>
@@ -47,11 +48,12 @@ export function PaymentsScreen() {
 function tabBody(
     key: PaymentsTabKey,
     createToken: number | undefined,
+    createKind: "invoice" | "estimate",
     openId: string | undefined,
 ): ReactElement {
     switch (key) {
         case "invoices":
-            return <Invoices createToken={createToken} openId={openId} />;
+            return <Invoices createToken={createToken} createKind={createKind} openId={openId} />;
         case "sales":
             return <POS />;
         case "giftCards":
