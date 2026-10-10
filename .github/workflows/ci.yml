@@ -388,7 +388,7 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-34-x86_64-google_apis
+          key: avd-34-x86_64-google_apis-pixel_6
       - name: create the emulator snapshot
         if: steps.avd.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
@@ -396,6 +396,7 @@ jobs:
           api-level: 34
           arch: x86_64
           target: google_apis
+          profile: pixel_6
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: false
@@ -405,6 +406,7 @@ jobs:
           api-level: 34
           arch: x86_64
           target: google_apis
+          profile: pixel_6
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true

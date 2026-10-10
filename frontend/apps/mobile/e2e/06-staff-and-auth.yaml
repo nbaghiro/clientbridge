@@ -12,6 +12,9 @@ onFlowComplete:
 - takeScreenshot: sign-in
 - tapOn: "Continue with Google"
 - assertVisible: "Google sign-in isn't set up yet. Use your email and password."
+- scrollUntilVisible:
+      element: "Create an account"
+      direction: DOWN
 - tapOn: "Create an account"
 - assertVisible: "Your name"
 - takeScreenshot: sign-up
