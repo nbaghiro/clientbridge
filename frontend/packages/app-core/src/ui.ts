@@ -884,6 +884,10 @@ export interface ItemTileProps {
     disabled?: boolean | undefined;
     // card puts a square photo on top (product grids); tile is the compact register key.
     variant?: "tile" | "card" | undefined;
+    // Card only: a description under the name.
+    detail?: string | undefined;
+    // Card only: controls under the price; a card with actions is not itself pressable.
+    actions?: ReactNode | undefined;
 }
 
 export interface SwatchPickerProps {

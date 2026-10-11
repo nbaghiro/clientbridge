@@ -58,6 +58,7 @@ const FAILURES: Record<string, () => string> = {
     class_move: () => strings.api.classMove,
     recurrence_too_long: () => strings.api.recurrenceTooLong,
     idempotency_key_reused: () => strings.api.idempotencyKeyReused,
+    visit_not_started: () => strings.api.visitNotStarted,
 };
 
 /** The catalog message for a failure the server named, else the action's own message. */

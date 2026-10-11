@@ -3,7 +3,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import { type Attempt, attemptKey, failureMessage, refusal } from "../api";
-import { dateKey, deviceZone, formatTime, parseTimestamp, weekdayDay } from "../datetime";
+import {
+    dateKey,
+    deviceZone,
+    formatTime,
+    formatTimeRange,
+    parseTimestamp,
+    weekdayDay,
+} from "../datetime";
+import { BUSINESS_CURRENCY } from "../format";
+import type { DocTotalLine } from "../ui";
 import { zoneNote } from "./publicBooking";
 import {
     type PublicBrand,
@@ -103,6 +112,43 @@ export function cartSubtotal(
     cart: Record<string, number>,
 ): number {
     return items.reduce((sum, item) => sum + item.price_cents * (cart[item.id] ?? 0), 0);
+}
+
+/** How many of a product are in the cart, counting each of its variants. */
+export function productCount(
+    items: { id: string; variant_parent_id?: string | null }[],
+    cart: Record<string, number>,
+    productId: string,
+): number {
+    return items
+        .filter((item) => item.id === productId || item.variant_parent_id === productId)
+        .reduce((sum, item) => sum + (cart[item.id] ?? 0), 0);
+}
+
+/** The order panel's totals: an estimate before the order exists, then the server's figures. */
+export function shopTotalLines(
+    subtotalCents: number,
+    order: {
+        subtotal_cents?: number | null;
+        tax_total_cents?: number | null;
+        total_cents: number;
+    } | null,
+): DocTotalLine[] {
+    const s = strings.publicShop;
+    if (order === null)
+        return [{ key: "total", label: s.estimatedTotal, cents: subtotalCents, kind: "total" }];
+    return [
+        {
+            key: "subtotal",
+            label: s.subtotal,
+            cents: order.subtotal_cents ?? subtotalCents,
+            kind: "subtotal",
+        },
+        ...(order.tax_total_cents !== null && order.tax_total_cents !== undefined
+            ? [{ key: "tax", label: s.tax, cents: order.tax_total_cents, kind: "tax" as const }]
+            : []),
+        { key: "total", label: s.total, cents: order.total_cents, kind: "total" },
+    ];
 }
 
 type PublicShopStatus = "loading" | "not-found" | "error" | "ready" | "paying" | "paid";
@@ -300,9 +346,13 @@ function usePublicShop(
 
 const MAX_EACH = 20;
 
+type ShopStep = "pickup" | "details" | "pay";
+
 /** The shop page: the cart and checkout from usePublicShop, plus categories, cart lines and stock caps. */
 export function useShopFlow(client: PublicShopClient, slug: string, storage?: ShopStorage) {
     const base = usePublicShop(client, slug, storage);
+    const [stage, setStage] = useState<"pickup" | "details">("pickup");
+    const [variantIds, setVariantIds] = useState<Record<string, string>>({});
     const [search, setSearch] = useState("");
     const [category, setCategory] = useState("all");
     // Until the windows load there are none to show, so the visitor's own zone stands in.
@@ -314,11 +364,48 @@ export function useShopFlow(client: PublicShopClient, slug: string, storage?: Sh
     const lines = items
         .filter((i) => (base.cart[i.id] ?? 0) > 0)
         .map((i) => ({ item: i, quantity: base.cart[i.id] ?? 0, max: cap(i) }));
+    const step: ShopStep = base.status === "paying" ? "pay" : stage;
+    const variants = (id: string): PublicShopItem[] =>
+        items.filter((item) => item.variant_parent_id === id);
+    const chosenWindow = base.pickup?.windows.find((w) => w.starts_at === base.pickupFrom) ?? null;
     const cats = Array.from(
         new Set(items.map((i) => i.category).filter((c): c is string => c !== null && c !== "")),
     );
     return {
         ...base,
+        currency: items[0]?.currency ?? BUSINESS_CURRENCY,
+        step,
+        goTo: (next: "pickup" | "details") => {
+            if (base.status === "ready") setStage(next);
+        },
+        next: () => {
+            if (step === "pickup") setStage("details");
+            else if (step === "details") base.submit();
+        },
+        back: () => {
+            if (step === "details") setStage("pickup");
+        },
+        pickupLabel:
+            chosenWindow === null
+                ? strings.publicShop.pickupAsap
+                : strings.common.dayAndTime(
+                      weekdayDay(parseTimestamp(chosenWindow.starts_at), zone),
+                      formatTimeRange(
+                          parseTimestamp(chosenWindow.starts_at),
+                          parseTimestamp(chosenWindow.ends_at),
+                          zone,
+                      ),
+                  ),
+        totalLines: shopTotalLines(base.subtotalCents, base.order),
+        inCart: (productId: string) => productCount(items, base.cart, productId),
+        maxOf: cap,
+        variantId: (productId: string) =>
+            variantIds[productId] ??
+            (variants(productId).find((v) => v.in_stock) ?? variants(productId)[0])?.id ??
+            "",
+        setVariantId: (productId: string, variantId: string) => {
+            setVariantIds((prev) => ({ ...prev, [productId]: variantId }));
+        },
         category,
         setCategory,
         pickupDay,
@@ -353,7 +440,7 @@ export function useShopFlow(client: PublicShopClient, slug: string, storage?: Sh
         ],
         search,
         setSearch,
-        variants: (id: string) => items.filter((item) => item.variant_parent_id === id),
+        variants,
         visible: items
             .filter(
                 (i) =>
@@ -364,14 +451,12 @@ export function useShopFlow(client: PublicShopClient, slug: string, storage?: Sh
                         .includes(search.trim().toLocaleLowerCase()),
             )
             .map((item) => {
-                const variants = items.filter(
-                    (candidate) => candidate.variant_parent_id === item.id,
-                );
-                return variants.length
+                const options = variants(item.id);
+                return options.length
                     ? {
                           ...item,
-                          price_cents: Math.min(...variants.map((variant) => variant.price_cents)),
-                          in_stock: variants.some((variant) => variant.in_stock),
+                          price_cents: Math.min(...options.map((variant) => variant.price_cents)),
+                          in_stock: options.some((variant) => variant.in_stock),
                           stock_left: null,
                       }
                     : item;

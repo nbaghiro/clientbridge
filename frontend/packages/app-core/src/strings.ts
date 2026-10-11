@@ -64,6 +64,7 @@ interface Strings {
         readonly recurrenceTooLong: string;
         readonly mixedCurrencies: string;
         readonly idempotencyKeyReused: string;
+        readonly visitNotStarted: string;
     } & Labels;
     readonly ui: {
         readonly clearSearch: string;
@@ -935,6 +936,7 @@ interface Strings {
         readonly noShowKeep: (amount: string) => string;
         readonly noShowCharge: (amount: string) => string;
         readonly noShowNoDeposit: string;
+        readonly notStartedNote: string;
         readonly cancelTitle: string;
         readonly cancelKept: (amount: string) => string;
         readonly cancelNotify: string;
@@ -3624,10 +3626,6 @@ interface Strings {
         readonly sectionPickup: string;
         readonly sectionDetails: string;
         readonly sectionPay: string;
-        readonly noTip: string;
-        readonly hideSummary: string;
-        readonly showSummary: (total: string) => string;
-        readonly inStock: string;
         readonly variant: string;
         readonly pickupWindow: string;
         readonly pickupWindowAt: (when: string) => string;
@@ -3638,7 +3636,6 @@ interface Strings {
         readonly addToOrder: string;
         readonly checkout: string;
         readonly backToShop: string;
-        readonly close: string;
         readonly noMatches: string;
         readonly title: string;
         readonly subtitle: string;
@@ -3649,10 +3646,8 @@ interface Strings {
         readonly cart: string;
         readonly cartEmpty: string;
         readonly items: (n: number) => string;
-        readonly viewOrder: string;
         readonly subtotal: string;
         readonly tax: string;
-        readonly taxLater: string;
         readonly remove: string;
         readonly pickupTitle: string;
         readonly pickupWhen: string;
@@ -3662,7 +3657,6 @@ interface Strings {
         readonly reach: string;
         readonly continuePay: string;
         readonly placing: string;
-        readonly payTitle: string;
         readonly payBody: (total: string) => string;
         readonly pay: (amount: string) => string;
         readonly paying: string;
@@ -3678,6 +3672,14 @@ interface Strings {
         readonly notFoundBody: string;
         readonly loadErrorTitle: string;
         readonly emptyTitle: string;
+        readonly addNamed: (name: string) => string;
+        readonly estimatedTotal: string;
+        readonly total: string;
+        readonly taxNote: string;
+        readonly continue: string;
+        readonly back: string;
+        readonly change: string;
+        readonly orderUpdated: (items: string, total: string) => string;
         readonly notTakingPayments: string;
     };
     readonly onlineBooking: {
@@ -3735,6 +3737,8 @@ interface Strings {
         readonly newClients: string;
         readonly newClientsAllow: string;
         readonly newClientsApprove: string;
+        readonly autoComplete: string;
+        readonly autoCompleteHint: string;
         readonly save: string;
         readonly saving: string;
         readonly saved: string;

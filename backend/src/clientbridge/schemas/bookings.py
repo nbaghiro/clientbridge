@@ -281,6 +281,9 @@ class BookingPolicy(BaseModel):
     cancel_cutoff_hours: int = Field(default=24, ge=0, le=168)
     reschedule_cutoff_hours: int = Field(default=24, ge=0, le=168)
     max_reschedules: int = Field(default=2, ge=1, le=99)
+    auto_complete: bool = Field(
+        default=True, description="Visits still open after their day are completed overnight"
+    )
 
 
 class BookingPolicyPatch(BaseModel):
@@ -294,6 +297,7 @@ class BookingPolicyPatch(BaseModel):
     cancel_cutoff_hours: int | None = Field(default=None, ge=0, le=168)
     reschedule_cutoff_hours: int | None = Field(default=None, ge=0, le=168)
     max_reschedules: int | None = Field(default=None, ge=1, le=99)
+    auto_complete: bool | None = None
 
 
 class OnlineService(Mirror):

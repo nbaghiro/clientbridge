@@ -418,10 +418,11 @@ export function BookingActionBar({
     return (
         <View style={styles.ask}>
             <View style={styles.askRow}>
-                {actions.canComplete ? (
+                {actions.canComplete || actions.notStartedNote !== null ? (
                     <Button
                         grow
                         busy={actions.pending === "complete"}
+                        disabled={!actions.canComplete}
                         onPress={() => {
                             actions.run("complete");
                         }}
@@ -429,10 +430,11 @@ export function BookingActionBar({
                         {actions.pending === "complete" ? s.working : s.complete}
                     </Button>
                 ) : null}
-                {actions.canNoShow ? (
+                {actions.canNoShow || actions.notStartedNote !== null ? (
                     <Button
                         grow
                         variant="outline"
+                        disabled={!actions.canNoShow}
                         onPress={() => {
                             setAsking("no_show");
                         }}
@@ -457,6 +459,9 @@ export function BookingActionBar({
                     </Button>
                 ) : null}
             </View>
+            {actions.notStartedNote !== null ? (
+                <Text style={styles.sub}>{actions.notStartedNote}</Text>
+            ) : null}
             {actions.error !== null ? <Notice tone="danger">{actions.error}</Notice> : null}
         </View>
     );

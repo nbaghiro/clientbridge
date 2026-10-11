@@ -20,7 +20,7 @@ import {
     ItemImage,
     OptionCard,
 } from "@clientbridge/ui";
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import {
@@ -33,6 +33,7 @@ import {
 } from "../components/BookingSteps";
 import { brandStyle, PublicPage, Rating } from "../components/PublicPage";
 import { PublicStatus } from "../components/PublicStatus";
+import { StepCard, StepLayout, SummaryBar, SummaryPanel } from "../components/StepLayout";
 import { config } from "../config";
 import { useEmbedBrand, useEmbedSuccess } from "../embed";
 
@@ -122,6 +123,12 @@ export function PublicBooking() {
                   : s.confirm
             : s.continue;
     const showNav = flow.step !== "pay";
+    const next = {
+        label: cta,
+        onPress: flow.next,
+        disabled: !flow.canNext && flow.step !== "details",
+        busy: flow.busy,
+    };
     const hasExtras = flow.offered.length > 0;
 
     return (
@@ -149,127 +156,13 @@ export function PublicBooking() {
                     </p>
                 ) : null}
             </div>
-            <div className="grid gap-6 pb-28 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-8 lg:pb-0">
-                <section className="min-w-0">
-                    <div className="space-y-3">
-                        <BookingSection
-                            n={1}
-                            title={s.stepService}
-                            summary={flow.service?.name}
-                            state={
-                                flow.step === "service"
-                                    ? "open"
-                                    : flow.service !== null
-                                      ? "done"
-                                      : "todo"
-                            }
-                            onEdit={
-                                flow.step === "pay"
-                                    ? undefined
-                                    : () => {
-                                          flow.goTo("service");
-                                      }
-                            }
-                        >
-                            <ServicePicker flow={flow} />
-                        </BookingSection>
-                        <BookingSection
-                            n={2}
-                            title={s.stepTime}
-                            summary={flow.when}
-                            state={
-                                flow.step === "time" ? "open" : flow.slot !== null ? "done" : "todo"
-                            }
-                            onEdit={
-                                flow.step === "pay"
-                                    ? undefined
-                                    : () => {
-                                          flow.goTo("time");
-                                      }
-                            }
-                        >
-                            <WhenPicker flow={flow} />
-                        </BookingSection>
-                        {hasExtras ? (
-                            <BookingSection
-                                n={3}
-                                title={s.stepExtras}
-                                summary={formatList(
-                                    flow.addonLines.map((line) => line.addon.name),
-                                    "unit",
-                                )}
-                                state={
-                                    flow.step === "extras"
-                                        ? "open"
-                                        : flow.step === "details" || flow.step === "pay"
-                                          ? "done"
-                                          : "todo"
-                                }
-                                onEdit={
-                                    flow.step === "pay"
-                                        ? undefined
-                                        : () => {
-                                              flow.goTo("extras");
-                                          }
-                                }
-                            >
-                                <SuggestedExtras flow={flow} />
-                            </BookingSection>
-                        ) : null}
-                        <BookingSection
-                            n={hasExtras ? 4 : 3}
-                            title={s.stepDetails}
-                            summary={flow.fields.name}
-                            state={
-                                flow.step === "details"
-                                    ? "open"
-                                    : flow.step === "pay"
-                                      ? "done"
-                                      : "todo"
-                            }
-                            onEdit={
-                                flow.step === "pay"
-                                    ? undefined
-                                    : () => {
-                                          flow.goTo("details");
-                                      }
-                            }
-                        >
-                            <div className="space-y-6">
-                                <ReturningPanel returning={returning} flow={flow} />
-                                <DetailsForm flow={flow} />
-                                <div className="border-t border-line pt-4 lg:hidden">
-                                    <DocTotals
-                                        lines={flow.totalLines}
-                                        currency={flow.currency}
-                                        density="compact"
-                                    />
-                                    <p className="pt-2 text-xs text-muted">{s.taxNote}</p>
-                                </div>
-                            </div>
-                        </BookingSection>
-                        {flow.totals.depositCents > 0 ? (
-                            <BookingSection
-                                n={hasExtras ? 5 : 4}
-                                title={s.stepPay}
-                                state={flow.step === "pay" ? "open" : "todo"}
-                            >
-                                <PayStep flow={flow} />
-                            </BookingSection>
-                        ) : null}
-                    </div>
-                    {flow.error !== null ? (
-                        <div className="mt-4">
-                            <Notice tone="danger">{flow.error}</Notice>
-                        </div>
-                    ) : null}
-                </section>
-
-                <aside className="hidden lg:block">
-                    <div className="sticky top-24 rounded-2xl border border-line bg-surface p-5 shadow-card">
-                        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
-                            {s.summary}
-                        </h2>
+            <StepLayout
+                summary={
+                    <SummaryPanel
+                        title={s.summary}
+                        next={showNav ? next : undefined}
+                        back={showNav && i > 0 ? { label: s.back, onPress: flow.back } : undefined}
+                    >
                         {flow.service === null ? (
                             <p className="mt-3 text-sm text-muted">{s.chooseServiceHint}</p>
                         ) : (
@@ -316,63 +209,143 @@ export function PublicBooking() {
                                 )}
                             </p>
                         ) : null}
-                        {showNav ? (
-                            <div className="mt-5 space-y-2">
-                                <Button
-                                    className="w-full"
-                                    size="lg"
-                                    onPress={flow.next}
-                                    disabled={!flow.canNext && flow.step !== "details"}
-                                    busy={flow.busy}
-                                >
-                                    {cta}
-                                </Button>
-                                {i > 0 ? (
-                                    <Button
-                                        className="w-full"
-                                        variant="quiet"
-                                        icon="chevronLeft"
-                                        onPress={flow.back}
-                                    >
-                                        {s.back}
-                                    </Button>
-                                ) : null}
-                            </div>
-                        ) : null}
-                    </div>
-                </aside>
-            </div>
-
-            {showNav ? (
-                <div className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-surface px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
-                    <div className="mx-auto max-w-xl space-y-2">
-                        <div className="flex items-baseline justify-between gap-3 text-sm">
-                            <span className="truncate text-ink-soft">
-                                {flow.service ? (flow.when ?? flow.service.name) : s.chooseService}
-                            </span>
-                            {flow.service ? (
-                                <span className="shrink-0 font-semibold text-ink">
-                                    {flow.totals.depositCents > 0 ? <>{s.dueNow} </> : null}
-                                    <span className="font-mono tabular-nums">
-                                        {flow.totals.depositCents > 0
-                                            ? flow.totals.deposit
-                                            : flow.totals.total}
+                    </SummaryPanel>
+                }
+                bar={
+                    showNav ? (
+                        <SummaryBar
+                            label={
+                                flow.service ? (flow.when ?? flow.service.name) : s.chooseService
+                            }
+                            amount={
+                                flow.service ? (
+                                    <span className="shrink-0 font-semibold text-ink">
+                                        {flow.totals.depositCents > 0 ? <>{s.dueNow} </> : null}
+                                        <span className="font-mono tabular-nums">
+                                            {flow.totals.depositCents > 0
+                                                ? flow.totals.deposit
+                                                : flow.totals.total}
+                                        </span>
                                     </span>
-                                </span>
-                            ) : null}
-                        </div>
-                        <Button
-                            className="w-full"
-                            size="lg"
-                            onPress={flow.next}
-                            disabled={!flow.canNext && flow.step !== "details"}
-                            busy={flow.busy}
+                                ) : null
+                            }
+                            next={next}
+                        />
+                    ) : null
+                }
+            >
+                <div className="space-y-3">
+                    <StepCard
+                        n={1}
+                        title={s.stepService}
+                        editLabel={s.change}
+                        summary={flow.service?.name}
+                        state={
+                            flow.step === "service"
+                                ? "open"
+                                : flow.service !== null
+                                  ? "done"
+                                  : "todo"
+                        }
+                        onEdit={
+                            flow.step === "pay"
+                                ? undefined
+                                : () => {
+                                      flow.goTo("service");
+                                  }
+                        }
+                    >
+                        <ServicePicker flow={flow} />
+                    </StepCard>
+                    <StepCard
+                        n={2}
+                        title={s.stepTime}
+                        editLabel={s.change}
+                        summary={flow.when}
+                        state={flow.step === "time" ? "open" : flow.slot !== null ? "done" : "todo"}
+                        onEdit={
+                            flow.step === "pay"
+                                ? undefined
+                                : () => {
+                                      flow.goTo("time");
+                                  }
+                        }
+                    >
+                        <WhenPicker flow={flow} />
+                    </StepCard>
+                    {hasExtras ? (
+                        <StepCard
+                            n={3}
+                            title={s.stepExtras}
+                            editLabel={s.change}
+                            summary={formatList(
+                                flow.addonLines.map((line) => line.addon.name),
+                                "unit",
+                            )}
+                            state={
+                                flow.step === "extras"
+                                    ? "open"
+                                    : flow.step === "details" || flow.step === "pay"
+                                      ? "done"
+                                      : "todo"
+                            }
+                            onEdit={
+                                flow.step === "pay"
+                                    ? undefined
+                                    : () => {
+                                          flow.goTo("extras");
+                                      }
+                            }
                         >
-                            {cta}
-                        </Button>
-                    </div>
+                            <SuggestedExtras flow={flow} />
+                        </StepCard>
+                    ) : null}
+                    <StepCard
+                        n={hasExtras ? 4 : 3}
+                        title={s.stepDetails}
+                        editLabel={s.change}
+                        summary={flow.fields.name}
+                        state={
+                            flow.step === "details" ? "open" : flow.step === "pay" ? "done" : "todo"
+                        }
+                        onEdit={
+                            flow.step === "pay"
+                                ? undefined
+                                : () => {
+                                      flow.goTo("details");
+                                  }
+                        }
+                    >
+                        <div className="space-y-6">
+                            <ReturningPanel returning={returning} flow={flow} />
+                            <DetailsForm flow={flow} />
+                            <div className="border-t border-line pt-4 lg:hidden">
+                                <DocTotals
+                                    lines={flow.totalLines}
+                                    currency={flow.currency}
+                                    density="compact"
+                                />
+                                <p className="pt-2 text-xs text-muted">{s.taxNote}</p>
+                            </div>
+                        </div>
+                    </StepCard>
+                    {flow.totals.depositCents > 0 ? (
+                        <StepCard
+                            n={hasExtras ? 5 : 4}
+                            title={s.stepPay}
+                            editLabel={s.change}
+                            state={flow.step === "pay" ? "open" : "todo"}
+                        >
+                            <PayStep flow={flow} />
+                        </StepCard>
+                    ) : null}
                 </div>
-            ) : null}
+                {flow.error !== null ? (
+                    <div className="mt-4">
+                        <Notice tone="danger">{flow.error}</Notice>
+                    </div>
+                ) : null}
+            </StepLayout>
         </PublicPage>
     );
 }
@@ -517,53 +490,6 @@ function GuidedBooking({
                 </div>
             ) : null}
         </div>
-    );
-}
-
-function BookingSection({
-    n,
-    title,
-    summary,
-    state,
-    onEdit,
-    children,
-}: {
-    n: number;
-    title: string;
-    summary?: string | null | undefined;
-    state: "open" | "done" | "todo";
-    onEdit?: (() => void) | undefined;
-    children: ReactNode;
-}) {
-    return (
-        <section
-            className={`rounded-2xl border bg-surface ${state === "open" ? "border-line shadow-card" : "border-line-soft"}`}
-        >
-            <div className="flex items-center gap-3 px-5 py-3.5">
-                <span
-                    aria-hidden
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${state === "done" ? "bg-accent text-accent-ink" : state === "open" ? "border-2 border-accent text-accent" : "border border-line text-muted"}`}
-                >
-                    {state === "done" ? <Icon name="check" size={14} /> : n}
-                </span>
-                <div className="min-w-0 flex-1">
-                    <h2
-                        className={`font-display font-bold ${state === "todo" ? "text-[15px] text-muted" : "text-[17px] text-ink"}`}
-                    >
-                        {title}
-                    </h2>
-                    {state === "done" && summary ? (
-                        <p className="truncate text-sm text-ink-soft">{summary}</p>
-                    ) : null}
-                </div>
-                {state === "done" && onEdit ? (
-                    <Button size="sm" variant="quiet" onPress={onEdit}>
-                        {s.change}
-                    </Button>
-                ) : null}
-            </div>
-            {state === "open" ? <div className="px-5 pb-5">{children}</div> : null}
-        </section>
     );
 }
 

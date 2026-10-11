@@ -16,6 +16,7 @@ import {
     hourMarks,
     laneFor,
     layoutDay,
+    lifecycleOf,
     markMoves,
     minuteTop,
     moveFailure,
@@ -636,5 +637,27 @@ describe("deposits", () => {
         expect(canCollectDeposit({ ...due, depositStatus: "collected" }, owner)).toBe(false);
         expect(canCollectDeposit({ ...due, bookingId: null }, owner)).toBe(false);
         expect(canCollectDeposit({ ...due, depositRequired: false }, owner)).toBe(false);
+    });
+});
+
+describe("closing a visit", () => {
+    it("shows Complete and No-show disabled with the reason until the visit starts", () => {
+        const ahead = lifecycleOf(event("a", at(10), at(11)), at(9, 59));
+        expect(ahead).toEqual({
+            canComplete: false,
+            canNoShow: false,
+            canCancel: true,
+            canReschedule: true,
+            notStartedNote: s.notStartedNote,
+        });
+        const started = lifecycleOf(event("a", at(10), at(11)), at(10));
+        expect(started).toMatchObject({ canComplete: true, canNoShow: true, canCancel: false });
+        expect(started.notStartedNote).toBeNull();
+    });
+
+    it("offers nothing on a visit that is already closed", () => {
+        const closed = lifecycleOf(event("a", at(10), at(11), { status: "completed" }), at(9));
+        expect(closed.notStartedNote).toBeNull();
+        expect(closed.canComplete || closed.canCancel).toBe(false);
     });
 });

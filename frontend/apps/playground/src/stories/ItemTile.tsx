@@ -159,6 +159,25 @@ export default story<ItemTileProps>({
             }),
         },
         {
+            key: "card-actions",
+            title: "Card with a description and an add button",
+            props: (k) => ({
+                currency: "CAD",
+                name: "Oatmeal shampoo (500ml)",
+                detail: "Gentle on sensitive skin, with colloidal oatmeal and no added fragrance.",
+                imageSrc: PHOTO,
+                color: null,
+                cents: 2400,
+                meta: "Bath and coat",
+                variant: "card",
+                actions: (
+                    <k.Button size="sm" variant="outline" icon="plus" full>
+                        Add to order
+                    </k.Button>
+                ),
+            }),
+        },
+        {
             key: "card-disabled",
             title: "Card, sold out, long name",
             props: () => ({

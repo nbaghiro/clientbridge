@@ -5,33 +5,42 @@ import {
     useShopFlow,
     formatParts,
     formatMoney,
-    BUSINESS_CURRENCY,
 } from "@clientbridge/app-core/public";
 import {
     Button,
     CardForm,
     Choice,
+    DocTotals,
     Empty,
     ItemTile,
     ItemImage,
     SearchField,
+    Select,
     LineItem,
-    Modal,
     Notice,
     ProgressSteps,
+    Stepper,
     TextField,
     Toggle,
     Icon,
 } from "@clientbridge/ui";
-import { type ReactNode, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { PublicPage } from "../components/PublicPage";
 import { PublicStatus } from "../components/PublicStatus";
+import {
+    type StepAction,
+    StepCard,
+    StepLayout,
+    SummaryBar,
+    SummaryPanel,
+} from "../components/StepLayout";
 import { config } from "../config";
 import { isEmbedded, useEmbedSuccess } from "../embed";
 
 const shopClient = createPublicShopClient(config.apiUrl);
 const s = strings.publicShop;
+const SUMMARY_ID = "order-summary";
 const cartStorage = (() => {
     try {
         return window.sessionStorage;
@@ -50,36 +59,39 @@ function ShopPage({ slug }: { slug: string }) {
     const checkoutRoute = useLocation().pathname.endsWith("/checkout");
     const shop = useShopFlow(shopClient, slug, cartStorage);
     const [params, setParams] = useSearchParams();
-    const cartOpen = params.get("cart") === "1";
-    const setCartOpen = (open: boolean) => {
-        setParams(
-            (previous) => {
-                const next = new URLSearchParams(previous);
-                if (open) {
-                    next.set("cart", "1");
-                    next.delete("product");
-                } else next.delete("cart");
-                return next;
-            },
-            { replace: true },
-        );
-    };
-    const [summaryOpen, setSummaryOpen] = useState(false);
-    const [variantId, setVariantId] = useState("");
-    const productId = params.get("product");
-    const setProductId = (id: string | null) => {
-        setParams(
-            (previous) => {
-                const next = new URLSearchParams(previous);
-                if (id) next.set("product", id);
-                else next.delete("product");
-                return next;
-            },
-            { replace: true },
-        );
-    };
+    const [barOpen, setBarOpen] = useState(false);
     const page = shop.shop;
+    const ready = page !== null;
+    const cartParam = params.get("cart") === "1";
+    const productParam = params.get("product");
     useEmbedSuccess(shop.status === "paid", "shop");
+
+    useEffect(() => {
+        if (!ready || (!cartParam && productParam === null)) return;
+        if (cartParam) {
+            if (window.matchMedia("(min-width: 1024px)").matches)
+                document.getElementById(SUMMARY_ID)?.focus();
+            else setBarOpen(true);
+        }
+        if (productParam !== null) {
+            const target = shop.shop?.items.find((item) => item.id === productParam);
+            const productId = target?.variant_parent_id ?? productParam;
+            if (target?.variant_parent_id) shop.setVariantId(productId, productParam);
+            const card = document.getElementById(`product-${productId}`);
+            card?.scrollIntoView({ block: "center" });
+            card?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+        }
+        setParams(
+            (previous) => {
+                const next = new URLSearchParams(previous);
+                next.delete("cart");
+                next.delete("product");
+                return next;
+            },
+            { replace: true },
+        );
+    }, [ready, cartParam, productParam, shop, setParams]);
+
     if (shop.status === "loading") return <PublicStatus kind="loading" />;
     if (shop.status === "not-found")
         return <PublicStatus kind="notFound" title={s.notFoundTitle} body={s.notFoundBody} />;
@@ -91,15 +103,9 @@ function ShopPage({ slug }: { slug: string }) {
         );
         if (result) result.catch(() => undefined);
     };
-    const currency = page.items[0]?.currency ?? BUSINESS_CURRENCY;
-    const subtotal = formatMoney(shop.subtotalCents, currency);
+    const shopPath = `/b/${encodeURIComponent(slug)}/shop`;
     const checkingOut = checkoutRoute || shop.status === "paying" || shop.status === "paid";
-    const product = page.items.find((item) => item.id === productId) ?? null;
-    const variants = product ? shop.variants(product.id) : [];
-    const chosen = variants.length
-        ? (variants.find((variant) => variant.id === variantId) ?? null)
-        : product;
-    const summary = <OrderSummary shop={shop} />;
+    const total = formatMoney(shop.order?.total_cents ?? shop.subtotalCents, shop.currency);
     const hero = (
         <div>
             <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
@@ -108,6 +114,36 @@ function ShopPage({ slug }: { slug: string }) {
             <p className="mt-2 text-sm text-muted">{checkingOut ? s.checkoutBody : s.subtitle}</p>
         </div>
     );
+    const empty = shop.lines.length === 0 && shop.order === null;
+    const next: StepAction | undefined = !checkingOut
+        ? {
+              label: s.checkout,
+              onPress: () => {
+                  go(`${shopPath}/checkout`);
+              },
+              disabled: shop.count === 0,
+          }
+        : empty || shop.step === "pay"
+          ? undefined
+          : shop.step === "pickup"
+            ? { label: s.continue, onPress: shop.next }
+            : {
+                  label: shop.busy ? s.placing : s.continuePay,
+                  onPress: shop.next,
+                  busy: shop.busy,
+                  disabled: page.stripe_account_id === null,
+              };
+    const back: StepAction | undefined =
+        checkingOut && shop.step === "pickup"
+            ? {
+                  label: s.backToShop,
+                  onPress: () => {
+                      go(shopPath);
+                  },
+              }
+            : checkingOut && shop.step === "details"
+              ? { label: s.back, onPress: shop.back }
+              : undefined;
     return (
         <PublicPage
             name={page.business_name}
@@ -115,13 +151,13 @@ function ShopPage({ slug }: { slug: string }) {
             hero={hero}
             cartCount={shop.count}
             actions={
-                checkingOut ? (
+                checkingOut && shop.status !== "paid" ? (
                     <Button
                         size="sm"
                         variant="outline"
                         icon="chevronLeft"
                         onPress={() => {
-                            go(`/b/${encodeURIComponent(slug)}/shop`);
+                            go(shopPath);
                         }}
                     >
                         {s.backToShop}
@@ -129,460 +165,363 @@ function ShopPage({ slug }: { slug: string }) {
                 ) : undefined
             }
         >
+            <p aria-live="polite" className="sr-only">
+                {shop.count > 0 ? s.orderUpdated(s.items(shop.count), total) : ""}
+            </p>
             {shop.status === "paid" ? (
                 <div className="mx-auto max-w-3xl rounded-2xl border border-line bg-surface p-6 shadow-card sm:p-8">
                     <ShopDone shop={shop} />
                 </div>
-            ) : checkingOut ? (
-                <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-                    <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card lg:hidden">
-                        <Button
-                            full
-                            variant="quiet"
-                            icon={summaryOpen ? "chevronUp" : "chevronDown"}
-                            onPress={() => {
-                                setSummaryOpen(!summaryOpen);
-                            }}
-                        >
-                            {summaryOpen ? s.hideSummary : s.showSummary(subtotal)}
-                        </Button>
-                        {summaryOpen ? <div className="p-5">{summary}</div> : null}
-                    </div>
-                    <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
-                        {shop.lines.length === 0 && shop.order === null ? (
-                            <div className="p-6">
-                                <Empty icon="bag" message={s.cartEmpty} />
-                            </div>
-                        ) : (
-                            <>
-                                <CheckoutSection n={1} title={s.sectionPickup}>
-                                    <div className="space-y-4">
-                                        <Choice
-                                            label={s.pickupDay}
-                                            layout="tiles"
-                                            columns={4}
-                                            value={shop.pickupDay}
-                                            onChange={shop.setPickupDay}
-                                            options={shop.pickupDays.map((day) => ({
-                                                ...day,
-                                                disabled: shop.status === "paying",
-                                            }))}
-                                            className="max-sm:grid-cols-2"
-                                        />
-                                        {shop.pickupWindows.length ? (
-                                            <Choice
-                                                label={s.pickupWindow}
-                                                layout="tiles"
-                                                columns={3}
-                                                value={shop.pickupFrom}
-                                                onChange={shop.setPickupFrom}
-                                                options={shop.pickupWindows.map((window) => ({
-                                                    ...window,
-                                                    disabled: shop.status === "paying",
-                                                }))}
-                                            />
-                                        ) : (
-                                            <p className="text-sm text-muted">{s.pickupWhen}</p>
-                                        )}
-                                        {shop.pickup ? (
-                                            <p className="text-xs text-muted">
-                                                {formatParts([
-                                                    shop.zoneNote,
-                                                    s.pickupHold(shop.pickup.hold_days),
-                                                ])}
-                                            </p>
-                                        ) : null}
-                                        <TextField
-                                            label={s.pickupNote}
-                                            value={shop.note}
-                                            onChange={shop.setNote}
-                                            maxLength={1000}
-                                            optional
-                                            multiline
-                                            disabled={shop.status === "paying"}
-                                        />
-                                    </div>
-                                </CheckoutSection>
-                                <CheckoutSection n={2} title={s.sectionDetails}>
-                                    <div className="grid gap-4 sm:grid-cols-2">
-                                        <div className="sm:col-span-2">
-                                            <TextField
-                                                label={s.name}
-                                                value={shop.name}
-                                                onChange={shop.setName}
-                                                autoComplete="name"
-                                                disabled={shop.status === "paying"}
-                                            />
-                                        </div>
-                                        <TextField
-                                            label={s.phone}
-                                            type="tel"
-                                            value={shop.phone}
-                                            onChange={shop.setPhone}
-                                            autoComplete="tel"
-                                            disabled={shop.status === "paying"}
-                                        />
-                                        <TextField
-                                            label={s.email}
-                                            type="email"
-                                            value={shop.email}
-                                            onChange={shop.setEmail}
-                                            autoComplete="email"
-                                            optional
-                                            disabled={shop.status === "paying"}
-                                        />
-                                        <p className="text-xs text-muted sm:col-span-2">
-                                            {s.reach}
-                                        </p>
-                                        <div className="sm:col-span-2">
-                                            <Toggle
-                                                label={strings.publicOrder.alerts}
-                                                value={shop.notifySms}
-                                                onChange={shop.setNotifySms}
-                                                disabled={shop.status === "paying"}
-                                            />
-                                        </div>
-                                    </div>
-                                </CheckoutSection>
-                                <CheckoutSection n={3} title={s.sectionPay}>
-                                    <div className="space-y-4">
-                                        {shop.status === "paying" ? (
-                                            <ShopPay shop={shop} />
-                                        ) : (
-                                            <>
-                                                {page.stripe_account_id === null ? (
-                                                    <Notice tone="info">
-                                                        {s.notTakingPayments}
-                                                    </Notice>
-                                                ) : null}
-                                                {shop.error ? (
-                                                    <Notice tone="danger">{shop.error}</Notice>
-                                                ) : null}
-                                                <Button
-                                                    size="lg"
-                                                    full
-                                                    icon="card"
-                                                    onPress={shop.submit}
-                                                    busy={shop.busy}
-                                                    disabled={
-                                                        !shop.canOrder ||
-                                                        page.stripe_account_id === null
-                                                    }
-                                                >
-                                                    {shop.busy ? s.placing : s.continuePay}
-                                                </Button>
-                                            </>
-                                        )}
-                                        <p className="flex items-start gap-2 text-xs text-muted">
-                                            <Icon name="lock" size={14} />
-                                            {strings.publicBooking.secure}
-                                        </p>
-                                    </div>
-                                </CheckoutSection>
-                            </>
-                        )}
-                    </div>
-                    <aside className="hidden rounded-2xl border border-line bg-surface p-5 shadow-card lg:sticky lg:top-6 lg:block">
-                        {summary}
-                    </aside>
-                </div>
             ) : (
-                <>
-                    <section className="rounded-2xl border border-line bg-surface p-4 shadow-card sm:p-6">
-                        <h2 className="sr-only">{s.title}</h2>
-                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                            <SearchField
-                                placeholder={s.search}
-                                value={shop.search}
-                                onChange={shop.setSearch}
-                                className="lg:w-80"
+                <StepLayout
+                    summary={
+                        <SummaryPanel title={s.cart} titleId={SUMMARY_ID} next={next} back={back}>
+                            <OrderSummary shop={shop} />
+                        </SummaryPanel>
+                    }
+                    bar={
+                        next !== undefined && !empty ? (
+                            <SummaryBar
+                                label={s.items(shop.count)}
+                                amount={
+                                    <span className="shrink-0 font-mono font-semibold tabular-nums text-ink">
+                                        {total}
+                                    </span>
+                                }
+                                next={next}
+                                panel={<OrderSummary shop={shop} />}
+                                open={barOpen}
+                                onToggle={setBarOpen}
                             />
-                            <div className="overflow-x-auto">
-                                <Choice
-                                    label={s.categories}
-                                    options={shop.categories}
-                                    value={shop.category}
-                                    onChange={shop.setCategory}
-                                />
-                            </div>
-                        </div>
-                        {shop.visible.length === 0 ? (
-                            <div className="py-10">
-                                <Empty
-                                    icon="bag"
-                                    message={page.items.length ? s.noMatches : s.emptyTitle}
-                                />
-                            </div>
-                        ) : (
-                            <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-                                {shop.visible.map((item) => (
-                                    <ItemTile
-                                        key={item.id}
-                                        variant="card"
-                                        name={item.name}
-                                        imageSrc={item.image_url}
-                                        color={null}
-                                        cents={item.price_cents}
-                                        currency={item.currency}
-                                        meta={item.category ?? undefined}
-                                        count={shop.cart[item.id] ?? 0}
-                                        tag={
-                                            !item.in_stock
-                                                ? { label: s.soldOut, intent: "neutral" }
-                                                : item.stock_left !== null && item.stock_left <= 4
-                                                  ? {
-                                                        label: s.lowStock(item.stock_left),
-                                                        intent: "warning",
-                                                    }
-                                                  : null
-                                        }
-                                        onPress={() => {
-                                            setVariantId("");
-                                            setProductId(item.id);
-                                        }}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </section>
-                    <div className="h-24" />
-                    {shop.count > 0 ? (
-                        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-3 backdrop-blur sm:inset-x-auto sm:right-6 sm:bottom-6 sm:rounded-2xl sm:border sm:p-2 sm:shadow-pop">
-                            <Button
-                                full
-                                size="lg"
+                        ) : null
+                    }
+                >
+                    {checkingOut ? (
+                        empty ? (
+                            <Empty
+                                variant="card"
                                 icon="bag"
-                                onPress={() => {
-                                    setCartOpen(true);
-                                }}
-                            >
-                                {formatParts([s.viewOrder, s.items(shop.count), subtotal])}
-                            </Button>
+                                message={s.cartEmpty}
+                                actions={
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onPress={() => {
+                                            go(shopPath);
+                                        }}
+                                    >
+                                        {s.backToShop}
+                                    </Button>
+                                }
+                            />
+                        ) : (
+                            <CheckoutSteps
+                                shop={shop}
+                                takingPayments={page.stripe_account_id !== null}
+                            />
+                        )
+                    ) : (
+                        <Catalog shop={shop} />
+                    )}
+                    {shop.error !== null ? (
+                        <div className="mt-4">
+                            <Notice tone="danger">{shop.error}</Notice>
                         </div>
                     ) : null}
-                </>
+                </StepLayout>
             )}
-            <Modal
-                open={cartOpen}
-                size="lg"
-                onClose={() => {
-                    setCartOpen(false);
-                }}
-            >
-                {summary}
-                <div className="mt-6 flex flex-col gap-2">
-                    {shop.count > 0 ? (
-                        <Button
-                            full
-                            size="lg"
-                            onPress={() => {
-                                go(`/b/${encodeURIComponent(slug)}/shop/checkout`);
-                            }}
-                        >
-                            {s.checkout}
-                        </Button>
-                    ) : null}
-                    <Button
-                        variant="quiet"
-                        onPress={() => {
-                            setCartOpen(false);
-                        }}
-                    >
-                        {s.close}
-                    </Button>
-                </div>
-            </Modal>
-            <Modal
-                open={product !== null}
-                size="xl"
-                onClose={() => {
-                    setProductId(null);
-                }}
-            >
-                {product ? (
-                    <div className="grid gap-6 sm:grid-cols-2">
-                        <div className="flex items-center justify-center rounded-xl bg-bg p-4">
-                            <ItemImage src={product.image_url} name={product.name} size={260} />
-                        </div>
-                        <div className="space-y-4">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                                {product.category}
-                            </p>
-                            <h2 className="font-display text-2xl font-bold text-ink">
-                                {product.name}
-                            </h2>
-                            {chosen ? (
-                                <p className="font-mono text-xl font-semibold text-ink">
-                                    {formatMoney(chosen.price_cents, chosen.currency)}
-                                </p>
-                            ) : null}
-                            {product.description ? (
-                                <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-soft">
-                                    {product.description}
-                                </p>
-                            ) : null}
-                            {variants.length ? (
-                                <Choice
-                                    label={s.variant}
-                                    layout="chips"
-                                    value={variantId}
-                                    onChange={setVariantId}
-                                    options={variants.map((variant) => ({
-                                        key: variant.id,
-                                        label: variant.variant_label ?? variant.name,
-                                        hint: formatMoney(variant.price_cents, variant.currency),
-                                        disabled: !variant.in_stock,
-                                    }))}
-                                />
-                            ) : null}
-                            {chosen ? (
-                                <p className="text-sm text-muted">
-                                    {chosen.in_stock
-                                        ? chosen.stock_left !== null && chosen.stock_left <= 4
-                                            ? s.lowStock(chosen.stock_left)
-                                            : s.inStock
-                                        : s.soldOut}
-                                </p>
-                            ) : null}
-                            <div className="rounded-xl bg-accent-weak p-4">
-                                <p className="flex gap-2 text-sm font-semibold">
-                                    <Icon name="pin" size={16} />
-                                    {s.pickupTitle}
-                                </p>
-                                <p className="mt-1 text-xs text-muted">{s.pickupWhen}</p>
-                            </div>
-                            <div className="flex gap-3">
-                                <Button
-                                    variant="outline"
-                                    onPress={() => {
-                                        setProductId(null);
-                                    }}
-                                >
-                                    {s.close}
-                                </Button>
-                                <Button
-                                    grow
-                                    disabled={!chosen?.in_stock}
-                                    onPress={() => {
-                                        if (!chosen) return;
-                                        shop.addOne(chosen);
-                                        setCartOpen(true);
-                                    }}
-                                >
-                                    {s.addToOrder}
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                ) : null}
-            </Modal>
         </PublicPage>
     );
 }
 
-function CheckoutSection({
-    n,
-    title,
-    children,
-}: {
-    n: number;
-    title: string;
-    children: ReactNode;
-}) {
+function Catalog({ shop }: { shop: ShopFlow }) {
+    const items = shop.shop?.items ?? [];
     return (
-        <section className="p-5 sm:p-7" aria-label={title}>
-            <div className="mb-5 flex items-start gap-3">
-                <span
-                    aria-hidden
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-ink"
-                >
-                    {n}
-                </span>
-                <h2 className="font-display text-lg font-bold leading-7 text-ink">{title}</h2>
+        <section className="rounded-2xl border border-line bg-surface p-4 shadow-card sm:p-5">
+            <h2 className="sr-only">{s.title}</h2>
+            <div className="flex flex-col gap-3">
+                <SearchField
+                    placeholder={s.search}
+                    value={shop.search}
+                    onChange={shop.setSearch}
+                    className="sm:w-80"
+                />
+                <div className="overflow-x-auto">
+                    <Choice
+                        label={s.categories}
+                        options={shop.categories}
+                        value={shop.category}
+                        onChange={shop.setCategory}
+                    />
+                </div>
             </div>
-            {children}
+            {shop.visible.length === 0 ? (
+                <div className="py-10">
+                    <Empty icon="bag" message={items.length ? s.noMatches : s.emptyTitle} />
+                </div>
+            ) : (
+                <ul className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
+                    {shop.visible.map((item) => (
+                        <li key={item.id} id={`product-${item.id}`} className="flex">
+                            <ItemTile
+                                variant="card"
+                                className="w-full"
+                                name={item.name}
+                                detail={item.description ?? undefined}
+                                imageSrc={item.image_url}
+                                color={null}
+                                cents={item.price_cents}
+                                currency={item.currency}
+                                meta={item.category ?? undefined}
+                                count={shop.inCart(item.id)}
+                                disabled={!item.in_stock}
+                                tag={
+                                    !item.in_stock
+                                        ? { label: s.soldOut, intent: "neutral" }
+                                        : item.stock_left !== null && item.stock_left <= 4
+                                          ? {
+                                                label: s.lowStock(item.stock_left),
+                                                intent: "warning",
+                                            }
+                                          : null
+                                }
+                                actions={<ProductActions shop={shop} productId={item.id} />}
+                            />
+                        </li>
+                    ))}
+                </ul>
+            )}
         </section>
     );
 }
 
-function OrderSummary({ shop }: { shop: ShopFlow }) {
-    const currency = shop.shop?.items[0]?.currency ?? BUSINESS_CURRENCY;
+function ProductActions({ shop, productId }: { shop: ShopFlow; productId: string }) {
+    const product = shop.shop?.items.find((item) => item.id === productId) ?? null;
+    if (product === null) return null;
+    const options = shop.variants(productId);
+    const target = options.length
+        ? (options.find((variant) => variant.id === shop.variantId(productId)) ?? null)
+        : product;
+    const quantity = target === null ? 0 : (shop.cart[target.id] ?? 0);
     return (
-        <div className="space-y-4">
-            <div className="flex items-baseline justify-between">
-                <h2 className="font-display text-lg font-bold text-ink">{s.cart}</h2>
-                <span className="text-sm text-muted">{s.items(shop.count)}</span>
-            </div>
-            <CartLines shop={shop} />
-            <dl className="space-y-2 border-t border-line pt-3 text-sm">
-                <div className="flex justify-between">
-                    <dt>{s.subtotal}</dt>
-                    <dd>
-                        {formatMoney(shop.order?.subtotal_cents ?? shop.subtotalCents, currency)}
-                    </dd>
+        <span className="flex flex-col gap-2">
+            {options.length ? (
+                <Select
+                    name={s.variant}
+                    size="sm"
+                    value={shop.variantId(productId)}
+                    onChange={(id) => {
+                        shop.setVariantId(productId, id);
+                    }}
+                    options={options.map((variant) => ({
+                        key: variant.id,
+                        label: variant.variant_label ?? variant.name,
+                        detail: formatMoney(variant.price_cents, variant.currency),
+                        disabled: !variant.in_stock,
+                    }))}
+                />
+            ) : null}
+            {target !== null && quantity > 0 ? (
+                <Stepper
+                    className="w-full justify-between"
+                    value={quantity}
+                    min={0}
+                    max={shop.maxOf(target)}
+                    label={target.name}
+                    onChange={(n) => {
+                        shop.setLine(target, n);
+                    }}
+                />
+            ) : (
+                <Button
+                    size="sm"
+                    variant="outline"
+                    icon="plus"
+                    full
+                    label={s.addNamed(target?.name ?? product.name)}
+                    disabled={!target?.in_stock}
+                    onPress={() => {
+                        if (target !== null) shop.addOne(target);
+                    }}
+                >
+                    {s.addToOrder}
+                </Button>
+            )}
+        </span>
+    );
+}
+
+function CheckoutSteps({ shop, takingPayments }: { shop: ShopFlow; takingPayments: boolean }) {
+    const paying = shop.step === "pay";
+    return (
+        <div className="space-y-3">
+            <StepCard
+                n={1}
+                title={s.sectionPickup}
+                summary={shop.pickupLabel}
+                state={shop.step === "pickup" ? "open" : "done"}
+                editLabel={s.change}
+                onEdit={
+                    paying
+                        ? undefined
+                        : () => {
+                              shop.goTo("pickup");
+                          }
+                }
+            >
+                <div className="space-y-4">
+                    <Choice
+                        label={s.pickupDay}
+                        layout="tiles"
+                        columns={4}
+                        value={shop.pickupDay}
+                        onChange={shop.setPickupDay}
+                        options={shop.pickupDays}
+                        className="max-sm:grid-cols-2"
+                    />
+                    {shop.pickupWindows.length ? (
+                        <Choice
+                            label={s.pickupWindow}
+                            layout="tiles"
+                            columns={3}
+                            value={shop.pickupFrom}
+                            onChange={shop.setPickupFrom}
+                            options={shop.pickupWindows}
+                        />
+                    ) : (
+                        <p className="text-sm text-muted">{s.pickupWhen}</p>
+                    )}
+                    {shop.pickup ? (
+                        <p className="text-xs text-muted">
+                            {formatParts([shop.zoneNote, s.pickupHold(shop.pickup.hold_days)])}
+                        </p>
+                    ) : null}
+                    <TextField
+                        label={s.pickupNote}
+                        value={shop.note}
+                        onChange={shop.setNote}
+                        maxLength={1000}
+                        optional
+                        multiline
+                    />
                 </div>
-                <div className="flex justify-between text-muted">
-                    <dt>{s.tax}</dt>
-                    <dd>
-                        {shop.order
-                            ? shop.order.tax_total_cents !== null &&
-                              shop.order.tax_total_cents !== undefined
-                                ? formatMoney(shop.order.tax_total_cents, currency)
-                                : s.taxLater
-                            : s.taxLater}
-                    </dd>
-                </div>
-                {shop.order ? (
-                    <div className="flex justify-between font-bold">
-                        <dt>{strings.publicOrder.total}</dt>
-                        <dd>{formatMoney(shop.order.total_cents, currency)}</dd>
+            </StepCard>
+            <StepCard
+                n={2}
+                title={s.sectionDetails}
+                summary={shop.name}
+                state={shop.step === "details" ? "open" : paying ? "done" : "todo"}
+                editLabel={s.change}
+            >
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                        <TextField
+                            label={s.name}
+                            value={shop.name}
+                            onChange={shop.setName}
+                            autoComplete="name"
+                        />
                     </div>
-                ) : null}
-            </dl>
-            <p className="text-xs text-muted">{s.noTip}</p>
-            <div className="rounded-xl bg-accent-weak p-3.5">
-                <p className="flex items-center gap-2 text-sm font-semibold">
-                    <Icon name="pin" size={18} />
-                    {s.pickupTitle}
-                </p>
-                <p className="mt-1 text-xs text-muted">{s.pickupWhen}</p>
-            </div>
+                    <TextField
+                        label={s.phone}
+                        type="tel"
+                        value={shop.phone}
+                        onChange={shop.setPhone}
+                        autoComplete="tel"
+                    />
+                    <TextField
+                        label={s.email}
+                        type="email"
+                        value={shop.email}
+                        onChange={shop.setEmail}
+                        autoComplete="email"
+                        optional
+                    />
+                    <p className="text-xs text-muted sm:col-span-2">{s.reach}</p>
+                    <div className="sm:col-span-2">
+                        <Toggle
+                            label={strings.publicOrder.alerts}
+                            value={shop.notifySms}
+                            onChange={shop.setNotifySms}
+                        />
+                    </div>
+                    {!takingPayments ? (
+                        <div className="sm:col-span-2">
+                            <Notice tone="info">{s.notTakingPayments}</Notice>
+                        </div>
+                    ) : null}
+                </div>
+            </StepCard>
+            <StepCard
+                n={3}
+                title={s.sectionPay}
+                state={paying ? "open" : "todo"}
+                editLabel={s.change}
+            >
+                <div className="space-y-4">
+                    <ShopPay shop={shop} />
+                    <p className="flex items-start gap-2 text-xs text-muted">
+                        <Icon name="lock" size={14} />
+                        {strings.publicBooking.secure}
+                    </p>
+                </div>
+            </StepCard>
         </div>
     );
 }
 
-function CartLines({ shop }: { shop: ShopFlow }) {
-    if (shop.lines.length === 0) return <Empty icon="bag" message={s.cartEmpty} />;
+function OrderSummary({ shop }: { shop: ShopFlow }) {
+    if (shop.lines.length === 0 && shop.order === null)
+        return <p className="mt-3 text-sm text-muted">{s.cartEmpty}</p>;
+    const locked = shop.order !== null;
     return (
-        <div className="divide-y divide-line-soft">
-            {shop.lines.map((l) => (
-                <LineItem
-                    key={l.item.id}
-                    title={l.item.name}
-                    cents={l.item.price_cents * l.quantity}
-                    currency={l.item.currency}
-                    quantity={
-                        shop.order
-                            ? undefined
-                            : {
-                                  value: l.quantity,
-                                  max: l.max,
-                                  onChange: (n) => {
-                                      shop.setLine(l.item, n);
-                                  },
-                                  label: l.item.name,
-                              }
-                    }
-                    onRemove={
-                        shop.order
-                            ? undefined
-                            : () => {
-                                  shop.setLine(l.item, 0);
-                              }
-                    }
-                    removeLabel={s.remove}
-                />
-            ))}
+        <div className="mt-4 space-y-4">
+            <div className="divide-y divide-line-soft">
+                {shop.lines.map((l) => (
+                    <LineItem
+                        key={l.item.id}
+                        leading={<ItemImage src={l.item.image_url} name={l.item.name} size={44} />}
+                        title={l.item.name}
+                        cents={l.item.price_cents * l.quantity}
+                        currency={l.item.currency}
+                        count={locked ? l.quantity : undefined}
+                        quantity={
+                            locked
+                                ? undefined
+                                : {
+                                      value: l.quantity,
+                                      min: 1,
+                                      max: l.max,
+                                      onChange: (n) => {
+                                          shop.setLine(l.item, n);
+                                      },
+                                      label: l.item.name,
+                                  }
+                        }
+                        onRemove={
+                            locked
+                                ? undefined
+                                : () => {
+                                      shop.setLine(l.item, 0);
+                                  }
+                        }
+                        removeLabel={strings.common.labelValue(s.remove, l.item.name)}
+                    />
+                ))}
+            </div>
+            <div className="border-t border-line pt-3">
+                <DocTotals lines={shop.totalLines} currency={shop.currency} density="compact" />
+                <p className="pt-2 text-xs text-muted">{s.taxNote}</p>
+            </div>
+            <div className="rounded-xl bg-accent-weak p-3.5">
+                <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+                    <Icon name="pin" size={16} />
+                    {s.pickupTitle}
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                    {shop.step === "pickup" ? s.pickupWhen : shop.pickupLabel}
+                </p>
+            </div>
         </div>
     );
 }
@@ -593,10 +532,7 @@ function ShopPay({ shop }: { shop: ShopFlow }) {
     const total = formatMoney(o.total_cents, o.currency);
     return (
         <div className="space-y-4">
-            <div>
-                <h2 className="font-display text-xl font-bold text-ink">{s.payTitle}</h2>
-                <p className="mt-1 text-sm text-muted">{s.payBody(total)}</p>
-            </div>
+            <p className="text-sm text-muted">{s.payBody(total)}</p>
             <CardForm
                 clientSecret={o.client_secret}
                 stripeAccount={o.stripe_account_id}

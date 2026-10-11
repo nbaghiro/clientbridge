@@ -50,6 +50,7 @@ describe("refused requests", () => {
             ["class_move", strings.api.classMove],
             ["recurrence_too_long", strings.api.recurrenceTooLong],
             ["idempotency_key_reused", strings.api.idempotencyKeyReused],
+            ["visit_not_started", strings.api.visitNotStarted],
         ];
         for (const [code, message] of cases)
             expect(failureMessage(refused(409, code), "fallback")).toBe(message);

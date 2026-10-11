@@ -170,6 +170,9 @@
         "message": "These details changed after the last attempt was sent. Check them and try again.",
         "description": "A retried request carried different details from the attempt the server already saved."
     },
+    "api.visitNotStarted": {
+        "message": "This visit hasn't started yet. Complete it or mark a no-show once it starts."
+    },
     "common.amountWithCurrency": {
         "message": "{amount} {currency}",
         "args": ["amount", "currency"],
@@ -2851,6 +2854,9 @@
     },
     "bookings.noShowNoDeposit": {
         "message": "No deposit was taken for this visit."
+    },
+    "bookings.notStartedNote": {
+        "message": "Complete and No-show open once the visit starts."
     },
     "bookings.cancelTitle": {
         "message": "Cancel this visit?"
@@ -10766,26 +10772,13 @@
         "message": "Pickup day"
     },
     "publicShop.sectionPickup": {
-        "message": "When will you pick up?"
+        "message": "Pickup time"
     },
     "publicShop.sectionDetails": {
-        "message": "Who’s collecting?"
+        "message": "Your details"
     },
     "publicShop.sectionPay": {
         "message": "Payment"
-    },
-    "publicShop.noTip": {
-        "message": "No tip on product orders. Just your items and tax."
-    },
-    "publicShop.hideSummary": {
-        "message": "Hide order summary"
-    },
-    "publicShop.showSummary": {
-        "message": "Show order summary · {total}",
-        "args": ["total"]
-    },
-    "publicShop.inStock": {
-        "message": "In stock"
     },
     "publicShop.variant": {
         "message": "Choose an option"
@@ -10819,9 +10812,6 @@
     "publicShop.backToShop": {
         "message": "Back to shop"
     },
-    "publicShop.close": {
-        "message": "Close"
-    },
     "publicShop.noMatches": {
         "message": "No products match your search."
     },
@@ -10854,17 +10844,11 @@
         "message": "{n, plural, one {# item} other {# items}}",
         "args": ["n"]
     },
-    "publicShop.viewOrder": {
-        "message": "View order"
-    },
     "publicShop.subtotal": {
         "message": "Subtotal"
     },
     "publicShop.tax": {
         "message": "Tax"
-    },
-    "publicShop.taxLater": {
-        "message": "Calculated at payment"
     },
     "publicShop.remove": {
         "message": "Remove"
@@ -10892,9 +10876,6 @@
     },
     "publicShop.placing": {
         "message": "Placing order…"
-    },
-    "publicShop.payTitle": {
-        "message": "Pay for your order"
     },
     "publicShop.payBody": {
         "message": "{total}, tax included. Paid now, picked up later.",
@@ -10943,6 +10924,32 @@
     },
     "publicShop.emptyTitle": {
         "message": "Nothing for sale online right now"
+    },
+    "publicShop.addNamed": {
+        "message": "Add {name} to your order",
+        "args": ["name"]
+    },
+    "publicShop.estimatedTotal": {
+        "message": "Estimated total"
+    },
+    "publicShop.total": {
+        "message": "Total"
+    },
+    "publicShop.taxNote": {
+        "message": "Tax is added at payment."
+    },
+    "publicShop.continue": {
+        "message": "Continue"
+    },
+    "publicShop.back": {
+        "message": "Back"
+    },
+    "publicShop.change": {
+        "message": "Change"
+    },
+    "publicShop.orderUpdated": {
+        "message": "Your order: {items}, {total}",
+        "args": ["items", "total"]
     },
     "publicShop.notTakingPayments": {
         "message": "This shop isn't taking online payments right now."
@@ -11092,6 +11099,12 @@
     },
     "onlineBooking.newClientsApprove": {
         "message": "Ask me first"
+    },
+    "onlineBooking.autoComplete": {
+        "message": "Complete visits automatically"
+    },
+    "onlineBooking.autoCompleteHint": {
+        "message": "Visits still open at midnight are marked completed, and unapproved requests are declined without a message."
     },
     "onlineBooking.save": {
         "message": "Save changes"

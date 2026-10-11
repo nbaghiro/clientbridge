@@ -3,7 +3,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useState } from "react";
 
-import type { ApiLike } from "../api";
+import { type ApiLike, failureMessage } from "../api";
 import {
     addDays,
     formatTimeRange,
@@ -273,7 +273,7 @@ export function useClassBoard(api: ApiLike): ClassBoard {
         if (current === null) return;
         run(() => api.patch(`/v1/classes/${current}/roster/${key}`, { action }), {
             ...(onDone ? { onSuccess: onDone } : {}),
-            errorMessage: s.rosterError,
+            errorMessage: (e) => failureMessage(e, s.rosterError),
         });
     };
     const inClass = new Set(mine.map((r) => r.client_id));

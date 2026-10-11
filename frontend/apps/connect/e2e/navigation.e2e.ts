@@ -73,15 +73,26 @@ test("product deep links, cart, and checkout contact details survive navigation 
 }) => {
     const response = await request.get(`${api}/book/${slug}/shop`);
     const data = (await response.json()) as {
-        items: { id: string; in_stock: boolean; variant_parent_id?: string | null }[];
+        items: {
+            id: string;
+            name: string;
+            in_stock: boolean;
+            variant_parent_id?: string | null;
+        }[];
     };
     const product = data.items.find((item) => item.in_stock && !item.variant_parent_id);
     expect(product).toBeDefined();
     await page.goto(`${home}/shop?product=${product?.id ?? ""}`);
-    await page.getByRole("button", { name: strings.publicShop.addToOrder, exact: true }).click();
-    await expect(page).toHaveURL(`${home}/shop?cart=1`);
-    await page.getByRole("button", { name: strings.publicShop.checkout, exact: true }).click();
+    await expect(page).toHaveURL(`${home}/shop`);
+    const card = page.locator(`#product-${product?.id ?? ""}`);
+    await expect(card.getByRole("button", { name: /./ }).first()).toBeFocused();
+    await card
+        .getByRole("button", { name: strings.publicShop.addNamed(product?.name ?? "") })
+        .click();
+    const summary = page.locator("aside");
+    await summary.getByRole("button", { name: strings.publicShop.checkout, exact: true }).click();
     await expect(page).toHaveURL(`${home}/shop/checkout`);
+    await summary.getByRole("button", { name: strings.publicShop.continue, exact: true }).click();
     await page.getByLabel(strings.publicShop.name, { exact: true }).fill("Navigation Test");
     await page
         .getByLabel(strings.publicShop.email, { exact: false })
@@ -90,15 +101,109 @@ test("product deep links, cart, and checkout contact details survive navigation 
     await nav.locator("summary").click();
     await nav.getByRole("link", { name: strings.publicLanding.home, exact: true }).click();
     await page.getByRole("button", { name: strings.publicBooking.shopLink, exact: true }).click();
-    await nav.getByRole("link", { name: /^Cart/ }).click();
-    await page.getByRole("button", { name: strings.publicShop.checkout, exact: true }).click();
+    await nav
+        .getByRole("link", { name: strings.common.withCount(strings.publicLanding.cart, 1) })
+        .click();
+    await expect(page).toHaveURL(`${home}/shop`);
+    await expect(page.getByRole("heading", { name: strings.publicShop.cart })).toBeFocused();
+    await summary.getByRole("button", { name: strings.publicShop.checkout, exact: true }).click();
+    await summary.getByRole("button", { name: strings.publicShop.continue, exact: true }).click();
     await expect(page.getByLabel(strings.publicShop.name, { exact: true })).toHaveValue(
         "Navigation Test",
     );
     await page.reload();
+    await summary.getByRole("button", { name: strings.publicShop.continue, exact: true }).click();
     await expect(page.getByLabel(strings.publicShop.email, { exact: false })).toHaveValue(
         "navigation@example.test",
     );
+});
+
+test("the shop adds from the grid, changes quantities and checks out in steps", async ({
+    page,
+}) => {
+    const shop = strings.publicShop;
+    await page.route(`${api}/book/${slug}/shop`, (route) =>
+        rewrite(route, (body) => ({ ...body, stripe_account_id: "acct_e2e" })),
+    );
+    let placed: Json | null = null;
+    await page.route(`${api}/book/${slug}/shop/orders`, async (route) => {
+        placed = route.request().postDataJSON() as Json;
+        await route.fulfill({
+            json: {
+                order_id: "ord_01E2ESTUBORDER",
+                order_token: null,
+                subtotal_cents: 5000,
+                tax_total_cents: 250,
+                total_cents: 5250,
+                currency: "CAD",
+                client_secret: "pi_e2e_secret_stub",
+                stripe_account_id: "acct_e2e",
+            },
+        });
+    });
+    await page.goto(`${home}/shop`);
+    const summary = page.locator("aside");
+    await expect(summary.getByText(shop.cartEmpty)).toBeVisible();
+    await expect(summary.getByRole("button", { name: shop.checkout })).toBeDisabled();
+    const card = page.getByRole("group", { name: "Oatmeal Soothe Shampoo (500ml)", exact: true });
+    await card
+        .getByRole("button", { name: shop.addNamed("Oatmeal Soothe Shampoo (500ml)") })
+        .click();
+    await card
+        .getByRole("button", { name: strings.common.increase("Oatmeal Soothe Shampoo (500ml)") })
+        .click();
+    await expect(page.getByText(shop.orderUpdated(shop.items(2), "$48.00"))).toBeAttached();
+    await expect(summary.getByText("$48.00").first()).toBeVisible();
+    await summary
+        .getByRole("button", { name: strings.common.decrease("Oatmeal Soothe Shampoo (500ml)") })
+        .click();
+    await expect(card.getByText("1", { exact: true }).last()).toBeVisible();
+    await summary.getByRole("button", { name: shop.checkout, exact: true }).click();
+    await expect(page.getByRole("heading", { name: shop.sectionPickup })).toBeVisible();
+    await summary.getByRole("button", { name: shop.continue, exact: true }).click();
+    await expect(page.getByRole("heading", { name: shop.sectionDetails })).toBeFocused();
+    await expect(page.getByText(shop.pickupAsap).first()).toBeVisible();
+    await summary.getByRole("button", { name: shop.continuePay, exact: true }).click();
+    await expect(page.getByText(shop.incomplete)).toBeVisible();
+    await page.getByLabel(shop.name, { exact: true }).fill("Stepper Test");
+    await page.getByLabel(shop.email, { exact: false }).fill("stepper@example.test");
+    await summary.getByRole("button", { name: shop.continuePay, exact: true }).click();
+    await expect(page.getByRole("heading", { name: shop.sectionPay })).toBeFocused();
+    await expect(page.getByText(shop.payBody("$52.50"))).toBeVisible();
+    await expect(summary.getByRole("button", { name: shop.remove })).toHaveCount(0);
+    expect(placed).toMatchObject({
+        client: { name: "Stepper Test", email: "stepper@example.test", phone: null },
+        lines: [{ item_id: "it_shampoo", quantity: 1 }],
+    });
+});
+
+test("the shop's order panel folds into a bottom bar on a phone", async ({ page }) => {
+    const shop = strings.publicShop;
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${home}/shop`);
+    await expect(page.locator("aside")).toBeHidden();
+    await page
+        .getByRole("group", { name: "Rope Tug Toy", exact: true })
+        .getByRole("button", { name: shop.addNamed("Rope Tug Toy") })
+        .click();
+    const bar = page.locator("details").filter({ hasText: shop.items(1) });
+    await expect(bar).toBeVisible();
+    await expect(bar.getByRole("button", { name: shop.remove })).toBeHidden();
+    await bar.locator("summary").click();
+    await expect(bar.getByRole("button", { name: shop.remove })).toBeVisible();
+    await bar.locator("summary").click();
+    expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    await page.goto(`${home}/shop?cart=1`);
+    await expect(bar.getByRole("button", { name: shop.remove })).toBeVisible();
+    await page.getByRole("button", { name: shop.checkout, exact: true }).click();
+    await expect(page.getByRole("heading", { name: shop.sectionPickup })).toBeVisible();
+    await page.getByRole("button", { name: shop.continue, exact: true }).click();
+    await expect(page.getByLabel(shop.name, { exact: true })).toBeVisible();
+    expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
 });
 
 test("empty businesses do not advertise unavailable services or products", async ({ page }) => {

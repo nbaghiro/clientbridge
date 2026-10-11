@@ -24,6 +24,7 @@ interface BookingPolicy {
     cancel_cutoff_hours: number;
     reschedule_cutoff_hours: number;
     max_reschedules: number;
+    auto_complete: boolean;
 }
 
 interface OnlineService {

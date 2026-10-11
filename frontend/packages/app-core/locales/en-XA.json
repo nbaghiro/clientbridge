@@ -146,6 +146,9 @@
     "api.idempotencyKeyReused": {
         "message": "[Ţĥéšé ðéţåîļš çĥåñĝéð åƒţéŕ ţĥé ļåšţ åţţéɱþţ ŵåš šéñţ. Çĥéçķ ţĥéɱ åñð ţŕý åĝåîñ. one two three four five]"
     },
+    "api.visitNotStarted": {
+        "message": "[Ţĥîš ṽîšîţ ĥåšñ'ţ šţåŕţéð ýéţ. Çöɱþļéţé îţ öŕ ɱåŕķ å ñö-šĥöŵ öñçé îţ šţåŕţš. one two three four five]"
+    },
     "common.amountWithCurrency": {
         "message": "{amount} {currency}"
     },
@@ -2626,6 +2629,9 @@
     },
     "bookings.noShowNoDeposit": {
         "message": "[Ñö ðéþöšîţ ŵåš ţåķéñ ƒöŕ ţĥîš ṽîšîţ. one two three]"
+    },
+    "bookings.notStartedNote": {
+        "message": "[Çöɱþļéţé åñð Ñö-šĥöŵ öþéñ öñçé ţĥé ṽîšîţ šţåŕţš. one two three four]"
     },
     "bookings.cancelTitle": {
         "message": "[Çåñçéļ ţĥîš ṽîšîţ? one two]"
@@ -10113,25 +10119,13 @@
         "message": "[Þîçķûþ ðåý one two]"
     },
     "publicShop.sectionPickup": {
-        "message": "[Ŵĥéñ ŵîļļ ýöû þîçķ ûþ? one two]"
+        "message": "[Þîçķûþ ţîɱé one two]"
     },
     "publicShop.sectionDetails": {
-        "message": "[Ŵĥö’š çöļļéçţîñĝ? one two]"
+        "message": "[Ýöûŕ ðéţåîļš one two]"
     },
     "publicShop.sectionPay": {
         "message": "[Þåýɱéñţ one]"
-    },
-    "publicShop.noTip": {
-        "message": "[Ñö ţîþ öñ þŕöðûçţ öŕðéŕš. Ĵûšţ ýöûŕ îţéɱš åñð ţåẋ. one two three four]"
-    },
-    "publicShop.hideSummary": {
-        "message": "[Ĥîðé öŕðéŕ šûɱɱåŕý one two]"
-    },
-    "publicShop.showSummary": {
-        "message": "[Šĥöŵ öŕðéŕ šûɱɱåŕý · {total} one two]"
-    },
-    "publicShop.inStock": {
-        "message": "[Îñ šţöçķ one]"
     },
     "publicShop.variant": {
         "message": "[Çĥööšé åñ öþţîöñ one two]"
@@ -10163,9 +10157,6 @@
     "publicShop.backToShop": {
         "message": "[Ɓåçķ ţö šĥöþ one two]"
     },
-    "publicShop.close": {
-        "message": "[Çļöšé one]"
-    },
     "publicShop.noMatches": {
         "message": "[Ñö þŕöðûçţš ɱåţçĥ ýöûŕ šéåŕçĥ. one two three]"
     },
@@ -10196,17 +10187,11 @@
     "publicShop.items": {
         "message": "[{n,plural,one{# îţéɱ} other{# îţéɱš}} one two]"
     },
-    "publicShop.viewOrder": {
-        "message": "[Ṽîéŵ öŕðéŕ one two]"
-    },
     "publicShop.subtotal": {
         "message": "[Šûƀţöţåļ one]"
     },
     "publicShop.tax": {
         "message": "[Ţåẋ one]"
-    },
-    "publicShop.taxLater": {
-        "message": "[Çåļçûļåţéð åţ þåýɱéñţ one two]"
     },
     "publicShop.remove": {
         "message": "[Ŕéɱöṽé one]"
@@ -10234,9 +10219,6 @@
     },
     "publicShop.placing": {
         "message": "[Þļåçîñĝ öŕðéŕ… one two]"
-    },
-    "publicShop.payTitle": {
-        "message": "[Þåý ƒöŕ ýöûŕ öŕðéŕ one two]"
     },
     "publicShop.payBody": {
         "message": "[{total}, ţåẋ îñçļûðéð. Þåîð ñöŵ, þîçķéð ûþ ļåţéŕ. one two three]"
@@ -10282,6 +10264,30 @@
     },
     "publicShop.emptyTitle": {
         "message": "[Ñöţĥîñĝ ƒöŕ šåļé öñļîñé ŕîĝĥţ ñöŵ one two three]"
+    },
+    "publicShop.addNamed": {
+        "message": "[Åðð {name} ţö ýöûŕ öŕðéŕ one two]"
+    },
+    "publicShop.estimatedTotal": {
+        "message": "[Éšţîɱåţéð ţöţåļ one two]"
+    },
+    "publicShop.total": {
+        "message": "[Ţöţåļ one]"
+    },
+    "publicShop.taxNote": {
+        "message": "[Ţåẋ îš åððéð åţ þåýɱéñţ. one two]"
+    },
+    "publicShop.continue": {
+        "message": "[Çöñţîñûé one]"
+    },
+    "publicShop.back": {
+        "message": "[Ɓåçķ one]"
+    },
+    "publicShop.change": {
+        "message": "[Çĥåñĝé one]"
+    },
+    "publicShop.orderUpdated": {
+        "message": "[Ýöûŕ öŕðéŕ: {items}, {total} one two]"
     },
     "publicShop.notTakingPayments": {
         "message": "[Ţĥîš šĥöþ îšñ'ţ ţåķîñĝ öñļîñé þåýɱéñţš ŕîĝĥţ ñöŵ. one two three four]"
@@ -10429,6 +10435,12 @@
     },
     "onlineBooking.newClientsApprove": {
         "message": "[Åšķ ɱé ƒîŕšţ one two]"
+    },
+    "onlineBooking.autoComplete": {
+        "message": "[Çöɱþļéţé ṽîšîţš åûţöɱåţîçåļļý one two three]"
+    },
+    "onlineBooking.autoCompleteHint": {
+        "message": "[Ṽîšîţš šţîļļ öþéñ åţ ɱîðñîĝĥţ åŕé ɱåŕķéð çöɱþļéţéð, åñð ûñåþþŕöṽéð ŕéǫûéšţš åŕé ðéçļîñéð ŵîţĥöûţ å ɱéššåĝé. one two three four five six seven]"
     },
     "onlineBooking.save": {
         "message": "[Šåṽé çĥåñĝéš one two]"

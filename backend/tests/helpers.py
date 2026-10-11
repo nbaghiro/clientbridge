@@ -183,6 +183,21 @@ async def payment_by_ref(db: AsyncSession, ref: str) -> Payment:
     return (await db.execute(select(Payment).where(Payment.provider_ref == ref))).scalar_one()
 
 
+async def begin(db: AsyncSession, booking_id: str, *, by: timedelta = timedelta(days=1095)) -> None:
+    """Move the visit's session back in time (three years, clear of the seed) so it has started."""
+    slot_id = (
+        await db.execute(select(Booking.slot_id).where(Booking.id == booking_id))
+    ).scalar_one()
+    await db.execute(
+        update(Slot)
+        .where(Slot.id == slot_id)
+        .values(starts_at=Slot.starts_at - by, ends_at=Slot.ends_at - by)
+    )
+    await db.execute(
+        update(Booking).where(Booking.slot_id == slot_id).values(starts_at=Booking.starts_at - by)
+    )
+
+
 async def deposit_payment(db: AsyncSession, booking_id: str) -> str:
     return (
         await db.execute(

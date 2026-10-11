@@ -191,6 +191,14 @@ function PageSettings() {
                         st.setPolicy("approve_new_clients", k === "approve");
                     }}
                 />
+                <Toggle
+                    label={s.autoComplete}
+                    hint={s.autoCompleteHint}
+                    value={policy.auto_complete}
+                    onChange={(v) => {
+                        st.setPolicy("auto_complete", v);
+                    }}
+                />
             </View>
             {st.error !== null ? <Notice tone="danger">{st.error}</Notice> : null}
             {st.justSaved && !st.dirty ? <Notice tone="success">{s.saved}</Notice> : null}

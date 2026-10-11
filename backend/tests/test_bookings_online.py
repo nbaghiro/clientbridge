@@ -46,6 +46,17 @@ async def test_owner_changes_rules_services_and_team(
     assert audit.scalars().first() is not None
 
 
+async def test_auto_completion_is_on_until_the_owner_turns_it_off(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    assert (await as_owner.get("/v1/online-booking")).json()["policy"]["auto_complete"] is True
+    res = await as_owner.patch("/v1/online-booking", json={"policy": {"auto_complete": False}})
+    assert res.status_code == 200, res.text
+    assert res.json()["policy"]["auto_complete"] is False
+    business = await db.get(Business, BIZ, populate_existing=True)
+    assert business is not None and business.booking_policy["auto_complete"] is False
+
+
 async def test_owner_chooses_add_ons_per_service(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

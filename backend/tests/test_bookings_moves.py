@@ -9,7 +9,7 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Note
 from clientbridge.models.scheduling import Addon, Booking, Resource, Slot
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakeSmsSender
-from tests.helpers import client_id
+from tests.helpers import begin, client_id
 
 ST_OWNER = "st_owner"
 ST_DIEGO = "st_diego"
@@ -239,7 +239,9 @@ async def test_closed_visit_cannot_be_moved_or_checked(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     bid = await _book(as_owner, db, ST_PRIYA, "2027-03-01T18:00:00Z")
-    await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "completed"})
+    await begin(db, bid)
+    done = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "completed"})
+    assert done.status_code == 200, done.text
     res = await as_owner.patch(f"/v1/bookings/{bid}", json={"ends_at": "2027-03-01T19:30:00Z"})
     assert res.status_code == 409
     check = await as_owner.post(

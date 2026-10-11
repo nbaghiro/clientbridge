@@ -17,21 +17,15 @@ export function ItemTile({
     onPress,
     disabled = false,
     variant = "tile",
+    detail,
+    actions,
     className,
 }: WebProps<ItemTileProps>) {
     const tone = color ?? cssVar("accent");
+    const label = count > 0 ? strings.ui.onTicket(name, count) : name;
     if (variant === "card") {
-        return (
-            <button
-                type="button"
-                onClick={onPress}
-                disabled={disabled}
-                aria-label={count > 0 ? strings.ui.onTicket(name, count) : name}
-                className={cx(
-                    "group flex min-w-0 flex-col overflow-hidden rounded-lg border border-line bg-surface text-left shadow-card transition hover:border-accent-line disabled:opacity-60",
-                    className,
-                )}
-            >
+        const content = (
+            <>
                 <span className="relative block aspect-[4/3] w-full overflow-hidden bg-bg">
                     {imageSrc !== null ? (
                         <img
@@ -62,13 +56,44 @@ export function ItemTile({
                     <span className="line-clamp-2 text-sm font-medium leading-snug text-ink">
                         {name}
                     </span>
+                    {detail !== undefined && detail !== "" ? (
+                        <span className="mt-1 line-clamp-2 text-xs leading-snug text-muted">
+                            {detail}
+                        </span>
+                    ) : null}
                     <span className="mt-auto flex items-baseline justify-between gap-2 pt-2">
                         <span className="truncate text-xs text-muted">{meta}</span>
                         <span className="text-sm font-semibold text-ink">
                             {cents === null ? null : formatMoney(cents, currency)}
                         </span>
                     </span>
+                    {actions !== undefined ? <span className="mt-2.5 block">{actions}</span> : null}
                 </span>
+            </>
+        );
+        const frame = cx(
+            `group flex min-w-0 flex-col overflow-hidden rounded-lg border bg-surface text-left shadow-card transition ${count > 0 && actions !== undefined ? "border-accent" : "border-line"}`,
+            className,
+        );
+        if (actions !== undefined)
+            return (
+                <div
+                    role="group"
+                    aria-label={name}
+                    className={cx(frame, disabled ? "opacity-60" : "")}
+                >
+                    {content}
+                </div>
+            );
+        return (
+            <button
+                type="button"
+                onClick={onPress}
+                disabled={disabled}
+                aria-label={label}
+                className={cx(frame, "hover:border-accent-line disabled:opacity-60")}
+            >
+                {content}
             </button>
         );
     }
@@ -77,7 +102,7 @@ export function ItemTile({
             type="button"
             onClick={onPress}
             disabled={disabled}
-            aria-label={count > 0 ? strings.ui.onTicket(name, count) : name}
+            aria-label={label}
             className={cx(
                 `relative flex min-h-[112px] min-w-0 flex-col rounded-lg border bg-surface p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-55 ${
                     count > 0

@@ -3155,6 +3155,12 @@ export interface components {
              * @default 2
              */
             max_reschedules: number;
+            /**
+             * Auto Complete
+             * @description Visits still open after their day are completed overnight
+             * @default true
+             */
+            auto_complete: boolean;
         };
         /** BookingPolicyPatch */
         BookingPolicyPatch: {
@@ -3177,6 +3183,8 @@ export interface components {
             reschedule_cutoff_hours?: number | null;
             /** Max Reschedules */
             max_reschedules?: number | null;
+            /** Auto Complete */
+            auto_complete?: boolean | null;
         };
         /**
          * BrandInput

@@ -18,6 +18,7 @@ from tests.conftest import (
     FakePushSender,
     FakeSmsSender,
 )
+from tests.helpers import begin
 
 CLIENTS = ["cl_amelie", "cl_marcus", "cl_yuki", "cl_liam"]
 
@@ -75,6 +76,7 @@ async def test_check_in_undo_and_no_show(as_owner: httpx.AsyncClient, db: AsyncS
     assert here.json()["checked_in_at"] is not None
     undone = await as_owner.patch(url, json={"action": "undo"})
     assert undone.json()["checked_in_at"] is None
+    await begin(db, str(bid))
     missed = await as_owner.patch(url, json={"action": "no_show"})
     assert missed.json()["status"] == "no_show"
     back = await as_owner.patch(url, json={"action": "undo"})
@@ -340,11 +342,11 @@ async def test_completing_one_attendee_leaves_the_session_open(
     sid = await _class(db, capacity=6)
     first = await _add(as_owner, sid, CLIENTS[0])
     second = await _add(as_owner, sid, CLIENTS[1])
+    third = await _add(as_owner, sid, CLIENTS[2])
+    await begin(db, str(first["booking_id"]))
     await as_owner.patch(f"/v1/bookings/{first['booking_id']}", json={"status": "completed"})
     slot = await db.get(Slot, sid, populate_existing=True)
     assert slot is not None and slot.status == "scheduled"
-    third = await _add(as_owner, sid, CLIENTS[2])
-    assert third["status"] == "confirmed"
     for done in (second, third):
         await as_owner.patch(f"/v1/bookings/{done['booking_id']}", json={"status": "completed"})
     slot = await db.get(Slot, sid, populate_existing=True)

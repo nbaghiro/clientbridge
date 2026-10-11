@@ -14,7 +14,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Device
 from clientbridge.services.notifications import run_prune_devices
 from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
-from tests.helpers import card_pay, enable_payments, sent_invoice
+from tests.helpers import begin, card_pay, enable_payments, sent_invoice
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -384,6 +384,7 @@ async def test_booking_noncancel_patch_sends_no_cancel_notice(
     ).json()["id"]
     email.sent.clear()
     sms.sent.clear()
+    await begin(db, bid)
     res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "completed"})
     assert res.status_code == 200, res.text
     assert email.sent == []  # a non-cancel status change fires no notice

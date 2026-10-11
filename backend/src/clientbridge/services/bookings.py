@@ -31,6 +31,7 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Note, Subject
 from clientbridge.models.messaging import Message
 from clientbridge.models.payments import Payment
+from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import (
     Addon,
     Booking,
@@ -103,6 +104,8 @@ _WAITLIST_SEAT = "give a waitlisted client a seat from the class roster"
 _MIN_VISIT = timedelta(minutes=5)
 _ALREADY_IN_CLASS = "you already have a booking for this class"
 _TERMINAL = frozenset({"completed", "canceled", "no_show"})
+_AFTER_START = frozenset({"completed", "no_show"})
+_NOT_STARTED = "a visit can be completed or marked a no-show only once it has started"
 _CLOSED_OR_WAITING = ("completed", "canceled", "no_show", "waitlisted")
 BookingNotice = Literal["confirmed", "canceled", "rescheduled"]
 
@@ -461,6 +464,11 @@ async def _complete_when_done(db: AsyncSession, slot: Slot) -> None:
         slot.status = "completed"
 
 
+def _assert_started(starts_at: datetime) -> None:
+    if starts_at > datetime.now(UTC):
+        raise Conflict(_NOT_STARTED, code="visit_not_started")
+
+
 async def settle_deposit(db: AsyncSession, gateway: PaymentGateway, booking_id: str) -> str | None:
     """Collect a settled deposit and apply it to the open invoice, or forfeit it after a no-show."""
     booking = await db.get(Booking, booking_id)
@@ -606,8 +614,15 @@ class BookingService:
         if booking.status == "waitlisted" and data.status not in (None, "canceled"):
             raise Conflict(_WAITLIST_SEAT, code="class_seat")
         target = await self._target(data, slot) if moving else None
+        starts_at = target[1] if target is not None else slot.starts_at
+        if data.status in _AFTER_START and data.status != before:
+            _assert_started(starts_at)
 
         async def run(cmd: Command) -> BookingOut:
+            if target is None and data.status is not None and data.status != booking.status:
+                await lock_bookings(self.db, self.biz, [booking.id])
+                if booking.status in _TERMINAL and data.status != booking.status:
+                    raise Conflict(f"a {booking.status} booking can't be modified")
             if target is not None:
                 staff_id, starts_at, ends_at, resource_id = target
                 await lock_staff(self.db, self.biz, slot.staff_id, staff_id)
@@ -1570,8 +1585,12 @@ class ClassService:
         ).scalar_one_or_none()
         if booking is None:
             raise NotFound("that booking isn't on this class")
+        if data.action == "no_show":
+            _assert_started(slot.starts_at)
 
         async def run(cmd: Command) -> RosterEntry:
+            if data.action != "promote":
+                await lock_bookings(self.db, self.biz, [booking.id])
             if data.action == "check_in":
                 if booking.status != "confirmed":
                     raise Conflict(f"a {booking.status} booking can't be checked in")
@@ -2028,6 +2047,97 @@ async def run_reap_unpaid_bookings(
     for booking_id in released:
         await notifier.on_booking_released(db, booking_id)
     return len(released)
+
+
+async def run_complete_past_bookings(
+    db: AsyncSession, gateway: PaymentGateway, now: datetime
+) -> int:
+    """Close the visits still open after their business's local midnight, one business at a time."""
+    open_past = (
+        select(Booking.business_id)
+        .join(Slot, Slot.id == Booking.slot_id)
+        .where(
+            Booking.deleted_at.is_(None),
+            Booking.status.in_(("pending", "confirmed")),
+            Slot.ends_at <= now,
+        )
+        .distinct()
+    )
+    businesses = (
+        await db.execute(
+            select(Business.id, Business.timezone, Business.booking_policy).where(
+                Business.id.in_(open_past)
+            )
+        )
+    ).all()
+    closed = 0
+    for business_id, zone, policy in businesses:
+        if not BookingPolicy.model_validate(policy or {}).auto_complete:
+            continue
+        closed += await _close_past_visits(db, gateway, business_id, ZoneInfo(zone), now)
+        await db.commit()
+    return closed
+
+
+async def _close_past_visits(
+    db: AsyncSession, gateway: PaymentGateway, business_id: str, tz: ZoneInfo, now: datetime
+) -> int:
+    midnight, _ = local_day(now.astimezone(tz).date(), tz)
+    due = (Booking.status.in_(("pending", "confirmed")), Slot.ends_at <= midnight)
+    members = await db.scalars(
+        scoped(Slot, business_id)
+        .with_only_columns(Slot.staff_id)
+        .join(Booking, Booking.slot_id == Slot.id)
+        .where(Booking.deleted_at.is_(None), *due)
+        .distinct()
+    )
+    await lock_staff(db, business_id, *members)
+    rows = (
+        await db.execute(
+            scoped(Booking, business_id, soft_delete=True)
+            .add_columns(Slot)
+            .join(Slot, Slot.id == Booking.slot_id)
+            .where(*due)
+            .order_by(Booking.id)
+            .with_for_update(of=Booking, skip_locked=True)
+            .execution_options(populate_existing=True)
+        )
+    ).all()
+    slots: dict[str, Slot] = {}
+    changed = 0
+    for booking, slot in rows:
+        if booking.status == "confirmed":
+            booking.status, booking.completed_at = "completed", now
+            action = "booking.auto_complete"
+        elif booking.deposit_status == "collected":
+            continue  # a paid deposit on an unapproved visit is staff's to refund or keep
+        elif booking.deposit_status == "pending" and not await cancel_open_deposits(
+            db, gateway, booking
+        ):
+            continue
+        else:
+            booking.status, booking.canceled_at = "canceled", now
+            action = "booking.auto_cancel"
+        if booking.deposit_status == "pending":
+            booking.deposit_status = "none"
+        db.add(
+            Audit(
+                id=new_id("audit"),
+                business_id=business_id,
+                action=action,
+                entity_type="booking",
+                entity_id=booking.id,
+                changes={},
+            )
+        )
+        slots[slot.id] = slot
+        changed += 1
+    for slot in slots.values():
+        await release_slot(db, slot)
+        if slot.status != "canceled":
+            await _complete_when_done(db, slot)
+    await db.flush()
+    return changed
 
 
 async def run_reminders(db: AsyncSession, notifier: Notifier, now: datetime) -> int:

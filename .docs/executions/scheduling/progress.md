@@ -41,3 +41,10 @@ Started on 2026-10-11. Record per-task evidence here.
 - Clients: `api.idempotencyKeyReused` is mapped by `failureMessage`; `attemptKey` keeps one key across retries of an identical request and issues a new one when the request changes, and `sendAttempt` retries once with a fresh key on `idempotency_key_reused` (Connect booking and reschedule).
 - Checks: backend 1,441 passed, 95.40% coverage; frontend typecheck, lint, app-core (274), playground and Connect suites pass.
 - Note: PR #1 also names its migration `cb0002`; it has to renumber to `cb0003` after `cb0002` when it rebases.
+
+## G3: time guards and auto-completion (completed, uncommitted)
+
+- No-show and complete before the start are 409 `visit_not_started` on booking PATCH and the roster no-show; status-only patches and roster actions lock the booking row and re-check for a closed status. `lifecycleOf` in app-core drives `useBookingActions`, which disables Complete and No-show before the start with a reason on web and mobile.
+- `run_complete_past_bookings` runs at minutes 2, 17, 32 and 47. Per business with `booking_policy.auto_complete` (default true, toggle in online booking settings), it locks members and then booking rows with `SKIP LOCKED`, completes confirmed visits that ended before local midnight and cancels never-approved pending ones (canceling open deposit intents, no notice), with one audit each and slots released or completed through the B3 rules. A pending visit whose deposit was already collected is skipped for staff to handle.
+- Tests: `tests/test_bookings_completion.py` (happy, 4xx, two businesses in different zones, idempotency, opt-out, collected deposit); tests that marked future visits now move the visit into the past with `tests/helpers.py: begin`.
+- Checks: backend 1,451 passed, 95.34% coverage; frontend typecheck, lint, app-core and the playground suite pass.

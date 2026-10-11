@@ -1579,10 +1579,32 @@ export interface BookingActions {
     error: string | null;
     noShowNote: string;
     cancelNote: string;
+    notStartedNote: string | null;
     run: (action: LifecycleAction) => void;
 }
 
 /** Completed and No-show once a visit has started; Cancel and Reschedule while it's still ahead. */
+export function lifecycleOf(
+    event: ScheduleEvent | null,
+    now: Date,
+): Pick<
+    BookingActions,
+    "canComplete" | "canNoShow" | "canCancel" | "canReschedule" | "notStartedNote"
+> {
+    const open =
+        event !== null &&
+        event.bookingId !== null &&
+        (event.status === "confirmed" || event.status === "pending");
+    const started = event !== null && event.start <= now;
+    return {
+        canComplete: open && started,
+        canNoShow: open && started,
+        canCancel: open && !started,
+        canReschedule: open && !started,
+        notStartedNote: open && !started ? s.notStartedNote : null,
+    };
+}
+
 export function useBookingActions(
     api: ApiLike,
     event: ScheduleEvent | null,
@@ -1591,19 +1613,11 @@ export function useBookingActions(
 ): BookingActions {
     const { busy, error, run } = useAsyncAction();
     const [pending, setPending] = useState<LifecycleAction | null>(null);
-    const open =
-        event !== null &&
-        event.bookingId !== null &&
-        (event.status === "confirmed" || event.status === "pending");
-    const started = event !== null && event.start <= now;
     const amount = formatMoney(event?.depositAmountCents ?? 0, BUSINESS_CURRENCY);
     const paid = event !== null && event.depositRequired && event.depositStatus === "collected";
     const due = event !== null && event.depositRequired && event.depositStatus === "pending";
     return {
-        canComplete: open && started,
-        canNoShow: open && started,
-        canCancel: open && !started,
-        canReschedule: open && !started,
+        ...lifecycleOf(event, now),
         pending: busy ? pending : null,
         busy,
         error,

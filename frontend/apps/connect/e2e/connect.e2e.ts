@@ -154,11 +154,13 @@ test("a client finds the shop from the landing page and fills a cart", async ({ 
     await page.getByRole("button", { name: strings.publicBooking.shopLink }).click();
     await expect(page).toHaveURL(new RegExp(`/b/${links.slug}/shop$`));
     await expect(page.getByRole("heading", { name: shop.title, level: 1 })).toBeVisible();
-    await page.getByRole("button", { name: "Self-Cleaning Slicker Brush", exact: true }).click();
-    await page.getByRole("button", { name: shop.addToOrder }).click();
-    const drawer = page.getByRole("dialog");
-    await expect(drawer.getByRole("button", { name: shop.remove })).toBeVisible();
-    await drawer.getByRole("button", { name: shop.checkout }).click();
+    await page
+        .getByRole("group", { name: "Self-Cleaning Slicker Brush", exact: true })
+        .getByRole("button", { name: shop.addNamed("Self-Cleaning Slicker Brush") })
+        .click();
+    const summary = page.locator("aside");
+    await expect(summary.getByRole("button", { name: shop.remove })).toBeVisible();
+    await summary.getByRole("button", { name: shop.checkout }).click();
     await expect(page).toHaveURL(/\/checkout$/);
     await expect(page.getByRole("heading", { name: shop.checkout, level: 1 })).toBeVisible();
     await page.reload();

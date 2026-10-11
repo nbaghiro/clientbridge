@@ -15,7 +15,11 @@ from clientbridge.integrations.stripe import get_payment_gateway
 from clientbridge.integrations.twilio import get_sms_sender
 from clientbridge.services.auth import run_prune_refreshes
 from clientbridge.services.billing import run_overdue_sweep
-from clientbridge.services.bookings import run_reap_unpaid_bookings, run_reminders
+from clientbridge.services.bookings import (
+    run_complete_past_bookings,
+    run_reap_unpaid_bookings,
+    run_reminders,
+)
 from clientbridge.services.entitlements import run_expiry_sweeps
 from clientbridge.services.files import run_prune_pending_files
 from clientbridge.services.forms import run_intake_forms
@@ -43,6 +47,11 @@ async def reap_unpaid_bookings(ctx: Context) -> int:
         return await run_reap_unpaid_bookings(
             db, get_payment_gateway(), _notifier(), datetime.now(UTC)
         )
+
+
+async def complete_past_bookings(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_complete_past_bookings(db, get_payment_gateway(), datetime.now(UTC))
 
 
 async def send_due_broadcasts(ctx: Context) -> int:
@@ -111,6 +120,7 @@ class WorkerSettings:
     cron_jobs: ClassVar[list[object]] = [
         cron(send_booking_reminders, minute={0, 15, 30, 45}),
         cron(reap_unpaid_bookings, minute={5, 20, 35, 50}),
+        cron(complete_past_bookings, minute={2, 17, 32, 47}),
         cron(send_due_broadcasts, minute={0, 15, 30, 45}),
         cron(sweep_overdue_invoices, hour=7, minute=0),
         cron(expire_entitlements, hour=3, minute=30),

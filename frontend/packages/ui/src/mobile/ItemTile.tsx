@@ -21,19 +21,15 @@ export function ItemTile({
     onPress,
     disabled = false,
     variant = "tile",
+    detail,
+    actions,
     style,
 }: NativeProps<ItemTileProps>) {
     const tone = color ?? c.accent;
     const a11y = count > 0 ? strings.ui.onTicket(name, count) : name;
     if (variant === "card") {
-        return (
-            <Pressable
-                onPress={onPress}
-                disabled={disabled}
-                accessibilityRole="button"
-                accessibilityLabel={a11y}
-                style={[styles.card, disabled && styles.dim, style]}
-            >
+        const content = (
+            <>
                 <View style={styles.photo}>
                     {imageSrc !== null ? (
                         <Image
@@ -69,6 +65,11 @@ export function ItemTile({
                     <Text style={styles.name} numberOfLines={2}>
                         {name}
                     </Text>
+                    {detail !== undefined && detail !== "" ? (
+                        <Text style={styles.detail} numberOfLines={2}>
+                            {detail}
+                        </Text>
+                    ) : null}
                     <View style={styles.foot}>
                         <Text style={styles.meta} numberOfLines={1}>
                             {meta}
@@ -77,7 +78,28 @@ export function ItemTile({
                             <Text style={styles.price}>{formatMoney(cents, currency)}</Text>
                         )}
                     </View>
+                    {actions !== undefined ? <View style={styles.actions}>{actions}</View> : null}
                 </View>
+            </>
+        );
+        if (actions !== undefined)
+            return (
+                <View
+                    accessibilityLabel={name}
+                    style={[styles.card, count > 0 && styles.cardOn, disabled && styles.dim, style]}
+                >
+                    {content}
+                </View>
+            );
+        return (
+            <Pressable
+                onPress={onPress}
+                disabled={disabled}
+                accessibilityRole="button"
+                accessibilityLabel={a11y}
+                style={[styles.card, disabled && styles.dim, style]}
+            >
+                {content}
             </Pressable>
         );
     }
@@ -168,4 +190,7 @@ const styles = StyleSheet.create({
     photoTag: { position: "absolute", left: 8, top: 8 },
     photoCount: { position: "absolute", right: 8, top: 8 },
     cardBody: { padding: 10, paddingTop: 8, flex: 1 },
+    cardOn: { borderColor: c.accent },
+    detail: { color: c.muted, fontSize: 12, marginTop: 4, lineHeight: 16 },
+    actions: { marginTop: 10 },
 });

@@ -22,7 +22,14 @@ from tests.conftest import (
     FakePushSender,
     FakeSmsSender,
 )
-from tests.helpers import deposit_payment, enable_payments, payment, provider_ref, stripe_event
+from tests.helpers import (
+    begin,
+    deposit_payment,
+    enable_payments,
+    payment,
+    provider_ref,
+    stripe_event,
+)
 
 ST_OWNER = "st_owner"
 ST_PRIYA = "st_priya"  # seeded staff with no hours rows → unconfigured
@@ -672,6 +679,7 @@ async def test_no_show_forfeits_collected_deposit(
         content=_pi_succeeded("evt_d2", pi_id),
         headers={"Stripe-Signature": "good"},
     )
+    await begin(db, bid)
     res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
     assert res.status_code == 200
     assert res.json()["deposit_status"] == "forfeited"
@@ -687,6 +695,7 @@ async def test_no_show_charges_default_card(
 ) -> None:
     await enable_payments(db)
     bid = await _deposit_booking(as_owner, db, starts="2027-06-09T10:00:00Z")  # deposit uncollected
+    await begin(db, bid)
     res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
     assert res.status_code == 200
     assert res.json()["deposit_status"] == "pending"  # captured, not yet settled
@@ -720,6 +729,7 @@ async def test_no_show_stands_when_the_default_card_declines(
         .values(provider_ref="pm_card_declined")
     )
     bid = await _deposit_booking(as_owner, db, starts="2027-06-10T10:00:00Z")
+    await begin(db, bid)
     res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
     assert res.status_code == 200, res.text
     assert res.json()["status"] == "no_show"
@@ -730,6 +740,7 @@ async def test_no_show_without_deposit_is_noop(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     bid = await _deposit_booking(as_owner, db, starts="2027-06-10T10:00:00Z", deposit=False)
+    await begin(db, bid)
     res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
     assert res.status_code == 200
     assert res.json()["deposit_status"] == "none"
@@ -747,6 +758,7 @@ async def test_no_show_required_deposit_no_default_card_does_not_forfeit(
     db.add(nocard)
     await db.flush()
     bid = await _deposit_booking(as_owner, db, starts="2027-06-12T10:00:00Z", client_id=nocard.id)
+    await begin(db, bid)
     res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
     assert res.status_code == 200
     assert res.json()["status"] == "no_show"
@@ -770,6 +782,7 @@ async def test_no_show_with_pending_interactive_deposit_does_not_charge(
     ).scalar_one()
     assert pending.status == "pending"  # the open deposit that must short-circuit the forfeit
 
+    await begin(db, bid)
     res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
     assert res.status_code == 200
     assert res.json()["status"] == "no_show"
@@ -874,6 +887,8 @@ async def test_closing_a_booking_with_a_pending_deposit_clears_it(
     ):
         bid = await _deposit_booking(as_owner, db, starts=starts)
         assert await _deposit_status(db, bid) == "pending"
+        if status == "completed":
+            await begin(db, bid)
         res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": status})
         assert res.status_code == 200, res.text
         assert res.json()["deposit_status"] == "none"
@@ -905,6 +920,7 @@ async def test_refunding_a_forfeited_deposit_in_full_unforfeits_it(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     bid, pay_id = await _collected_deposit(as_owner, db, starts="2027-07-06T10:00:00Z")
+    await begin(db, bid)
     await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
     assert await _deposit_status(db, bid) == "forfeited"
     revenue = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="revenue")

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.helpers import (
     SLUG,
+    begin,
     booking,
     business_balance,
     card_pay,
@@ -78,6 +79,7 @@ async def test_online_booking_from_deposit_to_t4a(
     assert await deposit_held(db, bid) == 2750
 
     # the visit happens and is invoiced with its add-on; sending applies the deposit
+    await begin(db, bid)
     done = ok(await api.patch(f"/v1/bookings/{bid}", json={"status": "completed"})).json()
     assert done["status"] == "completed"
     draft = ok(await api.post(f"/v1/invoices/from-booking/{bid}", headers=key()), 201).json()
@@ -158,6 +160,7 @@ async def test_no_show_forfeits_the_deposit(as_owner: httpx.AsyncClient, db: Asy
     assert await deposit_held(db, bid) == 2000
     revenue = await business_balance(db, "revenue")
 
+    await begin(db, bid)
     marked = ok(await api.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})).json()
     assert (marked["status"], marked["deposit_status"]) == ("no_show", "forfeited")
     assert await deposit_held(db, bid) == 0

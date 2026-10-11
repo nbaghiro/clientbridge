@@ -389,9 +389,10 @@ export function BookingActionBar({
     }
     return (
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            {actions.canComplete ? (
+            {actions.canComplete || actions.notStartedNote !== null ? (
                 <Button
                     busy={actions.pending === "complete"}
+                    disabled={!actions.canComplete}
                     icon="check"
                     onPress={() => {
                         actions.run("complete");
@@ -400,9 +401,10 @@ export function BookingActionBar({
                     {actions.pending === "complete" ? s.working : s.completeVisit}
                 </Button>
             ) : null}
-            {actions.canNoShow ? (
+            {actions.canNoShow || actions.notStartedNote !== null ? (
                 <Button
                     variant="outline"
+                    disabled={!actions.canNoShow}
                     onPress={() => {
                         setAsking("no_show");
                     }}
@@ -426,6 +428,9 @@ export function BookingActionBar({
                         {s.cancel}
                     </Button>
                 </span>
+            ) : null}
+            {actions.notStartedNote !== null ? (
+                <p className="w-full text-xs text-muted">{actions.notStartedNote}</p>
             ) : null}
             {actions.error !== null ? (
                 <div className="w-full">

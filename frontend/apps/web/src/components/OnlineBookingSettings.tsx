@@ -249,6 +249,14 @@ export function BookingPageSettings() {
                                     }}
                                 />
                             </div>
+                            <Toggle
+                                label={s.autoComplete}
+                                hint={s.autoCompleteHint}
+                                value={policy.auto_complete}
+                                onChange={(v) => {
+                                    st.setPolicy("auto_complete", v);
+                                }}
+                            />
                         </Panel>
                     ) : null}
                     <Panel title={s.embed}>
