@@ -6,8 +6,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "cb0002"
-down_revision: str | None = "cb0001"
+revision: str = "cb0003"
+down_revision: str | None = "cb0002"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
