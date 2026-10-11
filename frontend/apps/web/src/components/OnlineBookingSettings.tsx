@@ -565,23 +565,6 @@ export function BookingPolicySettings() {
                                 }}
                             />
                         </div>
-                        <div>
-                            <p className="mb-1.5 text-sm font-medium text-ink-soft">
-                                {p.lateDeposit}
-                            </p>
-                            <Choice
-                                layout="segmented"
-                                label={p.lateDeposit}
-                                value={d.late_cancel_deposit}
-                                options={[
-                                    { key: "keep", label: p.keep },
-                                    { key: "refund", label: p.refund },
-                                ]}
-                                onChange={(k) => {
-                                    pol.set("late_cancel_deposit", k);
-                                }}
-                            />
-                        </div>
                         {pol.error !== null ? <Notice tone="danger">{pol.error}</Notice> : null}
                     </div>
                 </Panel>

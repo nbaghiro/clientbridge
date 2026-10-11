@@ -22,7 +22,7 @@ from tests.conftest import (
     FakePushSender,
     FakeSmsSender,
 )
-from tests.helpers import enable_payments
+from tests.helpers import deposit_payment, enable_payments, payment, provider_ref, stripe_event
 
 ST_OWNER = "st_owner"
 ST_PRIYA = "st_priya"  # seeded staff with no hours rows → unconfigured
@@ -981,9 +981,80 @@ async def _online_booking(
     return booking.id, slot.id
 
 
+async def _reap(
+    db: AsyncSession,
+    gateway: FakePaymentGateway | None = None,
+    email: FakeEmailSender | None = None,
+    now: datetime = NOW,
+) -> int:
+    notifier = Notifier(email or FakeEmailSender(), FakeSmsSender(), FakePushSender())
+    return await run_reap_unpaid_bookings(db, gateway or FakePaymentGateway(), notifier, now)
+
+
+async def _unpaid_online(api: httpx.AsyncClient, db: AsyncSession) -> tuple[str, str]:
+    await enable_payments(db)
+    res = await api.post(
+        "/book/birchbark",
+        json={
+            "item_id": "it_groom_lg",
+            "staff_id": ST_OWNER,
+            "starts_at": "2027-03-02T16:00:00Z",
+            "client": {"name": "Late Payer", "email": "late@example.com"},
+        },
+    )
+    assert res.status_code == 200, res.text
+    bid = res.json()["booking_id"]
+    await db.execute(
+        update(Booking)
+        .where(Booking.id == bid)
+        .values(created_at=datetime.now(UTC) - timedelta(hours=1))
+    )
+    return bid, await provider_ref(db, await deposit_payment(db, bid))
+
+
+async def _fresh(db: AsyncSession, booking_id: str) -> str:
+    row = await db.get(Booking, booking_id, populate_existing=True)
+    assert row is not None
+    return row.status
+
+
+async def test_reaper_cancels_the_open_intent_and_tells_the_client(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, email: FakeEmailSender
+) -> None:
+    bid, ref = await _unpaid_online(api, db)
+    sent = len(email.sent)
+    assert await _reap(db, gateway, email, datetime.now(UTC)) >= 1
+    assert await _fresh(db, bid) == "canceled"
+    assert (await payment(db, await deposit_payment(db, bid))).status == "canceled"
+    assert ref in gateway.canceled_intents
+    released = [m for m in email.sent[sent:] if m.to == "late@example.com"]
+    assert len(released) == 1 and "deposit" in released[0].body
+
+
+async def test_reaper_releases_a_booking_whose_card_failed(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    bid, ref = await _unpaid_online(api, db)
+    await stripe_event(api, "payment_intent.payment_failed", {"id": ref})
+    assert (await payment(db, await deposit_payment(db, bid))).status == "failed"
+    await _reap(db, gateway, now=datetime.now(UTC))
+    assert await _fresh(db, bid) == "canceled"
+    assert ref in gateway.canceled_intents
+
+
+async def test_reaper_keeps_a_booking_whose_payment_already_went_through(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    bid, ref = await _unpaid_online(api, db)
+    gateway.confirmed.add(ref)
+    await _reap(db, gateway, now=datetime.now(UTC))
+    assert await _fresh(db, bid) == "confirmed"
+    assert (await payment(db, await deposit_payment(db, bid))).status == "pending"
+
+
 async def test_reaps_stale_unpaid_online_booking(db: AsyncSession) -> None:
     bid, sid = await _online_booking(db, created_at=NOW - timedelta(hours=1))
-    assert await run_reap_unpaid_bookings(db, NOW) == 1
+    assert await _reap(db) == 1
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
     assert booking.status == "canceled" and booking.canceled_at == NOW
     slot = (await db.execute(select(Slot).where(Slot.id == sid))).scalar_one()
@@ -993,7 +1064,7 @@ async def test_reaps_stale_unpaid_online_booking(db: AsyncSession) -> None:
 
 async def test_fresh_unpaid_booking_is_untouched(db: AsyncSession) -> None:
     bid, _ = await _online_booking(db, created_at=NOW - timedelta(minutes=5))  # inside the TTL
-    assert await run_reap_unpaid_bookings(db, NOW) == 0
+    assert await _reap(db) == 0
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
     assert booking.status == "confirmed"
 
@@ -1013,14 +1084,14 @@ async def test_settled_deposit_is_untouched(db: AsyncSession) -> None:
         )
     )
     await db.flush()
-    assert await run_reap_unpaid_bookings(db, NOW) == 0
+    assert await _reap(db) == 0
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
     assert booking.status == "confirmed"
 
 
 async def test_waitlisted_booking_is_untouched(db: AsyncSession) -> None:
     bid, _ = await _online_booking(db, created_at=NOW - timedelta(hours=1), status="waitlisted")
-    assert await run_reap_unpaid_bookings(db, NOW) == 0
+    assert await _reap(db) == 0
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
     assert booking.status == "waitlisted"
 
@@ -1028,7 +1099,7 @@ async def test_waitlisted_booking_is_untouched(db: AsyncSession) -> None:
 async def test_manual_booking_is_untouched(db: AsyncSession) -> None:
     # only online bookings auto-cancel on non-payment; a staff-made booking is left to the provider.
     bid, _ = await _online_booking(db, created_at=NOW - timedelta(hours=1), source="manual")
-    assert await run_reap_unpaid_bookings(db, NOW) == 0
+    assert await _reap(db) == 0
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
     assert booking.status == "confirmed"
 
@@ -1199,3 +1270,72 @@ async def test_global_scan_is_multi_tenant_and_deduped(
     assert {m.to for m in email.sent} >= {"rem@example.ca", "second@example.ca"}
     # per-booking dedup (reminded_at) holds across tenants — a second pass reminds nobody
     assert await run_reminders(db, notifier, NOW) == 0
+
+
+async def test_a_second_cancel_is_a_no_op_with_no_second_notice(
+    as_owner: httpx.AsyncClient, email: FakeEmailSender
+) -> None:
+    created = await as_owner.post(
+        "/v1/bookings",
+        json={
+            "client_id": CL_AMELIE,
+            "item_id": "it_nails",
+            "staff_id": ST_OWNER,
+            "starts_at": "2027-04-06T17:00:00Z",
+        },
+    )
+    bid = created.json()["id"]
+    sent = len(email.sent)
+    for _ in range(2):
+        res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "canceled"})
+        assert res.status_code == 200 and res.json()["status"] == "canceled"
+    assert len(email.sent) == sent + 1
+
+
+async def test_a_concurrent_resource_clash_names_the_resource(db: AsyncSession) -> None:
+    import asyncio
+
+    from clientbridge.core.db import SessionLocal
+    from clientbridge.core.errors import Conflict
+    from clientbridge.services.bookings import create_booking_core
+
+    start = datetime(2027, 5, 4, 17, tzinfo=UTC)
+    inserted = asyncio.Event()
+    made: list[str] = []
+
+    async def book(staff_id: str, client: str) -> Conflict | None:
+        async with SessionLocal() as session:
+            item = await session.get(Item, "it_nails")
+            assert item is not None
+            try:
+                booking, slot = await create_booking_core(
+                    session,
+                    BIZ,
+                    item=item,
+                    staff_id=staff_id,
+                    starts_at=start,
+                    client_id=client,
+                    source="manual",
+                    resource_id="rs_station_a",
+                )
+            except Conflict as exc:
+                return exc
+            made.extend([booking.id, slot.id])
+            inserted.set()
+            await asyncio.sleep(0.5)
+            await session.commit()
+            return None
+
+    async def second() -> Conflict | None:
+        await inserted.wait()
+        return await book("st_diego", "cl_marcus")
+
+    try:
+        first, clash = await asyncio.gather(book(ST_OWNER, CL_AMELIE), second())
+        assert first is None
+        assert clash is not None and clash.message == "that resource is already booked at that time"
+    finally:
+        async with SessionLocal() as cleanup:
+            await cleanup.execute(delete(Booking).where(Booking.id.in_(made)))
+            await cleanup.execute(delete(Slot).where(Slot.id.in_(made)))
+            await cleanup.commit()

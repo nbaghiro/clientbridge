@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
 from clientbridge.models.scheduling import Booking, Slot
-from tests.conftest import BIZ, Factory
+from clientbridge.services.bookings import run_reminders
+from clientbridge.services.notifications import Notifier
+from tests.conftest import BIZ, Factory, FakeEmailSender, FakePushSender, FakeSmsSender
 
 
 async def _booking(
@@ -101,3 +103,19 @@ async def test_another_business_booking_404(
 async def test_unauth_cannot_preview(unauth: httpx.AsyncClient, db: AsyncSession) -> None:
     bid = await _booking(db, "st_owner")
     assert (await unauth.get(f"/v1/bookings/{bid}/reminder")).status_code == 401
+
+
+async def test_a_moved_visit_is_reminded_again_before_its_new_time(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    bid = await _booking(db, "st_owner")
+    notifier = Notifier(email, FakeSmsSender(), FakePushSender())
+    first = datetime(2027, 8, 3, 17, tzinfo=UTC)
+    assert await run_reminders(db, notifier, first - timedelta(hours=20)) >= 1
+    moved = await as_owner.patch(f"/v1/bookings/{bid}", json={"starts_at": "2027-08-10T17:00:00Z"})
+    assert moved.status_code == 200, moved.text
+    booking = await db.get(Booking, bid, populate_existing=True)
+    assert booking is not None and booking.reminded_at is None
+    sent = len(email.sent)
+    await run_reminders(db, notifier, first + timedelta(days=7) - timedelta(hours=20))
+    assert len(email.sent) > sent

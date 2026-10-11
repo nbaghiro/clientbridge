@@ -376,7 +376,7 @@ function MovePicker({ mg }: { mg: ManageBookingFlow }) {
                 value={mg.date}
                 onChange={mg.setDate}
                 {...(mg.canPrevWeek ? { onPrev: mg.prevWeek } : {})}
-                onNext={mg.nextWeek}
+                {...(mg.canNextWeek ? { onNext: mg.nextWeek } : {})}
                 prevLabel={b.prevWeek}
                 nextLabel={b.nextWeek}
             />
@@ -388,14 +388,16 @@ function MovePicker({ mg }: { mg: ManageBookingFlow }) {
                         icon="calendar"
                         message={s.noTimes}
                         actions={
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                icon="chevronRight"
-                                onPress={mg.nextWeek}
-                            >
-                                {b.nextWeek}
-                            </Button>
+                            mg.canNextWeek ? (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    icon="chevronRight"
+                                    onPress={mg.nextWeek}
+                                >
+                                    {b.nextWeek}
+                                </Button>
+                            ) : undefined
                         }
                     />
                 ) : (

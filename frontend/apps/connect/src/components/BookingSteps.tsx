@@ -102,7 +102,7 @@ export function WhenPicker({ flow }: { flow: PublicBookingFlow }) {
                     value={flow.date}
                     onChange={flow.setDate}
                     {...(flow.canPrevWeek ? { onPrev: flow.prevWeek } : {})}
-                    onNext={flow.nextWeek}
+                    {...(flow.canNextWeek ? { onNext: flow.nextWeek } : {})}
                     prevLabel={s.prevWeek}
                     nextLabel={s.nextWeek}
                 />
@@ -145,7 +145,7 @@ export function WhenPicker({ flow }: { flow: PublicBookingFlow }) {
                                     >
                                         {s.nextOpen(flow.firstOpen.label)}
                                     </Button>
-                                ) : (
+                                ) : flow.canNextWeek ? (
                                     <Button
                                         size="sm"
                                         variant="outline"
@@ -154,7 +154,7 @@ export function WhenPicker({ flow }: { flow: PublicBookingFlow }) {
                                     >
                                         {s.nextWeek}
                                     </Button>
-                                )
+                                ) : undefined
                             }
                         />
                     ) : (
@@ -321,7 +321,7 @@ export function PayStep({ flow }: { flow: PublicBookingFlow }) {
                               s.payPolicy(
                                   policy.cancel_cutoff_hours,
                                   policy.reschedule_cutoff_hours,
-                                  policy.late_cancel_deposit === "keep",
+                                  true,
                               ),
                               s.secure,
                           )

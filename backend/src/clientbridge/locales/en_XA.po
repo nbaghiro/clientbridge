@@ -13,6 +13,12 @@ msgstr "[Ýöû'ŕé ƀööķéð ŵîţĥ {business} öñ {when}. Çĥåñĝé 
 msgid "booking_confirmed.subject"
 msgstr "[Ɓööķîñĝ çöñƒîŕɱéð — {business}~~~~~~~]"
 
+msgid "booking_released.body"
+msgstr "[Ýöûŕ åþþöîñţɱéñţ ŵîţĥ {business} öñ {when} ŵåš ŕéļéåšéð ƀéçåûšé îţš ðéþöšîţ ŵåšñ'ţ þåîð. Ýöû'ŕé ŵéļçöɱé ţö ƀööķ åĝåîñ.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "booking_released.subject"
+msgstr "[Åþþöîñţɱéñţ ŕéļéåšéð — {business}~~~~~~~~~]"
+
 msgid "booking_reminder.body"
 msgstr "[Ŕéɱîñðéŕ: ýöû ĥåṽé åñ åþþöîñţɱéñţ ŵîţĥ {business} öñ {when}.~~~~~~~~~~~~~~~~]"
 
@@ -21,6 +27,12 @@ msgstr "[Ŕéɱîñðéŕ: ýöû ĥåṽé åñ åþþöîñţɱéñţ ŵîţĥ
 
 msgid "booking_reminder.subject"
 msgstr "[Åþþöîñţɱéñţ ŕéɱîñðéŕ — {business}~~~~~~~~~]"
+
+msgid "booking_requested.body"
+msgstr "[{business} ŕéçéîṽéð ýöûŕ ŕéǫûéšţ ƒöŕ {when}. Ýöû'ļļ ĥéåŕ ƀåçķ öñçé îţ'š çöñƒîŕɱéð.~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "booking_requested.subject"
+msgstr "[Ɓööķîñĝ ŕéǫûéšţ ŕéçéîṽéð — {business}~~~~~~~~~~]"
 
 msgid "booking_rescheduled.body"
 msgstr "[Ýöûŕ åþþöîñţɱéñţ ŵîţĥ {business} ŵåš ɱöṽéð ţö {when}.~~~~~~~~~~~~~]"

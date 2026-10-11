@@ -21,10 +21,10 @@ import {
     Button,
     DetailView,
     Empty,
-    Icon,
     IconButton,
     LoadFailed,
     Modal,
+    Notice,
     Skeleton,
 } from "@clientbridge/ui";
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
@@ -37,7 +37,6 @@ import {
     DaySummaryBar,
     GUTTER_PX,
     GridEvent,
-    HATCH,
     HourLines,
     NowLine,
     OffHours,
@@ -61,7 +60,7 @@ export function Schedule() {
     const zone = useBusinessZone();
     const viewer = useViewer();
     const mover = useMoveEvent(api);
-    const board = useScheduleBoard(viewer, mover.pending);
+    const board = useScheduleBoard(viewer, mover);
     const wide = useWide();
     const day = board.focus;
     const { startHour, endHour } = board.window;
@@ -85,12 +84,10 @@ export function Schedule() {
         mover,
     });
 
+    const slotAt = (min: number): Date => minutesInto(day.date, startHour * 60 + min, zone);
     const openSlot = (staffId: string, min: number): void => {
         board.select(null);
-        setComposer({
-            staffId,
-            start: minutesInto(day.date, startHour * 60 + min, board.zone),
-        });
+        setComposer({ staffId, start: slotAt(min) });
     };
     const openNew = (): void => {
         const first = day.lanes.find((l) => l.hours) ?? day.lanes[0];
@@ -168,6 +165,11 @@ export function Schedule() {
                     />
                     <DaySummaryBar summary={board.summary} waiting={waiting} />
                     <LaneHeads day={day} waiting={waiting} />
+                    {day.closedNote !== null && !waiting ? (
+                        <Notice tone="info" banner className="rounded-none">
+                            {day.closedNote}
+                        </Notice>
+                    ) : null}
                     {board.load.state === "loading" ? (
                         <div className="min-h-0 flex-1 p-5">
                             <Skeleton variant="row" count={6} label={s.loading} />
@@ -192,22 +194,6 @@ export function Schedule() {
                                     hourPx={hourPx}
                                 />
                                 <div ref={lanesRef} className="relative flex min-w-0 flex-1">
-                                    {day.closure ? (
-                                        <div
-                                            className="absolute inset-0 z-10 flex items-center justify-center"
-                                            style={HATCH}
-                                        >
-                                            <div className="rounded-lg border border-line bg-surface px-5 py-3 text-center shadow-card">
-                                                <Icon name="lock" size={20} />
-                                                <p className="mt-1 text-sm font-semibold text-ink">
-                                                    {s.closed(day.closure.label)}
-                                                </p>
-                                                <p className="text-xs text-muted">
-                                                    {s.emptyClosed}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    ) : null}
                                     {day.lanes.map((lane, laneIndex) => {
                                         const placed = placeEvents(
                                             lane.events,
@@ -262,16 +248,7 @@ export function Schedule() {
                                                     <SlotHover
                                                         top={hover.min * pxPerMin}
                                                         height={30 * pxPerMin}
-                                                        label={formatTime(
-                                                            new Date(
-                                                                2000,
-                                                                0,
-                                                                1,
-                                                                startHour,
-                                                                hover.min,
-                                                            ),
-                                                            zone,
-                                                        )}
+                                                        label={formatTime(slotAt(hover.min), zone)}
                                                     />
                                                 ) : null}
                                                 {placed.map((p) => (

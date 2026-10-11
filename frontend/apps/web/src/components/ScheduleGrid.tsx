@@ -6,20 +6,19 @@ import {
     type ScheduleBlock,
     type ScheduleBoard,
     type ScheduleEvent,
+    blockSpan,
     eventFlags,
     eventLabelFor,
     formatHour,
     formatMoney,
     formatTime,
     hourMarks,
-    minuteTop,
     planMove,
     strings,
     formatParts,
     BUSINESS_CURRENCY,
     useBusinessZone,
     formatTimeRange,
-    minutesInto,
 } from "@clientbridge/app-core";
 import { Button, CalendarEventCard, Icon, IconButton } from "@clientbridge/ui";
 import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
@@ -254,7 +253,7 @@ export function HourLines({
     );
 }
 
-export const HATCH = {
+const HATCH = {
     backgroundColor: "var(--bg)",
     backgroundImage:
         "repeating-linear-gradient(135deg, var(--border-soft) 0 1px, transparent 1px 8px)",
@@ -299,13 +298,9 @@ export function BlockCard({
     dayStart: Date;
 }) {
     const zone = useBusinessZone();
-    const windowStart = minutesInto(dayStart, startHour * 60, zone);
-    const windowEnd = minutesInto(dayStart, endHour * 60, zone);
-    const from = block.start < windowStart ? windowStart : block.start;
-    const to = block.end > windowEnd ? windowEnd : block.end;
-    if (to <= from) return null;
-    const top = minuteTop(from, startHour, pxPerMin, zone);
-    const height = minuteTop(to, startHour, pxPerMin, zone) - top;
+    const span = blockSpan(block, dayStart, startHour, endHour, pxPerMin, zone);
+    if (span === null) return null;
+    const { top, height } = span;
     const away = block.kind !== "break";
     return (
         <div

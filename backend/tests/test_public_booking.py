@@ -118,6 +118,15 @@ async def test_public_pages_name_the_business_zone(api: httpx.AsyncClient) -> No
         assert body["timezone"] == "America/Vancouver", path
 
 
+async def test_services_share_the_booking_horizon(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.booking_policy = {**business.booking_policy, "horizon_days": 30}
+    await db.flush()
+    body = (await api.get(f"/book/{SLUG}/services")).json()
+    assert body["policy"]["horizon_days"] == 30
+
+
 async def test_services_bad_slug_404(api: httpx.AsyncClient) -> None:
     assert (await api.get("/book/nope/services")).status_code == 404
 
@@ -216,7 +225,7 @@ async def test_book_creates_online_booking_and_notifies(
     api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
     res = await api.post(
-        f"/book/{SLUG}", json=_body("2027-03-02T18:00:00Z", email="lee@example.com")
+        f"/book/{SLUG}", json=_body("2027-03-02T18:50:00Z", email="lee@example.com")
     )
     assert res.status_code == 200, res.text
     body = res.json()
@@ -239,30 +248,30 @@ async def test_book_outside_hours_409(api: httpx.AsyncClient) -> None:
 
 
 async def test_book_taken_slot_409(api: httpx.AsyncClient) -> None:
-    body = _body("2027-03-02T18:00:00Z")
+    body = _body("2027-03-02T18:50:00Z")
     assert (await api.post(f"/book/{SLUG}", json=body)).status_code == 200
     assert (await api.post(f"/book/{SLUG}", json=body)).status_code == 409
 
 
 async def test_book_non_bookable_item_409(api: httpx.AsyncClient) -> None:
-    res = await api.post(f"/book/{SLUG}", json=_body("2027-03-02T18:00:00Z", item=SHAMPOO))
+    res = await api.post(f"/book/{SLUG}", json=_body("2027-03-02T18:50:00Z", item=SHAMPOO))
     assert res.status_code == 409
 
 
 async def test_book_unknown_item_404(api: httpx.AsyncClient) -> None:
-    res = await api.post(f"/book/{SLUG}", json=_body("2027-03-02T18:00:00Z", item="it_nope"))
+    res = await api.post(f"/book/{SLUG}", json=_body("2027-03-02T18:50:00Z", item="it_nope"))
     assert res.status_code == 404
 
 
 async def test_book_unknown_slug_404(api: httpx.AsyncClient) -> None:
-    assert (await api.post("/book/nope", json=_body("2027-03-02T18:00:00Z"))).status_code == 404
+    assert (await api.post("/book/nope", json=_body("2027-03-02T18:50:00Z"))).status_code == 404
 
 
 async def test_book_requires_contact(api: httpx.AsyncClient) -> None:
     body = {
         "item_id": GROOM_SM,
         "staff_id": ST_OWNER,
-        "starts_at": "2027-03-02T18:00:00Z",
+        "starts_at": "2027-03-02T18:50:00Z",
         "client": {"name": "No Contact"},
     }
     assert (await api.post(f"/book/{SLUG}", json=body)).status_code == 422
@@ -272,7 +281,7 @@ async def test_book_deposit_required_returns_secret(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await enable_payments(db)
-    res = await api.post(f"/book/{SLUG}", json=_body("2027-03-02T17:00:00Z", item=GROOM_LG))
+    res = await api.post(f"/book/{SLUG}", json=_body("2027-03-02T16:00:00Z", item=GROOM_LG))
     assert res.status_code == 200, res.text
     body = res.json()
     assert body["deposit_client_secret"].startswith("pi_fake")
@@ -290,9 +299,9 @@ async def test_book_deposit_required_returns_secret(
 
 
 async def test_book_find_or_create_reuses_client(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    first = await api.post(f"/book/{SLUG}", json=_body("2027-03-02T18:00:00Z", email="repeat@x.ca"))
+    first = await api.post(f"/book/{SLUG}", json=_body("2027-03-02T18:50:00Z", email="repeat@x.ca"))
     second = await api.post(
-        f"/book/{SLUG}", json=_body("2027-03-02T20:00:00Z", email="repeat@x.ca")
+        f"/book/{SLUG}", json=_body("2027-03-02T20:15:00Z", email="repeat@x.ca")
     )
     assert first.status_code == 200 and second.status_code == 200
     b1 = (
@@ -329,7 +338,7 @@ async def test_slug_scopes_to_one_business(
     assert page["business_name"] == "Rival Co"
     assert {s["id"] for s in page["services"]} == {rival_item.id}
     # and a foreign item can't be booked through the Birchbark slug
-    res = await api.post(f"/book/{SLUG}", json=_body("2027-03-02T18:00:00Z", item=rival_item.id))
+    res = await api.post(f"/book/{SLUG}", json=_body("2027-03-02T18:50:00Z", item=rival_item.id))
     assert res.status_code == 404
 
 
@@ -343,3 +352,49 @@ async def test_public_booking_is_rate_limited(api: httpx.AsyncClient) -> None:
     app.dependency_overrides[public_booking_rate_limit] = limited
     assert (await api.get(f"/book/{SLUG}/services")).status_code == 200
     assert (await api.get(f"/book/{SLUG}/services")).status_code == 429
+
+
+def _local(day: date, hour: int, minute: int = 0) -> str:
+    return datetime.combine(day, time(hour, minute), tzinfo=TZ).astimezone(UTC).isoformat()
+
+
+async def test_book_refuses_a_day_without_hours(api: httpx.AsyncClient) -> None:
+    monday = date(2027, 3, 1)
+    params = {"item_id": GROOM_SM, "staff_id": ST_OWNER, "date": monday.isoformat()}
+    assert (await api.get(f"/book/{SLUG}/slots", params=params)).json()["slots"] == []
+    res = await api.post(f"/book/{SLUG}", json=_body(_local(monday, 3)))
+    assert res.status_code == 409, res.text
+    assert res.json()["error"] == "slot_unavailable"
+
+
+async def test_book_refuses_a_member_without_hours(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.execute(delete(Hours).where(Hours.staff_id == ST_PRIYA))
+    res = await api.post(f"/book/{SLUG}", json=_body(_local(date(2027, 3, 2), 9), staff=ST_PRIYA))
+    assert res.status_code == 409, res.text
+    assert res.json()["error"] == "slot_unavailable"
+
+
+async def test_book_refuses_an_off_grid_start(api: httpx.AsyncClient) -> None:
+    res = await api.post(f"/book/{SLUG}", json=_body(_local(date(2027, 3, 2), 9, 7)))
+    assert res.status_code == 409, res.text
+    assert res.json()["error"] == "slot_unavailable"
+
+
+async def test_any_staff_books_the_member_the_listing_offered(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    params = {"item_id": GROOM_SM, "staff_id": "any", "date": "2027-03-02"}
+    slots = (await api.get(f"/book/{SLUG}/slots", params=params)).json()["slots"]
+    for offered in slots[:3]:
+        res = await api.post(f"/book/{SLUG}", json=_body(offered["starts_at"], staff="any"))
+        assert res.status_code == 200, res.text
+        booking = await db.get(Booking, res.json()["booking_id"])
+        assert booking is not None and booking.staff_id == offered["staff_id"]
+
+
+async def test_any_staff_refuses_a_time_nobody_offers(api: httpx.AsyncClient) -> None:
+    res = await api.post(f"/book/{SLUG}", json=_body(_local(date(2027, 3, 2), 3), staff="any"))
+    assert res.status_code == 409, res.text
+    assert res.json()["error"] == "slot_unavailable"

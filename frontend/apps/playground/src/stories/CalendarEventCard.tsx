@@ -44,6 +44,11 @@ export default story<CalendarEventCardProps>({
             title: "Selected",
             props: () => ({ ...base, state: "selected", flags: ["recurring", "addons"] }),
         },
+        {
+            key: "needs-move",
+            title: "Needs a new time (closed day)",
+            props: () => ({ ...base, flags: ["needs_move", "recurring"] }),
+        },
         { key: "dragging", title: "Dragging", props: () => ({ ...base, state: "dragging" }) },
         {
             key: "refused",
@@ -78,7 +83,16 @@ export default story<CalendarEventCardProps>({
             title: "Every flag",
             props: () => ({
                 ...base,
-                flags: ["online", "recurring", "deposit_due", "addons", "note", "walk_in", "class"],
+                flags: [
+                    "needs_move",
+                    "online",
+                    "recurring",
+                    "deposit_due",
+                    "addons",
+                    "note",
+                    "walk_in",
+                    "class",
+                ],
             }),
         },
         {

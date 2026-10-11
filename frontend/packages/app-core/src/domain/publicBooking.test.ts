@@ -9,7 +9,18 @@ import {
     zonedDate,
 } from "../datetime";
 import { strings } from "../strings";
-import { groupSlots, icsFor, toStrip, whenLabel, whenTitle, zoneNote } from "./publicBooking";
+import {
+    bookingFailure,
+    draftDay,
+    groupSlots,
+    horizonDay,
+    icsFor,
+    toStrip,
+    visitWeekFrom,
+    whenLabel,
+    whenTitle,
+    zoneNote,
+} from "./publicBooking";
 
 const ZONE = "America/Vancouver";
 
@@ -172,5 +183,30 @@ describe("the business zone on public pages", () => {
         expect(whenLabel(at(8, 9).toISOString(), today, ZONE)).toBe(
             s.at(s.tomorrow, formatTime(at(8, 9), ZONE)),
         );
+    });
+});
+
+describe("booking a time", () => {
+    it("restores a saved time on its day in the business zone", () => {
+        expect(draftDay("2026-10-08T02:30:00.000Z", ZONE)).toBe("2026-10-07");
+        expect(draftDay("2026-10-08T02:30:00Z", "Asia/Tokyo")).toBe("2026-10-08");
+        expect(draftDay("not a time", ZONE)).toBeNull();
+    });
+
+    it("stops the week strip at the booking horizon, and opens a move on the visit's week", () => {
+        expect(horizonDay("2026-10-07", 30, ZONE)).toBe("2026-11-06");
+        expect(horizonDay("2026-10-07", undefined, ZONE)).toBeNull();
+        expect(visitWeekFrom(at(21, 10), "2026-10-07", ZONE)).toBe("2026-10-19");
+        expect(visitWeekFrom(at(8, 10), "2026-10-07", ZONE)).toBe("2026-10-07");
+    });
+
+    it("tells a lost connection from a time someone else just took", () => {
+        expect(bookingFailure(new TypeError("Failed to fetch"), s.bookError)).toBe(
+            s.connectionError,
+        );
+        const refused = Object.assign(new Error("409"), { status: 409, code: "slot_unavailable" });
+        expect(bookingFailure(refused, s.bookError)).toBe(s.slotTaken);
+        const other = Object.assign(new Error("422"), { status: 422, code: "unprocessable" });
+        expect(bookingFailure(other, s.bookError)).toBe(s.bookError);
     });
 });

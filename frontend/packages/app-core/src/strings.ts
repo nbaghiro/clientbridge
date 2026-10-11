@@ -58,6 +58,10 @@ interface Strings {
         readonly outOfStock: string;
         readonly pickupWindowTaken: string;
         readonly shopNotReady: string;
+        readonly slotUnavailable: string;
+        readonly classSeat: string;
+        readonly classMove: string;
+        readonly recurrenceTooLong: string;
         readonly mixedCurrencies: string;
     } & Labels;
     readonly ui: {
@@ -832,7 +836,6 @@ interface Strings {
         readonly offToday: string;
         readonly noHoursSet: string;
         readonly breakLabel: string;
-        readonly closed: (reason: string) => string;
         readonly bookings: (visits: number, classes: number) => string;
         readonly booked: string;
         readonly expected: string;
@@ -857,6 +860,7 @@ interface Strings {
         readonly problemClosed: (why: string) => string;
         readonly problemPast: string;
         readonly problemRoom: string;
+        readonly problemClassFull: string;
         readonly problemClass: string;
         readonly moved: (when: string) => string;
         readonly undo: string;
@@ -864,7 +868,8 @@ interface Strings {
         readonly dash: string;
         readonly emptyDay: string;
         readonly emptyDayWeb: string;
-        readonly emptyClosed: string;
+        readonly closedNote: (reason: string, count: number) => string;
+        readonly needsMove: string;
         readonly nobodyWorking: string;
         readonly nobodyWorkingHint: string;
         readonly dayVisits: string;
@@ -977,6 +982,7 @@ interface Strings {
         readonly rescheduleTo: (label: string) => string;
         readonly rescheduling: string;
         readonly rescheduleNotice: string;
+        readonly moveOffline: string;
         readonly rescheduleError: string;
         readonly depositDueTitle: (amount: string) => string;
         readonly depositDueBody: string;
@@ -2138,6 +2144,8 @@ interface Strings {
         readonly saved: string;
         readonly savedLocally: string;
         readonly conflict: string;
+        readonly splitWeek: (days: string, count: number) => string;
+        readonly splitRefused: string;
         readonly refused: string;
         readonly applyChanges: string;
         readonly discardChanges: string;
@@ -3542,6 +3550,8 @@ interface Strings {
         readonly confirmAndPay: (amount: string) => string;
         readonly booking: string;
         readonly bookError: string;
+        readonly slotTaken: string;
+        readonly connectionError: string;
         readonly payTitle: string;
         readonly payBody: (amount: string) => string;
         readonly payPolicy: (cancel: number, move: number, kept: boolean) => string;
@@ -3749,9 +3759,6 @@ interface Strings {
             readonly cancelCutoff: string;
             readonly moveCutoff: string;
             readonly hoursBefore: (n: number) => string;
-            readonly lateDeposit: string;
-            readonly keep: string;
-            readonly refund: string;
             readonly maxMoves: string;
             readonly maxMovesOptions: {
                 readonly "1": string;

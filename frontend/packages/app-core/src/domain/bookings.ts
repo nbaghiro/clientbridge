@@ -1,8 +1,8 @@
 import { useBusinessQuery as useQuery } from "../hooks";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { type ApiLike, newIdempotencyKey } from "../api";
+import { type ApiLike, failureMessage, newIdempotencyKey } from "../api";
 import {
     addDays,
     clockKey,
@@ -20,6 +20,7 @@ import {
     formatTimeRange,
     formatWeekday,
     formatWeekdayTime,
+    minutesInto,
     parseTimestamp,
     sameDay,
     startOfDay,
@@ -37,7 +38,7 @@ import {
     initials,
     BUSINESS_CURRENCY,
 } from "../format";
-import { type Load, useAsyncAction } from "../hooks";
+import { type Load, isConnectionFailure, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { CalendarEventFlag, Intent, TimelineEntry } from "../ui";
 import type { Viewer } from "./auth";
@@ -68,6 +69,11 @@ export interface CalendarEvent {
     depositRequired: boolean;
     depositAmountCents: number;
     depositStatus: string;
+    itemId: string;
+    resourceId: string | null;
+    // The service's buffers, which the server counts as part of the visit when checking overlaps.
+    bufferBeforeMin: number;
+    bufferAfterMin: number;
 }
 
 interface PositionedEvent {
@@ -94,6 +100,11 @@ function statusIntent(status: string): Intent {
     }
 }
 
+const minuteOfDay = (d: Date, zone: string): number => {
+    const w = wallTime(d, zone);
+    return w.hour * 60 + w.minute;
+};
+
 interface LayoutOptions {
     dayStart: Date;
     zone: string;
@@ -110,7 +121,9 @@ function compareEventStart(a: CalendarEvent, b: CalendarEvent): number {
 export function layoutDay(events: CalendarEvent[], opts: LayoutOptions): PositionedEvent[] {
     const { dayStart, zone, pxPerMin, minHeightPx = 18, gapPx = 1 } = opts;
     const dayEnd = addDays(dayStart, 1, zone);
-    const dayStartMs = dayStart.getTime();
+    // Wall-clock minutes, as the hour lines are drawn, so 23 and 25 hour days still line up.
+    const startMinute = (d: Date): number => (d <= dayStart ? 0 : minuteOfDay(d, zone));
+    const endMinute = (d: Date): number => (d >= dayEnd ? 1440 : minuteOfDay(d, zone));
     const inDay = events
         .filter((e) => e.start < dayEnd && e.end > dayStart)
         .sort(compareEventStart);
@@ -135,8 +148,8 @@ export function layoutDay(events: CalendarEvent[], opts: LayoutOptions): Positio
         const colCount = colEnds.length;
         for (const e of group) {
             const col = colOf.get(e.id) ?? 0;
-            const startMin = Math.max(0, (e.start.getTime() - dayStartMs) / MIN);
-            const endMin = Math.min(1440, (e.end.getTime() - dayStartMs) / MIN);
+            const startMin = startMinute(e.start);
+            const endMin = Math.max(startMin, endMinute(e.end));
             out.push({
                 event: e,
                 topPx: startMin * pxPerMin,
@@ -165,7 +178,6 @@ const omitKey = <T>(rec: Record<string, T>, key: string): Record<string, T> =>
 
 export interface ScheduleEvent extends CalendarEvent {
     kind: "visit" | "class";
-    itemId: string;
     priceCents: number;
     serviceName: string;
     clientName: string | null;
@@ -175,7 +187,6 @@ export interface ScheduleEvent extends CalendarEvent {
     staffColor: string | null;
     source: EventSource;
     seriesId: string | null;
-    resourceId: string | null;
     resourceName: string | null;
     addonCount: number;
     note: string | null;
@@ -185,6 +196,8 @@ export interface ScheduleEvent extends CalendarEvent {
     intent: Intent;
     // Ended but still open: staff owe it a Completed or a No-show.
     needsClose: boolean;
+    // Still ahead but now inside a closure or the member's time off, so it needs a new time.
+    needsMove: boolean;
     inProgress: boolean;
     timeLabel: string;
     timeShort: string;
@@ -206,6 +219,8 @@ interface EventRow {
     item_name: string;
     item_color: string | null;
     item_price: number;
+    buffer_before_min: number;
+    buffer_after_min: number;
     booked_count: number;
     booking_id: string | null;
     booking_status: string | null;
@@ -233,6 +248,7 @@ export const EVENTS_SQL = `
 SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.status AS slot_status,
        s.recurrence_id, s.resource_id, r.name AS resource_name,
        i.id AS item_id, i.name AS item_name, i.color AS item_color, i.price_cents AS item_price,
+       i.buffer_before_min, i.buffer_after_min,
        (SELECT COUNT(*) FROM bookings x WHERE x.slot_id = s.id
           AND x.status NOT IN ('canceled', 'waitlisted') AND x.deleted_at IS NULL) AS booked_count,
        b.id AS booking_id, b.status AS booking_status, b.client_id, c.name AS client_name,
@@ -280,6 +296,8 @@ function enrich(r: EventRow, staff: Map<string, StaffRow>, now: Date, zone: stri
         depositStatus: r.deposit_status ?? "none",
         kind: isClass ? "class" : "visit",
         itemId: r.item_id,
+        bufferBeforeMin: r.buffer_before_min,
+        bufferAfterMin: r.buffer_after_min,
         priceCents: isClass ? r.item_price : (r.booking_price ?? r.item_price),
         serviceName: r.item_name,
         clientName: r.client_name,
@@ -298,6 +316,7 @@ function enrich(r: EventRow, staff: Map<string, StaffRow>, now: Date, zone: stri
         remindedAt: r.reminded_at !== null ? parseTimestamp(r.reminded_at) : null,
         intent: statusIntent(status),
         needsClose: open && !isClass && end <= now,
+        needsMove: false,
         inProgress: open && start <= now && end > now,
         timeLabel: formatTimeRange(start, end, zone),
         timeShort: formatShortTimeRange(start, end, zone),
@@ -506,7 +525,35 @@ export function buildAvailability(hours: HoursRow[], away: AwayRow[], zone: stri
     };
 }
 
-type MoveProblem = "overlap" | "off_hours" | "time_off" | "closed" | "past" | null;
+type MoveProblem =
+    "overlap" | "off_hours" | "time_off" | "closed" | "past" | "resource" | "full" | null;
+
+/** The service being placed: its buffers widen the overlap check and a class with seats is joined. */
+export interface SlotItem {
+    id: string;
+    capacity: number | null;
+    bufferBeforeMin: number;
+    bufferAfterMin: number;
+}
+
+export interface SlotTarget {
+    item?: SlotItem | null;
+    resourceId?: string | null;
+}
+
+export const slotItemOf = (item: ItemRow): SlotItem => ({
+    id: item.id,
+    capacity: item.capacity,
+    bufferBeforeMin: item.buffer_before_min,
+    bufferAfterMin: item.buffer_after_min,
+});
+
+const eventItem = (e: CalendarEvent): SlotItem => ({
+    id: e.itemId,
+    capacity: e.capacity,
+    bufferBeforeMin: e.bufferBeforeMin,
+    bufferAfterMin: e.bufferAfterMin,
+});
 
 export interface MovePlan {
     start: Date;
@@ -526,25 +573,56 @@ export function slotProblem(
     start: Date,
     end: Date,
     ignoreId: string | null,
+    target: SlotTarget = {},
 ): { problem: MoveProblem; message: string } {
+    const zone = avail.zone;
     const member = staff.get(staffId);
     const who = member ? firstName(staffName(member)) : "";
     const away = avail.away(staffId, start, end);
     if (away?.staffId === null) return { problem: "closed", message: s.problemClosed(away.label) };
     if (away) return { problem: "time_off", message: s.problemTimeOff(who, away.label) };
     const w = avail.windows(staffId, start);
-    if (w !== null && !w.some((x) => x.start <= start && end <= x.end)) {
+    if (
+        w !== null &&
+        (dateKey(end, zone) !== dateKey(start, zone) ||
+            !w.some((x) => x.start <= start && end <= x.end))
+    ) {
         return { problem: "off_hours", message: s.problemOffHours(who) };
     }
-    const clash = events.find(
+    const live = events.filter((e) => e.id !== ignoreId && e.status !== "canceled");
+    const item = target.item ?? null;
+    if (item !== null && (item.capacity ?? 1) > 1) {
+        const session = live.find(
+            (e) =>
+                e.itemId === item.id &&
+                e.staffId === staffId &&
+                e.start.getTime() === start.getTime(),
+        );
+        if (session) {
+            return session.bookedCount >= session.capacity
+                ? { problem: "full", message: s.problemClassFull }
+                : { problem: null, message: "" };
+        }
+    }
+    const from = start.getTime() - (item?.bufferBeforeMin ?? 0) * MIN;
+    const to = end.getTime() + (item?.bufferAfterMin ?? 0) * MIN;
+    const joinable = (e: CalendarEvent): boolean =>
+        item !== null &&
+        e.bookedCount < e.capacity &&
+        e.itemId === item.id &&
+        e.start.getTime() === start.getTime() &&
+        e.end.getTime() === end.getTime();
+    const clash = live.find(
         (e) =>
-            e.id !== ignoreId &&
             e.staffId === staffId &&
-            e.status !== "canceled" &&
-            e.start < end &&
-            e.end > start,
+            e.start.getTime() - e.bufferBeforeMin * MIN < to &&
+            e.end.getTime() + e.bufferAfterMin * MIN > from &&
+            !joinable(e),
     );
     if (clash) return { problem: "overlap", message: s.problemOverlap(who) };
+    const room = target.resourceId ?? null;
+    if (room !== null && live.some((e) => e.resourceId === room && e.start < end && e.end > start))
+        return { problem: "resource", message: s.problemRoom };
     return { problem: null, message: "" };
 }
 
@@ -569,7 +647,10 @@ export function planMove(
     const found =
         mode === "move" && start < now && start.getTime() !== event.start.getTime()
             ? { problem: "past" as const, message: s.problemPast }
-            : slotProblem(ctx.avail, ctx.events, ctx.staff, staffId, start, end, event.id);
+            : slotProblem(ctx.avail, ctx.events, ctx.staff, staffId, start, end, event.id, {
+                  item: eventItem(event),
+                  resourceId: event.resourceId,
+              });
     const message =
         found.problem !== null
             ? found.message
@@ -630,10 +711,39 @@ export interface MoveEvent {
     move: (event: ScheduleEvent, plan: MovePlan) => void;
     // Moves shown before sync brings the new times back.
     pending: Record<string, PendingMove>;
+    // Drops the moves the replica now shows, so the board reads its own rows again.
+    settle: (events: readonly CalendarEvent[]) => void;
     last: MovePlan | null;
     refusal: string | null;
     undo: () => void;
     dismiss: () => void;
+}
+
+/** The pending moves the replica doesn't show yet; the same object when none have arrived. */
+export function settleMoves(
+    pending: Record<string, PendingMove>,
+    events: readonly CalendarEvent[],
+): Record<string, PendingMove> {
+    const arrived = new Set(
+        events
+            .filter((e) => {
+                const p = pending[e.id];
+                return (
+                    p !== undefined &&
+                    +p.start === +e.start &&
+                    +p.end === +e.end &&
+                    p.staffId === e.staffId
+                );
+            })
+            .map((e) => e.id),
+    );
+    if (arrived.size === 0) return pending;
+    return Object.fromEntries(Object.entries(pending).filter(([id]) => !arrived.has(id)));
+}
+
+/** Why a move or reschedule didn't happen: no connection, or the server refused the time. */
+export function moveFailure(error: unknown): string {
+    return isConnectionFailure(error) ? s.moveOffline : failureMessage(error, s.rescheduleError);
 }
 
 const planKey = (eventId: string, p: { start: Date; end: Date; staffId: string }): string =>
@@ -663,7 +773,15 @@ export function useMoveEvent(api: ApiLike): MoveEvent {
         return m ? firstName(staffName(m)) : "";
     };
 
-    const patch = (event: ScheduleEvent, to: PendingMove, onFail: () => void): void => {
+    const settle = useCallback((events: readonly CalendarEvent[]) => {
+        setPending((p) => settleMoves(p, events));
+    }, []);
+
+    const patch = (
+        event: ScheduleEvent,
+        to: PendingMove,
+        onFail: (error: unknown) => void,
+    ): void => {
         const bookingId = event.bookingId;
         if (bookingId === null) return;
         setPending((p) => ({ ...p, [event.id]: to }));
@@ -671,13 +789,10 @@ export function useMoveEvent(api: ApiLike): MoveEvent {
             starts_at: to.start.toISOString(),
             ends_at: to.end.toISOString(),
             staff_id: to.staffId,
-        })
-            .catch(onFail)
-            .finally(() => {
-                setTimeout(() => {
-                    setPending((prev) => omitKey(prev, event.id));
-                }, 4000);
-            });
+        }).catch((error: unknown) => {
+            setPending((prev) => omitKey(prev, event.id));
+            onFail(error);
+        });
     };
 
     return {
@@ -717,22 +832,26 @@ export function useMoveEvent(api: ApiLike): MoveEvent {
             }
             setRefusal(null);
             setLast({ plan, event });
-            patch(event, plan, () => {
+            patch(event, plan, (error) => {
                 setLast(null);
-                setPending((prev) => omitKey(prev, event.id));
-                setRefusal(s.rescheduleError);
+                setRefusal(moveFailure(error));
             });
         },
         pending,
+        settle,
         last: last?.plan ?? null,
         refusal,
         undo: () => {
             if (!last) return;
             const { event } = last;
             setLast(null);
-            patch(event, { start: event.start, end: event.end, staffId: event.staffId }, () => {
-                setRefusal(s.actionError);
-            });
+            patch(
+                event,
+                { start: event.start, end: event.end, staffId: event.staffId },
+                (error) => {
+                    setRefusal(isConnectionFailure(error) ? s.moveOffline : s.actionError);
+                },
+            );
         },
         dismiss: () => {
             setLast(null);
@@ -760,6 +879,19 @@ export function applyPending(
     });
 }
 
+/** Marks visits still ahead that a closure or the member's time off now covers. */
+export function markMoves(
+    events: ScheduleEvent[],
+    away: Availability["away"],
+    now: Date,
+): ScheduleEvent[] {
+    return events.map((e) => {
+        const open = e.status === "confirmed" || e.status === "pending" || e.status === "scheduled";
+        const needsMove = open && e.start > now && away(e.staffId, e.start, e.end) !== null;
+        return needsMove === e.needsMove ? e : { ...e, needsMove };
+    });
+}
+
 interface StaffLane {
     id: string;
     name: string;
@@ -783,6 +915,8 @@ export interface DayColumn {
     closure: ScheduleBlock | null;
     events: ScheduleEvent[];
     lanes: StaffLane[];
+    // Shown over the board on a closed day; the visits on it stay reachable underneath.
+    closedNote: string | null;
 }
 
 export interface DaySummary {
@@ -920,15 +1054,19 @@ export interface ScheduleBoard {
     events: ScheduleEvent[];
     // Every visit of the anchor's week, for overlap checks and the date strip.
     weekEvents: ScheduleEvent[];
-    window: { startHour: number; endHour: number };
+    window: VisibleWindow;
     selectedId: string | null;
     select: (id: string | null) => void;
     selected: ScheduleEvent | null;
     week: WeekStripDay[];
     avail: Availability;
     staff: Map<string, StaffRow>;
+    // The members this viewer can book for and move visits to.
+    actors: StaffRow[];
     load: Load;
 }
+
+const NO_MOVES: Record<string, PendingMove> = {};
 
 export const BOOKING_START_SQL =
     "SELECT s.starts_at FROM bookings b JOIN slots s ON s.id = b.slot_id WHERE b.id = ?";
@@ -942,7 +1080,7 @@ export function useBookingStart(bookingId: string | null): Date | null {
 /** The team day board: one lane per member with hours, time off and visits, plus the day summary. */
 export function useScheduleBoard(
     viewer: Viewer | null,
-    pending: Record<string, PendingMove> = {},
+    moves: Pick<MoveEvent, "pending" | "settle"> | null = null,
 ): ScheduleBoard {
     const now = useNow();
     const zone = useBusinessZone();
@@ -951,38 +1089,39 @@ export function useScheduleBoard(
     const weekStart = startOfWeek(anchor, zone);
     const weekEnd = addDays(weekStart, 7, zone);
     const raw = useScheduleEvents(weekStart, weekEnd);
+    const pending = moves?.pending ?? NO_MOVES;
+    const settle = moves?.settle;
+    useEffect(() => {
+        settle?.(raw.events);
+    }, [settle, raw.events]);
     const avail = useAvailability(weekStart, weekEnd);
     const staff = useActiveStaff();
-    const ownOnly = viewer !== null && !canManagePayments(viewer.role);
-    const members = ownOnly ? staff.rows.filter((m) => m.id === viewer.staffId) : staff.rows;
+    const members = actorsFor(staff.rows, viewer);
+    const { away } = avail;
     const weekEvents = useMemo(
-        () => applyPending(raw.events, pending, zone),
-        [raw.events, pending, zone],
+        () => markMoves(applyPending(raw.events, pending, zone), away, now),
+        [raw.events, pending, zone, away, now],
     );
     const dayEvents = weekEvents.filter((e) => sameDay(e.start, anchor, zone));
     const lanes = members.map((m) => laneFor(m, anchor, weekEvents, avail));
+    const closure = avail.isClosed(anchor);
     const focus: DayColumn = {
         date: anchor,
         key: dateKey(anchor, zone),
         isToday: sameDay(anchor, now, zone),
-        closure: avail.isClosed(anchor),
+        closure,
         events: dayEvents,
         lanes,
+        closedNote:
+            closure === null
+                ? null
+                : s.closedNote(closure.label, dayEvents.filter((e) => e.needsMove).length),
     };
-    let startHour = 24;
-    let endHour = 0;
-    const span = (from: Date, to: Date): void => {
-        const a = wallTime(from, zone);
-        const b = wallTime(to, zone);
-        startHour = Math.min(startHour, a.hour);
-        endHour = Math.max(endHour, b.hour + (b.minute > 0 ? 1 : 0));
-    };
-    for (const l of lanes) if (l.hours) span(l.hours.start, l.hours.end);
-    for (const e of dayEvents) span(e.start, e.end);
-    if (startHour >= endHour) {
-        startHour = 9;
-        endHour = 17;
-    }
+    const window = visibleWindow(
+        anchor,
+        [...lanes.flatMap((l) => (l.hours ? [l.hours] : [])), ...dayEvents],
+        zone,
+    );
     const load = useReplicaLoad([raw, ...avail.sources], false);
     return {
         now,
@@ -1005,13 +1144,14 @@ export function useScheduleBoard(
         summary: summarize(focus),
         events: dayEvents,
         weekEvents,
-        window: { startHour, endHour },
+        window,
         selectedId,
         select,
         selected: weekEvents.find((e) => e.id === selectedId) ?? null,
         week: weekStrip(anchor, weekEvents, avail, now),
         avail,
         staff: staff.byId,
+        actors: members,
         load,
     };
 }
@@ -1056,13 +1196,45 @@ export function placeEvents(
     });
 }
 
-const minuteOfDay = (d: Date, zone: string): number => {
-    const w = wallTime(d, zone);
-    return w.hour * 60 + w.minute;
-};
-
 export function minuteTop(d: Date, startHour: number, pxPerMin: number, zone: string): number {
     return (minuteOfDay(d, zone) - startHour * 60) * pxPerMin;
+}
+
+/** The hours a day's board shows: every shift and visit, out to midnight when one runs that late. */
+export function visibleWindow(
+    day: Date,
+    spans: readonly { start: Date; end: Date }[],
+    zone: string,
+): VisibleWindow {
+    const dayStart = startOfDay(day, zone);
+    const dayEnd = addDays(dayStart, 1, zone);
+    let startHour = 24;
+    let endHour = 0;
+    for (const x of spans) {
+        const last = wallTime(x.end, zone);
+        startHour = Math.min(startHour, x.start <= dayStart ? 0 : wallTime(x.start, zone).hour);
+        endHour = Math.max(endHour, x.end >= dayEnd ? 24 : last.hour + (last.minute > 0 ? 1 : 0));
+    }
+    return startHour < endHour ? { startHour, endHour } : { startHour: 9, endHour: 17 };
+}
+
+/** A block's place in the visible window, in pixels from its top, or null when it falls outside. */
+export function blockSpan(
+    block: ScheduleBlock,
+    day: Date,
+    startHour: number,
+    endHour: number,
+    pxPerMin: number,
+    zone: string,
+): { top: number; height: number } | null {
+    const dayStart = startOfDay(day, zone);
+    const dayEnd = addDays(dayStart, 1, zone);
+    const minute = (d: Date): number =>
+        d <= dayStart ? 0 : d >= dayEnd ? 1440 : minuteOfDay(d, zone);
+    const from = Math.max(minute(block.start), startHour * 60);
+    const to = Math.min(minute(block.end), endHour * 60);
+    if (to <= from) return null;
+    return { top: (from - startHour * 60) * pxPerMin, height: (to - from) * pxPerMin };
 }
 
 /** Shaded spans outside a lane's working hours (or the whole window on a day off), in minutes from the window start. */
@@ -1089,6 +1261,7 @@ export const hourMarks = (startHour: number, endHour: number): number[] =>
 /** The small flags a calendar block carries, most useful first. */
 export function eventFlags(e: ScheduleEvent): CalendarEventFlag[] {
     const flags: CalendarEventFlag[] = [];
+    if (e.needsMove) flags.push("needs_move");
     if (e.kind === "class") flags.push("class");
     if (
         e.depositRequired &&
@@ -1105,7 +1278,14 @@ export function eventFlags(e: ScheduleEvent): CalendarEventFlag[] {
 
 export function eventLabelFor(e: ScheduleEvent): string {
     return formatList(
-        [e.timeLabel, e.headline, e.serviceName, e.staffName, s.statusLabel(e.status)],
+        [
+            e.timeLabel,
+            e.headline,
+            e.serviceName,
+            e.staffName,
+            s.statusLabel(e.status),
+            ...(e.needsMove ? [s.needsMove] : []),
+        ],
         "unit",
     );
 }
@@ -1439,7 +1619,7 @@ export function useBookingActions(
                 onSuccess: () => {
                     onDone?.(action);
                 },
-                errorMessage: s.actionError,
+                errorMessage: (e) => failureMessage(e, s.actionError),
             });
         },
     };
@@ -1461,9 +1641,10 @@ export const CLIENT_PETS_SQL =
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 
-function startTimes(): { key: string; label: string }[] {
+/** Quarter-hour starts for the composer's time menu, across the usual day and the board's visible window. */
+export function composerTimes(window: VisibleWindow): { key: string; label: string }[] {
     const out: { key: string; label: string }[] = [];
-    for (let hh = 6; hh <= 21; hh++)
+    for (let hh = Math.min(6, window.startHour); hh < Math.max(22, window.endHour); hh++)
         for (const mm of [0, 15, 30, 45]) {
             const key = `${pad(hh)}:${pad(mm)}`;
             out.push({ key, label: formatClock(key) });
@@ -1514,53 +1695,74 @@ export interface BookingComposer {
     slotGroups: { label: string; slots: { key: string; label: string; disabled?: boolean }[] }[];
 }
 
-/** Free starts every 15 minutes for one member and day, grouped for a slot picker; keys are "HH:MM". */
-function openGroups(
-    board: { avail: Availability; events: readonly CalendarEvent[]; staff: Map<string, StaffRow> },
+interface VisibleWindow {
+    startHour: number;
+    endHour: number;
+}
+
+// Where a member with no hours set is offered times when the board has no window to follow.
+const USUAL_DAY: VisibleWindow = { startHour: 8, endHour: 18 };
+
+/** Every quarter-hour start that fits the member's hours on a day, or the window when none are set. */
+export function openStarts(
+    avail: Availability,
     staffId: string,
     day: Date,
     length: number,
-    now: Date,
-): { label: string; slots: { key: string; label: string; disabled?: boolean }[] }[] {
-    const zone = board.avail.zone;
-    const windows = board.avail.windows(staffId, day) ?? [
+    window: VisibleWindow,
+): Date[] {
+    const zone = avail.zone;
+    const windows = avail.windows(staffId, day) ?? [
         {
-            start: combineDayAndTime(day, "08:00", zone),
-            end: combineDayAndTime(day, "18:00", zone),
+            start: minutesInto(day, window.startHour * 60, zone),
+            end: minutesInto(day, window.endHour * 60, zone),
         },
     ];
-    const slots: { key: string; label: string; disabled: boolean; hour: number }[] = [];
-    for (const w of windows) {
-        for (let t = w.start.getTime(); t + length * MIN <= w.end.getTime(); t += 15 * MIN) {
-            const at = new Date(t);
-            if (at < now) continue;
-            const end = new Date(t + length * MIN);
-            const found = slotProblem(
-                board.avail,
-                board.events,
-                board.staff,
-                staffId,
-                at,
-                end,
-                null,
-            );
-            slots.push({
-                key: clockKey(at, zone),
-                label: formatTimeOfPeriod(at, zone),
-                disabled: found.problem !== null,
-                hour: wallTime(at, zone).hour,
-            });
-        }
-    }
-    const part = (label: string, from: number, to: number) => ({
+    const out: Date[] = [];
+    for (const w of windows)
+        for (let t = w.start.getTime(); t + length * MIN <= w.end.getTime(); t += 15 * MIN)
+            out.push(new Date(t));
+    return out;
+}
+
+interface SlotGroup {
+    label: string;
+    slots: { key: string; label: string; disabled?: boolean }[];
+}
+
+function groupStarts(
+    slots: { key: string; at: Date; disabled: boolean }[],
+    zone: string,
+): SlotGroup[] {
+    const part = (label: string, from: number, to: number): SlotGroup => ({
         label,
         slots: slots
-            .filter((x) => x.hour >= from && x.hour < to)
-            .map((x) => ({ key: x.key, label: x.label, disabled: x.disabled })),
+            .filter((x) => {
+                const hour = wallTime(x.at, zone).hour;
+                return hour >= from && hour < to;
+            })
+            .map((x) => ({
+                key: x.key,
+                label: formatTimeOfPeriod(x.at, zone),
+                disabled: x.disabled,
+            })),
     });
     return [part(s.morning, 0, 12), part(s.afternoon, 12, 17), part(s.evening, 17, 24)].filter(
         (g) => g.slots.length > 0,
     );
+}
+
+/** The same weekday a week on or back, held to today so a week change never lands in the past. */
+export function shiftDay(day: string, dir: 1 | -1, zone: string, now: Date): string {
+    const next = addDays(combineDayAndTime(day, "00:00", zone), dir * 7, zone);
+    const today = startOfDay(now, zone);
+    return dateKey(next < today ? today : next, zone);
+}
+
+/** The members a viewer can book for: everyone for an owner or admin, otherwise only themselves. */
+export function actorsFor(rows: StaffRow[], viewer: Viewer | null): StaffRow[] {
+    if (viewer === null || canManagePayments(viewer.role)) return rows;
+    return rows.filter((x) => x.id === viewer.staffId);
 }
 
 export function depositOf(item: ItemRow | null): number {
@@ -1574,7 +1776,7 @@ export function depositOf(item: ItemRow | null): number {
 export function useBookingComposer(
     api: ApiLike,
     slot: ComposerSlot,
-    board: { avail: Availability; events: readonly ScheduleEvent[]; staff: Map<string, StaffRow> },
+    board: { actors: StaffRow[]; window: VisibleWindow },
     onCreated: () => void,
 ): BookingComposer {
     const clients = useClients();
@@ -1600,6 +1802,11 @@ export function useBookingComposer(
     const item = services.find((i) => i.id === itemId) ?? null;
     const client = clients.find((c) => c.id === clientId) ?? null;
     const start = combineDayAndTime(day, time, zone);
+    const weekStart = startOfWeek(start, zone);
+    const weekEnd = addDays(weekStart, 7, zone);
+    const { events } = useScheduleEvents(weekStart, weekEnd);
+    const avail = useAvailability(weekStart, weekEnd);
+    const staff = useActiveStaff().byId;
     const length = item?.duration_min ?? 60;
     const end = new Date(start.getTime() + length * MIN);
     const q = query.trim().toLowerCase();
@@ -1616,10 +1823,20 @@ export function useBookingComposer(
         )
         .slice(0, 6);
     const now = new Date();
-    const check = (who: string): { problem: MoveProblem; message: string } =>
-        start < now
+    const target = { item: item === null ? null : slotItemOf(item) };
+    const check = (who: string, at = start): { problem: MoveProblem; message: string } =>
+        at < now
             ? { problem: "past", message: s.problemPast }
-            : slotProblem(board.avail, board.events, board.staff, who, start, end, null);
+            : slotProblem(
+                  avail,
+                  events,
+                  staff,
+                  who,
+                  at,
+                  new Date(+at + length * MIN),
+                  null,
+                  target,
+              );
     const verdict = check(staffId);
     const problem = item !== null && verdict.problem !== null ? verdict.message : null;
     const deposit = depositOf(item);
@@ -1642,7 +1859,7 @@ export function useBookingComposer(
         setItemId,
         staffId,
         setStaffId,
-        staffOptions: [...board.staff.values()].map((x) => ({
+        staffOptions: board.actors.map((x) => ({
             id: x.id,
             name: staffName(x),
             free: check(x.id).problem === null,
@@ -1713,26 +1930,35 @@ export function useBookingComposer(
                         if (skipped > 0) setNotice(s.composerSeriesSkipped(created, skipped));
                         else onCreated();
                     },
-                    errorMessage: s.composerError,
+                    errorMessage: (e) => failureMessage(e, s.composerError),
                 },
             );
         },
         busy,
         error,
-        timeOptions: startTimes(),
+        timeOptions: composerTimes(board.window),
         days: weekStrip(
             start,
-            board.events.filter((e) => e.staffId === staffId),
-            board.avail,
+            events.filter((e) => e.staffId === staffId),
+            avail,
             now,
         ).map((x) => ({
             ...x,
             disabled:
                 addDays(x.date, 1, zone) <= now ||
-                board.avail.isClosed(x.date) !== null ||
-                (board.avail.windows(staffId, x.date)?.length ?? 1) === 0,
+                avail.isClosed(x.date) !== null ||
+                (avail.windows(staffId, x.date)?.length ?? 1) === 0,
         })),
-        slotGroups: openGroups(board, staffId, startOfDay(start, zone), length, now),
+        slotGroups: groupStarts(
+            openStarts(avail, staffId, startOfDay(start, zone), length, board.window)
+                .filter((at) => at >= now)
+                .map((at) => ({
+                    key: clockKey(at, zone),
+                    at,
+                    disabled: check(staffId, at).problem !== null,
+                })),
+            zone,
+        ),
     };
 }
 
@@ -1743,8 +1969,9 @@ interface Reschedule {
     staffId: string;
     setStaffId: (id: string) => void;
     staffOptions: { key: string; label: string }[];
-    groups: { label: string; slots: { key: string; label: string; disabled?: boolean }[] }[];
+    groups: SlotGroup[];
     open: number;
+    loading: boolean;
     value: string | null;
     setValue: (key: string) => void;
     target: string | null;
@@ -1755,59 +1982,39 @@ interface Reschedule {
 }
 
 /** Free starts every 15 minutes for one person and day, checked the same way a drag is. */
-export function useReschedule(api: ApiLike, event: ScheduleEvent, onDone: () => void): Reschedule {
+export function useReschedule(
+    api: ApiLike,
+    event: ScheduleEvent,
+    viewer: Viewer | null,
+    onDone: () => void,
+): Reschedule {
     const now = useNow();
     const zone = useBusinessZone();
     const first = event.start < now ? now : event.start;
-    const [weekAnchor, setWeekAnchor] = useState(() => startOfWeek(first, zone));
     const [day, setDay] = useState(dateKey(first, zone));
     const [staffId, setStaffId] = useState(event.staffId);
     const [value, setValue] = useState<string | null>(null);
     const { busy, error, run } = useAsyncAction();
-    const weekEnd = addDays(weekAnchor, 7, zone);
-    const { events } = useScheduleEvents(weekAnchor, weekEnd);
-    const avail = useAvailability(weekAnchor, weekEnd);
-    const staff = useActiveStaff();
     const date = combineDayAndTime(day, "00:00", zone);
+    const weekStart = startOfWeek(date, zone);
+    const weekEnd = addDays(weekStart, 7, zone);
+    const week = useScheduleEvents(weekStart, weekEnd);
+    const avail = useAvailability(weekStart, weekEnd);
+    const staff = useActiveStaff();
     const length = (event.end.getTime() - event.start.getTime()) / MIN;
-    const ctx = { avail, events, staff: staff.byId };
-    const windows = avail.windows(staffId, date) ?? [
-        {
-            start: combineDayAndTime(date, "08:00", zone),
-            end: combineDayAndTime(date, "18:00", zone),
-        },
-    ];
-    const slots: { key: string; label: string; disabled?: boolean; hour: number }[] = [];
-    for (const w of windows) {
-        for (let t = w.start.getTime(); t + length * MIN <= w.end.getTime(); t += 15 * MIN) {
-            const start = new Date(t);
-            if (start < now) continue;
-            const plan = planMove(event, (t - event.start.getTime()) / MIN, staffId, ctx, now);
-            const same = start.getTime() === event.start.getTime() && staffId === event.staffId;
-            slots.push({
-                key: start.toISOString(),
-                label: formatTimeOfPeriod(start, zone),
-                disabled: plan.problem !== null || same,
-                hour: wallTime(start, zone).hour,
-            });
-        }
-    }
-    const group = (label: string, from: number, to: number) => ({
-        label,
-        slots: slots
-            .filter((x) => x.hour >= from && x.hour < to)
-            .map((x) => ({ key: x.key, label: x.label, disabled: x.disabled === true })),
-    });
-    const groups = [
-        group(s.morning, 0, 12),
-        group(s.afternoon, 12, 17),
-        group(s.evening, 17, 24),
-    ].filter((g) => g.slots.length > 0);
+    const ctx = { avail, events: week.events, staff: staff.byId };
+    const slots = openStarts(avail, staffId, date, length, USUAL_DAY)
+        .filter((at) => at >= now)
+        .map((at) => {
+            const plan = planMove(event, (+at - +event.start) / MIN, staffId, ctx, now);
+            const same = +at === +event.start && staffId === event.staffId;
+            return { key: at.toISOString(), at, disabled: plan.problem !== null || same };
+        });
     const picked = value !== null ? new Date(value) : null;
     return {
         days: weekStrip(
-            weekAnchor,
-            events.filter((e) => e.staffId === staffId),
+            date,
+            week.events.filter((e) => e.staffId === staffId),
             avail,
             now,
         ).map((x) => ({
@@ -1827,9 +2034,13 @@ export function useReschedule(api: ApiLike, event: ScheduleEvent, onDone: () => 
             setStaffId(id);
             setValue(null);
         },
-        staffOptions: staff.rows.map((x) => ({ key: x.id, label: firstName(staffName(x)) })),
-        groups,
-        open: slots.filter((x) => x.disabled !== true).length,
+        staffOptions: actorsFor(staff.rows, viewer).map((x) => ({
+            key: x.id,
+            label: firstName(staffName(x)),
+        })),
+        groups: groupStarts(slots, zone),
+        open: slots.filter((x) => !x.disabled).length,
+        loading: week.isLoading || avail.sources.some((x) => x.isLoading),
         value,
         setValue,
         target: picked ? formatDayTime(picked, zone) : null,
@@ -1842,13 +2053,14 @@ export function useReschedule(api: ApiLike, event: ScheduleEvent, onDone: () => 
                         starts_at: picked.toISOString(),
                         staff_id: staffId,
                     }),
-                { onSuccess: onDone, errorMessage: s.rescheduleError },
+                { onSuccess: onDone, errorMessage: moveFailure },
             );
         },
         busy,
         error,
         shiftWeek: (dir) => {
-            setWeekAnchor((a) => addDays(a, dir * 7, zone));
+            setDay((d) => shiftDay(d, dir, zone, now));
+            setValue(null);
         },
     };
 }

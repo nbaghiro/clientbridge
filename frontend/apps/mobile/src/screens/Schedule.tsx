@@ -1,6 +1,7 @@
 import {
     type ComposerSlot,
     addDays,
+    blockSpan,
     eventFlags,
     eventLabelFor,
     formatHour,
@@ -32,6 +33,7 @@ import {
     Icon,
     IconButton,
     LoadFailed,
+    Notice,
     Skeleton,
 } from "@clientbridge/ui";
 import { type RouteProp, useNavigation, useRoute } from "@react-navigation/native";
@@ -179,15 +181,13 @@ export function ScheduleScreen() {
                         retrying={board.load.retrying}
                     />
                 </View>
-            ) : day.closure ? (
-                <View style={styles.closed}>
-                    <Icon name="lock" size={22} color={c.muted} />
-                    <Text style={styles.closedTitle}>{s.closed(day.closure.label)}</Text>
-                    <Text style={styles.laneSub}>{s.emptyClosed}</Text>
-                </View>
             ) : (
                 <ScrollView contentContainerStyle={styles.gridWrap}>
-                    {day.events.length === 0 ? (
+                    {day.closedNote !== null ? (
+                        <Notice tone="info" banner style={styles.closedNote}>
+                            {day.closedNote}
+                        </Notice>
+                    ) : day.events.length === 0 ? (
                         <View style={styles.emptyBox}>
                             {day.lanes.some((l) => l.hours !== null || l.unset) ? (
                                 <Empty
@@ -233,36 +233,37 @@ export function ScheduleScreen() {
                                 {hours.map((h, i) => (
                                     <View key={h} style={[styles.line, { top: i * HOUR }]} />
                                 ))}
-                                {lane.blocks.map((b) => (
-                                    <View
-                                        key={b.id}
-                                        style={[
-                                            styles.block,
-                                            {
-                                                top: Math.max(
-                                                    0,
-                                                    minuteTop(b.start, startHour, PX, zone),
-                                                ),
-                                                height: Math.max(
-                                                    20,
-                                                    ((b.end.getTime() - b.start.getTime()) /
-                                                        60000) *
-                                                        PX -
-                                                        2,
-                                                ),
-                                            },
-                                        ]}
-                                    >
-                                        <Icon
-                                            name={b.kind === "break" ? "clock" : "moon"}
-                                            size={11}
-                                            color={c.muted}
-                                        />
-                                        <Text style={styles.blockText} numberOfLines={1}>
-                                            {b.label}
-                                        </Text>
-                                    </View>
-                                ))}
+                                {lane.blocks.map((b) => {
+                                    const span = blockSpan(
+                                        b,
+                                        day.date,
+                                        startHour,
+                                        endHour,
+                                        PX,
+                                        zone,
+                                    );
+                                    return span === null ? null : (
+                                        <View
+                                            key={b.id}
+                                            style={[
+                                                styles.block,
+                                                {
+                                                    top: span.top,
+                                                    height: Math.max(20, span.height - 2),
+                                                },
+                                            ]}
+                                        >
+                                            <Icon
+                                                name={b.kind === "break" ? "clock" : "moon"}
+                                                size={11}
+                                                color={c.muted}
+                                            />
+                                            <Text style={styles.blockText} numberOfLines={1}>
+                                                {b.label}
+                                            </Text>
+                                        </View>
+                                    );
+                                })}
                                 {placeEvents(lane.events, day.date, startHour, PX, zone).map(
                                     (p) => (
                                         <View
@@ -455,13 +456,6 @@ const styles = StyleSheet.create({
     },
     nowDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.danFg },
     nowLine: { flex: 1, height: 2, backgroundColor: c.danFg },
-    closed: {
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 6,
-        backgroundColor: c.bg,
-    },
-    closedTitle: { color: c.ink, fontSize: 15, fontWeight: "700" },
+    closedNote: { marginHorizontal: 16, marginTop: 0, marginBottom: 8 },
     emptyBox: { marginHorizontal: 16, marginVertical: 8 },
 });

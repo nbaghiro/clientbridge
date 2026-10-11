@@ -1,9 +1,11 @@
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Hours
@@ -279,3 +281,41 @@ async def test_time_off_replays_on_the_same_key(
         )
     )
     assert len(rows.scalars().all()) == 1
+
+
+async def test_time_off_in_the_last_hour_of_a_25_hour_day_blocks_open_times(
+    db: AsyncSession,
+) -> None:
+    toronto = ZoneInfo("America/Toronto")
+    day = date(2026, 11, 1)
+    await db.execute(update(Business).where(Business.id == BIZ).values(timezone=toronto.key))
+    db.add(
+        Hours(
+            id="av_late_sunday",
+            business_id=BIZ,
+            staff_id=ST_OWNER,
+            basis="date",
+            date=day,
+            start_time=time(21, 0),
+            end_time=time(23, 59),
+            available=True,
+        )
+    )
+    late = datetime.combine(day, time(23, 0), tzinfo=toronto)
+    db.add(
+        Hours(
+            id="av_late_away",
+            business_id=BIZ,
+            staff_id=ST_OWNER,
+            basis="exception",
+            starts_at=late,
+            ends_at=late + timedelta(hours=1),
+            reason="Errand",
+            available=False,
+        )
+    )
+    await db.flush()
+    item = await db.get(Item, await _service(db))
+    assert item is not None
+    starts = await open_slots(db, BIZ, item, ST_OWNER, day)
+    assert starts and all(s + timedelta(minutes=60) <= late for s in starts)

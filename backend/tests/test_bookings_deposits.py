@@ -7,7 +7,8 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.scheduling import Booking
 from clientbridge.services import ledger
-from tests.helpers import card_pay, enable_payments
+from tests.conftest import FakePaymentGateway
+from tests.helpers import card_pay, deposit_payment, enable_payments, payment, provider_ref, settle
 from tests.test_bookings import (
     CL_AMELIE,
     _deposit_booking,
@@ -193,3 +194,55 @@ async def test_void_with_a_payment_in_progress_409(
     res = await as_owner.post(f"/v1/invoices/{inv_id}/void")
     assert res.status_code == 409
     assert res.json()["message"] == "this invoice has a payment in progress"
+
+
+async def _online_deposit(api: httpx.AsyncClient, db: AsyncSession) -> tuple[str, str, str]:
+    await enable_payments(db)
+    res = await api.post(
+        "/book/birchbark",
+        json={
+            "item_id": "it_groom_lg",
+            "staff_id": ST_OWNER,
+            "starts_at": "2027-03-02T16:00:00Z",
+            "client": {"name": "Deposit Payer", "email": "payer@example.com"},
+        },
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    return body["booking_id"], body["manage_token"], await deposit_payment(db, body["booking_id"])
+
+
+async def test_client_cancel_cancels_the_unpaid_deposit_intent(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    _, token, pid = await _online_deposit(api, db)
+    assert (await api.post(f"/manage/{token}/cancel")).status_code == 200
+    assert (await payment(db, pid)).status == "canceled"
+    assert await provider_ref(db, pid) in gateway.canceled_intents
+
+
+async def test_staff_cancel_cancels_the_unpaid_deposit_intent(
+    api: httpx.AsyncClient,
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+) -> None:
+    bid, _, pid = await _online_deposit(api, db)
+    res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "canceled"})
+    assert res.status_code == 200, res.text
+    assert (await payment(db, pid)).status == "canceled"
+    assert await provider_ref(db, pid) in gateway.canceled_intents
+
+
+async def test_a_deposit_that_settles_after_the_cancel_is_refunded(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    bid, token, pid = await _online_deposit(api, db)
+    gateway.confirmed.add(await provider_ref(db, pid))
+    assert (await api.post(f"/manage/{token}/cancel")).status_code == 200
+    assert (await payment(db, pid)).status == "pending"
+    await settle(api, db, pid)
+    booking = await db.get(Booking, bid, populate_existing=True)
+    assert booking is not None
+    assert (booking.status, booking.deposit_status) == ("canceled", "refunded")
+    assert await ledger.deposit_held(db, booking) == 0

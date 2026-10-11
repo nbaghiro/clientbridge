@@ -40,7 +40,9 @@ async def send_booking_reminders(ctx: Context) -> int:
 
 async def reap_unpaid_bookings(ctx: Context) -> int:
     async with SessionLocal() as db:
-        return await run_reap_unpaid_bookings(db, datetime.now(UTC))
+        return await run_reap_unpaid_bookings(
+            db, get_payment_gateway(), _notifier(), datetime.now(UTC)
+        )
 
 
 async def send_due_broadcasts(ctx: Context) -> int:

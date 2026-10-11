@@ -1,5 +1,5 @@
 import secrets
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import get_args
 
 from sqlalchemy import ColumnElement, and_, func, select, text
@@ -79,8 +79,10 @@ from clientbridge.schemas.reviews import PublicReviewContext, PublicReviewSubmit
 from clientbridge.services import ledger
 from clientbridge.services.billing import estimate_status
 from clientbridge.services.bookings import (
+    clash,
     create_booking_core,
     exceptions_between,
+    local_day,
     move_slot,
     open_slots,
     policy_of,
@@ -110,6 +112,7 @@ from clientbridge.services.orders import next_order_number, pickup_setting, pick
 from clientbridge.services.payments import (
     assert_payable,
     booking_refund_status,
+    cancel_open_deposits,
     interac_out,
     invoice_credits,
     open_booking_deposit,
@@ -154,13 +157,14 @@ def _policy_out(policy: BookingPolicy) -> PublicPolicy:
         self_service=policy.self_service,
         cancel_cutoff_hours=policy.cancel_cutoff_hours,
         reschedule_cutoff_hours=policy.reschedule_cutoff_hours,
-        late_cancel_deposit=policy.late_cancel_deposit,
         max_reschedules=policy.max_reschedules,
+        horizon_days=policy.horizon_days,
     )
 
 
 _ANY = "any"
 _BOOK_SCOPE = "book.create"
+_UNOFFERED = "that time isn't open for booking; pick another"
 _MAX_DAYS = 14
 
 
@@ -354,18 +358,11 @@ class PublicBookingService:
     async def _staff_for(
         self, business: Business, item: Item, staff_id: str, starts_at: datetime
     ) -> str:
-        """The member a time is booked with; "any" takes the first one free then."""
-        staff = await self._who(business.id, staff_id)
-        if staff_id != _ANY:
-            return staff[0].id
-        ends_at = starts_at + timedelta(minutes=item.duration_min or 0)
-        for member in staff:
-            if (
-                await slot_problem(self.db, business.id, item, member.id, starts_at, ends_at)
-                is None
-            ):
+        """The member a time is booked with: the first one whose open times list it."""
+        for member in await self._who(business.id, staff_id):
+            if await _offered(self.db, business, item, member.id, starts_at):
                 return member.id
-        raise Conflict("that time was just taken; pick another")
+        raise Conflict(_UNOFFERED, code="slot_unavailable")
 
     async def _who(self, business_id: str, staff_id: str) -> list[Staff]:
         staff = await self._online_staff(business_id)
@@ -435,6 +432,21 @@ class PublicBookingService:
         return item
 
 
+async def _offered(
+    db: AsyncSession,
+    business: Business,
+    item: Item,
+    staff_id: str,
+    starts_at: datetime,
+    exclude: str | None = None,
+) -> bool:
+    """Whether the start is one of the open times listed for this member on its local day."""
+    day = starts_at.astimezone(await business_tz(db, business.id)).date()
+    step = policy_of(business).step_min
+    starts = await open_slots(db, business.id, item, staff_id, day, step, exclude=exclude)
+    return starts_at in starts
+
+
 def _assert_bookable_window(policy: BookingPolicy, starts_at: datetime) -> None:
     now = datetime.now(UTC)
     if starts_at < now + timedelta(hours=policy.lead_hours):
@@ -460,8 +472,7 @@ async def open_days(
     out: list[PublicDay] = []
     for offset in range(min(max(count, 1), _MAX_DAYS)):
         day = start + timedelta(days=offset)
-        opens = datetime.combine(day, time.min, tzinfo=tz).astimezone(UTC)
-        closes = opens + timedelta(days=1)
+        opens, closes = local_day(day, tz)
         closure = next(
             (
                 w
@@ -593,13 +604,17 @@ class PublicManageService:
         item, staff = await self._visit(booking, slot, business)
         policy = policy_of(business)
         now = datetime.now(UTC)
+        earliest = now + timedelta(hours=policy.lead_hours)
+        latest = now + timedelta(days=policy.horizon_days)
         delta = slot.ends_at - slot.starts_at
-        starts = await open_slots(self.db, business.id, item, staff.id, on_date, policy.step_min)
+        starts = await open_slots(
+            self.db, business.id, item, staff.id, on_date, policy.step_min, exclude=slot.id
+        )
         return PublicSlots(
             slots=[
                 PublicSlot(starts_at=s, ends_at=s + delta, staff_id=staff.id)
                 for s in starts
-                if s >= now + timedelta(hours=policy.lead_hours) and s != slot.starts_at
+                if earliest <= s <= latest and s != slot.starts_at
             ]
         )
 
@@ -632,7 +647,9 @@ class PublicManageService:
             resource_id=slot.resource_id,
         )
         if problem is not None:
-            raise Conflict(problem.message or "that time isn't open")
+            raise Conflict(problem.message or _UNOFFERED)
+        if not await _offered(self.db, business, item, staff.id, data.starts_at, slot.id):
+            raise Conflict(_UNOFFERED, code="slot_unavailable")
         await move_slot(self.db, business.id, slot, data.starts_at, ends_at)
         booking.reschedule_count += 1
         if key is not None:
@@ -640,7 +657,7 @@ class PublicManageService:
         try:
             await self.db.flush()
         except IntegrityError as exc:
-            raise Conflict("that time was just taken; pick another") from exc
+            raise clash(exc) from exc
         out = await self._view(booking, slot, business)
         await self.db.commit()
         return out
@@ -697,6 +714,7 @@ class PublicManageService:
         if booking.deposit_status == "collected":
             refunded = await refund_deposit(self.db, self.gateway, booking)
         elif booking.deposit_status == "pending":
+            await cancel_open_deposits(self.db, self.gateway, booking)
             booking.deposit_status = "none"
         booking.status = "canceled"
         booking.canceled_at = datetime.now(UTC)

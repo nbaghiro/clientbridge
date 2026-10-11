@@ -323,7 +323,11 @@ async def public_book(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", min_length=8)] = None,
 ) -> PublicBookingResult:
     result = await PublicBookingService(db, gateway).book(slug, body, idempotency_key)
-    await Notifier(email, sms, push).on_booking_confirmed(db, result.booking_id)
+    notifier = Notifier(email, sms, push)
+    if result.status == "pending":
+        await notifier.on_booking_requested(db, result.booking_id)
+    else:
+        await notifier.on_booking_confirmed(db, result.booking_id)
     return result
 
 

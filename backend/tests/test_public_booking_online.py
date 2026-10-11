@@ -1,4 +1,5 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 import httpx
 from sqlalchemy import select, update
@@ -8,15 +9,17 @@ from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Note, Subject
 from clientbridge.models.scheduling import Addon, Booking, Hours
-from tests.conftest import BIZ, FakeEmailSender
+from clientbridge.services.bookings import run_reminders
+from clientbridge.services.notifications import Notifier
+from tests.conftest import BIZ, FakeEmailSender, FakePushSender, FakeSmsSender
 from tests.helpers import key
 
 SLUG = "birchbark"
 TUESDAY = "2026-12-01"
-TEN_LOCAL = "2026-12-01T17:00:00Z"  # 10 a.m. in Vancouver (UTC-7)
+OPENING = "2026-12-01T16:00:00Z"  # 9 a.m. in Vancouver (UTC-7), the first open time
 
 
-def _body(starts: str = TEN_LOCAL, staff: str = "st_owner", **extra: object) -> dict[str, object]:
+def _body(starts: str = OPENING, staff: str = "st_owner", **extra: object) -> dict[str, object]:
     return {
         "item_id": "it_groom_sm",
         "staff_id": staff,
@@ -221,3 +224,54 @@ async def test_an_addon_over_stock_is_refused(api: httpx.AsyncClient, db: AsyncS
 async def test_a_short_idempotency_key_is_refused(api: httpx.AsyncClient) -> None:
     res = await api.post(f"/book/{SLUG}", json=_body(), headers={"Idempotency-Key": "short"})
     assert res.status_code == 422
+
+
+async def test_a_pending_request_is_acknowledged_then_confirmed_on_approval(
+    api: httpx.AsyncClient,
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+) -> None:
+    await _policy(db, approve_new_clients=True)
+    res = await api.post(f"/book/{SLUG}", json=_body())
+    assert res.json()["status"] == "pending"
+    assert [m.subject for m in email.sent] == ["Booking request received — Birchbark Pet Studio"]
+    notifier = Notifier(email, FakeSmsSender(), FakePushSender())
+    day_before = datetime.fromisoformat(OPENING) - timedelta(hours=20)
+    await run_reminders(db, notifier, day_before)
+    booking = await db.get(Booking, res.json()["booking_id"], populate_existing=True)
+    assert booking is not None and booking.reminded_at is None and booking.confirmed_at is None
+    approved = await as_owner.patch(f"/v1/bookings/{booking.id}", json={"status": "confirmed"})
+    assert approved.status_code == 200, approved.text
+    assert email.sent[-1].subject.startswith("Booking confirmed")
+    approved_at = await db.scalar(select(Booking.confirmed_at).where(Booking.id == booking.id))
+    assert approved_at is not None
+    sent = len(email.sent)
+    await as_owner.patch(f"/v1/bookings/{booking.id}", json={"status": "confirmed"})
+    assert len(email.sent) == sent
+
+
+async def test_days_name_closures_on_23_and_25_hour_days(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    toronto = ZoneInfo("America/Toronto")
+    await db.execute(update(Business).where(Business.id == BIZ).values(timezone=toronto.key))
+    for day in (date(2026, 11, 1), date(2027, 3, 14)):
+        db.add(
+            Hours(
+                id=f"av_closed_{day.isoformat()}",
+                business_id=BIZ,
+                staff_id=None,
+                basis="exception",
+                starts_at=datetime.combine(day, time.min, tzinfo=toronto),
+                ends_at=datetime.combine(day + timedelta(days=1), time.min, tzinfo=toronto),
+                reason="Daylight saving",
+                available=False,
+            )
+        )
+        await db.flush()
+        res = await api.get(
+            f"/book/{SLUG}/days",
+            params={"item_id": "it_groom_sm", "staff_id": "st_owner", "from": day.isoformat()},
+        )
+        assert res.json()["days"][0]["closed"] is True, day

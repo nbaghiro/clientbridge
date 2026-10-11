@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { newIdempotencyKey, refusal } from "../api";
+import { failedStatus, newIdempotencyKey, refusal } from "../api";
 import {
     addDays,
     dateKey,
@@ -16,10 +16,11 @@ import {
     formatZoneName,
     parseDateKey,
     parseTimestamp,
+    startOfWeek,
     wallTime,
 } from "../datetime";
 import { formatMoney, formatParts, BUSINESS_CURRENCY } from "../format";
-import { useAsyncAction } from "../hooks";
+import { isConnectionFailure, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { DocTotalLine, ProgressStep } from "../ui";
 import {
@@ -79,8 +80,9 @@ interface PublicPolicy {
     self_service: boolean;
     cancel_cutoff_hours: number;
     reschedule_cutoff_hours: number;
-    late_cancel_deposit: string;
     max_reschedules: number;
+    // How many days ahead online booking reaches; the week strip stops there once the page sends it.
+    horizon_days?: number;
 }
 
 interface PublicBookingPage {
@@ -337,6 +339,29 @@ export function icsFor(e: CalendarEntry): string {
     ].join("\r\n");
 }
 
+/** The business-zone day a saved start falls on, or null when it isn't a time. */
+export function draftDay(startsAt: string, zone: string): string | null {
+    const d = parseTimestamp(startsAt);
+    return Number.isNaN(d.getTime()) ? null : dateKey(d, zone);
+}
+
+/** The last day online booking reaches, or null when the page doesn't say. */
+export function horizonDay(today: string, days: number | undefined, zone: string): string | null {
+    return days === undefined ? null : shiftKey(today, days, zone);
+}
+
+/** Where a move's week strip opens: the visit's week, never before today. */
+export function visitWeekFrom(start: Date, today: string, zone: string): string {
+    const week = dateKey(startOfWeek(start, zone), zone);
+    return week < today ? today : week;
+}
+
+/** A refused booking or move: a lost connection, a time just taken, or the action's own message. */
+export function bookingFailure(error: unknown, fallback: string): string {
+    if (isConnectionFailure(error)) return s.connectionError;
+    return failedStatus(error) === 409 ? s.slotTaken : fallback;
+}
+
 type BookingStep = "service" | "time" | "extras" | "details" | "pay" | "done";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -426,13 +451,13 @@ export function usePublicBookingFlow(
         setItemId(selected.id);
         if (selection.staffId && selected.staff_ids.includes(selection.staffId))
             setStaffId(selection.staffId);
-        const starts = selection.startsAt;
-        if (starts && Number.isFinite(Date.parse(starts)) && starts.slice(0, 10) >= today) {
-            setDate(starts.slice(0, 10));
-            setWeekFrom(starts.slice(0, 10));
+        const starts = draftDay(selection.startsAt ?? "", zone);
+        if (starts !== null && starts >= today) {
+            setDate(starts);
+            setWeekFrom(starts);
         }
         setStep("time");
-    }, [page, status, selection.itemId, selection.staffId, selection.startsAt, today]);
+    }, [page, status, selection.itemId, selection.staffId, selection.startsAt, today, zone]);
 
     useEffect(() => {
         if (itemId === "" || status !== "ready") return;
@@ -449,7 +474,7 @@ export function usePublicBookingFlow(
         return () => {
             live = false;
         };
-    }, [client, slug, itemId, staffId, from, status]);
+    }, [client, slug, itemId, staffId, from, status, reload]);
 
     useEffect(() => {
         setStartsAt("");
@@ -552,7 +577,7 @@ export function usePublicBookingFlow(
                     slug,
                     {
                         itemId: service.id,
-                        staffId: slot.staff_id ?? staffId,
+                        staffId,
                         startsAt: slot.starts_at,
                         client: {
                             name: name.trim(),
@@ -573,10 +598,23 @@ export function usePublicBookingFlow(
                 setResult(r);
                 setStep(r.deposit_client_secret !== null ? "pay" : "done");
             },
-            { errorMessage: s.bookError },
+            {
+                errorMessage: (e) => {
+                    if (failedStatus(e) === 409) refreshTimes();
+                    return bookingFailure(e, s.bookError);
+                },
+            },
         );
     };
+    const refreshTimes = (): void => {
+        setStartsAt("");
+        key.current = null;
+        setReload((n) => n + 1);
+        setStep("time");
+    };
 
+    const lastDay = horizonDay(today, page?.policy?.horizon_days, zone);
+    const laterWeek = lastDay === null || shiftKey(from, 7, zone) <= lastDay;
     const firstOpen = days?.find((d) => d.count > 0 && day !== null && d.date > day) ?? null;
     const closure = days?.find((d) => d.date === day && d.closed) ?? null;
     const slotStaff = slot?.staff_id
@@ -677,7 +715,9 @@ export function usePublicBookingFlow(
             setWeekFrom(d < today ? today : d);
             setDate(null);
         },
+        canNextWeek: laterWeek,
         nextWeek: () => {
+            if (!laterWeek) return;
             setWeekFrom(shiftKey(from, 7, zone));
             setDate(null);
         },
@@ -890,6 +930,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
     const [date, setDate] = useState<string | null>(null);
     const [days, setDays] = useState<DayOpenings[] | null>(null);
     const [slots, setSlots] = useState<OpenSlot[] | null>(null);
+    const [reload, setReload] = useState(0);
     const [pick, setPick] = useState("");
     const [refund, setRefund] = useState<number | null>(null);
     const key = useRef<string | null>(null);
@@ -902,8 +943,10 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
     const start = data ? parseTimestamp(data.starts_at) : now;
     const hoursAway = Math.floor((start.getTime() - now.getTime()) / 3_600_000);
     const live = data !== null && (data.status === "confirmed" || data.status === "pending");
-    const weekFrom = from ?? today;
+    const weekFrom = from ?? (data ? visitWeekFrom(start, today, zone) : today);
     const day = date ?? (data ? dateKey(start, zone) : today);
+    const lastDay = horizonDay(today, data?.policy.horizon_days, zone);
+    const canNext = lastDay === null || shiftKey(weekFrom, 7, zone) <= lastDay;
 
     useEffect(() => {
         if (mode !== "move") return;
@@ -919,7 +962,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
         return () => {
             on = false;
         };
-    }, [client, token, mode, weekFrom]);
+    }, [client, token, mode, weekFrom, reload]);
 
     useEffect(() => {
         if (mode !== "move") return;
@@ -937,7 +980,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
         return () => {
             on = false;
         };
-    }, [client, token, mode, day]);
+    }, [client, token, mode, day, reload]);
 
     const currency = data?.service.currency ?? BUSINESS_CURRENCY;
     const deposit = data ? formatMoney(data.deposit_cents, currency) : "";
@@ -1049,8 +1092,9 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
             const d = shiftKey(weekFrom, -7, zone);
             setFrom(d < today ? today : d);
         },
+        canNextWeek: canNext,
         nextWeek: () => {
-            setFrom(shiftKey(weekFrom, 7, zone));
+            if (canNext) setFrom(shiftKey(weekFrom, 7, zone));
         },
         date: day,
         setDate,
@@ -1070,7 +1114,15 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
                     setData(await client.reschedule(token, pick, attempt));
                     setModeRaw("moved");
                 },
-                { errorMessage: m.error },
+                {
+                    errorMessage: (e) => {
+                        if (failedStatus(e) === 409) {
+                            key.current = null;
+                            setReload((n) => n + 1);
+                        }
+                        return bookingFailure(e, m.error);
+                    },
+                },
             );
         },
         confirmCancel: () => {

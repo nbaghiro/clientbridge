@@ -1026,3 +1026,116 @@ test("staff: payments, inbox and setup show only what staff can use", async ({ p
 
     walk.expectNoErrors();
 });
+
+test.describe("in another time zone than the business", () => {
+    test.use({ timezoneId: "America/Toronto" });
+
+    test("owner: a closed day stays reachable, open times read in the business zone and reschedule changes weeks", async ({
+        page,
+    }) => {
+        const walk = await signIn(page, OWNER);
+        const { main } = walk;
+        const b = strings.bookings;
+        const h = strings.hours;
+        const reason = `Closed for the e2e run ${Date.now().toString()}`;
+        const composer = page.getByRole("form", { name: b.newBooking });
+        const panel = main.getByRole("complementary").filter({
+            has: page.getByRole("button", { name: b.close, exact: true }),
+        });
+        // A point on the first lane that is open time, not a visit or block, at least an hour down.
+        const openPoint = async (): Promise<{ x: number; y: number }> => {
+            const lane = main.locator('[data-testid^="lane-"]').first();
+            await expect(lane).toBeVisible();
+            const point = await lane.evaluate((el) => {
+                const box = el.getBoundingClientRect();
+                for (let y = box.top + 70; y < box.bottom - 4; y += 10) {
+                    const x = box.left + 6;
+                    if (document.elementFromPoint(x, y) === el) return { x, y };
+                }
+                return null;
+            });
+            expect(point).not.toBeNull();
+            return point ?? { x: 0, y: 0 };
+        };
+
+        await walk.step("close the business tomorrow", async () => {
+            await navigate(page, "/setup/team");
+            await main.getByRole("button", { name: h.addClosure }).click();
+            const form = page.getByRole("form", { name: h.addClosure });
+            await form.getByRole("textbox", { name: h.reason }).fill(reason);
+            await form.getByRole("button", { name: h.saveClosure }).click();
+            await expect(form).toBeHidden();
+            await expect(main.getByText(reason)).toBeVisible();
+        });
+
+        try {
+            await walk.step("the closed day keeps its lanes and visits reachable", async () => {
+                await navigate(page, "/schedule");
+                await main.getByRole("button", { name: b.next, exact: true }).click();
+                await expect(main.getByRole("status").filter({ hasText: reason })).toBeVisible();
+                const { x, y } = await openPoint();
+                await page.mouse.move(x, y);
+                await page.mouse.click(x, y);
+                await expect(composer).toBeVisible();
+                await composer.getByRole("button", { name: strings.common.close }).click();
+                await expect(composer).toBeHidden();
+                if ((await gridBookings(main).count()) > 0) {
+                    await expect(
+                        main.getByRole("button", { name: new RegExp(b.needsMove) }).first(),
+                    ).toBeVisible();
+                    await gridBookings(main).first().click();
+                    await expect(panel.getByRole("heading", { level: 2 })).toBeVisible();
+                    await panel.getByRole("button", { name: b.close, exact: true }).click();
+                    await expect(panel).toBeHidden();
+                }
+            });
+        } finally {
+            await walk.step("reopen the business", async () => {
+                await navigate(page, "/setup/team");
+                await main.getByRole("button", { name: startsWith(h.removeLabel(reason)) }).click();
+                await expect(main.getByText(reason)).toHaveCount(0);
+            });
+        }
+
+        await walk.step("an open time is labelled with the time the composer books", async () => {
+            await navigate(page, "/schedule");
+            await main.getByRole("button", { name: b.next, exact: true }).click();
+            const { x, y } = await openPoint();
+            await page.mouse.move(x, y);
+            const hover = main
+                .locator('[data-testid^="lane-"]')
+                .first()
+                .locator("[aria-hidden]", {
+                    hasText: /\d:\d{2}/,
+                });
+            const label = (await hover.last().textContent()) ?? "";
+            await page.mouse.click(x, y);
+            await expect(composer).toBeVisible();
+            await expect(composer.getByRole("combobox", { name: b.composerTime })).toHaveText(
+                label.trim(),
+            );
+            await composer.getByRole("button", { name: strings.common.close }).click();
+            await expect(composer).toBeHidden();
+        });
+
+        await walk.step("reschedule keeps a day picked when the week changes", async () => {
+            for (let day = 0; day < 7 && (await gridBookings(main).count()) === 0; day++) {
+                await main.getByRole("button", { name: b.next, exact: true }).click();
+            }
+            await gridBookings(main).first().click();
+            await panel.getByRole("button", { name: b.reschedule }).click();
+            const dialog = page.getByRole("dialog");
+            const days = dialog.getByRole("group", { name: b.rescheduleDay });
+            const picked = days.locator('[aria-pressed="true"]');
+            await expect(picked).toHaveCount(1);
+            const before = await picked.textContent();
+            await days.getByRole("button", { name: b.next, exact: true }).click();
+            await expect(picked).toHaveCount(1);
+            await expect(picked).not.toHaveText(before ?? "");
+            await expect(dialog.getByRole("status", { name: b.loading })).toHaveCount(0);
+            await escapeDialog(page);
+        });
+
+        walk.expectNoErrors();
+    });
+});

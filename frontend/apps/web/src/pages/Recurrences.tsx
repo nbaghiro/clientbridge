@@ -30,6 +30,7 @@ import { type ReactNode, useState } from "react";
 import { ScheduleViews } from "../components/ScheduleViews";
 import { SeriesComposer } from "../components/SeriesComposer";
 import { api } from "../lib/api";
+import { useViewer } from "../lib/auth";
 import { useLinkIntent } from "../lib/links";
 
 const s = strings.recurrences;
@@ -214,7 +215,7 @@ export function Recurrences() {
 
 function Record({ id }: { id: string }) {
     const zone = useBusinessZone();
-    const rec = useSeriesRecord(api, id);
+    const rec = useSeriesRecord(api, id, useViewer());
     const [dialog, setDialog] = useState<"change" | "cancel" | null>(null);
     if (rec === null) return null;
     const r = rec.summary;

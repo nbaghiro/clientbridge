@@ -151,6 +151,18 @@
     "api.shopNotReady": {
         "message": "This shop isn't taking online orders yet."
     },
+    "api.slotUnavailable": {
+        "message": "That time is no longer open. Pick another time."
+    },
+    "api.classSeat": {
+        "message": "A waitlisted client gets a seat from the class roster, not from this visit."
+    },
+    "api.classMove": {
+        "message": "A class moves as a whole from its session."
+    },
+    "api.recurrenceTooLong": {
+        "message": "A series can have at most 60 visits. Book fewer visits or an earlier end date."
+    },
     "api.mixedCurrencies": {
         "message": "One order can't mix currencies."
     },
@@ -2507,10 +2519,6 @@
     "bookings.breakLabel": {
         "message": "Break"
     },
-    "bookings.closed": {
-        "message": "Closed · {reason}",
-        "args": ["reason"]
-    },
     "bookings.bookings": {
         "message": "{classes, plural, =0 {{visits, plural, one {# visit} other {# visits}}} one {{visits, plural, one {# visit} other {# visits}} · 1 class} other {{visits, plural, one {# visit} other {# visits}} · {classes, number} classes}}",
         "args": ["visits", "classes"]
@@ -2595,6 +2603,9 @@
     "bookings.problemRoom": {
         "message": "That room or station is taken then"
     },
+    "bookings.problemClassFull": {
+        "message": "That class is full"
+    },
     "bookings.problemClass": {
         "message": "A class moves as a whole from its session"
     },
@@ -2617,8 +2628,12 @@
     "bookings.emptyDayWeb": {
         "message": "Click an open time on the board to add a visit, or share your booking link."
     },
-    "bookings.emptyClosed": {
-        "message": "The business is closed this day."
+    "bookings.closedNote": {
+        "message": "Closed · {reason}. {count, plural, =0 {Nothing is booked this day.} one {# visit still booked needs a new time.} other {# visits still booked need a new time.}}",
+        "args": ["reason", "count"]
+    },
+    "bookings.needsMove": {
+        "message": "Needs a new time"
     },
     "bookings.nobodyWorking": {
         "message": "No one is scheduled to work this day."
@@ -2984,6 +2999,9 @@
     },
     "bookings.rescheduleNotice": {
         "message": "The client gets an updated confirmation."
+    },
+    "bookings.moveOffline": {
+        "message": "Couldn't reach the server, so the visit wasn't moved. Check your connection and try again."
     },
     "bookings.rescheduleError": {
         "message": "Couldn't move the visit. That time may have just been taken."
@@ -6396,6 +6414,13 @@
     },
     "hours.conflict": {
         "message": "These hours could not be saved. Review your changes, then apply them to the current server version or discard them."
+    },
+    "hours.splitWeek": {
+        "message": "{days} {count, plural, one {has} other {have}} a break between shifts, which this editor can't change yet. Saving is off so the break is kept.",
+        "args": ["days", "count"]
+    },
+    "hours.splitRefused": {
+        "message": "Some days now have a break between shifts, which this editor can't change yet. Discard these changes to see the current hours."
     },
     "hours.refused": {
         "message": "The server refused these hours. Change them and apply them again, or discard them."
@@ -10521,7 +10546,13 @@
         "message": "Booking…"
     },
     "publicBooking.bookError": {
-        "message": "We couldn't book that time. It may have just been taken; pick another."
+        "message": "We couldn't book that time. Please try again."
+    },
+    "publicBooking.slotTaken": {
+        "message": "That time is no longer open. Pick another time."
+    },
+    "publicBooking.connectionError": {
+        "message": "We couldn't reach the booking page. Check your connection and try again."
     },
     "publicBooking.payTitle": {
         "message": "Hold your spot"
@@ -11131,15 +11162,6 @@
     "onlineBooking.policy.hoursBefore": {
         "message": "{n, number} hours before",
         "args": ["n"]
-    },
-    "onlineBooking.policy.lateDeposit": {
-        "message": "Deposit on a late cancel"
-    },
-    "onlineBooking.policy.keep": {
-        "message": "Keep it"
-    },
-    "onlineBooking.policy.refund": {
-        "message": "Refund it"
     },
     "onlineBooking.policy.maxMoves": {
         "message": "Moves per booking"

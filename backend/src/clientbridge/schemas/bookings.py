@@ -46,7 +46,6 @@ class BookingPatch(BookingMove, Mirror):
     status: Literal["confirmed", "completed", "canceled", "no_show"] | None = None
 
 
-LateCancelDeposit = Literal["keep", "refund"]
 Problem = Literal["past", "closed", "time_off", "off_hours", "overlap", "resource", "class"]
 
 
@@ -281,7 +280,6 @@ class BookingPolicy(BaseModel):
     self_service: bool = Field(default=True, description="Clients may move or cancel online")
     cancel_cutoff_hours: int = Field(default=24, ge=0, le=168)
     reschedule_cutoff_hours: int = Field(default=24, ge=0, le=168)
-    late_cancel_deposit: LateCancelDeposit = "keep"
     max_reschedules: int = Field(default=2, ge=1, le=99)
 
 
@@ -295,7 +293,6 @@ class BookingPolicyPatch(BaseModel):
     self_service: bool | None = None
     cancel_cutoff_hours: int | None = Field(default=None, ge=0, le=168)
     reschedule_cutoff_hours: int | None = Field(default=None, ge=0, le=168)
-    late_cancel_deposit: LateCancelDeposit | None = None
     max_reschedules: int | None = Field(default=None, ge=1, le=99)
 
 

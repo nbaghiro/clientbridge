@@ -249,9 +249,18 @@ export async function uploadHoursOnce(
                 Number.isFinite(delay) ? Math.max(1000, Math.min(delay, 300_000)) : undefined,
             );
         } else {
+            const body = await abortable(
+                response.json() as Promise<{ error?: unknown }>,
+                controller.signal,
+            ).catch(() => null);
             await db.execute(
                 "UPDATE hours_outbox SET state = 'rejected', error_code = ? WHERE id = ? AND state != 'accepted'",
-                [`http_${String(response.status)}`, row.id],
+                [
+                    typeof body?.error === "string"
+                        ? body.error
+                        : `http_${String(response.status)}`,
+                    row.id,
+                ],
             );
         }
     } catch {

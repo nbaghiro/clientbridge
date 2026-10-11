@@ -10,6 +10,7 @@ import { Icon } from "./Icon";
 import { type WebProps, cx } from "./props";
 
 const FLAG_ICON: Record<CalendarEventFlag, IconName> = {
+    needs_move: "alert",
     online: "globe",
     recurring: "repeat",
     deposit_due: "dollar",

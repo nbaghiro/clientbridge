@@ -6,6 +6,7 @@ import { type CalendarEvent, buildAvailability } from "./bookings";
 import {
     buildOccurrences,
     datesOf,
+    movedStart,
     patternLabel,
     problemAt,
     stepDate,
@@ -68,6 +69,10 @@ function visit(id: string, start: Date, end: Date, status = "confirmed"): Calend
         depositRequired: false,
         depositAmountCents: 0,
         depositStatus: "none",
+        itemId: "it_groom",
+        resourceId: null,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
     };
 }
 
@@ -130,6 +135,17 @@ describe("stepDate", () => {
             s.patternMonthly(1, s.ordinal(2), day, formatTime(at(14, 10), ZONE)),
         );
         expect(patternLabel("month", 1, at(29, 10), ZONE)).toContain(s.ordinal(5));
+    });
+});
+
+describe("movedStart", () => {
+    it("moves a visit within its Monday to Sunday week, as the server does", () => {
+        const sunday = at(11, 10);
+        expect(movedStart(sunday, 1, "09:30", ZONE)).toEqual(at(5, 9, 30));
+        expect(movedStart(sunday, 0, "10:00", ZONE)).toEqual(sunday);
+        expect(movedStart(at(5, 10), 0, "10:00", ZONE)).toEqual(at(11, 10));
+        expect(movedStart(at(7, 10), 5, "14:00", ZONE)).toEqual(at(9, 14));
+        expect(movedStart(at(7, 10), 1, "10:00", ZONE)).toEqual(at(5, 10));
     });
 });
 

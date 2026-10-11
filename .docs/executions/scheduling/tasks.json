@@ -1,0 +1,149 @@
+{
+  "title": "Scheduling correctness task queue",
+  "status": "completed",
+  "generated_on": "2026-10-11",
+  "plan": "plan.md",
+  "tasks": [
+    {
+      "id": "B1",
+      "side": "backend",
+      "title": "Validate public and manage bookings against open_slots",
+      "covers": [
+        "H1",
+        "M1"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "B2",
+      "side": "backend",
+      "title": "Cancel, reap and refund deposits correctly",
+      "covers": [
+        "H2",
+        "H3",
+        "M6"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "B3",
+      "side": "backend",
+      "title": "Keep class capacity, moves and completion session-wide",
+      "covers": [
+        "M2",
+        "M3"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "B4",
+      "side": "backend",
+      "title": "Fire notifications on real transitions only",
+      "covers": [
+        "M4",
+        "M5",
+        "M9"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "B5",
+      "side": "backend",
+      "title": "Refuse recurrences beyond the occurrence cap",
+      "covers": [
+        "M7"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "B6",
+      "side": "backend",
+      "title": "Handle 23 and 25 hour days, manage slots and resource conflicts",
+      "covers": [
+        "L1",
+        "L3",
+        "L4"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "B7",
+      "side": "backend",
+      "title": "Hide the unused late-cancel deposit setting",
+      "covers": [
+        "M8"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "C1",
+      "side": "frontend",
+      "title": "Keep bookings reachable on closed days",
+      "covers": [
+        "client H1"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "C2",
+      "side": "frontend",
+      "title": "Place calendar cards by wall clock and fix the hover label",
+      "covers": [
+        "client H2",
+        "client M1"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "C3",
+      "side": "frontend",
+      "title": "Preview series weekday changes with the server rule",
+      "covers": [
+        "client H3"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "C4",
+      "side": "frontend",
+      "title": "Mirror server slot rules and load the right week",
+      "covers": [
+        "client M2",
+        "client M3",
+        "client M4",
+        "staff options"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "C5",
+      "side": "frontend",
+      "title": "Keep hours outbox error codes and stop split-week loops",
+      "covers": [
+        "client M5"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "C6",
+      "side": "frontend",
+      "title": "Fix Connect staff choice, refusals, drafts and horizon",
+      "covers": [
+        "client M6",
+        "client M7",
+        "Connect lows"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "C7",
+      "side": "frontend",
+      "title": "Report offline moves honestly and fix block and window edges",
+      "covers": [
+        "client M8",
+        "client lows"
+      ],
+      "status": "completed"
+    }
+  ]
+}

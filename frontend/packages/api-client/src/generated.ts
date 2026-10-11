@@ -3151,12 +3151,6 @@ export interface components {
              */
             reschedule_cutoff_hours: number;
             /**
-             * Late Cancel Deposit
-             * @default keep
-             * @enum {string}
-             */
-            late_cancel_deposit: "keep" | "refund";
-            /**
              * Max Reschedules
              * @default 2
              */
@@ -3181,8 +3175,6 @@ export interface components {
             cancel_cutoff_hours?: number | null;
             /** Reschedule Cutoff Hours */
             reschedule_cutoff_hours?: number | null;
-            /** Late Cancel Deposit */
-            late_cancel_deposit?: ("keep" | "refund") | null;
             /** Max Reschedules */
             max_reschedules?: number | null;
         };
@@ -6163,13 +6155,10 @@ export interface components {
             cancel_cutoff_hours: number;
             /** Reschedule Cutoff Hours */
             reschedule_cutoff_hours: number;
-            /**
-             * Late Cancel Deposit
-             * @enum {string}
-             */
-            late_cancel_deposit: "keep" | "refund";
             /** Max Reschedules */
             max_reschedules: number;
+            /** Horizon Days */
+            horizon_days: number;
         };
         /** PublicPreferences */
         PublicPreferences: {

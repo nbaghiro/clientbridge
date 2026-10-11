@@ -13,6 +13,12 @@ msgstr ""
 msgid "booking_confirmed.subject"
 msgstr ""
 
+msgid "booking_released.body"
+msgstr ""
+
+msgid "booking_released.subject"
+msgstr ""
+
 msgid "booking_reminder.body"
 msgstr ""
 
@@ -20,6 +26,12 @@ msgid "booking_reminder.body_link"
 msgstr ""
 
 msgid "booking_reminder.subject"
+msgstr ""
+
+msgid "booking_requested.body"
+msgstr ""
+
+msgid "booking_requested.subject"
 msgstr ""
 
 msgid "booking_rescheduled.body"

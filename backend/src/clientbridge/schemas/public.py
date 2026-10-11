@@ -8,7 +8,6 @@ from clientbridge.core.mirrors import Mirror
 from clientbridge.models.business import Staff
 from clientbridge.models.catalog import Item, ItemKind
 from clientbridge.models.scheduling import Booking, BookingStatus, DepositStatus
-from clientbridge.schemas.bookings import LateCancelDeposit
 
 # `\Z` rather than `$`, so a trailing newline can't pass.
 HEX_COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\Z")
@@ -78,8 +77,8 @@ class PublicPolicy(BaseModel):
     self_service: bool
     cancel_cutoff_hours: int
     reschedule_cutoff_hours: int
-    late_cancel_deposit: LateCancelDeposit
     max_reschedules: int
+    horizon_days: int
 
 
 class PublicBookingPage(BaseModel):

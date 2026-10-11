@@ -41,6 +41,7 @@ import {
     Modal,
     Notice,
     SearchField,
+    Skeleton,
     StatusPill,
     TextField,
     TimeSlotPicker,
@@ -463,7 +464,7 @@ export function BookingActionBar({
 
 /** Pick another person, day and open time; the same check as a drag on web decides what's open. */
 export function RescheduleSheet({ event, onClose }: { event: ScheduleEvent; onClose: () => void }) {
-    const r = useReschedule(api, event, onClose);
+    const r = useReschedule(api, event, useViewer(), onClose);
     return (
         <Modal size="xl" onClose={onClose}>
             <Text style={styles.sheetTitle}>{s.rescheduleTitle}</Text>
@@ -493,7 +494,9 @@ export function RescheduleSheet({ event, onClose }: { event: ScheduleEvent; onCl
                     prevLabel={s.prev}
                     nextLabel={s.next}
                 />
-                {r.open === 0 ? (
+                {r.loading ? (
+                    <Skeleton variant="row" count={3} label={s.loading} />
+                ) : r.open === 0 ? (
                     <Empty message={s.noTimes} />
                 ) : (
                     <TimeSlotPicker
@@ -578,7 +581,7 @@ export function BookingComposerSheet({
     const form = useBookingComposer(
         api,
         slot,
-        { avail: board.avail, events: board.weekEvents, staff: board.staff },
+        { actors: board.actors, window: board.window },
         onClose,
     );
     return (

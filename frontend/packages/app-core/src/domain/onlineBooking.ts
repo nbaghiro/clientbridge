@@ -23,7 +23,6 @@ interface BookingPolicy {
     self_service: boolean;
     cancel_cutoff_hours: number;
     reschedule_cutoff_hours: number;
-    late_cancel_deposit: "keep" | "refund";
     max_reschedules: number;
 }
 
@@ -296,11 +295,7 @@ export function useBookingPolicy(api: ApiLike) {
             draft === null
                 ? ""
                 : draft.self_service
-                  ? p.clientText(
-                        p.hoursBefore(cancel),
-                        p.hoursBefore(move),
-                        draft.late_cancel_deposit === "keep",
-                    )
+                  ? p.clientText(p.hoursBefore(cancel), p.hoursBefore(move), true)
                   : p.clientTextOff,
         examples: examples.filter(
             (x) =>

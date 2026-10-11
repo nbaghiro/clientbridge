@@ -78,11 +78,13 @@ async def patch_booking(
     sms: SmsDep,
     push: PushDep,
 ) -> BookingOut:
-    result = await BookingService(db, principal, gateway).patch(booking_id, body)
+    result, notice = await BookingService(db, principal, gateway).patch(booking_id, body)
     notifier = Notifier(email, sms, push)
-    if body.status == "canceled":
+    if notice == "canceled":
         await notifier.on_booking_canceled(db, result.id)
-    elif body.starts_at is not None:
+    elif notice == "confirmed":
+        await notifier.on_booking_confirmed(db, result.id)
+    elif notice == "rescheduled":
         await notifier.on_booking_rescheduled(db, result.id)
     return result
 

@@ -312,8 +312,7 @@ export function PublicBooking() {
                                 {s.payPolicy(
                                     page.policy.cancel_cutoff_hours,
                                     page.policy.reschedule_cutoff_hours,
-                                    flow.totals.depositCents > 0 &&
-                                        page.policy.late_cancel_deposit === "keep",
+                                    flow.totals.depositCents > 0,
                                 )}
                             </p>
                         ) : null}

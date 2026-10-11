@@ -28,6 +28,18 @@ msgstr "Reminder: you have an appointment with {business} on {when}. Change or c
 msgid "booking_reminder.subject"
 msgstr "Appointment reminder — {business}"
 
+msgid "booking_released.body"
+msgstr "Your appointment with {business} on {when} was released because its deposit wasn't paid. You're welcome to book again."
+
+msgid "booking_released.subject"
+msgstr "Appointment released — {business}"
+
+msgid "booking_requested.body"
+msgstr "{business} received your request for {when}. You'll hear back once it's confirmed."
+
+msgid "booking_requested.subject"
+msgstr "Booking request received — {business}"
+
 msgid "booking_rescheduled.body"
 msgstr "Your appointment with {business} was moved to {when}."
 

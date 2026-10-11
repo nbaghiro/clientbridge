@@ -223,7 +223,7 @@ async def test_booking_page_offers_add_ons_and_stores_them(
         json={
             "item_id": "it_groom_sm",
             "staff_id": "st_owner",
-            "starts_at": "2027-03-02T18:00:00Z",
+            "starts_at": "2027-03-02T18:50:00Z",
             "client": {"name": "Add On", "email": "addon@example.com"},
             "addons": [{"item_id": BRUSH, "quantity": 1}, {"item_id": BRUSH, "quantity": 1}],
         },
@@ -243,7 +243,7 @@ async def test_booking_refuses_an_add_on_not_sold_online_404(api: httpx.AsyncCli
         json={
             "item_id": "it_groom_sm",
             "staff_id": "st_owner",
-            "starts_at": "2027-03-02T18:00:00Z",
+            "starts_at": "2027-03-02T18:50:00Z",
             "client": {"name": "Add On", "email": "addon@example.com"},
             "addons": [{"item_id": BATH}],
         },

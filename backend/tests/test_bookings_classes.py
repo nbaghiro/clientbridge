@@ -301,3 +301,51 @@ async def test_unauth_cannot_run_a_class(
     unauth: httpx.AsyncClient, method: str, path: str, body: dict[str, str]
 ) -> None:
     assert (await unauth.request(method, path, json=body)).status_code == 401
+
+
+async def test_patch_cannot_give_a_waitlisted_client_a_seat(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    sid = await _class(db)
+    for client in CLIENTS[:2]:
+        await _add(as_owner, sid, client)
+    waiting = await _add(as_owner, sid, CLIENTS[2])
+    url = f"/v1/bookings/{waiting['booking_id']}"
+    res = await as_owner.patch(url, json={"status": "confirmed"})
+    assert res.status_code == 409, res.text
+    assert res.json()["error"] == "class_seat"
+    assert await booked_count(db, sid) == 2
+
+
+async def test_one_attendee_cannot_move_or_resize_the_session(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    sid = await _class(db, capacity=6)
+    first = await _add(as_owner, sid, CLIENTS[0])
+    await _add(as_owner, sid, CLIENTS[1])
+    url = f"/v1/bookings/{first['booking_id']}"
+    for change in ({"starts_at": "2027-03-06T20:00:00Z"}, {"ends_at": "2027-03-06T19:30:00Z"}):
+        check = await as_owner.post(f"{url}/check", json=change)
+        assert check.json()["problem"] == "class"
+        res = await as_owner.patch(url, json=change)
+        assert res.status_code == 409, res.text
+        assert res.json()["error"] == "class_move"
+    slot = await db.get(Slot, sid, populate_existing=True)
+    assert slot is not None and slot.starts_at == datetime(2027, 3, 6, 18, tzinfo=UTC)
+
+
+async def test_completing_one_attendee_leaves_the_session_open(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    sid = await _class(db, capacity=6)
+    first = await _add(as_owner, sid, CLIENTS[0])
+    second = await _add(as_owner, sid, CLIENTS[1])
+    await as_owner.patch(f"/v1/bookings/{first['booking_id']}", json={"status": "completed"})
+    slot = await db.get(Slot, sid, populate_existing=True)
+    assert slot is not None and slot.status == "scheduled"
+    third = await _add(as_owner, sid, CLIENTS[2])
+    assert third["status"] == "confirmed"
+    for done in (second, third):
+        await as_owner.patch(f"/v1/bookings/{done['booking_id']}", json={"status": "completed"})
+    slot = await db.get(Slot, sid, populate_existing=True)
+    assert slot is not None and slot.status == "completed"

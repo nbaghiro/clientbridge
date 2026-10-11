@@ -53,6 +53,10 @@ const FAILURES: Record<string, () => string> = {
     pickup_window_taken: () => strings.api.pickupWindowTaken,
     shop_not_ready: () => strings.api.shopNotReady,
     mixed_currencies: () => strings.api.mixedCurrencies,
+    slot_unavailable: () => strings.api.slotUnavailable,
+    class_seat: () => strings.api.classSeat,
+    class_move: () => strings.api.classMove,
+    recurrence_too_long: () => strings.api.recurrenceTooLong,
 };
 
 /** The catalog message for a failure the server named, else the action's own message. */

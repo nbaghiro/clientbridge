@@ -183,6 +183,7 @@ function PersonHours({ staffId }: { staffId: string }) {
                     hoursLabel={s.dayHours}
                 />
             )}
+            {editor.splitNote !== null ? <Notice tone="info">{editor.splitNote}</Notice> : null}
             {editor.error !== null ? <Notice tone="danger">{editor.error}</Notice> : null}
             {editor.saveMessage ? <Notice tone="info">{editor.saveMessage}</Notice> : null}
             {editor.discardRejected ? (
@@ -194,7 +195,12 @@ function PersonHours({ staffId }: { staffId: string }) {
                 <Text style={styles.muted}>
                     {formatParts([s.daysOpen(editor.openDays), s.weekTotal(editor.totalHours)])}
                 </Text>
-                <Button style={{ alignSelf: "center" }} busy={editor.busy} onPress={editor.submit}>
+                <Button
+                    style={{ alignSelf: "center" }}
+                    busy={editor.busy}
+                    disabled={!editor.canSave}
+                    onPress={editor.submit}
+                >
                     {editor.saveLabel}
                 </Button>
             </View>

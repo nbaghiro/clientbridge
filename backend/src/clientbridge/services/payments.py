@@ -1717,7 +1717,7 @@ async def _settle_payment(
     await ledger.post_fees(db, payment, fees)
     await _sync_parent(db, payment)
     if payment.booking_id is not None and payment.kind == "deposit":
-        await _settle_booking_deposit(db, payment.booking_id)
+        await _settle_booking_deposit(db, gateway, payment.booking_id)
     gift_card_id = await _settle_entitlement(db, payment)
     return _Settled(payment.id, gift_card_id)
 
@@ -1767,10 +1767,12 @@ async def _settle_entitlement(db: AsyncSession, payment: Payment) -> str | None:
     return await entitlements.activate_purchased_gift_card(db, payment.id)
 
 
-async def _settle_booking_deposit(db: AsyncSession, booking_id: str) -> None:
+async def _settle_booking_deposit(
+    db: AsyncSession, gateway: PaymentGateway, booking_id: str
+) -> None:
     from clientbridge.services import bookings  # deferred: booking imports this module
 
-    invoice_id = await bookings.settle_deposit(db, booking_id)
+    invoice_id = await bookings.settle_deposit(db, gateway, booking_id)
     if invoice_id is not None:
         await sync_invoice(db, invoice_id)
 
@@ -2207,6 +2209,34 @@ async def process_interac_event(
         await db.rollback()
         return None
     return matched_id
+
+
+async def cancel_open_deposits(db: AsyncSession, gateway: PaymentGateway, booking: Booking) -> bool:
+    """Cancel the visit's unpaid deposit intents; False when one has already gone through."""
+    business = await db.get(Business, booking.business_id)
+    account_id = business.stripe_account_id if business is not None else None
+    rows = await db.execute(
+        scoped(Payment, booking.business_id)
+        .where(
+            Payment.booking_id == booking.id,
+            Payment.kind == "deposit",
+            Payment.status.in_(("pending", "failed")),
+        )
+        .with_for_update()
+    )
+    canceled = True
+    for payment in rows.scalars().all():
+        if payment.provider == "stripe" and payment.provider_ref and account_id is not None:
+            try:
+                await gateway.cancel_payment_intent(
+                    account_id, payment_intent_id=payment.provider_ref
+                )
+            except AppError:
+                canceled = False
+                continue
+        payment.status = "canceled"
+    await db.flush()
+    return canceled
 
 
 async def refund_deposit(db: AsyncSession, gateway: PaymentGateway, booking: Booking) -> int:

@@ -119,3 +119,21 @@ async def test_saving_the_same_settings_twice_is_stable(as_owner: httpx.AsyncCli
     first = await as_owner.patch("/v1/online-booking", json=body)
     again = await as_owner.patch("/v1/online-booking", json=body)
     assert first.json()["policy"] == again.json()["policy"]
+
+
+async def test_the_unused_late_cancel_setting_is_hidden_but_kept(
+    as_owner: httpx.AsyncClient, api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.booking_policy = {"late_cancel_deposit": "refund"}
+    await db.flush()
+    assert "late_cancel_deposit" not in (await as_owner.get("/v1/online-booking")).json()["policy"]
+    page = (await api.get("/book/birchbark/services")).json()
+    assert "late_cancel_deposit" not in page["policy"]
+    res = await as_owner.patch("/v1/online-booking", json={"policy": {"lead_hours": 6}})
+    assert res.status_code == 200, res.text
+    assert "late_cancel_deposit" not in res.json()["policy"]
+    await db.refresh(business)
+    assert business.booking_policy["late_cancel_deposit"] == "refund"
+    assert business.booking_policy["lead_hours"] == 6

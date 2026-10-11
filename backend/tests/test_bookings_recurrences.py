@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
-from clientbridge.models.scheduling import Slot
+from clientbridge.models.scheduling import Recurrence, Slot
 from clientbridge.services.bookings import expand_occurrences
 from tests.conftest import BIZ, Factory
 
@@ -188,6 +188,24 @@ async def test_unbounded_series_rejected(as_owner: httpx.AsyncClient, db: AsyncS
     del body["count"]  # no count and no until → must be rejected
     res = await as_owner.post("/v1/recurrences", json=body)
     assert res.status_code == 422
+
+
+async def test_a_series_longer_than_the_cap_is_refused(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    client_id, item_id = await _client_and_item(db)
+    series = select(func.count()).select_from(Recurrence)
+    before = await db.scalar(series)
+    for end in ({"count": 61}, {"count": None, "until": "2028-04-24"}):
+        res = await as_owner.post("/v1/recurrences", json=_body(client_id, item_id, **end))
+        assert res.status_code == 422, res.text
+        assert res.json()["error"] == "recurrence_too_long"
+    assert await db.scalar(series) == before
+    last = await as_owner.post(
+        "/v1/recurrences", json=_body(client_id, item_id, count=None, until="2028-04-17")
+    )
+    assert last.status_code == 201, last.text
+    assert len(last.json()["occurrences"]) == 60
 
 
 async def test_staff_cannot_schedule_for_others(

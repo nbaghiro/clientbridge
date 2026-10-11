@@ -2,6 +2,7 @@ import calendar
 import secrets
 from collections.abc import Sequence
 from datetime import UTC, date, datetime, time, timedelta
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import ColumnElement, Exists, func, literal, or_, select, text, tuple_
@@ -82,6 +83,7 @@ from clientbridge.services.clients import load_client
 from clientbridge.services.messaging import dispatch_message, open_thread
 from clientbridge.services.notifications import Notifier, reminder_message
 from clientbridge.services.payments import (
+    cancel_open_deposits,
     default_method_ref,
     open_booking_deposit,
     refund_deposit,
@@ -97,10 +99,12 @@ _CLOSED = "the business is closed then"
 _AWAY = "that staff member is away then"
 _PAST = "that time has already passed"
 _CLASS_MOVE = "a class session moves as a whole; change its time from the class"
+_WAITLIST_SEAT = "give a waitlisted client a seat from the class roster"
 _MIN_VISIT = timedelta(minutes=5)
 _ALREADY_IN_CLASS = "you already have a booking for this class"
 _TERMINAL = frozenset({"completed", "canceled", "no_show"})
 _CLOSED_OR_WAITING = ("completed", "canceled", "no_show", "waitlisted")
+BookingNotice = Literal["confirmed", "canceled", "rescheduled"]
 
 
 async def _booking_out(db: AsyncSession, booking: Booking, slot: Slot) -> BookingOut:
@@ -338,7 +342,7 @@ async def create_booking_core(
             # the exclusion constraint backstops a concurrent overlapping insert
             await db.flush()
         except IntegrityError as exc:
-            raise Conflict(_OVERLAP) from exc
+            raise clash(exc) from exc
     deposit = deposit_cents(item) if item.deposit_type != "none" else 0
     booking = Booking(
         id=new_id("booking"),
@@ -361,15 +365,24 @@ async def create_booking_core(
     return booking, slot
 
 
+def clash(exc: IntegrityError) -> Conflict:
+    """The conflict a slot exclusion constraint reports, told apart by the constraint's name."""
+    if "excl_slots_resource_overlap" in str(exc.orig):
+        return Conflict(_RESOURCE_BUSY)
+    return Conflict(_OVERLAP)
+
+
 async def move_slot(
     db: AsyncSession, business_id: str, slot: Slot, starts_at: datetime, ends_at: datetime
 ) -> None:
+    moved = starts_at != slot.starts_at
     slot.starts_at, slot.ends_at = starts_at, ends_at
-    await db.execute(
-        scoped_update(Booking, business_id)
-        .where(Booking.slot_id == slot.id)
-        .values(starts_at=starts_at)
-    )
+    if moved:
+        await db.execute(
+            scoped_update(Booking, business_id)
+            .where(Booking.slot_id == slot.id)
+            .values(starts_at=starts_at, reminded_at=None)
+        )
 
 
 async def _lock_staff(db: AsyncSession, business_id: str, staff_id: str) -> None:
@@ -417,10 +430,28 @@ async def release_slot(db: AsyncSession, slot: Slot) -> None:
     await db.flush()
 
 
-async def settle_deposit(db: AsyncSession, booking_id: str) -> str | None:
+async def _complete_when_done(db: AsyncSession, slot: Slot) -> None:
+    """Mark the slot completed once none of its bookings is still pending or confirmed."""
+    await db.flush()
+    left = await db.scalar(
+        select(func.count(Booking.id)).where(
+            Booking.slot_id == slot.id,
+            Booking.status.in_(("pending", "confirmed")),
+            Booking.deleted_at.is_(None),
+        )
+    )
+    if not left:
+        slot.status = "completed"
+
+
+async def settle_deposit(db: AsyncSession, gateway: PaymentGateway, booking_id: str) -> str | None:
     """Collect a settled deposit and apply it to the open invoice, or forfeit it after a no-show."""
     booking = await db.get(Booking, booking_id)
     if booking is None:
+        return None
+    if booking.status == "canceled":
+        booking.deposit_status = "collected"
+        await refund_deposit(db, gateway, booking)
         return None
     if booking.status == "no_show":
         await ledger.post_forfeit(db, booking)
@@ -539,17 +570,23 @@ class BookingService:
             idempotency_key=idempotency_key,
         )
 
-    async def patch(self, booking_id: str, data: BookingPatch) -> BookingOut:
+    async def patch(
+        self, booking_id: str, data: BookingPatch
+    ) -> tuple[BookingOut, BookingNotice | None]:
+        """Apply the change; also names the notice the client is owed for it, if any."""
         booking = await self._booking(booking_id)
         self._assert_can_act_as(booking.staff_id)
         slot = await self._slot(booking.slot_id)
         moving = self._moves(data, slot)
+        before, starts_before = booking.status, slot.starts_at
 
         # A terminal booking is frozen — only an idempotent re-set of the same status is allowed.
         if booking.status in _TERMINAL and (
             moving or (data.status is not None and data.status != booking.status)
         ):
             raise Conflict(f"a {booking.status} booking can't be modified")
+        if booking.status == "waitlisted" and data.status not in (None, "canceled"):
+            raise Conflict(_WAITLIST_SEAT, code="class_seat")
         target = await self._target(data, slot) if moving else None
 
         async def run(cmd: Command) -> BookingOut:
@@ -581,10 +618,14 @@ class BookingService:
                 try:
                     await self.db.flush()
                 except IntegrityError as exc:
-                    raise Conflict(_OVERLAP) from exc
+                    raise clash(exc) from exc
                 cmd.record("booking.reschedule", entity_type="booking", entity_id=booking.id)
-            if data.status is not None:
+            if data.status is not None and data.status != booking.status:
                 booking.status = data.status
+                if data.status == "confirmed":
+                    booking.confirmed_at = booking.confirmed_at or datetime.now(UTC)
+                if data.status == "canceled" and booking.deposit_status == "pending":
+                    await cancel_open_deposits(self.db, self.gateway, booking)
                 if data.status in ("canceled", "completed") and booking.deposit_status == "pending":
                     booking.deposit_status = "none"  # nothing was collected and none is due now
                 if data.status == "canceled":
@@ -592,20 +633,28 @@ class BookingService:
                     await release_slot(self.db, slot)  # a class keeps its slot for the rest
                 elif data.status == "completed":
                     booking.completed_at = datetime.now(UTC)
-                    slot.status = "completed"
+                    await _complete_when_done(self.db, slot)
                 elif data.status == "no_show":
                     await self._forfeit_deposit(cmd, booking)
                 cmd.record(f"booking.{data.status}", entity_type="booking", entity_id=booking.id)
             await self.db.flush()
             return await _booking_out(self.db, booking, slot)
 
-        return await run_command(
+        out = await run_command(
             self.db,
             self.principal,
             action="booking.patch",
             run=run,
             response_model=BookingOut,
         )
+        notice: BookingNotice | None = None
+        if out.status != before and out.status == "canceled":
+            notice = "canceled"
+        elif out.status != before and (before, out.status) == ("pending", "confirmed"):
+            notice = "confirmed"
+        elif out.starts_at != starts_before and out.status in ("pending", "confirmed"):
+            notice = "rescheduled"
+        return out, notice
 
     async def check(self, booking_id: str, data: BookingMove) -> BookingCheck:
         """What the server would say to this move or resize, without making it."""
@@ -650,9 +699,11 @@ class BookingService:
             self._assert_can_act_as(staff_id)
             await self._staff(staff_id)
             if slot.capacity > 1:
-                raise Conflict(_CLASS_MOVE)
+                raise Conflict(_CLASS_MOVE, code="class_move")
         starts_at = data.starts_at or slot.starts_at
         ends_at = data.ends_at or starts_at + (slot.ends_at - slot.starts_at)
+        if slot.capacity > 1 and (starts_at, ends_at) != (slot.starts_at, slot.ends_at):
+            raise Conflict(_CLASS_MOVE, code="class_move")
         if ends_at - starts_at < _MIN_VISIT:
             raise Unprocessable("a visit must end at least five minutes after it starts")
         if starts_at != slot.starts_at and starts_at < datetime.now(UTC):
@@ -932,6 +983,8 @@ async def open_slots(
     staff_id: str,
     on_date: date,
     step_min: int | None = None,
+    *,
+    exclude: str | None = None,
 ) -> list[datetime]:
     """Bookable start times for the item and staff on a date, in UTC; none until hours are set."""
     duration = item.duration_min
@@ -941,8 +994,7 @@ async def open_slots(
     if not windows:
         return []
     tz = await business_tz(db, business_id)
-    day = datetime.combine(on_date, time.min, tzinfo=tz).astimezone(UTC)
-    away = await exceptions_between(db, business_id, staff_id, day, day + timedelta(days=1))
+    away = await exceptions_between(db, business_id, staff_id, *local_day(on_date, tz))
     step = step_min or duration + item.buffer_before_min + item.buffer_after_min
     slots: list[datetime] = []
     for window_start, window_end in windows:
@@ -953,11 +1005,17 @@ async def open_slots(
             end = start + timedelta(minutes=duration)
             blocked = any(a.starts_at < end and a.ends_at > start for a in away)
             if not blocked and not await conflicting_slot(
-                db, business_id, item, staff_id, start, end
+                db, business_id, item, staff_id, start, end, exclude
             ):
                 slots.append(start)
             start += timedelta(minutes=step)
     return slots
+
+
+def local_day(on_date: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
+    """A local date's span in UTC, midnight to midnight, so 23- and 25-hour days come out right."""
+    opens = datetime.combine(on_date, time.min, tzinfo=tz).astimezone(UTC)
+    return opens, datetime.combine(on_date + timedelta(days=1), time.min, tzinfo=tz).astimezone(UTC)
 
 
 class _Window:
@@ -999,6 +1057,7 @@ _WEEKDAY_CODES: dict[Weekday, int] = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 
 _WEEKDAY_NAMES = {v: k for k, v in _WEEKDAY_CODES.items()}
 _SKIPPED = "left out when the series was booked"
 _MAX_OCCURRENCES = 60  # a full year of weekly + headroom; caps runaway/unbounded rules
+_TOO_LONG = f"a series can hold at most {_MAX_OCCURRENCES} visits; end it sooner"
 
 
 def _add_months(d: date, months: int) -> date:
@@ -1027,10 +1086,11 @@ def expand_occurrences(
     count: int | None,
     until: date | None,
     monthly_by: MonthlyBy = "date",
+    cap: int = _MAX_OCCURRENCES,
 ) -> list[date]:
     """Occurrence dates for a rule, bounded by count, until and a hard cap."""
     interval = max(1, interval)
-    limit = min(count if count is not None else _MAX_OCCURRENCES, _MAX_OCCURRENCES)
+    limit = min(count if count is not None else cap, cap)
     dates: list[date] = []
 
     if frequency == "week":
@@ -1097,7 +1157,10 @@ class RecurrenceService:
             count=data.count,
             until=data.until,
             monthly_by=data.monthly_by,
+            cap=_MAX_OCCURRENCES + 1,
         )
+        if len(occ_dates) > _MAX_OCCURRENCES:
+            raise Unprocessable(_TOO_LONG, code="recurrence_too_long")
         handled = {e.date: e for e in data.exceptions}
 
         async def run(cmd: Command) -> RecurrenceOut:
@@ -1275,6 +1338,7 @@ class RecurrenceService:
                 if booking.deposit_status == "collected":
                     refunded += await refund_deposit(self.db, gateway, booking)
                 elif booking.deposit_status == "pending":
+                    await cancel_open_deposits(self.db, gateway, booking)
                     booking.deposit_status = "none"
                 booking.status = "canceled"
                 booking.canceled_at = now
@@ -1672,9 +1736,9 @@ class OnlineBookingService:
                 if changes.get("step_min") == 0:
                     changes["step_min"] = None
                 merged = policy_of(business).model_copy(update=changes)
-                business.booking_policy = BookingPolicy.model_validate(
-                    merged.model_dump()
-                ).model_dump()
+                rules = BookingPolicy.model_validate(merged.model_dump()).model_dump()
+                # stored settings the API no longer shows (late_cancel_deposit) are kept as they are
+                business.booking_policy = {**(business.booking_policy or {}), **rules}
             for item_id, bookable in (data.services or {}).items():
                 item = (
                     await self.db.execute(
@@ -1861,21 +1925,16 @@ _UNPAID_TTL = timedelta(minutes=30)
 _REMINDER_WINDOW = timedelta(hours=24)
 
 
-async def run_reap_unpaid_bookings(db: AsyncSession, now: datetime) -> int:
-    """Cancel online bookings still holding a slot past the deposit window without paying."""
+async def run_reap_unpaid_bookings(
+    db: AsyncSession, gateway: PaymentGateway, notifier: Notifier, now: datetime
+) -> int:
+    """Release online bookings whose deposit went unpaid past the window, and tell the client."""
 
-    def deposits(status: str) -> Exists:
-        return (
-            select(Payment.id)
-            .where(
-                Payment.booking_id == Booking.id,
-                Payment.kind == "deposit",
-                Payment.status == status,
-            )
-            .exists()
-        )
+    def deposits(*statuses: str) -> Exists:
+        q = select(Payment.id).where(Payment.booking_id == Booking.id, Payment.kind == "deposit")
+        return (q.where(Payment.status.in_(statuses)) if statuses else q).exists()
 
-    bookings = (
+    rows = (
         await db.execute(
             select(Booking, Slot)
             .join(Slot, Slot.id == Booking.slot_id)
@@ -1885,17 +1944,27 @@ async def run_reap_unpaid_bookings(db: AsyncSession, now: datetime) -> int:
                 Booking.deposit_amount_cents > 0,
                 Booking.status.not_in(_CLOSED_OR_WAITING),
                 Booking.created_at < now - _UNPAID_TTL,
-                deposits("pending"),
+                Slot.starts_at > now,
+                deposits(),
                 ~deposits("succeeded"),
             )
+            .with_for_update(of=Booking, skip_locked=True)
         )
     ).all()
-    for booking, slot in bookings:
+    released: list[str] = []
+    for booking, slot in rows:
+        if not await cancel_open_deposits(db, gateway, booking):
+            continue
         booking.status = "canceled"
         booking.canceled_at = now
+        if booking.deposit_status == "pending":
+            booking.deposit_status = "none"
         await release_slot(db, slot)
+        released.append(booking.id)
     await db.commit()
-    return len(bookings)
+    for booking_id in released:
+        await notifier.on_booking_released(db, booking_id)
+    return len(released)
 
 
 async def run_reminders(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
@@ -1908,7 +1977,7 @@ async def run_reminders(db: AsyncSession, notifier: Notifier, now: datetime) -> 
                 .where(
                     Booking.deleted_at.is_(None),
                     Booking.reminded_at.is_(None),
-                    Booking.status.not_in(_CLOSED_OR_WAITING),
+                    Booking.status == "confirmed",
                     Slot.starts_at > now,
                     Slot.starts_at <= now + _REMINDER_WINDOW,
                 )

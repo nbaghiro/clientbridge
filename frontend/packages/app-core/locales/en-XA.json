@@ -128,6 +128,18 @@
     "api.shopNotReady": {
         "message": "[Ţĥîš šĥöþ îšñ'ţ ţåķîñĝ öñļîñé öŕðéŕš ýéţ. one two three]"
     },
+    "api.slotUnavailable": {
+        "message": "[Ţĥåţ ţîɱé îš ñö ļöñĝéŕ öþéñ. Þîçķ åñöţĥéŕ ţîɱé. one two three]"
+    },
+    "api.classSeat": {
+        "message": "[Å ŵåîţļîšţéð çļîéñţ ĝéţš å šéåţ ƒŕöɱ ţĥé çļåšš ŕöšţéŕ, ñöţ ƒŕöɱ ţĥîš ṽîšîţ. one two three four five]"
+    },
+    "api.classMove": {
+        "message": "[Å çļåšš ɱöṽéš åš å ŵĥöļé ƒŕöɱ îţš šéššîöñ. one two three]"
+    },
+    "api.recurrenceTooLong": {
+        "message": "[Å šéŕîéš çåñ ĥåṽé åţ ɱöšţ 60 ṽîšîţš. Ɓööķ ƒéŵéŕ ṽîšîţš öŕ åñ éåŕļîéŕ éñð ðåţé. one two three four five]"
+    },
     "api.mixedCurrencies": {
         "message": "[Öñé öŕðéŕ çåñ'ţ ɱîẋ çûŕŕéñçîéš. one two three]"
     },
@@ -2318,9 +2330,6 @@
     "bookings.breakLabel": {
         "message": "[Ɓŕéåķ one]"
     },
-    "bookings.closed": {
-        "message": "[Çļöšéð · {reason} one]"
-    },
     "bookings.bookings": {
         "message": "[{classes,plural,one{{visits,plural,one{# ṽîšîţ} other{# ṽîšîţš}} · 1 çļåšš} other{{visits,plural,one{# ṽîšîţ} other{# ṽîšîţš}} · {classes, number} çļåššéš} =0{{visits,plural,one{# ṽîšîţ} other{# ṽîšîţš}}}} one two three four]"
     },
@@ -2393,6 +2402,9 @@
     "bookings.problemRoom": {
         "message": "[Ţĥåţ ŕööɱ öŕ šţåţîöñ îš ţåķéñ ţĥéñ one two three]"
     },
+    "bookings.problemClassFull": {
+        "message": "[Ţĥåţ çļåšš îš ƒûļļ one two]"
+    },
     "bookings.problemClass": {
         "message": "[Å çļåšš ɱöṽéš åš å ŵĥöļé ƒŕöɱ îţš šéššîöñ one two three]"
     },
@@ -2414,8 +2426,11 @@
     "bookings.emptyDayWeb": {
         "message": "[Çļîçķ åñ öþéñ ţîɱé öñ ţĥé ƀöåŕð ţö åðð å ṽîšîţ, öŕ šĥåŕé ýöûŕ ƀööķîñĝ ļîñķ. one two three four five]"
     },
-    "bookings.emptyClosed": {
-        "message": "[Ţĥé ƀûšîñéšš îš çļöšéð ţĥîš ðåý. one two three]"
+    "bookings.closedNote": {
+        "message": "[Çļöšéð · {reason}. {count,plural,one{# ṽîšîţ šţîļļ ƀööķéð ñééðš å ñéŵ ţîɱé.} other{# ṽîšîţš šţîļļ ƀööķéð ñééð å ñéŵ ţîɱé.} =0{Ñöţĥîñĝ îš ƀööķéð ţĥîš ðåý.}} one two three four five six seven]"
+    },
+    "bookings.needsMove": {
+        "message": "[Ñééðš å ñéŵ ţîɱé one two]"
     },
     "bookings.nobodyWorking": {
         "message": "[Ñö öñé îš šçĥéðûļéð ţö ŵöŕķ ţĥîš ðåý. one two three]"
@@ -2752,6 +2767,9 @@
     },
     "bookings.rescheduleNotice": {
         "message": "[Ţĥé çļîéñţ ĝéţš åñ ûþðåţéð çöñƒîŕɱåţîöñ. one two three]"
+    },
+    "bookings.moveOffline": {
+        "message": "[Çöûļðñ'ţ ŕéåçĥ ţĥé šéŕṽéŕ, šö ţĥé ṽîšîţ ŵåšñ'ţ ɱöṽéð. Çĥéçķ ýöûŕ çöññéçţîöñ åñð ţŕý åĝåîñ. one two three four five six]"
     },
     "bookings.rescheduleError": {
         "message": "[Çöûļðñ'ţ ɱöṽé ţĥé ṽîšîţ. Ţĥåţ ţîɱé ɱåý ĥåṽé ĵûšţ ƀééñ ţåķéñ. one two three four]"
@@ -5992,6 +6010,12 @@
     },
     "hours.conflict": {
         "message": "[Ţĥéšé ĥöûŕš çöûļð ñöţ ƀé šåṽéð. Ŕéṽîéŵ ýöûŕ çĥåñĝéš, ţĥéñ åþþļý ţĥéɱ ţö ţĥé çûŕŕéñţ šéŕṽéŕ ṽéŕšîöñ öŕ ðîšçåŕð ţĥéɱ. one two three four five six seven]"
+    },
+    "hours.splitWeek": {
+        "message": "[{days} {count,plural,one{ĥåš} other{ĥåṽé}} å ƀŕéåķ ƀéţŵééñ šĥîƒţš, ŵĥîçĥ ţĥîš éðîţöŕ çåñ'ţ çĥåñĝé ýéţ. Šåṽîñĝ îš öƒƒ šö ţĥé ƀŕéåķ îš ķéþţ. one two three four five six seven]"
+    },
+    "hours.splitRefused": {
+        "message": "[Šöɱé ðåýš ñöŵ ĥåṽé å ƀŕéåķ ƀéţŵééñ šĥîƒţš, ŵĥîçĥ ţĥîš éðîţöŕ çåñ'ţ çĥåñĝé ýéţ. Đîšçåŕð ţĥéšé çĥåñĝéš ţö šéé ţĥé çûŕŕéñţ ĥöûŕš. one two three four five six seven eight]"
     },
     "hours.refused": {
         "message": "[Ţĥé šéŕṽéŕ ŕéƒûšéð ţĥéšé ĥöûŕš. Çĥåñĝé ţĥéɱ åñð åþþļý ţĥéɱ åĝåîñ, öŕ ðîšçåŕð ţĥéɱ. one two three four five six]"
@@ -9885,7 +9909,13 @@
         "message": "[Ɓööķîñĝ… one]"
     },
     "publicBooking.bookError": {
-        "message": "[Ŵé çöûļðñ'ţ ƀööķ ţĥåţ ţîɱé. Îţ ɱåý ĥåṽé ĵûšţ ƀééñ ţåķéñ; þîçķ åñöţĥéŕ. one two three four five]"
+        "message": "[Ŵé çöûļðñ'ţ ƀööķ ţĥåţ ţîɱé. Þļéåšé ţŕý åĝåîñ. one two three]"
+    },
+    "publicBooking.slotTaken": {
+        "message": "[Ţĥåţ ţîɱé îš ñö ļöñĝéŕ öþéñ. Þîçķ åñöţĥéŕ ţîɱé. one two three]"
+    },
+    "publicBooking.connectionError": {
+        "message": "[Ŵé çöûļðñ'ţ ŕéåçĥ ţĥé ƀööķîñĝ þåĝé. Çĥéçķ ýöûŕ çöññéçţîöñ åñð ţŕý åĝåîñ. one two three four five]"
     },
     "publicBooking.payTitle": {
         "message": "[Ĥöļð ýöûŕ šþöţ one two]"
@@ -10468,15 +10498,6 @@
     },
     "onlineBooking.policy.hoursBefore": {
         "message": "[{n, number} ĥöûŕš ƀéƒöŕé one two]"
-    },
-    "onlineBooking.policy.lateDeposit": {
-        "message": "[Đéþöšîţ öñ å ļåţé çåñçéļ one two]"
-    },
-    "onlineBooking.policy.keep": {
-        "message": "[Ķééþ îţ one]"
-    },
-    "onlineBooking.policy.refund": {
-        "message": "[Ŕéƒûñð îţ one]"
     },
     "onlineBooking.policy.maxMoves": {
         "message": "[Ṁöṽéš þéŕ ƀööķîñĝ one two]"

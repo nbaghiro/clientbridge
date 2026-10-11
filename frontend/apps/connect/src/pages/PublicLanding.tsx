@@ -396,9 +396,7 @@ export function PublicLanding() {
                                 ) : (
                                     <li>{s.contactPolicy}</li>
                                 )}
-                                {page.policy.late_cancel_deposit === "keep" ? (
-                                    <li>{s.lateCancelPolicy}</li>
-                                ) : null}
+                                <li>{s.lateCancelPolicy}</li>
                             </ul>
                         </section>
                     ) : null}

@@ -177,7 +177,7 @@ const SCOPES: { key: ChangeScope; label: string }[] = [
 
 function Record({ id, onBack }: { id: string; onBack: () => void }) {
     const zone = useBusinessZone();
-    const rec = useSeriesRecord(api, id);
+    const rec = useSeriesRecord(api, id, useViewer());
     const [dialog, setDialog] = useState<"change" | "cancel" | null>(null);
     if (rec === null) return null;
     const r = rec.summary;

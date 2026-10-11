@@ -128,7 +128,10 @@ test("a rejected week blocks its successors while unrelated staff edits proceed"
         await db.execute("UPDATE hours_outbox SET retry_at = 0");
         await uploadHoursOnce(
             db,
-            () => Promise.resolve(new Response(null, { status: 409 })),
+            () =>
+                Promise.resolve(
+                    Response.json({ error: "hours_split_week", message: "split" }, { status: 409 }),
+                ),
             new AbortController().signal,
         );
         let path = "";
@@ -141,7 +144,7 @@ test("a rejected week blocks its successors while unrelated staff edits proceed"
             new AbortController().signal,
         );
         const states = await db.getAll(
-            "SELECT staff_id, state FROM hours_outbox ORDER BY sequence",
+            "SELECT staff_id, state, error_code FROM hours_outbox ORDER BY sequence",
         );
         await enqueueHours(db, "first", "business", 5, days, days, true);
         const repaired = await db.getAll<{ payload: string }>(
@@ -153,9 +156,9 @@ test("a rejected week blocks its successors while unrelated staff edits proceed"
     });
     expect(result.path).toBe("/v1/hours/second/week");
     expect(result.states).toEqual([
-        { staff_id: "first", state: "rejected" },
-        { staff_id: "first", state: "queued" },
-        { staff_id: "second", state: "accepted" },
+        { staff_id: "first", state: "rejected", error_code: "hours_split_week" },
+        { staff_id: "first", state: "queued", error_code: null },
+        { staff_id: "second", state: "accepted", error_code: null },
     ]);
     expect(result.repaired).toHaveLength(1);
     expect(JSON.parse(result.repaired[0]?.payload ?? "{}")).toMatchObject({ expected_revision: 5 });

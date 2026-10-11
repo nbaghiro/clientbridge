@@ -7,6 +7,10 @@ test.beforeEach(async ({ context }, info) => {
     await ownAddress(context, info);
 });
 
+/** Matches what a copy function renders before its first argument, whatever that argument is. */
+const prefixOf = (copy: (value: string) => string): RegExp =>
+    new RegExp(`^${(copy("\0").split("\0")[0] ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
+
 function watchErrors(page: Page): string[] {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
@@ -69,6 +73,63 @@ test("a client books a visit online and opens the manage link", async ({ page })
         await expect(page.getByRole("heading", { name: m.canceledTitle })).toBeVisible();
     }
     expect(errors).toEqual([]);
+});
+
+test("anyone books with any member, and a refused or unreachable booking reads as such", async ({
+    page,
+}) => {
+    const b = strings.publicBooking;
+    await page.goto(`/b/${links.slug}/book`);
+    const openingsResponse = page.waitForResponse(
+        (response) => response.url().includes(`/book/${links.slug}/days?`) && response.ok(),
+    );
+    await page.getByRole("button", { name: /^Full Groom — Large Dog/ }).click();
+    const openings = (await (await openingsResponse).json()) as {
+        days: { count: number; closed: boolean }[];
+    };
+    const availableDay = openings.days.findIndex((day) => day.count > 0 && !day.closed);
+    expect(availableDay).toBeGreaterThanOrEqual(0);
+    const times = page.getByRole("radiogroup", { name: b.openTimes });
+    const pickTime = async (): Promise<void> => {
+        await page
+            .getByRole("radiogroup", { name: b.date })
+            .getByRole("radio")
+            .nth(availableDay)
+            .click();
+        await times.getByRole("radio").first().click();
+        await page.getByRole("button", { name: b.continue }).first().click();
+        await expect(page.getByRole("heading", { name: b.stepExtras, level: 2 })).toBeVisible();
+        await page.getByRole("button", { name: b.continue }).first().click();
+        await expect(page.getByRole("heading", { name: b.stepDetails, level: 2 })).toBeVisible();
+    };
+    await pickTime();
+    await page.getByRole("textbox", { name: b.name }).fill("Robin Test");
+    await page.getByRole("textbox", { name: b.pet }).fill("Pepper");
+    await page.getByRole("textbox", { name: b.phone }).fill("2505550199");
+    const sent: { staff_id?: string }[] = [];
+    let attempt = 0;
+    await page.route(`**/book/${links.slug}`, async (route) => {
+        if (route.request().method() !== "POST") return route.fallback();
+        sent.push(route.request().postDataJSON() as { staff_id?: string });
+        attempt++;
+        if (attempt === 1)
+            return route.fulfill({
+                status: 409,
+                contentType: "application/json",
+                body: JSON.stringify({ error: "slot_unavailable", message: "taken" }),
+            });
+        return route.abort("internetdisconnected");
+    });
+    const confirm = page.getByRole("button", { name: prefixOf(b.confirmAndPay) });
+    await confirm.click();
+    await expect(page.getByText(b.slotTaken)).toBeVisible();
+    await expect(times.getByRole("radio", { checked: true })).toHaveCount(0);
+    await pickTime();
+    await confirm.click();
+    await expect(page.getByText(b.connectionError)).toBeVisible();
+    await expect(page.getByRole("heading", { name: b.stepDetails, level: 2 })).toBeVisible();
+    expect(sent.map((x) => x.staff_id)).toEqual(["any", "any"]);
+    await page.unroute(`**/book/${links.slug}`);
 });
 
 test("a client opens the manage link and the move picker", async ({ page }) => {

@@ -37,6 +37,10 @@ describe("refused requests", () => {
             ["pickup_window_taken", strings.api.pickupWindowTaken],
             ["shop_not_ready", strings.api.shopNotReady],
             ["mixed_currencies", strings.api.mixedCurrencies],
+            ["slot_unavailable", strings.api.slotUnavailable],
+            ["class_seat", strings.api.classSeat],
+            ["class_move", strings.api.classMove],
+            ["recurrence_too_long", strings.api.recurrenceTooLong],
         ];
         for (const [code, message] of cases)
             expect(failureMessage(refused(409, code), "fallback")).toBe(message);

@@ -23,7 +23,7 @@ import {
     weekdayDay,
     useBusinessZone,
 } from "../datetime";
-import { initials } from "../format";
+import { formatList, initials } from "../format";
 import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Viewer } from "./auth";
@@ -116,6 +116,8 @@ interface DayHours {
     open: boolean;
     start: string;
     end: string;
+    // More than one window: the week command can't carry a break, so the day is shown, not edited.
+    split: boolean;
 }
 
 interface RecurringRow {
@@ -128,12 +130,18 @@ interface RecurringRow {
 export const RECURRING_HOURS_SQL =
     "SELECT weekday, start_time, end_time, available FROM hours WHERE staff_id = ? AND basis = 'recurring' ORDER BY start_time";
 
-/** Days with no rows default to weekdays 9 to 5 and weekends closed; split days keep their span. */
+/** Days with no rows default to weekdays 9 to 5 and weekends closed; split days show their span. */
 export function seedDays(rows: RecurringRow[]): DayHours[] {
     return WEEKDAYS.map(({ weekday }) => {
         const mine = rows.filter((r) => r.weekday === weekday);
         if (mine.length === 0) {
-            return { weekday, open: weekday < 5, start: DEFAULT_START, end: DEFAULT_END };
+            return {
+                weekday,
+                open: weekday < 5,
+                start: DEFAULT_START,
+                end: DEFAULT_END,
+                split: false,
+            };
         }
         const open = mine.filter((r) => r.available === 1);
         return {
@@ -141,8 +149,31 @@ export function seedDays(rows: RecurringRow[]): DayHours[] {
             open: open.length > 0,
             start: (open[0]?.start_time ?? DEFAULT_START).slice(0, 5),
             end: (open.at(-1)?.end_time ?? DEFAULT_END).slice(0, 5),
+            split: mine.length > 1,
         };
     });
+}
+
+/** Why the week can't be saved here when a day has a break between shifts, or null. */
+export function splitNote(days: readonly DayHours[]): string | null {
+    const split = days.filter((d) => d.split);
+    if (split.length === 0) return null;
+    return s.splitWeek(
+        formatList(split.map((d) => WEEKDAYS[d.weekday]?.label ?? "")),
+        split.length,
+    );
+}
+
+/** What a refused week says, by the server's error code. */
+export function refusalMessage(code: string | null): string {
+    switch (code) {
+        case "hours_split_week":
+            return s.splitRefused;
+        case "hours_revision_conflict":
+            return s.conflict;
+        default:
+            return s.refused;
+    }
 }
 
 function toWeekDays(days: DayHours[]): WeekDay[] {
@@ -210,6 +241,8 @@ interface WeekEditor {
     timeOptions: { key: string; label: string }[];
     saveLabel: string;
     saveMessage: string | null;
+    splitNote: string | null;
+    canSave: boolean;
     discardRejected: (() => void) | null;
 }
 
@@ -299,7 +332,7 @@ export function useWeekEditor(api: ApiLike, staffId: string | null): WeekEditor 
     // A conflict shows the server's current week with only this person's own changes laid over it.
     useEffect(() => {
         if (
-            rejection?.error_code !== "http_409" ||
+            rejection?.error_code !== "hours_revision_conflict" ||
             rebased.current === rejection.id ||
             latest?.id !== rejection.id ||
             revision === undefined ||
@@ -323,6 +356,9 @@ export function useWeekEditor(api: ApiLike, staffId: string | null): WeekEditor 
         setSaved(false);
         setDays((d) => d?.map((x) => (x.weekday === weekday ? { ...x, ...patch } : x)) ?? d);
     };
+    const note = splitNote(days ?? []);
+    // A split week is refused whatever this device sends, so only discarding moves it on.
+    const blocked = note !== null || rejection?.error_code === "hours_split_week";
     const view = (days ?? [])
         .map((d) => ({
             ...d,
@@ -358,12 +394,12 @@ export function useWeekEditor(api: ApiLike, staffId: string | null): WeekEditor 
             );
         },
         busy,
-        error:
-            error ??
-            (rejected ? (rejection.error_code === "http_409" ? s.conflict : s.refused) : null),
+        error: error ?? (rejected ? refusalMessage(rejection.error_code) : null),
         saved,
         saveLabel: rejected ? s.applyChanges : s.saveHours,
         saveMessage: rejected ? null : waiting ? s.savedLocally : saved ? s.saved : null,
+        splitNote: note,
+        canSave: days !== null && !blocked,
         discardRejected: rejected
             ? () => {
                   run(
@@ -387,7 +423,7 @@ export function useWeekEditor(api: ApiLike, staffId: string | null): WeekEditor 
               }
             : null,
         submit: () => {
-            if (days === null || staffId === null) return;
+            if (days === null || staffId === null || blocked) return;
             if (businessId === null) {
                 setError(strings.common.stillSyncing);
                 return;

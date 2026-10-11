@@ -24,6 +24,7 @@ import {
     Notice,
     SearchField,
     Select,
+    Skeleton,
     Stepper,
     TextField,
     TimeSlotPicker,
@@ -33,6 +34,7 @@ import {
 import type { SubmitEvent } from "react";
 
 import { api } from "../lib/api";
+import { useViewer } from "../lib/auth";
 
 const s = strings.bookings;
 
@@ -52,7 +54,7 @@ export function BookingComposer({
     const form = useBookingComposer(
         api,
         slot,
-        { avail: board.avail, events: board.weekEvents, staff: board.staff },
+        { actors: board.actors, window: board.window },
         onDone,
     );
     const submit = (e: SubmitEvent): void => {
@@ -258,7 +260,7 @@ export function RescheduleDialog({
     event: ScheduleEvent;
     onClose: () => void;
 }) {
-    const r = useReschedule(api, event, onClose);
+    const r = useReschedule(api, event, useViewer(), onClose);
     return (
         <Modal size="lg" onClose={onClose}>
             <div className="space-y-5">
@@ -293,7 +295,9 @@ export function RescheduleDialog({
                     nextLabel={s.next}
                 />
                 <div className="max-h-[300px] overflow-y-auto pr-1">
-                    {r.open === 0 ? (
+                    {r.loading ? (
+                        <Skeleton variant="row" count={3} label={s.loading} />
+                    ) : r.open === 0 ? (
                         <Empty message={s.noTimes} />
                     ) : (
                         <TimeSlotPicker

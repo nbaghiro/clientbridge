@@ -382,6 +382,7 @@ function HoursModal({ member, onClose }: { member: TeamHoursMember; onClose: () 
                         hoursLabel={s.dayHours}
                     />
                 )}
+                {editor.splitNote !== null ? <Notice tone="info">{editor.splitNote}</Notice> : null}
                 {editor.error !== null ? <Notice tone="danger">{editor.error}</Notice> : null}
                 {editor.saveMessage ? <Notice tone="info">{editor.saveMessage}</Notice> : null}
                 {editor.discardRejected ? (
@@ -397,8 +398,12 @@ function HoursModal({ member, onClose }: { member: TeamHoursMember; onClose: () 
                         <Button variant="quiet" onPress={onClose}>
                             {s.cancel}
                         </Button>
-                        <Button busy={editor.busy} onPress={editor.submit} disabled={!editor.ready}>
-                            {editor.busy ? s.saving : s.saveHours}
+                        <Button
+                            busy={editor.busy}
+                            onPress={editor.submit}
+                            disabled={!editor.canSave}
+                        >
+                            {editor.busy ? s.saving : editor.saveLabel}
                         </Button>
                     </div>
                 </div>

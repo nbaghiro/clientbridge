@@ -14,6 +14,7 @@ import type { NativeProps } from "./props";
 const c = theme.colors;
 
 const FLAG_ICON: Record<CalendarEventFlag, IconName> = {
+    needs_move: "alert",
     online: "globe",
     recurring: "repeat",
     deposit_due: "dollar",

@@ -108,6 +108,8 @@ def _builders() -> dict[str, Render]:
         ),
         "_booking_rescheduled": lambda c: n._booking_rescheduled(c, NAME, when(c)),
         "_booking_canceled": lambda c: n._booking_canceled(c, NAME, when(c)),
+        "_booking_requested": lambda c: n._booking_requested(c, NAME, when(c)),
+        "_booking_released": lambda c: n._booking_released(c, NAME, when(c)),
         "_series_booked": lambda c: n._series_booked(c, NAME, whens(c)),
         "_series_moved": lambda c: n._series_moved(c, NAME, whens(c)),
         "_series_canceled": lambda c: n._series_canceled(c, NAME, whens(c)),

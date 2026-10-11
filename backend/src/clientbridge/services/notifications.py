@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
@@ -306,6 +306,20 @@ def _booking_canceled(locale: str, business_name: str, when: str) -> tuple[str, 
     return (
         message(locale, "booking_canceled.subject", business=business_name),
         message(locale, "booking_canceled.body", business=business_name, when=when),
+    )
+
+
+def _booking_requested(locale: str, business_name: str, when: str) -> tuple[str, str]:
+    return (
+        message(locale, "booking_requested.subject", business=business_name),
+        message(locale, "booking_requested.body", business=business_name, when=when),
+    )
+
+
+def _booking_released(locale: str, business_name: str, when: str) -> tuple[str, str]:
+    return (
+        message(locale, "booking_released.subject", business=business_name),
+        message(locale, "booking_released.body", business=business_name, when=when),
     )
 
 
@@ -668,18 +682,20 @@ class Notifier:
         await self._to_client(db, booking.client_id, subject, body)
 
     async def on_booking_rescheduled(self, db: AsyncSession, booking_id: str) -> None:
-        booking = await db.get(Booking, booking_id)
-        if booking is None:
-            return
-        slot = await db.get(Slot, booking.slot_id)
-        business = await db.get(Business, booking.business_id)
-        if slot is None or business is None:
-            return
-        locale = locale_for(business=business)
-        subject, body = _booking_rescheduled(locale, business.name, _when(locale, business, slot))
-        await self._to_client(db, booking.client_id, subject, body)
+        await self._visit_notice(db, booking_id, _booking_rescheduled)
 
     async def on_booking_canceled(self, db: AsyncSession, booking_id: str) -> None:
+        await self._visit_notice(db, booking_id, _booking_canceled)
+
+    async def on_booking_requested(self, db: AsyncSession, booking_id: str) -> None:
+        await self._visit_notice(db, booking_id, _booking_requested)
+
+    async def on_booking_released(self, db: AsyncSession, booking_id: str) -> None:
+        await self._visit_notice(db, booking_id, _booking_released)
+
+    async def _visit_notice(
+        self, db: AsyncSession, booking_id: str, build: Callable[[str, str, str], tuple[str, str]]
+    ) -> None:
         booking = await db.get(Booking, booking_id)
         if booking is None:
             return
@@ -688,7 +704,7 @@ class Notifier:
         if slot is None or business is None:
             return
         locale = locale_for(business=business)
-        subject, body = _booking_canceled(locale, business.name, _when(locale, business, slot))
+        subject, body = build(locale, business.name, _when(locale, business, slot))
         await self._to_client(db, booking.client_id, subject, body)
 
     async def on_series_booked(

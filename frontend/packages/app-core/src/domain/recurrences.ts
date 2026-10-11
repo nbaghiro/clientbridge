@@ -2,7 +2,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useMemo, useRef, useState } from "react";
 
-import { type ApiLike, newIdempotencyKey } from "../api";
+import { type ApiLike, failureMessage, newIdempotencyKey } from "../api";
 import {
     addDays,
     clockKey,
@@ -34,7 +34,11 @@ import {
     type Availability,
     CLIENT_PETS_SQL,
     type CalendarEvent,
+    type SlotItem,
+    type SlotTarget,
+    actorsFor,
     slotBookingsJoin,
+    slotItemOf,
     slotProblem,
     useAvailability,
     useNow,
@@ -42,7 +46,6 @@ import {
 } from "./bookings";
 import { bookableItems, useCatalogItems } from "./catalog";
 import { useClients } from "./clients";
-import { canManagePayments } from "./payments";
 import { type StaffRow, staffName, useStaff } from "./staff";
 import { useReplicaLoad } from "./sync";
 
@@ -96,6 +99,12 @@ export function stepDate(
     return zonedDate(first.getUTCFullYear(), first.getUTCMonth() + 1, day, w.hour, w.minute, zone);
 }
 
+/** Where a visit lands on a new weekday (0 is Sunday) and time: the same Monday to Sunday week, as the server moves it. */
+export function movedStart(start: Date, weekday: number, time: string, zone: string): Date {
+    const shift = ((weekday + 6) % 7) - ((wallTime(start, zone).weekday + 6) % 7);
+    return combineDayAndTime(addDays(start, shift, zone), time, zone);
+}
+
 /** Why a series visit can't go here, in the words the composer uses, or null. */
 export function problemAt(
     ctx: Ctx,
@@ -103,12 +112,13 @@ export function problemAt(
     start: Date,
     end: Date,
     ignore: (id: string) => boolean,
+    target: SlotTarget = {},
 ): string | null {
     const zone = ctx.avail.zone;
     const member = ctx.staff.get(staffId);
     const name = member ? firstName(staffName(member)) : "";
     const events = ctx.events.filter((e) => !ignore(e.id));
-    const found = slotProblem(ctx.avail, events, ctx.staff, staffId, start, end, null);
+    const found = slotProblem(ctx.avail, events, ctx.staff, staffId, start, end, null, target);
     switch (found.problem) {
         case "closed":
             return s.closed(ctx.avail.away(staffId, start, end)?.label ?? "");
@@ -132,6 +142,9 @@ export function problemAt(
             const clash = overlaps.find((e) => e.status !== "no_show") ?? overlaps[0];
             return s.taken(name, clash ? formatTime(clash.start, zone) : "");
         }
+        case "resource":
+        case "full":
+            return found.message;
         default:
             return null;
     }
@@ -143,12 +156,13 @@ export function suggest(
     start: Date,
     durationMin: number,
     ignore: (id: string) => boolean,
+    target: SlotTarget = {},
 ): Date | null {
     for (const delta of [60, -60, 30, -30, 120, -120, 180]) {
         const t = new Date(start.getTime() + delta * MIN);
         if (!sameDay(t, start, ctx.avail.zone)) continue;
-        if (problemAt(ctx, staffId, t, new Date(t.getTime() + durationMin * MIN), ignore) === null)
-            return t;
+        const end = new Date(t.getTime() + durationMin * MIN);
+        if (problemAt(ctx, staffId, t, end, ignore, target) === null) return t;
     }
     return null;
 }
@@ -162,6 +176,7 @@ interface PatternInput {
     until: Date;
     staffId: string;
     durationMin: number;
+    item?: SlotItem | null;
     ignore?: (eventId: string) => boolean;
 }
 
@@ -175,7 +190,8 @@ export function buildOccurrences(p: PatternInput, ctx: Ctx): SeriesOccurrence[] 
         if (p.end === "until" && start >= addDays(p.until, 1, zone)) break;
         const end = new Date(start.getTime() + p.durationMin * MIN);
         const past = start < ctx.now;
-        const problem = past ? null : problemAt(ctx, p.staffId, start, end, ignore);
+        const target = { item: p.item ?? null };
+        const problem = past ? null : problemAt(ctx, p.staffId, start, end, ignore, target);
         out.push({
             key: dateKey(start, zone),
             index: i + 1,
@@ -184,7 +200,9 @@ export function buildOccurrences(p: PatternInput, ctx: Ctx): SeriesOccurrence[] 
             status: past ? "done" : problem !== null ? "conflict" : "booked",
             problem,
             suggestion:
-                problem !== null ? suggest(ctx, p.staffId, start, p.durationMin, ignore) : null,
+                problem !== null
+                    ? suggest(ctx, p.staffId, start, p.durationMin, ignore, target)
+                    : null,
             past,
         });
     }
@@ -273,8 +291,7 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
     const pets = useQuery<{ id: string; client_id: string; name: string }>(CLIENT_PETS_SQL).data;
     const services = bookableItems(useCatalogItems()).filter((i) => i.kind === "service");
     const staffRows = useStaff().filter((x) => x.status === "active");
-    const manager = viewer !== null && canManagePayments(viewer.role);
-    const staffChoices = staffRows.filter((x) => manager || x.id === viewer?.staffId);
+    const staffChoices = actorsFor(staffRows, viewer);
     const zone = useBusinessZone();
     const today = startOfDay(new Date(), zone);
     const [clientId, setClientId] = useState("");
@@ -308,6 +325,7 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
                   until: combineDayAndTime(until, "00:00", zone),
                   staffId,
                   durationMin: item?.duration_min ?? 60,
+                  item: item ? slotItemOf(item) : null,
               },
               ctx,
           )
@@ -432,7 +450,7 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
                         oneConfirmation,
                     });
                 },
-                { errorMessage: s.createError },
+                { errorMessage: (e) => failureMessage(e, s.createError) },
             );
         },
         reset,
@@ -697,7 +715,11 @@ export interface SeriesRecord {
 const dayName = (k: string): string => formatWeekdayName(Number(k));
 
 /** One series: its dates, a change to the whole series (or from one visit on) and cancelling what's left. */
-export function useSeriesRecord(api: ApiLike, seriesId: string | null): SeriesRecord | null {
+export function useSeriesRecord(
+    api: ApiLike,
+    seriesId: string | null,
+    viewer: Viewer | null,
+): SeriesRecord | null {
     const { series, visits, ctx } = useSeriesData();
     const row = series.find((x) => x.id === seriesId) ?? null;
     const dates = row ? datesOf(row, visits, ctx) : [];
@@ -725,9 +747,7 @@ export function useSeriesRecord(api: ApiLike, seriesId: string | null): SeriesRe
     const ids = new Set(dates.map((d) => d.bookingId ?? d.key));
     const inScope = scope === "one" ? upcoming.slice(0, 1) : upcoming;
     const preview: SeriesDate[] = inScope.map((d) => {
-        const shift = (Number(wd) - wallTime(d.start, zone).weekday + 7) % 7;
-        const offset = shift > 3 ? shift - 7 : shift;
-        const start = combineDayAndTime(addDays(d.start, offset, zone), tm, zone);
+        const start = movedStart(d.start, Number(wd), tm, zone);
         const end = new Date(start.getTime() + (d.end.getTime() - d.start.getTime()));
         const problem = problemAt(ctx, who, start, end, (id) => ids.has(id));
         return {
@@ -763,7 +783,10 @@ export function useSeriesRecord(api: ApiLike, seriesId: string | null): SeriesRe
         setStaffId,
         weekdayOptions: weekOrder().map((d) => ({ key: String(d), label: dayName(String(d)) })),
         timeOptions: times(),
-        staffOptions: [...ctx.staff.values()].map((x) => ({ key: x.id, label: staffName(x) })),
+        staffOptions: actorsFor([...ctx.staff.values()], viewer).map((x) => ({
+            key: x.id,
+            label: staffName(x),
+        })),
         preview,
         changeSummary: !changed
             ? s.noChange
@@ -791,7 +814,7 @@ export function useSeriesRecord(api: ApiLike, seriesId: string | null): SeriesRe
                     );
                     setSaved(s.changeSaved(out.moved.length, out.skipped.length));
                 },
-                { errorMessage: s.changeError },
+                { errorMessage: (e) => failureMessage(e, s.changeError) },
             );
         },
         cancelNotify,

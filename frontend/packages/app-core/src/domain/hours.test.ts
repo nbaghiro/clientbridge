@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { formatTime, zonedDate } from "../datetime";
 import type { ScheduleEvent } from "./bookings";
-import { affectedBy, rebaseWeek, seedDays, shiftLabel } from "./hours";
+import { strings } from "../strings";
+import { affectedBy, rebaseWeek, refusalMessage, seedDays, shiftLabel, splitNote } from "./hours";
+
+const s = strings.hours;
 
 const ZONE = "America/Vancouver";
 
@@ -18,28 +21,60 @@ const row = (weekday: number, start: string, end: string, available = 1): Recurr
 describe("the weekly hours editor", () => {
     it("defaults days without rows to weekdays nine to five, weekends closed", () => {
         expect(seedDays([])).toEqual([
-            { weekday: 0, open: true, start: "09:00", end: "17:00" },
-            { weekday: 1, open: true, start: "09:00", end: "17:00" },
-            { weekday: 2, open: true, start: "09:00", end: "17:00" },
-            { weekday: 3, open: true, start: "09:00", end: "17:00" },
-            { weekday: 4, open: true, start: "09:00", end: "17:00" },
-            { weekday: 5, open: false, start: "09:00", end: "17:00" },
-            { weekday: 6, open: false, start: "09:00", end: "17:00" },
+            { weekday: 0, open: true, start: "09:00", end: "17:00", split: false },
+            { weekday: 1, open: true, start: "09:00", end: "17:00", split: false },
+            { weekday: 2, open: true, start: "09:00", end: "17:00", split: false },
+            { weekday: 3, open: true, start: "09:00", end: "17:00", split: false },
+            { weekday: 4, open: true, start: "09:00", end: "17:00", split: false },
+            { weekday: 5, open: false, start: "09:00", end: "17:00", split: false },
+            { weekday: 6, open: false, start: "09:00", end: "17:00", split: false },
         ]);
     });
 
-    it("spans a split day from its first start to its last end, and keeps a closed day closed", () => {
+    it("marks a split day instead of flattening it, and keeps a closed day closed", () => {
         const days = seedDays([
             row(1, "08:30:00", "12:00:00"),
             row(1, "13:00:00", "18:15:00"),
             row(3, "09:00:00", "17:00:00", 0),
             row(5, "10:00:00", "14:00:00"),
         ]);
-        expect(days[1]).toEqual({ weekday: 1, open: true, start: "08:30", end: "18:15" });
-        expect(days[3]).toEqual({ weekday: 3, open: false, start: "09:00", end: "17:00" });
-        expect(days[5]).toEqual({ weekday: 5, open: true, start: "10:00", end: "14:00" });
+        expect(days[1]).toEqual({
+            weekday: 1,
+            open: true,
+            start: "08:30",
+            end: "18:15",
+            split: true,
+        });
+        expect(days[3]).toEqual({
+            weekday: 3,
+            open: false,
+            start: "09:00",
+            end: "17:00",
+            split: false,
+        });
+        expect(days[5]).toEqual({
+            weekday: 5,
+            open: true,
+            start: "10:00",
+            end: "14:00",
+            split: false,
+        });
         expect(days[0]?.open).toBe(true);
         expect(days[6]?.open).toBe(false);
+    });
+
+    it("explains that split days can't be changed here and names each refusal", () => {
+        const split = seedDays([
+            row(1, "08:30:00", "12:00:00"),
+            row(1, "13:00:00", "18:15:00"),
+            row(4, "09:00:00", "11:00:00"),
+            row(4, "12:00:00", "17:00:00"),
+        ]);
+        expect(splitNote(split)).toBe(s.splitWeek(`${s.tuesday} and ${s.friday}`, 2));
+        expect(splitNote(seedDays([row(1, "09:00:00", "17:00:00")]))).toBeNull();
+        expect(refusalMessage("hours_split_week")).toBe(s.splitRefused);
+        expect(refusalMessage("hours_revision_conflict")).toBe(s.conflict);
+        expect(refusalMessage("http_422")).toBe(s.refused);
     });
 
     it("labels a shift in full or as a short twelve-hour span", () => {

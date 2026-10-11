@@ -5,21 +5,30 @@ import { strings } from "../strings";
 import {
     type CalendarEvent,
     type ScheduleEvent,
+    actorsFor,
     applyPending,
+    blockSpan,
     buildAvailability,
     canCollectDeposit,
+    composerTimes,
     depositOf,
     eventFlags,
     hourMarks,
     laneFor,
     layoutDay,
+    markMoves,
     minuteTop,
+    moveFailure,
     needsClosing,
     offHourSpans,
+    openStarts,
     placeEvents,
     planMove,
+    settleMoves,
+    shiftDay,
     slotProblem,
     upNext,
+    visibleWindow,
 } from "./bookings";
 import type { ItemRow } from "./catalog";
 import type { StaffRow } from "./staff";
@@ -67,6 +76,8 @@ function event(id: string, start: Date, end: Date, extra: Partial<ScheduleEvent>
         source: "staff",
         seriesId: null,
         resourceId: null,
+        bufferBeforeMin: 0,
+        bufferAfterMin: 0,
         resourceName: null,
         addonCount: 0,
         note: null,
@@ -75,6 +86,7 @@ function event(id: string, start: Date, end: Date, extra: Partial<ScheduleEvent>
         remindedAt: null,
         intent: "accent",
         needsClose: false,
+        needsMove: false,
         inProgress: false,
         timeLabel: "",
         timeShort: "",
@@ -182,6 +194,22 @@ describe("layoutDay", () => {
         expect(placeEvents([], DAY, 8, 2, ZONE)).toEqual([]);
     });
 
+    it("places cards by wall clock on 23 and 25 hour days, as the hour lines are drawn", () => {
+        const TOR = "America/Toronto";
+        const on = (month: number, day: number, h: number, m = 0): Date =>
+            zonedDate(2026, month, day, h, m, TOR);
+        const top = (start: Date, end: Date, day: Date, startHour = 8) =>
+            placeEvents([event("x", start, end)], day, startHour, 1, TOR).map((p) => [
+                p.top,
+                p.height,
+            ]);
+        expect(top(on(11, 1, 9), on(11, 1, 10), on(11, 1, 0))).toEqual([[60, 58]]);
+        expect(minuteTop(on(11, 1, 9), 8, 1, TOR)).toBe(60);
+        expect(top(on(3, 8, 9), on(3, 8, 10), on(3, 8, 0))).toEqual([[60, 58]]);
+        expect(top(on(11, 1, 23), on(11, 2, 0), on(11, 1, 0), 0)).toEqual([[1380, 58]]);
+        expect(top(on(3, 8, 23), on(3, 9, 1), on(3, 8, 0), 0)).toEqual([[1380, 58]]);
+    });
+
     it("measures minutes, hour marks and the shaded hours outside a shift", () => {
         expect(minuteTop(at(9, 30), 8, 2, ZONE)).toBe(180);
         expect(minuteTop(at(7, 45), 8, 1, ZONE)).toBe(-15);
@@ -274,6 +302,49 @@ describe("slotProblem and planMove", () => {
         expect(check(at(6), at(7), null, "st_bo").problem).toBeNull();
     });
 
+    it("mirrors the server: buffers, rooms, joining a class with seats and the same-day end", () => {
+        const groom = { id: "it_groom", capacity: 1, bufferBeforeMin: 0, bufferAfterMin: 15 };
+        const yoga = { id: "it_yoga", capacity: 4, bufferBeforeMin: 0, bufferAfterMin: 0 };
+        const session = {
+            kind: "class" as const,
+            itemId: "it_yoga",
+            bookingId: null,
+            status: "scheduled",
+        };
+        const taken = [
+            event("bk_1", at(10), at(11), { bufferAfterMin: 15 }),
+            event("bk_room", at(13), at(14), { staffId: "st_bo", resourceId: "rs_tub" }),
+            event("cls", at(15), at(16), { ...session, capacity: 4, bookedCount: 3 }),
+            event("full", at(16), at(17), { ...session, capacity: 2, bookedCount: 2 }),
+        ];
+        const check = (
+            start: Date,
+            end: Date,
+            target: Parameters<typeof slotProblem>[7] = {},
+            staff = "st_amy",
+        ) => slotProblem(avail, taken, STAFF, staff, start, end, null, target);
+        expect(check(at(11), at(11, 30)).problem).toBe("overlap");
+        expect(check(at(11, 15), at(11, 45)).problem).toBeNull();
+        expect(check(at(11, 15), at(11, 45), { item: { ...groom, bufferBeforeMin: 30 } })).toEqual({
+            problem: "overlap",
+            message: s.problemOverlap("Amy"),
+        });
+        expect(check(at(13, 30), at(14), { resourceId: "rs_tub" })).toEqual({
+            problem: "resource",
+            message: s.problemRoom,
+        });
+        expect(check(at(13, 30), at(14), { resourceId: "rs_sink" }).problem).toBeNull();
+        expect(check(at(15), at(16), { item: yoga }).problem).toBeNull();
+        expect(check(at(15), at(16), { item: groom }).problem).toBe("overlap");
+        expect(check(at(16), at(17), { item: yoga })).toEqual({
+            problem: "full",
+            message: s.problemClassFull,
+        });
+        expect(check(at(22, 0, 14), at(23, 0, 14)).problem).toBeNull();
+        expect(check(at(23, 0, 14), at(0, 0, 15)).problem).toBe("off_hours");
+        expect(check(at(23), at(0, 0, 1), {}, "st_bo").problem).toBeNull();
+    });
+
     it("snaps a drag to five minutes and says where it lands", () => {
         const visit = event("bk_1", at(10), at(11));
         const ctx = { avail, events: booked, staff: STAFF };
@@ -322,6 +393,61 @@ describe("the day board", () => {
             staffId: "st_bo",
             timeLabel: `${formatTime(at(14), ZONE)} – ${formatTime(at(15), ZONE)}`,
         });
+    });
+
+    it("keeps a moved visit where it was dropped until the replica brings it back", () => {
+        const events = [event("a", at(9), at(10)), event("b", at(11), at(12))];
+        const pending = {
+            a: { start: at(13), end: at(14), staffId: "st_amy" },
+            b: { start: at(15), end: at(16), staffId: "st_amy" },
+        };
+        expect(settleMoves(pending, events)).toBe(pending);
+        const arrived = [event("a", at(13), at(14)), event("b", at(11), at(12))];
+        expect(settleMoves(pending, arrived)).toEqual({ b: pending.b });
+        expect(settleMoves({}, arrived)).toEqual({});
+    });
+
+    it("says a move failed for want of a connection, not because the time was taken", () => {
+        expect(moveFailure(new TypeError("Failed to fetch"))).toBe(s.moveOffline);
+        expect(moveFailure(Object.assign(new Error("409"), { status: 409 }))).toBe(
+            s.rescheduleError,
+        );
+        expect(
+            moveFailure(Object.assign(new Error("409"), { status: 409, code: "class_move" })),
+        ).toBe(strings.api.classMove);
+    });
+
+    it("clamps a block to the visible window and widens the window to midnight", () => {
+        const block = (start: Date, end: Date) => ({
+            id: "b",
+            staffId: "st_amy",
+            start,
+            end,
+            kind: "time_off" as const,
+            label: "Vet",
+        });
+        expect(blockSpan(block(at(7), at(10)), DAY, 8, 18, 1, ZONE)).toEqual({
+            top: 0,
+            height: 120,
+        });
+        expect(blockSpan(block(at(17), at(9, 0, 1)), DAY, 8, 18, 1, ZONE)).toEqual({
+            top: 540,
+            height: 60,
+        });
+        expect(blockSpan(block(at(5), at(7)), DAY, 8, 18, 1, ZONE)).toBeNull();
+        expect(visibleWindow(DAY, [{ start: at(9), end: at(17, 30) }], ZONE)).toEqual({
+            startHour: 9,
+            endHour: 18,
+        });
+        expect(visibleWindow(DAY, [{ start: at(22), end: at(0, 0, 1) }], ZONE)).toEqual({
+            startHour: 22,
+            endHour: 24,
+        });
+        expect(visibleWindow(DAY, [{ start: at(23, 0, -1), end: at(1) }], ZONE)).toEqual({
+            startHour: 0,
+            endHour: 1,
+        });
+        expect(visibleWindow(DAY, [], ZONE)).toEqual({ startHour: 9, endHour: 17 });
     });
 
     it("builds a lane's hours, time booked and what is left after breaks and time off", () => {
@@ -390,6 +516,23 @@ describe("the day board", () => {
         ).toEqual([]);
     });
 
+    it("marks open visits a closure or time off now covers as needing a new time", () => {
+        const events = [
+            event("shut", at(10, 0, 5), at(11, 0, 5)),
+            event("shut_done", at(12, 0, 5), at(13, 0, 5), { status: "completed" }),
+            event("vet", at(14, 30), at(15)),
+            event("fine", at(10), at(11)),
+            event("bo", at(14), at(15), { staffId: "st_bo" }),
+        ];
+        const marked = markMoves(events, avail.away, at(8));
+        expect(marked.filter((e) => e.needsMove).map((e) => e.id)).toEqual(["shut", "vet"]);
+        expect(marked[3]).toBe(events[3]);
+        expect(markMoves(events, avail.away, at(16)).filter((e) => e.needsMove)).toHaveLength(1);
+        expect(
+            eventFlags(event("a", at(9), at(10), { needsMove: true, seriesId: "sch_1" })),
+        ).toEqual(["needs_move", "recurring"]);
+    });
+
     it("lists visits to close and the next few booked ones", () => {
         const events = [
             event("done", at(8), at(9), { needsClose: true }),
@@ -404,6 +547,52 @@ describe("the day board", () => {
         expect(upNext(events, at(10)).map((e) => e.id)).toEqual(["soon", "pending", "later"]);
         expect(upNext(events, at(10), 1).map((e) => e.id)).toEqual(["soon"]);
         expect(upNext(events, at(16))).toEqual([]);
+    });
+});
+
+describe("picking a time", () => {
+    it("offers every quarter hour that fits the member's hours, or the visible window", () => {
+        const window = { startHour: 7, endHour: 10 };
+        expect(openStarts(avail, "st_bo", DAY, 60, window).map((d) => formatTime(d, ZONE))).toEqual(
+            [
+                "7:00 a.m.",
+                "7:15 a.m.",
+                "7:30 a.m.",
+                "7:45 a.m.",
+                "8:00 a.m.",
+                "8:15 a.m.",
+                "8:30 a.m.",
+                "8:45 a.m.",
+                "9:00 a.m.",
+            ],
+        );
+        const amy = openStarts(avail, "st_amy", DAY, 120, window);
+        expect([amy[0], amy.at(-1), amy.length]).toEqual([at(9), at(15), 14]);
+        expect(openStarts(avail, "st_amy", at(0, 0, 7), 60, window)).toEqual([]);
+    });
+
+    it("lists composer start times across the visible window and the usual day", () => {
+        const keys = (w: { startHour: number; endHour: number }) =>
+            composerTimes(w).map((o) => o.key);
+        expect(keys({ startHour: 9, endHour: 17 }).slice(0, 2)).toEqual(["06:00", "06:15"]);
+        expect(keys({ startHour: 9, endHour: 17 }).at(-1)).toBe("21:45");
+        expect(keys({ startHour: 5, endHour: 24 })[0]).toBe("05:00");
+        expect(keys({ startHour: 5, endHour: 24 }).at(-1)).toBe("23:45");
+    });
+
+    it("keeps the chosen weekday when the week changes, never before today", () => {
+        expect(shiftDay("2026-10-07", 1, ZONE, at(8))).toBe("2026-10-14");
+        expect(shiftDay("2026-10-14", -1, ZONE, at(8))).toBe("2026-10-07");
+        expect(shiftDay("2026-10-14", -1, ZONE, at(8, 0, 2))).toBe("2026-10-09");
+    });
+
+    it("offers staff only themselves and a manager everyone", () => {
+        const rows = [...STAFF.values()];
+        const ids = (viewer: Parameters<typeof actorsFor>[1]) =>
+            actorsFor(rows, viewer).map((x) => x.id);
+        expect(ids({ role: "owner", staffId: "st_amy" })).toEqual(["st_amy", "st_bo"]);
+        expect(ids({ role: "admin", staffId: "st_amy" })).toEqual(["st_amy", "st_bo"]);
+        expect(ids({ role: "staff", staffId: "st_bo" })).toEqual(["st_bo"]);
     });
 });
 

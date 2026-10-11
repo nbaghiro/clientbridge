@@ -333,19 +333,6 @@ function Policy() {
                         pol.set("max_reschedules", Number(k));
                     }}
                 />
-                <Text style={styles.label}>{p.lateDeposit}</Text>
-                <Choice
-                    layout="segmented"
-                    label={p.lateDeposit}
-                    value={d.late_cancel_deposit}
-                    options={[
-                        { key: "keep", label: p.keep },
-                        { key: "refund", label: p.refund },
-                    ]}
-                    onChange={(k) => {
-                        pol.set("late_cancel_deposit", k);
-                    }}
-                />
             </View>
             <View style={styles.card}>
                 <Text style={styles.cardTitle}>{p.clientSees}</Text>

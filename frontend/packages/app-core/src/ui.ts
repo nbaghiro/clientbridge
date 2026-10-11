@@ -613,7 +613,7 @@ export interface RatingDistributionProps {
 }
 
 export type CalendarEventFlag =
-    "online" | "recurring" | "deposit_due" | "addons" | "note" | "walk_in" | "class";
+    "needs_move" | "online" | "recurring" | "deposit_due" | "addons" | "note" | "walk_in" | "class";
 
 export interface CalendarEventCardProps {
     headline: string;
