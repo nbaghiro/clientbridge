@@ -289,7 +289,7 @@ DB owned by `powersync_storage_owner`),
 `redis:7` (arq queue), `s3` (RustFS, an S3-compatible dev store; MinIO no longer publishes free images),
 `kratos-migrate` + `kratos` (Ory Kratos, `infra/kratos/`, its own `kratos` database), `mailpit` (catches
 the API's email, auth codes included, when `SMTP_URL` points at it as `make dev-api` does; open :8715), `stripe-mock` (test profile only).
-CI jobs whose Postgres is a service container start Kratos with `infra/kratos/standalone.sh`.
+CI jobs whose Postgres is a service container start Kratos with `make kratos-standalone` (`infra/kratos/standalone.sh`), which reads the image pin from `docker-compose.yml`.
 The compose Kratos posts auth email to the API at `host.docker.internal:8701`; on Linux without Docker
 Desktop that is the bridge address, so run the API with `--host 0.0.0.0` there (CI does).
 
