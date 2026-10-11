@@ -335,7 +335,8 @@ export function useSyncState(pollMs = 3000): SyncState {
 }
 
 interface ReplicaSessionOptions {
-    restore: () => Promise<CommonPowerSyncDatabase | null>;
+    /** `stale()` turns true once a newer action replaced this one; it must then touch nothing. */
+    restore: (stale: () => boolean) => Promise<CommonPowerSyncDatabase | null>;
     pause: () => Promise<void>;
     discard: () => Promise<void>;
     clearCredentials: () => Promise<void>;
@@ -370,7 +371,7 @@ export function useReplicaSession(options: ReplicaSessionOptions) {
             try {
                 const next =
                     action === "load"
-                        ? await bounded(options.restore())
+                        ? await bounded(options.restore(() => current !== generation.current))
                         : await bounded(
                               action === "discard" ? options.discard() : options.clearCredentials(),
                           ).then(() => null);

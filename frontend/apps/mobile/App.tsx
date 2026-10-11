@@ -109,8 +109,10 @@ async function endSession(): Promise<void> {
 }
 
 const lifecycle = {
-    restore: async () => {
+    restore: async (stale: () => boolean) => {
         const userId = await signedInUser();
+        // A replaced restore (development runs effects twice) must not touch the replica.
+        if (stale()) return null;
         if (userId === null) {
             await replica.pause();
             return null;
