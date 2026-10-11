@@ -30,7 +30,7 @@ services:
   # Ory Kratos owns credentials and sessions; its tables live in the separate `kratos` database
   # created by `make up` (scripts/db_access.py).
   kratos-migrate:
-    image: oryd/kratos@sha256:2a13bb8d362c7a7ae33bd7c0f5168aee46921f15c916a06346db91c06dc76643
+    image: &kratos-image oryd/kratos@sha256:2a13bb8d362c7a7ae33bd7c0f5168aee46921f15c916a06346db91c06dc76643  # infra/kratos/standalone.sh reads this pin too
     depends_on:
       postgres:
         condition: service_healthy
@@ -39,7 +39,7 @@ services:
     command: ["migrate", "sql", "up", "-e", "--yes"]
 
   kratos:
-    image: oryd/kratos@sha256:2a13bb8d362c7a7ae33bd7c0f5168aee46921f15c916a06346db91c06dc76643
+    image: *kratos-image
     depends_on:
       kratos-migrate:
         condition: service_completed_successfully

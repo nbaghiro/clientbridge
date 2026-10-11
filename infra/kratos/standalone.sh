@@ -2,8 +2,9 @@
 # Kratos on the host network for CI jobs whose Postgres is a service container (not docker compose).
 set -euo pipefail
 
-image="oryd/kratos@sha256:2a13bb8d362c7a7ae33bd7c0f5168aee46921f15c916a06346db91c06dc76643"
 config="$(cd "$(dirname "$0")" && pwd)"
+# The pin lives in docker-compose.yml only, so CI and local always run the same Kratos build.
+image="$(docker compose -f "$config/../../docker-compose.yml" config --images | grep '^oryd/kratos@' | sort -u)"
 dsn="postgres://kratos:${KRATOS_DB_PASSWORD:-kratos}@localhost:8702/kratos?sslmode=disable"
 
 docker run --rm --network host -e DSN="$dsn" "$image" migrate sql up -e --yes

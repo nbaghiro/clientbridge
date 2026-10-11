@@ -1,4 +1,4 @@
-.PHONY: help up down logs-sync logs-auth install stripe-listen dev-api worker dev-web dev-connect dev-site dev-playground dev-mobile build build-site test-site test-web test-connect test-playground test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones codegen-check test test-backend test-frontend test-contract test-kratos test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
+.PHONY: help up down logs-sync logs-auth install stripe-listen dev-api worker dev-web dev-connect dev-site dev-playground dev-mobile build build-site test-site test-web test-connect test-playground test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones codegen-check test test-backend test-frontend test-contract test-kratos kratos-standalone test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
 .DEFAULT_GOAL := help
 
 help:
@@ -39,6 +39,7 @@ help:
 	@echo "test-frontend    the frontend unit tests, with app-core again in three time zones"
 	@echo "test-contract    real StripeGateway vs stripe-mock (starts it; auto-skips if down)"
 	@echo "test-kratos      KratosIdentityProvider vs the local Kratos (auto-skips if down)"
+	@echo "kratos-standalone Kratos on the host network for CI (Postgres as a service container)"
 	@echo "test-e2e         Stripe test-mode flows (needs STRIPE_TEST_SECRET_KEY)"
 	@echo "stripe-mock      start the stripe-mock contract-test service on :8708"
 	@echo "lint             lint-backend + lint-frontend"
@@ -184,6 +185,10 @@ test-contract: stripe-mock
 # Contract tier: the real KratosIdentityProvider vs the local Kratos. Auto-skips if Kratos is down.
 test-kratos:
 	cd backend && uv run pytest -m kratos -q
+
+# CI only: Kratos without docker compose, for jobs whose Postgres is a service container.
+kratos-standalone:
+	./infra/kratos/standalone.sh
 
 # E2E tier: real Stripe test mode. Skips unless STRIPE_TEST_SECRET_KEY is exported.
 test-e2e:

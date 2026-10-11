@@ -77,7 +77,7 @@ jobs:
                   time.sleep(1)
           PYTHON
       - run: make migrate
-      - run: ./infra/kratos/standalone.sh  # the seed creates the demo users' Kratos identities
+      - run: make kratos-standalone  # the seed creates the demo users' Kratos identities
       - run: make seed  # tests act as the demo business's owner
       - run: make test-backend
       - run: make test-kratos  # KratosIdentityProvider against the real Kratos
@@ -216,7 +216,7 @@ jobs:
                   time.sleep(1)
           PYTHON
       - run: make migrate
-      - run: ./infra/kratos/standalone.sh
+      - run: make kratos-standalone
       - run: make seed
       - run: uv run uvicorn clientbridge.main:app --port 8701 > /tmp/api.log 2>&1 &
         working-directory: backend
