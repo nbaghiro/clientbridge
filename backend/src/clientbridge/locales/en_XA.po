@@ -351,6 +351,9 @@ msgstr "[Ýöûŕ ṽîšîţš ŵîţĥ {business} åŕé ñöŵ öñ: {whens}.
 msgid "series_moved.subject"
 msgstr "[Ýöûŕ ṽîšîţš ŵéŕé ɱöṽéð — {business}~~~~~~~~~]"
 
+msgid "signed_copy.signed_by"
+msgstr "[— Šîĝñéð ƀý {name}~~~~~]"
+
 msgid "staff_invite.body"
 msgstr "[Îñṽîţé çöðé: {code}~~~~~]"
 

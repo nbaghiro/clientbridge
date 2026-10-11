@@ -124,11 +124,9 @@ export function signatureActivity(r: SignatureRequest, zone: string): string {
     return p.activity[r.state](formatDate(parseTimestamp(at), zone));
 }
 
-/** The text a client signed: the snapshot taken at signing without its signed-by line. */
+/** The text a client agreed to once signed, otherwise the contract's current text. */
 export function signedText(r: SignatureRequest, current: string): string {
-    if (r.signed_body === null) return current;
-    const cut = r.signed_body.lastIndexOf("\n\n— Signed by ");
-    return cut < 0 ? r.signed_body : r.signed_body.slice(0, cut);
+    return r.signed_body ?? current;
 }
 
 function parseStrokes(raw: string | null): SignatureStrokes | null {

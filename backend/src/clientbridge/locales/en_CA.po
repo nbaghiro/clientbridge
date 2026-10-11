@@ -357,6 +357,9 @@ msgstr "Your visits with {business} are now on: {whens}."
 msgid "series_moved.subject"
 msgstr "Your visits were moved — {business}"
 
+msgid "signed_copy.signed_by"
+msgstr "— Signed by {name}"
+
 msgid "staff_invite.body"
 msgstr "Invite code: {code}"
 

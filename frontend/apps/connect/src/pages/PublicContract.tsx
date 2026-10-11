@@ -194,7 +194,7 @@ function Signed({ doc }: { doc: PublicContractData }) {
                     issuer={doc.business_name}
                     title={doc.contract_name}
                     meta={s.version(doc.version)}
-                    clauses={contractClauses(doc.body.split("\n\n— Signed by ")[0] ?? doc.body)}
+                    clauses={contractClauses(doc.body)}
                     signature={{
                         heading: s.signatureHeading,
                         name: doc.typed_name ?? doc.signer_name ?? "",

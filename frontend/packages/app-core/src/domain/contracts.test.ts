@@ -28,19 +28,10 @@ describe("signedText", () => {
         expect(signedText(request(null), "Current terms")).toBe("Current terms");
     });
 
-    it("shows the snapshot the client signed without its signed-by line", () => {
-        expect(
-            signedText(
-                request("I agree.\n\nTo the terms.\n\n— Signed by Ann on Oct 1"),
-                "Newer terms",
-            ),
-        ).toBe("I agree.\n\nTo the terms.");
-        expect(signedText(request("I agree."), "Newer terms")).toBe("I agree.");
+    it("shows the text the client agreed to, not newer terms", () => {
+        expect(signedText(request("I agree.\n\nTo the terms."), "Newer terms")).toBe(
+            "I agree.\n\nTo the terms.",
+        );
         expect(signedText(request(""), "Newer terms")).toBe("");
-    });
-
-    it("cuts only at the last signed-by line", () => {
-        const body = "Quote: \n\n— Signed by nobody\n\nEnd\n\n— Signed by Ann";
-        expect(signedText(request(body), "")).toBe("Quote: \n\n— Signed by nobody\n\nEnd");
     });
 });

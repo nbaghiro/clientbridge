@@ -868,7 +868,7 @@ class PublicContractService:
             raise Unprocessable("the drawn signature is empty or too detailed")
         signature.status = "signed"
         signature.signed_at = datetime.now(UTC)
-        signature.signed_body = _snapshot(contract.body, data.typed_name.strip())
+        signature.signed_body = contract.body
         signature.contract_version = contract.version
         signature.signer_name = data.typed_name.strip()
         signature.method = "drawn" if data.strokes else "typed"
@@ -926,10 +926,6 @@ def _strokes_out(raw: list[object] | None) -> list[list[tuple[float, float]]] | 
                 [(float(p[0]), float(p[1])) for p in stroke if isinstance(p, list) and len(p) == 2]
             )
     return out
-
-
-def _snapshot(body: str, typed_name: str | None) -> str:
-    return f"{body}\n\n— Signed by {typed_name}" if typed_name else body
 
 
 FORM_UPLOAD_TYPES = frozenset({"application/pdf", "image/jpeg", "image/png", "image/heic"})

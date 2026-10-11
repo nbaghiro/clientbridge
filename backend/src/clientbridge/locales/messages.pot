@@ -347,6 +347,9 @@ msgstr ""
 msgid "series_moved.subject"
 msgstr ""
 
+msgid "signed_copy.signed_by"
+msgstr ""
+
 msgid "staff_invite.body"
 msgstr ""
 

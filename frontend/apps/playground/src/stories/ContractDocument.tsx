@@ -15,7 +15,7 @@ const clauses = [
 ];
 
 const signature = {
-    heading: "Signed",
+    heading: "Signed by",
     name: "Amélie Tremblay",
     strokes: [
         [

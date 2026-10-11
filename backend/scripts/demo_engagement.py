@@ -550,7 +550,7 @@ def _documents(ctx: DemoContext) -> None:
                 token=f"demo_signature_{index}",
                 status="signed",
                 signed_at=when,
-                signed_body=f"{contract.body}\n\n— Signed by {client.name}",
+                signed_body=contract.body,
                 contract_version=contract.version,
                 signer_name=client.name,
                 method="typed",

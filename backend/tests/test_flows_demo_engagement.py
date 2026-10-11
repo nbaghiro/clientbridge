@@ -4,6 +4,7 @@ import pytest
 from scripts.demo_context import DemoContext
 from scripts.demo_engagement import ASSETS, build_engagement
 
+from clientbridge.core.locale import SOURCE_LOCALE
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Consent, Subject
@@ -14,6 +15,7 @@ from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.business import BrandInput
 from clientbridge.services.consents import allows_marketing
+from clientbridge.services.contracts import signed_copy
 from clientbridge.services.public import _validate
 
 
@@ -185,14 +187,18 @@ def test_signed_waivers_preserve_text_identity_version_and_real_artifact(
     assert len(signed) == 6
     for signature in signed:
         client = engagement.get(Client, signature.client_id)
-        assert signature.signed_body == f"{contract.body}\n\n— Signed by {client.name}"
+        assert signature.signed_body == contract.body
         assert signature.contract_version == contract.version
         assert signature.signer_name == client.name and signature.method == "typed"
         assert signature.opened_at is not None and signature.signed_at is not None
         assert signature.created_at <= signature.opened_at < signature.signed_at <= engagement.now
     artifact = engagement.get(File, "fl_signed_waiver_amelie")
     path = ASSETS / artifact.s3_key.rsplit("/", 1)[1]
-    assert path.read_text() == engagement.get(Signature, artifact.parent_id).signed_body
+    signed_waiver = engagement.get(Signature, artifact.parent_id)
+    assert signed_waiver.signed_body and signed_waiver.signer_name
+    assert path.read_text() == signed_copy(
+        SOURCE_LOCALE, signed_waiver.signed_body, signed_waiver.signer_name
+    )
     assert path.stat().st_size == artifact.size
     pending = engagement.get(Signature, "sig_pending")
     assert pending.token and pending.status == "pending" and pending.signed_at is None

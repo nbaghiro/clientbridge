@@ -1064,6 +1064,15 @@ Not tracked in Jira yet. These are pulled in by demand once the launch stories a
   served by the API, because at 50k clients the ledger screens take 3 to 12 seconds on a device;
   browser-tab coordination and native resume; sanitized sync diagnostics and retention; whether the hours
   editor can express "no hours set"; an offline check on iOS, which the simulator cannot do per app.
+- **A second language:** the catalogs, formatter and gates are in place with English only (see
+  *Locale and time zones* in the architecture doc). Adding French needs the translated catalog files,
+  locale columns on businesses, users and clients (a schema change), the bodies of `activeLocale()` and
+  `locale_for(...)`, language pickers, the device language through `expo-localization`, `/fr` routes and
+  `hreflang` on the site, a per-locale prerender of the site (its content reads the catalog at import),
+  Stripe's `locale` parameter, translated store listings, and a decision on whether a sent document keeps
+  its language. Known gaps to close then: the mobile date polyfill writes "GMT-7" where browsers write
+  "Pacific Time", so the zone label is web-only; the `no-composed-copy` rule cannot see text placed side by
+  side in JSX; browser and Node time zone data can lag the backend's pinned `tzdata`.
 
 ### Connect, the client experience
 

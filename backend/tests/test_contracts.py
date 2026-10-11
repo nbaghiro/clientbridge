@@ -99,8 +99,8 @@ async def test_public_sign_records_snapshot_and_ip(
     row = (await db.execute(select(Signature).where(Signature.token == token))).scalar_one()
     contract = (await db.execute(select(Contract).where(Contract.id == WAIVER))).scalar_one()
     assert row.status == "signed" and row.signed_at is not None and row.ip
-    assert row.signed_body is not None
-    assert contract.body in row.signed_body and "Jane Doe" in row.signed_body
+    assert row.signed_body == contract.body and row.signer_name == "Jane Doe"
+    assert res.json()["body"] == contract.body
 
 
 async def test_public_second_sign_409(api: httpx.AsyncClient, db: AsyncSession) -> None:

@@ -7,6 +7,7 @@ from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.ids import new_id
+from clientbridge.core.locale import message
 from clientbridge.core.scoping import scoped
 from clientbridge.models.clients import Client
 from clientbridge.models.documents import Contract, Signature
@@ -191,3 +192,8 @@ def _signature_out(signature: Signature) -> SignatureOut:
         signed_at=signature.signed_at,
         contract_version=signature.contract_version,
     )
+
+
+def signed_copy(locale: str, body: str, signer_name: str) -> str:
+    """Plain-text copy of a signed contract: the agreed text followed by the signed-by line."""
+    return f"{body}\n\n{message(locale, 'signed_copy.signed_by', name=signer_name)}"
