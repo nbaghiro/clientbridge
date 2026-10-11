@@ -873,7 +873,8 @@ test("staff: today, schedule and clients", async ({ page }) => {
     const b = strings.bookings;
     await walk.step("schedule: board, composer and a booking", async () => {
         await navigate(page, "/schedule");
-        await main.getByRole("button", { name: b.newBooking }).click();
+        // an empty day adds a second New booking button in its empty state
+        await main.getByRole("button", { name: b.newBooking }).first().click();
         const composer = page.getByRole("form", { name: b.newBooking });
         await expect(composer).toBeVisible();
         await composer.getByRole("button", { name: strings.common.close }).click();
