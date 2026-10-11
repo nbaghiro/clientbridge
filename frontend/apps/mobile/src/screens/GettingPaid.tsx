@@ -4,6 +4,8 @@ import {
     strings,
     useAsyncAction,
     useGettingPaid,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { useFocusEffect } from "@react-navigation/native";
@@ -28,6 +30,7 @@ const c = theme.colors;
 const g = strings.gettingPaid;
 
 export function GettingPaidScreen() {
+    const zone = useBusinessZone();
     const paid = useGettingPaid(api);
     const web = useAsyncAction();
     const manageOnWeb = (): void => {
@@ -47,7 +50,7 @@ export function GettingPaidScreen() {
     );
     const warn = paid.phase !== "enabled";
     const act = paid.phase === "restricted" || paid.phase === "in_progress";
-    const deadline = paid.deadline === null ? "" : formatDate(paid.deadline);
+    const deadline = paid.deadline === null ? "" : formatDate(paid.deadline, zone);
 
     if (paid.account.props !== null) return <PaymentAccount {...paid.account.props} />;
     if (paid.phase === "loading") {
@@ -173,7 +176,7 @@ export function GettingPaidScreen() {
                                 value:
                                     paid.availableCents === null
                                         ? g.balanceUnknown
-                                        : formatMoney(paid.availableCents),
+                                        : formatMoney(paid.availableCents, BUSINESS_CURRENCY),
                             },
                         ]}
                     />

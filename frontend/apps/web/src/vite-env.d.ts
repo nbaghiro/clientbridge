@@ -5,6 +5,7 @@ interface ImportMetaEnv {
     readonly VITE_PAY_URL?: string;
     readonly VITE_BOOK_URL?: string;
     readonly VITE_STRIPE_PUBLISHABLE_KEY?: string;
+    readonly VITE_PSEUDO_LOCALE?: string;
 }
 interface ImportMeta {
     readonly env: ImportMetaEnv;

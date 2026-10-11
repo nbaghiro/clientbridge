@@ -12,7 +12,9 @@ export default story<PaymentAccountProps>({
     examples: [
         {
             key: "disconnected",
-            title: strings.paymentAccount.account,
+            get title() {
+                return strings.paymentAccount.account;
+            },
             props: () => ({
                 component: "account",
                 scope: "preview",

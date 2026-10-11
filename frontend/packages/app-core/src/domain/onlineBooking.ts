@@ -3,8 +3,8 @@ import { useBusinessQuery as useQuery } from "../hooks";
 import { useEffect, useRef, useState } from "react";
 
 import type { ApiLike } from "../api";
-import { addDays, formatWeekday, relativeDayTime } from "../datetime";
-import { formatMoney, initials } from "../format";
+import { addDays, formatWeekday, relativeDayTime, useBusinessZone } from "../datetime";
+import { formatMoney, formatParts, initials, BUSINESS_CURRENCY } from "../format";
 import { useAsyncAction, useLoad, useRemote } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
@@ -173,21 +173,22 @@ export function useOnlineBookingSettings(api: ApiLike, bookBase: string, links: 
     const link = out ? bookingPageUrl(bookBase, out.slug) : "";
     const base = bookBase.replace(/\/+$/, "");
     const embed = out
-        ? `<iframe src="${link}?embed=1" title="Book with ${out.business_name}" style="width:100%;border:0" loading="lazy"></iframe>\n<script src="${base}/embed.js" async></script>`
+        ? `<iframe src="${link}?embed=1" title="${s.embedTitle(out.business_name)}" style="width:100%;border:0" loading="lazy"></iframe>\n<script src="${base}/embed.js" async></script>`
         : "";
     const services = (out?.services ?? []).map((x) => ({
         id: x.id,
         name: x.name,
-        meta: [
+        meta: formatParts([
             x.duration_min !== null ? s.minutes(x.duration_min) : null,
-            formatMoney(x.price_cents),
-        ]
-            .filter(Boolean)
-            .join(" · "),
+            formatMoney(x.price_cents, BUSINESS_CURRENCY),
+        ]),
         color: x.color,
-        deposit: x.deposit_cents > 0 ? s.deposit(formatMoney(x.deposit_cents)) : s.noDeposit,
+        deposit:
+            x.deposit_cents > 0
+                ? s.deposit(formatMoney(x.deposit_cents, BUSINESS_CURRENCY))
+                : s.noDeposit,
         bookable: d.draft?.services[x.id] === true,
-        priceLabel: formatMoney(x.price_cents),
+        priceLabel: formatMoney(x.price_cents, BUSINESS_CURRENCY),
     }));
     const staff = (out?.staff ?? []).map((x) => {
         const name = x.name ?? x.title ?? "";
@@ -238,7 +239,10 @@ export function useOnlineBookingSettings(api: ApiLike, bookBase: string, links: 
         stats: out
             ? [
                   { label: s.bookings, value: String(out.online_30d) },
-                  { label: s.deposits, value: formatMoney(out.deposits_30d_cents) },
+                  {
+                      label: s.deposits,
+                      value: formatMoney(out.deposits_30d_cents, BUSINESS_CURRENCY),
+                  },
               ]
             : [],
         previewServices: bookable.slice(0, 6),
@@ -264,6 +268,7 @@ const CUTOFFS = [0, 2, 12, 24, 48, 72];
 export function useBookingPolicy(api: ApiLike) {
     const d = useOnlineDraft(api);
     const draft = d.draft?.policy ?? null;
+    const zone = useBusinessZone();
     const now = new Date();
     const set = <K extends keyof BookingPolicy>(k: K, v: BookingPolicy[K]): void => {
         d.setDraft((x) => ({ ...x, policy: { ...x.policy, [k]: v } }));
@@ -271,12 +276,12 @@ export function useBookingPolicy(api: ApiLike) {
     const cancel = draft?.cancel_cutoff_hours ?? 24;
     const move = draft?.reschedule_cutoff_hours ?? 24;
     const ahead = Math.max(3, Math.ceil(cancel / 24) + 1);
-    const visitDay = addDays(now, ahead);
+    const visitDay = addDays(now, ahead, zone);
     const examples: { key: string; intent: Intent; text: string }[] = [
         {
             key: "early",
             intent: "success",
-            text: p.exampleCancelEarly(formatWeekday(now), formatWeekday(visitDay)),
+            text: p.exampleCancelEarly(formatWeekday(now, zone), formatWeekday(visitDay, zone)),
         },
         { key: "late", intent: "danger", text: p.exampleCancelLate(Math.max(1, cancel - 3)) },
         { key: "move", intent: "accent", text: p.exampleMove(move + 6) },
@@ -302,7 +307,10 @@ export function useBookingPolicy(api: ApiLike) {
                 (draft?.self_service !== false || x.key !== "move") &&
                 (x.key !== "late" || cancel > 0),
         ),
-        lateLabel: relativeDayTime(new Date(now.getTime() + Math.max(1, cancel - 3) * 3_600_000)),
+        lateLabel: relativeDayTime(
+            new Date(now.getTime() + Math.max(1, cancel - 3) * 3_600_000),
+            zone,
+        ),
         dirty: d.dirty,
         save: () => {
             d.save(["policy"], p.saveError);
@@ -380,7 +388,8 @@ interface AddonOffer {
 
 /** Which products clients can add while booking, with which services, and how often they're added. */
 export function useAddonOffers(api: ApiLike) {
-    const since = addDays(new Date(), -30).toISOString();
+    const zone = useBusinessZone();
+    const since = addDays(new Date(), -30, zone).toISOString();
     const products = useQuery<ProductRow>(ADDON_PRODUCTS_SQL, [since]);
     const onlineQ = useQuery<{ n: number }>(ONLINE_BOOKINGS_SQL, [since]);
     const services = useQuery<ServiceRow>(ADDON_SERVICES_SQL).data;
@@ -401,7 +410,7 @@ export function useAddonOffers(api: ApiLike) {
             imageFileId: r.image_file_id,
             addon: cur.addon,
             addonFor: cur.addonFor,
-            price: formatMoney(r.price_cents ?? 0),
+            price: formatMoney(r.price_cents ?? 0, BUSINESS_CURRENCY),
             stockLabel: left === null ? null : left > 0 ? a.stock(left) : a.noStock,
             soldOut: left === 0,
             attachLabel: a.attach(rate),
@@ -440,7 +449,7 @@ export function useAddonOffers(api: ApiLike) {
         everyService: (id: string) => {
             edit(id, { addonFor: [] });
         },
-        revenue: formatMoney(revenue),
+        revenue: formatMoney(revenue, BUSINESS_CURRENCY),
         dirty: Object.keys(edits).length > 0,
         save: () => {
             const changed = Object.entries(edits).map(([id, v]) => ({

@@ -11,6 +11,11 @@ import {
     useFilingForm,
     useReportFile,
     useTaxFilings,
+    formatParts,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
+    currencyAffix,
+    smallSupplierLimit,
 } from "@clientbridge/app-core";
 import {
     Button,
@@ -43,6 +48,7 @@ function saveCsv(csv: string, filename: string): void {
 }
 
 export function Remittances() {
+    const zone = useBusinessZone();
     const t = useTaxFilings(api);
     const due = t.nextDue;
     const [recording, setRecording] = useState<FilingPeriod | null>(null);
@@ -70,7 +76,9 @@ export function Remittances() {
             />
         );
     if (!t.registered && t.periods.length === 0)
-        return <Empty variant="card" icon="building" message={s.notRegistered} />;
+        return (
+            <Empty variant="card" icon="building" message={s.notRegistered(smallSupplierLimit())} />
+        );
     if (t.load.state === "empty")
         return (
             <Empty variant="card" icon="building" message={s.noPeriods} body={s.noPeriodsBody} />
@@ -78,7 +86,11 @@ export function Remittances() {
 
     return (
         <div>
-            <p className="text-sm text-muted">{s.subtitle(t.federalLabel, t.provincialLabel)}</p>
+            <p className="text-sm text-muted">
+                {t.provincialLabel === null
+                    ? s.subtitle(t.federalLabel)
+                    : s.subtitleWithProvince(t.federalLabel, t.provincialLabel)}
+            </p>
             <div className="mt-5 space-y-5">
                 {flash !== null ? (
                     <Notice tone="success" banner>
@@ -94,7 +106,7 @@ export function Remittances() {
                     <section className="rounded-lg border border-line bg-surface p-6 shadow-card">
                         <p className="text-sm text-muted">{s.owed}</p>
                         <p className="mt-1 font-display text-4xl font-bold tabular-nums text-ink">
-                            {formatMoney(t.federalSetAsideCents)}
+                            {formatMoney(t.federalSetAsideCents, BUSINESS_CURRENCY)}
                         </p>
                         <p className="mt-1 text-sm text-muted">{s.owedHint}</p>
                         <h3 className="mt-6 text-xs font-semibold uppercase tracking-wide text-muted">
@@ -109,7 +121,7 @@ export function Remittances() {
                                     </div>
                                     <FilingPill p={p} />
                                     <span className="w-24 text-right text-sm font-semibold tabular-nums text-ink">
-                                        {formatMoney(p.federalCents)}
+                                        {formatMoney(p.federalCents, BUSINESS_CURRENCY)}
                                     </span>
                                 </li>
                             ))}
@@ -121,7 +133,7 @@ export function Remittances() {
                                 </span>
                                 <span className="text-xs text-muted">{s.provincialOwedHint}</span>
                                 <span className="ml-auto font-semibold tabular-nums text-ink">
-                                    {formatMoney(t.provincialSetAsideCents)}
+                                    {formatMoney(t.provincialSetAsideCents, BUSINESS_CURRENCY)}
                                 </span>
                             </div>
                         ) : null}
@@ -131,7 +143,9 @@ export function Remittances() {
                         <section className="flex flex-col rounded-lg border border-warn-bg bg-warn-bg/50 p-6">
                             <div className="flex items-center gap-2 text-warn-fg">
                                 <Icon name="clock" size={18} />
-                                <span className="text-sm font-semibold">{filingWhen(due)}</span>
+                                <span className="text-sm font-semibold">
+                                    {filingWhen(due, zone)}
+                                </span>
                             </div>
                             <p className="mt-3 font-display text-lg font-bold text-ink">
                                 {due.title}
@@ -141,14 +155,14 @@ export function Remittances() {
                                 <div className="flex justify-between">
                                     <dt className="text-muted">{t.federalLabel}</dt>
                                     <dd className="tabular-nums text-ink">
-                                        {formatMoney(due.federalCents)}
+                                        {formatMoney(due.federalCents, BUSINESS_CURRENCY)}
                                     </dd>
                                 </div>
                                 {t.provincialLabel !== null ? (
                                     <div className="flex justify-between">
                                         <dt className="text-muted">{t.provincialLabel}</dt>
                                         <dd className="tabular-nums text-ink">
-                                            {formatMoney(due.provincialCents)}
+                                            {formatMoney(due.provincialCents, BUSINESS_CURRENCY)}
                                         </dd>
                                     </div>
                                 ) : null}
@@ -174,7 +188,7 @@ export function Remittances() {
                             </div>
                             {t.reminderOn !== null ? (
                                 <p className="mt-3 text-xs text-muted">
-                                    {s.reminder(formatShortDay(t.reminderOn))}
+                                    {s.reminder(formatShortDay(t.reminderOn, zone))}
                                 </p>
                             ) : null}
                         </section>
@@ -196,17 +210,28 @@ export function Remittances() {
                                             <p className="font-medium text-ink">{p.title}</p>
                                             <p className="text-xs text-muted">{p.span}</p>
                                         </td>
-                                        <td className="px-4 py-3 text-ink-soft">{filingWhen(p)}</td>
+                                        <td className="px-4 py-3 text-ink-soft">
+                                            {filingWhen(p, zone)}
+                                        </td>
                                         <td className="hidden px-4 py-3 font-mono text-xs text-muted xl:table-cell">
                                             {p.federalReturn?.confirmation ?? ""}
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             <p className="font-medium tabular-nums text-ink">
-                                                {formatMoney(p.federalReturn?.paid_cents ?? 0)}
+                                                {formatMoney(
+                                                    p.federalReturn?.paid_cents ?? 0,
+                                                    BUSINESS_CURRENCY,
+                                                )}
                                             </p>
                                             {t.provincialLabel !== null && p.provincialReturn ? (
                                                 <p className="text-xs tabular-nums text-muted">
-                                                    {`${t.provincialLabel} ${formatMoney(p.provincialReturn.paid_cents)}`}
+                                                    {strings.common.labelValue(
+                                                        t.provincialLabel,
+                                                        formatMoney(
+                                                            p.provincialReturn.paid_cents,
+                                                            BUSINESS_CURRENCY,
+                                                        ),
+                                                    )}
                                                 </p>
                                             ) : null}
                                         </td>
@@ -245,11 +270,7 @@ export function Remittances() {
 
 function FilingPill({ p }: { p: FilingPeriod }) {
     return (
-        <StatusPill
-            status={s.status[p.status] ?? p.status}
-            intent={filingStatusIntent(p.status)}
-            asWritten
-        />
+        <StatusPill status={s.status[p.status]} intent={filingStatusIntent(p.status)} asWritten />
     );
 }
 
@@ -264,6 +285,7 @@ function RecordReturn({
     onClose: () => void;
     onDone: (family: TaxFamily) => void;
 }) {
+    const zone = useBusinessZone();
     const form = useFilingForm(api, period, onDone);
     return (
         <Modal open size="lg" onClose={onClose}>
@@ -271,7 +293,7 @@ function RecordReturn({
                 {s.recordTitle(period.title)}
             </h2>
             <p className="mt-1 text-sm text-muted">
-                {`${period.span} · ${s.dueOn(formatShortDay(period.due))}`}
+                {formatParts([period.span, s.dueOn(formatShortDay(period.due, zone))])}
             </p>
             <div className="mt-5 space-y-5">
                 {form.families.length === 0 ? (
@@ -309,6 +331,7 @@ function Worksheet({ period, form, t }: { period: FilingPeriod; form: FilingForm
         return (
             <Panel title={s.provincialWorksheet(code)} subtitle={s.provincialWorksheetHint}>
                 <DocTotals
+                    currency={BUSINESS_CURRENCY}
                     lines={[
                         {
                             key: "sales",
@@ -329,8 +352,9 @@ function Worksheet({ period, form, t }: { period: FilingPeriod; form: FilingForm
         );
     }
     return (
-        <Panel title={s.worksheet} subtitle={`${period.span} · ${s.worksheetHint}`}>
+        <Panel title={s.worksheet} subtitle={formatParts([period.span, s.worksheetHint])}>
             <DocTotals
+                currency={BUSINESS_CURRENCY}
                 lines={[
                     {
                         key: "101",
@@ -353,6 +377,7 @@ function Worksheet({ period, form, t }: { period: FilingPeriod; form: FilingForm
 }
 
 function FilingFields({ form, t }: { form: FilingForm; t: TaxFilings }) {
+    const zone = useBusinessZone();
     const federal = form.family === "federal";
     return (
         <div className="space-y-4">
@@ -360,7 +385,7 @@ function FilingFields({ form, t }: { form: FilingForm; t: TaxFilings }) {
                 <TextField
                     label={s.itcField}
                     hint={s.itcHint}
-                    prefix="$"
+                    {...currencyAffix(BUSINESS_CURRENCY)}
                     type="number"
                     placeholder="0.00"
                     value={form.itc}
@@ -373,14 +398,23 @@ function FilingFields({ form, t }: { form: FilingForm; t: TaxFilings }) {
                     value={form.confirmation}
                     onChange={form.setConfirmation}
                 />
-                <DateField label={s.filedOnField} value={form.filedOn} onChange={form.setFiledOn} />
+                <DateField
+                    zone={zone}
+                    label={s.filedOnField}
+                    value={form.filedOn}
+                    onChange={form.setFiledOn}
+                />
             </div>
             <DocTotals
+                currency={BUSINESS_CURRENCY}
                 density="compact"
                 lines={[
                     {
                         key: "paid",
-                        label: `${s.paid} · ${federal ? t.federalLabel : (t.provincialLabel ?? "")}`,
+                        label: formatParts([
+                            s.paid,
+                            federal ? t.federalLabel : (t.provincialLabel ?? ""),
+                        ]),
                         cents: form.netCents,
                         kind: "balance",
                     },

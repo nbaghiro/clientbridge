@@ -7,6 +7,10 @@ import {
     strings,
     useBookingComposer,
     useReschedule,
+    formatList,
+    formatParts,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -44,6 +48,7 @@ export function BookingComposer({
     onDone: () => void;
     onCancel: () => void;
 }) {
+    const zone = useBusinessZone();
     const form = useBookingComposer(
         api,
         slot,
@@ -106,7 +111,7 @@ export function BookingComposer({
                                             density="compact"
                                             leading={<Avatar name={m.client.name} size="sm" />}
                                             title={m.client.name}
-                                            detail={m.pets.join(", ")}
+                                            detail={formatList(m.pets, "unit")}
                                             onPress={() => {
                                                 form.pickClient(m.client.id);
                                             }}
@@ -133,7 +138,10 @@ export function BookingComposer({
                     options={form.services.map((i) => ({
                         key: i.id,
                         label: i.name,
-                        detail: `${String(i.duration_min ?? 60)} min · ${formatMoney(i.price_cents ?? 0)}`,
+                        detail: formatParts([
+                            strings.catalog.minutes(i.duration_min ?? 60),
+                            formatMoney(i.price_cents ?? 0, BUSINESS_CURRENCY),
+                        ]),
                     }))}
                     onChange={form.setItemId}
                 />
@@ -153,7 +161,12 @@ export function BookingComposer({
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                    <DateField label={s.composerDate} value={form.day} onChange={form.setDay} />
+                    <DateField
+                        zone={zone}
+                        label={s.composerDate}
+                        value={form.day}
+                        onChange={form.setDay}
+                    />
                     <Select
                         label={s.composerTime}
                         value={form.time}
@@ -177,7 +190,10 @@ export function BookingComposer({
                     {form.repeat ? (
                         <div className="grid grid-cols-2 gap-3 pb-2">
                             <Stepper
-                                label={`${s.composerRepeatEvery} (${s.everyWeeks(form.every)})`}
+                                label={strings.common.withDetail(
+                                    s.composerRepeatEvery,
+                                    s.everyWeeks(form.every),
+                                )}
                                 value={form.every}
                                 min={1}
                                 max={12}
@@ -248,7 +264,9 @@ export function RescheduleDialog({
             <div className="space-y-5">
                 <div>
                     <h2 className="font-display text-lg font-bold text-ink">{s.rescheduleTitle}</h2>
-                    <p className="mt-0.5 text-sm text-muted">{`${event.headline} · ${event.serviceName} · ${event.timeLabel}`}</p>
+                    <p className="mt-0.5 text-sm text-muted">
+                        {formatParts([event.headline, event.serviceName, event.timeLabel])}
+                    </p>
                 </div>
                 <div className="space-y-2">
                     <p className="text-sm font-medium text-ink-soft">{s.rescheduleWith}</p>

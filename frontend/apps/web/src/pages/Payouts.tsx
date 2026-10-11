@@ -5,6 +5,9 @@ import {
     strings,
     usePayouts,
     usePaymentAccount,
+    formatParts,
+    BUSINESS_CURRENCY,
+    formatCredit,
 } from "@clientbridge/app-core";
 import {
     Badge,
@@ -103,14 +106,25 @@ export function Payouts() {
             </div>
             <p className="text-sm text-muted">{s.subtitle}</p>
             <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Stat label={s.inStripe} cents={p.balanceCents} hint={s.inStripeHint} />
                 <Stat
+                    currency={BUSINESS_CURRENCY}
+                    label={s.inStripe}
+                    cents={p.balanceCents}
+                    hint={s.inStripeHint}
+                />
+                <Stat
+                    currency={BUSINESS_CURRENCY}
                     label={s.deposited}
                     cents={p.depositedCents}
                     hint={s.depositedHint}
                     tone="success"
                 />
-                <Stat label={s.fees} cents={p.feesCents} hint={s.feesHint} />
+                <Stat
+                    currency={BUSINESS_CURRENCY}
+                    label={s.fees}
+                    cents={p.feesCents}
+                    hint={s.feesHint}
+                />
             </div>
 
             <div className="mt-6 grid gap-6 xl:grid-cols-[340px_1fr]">
@@ -134,13 +148,13 @@ export function Payouts() {
                                         selected={row.id === sel?.id}
                                         title={
                                             <span className="tabular-nums">
-                                                {formatMoney(row.amountCents)}
+                                                {formatMoney(row.amountCents, BUSINESS_CURRENCY)}
                                             </span>
                                         }
                                         detail={row.when}
                                         meta={
                                             <StatusPill
-                                                status={s.status[row.status] ?? row.status}
+                                                status={s.status[row.status]}
                                                 intent={payoutStatusIntent(row.status)}
                                                 asWritten
                                             />
@@ -158,11 +172,11 @@ export function Payouts() {
                 <div className="space-y-6 self-start">
                     {sel !== null ? (
                         <Panel
-                            title={formatMoney(sel.amountCents)}
+                            title={formatMoney(sel.amountCents, BUSINESS_CURRENCY)}
                             subtitle={sel.when}
                             actions={
                                 <StatusPill
-                                    status={s.status[sel.status] ?? sel.status}
+                                    status={s.status[sel.status]}
                                     intent={payoutStatusIntent(sel.status)}
                                     asWritten
                                 />
@@ -221,22 +235,28 @@ function ChargeTable({ charges }: { charges: ChargeView[] }) {
                         <td className="border-t border-line-soft px-4 py-2.5">
                             <p className="font-medium text-ink">{c.client}</p>
                             <p className="text-xs text-muted">
-                                {c.description}
-                                {c.refundedCents > 0
-                                    ? ` · ${s.refunded(formatMoney(c.refundedCents))}`
-                                    : ""}
+                                {formatParts([
+                                    c.description,
+                                    c.refundedCents > 0
+                                        ? s.refunded(
+                                              formatMoney(c.refundedCents, BUSINESS_CURRENCY),
+                                          )
+                                        : null,
+                                ])}
                             </p>
                         </td>
-                        <td className={`${cell} text-ink-soft`}>{formatMoney(c.grossCents)}</td>
+                        <td className={`${cell} text-ink-soft`}>
+                            {formatMoney(c.grossCents, BUSINESS_CURRENCY)}
+                        </td>
                         <td className={`${cell} text-muted`}>
                             {c.feeCents === null ? (
                                 <Badge label={s.feePending} intent="warning" />
                             ) : (
-                                `−${formatMoney(c.feeCents)}`
+                                formatCredit(c.feeCents, BUSINESS_CURRENCY)
                             )}
                         </td>
                         <td className={`${cell} font-medium text-ink`}>
-                            {formatMoney(c.netCents)}
+                            {formatMoney(c.netCents, BUSINESS_CURRENCY)}
                         </td>
                     </tr>
                 ))}

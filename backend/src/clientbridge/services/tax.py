@@ -97,21 +97,21 @@ def _line(line: TaxLine, all_rates: Sequence[TaxComponent], inclusive: bool) -> 
     return LineTax(line.amount_cents, tax, by_jur)
 
 
-# province → [(jurisdiction, rate_bps, name)]
-PROVINCE_TAX_RATES: dict[str, list[tuple[str, int, str]]] = {
-    "BC": [("GST", 500, "GST 5%"), ("PST", 700, "PST (BC) 7%")],
-    "AB": [("GST", 500, "GST 5%")],
-    "SK": [("GST", 500, "GST 5%"), ("PST", 600, "PST (SK) 6%")],
-    "MB": [("GST", 500, "GST 5%"), ("PST", 700, "PST (MB) 7%")],
-    "ON": [("HST", 1300, "HST (ON) 13%")],
-    "QC": [("GST", 500, "GST 5%"), ("QST", 998, "QST 9.975%")],
-    "NB": [("HST", 1500, "HST 15%")],
-    "NS": [("HST", 1400, "HST 14%")],
-    "NL": [("HST", 1500, "HST 15%")],
-    "PE": [("HST", 1500, "HST 15%")],
-    "YT": [("GST", 500, "GST 5%")],
-    "NT": [("GST", 500, "GST 5%")],
-    "NU": [("GST", 500, "GST 5%")],
+# province → [(jurisdiction, rate_bps)]; clients name each tax from its jurisdiction code.
+PROVINCE_TAX_RATES: dict[str, list[tuple[str, int]]] = {
+    "BC": [("GST", 500), ("PST", 700)],
+    "AB": [("GST", 500)],
+    "SK": [("GST", 500), ("PST", 600)],
+    "MB": [("GST", 500), ("PST", 700)],
+    "ON": [("HST", 1300)],
+    "QC": [("GST", 500), ("QST", 998)],
+    "NB": [("HST", 1500)],
+    "NS": [("HST", 1400)],
+    "NL": [("HST", 1500)],
+    "PE": [("HST", 1500)],
+    "YT": [("GST", 500)],
+    "NT": [("GST", 500)],
+    "NU": [("GST", 500)],
 }
 
 
@@ -122,7 +122,6 @@ class ProvinceRate:
     jurisdiction: str
     province: str
     rate_bps: int
-    name: str
 
     @property
     def id(self) -> str:
@@ -134,8 +133,8 @@ def rates_for_province(province: str | None) -> list[ProvinceRate]:
     if province is None:
         return []
     return [
-        ProvinceRate(jurisdiction=jurisdiction, province=province, rate_bps=rate_bps, name=name)
-        for jurisdiction, rate_bps, name in PROVINCE_TAX_RATES.get(province, [])
+        ProvinceRate(jurisdiction=jurisdiction, province=province, rate_bps=rate_bps)
+        for jurisdiction, rate_bps in PROVINCE_TAX_RATES.get(province, [])
     ]
 
 

@@ -102,6 +102,7 @@ async def test_purchase_settles_active_and_notifies_recipient(
     sent = [m for m in email.sent if m.to == "mum@example.com"]
     assert len(sent) == 1
     assert body["code"] in sent[0].body
+    assert "a $80.00 gift card" in sent[0].body  # in the purchase's currency
 
 
 async def test_settle_redelivery_activates_once_and_notifies_once(

@@ -9,8 +9,10 @@ from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
+from clientbridge.core.locale import locale_for, message
 from clientbridge.core.scoping import scoped
 from clientbridge.models.billing import Estimate, EstimateStatus, Invoice, Line
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item, TaxClass
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
@@ -400,9 +402,15 @@ class BillingService:
             .scalars()
             .all()
         )
+        locale = locale_for(
+            business=await self.db.get(Business, self.biz),
+            client=await self.db.get(Client, booking.client_id),
+        )
         inputs = [
             LineInput(
-                description=item.name if item is not None else "Visit",
+                description=item.name
+                if item is not None
+                else message(locale, "invoice_line.visit"),
                 quantity=1,
                 unit_amount_cents=booking.price_cents,
                 item_id=item.id if item is not None else None,

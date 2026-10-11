@@ -1,41 +1,10 @@
-import { createHash } from "node:crypto";
-
 import { strings } from "@clientbridge/app-core/public";
 import { expect, type Page, test } from "@playwright/test";
 
-interface Links {
-    slug: string;
-    invoice: string;
-    estimate: string;
-    receipt: string;
-    order: string;
-    review: string;
-    manage: string;
-    form: string;
-    contract: string;
-    prefs: string;
-}
+import { links, ownAddress } from "./links";
 
-// `make test-connect` mints these with backend/scripts/connect_links.py.
-const links = JSON.parse(process.env.CONNECT_LINKS ?? "null") as Links | null;
-if (links === null) throw new Error("run through `make test-connect`, which sets CONNECT_LINKS");
-
-// Isolate each journey from localhost's 30-request public API budget.
-const runKey = Date.now().toString();
 test.beforeEach(async ({ context }, info) => {
-    const suffix = createHash("sha256")
-        .update(`${runKey}:${info.testId}`)
-        .digest("hex")
-        .slice(0, 16);
-    const address = `2001:db8:${suffix.match(/.{4}/g)?.join(":")}::1`;
-    await context.route(
-        `${process.env.VITE_API_URL ?? "http://127.0.0.1:8701"}/**`,
-        async (route) => {
-            await route.continue({
-                headers: { ...route.request().headers(), "X-Forwarded-For": address },
-            });
-        },
-    );
+    await ownAddress(context, info);
 });
 
 function watchErrors(page: Page): string[] {
@@ -74,11 +43,11 @@ test("a client books a visit online and opens the manage link", async ({ page })
     await page.getByRole("button", { name: b.continue }).first().click();
     await expect(page.getByRole("heading", { name: b.stepExtras, level: 2 })).toBeVisible();
     await page
-        .getByRole("button", { name: new RegExp(`^${b.addOne} `) })
+        .getByRole("button", { name: new RegExp(`^${b.addNamed("")}`) })
         .first()
         .click();
     await page.getByRole("button", { name: b.continue }).first().click();
-    await expect(page.getByRole("heading", { name: b.detailsTitle, level: 2 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: b.stepDetails, level: 2 })).toBeVisible();
     await page.getByRole("textbox", { name: b.name }).fill("Robin Test");
     await page.getByRole("textbox", { name: b.pet }).fill("Pepper");
     await page.getByRole("textbox", { name: b.phone }).fill("2505550199");

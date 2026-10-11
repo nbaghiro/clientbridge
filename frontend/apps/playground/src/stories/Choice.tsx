@@ -1,4 +1,5 @@
 import type { ChoiceProps } from "@clientbridge/app-core";
+import { durationLabel } from "@clientbridge/app-core/public";
 
 import { noop, story, toggleKey } from "../story";
 
@@ -160,7 +161,7 @@ export default story<ChoiceProps<string>>({
                 columns: 5,
                 options: ["15", "30", "45", "60", "90"].map((m) => ({
                     key: m,
-                    label: `${m} min`,
+                    label: durationLabel(Number(m)),
                     disabled: m === "90",
                 })),
                 defaultValue: "45",

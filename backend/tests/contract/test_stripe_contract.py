@@ -50,14 +50,22 @@ async def test_create_setup_intent(contract_gateway: StripeGateway) -> None:
 
 async def test_create_pad_setup_intent(contract_gateway: StripeGateway) -> None:
     result = await contract_gateway.create_pad_setup_intent(
-        ACCT, customer_id=CUS, idempotency_key="contract-pad-1"
+        ACCT,
+        customer_id=CUS,
+        idempotency_key="contract-pad-1",
+        interval_description="When an invoice or a scheduled membership payment is due",
     )
     assert result.id.startswith("seti_") and result.client_secret
 
 
 async def test_create_price(contract_gateway: StripeGateway) -> None:
     price = await contract_gateway.create_price(
-        ACCT, amount_cents=4500, currency="cad", interval_count=1, frequency="month"
+        ACCT,
+        amount_cents=4500,
+        currency="cad",
+        interval_count=1,
+        frequency="month",
+        product_name="Subscription",
     )
     assert price.startswith("price_")
 

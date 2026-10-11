@@ -34,7 +34,6 @@ class PublicProfile(PublicBookingPage):
     gallery_urls: list[str] = Field(default_factory=list)
     reviews: list[PublicProfileReview] = Field(default_factory=list)
     hours: list[PublicProfileHours] = Field(default_factory=list)
-    timezone: str
 
 
 class PublicServiceOpening(BaseModel):

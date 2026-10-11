@@ -1,9 +1,10 @@
 import {
     type ScheduleEvent,
-    formatTime,
-    formatWeekday,
     strings,
     useReminderSettings,
+    formatParts,
+    useBusinessZone,
+    formatWeekdayTime,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -96,7 +97,7 @@ export function RemindersScreen() {
                     </View>
                     <View style={styles.card}>
                         <Stat
-                            label={`${s.deliveryTitle} · ${s.sent}`}
+                            label={formatParts([s.deliveryTitle, s.sent])}
                             value={s.sentCount(r.sentWeek)}
                         />
                     </View>
@@ -131,6 +132,7 @@ function OpenVisits({
     visits: ScheduleEvent[];
     r: ReturnType<typeof useReminderSettings>;
 }) {
+    const zone = useBusinessZone();
     return (
         <>
             {visits.map((v) => (
@@ -139,7 +141,11 @@ function OpenVisits({
                         {v.headline}
                     </Text>
                     <Text style={styles.muted} numberOfLines={1}>
-                        {`${v.serviceName} · ${formatWeekday(v.start)} ${formatTime(v.start)} · ${v.staffShort}`}
+                        {formatParts([
+                            v.serviceName,
+                            formatWeekdayTime(v.start, zone),
+                            v.staffShort,
+                        ])}
                     </Text>
                     <View style={styles.rowGap}>
                         <Button

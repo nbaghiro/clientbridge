@@ -3,6 +3,7 @@ import {
     type FormQuestionProps,
     type TextFieldType,
     optionPair,
+    strings,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
@@ -29,6 +30,7 @@ export function FormQuestion({
     fileName,
     chooseFileLabel,
     invalid = false,
+    zone,
     style,
 }: NativeProps<FormQuestionProps>) {
     const preview = onChange === undefined;
@@ -64,7 +66,7 @@ export function FormQuestion({
             return (
                 <View style={[styles.check, invalid && styles.invalid]}>
                     <Toggle
-                        label={f.required ? `${f.label} *` : f.label}
+                        label={f.required ? strings.common.requiredLabel(f.label) : f.label}
                         hint={help}
                         value={value === true}
                         onChange={set}
@@ -99,10 +101,20 @@ export function FormQuestion({
                 </Field>
             );
         }
-        if (f.input === "date" || f.input === "time") {
-            const Picker = f.input === "date" ? DateField : TimeField;
+        if (f.input === "date")
             return (
-                <Picker
+                <DateField
+                    label={f.label}
+                    hint={help}
+                    required={f.required}
+                    value={typeof value === "string" ? value : ""}
+                    onChange={set}
+                    zone={zone}
+                />
+            );
+        if (f.input === "time")
+            return (
+                <TimeField
                     label={f.label}
                     hint={help}
                     required={f.required}
@@ -110,7 +122,6 @@ export function FormQuestion({
                     onChange={set}
                 />
             );
-        }
         return (
             <TextField
                 label={f.label}

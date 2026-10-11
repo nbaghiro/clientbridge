@@ -4,9 +4,10 @@ import { formatMoney } from "../format";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { DocTotalLine, PrintedDoc } from "../ui";
-import { longDate, printedDoc } from "./printing";
+import { docReference, longDate, printedDoc } from "./printing";
 import { type PublicDocLine, type PublicDocTax, publicDocLines, publicDocTaxes } from "./publicPay";
 import { type PublicBrand, usePublicResource } from "./publicResource";
+import { refusal } from "../api";
 
 interface PublicEstimateLine extends PublicDocLine {
     id: string;
@@ -26,6 +27,7 @@ export interface PublicEstimate {
     client_name: string | null;
     status: string;
     currency: string;
+    timezone: string;
     subtotal_cents: number;
     tax_total_cents: number;
     total_cents: number;
@@ -35,16 +37,6 @@ export interface PublicEstimate {
     decline_reason: string | null;
     lines: PublicEstimateLine[];
     taxes: PublicDocTax[];
-}
-
-class PublicEstimateError extends Error {
-    constructor(
-        readonly status: number,
-        message: string,
-    ) {
-        super(message);
-        this.name = "PublicEstimateError";
-    }
 }
 
 interface PublicEstimateClient {
@@ -57,8 +49,7 @@ export function createPublicEstimateClient(baseUrl: string): PublicEstimateClien
     const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
         const res = await fetch(`${baseUrl}${path}`, init);
         if (!res.ok) {
-            const text = await res.text().catch(() => "");
-            throw new PublicEstimateError(res.status, text || res.statusText);
+            throw await refusal(res);
         }
         return (await res.json()) as T;
     };
@@ -174,7 +165,7 @@ export function usePublicEstimatePage(
         },
         totals,
         totalCents,
-        totalLabel: formatMoney(totalCents),
+        totalLabel: data === null ? "" : formatMoney(totalCents, data.currency),
         declining,
         setDeclining,
         reason,
@@ -203,24 +194,30 @@ export function usePublicEstimatePage(
         printed: (fallbackColor) => {
             if (data === null) return null;
             const pr = strings.printing;
-            const number = data.number === null ? pr.draftNumber : String(data.number);
+            const number = data.number === null ? null : String(data.number);
             return printedDoc(
                 {
                     kind: "estimate",
+                    currency: data.currency,
                     number,
                     partyName: data.client_name ?? "",
                     partyLines: [],
                     meta: [
-                        { label: pr.estimateNumber, value: `#${number}` },
-                        { label: pr.issued, value: longDate(data.issued_at) },
-                        { label: pr.validUntil, value: longDate(data.valid_until) },
+                        { label: pr.estimateNumber, value: docReference(number) },
+                        { label: pr.issued, value: longDate(data.issued_at, data.timezone) },
+                        {
+                            label: pr.validUntil,
+                            value: longDate(data.valid_until, data.timezone),
+                        },
                     ],
                     lines: publicDocLines(lines),
                     taxes,
                     totals,
                     headline: { label: pr.estimateTotal, cents: totalCents },
                     instructions:
-                        data.valid_until !== null ? [pr.acceptBy(longDate(data.valid_until))] : [],
+                        data.valid_until !== null
+                            ? [pr.acceptBy(longDate(data.valid_until, data.timezone))]
+                            : [],
                     message: data.notes,
                 },
                 {

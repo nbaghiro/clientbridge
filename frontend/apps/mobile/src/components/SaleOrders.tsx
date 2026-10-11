@@ -3,6 +3,7 @@ import {
     type OrderOut,
     canManagePayments,
     discountLabel,
+    discountReason,
     formatMoney,
     formatTime,
     relativeDayTime,
@@ -11,6 +12,9 @@ import {
     useSaleActions,
     useSaleDetail,
     useSalesHistory,
+    formatParts,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { useState } from "react";
@@ -57,7 +61,7 @@ export function SalesBoard({ onResume }: { onResume: (order: OrderOut) => void }
                 label={d.ordersTitle}
                 items={board.columns.map((col) => ({
                     key: col.key,
-                    label: `${col.title} ${String(col.cards.length)}`,
+                    label: strings.common.labelCount(col.title, col.cards.length),
                 }))}
                 active={column}
                 onSelect={setColumn}
@@ -77,11 +81,11 @@ export function SalesBoard({ onResume }: { onResume: (order: OrderOut) => void }
                                     <Text style={styles.money}>{card.total}</Text>
                                 </View>
                                 <Text style={styles.note}>
-                                    {[card.number, card.since].filter(Boolean).join(" · ")}
+                                    {formatParts([card.number, card.since])}
                                 </Text>
                                 {card.lines.map((l, i) => (
                                     <Text key={String(i)} style={styles.soft}>
-                                        {`• ${l}`}
+                                        {strings.common.bullet(l)}
                                     </Text>
                                 ))}
                                 {card.note !== null && card.note !== "" ? (
@@ -139,6 +143,7 @@ export function SalesBoard({ onResume }: { onResume: (order: OrderOut) => void }
 
 /** The sales history on a phone: today's figures, filters and the sales by day. */
 export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void }) {
+    const zone = useBusinessZone();
     const history = useSalesHistory();
     const [open, setOpen] = useState<string | null>(null);
     const t = history.today;
@@ -146,8 +151,13 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
         <View style={styles.stack}>
             {history.load.state === "ready" || history.load.state === "empty" ? (
                 <View style={styles.stats}>
-                    <Stat label={d.todaySales} cents={t.salesCents} hint={d.todayCount(t.count)} />
-                    <Stat label={d.todayTips} cents={t.tipsCents} />
+                    <Stat
+                        currency={BUSINESS_CURRENCY}
+                        label={d.todaySales}
+                        cents={t.salesCents}
+                        hint={d.todayCount(t.count)}
+                    />
+                    <Stat currency={BUSINESS_CURRENCY} label={d.todayTips} cents={t.tipsCents} />
                 </View>
             ) : null}
             <Choice
@@ -173,15 +183,18 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
                         <View style={styles.row}>
                             <Text style={styles.name}>{day.label}</Text>
                             <Text style={styles.note}>
-                                {d.dayTotal(day.count, formatMoney(day.totalCents))}
+                                {d.dayTotal(
+                                    day.count,
+                                    formatMoney(day.totalCents, BUSINESS_CURRENCY),
+                                )}
                             </Text>
                         </View>
                         {day.rows.map((r) => (
                             <ListRow
                                 key={r.id}
                                 title={r.clientName}
-                                detail={`${formatTime(r.at)} · ${r.number} · ${r.summary}`}
-                                meta={formatMoney(r.totalCents)}
+                                detail={formatParts([formatTime(r.at, zone), r.number, r.summary])}
+                                meta={formatMoney(r.totalCents, BUSINESS_CURRENCY)}
                                 onPress={() => {
                                     setOpen(r.id);
                                 }}
@@ -218,6 +231,7 @@ function SalePanel({
     onClose: () => void;
     onResume: (id: string) => void;
 }) {
+    const zone = useBusinessZone();
     const role = useRole();
     const { detail } = useSaleDetail(api, id, role);
     const actions = useSaleActions(api, confirm, onResume);
@@ -229,7 +243,9 @@ function SalePanel({
                 detail === null || detail.number === "" ? d.details : d.saleNumber(detail.number)
             }
             subtitle={
-                detail === null ? undefined : `${detail.clientName} · ${relativeDayTime(detail.at)}`
+                detail === null
+                    ? undefined
+                    : formatParts([detail.clientName, relativeDayTime(detail.at, zone)])
             }
             {...(detail === null
                 ? {}
@@ -268,14 +284,16 @@ function SalePanel({
                             <LineItem
                                 key={l.key}
                                 title={l.description}
+                                currency={BUSINESS_CURRENCY}
                                 {...(l.quantity > 1 ? { count: l.quantity } : {})}
                                 tag={
                                     l.discount === null
                                         ? null
                                         : {
-                                              label: [discountLabel(l.discount), l.discount.reason]
-                                                  .filter(Boolean)
-                                                  .join(" · "),
+                                              label: formatParts([
+                                                  discountLabel(l.discount),
+                                                  discountReason(l.discount.reason),
+                                              ]),
                                               intent: "success",
                                           }
                                 }
@@ -283,7 +301,11 @@ function SalePanel({
                                 originalCents={l.lineDiscountCents > 0 ? l.grossCents : null}
                             />
                         ))}
-                        <DocTotals lines={detail.totalLines} density="compact" />
+                        <DocTotals
+                            currency={BUSINESS_CURRENCY}
+                            lines={detail.totalLines}
+                            density="compact"
+                        />
                     </DetailSection>
                     {detail.payments.length > 0 ? (
                         <DetailSection title={d.payments}>
@@ -294,7 +316,7 @@ function SalePanel({
                                     icon={p.refund ? "refresh" : "card"}
                                     title={p.label}
                                     detail={p.detail}
-                                    meta={formatMoney(p.cents)}
+                                    meta={formatMoney(p.cents, BUSINESS_CURRENCY)}
                                 />
                             ))}
                         </DetailSection>
@@ -306,7 +328,7 @@ function SalePanel({
                                     key={s.staffId}
                                     density="compact"
                                     title={s.name}
-                                    meta={formatMoney(s.cents)}
+                                    meta={formatMoney(s.cents, BUSINESS_CURRENCY)}
                                 />
                             ))}
                         </DetailSection>

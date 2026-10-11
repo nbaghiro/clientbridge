@@ -100,6 +100,7 @@ export function PublicForm() {
                 {form.fields.map((f) => (
                     <FormQuestion
                         key={f.id}
+                        zone={form.timezone}
                         field={f}
                         value={fill.answers[f.name]}
                         onChange={(v) => {

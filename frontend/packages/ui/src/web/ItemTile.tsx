@@ -10,6 +10,7 @@ export function ItemTile({
     imageSrc,
     color,
     cents,
+    currency,
     meta,
     tag,
     count = 0,
@@ -64,7 +65,7 @@ export function ItemTile({
                     <span className="mt-auto flex items-baseline justify-between gap-2 pt-2">
                         <span className="truncate text-xs text-muted">{meta}</span>
                         <span className="text-sm font-semibold text-ink">
-                            {cents === null ? null : formatMoney(cents)}
+                            {cents === null ? null : formatMoney(cents, currency)}
                         </span>
                     </span>
                 </span>
@@ -102,7 +103,7 @@ export function ItemTile({
             <span className="mt-auto flex items-baseline justify-between gap-2 pt-1.5">
                 <span className="truncate text-xs text-muted">{meta}</span>
                 <span className="text-sm font-semibold text-ink">
-                    {cents === null ? null : formatMoney(cents)}
+                    {cents === null ? null : formatMoney(cents, currency)}
                 </span>
             </span>
         </button>

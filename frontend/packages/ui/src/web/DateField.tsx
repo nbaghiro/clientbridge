@@ -40,6 +40,7 @@ export function DateField({
     onChange,
     min,
     max,
+    zone,
     className,
     ref,
 }: WebProps<DateFieldProps> & WithRef<HTMLButtonElement>) {
@@ -49,7 +50,7 @@ export function DateField({
     const triggerRef = useMemo(() => mergeRefs(trigger, ref), [ref]);
     const grid = useRef<HTMLDivElement>(null);
     const [open, setOpen] = useState(false);
-    const month = useMonthGrid(value, min, max);
+    const month = useMonthGrid(value, zone, min, max);
     const close = (refocus: boolean): void => {
         setOpen(false);
         if (refocus) trigger.current?.focus();
@@ -62,8 +63,8 @@ export function DateField({
         },
         288,
     );
-    const day = parseDateKey(value);
-    const today = dateKey(new Date());
+    const day = parseDateKey(value, zone);
+    const today = dateKey(new Date(), zone);
     const todayOk =
         (min === undefined || min === "" || today >= min) &&
         (max === undefined || max === "" || today <= max);
@@ -353,7 +354,7 @@ export function DateField({
                     }
                 }}
             >
-                {day === null ? (placeholder ?? strings.ui.pickDate) : formatPickedDay(day)}
+                {day === null ? (placeholder ?? strings.ui.pickDate) : formatPickedDay(day, zone)}
             </PickerTrigger>
             {popover}
         </Labelled>
@@ -413,6 +414,7 @@ export function DateTimeField({
     onChange,
     min,
     step,
+    zone,
     className,
 }: WebProps<DateTimeFieldProps>) {
     const [value, setValue] = useControllable(valueProp, defaultValue, onChange);
@@ -426,6 +428,7 @@ export function DateTimeField({
                 size={size}
                 disabled={disabled}
                 min={min}
+                zone={zone}
                 value={day}
                 onChange={(d) => {
                     setValue(d === "" ? "" : `${d}T${time === "" ? "09:00" : time}`);
@@ -438,7 +441,7 @@ export function DateTimeField({
                 step={step}
                 value={time}
                 onChange={(t) => {
-                    setValue(`${day === "" ? dateKey(new Date()) : day}T${t}`);
+                    setValue(`${day === "" ? dateKey(new Date(), zone) : day}T${t}`);
                 }}
             />
         </div>

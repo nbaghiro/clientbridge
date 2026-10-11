@@ -205,6 +205,7 @@ function MemberDetail({
     const owner = member.role === "owner";
     const editable = team.canManage && !owner && !member.isYou;
     const busy = team.busyId === member.id;
+    const access = strings.common.titleAndBody(roleLabel(member.role), t.roleAccess[member.role]);
     const remove = (): void => {
         confirm({
             title: t.removeTitle(member.name),
@@ -264,8 +265,9 @@ function MemberDetail({
                     />
                 ) : (
                     <p className="text-sm text-ink-soft">
-                        {roleLabel(member.role)}. {t.roleAccess[member.role]}
-                        {member.isYou && team.canManage ? ` ${t.selfNote}` : ""}
+                        {member.isYou && team.canManage
+                            ? strings.common.twoSentences(access, t.selfNote)
+                            : access}
                     </p>
                 )}
             </DetailSection>
@@ -341,7 +343,7 @@ function InviteRow({ invite, team }: { invite: TeamInvite; team: TeamView }) {
 
 function RoleAccess({ team }: { team: TeamView }) {
     const role = team.viewerRole ?? "staff";
-    const can = t.roleCan[role] ?? [];
+    const can = t.roleCan[role];
     const cant = t.roleCant[role] ?? [];
     return (
         <Panel title={t.yourRole(roleLabel(role))} subtitle={t.roleAccess[role]}>

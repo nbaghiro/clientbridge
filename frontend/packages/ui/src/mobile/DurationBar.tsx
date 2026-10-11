@@ -1,4 +1,4 @@
-import type { DurationBarProps } from "@clientbridge/app-core";
+import { type DurationBarProps, formatList } from "@clientbridge/app-core";
 import { tintHex } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
@@ -16,7 +16,13 @@ export function DurationBar({ segments, color, caption, style }: NativeProps<Dur
                 style={styles.bar}
                 accessible
                 accessibilityRole="image"
-                accessibilityLabel={caption ?? shown.map((seg) => seg.label).join(", ")}
+                accessibilityLabel={
+                    caption ??
+                    formatList(
+                        shown.map((seg) => seg.label),
+                        "unit",
+                    )
+                }
             >
                 {shown.map((seg) => (
                     <View

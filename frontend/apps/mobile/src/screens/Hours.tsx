@@ -1,12 +1,15 @@
 import {
     type AwayEntry,
     type AwayLength,
-    formatTime,
-    formatWeekday,
+    firstName,
     strings,
     useTeamWeek,
     useTimeOffForm,
     useWeekEditor,
+    formatParts,
+    formatList,
+    useBusinessZone,
+    formatWeekdayTime,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -74,7 +77,9 @@ export function Hours() {
             ) : (
                 <>
                     {week.load.state === "empty" ? (
-                        <Notice tone="info" banner>{`${s.emptyHours}. ${s.emptyHoursBody}`}</Notice>
+                        <Notice tone="info" banner>
+                            {strings.common.titleAndBody(s.emptyHours, s.emptyHoursBody)}
+                        </Notice>
                     ) : null}
                     <View style={styles.who}>
                         <Avatar name={member.name} color={member.color} size="lg" />
@@ -86,7 +91,7 @@ export function Hours() {
                         </View>
                     </View>
                     {member.editable ? <PersonHours key={member.id} staffId={member.id} /> : null}
-                    <Text style={styles.section}>{s.upcomingFor(member.name)}</Text>
+                    <Text style={styles.section}>{s.upcomingFor(firstName(member.name))}</Text>
                     <View style={styles.list}>
                         {coming.length === 0 ? (
                             <Text style={styles.empty}>{s.noTimeOff}</Text>
@@ -103,7 +108,7 @@ export function Hours() {
                                 <View style={styles.whoText}>
                                     <Text style={styles.rowTitle}>
                                         {a.staffId === null
-                                            ? `${a.reason} · ${s.everyone}`
+                                            ? formatParts([a.reason, s.everyone])
                                             : a.reason}
                                     </Text>
                                     <Text style={styles.muted}>{a.when}</Text>
@@ -118,7 +123,9 @@ export function Hours() {
                                         icon="trash"
                                         size="sm"
                                         disabled={week.removing === a.id}
-                                        label={s.removeLabel(`${a.reason}, ${a.when}`)}
+                                        label={s.removeLabel(
+                                            formatList([a.reason, a.when], "unit"),
+                                        )}
                                         onPress={() => {
                                             week.removeAway(a.id);
                                         }}
@@ -185,7 +192,7 @@ function PersonHours({ staffId }: { staffId: string }) {
             ) : null}
             <View style={styles.saveRow}>
                 <Text style={styles.muted}>
-                    {s.daysOpen(editor.openDays)} · {s.weekTotal(editor.totalHours)}
+                    {formatParts([s.daysOpen(editor.openDays), s.weekTotal(editor.totalHours)])}
                 </Text>
                 <Button style={{ alignSelf: "center" }} busy={editor.busy} onPress={editor.submit}>
                     {editor.saveLabel}
@@ -196,14 +203,35 @@ function PersonHours({ staffId }: { staffId: string }) {
 }
 
 const LENGTHS: { key: AwayLength; label: string }[] = [
-    { key: "day", label: s.lengthDay },
-    { key: "days", label: s.lengthDays },
-    { key: "week", label: s.lengthWeek },
-    { key: "part", label: s.lengthPart },
+    {
+        key: "day",
+        get label() {
+            return s.lengthDay;
+        },
+    },
+    {
+        key: "days",
+        get label() {
+            return s.lengthDays;
+        },
+    },
+    {
+        key: "week",
+        get label() {
+            return s.lengthWeek;
+        },
+    },
+    {
+        key: "part",
+        get label() {
+            return s.lengthPart;
+        },
+    },
 ];
 
 /** Time off or a closure, picked with a week of dates instead of a date field. */
 function TimeOffSheet({ staffId, onClose }: { staffId: string; onClose: () => void }) {
+    const zone = useBusinessZone();
     const form = useTimeOffForm(api, useViewer(), onClose, staffId);
     const [page, setPage] = useState(0);
     const closure = form.staffId === "";
@@ -303,7 +331,7 @@ function TimeOffSheet({ staffId, onClose }: { staffId: string; onClose: () => vo
                                         ]}
                                     />
                                     <Text style={styles.visitTime} numberOfLines={1}>
-                                        {formatWeekday(e.start)} {formatTime(e.start)}
+                                        {formatWeekdayTime(e.start, zone)}
                                     </Text>
                                     <Text style={styles.visitName} numberOfLines={1}>
                                         {e.headline}

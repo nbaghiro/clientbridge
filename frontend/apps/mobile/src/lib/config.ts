@@ -50,5 +50,8 @@ export const stripeMerchantId = extra.stripeMerchantId ?? "merchant.ca.clientbri
 /** Discover a simulated Terminal reader (dev) vs a real Tap-to-Pay device. */
 export const terminalSimulated = extra.terminalSimulated ?? true;
 
+/** Development builds switch to the en-XA pseudo-locale with EXPO_PUBLIC_PSEUDO_LOCALE=1. */
+export const pseudoLocale = __DEV__ && process.env.EXPO_PUBLIC_PSEUDO_LOCALE === "1";
+
 /** Set by EAS builds; push registration falls back to Expo's default without it. */
 export const easProjectId = extra.eas?.projectId;

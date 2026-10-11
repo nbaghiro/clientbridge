@@ -5,6 +5,8 @@ import {
     serviceSummary,
     strings,
     usePublicProfile,
+    formatRating,
+    formatClock,
 } from "@clientbridge/app-core/public";
 import {
     Avatar,
@@ -115,7 +117,10 @@ export function PublicLanding() {
                             >
                                 <dt className="text-muted">{view.weekday(hours.weekday)}</dt>
                                 <dd className="tabular-nums text-ink">
-                                    {hours.start}–{hours.end}
+                                    {strings.common.range(
+                                        formatClock(hours.start),
+                                        formatClock(hours.end),
+                                    )}
                                 </dd>
                             </div>
                         ))}
@@ -151,7 +156,7 @@ export function PublicLanding() {
                         {page.rating !== null && page.review_count > 0 ? (
                             <p className="mt-4 flex items-center gap-2 text-sm">
                                 <Icon name="star" size={16} />
-                                {s.rating(page.rating.toFixed(1), page.review_count)}
+                                {s.rating(formatRating(page.rating), page.review_count)}
                             </p>
                         ) : null}
                         <div className="mt-6 flex flex-col gap-3 min-[400px]:flex-row min-[400px]:flex-wrap">
@@ -183,6 +188,9 @@ export function PublicLanding() {
                     ) : null}
                     <section id="services" className="scroll-mt-40">
                         <h2 className="mb-6 font-display text-2xl font-bold">{s.servicesTitle}</h2>
+                        {view.zoneNote !== null ? (
+                            <p className="-mt-4 mb-6 text-sm text-muted">{view.zoneNote}</p>
+                        ) : null}
                         {!hasServices ? (
                             <Notice tone="info">{s.noServices}</Notice>
                         ) : (
@@ -216,6 +224,7 @@ export function PublicLanding() {
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
+                                                        className="max-w-40 text-center"
                                                         onPress={() => {
                                                             book(service.id);
                                                         }}
@@ -318,13 +327,13 @@ export function PublicLanding() {
                                 <Panel className="mb-4 !bg-surface p-1">
                                     <div className="flex flex-wrap items-center gap-4">
                                         <p className="font-display text-4xl font-bold tabular-nums">
-                                            {page.rating.toFixed(1)}
+                                            {formatRating(page.rating)}
                                         </p>
                                         <div className="space-y-1">
                                             <Stars value={Math.round(page.rating)} />
                                             <p className="text-sm text-muted">
                                                 {s.rating(
-                                                    page.rating.toFixed(1),
+                                                    formatRating(page.rating),
                                                     page.review_count,
                                                 )}
                                             </p>

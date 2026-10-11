@@ -32,10 +32,6 @@ def label(value: str) -> str:
     return value.replace("—", "-")
 
 
-def money(cents: int) -> str:
-    return f"${cents / 100:,.2f}"
-
-
 async def calendar_snapshot(
     db: AsyncSession,
     business: Business,
@@ -67,12 +63,7 @@ async def calendar_snapshot(
     if len(dates) != 5:
         raise ValueError("The marketing calendar expects five actual working weekdays")
     days = [
-        {
-            "label": day.strftime("%a").upper(),
-            "date": str(day.day),
-            "iso": day.isoformat(),
-            **({"today": True} if day == local.date() else {}),
-        }
+        {"iso": day.isoformat(), **({"today": True} if day == local.date() else {})}
         for day in dates
     ]
     slots = {
@@ -110,12 +101,11 @@ async def calendar_snapshot(
         ):
             continue
         pet = pets.get(booking.subject_id or "")
-        time_label = start.strftime("%I:%M").lstrip("0")
         events.append(
             {
                 "day": day,
                 "client": clients[booking.client_id].name,
-                "detail": f"{time_label} · {label(items[slot.item_id].name)}",
+                "service": label(items[slot.item_id].name),
                 "top": round((minute - 540) * 44 / 60) + 4,
                 "height": round(duration * 44 / 60) - 4,
                 "accent": booking.status == "confirmed",
@@ -132,7 +122,7 @@ async def calendar_snapshot(
         day_counts[day] = day_counts.get(day, 0) + 1
     return {
         "days": days,
-        "hours": ["9 a.m.", "10 a.m.", "11 a.m.", "12 p.m.", "1 p.m.", "2 p.m."],
+        "hours": list(range(9, 15)),
         "events": events,
     }
 
@@ -145,12 +135,11 @@ async def booking_snapshot(
         day = as_of.astimezone(zone).date() + timedelta(days=offset)
         openings = await open_slots(db, BIZ, item, "st_owner", day)
         if openings:
-            deposit = deposit_cents(item)
             return {
-                "date": day.strftime("%A, %B %-d"),
-                "times": [value.astimezone(zone).strftime("%-I:%M") for value in openings[:4]],
+                "date": day.isoformat(),
+                "times": [value.astimezone(zone).strftime("%H:%M") for value in openings[:4]],
                 "selectedTime": 0,
-                "cta": f"Book and pay {money(deposit)} deposit" if deposit else "Book a visit",
+                "depositCents": deposit_cents(item),
             }
     raise ValueError("No real booking openings found for the marketing snapshot")
 
@@ -191,7 +180,7 @@ async def main() -> None:
                 {
                     "number": str(invoice.number),
                     "client": clients[invoice.client_id].name,
-                    "total": money(invoice.total_cents),
+                    "totalCents": invoice.total_cents,
                     "paid": status == "paid",
                 }
             )
@@ -213,10 +202,9 @@ async def main() -> None:
                 {
                     "paymentId": payment.id,
                     "amountCents": payment.amount_cents,
-                    "what": f"{payment.method.replace('_', ' ').title()} payment",
+                    "method": payment.method,
                     "who": clients[payment.client_id or ""].name,
-                    "amount": money(payment.amount_cents) + " CAD",
-                    "when": payment.paid_at.strftime("%b %d") if payment.paid_at else "",
+                    "paidAt": payment.paid_at.isoformat() if payment.paid_at else None,
                 }
             )
         awaiting = await ledger.account_total(db, BIZ, Account.category == "receivable")
@@ -232,20 +220,16 @@ async def main() -> None:
         stock = []
         for item_id in ["it_shampoo", "it_brush", "it_nails"]:
             item = items[item_id]
-            low = item.track_stock and (item.stock_on_hand or 0) <= (item.low_stock_at or 0)
             stock.append(
                 {
                     "image": f"/images/demo/{item.id}.jpg",
                     "name": label(item.name),
-                    "sku": item.sku or "Service",
-                    "price": money(item.price_cents),
-                    "stock": f"Low: {item.stock_on_hand} left"
-                    if low
-                    else f"{item.stock_on_hand} in stock"
-                    if item.track_stock
-                    else "Not tracked",
-                    "tone": "warn" if low else "ok" if item.track_stock else "muted",
-                    "restock": low,
+                    "sku": item.sku,
+                    "priceCents": item.price_cents,
+                    "tracked": item.track_stock,
+                    "onHand": item.stock_on_hand,
+                    "low": item.track_stock
+                    and (item.stock_on_hand or 0) <= (item.low_stock_at or 0),
                 }
             )
         tap_item = items["it_groom_sm"]
@@ -253,6 +237,8 @@ async def main() -> None:
         snapshot = {
             "version": audit.changes.get("version"),
             "asOf": audit.changes.get("as_of"),
+            "timezone": business.timezone,
+            "currency": "CAD",
             "invoices": invoices,
             "invoiceCount": count_invoices,
             "estimateCount": count_estimates,
@@ -260,25 +246,22 @@ async def main() -> None:
                 {
                     "image": f"/images/demo/{iid}.jpg",
                     "name": label(items[iid].name),
-                    "length": f"{items[iid].duration_min} min",
-                    "price": money(items[iid].price_cents),
+                    "minutes": items[iid].duration_min,
+                    "priceCents": items[iid].price_cents,
                 }
                 for iid in service_ids
             ],
             "stockRows": stock,
             "tapToPay": {
-                "charge": f"Charge {clients['cl_amelie'].name}",
+                "client": clients["cl_amelie"].name,
                 "itemId": tap_item.id,
                 "subtotalCents": tap_tax.subtotal_cents,
                 "taxCents": tap_tax.tax_total_cents,
                 "totalCents": tap_tax.total_cents,
-                "amount": money(tap_tax.total_cents),
-                "tax": "includes "
-                + ", ".join(
-                    f"{name} {money(amount)}" for name, amount in tap_tax.by_jurisdiction.items()
-                ),
-                "prompt": "Hold card near the phone",
-                "caption": "Tap to Pay on iPhone and Android",
+                "taxes": [
+                    {"code": code, "cents": cents}
+                    for code, cents in tap_tax.by_jurisdiction.items()
+                ],
             },
             "calendar": await calendar_snapshot(db, business, as_of, clients, items),
             "bookingPage": await booking_snapshot(db, business, items[service_ids[0]], as_of),
@@ -287,38 +270,17 @@ async def main() -> None:
                     {
                         "image": f"/images/demo/{iid}.jpg",
                         "name": label(items[iid].name),
-                        "detail": f"{items[iid].stock_on_hand} in stock",
-                        "price": money(items[iid].price_cents),
+                        "onHand": items[iid].stock_on_hand,
+                        "priceCents": items[iid].price_cents,
                         "qty": 1,
                     }
                     for iid in ["it_shampoo", "it_brush"]
                 ],
-                "subtotal": money(items["it_shampoo"].price_cents + items["it_brush"].price_cents),
             },
             "today": {
-                "title": "Business snapshot",
-                "subtitle": "Birchbark demo history.",
-                "stats": [
-                    {
-                        "label": "Sales before tax",
-                        "value": money(revenue) + " CAD",
-                        "caption": "demo history",
-                        "good": True,
-                    },
-                    {
-                        "label": "Awaiting payment",
-                        "value": money(awaiting) + " CAD",
-                        "caption": "outstanding invoices",
-                        "good": False,
-                    },
-                    {
-                        "label": "Sales tax set aside",
-                        "value": money(taxes) + " CAD",
-                        "caption": "federal and provincial",
-                        "good": False,
-                    },
-                ],
-                "activityTitle": "Recent activity",
+                "salesCents": revenue,
+                "awaitingCents": awaiting,
+                "taxCents": taxes,
                 "activity": activity,
             },
         }

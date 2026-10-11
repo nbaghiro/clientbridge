@@ -4,6 +4,8 @@ import {
     formatMoney,
     strings,
     useEntitlementSaleForm,
+    BUSINESS_CURRENCY,
+    currencyAffix,
 } from "@clientbridge/app-core";
 import { StyleSheet, View } from "react-native";
 import { Button, ChargeSheet, Choice, DocTotals, Field, Notice, TextField } from "@clientbridge/ui";
@@ -27,7 +29,7 @@ export function SellEntitlement({
         return (
             <View style={styles.gap}>
                 <Notice tone="success" banner>
-                    {`${w.doneTitle}. ${form.sold}`}
+                    {strings.common.titleAndBody(w.doneTitle, form.sold)}
                 </Notice>
                 <Button variant="quiet" onPress={onClose}>
                     {strings.common.close}
@@ -40,7 +42,7 @@ export function SellEntitlement({
             title={w.sellTitle}
             checkout={form.checkout}
             methods={form.methods}
-            amountLabel={formatMoney(form.totalCents)}
+            amountLabel={formatMoney(form.totalCents, BUSINESS_CURRENCY)}
             submitLabel={form.submitLabel}
             busyLabel={form.busyLabel}
             onSubmit={form.submit}
@@ -78,7 +80,7 @@ function SaleFields({
                     <TextField
                         label={w.giftAmount}
                         type="number"
-                        prefix="$"
+                        {...currencyAffix(BUSINESS_CURRENCY)}
                         value={form.amount}
                         onChange={form.setAmount}
                     />
@@ -119,7 +121,7 @@ function SaleFields({
                 </Field>
             ) : null}
             {form.needsCard ? <Notice tone="info">{w.membershipNeedsCard}</Notice> : null}
-            <DocTotals lines={form.lines} density="compact" />
+            <DocTotals currency={BUSINESS_CURRENCY} lines={form.lines} density="compact" />
         </View>
     );
 }

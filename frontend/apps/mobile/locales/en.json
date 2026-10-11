@@ -1,0 +1,13 @@
+{
+    "ios": {
+        "CFBundleDisplayName": "Clientbridge",
+        "NSPhotoLibraryUsageDescription": "Choose a photo for your business logo or cover.",
+        "NSBluetoothAlwaysUsageDescription": "This app uses Bluetooth to connect to supported card readers.",
+        "NSBluetoothPeripheralUsageDescription": "Bluetooth access is required in order to connect to supported bluetooth card readers.",
+        "NSLocalNetworkUsageDescription": "This app uses the local WiFi network to connect to supported card readers.",
+        "NSLocationWhenInUseUsageDescription": "Location access is required in order to accept payments."
+    },
+    "android": {
+        "app_name": "Clientbridge"
+    }
+}

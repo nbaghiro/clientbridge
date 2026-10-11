@@ -15,6 +15,11 @@ import {
     minuteTop,
     planMove,
     strings,
+    formatParts,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
+    formatTimeRange,
+    minutesInto,
 } from "@clientbridge/app-core";
 import { Button, CalendarEventCard, Icon, IconButton } from "@clientbridge/ui";
 import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
@@ -124,10 +129,10 @@ export function DaySummaryBar({
 }) {
     const items = [
         { label: s.booked, value: s.bookings(summary.visits, summary.classes) },
-        { label: s.expected, value: formatMoney(summary.expectedCents) },
+        { label: s.expected, value: formatMoney(summary.expectedCents, BUSINESS_CURRENCY) },
         {
             label: s.openTime,
-            value: s.hoursOpen((summary.openMin / 60).toFixed(1).replace(".0", "")),
+            value: s.hoursOpen(summary.openMin / 60),
         },
         { label: s.chairTime, value: s.utilization(summary.utilization) },
     ].map((it) => (waiting ? { ...it, value: s.dash } : it));
@@ -144,10 +149,30 @@ export function DaySummaryBar({
 }
 
 const LEGEND = [
-    { intent: "accent", label: s.legendConfirmed },
-    { intent: "warning", label: s.legendPending },
-    { intent: "success", label: s.legendCompleted },
-    { intent: "danger", label: s.legendNoShow },
+    {
+        intent: "accent",
+        get label() {
+            return s.legendConfirmed;
+        },
+    },
+    {
+        intent: "warning",
+        get label() {
+            return s.legendPending;
+        },
+    },
+    {
+        intent: "success",
+        get label() {
+            return s.legendCompleted;
+        },
+    },
+    {
+        intent: "danger",
+        get label() {
+            return s.legendNoShow;
+        },
+    },
 ] as const;
 
 export function StatusLegend() {
@@ -273,23 +298,14 @@ export function BlockCard({
     pxPerMin: number;
     dayStart: Date;
 }) {
-    const windowStart = new Date(
-        dayStart.getFullYear(),
-        dayStart.getMonth(),
-        dayStart.getDate(),
-        startHour,
-    );
-    const windowEnd = new Date(
-        dayStart.getFullYear(),
-        dayStart.getMonth(),
-        dayStart.getDate(),
-        endHour,
-    );
+    const zone = useBusinessZone();
+    const windowStart = minutesInto(dayStart, startHour * 60, zone);
+    const windowEnd = minutesInto(dayStart, endHour * 60, zone);
     const from = block.start < windowStart ? windowStart : block.start;
     const to = block.end > windowEnd ? windowEnd : block.end;
     if (to <= from) return null;
-    const top = minuteTop(from, startHour, pxPerMin);
-    const height = minuteTop(to, startHour, pxPerMin) - top;
+    const top = minuteTop(from, startHour, pxPerMin, zone);
+    const height = minuteTop(to, startHour, pxPerMin, zone) - top;
     const away = block.kind !== "break";
     return (
         <div
@@ -303,7 +319,9 @@ export function BlockCard({
                 <span className="truncate">{block.label}</span>
             </span>
             {height > 34 ? (
-                <span className="mt-0.5 block">{`${formatTime(block.start)} – ${formatTime(block.end)}`}</span>
+                <span className="mt-0.5 block">
+                    {formatTimeRange(block.start, block.end, zone)}
+                </span>
             ) : null}
         </div>
     );
@@ -457,6 +475,7 @@ export function GridEvent({
     onSelect: (e: ScheduleEvent) => void;
     clickAllowed: () => boolean;
 }) {
+    const zone = useBusinessZone();
     const { event, top, height, leftPct, widthPct } = placed;
     const mine = drag?.id === event.id ? drag : null;
     const compact = height < 30;
@@ -470,7 +489,7 @@ export function GridEvent({
                     ? s.classSeats(event.bookedCount, event.capacity)
                     : event.serviceName
             }
-            time={density(h) === "full" ? event.timeLabel : formatTime(event.start)}
+            time={density(h) === "full" ? event.timeLabel : formatTime(event.start, zone)}
             intent={event.intent}
             color={event.color}
             density={density(h)}
@@ -551,8 +570,9 @@ export function GridEvent({
                             refused ? "bg-danger text-surface" : "bg-ink text-surface"
                         }`}
                     >
-                        {!refused && mine.mode === "move" ? `${mine.plan.label} · ` : ""}
-                        {message}
+                        {!refused && mine.mode === "move"
+                            ? formatParts([mine.plan.label, message])
+                            : message}
                     </span>
                 </div>
             ) : null}

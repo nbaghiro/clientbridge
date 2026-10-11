@@ -7,6 +7,7 @@ import {
     toTimeline,
     useClientHistory,
     useNoteComposer,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     ActivityTimeline,
@@ -113,6 +114,7 @@ export function NoteDialog({
 
 /** One client's history: a timeline with filters, the note box, and pinned notes beside it. */
 export function ClientHistory({ clientId, aside }: { clientId: string; aside?: ReactNode }) {
+    const zone = useBusinessZone();
     const viewer = useViewer();
     const h = useClientHistory(clientId, viewer?.staffId ?? null);
     const composer = useNoteComposer(api, clientId);
@@ -162,7 +164,9 @@ export function ClientHistory({ clientId, aside }: { clientId: string; aside?: R
                             {s.upcoming}
                         </h2>
                         <div className="rounded-lg border border-accent-line bg-surface p-4">
-                            <ActivityTimeline entries={h.upcoming.map(toTimeline)} />
+                            <ActivityTimeline
+                                entries={h.upcoming.map((e) => toTimeline(e, zone))}
+                            />
                         </div>
                     </section>
                 ) : null}
@@ -177,7 +181,7 @@ export function ClientHistory({ clientId, aside }: { clientId: string; aside?: R
                             {g.label}
                         </h2>
                         <div className="rounded-lg border border-line bg-surface p-4 shadow-card">
-                            <ActivityTimeline entries={g.entries.map(toTimeline)} />
+                            <ActivityTimeline entries={g.entries.map((e) => toTimeline(e, zone))} />
                         </div>
                     </section>
                 ))}
@@ -201,7 +205,7 @@ export function ClientHistory({ clientId, aside }: { clientId: string; aside?: R
                                     <span className="mt-1 flex items-center gap-2 text-xs text-muted">
                                         {s.by(
                                             n.author,
-                                            formatRelativeTime(n.at.toISOString(), now),
+                                            formatRelativeTime(n.at.toISOString(), zone, now),
                                         )}
                                         {n.pet !== null ? (
                                             <Badge label={n.pet} intent="neutral" />

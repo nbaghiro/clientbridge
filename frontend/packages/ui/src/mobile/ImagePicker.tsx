@@ -1,4 +1,4 @@
-import type { ImagePickerProps } from "@clientbridge/app-core";
+import { formatList, type ImagePickerProps } from "@clientbridge/app-core";
 import { tintHex } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
@@ -31,7 +31,7 @@ export function ImagePicker({
             <Pressable
                 onPress={onPick}
                 accessibilityRole="button"
-                accessibilityLabel={`${label}, ${name}`}
+                accessibilityLabel={formatList([label, name], "unit")}
                 style={[styles.box, { width: px, height: px }, src === null && styles.empty]}
             >
                 {src !== null ? (

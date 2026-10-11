@@ -1,4 +1,4 @@
-import type { BarChartProps } from "@clientbridge/app-core";
+import { type BarChartProps, formatMoney } from "@clientbridge/app-core";
 
 import { story } from "../story";
 
@@ -19,7 +19,7 @@ export default story<BarChartProps>({
                     key: m,
                     label: m,
                     value: VALUES[i] ?? 0,
-                    valueLabel: `$${(VALUES[i] ?? 0).toLocaleString("en-CA")}`,
+                    valueLabel: formatMoney((VALUES[i] ?? 0) * 100, "CAD"),
                     partial: i === MONTHS.length - 1,
                 })),
             }),

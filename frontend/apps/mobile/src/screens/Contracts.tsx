@@ -12,6 +12,8 @@ import {
     useContractDraft,
     useNewContract,
     useSignatureActions,
+    formatParts,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -86,11 +88,11 @@ export function Contracts() {
                             <ListRow
                                 key={x.contract.id}
                                 title={x.contract.name}
-                                detail={[
+                                detail={formatParts([
                                     s.versionShort(x.contract.version),
                                     s.signedCount(x.signed),
                                     s.waitingCount(x.waiting),
-                                ].join(" · ")}
+                                ])}
                                 onPress={() => {
                                     setOpenId(x.contract.id);
                                 }}
@@ -123,6 +125,7 @@ function ContractDetail({
     issuer: string;
     onBack: () => void;
 }) {
+    const zone = useBusinessZone();
     const actions = useSignatureActions(api, bookUrl, shareText);
     const [sending, setSending] = useState(false);
     const [viewing, setViewing] = useState<SignatureRequest | null>(null);
@@ -155,8 +158,11 @@ function ContractDetail({
             </View>
             <Text style={styles.title}>{k.name}</Text>
             <Text style={styles.meta}>
-                {s.version(k.version)} · {s.signedCount(summary.signed)} ·{" "}
-                {s.waitingCount(summary.waiting)}
+                {formatParts([
+                    s.version(k.version),
+                    s.signedCount(summary.signed),
+                    s.waitingCount(summary.waiting),
+                ])}
             </Text>
             <Text style={styles.section}>{s.signatures}</Text>
             {summary.requests.length === 0 ? <Empty message={s.noSignatures} /> : null}
@@ -168,10 +174,10 @@ function ContractDetail({
                             key={r.id}
                             leading={<Avatar name={r.client_name ?? ""} size="sm" />}
                             title={r.client_name ?? ""}
-                            detail={signatureActivity(r)}
+                            detail={signatureActivity(r, zone)}
                             meta={
                                 <StatusPill
-                                    status={s.status[r.state] ?? r.state}
+                                    status={s.status[r.state]}
                                     intent={signatureIntent(r.state)}
                                     asWritten
                                 />
@@ -286,10 +292,10 @@ function ContractDetail({
                             title={viewing.contract_name}
                             meta={s.version(viewing.version)}
                             clauses={contractClauses(signedText(viewing, k.body))}
-                            signature={signatureBlock(viewing)}
+                            signature={signatureBlock(viewing, zone)}
                         />
                         <Text style={styles.section}>{s.history}</Text>
-                        <ActivityTimeline entries={signatureHistory(viewing)} />
+                        <ActivityTimeline entries={signatureHistory(viewing, zone)} />
                         <Button
                             variant="outline"
                             onPress={() => {

@@ -41,7 +41,7 @@ export function DateStrip({
                         key={d.key}
                         accessibilityRole="button"
                         accessibilityState={{ selected: on, disabled: off }}
-                        accessibilityLabel={`${d.weekday} ${d.day}`}
+                        accessibilityLabel={strings.common.labelValue(d.weekday, d.day)}
                         disabled={off}
                         onPress={() => {
                             setValue(d.key);

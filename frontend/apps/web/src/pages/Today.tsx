@@ -11,6 +11,8 @@ import {
     useStaffToday,
     useTodayActions,
     visitAction,
+    formatParts,
+    BUSINESS_CURRENCY,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -89,16 +91,20 @@ function MoneyStrip({ today }: { today: OwnerToday }) {
                     value: String(view.agenda.length),
                     hint: t.bookedHint(view.done, view.remaining),
                 },
-                { label: t.expected, value: formatMoney(view.expectedCents), hint: t.expectedHint },
+                {
+                    label: t.expected,
+                    value: formatMoney(view.expectedCents, BUSINESS_CURRENCY),
+                    hint: t.expectedHint,
+                },
                 {
                     label: t.collected,
-                    value: formatMoney(money.collectedCents),
+                    value: formatMoney(money.collectedCents, BUSINESS_CURRENCY),
                     hint: t.collectedHint(money.paymentCount),
                     tone: "success",
                 },
                 {
                     label: t.awaiting,
-                    value: formatMoney(money.awaitingCents),
+                    value: formatMoney(money.awaitingCents, BUSINESS_CURRENCY),
                     hint: t.awaitingHint(money.awaitingCount),
                 },
             ]}
@@ -287,7 +293,10 @@ function StaffTodayPage() {
                                                             {a.clientName}
                                                         </div>
                                                         <div className="truncate text-xs text-muted">
-                                                            {a.serviceName} · {t.endsAt(a.endTime)}
+                                                            {formatParts([
+                                                                a.serviceName,
+                                                                t.endsAt(a.endTime),
+                                                            ])}
                                                         </div>
                                                     </div>
                                                     {a === next ? (
@@ -319,7 +328,7 @@ function StaffTodayPage() {
                         <div className="rounded-lg border border-line bg-surface p-5 shadow-card">
                             <p className="text-xs font-medium text-muted">{t.staff.earnings}</p>
                             <p className="mt-1 font-display text-2xl font-bold tabular-nums text-success">
-                                {formatMoney(day.earnedCents)}
+                                {formatMoney(day.earnedCents, BUSINESS_CURRENCY)}
                             </p>
                             <p className="mt-0.5 text-xs text-muted">{t.staff.earningsHint}</p>
                             <div className="mt-3 border-t border-line-soft">
@@ -391,7 +400,7 @@ function NextClient({
                             ? t.checkedIn
                             : item.state === "now"
                               ? t.stateNow
-                              : `${item.time} · ${t.inMinutes(item.minutesAway)}`
+                              : formatParts([item.time, item.startsIn])
                     }
                     intent={item.checkedIn || item.state === "now" ? "success" : "accent"}
                     asWritten

@@ -22,6 +22,7 @@ export default story<ItemTileProps>({
             key: "tile",
             title: "Tile",
             props: () => ({
+                currency: "CAD",
                 name: "Full groom",
                 imageSrc: null,
                 color: "#3F5E80",
@@ -34,6 +35,7 @@ export default story<ItemTileProps>({
             key: "tile-count",
             title: "On the ticket",
             props: () => ({
+                currency: "CAD",
                 name: "Nail trim",
                 imageSrc: null,
                 color: "#2E7A5A",
@@ -47,6 +49,7 @@ export default story<ItemTileProps>({
             key: "tile-tag",
             title: "Tagged",
             props: () => ({
+                currency: "CAD",
                 name: "Oatmeal shampoo (500ml)",
                 imageSrc: null,
                 color: "#B08D57",
@@ -60,6 +63,7 @@ export default story<ItemTileProps>({
             key: "tile-disabled",
             title: "Sold out",
             props: () => ({
+                currency: "CAD",
                 name: "Self-cleaning slicker brush",
                 imageSrc: null,
                 color: null,
@@ -73,6 +77,7 @@ export default story<ItemTileProps>({
             key: "card",
             title: "Card",
             props: () => ({
+                currency: "CAD",
                 name: "Self-cleaning slicker brush",
                 imageSrc: null,
                 color: "#7A5C99",
@@ -86,6 +91,7 @@ export default story<ItemTileProps>({
             key: "card-tag",
             title: "Card with a tag",
             props: () => ({
+                currency: "CAD",
                 name: "Birchbark bandana",
                 imageSrc: null,
                 color: "#2E7A5A",
@@ -100,6 +106,7 @@ export default story<ItemTileProps>({
             key: "tile-no-price",
             title: "No price, no colour",
             props: () => ({
+                currency: "CAD",
                 name: "Custom quote",
                 imageSrc: null,
                 color: null,
@@ -112,6 +119,7 @@ export default story<ItemTileProps>({
             key: "tile-long",
             title: "Long name and meta",
             props: () => ({
+                currency: "CAD",
                 name: "Deluxe spa package with blueberry facial, teeth brushing and paw balm",
                 imageSrc: null,
                 color: "#7A5C99",
@@ -126,6 +134,7 @@ export default story<ItemTileProps>({
             key: "tile-rtl",
             title: "Right-to-left",
             props: () => ({
+                currency: "CAD",
                 name: "قص الأظافر",
                 imageSrc: null,
                 color: "#2E7A5A",
@@ -138,6 +147,7 @@ export default story<ItemTileProps>({
             key: "card-photo",
             title: "Card with a photo, on the ticket",
             props: () => ({
+                currency: "CAD",
                 name: "Oatmeal shampoo (500ml)",
                 imageSrc: PHOTO,
                 color: null,
@@ -152,6 +162,7 @@ export default story<ItemTileProps>({
             key: "card-disabled",
             title: "Card, sold out, long name",
             props: () => ({
+                currency: "CAD",
                 name: "Limited edition autumn bandana with embroidered maple leaves",
                 imageSrc: null,
                 color: "#B08D57",

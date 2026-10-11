@@ -10,6 +10,7 @@ function receipt(extra: Partial<PublicReceipt> = {}): PublicReceipt {
         number: 42,
         business_name: "Birch Studio",
         brand: { logo_url: null, primary: null, tagline: null },
+        timezone: "America/Vancouver",
         gst_hst_number: null,
         qst_number: null,
         client_name: "Ann",
@@ -42,7 +43,7 @@ describe("publicReceiptTotals", () => {
             { key: "subtotal", label: r.subtotal, cents: 12420, kind: "subtotal" },
             {
                 key: "GST",
-                label: strings.billing.taxRow("GST", "5%"),
+                label: "GST 5%",
                 cents: 621,
                 kind: "tax",
             },

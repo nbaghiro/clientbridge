@@ -1,7 +1,9 @@
 import { strings } from "../strings";
 import type { DocTotalLine, PrintedDocLine } from "../ui";
 import { type PublicDocLine, type PublicDocTax, publicDocLines, publicDocTaxes } from "./publicPay";
+import { discountReason } from "./printing";
 import { type PublicBrand, usePublicResource } from "./publicResource";
+import { refusal } from "../api";
 
 interface PublicReceiptPayment {
     kind: "payment" | "deposit" | "refund";
@@ -21,6 +23,7 @@ export interface PublicReceipt {
     served_by: string[];
     status: string;
     currency: string;
+    timezone: string;
     created_at: string;
     lines: PublicDocLine[];
     discount_cents: number;
@@ -33,16 +36,6 @@ export interface PublicReceipt {
     payments: PublicReceiptPayment[];
 }
 
-class PublicReceiptError extends Error {
-    constructor(
-        readonly status: number,
-        message: string,
-    ) {
-        super(message);
-        this.name = "PublicReceiptError";
-    }
-}
-
 interface PublicReceiptClient {
     getReceipt: (token: string) => Promise<PublicReceipt>;
 }
@@ -51,7 +44,7 @@ export function createPublicReceiptClient(baseUrl: string): PublicReceiptClient 
     return {
         getReceipt: async (token) => {
             const res = await fetch(`${baseUrl}/receipt/${encodeURIComponent(token)}`);
-            if (!res.ok) throw new PublicReceiptError(res.status, res.statusText);
+            if (!res.ok) throw await refusal(res);
             return (await res.json()) as PublicReceipt;
         },
     };
@@ -67,7 +60,7 @@ export function publicReceiptTotals(receipt: PublicReceipt): DocTotalLine[] {
             label: r.discount,
             cents: receipt.discount_cents,
             kind: "credit",
-            hint: receipt.discount_reason ?? undefined,
+            hint: discountReason(receipt.discount_reason) ?? undefined,
         });
     rows.push({
         key: "subtotal",
@@ -99,7 +92,7 @@ export function publicReceiptTotals(receipt: PublicReceipt): DocTotalLine[] {
                     ? r.refund
                     : p.kind === "deposit"
                       ? r.deposit
-                      : (r.method[p.method] ?? r.method.other ?? ""),
+                      : (r.method[p.method] ?? r.method.other),
             cents: p.kind === "refund" ? -p.amount_cents : p.amount_cents,
             kind: "credit",
         });

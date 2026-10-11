@@ -10,6 +10,8 @@ import {
     useReceiveDelivery,
     useRestockForm,
     useStockMoves,
+    BUSINESS_CURRENCY,
+    currencyAffix,
 } from "@clientbridge/app-core";
 import {
     ActivityTimeline,
@@ -287,9 +289,12 @@ export function Inventory() {
                                 tone={inv.stats.out > 0 ? "danger" : "ink"}
                             />
                             <Stat
+                                currency={BUSINESS_CURRENCY}
                                 label={s.statValue}
                                 cents={inv.stats.costCents}
-                                hint={s.statRetail(formatMoney(inv.stats.retailCents))}
+                                hint={s.statRetail(
+                                    formatMoney(inv.stats.retailCents, BUSINESS_CURRENCY),
+                                )}
                             />
                         </div>
                         {done !== null ? (
@@ -329,7 +334,11 @@ export function Inventory() {
                         setRestocking(null);
                     }}
                     onDone={(n) => {
-                        setDone(s.restockDone(n, restocking.item.name));
+                        setDone(
+                            n < 0
+                                ? s.restockCorrected(n, restocking.item.name)
+                                : s.restockDone(n, restocking.item.name),
+                        );
                         setRestocking(null);
                     }}
                 />
@@ -498,7 +507,9 @@ function ReceiveDelivery({
                                                                 name={s.unitCostFor(l.item.name)}
                                                                 type="number"
                                                                 size="sm"
-                                                                prefix="$"
+                                                                {...currencyAffix(
+                                                                    BUSINESS_CURRENCY,
+                                                                )}
                                                                 surface="surface"
                                                                 value={l.unitCost}
                                                                 onChange={(v) => {
@@ -506,7 +517,10 @@ function ReceiveDelivery({
                                                                 }}
                                                             />
                                                             <span className="text-right text-sm text-ink-soft tabular-nums">
-                                                                {formatMoney(d.lineCost(l))}
+                                                                {formatMoney(
+                                                                    d.lineCost(l),
+                                                                    BUSINESS_CURRENCY,
+                                                                )}
                                                             </span>
                                                             <IconButton
                                                                 icon="x"
@@ -525,7 +539,10 @@ function ReceiveDelivery({
                                     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-bg/60 px-4 py-3">
                                         <div className="text-sm">
                                             <p className="font-semibold text-ink">
-                                                {s.deliveryTotal(d.units, formatMoney(d.costCents))}
+                                                {s.deliveryTotal(
+                                                    d.units,
+                                                    formatMoney(d.costCents, BUSINESS_CURRENCY),
+                                                )}
                                             </p>
                                             <p className="text-xs text-muted">{s.unitCostHint}</p>
                                         </div>

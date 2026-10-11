@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
 const port = Number(process.env.CONNECT_E2E_PORT ?? "8723");
+const pseudoPort = Number(process.env.CONNECT_PSEUDO_E2E_PORT ?? "8726");
 
 // Needs the API on :8701 over a migrated, seeded Postgres: `make up migrate seed dev-api` first.
 export default defineConfig({
@@ -11,15 +12,34 @@ export default defineConfig({
     reporter: [[process.env.CI ? "github" : "list"], ["html", { open: "never" }]],
     workers: 2,
     use: {
-        baseURL: `http://localhost:${String(port)}`,
         viewport: { width: 1280, height: 900 },
         trace: "retain-on-failure",
         screenshot: "only-on-failure",
         ...(process.env.CI ? {} : { channel: "chrome" }),
     },
-    webServer: {
-        command: `pnpm exec vite --port ${String(port)} --strictPort`,
-        url: `http://localhost:${String(port)}/`,
-        reuseExistingServer: !process.env.CI,
-    },
+    projects: [
+        {
+            name: "en-CA",
+            testIgnore: "pseudo.e2e.ts",
+            use: { baseURL: `http://localhost:${String(port)}` },
+        },
+        {
+            name: "en-XA",
+            testMatch: "pseudo.e2e.ts",
+            use: { baseURL: `http://localhost:${String(pseudoPort)}` },
+        },
+    ],
+    webServer: [
+        {
+            command: `pnpm exec vite --port ${String(port)} --strictPort`,
+            url: `http://localhost:${String(port)}/`,
+            reuseExistingServer: !process.env.CI,
+        },
+        {
+            command: `pnpm exec vite --port ${String(pseudoPort)} --strictPort`,
+            env: { VITE_PSEUDO_LOCALE: "1" },
+            url: `http://localhost:${String(pseudoPort)}/`,
+            reuseExistingServer: !process.env.CI,
+        },
+    ],
 });

@@ -8,6 +8,8 @@ import {
     useClientMerge,
     useNoteComposer,
     useSubjectForm,
+    formatParts,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -284,6 +286,7 @@ export function PetSheet({
     pet: SubjectRow | null;
     onClose: () => void;
 }) {
+    const zone = useBusinessZone();
     const form = useSubjectForm(api, clientId, pet, onClose);
     const askRemove = (): void => {
         confirm({
@@ -331,6 +334,7 @@ export function PetSheet({
                 if (f.type === "date")
                     return (
                         <DateField
+                            zone={zone}
                             key={f.key}
                             label={f.label}
                             optional
@@ -344,7 +348,11 @@ export function PetSheet({
                 return (
                     <TextField
                         key={f.key}
-                        label={f.unit === undefined ? f.label : `${f.label} (${f.unit})`}
+                        label={
+                            f.unit === undefined
+                                ? f.label
+                                : strings.common.withDetail(f.label, f.unit)
+                        }
                         optional
                         type={f.type === "number" ? "number" : "text"}
                         multiline={f.type === "longtext"}
@@ -490,7 +498,7 @@ export function MergeSheet({
             ))}
             <Text style={styles.label}>{t.whatMoves}</Text>
             <Text style={styles.value}>
-                {merge.moves.length === 0 ? t.nothingMoves : merge.moves.join(" · ")}
+                {merge.moves.length === 0 ? t.nothingMoves : formatParts(merge.moves)}
             </Text>
             {merge.blocked !== null ? (
                 <Notice tone="info" banner>

@@ -10,7 +10,9 @@ import {
     formatMonthYear,
     monthWeeks,
     parseDateKey,
+    startOfMonth,
     startOfWeek,
+    wallTime,
     weekdayNames,
 } from "./datetime";
 import { strings } from "./strings";
@@ -194,52 +196,56 @@ interface MonthGrid {
 }
 
 // The month grid behind a date picker: which month shows, the focused day, and keyboard moves.
-export function useMonthGrid(value: string, min?: string, max?: string): MonthGrid {
+export function useMonthGrid(value: string, zone: string, min?: string, max?: string): MonthGrid {
     const start = useCallback((): string => {
-        const today = dateKey(new Date());
-        const from = parseDateKey(value) !== null ? value : today;
+        const today = dateKey(new Date(), zone);
+        const from = parseDateKey(value, zone) !== null ? value : today;
         if (min !== undefined && min !== "" && from < min) return min;
         if (max !== undefined && max !== "" && from > max) return max;
         return from;
-    }, [value, min, max]);
+    }, [value, zone, min, max]);
     const [active, setActiveKey] = useState(start);
     const [view, setView] = useState<"days" | "years">("days");
     const bounds = useMemo(() => ({ min, max }), [min, max]);
-    const day = parseDateKey(active) ?? new Date();
+    const day = parseDateKey(active, zone) ?? new Date();
     const setActive = useCallback(
         (key: string): void => {
-            const d = parseDateKey(key);
-            if (d === null) return;
-            const minD = parseDateKey(min ?? "");
-            const maxD = parseDateKey(max ?? "");
-            if (minD !== null && d < minD) setActiveKey(dateKey(minD));
-            else if (maxD !== null && d > maxD) setActiveKey(dateKey(maxD));
+            if (parseDateKey(key, zone) === null) return;
+            if (min !== undefined && parseDateKey(min, zone) !== null && key < min)
+                setActiveKey(min);
+            else if (max !== undefined && parseDateKey(max, zone) !== null && key > max)
+                setActiveKey(max);
             else setActiveKey(key);
         },
-        [min, max],
+        [zone, min, max],
     );
     const move = (by: DayMove, dir: 1 | -1): void => {
         const next =
             by === "day"
-                ? addDays(day, dir)
+                ? addDays(day, dir, zone)
                 : by === "week"
-                  ? addDays(day, dir * 7)
+                  ? addDays(day, dir * 7, zone)
                   : by === "month"
-                    ? addMonths(day, dir)
+                    ? addMonths(day, dir, zone)
                     : by === "year"
-                      ? addMonths(day, dir * 12)
-                      : addDays(startOfWeek(day), dir === 1 ? 6 : 0);
-        setActive(dateKey(next));
+                      ? addMonths(day, dir * 12, zone)
+                      : addDays(startOfWeek(day, zone), dir === 1 ? 6 : 0, zone);
+        setActive(dateKey(next, zone));
     };
-    const thisYear = new Date().getFullYear();
-    const firstYear = parseDateKey(min ?? "")?.getFullYear() ?? thisYear - 100;
-    const lastYear = parseDateKey(max ?? "")?.getFullYear() ?? thisYear + 10;
-    const first = dateKey(new Date(day.getFullYear(), day.getMonth(), 1));
-    const last = dateKey(new Date(day.getFullYear(), day.getMonth() + 1, 0));
+    const yearOf = (d: Date): number => wallTime(d, zone).year;
+    const thisYear = yearOf(new Date());
+    const minDay = parseDateKey(min ?? "", zone);
+    const maxDay = parseDateKey(max ?? "", zone);
+    const firstYear = minDay === null ? thisYear - 100 : yearOf(minDay);
+    const lastYear = maxDay === null ? thisYear + 10 : yearOf(maxDay);
+    const monthStart = startOfMonth(day, zone);
+    const first = dateKey(monthStart, zone);
+    const last = dateKey(addDays(addMonths(monthStart, 1, zone), -1, zone), zone);
+    const shownYear = yearOf(day);
     return {
-        title: formatMonthYear(day),
+        title: formatMonthYear(day, zone),
         weekdays: useMemo(() => weekdayNames(), []),
-        weeks: monthWeeks(day, value, bounds),
+        weeks: monthWeeks(day, value, bounds, zone),
         active,
         setActive,
         move,
@@ -249,10 +255,10 @@ export function useMonthGrid(value: string, min?: string, max?: string): MonthGr
         setView,
         years: Array.from({ length: lastYear - firstYear + 1 }, (_, i) => ({
             year: firstYear + i,
-            selected: firstYear + i === day.getFullYear(),
+            selected: firstYear + i === shownYear,
         })),
         pickYear: (year) => {
-            setActive(dateKey(addMonths(day, (year - day.getFullYear()) * 12)));
+            setActive(dateKey(addMonths(day, (year - shownYear) * 12, zone), zone));
             setView("days");
         },
         reset: () => {

@@ -1,7 +1,8 @@
-import type {
-    CalendarEventCardProps,
-    CalendarEventFlag,
-    IconName,
+import {
+    type CalendarEventCardProps,
+    type CalendarEventFlag,
+    formatParts,
+    type IconName,
 } from "@clientbridge/app-core/public";
 import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
 
@@ -85,9 +86,7 @@ export function CalendarEventCard({
                                     style={{ backgroundColor: color }}
                                 />
                             ) : null}
-                            <span className="truncate">
-                                {[time, detail].filter(Boolean).join(" · ")}
-                            </span>
+                            <span className="truncate">{formatParts([time, detail])}</span>
                         </span>
                     ) : (
                         <>

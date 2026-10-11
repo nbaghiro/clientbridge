@@ -1,3 +1,4 @@
+import { formatHour, formatParts } from "@clientbridge/app-core/public";
 import type { CSSProperties } from "react";
 
 import type { Schedule } from "../content/trades";
@@ -6,9 +7,6 @@ import { tradePage } from "../content/solutions";
 const ROW = 44;
 const HOURS = 6;
 
-const hourLabel = (h: number): string =>
-    h === 12 ? "12 p.m." : h > 12 ? `${String(h - 12)} p.m.` : `${String(h)} a.m.`;
-
 export function ScheduleMock({ schedule, business }: { schedule: Schedule; business: string }) {
     const start = schedule.startHour ?? 9;
     return (
@@ -16,9 +14,7 @@ export function ScheduleMock({ schedule, business }: { schedule: Schedule; busin
             <div className="dv-top">
                 <div>
                     <div className="m-title text-base">{tradePage.scheduleTitle}</div>
-                    <div className="m-sub">
-                        {business} · {schedule.day}
-                    </div>
+                    <div className="m-sub">{formatParts([business, schedule.day])}</div>
                 </div>
                 <div className="seg">
                     {tradePage.scheduleViews.map((v, i) => (
@@ -38,7 +34,7 @@ export function ScheduleMock({ schedule, business }: { schedule: Schedule; busin
                 ))}
                 <div className="hrs">
                     {Array.from({ length: HOURS }, (_, i) => (
-                        <span key={i}>{hourLabel(start + i)}</span>
+                        <span key={i}>{formatHour(start + i)}</span>
                     ))}
                 </div>
                 {schedule.columns.map(([name], column) => (

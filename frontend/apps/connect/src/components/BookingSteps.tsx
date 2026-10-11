@@ -4,8 +4,9 @@ import {
     type PublicBookingFlow,
     durationLabel,
     icsFor,
-    money,
     strings,
+    formatParts,
+    formatMoney,
 } from "@clientbridge/app-core/public";
 import {
     Button,
@@ -50,18 +51,16 @@ export function ServicePicker({ flow }: { flow: PublicBookingFlow }) {
                             <OptionCard
                                 key={x.id}
                                 title={x.name}
-                                subtitle={[
+                                subtitle={formatParts([
                                     x.duration_min !== null ? durationLabel(x.duration_min) : null,
                                     x.deposit_required
-                                        ? s.deposit(money(x.deposit_amount_cents, x.currency))
+                                        ? s.deposit(formatMoney(x.deposit_amount_cents, x.currency))
                                         : null,
-                                ]
-                                    .filter(Boolean)
-                                    .join(" · ")}
+                                ])}
                                 leading={<ItemImage src={x.image_url} name={x.name} size={48} />}
                                 trailing={
                                     <span className="font-mono text-sm font-semibold text-ink">
-                                        {money(x.price_cents, x.currency)}
+                                        {formatMoney(x.price_cents, x.currency)}
                                     </span>
                                 }
                                 selected={flow.service?.id === x.id}
@@ -94,6 +93,9 @@ export function WhenPicker({ flow }: { flow: PublicBookingFlow }) {
                 <p className="text-sm font-medium text-ink-soft first-letter:uppercase">
                     {flow.dateLabel}
                 </p>
+                {flow.zoneNote !== null ? (
+                    <p className="text-xs text-muted">{flow.zoneNote}</p>
+                ) : null}
                 <DayRail
                     label={s.date}
                     days={flow.strip}
@@ -185,7 +187,7 @@ function visitFacts(flow: PublicBookingFlow): Fact[] {
         facts.push({
             key: "time",
             icon: "calendar",
-            title: flow.when.charAt(0).toUpperCase() + flow.when.slice(1),
+            title: flow.whenTitle ?? "",
             ...(flow.slotStaff?.name ? { detail: s.withName(flow.slotStaff.name) } : {}),
         });
     return facts;
@@ -211,13 +213,13 @@ export function SuggestedExtras({ flow }: { flow: PublicBookingFlow }) {
                             <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-semibold text-ink">{a.name}</p>
                                 <p className="text-sm tabular-nums text-ink-soft">
-                                    {money(a.price_cents, a.currency)}
+                                    {formatMoney(a.price_cents, a.currency)}
                                 </p>
                             </div>
                             {a.in_stock ? (
                                 <IconButton
                                     icon={on ? "check" : "plus"}
-                                    label={`${s.addOne} ${a.name}`}
+                                    label={s.addNamed(a.name)}
                                     variant="outline"
                                     pressed={on}
                                     onPress={() => {
@@ -315,9 +317,15 @@ export function PayStep({ flow }: { flow: PublicBookingFlow }) {
                 <Icon name="shield" size={14} />
                 <span>
                     {policy !== null
-                        ? `${s.payPolicy(policy.cancel_cutoff_hours, policy.reschedule_cutoff_hours, policy.late_cancel_deposit === "keep")} `
-                        : ""}
-                    {s.secure}
+                        ? strings.common.twoSentences(
+                              s.payPolicy(
+                                  policy.cancel_cutoff_hours,
+                                  policy.reschedule_cutoff_hours,
+                                  policy.late_cancel_deposit === "keep",
+                              ),
+                              s.secure,
+                          )
+                        : s.secure}
                 </span>
             </p>
         </div>
@@ -332,7 +340,7 @@ export function DoneCard({
     onManage: (() => void) | null;
 }) {
     const pet = flow.fields.petName.trim();
-    const when = flow.when ?? "";
+    const when = (flow.when ?? "").replace(/\.$/, "");
     const pending = flow.result?.status === "pending";
     return (
         <div className="text-center">

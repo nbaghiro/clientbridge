@@ -3,8 +3,10 @@ import {
     type ManageBookingFlow,
     createManageBookingClient,
     durationLabel,
+    firstName,
     strings,
     useManageBooking,
+    formatParts,
 } from "@clientbridge/app-core/public";
 import {
     ActionTile,
@@ -29,7 +31,6 @@ import { config } from "../config";
 const manage = createManageBookingClient(config.apiUrl);
 const s = strings.publicManage;
 const b = strings.publicBooking;
-const upper = (value: string): string => value.charAt(0).toUpperCase() + value.slice(1);
 
 /** The link in every confirmation and reminder: see the visit, move it or cancel it within the cut-offs. */
 export function PublicManage() {
@@ -46,7 +47,7 @@ export function PublicManage() {
         <PublicPage name={v.business_name} brand={v.brand}>
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-8">
                 <div className="min-w-0 space-y-5">
-                    <p className="text-[15px] text-ink-soft">{s.hello(v.client_name)}</p>
+                    <p className="text-[15px] text-ink-soft">{s.hello(firstName(v.client_name))}</p>
                     {mg.mode === "moved" || mg.mode === "canceled" ? (
                         <div className="rounded-3xl border border-line bg-surface p-6 shadow-card">
                             <ManageDone mg={mg} />
@@ -78,6 +79,9 @@ export function PublicManage() {
                                     <p className="mt-1 text-[15px] font-medium opacity-90">
                                         {mg.when}
                                     </p>
+                                    {mg.zoneNote !== null ? (
+                                        <p className="mt-1 text-xs opacity-75">{mg.zoneNote}</p>
+                                    ) : null}
                                     {mg.live ? (
                                         <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-surface px-3 py-1 text-xs font-semibold text-accent">
                                             <Icon name="clock" size={12} />
@@ -301,14 +305,12 @@ export function PublicManage() {
 function BookingFacts({ mg }: { mg: ManageBookingFlow }) {
     const v = mg.booking;
     if (v === null) return null;
-    const what = [
+    const what = formatParts([
         v.service.name,
         v.service.duration_min !== null ? durationLabel(v.service.duration_min) : null,
-    ]
-        .filter(Boolean)
-        .join(" · ");
+    ]);
     const facts: Fact[] = [
-        { key: "when", icon: "calendar", title: upper(mg.when), detail: mg.timeRange },
+        { key: "when", icon: "calendar", title: mg.whenTitle, detail: mg.timeRange },
         ...(v.staff.name !== null
             ? [
                   {
@@ -331,7 +333,9 @@ function BookingFacts({ mg }: { mg: ManageBookingFlow }) {
                 <dl className="space-y-1 border-t border-line-soft pt-3 text-sm">
                     {v.addons.map((a) => (
                         <div key={a.name} className="flex justify-between gap-3">
-                            <dt className="text-ink-soft">{`${String(a.quantity)} × ${a.name}`}</dt>
+                            <dt className="text-ink-soft">
+                                {strings.common.quantityOf(a.quantity, a.name)}
+                            </dt>
                             <dd className="text-muted">{s.extras}</dd>
                         </div>
                     ))}
@@ -406,13 +410,11 @@ function MovePicker({ mg }: { mg: ManageBookingFlow }) {
             <div className="grid grid-cols-2 gap-2 rounded-lg border border-line bg-bg p-3 text-sm">
                 <div>
                     <p className="text-xs text-muted">{s.current}</p>
-                    <p className="font-medium text-ink-soft line-through">{upper(mg.when)}</p>
+                    <p className="font-medium text-ink-soft line-through">{mg.whenTitle}</p>
                 </div>
                 <div>
                     <p className="text-xs text-muted">{s.newTime}</p>
-                    <p className="font-semibold text-ink">
-                        {mg.pickLabel !== null ? upper(mg.pickLabel) : "—"}
-                    </p>
+                    <p className="font-semibold text-ink">{mg.pickTitle ?? "—"}</p>
                 </div>
             </div>
             {mg.error !== null ? <Notice tone="danger">{mg.error}</Notice> : null}
@@ -442,7 +444,7 @@ function CancelConfirm({ mg }: { mg: ManageBookingFlow }) {
         <div className="space-y-4">
             <div>
                 <h2 className="font-display text-xl font-bold text-ink">{s.cancelTitle}</h2>
-                <p className="mt-1 text-sm text-ink-soft">{upper(mg.when)}</p>
+                <p className="mt-1 text-sm text-ink-soft">{mg.whenTitle}</p>
             </div>
             <Notice tone="info" banner>
                 {mg.cancelOutcome}
@@ -477,8 +479,11 @@ function ManageDone({ mg }: { mg: ManageBookingFlow }) {
             </h1>
             <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
                 {moved
-                    ? s.movedBody(mg.when)
-                    : (mg.refundMessage ?? s.canceledBody(mg.refundLabel))}
+                    ? s.movedBody(mg.when.replace(/\.$/, ""))
+                    : (mg.refundMessage ??
+                      (mg.refundLabel === null
+                          ? s.canceledNoDeposit
+                          : s.canceledBody(mg.refundLabel)))}
             </p>
             <div className="mt-5 flex justify-center gap-2">
                 {mg.refundMessage ? (

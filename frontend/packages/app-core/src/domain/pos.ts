@@ -2,8 +2,28 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useCallback, useMemo, useRef, useState } from "react";
 
-import { daysUntil, parseTimestamp, relativeDay, relativeDayTime } from "../datetime";
-import { formatMoney, formatPhone, parseCents, phoneDigits } from "../format";
+import {
+    addDays,
+    dateKey,
+    daysUntil,
+    parseTimestamp,
+    relativeDay,
+    relativeDayTime,
+    startOfDay,
+    useBusinessZone,
+} from "../datetime";
+import {
+    formatAmountInput,
+    formatMoney,
+    formatNumber,
+    formatParts,
+    formatPercent,
+    formatPhone,
+    parseCents,
+    parseNumber,
+    phoneDigits,
+    BUSINESS_CURRENCY,
+} from "../format";
 import { type Load, useAsyncAction, useLoad, useRemote } from "../hooks";
 import { strings } from "../strings";
 import { type ApiLike, newIdempotencyKey } from "../api";
@@ -21,6 +41,7 @@ import { type ItemRow, ITEMS_SQL, sellableItems, stockState } from "./catalog";
 import { type Checkout, NEW_CARD, useCheckout } from "./checkout";
 import { orderStatusSql } from "./ledger";
 import { canManagePayments, creditNoteNumber, type SavedCardRow, savedCardLabel } from "./payments";
+import { discountReason, saleNumber } from "./printing";
 import { staffName } from "./staff";
 import { useReplicaLoad } from "./sync";
 import { type TaxRate, useTaxSetup } from "./taxes";
@@ -46,24 +67,40 @@ const PICKUP_FLOW: PickupStatus[] = ["unfulfilled", "preparing", "ready", "picke
 
 const STATUS: Record<PickupStatus, { label: string; intent: Intent; empty: string }> = {
     unfulfilled: {
-        label: strings.pos.pickup.toPack,
+        get label() {
+            return strings.pos.pickup.toPack;
+        },
         intent: "warning",
-        empty: strings.pos.pickup.emptyToPack,
+        get empty() {
+            return strings.pos.pickup.emptyToPack;
+        },
     },
     preparing: {
-        label: strings.publicOrder.preparing,
+        get label() {
+            return strings.publicOrder.preparing;
+        },
         intent: "accent",
-        empty: strings.publicOrder.emptyPreparing,
+        get empty() {
+            return strings.publicOrder.emptyPreparing;
+        },
     },
     ready: {
-        label: strings.pos.pickup.ready,
+        get label() {
+            return strings.pos.pickup.ready;
+        },
         intent: "accent",
-        empty: strings.pos.pickup.emptyReady,
+        get empty() {
+            return strings.pos.pickup.emptyReady;
+        },
     },
     picked_up: {
-        label: strings.pos.pickup.pickedUp,
+        get label() {
+            return strings.pos.pickup.pickedUp;
+        },
         intent: "success",
-        empty: strings.pos.pickup.emptyPickedUp,
+        get empty() {
+            return strings.pos.pickup.emptyPickedUp;
+        },
     },
 };
 
@@ -157,7 +194,12 @@ interface PickupOrder {
     waiting: string;
 }
 
-export function pickupOrder(row: PickupRow, lines: PickupLineRow[], now: Date): PickupOrder {
+export function pickupOrder(
+    row: PickupRow,
+    lines: PickupLineRow[],
+    now: Date,
+    zone: string,
+): PickupOrder {
     const status = row.pickup_status;
     const p = strings.pos.pickup;
     const since = parseTimestamp(
@@ -166,19 +208,19 @@ export function pickupOrder(row: PickupRow, lines: PickupLineRow[], now: Date): 
     const mine = lines.filter((l) => l.order_id === row.id);
     return {
         id: row.id,
-        number: row.number == null ? "" : `S-${String(row.number)}`,
+        number: saleNumber(row.number ?? null),
         clientId: row.client_id,
         clientName: row.client_name ?? p.guest,
         status,
         note:
-            [
+            formatParts([
                 row.pickup_from
-                    ? `${strings.publicShop.pickupWindow}: ${relativeDayTime(parseTimestamp(row.pickup_from), now)}`
+                    ? strings.publicShop.pickupWindowAt(
+                          relativeDayTime(parseTimestamp(row.pickup_from), zone, now),
+                      )
                     : null,
                 row.note,
-            ]
-                .filter(Boolean)
-                .join(" · ") || null,
+            ]) || null,
         statusLabel: STATUS[status].label,
         intent: STATUS[status].intent,
         lines: mine.map((l) => ({
@@ -190,19 +232,17 @@ export function pickupOrder(row: PickupRow, lines: PickupLineRow[], now: Date): 
             color: l.item_color,
         })),
         itemsLabel: p.items(mine.reduce((n, l) => n + l.quantity, 0)),
-        total: row.total_cents === null ? "" : formatMoney(row.total_cents),
-        contact: [row.phone === null ? null : formatPhone(row.phone), row.email]
-            .filter((v) => v !== null && v !== "")
-            .join(" · "),
+        total: row.total_cents === null ? "" : formatMoney(row.total_cents, BUSINESS_CURRENCY),
+        contact: formatParts([row.phone === null ? null : formatPhone(row.phone), row.email]),
         phone: row.phone,
         email: row.email,
         when:
             status === "picked_up" && row.picked_up_at !== null
-                ? p.pickedAt(relativeDayTime(parseTimestamp(row.picked_up_at), now))
+                ? p.pickedAt(relativeDayTime(parseTimestamp(row.picked_up_at), zone, now))
                 : status === "ready" && row.ready_at !== null
-                  ? p.readySince(relativeDayTime(parseTimestamp(row.ready_at), now))
-                  : p.placed(relativeDayTime(parseTimestamp(row.created_at), now)),
-        waiting: p.waiting(Math.max(0, -daysUntil(since, now))),
+                  ? p.readySince(relativeDayTime(parseTimestamp(row.ready_at), zone, now))
+                  : p.placed(relativeDayTime(parseTimestamp(row.created_at), zone, now)),
+        waiting: p.waiting(Math.max(0, -daysUntil(since, zone, now))),
     };
 }
 
@@ -234,6 +274,7 @@ interface PickupQueue {
 /** The shared pickup queue: to pack, ready and picked up, worked from the front desk board. */
 function usePickupOrders(api: ApiLike): PickupQueue {
     const [now] = useState(() => new Date());
+    const zone = useBusinessZone();
     const orders = useQuery<PickupRow>(PICKUP_ORDERS_SQL);
     const lines = useQuery<PickupLineRow>(PICKUP_LINES_SQL);
     const [q, setQ] = useState("");
@@ -242,8 +283,8 @@ function usePickupOrders(api: ApiLike): PickupQueue {
     const [busyId, setBusyId] = useState<string | null>(null);
     const { error, run } = useAsyncAction();
     const all = useMemo(
-        () => orders.data.map((o) => pickupOrder(o, lines.data, now)),
-        [orders.data, lines.data, now],
+        () => orders.data.map((o) => pickupOrder(o, lines.data, now, zone)),
+        [orders.data, lines.data, now, zone],
     );
     const t = q.trim().toLowerCase();
     const match = (o: PickupOrder): boolean =>
@@ -343,7 +384,9 @@ interface PricedSale {
 const TIP_PRESETS = [15, 18, 20] as const;
 
 export function discountLabel(discount: SaleDiscount): string {
-    return discount.kind === "percent" ? `${String(discount.value)}%` : formatMoney(discount.value);
+    return discount.kind === "percent"
+        ? `${String(discount.value)}%`
+        : formatMoney(discount.value, BUSINESS_CURRENCY);
 }
 
 /** A tip is worked out on the price before tax and never carries tax. */
@@ -434,7 +477,7 @@ export function saleTotalLines(
                 label: d.saleDiscount,
                 cents: t.saleDiscountCents,
                 kind: "credit",
-                hint: opts.saleDiscountReason ?? undefined,
+                hint: discountReason(opts.saleDiscountReason) ?? undefined,
             });
     }
     rows.push({ key: "subtotal", label: d.subtotal, cents: t.subtotalCents, kind: "subtotal" });
@@ -534,12 +577,15 @@ export function useDiscountEditor(initial: SaleDiscount | null, baseCents: numbe
         initial === null
             ? ""
             : initial.kind === "percent"
-              ? String(initial.value)
-              : (initial.value / 100).toFixed(2),
+              ? formatNumber(initial.value, { useGrouping: false })
+              : formatAmountInput(initial.value, BUSINESS_CURRENCY),
     );
     const [reason, setReason] = useState(initial?.reason ?? "");
     const [error, setError] = useState<string | null>(null);
-    const n = Number(value.replace(/[$,%\s]/g, ""));
+    const n =
+        kind === "percent"
+            ? (parseNumber(value.replace("%", "")) ?? NaN)
+            : (parseCents(value, BUSINESS_CURRENCY) ?? NaN) / 100;
     const draft: SaleDiscount | null =
         value.trim() === "" || !Number.isFinite(n) || n <= 0
             ? null
@@ -568,11 +614,11 @@ export function useDiscountEditor(initial: SaleDiscount | null, baseCents: numbe
         apply: () => {
             const problem =
                 draft === null
-                    ? d.discountInvalid
+                    ? d.discountInvalid(formatPercent(0.1), formatMoney(500, BUSINESS_CURRENCY))
                     : draft.kind === "percent" && draft.value > 100
-                      ? d.discountPercentMax
+                      ? d.discountPercentMax(formatPercent(1))
                       : draft.kind === "amount" && draft.value > baseCents
-                        ? d.discountTooBig(formatMoney(baseCents))
+                        ? d.discountTooBig(formatMoney(baseCents, BUSINESS_CURRENCY))
                         : draft.reason === null
                           ? d.discountReasonRequired
                           : null;
@@ -667,10 +713,6 @@ interface CashResult {
     amount_cents: number;
     tip_cents: number;
     change_cents: number;
-}
-
-export function saleNumber(n: number | null): string {
-    return n === null ? "" : `S-${String(n)}`;
 }
 
 function saleBody(t: {
@@ -807,22 +849,21 @@ function saleLineView(l: SalePricedLine, staff: string | null): SaleLineView {
     return {
         key: l.key,
         title: l.description,
-        meta: [
+        meta: formatParts([
             staff === null ? null : d.servedBy(staff),
             l.bookingId === null ? null : d.fromBooking,
             l.kind === "product" || l.quantity === 1
                 ? null
-                : d.each(formatMoney(l.unitAmountCents)),
-        ]
-            .filter((v) => v !== null)
-            .join(" · "),
+                : d.each(formatMoney(l.unitAmountCents, BUSINESS_CURRENCY)),
+        ]),
         tag:
             l.discount === null
                 ? null
                 : {
-                      label: [discountLabel(l.discount), l.discount.reason]
-                          .filter((v) => v !== null && v !== "")
-                          .join(" · "),
+                      label: formatParts([
+                          discountLabel(l.discount),
+                          discountReason(l.discount.reason),
+                      ]),
                       intent: "success",
                   },
         cents: after,
@@ -923,7 +964,7 @@ export function useSale(
     const web = opts.platform === "web";
     const method: SalePayMethod = chosen ?? (saved !== null ? "saved" : web ? "card" : "tap");
     const overLimit = overStaffLimit(t, limitBps) && approvalPin === null;
-    const cash = parseCents(cashGiven);
+    const cash = parseCents(cashGiven, BUSINESS_CURRENCY);
     const servedIds = [
         ...new Set(priced.lines.flatMap((l) => (l.staffId === null ? [] : [l.staffId]))),
     ];
@@ -986,11 +1027,11 @@ export function useSale(
             return;
         }
         if (overLimit) {
-            setError(d.overLimit(String((limitBps ?? 0) / 100)));
+            setError(d.overLimit((limitBps ?? 0) / 100));
             return;
         }
         if (use === "cash" && (cash === null || cash < t.dueCents)) {
-            setError(d.cashShort(formatMoney(t.dueCents)));
+            setError(d.cashShort(formatMoney(t.dueCents, BUSINESS_CURRENCY)));
             return;
         }
         const tipPart = tipBody(t.tipCents, shares);
@@ -1129,15 +1170,21 @@ export function useSale(
         tipOptions: [
             ...TIP_PRESETS.map((pct) => ({
                 key: String(pct),
-                label: `${String(pct)}%`,
-                hint: formatMoney(tipCentsFor({ kind: "percent", pct }, t.subtotalCents)),
+                label: formatPercent(pct / 100),
+                hint: formatMoney(
+                    tipCentsFor({ kind: "percent", pct }, t.subtotalCents),
+                    BUSINESS_CURRENCY,
+                ),
             })),
             {
                 key: "custom",
                 label: d.tipCustom,
-                hint: tip.kind === "custom" ? formatMoney(tip.cents) : d.tipCustomHint,
+                hint:
+                    tip.kind === "custom"
+                        ? formatMoney(tip.cents, BUSINESS_CURRENCY)
+                        : d.tipCustomHint,
             },
-            { key: "none", label: d.tipNone, hint: formatMoney(0) },
+            { key: "none", label: d.tipNone, hint: formatMoney(0, BUSINESS_CURRENCY) },
         ],
         tipShares: shares,
         tipMode,
@@ -1287,11 +1334,36 @@ export function useSale(
 type VisitState = "paid" | "onTicket" | "ready" | "inProgress" | "upcoming";
 
 export const VISIT_STATE: Record<VisitState, { label: string; intent: Intent }> = {
-    paid: { label: d.visitPaid, intent: "success" },
-    onTicket: { label: d.onTicket, intent: "accent" },
-    ready: { label: d.visitReady, intent: "warning" },
-    inProgress: { label: d.visitInProgress, intent: "accent" },
-    upcoming: { label: d.visitUpcoming, intent: "neutral" },
+    paid: {
+        get label() {
+            return d.visitPaid;
+        },
+        intent: "success",
+    },
+    onTicket: {
+        get label() {
+            return d.onTicket;
+        },
+        intent: "accent",
+    },
+    ready: {
+        get label() {
+            return d.visitReady;
+        },
+        intent: "warning",
+    },
+    inProgress: {
+        get label() {
+            return d.visitInProgress;
+        },
+        intent: "accent",
+    },
+    upcoming: {
+        get label() {
+            return d.visitUpcoming;
+        },
+        intent: "neutral",
+    },
 };
 
 export const CHECKOUT_QUEUE_SQL = `
@@ -1411,8 +1483,9 @@ interface CheckoutQueue {
 /** Today's booked visits: ready to pay first, then in progress, later today, and paid last. */
 export function useCheckoutQueue(): CheckoutQueue {
     const [now] = useState(() => new Date());
-    const from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const to = new Date(from.getTime() + 86_400_000);
+    const zone = useBusinessZone();
+    const from = startOfDay(now, zone);
+    const to = addDays(from, 1, zone);
     const rows = useQuery<QueueRow>(CHECKOUT_QUEUE_SQL, [from.toISOString(), to.toISOString()]);
     const visits = useMemo(
         () =>
@@ -1471,10 +1544,10 @@ interface FrontDeskBoard {
 const sinceText = (iso: string, now: Date): string => {
     const m = Math.max(0, Math.round((+now - +parseTimestamp(iso)) / 60000));
     return m < 60
-        ? `${String(m)} min`
+        ? d.waitMinutes(m)
         : m < 1440
-          ? `${String(Math.floor(m / 60))} h`
-          : `${String(Math.floor(m / 1440))} d`;
+          ? d.waitHours(Math.floor(m / 60))
+          : d.waitDays(Math.floor(m / 1440));
 };
 
 /** Held desk sales (from the server, so staff see them too) beside online pickups (from the replica). */
@@ -1489,13 +1562,14 @@ export function useFrontDeskBoard(
     const [done, setDone] = useState<string | null>(null);
     const held = heldRemote.data ?? [];
     const nameOf = (id: string | null): string => names.find((c) => c.id === id)?.name ?? d.walkIn;
-    const lineText = (q: number, name: string): string => (q > 1 ? `${String(q)} × ${name}` : name);
+    const lineText = (q: number, name: string): string =>
+        q > 1 ? strings.common.quantityOf(q, name) : name;
     const heldCards: BoardCard[] = held.map((o) => ({
         id: o.id,
         number: saleNumber(o.number),
         clientName: nameOf(o.client_id),
         lines: o.lines.map((l) => lineText(l.quantity, l.description)),
-        total: formatMoney(o.total_cents),
+        total: formatMoney(o.total_cents, BUSINESS_CURRENCY),
         since: d.heldAt(d.ago(sinceText(o.created_at ?? now.toISOString(), now))),
         note: o.note,
         column: "open",
@@ -1671,9 +1745,7 @@ function saleSummary(row: SaleRow): SaleSummary {
         methodLabel:
             row.method === null
                 ? d.notPaid
-                : (strings.publicReceipt.method[row.method] ??
-                  strings.publicReceipt.method.other ??
-                  ""),
+                : (strings.publicReceipt.method[row.method] ?? strings.publicReceipt.method.other),
     };
 }
 
@@ -1706,12 +1778,10 @@ interface SalesHistory {
     };
 }
 
-const saleDayKey = (dt: Date): string =>
-    `${String(dt.getFullYear())}-${String(dt.getMonth() + 1)}-${String(dt.getDate())}`;
-
 /** Every sale, newest first, grouped by day with the day's takings. */
 export function useSalesHistory(): SalesHistory {
     const [now] = useState(() => new Date());
+    const zone = useBusinessZone();
     const rows = useQuery<SaleRow>(SALES_SQL);
     const [filter, setFilter] = useState<SalesFilter>("all");
     const [q, setQ] = useState("");
@@ -1730,10 +1800,10 @@ export function useSalesHistory(): SalesHistory {
         });
         const map = new Map<string, HistoryDay>();
         for (const r of keep) {
-            const k = saleDayKey(r.at);
+            const k = dateKey(r.at, zone);
             const day = map.get(k) ?? {
                 key: k,
-                label: relativeDay(r.at, "long", now),
+                label: relativeDay(r.at, zone, "long", now),
                 totalCents: 0,
                 count: 0,
                 rows: [],
@@ -1748,7 +1818,10 @@ export function useSalesHistory(): SalesHistory {
         return [...map.values()];
     }, [all, filter, q, now]);
     const todays = all.filter(
-        (r) => saleDayKey(r.at) === saleDayKey(now) && r.status !== "void" && r.status !== "open",
+        (r) =>
+            dateKey(r.at, zone) === dateKey(now, zone) &&
+            r.status !== "void" &&
+            r.status !== "open",
     );
     const salesCents = todays.reduce((n, r) => n + r.totalCents - r.tipCents, 0);
     return {
@@ -1911,6 +1984,7 @@ export function useSaleDetail(
     detail: SaleDetail | null;
 } {
     const { rates, registered } = useTaxSetup(api);
+    const zone = useBusinessZone();
     const staffRows = useQuery<SaleStaffRow>(SALE_STAFF_SQL).data;
     const record = useQuery<SaleRecordRow>(SALE_RECORD_SQL, [id ?? ""]);
     const lineRows = useQuery<SaleLineRow>(SALE_LINES_SQL, [id ?? ""]);
@@ -2006,10 +2080,10 @@ export function useSaleDetail(
                 label:
                     p.kind === "refund"
                         ? p.credit_note === null
-                            ? d.refunded(formatMoney(p.amount_cents))
+                            ? d.refunded(formatMoney(p.amount_cents, BUSINESS_CURRENCY))
                             : d.creditNote(p.credit_note)
-                        : (method[p.method] ?? method.other ?? ""),
-                detail: p.paid_at === null ? "" : relativeDayTime(parseTimestamp(p.paid_at)),
+                        : (method[p.method] ?? method.other),
+                detail: p.paid_at === null ? "" : relativeDayTime(parseTimestamp(p.paid_at), zone),
                 cents: p.kind === "refund" ? -p.amount_cents : p.amount_cents,
                 refund: p.kind === "refund",
             })),
@@ -2023,8 +2097,7 @@ export function useSaleDetail(
                 };
             }),
             refundablePaymentId: lastPaid?.id ?? null,
-            paidWith:
-                lastPaid === null ? d.methodCard : (method[lastPaid.method] ?? method.other ?? ""),
+            paidWith: lastPaid === null ? d.methodCard : (method[lastPaid.method] ?? method.other),
             refundableCents: Math.max(0, paidIn - refunded),
             creditNotes: pays.flatMap((p) => (p.credit_note === null ? [] : [p.credit_note])),
             receipt:
@@ -2124,8 +2197,12 @@ export function useSaleActions(
                 ask(
                     {
                         title: d.refundTitle(detail.number),
-                        message: d.refundBody(formatMoney(cents), detail.paidWith, note),
-                        confirmLabel: d.refundConfirm(formatMoney(cents)),
+                        message: d.refundBody(
+                            formatMoney(cents, BUSINESS_CURRENCY),
+                            detail.paidWith,
+                            note,
+                        ),
+                        confirmLabel: d.refundConfirm(formatMoney(cents, BUSINESS_CURRENCY)),
                         destructive: true,
                     },
                     () => {
@@ -2137,7 +2214,7 @@ export function useSaleActions(
                                     { amount_cents: cents, notify: true },
                                     { idempotencyKey: newIdempotencyKey() },
                                 ),
-                            d.refundDone(formatMoney(cents), note),
+                            d.refundDone(formatMoney(cents, BUSINESS_CURRENCY), note),
                         );
                     },
                 );
@@ -2307,9 +2384,12 @@ export function useRegisterCatalog(): RegisterCatalog {
         filter,
         setFilter,
         filters: [
-            { key: "retail", label: `${d.catRetail} ${String(count("retail"))}` },
-            { key: "services", label: `${d.catServices} ${String(count("services"))}` },
-            { key: "all", label: `${d.catAll} ${String(count("all"))}` },
+            { key: "retail", label: strings.common.labelCount(d.catRetail, count("retail")) },
+            {
+                key: "services",
+                label: strings.common.labelCount(d.catServices, count("services")),
+            },
+            { key: "all", label: strings.common.labelCount(d.catAll, count("all")) },
         ],
         q,
         setQ,

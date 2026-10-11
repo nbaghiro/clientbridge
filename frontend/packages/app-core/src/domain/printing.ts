@@ -1,5 +1,6 @@
-import { formatMonthDay } from "../datetime";
-import { initials } from "../format";
+import { formatLongDate, formatMonthDay, readDate } from "../datetime";
+import { formatRate, initials } from "../format";
+import english from "../../locales/en-CA.json" with { type: "json" };
 import { strings } from "../strings";
 import type {
     DocTotalLine,
@@ -25,43 +26,83 @@ export interface Letterhead {
 const s = strings.printing;
 
 const PRINT_LABELS: PrintedDocLabels = {
-    from: s.from,
-    item: s.item,
-    qty: s.qty,
-    price: s.price,
-    tax: s.tax,
-    amount: s.amount,
-    taxSummary: s.taxSummary,
+    get from() {
+        return s.from;
+    },
+    get item() {
+        return s.item;
+    },
+    get qty() {
+        return s.qty;
+    },
+    get price() {
+        return s.price;
+    },
+    get tax() {
+        return s.tax;
+    },
+    get amount() {
+        return s.amount;
+    },
+    get taxSummary() {
+        return s.taxSummary;
+    },
     taxBase: s.taxBase,
-    howToPay: s.howToPay,
-    scanToPay: s.scanToPay,
-    paymentMethod: s.paymentMethod,
-    page: s.page,
+    get howToPay() {
+        return s.howToPay;
+    },
+    get scanToPay() {
+        return s.scanToPay;
+    },
+    get paymentMethod() {
+        return s.paymentMethod;
+    },
+    get page() {
+        return s.page(1, 1);
+    },
     forPet: s.forPet,
+    qtyTimes: strings.billing.qtyTimes,
 };
 
 export function registrationLine(gstHst: string | null, qst: string | null): string {
-    const parts = [gstHst ? s.gstNo(gstHst) : null, qst ? s.qstNo(qst) : null].filter(
-        (p): p is string => p !== null,
-    );
-    return s.registration(parts);
+    const gst = gstHst ? s.gstNo(gstHst) : "";
+    const quebec = qst ? s.qstNo(qst) : "";
+    return gst !== "" && quebec !== "" ? s.registration(gst, quebec) : gst || quebec;
 }
 
-/** A long date for a document ("October 14, 2026"), in the business's locale. */
-export function longDate(iso: string | null): string {
-    if (iso === null) return "";
-    const d = new Date(iso.length === 10 ? `${iso}T12:00:00` : iso);
-    return d.toLocaleDateString("en-CA", { month: "long", day: "numeric", year: "numeric" });
+/** A document number as printed: "#1002", or "Draft" before it has one. */
+export function docReference(number: string | null): string {
+    return number === null ? s.draftNumber : s.reference(number);
 }
 
-export function shortDate(iso: string | null): string {
-    if (iso === null) return "";
-    return formatMonthDay(new Date(iso.length === 10 ? `${iso}T12:00:00` : iso));
+const source: Readonly<Record<string, { message: string }>> = english;
+const REASON_KEYS = Object.keys(source).filter((k) => k.startsWith("pos.desk.reasons."));
+
+/** A stored discount reason; one of the preset reasons, stored as English text, shows in the active locale. */
+export function discountReason(stored: string | null | undefined): string | null {
+    if (stored === null || stored === undefined || stored === "") return null;
+    const preset = REASON_KEYS.findIndex((k) => source[k]?.message === stored);
+    return preset === -1 ? stored : (strings.pos.desk.reasons[preset] ?? stored);
+}
+
+/** A sale's number as printed: "S-1044", or empty before it has one. */
+export function saleNumber(n: number | null): string {
+    return n === null ? "" : s.saleNumber(n);
+}
+
+/** A long date for a document ("October 14, 2026"). */
+export function longDate(iso: string | null, zone: string): string {
+    return iso === null ? "" : formatLongDate(readDate(iso, zone), zone);
+}
+
+export function shortDate(iso: string | null, zone: string): string {
+    return iso === null ? "" : formatMonthDay(readDate(iso, zone), zone);
 }
 
 interface PrintSource {
     kind: PrintedKind;
-    number: string;
+    currency: string;
+    number: string | null;
     partyName: string;
     partyLines: readonly string[];
     meta: readonly { label: string; value: string }[];
@@ -77,9 +118,15 @@ interface PrintSource {
 }
 
 const PARTY_LABEL: Record<PrintedKind, string> = {
-    invoice: s.billTo,
-    estimate: s.preparedFor,
-    receipt: s.receivedFrom,
+    get invoice() {
+        return s.billTo;
+    },
+    get estimate() {
+        return s.preparedFor;
+    },
+    get receipt() {
+        return s.receivedFrom;
+    },
 };
 
 /** One printed document, the same model the in-app preview and the Connect pages draw. */
@@ -88,10 +135,17 @@ export function printedDoc(
     letterhead: Letterhead,
     fallbackColor: string,
 ): PrintedDoc {
+    const title = s.kinds[src.kind];
+    const reference = docReference(src.number);
+    const last = src.meta[2];
     return {
         kind: src.kind,
-        title: s.kinds[src.kind],
-        number: src.number,
+        currency: src.currency,
+        title,
+        number: src.number ?? s.draftNumber,
+        reference,
+        heading: s.heading(title, reference),
+        deadline: last === undefined ? "" : s.deadline(last.label, last.value),
         business: {
             name: letterhead.name,
             initials: initials(letterhead.name),
@@ -122,9 +176,24 @@ export function printedDoc(
     };
 }
 
+/** A tax's name from its jurisdiction code ("GST", "QST"). */
+export function taxName(code: string): string {
+    return strings.taxes.names[code] ?? code;
+}
+
+/** Taxes charged together: "GST + PST", or "GST 5% + PST 7%" from rate labels. */
+export function taxList(labels: readonly string[]): string {
+    const [first = "", ...rest] = labels;
+    return rest.reduce((all, next) => strings.taxes.plus(all, next), first);
+}
+
+/** A tax and the rate it is printed with: "GST 5%", "QST 9.975%". */
+export function taxRateLabel(code: string, rateBps: number): string {
+    return strings.taxes.rate(taxName(code), ratePct(code, rateBps));
+}
+
 /** The rate a tax code is printed with ("5%", "9.975%"). */
 export function ratePct(code: string, rateBps: number): string {
-    if (code === "QST") return "9.975%";
-    const pct = rateBps / 100;
-    return `${Number.isInteger(pct) ? String(pct) : pct.toFixed(2).replace(/0+$/, "")}%`;
+    // Quebec's 9.975% does not fit in whole basis points.
+    return formatRate(code === "QST" ? 997.5 : rateBps);
 }

@@ -59,6 +59,7 @@ class PublicOrderService:
             if status in ("paid", "partly_refunded", "refunded")
             else None,
             currency=order.currency,
+            timezone=business.timezone,
             subtotal_cents=order.subtotal_cents,
             tax_total_cents=order.tax_total_cents,
             total_cents=order.total_cents,

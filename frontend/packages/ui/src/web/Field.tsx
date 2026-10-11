@@ -99,6 +99,7 @@ export function TextField({
     onSubmit,
     placeholder,
     prefix,
+    suffix,
     type = "text",
     multiline = false,
     rows = 3,
@@ -151,11 +152,13 @@ export function TextField({
                     }}
                     className={`${shared.className} resize-none`}
                 />
-            ) : prefix !== undefined ? (
+            ) : prefix !== undefined || suffix !== undefined ? (
                 <div
                     className={`flex items-center overflow-hidden rounded-md border border-line focus-within:border-accent ${SURFACE[surface]} ${INPUT_WIDTH[width]}`}
                 >
-                    <span className="pl-3 text-sm text-muted">{prefix}</span>
+                    {prefix !== undefined ? (
+                        <span className="pl-3 text-sm text-muted">{prefix}</span>
+                    ) : null}
                     <input
                         {...shared}
                         type={type === "number" ? "text" : type}
@@ -166,6 +169,9 @@ export function TextField({
                         }}
                         className={`min-w-0 flex-1 bg-transparent px-1 text-ink outline-hidden placeholder:text-muted ${INPUT_SIZE[size].replace(/px-\S+/, "")}`}
                     />
+                    {suffix !== undefined ? (
+                        <span className="pr-3 text-sm text-muted">{suffix}</span>
+                    ) : null}
                 </div>
             ) : (
                 <input

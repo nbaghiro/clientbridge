@@ -11,6 +11,8 @@ import {
     useFormDraft,
     useFormEditor,
     useFormLibrary,
+    formatParts,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -42,9 +44,24 @@ const f = strings.publicForm;
 
 type Tab = "questions" | "preview" | "settings";
 const TABS: { key: Tab; label: string }[] = [
-    { key: "questions", label: s.questions },
-    { key: "preview", label: s.preview },
-    { key: "settings", label: s.sendWhen },
+    {
+        key: "questions",
+        get label() {
+            return s.questions;
+        },
+    },
+    {
+        key: "preview",
+        get label() {
+            return s.preview;
+        },
+    },
+    {
+        key: "settings",
+        get label() {
+            return s.sendWhen;
+        },
+    },
 ];
 
 export function Forms() {
@@ -104,11 +121,12 @@ function FormList({ onOpen }: { onOpen: (id: string) => void }) {
                                 <ListRow
                                     key={form.id}
                                     title={form.name}
-                                    detail={`${s.fields(form.field_count)} · ${
+                                    detail={formatParts([
+                                        s.fields(form.field_count),
                                         form.submitted > 0
                                             ? s.responses(form.submitted)
-                                            : s.noResponsesYet
-                                    }`}
+                                            : s.noResponsesYet,
+                                    ])}
                                     meta={<Badge label={send.label} intent={send.intent} />}
                                     onPress={() => {
                                         onOpen(form.id);
@@ -148,6 +166,7 @@ function Editor({
     onBack: () => void;
     onCreated: (id: string) => void;
 }) {
+    const zone = useBusinessZone();
     const editor = useFormEditor(api, formId, initial, onCreated);
     const [sending, setSending] = useState(false);
     const [tab, setTab] = useState<Tab>("questions");
@@ -200,9 +219,11 @@ function Editor({
                     {editor.name || s.untitledForm}
                 </Text>
                 <Text style={styles.meta}>
-                    {s.fields(editor.fields.length)} ·{" "}
-                    {editor.sendOn === "booking" ? s.sendsOnBooking : s.sendsManually}
-                    {editor.dirty ? ` · ${s.unsaved}` : ""}
+                    {formatParts([
+                        s.fields(editor.fields.length),
+                        editor.sendOn === "booking" ? s.sendsOnBooking : s.sendsManually,
+                        editor.dirty ? s.unsaved : null,
+                    ])}
                 </Text>
             </View>
             <Tabs items={TABS} active={tab} onSelect={setTab} variant="pill" />
@@ -227,7 +248,10 @@ function Editor({
                                         </View>
                                     }
                                     title={field.label || s.untitled}
-                                    detail={`${fieldTypeLabel(field.input)}${field.required ? ` · ${s.required}` : ""}`}
+                                    detail={formatParts([
+                                        fieldTypeLabel(field.input),
+                                        field.required ? s.required : null,
+                                    ])}
                                     onPress={() => {
                                         editor.select(field.key);
                                     }}
@@ -251,6 +275,7 @@ function Editor({
                         <Text style={styles.previewTitle}>{editor.name || s.untitledForm}</Text>
                         {editor.preview.map((q) => (
                             <FormQuestion
+                                zone={zone}
                                 key={q.id}
                                 field={{ ...q, label: q.label || s.untitled }}
                                 value={undefined}

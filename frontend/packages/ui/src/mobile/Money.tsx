@@ -12,10 +12,16 @@ const TONES: Record<NonNullable<MoneyProps["tone"]>, string> = {
     danger: c.danFg,
 };
 
-export function Money({ cents, tone = "ink", strong = false, style }: NativeProps<MoneyProps>) {
+export function Money({
+    cents,
+    currency,
+    tone = "ink",
+    strong = false,
+    style,
+}: NativeProps<MoneyProps>) {
     return (
         <Text style={[styles.money, { color: TONES[tone] }, strong && styles.strong, style]}>
-            {formatMoney(cents)}
+            {formatMoney(cents, currency)}
         </Text>
     );
 }

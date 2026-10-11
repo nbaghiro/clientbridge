@@ -16,6 +16,9 @@ import {
     useCheckoutQueue,
     useRegisterCatalog,
     useSale,
+    formatParts,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -89,12 +92,13 @@ function VisitRow({
     onTicket: boolean;
     onCheckOut: () => void;
 }) {
+    const zone = useBusinessZone();
     const st = VISIT_STATE[v.state];
     return (
         <div className={`flex items-center gap-3 px-4 py-3 ${onTicket ? "bg-accent-weak/50" : ""}`}>
             <div className="w-24 shrink-0 whitespace-nowrap">
-                <p className="text-sm font-semibold text-ink">{formatTime(v.start)}</p>
-                <p className="text-xs text-muted">{d.endsAt(formatTime(v.end))}</p>
+                <p className="text-sm font-semibold text-ink">{formatTime(v.start, zone)}</p>
+                <p className="text-xs text-muted">{d.endsAt(formatTime(v.end, zone))}</p>
             </div>
             <span
                 className="h-10 w-1 shrink-0 rounded-full bg-line"
@@ -105,10 +109,13 @@ function VisitRow({
                 <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-muted">
                     <Avatar name={v.staffName} size="sm" color={v.staffColor} />
                     <span className="truncate">
-                        {v.itemName} · {formatMoney(v.priceCents)}
-                        {v.depositCents > 0
-                            ? ` · ${d.depositCredit(formatMoney(v.depositCents))}`
-                            : ""}
+                        {formatParts([
+                            v.itemName,
+                            formatMoney(v.priceCents, BUSINESS_CURRENCY),
+                            v.depositCents > 0
+                                ? d.depositCredit(formatMoney(v.depositCents, BUSINESS_CURRENCY))
+                                : null,
+                        ])}
                     </span>
                 </p>
             </div>
@@ -134,9 +141,27 @@ function VisitRow({
 }
 
 const PLAN_KINDS: { key: WalletKind; label: string; icon: "tag" | "box" | "repeat" }[] = [
-    { key: "gift_card", label: d.sellGiftCard, icon: "tag" },
-    { key: "package", label: d.sellPackage, icon: "box" },
-    { key: "membership", label: d.sellMembership, icon: "repeat" },
+    {
+        key: "gift_card",
+        get label() {
+            return d.sellGiftCard;
+        },
+        icon: "tag",
+    },
+    {
+        key: "package",
+        get label() {
+            return d.sellPackage;
+        },
+        icon: "box",
+    },
+    {
+        key: "membership",
+        get label() {
+            return d.sellMembership;
+        },
+        icon: "repeat",
+    },
 ];
 
 function Register({ sale }: { sale: SaleTicket }) {
@@ -230,6 +255,7 @@ function Register({ sale }: { sale: SaleTicket }) {
                                     const out = saleTileOut(item);
                                     return (
                                         <ItemTile
+                                            currency={BUSINESS_CURRENCY}
                                             key={item.id}
                                             name={item.name}
                                             imageSrc={mediaUrl(apiBaseUrl, item.image_file_id)}

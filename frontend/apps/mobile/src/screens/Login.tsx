@@ -82,7 +82,7 @@ function Credentials({ auth }: { auth: Auth }) {
                     <Notice tone="danger" banner>
                         {auth.attemptsLeft === null
                             ? auth.error
-                            : `${auth.error}\n${a.attemptsLeft(auth.attemptsLeft)}`}
+                            : [auth.error, a.attemptsLeft(auth.attemptsLeft)].join("\n")}
                     </Notice>
                 </View>
             ) : null}

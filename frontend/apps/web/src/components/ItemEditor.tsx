@@ -13,6 +13,8 @@ import {
     usePlanEditor,
     useProductEditor,
     useServiceEditor,
+    BUSINESS_CURRENCY,
+    currencyAffix,
 } from "@clientbridge/app-core";
 import {
     Button,
@@ -130,7 +132,7 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
                     <div className="flex gap-3">
                         <Num
                             label={s.price}
-                            prefix="$"
+                            {...currencyAffix(BUSINESS_CURRENCY)}
                             value={v.price}
                             onChange={(x) => {
                                 set("price", x);
@@ -209,7 +211,9 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
                                             : s.depositPercentLabel
                                     }
                                     type="number"
-                                    prefix={v.depositType === "fixed" ? "$" : undefined}
+                                    {...(v.depositType === "fixed"
+                                        ? currencyAffix(BUSINESS_CURRENCY)
+                                        : {})}
                                     value={v.depositValue}
                                     onChange={(x) => {
                                         set("depositValue", x);
@@ -294,7 +298,7 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                     <div className="flex gap-3">
                         <Num
                             label={s.price}
-                            prefix="$"
+                            {...currencyAffix(BUSINESS_CURRENCY)}
                             value={v.price}
                             onChange={(x) => {
                                 set("price", x);
@@ -302,7 +306,7 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                         />
                         <Num
                             label={s.cost}
-                            prefix="$"
+                            {...currencyAffix(BUSINESS_CURRENCY)}
                             value={v.cost}
                             onChange={(x) => {
                                 set("cost", x);
@@ -321,8 +325,8 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                             {ed.margin === null ? s.marginUnknown : ed.margin.label}
                         </span>
                     </div>
-                    {ed.margin?.low === true ? (
-                        <p className="text-xs text-warn-fg">{s.marginLow}</p>
+                    {ed.margin?.warning != null ? (
+                        <p className="text-xs text-warn-fg">{ed.margin.warning}</p>
                     ) : null}
                     <p className="text-xs text-muted">{s.costHint}</p>
                 </div>
@@ -447,7 +451,7 @@ function PlanFields({ ed }: { ed: PlanEditor }) {
                                 />
                                 <Num
                                     label={s.price}
-                                    prefix="$"
+                                    {...currencyAffix(BUSINESS_CURRENCY)}
                                     value={v.price}
                                     onChange={(x) => {
                                         set("price", x);
@@ -469,7 +473,7 @@ function PlanFields({ ed }: { ed: PlanEditor }) {
                             <div className="flex gap-3">
                                 <Num
                                     label={s.price}
-                                    prefix="$"
+                                    {...currencyAffix(BUSINESS_CURRENCY)}
                                     value={v.price}
                                     onChange={(x) => {
                                         set("price", x);
@@ -516,7 +520,7 @@ function PlanFields({ ed }: { ed: PlanEditor }) {
                                 label={s.giftAmounts}
                                 options={ed.giftChoices.map((c) => ({
                                     key: String(c),
-                                    label: formatMoney(c),
+                                    label: formatMoney(c, BUSINESS_CURRENCY),
                                 }))}
                                 value={v.giftAmounts.map(String)}
                                 onChange={(k) => {
@@ -560,7 +564,7 @@ function Frame({
     return (
         <DetailView
             open
-            title={item?.name ?? s.newItem(kindLabel)}
+            title={item?.name ?? s.newItem(kind)}
             subtitle={kindLabel}
             status={archived ? { status: s.archived, intent: "neutral" } : undefined}
             leading={

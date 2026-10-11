@@ -5,6 +5,8 @@ import {
     formatMoney,
     strings,
     usePaymentRecorder,
+    BUSINESS_CURRENCY,
+    currencyAffix,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
@@ -54,7 +56,9 @@ export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: (
                 </View>
                 <View style={styles.headRight}>
                     <Text style={styles.caps}>{strings.billing.balanceDue}</Text>
-                    <Text style={styles.balance}>{formatMoney(pay.balanceCents)}</Text>
+                    <Text style={styles.balance}>
+                        {formatMoney(pay.balanceCents, BUSINESS_CURRENCY)}
+                    </Text>
                 </View>
             </View>
             {pay.done !== null ? (
@@ -98,7 +102,9 @@ export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: (
                             options={[
                                 {
                                     key: "full",
-                                    label: r.fullBalance(formatMoney(pay.balanceCents)),
+                                    label: r.fullBalance(
+                                        formatMoney(pay.balanceCents, BUSINESS_CURRENCY),
+                                    ),
                                 },
                                 { key: "part", label: r.partial },
                             ]}
@@ -109,7 +115,7 @@ export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: (
                             <View style={styles.space}>
                                 <TextField
                                     name={r.amount}
-                                    prefix="$"
+                                    {...currencyAffix(BUSINESS_CURRENCY)}
                                     type="number"
                                     value={pay.amount}
                                     placeholder="0.00"
@@ -126,14 +132,19 @@ export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: (
                                 <TextField
                                     label={r.tendered}
                                     optional
-                                    prefix="$"
+                                    {...currencyAffix(BUSINESS_CURRENCY)}
                                     type="number"
                                     value={pay.tendered}
                                     error={pay.tenderedError}
                                     onChange={pay.setTendered}
                                 />
                                 <Notice tone="success" banner>
-                                    {`${r.change} ${pay.changeCents > 0 ? formatMoney(pay.changeCents) : r.noChange}`}
+                                    {strings.common.labelValue(
+                                        r.change,
+                                        pay.changeCents > 0
+                                            ? formatMoney(pay.changeCents, BUSINESS_CURRENCY)
+                                            : r.noChange,
+                                    )}
                                 </Notice>
                             </View>
                         ) : null}
@@ -177,7 +188,11 @@ export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: (
                             </View>
                         ) : null}
                         <View style={[styles.summary, styles.space]}>
-                            <DocTotals lines={summary} density="compact" />
+                            <DocTotals
+                                currency={BUSINESS_CURRENCY}
+                                lines={summary}
+                                density="compact"
+                            />
                         </View>
                         {pay.error !== null ? <Notice tone="danger">{pay.error}</Notice> : null}
                     </ScrollView>

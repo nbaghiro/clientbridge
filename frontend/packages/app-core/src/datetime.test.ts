@@ -1,17 +1,38 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
     addDays,
     addMonths,
+    clockKey,
     clockOptions,
-    formatPickedDay,
-    monthWeeks,
-    parseDateKey,
     combineDayAndTime,
     dateKey,
+    dayKey,
     daysUntil,
+    firstWeekday,
+    formatClock,
+    formatClockShort,
+    formatDate,
+    formatDateTime,
+    formatDayTime,
+    formatFullDate,
+    formatHour,
+    formatLongDate,
+    formatPickedDay,
     formatRelativeTime,
+    formatShortTimeRange,
+    formatTime,
+    formatTimeOfPeriod,
+    formatTimeRange,
+    formatWeekdayName,
+    formatWeekdayTime,
+    formatZoneName,
+    minutesInto,
+    monthWeeks,
+    parseDateKey,
     parseTimestamp,
+    parseWallDateTime,
+    readDate,
     relativeDay,
     relativeDayTime,
     sameDay,
@@ -19,18 +40,31 @@ import {
     startOfDay,
     startOfMonth,
     startOfWeek,
+    wallTime,
     weekdayDay,
+    weekdayNames,
+    zonedDate,
 } from "./datetime";
+import { setPseudoLocale } from "./locale";
 import { strings } from "./strings";
+
+const VAN = "America/Vancouver";
+const TOKYO = "Asia/Tokyo";
+const HALIFAX = "America/Halifax";
+
+// Wednesday 7 October 2026, 3:30 p.m. on a Vancouver clock (22:30 UTC).
+const WED = zonedDate(2026, 10, 7, 15, 30, VAN);
+const at = (month: number, day: number, hour = 0, minute = 0): Date =>
+    zonedDate(2026, month, day, hour, minute, VAN);
+
+afterEach(async () => {
+    await setPseudoLocale(false);
+});
 
 describe("parseTimestamp", () => {
     it("parses PowerSync's bare-offset timestamptz as UTC", () => {
-        // "2026-06-26 10:00:00+00" is the exact stored form the calendar filtering depends on.
         const d = parseTimestamp("2026-06-26 10:00:00+00");
-        expect(d.getUTCFullYear()).toBe(2026);
-        expect(d.getUTCMonth()).toBe(5); // June (0-indexed)
-        expect(d.getUTCHours()).toBe(10);
-        expect(d.getUTCMinutes()).toBe(0);
+        expect(d.toISOString()).toBe("2026-06-26T10:00:00.000Z");
     });
 
     it("parses the ISO Z form to the same instant", () => {
@@ -44,78 +78,157 @@ describe("parseTimestamp", () => {
     });
 });
 
-describe("dateKey", () => {
-    it("formats a local date as YYYY-MM-DD", () => {
-        expect(dateKey(new Date(2026, 5, 9))).toBe("2026-06-09");
-    });
-});
-
-describe("relative days", () => {
-    const now = new Date(2026, 9, 6, 9, 30);
-
-    it("names today, yesterday and tomorrow", () => {
-        expect(relativeDay(new Date(2026, 9, 6, 18), "short", now)).toBe("Today");
-        expect(relativeDay(new Date(2026, 9, 5, 8), "short", now)).toBe("Yesterday");
-        expect(relativeDay(new Date(2026, 9, 7, 8), "short", now)).toBe("Tomorrow");
+describe("zoned clocks", () => {
+    it("reads an instant's fields on the given zone's clock", () => {
+        const instant = new Date("2026-10-07T22:30:00Z");
+        expect(wallTime(instant, VAN)).toMatchObject({ year: 2026, month: 10, day: 7, hour: 15 });
+        expect(wallTime(instant, TOKYO)).toMatchObject({ month: 10, day: 8, hour: 7, minute: 30 });
+        expect(wallTime(instant, HALIFAX)).toMatchObject({ day: 7, hour: 19, weekday: 3 });
     });
 
-    it("falls back to the date further out", () => {
-        const d = new Date(2026, 9, 8, 9);
-        expect(relativeDay(d, "short", now)).toBe(weekdayDay(d));
-        expect(relativeDayTime(new Date(2026, 9, 6, 14, 30), now)).toMatch(/^Today, 2:30/);
+    it("finds the instant a zone's clock shows, across both daylight saving changes", () => {
+        expect(zonedDate(2026, 10, 7, 15, 30, VAN).toISOString()).toBe("2026-10-07T22:30:00.000Z");
+        expect(zonedDate(2026, 1, 15, 9, 0, VAN).toISOString()).toBe("2026-01-15T17:00:00.000Z");
+        expect(zonedDate(2026, 3, 8, 12, 0, VAN).toISOString()).toBe("2026-03-08T19:00:00.000Z");
+        expect(zonedDate(2026, 11, 1, 12, 0, VAN).toISOString()).toBe("2026-11-01T20:00:00.000Z");
+        expect(zonedDate(2026, 10, 32, 0, 0, TOKYO).toISOString()).toBe("2026-10-31T15:00:00.000Z");
     });
 
-    it("stamps a feed row by how long ago it was", () => {
-        expect(stampLabel(new Date(2026, 9, 6, 8, 52), now)).toMatch(/^8:52/);
-        expect(stampLabel(new Date(2026, 9, 3, 8, 52), now)).toMatch(/^Sat 8:52/);
-        expect(stampLabel(new Date(2026, 8, 1, 8, 52), now)).toMatch(/2026/);
-    });
-
-    it("counts calendar days, not hours", () => {
-        expect(daysUntil(new Date(2026, 9, 31, 1), now)).toBe(25);
-        expect(daysUntil(new Date(2026, 8, 26, 23), now)).toBe(-10);
+    it("keys days and clock times by the zone, not the device", () => {
+        const lateEvening = new Date("2026-10-08T05:30:00Z");
+        expect(dateKey(lateEvening, VAN)).toBe("2026-10-07");
+        expect(dateKey(lateEvening, TOKYO)).toBe("2026-10-08");
+        expect(clockKey(lateEvening, VAN)).toBe("22:30");
+        expect(dayKey(2026, 13, 0)).toBe("2026-12-31");
     });
 });
 
 describe("day arithmetic", () => {
-    const wed = new Date(2026, 9, 7, 15, 30);
-
-    it("snaps to local midnight and the first of the month", () => {
-        expect(startOfDay(wed)).toEqual(new Date(2026, 9, 7));
-        expect(startOfDay(new Date(2026, 9, 7))).toEqual(new Date(2026, 9, 7));
-        expect(startOfMonth(wed)).toEqual(new Date(2026, 9, 1));
-        expect(startOfMonth(new Date(2027, 0, 31, 23, 59))).toEqual(new Date(2027, 0, 1));
+    it("snaps to midnight and the first of the month in the zone", () => {
+        expect(startOfDay(WED, VAN)).toEqual(at(10, 7));
+        expect(startOfDay(at(10, 7), VAN)).toEqual(at(10, 7));
+        expect(startOfMonth(WED, VAN)).toEqual(at(10, 1));
+        expect(startOfMonth(zonedDate(2027, 1, 31, 23, 59, VAN), VAN)).toEqual(
+            zonedDate(2027, 1, 1, 0, 0, VAN),
+        );
     });
 
-    it("adds calendar days across month and year ends, landing on midnight", () => {
-        expect(addDays(wed, 1)).toEqual(new Date(2026, 9, 8));
-        expect(addDays(wed, 0)).toEqual(new Date(2026, 9, 7));
-        expect(addDays(new Date(2026, 9, 31), 1)).toEqual(new Date(2026, 10, 1));
-        expect(addDays(new Date(2027, 0, 1), -1)).toEqual(new Date(2026, 11, 31));
-        expect(addDays(new Date(2028, 1, 28), 1)).toEqual(new Date(2028, 1, 29));
-        expect(addDays(new Date(2026, 1, 28), 1)).toEqual(new Date(2026, 2, 1));
+    it("adds calendar days across month ends and daylight saving, landing on midnight", () => {
+        expect(addDays(WED, 1, VAN)).toEqual(at(10, 8));
+        expect(addDays(WED, 0, VAN)).toEqual(at(10, 7));
+        expect(addDays(at(10, 31), 1, VAN)).toEqual(at(11, 1));
+        expect(addDays(at(10, 31), 2, VAN).getTime() - at(10, 31).getTime()).toBe(49 * 3_600_000);
+        expect(addDays(zonedDate(2028, 2, 28, 0, 0, VAN), 1, VAN)).toEqual(
+            zonedDate(2028, 2, 29, 0, 0, VAN),
+        );
     });
 
-    it("starts the week on Monday unless told otherwise", () => {
-        expect(startOfWeek(wed)).toEqual(new Date(2026, 9, 5));
-        expect(startOfWeek(new Date(2026, 9, 5, 8))).toEqual(new Date(2026, 9, 5));
-        expect(startOfWeek(new Date(2026, 9, 11, 22))).toEqual(new Date(2026, 9, 5));
-        expect(startOfWeek(wed, 0)).toEqual(new Date(2026, 9, 4));
-        expect(startOfWeek(new Date(2027, 0, 1), 1)).toEqual(new Date(2026, 11, 28));
+    it("starts the week on Monday for English", () => {
+        expect(firstWeekday()).toBe(1);
+        expect(startOfWeek(WED, VAN)).toEqual(at(10, 5));
+        expect(startOfWeek(at(10, 11, 22), VAN)).toEqual(at(10, 5));
+        expect(startOfWeek(zonedDate(2027, 1, 1, 0, 0, VAN), VAN)).toEqual(at(12, 28));
     });
 
-    it("compares calendar days, not instants", () => {
-        expect(sameDay(new Date(2026, 9, 7, 0, 0), new Date(2026, 9, 7, 23, 59))).toBe(true);
-        expect(sameDay(new Date(2026, 9, 7, 23, 59), new Date(2026, 9, 8, 0, 0))).toBe(false);
-        expect(sameDay(new Date(2026, 9, 7), new Date(2026, 8, 7))).toBe(false);
-        expect(sameDay(new Date(2026, 9, 7), new Date(2027, 9, 7))).toBe(false);
+    it("compares calendar days in the zone", () => {
+        expect(sameDay(at(10, 7, 0, 0), at(10, 7, 23, 59), VAN)).toBe(true);
+        expect(sameDay(at(10, 7, 23, 59), at(10, 8, 0, 0), VAN)).toBe(false);
+        expect(sameDay(at(10, 7, 6), at(10, 7, 10), TOKYO)).toBe(false);
     });
 
     it("puts a typed time on a day given as a date or a key", () => {
-        expect(combineDayAndTime("2026-10-07", "14:30")).toEqual(new Date(2026, 9, 7, 14, 30));
-        expect(combineDayAndTime(wed, "09:05")).toEqual(new Date(2026, 9, 7, 9, 5));
-        expect(combineDayAndTime("2026-12-31", "9")).toEqual(new Date(2026, 11, 31, 9, 0));
-        expect(combineDayAndTime("2026-10-07", "00:00")).toEqual(new Date(2026, 9, 7));
+        expect(combineDayAndTime("2026-10-07", "14:30", VAN)).toEqual(at(10, 7, 14, 30));
+        expect(combineDayAndTime(WED, "09:05", VAN)).toEqual(at(10, 7, 9, 5));
+        expect(combineDayAndTime("2026-12-31", "9", VAN)).toEqual(at(12, 31, 9));
+        expect(parseWallDateTime("2026-10-07T14:30", TOKYO).toISOString()).toBe(
+            "2026-10-07T05:30:00.000Z",
+        );
+        expect(minutesInto(WED, 90, VAN)).toEqual(at(10, 7, 1, 30));
+    });
+
+    it("counts calendar days, not hours", () => {
+        const now = at(10, 6, 9, 30);
+        expect(daysUntil(at(10, 31, 1), VAN, now)).toBe(25);
+        expect(daysUntil(at(9, 26, 23), VAN, now)).toBe(-10);
+    });
+
+    it("reads a stored date-only value as that day in the zone", () => {
+        expect(readDate("2026-10-08", VAN)).toEqual(at(10, 8));
+        expect(readDate("2026-10-08T12:00:00Z", VAN).toISOString()).toBe(
+            "2026-10-08T12:00:00.000Z",
+        );
+    });
+});
+
+describe("formatting", () => {
+    it("formats times and dates on the zone's clock in English", () => {
+        const instant = new Date("2026-10-09T21:30:00Z");
+        expect(formatTime(instant, VAN)).toBe("2:30 p.m.");
+        expect(formatTime(instant, TOKYO)).toBe("6:30 a.m.");
+        expect(formatDate(instant, VAN)).toBe("Oct 9, 2026");
+        expect(formatLongDate(instant, VAN)).toBe("October 9, 2026");
+        expect(formatFullDate(instant, VAN)).toBe("Friday, October 9");
+        expect(weekdayDay(instant, TOKYO)).toBe("Sat, Oct 10");
+        expect(formatDayTime(instant, VAN)).toBe("Fri, Oct 9, 2:30 p.m.");
+        expect(formatDateTime(instant, VAN)).toBe("Oct 9, 2026, 2:30 p.m.");
+        expect(formatWeekdayTime(instant, VAN)).toBe("Fri 2:30 p.m.");
+    });
+
+    it("formats wall-clock times on a 12-hour clock for English", () => {
+        expect(formatClock("09:30")).toBe("9:30 a.m.");
+        expect(formatClock("17:00")).toBe("5:00 p.m.");
+        expect(formatHour(0)).toBe("12 a.m.");
+        expect(formatHour(13)).toBe("1 p.m.");
+        expect(formatClockShort("09:00")).toBe("9");
+        expect(formatClockShort("16:30")).toBe("4:30");
+    });
+
+    it("joins ranges through the catalog and shares the period in compact ranges", () => {
+        const start = at(10, 7, 9, 30);
+        const end = at(10, 7, 10, 15);
+        expect(formatTimeRange(start, end, VAN)).toBe("9:30 a.m. – 10:15 a.m.");
+        expect(formatShortTimeRange(start, end, VAN)).toBe("9:30–10:15 a.m.");
+        expect(formatTimeOfPeriod(at(10, 7, 21, 5), VAN)).toBe("9:05");
+    });
+
+    it("names weekdays in week order and the zone a visitor sees", () => {
+        expect(weekdayNames()).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+        expect(formatWeekdayName(0)).toBe("Sunday");
+        expect(formatZoneName(VAN, WED)).toBe("Pacific Time");
+        expect(formatZoneName(HALIFAX, WED)).toBe("Atlantic Time");
+    });
+
+    it("follows the pseudo-locale for the formatted values", async () => {
+        await setPseudoLocale(true);
+        const start = at(10, 7, 9, 30);
+        expect(formatTime(start, VAN)).toBe("9:30 AM");
+        expect(formatTimeRange(start, at(10, 7, 10), VAN)).toBe("9:30 AM – 10:00 AM");
+    });
+});
+
+describe("relative days", () => {
+    const now = at(10, 6, 9, 30);
+
+    it("names today, yesterday and tomorrow in the zone", () => {
+        expect(relativeDay(at(10, 6, 18), VAN, "short", now)).toBe("Today");
+        expect(relativeDay(at(10, 5, 8), VAN, "short", now)).toBe("Yesterday");
+        expect(relativeDay(at(10, 7, 8), VAN, "short", now)).toBe("Tomorrow");
+        expect(relativeDay(at(10, 6, 6), VAN, "short", now)).toBe("Today");
+        expect(relativeDay(at(10, 6, 6), TOKYO, "short", now)).toBe("Yesterday");
+    });
+
+    it("falls back to the date further out", () => {
+        const d = at(10, 8, 9);
+        expect(relativeDay(d, VAN, "short", now)).toBe(weekdayDay(d, VAN));
+        expect(relativeDay(d, VAN, "long", now)).toBe("Thursday, October 8");
+        expect(relativeDayTime(at(10, 6, 14, 30), VAN, now)).toBe("Today, 2:30 p.m.");
+        expect(relativeDayTime(d, VAN, now)).toBe("Thu, Oct 8, 9:00 a.m.");
+    });
+
+    it("stamps a feed row by how long ago it was", () => {
+        expect(stampLabel(at(10, 6, 8, 52), VAN, now)).toBe("8:52 a.m.");
+        expect(stampLabel(at(10, 3, 8, 52), VAN, now)).toBe("Sat 8:52 a.m.");
+        expect(stampLabel(at(9, 1, 8, 52), VAN, now)).toBe("Sep 1, 2026");
     });
 });
 
@@ -126,45 +239,40 @@ describe("formatRelativeTime", () => {
     const MIN = 60_000;
 
     it("steps from just now through minutes, hours and days", () => {
-        expect(formatRelativeTime(ago(0), now)).toBe(t.justNow);
-        expect(formatRelativeTime(ago(59_999), now)).toBe(t.justNow);
-        expect(formatRelativeTime(ago(-5 * MIN), now)).toBe(t.justNow);
-        expect(formatRelativeTime(ago(MIN), now)).toBe(t.minutes(1));
-        expect(formatRelativeTime(ago(59 * MIN), now)).toBe(t.minutes(59));
-        expect(formatRelativeTime(ago(60 * MIN), now)).toBe(t.hours(1));
-        expect(formatRelativeTime(ago(24 * 60 * MIN - 1), now)).toBe(t.hours(23));
-        expect(formatRelativeTime(ago(24 * 60 * MIN), now)).toBe(t.days(1));
-        expect(formatRelativeTime(ago(7 * 24 * 60 * MIN - 1), now)).toBe(t.days(6));
+        expect(formatRelativeTime(ago(0), VAN, now)).toBe(t.justNow);
+        expect(formatRelativeTime(ago(59_999), VAN, now)).toBe(t.justNow);
+        expect(formatRelativeTime(ago(-5 * MIN), VAN, now)).toBe(t.justNow);
+        expect(formatRelativeTime(ago(MIN), VAN, now)).toBe(t.minutes(1));
+        expect(formatRelativeTime(ago(59 * MIN), VAN, now)).toBe(t.minutes(59));
+        expect(formatRelativeTime(ago(60 * MIN), VAN, now)).toBe(t.hours(1));
+        expect(formatRelativeTime(ago(24 * 60 * MIN - 1), VAN, now)).toBe(t.hours(23));
+        expect(formatRelativeTime(ago(24 * 60 * MIN), VAN, now)).toBe(t.days(1));
+        expect(formatRelativeTime(ago(7 * 24 * 60 * MIN - 1), VAN, now)).toBe(t.days(6));
     });
 
-    it("falls back to a short date after a week, reading the replica's timestamp form", () => {
-        const old = ago(8 * 24 * 60 * MIN);
-        expect(formatRelativeTime(old, now)).toBe(
-            new Date(old).toLocaleDateString("en-CA", { month: "short", day: "numeric" }),
-        );
-        expect(formatRelativeTime("2026-10-07 11:30:00+00", now)).toBe(t.minutes(30));
+    it("falls back to a short date in the zone after a week", () => {
+        expect(formatRelativeTime("2026-09-29T03:00:00Z", VAN, now)).toBe("Sep 28");
+        expect(formatRelativeTime("2026-09-29T03:00:00Z", TOKYO, now)).toBe("Sep 29");
+        expect(formatRelativeTime("2026-10-07 11:30:00+00", VAN, now)).toBe(t.minutes(30));
     });
 });
 
 describe("date picker helpers", () => {
     it("reads only real days from a date key", () => {
-        expect(parseDateKey("2026-10-08")?.getDate()).toBe(8);
-        expect(parseDateKey("2026-02-30")).toBeNull();
-        expect(parseDateKey("")).toBeNull();
+        expect(parseDateKey("2026-10-08", VAN)).toEqual(at(10, 8));
+        expect(parseDateKey("2026-02-30", VAN)).toBeNull();
+        expect(parseDateKey("", VAN)).toBeNull();
     });
 
     it("holds the day to the end of a shorter month", () => {
-        expect(dateKey(addMonths(new Date(2026, 0, 31), 1))).toBe("2026-02-28");
-        expect(dateKey(addMonths(new Date(2026, 2, 15), -12))).toBe("2025-03-15");
+        expect(dateKey(addMonths(zonedDate(2026, 1, 31, 0, 0, VAN), 1, VAN), VAN)).toBe(
+            "2026-02-28",
+        );
+        expect(dateKey(addMonths(at(3, 15), -12, VAN), VAN)).toBe("2025-03-15");
     });
 
     it("lays out six Monday-first weeks with the bounds disabled", () => {
-        const weeks = monthWeeks(
-            new Date(2026, 9, 1),
-            "2026-10-08",
-            { min: "2026-10-05" },
-            new Date(2026, 9, 7),
-        );
+        const weeks = monthWeeks(at(10, 1), "2026-10-08", { min: "2026-10-05" }, VAN, at(10, 7));
         expect(weeks).toHaveLength(6);
         expect(weeks[0]?.[0]?.key).toBe("2026-09-28");
         const days = weeks.flat();
@@ -172,17 +280,54 @@ describe("date picker helpers", () => {
         expect(days.find((d) => d.today)?.key).toBe("2026-10-07");
         expect(days.find((d) => d.key === "2026-10-04")?.disabled).toBe(true);
         expect(days.find((d) => d.key === "2026-10-05")?.disabled).toBe(false);
+        expect(days.find((d) => d.key === "2026-10-31")?.label).toBe("Saturday, October 31");
     });
 
     it("drops the year only for the current year", () => {
-        const now = new Date(2026, 9, 7);
-        expect(formatPickedDay(new Date(2026, 9, 8), now)).not.toMatch(/2026/);
-        expect(formatPickedDay(new Date(2027, 9, 8), now)).toMatch(/2027/);
+        const now = at(10, 7);
+        expect(formatPickedDay(at(10, 8), VAN, now)).toBe("Thu, Oct 8");
+        expect(formatPickedDay(zonedDate(2027, 10, 8, 0, 0, VAN), VAN, now)).toBe(
+            "Fri, Oct 8, 2027",
+        );
     });
 
     it("steps through the day and keeps a time that falls between steps", () => {
         const keys = clockOptions(30, "09:00", "11:00", "10:07").map((o) => o.key);
         expect(keys).toEqual(["09:00", "09:30", "10:00", "10:07", "10:30", "11:00"]);
         expect(clockOptions(15)).toHaveLength(96);
+        expect(clockOptions(30, "09:00", "09:30").map((o) => o.label)).toEqual([
+            "9:00 a.m.",
+            "9:30 a.m.",
+        ]);
+    });
+});
+
+describe.each([
+    {
+        tag: "en-CA",
+        dates: ["Oct 7, 2026", "October 7, 2026", "Wed, Oct 7, 9:30 a.m."],
+        times: ["9:30 a.m.", "9:30 a.m. – 2:00 p.m."],
+        relative: "2h",
+    },
+    {
+        tag: "en-XA",
+        dates: ["Oct 7, 2026", "October 7, 2026", "Wed, Oct 7, 9:30 AM"],
+        times: ["9:30 AM", "9:30 AM – 2:00 PM"],
+        relative: "[2ĥ one]",
+    },
+])("dates and times in $tag", ({ tag, dates, times, relative }) => {
+    const start = at(10, 7, 9, 30);
+
+    it("formats dates, times, ranges and relative times in the business zone", async () => {
+        await setPseudoLocale(tag === "en-XA");
+        expect([
+            formatDate(start, VAN),
+            formatLongDate(start, VAN),
+            formatDayTime(start, VAN),
+        ]).toEqual(dates);
+        expect([formatTime(start, VAN), formatTimeRange(start, at(10, 7, 14), VAN)]).toEqual(times);
+        expect(
+            formatRelativeTime("2026-10-07T16:00:00Z", VAN, new Date("2026-10-07T18:00:00Z")),
+        ).toBe(relative);
     });
 });

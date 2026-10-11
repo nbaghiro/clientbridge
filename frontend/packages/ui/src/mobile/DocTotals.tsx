@@ -1,4 +1,4 @@
-import { type DocTotalsProps, formatMoney } from "@clientbridge/app-core";
+import { type DocTotalsProps, formatCredit, formatMoney } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -6,7 +6,12 @@ import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
-export function DocTotals({ lines, density = "regular", style }: NativeProps<DocTotalsProps>) {
+export function DocTotals({
+    lines,
+    currency,
+    density = "regular",
+    style,
+}: NativeProps<DocTotalsProps>) {
     return (
         <View style={style}>
             {lines.map((line, i) => {
@@ -14,8 +19,8 @@ export function DocTotals({ lines, density = "regular", style }: NativeProps<Doc
                 const strong = line.kind === "total" || line.kind === "balance";
                 const amount =
                     (line.kind === "credit" || line.kind === "deduction") && line.cents !== 0
-                        ? `−${formatMoney(line.cents)}`
-                        : formatMoney(line.cents);
+                        ? formatCredit(line.cents, currency)
+                        : formatMoney(line.cents, currency);
                 return (
                     <View
                         key={line.key}
@@ -28,7 +33,10 @@ export function DocTotals({ lines, density = "regular", style }: NativeProps<Doc
                         <Text style={[styles.label, strong && styles.labelStrong]}>
                             {line.label}
                             {line.hint !== undefined ? (
-                                <Text style={styles.hint}>{`  ${line.hint}`}</Text>
+                                <Text style={styles.hint}>
+                                    {"  "}
+                                    {line.hint}
+                                </Text>
                             ) : null}
                         </Text>
                         <Text

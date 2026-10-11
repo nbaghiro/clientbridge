@@ -10,6 +10,9 @@ import {
     useClients,
     useDocComposer,
     useLetterhead,
+    formatParts,
+    BUSINESS_CURRENCY,
+    currencyAffix,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -76,7 +79,7 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
             <div className="@container flex h-[92vh] flex-col overflow-hidden rounded-lg border border-line bg-bg shadow-card">
                 <header className="flex flex-wrap items-center gap-3 border-b border-line bg-surface px-6 py-4">
                     <h2 className="font-display text-xl font-bold text-ink">{c.title}</h2>
-                    <StatusPill status={s.statusLabel.draft ?? ""} intent="neutral" />
+                    <StatusPill status={s.statusLabel.draft} intent="neutral" />
                     <div className="ml-auto flex items-center gap-2">
                         <span className="@4xl:hidden">
                             <Button
@@ -174,12 +177,16 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                                             <span className="w-24 text-right font-display font-bold tabular-nums text-ink">
                                                 {l.discount !== null ? (
                                                     <span className="block text-xs font-normal text-muted line-through">
-                                                        {formatMoney(l.grossCents)}
+                                                        {formatMoney(
+                                                            l.grossCents,
+                                                            BUSINESS_CURRENCY,
+                                                        )}
                                                     </span>
                                                 ) : null}
                                                 {formatMoney(
                                                     l.grossCents -
                                                         discountCents(l.grossCents, l.discount),
+                                                    BUSINESS_CURRENCY,
                                                 )}
                                             </span>
                                             <IconButton
@@ -205,7 +212,7 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                                             <TextField
                                                 label={s.price}
                                                 size="sm"
-                                                prefix="$"
+                                                {...currencyAffix(BUSINESS_CURRENCY)}
                                                 value={l.unit}
                                                 placeholder="0.00"
                                                 onChange={(v) => {
@@ -288,7 +295,13 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                                                     { key: "", label: s.addFromCatalog },
                                                     ...catalog.map((i) => ({
                                                         key: i.id,
-                                                        label: `${i.name} · ${formatMoney(i.price_cents)}`,
+                                                        label: formatParts([
+                                                            i.name,
+                                                            formatMoney(
+                                                                i.price_cents,
+                                                                BUSINESS_CURRENCY,
+                                                            ),
+                                                        ]),
                                                     })),
                                                 ]}
                                                 onChange={(id) => {
@@ -338,7 +351,7 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                                         </Button>
                                     </div>
                                 )}
-                                <DocTotals lines={c.totals} />
+                                <DocTotals currency={BUSINESS_CURRENCY} lines={c.totals} />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">

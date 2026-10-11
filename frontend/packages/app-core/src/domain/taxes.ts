@@ -3,11 +3,12 @@ import { useBusinessQuery as useQuery } from "../hooks";
 import { useEffect, useMemo, useState } from "react";
 
 import { type ApiLike, newIdempotencyKey } from "../api";
-import { addDays, dateKey } from "../datetime";
-import { formatMoney } from "../format";
+import { dateKey, wallTime, zonedDate, useBusinessZone } from "../datetime";
+import { formatList, formatMoney, formatMoneyShort, BUSINESS_CURRENCY } from "../format";
 import { type Load, useAsyncAction, useRemote } from "../hooks";
 import { strings } from "../strings";
 import { useReplicaLoad } from "./sync";
+import { taxList, taxName, taxRateLabel } from "./printing";
 
 const t = strings.taxes;
 
@@ -16,26 +17,26 @@ export interface TaxRate {
     jurisdiction: string;
     province: string;
     rate_bps: number;
-    name: string;
 }
 
 export type ProvinceCode =
     "AB" | "BC" | "MB" | "NB" | "NL" | "NS" | "NT" | "NU" | "ON" | "PE" | "QC" | "SK" | "YT";
 
 interface ProvinceTaxLine {
-    name: string;
+    // The jurisdiction code the catalog names; Manitoba's provincial tax is the RST.
+    code: string;
     rateBps: number;
     level: "federal" | "provincial";
 }
 
-const HST = (bps: number): ProvinceTaxLine[] => [{ name: "HST", rateBps: bps, level: "federal" }];
-const GST: ProvinceTaxLine = { name: "GST", rateBps: 500, level: "federal" };
+const HST = (bps: number): ProvinceTaxLine[] => [{ code: "HST", rateBps: bps, level: "federal" }];
+const GST: ProvinceTaxLine = { code: "GST", rateBps: 500, level: "federal" };
 
 // The same rates as services/tax.py; the server computes every real tax amount.
 const PROVINCE_TAX: Record<ProvinceCode, ProvinceTaxLine[]> = {
     AB: [GST],
-    BC: [GST, { name: "PST", rateBps: 700, level: "provincial" }],
-    MB: [GST, { name: "RST", rateBps: 700, level: "provincial" }],
+    BC: [GST, { code: "PST", rateBps: 700, level: "provincial" }],
+    MB: [GST, { code: "RST", rateBps: 700, level: "provincial" }],
     NB: HST(1500),
     NL: HST(1500),
     NS: HST(1400),
@@ -43,12 +44,10 @@ const PROVINCE_TAX: Record<ProvinceCode, ProvinceTaxLine[]> = {
     NU: [GST],
     ON: HST(1300),
     PE: HST(1500),
-    QC: [GST, { name: "QST", rateBps: 997, level: "provincial" }],
-    SK: [GST, { name: "PST", rateBps: 600, level: "provincial" }],
+    QC: [GST, { code: "QST", rateBps: 997, level: "provincial" }],
+    SK: [GST, { code: "PST", rateBps: 600, level: "provincial" }],
     YT: [GST],
 };
-
-const formatRate = (bps: number): string => `${String(bps / 100)}%`;
 
 function taxLinesFor(province: string | null): ProvinceTaxLine[] {
     return province !== null && province in PROVINCE_TAX
@@ -61,10 +60,10 @@ export function taxSummary(
     province: string | null,
     cls: "standard" | "federal_only" = "standard",
 ): string {
-    return taxLinesFor(province)
+    const labels = taxLinesFor(province)
         .filter((l) => cls === "standard" || l.level === "federal")
-        .map((l) => `${l.name} ${formatRate(l.rateBps)}`)
-        .join(" + ");
+        .map((l) => taxRateLabel(l.code, l.rateBps));
+    return taxList(labels);
 }
 
 export type ItemTaxClass = "standard" | "federal_only" | "exempt";
@@ -82,10 +81,11 @@ const compact = (v: string): string => v.replace(/[\s-]/g, "").toUpperCase();
 export function taxClassLabel(cls: ItemTaxClass, province: string | null): string {
     if (cls === "exempt") return t.classes.exempt;
     const lines = taxLinesFor(province);
-    const names = lines
-        .filter((l) => cls === "standard" || l.level === "federal")
-        .map((l) => l.name)
-        .join(" + ");
+    const names = taxList(
+        lines
+            .filter((l) => cls === "standard" || l.level === "federal")
+            .map((l) => taxName(l.code)),
+    );
     return cls === "federal_only" && lines.length > 1 ? t.only(names) : names;
 }
 
@@ -93,7 +93,20 @@ export function taxClassLabel(cls: ItemTaxClass, province: string | null): strin
 export function taxExampleTitle(cls: ItemTaxClass, province: string | null): string {
     const kind = t.exampleFor[cls];
     const label = taxClassLabel(cls, province);
-    return kind === undefined ? label : `${kind}, ${label}`;
+    return kind === undefined ? label : formatList([kind, label], "unit");
+}
+
+const SMALL_SUPPLIER_CENTS = 3_000_000;
+const EXAMPLE_SALE_CENTS = 10_000;
+
+/** The small-supplier threshold as the tax copy shows it: "$30,000". */
+export function smallSupplierLimit(): string {
+    return formatMoneyShort(SMALL_SUPPLIER_CENTS, BUSINESS_CURRENCY);
+}
+
+/** The sale the worked example is priced on: "$100". */
+export function exampleSale(): string {
+    return formatMoneyShort(EXAMPLE_SALE_CENTS, BUSINESS_CURRENCY);
 }
 
 interface TaxExampleLine {
@@ -106,7 +119,7 @@ export function taxExample(
     cls: ItemTaxClass,
     province: string | null,
     collect: boolean,
-    cents = 10000,
+    cents = EXAMPLE_SALE_CENTS,
 ): { lines: TaxExampleLine[]; totalCents: number } {
     const all = taxLinesFor(province);
     const applied =
@@ -116,7 +129,7 @@ export function taxExample(
               ? all.filter((l) => l.level === "federal")
               : all;
     const lines = applied.map((l) => ({
-        label: `${l.name} ${formatRate(l.rateBps)}`,
+        label: taxRateLabel(l.code, l.rateBps),
         cents: Math.round((cents * l.rateBps) / 10000),
     }));
     return { lines, totalCents: cents + lines.reduce((sum, l) => sum + l.cents, 0) };
@@ -129,16 +142,18 @@ interface FilingPeriod {
 }
 
 /** The return period that contains `now`, and when it is due to the CRA. */
-export function filingPeriod(frequency: FilingFrequency, now: Date = new Date()): FilingPeriod {
-    const y = now.getFullYear();
-    if (frequency === "annual") {
-        return { from: new Date(y, 0, 1), to: new Date(y, 11, 31), due: new Date(y + 1, 3, 30) };
-    }
+export function filingPeriod(
+    frequency: FilingFrequency,
+    zone: string,
+    now: Date = new Date(),
+): FilingPeriod {
+    const { year, month } = wallTime(now, zone);
+    const day = (m: number, d: number, y = year): Date => zonedDate(y, m, d, 0, 0, zone);
+    if (frequency === "annual")
+        return { from: day(1, 1), to: day(12, 31), due: day(4, 30, year + 1) };
     const months = frequency === "quarterly" ? 3 : 1;
-    const start = Math.floor(now.getMonth() / months) * months;
-    const from = new Date(y, start, 1);
-    const to = addDays(new Date(y, start + months, 1), -1);
-    return { from, to, due: new Date(y, start + months + 1, 0) };
+    const start = Math.floor((month - 1) / months) * months + 1;
+    return { from: day(start, 1), to: day(start + months, 0), due: day(start + months + 1, 0) };
 }
 
 export const TAX_SETTINGS_SQL = `
@@ -203,13 +218,15 @@ export function useTaxSettingsForm(
 
     const province = row?.province ?? null;
     const lines = taxLinesFor(province);
-    const period = filingPeriod(draft.frequency);
+    const zone = useBusinessZone();
+    const period = filingPeriod(draft.frequency, zone);
+    const from = dateKey(period.from, zone);
     const collected = useRemote(
         () =>
             api.get<{ tax_collected_cents: number }>(
-                `/v1/reports/gst-hst?start=${dateKey(period.from)}&end=${dateKey(period.to)}`,
+                `/v1/reports/gst-hst?start=${from}&end=${dateKey(period.to, zone)}`,
             ),
-        `${dateKey(period.from)}:${String(initial.registration === "registered")}`,
+        `${from}:${String(initial.registration === "registered")}`,
     );
     const edit = (patch: Partial<typeof draft>): void => {
         setDraft((d) => ({ ...d, ...patch }));
@@ -221,10 +238,10 @@ export function useTaxSettingsForm(
         province,
         provinceName: province === null ? "" : provinceName(province),
         taxLines: lines.map((l) => ({
-            label: `${l.name} ${formatRate(l.rateBps)}`,
+            label: taxRateLabel(l.code, l.rateBps),
             level: l.level,
         })),
-        hasPst: lines.some((l) => l.level === "provincial" && l.name !== "QST"),
+        hasPst: lines.some((l) => l.level === "provincial" && l.code !== "QST"),
         registration: draft.registration,
         setRegistration: (r) => {
             edit({ registration: r });
@@ -345,7 +362,7 @@ export function useItemTaxClasses(api: ApiLike): ItemTaxClasses {
 export function taxableItemPriceLabel(item: TaxableItem): string {
     return item.kind === "gift" || item.price_cents === null
         ? t.anyAmount
-        : formatMoney(item.price_cents);
+        : formatMoney(item.price_cents, BUSINESS_CURRENCY);
 }
 
 function useTaxRates(api: ApiLike): TaxRate[] | null {

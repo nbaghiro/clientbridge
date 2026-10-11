@@ -3,8 +3,27 @@ import { useBusinessQuery as useQuery } from "../hooks";
 import { useMemo, useRef, useState } from "react";
 
 import { type ApiLike, newIdempotencyKey } from "../api";
-import { addDays, daysUntil, stampLabel } from "../datetime";
-import { blankToNull, formatMoney, formatPhone, parseCents } from "../format";
+import {
+    addDays,
+    combineDayAndTime,
+    dateKey,
+    daysUntil,
+    parseTimestamp,
+    stampLabel,
+    useBusinessZone,
+} from "../datetime";
+import {
+    blankToNull,
+    formatAmountInput,
+    formatList,
+    formatMoney,
+    formatNumber,
+    formatParts,
+    formatPhone,
+    parseCents,
+    parseNumber,
+    BUSINESS_CURRENCY,
+} from "../format";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type {
@@ -19,7 +38,16 @@ import { invoiceStatusSql, subjectNetSql } from "./ledger";
 import { taxOptions } from "./catalog";
 import { mediaUrl } from "./files";
 import { type PaymentRow, invoiceBalanceKey, payLinkUrl, useInvoicePayments } from "./payments";
-import { type Letterhead, longDate, printedDoc, ratePct, shortDate } from "./printing";
+import {
+    type Letterhead,
+    discountReason,
+    longDate,
+    printedDoc,
+    shortDate,
+    taxList,
+    taxName,
+    taxRateLabel,
+} from "./printing";
 import { type Arrival, useArrival, useReplicaLoad } from "./sync";
 import { type TaxRate, useTaxSetup } from "./taxes";
 import type { Load } from "../hooks";
@@ -40,6 +68,7 @@ export interface InvoiceRow {
     total_cents: number | null;
     balance_cents: number | null;
     paid_cents: number | null;
+    currency: string;
     issued_at: string | null;
     due_at: string | null;
     paid_at: string | null;
@@ -101,7 +130,7 @@ SELECT i.id, i.client_id, c.name AS client_name, c.email AS client_email, c.phon
        (SELECT MAX(pe.occurred_at) FROM entries pe JOIN accounts pa ON pa.id = pe.account_id
         WHERE pa.category = 'receivable' AND pe.subject_type = 'invoice' AND pe.subject_id = i.id
           AND pe.amount_cents < 0) AS paid_at,
-       i.issued_at, i.due_at, i.voided_at, i.pay_token, i.notes, i.created_at
+       i.currency, i.issued_at, i.due_at, i.voided_at, i.pay_token, i.notes, i.created_at
 FROM invoices i
 LEFT JOIN clients c ON c.id = i.client_id`;
 
@@ -113,7 +142,7 @@ export const INVOICE_SQL = `${INVOICE_SELECT} WHERE i.id = ?`;
 export const ESTIMATES_SQL = `
 SELECT e.id, e.client_id, c.name AS client_name, c.email AS client_email, c.phone AS client_phone,
        e.number,
-       CASE WHEN e.status = 'sent' AND e.valid_until < date('now') THEN 'expired'
+       CASE WHEN e.status = 'sent' AND e.valid_until < ? THEN 'expired'
             ELSE e.status END AS status,
        e.subtotal_cents, e.tax_total_cents, e.total_cents, e.valid_until, e.accepted_at,
        e.declined_at, e.decline_reason, e.view_token, e.converted_invoice_id,
@@ -169,7 +198,8 @@ export function useInvoices(): InvoiceRow[] {
 }
 
 export function useEstimates(): EstimateRow[] {
-    return useQuery<EstimateRow>(ESTIMATES_SQL).data;
+    const today = dateKey(new Date(), useBusinessZone());
+    return useQuery<EstimateRow>(ESTIMATES_SQL, [today]).data;
 }
 
 export function useLines(parentId: string): LineRow[] {
@@ -295,7 +325,7 @@ export function priceDoc(lines: readonly PricedLine[], rates: readonly DocRate[]
             const on = kept.filter((x) => x.t !== undefined && r.code in x.t.taxByCode);
             return {
                 code: r.code,
-                label: s.taxRow(r.code, ratePct(r.code, r.rateBps)),
+                label: taxRateLabel(r.code, r.rateBps),
                 baseCents: on.reduce((sum, x) => sum + x.l.amountCents, 0),
                 cents: on.reduce((sum, x) => sum + (x.t?.taxByCode[r.code] ?? 0), 0),
             };
@@ -309,7 +339,12 @@ export function priceDoc(lines: readonly PricedLine[], rates: readonly DocRate[]
 function rateNote(rates: readonly DocRate[]): string {
     return rates.length === 0
         ? s.noTaxNote
-        : s.taxNote(rates.map((r) => s.taxRow(r.code, ratePct(r.code, r.rateBps))).join(", "));
+        : s.taxNote(
+              formatList(
+                  rates.map((r) => taxRateLabel(r.code, r.rateBps)),
+                  "unit",
+              ),
+          );
 }
 
 type InvoiceStatus = "draft" | "sent" | "partial" | "overdue" | "paid" | "refunded" | "void";
@@ -346,15 +381,19 @@ function estimateStatusIntent(status: string): Intent {
 }
 
 /** Days past due for an unpaid sent invoice; 0 when it isn't late. */
-export function daysOverdue(row: InvoiceRow, now: Date = new Date()): number {
+export function daysOverdue(row: InvoiceRow, zone: string, now: Date = new Date()): number {
     if (row.due_at === null || (row.balance_cents ?? 0) <= 0) return 0;
     if (!["sent", "partial", "overdue"].includes(row.status)) return 0;
-    return Math.max(0, -daysUntil(new Date(row.due_at), now));
+    return Math.max(0, -daysUntil(parseTimestamp(row.due_at), zone, now));
 }
 
 /** The status a person reads: a sent invoice past its due date is overdue the day after. */
-export function invoiceStatus(row: InvoiceRow, now: Date = new Date()): InvoiceStatus {
-    const late = daysOverdue(row, now) > 0;
+export function invoiceStatus(
+    row: InvoiceRow,
+    zone: string,
+    now: Date = new Date(),
+): InvoiceStatus {
+    const late = daysOverdue(row, zone, now) > 0;
     if (row.status === "sent" && late) return "overdue";
     return (
         ["draft", "sent", "partial", "overdue", "paid", "refunded", "void"].includes(row.status)
@@ -363,14 +402,16 @@ export function invoiceStatus(row: InvoiceRow, now: Date = new Date()): InvoiceS
     ) as InvoiceStatus;
 }
 
-function dueLabel(row: InvoiceRow, status: InvoiceStatus, now: Date): string {
+function dueLabel(row: InvoiceRow, status: InvoiceStatus, now: Date, zone: string): string {
     if (status === "draft") return s.notSent;
-    if (status === "void") return s.voidedOn(shortDate(row.voided_at ?? row.created_at));
-    if (status === "paid" || status === "refunded") return s.paidOn(shortDate(row.paid_at));
-    const late = daysOverdue(row, now);
+    if (status === "void") return s.voidedOn(shortDate(row.voided_at ?? row.created_at, zone));
+    if (status === "paid" || status === "refunded") return s.paidOn(shortDate(row.paid_at, zone));
+    const late = daysOverdue(row, zone, now);
     if (late > 0) return s.overdueBy(late);
     if (row.due_at === null) return "";
-    return daysUntil(new Date(row.due_at), now) === 0 ? s.dueToday : s.dueOn(shortDate(row.due_at));
+    return daysUntil(parseTimestamp(row.due_at), zone, now) === 0
+        ? s.dueToday
+        : s.dueOn(shortDate(row.due_at, zone));
 }
 
 function invoiceLabel(number: number | null): string {
@@ -412,17 +453,17 @@ function inSegment(seg: InvoiceSegment, r: InvoiceListRow): boolean {
     }
 }
 
-export function listRow(row: InvoiceRow, now: Date = new Date()): InvoiceListRow {
-    const status = invoiceStatus(row, now);
+export function listRow(row: InvoiceRow, zone: string, now: Date = new Date()): InvoiceListRow {
+    const status = invoiceStatus(row, zone, now);
     return {
         row,
         status,
-        statusLabel: s.statusLabel[status] ?? status,
+        statusLabel: s.statusLabel[status],
         intent: invoiceIntent(status),
         number: row.number === null ? s.dash : s.number(row.number),
-        issuedLabel: row.issued_at === null ? s.dash : shortDate(row.issued_at),
-        dueLabel: dueLabel(row, status, now),
-        late: daysOverdue(row, now) > 0,
+        issuedLabel: row.issued_at === null ? s.dash : shortDate(row.issued_at, zone),
+        dueLabel: dueLabel(row, status, now, zone),
+        late: daysOverdue(row, zone, now) > 0,
     };
 }
 
@@ -439,11 +480,12 @@ interface InvoiceStats {
 
 export function invoiceStats(
     rows: readonly InvoiceListRow[],
+    zone: string,
     now: Date = new Date(),
 ): InvoiceStats {
     const open = rows.filter((r) => inSegment("open", r));
     const late = rows.filter((r) => r.late);
-    const since = addDays(now, -30).toISOString();
+    const since = addDays(now, -30, zone).toISOString();
     const paid = rows.filter(
         (r) => (r.status === "paid" || r.status === "refunded") && (r.row.paid_at ?? "") >= since,
     );
@@ -494,7 +536,8 @@ export function useInvoiceDesk(initialSegment: InvoiceSegment = "all"): InvoiceD
     const query = useQuery<InvoiceRow>(INVOICES_SQL);
     const [segment, setSegment] = useState<InvoiceSegment>(initialSegment);
     const [q, setQ] = useState("");
-    const all = useMemo(() => query.data.map((r) => listRow(r)), [query.data]);
+    const zone = useBusinessZone();
+    const all = useMemo(() => query.data.map((r) => listRow(r, zone)), [query.data, zone]);
     const load = useReplicaLoad([query], all.length === 0);
     const rows = useMemo(
         () =>
@@ -504,7 +547,7 @@ export function useInvoiceDesk(initialSegment: InvoiceSegment = "all"): InvoiceD
             ),
         [all, segment, q],
     );
-    const stats = invoiceStats(all);
+    const stats = invoiceStats(all, zone);
     const counted = all.filter((r) => r.status !== "void");
     return {
         load,
@@ -521,7 +564,7 @@ export function useInvoiceDesk(initialSegment: InvoiceSegment = "all"): InvoiceD
         stats,
         summary:
             load.state === "ready"
-                ? s.summary(counted.length, formatMoney(stats.outstandingCents))
+                ? s.summary(counted.length, formatMoney(stats.outstandingCents, BUSINESS_CURRENCY))
                 : undefined,
         emptyMessage: q !== "" ? s.emptySearch : s.emptySegment(s.segments[segment]),
         nothingYet: all.length === 0,
@@ -550,6 +593,8 @@ export interface InvoiceRecord {
     taxes: PrintedDocTax[];
     totals: DocTotalLine[];
     balanceCents: number;
+    currency: string;
+    zone: string;
     // a just-recorded payment whose new balance has not reached this device yet
     settling: Arrival;
     facts: { label: string; value: string }[];
@@ -566,7 +611,7 @@ export interface InvoiceRecord {
 }
 
 function methodLabel(method: string | null): string {
-    return s.method[method ?? "other"] ?? s.method.other ?? "";
+    return s.method[method ?? "other"] ?? s.method.other;
 }
 
 function docLines(lines: readonly LineRow[], pricing: DocPricing): PrintedDocLine[] {
@@ -581,10 +626,10 @@ function docLines(lines: readonly LineRow[], pricing: DocPricing): PrintedDocLin
     }));
 }
 
-function lineDetail(line: PrintedDocLine): string {
-    const parts = [s.qtyTimes(line.quantity, formatMoney(line.unitCents))];
-    if (line.taxCodes.length > 0) parts.push(line.taxCodes.join(" + "));
-    return parts.join(" · ");
+function lineDetail(line: PrintedDocLine, currency: string): string {
+    const parts = [s.qtyTimes(line.quantity, formatMoney(line.unitCents, currency))];
+    if (line.taxCodes.length > 0) parts.push(taxList(line.taxCodes.map(taxName)));
+    return formatParts(parts);
 }
 
 export function issuedTaxes(
@@ -618,13 +663,15 @@ export function useInvoiceRecord(
     const credits = useQuery<CreditRow>(INVOICE_CREDITS_SQL, [id ?? ""]).data;
     const payments = useInvoicePayments(id ?? "");
     const tax = useTaxSetup(api);
+    const zone = useBusinessZone();
     const settling = useArrival(
         id === null ? null : invoiceBalanceKey(id),
         row?.balance_cents ?? 0,
     );
     if (row === null) return null;
     const now = new Date();
-    const status = invoiceStatus(row, now);
+    const status = invoiceStatus(row, zone, now);
+    const currency = row.currency;
     const rates = docRates(tax.rates, tax.registered);
     const pricing = priceDoc(
         lines.map((l) => ({
@@ -651,7 +698,7 @@ export function useInvoiceRecord(
             label:
                 c.event === "application"
                     ? s.depositApplied
-                    : s.paymentOn(methodLabel(c.method), shortDate(c.occurred_at)),
+                    : s.paymentOn(methodLabel(c.method), shortDate(c.occurred_at, zone)),
             cents: c.cents,
             kind: "credit",
         })),
@@ -665,13 +712,11 @@ export function useInvoiceRecord(
             id: pm.id,
             kind: pm.kind,
             label: pm.kind === "refund" ? s.refundBadge : methodLabel(pm.method),
-            detail: [
-                shortDate(pm.paid_at ?? pm.created_at),
+            detail: formatParts([
+                shortDate(pm.paid_at ?? pm.created_at, zone),
                 pm.reference,
                 pm.status === "pending" ? s.paymentPending : null,
-            ]
-                .filter(Boolean)
-                .join(" · "),
+            ]),
             amountCents: pm.amount_cents,
             pending: pm.status === "pending",
             refund: pm.kind === "refund",
@@ -682,7 +727,7 @@ export function useInvoiceRecord(
         {
             key: "created",
             label: s.event.created,
-            at: stampLabel(new Date(row.created_at), now),
+            at: stampLabel(parseTimestamp(row.created_at), zone, now),
             intent: "neutral",
         },
     ];
@@ -690,7 +735,7 @@ export function useInvoiceRecord(
         timeline.push({
             key: "sent",
             label: s.event.sent,
-            at: stampLabel(new Date(row.issued_at), now),
+            at: stampLabel(parseTimestamp(row.issued_at), zone, now),
             intent: "accent",
         });
     for (const c of credits)
@@ -698,23 +743,23 @@ export function useInvoiceRecord(
             key: `c-${c.id}`,
             label:
                 c.event === "application"
-                    ? s.event.depositApplied(formatMoney(c.cents))
-                    : s.event.payment(formatMoney(c.cents), methodLabel(c.method)),
-            at: c.occurred_at === null ? "" : stampLabel(new Date(c.occurred_at), now),
+                    ? s.event.depositApplied(formatMoney(c.cents, currency))
+                    : s.event.payment(formatMoney(c.cents, currency), methodLabel(c.method)),
+            at: c.occurred_at === null ? "" : stampLabel(parseTimestamp(c.occurred_at), zone, now),
             intent: "success",
         });
     for (const pm of payments.filter((x) => x.kind === "refund" && x.status === "succeeded"))
         timeline.push({
             key: `r-${pm.id}`,
-            label: s.event.refund(formatMoney(pm.amount_cents)),
-            at: stampLabel(new Date(pm.paid_at ?? pm.created_at), now),
+            label: s.event.refund(formatMoney(pm.amount_cents, currency)),
+            at: stampLabel(parseTimestamp(pm.paid_at ?? pm.created_at), zone, now),
             intent: "danger",
         });
     if (row.voided_at !== null)
         timeline.push({
             key: "void",
             label: s.event.voided,
-            at: stampLabel(new Date(row.voided_at), now),
+            at: stampLabel(parseTimestamp(row.voided_at), zone, now),
             intent: "danger",
         });
 
@@ -723,29 +768,31 @@ export function useInvoiceRecord(
         row,
         title: invoiceLabel(row.number),
         status,
-        statusLabel: s.statusLabel[status] ?? status,
+        statusLabel: s.statusLabel[status],
         intent: invoiceIntent(status),
         lines: docLines(lines, pricing),
-        lineDetail,
+        lineDetail: (line) => lineDetail(line, currency),
         taxes,
         totals,
         balanceCents,
+        currency,
+        zone,
         settling,
         facts: [
             {
                 label: s.balanceDue,
-                value: formatMoney(draft ? (row.total_cents ?? 0) : balanceCents),
+                value: formatMoney(draft ? (row.total_cents ?? 0) : balanceCents, currency),
             },
             {
                 label: s.colIssued,
-                value: row.issued_at === null ? s.notSent : shortDate(row.issued_at),
+                value: row.issued_at === null ? s.notSent : shortDate(row.issued_at, zone),
             },
-            { label: s.colDue, value: row.due_at === null ? s.dash : shortDate(row.due_at) },
+            { label: s.colDue, value: row.due_at === null ? s.dash : shortDate(row.due_at, zone) },
         ],
         payments: paymentViews,
         timeline,
         payUrl: row.pay_token !== null && open ? payLinkUrl(payBase, row.pay_token) : null,
-        dueLabel: dueLabel(row, status, now),
+        dueLabel: dueLabel(row, status, now, zone),
         canEdit: draft,
         canSend: draft,
         canRemind: open,
@@ -824,7 +871,8 @@ export function printedInvoice(
     return printedDoc(
         {
             kind: "invoice",
-            number: r.number === null ? p.draftNumber : String(r.number),
+            currency: rec.currency,
+            number: r.number === null ? null : String(r.number),
             partyName: r.client_name ?? "",
             partyLines: partyLines(r),
             meta: [
@@ -834,9 +882,9 @@ export function printedInvoice(
                 },
                 {
                     label: p.issued,
-                    value: r.issued_at === null ? s.notSent : longDate(r.issued_at),
+                    value: r.issued_at === null ? s.notSent : longDate(r.issued_at, rec.zone),
                 },
-                { label: p.due, value: r.due_at === null ? s.dash : longDate(r.due_at) },
+                { label: p.due, value: r.due_at === null ? s.dash : longDate(r.due_at, rec.zone) },
             ],
             lines: rec.lines,
             taxes: rec.taxes,
@@ -873,11 +921,18 @@ export function printedReceipt(
     return printedDoc(
         {
             kind: "receipt",
-            number: `${String(r.number ?? "")}-${String(rec.payments.filter((x) => !x.refund).indexOf(pay) + 1)}`,
+            currency: rec.currency,
+            number:
+                r.number === null
+                    ? null
+                    : p.receiptNumber(
+                          String(r.number),
+                          rec.payments.filter((x) => !x.refund).indexOf(pay) + 1,
+                      ),
             partyName: r.client_name ?? "",
             partyLines: partyLines(r),
             meta: [
-                { label: p.paidOn, value: longDate(at) },
+                { label: p.paidOn, value: longDate(at, rec.zone) },
                 { label: p.forInvoice, value: r.number === null ? s.dash : s.number(r.number) },
             ],
             lines: rec.lines,
@@ -896,7 +951,7 @@ export function printedReceipt(
             payment: {
                 method: pay.label,
                 reference: pay.payment.reference ?? "",
-                at: longDate(at),
+                at: longDate(at, rec.zone),
                 amountCents: pay.amountCents,
             },
             stamp: rec.balanceCents === 0 ? p.paidStamp : null,
@@ -925,22 +980,22 @@ function estimateShown(row: EstimateRow): string {
     return row.converted_invoice_id !== null ? "converted" : row.status;
 }
 
-function validLabel(row: EstimateRow, status: string, now: Date): string {
+function validLabel(row: EstimateRow, status: string, now: Date, zone: string): string {
     if (status === "converted")
         return s.convertedTo(
             row.converted_number === null ? s.dash : s.number(row.converted_number),
         );
-    if (status === "accepted") return s.acceptedOn(shortDate(row.accepted_at));
-    if (status === "declined") return s.declinedOn(shortDate(row.declined_at));
+    if (status === "accepted") return s.acceptedOn(shortDate(row.accepted_at, zone));
+    if (status === "declined") return s.declinedOn(shortDate(row.declined_at, zone));
     if (row.valid_until === null) return s.notSent;
-    if (status === "expired") return s.expiredOn(shortDate(row.valid_until));
-    const left = daysUntil(new Date(`${row.valid_until}T23:59:00`), now);
+    if (status === "expired") return s.expiredOn(shortDate(row.valid_until, zone));
+    const left = daysUntil(combineDayAndTime(row.valid_until, "23:59", zone), zone, now);
     return status === "sent" && left <= 7
         ? s.expiresIn(Math.max(0, left))
-        : s.validUntil(shortDate(row.valid_until));
+        : s.validUntil(shortDate(row.valid_until, zone));
 }
 
-function estimateListRow(row: EstimateRow, now: Date): EstimateListRow {
+function estimateListRow(row: EstimateRow, now: Date, zone: string): EstimateListRow {
     const status = estimateShown(row);
     return {
         row,
@@ -948,7 +1003,7 @@ function estimateListRow(row: EstimateRow, now: Date): EstimateListRow {
         statusLabel: s.estimateStatus[status] ?? status,
         intent: estimateStatusIntent(status),
         number: row.number === null ? s.dash : s.number(row.number),
-        validLabel: validLabel(row, status, now),
+        validLabel: validLabel(row, status, now, zone),
     };
 }
 
@@ -981,10 +1036,14 @@ interface EstimateDesk {
 }
 
 export function useEstimateDesk(): EstimateDesk {
-    const query = useQuery<EstimateRow>(ESTIMATES_SQL);
+    const zone = useBusinessZone();
+    const query = useQuery<EstimateRow>(ESTIMATES_SQL, [dateKey(new Date(), zone)]);
     const [segment, setSegment] = useState<EstimateSegment>("all");
     const [q, setQ] = useState("");
-    const all = useMemo(() => query.data.map((r) => estimateListRow(r, new Date())), [query.data]);
+    const all = useMemo(
+        () => query.data.map((r) => estimateListRow(r, new Date(), zone)),
+        [query.data, zone],
+    );
     const load = useReplicaLoad([query], all.length === 0);
     const rows = useMemo(
         () =>
@@ -1011,7 +1070,7 @@ export function useEstimateDesk(): EstimateDesk {
         rows,
         summary:
             load.state === "ready"
-                ? s.estimatesSummary(all.length, formatMoney(waiting))
+                ? s.estimatesSummary(all.length, formatMoney(waiting, BUSINESS_CURRENCY))
                 : undefined,
         emptyMessage:
             q !== "" ? s.emptySearch : s.emptyEstimateSegment(s.estimateSegments[segment]),
@@ -1038,6 +1097,7 @@ export interface EstimateRecord {
     totals: DocTotalLine[];
     timeline: TimelineEntry[];
     acceptUrl: string | null;
+    zone: string;
     canEdit: boolean;
     canSend: boolean;
     canMark: boolean;
@@ -1054,13 +1114,14 @@ export function useEstimateRecord(
     id: string | null,
     payBase: string,
 ): EstimateRecord | null {
-    const estimates = useQuery<EstimateRow>(ESTIMATES_SQL).data;
+    const zone = useBusinessZone();
+    const estimates = useQuery<EstimateRow>(ESTIMATES_SQL, [dateKey(new Date(), zone)]).data;
     const lines = useQuery<LineRow>(LINES_SQL, [id ?? ""]).data;
     const tax = useTaxSetup(api);
     const row = estimates.find((e) => e.id === id) ?? null;
     if (row === null) return null;
     const now = new Date();
-    const view = estimateListRow(row, now);
+    const view = estimateListRow(row, now, zone);
     const rates = docRates(tax.rates, tax.registered);
     const included = (l: LineRow): boolean => l.optional !== 1 || l.selected === 1;
     const pricing = priceDoc(
@@ -1076,7 +1137,7 @@ export function useEstimateRecord(
         {
             key: "created",
             label: s.event.created,
-            at: stampLabel(new Date(row.created_at), now),
+            at: stampLabel(parseTimestamp(row.created_at), zone, now),
             intent: "neutral",
         },
     ];
@@ -1086,14 +1147,14 @@ export function useEstimateRecord(
         timeline.push({
             key: "accepted",
             label: s.event.accepted,
-            at: stampLabel(new Date(row.accepted_at), now),
+            at: stampLabel(parseTimestamp(row.accepted_at), zone, now),
             intent: "success",
         });
     if (row.declined_at !== null)
         timeline.push({
             key: "declined",
             label: s.event.declined,
-            at: stampLabel(new Date(row.declined_at), now),
+            at: stampLabel(parseTimestamp(row.declined_at), zone, now),
             intent: "danger",
             quote: row.decline_reason ?? undefined,
         });
@@ -1128,7 +1189,8 @@ export function useEstimateRecord(
                       : s.addOnOffered,
             };
         }),
-        lineDetail,
+        lineDetail: (line) => lineDetail(line, BUSINESS_CURRENCY),
+        zone,
         taxes: pricing.taxes,
         totals: [
             {
@@ -1242,7 +1304,8 @@ export function printedEstimate(
     return printedDoc(
         {
             kind: "estimate",
-            number: r.number === null ? p.draftNumber : String(r.number),
+            currency: BUSINESS_CURRENCY,
+            number: r.number === null ? null : String(r.number),
             partyName: r.client_name ?? "",
             partyLines: partyLines(r),
             meta: [
@@ -1250,10 +1313,10 @@ export function printedEstimate(
                     label: p.estimateNumber,
                     value: r.number === null ? p.draftNumber : s.number(r.number),
                 },
-                { label: p.issued, value: longDate(r.created_at) },
+                { label: p.issued, value: longDate(r.created_at, rec.zone) },
                 {
                     label: p.validUntil,
-                    value: r.valid_until === null ? s.dash : longDate(r.valid_until),
+                    value: r.valid_until === null ? s.dash : longDate(r.valid_until, rec.zone),
                 },
             ],
             lines: rec.lines.filter((l) => !l.optional || l.selected),
@@ -1263,7 +1326,7 @@ export function printedEstimate(
             payUrl: rec.acceptUrl,
             instructions: [
                 ...(rec.acceptUrl !== null ? [p.acceptOnline(rec.acceptUrl)] : []),
-                ...(r.valid_until !== null ? [p.acceptBy(longDate(r.valid_until))] : []),
+                ...(r.valid_until !== null ? [p.acceptBy(longDate(r.valid_until, rec.zone))] : []),
             ],
             message: r.notes,
         },
@@ -1319,8 +1382,8 @@ export function docDraft(row: InvoiceRow | EstimateRow, lines: readonly LineRow[
         notes: row.notes ?? "",
         lines: lines.map((l) => ({
             description: l.description,
-            quantity: String(l.quantity),
-            unit: (l.unit_amount_cents / 100).toFixed(2),
+            quantity: formatNumber(l.quantity, { useGrouping: false }),
+            unit: formatAmountInput(l.unit_amount_cents, BUSINESS_CURRENCY),
             itemId: l.item_id,
             taxClass: asTaxClass(l.tax_class),
             optional: l.optional === 1,
@@ -1345,8 +1408,8 @@ const blankLine = (): DraftLine & { key: string } =>
         discount: null,
     });
 
-const qtyOf = (l: DraftLine): number => Number(l.quantity) || 0;
-const unitOf = (l: DraftLine): number => parseCents(l.unit) ?? 0;
+const qtyOf = (l: DraftLine): number => parseNumber(l.quantity) ?? 0;
+const unitOf = (l: DraftLine): number => parseCents(l.unit, BUSINESS_CURRENCY) ?? 0;
 const isBlank = (l: DraftLine): boolean => l.description.trim() === "" && l.unit.trim() === "";
 
 interface DocComposer {
@@ -1420,6 +1483,7 @@ export function useDocComposer(
     const sendAction = useAsyncAction();
     const keyRef = useRef<string | null>(null);
     const tax = useTaxSetup(api);
+    const zone = useBusinessZone();
     const rates = docRates(tax.rates, tax.registered);
 
     const touch = (): void => {
@@ -1466,7 +1530,7 @@ export function useDocComposer(
         );
 
     const body = (withSend: boolean): Record<string, unknown> => {
-        const due = addDays(new Date(), TERM_DAYS[terms]);
+        const due = addDays(new Date(), TERM_DAYS[terms], zone);
         return {
             ...(draft === undefined && docId === null ? { client_id: clientId } : {}),
             lines: filled.map((l) => ({
@@ -1561,7 +1625,7 @@ export function useDocComposer(
                                 label: s.docDiscount,
                                 cents: docOff,
                                 kind: "credit" as const,
-                                hint: docDiscount?.reason ?? undefined,
+                                hint: discountReason(docDiscount?.reason) ?? undefined,
                             },
                         ]
                       : []),
@@ -1630,7 +1694,7 @@ export function useDocComposer(
             const line = keyed({
                 description: item.name,
                 quantity: "1",
-                unit: ((item.price_cents ?? 0) / 100).toFixed(2),
+                unit: formatAmountInput(item.price_cents ?? 0, BUSINESS_CURRENCY),
                 itemId: item.id,
                 taxClass: asTaxClass(item.tax_class),
                 optional: false,
@@ -1683,14 +1747,15 @@ export function useDocComposer(
         },
         preview: (client, letterhead, fallbackColor) => {
             const estimate = kind === "estimate";
-            const until = addDays(new Date(), TERM_DAYS[terms]).toISOString();
+            const until = addDays(new Date(), TERM_DAYS[terms], zone).toISOString();
             const shown = composerLines.filter(
                 (l) => !isBlank(l) && l.amountCents > 0 && !l.optional,
             );
-            const number = draft?.number != null ? String(draft.number) : p.draftNumber;
+            const number = draft?.number != null ? String(draft.number) : null;
             return printedDoc(
                 {
                     kind,
+                    currency: BUSINESS_CURRENCY,
                     number,
                     partyName: client?.name ?? s.chooseClient,
                     partyLines:
@@ -1701,9 +1766,12 @@ export function useDocComposer(
                                   client_phone: client.phone,
                               }),
                     meta: [
-                        { label: estimate ? p.estimateNumber : p.invoiceNumber, value: number },
-                        { label: p.issued, value: longDate(new Date().toISOString()) },
-                        { label: estimate ? p.validUntil : p.due, value: longDate(until) },
+                        {
+                            label: estimate ? p.estimateNumber : p.invoiceNumber,
+                            value: number ?? p.draftNumber,
+                        },
+                        { label: p.issued, value: longDate(new Date().toISOString(), zone) },
+                        { label: estimate ? p.validUntil : p.due, value: longDate(until, zone) },
                     ],
                     lines: shown.map((l) => ({
                         id: l.key,
@@ -1721,7 +1789,7 @@ export function useDocComposer(
                         cents: pricing.totalCents,
                     },
                     instructions: estimate
-                        ? [p.acceptBy(longDate(until))]
+                        ? [p.acceptBy(longDate(until, zone))]
                         : letterhead.email !== null
                           ? [p.payInterac(letterhead.email)]
                           : [],

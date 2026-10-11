@@ -101,10 +101,9 @@ export function BookingPageSettings() {
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
                 <div className="min-w-0 space-y-6">
                     {st.bookableCount === 0 ? (
-                        <Notice
-                            tone="info"
-                            banner
-                        >{`${s.noneBookable}. ${s.noneBookableBody}`}</Notice>
+                        <Notice tone="info" banner>
+                            {strings.common.titleAndBody(s.noneBookable, s.noneBookableBody)}
+                        </Notice>
                     ) : null}
                     <Panel
                         title={s.share}
@@ -448,7 +447,7 @@ export function AddonOffers() {
                                                 </span>
                                             ) : null}
                                             {x.addon
-                                                ? `${x.stockLabel !== null ? " · " : ""}${x.attachLabel}`
+                                                ? `${x.stockLabel !== null ? strings.common.separator : ""}${x.attachLabel}`
                                                 : ""}
                                         </p>
                                     </div>

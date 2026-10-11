@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import {
+    BusinessZoneContext,
     strings,
     useBusinessLoad,
     useBusinessSelection,
@@ -124,45 +125,47 @@ function AppRoutes({
     const business = useBusinessLoad();
 
     return (
-        <Routes>
-            <Route path="/accept-invite" element={<AcceptInvite onAuthed={onAuthed} />} />
-            {authed ? (
-                !business.ready ? (
-                    <Route
-                        path="*"
-                        element={
-                            business.state === "empty" ? (
-                                <Onboarding onSignOut={onSignOut} />
-                            ) : business.state === "error" ? (
-                                <LoadFailed
-                                    variant="page"
-                                    onRetry={business.retry}
-                                    retrying={business.retrying}
-                                />
-                            ) : (
-                                <Splash />
-                            )
-                        }
-                    />
+        <BusinessZoneContext.Provider value={business.zone}>
+            <Routes>
+                <Route path="/accept-invite" element={<AcceptInvite onAuthed={onAuthed} />} />
+                {authed ? (
+                    !business.ready ? (
+                        <Route
+                            path="*"
+                            element={
+                                business.state === "empty" ? (
+                                    <Onboarding onSignOut={onSignOut} />
+                                ) : business.state === "error" ? (
+                                    <LoadFailed
+                                        variant="page"
+                                        onRetry={business.retry}
+                                        retrying={business.retrying}
+                                    />
+                                ) : (
+                                    <Splash />
+                                )
+                            }
+                        />
+                    ) : (
+                        <Route element={<AppShell onSignOut={onSignOut} />}>
+                            <Route index element={<Navigate to="/today" replace />} />
+                            <Route path="today" element={<Today />} />
+                            <Route path="schedule" element={<Schedule />} />
+                            <Route path="schedule/classes" element={<Classes />} />
+                            <Route path="schedule/series" element={<Recurrences />} />
+                            <Route path="clients" element={<Clients />} />
+                            <Route path="clients/:clientId/:view" element={<Clients />} />
+                            <Route path="payments/:tab?" element={<Payments />} />
+                            <Route path="inbox" element={<Inbox />} />
+                            <Route path="setup/:section?" element={<Setup />} />
+                            <Route path="*" element={<Navigate to="/today" replace />} />
+                        </Route>
+                    )
                 ) : (
-                    <Route element={<AppShell onSignOut={onSignOut} />}>
-                        <Route index element={<Navigate to="/today" replace />} />
-                        <Route path="today" element={<Today />} />
-                        <Route path="schedule" element={<Schedule />} />
-                        <Route path="schedule/classes" element={<Classes />} />
-                        <Route path="schedule/series" element={<Recurrences />} />
-                        <Route path="clients" element={<Clients />} />
-                        <Route path="clients/:clientId/:view" element={<Clients />} />
-                        <Route path="payments/:tab?" element={<Payments />} />
-                        <Route path="inbox" element={<Inbox />} />
-                        <Route path="setup/:section?" element={<Setup />} />
-                        <Route path="*" element={<Navigate to="/today" replace />} />
-                    </Route>
-                )
-            ) : (
-                <Route path="*" element={<Login onSuccess={onAuthed} />} />
-            )}
-        </Routes>
+                    <Route path="*" element={<Login onSuccess={onAuthed} />} />
+                )}
+            </Routes>
+        </BusinessZoneContext.Provider>
     );
 }
 

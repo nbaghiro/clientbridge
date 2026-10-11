@@ -77,6 +77,7 @@ export interface DetailSectionProps {
 
 export interface MoneyProps {
     cents: number | null;
+    currency: string;
     tone?: "ink" | "muted" | "success" | "danger" | undefined;
     strong?: boolean | undefined;
 }
@@ -162,8 +163,9 @@ export interface TextFieldProps {
     onChange?: ((value: string) => void) | undefined;
     onSubmit?: (() => void) | undefined;
     placeholder?: string | undefined;
-    // Fixed text shown inside the box before the value (a URL prefix, a currency sign).
+    // Fixed text shown inside the box before or after the value (a URL prefix, a currency sign).
     prefix?: string | undefined;
+    suffix?: string | undefined;
     type?: TextFieldType | undefined;
     multiline?: boolean | undefined;
     rows?: number | undefined;
@@ -226,6 +228,8 @@ interface PickerFieldProps {
 export interface DateFieldProps extends PickerFieldProps {
     // A "YYYY-MM-DD" day, or "" for none.
     value?: string | undefined;
+    // The business's time zone, which decides the day that reads as today.
+    zone: string;
     defaultValue?: string | undefined;
     onChange?: ((value: string) => void) | undefined;
     // The first and last days that can be picked, as "YYYY-MM-DD".
@@ -245,8 +249,9 @@ export interface TimeFieldProps extends PickerFieldProps {
 }
 
 export interface DateTimeFieldProps extends Omit<PickerFieldProps, "placeholder"> {
-    // A local "YYYY-MM-DDTHH:MM", or "" for none.
+    // A "YYYY-MM-DDTHH:MM" on the business's clock, or "" for none.
     value?: string | undefined;
+    zone: string;
     defaultValue?: string | undefined;
     onChange?: ((value: string) => void) | undefined;
     // The first day that can be picked, as "YYYY-MM-DD".
@@ -329,17 +334,20 @@ export interface BadgeProps {
     variant?: "pill" | "count" | undefined;
 }
 
-export interface StatProps {
+interface StatBase {
     label: string;
-    cents?: number | null | undefined;
-    value?: string | undefined;
     tone?: "ink" | "muted" | "success" | "warning" | "danger" | undefined;
     hint?: string | undefined;
     // lg is a headline figure (Today); md sits several to a card (Reports).
     size?: "md" | "lg" | undefined;
-    // Appends the currency code, only for a figure in a currency other than the business's.
-    currency?: string | undefined;
 }
+
+// A money figure names its currency; any other figure arrives already formatted.
+export type StatProps = StatBase &
+    (
+        | { cents: number | null | undefined; currency: string; value?: undefined }
+        | { value: string | undefined; cents?: undefined; currency?: undefined }
+    );
 
 export interface StarsProps {
     value: number;
@@ -497,6 +505,7 @@ export interface DocTotalLine {
 
 export interface DocTotalsProps {
     lines: readonly DocTotalLine[];
+    currency: string;
     // "compact" tightens spacing for side panels and receipts.
     density?: "regular" | "compact" | undefined;
 }
@@ -553,6 +562,8 @@ export interface FormQuestionProps {
     chooseFileLabel: string;
     selectPlaceholder: string;
     invalid?: boolean | undefined;
+    // The business's time zone, for the day a date question reads as today.
+    zone: string;
 }
 
 export interface ContractSignature {
@@ -819,6 +830,7 @@ export interface LineItemProps {
     // Read-only quantity ("2 ×") when there is no stepper.
     count?: number | undefined;
     cents: number;
+    currency: string;
     originalCents?: number | null | undefined;
     tag?: Tag | null | undefined;
     onPress?: (() => void) | undefined;
@@ -863,6 +875,7 @@ export interface ItemTileProps {
     imageSrc: string | null;
     color: string | null;
     cents: number | null;
+    currency: string;
     meta?: string | undefined;
     tag?: Tag | null | undefined;
     // How many are already on the ticket; draws a count badge.
@@ -930,19 +943,26 @@ export interface PrintedDocLabels {
     tax: string;
     amount: string;
     taxSummary: string;
-    taxBase: string;
+    taxBase: (amount: string) => string;
     howToPay: string;
     scanToPay: string;
     paymentMethod: string;
     page: string;
     forPet: (pet: string) => string;
+    qtyTimes: (qty: number, price: string) => string;
 }
 
 // One model for the PDF, the in-app preview and the Connect pages, so what staff see is what clients get.
 export interface PrintedDoc {
     kind: "invoice" | "estimate" | "receipt";
+    currency: string;
     title: string;
     number: string;
+    // The number as printed ("#1002", "Draft") and with the kind ("Invoice #1002").
+    reference: string;
+    heading: string;
+    // The last meta row as one line under the headline ("Due October 20, 2026").
+    deadline: string;
     business: {
         name: string;
         initials: string;

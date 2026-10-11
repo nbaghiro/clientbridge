@@ -12,8 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.ids import new_id
+from clientbridge.core.locale import locale_for, message
 from clientbridge.core.scoping import scoped
-from clientbridge.models.business import User
+from clientbridge.models.business import Business, User
 from clientbridge.models.clients import Channel, Client, Consent, ConsentSource, ConsentStatus
 from clientbridge.schemas.consents import ConsentExport
 
@@ -160,17 +161,18 @@ def _cell(value: str) -> str:
     return f"'{value}" if value[:1] in ("=", "+", "-", "@") else value
 
 
-_EXPORT_COLUMNS = [
-    "client",
-    "email",
-    "phone",
-    "channel",
-    "status",
-    "source",
-    "recorded_at",
-    "expires_at",
-    "recorded_by",
-]
+def _export_header(locale: str) -> list[str]:
+    return [
+        message(locale, "consent_csv.client"),
+        message(locale, "consent_csv.email"),
+        message(locale, "consent_csv.phone"),
+        message(locale, "consent_csv.channel"),
+        message(locale, "consent_csv.status"),
+        message(locale, "consent_csv.source"),
+        message(locale, "consent_csv.recorded_at"),
+        message(locale, "consent_csv.expires_at"),
+        message(locale, "consent_csv.recorded_by"),
+    ]
 
 
 class ConsentService:
@@ -193,9 +195,13 @@ class ConsentService:
                 .order_by(Client.name, Client.id, Consent.created_at, Consent.id)
             )
         ).all()
+        locale = locale_for(
+            business=await self.db.get(Business, self.biz),
+            user=await self.db.get(User, self.principal.user_id),
+        )
         out = io.StringIO()
         writer = csv.writer(out)
-        writer.writerow(_EXPORT_COLUMNS)
+        writer.writerow(_export_header(locale))
         for consent, name, email, phone, recorded_by in rows:
             writer.writerow(
                 [

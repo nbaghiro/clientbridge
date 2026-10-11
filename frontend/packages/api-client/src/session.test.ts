@@ -297,3 +297,34 @@ it("retries the same refresh attempt after the rotated tokens fail to save", asy
     expect(attempts[0]).toBe(attempts[1]);
     expect(signedOut).not.toHaveBeenCalled();
 });
+
+describe("refused requests", () => {
+    it("carry the status and the body's error code, not its message", async () => {
+        const state = setup();
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(() =>
+                Promise.resolve(
+                    Response.json(
+                        { error: "invalid_timezone", message: "timezone must be an IANA name" },
+                        { status: 422 },
+                    ),
+                ),
+            ),
+        );
+        await expect(state.api.patch("/v1/business", { timezone: "Mars" })).rejects.toMatchObject({
+            name: "ApiError",
+            status: 422,
+            code: "invalid_timezone",
+        });
+    });
+
+    it("leave the code empty when the body names none", async () => {
+        const state = setup();
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(() => Promise.resolve(new Response("gateway", { status: 502 }))),
+        );
+        await expect(state.api.get("/v1/x")).rejects.toMatchObject({ status: 502, code: null });
+    });
+});

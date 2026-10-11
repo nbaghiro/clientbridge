@@ -52,6 +52,7 @@ class PublicFormContext(BaseModel):
     form_name: str
     business_name: str
     brand: PublicBrand
+    timezone: str = Field(description="The business's IANA time zone, which its times are shown in")
     completed: bool
     fields: list[PublicFormField]
 

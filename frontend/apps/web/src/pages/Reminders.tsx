@@ -1,9 +1,10 @@
 import {
     type ScheduleEvent,
-    formatTime,
-    formatWeekday,
     strings,
     useReminderSettings,
+    useBusinessZone,
+    formatParts,
+    formatWeekdayTime,
 } from "@clientbridge/app-core";
 import {
     Button,
@@ -148,6 +149,7 @@ function OpenVisits({
     visits: ScheduleEvent[];
     r: ReturnType<typeof useReminderSettings>;
 }) {
+    const zone = useBusinessZone();
     if (visits.length === 0) return null;
     return (
         <ul className="divide-y divide-line-soft rounded-md border border-line">
@@ -158,7 +160,11 @@ function OpenVisits({
                             {v.headline}
                         </span>
                         <span className="block truncate text-xs text-muted">
-                            {`${v.serviceName} · ${formatWeekday(v.start)} ${formatTime(v.start)} · ${v.staffShort}`}
+                            {formatParts([
+                                v.serviceName,
+                                formatWeekdayTime(v.start, zone),
+                                v.staffShort,
+                            ])}
                         </span>
                     </span>
                     <Button

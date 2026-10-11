@@ -34,6 +34,7 @@ export default story<FormQuestionProps>({
             state: STATE,
             title: "Short text",
             props: () => ({
+                zone: "America/Vancouver",
                 ...base,
                 field: field("text", "Pet's name", { required: true }),
                 value: "Biscuit",
@@ -45,6 +46,7 @@ export default story<FormQuestionProps>({
             state: STATE,
             title: "Long text with help",
             props: () => ({
+                zone: "America/Vancouver",
                 ...base,
                 field: field("longtext", "Anything we should know?", {
                     help: "Allergies, behaviour, past groomer notes.",
@@ -58,6 +60,7 @@ export default story<FormQuestionProps>({
             state: STATE,
             title: "Date",
             props: () => ({
+                zone: "America/Vancouver",
                 ...base,
                 field: field("date", "Last rabies vaccine"),
                 value: "2026-03-14",
@@ -69,6 +72,7 @@ export default story<FormQuestionProps>({
             state: STATE,
             title: "Select",
             props: () => ({
+                zone: "America/Vancouver",
                 ...base,
                 field: field("select", "Coat type", { options: ["Short", "Double", "Curly"] }),
                 value: "Double",
@@ -80,6 +84,7 @@ export default story<FormQuestionProps>({
             state: STATE,
             title: "Several choices",
             props: () => ({
+                zone: "America/Vancouver",
                 ...base,
                 field: field("multiselect", "Add-ons", {
                     options: ["Nail trim", "Teeth", "Blueberry facial"],
@@ -93,6 +98,7 @@ export default story<FormQuestionProps>({
             state: STATE,
             title: "Checkbox",
             props: () => ({
+                zone: "America/Vancouver",
                 ...base,
                 field: field("checkbox", "I agree to the cancellation policy", { required: true }),
                 value: true,
@@ -103,6 +109,7 @@ export default story<FormQuestionProps>({
             key: "file",
             title: "File, nothing chosen",
             props: () => ({
+                zone: "America/Vancouver",
                 ...base,
                 field: field("file", "Vaccination record"),
                 value: undefined,
@@ -113,6 +120,7 @@ export default story<FormQuestionProps>({
             key: "file-chosen",
             title: "File chosen",
             props: () => ({
+                zone: "America/Vancouver",
                 ...base,
                 field: field("file", "Vaccination record"),
                 value: undefined,
@@ -125,6 +133,7 @@ export default story<FormQuestionProps>({
             state: STATE,
             title: "Missing a required answer",
             props: () => ({
+                zone: "America/Vancouver",
                 ...base,
                 field: field("text", "Emergency contact", { required: true }),
                 value: "",
@@ -136,6 +145,7 @@ export default story<FormQuestionProps>({
             key: "preview",
             title: "Builder preview (read-only)",
             props: () => ({
+                zone: "America/Vancouver",
                 ...base,
                 field: field("email", "Email", { required: true }),
                 value: undefined,
@@ -146,6 +156,7 @@ export default story<FormQuestionProps>({
             title: "Phone",
             state: STATE,
             props: () => ({
+                zone: "America/Vancouver",
                 ...base,
                 field: field("phone", "Emergency contact phone", { required: true }),
                 value: "+1 250 555 0101",
@@ -157,6 +168,7 @@ export default story<FormQuestionProps>({
             title: "Address",
             state: STATE,
             props: () => ({
+                zone: "America/Vancouver",
                 ...base,
                 field: field("address", "Home address", { help: "For mobile grooming visits." }),
                 value: "1148 Birch Bark Lane\nVictoria, BC V8V 1A1",
@@ -168,6 +180,7 @@ export default story<FormQuestionProps>({
             title: "Select, nothing chosen, required",
             state: STATE,
             props: () => ({
+                zone: "America/Vancouver",
                 ...base,
                 field: field("select", "Coat type", {
                     required: true,
@@ -182,6 +195,7 @@ export default story<FormQuestionProps>({
             key: "file-invalid",
             title: "File missing, required",
             props: () => ({
+                zone: "America/Vancouver",
                 ...base,
                 field: field("file", "Vaccination record", { required: true }),
                 value: undefined,
@@ -193,6 +207,7 @@ export default story<FormQuestionProps>({
             key: "long-label",
             title: "Long label, help and file name",
             props: () => ({
+                zone: "America/Vancouver",
                 ...base,
                 field: field(
                     "file",
@@ -212,6 +227,7 @@ export default story<FormQuestionProps>({
             title: "Right-to-left",
             state: STATE,
             props: () => ({
+                zone: "America/Vancouver",
                 ...base,
                 field: field("multiselect", "الإضافات", {
                     help: "اختر ما يناسب حيوانك الأليف.",

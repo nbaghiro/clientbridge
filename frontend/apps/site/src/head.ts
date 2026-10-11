@@ -1,5 +1,8 @@
+import { activeLocale } from "@clientbridge/app-core/public";
+
 import { config } from "./config";
 import type { PageMeta } from "./routes";
+import { strings } from "./strings";
 
 const escape = (s: string): string =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -26,8 +29,7 @@ const homeJsonLd = (): string =>
             applicationCategory: "BusinessApplication",
             operatingSystem: "Web, iOS, Android",
             url: `${config.siteUrl}/`,
-            description:
-                "Booking, invoices, payments and sales tax for service businesses in Canada.",
+            description: strings.site.jsonLd.description,
         },
     ]).replace(/</g, "\\u003c");
 
@@ -42,7 +44,7 @@ export function headTags(meta: PageMeta, path: string): string {
         `<link rel="canonical" href="${escape(url)}" />`,
         `<meta property="og:type" content="website" />`,
         `<meta property="og:site_name" content="Clientbridge" />`,
-        `<meta property="og:locale" content="en_CA" />`,
+        `<meta property="og:locale" content="${activeLocale().replace("-", "_")}" />`,
         `<meta property="og:title" content="${title}" />`,
         `<meta property="og:description" content="${description}" />`,
         `<meta property="og:url" content="${escape(url)}" />`,

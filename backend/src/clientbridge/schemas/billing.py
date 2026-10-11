@@ -172,6 +172,7 @@ class PublicEstimate(BaseModel):
     client_name: str | None
     status: str
     currency: str
+    timezone: str = Field(description="The business's IANA time zone, which its times are shown in")
     subtotal_cents: int
     tax_total_cents: int
     total_cents: int

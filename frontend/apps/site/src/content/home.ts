@@ -1,44 +1,32 @@
 import type { LineIconName } from "../art/LineIcon";
 import type { GlyphName } from "../art/TradeGlyph";
+import { strings } from "../strings";
 
-export const homeMeta = {
-    title: "Clientbridge: book, sell and get paid, for service businesses in Canada",
-    description:
-        "Online booking with deposits, an online shop and front desk sales, memberships, packages and gift cards, invoices and Tap to Pay for service businesses in Canada. Sales tax is worked out on every sale.",
-};
+const s = strings.home;
 
-export const hero = {
-    eyebrow: "For service businesses in Canada",
-    title: ["Book, sell and get paid", "in one place."],
-    lede: "Online booking with deposits, an online shop and front desk sales, memberships, packages and gift cards, invoices and Tap to Pay. Sales tax is worked out on every sale.",
-    primary: "Start free",
-    secondary: "See the demo business",
-    note: "Web, iPhone and Android. No card required to try it.",
-};
+export const homeMeta = s.homeMeta;
+
+export const hero = s.hero;
 
 export const props: { icon: LineIconName; title: string; body: string }[] = [
     {
         icon: "booking",
-        title: "Clients book and pay online",
-        body: "Your booking page shows your services and open times, takes a deposit if you want one, and can sit on your own website.",
+        title: s.props[0].title,
+        body: s.props[0].body,
     },
     {
         icon: "payout",
-        title: "Paid out to your bank",
-        body: "Track card payments, Tap to Pay and Interac e-Transfers in one place. Card payments are paid out to your bank on a regular schedule.",
+        title: s.props[1].title,
+        body: s.props[1].body,
     },
     {
         icon: "tax",
-        title: "Sales tax worked out for you",
-        body: "GST, HST, PST and QST are calculated for your province on every line, and the amount you owe the CRA is always on the Today screen.",
+        title: s.props[2].title,
+        body: s.props[2].body,
     },
 ];
 
-export const solutionsIntro = {
-    eyebrow: "Solutions",
-    title: "Set up for the way your trade works.",
-    lede: "The same app runs a grooming salon, a cleaning business and a tutoring studio. Each one starts from services, booking rules and forms that suit the trade.",
-};
+export const solutionsIntro = s.solutionsIntro;
 
 export type FeatureMock = "calendar" | "invoices" | "tapToPay" | "products" | "bookingPage";
 
@@ -48,164 +36,131 @@ export interface Feature {
     eyebrow: string;
     title: string;
     body: string;
-    points: string[];
+    points: readonly string[];
     mock: FeatureMock;
 }
 
 export const features: Feature[] = [
     {
         glyph: "paw",
-        eyebrow: "Schedule",
-        title: "A calendar that knows your services and your staff.",
-        body: "Each service carries its own length, price and buffer, so a booking fills the right amount of time. Recurring visits repeat on their own, and reminders go out by email and text before each one.",
-        points: [
-            "Day, week, month and per-staff views",
-            "Recurring bookings for regular clients",
-            "Deposits taken at booking and applied to the invoice",
-        ],
+        eyebrow: s.features[0].eyebrow,
+        title: s.features[0].title,
+        body: s.features[0].body,
+        points: s.features[0].points,
         mock: "calendar",
     },
     {
         glyph: "book",
-        eyebrow: "Invoices and estimates",
-        title: "Send an invoice from the booking, and see when it is paid.",
-        body: "Invoices pick up the services from the visit, add the right tax, and go out with a link the client can pay from. Estimates turn into invoices when the client accepts them, and overdue invoices are easy to spot.",
-        points: [
-            "Card or Interac e-Transfer on every invoice",
-            "Partial payments, refunds and credit notes",
-            "Numbered in order for you",
-        ],
+        eyebrow: s.features[1].eyebrow,
+        title: s.features[1].title,
+        body: s.features[1].body,
+        points: s.features[1].points,
         mock: "invoices",
     },
     {
         glyph: "scissors",
-        eyebrow: "Point of sale",
-        title: "Take a card at the counter with the phone you already have.",
-        body: "Tap to Pay turns an iPhone or Android phone into a card reader, so you can charge for a visit or sell a retail item without extra hardware. The sale is recorded against the client and the tax is included.",
-        points: [
-            "Tap to Pay on iPhone and Android",
-            "Retail items, gift cards and packages at checkout",
-            "Schedule and client list available offline",
-        ],
+        eyebrow: s.features[2].eyebrow,
+        title: s.features[2].title,
+        body: s.features[2].body,
+        points: s.features[2].points,
         mock: "tapToPay",
     },
     {
         id: "products",
         glyph: "spray",
-        eyebrow: "Products and stock",
-        title: "Sell products too, at the desk and online.",
-        body: "Shampoo, brushes, supplements or styling products sit in the same catalog as your services, with a SKU, a cost and a stock count if you want one. Ring them up on the same ticket as a visit, or let clients order from your shop page and pick up.",
-        points: [
-            "Stock counts drop as you sell, with a low-stock list and restock",
-            "Clients add a product when they book, and it goes on the visit's invoice",
-            "Itemised receipts by email or text, and sales by item for your bookkeeper",
-        ],
+        eyebrow: s.features[3].eyebrow,
+        title: s.features[3].title,
+        body: s.features[3].body,
+        points: s.features[3].points,
         mock: "products",
     },
     {
         glyph: "camera",
-        eyebrow: "Your public pages",
-        title: "Booking and payment pages with your name on them.",
-        body: "Clients see your logo and colour, not ours. Booking, paying an invoice, signing a form and leaving a review each have their own page, and each one can be embedded on your existing website with a short snippet.",
+        eyebrow: s.features[4].eyebrow,
+        title: s.features[4].title,
+        body: s.features[4].body,
         points: [],
         mock: "bookingPage",
     },
 ];
 
 export const payments = {
-    eyebrow: "How payments work",
-    title: "The money goes to your bank, and the records keep themselves.",
-    lede: "Each business has its own payments account and receives payouts directly to its bank account.",
-    steps: [
-        {
-            title: "The client pays",
-            body: "By card online, by Tap to Pay in person, or by Interac e-Transfer using the reference code on the invoice.",
-        },
-        {
-            title: "It is matched to the invoice",
-            body: "Card payments mark the invoice paid straight away. An e-Transfer is matched by its reference code when it arrives.",
-        },
-        {
-            title: "Receive bank payouts",
-            body: "Your payments balance is paid out to your bank account. Each payout lists the payments, fees and refunds it covers.",
-        },
-        {
-            title: "Tax is set aside",
-            body: "The GST/HST you collected is tracked by period, with a return report ready to export and mark as filed.",
-        },
-    ],
+    eyebrow: s.payments.eyebrow,
+    title: s.payments.title,
+    lede: s.payments.lede,
+    steps: [s.payments.steps[0], s.payments.steps[1], s.payments.steps[2], s.payments.steps[3]],
 };
 
 export const included = {
-    eyebrow: "Also included",
-    title: "The rest of the business, in the same app.",
+    eyebrow: s.included.eyebrow,
+    title: s.included.title,
     items: [
         {
             icon: "gift",
-            title: "Gift cards",
-            body: "Sell them online or at the counter, and redeem them at checkout.",
+            title: s.included.items[0].title,
+            body: s.included.items[0].body,
         },
         {
             icon: "package",
-            title: "Packages",
-            body: "Prepaid bundles of visits, with sessions counted down as they are used.",
+            title: s.included.items[1].title,
+            body: s.included.items[1].body,
         },
         {
             icon: "subscription",
-            title: "Subscriptions",
-            body: "Monthly memberships charged to a saved card or by pre-authorized debit.",
+            title: s.included.items[2].title,
+            body: s.included.items[2].body,
         },
         {
             icon: "shop",
-            title: "Online shop",
-            body: "Clients order products from your booking site, pay by card and pick up. You mark each order ready.",
+            title: s.included.items[3].title,
+            body: s.included.items[3].body,
         },
         {
             icon: "stock",
-            title: "Stock",
-            body: "Optional stock counts per product, a low-stock list, and restock in a tap.",
+            title: s.included.items[4].title,
+            body: s.included.items[4].body,
         },
         {
             icon: "addon",
-            title: "Add-ons at booking",
-            body: "Clients add a product when they book, and it is added to the visit's invoice.",
+            title: s.included.items[5].title,
+            body: s.included.items[5].body,
         },
         {
             icon: "staff",
-            title: "Staff and pay",
-            body: "Roles for owners and staff, earnings on completed work, and pay records.",
+            title: s.included.items[6].title,
+            body: s.included.items[6].body,
         },
         {
             icon: "commission",
-            title: "Retail commission",
-            body: "A commission rate per staff member, recorded on each sale they make.",
+            title: s.included.items[7].title,
+            body: s.included.items[7].body,
         },
         {
             icon: "messaging",
-            title: "Messaging",
-            body: "Two-way text and email with clients, kept in one inbox per client.",
+            title: s.included.items[8].title,
+            body: s.included.items[8].body,
         },
         {
             icon: "reviews",
-            title: "Reviews",
-            body: "A review request goes out after each visit, and you choose what to show.",
+            title: s.included.items[9].title,
+            body: s.included.items[9].body,
         },
         {
             icon: "offline",
-            title: "Works offline",
-            body: "The schedule and client list stay on your device and sync when you reconnect.",
+            title: s.included.items[10].title,
+            body: s.included.items[10].body,
         },
         {
             icon: "reports",
-            title: "Reports",
-            body: "Income, GST/HST and T4A reports, exported as CSV for your bookkeeper.",
+            title: s.included.items[11].title,
+            body: s.included.items[11].body,
         },
     ] satisfies { icon: LineIconName; title: string; body: string }[],
 };
 
 export const proof = {
-    eyebrow: "From businesses using Clientbridge",
-    logo: "Customer logo",
+    eyebrow: s.proof.eyebrow,
+    logo: s.proof.logo,
     logoCount: 5,
     testimonials: [1, 2, 3].map(testimonialPlaceholder),
 };
@@ -218,31 +173,12 @@ export interface TestimonialCopy {
 
 export function testimonialPlaceholder(n: number): TestimonialCopy {
     return {
-        lead: `Testimonial placeholder ${String(n)}.`,
-        body: "A short quote from a pilot customer about a specific outcome (for example, fewer unpaid invoices or less time on GST). To be replaced with a real, approved quote.",
-        byline: "Name, business, city (to be confirmed)",
+        lead: s.testimonial.lead(n),
+        body: s.testimonial.body,
+        byline: s.testimonial.byline,
     };
 }
 
-export const pricing = {
-    eyebrow: "Pricing",
-    title: "One plan with everything in it.",
-    body: "Every feature on this page is included. Card payments carry a card processing fee, and Interac e-Transfers go bank to bank and are not charged a card fee.",
-    price: "$[price]",
-    per: " / month",
-    note: "Placeholder. Final pricing to be confirmed.",
-    points: [
-        "Unlimited clients and bookings",
-        "Products, stock and an online shop",
-        "Web, iPhone and Android",
-        "Staff seats [to be confirmed]",
-    ],
-    cta: "Start free",
-};
+export const pricing = s.pricing;
 
-export const closing = {
-    title: "Try it with a business that is already set up.",
-    lede: "The demo opens Birchbark Pet Studio, a grooming business in Victoria, with a full week of bookings, invoices and payments to look through.",
-    primary: "Start free",
-    secondary: "Open the demo",
-};
+export const closing = s.closing;

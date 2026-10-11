@@ -1,8 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
+import { setPseudoLocale } from "../locale";
 import { strings } from "../strings";
 import { shortDate } from "./printing";
-import { publicDocLines, publicDocTaxes, publicInvoiceTotals } from "./publicPay";
+import {
+    printedPublicInvoice,
+    publicDocLines,
+    publicDocTaxes,
+    publicInvoiceTotals,
+} from "./publicPay";
+
+const ZONE = "America/Vancouver";
 
 type PublicInvoice = Parameters<typeof publicInvoiceTotals>[0];
 
@@ -20,6 +28,7 @@ function publicInvoice(extra: Partial<PublicInvoice> = {}): PublicInvoice {
         business_name: "Birch Studio",
         brand: { logo_url: null, primary: null, tagline: null },
         currency: "CAD",
+        timezone: ZONE,
         subtotal_cents: 10000,
         tax_total_cents: 1498,
         total_cents: 11498,
@@ -48,19 +57,19 @@ describe("the public pay page", () => {
         expect(publicDocTaxes(TAXES)).toEqual([
             {
                 code: "GST",
-                label: strings.billing.taxRow("GST", "5%"),
+                label: "GST 5%",
                 baseCents: 10000,
                 cents: 500,
             },
             {
                 code: "QST",
-                label: strings.billing.taxRow("QST", "9.975%"),
+                label: "QST 9.975%",
                 baseCents: 10000,
                 cents: 998,
             },
             {
                 code: "PST",
-                label: strings.billing.taxRow("PST", "7.5%"),
+                label: "PST 7.5%",
                 baseCents: 2000,
                 cents: 150,
             },
@@ -121,7 +130,7 @@ describe("the public pay page", () => {
         ]);
         expect(totals[4]?.label).toBe(pp.depositCredit);
         expect(totals[5]?.label).toBe(
-            pp.credit(pp.method.interac ?? "", shortDate("2026-10-03T12:00:00Z")),
+            pp.credit(pp.method.interac, shortDate("2026-10-03T12:00:00Z", ZONE)),
         );
     });
 
@@ -148,9 +157,69 @@ describe("the public pay page", () => {
             "credit-0",
             "balance",
         ]);
-        expect(totals[3]?.label).toBe(pp.credit(pp.method.other ?? "", ""));
+        expect(totals[3]?.label).toBe(pp.credit(pp.method.other, ""));
         expect(
             publicInvoiceTotals(publicInvoice({ discount_cents: 0 })).map((t) => t.key),
         ).not.toContain("discount");
+    });
+
+    it("prints the invoice in the record's currency and the business zone", () => {
+        const doc = printedPublicInvoice(
+            publicInvoice({
+                number: 1002,
+                currency: "USD",
+                issued_at: "2026-10-02T05:30:00Z",
+                gst_hst_number: "84720 1539 RT0001",
+                qst_number: "1234567890 TQ0001",
+            }),
+            "https://pay.test/i/x",
+            "#000",
+        );
+        expect([doc.title, doc.reference, doc.heading, doc.currency]).toEqual([
+            "Invoice",
+            "#1002",
+            "Invoice #1002",
+            "USD",
+        ]);
+        expect(doc.meta[1]?.value).toBe("October 1, 2026");
+        expect(doc.labels.page).toBe("Page 1 of 1");
+        expect(doc.labels.taxBase("$10.00")).toBe("On $10.00");
+        expect(doc.business.registration).toBe("GST/HST 84720 1539 RT0001 · QST 1234567890 TQ0001");
+        const draft = printedPublicInvoice(publicInvoice({ number: null }), "u", "#000");
+        expect([draft.reference, draft.heading]).toEqual(["Draft", "Invoice Draft"]);
+    });
+});
+
+describe("printed documents in the pseudo-locale", () => {
+    afterEach(async () => {
+        await setPseudoLocale(false);
+    });
+
+    it("leaves no unconverted text", async () => {
+        await setPseudoLocale(true);
+        const doc = printedPublicInvoice(
+            publicInvoice({ number: 1002, interac_email: "pay@x.test", gst_hst_number: "1" }),
+            "https://pay.test/i/x",
+            "#000",
+        );
+        const l = doc.labels;
+        const copy = [
+            doc.title,
+            doc.reference,
+            doc.heading,
+            doc.deadline,
+            doc.partyLabel,
+            doc.footer,
+            doc.business.registration,
+            ...doc.meta.map((m) => m.label),
+            doc.meta[0]?.value ?? "",
+            ...doc.instructions,
+            ...doc.totals.map((t) => t.label),
+            doc.headline.label,
+            ...[l.from, l.item, l.qty, l.price, l.tax, l.amount, l.taxSummary, l.howToPay],
+            ...[l.scanToPay, l.paymentMethod, l.page, l.taxBase("1"), l.forPet("Rex")],
+            l.qtyTimes(2, "3"),
+        ];
+        expect(copy.filter((text) => /[A-Za-z]/.test(text) && !text.startsWith("["))).toEqual([]);
     });
 });

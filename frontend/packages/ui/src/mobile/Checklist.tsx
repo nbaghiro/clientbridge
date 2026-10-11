@@ -1,4 +1,4 @@
-import type { ChecklistProps } from "@clientbridge/app-core";
+import { type ChecklistProps, strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -51,7 +51,10 @@ export function Checklist({ items, label, style }: NativeProps<ChecklistProps>) 
                         key={item.key}
                         onPress={item.action.onPress}
                         accessibilityRole="button"
-                        accessibilityLabel={`${item.label}. ${item.action.label}`}
+                        accessibilityLabel={strings.common.titleAndBody(
+                            item.label,
+                            item.action.label,
+                        )}
                         accessibilityState={{ checked: item.done }}
                         style={[styles.row, i > 0 && styles.divider]}
                     >

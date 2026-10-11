@@ -112,6 +112,12 @@ async def test_services_expose_brand(api: httpx.AsyncClient) -> None:
     assert brand["logo_url"].startswith("http")
 
 
+async def test_public_pages_name_the_business_zone(api: httpx.AsyncClient) -> None:
+    for path in ("services", "profile", "shop/pickup-days"):
+        body = (await api.get(f"/book/{SLUG}/{path}")).json()
+        assert body["timezone"] == "America/Vancouver", path
+
+
 async def test_services_bad_slug_404(api: httpx.AsyncClient) -> None:
     assert (await api.get("/book/nope/services")).status_code == 404
 

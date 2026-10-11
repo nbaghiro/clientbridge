@@ -26,6 +26,8 @@ import {
     useClientHistory,
     useClientPets,
     useClientWallet,
+    formatParts,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -65,6 +67,7 @@ const w = strings.clients.wallet;
 
 /** One client's history: pinned notes, a note box, and the timeline by month with filters. */
 export function ClientHistoryScreen() {
+    const zone = useBusinessZone();
     const { clientId } = useRoute<RouteProp<RootStackParamList, "ClientHistory">>().params;
     const viewer = useViewer();
     const hist = useClientHistory(clientId, viewer?.staffId ?? null);
@@ -103,7 +106,7 @@ export function ClientHistoryScreen() {
                         </View>
                         <Text style={styles.pinnedBody}>{n.body}</Text>
                         <Text style={styles.pinnedMeta}>
-                            {h.by(n.author, formatRelativeTime(n.at.toISOString(), now))}
+                            {h.by(n.author, formatRelativeTime(n.at.toISOString(), zone, now))}
                         </Text>
                     </View>
                 ))}
@@ -123,7 +126,9 @@ export function ClientHistoryScreen() {
                     <View style={styles.group}>
                         <Text style={styles.groupLabel}>{h.upcoming}</Text>
                         <View style={[styles.card, styles.cardAccent]}>
-                            <ActivityTimeline entries={hist.upcoming.map(toTimeline)} />
+                            <ActivityTimeline
+                                entries={hist.upcoming.map((e) => toTimeline(e, zone))}
+                            />
                         </View>
                     </View>
                 ) : null}
@@ -137,7 +142,7 @@ export function ClientHistoryScreen() {
                     <View key={g.key} style={styles.group}>
                         <Text style={styles.groupLabel}>{g.label}</Text>
                         <View style={styles.card}>
-                            <ActivityTimeline entries={g.entries.map(toTimeline)} />
+                            <ActivityTimeline entries={g.entries.map((e) => toTimeline(e, zone))} />
                         </View>
                     </View>
                 ))}
@@ -163,6 +168,7 @@ export function ClientHistoryScreen() {
 }
 
 function PetCardView({ card, onPress }: { card: PetCard; onPress: () => void }) {
+    const zone = useBusinessZone();
     const alerts = card.alerts.filter((a) => a.key !== "temp");
     return (
         <View style={styles.petCard}>
@@ -211,12 +217,14 @@ function PetCardView({ card, onPress }: { card: PetCard; onPress: () => void }) 
                 <Stat
                     label={p.lastVisit}
                     value={
-                        card.lastVisit === null ? strings.clients.dash : formatDate(card.lastVisit)
+                        card.lastVisit === null
+                            ? strings.clients.dash
+                            : formatDate(card.lastVisit, zone)
                     }
                 />
                 <Stat
                     label={p.nextVisit}
-                    value={card.next === null ? p.nothingBooked : relativeDay(card.next)}
+                    value={card.next === null ? p.nothingBooked : relativeDay(card.next, zone)}
                 />
             </View>
         </View>
@@ -355,9 +363,7 @@ export function ClientWalletScreen() {
                                 key={m.row.id}
                                 leading={<BrandMark method={m.row.method} brand={m.row.brand} />}
                                 title={m.label}
-                                detail={[m.expiry, m.bankName, m.added, m.note]
-                                    .filter((x) => x !== null && x !== "")
-                                    .join(" · ")}
+                                detail={formatParts([m.expiry, m.bankName, m.added, m.note])}
                                 meta={
                                     m.isDefault ? (
                                         <Badge label={w.default} intent="accent" />
@@ -464,6 +470,7 @@ export function ClientWalletScreen() {
 }
 
 function SubscriptionLine({ sub }: { sub: SubscriptionRow }) {
+    const zone = useBusinessZone();
     const { busy, error, run } = useAsyncAction();
     const cancel = (): void => {
         confirm({
@@ -490,7 +497,7 @@ function SubscriptionLine({ sub }: { sub: SubscriptionRow }) {
                     sub.current_period_end === null
                         ? undefined
                         : strings.clients.nextCharge(
-                              formatDate(parseTimestamp(sub.current_period_end)),
+                              formatDate(parseTimestamp(sub.current_period_end), zone),
                           )
                 }
                 meta={

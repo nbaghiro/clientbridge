@@ -4,8 +4,8 @@ import { useMemo, useRef, useState } from "react";
 
 import { type Load, useAsyncAction } from "../hooks";
 import { type ApiLike, newIdempotencyKey } from "../api";
-import { formatMoney } from "../format";
-import { parseTimestamp } from "../datetime";
+import { formatMoney, formatParts, BUSINESS_CURRENCY } from "../format";
+import { dateKey, parseTimestamp, useBusinessZone } from "../datetime";
 import type { Intent } from "../ui";
 import { strings } from "../strings";
 import { staffName } from "./staff";
@@ -126,7 +126,7 @@ function earningLine(row: EarningRow): EarningLine {
             : (row.basis === "percent" || row.basis === "retail") &&
                 row.rate !== null &&
                 base !== null
-              ? e.lineOf(pct(row.rate), formatMoney(base))
+              ? e.lineOf(pct(row.rate), formatMoney(base, BUSINESS_CURRENCY))
               : row.basis === "fixed"
                 ? e.fixed
                 : row.basis === "rate"
@@ -144,7 +144,7 @@ function earningLine(row: EarningRow): EarningLine {
         id: row.id,
         at: parseTimestamp(row.created_at),
         title,
-        detail: [source, row.client_name, share].filter((x) => x !== null && x !== "").join(" · "),
+        detail: formatParts([source, row.client_name, share]),
         status: row.status,
         amountCents: row.amount_cents,
         tip: row.kind === "tip",
@@ -186,12 +186,12 @@ function rates(p: PayeeRow): string {
         p.rate_type === "percent" && p.rate_bps !== null
             ? e.serviceRate(pct(p.rate_bps))
             : p.rate_type === "fixed" && p.rate_cents !== null
-              ? e.fixedRate(formatMoney(p.rate_cents))
+              ? e.fixedRate(formatMoney(p.rate_cents, BUSINESS_CURRENCY))
               : p.rate_type === "hourly" && p.rate_cents !== null
-                ? e.hourlyRate(formatMoney(p.rate_cents))
+                ? e.hourlyRate(formatMoney(p.rate_cents, BUSINESS_CURRENCY))
                 : null;
     const retail = p.retail_rate_bps ? e.retailRate(pct(p.retail_rate_bps)) : null;
-    return [service, retail].filter((x) => x !== null).join(" · ");
+    return formatParts([service, retail]);
 }
 
 /** Staff pay: each payee's earnings and tips, approved a few at a time and then paid together. */
@@ -202,7 +202,8 @@ export function useEarningApprovals(api: ApiLike): EarningApprovals {
     const [picked, setPicked] = useState<string[]>([]);
     const key = useRef<string | null>(null);
     const { busy, error, run } = useAsyncAction();
-    const year = String(new Date().getFullYear());
+    const zone = useBusinessZone();
+    const year = dateKey(new Date(), zone).slice(0, 4);
     const payees = useMemo(
         () =>
             staff.data.map((p) => {

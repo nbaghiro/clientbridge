@@ -1,6 +1,9 @@
 import { links } from "../config";
 import { contactEmail } from "./pages";
 import { solutionPath, TRADES } from "./trades";
+import { strings } from "../strings";
+
+const s = strings.site;
 
 export interface NavLink {
     label: string;
@@ -8,59 +11,55 @@ export interface NavLink {
 }
 
 export const nav = {
-    skip: "Skip to content",
-    home: "Clientbridge home",
-    menu: "Menu",
-    primary: "Primary",
+    skip: s.nav.skip,
+    home: s.nav.home,
+    menu: s.nav.menu,
+    primary: s.nav.primary,
     links: [
-        { label: "Features", href: "/features" },
-        { label: "Solutions", href: "/solutions" },
-        { label: "Payments", href: "/#payments" },
-        { label: "Pricing", href: "/pricing" },
+        { label: s.nav.links[0].label, href: "/features" },
+        { label: s.nav.links[1].label, href: "/solutions" },
+        { label: s.nav.links[2].label, href: "/#payments" },
+        { label: s.nav.links[3].label, href: "/pricing" },
     ] satisfies NavLink[],
-    signIn: { label: "Sign in", href: links.signIn },
-    startFree: { label: "Start free", href: links.startFree },
+    signIn: { label: s.nav.signIn.label, href: links.signIn },
+    startFree: { label: s.nav.startFree.label, href: links.startFree },
 };
 
 export const footer = {
-    blurb: "Booking, invoices, payments and sales tax for service businesses in Canada.",
+    blurb: s.footer.blurb,
     columns: [
         {
-            title: "Product",
+            title: s.footer.columns[0].title,
             links: [
-                { label: "Booking", href: "/features#bookings" },
-                { label: "Invoices and estimates", href: "/features#invoices" },
-                { label: "Payments", href: "/features#payments" },
-                { label: "Products and stock", href: "/features#products" },
-                { label: "Sales tax", href: "/features#tax" },
-                { label: "Staff and pay", href: "/features#staff" },
-                { label: "All features", href: "/features" },
+                { label: s.footer.columns[0].links[0].label, href: "/features#bookings" },
+                { label: s.footer.columns[0].links[1].label, href: "/features#invoices" },
+                { label: s.footer.columns[0].links[2].label, href: "/features#payments" },
+                { label: s.footer.columns[0].links[3].label, href: "/features#products" },
+                { label: s.footer.columns[0].links[4].label, href: "/features#tax" },
+                { label: s.footer.columns[0].links[5].label, href: "/features#staff" },
+                { label: s.footer.columns[0].links[6].label, href: "/features" },
             ],
         },
         {
-            title: "Solutions",
+            title: s.footer.columns[1].title,
             links: [
                 ...TRADES.map((t) => ({ label: t.name, href: solutionPath(t.slug) })),
-                { label: "All solutions", href: "/solutions" },
+                { label: s.footer.columns[1].links[1].label, href: "/solutions" },
             ],
         },
         {
-            title: "Company",
+            title: s.footer.columns[2].title,
             links: [
-                { label: "Pricing", href: "/pricing" },
-                { label: "Privacy", href: "/privacy" },
-                { label: "Terms", href: "/terms" },
-                { label: "Contact", href: `mailto:${contactEmail}` },
-                { label: "Photo credits", href: "/credits" },
+                { label: s.footer.columns[2].links[0].label, href: "/pricing" },
+                { label: s.footer.columns[2].links[1].label, href: "/privacy" },
+                { label: s.footer.columns[2].links[2].label, href: "/terms" },
+                { label: s.footer.columns[2].links[3].label, href: `mailto:${contactEmail}` },
+                { label: s.footer.columns[2].links[4].label, href: "/credits" },
             ],
         },
     ] satisfies { title: string; links: NavLink[] }[],
-    copyright: `© ${String(new Date().getFullYear())} Clientbridge`,
-    legal: "Interac is a registered trade-mark of Interac Corp.",
+    copyright: s.footer.copyright(String(new Date().getFullYear())),
+    legal: s.footer.legal,
 };
 
-export const notFound = {
-    title: "Page not found",
-    body: "The page you were looking for has moved or does not exist.",
-    back: "Back to the home page",
-};
+export const notFound = s.notFound;

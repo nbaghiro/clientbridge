@@ -4,6 +4,11 @@ import {
     shortDate,
     strings,
     usePublicReceipt,
+    formatParts,
+    formatList,
+    saleNumber,
+    taxList,
+    taxName,
 } from "@clientbridge/app-core/public";
 import { Button, DocTotals, StatusPill } from "@clientbridge/ui";
 import { useParams } from "react-router-dom";
@@ -46,9 +51,10 @@ export function PublicReceipt() {
                         {r.title(receipt.business_name)}
                     </h1>
                     <p className="mt-2 text-sm text-ink-soft">
-                        {[shortDate(receipt.created_at), receipt.client_name]
-                            .filter(Boolean)
-                            .join(" · ")}
+                        {formatParts([
+                            shortDate(receipt.created_at, receipt.timezone),
+                            receipt.client_name,
+                        ])}
                     </p>
                 </>
             }
@@ -58,10 +64,12 @@ export function PublicReceipt() {
                     <div className="border-b border-line-soft bg-accent-weak px-6 py-5">
                         <div className="flex items-center justify-between gap-3">
                             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
-                                {r.title(receipt.business_name)}
-                                {receipt.number !== null
-                                    ? ` · ${r.sale(`S-${String(receipt.number)}`)}`
-                                    : ""}
+                                {formatParts([
+                                    r.title(receipt.business_name),
+                                    receipt.number !== null
+                                        ? r.sale(saleNumber(receipt.number))
+                                        : null,
+                                ])}
                             </h2>
                             <StatusPill
                                 status={status}
@@ -70,16 +78,17 @@ export function PublicReceipt() {
                             />
                         </div>
                         <p className="mt-2 font-display text-4xl font-bold tabular-nums text-ink">
-                            {formatMoney(paid)}
+                            {formatMoney(paid, receipt.currency)}
                         </p>
                         <p className="mt-1 text-sm text-muted">
-                            {[shortDate(receipt.created_at), receipt.client_name]
-                                .filter((v) => v !== null && v !== "")
-                                .join(" · ")}
+                            {formatParts([
+                                shortDate(receipt.created_at, receipt.timezone),
+                                receipt.client_name,
+                            ])}
                         </p>
                         {receipt.served_by.length > 0 ? (
                             <p className="mt-0.5 text-sm text-muted">
-                                {r.servedBy(receipt.served_by.join(", "))}
+                                {r.servedBy(formatList(receipt.served_by, "unit"))}
                             </p>
                         ) : null}
                     </div>
@@ -92,27 +101,29 @@ export function PublicReceipt() {
                                 <div className="min-w-0">
                                     <p className="font-medium text-ink">{l.description}</p>
                                     <p className="mt-0.5 text-xs text-muted">
-                                        {[
+                                        {formatParts([
                                             l.quantity === 1
                                                 ? null
                                                 : strings.billing.qtyTimes(
                                                       l.quantity,
-                                                      formatMoney(l.unitCents),
+                                                      formatMoney(l.unitCents, receipt.currency),
                                                   ),
-                                            l.taxCodes.join(" + "),
-                                        ]
-                                            .filter(Boolean)
-                                            .join(" · ")}
+                                            taxList(l.taxCodes.map(taxName)),
+                                        ])}
                                     </p>
                                 </div>
                                 <span className="font-medium tabular-nums text-ink">
-                                    {formatMoney(l.amountCents)}
+                                    {formatMoney(l.amountCents, receipt.currency)}
                                 </span>
                             </li>
                         ))}
                     </ul>
                     <div className="border-t border-line px-6 py-4">
-                        <DocTotals lines={page.totals} density="compact" />
+                        <DocTotals
+                            lines={page.totals}
+                            currency={receipt.currency}
+                            density="compact"
+                        />
                     </div>
                     <div className="space-y-3 border-t border-dashed border-line bg-bg px-6 py-5 print:hidden">
                         <Button
@@ -127,7 +138,7 @@ export function PublicReceipt() {
                         </Button>
                         {page.taxNumbers.length > 0 ? (
                             <p className="text-center text-xs text-muted">
-                                {page.taxNumbers.join(" · ")}
+                                {formatParts(page.taxNumbers)}
                             </p>
                         ) : null}
                     </div>

@@ -3,12 +3,14 @@ import {
     type AwayLength,
     type TeamHoursMember,
     type WeekCell,
-    formatTime,
-    formatWeekday,
     strings,
     useTeamWeek,
     useTimeOffForm,
     useWeekEditor,
+    formatParts,
+    formatList,
+    useBusinessZone,
+    formatWeekdayTime,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -325,7 +327,7 @@ function AwayPanel({
                             )}
                             <span className="min-w-0 flex-1">
                                 <span className="block truncate text-sm font-medium text-ink">
-                                    {person ? `${a.who} · ${a.reason}` : a.reason}
+                                    {person ? formatParts([a.who, a.reason]) : a.reason}
                                 </span>
                                 <span className="block truncate text-xs text-muted">{a.when}</span>
                             </span>
@@ -337,7 +339,7 @@ function AwayPanel({
                                     icon="trash"
                                     size="sm"
                                     disabled={removing === a.id}
-                                    label={s.removeLabel(`${a.reason}, ${a.when}`)}
+                                    label={s.removeLabel(formatList([a.reason, a.when], "unit"))}
                                     onPress={() => {
                                         onRemove(a.id);
                                     }}
@@ -389,7 +391,7 @@ function HoursModal({ member, onClose }: { member: TeamHoursMember; onClose: () 
                 ) : null}
                 <div className="flex items-center justify-between gap-2 border-t border-line pt-4">
                     <span className="text-sm text-muted">
-                        {s.daysOpen(editor.openDays)} · {s.weekTotal(editor.totalHours)}
+                        {formatParts([s.daysOpen(editor.openDays), s.weekTotal(editor.totalHours)])}
                     </span>
                     <div className="flex gap-2">
                         <Button variant="quiet" onPress={onClose}>
@@ -406,14 +408,35 @@ function HoursModal({ member, onClose }: { member: TeamHoursMember; onClose: () 
 }
 
 const LENGTHS: { key: AwayLength; label: string }[] = [
-    { key: "day", label: s.lengthDay },
-    { key: "days", label: s.lengthDays },
-    { key: "week", label: s.lengthWeek },
-    { key: "part", label: s.lengthPart },
+    {
+        key: "day",
+        get label() {
+            return s.lengthDay;
+        },
+    },
+    {
+        key: "days",
+        get label() {
+            return s.lengthDays;
+        },
+    },
+    {
+        key: "week",
+        get label() {
+            return s.lengthWeek;
+        },
+    },
+    {
+        key: "part",
+        get label() {
+            return s.lengthPart;
+        },
+    },
 ];
 
 /** Time off for one person or a closure for everyone, with the visits it leaves uncovered. */
 function TimeOffModal({ staffId, onClose }: { staffId: string; onClose: () => void }) {
+    const zone = useBusinessZone();
     const form = useTimeOffForm(api, useViewer(), onClose, staffId);
     const closure = form.staffId === "";
     const submit = (e: SubmitEvent): void => {
@@ -453,12 +476,14 @@ function TimeOffModal({ staffId, onClose }: { staffId: string; onClose: () => vo
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                     <DateField
+                        zone={zone}
                         label={form.length === "days" ? s.firstDay : s.date}
                         value={form.from}
                         onChange={form.setFrom}
                     />
                     {form.length === "days" ? (
                         <DateField
+                            zone={zone}
                             label={s.lastDay}
                             value={form.to}
                             min={form.from}
@@ -513,7 +538,7 @@ function TimeOffModal({ staffId, onClose }: { staffId: string; onClose: () => vo
                                             }
                                         />
                                         <span className="w-28 shrink-0 text-muted">
-                                            {formatWeekday(e.start)} {formatTime(e.start)}
+                                            {formatWeekdayTime(e.start, zone)}
                                         </span>
                                         <span className="min-w-0 flex-1 truncate text-ink">
                                             {e.headline}

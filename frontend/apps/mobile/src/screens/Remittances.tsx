@@ -9,6 +9,11 @@ import {
     strings,
     useFilingForm,
     useTaxFilings,
+    formatParts,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
+    currencyAffix,
+    smallSupplierLimit,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -37,6 +42,7 @@ const s = strings.remittances;
 const c = theme.colors;
 
 export function Remittances() {
+    const zone = useBusinessZone();
     const t = useTaxFilings(api);
     const due = t.nextDue;
     const [recording, setRecording] = useState<FilingPeriod | null>(null);
@@ -55,7 +61,11 @@ export function Remittances() {
                         retrying={t.load.retrying}
                     />
                 ) : !t.registered && t.periods.length === 0 ? (
-                    <Empty variant="card" icon="building" message={s.notRegistered} />
+                    <Empty
+                        variant="card"
+                        icon="building"
+                        message={s.notRegistered(smallSupplierLimit())}
+                    />
                 ) : t.load.state === "empty" ? (
                     <Empty
                         variant="card"
@@ -65,7 +75,11 @@ export function Remittances() {
                     />
                 ) : (
                     <>
-                        <Text style={ui.note}>{s.subtitle(t.federalLabel, t.provincialLabel)}</Text>
+                        <Text style={ui.note}>
+                            {t.provincialLabel === null
+                                ? s.subtitle(t.federalLabel)
+                                : s.subtitleWithProvince(t.federalLabel, t.provincialLabel)}
+                        </Text>
                         {flash !== null ? (
                             <Notice tone="success" banner>
                                 {flash}
@@ -74,7 +88,7 @@ export function Remittances() {
                         <View style={styles.hero}>
                             <Text style={styles.heroLabel}>{s.owed}</Text>
                             <Text style={styles.heroValue}>
-                                {formatMoney(t.federalSetAsideCents)}
+                                {formatMoney(t.federalSetAsideCents, BUSINESS_CURRENCY)}
                             </Text>
                             <Text style={styles.heroHint}>{s.owedHint}</Text>
                             {t.unfiled.map((p) => (
@@ -85,12 +99,12 @@ export function Remittances() {
                                     </View>
                                     <StatusPill
                                         style={{ alignSelf: "center" }}
-                                        status={s.status[p.status] ?? p.status}
+                                        status={s.status[p.status]}
                                         intent={filingStatusIntent(p.status)}
                                         asWritten
                                     />
                                     <Text style={styles.lineAmount}>
-                                        {formatMoney(p.federalCents)}
+                                        {formatMoney(p.federalCents, BUSINESS_CURRENCY)}
                                     </Text>
                                 </View>
                             ))}
@@ -100,7 +114,7 @@ export function Remittances() {
                                         {s.provincialOwed(t.provincialLabel)}
                                     </Text>
                                     <Text style={styles.lineAmount}>
-                                        {formatMoney(t.provincialSetAsideCents)}
+                                        {formatMoney(t.provincialSetAsideCents, BUSINESS_CURRENCY)}
                                     </Text>
                                 </View>
                             ) : null}
@@ -109,9 +123,11 @@ export function Remittances() {
                             <View style={styles.due}>
                                 <View style={styles.dueHead}>
                                     <Icon name="clock" size={16} color={c.warnFg} />
-                                    <Text style={styles.dueText}>{filingWhen(due)}</Text>
+                                    <Text style={styles.dueText}>{filingWhen(due, zone)}</Text>
                                 </View>
-                                <Text style={styles.dueBody}>{`${due.title} · ${due.span}`}</Text>
+                                <Text style={styles.dueBody}>
+                                    {formatParts([due.title, due.span])}
+                                </Text>
                                 <Button
                                     full
                                     onPress={() => {
@@ -123,7 +139,7 @@ export function Remittances() {
                                 </Button>
                                 {t.reminderOn !== null ? (
                                     <Text style={ui.note}>
-                                        {s.reminder(formatShortDay(t.reminderOn))}
+                                        {s.reminder(formatShortDay(t.reminderOn, zone))}
                                     </Text>
                                 ) : null}
                             </View>
@@ -139,12 +155,14 @@ export function Remittances() {
                                         icon="checkCircle"
                                         intent="success"
                                         title={p.title}
-                                        detail={`${filingWhen(p)}${
-                                            p.federalReturn?.confirmation
-                                                ? ` · ${p.federalReturn.confirmation}`
-                                                : ""
-                                        }`}
-                                        meta={formatMoney(p.federalReturn?.paid_cents ?? 0)}
+                                        detail={formatParts([
+                                            filingWhen(p, zone),
+                                            p.federalReturn?.confirmation,
+                                        ])}
+                                        meta={formatMoney(
+                                            p.federalReturn?.paid_cents ?? 0,
+                                            BUSINESS_CURRENCY,
+                                        )}
                                     />
                                 ))
                             )}
@@ -190,6 +208,7 @@ function RecordReturn({
     onClose: () => void;
     onDone: (family: TaxFamily) => void;
 }) {
+    const zone = useBusinessZone();
     const form = useFilingForm(api, period, onDone);
     const federal = form.family === "federal";
     const code = federal ? t.federalLabel : (t.provincialLabel ?? "");
@@ -197,9 +216,9 @@ function RecordReturn({
         <Modal open size="xl" onClose={onClose}>
             <ScrollView contentContainerStyle={styles.sheet}>
                 <Text style={styles.sheetTitle}>{s.recordTitle(period.title)}</Text>
-                <Text
-                    style={ui.note}
-                >{`${period.span} · ${s.dueOn(formatShortDay(period.due))}`}</Text>
+                <Text style={ui.note}>
+                    {formatParts([period.span, s.dueOn(formatShortDay(period.due, zone))])}
+                </Text>
                 {form.families.length === 0 ? (
                     <Notice tone="success">{s.nothingToFile}</Notice>
                 ) : (
@@ -221,6 +240,7 @@ function RecordReturn({
                             />
                         ) : null}
                         <DocTotals
+                            currency={BUSINESS_CURRENCY}
                             lines={
                                 federal
                                     ? [
@@ -270,7 +290,7 @@ function RecordReturn({
                             <TextField
                                 label={s.itcField}
                                 hint={s.itcHint}
-                                prefix="$"
+                                {...currencyAffix(BUSINESS_CURRENCY)}
                                 type="number"
                                 placeholder="0.00"
                                 value={form.itc}
@@ -283,6 +303,7 @@ function RecordReturn({
                             onChange={form.setConfirmation}
                         />
                         <DateField
+                            zone={zone}
                             label={s.filedOnField}
                             value={form.filedOn}
                             onChange={form.setFiledOn}

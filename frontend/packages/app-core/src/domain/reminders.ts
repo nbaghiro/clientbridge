@@ -6,10 +6,11 @@ import type { ApiLike } from "../api";
 import {
     addDays,
     formatTime,
-    formatWeekday,
+    formatWeekdayTime,
     parseTimestamp,
     sameDay,
     startOfDay,
+    useBusinessZone,
 } from "../datetime";
 import { type Load, useAsyncAction, useRemote } from "../hooks";
 import { strings } from "../strings";
@@ -42,15 +43,19 @@ interface ReminderSettings {
     load: Load;
 }
 
-const when = (d: Date, now: Date): string =>
-    sameDay(d, now) ? formatTime(d) : `${formatWeekday(d)} ${formatTime(d)}`;
+const when = (d: Date, now: Date, zone: string): string =>
+    sameDay(d, now, zone) ? formatTime(d, zone) : formatWeekdayTime(d, zone);
 
 /** The reminder every visit gets, shown word for word for the next visit, and visits left open. */
 export function useReminderSettings(api: ApiLike): ReminderSettings {
     const now = useNow();
-    const today = startOfDay(now);
-    const { events, isLoading, error } = useScheduleEvents(addDays(today, -14), addDays(today, 30));
-    const weekAgo = addDays(now, -7).toISOString();
+    const zone = useBusinessZone();
+    const today = startOfDay(now, zone);
+    const { events, isLoading, error } = useScheduleEvents(
+        addDays(today, -14, zone),
+        addDays(today, 30, zone),
+    );
+    const weekAgo = addDays(now, -7, zone).toISOString();
     const sent = useQuery<{ sent: number }>(REMINDERS_SENT_SQL, [weekAgo]);
     const next = events.find(
         (e) =>
@@ -78,14 +83,14 @@ export function useReminderSettings(api: ApiLike): ReminderSettings {
                       subject: data.subject,
                       body: data.body,
                       sendsAt: data.sent_at
-                          ? s.sentAt(when(parseTimestamp(data.sent_at), now))
-                          : s.sendsAt(when(parseTimestamp(data.sends_at), now)),
+                          ? s.sentAt(when(parseTimestamp(data.sent_at), now, zone))
+                          : s.sendsAt(when(parseTimestamp(data.sends_at), now, zone)),
                       who: next.clientName ?? next.headline,
                   }
                 : null,
         previewLoading: remote.isLoading,
         sentWeek: sent.data[0]?.sent ?? 0,
-        openToday: open.filter((e) => sameDay(e.start, now)),
+        openToday: open.filter((e) => sameDay(e.start, now, zone)),
         openEarlier: open.filter((e) => e.start < today),
         close: (event, status) => {
             if (event.bookingId === null) return;

@@ -8,6 +8,9 @@ import {
     useEntitlementDetail,
     useEntitlementWallet,
     useGiftCardRedeemForm,
+    formatParts,
+    BUSINESS_CURRENCY,
+    currencyAffix,
 } from "@clientbridge/app-core";
 import {
     ActivityTimeline,
@@ -130,15 +133,24 @@ export function GiftCards() {
                                     rows={[
                                         {
                                             label: w.deferred,
-                                            value: formatMoney(wallet.totals.deferredCents),
+                                            value: formatMoney(
+                                                wallet.totals.deferredCents,
+                                                BUSINESS_CURRENCY,
+                                            ),
                                         },
                                         {
                                             label: w.giftLiability,
-                                            value: formatMoney(wallet.totals.giftCents),
+                                            value: formatMoney(
+                                                wallet.totals.giftCents,
+                                                BUSINESS_CURRENCY,
+                                            ),
                                         },
                                         {
                                             label: w.walletMonthly,
-                                            value: formatMoney(wallet.totals.monthlyCents),
+                                            value: formatMoney(
+                                                wallet.totals.monthlyCents,
+                                                BUSINESS_CURRENCY,
+                                            ),
                                         },
                                     ]}
                                 />
@@ -170,7 +182,7 @@ export function GiftCards() {
                 <DetailView
                     open
                     title={detail.summary.title}
-                    subtitle={`${detail.summary.kindLabel} · ${c?.name ?? ""}`}
+                    subtitle={formatParts([detail.summary.kindLabel, c?.name ?? ""])}
                     leading={<KindTile summary={detail.summary} />}
                     status={{ status: detail.summary.statusLabel, intent: detail.summary.intent }}
                     onClose={() => {
@@ -277,7 +289,7 @@ function WalletCard({
                     <div>
                         <p className="text-sm font-semibold text-ink">{summary.balanceLabel}</p>
                         <p className="mt-0.5 font-display text-2xl font-bold tabular-nums text-ink">
-                            {formatMoney(summary.valueCents)}
+                            {formatMoney(summary.valueCents, BUSINESS_CURRENCY)}
                         </p>
                     </div>
                 )}
@@ -375,7 +387,7 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
             <TextField
                 label={g.balance}
                 type="number"
-                prefix="$"
+                {...currencyAffix(BUSINESS_CURRENCY)}
                 value={form.amount}
                 onChange={form.setAmount}
                 placeholder={g.redeemAmountPlaceholder}

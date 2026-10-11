@@ -13,6 +13,7 @@ import {
     useRequestReview,
     useReviewQueue,
     useReviewSettings,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -39,7 +40,7 @@ import { useOpenLink } from "../lib/links";
 const c = theme.colors;
 const s = strings.reviews;
 
-const dateOf = (value: string): string => formatDate(parseTimestamp(value));
+const dateOf = (value: string, zone: string): string => formatDate(parseTimestamp(value), zone);
 
 const openExternal = (url: string): void => {
     Linking.openURL(url).catch(() => undefined);
@@ -233,6 +234,7 @@ function ReplyEditor({
 }
 
 function ReviewCard({ review, queue }: { review: ReviewRow; queue: ReviewQueue }) {
+    const zone = useBusinessZone();
     const m = useModeratedReview(api, review, openExternal);
     const openLink = useOpenLink();
     const [replying, setReplying] = useState(false);
@@ -246,7 +248,7 @@ function ReviewCard({ review, queue }: { review: ReviewRow; queue: ReviewQueue }
                         {name}
                     </Text>
                     <Text style={styles.meta} numberOfLines={1}>
-                        {reviewVisitLine(review)}
+                        {reviewVisitLine(review, zone)}
                     </Text>
                 </View>
                 {review.sent_to_google === 1 ? (
@@ -274,7 +276,7 @@ function ReviewCard({ review, queue }: { review: ReviewRow; queue: ReviewQueue }
             {review.response !== null && !replying ? (
                 <View style={styles.reply}>
                     <Text style={styles.replyLabel}>
-                        {s.replied(dateOf(review.responded_at ?? review.created_at))}
+                        {s.replied(dateOf(review.responded_at ?? review.created_at, zone))}
                     </Text>
                     <Text style={styles.replyText}>{review.response}</Text>
                 </View>
@@ -357,6 +359,7 @@ function ReviewCard({ review, queue }: { review: ReviewRow; queue: ReviewQueue }
 }
 
 function AskList({ queue }: { queue: ReviewQueue }) {
+    const zone = useBusinessZone();
     const req = useRequestReview(api);
     return (
         <View style={styles.card}>
@@ -394,7 +397,9 @@ function AskList({ queue }: { queue: ReviewQueue }) {
                     <Avatar name={r.client_name ?? s.clientFallback} size="sm" />
                     <View style={styles.flex}>
                         <Text style={styles.rowName}>{r.client_name ?? s.clientFallback}</Text>
-                        <Text style={styles.meta}>{s.requestedOn(dateOf(r.requested_at))}</Text>
+                        <Text style={styles.meta}>
+                            {s.requestedOn(dateOf(r.requested_at, zone))}
+                        </Text>
                     </View>
                     <StatusPill
                         style={{ alignSelf: "center" }}

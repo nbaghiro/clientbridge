@@ -2,7 +2,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useMemo, useState } from "react";
 
-import { formatDate, formatTime, parseTimestamp } from "../datetime";
+import { formatDate, formatDateTime, parseTimestamp } from "../datetime";
 import { type Load, useAsyncAction } from "../hooks";
 import type { ContractSignature, Intent, SignatureStrokes, TimelineEntry } from "../ui";
 import { useReplicaLoad } from "./sync";
@@ -117,14 +117,11 @@ export function signatureIntent(state: SignatureRequest["state"]): Intent {
     }
 }
 
-const stamp = (value: string): string => {
-    const d = parseTimestamp(value);
-    return `${formatDate(d)}, ${formatTime(d)}`;
-};
+const stamp = (value: string, zone: string): string => formatDateTime(parseTimestamp(value), zone);
 
-export function signatureActivity(r: SignatureRequest): string {
+export function signatureActivity(r: SignatureRequest, zone: string): string {
     const at = r.signed_at ?? r.opened_at ?? r.sent_at;
-    return p.activity[r.state](formatDate(parseTimestamp(at)));
+    return p.activity[r.state](formatDate(parseTimestamp(at), zone));
 }
 
 /** The text a client signed: the snapshot taken at signing without its signed-by line. */
@@ -152,14 +149,14 @@ function parseStrokes(raw: string | null): SignatureStrokes | null {
 }
 
 /** The signature block printed under a signed copy. */
-export function signatureBlock(r: SignatureRequest): ContractSignature | null {
+export function signatureBlock(r: SignatureRequest, zone: string): ContractSignature | null {
     if (r.state !== "signed" || r.signed_at === null) return null;
     return {
         heading: p.signatureHeading,
         name: r.typed_name ?? r.client_name ?? "",
         strokes: r.method === "drawn" ? parseStrokes(r.strokes) : null,
         facts: [
-            { label: p.facts.signedAt, value: stamp(r.signed_at) },
+            { label: p.facts.signedAt, value: stamp(r.signed_at, zone) },
             { label: p.facts.ip, value: r.signer_ip ?? "" },
             { label: p.facts.method, value: r.method === null ? "" : (p.method[r.method] ?? "") },
             { label: p.facts.version, value: p.version(r.version) },
@@ -169,22 +166,22 @@ export function signatureBlock(r: SignatureRequest): ContractSignature | null {
 }
 
 /** What happened to one request, oldest first. */
-export function signatureHistory(r: SignatureRequest): TimelineEntry[] {
+export function signatureHistory(r: SignatureRequest, zone: string): TimelineEntry[] {
     const out: TimelineEntry[] = [
-        { key: "sent", label: p.event.sent, at: stamp(r.sent_at), intent: "neutral" },
+        { key: "sent", label: p.event.sent, at: stamp(r.sent_at, zone), intent: "neutral" },
     ];
     if (r.opened_at !== null)
         out.push({
             key: "opened",
             label: p.event.opened,
-            at: stamp(r.opened_at),
+            at: stamp(r.opened_at, zone),
             intent: "accent",
         });
     if (r.state === "signed" && r.signed_at !== null)
         out.push({
             key: "signed",
             label: p.event.signed,
-            at: stamp(r.signed_at),
+            at: stamp(r.signed_at, zone),
             detail: r.signer_ip === null ? undefined : p.eventIp(r.signer_ip),
             intent: "success",
         });
@@ -192,7 +189,7 @@ export function signatureHistory(r: SignatureRequest): TimelineEntry[] {
         out.push({
             key: "declined",
             label: p.event.declined,
-            at: stamp(r.opened_at ?? r.sent_at),
+            at: stamp(r.opened_at ?? r.sent_at, zone),
             intent: "danger",
         });
     return out;

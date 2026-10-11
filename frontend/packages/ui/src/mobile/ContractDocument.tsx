@@ -22,7 +22,7 @@ export function ContractDocument({
     return (
         <View style={[styles.page, compact && styles.pageSmall, style]}>
             <View style={styles.head}>
-                <Text style={styles.issuer}>{issuer.toUpperCase()}</Text>
+                <Text style={styles.issuer}>{issuer}</Text>
                 <Text
                     style={[styles.title, compact && styles.titleSmall]}
                     accessibilityRole="header"
@@ -41,7 +41,7 @@ export function ContractDocument({
             ))}
             {signature ? (
                 <View style={[styles.sig, clauses.length === 0 && styles.sigOnly]}>
-                    <Text style={styles.issuer}>{signature.heading.toUpperCase()}</Text>
+                    <Text style={styles.issuer}>{signature.heading}</Text>
                     {signature.strokes ? (
                         <SignaturePad
                             strokes={signature.strokes}
@@ -76,7 +76,13 @@ const styles = StyleSheet.create({
     },
     pageSmall: { padding: 16 },
     head: { borderBottomWidth: 1, borderColor: c.border, paddingBottom: 12, marginBottom: 6 },
-    issuer: { color: c.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.6 },
+    issuer: {
+        color: c.muted,
+        fontSize: 10,
+        fontWeight: "700",
+        letterSpacing: 0.6,
+        textTransform: "uppercase",
+    },
     title: { color: c.ink, fontSize: 19, fontWeight: "700", marginTop: 4 },
     titleSmall: { fontSize: 16 },
     meta: { color: c.muted, fontSize: 12, marginTop: 2 },

@@ -72,8 +72,10 @@ const stems = (dir, ext) =>
         .filter((f) => f.startsWith(dir) && f.endsWith(ext) && !f.includes(".test."))
         .map((f) => basename(f, ext));
 
-const stringsSrc = readFileSync(join(root, "packages/app-core/src/strings.ts"), "utf8");
-const groups = new Set([...stringsSrc.matchAll(/^ {4}(\w+): \{$/gm)].map((m) => m[1]));
+const catalog = JSON.parse(
+    readFileSync(join(root, "packages/app-core/locales/en-CA.json"), "utf8"),
+);
+const groups = new Set(Object.keys(catalog).map((key) => key.split(".")[0]));
 const domains = new Set(stems("packages/app-core/src/domain/", ".ts"));
 
 for (const domain of domains) {

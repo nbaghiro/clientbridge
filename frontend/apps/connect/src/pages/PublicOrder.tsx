@@ -1,8 +1,13 @@
 import {
     createPublicOrderClient,
-    money,
     strings,
     usePublicOrder,
+    formatMoney,
+    formatDate,
+    formatDateTime,
+    parseTimestamp,
+    formatNumber,
+    saleNumber,
 } from "@clientbridge/app-core/public";
 import { Button, Icon, LineItem, Modal, Notice, ProgressSteps, Toggle } from "@clientbridge/ui";
 import { useParams } from "react-router-dom";
@@ -29,9 +34,11 @@ export function PublicOrder() {
                 <div className="max-w-2xl pt-2">
                     <p className="text-sm text-muted">
                         <span>{s.title}</span>
-                        {order.number !== null ? ` · S-${String(order.number)}` : ""}
+                        {order.number !== null ? (
+                            <span>{strings.common.separator + saleNumber(order.number)}</span>
+                        ) : null}
                         <span className="ml-3">
-                            {new Date(order.created_at).toLocaleDateString()}
+                            {formatDate(parseTimestamp(order.created_at), order.timezone)}
                         </span>
                     </p>
                     <h1 className="mt-2 font-display text-3xl font-bold leading-tight tracking-tight sm:text-[2.6rem]">
@@ -77,7 +84,10 @@ export function PublicOrder() {
                                 <p className="mt-3 text-sm font-semibold">{step.label}</p>
                                 <p className="mt-1 text-xs text-muted">
                                     {flow.dates[index]
-                                        ? new Date(flow.dates[index] ?? "").toLocaleString()
+                                        ? formatDateTime(
+                                              parseTimestamp(flow.dates[index] ?? ""),
+                                              order.timezone,
+                                          )
                                         : "—"}
                                 </p>
                             </li>
@@ -95,7 +105,10 @@ export function PublicOrder() {
                                     </p>
                                     <p className="mt-1 font-semibold">
                                         {order.pickup_from
-                                            ? new Date(order.pickup_from).toLocaleString()
+                                            ? formatDateTime(
+                                                  parseTimestamp(order.pickup_from),
+                                                  order.timezone,
+                                              )
                                             : strings.publicShop.pickupAsap}
                                     </p>
                                 </div>
@@ -132,22 +145,23 @@ export function PublicOrder() {
                                 <LineItem
                                     key={index}
                                     title={line.description}
-                                    meta={String(line.quantity)}
+                                    meta={formatNumber(line.quantity)}
+                                    currency={order.currency}
                                     cents={line.amount_cents}
                                 />
                             ))}
                             <dl className="mt-4 space-y-2 border-t border-line pt-4 text-sm">
                                 <div className="flex justify-between">
                                     <dt>{s.subtotal}</dt>
-                                    <dd>{money(order.subtotal_cents, order.currency)}</dd>
+                                    <dd>{formatMoney(order.subtotal_cents, order.currency)}</dd>
                                 </div>
                                 <div className="flex justify-between">
                                     <dt>{s.tax}</dt>
-                                    <dd>{money(order.tax_total_cents, order.currency)}</dd>
+                                    <dd>{formatMoney(order.tax_total_cents, order.currency)}</dd>
                                 </div>
                                 <div className="flex justify-between font-bold">
                                     <dt>{s.total}</dt>
-                                    <dd>{money(order.total_cents, order.currency)}</dd>
+                                    <dd>{formatMoney(order.total_cents, order.currency)}</dd>
                                 </div>
                             </dl>
                         </section>

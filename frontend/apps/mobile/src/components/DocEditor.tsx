@@ -11,6 +11,9 @@ import {
     useClients,
     useDocComposer,
     useLetterhead,
+    formatParts,
+    BUSINESS_CURRENCY,
+    currencyAffix,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { useMemo, useState } from "react";
@@ -149,6 +152,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                                     <Text style={styles.amount}>
                                         {formatMoney(
                                             l.grossCents - discountCents(l.grossCents, l.discount),
+                                            BUSINESS_CURRENCY,
                                         )}
                                     </Text>
                                     <IconButton
@@ -177,7 +181,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                                             label={s.price}
                                             size="sm"
                                             type="number"
-                                            prefix="$"
+                                            {...currencyAffix(BUSINESS_CURRENCY)}
                                             value={l.unit}
                                             placeholder="0.00"
                                             onChange={(v) => {
@@ -250,7 +254,10 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                                     { key: "", label: s.addFromCatalog },
                                     ...catalog.map((i) => ({
                                         key: i.id,
-                                        label: `${i.name} · ${formatMoney(i.price_cents)}`,
+                                        label: formatParts([
+                                            i.name,
+                                            formatMoney(i.price_cents, BUSINESS_CURRENCY),
+                                        ]),
                                     })),
                                 ]}
                                 onChange={(id) => {
@@ -296,7 +303,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                                     : s.discountTitle}
                             </Button>
                         )}
-                        <DocTotals lines={form.totals} />
+                        <DocTotals currency={BUSINESS_CURRENCY} lines={form.totals} />
                     </View>
 
                     <View style={styles.section}>
@@ -331,7 +338,9 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                 <View style={styles.footer}>
                     <View style={styles.grow}>
                         <Text style={styles.note}>{s.total}</Text>
-                        <Text style={styles.total}>{formatMoney(form.pricing.totalCents)}</Text>
+                        <Text style={styles.total}>
+                            {formatMoney(form.pricing.totalCents, BUSINESS_CURRENCY)}
+                        </Text>
                     </View>
                     <Button
                         style={{ alignSelf: "center" }}

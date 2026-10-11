@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { filingPeriod, taxExample, taxSummary } from "./taxes";
+import { zonedDate } from "../datetime";
+
+const ZONE = "America/Vancouver";
 
 describe("taxSummary", () => {
     it("names each province's taxes and keeps only GST or HST for federal-only items", () => {
@@ -51,23 +54,23 @@ describe("taxExample", () => {
 });
 
 describe("filingPeriod", () => {
-    const d = (y: number, m: number, day: number, h = 12) => new Date(y, m - 1, day, h);
+    const d = (y: number, m: number, day: number, h = 12) => zonedDate(y, m, day, h, 0, ZONE);
 
     it("finds the quarter holding today, due a month after it ends", () => {
-        expect(filingPeriod("quarterly", d(2026, 2, 15))).toEqual({
+        expect(filingPeriod("quarterly", ZONE, d(2026, 2, 15))).toEqual({
             from: d(2026, 1, 1, 0),
             to: d(2026, 3, 31, 0),
             due: d(2026, 4, 30, 0),
         });
-        expect(filingPeriod("quarterly", d(2026, 3, 31, 23))).toMatchObject({
+        expect(filingPeriod("quarterly", ZONE, d(2026, 3, 31, 23))).toMatchObject({
             from: d(2026, 1, 1, 0),
         });
-        expect(filingPeriod("quarterly", d(2026, 4, 1, 0))).toEqual({
+        expect(filingPeriod("quarterly", ZONE, d(2026, 4, 1, 0))).toEqual({
             from: d(2026, 4, 1, 0),
             to: d(2026, 6, 30, 0),
             due: d(2026, 7, 31, 0),
         });
-        expect(filingPeriod("quarterly", d(2026, 11, 15))).toEqual({
+        expect(filingPeriod("quarterly", ZONE, d(2026, 11, 15))).toEqual({
             from: d(2026, 10, 1, 0),
             to: d(2026, 12, 31, 0),
             due: d(2027, 1, 31, 0),
@@ -75,18 +78,18 @@ describe("filingPeriod", () => {
     });
 
     it("handles monthly periods, February included, and the calendar year", () => {
-        expect(filingPeriod("monthly", d(2026, 12, 10))).toEqual({
+        expect(filingPeriod("monthly", ZONE, d(2026, 12, 10))).toEqual({
             from: d(2026, 12, 1, 0),
             to: d(2026, 12, 31, 0),
             due: d(2027, 1, 31, 0),
         });
-        expect(filingPeriod("monthly", d(2028, 2, 29))).toEqual({
+        expect(filingPeriod("monthly", ZONE, d(2028, 2, 29))).toEqual({
             from: d(2028, 2, 1, 0),
             to: d(2028, 2, 29, 0),
             due: d(2028, 3, 31, 0),
         });
-        expect(filingPeriod("monthly", d(2026, 1, 20)).due).toEqual(d(2026, 2, 28, 0));
-        expect(filingPeriod("annual", d(2026, 7, 1))).toEqual({
+        expect(filingPeriod("monthly", ZONE, d(2026, 1, 20)).due).toEqual(d(2026, 2, 28, 0));
+        expect(filingPeriod("annual", ZONE, d(2026, 7, 1))).toEqual({
             from: d(2026, 1, 1, 0),
             to: d(2026, 12, 31, 0),
             due: d(2027, 4, 30, 0),

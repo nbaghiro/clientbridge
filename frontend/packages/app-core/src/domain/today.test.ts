@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { buildAgenda, greeting, visitAction } from "./today";
 
+const ZONE = "America/Vancouver";
+
 const row = (over: Record<string, unknown>) => ({
     slot_id: "ss_1",
     starts_at: "2026-10-06T16:00:00Z",
@@ -56,6 +58,7 @@ describe("buildAgenda", () => {
                 }),
             ],
             now,
+            ZONE,
         );
         expect(agenda.map((a) => [a.id, a.state])).toEqual([
             ["bk_0", "done"],
@@ -77,6 +80,7 @@ describe("buildAgenda", () => {
                 row({ ...seat, booking_id: "bk_b", price_cents: 3000 }),
             ],
             now,
+            ZONE,
         );
         expect(agenda).toHaveLength(1);
         expect(agenda[0]).toMatchObject({
@@ -104,6 +108,7 @@ describe("buildAgenda", () => {
                 }),
             ],
             now,
+            ZONE,
         );
         expect(noShow?.state).toBe("no_show");
         expect(noShow === undefined ? undefined : visitAction(noShow)).toBeNull();

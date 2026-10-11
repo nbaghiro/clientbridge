@@ -2,11 +2,10 @@ import {
     type PublicContract as PublicContractData,
     contractClauses,
     createPublicContractClient,
-    formatDate,
-    formatTime,
     parseTimestamp,
     strings,
     useContractSigning,
+    formatDateTime,
 } from "@clientbridge/app-core/public";
 import {
     Button,
@@ -29,10 +28,7 @@ const contracts = createPublicContractClient(config.apiUrl);
 const s = strings.publicContract;
 const SCRIPT = { fontFamily: '"Snell Roundhand", "Segoe Script", "Brush Script MT", cursive' };
 
-const stamp = (value: string): string => {
-    const d = parseTimestamp(value);
-    return `${formatDate(d)}, ${formatTime(d)}`;
-};
+const stamp = (value: string, zone: string): string => formatDateTime(parseTimestamp(value), zone);
 
 export function PublicContract() {
     const { token = "" } = useParams<{ token: string }>();
@@ -206,7 +202,10 @@ function Signed({ doc }: { doc: PublicContractData }) {
                         facts: [
                             {
                                 label: s.facts.signedAt,
-                                value: doc.signed_at === null ? "" : stamp(doc.signed_at),
+                                value:
+                                    doc.signed_at === null
+                                        ? ""
+                                        : stamp(doc.signed_at, doc.timezone),
                             },
                             { label: s.facts.ip, value: doc.signer_ip ?? "" },
                             { label: s.facts.version, value: s.version(doc.version) },

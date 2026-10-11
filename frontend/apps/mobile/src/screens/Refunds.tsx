@@ -9,6 +9,9 @@ import {
     useRefundComposer,
     useRefundDesk,
     usePaymentAccount,
+    formatParts,
+    BUSINESS_CURRENCY,
+    currencyAffix,
 } from "@clientbridge/app-core";
 import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
@@ -64,7 +67,7 @@ export function Refunds({ openId }: { openId?: string | undefined }) {
                 items={[
                     { key: "payments", label: s.tabs.payments },
                     { key: "notes", label: s.tabs.notes },
-                    { key: "disputes", label: `${s.tabs.disputes} · ${disputes.summary}` },
+                    { key: "disputes", label: formatParts([s.tabs.disputes, disputes.summary]) },
                 ]}
                 active={tab}
                 onSelect={setTab}
@@ -119,10 +122,14 @@ function PaymentsList({ desk }: { desk: ReturnType<typeof useRefundDesk> }) {
                 <ListRow
                     key={r.payment.id}
                     title={r.payment.client_name ?? r.subject}
-                    detail={`${r.subject} · ${r.when}`}
+                    detail={formatParts([r.subject, r.when])}
                     meta={
                         <View style={styles.meta}>
-                            <Money cents={r.payment.amount_cents} strong />
+                            <Money
+                                currency={BUSINESS_CURRENCY}
+                                cents={r.payment.amount_cents}
+                                strong
+                            />
                             {r.state !== "paid" ? (
                                 <StatusPill status={r.stateLabel} intent={r.intent} asWritten />
                             ) : null}
@@ -165,7 +172,7 @@ function Composer({
         <DetailView
             open
             title={p.client_name ?? summary.subject}
-            subtitle={[summary.subject, summary.method, summary.when].join(" · ")}
+            subtitle={formatParts([summary.subject, summary.method, summary.when])}
             status={{ status: summary.stateLabel, intent: summary.intent }}
             onClose={onClose}
             actions={
@@ -186,10 +193,16 @@ function Composer({
                 layout="stack"
                 columns={2}
                 rows={[
-                    { label: s.paid, value: formatMoney(p.amount_cents) },
-                    { label: s.refundedSoFar, value: formatMoney(p.refunded_cents) },
-                    { label: s.leftToRefund, value: formatMoney(summary.leftCents) },
-                    { label: s.stripeFee, value: formatMoney(p.fee_cents) },
+                    { label: s.paid, value: formatMoney(p.amount_cents, BUSINESS_CURRENCY) },
+                    {
+                        label: s.refundedSoFar,
+                        value: formatMoney(p.refunded_cents, BUSINESS_CURRENCY),
+                    },
+                    {
+                        label: s.leftToRefund,
+                        value: formatMoney(summary.leftCents, BUSINESS_CURRENCY),
+                    },
+                    { label: s.stripeFee, value: formatMoney(p.fee_cents, BUSINESS_CURRENCY) },
                 ]}
             />
             {form.issued !== null ? (
@@ -224,7 +237,7 @@ function Composer({
                         <TextField
                             label={s.amount}
                             type="number"
-                            prefix="$"
+                            {...currencyAffix(BUSINESS_CURRENCY)}
                             value={form.amount}
                             onChange={form.setAmount}
                             placeholder={form.amountPlaceholder}
@@ -241,7 +254,11 @@ function Composer({
                     {form.preview.isLoading && form.lines.length === 0 ? (
                         <Skeleton variant="line" count={3} label={s.previewLoading} />
                     ) : (
-                        <DocTotals lines={form.lines} density="compact" />
+                        <DocTotals
+                            currency={BUSINESS_CURRENCY}
+                            lines={form.lines}
+                            density="compact"
+                        />
                     )}
                     {form.feeNote !== null ? <Text style={ui.note}>{form.feeNote}</Text> : null}
                     <Toggle label={s.notify} value={form.notify} onChange={form.setNotify} />
@@ -265,10 +282,10 @@ function CreditNotes({ refunds }: { refunds: readonly RefundRow[] }) {
                 <ListRow
                     key={r.id}
                     title={r.number}
-                    detail={`${r.client} · ${r.subject} · ${r.reason}`}
+                    detail={formatParts([r.client, r.subject, r.reason])}
                     meta={
                         <View style={styles.meta}>
-                            <Money cents={-r.cents} strong />
+                            <Money currency={BUSINESS_CURRENCY} cents={-r.cents} strong />
                             <Text style={ui.note}>{r.when}</Text>
                         </View>
                     }
@@ -293,10 +310,10 @@ function Disputes({ desk }: { desk: DisputeDesk }) {
                 <ListRow
                     key={d.row.id}
                     title={d.row.client_name ?? d.subject}
-                    detail={`${d.reason} · ${d.subject}`}
+                    detail={formatParts([d.reason, d.subject])}
                     meta={
                         <View style={styles.meta}>
-                            <Money cents={d.row.amount_cents} strong />
+                            <Money currency={BUSINESS_CURRENCY} cents={d.row.amount_cents} strong />
                             <StatusPill status={d.statusLabel} intent={d.intent} asWritten />
                         </View>
                     }
@@ -308,8 +325,8 @@ function Disputes({ desk }: { desk: DisputeDesk }) {
             {sel !== null ? (
                 <DetailView
                     open
-                    title={s.disputeTitle(formatMoney(sel.row.amount_cents))}
-                    subtitle={`${sel.row.client_name ?? ""} · ${sel.subject}`}
+                    title={s.disputeTitle(formatMoney(sel.row.amount_cents, BUSINESS_CURRENCY))}
+                    subtitle={formatParts([sel.row.client_name ?? "", sel.subject])}
                     status={{ status: sel.statusLabel, intent: sel.intent }}
                     onClose={() => {
                         desk.select(null);
@@ -322,7 +339,7 @@ function Disputes({ desk }: { desk: DisputeDesk }) {
                         {sel.deadline}
                     </Notice>
                     <KeyValueList rows={sel.facts} />
-                    <DocTotals lines={sel.held} density="compact" />
+                    <DocTotals currency={BUSINESS_CURRENCY} lines={sel.held} density="compact" />
                     {sel.open ? (
                         <Notice tone="info">{strings.paymentAccount.disputeHelp}</Notice>
                     ) : null}

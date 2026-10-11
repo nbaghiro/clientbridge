@@ -14,6 +14,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
+from clientbridge.core.locale import locale_for, message
 from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.core.security import hash_token
 from clientbridge.integrations.stripe import (
@@ -976,6 +977,7 @@ async def ensure_subscription_price(
         currency=item.currency,
         interval_count=interval_count,
         frequency=frequency,
+        product_name=message(locale_for(), "stripe.subscription_product"),
     )
     item.stripe_price_id = price_id
     await db.flush()
@@ -2398,6 +2400,9 @@ class PublicPaymentSetupService:
                 link.account_id,
                 customer_id=link.customer_id,
                 idempotency_key=f"pad_setup_{link.id}",
+                interval_description=message(
+                    locale_for(client=client), "stripe.pad_interval_description"
+                ),
                 email=client.email,
             )
             link.setup_intent_id = intent.id

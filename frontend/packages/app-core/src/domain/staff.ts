@@ -3,6 +3,8 @@ import { useBusinessQuery as useQuery } from "../hooks";
 import { useState } from "react";
 
 import { parseTimestamp } from "../datetime";
+import { formatMoney, formatNumber, parseNumber, BUSINESS_CURRENCY } from "../format";
+
 import { type Load, useAsyncAction, useRemote } from "../hooks";
 import type { Intent } from "../ui";
 import type { AuthTokens, Viewer } from "./auth";
@@ -421,9 +423,24 @@ export function useStaffPay(): StaffPayRow[] {
 }
 
 export const RATE_TYPES: { value: string; label: string }[] = [
-    { value: "percent", label: strings.staff.ratePercent },
-    { value: "fixed", label: strings.staff.rateFixed },
-    { value: "hourly", label: strings.staff.rateHourly },
+    {
+        value: "percent",
+        get label() {
+            return strings.staff.ratePercent;
+        },
+    },
+    {
+        value: "fixed",
+        get label() {
+            return strings.staff.rateFixed;
+        },
+    },
+    {
+        value: "hourly",
+        get label() {
+            return strings.staff.rateHourly;
+        },
+    },
 ];
 
 /** The service rate as typed: percentage points for `percent`, dollars for `fixed` and `hourly`. */
@@ -439,8 +456,8 @@ export function staffPaySummary(row: StaffPayRow): string {
         row.rate_type === "percent"
             ? strings.staff.payPercent(rate)
             : row.rate_type === "hourly"
-              ? strings.staff.payHourly(rate.toFixed(2))
-              : strings.staff.payFixed(rate.toFixed(2));
+              ? strings.staff.payHourly(formatMoney(row.rate_cents, BUSINESS_CURRENCY))
+              : strings.staff.payFixed(formatMoney(row.rate_cents, BUSINESS_CURRENCY));
     const retail = row.retail_rate_bps ?? 0;
     return retail > 0 ? strings.staff.payWithRetail(service, retail / 100) : service;
 }
@@ -465,16 +482,18 @@ export function useStaffPayForm(api: ApiLike, row: StaffPayRow, onDone: () => vo
     const [rateType, setRateType] = useState(row.rate_type ?? "percent");
     const [rate, setRate] = useState(() => {
         const value = rateValue(row);
-        return value === null ? "" : String(value);
+        return value === null ? "" : formatNumber(value, { useGrouping: false });
     });
     const [retailPercent, setRetailPercent] = useState(
-        row.retail_rate_bps === null ? "" : String(row.retail_rate_bps / 100),
+        row.retail_rate_bps === null
+            ? ""
+            : formatNumber(row.retail_rate_bps / 100, { useGrouping: false }),
     );
     const { busy, error, setError, run } = useAsyncAction();
 
     const submit = (): void => {
-        const amount = rate.trim() === "" ? null : Number(rate);
-        const retail = retailPercent.trim() === "" ? 0 : Number(retailPercent);
+        const amount = rate.trim() === "" ? null : (parseNumber(rate) ?? NaN);
+        const retail = retailPercent.trim() === "" ? 0 : (parseNumber(retailPercent) ?? NaN);
         const badRate = amount !== null && (!Number.isFinite(amount) || amount < 0);
         if (badRate || (rateType === "percent" && amount !== null && amount > 100)) {
             setError(strings.staff.rateInvalid);

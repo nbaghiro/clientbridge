@@ -2,7 +2,7 @@ import type { CommonPowerSyncDatabase } from "@powersync/common";
 import { usePowerSync, useQuery, useStatus } from "@powersync/react";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
-import { formatTime } from "../datetime";
+import { formatTime, useBusinessZone } from "../datetime";
 import { type Load, type LoadSource, useLoad } from "../hooks";
 import { strings } from "../strings";
 
@@ -167,7 +167,10 @@ export function syncNotice(sync: NoticeInput, now: number): SyncNotice | null {
         return {
             state: "offline",
             title: s.offlineTitle,
-            detail: sync.lastSynced === null ? strip : `${strip}. ${s.lastSynced(sync.lastSynced)}`,
+            detail:
+                sync.lastSynced === null
+                    ? strip
+                    : strings.common.titleAndBody(strip, s.lastSynced(sync.lastSynced)),
             retry: false,
         };
     }
@@ -208,6 +211,7 @@ export function syncProblem(
 /** Connection, first sync and the changes this device has not uploaded yet, polled while mounted. */
 export function useSyncState(pollMs = 3000): SyncState {
     const db = usePowerSync();
+    const zone = useBusinessZone();
     const status = useStatus();
     const [pending, setPending] = useState<PendingChange[]>([]);
     const [pendingCount, setPendingCount] = useState(0);
@@ -278,7 +282,7 @@ export function useSyncState(pollMs = 3000): SyncState {
         pendingCount,
         queueKnown,
         pending,
-        lastSynced: last === undefined ? null : formatTime(last),
+        lastSynced: last === undefined ? null : formatTime(last, zone),
         problem: syncProblem(
             queueFailed,
             outboxFailed || !!status.uploadError,

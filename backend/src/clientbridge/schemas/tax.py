@@ -8,4 +8,3 @@ class TaxRateOut(BaseModel):
     jurisdiction: str
     province: str
     rate_bps: int
-    name: str

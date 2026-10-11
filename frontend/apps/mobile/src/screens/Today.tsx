@@ -8,6 +8,7 @@ import {
     useSetupProgress,
     useStaffToday,
     useTodayActions,
+    BUSINESS_CURRENCY,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StatusBar } from "expo-status-bar";
@@ -120,7 +121,7 @@ function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                                 },
                                 {
                                     label: t.expected,
-                                    value: formatMoney(view.expectedCents),
+                                    value: formatMoney(view.expectedCents, BUSINESS_CURRENCY),
                                     hint: t.expectedHint,
                                 },
                             ]}
@@ -229,7 +230,7 @@ function StaffToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                         <View style={styles.fact}>
                             <Text style={styles.factLabel}>{t.staff.earnings}</Text>
                             <Text style={[styles.factValue, { color: c.success }]}>
-                                {formatMoney(day.earnedCents)}
+                                {formatMoney(day.earnedCents, BUSINESS_CURRENCY)}
                             </Text>
                             <Text style={styles.factHint}>{t.staff.earningsHint}</Text>
                         </View>

@@ -7,6 +7,7 @@ import {
     channelLabel,
     consentDetail,
     consentLabel,
+    firstName,
     strings,
     useConversation,
     useInbox,
@@ -15,6 +16,9 @@ import {
     useNewMessage,
     useThreadComposer,
     visibleInboxSegments,
+    quickReplies,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -53,7 +57,6 @@ import { Reviews } from "./Reviews";
 const c = theme.colors;
 const s = strings.messaging;
 const CHANNELS: Channel[] = ["sms", "email"];
-const QUICK = s.quickReplyOptions.map((q, i) => ({ key: String(i), label: q.label, text: q.text }));
 
 export function InboxScreen() {
     const segments = visibleInboxSegments(useRole());
@@ -258,7 +261,10 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack: () => voi
             {thread.textsOff ? (
                 <View style={styles.pad}>
                     <Notice tone="danger" banner>
-                        {`${s.textsOffTitle(thread.title.split(" ")[0] ?? "")} ${s.textsOffBody}`}
+                        {strings.common.twoSentences(
+                            s.textsOffTitle(firstName(thread.title)),
+                            s.textsOffBody,
+                        )}
                     </Notice>
                 </View>
             ) : null}
@@ -305,19 +311,19 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack: () => voi
             <View style={styles.composer}>
                 <Choice
                     label={s.quickReplies}
-                    options={QUICK}
+                    options={quickReplies()}
                     value={null}
                     onChange={(k) => {
-                        composer.setBody(QUICK.find((q) => q.key === k)?.text ?? "");
+                        composer.setBody(quickReplies().find((q) => q.key === k)?.text ?? "");
                     }}
                 />
                 <TextField
                     multiline
                     rows={2}
-                    name={s.replyPlaceholder(channelLabel(composer.channel))}
+                    name={s.replyPlaceholder(composer.channel)}
                     value={composer.body}
                     onChange={composer.setBody}
-                    placeholder={s.replyPlaceholder(channelLabel(composer.channel))}
+                    placeholder={s.replyPlaceholder(composer.channel)}
                     disabled={composer.smsBlocked}
                 />
                 {composer.error !== null ? <Notice tone="danger">{composer.error}</Notice> : null}
@@ -369,6 +375,7 @@ function ContextPanel({
     thread: InboxThread;
     conversation: Conversation;
 }) {
+    const zone = useBusinessZone();
     const openLink = useOpenLink();
     const client = conversation.client;
     const balance = client?.balance_cents ?? 0;
@@ -406,7 +413,12 @@ function ContextPanel({
                     { label: s.pets, value: client?.pet_names ?? "—" },
                     {
                         label: s.balance,
-                        value: balance > 0 ? <Money cents={balance} /> : s.settled,
+                        value:
+                            balance > 0 ? (
+                                <Money currency={BUSINESS_CURRENCY} cents={balance} />
+                            ) : (
+                                s.settled
+                            ),
                         intent: balance > 0 ? "warning" : undefined,
                     },
                     { label: s.nextVisit, value: conversation.nextVisit ?? s.nothingBooked },
@@ -416,7 +428,7 @@ function ContextPanel({
             {CHANNELS.map((ch) => {
                 const v = conversation.consent[ch];
                 const state = consentLabel(v);
-                const detail = consentDetail(v);
+                const detail = consentDetail(v, zone);
                 return (
                     <View key={ch} style={styles.consentRow}>
                         <View style={styles.flex}>

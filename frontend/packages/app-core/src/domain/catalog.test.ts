@@ -235,10 +235,10 @@ describe("item price and status", () => {
         expect(itemPriceLabel({ ...base, price_cents: null })).toBe("$0.00");
         expect(
             itemPriceLabel({ ...base, kind: "subscription", price_cents: 5000, frequency: "week" }),
-        ).toBe(c.perPeriod("$50.00", c.freqLabel.week ?? ""));
+        ).toBe(c.perPeriod("$50.00", c.freqLabel.week));
         expect(
             itemPriceLabel({ ...base, kind: "subscription", price_cents: 5000, frequency: null }),
-        ).toBe(c.perPeriod("$50.00", c.freqLabel.month ?? ""));
+        ).toBe(c.perPeriod("$50.00", c.freqLabel.month));
         expect(itemPriceLabel({ ...base, kind: "gift", price_cents: 2500 })).toBe(c.anyAmount);
     });
 

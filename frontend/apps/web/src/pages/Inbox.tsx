@@ -16,6 +16,10 @@ import {
     useNewMessage,
     useThreadComposer,
     visibleInboxSegments,
+    formatParts,
+    quickReplies,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -50,7 +54,6 @@ import { Reviews } from "./Reviews";
 
 const s = strings.messaging;
 const CHANNELS: Channel[] = ["sms", "email"];
-const QUICK = s.quickReplyOptions.map((q, i) => ({ key: String(i), label: q.label, text: q.text }));
 
 export function Inbox() {
     const segments = visibleInboxSegments(useRole());
@@ -233,9 +236,7 @@ function Thread({
                             {thread.title}
                         </h2>
                         <p className="truncate text-xs text-muted">
-                            {[channelLabel(thread.channel), contact]
-                                .filter((v) => v !== null && v !== "")
-                                .join(" · ")}
+                            {formatParts([channelLabel(thread.channel), contact])}
                         </p>
                     </div>
                     <span className="xl:hidden">
@@ -322,19 +323,19 @@ function Composer({ composer }: { composer: ThreadComposer }) {
         <div className="space-y-2.5 border-t border-line bg-surface px-5 py-3">
             <Choice
                 label={s.quickReplies}
-                options={QUICK}
+                options={quickReplies()}
                 value={null}
                 onChange={(k) => {
-                    composer.setBody(QUICK.find((q) => q.key === k)?.text ?? "");
+                    composer.setBody(quickReplies().find((q) => q.key === k)?.text ?? "");
                 }}
             />
             <TextField
                 multiline
                 rows={2}
-                name={s.replyPlaceholder(channelLabel(composer.channel))}
+                name={s.replyPlaceholder(composer.channel)}
                 value={composer.body}
                 onChange={composer.setBody}
-                placeholder={s.replyPlaceholder(channelLabel(composer.channel))}
+                placeholder={s.replyPlaceholder(composer.channel)}
                 disabled={composer.smsBlocked}
             />
             {composer.error !== null ? <Notice tone="danger">{composer.error}</Notice> : null}
@@ -373,6 +374,7 @@ function ContextPanel({
     thread: InboxThread;
     conversation: Conversation;
 }) {
+    const zone = useBusinessZone();
     const openLink = useOpenLink();
     const client = conversation.client;
     const balance = client?.balance_cents ?? 0;
@@ -413,7 +415,12 @@ function ContextPanel({
                     { label: s.pets, value: client?.pet_names ?? "—" },
                     {
                         label: s.balance,
-                        value: balance > 0 ? <Money cents={balance} /> : s.settled,
+                        value:
+                            balance > 0 ? (
+                                <Money currency={BUSINESS_CURRENCY} cents={balance} />
+                            ) : (
+                                s.settled
+                            ),
                         intent: balance > 0 ? "warning" : undefined,
                     },
                     { label: s.nextVisit, value: conversation.nextVisit ?? s.nothingBooked },
@@ -427,7 +434,7 @@ function ContextPanel({
                     {CHANNELS.map((ch) => {
                         const v = conversation.consent[ch];
                         const state = consentLabel(v);
-                        const detail = consentDetail(v);
+                        const detail = consentDetail(v, zone);
                         return (
                             <li
                                 key={ch}

@@ -10,6 +10,9 @@ import {
     useStockMoves,
     useReceiveDelivery,
     useRestockForm,
+    BUSINESS_CURRENCY,
+    currencyAffix,
+    parseNumber,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -255,7 +258,9 @@ export function Inventory() {
                         </View>
                         <View style={[styles.stat, styles.statWide]}>
                             <Text style={styles.statLabel}>{s.statValue}</Text>
-                            <Text style={styles.statValue}>{formatMoney(inv.stats.costCents)}</Text>
+                            <Text style={styles.statValue}>
+                                {formatMoney(inv.stats.costCents, BUSINESS_CURRENCY)}
+                            </Text>
                         </View>
                     </View>
                     {done !== null ? (
@@ -294,7 +299,11 @@ export function Inventory() {
                         setRestocking(null);
                     }}
                     onDone={(n) => {
-                        setDone(s.restockDone(n, restocking.item.name));
+                        setDone(
+                            n < 0
+                                ? s.restockCorrected(n, restocking.item.name)
+                                : s.restockDone(n, restocking.item.name),
+                        );
                         setRestocking(null);
                     }}
                 />
@@ -408,7 +417,7 @@ function ReceiveDelivery({
                                     </View>
                                     <View style={styles.lineBottom}>
                                         <Stepper
-                                            value={Number(l.quantity) || 0}
+                                            value={parseNumber(l.quantity) ?? 0}
                                             min={0}
                                             label={s.receivedFor(l.item.name)}
                                             onChange={(v) => {
@@ -425,13 +434,13 @@ function ReceiveDelivery({
                                             <View />
                                         )}
                                         <Text style={styles.cost}>
-                                            {formatMoney(d.lineCost(l))}
+                                            {formatMoney(d.lineCost(l), BUSINESS_CURRENCY)}
                                         </Text>
                                     </View>
                                     <TextField
                                         label={s.colUnitCost}
                                         type="number"
-                                        prefix="$"
+                                        {...currencyAffix(BUSINESS_CURRENCY)}
                                         size="sm"
                                         value={l.unitCost}
                                         onChange={(v) => {
@@ -458,7 +467,7 @@ function ReceiveDelivery({
             {d.load.ready ? (
                 <View style={styles.bar}>
                     <Text style={styles.total}>
-                        {s.deliveryTotal(d.units, formatMoney(d.costCents))}
+                        {s.deliveryTotal(d.units, formatMoney(d.costCents, BUSINESS_CURRENCY))}
                     </Text>
                     <Button
                         style={{ alignSelf: "center" }}

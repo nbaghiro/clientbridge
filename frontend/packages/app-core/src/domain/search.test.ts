@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { createActionsFor } from "./navigation";
 import { highlight, searchHits } from "./search";
 
+const ZONE = "America/Vancouver";
+
 const data = {
     clients: [
         {
@@ -53,33 +55,35 @@ const now = new Date("2026-10-06T16:00:00Z");
 
 describe("searchHits", () => {
     it("finds clients by name, email or any phone format, with book and message for the top one", () => {
-        const hits = searchHits("mar", data, now);
+        const hits = searchHits("mar", data, now, ZONE);
         expect(hits.clients.map((h) => h.id)).toEqual(["cl_1", "cl_2"]);
         expect(hits.clients[1]?.meta).toBe("archived");
         expect(hits.actions.map((h) => h.id)).toEqual(["book-cl_1", "msg-cl_1"]);
-        expect(searchHits("250-555-0202", data, now).clients.map((h) => h.id)).toEqual(["cl_1"]);
+        expect(searchHits("250-555-0202", data, now, ZONE).clients.map((h) => h.id)).toEqual([
+            "cl_1",
+        ]);
     });
 
     it("finds bookings by client, service or staff, and invoices by number", () => {
-        expect(searchHits("diego", data, now).bookings[0]).toMatchObject({
+        expect(searchHits("diego", data, now, ZONE).bookings[0]).toMatchObject({
             id: "bk_1",
             refId: "bk_1",
             target: "booking",
         });
-        expect(searchHits("#1146", data, now).invoices[0]).toMatchObject({
+        expect(searchHits("#1146", data, now, ZONE).invoices[0]).toMatchObject({
             title: "#1146",
             metaIntent: "danger",
         });
-        expect(searchHits("br-1", data, now).items[0]).toMatchObject({
+        expect(searchHits("br-1", data, now, ZONE).items[0]).toMatchObject({
             id: "it_1",
             meta: "$18.00",
         });
     });
 
     it("offers to add a client when a name matches nothing, and staff get no invoice action", () => {
-        const none = searchHits("zed", data, now);
+        const none = searchHits("zed", data, now, ZONE);
         expect(none.actions.map((a) => a.id)).toEqual(["add-client"]);
-        expect(searchHits("1146", data, now).actions).toEqual([]);
+        expect(searchHits("1146", data, now, ZONE).actions).toEqual([]);
         expect(createActionsFor("staff").map((a) => a.key)).not.toContain("invoice");
     });
 });

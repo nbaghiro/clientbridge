@@ -1,4 +1,8 @@
-import { type OccurrenceListProps, type OccurrenceRow } from "@clientbridge/app-core/public";
+import {
+    type OccurrenceListProps,
+    type OccurrenceRow,
+    strings,
+} from "@clientbridge/app-core/public";
 import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
 
 import { Badge } from "./Badge";
@@ -52,7 +56,11 @@ export function OccurrenceList({
                             <div
                                 className="mt-2 flex flex-wrap gap-2"
                                 role="group"
-                                aria-label={`${r.date} ${r.note ?? ""}`}
+                                aria-label={
+                                    r.note == null
+                                        ? r.date
+                                        : strings.common.labelValue(r.date, r.note)
+                                }
                             >
                                 {r.actions.map((a) => (
                                     <button

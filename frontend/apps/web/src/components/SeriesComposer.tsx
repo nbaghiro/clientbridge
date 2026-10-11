@@ -4,6 +4,7 @@ import {
     occurrenceRow,
     strings,
     useSeriesComposer,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     Button,
@@ -27,16 +28,37 @@ import { useOpenLink } from "../lib/links";
 const s = strings.recurrences;
 
 const FREQS: { key: SeriesFrequency; label: string }[] = [
-    { key: "week", label: s.weekly },
-    { key: "month", label: s.monthly },
+    {
+        key: "week",
+        get label() {
+            return s.weekly;
+        },
+    },
+    {
+        key: "month",
+        get label() {
+            return s.monthly;
+        },
+    },
 ];
 const ENDS: { key: SeriesEnd; label: string }[] = [
-    { key: "count", label: s.endCount },
-    { key: "until", label: s.endUntil },
+    {
+        key: "count",
+        get label() {
+            return s.endCount;
+        },
+    },
+    {
+        key: "until",
+        get label() {
+            return s.endUntil;
+        },
+    },
 ];
 
 /** A new repeating booking with every date checked before booking; finishing returns to the list. */
 export function SeriesComposer({ onDone }: { onDone?: () => void }) {
+    const zone = useBusinessZone();
     const f = useSeriesComposer(api, useViewer());
     const openLink = useOpenLink();
     return (
@@ -66,6 +88,7 @@ export function SeriesComposer({ onDone }: { onDone?: () => void }) {
                         />
                         <div className="grid grid-cols-2 gap-3">
                             <DateField
+                                zone={zone}
                                 label={s.firstVisit}
                                 value={f.firstDay}
                                 onChange={f.setFirstDay}
@@ -124,6 +147,7 @@ export function SeriesComposer({ onDone }: { onDone?: () => void }) {
                             ) : (
                                 <div className="max-w-xs pt-1">
                                     <DateField
+                                        zone={zone}
                                         label={s.lastDate}
                                         value={f.until}
                                         min={f.firstDay}
@@ -192,7 +216,7 @@ export function SeriesComposer({ onDone }: { onDone?: () => void }) {
                             {f.ready ? (
                                 <OccurrenceList
                                     label={s.dates}
-                                    rows={f.occurrences.map(occurrenceRow)}
+                                    rows={f.occurrences.map((o) => occurrenceRow(o, zone))}
                                     onAction={(key, action) => {
                                         f.resolve(key, action === "shift" ? "shift" : "skip");
                                     }}

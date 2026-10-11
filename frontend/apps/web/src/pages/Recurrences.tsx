@@ -5,6 +5,8 @@ import {
     strings,
     useSeriesList,
     useSeriesRecord,
+    formatParts,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -33,9 +35,24 @@ import { useLinkIntent } from "../lib/links";
 const s = strings.recurrences;
 
 const SCOPES: { key: ChangeScope; label: string }[] = [
-    { key: "one", label: s.scopeOne },
-    { key: "following", label: s.scopeFollowing },
-    { key: "all", label: s.scopeAll },
+    {
+        key: "one",
+        get label() {
+            return s.scopeOne;
+        },
+    },
+    {
+        key: "following",
+        get label() {
+            return s.scopeFollowing;
+        },
+    },
+    {
+        key: "all",
+        get label() {
+            return s.scopeAll;
+        },
+    },
 ];
 
 export function Recurrences() {
@@ -79,11 +96,14 @@ export function Recurrences() {
                             { key: "all", label: s.filterAll },
                             {
                                 key: "attention",
-                                label: `${s.filterAttention} · ${String(list.counts.attention)}`,
+                                label: formatParts([
+                                    s.filterAttention,
+                                    String(list.counts.attention),
+                                ]),
                             },
                             {
                                 key: "ending",
-                                label: `${s.filterEnding} · ${String(list.counts.ending)}`,
+                                label: formatParts([s.filterEnding, String(list.counts.ending)]),
                             },
                         ]}
                         value={list.filter}
@@ -142,8 +162,8 @@ export function Recurrences() {
                                             }
                                         />
                                     }
-                                    title={[r.petName, r.clientName].filter(Boolean).join(" · ")}
-                                    detail={`${r.pattern} · ${r.nextLabel}`}
+                                    title={formatParts([r.petName, r.clientName])}
+                                    detail={formatParts([r.pattern, r.nextLabel])}
                                     meta={
                                         r.attention > 0 ? (
                                             <Badge
@@ -193,6 +213,7 @@ export function Recurrences() {
 }
 
 function Record({ id }: { id: string }) {
+    const zone = useBusinessZone();
     const rec = useSeriesRecord(api, id);
     const [dialog, setDialog] = useState<"change" | "cancel" | null>(null);
     if (rec === null) return null;
@@ -206,7 +227,7 @@ function Record({ id }: { id: string }) {
                 <div className="min-w-0">
                     <p className="text-sm text-muted">{r.serviceName}</p>
                     <h2 className="font-display text-xl font-bold text-ink">
-                        {[r.petName, r.clientName].filter(Boolean).join(" · ")}
+                        {formatParts([r.petName, r.clientName])}
                     </h2>
                     <p className="mt-1 flex items-center gap-2 text-sm text-ink-soft">
                         <Icon name="repeat" size={15} />
@@ -294,7 +315,7 @@ function Record({ id }: { id: string }) {
                     ) : (
                         <OccurrenceList
                             label={s.upcoming}
-                            rows={upcoming.map((o) => occurrenceRow(o))}
+                            rows={upcoming.map((o) => occurrenceRow(o, zone))}
                         />
                     )}
                 </div>
@@ -308,7 +329,7 @@ function Record({ id }: { id: string }) {
                         <div className="px-4">
                             <OccurrenceList
                                 label={s.history}
-                                rows={past.map((o) => occurrenceRow(o))}
+                                rows={past.map((o) => occurrenceRow(o, zone))}
                             />
                         </div>
                     </>
@@ -375,6 +396,7 @@ function Fact({ label, value }: { label: string; value: ReactNode }) {
 }
 
 function ChangeDialog({ rec, onClose }: { rec: SeriesRecord; onClose: () => void }) {
+    const zone = useBusinessZone();
     return (
         <Modal size="lg" onClose={onClose}>
             <div className="space-y-4">
@@ -420,7 +442,7 @@ function ChangeDialog({ rec, onClose }: { rec: SeriesRecord; onClose: () => void
                         <div className="max-h-64 overflow-y-auto px-3">
                             <OccurrenceList
                                 label={s.preview}
-                                rows={rec.preview.map((o) => occurrenceRow(o))}
+                                rows={rec.preview.map((o) => occurrenceRow(o, zone))}
                             />
                         </div>
                     ) : null}

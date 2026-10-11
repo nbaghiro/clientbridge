@@ -36,7 +36,7 @@ export default story<OptionCardProps>({
                 title: "Gentle shampoo",
                 layout: "stack",
                 leading: <kit.Icon name="bag" size={48} />,
-                trailing: <kit.Money cents={2400} />,
+                trailing: <kit.Money currency="CAD" cents={2400} />,
                 onPress: noop,
             }),
         },

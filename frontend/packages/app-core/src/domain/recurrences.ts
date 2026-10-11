@@ -5,13 +5,25 @@ import { useMemo, useRef, useState } from "react";
 import { type ApiLike, newIdempotencyKey } from "../api";
 import {
     addDays,
+    clockKey,
+    clockOptions,
+    combineDayAndTime,
     dateKey,
+    formatClock,
+    formatDate,
+    formatDayTime,
+    formatLongWeekday,
     formatTime,
     formatWeekday,
+    formatWeekdayName,
     parseTimestamp,
     sameDay,
     startOfDay,
+    wallTime,
+    weekOrder,
     weekdayDay,
+    zonedDate,
+    useBusinessZone,
 } from "../datetime";
 import { firstName } from "../format";
 import { type Load, useAsyncAction } from "../hooks";
@@ -61,38 +73,27 @@ interface Ctx {
     now: Date;
 }
 
-const nthWeekday = (d: Date): number => Math.ceil(d.getDate() / 7);
+const nthWeekday = (d: Date, zone: string): number => Math.ceil(wallTime(d, zone).day / 7);
 
 export function stepDate(
     from: Date,
     frequency: SeriesFrequency,
     interval: number,
     i: number,
+    zone: string,
 ): Date {
-    if (frequency === "week") {
-        return new Date(
-            from.getFullYear(),
-            from.getMonth(),
-            from.getDate() + 7 * interval * i,
-            from.getHours(),
-            from.getMinutes(),
-        );
-    }
+    const w = wallTime(from, zone);
+    if (frequency === "week")
+        return zonedDate(w.year, w.month, w.day + 7 * interval * i, w.hour, w.minute, zone);
     // Monthly keeps the weekday: the 2nd Tuesday stays the 2nd Tuesday, as the server books it.
-    const n = nthWeekday(from);
-    const target = new Date(
-        from.getFullYear(),
-        from.getMonth() + interval * i,
-        1,
-        from.getHours(),
-        from.getMinutes(),
-    );
-    const shift = (from.getDay() - target.getDay() + 7) % 7;
-    let day = 1 + shift + (n - 1) * 7;
-    const days = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+    const first = new Date(Date.UTC(w.year, w.month - 1 + interval * i, 1));
+    const shift = (w.weekday - first.getUTCDay() + 7) % 7;
+    let day = 1 + shift + (nthWeekday(from, zone) - 1) * 7;
+    const days = new Date(
+        Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0),
+    ).getUTCDate();
     while (day > days) day -= 7;
-    target.setDate(day);
-    return target;
+    return zonedDate(first.getUTCFullYear(), first.getUTCMonth() + 1, day, w.hour, w.minute, zone);
 }
 
 /** Why a series visit can't go here, in the words the composer uses, or null. */
@@ -103,6 +104,7 @@ export function problemAt(
     end: Date,
     ignore: (id: string) => boolean,
 ): string | null {
+    const zone = ctx.avail.zone;
     const member = ctx.staff.get(staffId);
     const name = member ? firstName(staffName(member)) : "";
     const events = ctx.events.filter((e) => !ignore(e.id));
@@ -115,7 +117,7 @@ export function problemAt(
         case "off_hours": {
             const w = ctx.avail.windows(staffId, start);
             return w !== null && w.length === 0
-                ? s.notWorking(name, formatWeekday(start))
+                ? s.notWorking(name, formatWeekday(start, zone))
                 : s.outsideHours(name);
         }
         case "overlap": {
@@ -128,7 +130,7 @@ export function problemAt(
             );
             // a no-show still holds its slot on the server, so it is named only when nothing else clashes
             const clash = overlaps.find((e) => e.status !== "no_show") ?? overlaps[0];
-            return s.taken(name, clash ? formatTime(clash.start) : "");
+            return s.taken(name, clash ? formatTime(clash.start, zone) : "");
         }
         default:
             return null;
@@ -144,7 +146,7 @@ export function suggest(
 ): Date | null {
     for (const delta of [60, -60, 30, -30, 120, -120, 180]) {
         const t = new Date(start.getTime() + delta * MIN);
-        if (!sameDay(t, start)) continue;
+        if (!sameDay(t, start, ctx.avail.zone)) continue;
         if (problemAt(ctx, staffId, t, new Date(t.getTime() + durationMin * MIN), ignore) === null)
             return t;
     }
@@ -164,17 +166,18 @@ interface PatternInput {
 }
 
 export function buildOccurrences(p: PatternInput, ctx: Ctx): SeriesOccurrence[] {
+    const zone = ctx.avail.zone;
     const ignore = p.ignore ?? (() => false);
     const limit = p.end === "count" ? Math.min(p.count, MAX_VISITS) : MAX_VISITS;
     const out: SeriesOccurrence[] = [];
     for (let i = 0; i < limit; i++) {
-        const start = stepDate(p.first, p.frequency, p.interval, i);
-        if (p.end === "until" && start >= addDays(startOfDay(p.until), 1)) break;
+        const start = stepDate(p.first, p.frequency, p.interval, i, zone);
+        if (p.end === "until" && start >= addDays(p.until, 1, zone)) break;
         const end = new Date(start.getTime() + p.durationMin * MIN);
         const past = start < ctx.now;
         const problem = past ? null : problemAt(ctx, p.staffId, start, end, ignore);
         out.push({
-            key: dateKey(start),
+            key: dateKey(start, zone),
             index: i + 1,
             start,
             end,
@@ -188,11 +191,17 @@ export function buildOccurrences(p: PatternInput, ctx: Ctx): SeriesOccurrence[] 
     return out;
 }
 
-export function patternLabel(frequency: SeriesFrequency, interval: number, start: Date): string {
-    const day = start.toLocaleDateString("en-CA", { weekday: "long" });
+export function patternLabel(
+    frequency: SeriesFrequency,
+    interval: number,
+    start: Date,
+    zone: string,
+): string {
+    const day = formatLongWeekday(start, zone);
+    const time = formatTime(start, zone);
     if (frequency === "month")
-        return s.patternMonthly(interval, s.ordinal(nthWeekday(start)), day, formatTime(start));
-    return s.patternWeekly(interval, day, formatTime(start));
+        return s.patternMonthly(interval, s.ordinal(nthWeekday(start, zone)), day, time);
+    return s.patternWeekly(interval, day, time);
 }
 
 interface OccurrenceView extends SeriesOccurrence {
@@ -244,17 +253,7 @@ export interface SeriesComposer {
     reset: () => void;
 }
 
-const TIMES = Array.from({ length: 25 }, (_, i) => {
-    const m = 7 * 60 + i * 30;
-    const key = `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-    return { key, label: formatTime(new Date(2000, 0, 1, Math.floor(m / 60), m % 60)) };
-});
-
-const parseKey = (key: string, hhmm = "00:00"): Date => {
-    const [y = 2026, mo = 1, d = 1] = key.split("-").map(Number);
-    const [h = 0, mi = 0] = hhmm.split(":").map(Number);
-    return new Date(y, mo - 1, d, h, mi);
-};
+const times = (): { key: string; label: string }[] => clockOptions(30, "07:00", "19:00");
 
 function useSeriesContext(from: Date, to: Date): Ctx & { sources: { isLoading: boolean }[] } {
     const now = useNow();
@@ -276,26 +275,27 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
     const staffRows = useStaff().filter((x) => x.status === "active");
     const manager = viewer !== null && canManagePayments(viewer.role);
     const staffChoices = staffRows.filter((x) => manager || x.id === viewer?.staffId);
-    const today = startOfDay(new Date());
+    const zone = useBusinessZone();
+    const today = startOfDay(new Date(), zone);
     const [clientId, setClientId] = useState("");
     const [itemId, setItemId] = useState("");
     const [staffId, setStaffId] = useState(viewer?.staffId ?? "");
-    const [firstDay, setFirstDay] = useState(dateKey(addDays(today, 1)));
+    const [firstDay, setFirstDay] = useState(dateKey(addDays(today, 1, zone), zone));
     const [time, setTime] = useState("10:00");
     const [frequency, setFrequency] = useState<SeriesFrequency>("week");
     const [interval, setInterval] = useState(4);
     const [end, setEnd] = useState<SeriesEnd>("count");
     const [count, setCount] = useState(6);
-    const [until, setUntil] = useState(dateKey(addDays(today, 120)));
+    const [until, setUntil] = useState(dateKey(addDays(today, 120, zone), zone));
     const [oneConfirmation, setOneConfirmation] = useState(true);
     const [choices, setChoices] = useState<Record<string, "shift" | "skip">>({});
     const [done, setDone] = useState<SeriesComposer["done"]>(null);
     const { busy, error, setError, run } = useAsyncAction();
     const key = useRef<string | null>(null);
-    const ctx = useSeriesContext(today, addDays(today, 730));
+    const ctx = useSeriesContext(today, addDays(today, 730, zone));
 
     const item = services.find((i) => i.id === itemId);
-    const start = parseKey(firstDay, time);
+    const start = combineDayAndTime(firstDay, time, zone);
     const ready = clientId !== "" && itemId !== "" && staffId !== "";
     const raw = ready
         ? buildOccurrences(
@@ -305,7 +305,7 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
                   interval: Math.max(1, interval),
                   end,
                   count: Math.max(1, count),
-                  until: parseKey(until),
+                  until: combineDayAndTime(until, "00:00", zone),
                   staffId,
                   durationMin: item?.duration_min ?? 60,
               },
@@ -321,8 +321,8 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
             status: choice === "shift" ? "moved" : choice === "skip" ? "skipped" : o.status,
             choice,
             finalStart,
-            dateLabel: weekdayDay(o.start),
-            timeLabel: formatTime(finalStart),
+            dateLabel: weekdayDay(o.start, zone),
+            timeLabel: formatTime(finalStart, zone),
         };
     });
     const counts = {
@@ -331,9 +331,8 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
         skipped: occurrences.filter((o) => o.status === "skipped").length,
         open: occurrences.filter((o) => o.status === "conflict").length,
     };
-    const fmt = (d: Date): string =>
-        d.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
-    const pattern = patternLabel(frequency, Math.max(1, interval), start);
+    const fmt = (d: Date): string => formatDate(d, zone);
+    const pattern = patternLabel(frequency, Math.max(1, interval), start, zone);
     const first = occurrences[0];
     const last = occurrences.at(-1);
     const clientName = clients.find((c) => c.id === clientId)?.name ?? "";
@@ -361,7 +360,7 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
         setFirstDay,
         time,
         setTime,
-        timeOptions: TIMES,
+        timeOptions: times(),
         frequency,
         setFrequency,
         interval,
@@ -510,6 +509,7 @@ interface SeriesSummary {
 }
 
 export function datesOf(row: SeriesRow, visits: SeriesVisitRow[], ctx: Ctx): SeriesDate[] {
+    const zone = ctx.avail.zone;
     const mine = visits.filter((v) => v.recurrence_id === row.id);
     const ids = new Set(mine.map((v) => v.booking_id ?? v.slot_id));
     return mine.map((v, i) => {
@@ -539,8 +539,8 @@ export function datesOf(row: SeriesRow, visits: SeriesVisitRow[], ctx: Ctx): Ser
             problem,
             suggestion: null,
             past,
-            dateLabel: weekdayDay(start),
-            timeLabel: formatTime(start),
+            dateLabel: weekdayDay(start, zone),
+            timeLabel: formatTime(start, zone),
             bookingId: v.booking_id,
             staffId: v.staff_id,
         };
@@ -553,6 +553,7 @@ export function summarize(
     staff: Map<string, StaffRow>,
     now: Date,
     petName: string,
+    zone: string,
 ): SeriesSummary {
     const live = dates.filter((d) => d.status !== "canceled");
     const next = live.find((d) => !d.past) ?? null;
@@ -573,25 +574,17 @@ export function summarize(
             row.frequency === "month" ? "month" : "week",
             row.interval,
             next?.start ?? firstDate,
+            zone,
         ),
         progress: s.progress(doneCount, live.length),
         ratio: live.length > 0 ? doneCount / live.length : null,
         next: next?.start ?? null,
         nextLabel: next
-            ? sameDay(next.start, now)
-                ? s.todayAt(formatTime(next.start))
-                : `${weekdayDay(next.start)}, ${formatTime(next.start)}`
+            ? sameDay(next.start, now, zone)
+                ? s.todayAt(formatTime(next.start, zone))
+                : formatDayTime(next.start, zone)
             : s.noneLeft,
-        endsLabel: last
-            ? s.endsOn(
-                  last.start.toLocaleDateString("en-CA", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                  }),
-                  remaining,
-              )
-            : s.noneLeft,
+        endsLabel: last ? s.endsOn(formatDate(last.start, zone), remaining) : s.noneLeft,
         attention: dates.filter((d) => d.status === "conflict").length,
         ending: remaining === 1,
         status: row.status,
@@ -618,8 +611,9 @@ function useSeriesData(): {
 } {
     const series = useQuery<SeriesRow>(SERIES_SQL);
     const visits = useQuery<SeriesVisitRow>(SERIES_VISITS_SQL);
-    const today = startOfDay(new Date());
-    const ctx = useSeriesContext(addDays(today, -1), addDays(today, 730));
+    const zone = useBusinessZone();
+    const today = startOfDay(new Date(), zone);
+    const ctx = useSeriesContext(addDays(today, -1, zone), addDays(today, 730, zone));
     return {
         series: series.data,
         visits: visits.data,
@@ -639,7 +633,7 @@ export function useSeriesList(): SeriesList {
             const dates = datesOf(r, visits, ctx);
             const pet =
                 visits.find((v) => v.recurrence_id === r.id && v.pet_name !== null)?.pet_name ?? "";
-            return summarize(r, dates, ctx.staff, ctx.now, pet);
+            return summarize(r, dates, ctx.staff, ctx.now, pet, ctx.avail.zone);
         })
         .filter((r) => r.next !== null);
     const t = q.trim().toLowerCase();
@@ -700,9 +694,7 @@ export interface SeriesRecord {
     error: string | null;
 }
 
-const WEEKDAY_KEYS = ["1", "2", "3", "4", "5", "6", "0"];
-const dayName = (k: string): string =>
-    new Date(2026, 9, 4 + Number(k)).toLocaleDateString("en-CA", { weekday: "long" });
+const dayName = (k: string): string => formatWeekdayName(Number(k));
 
 /** One series: its dates, a change to the whole series (or from one visit on) and cancelling what's left. */
 export function useSeriesRecord(api: ApiLike, seriesId: string | null): SeriesRecord | null {
@@ -723,28 +715,19 @@ export function useSeriesRecord(api: ApiLike, seriesId: string | null): SeriesRe
     const { busy, error, run } = useAsyncAction();
     if (!row) return null;
 
-    const pad = (n: number): string => String(n).padStart(2, "0");
-    const wd = weekday ?? String(base.getDay());
-    const tm = time ?? `${pad(base.getHours())}:${pad(base.getMinutes())}`;
+    const zone = ctx.avail.zone;
+    const baseDay = String(wallTime(base, zone).weekday);
+    const baseTime = clockKey(base, zone);
+    const wd = weekday ?? baseDay;
+    const tm = time ?? baseTime;
     const who = staffId ?? row.staff_id ?? "";
-    const [h = 0, m = 0] = tm.split(":").map(Number);
-    const changed =
-        wd !== String(base.getDay()) ||
-        h !== base.getHours() ||
-        m !== base.getMinutes() ||
-        who !== (row.staff_id ?? "");
+    const changed = wd !== baseDay || tm !== baseTime || who !== (row.staff_id ?? "");
     const ids = new Set(dates.map((d) => d.bookingId ?? d.key));
     const inScope = scope === "one" ? upcoming.slice(0, 1) : upcoming;
     const preview: SeriesDate[] = inScope.map((d) => {
-        const shift = (Number(wd) - d.start.getDay() + 7) % 7;
+        const shift = (Number(wd) - wallTime(d.start, zone).weekday + 7) % 7;
         const offset = shift > 3 ? shift - 7 : shift;
-        const start = new Date(
-            d.start.getFullYear(),
-            d.start.getMonth(),
-            d.start.getDate() + offset,
-            h,
-            m,
-        );
+        const start = combineDayAndTime(addDays(d.start, offset, zone), tm, zone);
         const end = new Date(start.getTime() + (d.end.getTime() - d.start.getTime()));
         const problem = problemAt(ctx, who, start, end, (id) => ids.has(id));
         return {
@@ -753,8 +736,8 @@ export function useSeriesRecord(api: ApiLike, seriesId: string | null): SeriesRe
             end,
             status: problem !== null ? "conflict" : "booked",
             problem,
-            dateLabel: weekdayDay(start),
-            timeLabel: formatTime(start),
+            dateLabel: weekdayDay(start, zone),
+            timeLabel: formatTime(start, zone),
         };
     });
     const conflicts = preview.filter((o) => o.status === "conflict").length;
@@ -762,11 +745,11 @@ export function useSeriesRecord(api: ApiLike, seriesId: string | null): SeriesRe
     const pet =
         visits.find((v) => v.recurrence_id === row.id && v.pet_name !== null)?.pet_name ?? "";
     const hasDeposit = row.deposit_type !== "none";
-    const fromKey = upcoming[0] ? dateKey(upcoming[0].start) : null;
+    const fromKey = upcoming[0] ? dateKey(upcoming[0].start, zone) : null;
     const weekdayIndex = (Number(wd) + 6) % 7;
 
     return {
-        summary: summarize(row, dates, ctx.staff, ctx.now, pet),
+        summary: summarize(row, dates, ctx.staff, ctx.now, pet, zone),
         dates: canceled
             ? dates.map((d) => (d.past ? d : { ...d, status: "canceled" as const }))
             : dates,
@@ -778,8 +761,8 @@ export function useSeriesRecord(api: ApiLike, seriesId: string | null): SeriesRe
         setTime,
         staffId: who,
         setStaffId,
-        weekdayOptions: WEEKDAY_KEYS.map((k) => ({ key: k, label: dayName(k) })),
-        timeOptions: TIMES,
+        weekdayOptions: weekOrder().map((d) => ({ key: String(d), label: dayName(String(d)) })),
+        timeOptions: times(),
         staffOptions: [...ctx.staff.values()].map((x) => ({ key: x.id, label: staffName(x) })),
         preview,
         changeSummary: !changed
@@ -787,7 +770,7 @@ export function useSeriesRecord(api: ApiLike, seriesId: string | null): SeriesRe
             : s.changeSummary(
                   preview.length,
                   dayName(wd),
-                  formatTime(new Date(2000, 0, 1, h, m)),
+                  formatClock(tm),
                   member ? firstName(staffName(member)) : "",
                   conflicts,
               ),
@@ -814,7 +797,7 @@ export function useSeriesRecord(api: ApiLike, seriesId: string | null): SeriesRe
         cancelNotify,
         setCancelNotify,
         cancelSummary: upcoming[0]
-            ? s.cancelSummary(upcoming.length, weekdayDay(upcoming[0].start), hasDeposit)
+            ? s.cancelSummary(upcoming.length, weekdayDay(upcoming[0].start, zone), hasDeposit)
             : s.noneLeft,
         cancelSeries: () => {
             run(
@@ -839,13 +822,48 @@ export function useSeriesRecord(api: ApiLike, seriesId: string | null): SeriesRe
 }
 
 const STATE: Record<OccurrenceStatus, { intent: Intent; label: string }> = {
-    booked: { intent: "accent", label: s.stateBooked },
-    moved: { intent: "warning", label: s.stateMoved },
-    skipped: { intent: "neutral", label: s.stateSkipped },
-    conflict: { intent: "danger", label: s.stateConflict },
-    done: { intent: "success", label: s.stateDone },
-    missed: { intent: "danger", label: s.stateMissed },
-    canceled: { intent: "neutral", label: s.stateCanceled },
+    booked: {
+        intent: "accent",
+        get label() {
+            return s.stateBooked;
+        },
+    },
+    moved: {
+        intent: "warning",
+        get label() {
+            return s.stateMoved;
+        },
+    },
+    skipped: {
+        intent: "neutral",
+        get label() {
+            return s.stateSkipped;
+        },
+    },
+    conflict: {
+        intent: "danger",
+        get label() {
+            return s.stateConflict;
+        },
+    },
+    done: {
+        intent: "success",
+        get label() {
+            return s.stateDone;
+        },
+    },
+    missed: {
+        intent: "danger",
+        get label() {
+            return s.stateMissed;
+        },
+    },
+    canceled: {
+        intent: "neutral",
+        get label() {
+            return s.stateCanceled;
+        },
+    },
 };
 
 /** The row an OccurrenceList draws; a clash in the composer offers its suggested time and a skip. */
@@ -855,6 +873,7 @@ export function occurrenceRow(
         timeLabel: string;
         choice?: "shift" | "skip" | null;
     },
+    zone: string,
 ): OccurrenceRow {
     const planning = o.choice !== undefined;
     const st =
@@ -877,7 +896,7 @@ export function occurrenceRow(
                       ? [
                             {
                                 key: "shift",
-                                label: s.moveTo(formatTime(o.suggestion)),
+                                label: s.moveTo(formatTime(o.suggestion, zone)),
                                 selected: o.choice === "shift",
                             },
                         ]

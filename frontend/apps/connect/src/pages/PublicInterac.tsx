@@ -51,7 +51,7 @@ export function PublicInterac() {
                                 <p className="font-semibold">{pp.statusReceived}</p>
                                 <p className="mt-0.5">
                                     {pp.statusReceivedBody(
-                                        formatMoney(invoice.total_cents),
+                                        formatMoney(invoice.total_cents, invoice.currency),
                                         invoice.business_name,
                                     )}
                                 </p>
@@ -64,11 +64,14 @@ export function PublicInterac() {
                                     rows={[
                                         {
                                             label: pp.total,
-                                            value: formatMoney(invoice.total_cents),
+                                            value: formatMoney(
+                                                invoice.total_cents,
+                                                invoice.currency,
+                                            ),
                                         },
                                         {
                                             label: pp.paidSoFar,
-                                            value: formatMoney(flow.paidCents),
+                                            value: formatMoney(flow.paidCents, invoice.currency),
                                         },
                                         { label: pp.amountToSend, value: flow.amount },
                                     ]}

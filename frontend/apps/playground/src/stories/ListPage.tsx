@@ -66,7 +66,7 @@ export default story<ListPageProps<Client, Segment>>({
                     <k.Stack row>
                         <k.Avatar name={c.name} size="sm" />
                         <k.Text>{`${c.name} · ${c.pet}`}</k.Text>
-                        <k.Money cents={c.cents} />
+                        <k.Money currency="CAD" cents={c.cents} />
                     </k.Stack>
                 ),
                 empty: "No clients yet.",
@@ -135,7 +135,7 @@ export default story<ListPageProps<Client, Segment>>({
                     <k.Stack row>
                         <k.Avatar name={c.name} size="sm" />
                         <k.Text>{`${c.name} · ${c.pet}`}</k.Text>
-                        <k.Money cents={c.cents} />
+                        <k.Money currency="CAD" cents={c.cents} />
                     </k.Stack>
                 ),
                 empty: "Everyone has booked recently.",

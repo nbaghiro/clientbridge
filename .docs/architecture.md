@@ -118,7 +118,9 @@ HTTP → api/…  → schemas/ (DTO)  → services/ (logic + txn)  → core/scop
 Routers are thin: they resolve dependencies, construct a `Service(db, principal, …)`, call one method with
 the validated DTO (threading the `Idempotency-Key` header for mutations), and return a response schema.
 **All querying and the transaction live in the service.** A raised `AppError` renders as `{error, message}`
-with the subclass's HTTP status.
+with the subclass's HTTP status, and a request that fails validation as `invalid_request` with a 422. The
+`error` code is the contract: it is stable, and clients map it (with the status) to a catalog message. The
+`message` is English text for logs and developers and is never rendered.
 
 ### The cross-cutting core (`core/`)
 | File | Responsibility |
@@ -151,8 +153,8 @@ Six adapters in `integrations/`, one per provider so they read apart from our ow
 `tasks/worker.py` is the schedule only: one-line arq cron wrappers that open a session and call a `run_*`
 function in the concept's service. Reminders and due broadcasts every 15m, reap-unpaid every 15m,
 entitlement expiry and device pruning 03:30, ledger reconciliation 04:00, overdue sweep 07:00, review
-requests 08:00. Jobs aren't tenant-scoped: each row resolves its own business and locale, and each is
-idempotent via a status or timestamp marker.
+requests 08:00. Jobs aren't tenant-scoped: each row resolves its own business (and through it the time
+zone and `locale_for(...)` its text renders in), and each is idempotent via a status or timestamp marker.
 
 ---
 
@@ -532,7 +534,10 @@ Everything else — SQL, mutations, validation, status→`Intent` decisions, cop
 - **Writes** = plain functions taking `(api: ApiLike, …)` (money/uniqueness attach an idempotency key). Hours proposals use the durable local-only outbox; form and contract edits use their typed online commands.
 - **Forms** = `useXForm` hooks on the `useAsyncAction` busy/error primitive.
 - Each domain exports a status→`Intent` mapper (the platform maps `Intent` → its own tokens).
-- **`strings.ts`** is the copy catalog (one object, a group per concept) — the single home of UI copy.
+- **`strings.ts`** is the typed accessor generated from the catalog, `locales/en-CA.json` (ICU messages
+  keyed by concept, a group per concept): the single home of UI copy. **`format.ts`** and **`datetime.ts`**
+  are the one formatter for money, numbers, percentages, lists, dates, times and ranges; **`locale.ts`**
+  holds `activeLocale()` and the pseudo-locale switch (see *Locale and time zones*).
   **`icons.ts`** is icon geometry as data (rendered `<svg>` on web, `react-native-svg` on mobile).
 - **Layout:** one file per concept in `domain/` (`today`, `hours`, `earnings`, `gettingPaid`, `auth`…),
   named the same as its strings group, web page and mobile screen; the shared plumbing sits flat at the
@@ -548,6 +553,24 @@ Everything else — SQL, mutations, validation, status→`Intent` decisions, cop
   (saved card or new card, one idempotency key per attempt), and saving a card through
   `useAddPaymentMethod`. Only chargeable saved methods are offered (`checkoutMethods`): cards, and bank
   accounts with an active mandate. Bank (PAD) entry is web only for now.
+
+### Locale and time zones
+- **One entry point per side.** The frontend reads its locale only through `activeLocale()` (app-core
+  `locale.ts`) and the backend only through `locale_for(business=, client=, user=)` (`core/locale.py`). Both
+  return `en-CA` (`en_CA`) today; choosing a locale per business, user, client or visitor later changes these
+  two functions, not their call sites. There is no locale column and no language setting.
+- **Catalogs.** The apps, Connect and the embed script read `app-core/locales/en-CA.json`, the site reads
+  `apps/site/locales/en-CA.json`, and backend email, SMS, push, CSV headers and tax names read
+  `backend/src/clientbridge/locales/en_CA.po`. The generated `en-XA` (`en_XA`) pseudo-locale is a
+  development and test tool switched on by `VITE_PSEUDO_LOCALE`, `EXPO_PUBLIC_PSEUDO_LOCALE` or the
+  backend's `PSEUDO_LOCALE`; it is never offered to users.
+- **Business time zone.** Every date and time on staff surfaces and Connect is shown in the business's IANA
+  time zone (validated on save, picked from a list): staff screens read it with `useBusinessZone()` from
+  `BusinessZoneContext`, Connect from the `timezone` field every public payload carries, and Connect names
+  the zone when the visitor's differs. Grouping by day uses the same zone, never the device's. The backend
+  formats email and SMS times with `format_day_and_time` in the business zone and ships its own `tzdata`.
+- **Errors.** Clients choose a message from the response's `error` code and HTTP status
+  (`failureMessage`, `failedCode`, `failedStatus` in app-core `api.ts`); the `message` text is never shown.
 
 ### Navigation
 Both apps show the same five destinations from `domain/navigation.ts`: Today, Schedule, Clients, Payments
@@ -650,8 +673,9 @@ The public surfaces (book/pay/form/contract/review + a per-business landing) liv
 (`apps/connect`, :8709) that imports **only** `@clientbridge/app-core/public` — no PowerSync, no api-client.
 Each `public*` domain is a `createPublicXClient(baseUrl)` factory doing plain `fetch` against token/slug-
 authed endpoints (the URL is the only credential). `apps/connect/public/embed.js` is the host-side iframe
-loader — custom elements (`<connect-booking|pay|…>`) that mount the widget with a `postMessage` resize +
-success protocol. The lean-bundle boundary is **enforced by lint**: `no-restricted-imports` bans `@powersync/*`
+loader: custom elements (`<connect-booking|pay|…>`) that mount the widget with a `postMessage` resize and
+success protocol. `make gen-strings` builds it from `src/embedLoader.ts` with the `embed.*` catalog messages
+inlined, so the host page loads neither React nor the catalog. The lean-bundle boundary is **enforced by lint**: `no-restricted-imports` bans `@powersync/*`
 from Connect and `app-core/public`.
 
 ### Marketing site (`apps/site`)
@@ -662,8 +686,10 @@ JavaScript, and the only shipped asset besides HTML is one CSS file and the font
 through `@clientbridge/tokens` and the logo through `@clientbridge/ui`, so the site and the apps cannot drift
 apart visually.
 
-- **Copy and data:** all copy lives in `src/content/` (typed modules), the marketing equivalent of
-  `strings.ts`. The demo figures in the laptop and phone mocks come from one `content/demo.ts`.
+- **Copy and data:** all copy lives in the site catalog, `locales/en-CA.json`, read through its generated
+  `src/strings.ts` and formatted with the app-core formatter; `src/content/` keeps structural data (icons,
+  photo names, routes) keyed by id. The demo figures in the laptop and phone mocks come from one
+  `content/demo.ts`.
 - **Links out:** `VITE_SITE_URL`, `VITE_APP_URL` and `VITE_BOOK_URL` set where the site, the web app and
   Connect live (production: the main domain, `app.` and `book.`). "Sign in" and "Start free" go to the web
   app, "See the demo business" to Birchbark's public booking page.

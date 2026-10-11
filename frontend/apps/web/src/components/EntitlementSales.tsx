@@ -4,6 +4,8 @@ import {
     formatMoney,
     strings,
     useEntitlementSaleForm,
+    BUSINESS_CURRENCY,
+    currencyAffix,
 } from "@clientbridge/app-core";
 import {
     Button,
@@ -38,7 +40,7 @@ export function SellEntitlement({
             title={w.sellTitle}
             checkout={form.checkout}
             methods={form.methods}
-            amountLabel={formatMoney(form.totalCents)}
+            amountLabel={formatMoney(form.totalCents, BUSINESS_CURRENCY)}
             submitLabel={form.submitLabel}
             busyLabel={form.busyLabel}
             onSubmit={form.submit}
@@ -77,7 +79,7 @@ function SaleFields({
                         <TextField
                             label={w.giftAmount}
                             type="number"
-                            prefix="$"
+                            {...currencyAffix(BUSINESS_CURRENCY)}
                             value={form.amount}
                             onChange={form.setAmount}
                         />
@@ -119,7 +121,7 @@ function SaleFields({
             ) : null}
             {form.needsCard ? <Notice tone="info">{w.membershipNeedsCard}</Notice> : null}
             <div className="rounded-md border border-line bg-bg px-4 py-3">
-                <DocTotals lines={form.lines} density="compact" />
+                <DocTotals currency={BUSINESS_CURRENCY} lines={form.lines} density="compact" />
             </div>
         </div>
     );

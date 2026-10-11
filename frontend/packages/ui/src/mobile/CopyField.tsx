@@ -1,4 +1,4 @@
-import { type CopyFieldProps, strings, useFlash } from "@clientbridge/app-core";
+import { type CopyFieldProps, formatList, strings, useFlash } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -40,7 +40,10 @@ export function CopyField({
                 </Text>
                 <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`${copied ? copiedLabel : copyLabel}, ${label}`}
+                    accessibilityLabel={formatList(
+                        [copied ? copiedLabel : copyLabel, label],
+                        "unit",
+                    )}
                     onPress={() => {
                         if (copiedProp === undefined) flash();
                         onCopy?.();

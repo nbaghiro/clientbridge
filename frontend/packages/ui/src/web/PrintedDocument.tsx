@@ -1,10 +1,14 @@
 import {
     type PrintedDocumentProps,
     formatMoney,
+    formatNumber,
     type PrintedDoc,
     type PrintedDocLabels,
     type PrintedDocLine,
     type PrintedDocTax,
+    formatParts,
+    taxList,
+    taxName,
 } from "@clientbridge/app-core/public";
 
 import { Avatar } from "./Avatar";
@@ -48,7 +52,7 @@ function Parties({ doc }: { doc: Doc }) {
                         {l}
                     </p>
                 ))}
-                <p className="text-ink-soft">{[b.phone, b.email].filter(Boolean).join(" · ")}</p>
+                <p className="text-ink-soft">{formatParts([b.phone, b.email])}</p>
             </div>
             <div>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
@@ -109,14 +113,16 @@ function LinesTable({ doc }: { doc: Doc }) {
                             ) : null}
                         </td>
                         <td className="py-2 text-right tabular-nums text-ink-soft">
-                            {line.quantity}
+                            {formatNumber(line.quantity)}
                         </td>
                         <td className="py-2 pl-3 text-right tabular-nums text-ink-soft">
-                            {formatMoney(line.unitCents)}
+                            {formatMoney(line.unitCents, doc.currency)}
                         </td>
-                        <td className="py-2 pl-3 text-ink-soft">{line.taxCodes.join(" + ")}</td>
+                        <td className="py-2 pl-3 text-ink-soft">
+                            {taxList(line.taxCodes.map(taxName))}
+                        </td>
                         <td className="whitespace-nowrap py-2 pl-3 text-right font-medium tabular-nums text-ink">
-                            {formatMoney(line.amountCents)}
+                            {formatMoney(line.amountCents, doc.currency)}
                         </td>
                     </tr>
                 ))}
@@ -136,10 +142,10 @@ function TaxSummary({ doc }: { doc: Doc }) {
                         <tr key={t.code}>
                             <td className="pr-4 text-ink-soft">{t.label}</td>
                             <td className="pr-4">
-                                {doc.labels.taxBase} {formatMoney(t.baseCents)}
+                                {doc.labels.taxBase(formatMoney(t.baseCents, doc.currency))}
                             </td>
                             <td className="text-right tabular-nums text-ink-soft">
-                                {formatMoney(t.cents)}
+                                {formatMoney(t.cents, doc.currency)}
                             </td>
                         </tr>
                     ))}
@@ -158,11 +164,10 @@ function PaymentBox({ doc }: { doc: Doc }) {
                 {doc.labels.paymentMethod}
             </p>
             <div className="mt-1 flex items-baseline justify-between gap-4">
-                <p className="font-medium text-ink">
-                    {p.method}
-                    {p.reference ? ` · ${p.reference}` : ""}
+                <p className="font-medium text-ink">{formatParts([p.method, p.reference])}</p>
+                <p className="font-semibold tabular-nums text-ink">
+                    {formatMoney(p.amountCents, doc.currency)}
                 </p>
-                <p className="font-semibold tabular-nums text-ink">{formatMoney(p.amountCents)}</p>
             </div>
             <p className="text-muted">{p.at}</p>
         </div>
@@ -212,7 +217,7 @@ function Footer({ doc }: { doc: Doc }) {
             <div>
                 <p className="text-ink-soft">{doc.footer}</p>
                 <p className="mt-0.5">
-                    {[doc.business.registration, doc.business.website].filter(Boolean).join(" · ")}
+                    {formatParts([doc.business.registration, doc.business.website])}
                 </p>
             </div>
             <p>{doc.labels.page}</p>
@@ -232,10 +237,7 @@ function Classic({ doc }: { doc: Doc }) {
                     >
                         {doc.title}
                     </p>
-                    <p className="mt-0.5 text-[11px] text-muted">
-                        {/^\d/.test(doc.number) ? "#" : ""}
-                        {doc.number}
-                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted">{doc.reference}</p>
                 </div>
             </header>
             <div
@@ -260,7 +262,7 @@ function Classic({ doc }: { doc: Doc }) {
                     <PaymentBox doc={doc} />
                 </div>
                 <div>
-                    <DocTotals lines={doc.totals} density="compact" />
+                    <DocTotals lines={doc.totals} currency={doc.currency} density="compact" />
                     {doc.stamp !== null ? <Stamp text={doc.stamp} /> : null}
                 </div>
             </div>
@@ -280,10 +282,7 @@ function Statement({ doc }: { doc: Doc }) {
             >
                 <BrandBlock doc={doc} inverse />
                 <div className="text-right text-on-data">
-                    <p className="font-display text-lg font-bold">
-                        {doc.title} {/^\d/.test(doc.number) ? "#" : ""}
-                        {doc.number}
-                    </p>
+                    <p className="font-display text-lg font-bold uppercase">{doc.heading}</p>
                     <p className="text-[11px] text-on-data/75">{doc.meta[1]?.value}</p>
                 </div>
             </header>
@@ -293,11 +292,9 @@ function Statement({ doc }: { doc: Doc }) {
                         {doc.headline.label}
                     </p>
                     <p className="mt-1 font-display text-4xl font-bold tabular-nums text-ink">
-                        {formatMoney(doc.headline.cents)}
+                        {formatMoney(doc.headline.cents, doc.currency)}
                     </p>
-                    <p className="mt-1 text-[11px] text-muted">
-                        {doc.meta[2]?.label} {doc.meta[2]?.value}
-                    </p>
+                    <p className="mt-1 text-[11px] text-muted">{doc.deadline}</p>
                     {doc.instructions.map((i) => (
                         <p
                             key={i}
@@ -333,7 +330,7 @@ function Statement({ doc }: { doc: Doc }) {
                     <TaxSummary doc={doc} />
                 </div>
                 <div>
-                    <DocTotals lines={doc.totals} density="compact" />
+                    <DocTotals lines={doc.totals} currency={doc.currency} density="compact" />
                     {doc.stamp !== null ? <Stamp text={doc.stamp} /> : null}
                 </div>
             </div>
@@ -349,7 +346,7 @@ export function PrintedDocument({
     return (
         <div className={cx("@container mx-auto w-full max-w-[680px]", className)}>
             <article
-                aria-label={`${doc.title} ${doc.number}`}
+                aria-label={doc.heading}
                 className="relative flex min-h-[129.4cqw] w-full flex-col overflow-hidden rounded-sm bg-surface p-6 text-ink @xl:p-12 shadow-page"
             >
                 {template === "classic" ? <Classic doc={doc} /> : <Statement doc={doc} />}

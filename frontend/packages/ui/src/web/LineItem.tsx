@@ -12,6 +12,7 @@ export function LineItem({
     quantity,
     count,
     cents,
+    currency,
     originalCents,
     tag,
     onPress,
@@ -73,11 +74,11 @@ export function LineItem({
                 originalCents !== null &&
                 originalCents !== cents ? (
                     <span className="block text-xs tabular-nums text-muted line-through">
-                        {formatMoney(originalCents)}
+                        {formatMoney(originalCents, currency)}
                     </span>
                 ) : null}
                 <span className="block text-sm font-semibold tabular-nums text-ink">
-                    {formatMoney(cents)}
+                    {formatMoney(cents, currency)}
                 </span>
             </span>
             {onRemove !== undefined ? (

@@ -1,4 +1,4 @@
-import type { ConversationRowProps } from "@clientbridge/app-core";
+import { type ConversationRowProps, formatList } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -28,7 +28,7 @@ export function ConversationRow({
             onPress={onPress}
             accessibilityRole="button"
             accessibilityState={{ selected }}
-            accessibilityLabel={`${name}, ${channelLabel}, ${preview}`}
+            accessibilityLabel={formatList([name, channelLabel, preview], "unit")}
             style={({ pressed }) => [styles.row, (selected || pressed) && styles.active, style]}
         >
             <Avatar name={name} size="lg" />

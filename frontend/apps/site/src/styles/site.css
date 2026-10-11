@@ -591,6 +591,7 @@
         color: var(--muted);
         font-size: 10px;
         letter-spacing: 0.04em;
+        text-transform: uppercase;
     }
     .cal .dh b {
         display: block;

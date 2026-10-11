@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import { type PublicBrand, usePublicResource } from "./publicResource";
+import { refusal } from "../api";
 
 interface PublicReviewContext {
     business_name: string;
@@ -22,16 +23,6 @@ interface PublicReviewSubmit {
     body?: string | null;
 }
 
-class PublicReviewError extends Error {
-    constructor(
-        readonly status: number,
-        message: string,
-    ) {
-        super(message);
-        this.name = "PublicReviewError";
-    }
-}
-
 interface PublicReviewClient {
     getContext: (token: string) => Promise<PublicReviewContext>;
     submit(token: string, input: PublicReviewSubmit): Promise<PublicReviewContext>;
@@ -41,8 +32,7 @@ export function createPublicReviewClient(baseUrl: string): PublicReviewClient {
     const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
         const res = await fetch(`${baseUrl}${path}`, init);
         if (!res.ok) {
-            const text = await res.text().catch(() => "");
-            throw new PublicReviewError(res.status, text || res.statusText);
+            throw await refusal(res);
         }
         return (await res.json()) as T;
     };

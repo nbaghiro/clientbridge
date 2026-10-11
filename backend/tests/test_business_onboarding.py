@@ -94,3 +94,32 @@ async def test_invalid_province_422(
     assert res.status_code == 422  # an unsupported province must be rejected, not stored
     n = (await db.execute(text("SELECT count(*) FROM businesses WHERE slug = 'bad-prov'"))).scalar()
     assert n == 0  # and nothing partial is committed
+
+
+async def test_onboard_keeps_a_valid_timezone(api: httpx.AsyncClient, factory: Factory) -> None:
+    user = await factory.user()
+    await _auth(api, factory, user.id)
+    body = {"name": "Tz", "slug": "tz-ok", "province": "NS", "timezone": "America/Halifax"}
+    res = await api.post("/v1/onboarding", json=body)
+    assert res.status_code == 201, res.text
+    assert res.json()["timezone"] == "America/Halifax"
+
+
+async def test_onboard_defaults_timezone(api: httpx.AsyncClient, factory: Factory) -> None:
+    user = await factory.user()
+    await _auth(api, factory, user.id)
+    res = await api.post("/v1/onboarding", json={"name": "D", "slug": "tz-def", "province": "ON"})
+    assert res.json()["timezone"] == "America/Toronto"
+
+
+async def test_onboard_unknown_timezone_422_no_partial(
+    api: httpx.AsyncClient, factory: Factory, db: AsyncSession
+) -> None:
+    user = await factory.user()
+    await _auth(api, factory, user.id)
+    body = {"name": "X", "slug": "tz-bad", "province": "BC", "timezone": "Pacific Time"}
+    res = await api.post("/v1/onboarding", json=body)
+    assert res.status_code == 422
+    assert res.json()["error"] == "invalid_timezone"
+    n = (await db.execute(text("SELECT count(*) FROM businesses WHERE slug = 'tz-bad'"))).scalar()
+    assert n == 0

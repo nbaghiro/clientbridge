@@ -1,4 +1,6 @@
 from fastapi import Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -69,6 +71,20 @@ async def app_error_handler(_: Request, exc: Exception) -> JSONResponse:
         raise exc
     return JSONResponse(
         status_code=exc.status_code, content={"error": exc.code, "message": exc.message}
+    )
+
+
+async def validation_error_handler(_: Request, exc: Exception) -> JSONResponse:
+    # Every refused request names a stable code, so clients choose their message without the text.
+    if not isinstance(exc, RequestValidationError):
+        raise exc
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "invalid_request",
+            "message": "the request did not validate",
+            "detail": jsonable_encoder(exc.errors()),
+        },
     )
 
 

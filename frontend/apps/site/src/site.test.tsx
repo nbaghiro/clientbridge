@@ -101,9 +101,10 @@ describe("demo figures", () => {
                 expect(event.species).toBe("dog");
         }
         for (const day of calendar.days) {
-            const weekday = new Date(`${day.iso}T12:00:00Z`)
-                .toLocaleDateString("en-CA", { weekday: "short", timeZone: "UTC" })
-                .toUpperCase();
+            const weekday = new Date(`${day.iso}T12:00:00Z`).toLocaleDateString("en-CA", {
+                weekday: "short",
+                timeZone: "UTC",
+            });
             expect(day.label).toBe(weekday);
         }
         for (let day = 0; day < calendar.days.length; day += 1) {

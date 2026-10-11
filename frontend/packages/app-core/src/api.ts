@@ -1,3 +1,5 @@
+import { strings } from "./strings";
+
 interface PostOptions {
     idempotencyKey?: string;
 }
@@ -12,10 +14,52 @@ export interface ApiLike {
     delete<T>(path: string): Promise<T>;
 }
 
-// The api client throws "POST /auth/login → 429"; the status decides which message to show.
+const field = (e: unknown, name: "status" | "code"): unknown =>
+    e !== null && typeof e === "object" && name in e ? (e as Record<string, unknown>)[name] : null;
+
+/** The HTTP status of a refused request; the message shown comes from the catalog. */
 export function failedStatus(e: unknown): number | null {
-    const m = e instanceof Error ? /→ (\d{3})$/.exec(e.message) : null;
-    return m?.[1] === undefined ? null : Number(m[1]);
+    const status = field(e, "status");
+    return typeof status === "number" ? status : null;
+}
+
+/** The stable `error` code a refused request carried, such as "invalid_timezone". */
+export function failedCode(e: unknown): string | null {
+    const code = field(e, "code");
+    return typeof code === "string" ? code : null;
+}
+
+/** A refused public request, read the same way as a staff one: status and code, never the text. */
+export async function refusal(
+    res: Response,
+): Promise<Error & { status: number; code: string | null }> {
+    let code: string | null = null;
+    try {
+        const body = (await res.json()) as { error?: unknown };
+        if (typeof body.error === "string") code = body.error;
+    } catch {
+        code = null;
+    }
+    return Object.assign(new Error(`${res.url} → ${String(res.status)}`), {
+        status: res.status,
+        code,
+    });
+}
+
+// Failures the server names that read the same wherever they happen.
+const FAILURES: Record<string, () => string> = {
+    invalid_timezone: () => strings.api.invalidTimezone,
+    out_of_stock: () => strings.api.outOfStock,
+    pickup_window_taken: () => strings.api.pickupWindowTaken,
+    shop_not_ready: () => strings.api.shopNotReady,
+    mixed_currencies: () => strings.api.mixedCurrencies,
+};
+
+/** The catalog message for a failure the server named, else the action's own message. */
+export function failureMessage(e: unknown, fallback: string): string {
+    const code = failedCode(e);
+    const known = code === null ? undefined : FAILURES[code];
+    return known === undefined ? fallback : known();
 }
 
 /** One key per write attempt, reused across its retries so the server dedups instead of double-charging. */

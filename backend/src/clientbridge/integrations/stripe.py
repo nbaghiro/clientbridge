@@ -158,7 +158,13 @@ class PaymentGateway(Protocol):
         ...
 
     async def create_pad_setup_intent(
-        self, account_id: str, *, customer_id: str, idempotency_key: str, email: str | None = None
+        self,
+        account_id: str,
+        *,
+        customer_id: str,
+        idempotency_key: str,
+        interval_description: str,
+        email: str | None = None,
     ) -> SetupIntentResult:
         """Save a Canadian pre-authorized debit (ACSS) mandate for later off-session pulls."""
         ...
@@ -176,6 +182,7 @@ class PaymentGateway(Protocol):
         currency: str,
         interval_count: int,
         frequency: str,
+        product_name: str,
     ) -> str:
         """A recurring Price for a subscription item; returns the price id."""
         ...
@@ -408,7 +415,13 @@ class StripeGateway:
 
     @_keyed
     async def create_pad_setup_intent(  # pragma: no cover
-        self, account_id: str, *, customer_id: str, idempotency_key: str, email: str | None = None
+        self,
+        account_id: str,
+        *,
+        customer_id: str,
+        idempotency_key: str,
+        interval_description: str,
+        email: str | None = None,
     ) -> SetupIntentResult:
         if email is not None:
             await stripe.Customer.modify_async(customer_id, email=email, stripe_account=account_id)
@@ -421,9 +434,7 @@ class StripeGateway:
                     "currency": "cad",
                     "mandate_options": {
                         "payment_schedule": "interval",
-                        "interval_description": (
-                            "When an invoice or a scheduled membership payment is due"
-                        ),
+                        "interval_description": interval_description,
                         "default_for": ["invoice", "subscription"],
                         "transaction_type": "personal",
                     },
@@ -504,12 +515,13 @@ class StripeGateway:
         currency: str,
         interval_count: int,
         frequency: str,
+        product_name: str,
     ) -> str:
         price = await stripe.Price.create_async(
             unit_amount=amount_cents,
             currency=currency.lower(),
             recurring={"interval": frequency, "interval_count": interval_count},  # type: ignore[typeddict-item]
-            product_data={"name": "Subscription"},
+            product_data={"name": product_name},
             stripe_account=account_id,
         )
         return str(price.id)

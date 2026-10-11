@@ -1,8 +1,13 @@
-import { BUSINESS_TEXT_FIELDS, strings, useBusinessForm } from "@clientbridge/app-core";
+import {
+    BUSINESS_TEXT_FIELDS,
+    strings,
+    timeZoneOptions,
+    useBusinessForm,
+} from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import type { ReactNode } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Button, Loading, Notice, TextField } from "@clientbridge/ui";
+import { Button, Loading, Notice, Select, TextField } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
@@ -42,6 +47,15 @@ export function Business({ footer }: { footer?: ReactNode }) {
                         surface="surface"
                     />
                 ))}
+                <Select
+                    label={strings.business.timezoneLabel}
+                    value={fields.timezone}
+                    options={timeZoneOptions(fields.timezone)}
+                    onChange={(v) => {
+                        form.set("timezone", v);
+                    }}
+                    size="lg"
+                />
 
                 {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
                 {form.saved ? <Notice tone="success">{strings.common.saved}</Notice> : null}

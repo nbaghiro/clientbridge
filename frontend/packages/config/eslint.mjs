@@ -2,14 +2,30 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
+import noComposedCopy from "./no-composed-copy.mjs";
+import noErrorMessageCopy from "./no-error-message-copy.mjs";
+import noHandPlural from "./no-hand-plural.mjs";
 import noInlineUiString from "./no-inline-ui-string.mjs";
+import noModuleScopeCopy from "./no-module-scope-copy.mjs";
+import noRawFormat from "./no-raw-format.mjs";
 
 export default tseslint.config(
     js.configs.recommended,
     ...tseslint.configs.strictTypeChecked,
     ...tseslint.configs.stylisticTypeChecked,
     {
-        plugins: { local: { rules: { "no-inline-ui-string": noInlineUiString } } },
+        plugins: {
+            local: {
+                rules: {
+                    "no-composed-copy": noComposedCopy,
+                    "no-error-message-copy": noErrorMessageCopy,
+                    "no-hand-plural": noHandPlural,
+                    "no-inline-ui-string": noInlineUiString,
+                    "no-module-scope-copy": noModuleScopeCopy,
+                    "no-raw-format": noRawFormat,
+                },
+            },
+        },
         rules: {
             "no-console": "error",
             // Ban `void`; ignoreVoid:false so a floating promise needs a real .catch/await, not void.
@@ -18,16 +34,60 @@ export default tseslint.config(
             "@typescript-eslint/no-explicit-any": "error",
             // Numbers in template strings are fine; objects and any are still banned.
             "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
+            "local/no-composed-copy": "error",
+            "local/no-error-message-copy": "error",
+            "local/no-hand-plural": "error",
             "local/no-inline-ui-string": "error",
+            "local/no-module-scope-copy": "error",
+            "local/no-raw-format": "error",
         },
+    },
+    {
+        // Composition checks apply where text is rendered, not in scripts, sync or the API client.
+        ignores: ["**/apps/*/src/**", "**/packages/ui/src/**", "**/packages/app-core/src/**"],
+        rules: { "local/no-composed-copy": "off" },
+    },
+    {
+        // The formatter is the one place that calls Intl and names locales.
+        files: [
+            "**/packages/app-core/src/format.ts",
+            "**/packages/app-core/src/datetime.ts",
+            "**/packages/app-core/src/locale.ts",
+        ],
+        rules: { "local/no-raw-format": "off", "local/no-composed-copy": "off" },
+    },
+    {
+        // Signature strokes are SVG path coordinates, not displayed numbers.
+        files: ["**/SignaturePad.tsx"],
+        rules: { "local/no-raw-format": "off" },
+    },
+    {
+        // The site prerenders one locale per build process, so its content modules may read the catalog once.
+        files: ["**/apps/site/src/**/*.{ts,tsx}"],
+        rules: { "local/no-module-scope-copy": "off" },
     },
     {
         // Debug overlays are dev tooling, not product copy.
         files: ["**/Debug*.tsx"],
-        rules: { "local/no-inline-ui-string": "off" },
+        rules: {
+            "local/no-composed-copy": "off",
+            "local/no-error-message-copy": "off",
+            "local/no-inline-ui-string": "off",
+            "local/no-raw-format": "off",
+        },
     },
     {
-        // The playground's stories hold fixture data and its chrome is a dev tool, not product copy.
+        // Tests, e2e suites and the playground (fixture data, dev chrome) are not product copy.
+        files: ["**/*.test.{ts,tsx}", "**/e2e/**/*.ts", "**/apps/playground/**/*.{ts,tsx}"],
+        rules: {
+            "local/no-composed-copy": "off",
+            "local/no-error-message-copy": "off",
+            "local/no-hand-plural": "off",
+            "local/no-module-scope-copy": "off",
+            "local/no-raw-format": "off",
+        },
+    },
+    {
         files: ["**/apps/playground/**/*.{ts,tsx}"],
         rules: { "local/no-inline-ui-string": "off" },
     },

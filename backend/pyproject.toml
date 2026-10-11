@@ -19,6 +19,8 @@ dependencies = [
     "httpx>=0.27",
     "stripe>=10.0",
     "boto3>=1.34",
+    "babel==2.17.0",
+    "tzdata==2026.5",
 ]
 
 [dependency-groups]

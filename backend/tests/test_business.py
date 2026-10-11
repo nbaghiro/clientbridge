@@ -1,3 +1,7 @@
+import zoneinfo
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo, available_timezones
+
 import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -129,3 +133,37 @@ async def test_setup_list_can_be_hidden_and_shown(as_owner: httpx.AsyncClient) -
 async def test_staff_cannot_change_tax_settings_403(as_staff: httpx.AsyncClient) -> None:
     res = await as_staff.patch("/v1/business", json={"tax_registered": True})
     assert res.status_code == 403
+
+
+async def test_unknown_timezone_is_422_and_not_stored(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    before = (await db.execute(select(Business.timezone).where(Business.id == BIZ))).scalar_one()
+    for zone in ("Mars/Olympus_Mons", "america/vancouver", "EST5EDT ", "", None):
+        res = await as_owner.patch("/v1/business", json={"timezone": zone})
+        assert res.status_code == 422, zone
+        assert res.json()["error"] == "invalid_timezone"
+    after = (await db.execute(select(Business.timezone).where(Business.id == BIZ))).scalar_one()
+    assert after == before
+
+
+def test_zone_data_is_the_pinned_package_with_bc_on_permanent_utc_minus_7() -> None:
+    assert zoneinfo.TZPATH == ()
+    december = datetime(2026, 12, 1, 12, tzinfo=ZoneInfo("America/Vancouver"))
+    assert december.utcoffset() == timedelta(hours=-7)
+
+
+async def test_a_malformed_request_names_a_code(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.patch("/v1/business", json={"name": ["not", "text"]})
+    assert res.status_code == 422
+    assert res.json()["error"] == "invalid_request"
+
+
+async def test_update_without_timezone_skips_the_check(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.patch("/v1/business", json={"name": "Birchbark"})
+    assert res.status_code == 200, res.text
+
+
+async def test_seeded_businesses_use_iana_zones(db: AsyncSession) -> None:
+    zones = set((await db.execute(select(Business.timezone))).scalars())
+    assert zones and zones <= available_timezones()

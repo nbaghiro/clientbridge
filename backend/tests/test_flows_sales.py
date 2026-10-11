@@ -73,7 +73,7 @@ async def test_pos_sale_moves_stock_pays_commission_and_refunds(
     [commission] = await earnings(db, "order", sale["id"])
     assert await earning_status(db, commission) == "pending"
     (receipt,) = [m for m in email.sent if m.to == "walkin-flow@example.ca"]
-    assert "it_shampoo x2  $48.00 CAD" in receipt.body
+    assert "it_shampoo x2  $48.00" in receipt.body
 
     await settle(api, db, charge["payment_id"])  # a redelivered settlement changes nothing
     assert await _stock(db, SHAMPOO) == opening_stock + 3

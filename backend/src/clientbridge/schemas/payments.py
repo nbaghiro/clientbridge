@@ -244,6 +244,7 @@ class PublicInvoice(BaseModel):
     business_name: str
     brand: PublicBrand
     currency: str
+    timezone: str = Field(description="The business's IANA time zone, which its times are shown in")
     subtotal_cents: int = 0
     tax_total_cents: int = 0
     total_cents: int

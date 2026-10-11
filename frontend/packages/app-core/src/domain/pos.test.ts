@@ -10,12 +10,14 @@ import {
     previewDiscount,
     priceSale,
     type SaleLine,
-    saleNumber,
     saleStatus,
     saleTotalLines,
     tipCentsFor,
     tipShares,
 } from "./pos";
+import { saleNumber } from "./printing";
+
+const ZONE = "America/Vancouver";
 
 describe("the pickup queue", () => {
     const now = new Date("2026-10-06T16:00:00Z");
@@ -60,7 +62,7 @@ describe("the pickup queue", () => {
     });
 
     it("shapes an order for the board: its lines, contact and how long it has waited", () => {
-        const view = pickupOrder(order, lines, now);
+        const view = pickupOrder(order, lines, now, ZONE);
         expect(view).toMatchObject({
             clientName: "Guest",
             statusLabel: "Ready",
@@ -260,7 +262,7 @@ describe("sale discounts, tips and status", () => {
 
     it("numbers a sale and reads its status off the ledger status and refunds", () => {
         expect(saleNumber(42)).toBe("S-42");
-        expect(saleNumber(0)).toBe("S-0");
+        expect(saleNumber(1044)).toBe("S-1044");
         expect(saleNumber(null)).toBe("");
         expect(saleStatus({ status: "paid", refunded_cents: 0 })).toBe("paid");
         expect(saleStatus({ status: "paid", refunded_cents: 1 })).toBe("partly_refunded");

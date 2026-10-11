@@ -14,6 +14,8 @@ import {
     useContractLibrary,
     useNewContract,
     useSignatureActions,
+    formatParts,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     ActivityTimeline,
@@ -80,11 +82,11 @@ export function Contracts() {
                             options={library.contracts.map((x) => ({
                                 key: x.contract.id,
                                 label: x.contract.name,
-                                hint: [
+                                hint: formatParts([
                                     s.versionShort(x.contract.version),
                                     s.signedCount(x.signed),
                                     s.waitingCount(x.waiting),
-                                ].join(" · "),
+                                ]),
                             }))}
                         />
                         <ContractDetail
@@ -132,6 +134,7 @@ function ContractDetail({
     issuer: string;
     onSend: () => void;
 }) {
+    const zone = useBusinessZone();
     const [editing, setEditing] = useState(false);
     const [viewing, setViewing] = useState<SignatureRequest | null>(null);
     const draft = useContractDraft(api, summary.contract, () => {
@@ -140,7 +143,7 @@ function ContractDetail({
     const actions = useSignatureActions(api, config.bookUrl, copyText);
     const c = summary.contract;
     const updated =
-        c.updated_at === null ? "" : ` · ${s.updated(formatDate(parseTimestamp(c.updated_at)))}`;
+        c.updated_at === null ? null : s.updated(formatDate(parseTimestamp(c.updated_at), zone));
 
     return (
         <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
@@ -200,7 +203,7 @@ function ContractDetail({
                             density="compact"
                             issuer={issuer}
                             title={c.name}
-                            meta={`${s.version(c.version)}${updated}`}
+                            meta={formatParts([s.version(c.version), updated])}
                             clauses={contractClauses(c.body)}
                         />
                     </div>
@@ -210,7 +213,10 @@ function ContractDetail({
                 <Panel
                     flush
                     title={s.signatures}
-                    subtitle={`${s.signedCount(summary.signed)} · ${s.waitingCount(summary.waiting)}`}
+                    subtitle={formatParts([
+                        s.signedCount(summary.signed),
+                        s.waitingCount(summary.waiting),
+                    ])}
                     actions={
                         <Button size="sm" icon="send" onPress={onSend}>
                             {s.send}
@@ -237,7 +243,7 @@ function ContractDetail({
                                             ) : null}
                                         </div>
                                         <div className="truncate text-xs text-muted">
-                                            {signatureActivity(r)}
+                                            {signatureActivity(r, zone)}
                                         </div>
                                     </div>
                                     {r.state === "signed" ? (
@@ -253,7 +259,7 @@ function ContractDetail({
                                         </Button>
                                     ) : (
                                         <StatusPill
-                                            status={s.status[r.state] ?? r.state}
+                                            status={s.status[r.state]}
                                             intent={signatureIntent(r.state)}
                                             asWritten
                                         />
@@ -322,6 +328,7 @@ function SignedCopyDialog({
     issuer: string;
     onClose: () => void;
 }) {
+    const zone = useBusinessZone();
     return (
         <Modal open onClose={onClose} size="lg">
             <div className="space-y-5">
@@ -330,13 +337,13 @@ function SignedCopyDialog({
                     title={request.contract_name}
                     meta={s.version(request.version)}
                     clauses={contractClauses(signedText(request, currentBody))}
-                    signature={signatureBlock(request)}
+                    signature={signatureBlock(request, zone)}
                 />
                 <div>
                     <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
                         {s.history}
                     </h3>
-                    <ActivityTimeline entries={signatureHistory(request)} />
+                    <ActivityTimeline entries={signatureHistory(request, zone)} />
                 </div>
                 <p className="text-xs text-muted">{s.printNote}</p>
                 <div className="flex justify-end gap-2">

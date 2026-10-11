@@ -9,6 +9,10 @@ import {
     shortDate,
     strings,
     usePublicPayForm,
+    formatParts,
+    taxList,
+    taxName,
+    currencyAffix,
 } from "@clientbridge/app-core/public";
 import { Button, CardForm, Choice, DocTotals, Icon, Notice, TextField } from "@clientbridge/ui";
 import { cssVar } from "@clientbridge/tokens";
@@ -83,8 +87,10 @@ export function PublicPay() {
             hero={
                 <div>
                     <p className="text-sm font-medium text-ink-soft">
-                        {invoice.number !== null ? pp.invoiceNumber(invoice.number) : pp.invoice} ·{" "}
-                        {invoice.business_name}
+                        {formatParts([
+                            invoice.number !== null ? pp.invoiceNumber(invoice.number) : pp.invoice,
+                            invoice.business_name,
+                        ])}
                     </p>
                     <h1 className="mt-3 font-display text-5xl font-bold tracking-tight text-ink sm:text-6xl">
                         <span className="sr-only">
@@ -97,8 +103,12 @@ export function PublicPay() {
                             : formatMoneyWithCurrency(invoice.balance_cents, invoice.currency)}
                     </h1>
                     <p className="mt-3 text-sm text-ink-soft">
-                        {invoice.number !== null ? pp.invoiceNumber(invoice.number) : pp.invoice}
-                        {invoice.due_at !== null ? ` · ${pp.dueOn(shortDate(invoice.due_at))}` : ""}
+                        {formatParts([
+                            invoice.number !== null ? pp.invoiceNumber(invoice.number) : pp.invoice,
+                            invoice.due_at !== null
+                                ? pp.dueOn(shortDate(invoice.due_at, invoice.timezone))
+                                : null,
+                        ])}
                     </p>
                 </div>
             }
@@ -125,25 +135,26 @@ export function PublicPay() {
                                     <div className="min-w-0">
                                         <p className="font-medium text-ink">{l.description}</p>
                                         <p className="mt-0.5 text-xs text-muted">
-                                            {[
+                                            {formatParts([
                                                 strings.billing.qtyTimes(
                                                     l.quantity,
-                                                    formatMoney(l.unitCents),
+                                                    formatMoney(l.unitCents, invoice.currency),
                                                 ),
-                                                l.taxCodes.join(" + "),
-                                            ]
-                                                .filter(Boolean)
-                                                .join(" · ")}
+                                                taxList(l.taxCodes.map(taxName)),
+                                            ])}
                                         </p>
                                     </div>
                                     <span className="font-medium tabular-nums text-ink">
-                                        {formatMoney(l.amountCents)}
+                                        {formatMoney(l.amountCents, invoice.currency)}
                                     </span>
                                 </li>
                             ))}
                         </ul>
                         <div className="mx-5 mb-5 mt-3 border-t border-line pt-3">
-                            <DocTotals lines={publicInvoiceTotals(invoice)} />
+                            <DocTotals
+                                lines={publicInvoiceTotals(invoice)}
+                                currency={invoice.currency}
+                            />
                         </div>
                         {registration !== "" ? (
                             <p className="px-5 pb-5 text-xs text-muted">{registration}</p>
@@ -217,7 +228,7 @@ export function PublicPay() {
                                         {form.tip.key === "custom" ? (
                                             <TextField
                                                 label={pp.tipAmount}
-                                                prefix="$"
+                                                {...currencyAffix(invoice.currency)}
                                                 type="number"
                                                 width="narrow"
                                                 value={form.tip.custom}
@@ -230,7 +241,7 @@ export function PublicPay() {
                                             <p className="flex justify-between text-sm text-ink">
                                                 <span>{pp.tipRow}</span>
                                                 <span className="tabular-nums">
-                                                    {formatMoney(form.tip.cents)}
+                                                    {formatMoney(form.tip.cents, invoice.currency)}
                                                 </span>
                                             </p>
                                         ) : null}

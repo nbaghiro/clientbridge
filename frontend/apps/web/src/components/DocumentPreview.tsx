@@ -37,7 +37,10 @@ export function DocumentPreview({
     const [kind, setKind] = useState<PrintedKind>(initial);
     const current = docs.find((x) => x.kind === kind) ?? docs[0];
     const doc = current?.doc ?? null;
-    const fileName = doc === null ? "" : d.fileName(businessName, d.kinds[kind], doc.number);
+    const fileName =
+        doc === null
+            ? ""
+            : d.fileName(businessName.replace(/[^A-Za-z0-9]+/g, "-"), d.kinds[kind], doc.number);
     const print = (): void => {
         const before = document.title;
         document.title = fileName.replace(/\.pdf$/, "");

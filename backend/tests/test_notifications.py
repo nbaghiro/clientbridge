@@ -278,7 +278,7 @@ async def test_booking_create_notifies_client(
     assert res.status_code == 201, res.text
     assert len(email.sent) == 1 and email.sent[0].to == "pat@example.ca"
     assert len(sms.sent) == 1 and sms.sent[0].to == "+15145551234"
-    assert "2027-05-01" in email.sent[0].body  # the date lands in the business timezone
+    assert "on Saturday, May 1 at 10:00 a.m." in email.sent[0].body  # in the business timezone
 
 
 async def test_booking_cancel_notifies_client(
@@ -319,7 +319,7 @@ async def test_booking_reschedule_notifies_client(
     sms.sent.clear()
     res = await as_owner.patch(f"/v1/bookings/{bid}", json={"starts_at": "2027-05-02T17:00:00Z"})
     assert res.status_code == 200, res.text
-    assert len(email.sent) == 1 and "2027-05-02" in email.sent[0].body  # the new time, in tz
+    assert len(email.sent) == 1 and "to Sunday, May 2 at 10:00 a.m." in email.sent[0].body
     assert len(sms.sent) == 1
 
 

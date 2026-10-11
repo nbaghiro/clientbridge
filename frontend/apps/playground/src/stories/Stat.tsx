@@ -16,6 +16,7 @@ export default story<StatProps>({
             key: "money",
             title: "Money",
             props: () => ({
+                currency: "CAD",
                 label: "Today's revenue",
                 cents: 48_400,
                 tone: "success",
@@ -26,6 +27,7 @@ export default story<StatProps>({
             key: "large",
             title: "Large headline",
             props: () => ({
+                currency: "CAD",
                 label: "Awaiting payment",
                 cents: 35_616,
                 size: "lg",
@@ -54,22 +56,28 @@ export default story<StatProps>({
         {
             key: "danger",
             title: "Danger",
-            props: () => ({ label: "Overdue", cents: 12_600, tone: "danger" }),
+            props: () => ({ currency: "CAD", label: "Overdue", cents: 12_600, tone: "danger" }),
         },
         {
             key: "muted",
             title: "Muted",
-            props: () => ({ label: "Tips", cents: 0, tone: "muted", hint: "none yet" }),
+            props: () => ({
+                currency: "CAD",
+                label: "Tips",
+                cents: 0,
+                tone: "muted",
+                hint: "none yet",
+            }),
         },
         {
             key: "loading",
             title: "Loading (no figure yet)",
-            props: () => ({ label: "Tips", cents: null }),
+            props: () => ({ currency: "CAD", label: "Tips", cents: null }),
         },
         {
             key: "loading-large",
             title: "Loading, large",
-            props: () => ({ label: "Awaiting payment", cents: null, size: "lg" }),
+            props: () => ({ currency: "CAD", label: "Awaiting payment", cents: null, size: "lg" }),
         },
         {
             key: "large-success",
@@ -85,6 +93,7 @@ export default story<StatProps>({
             key: "long",
             title: "Long label and hint",
             props: () => ({
+                currency: "CAD",
                 label: "Deposits collected for upcoming bookings in the next thirty days",
                 cents: 1_234_500,
                 hint: "includes deposits on recurring visits and class packages bought online",
@@ -93,7 +102,12 @@ export default story<StatProps>({
         {
             key: "rtl",
             title: "Hebrew label",
-            props: () => ({ label: "הכנסות היום", cents: 48_400, hint: "התקבל היום" }),
+            props: () => ({
+                currency: "CAD",
+                label: "הכנסות היום",
+                cents: 48_400,
+                hint: "התקבל היום",
+            }),
         },
     ],
 });

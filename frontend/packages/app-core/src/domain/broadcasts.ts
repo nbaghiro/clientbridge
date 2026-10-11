@@ -3,7 +3,14 @@ import { useBusinessQuery as useQuery } from "../hooks";
 import { useMemo, useState } from "react";
 
 import { type ApiLike, newIdempotencyKey } from "../api";
-import { formatDate, formatTime, parseTimestamp } from "../datetime";
+import {
+    formatDate,
+    formatDateTime,
+    parseTimestamp,
+    parseWallDateTime,
+    useBusinessZone,
+} from "../datetime";
+import { formatList } from "../format";
 import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
@@ -183,13 +190,12 @@ interface BroadcastAudience {
     excluded: AudienceExclusion[];
 }
 
-const shortDate = (value: string): string => formatDate(parseTimestamp(value));
-
 function buildAudience(
     clients: AudienceClient[],
     consents: ConsentMap,
     tags: readonly string[],
     channel: Channel,
+    zone: string,
 ): BroadcastAudience {
     const counts = new Map<string, number>();
     const tagged = clients.map((c) => ({ ...c, list: parseList(c.tags) }));
@@ -209,7 +215,7 @@ function buildAudience(
                 reason: "opted_out",
                 detail: b.consentSource(
                     b.sources[consent.source ?? ""] ?? "",
-                    consent.at === null ? "" : shortDate(consent.at),
+                    consent.at === null ? "" : formatDate(parseTimestamp(consent.at), zone),
                 ),
             });
         else if (!canBroadcast(consent))
@@ -273,9 +279,10 @@ export function useBroadcastDraft(api: ApiLike, seed?: BroadcastSeed): Broadcast
     const [sendAt, setSendAt] = useState("");
     const [sent, setSent] = useState<{ count: number; scheduled: boolean } | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
+    const zone = useBusinessZone();
     const audience = useMemo(
-        () => buildAudience(clients.data, consents.map, tags, channel),
-        [clients.data, consents.map, tags, channel],
+        () => buildAudience(clients.data, consents.map, tags, channel, zone),
+        [clients.data, consents.map, tags, channel, zone],
     );
     const load = useReplicaLoad(
         [clients, { isLoading: consents.isLoading }],
@@ -284,8 +291,8 @@ export function useBroadcastDraft(api: ApiLike, seed?: BroadcastSeed): Broadcast
     const text = body.trim() || "…";
     const preview =
         channel === "sms"
-            ? `${business}: ${text} ${b.optOutSms}`
-            : `${text}\n\n${business}\n${b.optOutEmail} …`;
+            ? b.smsPreview(business, text, b.optOutSms)
+            : b.emailPreview(text, business, b.optOutEmail);
 
     const submit = (): void => {
         if (name.trim() === "") {
@@ -300,7 +307,7 @@ export function useBroadcastDraft(api: ApiLike, seed?: BroadcastSeed): Broadcast
             setError(b.errors.noRecipients);
             return;
         }
-        const at = schedule === "later" && sendAt !== "" ? new Date(sendAt) : null;
+        const at = schedule === "later" && sendAt !== "" ? parseWallDateTime(sendAt, zone) : null;
         if (schedule === "later" && (at === null || at.getTime() <= Date.now())) {
             setError(b.errors.pickTime);
             return;
@@ -369,10 +376,12 @@ export interface BroadcastItem extends BroadcastRow {
     at: string | null;
 }
 
-export function broadcastWhen(item: BroadcastItem): string {
-    if (item.at === null) return b.notSent;
-    const d = parseTimestamp(item.at);
-    return `${formatDate(d)}, ${formatTime(d)}`;
+export function broadcastAudience(item: BroadcastItem): string {
+    return item.tags.length === 0 ? b.everyone : formatList(item.tags, "unit");
+}
+
+export function broadcastWhen(item: BroadcastItem, zone: string): string {
+    return item.at === null ? b.notSent : formatDateTime(parseTimestamp(item.at), zone);
 }
 
 export function broadcastIntent(status: string): Intent {

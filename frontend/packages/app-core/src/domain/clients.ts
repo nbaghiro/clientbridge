@@ -5,8 +5,28 @@ import { useBusinessQuery as useQuery } from "../hooks";
 import { useMemo, useState } from "react";
 
 import { type ApiLike, newIdempotencyKey } from "../api";
-import { formatDate, formatMonthYear, formatTime, parseTimestamp, relativeDay } from "../datetime";
-import { blankToNull, formatMoney, formatPhone, phoneDigits } from "../format";
+import {
+    dateKey,
+    formatDate,
+    formatMonthYear,
+    formatShortDay,
+    formatTime,
+    parseTimestamp,
+    readDate,
+    relativeDay,
+    zonedDate,
+    useBusinessZone,
+} from "../datetime";
+import {
+    blankToNull,
+    formatList,
+    formatMoney,
+    formatParts,
+    formatPhone,
+    parseNumber,
+    phoneDigits,
+    BUSINESS_CURRENCY,
+} from "../format";
 import { useAsyncAction, useRemote } from "../hooks";
 import type { Load } from "../hooks";
 import type { IconName } from "../icons";
@@ -26,6 +46,13 @@ import {
 import { useReplicaLoad } from "./sync";
 
 const s = strings.clients;
+
+const PET_TEMPERAMENTS = ["calm", "friendly", "energetic", "anxious", "reactive"];
+
+/** A stored temperament (an English word) shown through the catalog; unknown values as stored. */
+export function temperamentLabel(value: string): string {
+    return s.pets.temperaments[value] ?? value;
+}
 
 // Active clients for pickers (booking, sale, invoice, message): archived ones are left out.
 export interface ClientRow {
@@ -298,7 +325,7 @@ export function visitPill(
     if (v.start <= now) return { label: s.record.inProgress, intent: "accent" };
     if (v.depositCents <= 0) return null;
     const paid = v.depositStatus === "collected" || v.depositStatus === "applied";
-    const amount = formatMoney(v.depositCents);
+    const amount = formatMoney(v.depositCents, BUSINESS_CURRENCY);
     return paid
         ? { label: s.record.depositPaid(amount), intent: "success" }
         : { label: s.record.depositDue(amount), intent: "warning" };
@@ -340,9 +367,7 @@ const text = (v: unknown): string =>
 
 export function petSummary(pet: SubjectRow): string {
     const weight = Number(text(pet.attributes.weight_kg));
-    return [text(pet.attributes.breed), weight > 0 ? s.pets.weight(weight) : ""]
-        .filter((x) => x !== "")
-        .join(" · ");
+    return formatParts([text(pet.attributes.breed), weight > 0 ? s.pets.weight(weight) : ""]);
 }
 
 export const CLIENT_NOTES_SQL = `
@@ -440,7 +465,7 @@ interface ClientPlan {
     detail: string;
 }
 
-function toPlan(r: PlanDbRow): ClientPlan {
+function toPlan(r: PlanDbRow, zone: string): ClientPlan {
     const name = r.item_name ?? (r.kind === "package" ? s.packageFallback : s.subscriptionFallback);
     if (r.kind === "package") {
         const total = r.sessions_total ?? 0;
@@ -454,7 +479,9 @@ function toPlan(r: PlanDbRow): ClientPlan {
         id: r.id,
         name,
         detail:
-            r.renews_at === null ? "" : s.record.renews(formatDate(parseTimestamp(r.renews_at))),
+            r.renews_at === null
+                ? ""
+                : s.record.renews(formatDate(parseTimestamp(r.renews_at), zone)),
     };
 }
 
@@ -504,6 +531,7 @@ export function useClientRecord(
     const notes = useQuery<NoteDbRow>(CLIENT_NOTES_SQL, [id, id]);
     const methods = useQuery<SavedCardRow>(CLIENT_METHODS_SQL, [id]);
     const plans = useQuery<PlanDbRow>(CLIENT_PLANS_SQL, [id, id]);
+    const zone = useBusinessZone();
     const row = client.data[0];
     const load = useReplicaLoad([client, visits, subjects, notes], row === undefined);
     const record = useMemo(() => {
@@ -523,9 +551,10 @@ export function useClientRecord(
                     : parseTimestamp(earlier.last_completed_at)),
             visits: done.length + (earlier?.completed ?? 0),
             methods: methods.data,
-            plans: plans.data.map(toPlan),
+            plans: plans.data.map((p) => toPlan(p, zone)),
         };
     }, [
+        zone,
         row,
         visits.data,
         subjects.data,
@@ -635,6 +664,7 @@ export function useClientEditor(
     onSaved: (id: string) => void,
 ): ClientEditor {
     const client = directory.find((c) => c.id === clientId) ?? null;
+    const zone = useBusinessZone();
     const consentRow = useQuery<{
         status: string;
         created_at: string;
@@ -722,7 +752,7 @@ export function useClientEditor(
         consentNote:
             consentRow !== undefined && agreed
                 ? s.edit.consentRecorded(
-                      formatDate(parseTimestamp(consentRow.created_at)),
+                      formatDate(parseTimestamp(consentRow.created_at), zone),
                       consentRow.recorded_by_name ?? s.history.teammate,
                   )
                 : null,
@@ -730,7 +760,7 @@ export function useClientEditor(
             client?.archived === true
                 ? client.archivedAt === null
                     ? s.edit.archivedNoDate
-                    : s.edit.archivedBanner(formatDate(client.archivedAt))
+                    : s.edit.archivedBanner(formatDate(client.archivedAt, zone))
                 : null,
         busy,
         error,
@@ -761,70 +791,147 @@ interface SubjectField {
 const PET_FIELDS: readonly SubjectField[] = [
     {
         key: "species",
-        label: s.pets.speciesLabel,
+        get label() {
+            return s.pets.speciesLabel;
+        },
         type: "choice",
         options: [
-            { key: "dog", label: s.pets.dog },
-            { key: "cat", label: s.pets.cat },
-            { key: "other", label: s.pets.other },
+            {
+                key: "dog",
+                get label() {
+                    return s.pets.dog;
+                },
+            },
+            {
+                key: "cat",
+                get label() {
+                    return s.pets.cat;
+                },
+            },
+            {
+                key: "other",
+                get label() {
+                    return s.pets.other;
+                },
+            },
         ],
     },
-    { key: "breed", label: s.pets.breedLabel, type: "text", half: true },
     {
-        key: "weight_kg",
-        label: s.pets.weightLabel,
-        type: "number",
-        unit: s.pets.weightUnit,
+        key: "breed",
+        get label() {
+            return s.pets.breedLabel;
+        },
+        type: "text",
         half: true,
     },
-    { key: "birthday", label: s.pets.birthdayLabel, type: "date", half: true },
+    {
+        key: "weight_kg",
+        get label() {
+            return s.pets.weightLabel;
+        },
+        type: "number",
+        get unit() {
+            return s.pets.weightUnit;
+        },
+        half: true,
+    },
+    {
+        key: "birthday",
+        get label() {
+            return s.pets.birthdayLabel;
+        },
+        type: "date",
+        half: true,
+    },
     {
         key: "sex",
-        label: s.pets.sexLabel,
+        get label() {
+            return s.pets.sexLabel;
+        },
         type: "choice",
         options: [
-            { key: "female", label: s.pets.female },
-            { key: "male", label: s.pets.male },
+            {
+                key: "female",
+                get label() {
+                    return s.pets.female;
+                },
+            },
+            {
+                key: "male",
+                get label() {
+                    return s.pets.male;
+                },
+            },
         ],
         half: true,
     },
     {
         key: "temperament",
-        label: s.pets.temperamentLabel,
+        get label() {
+            return s.pets.temperamentLabel;
+        },
         type: "choice",
-        options: s.pets.temperaments.map((t) => ({ key: t, label: t })),
+        options: PET_TEMPERAMENTS.map((t) => ({
+            key: t,
+            get label() {
+                return temperamentLabel(t);
+            },
+        })),
     },
-    { key: "coat", label: s.pets.coatLabel, type: "text", half: true },
     {
-        key: "allergies",
-        label: s.pets.allergiesLabel,
+        key: "coat",
+        get label() {
+            return s.pets.coatLabel;
+        },
         type: "text",
-        placeholder: s.pets.allergiesPlaceholder,
         half: true,
     },
-    { key: "vet", label: s.pets.vetLabel, type: "text", half: true },
-    { key: "rabies_until", label: s.pets.rabiesLabel, type: "date", half: true },
+    {
+        key: "allergies",
+        get label() {
+            return s.pets.allergiesLabel;
+        },
+        type: "text",
+        get placeholder() {
+            return s.pets.allergiesPlaceholder;
+        },
+        half: true,
+    },
+    {
+        key: "vet",
+        get label() {
+            return s.pets.vetLabel;
+        },
+        type: "text",
+        half: true,
+    },
+    {
+        key: "rabies_until",
+        get label() {
+            return s.pets.rabiesLabel;
+        },
+        type: "date",
+        half: true,
+    },
     {
         key: "style",
-        label: s.pets.styleLabel,
+        get label() {
+            return s.pets.styleLabel;
+        },
         type: "longtext",
-        placeholder: s.pets.stylePlaceholder,
+        get placeholder() {
+            return s.pets.stylePlaceholder;
+        },
     },
 ];
 
-// A date-only value is a local calendar day, not UTC midnight.
-const dayOf = (v: string): Date => new Date(v.length === 10 ? `${v}T12:00:00` : v);
-
-function ageYears(birthday: string, now: Date): number | null {
-    const b = dayOf(birthday);
+function ageYears(birthday: string, now: Date, zone: string): number | null {
+    const b = readDate(birthday, zone);
     if (Number.isNaN(b.getTime())) return null;
-    let years = now.getFullYear() - b.getFullYear();
-    if (
-        now.getMonth() < b.getMonth() ||
-        (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())
-    )
-        years -= 1;
-    return years;
+    const born = dateKey(b, zone);
+    const today = dateKey(now, zone);
+    const years = Number(today.slice(0, 4)) - Number(born.slice(0, 4));
+    return today.slice(5) < born.slice(5) ? years - 1 : years;
 }
 
 interface PetAlert {
@@ -833,22 +940,26 @@ interface PetAlert {
     intent: Intent;
 }
 
-function petAlerts(pet: SubjectRow, now: Date = new Date()): PetAlert[] {
+function petAlerts(pet: SubjectRow, now: Date, zone: string): PetAlert[] {
     const out: PetAlert[] = [];
     const temperament = text(pet.attributes.temperament);
     if (temperament === "anxious" || temperament === "reactive")
-        out.push({ key: "temp", label: s.pets.temperamentAlert(temperament), intent: "warning" });
+        out.push({
+            key: "temp",
+            label: s.pets.temperamentAlert(temperamentLabel(temperament)),
+            intent: "warning",
+        });
     const allergies = text(pet.attributes.allergies);
     if (allergies !== "")
         out.push({ key: "allergy", label: s.pets.allergy(allergies), intent: "danger" });
     const rabies = text(pet.attributes.rabies_until);
     if (rabies !== "") {
-        const days = (dayOf(rabies).getTime() - now.getTime()) / 86_400_000;
+        const days = (readDate(rabies, zone).getTime() - now.getTime()) / 86_400_000;
         if (days < 0) out.push({ key: "rabies", label: s.pets.rabiesExpired, intent: "danger" });
         else if (days < 45)
             out.push({
                 key: "rabies",
-                label: s.pets.rabiesSoon(formatDate(dayOf(rabies))),
+                label: s.pets.rabiesSoon(formatDate(readDate(rabies, zone), zone)),
                 intent: "warning",
             });
     }
@@ -866,25 +977,28 @@ export interface PetCard {
 }
 
 /** A pet's card: who they are, what to watch for and their visits (bookings name the pet). */
-function petCard(pet: SubjectRow, visits: readonly ClientVisit[], now: Date = new Date()): PetCard {
+function petCard(
+    pet: SubjectRow,
+    visits: readonly ClientVisit[],
+    zone: string,
+    now: Date = new Date(),
+): PetCard {
     const own = visits.filter((v) => v.subjectId === pet.id);
     const done = own.filter((v) => v.status === "completed");
     const ahead = own.filter((v) => isAhead(v, now)).sort((a, b) => +a.start - +b.start);
     const birthday = text(pet.attributes.birthday);
-    const age = birthday === "" ? null : ageYears(birthday, now);
+    const age = birthday === "" ? null : ageYears(birthday, now, zone);
     const weight = Number(text(pet.attributes.weight_kg));
     const temperament = text(pet.attributes.temperament);
     return {
         pet,
-        line: [
+        line: formatParts([
             text(pet.attributes.breed),
             age === null ? "" : s.pets.age(age),
             weight > 0 ? s.pets.weight(weight) : "",
-        ]
-            .filter((x) => x !== "")
-            .join(" · "),
-        temperament: temperament === "" ? null : temperament,
-        alerts: petAlerts(pet, now),
+        ]),
+        temperament: temperament === "" ? null : temperamentLabel(temperament),
+        alerts: petAlerts(pet, now, zone),
         visits: done.length,
         lastVisit: done[0]?.start ?? null,
         next: ahead[0]?.start ?? null,
@@ -894,10 +1008,11 @@ function petCard(pet: SubjectRow, visits: readonly ClientVisit[], now: Date = ne
 export function useClientPets(clientId: string): { load: Load; cards: PetCard[] } {
     const subjects = useQuery<SubjectDbRow>(CLIENT_SUBJECTS_SQL, [clientId]);
     const visits = useQuery<VisitRow>(CLIENT_VISITS_SQL, [clientId]);
+    const zone = useBusinessZone();
     const cards = useMemo(() => {
         const all = visits.data.map(toVisit);
-        return subjects.data.map((r) => petCard(toSubject(r), all));
-    }, [subjects.data, visits.data]);
+        return subjects.data.map((r) => petCard(toSubject(r), all, zone));
+    }, [subjects.data, visits.data, zone]);
     return { load: useReplicaLoad([subjects, visits], cards.length === 0), cards };
 }
 
@@ -936,7 +1051,8 @@ export function useSubjectForm(
         const e: Record<string, string> = {};
         if (name.trim() === "") e.name = s.pets.nameRequired;
         const w = values.weight_kg ?? "";
-        if (w !== "" && !(Number(w) > 0 && Number(w) < 200)) e.weight_kg = s.pets.weightInvalid;
+        const kg = parseNumber(w) ?? NaN;
+        if (w !== "" && !(kg > 0 && kg < 200)) e.weight_kg = s.pets.weightInvalid;
         for (const key of ["birthday", "rabies_until"]) {
             const v = values[key] ?? "";
             if (v !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(v)) e[key] = s.pets.dateInvalid;
@@ -954,7 +1070,7 @@ export function useSubjectForm(
         const typed = Object.fromEntries(
             Object.entries(values)
                 .filter(([, v]) => v.trim() !== "")
-                .map(([k, v]) => [k, k === "weight_kg" ? Number(v) : v.trim()]),
+                .map(([k, v]) => [k, k === "weight_kg" ? parseNumber(v) : v.trim()]),
         );
         const attributes = { ...kept, ...typed };
         run(
@@ -1077,12 +1193,12 @@ function entry(
 }
 
 /** The shared timeline's row for one history entry; the month heading carries the year. */
-export function toTimeline(e: HistoryEntry): TimelineEntry {
+export function toTimeline(e: HistoryEntry, zone: string): TimelineEntry {
     return {
         key: e.key,
         label: e.label,
         detail: e.detail,
-        at: `${e.at.toLocaleDateString("en-CA", { month: "short", day: "numeric" })} · ${formatTime(e.at)}`,
+        at: formatParts([formatShortDay(e.at, zone), formatTime(e.at, zone)]),
         intent: e.intent,
         icon: e.icon,
         quote: e.quote,
@@ -1203,11 +1319,12 @@ export interface ClientHistory {
 
 function visitLabel(v: ClientVisit, pets: readonly SubjectRow[]): string {
     const pet = pets.find((p) => p.id === v.subjectId)?.name ?? null;
-    return s.history.visit(v.service, pet);
+    return pet === null ? v.service : s.history.visit(v.service, pet);
 }
 
 /** Every visit, invoice, payment, message, review and note for one client, newest first. */
 export function useClientHistory(clientId: string, viewerStaffId: string | null): ClientHistory {
+    const zone = useBusinessZone();
     const visits = useQuery<VisitRow>(CLIENT_VISITS_SQL, [clientId]);
     const subjects = useQuery<SubjectDbRow>(CLIENT_SUBJECTS_SQL, [clientId]);
     const notes = useQuery<NoteDbRow>(CLIENT_NOTES_SQL, [clientId, clientId]);
@@ -1271,7 +1388,7 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
                     key: v.id,
                     at: v.start,
                     label,
-                    detail: [v.staffName, off].filter((x) => x !== null).join(" · ") || undefined,
+                    detail: formatParts([v.staffName, off]) || undefined,
                     intent:
                         v.status === "no_show"
                             ? "danger"
@@ -1284,17 +1401,17 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
         for (const i of invoices.data) {
             const label =
                 i.status === "draft"
-                    ? s.history.invoiceDrafted(i.number)
+                    ? s.history.invoiceDrafted(String(i.number ?? ""))
                     : i.status === "void"
-                      ? s.history.invoiceVoid(i.number)
-                      : s.history.invoiceSent(i.number);
+                      ? s.history.invoiceVoid(String(i.number ?? ""))
+                      : s.history.invoiceSent(String(i.number ?? ""));
             out.push(
                 entry("invoice", {
                     key: i.id,
                     at: parseTimestamp(i.at),
                     label,
                     detail: i.status === "overdue" ? s.history.overdue : undefined,
-                    aside: formatMoney(i.total_cents),
+                    aside: formatMoney(i.total_cents, BUSINESS_CURRENCY),
                     intent: i.status === "overdue" ? "danger" : "neutral",
                 }),
             );
@@ -1310,7 +1427,9 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
                         : p.kind === "deposit"
                           ? s.history.depositReceived
                           : s.history.paymentReceived,
-                    aside: refund ? `−${formatMoney(p.amount_cents)}` : formatMoney(p.amount_cents),
+                    aside: refund
+                        ? `−${formatMoney(p.amount_cents, BUSINESS_CURRENCY)}`
+                        : formatMoney(p.amount_cents, BUSINESS_CURRENCY),
                     intent: refund ? "warning" : "success",
                 }),
             );
@@ -1351,7 +1470,7 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
                     at: n.at,
                     label: n.pinned ? s.history.pinnedNote : s.history.note,
                     quote: n.body,
-                    detail: [n.author, n.pet].filter((x) => x !== null).join(" · "),
+                    detail: formatParts([n.author, n.pet]),
                 }),
             );
         return {
@@ -1367,9 +1486,10 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
     const shown = filter === "all" ? all : all.filter((e) => e.filter === filter);
     const groups: HistoryGroup[] = [];
     for (const e of shown) {
-        const key = `${String(e.at.getFullYear())}-${String(e.at.getMonth())}`;
+        const key = dateKey(e.at, zone).slice(0, 7);
         const group = groups.find((g) => g.key === key);
-        if (group === undefined) groups.push({ key, label: formatMonthYear(e.at), entries: [e] });
+        if (group === undefined)
+            groups.push({ key, label: formatMonthYear(e.at, zone), entries: [e] });
         else group.entries.push(e);
     }
     const count = (f: ClientHistoryFilter): number =>
@@ -1415,12 +1535,12 @@ export interface WalletMethod {
     note: string | null;
 }
 
-function walletMethod(row: MethodDbRow, now: Date): WalletMethod {
+function walletMethod(row: MethodDbRow, now: Date, zone: string): WalletMethod {
     const mm = row.exp_month === null ? null : String(row.exp_month).padStart(2, "0");
     const yy = row.exp_year === null ? null : String(row.exp_year).slice(2);
     const lastDay =
         row.exp_month !== null && row.exp_year !== null
-            ? new Date(row.exp_year, row.exp_month, 0)
+            ? zonedDate(row.exp_year, row.exp_month + 1, 0, 0, 0, zone)
             : null;
     const left = lastDay === null ? null : (lastDay.getTime() - now.getTime()) / 86_400_000;
     const bank = isMandate(row);
@@ -1452,7 +1572,7 @@ function walletMethod(row: MethodDbRow, now: Date): WalletMethod {
         isDefault: row.preferred === 1 && (!bank || row.mandate_status === "active"),
         canBeDefault: canBeDefault(row),
         pays: row.pays === null ? [] : row.pays.split(", ").filter((p) => p !== ""),
-        added: s.wallet.added(formatDate(parseTimestamp(row.created_at))),
+        added: s.wallet.added(formatDate(parseTimestamp(row.created_at), zone)),
         note: bank && row.mandate_status === "pending" ? s.wallet.mandatePendingNote : null,
     };
 }
@@ -1471,10 +1591,11 @@ export interface ClientWallet {
 /** A client's saved cards and bank accounts with the details that cause problems: expiry, mandate, plans. */
 export function useClientWallet(api: ApiLike, clientId: string): ClientWallet {
     const query = useQuery<MethodDbRow>(CLIENT_METHODS_SQL, [clientId]);
+    const zone = useBusinessZone();
     const methods = useMemo(() => {
         const now = new Date();
-        return query.data.map((r) => walletMethod(r, now));
-    }, [query.data]);
+        return query.data.map((r) => walletMethod(r, now, zone));
+    }, [query.data, zone]);
     const load = useReplicaLoad([query], methods.length === 0);
     const [busyId, setBusyId] = useState<string | null>(null);
     const { busy, error, run } = useAsyncAction();
@@ -1495,7 +1616,9 @@ export function useClientWallet(api: ApiLike, clientId: string): ClientWallet {
             act(id, () => detachCard(api, id), s.wallet.removeError);
         },
         removeMessage: (m) =>
-            m.pays.length > 0 ? s.wallet.removeBodyInUse(m.pays.join(", ")) : s.wallet.removeBody,
+            m.pays.length > 0
+                ? s.wallet.removeBodyInUse(formatList(m.pays, "unit"))
+                : s.wallet.removeBody,
     };
 }
 
@@ -1663,6 +1786,7 @@ export function useClientMerge(
     b: ClientListRow,
     onMerged: (keptName: string) => void,
 ): ClientMerge {
+    const zone = useBusinessZone();
     const [keep, setKeepRaw] = useState<Side>("a");
     const [picks, setPicks] = useState<Partial<Record<MergeField, Side>>>({});
     const { busy, error, run } = useAsyncAction();
@@ -1708,12 +1832,10 @@ export function useClientMerge(
         const p = printOf(c.id);
         return {
             client: c,
-            hint: [
-                s.tidy.created(formatDate(c.since)),
+            hint: formatParts([
+                s.tidy.created(formatDate(c.since, zone)),
                 p === undefined ? "" : s.tidy.footprint(p.bookings, p.pet_count),
-            ]
-                .filter((x) => x !== "")
-                .join(" · "),
+            ]),
         };
     };
     const nameField = fields[0];
@@ -1761,6 +1883,6 @@ export function useClientMerge(
 }
 
 /** "Today" or "Wed, Oct 8" for the list's next visit column. */
-export function nextVisitLabel(next: Date | null): string {
-    return next === null ? s.record.noUpcoming : relativeDay(next);
+export function nextVisitLabel(next: Date | null, zone: string): string {
+    return next === null ? s.record.noUpcoming : relativeDay(next, zone);
 }

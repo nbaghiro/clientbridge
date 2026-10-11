@@ -1,8 +1,18 @@
-import { type DocTotalsProps, formatMoney, type DocTotalLine } from "@clientbridge/app-core/public";
+import {
+    type DocTotalsProps,
+    formatCredit,
+    formatMoney,
+    type DocTotalLine,
+} from "@clientbridge/app-core/public";
 
 import { type WebProps, cx } from "./props";
 
-export function DocTotals({ lines, density = "regular", className }: WebProps<DocTotalsProps>) {
+export function DocTotals({
+    lines,
+    currency,
+    density = "regular",
+    className,
+}: WebProps<DocTotalsProps>) {
     const pad = density === "compact" ? "py-1" : "py-1.5";
     return (
         <dl className={cx("text-sm", className)}>
@@ -11,8 +21,8 @@ export function DocTotals({ lines, density = "regular", className }: WebProps<Do
                 const strong = line.kind === "total" || line.kind === "balance";
                 const amount =
                     (line.kind === "credit" || line.kind === "deduction") && line.cents !== 0
-                        ? `−${formatMoney(line.cents)}`
-                        : formatMoney(line.cents);
+                        ? formatCredit(line.cents, currency)
+                        : formatMoney(line.cents, currency);
                 return (
                     <div
                         key={line.key}

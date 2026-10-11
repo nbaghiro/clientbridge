@@ -4,11 +4,12 @@ import { usePowerSync, useStatus, useQuery as useGlobalQuery } from "@powersync/
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { type Load, useAsyncAction, useLoad } from "../hooks";
+import { BUSINESS_CURRENCY, formatList, formatMoney, formatParts, formatRating } from "../format";
 import { strings } from "../strings";
-import type { ApiLike } from "../api";
-import type { ChoiceOption, Fact } from "../ui";
+import { type ApiLike, failureMessage } from "../api";
+import type { ChoiceOption, Fact, SelectOption } from "../ui";
 import { mediaUrl } from "./files";
-import { durationLabel, money } from "./publicBooking";
+import { durationLabel } from "./publicBooking";
 import type { ShellTarget } from "./navigation";
 import { useStaff, staffName } from "./staff";
 import { useReplicaLoad } from "./sync";
@@ -63,7 +64,9 @@ const EMPTY_PROFILE: ProfileFields = {
 
 export const PUBLIC_PROFILE_FIELDS = PROFILE_KEYS.map((key) => ({
     key,
-    label: strings.business.getSetUp.profile[key],
+    get label() {
+        return strings.business.getSetUp.profile[key];
+    },
     multiline: key === "about" || key === "gallery_urls",
     numeric: key.startsWith("pickup_"),
 }));
@@ -116,6 +119,26 @@ function parseBrand(raw: string | null): Brand {
     }
 }
 
+// Canada's zones; a business already in another zone keeps it as an extra choice.
+const TIME_ZONES: { zone: string; label: () => string }[] = [
+    { zone: "America/St_Johns", label: () => strings.business.timeZones.newfoundland },
+    { zone: "America/Halifax", label: () => strings.business.timeZones.atlantic },
+    { zone: "America/Toronto", label: () => strings.business.timeZones.eastern },
+    { zone: "America/Winnipeg", label: () => strings.business.timeZones.central },
+    { zone: "America/Regina", label: () => strings.business.timeZones.saskatchewan },
+    { zone: "America/Edmonton", label: () => strings.business.timeZones.mountain },
+    { zone: "America/Whitehorse", label: () => strings.business.timeZones.yukon },
+    { zone: "America/Vancouver", label: () => strings.business.timeZones.pacific },
+];
+
+/** The time zones a business can pick, with the one it has now even when it is not listed. */
+export function timeZoneOptions(current: string): SelectOption<string>[] {
+    const listed = TIME_ZONES.map((z) => ({ key: z.zone, label: z.label() }));
+    return current === "" || TIME_ZONES.some((z) => z.zone === current)
+        ? listed
+        : [...listed, { key: current, label: current }];
+}
+
 export const BUSINESS_TEXT_FIELDS: {
     key: keyof BusinessFields;
     label: string;
@@ -123,18 +146,21 @@ export const BUSINESS_TEXT_FIELDS: {
 }[] = [
     {
         key: "name",
-        label: strings.business.nameLabel,
-        placeholder: strings.business.namePlaceholder,
-    },
-    {
-        key: "timezone",
-        label: strings.business.timezoneLabel,
-        placeholder: strings.business.timezonePlaceholder,
+        get label() {
+            return strings.business.nameLabel;
+        },
+        get placeholder() {
+            return strings.business.namePlaceholder;
+        },
     },
     {
         key: "billing_email",
-        label: strings.business.billingEmailLabel,
-        placeholder: strings.business.billingEmailPlaceholder,
+        get label() {
+            return strings.business.billingEmailLabel;
+        },
+        get placeholder() {
+            return strings.business.billingEmailPlaceholder;
+        },
     },
 ];
 
@@ -199,7 +225,7 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
                 loadedBrand.current = { ...b, logo_file_id, primary, tagline }; // now what's on the server
                 setSaved(true);
             },
-            errorMessage: strings.business.saveError,
+            errorMessage: (e) => failureMessage(e, strings.business.saveError),
         });
     };
 
@@ -213,6 +239,8 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
 
 export const BUSINESS_ID_SQL = "SELECT id FROM businesses LIMIT 1";
 
+const BUSINESS_ZONE_SQL = "SELECT id, timezone FROM businesses LIMIT 1";
+
 /** `null` until the business row syncs; sync-write inserts need it for tenancy. */
 export const BUSINESS_NAME_SQL = "SELECT name FROM businesses LIMIT 1";
 
@@ -220,9 +248,9 @@ export function useBusinessName(): string {
     return useQuery<{ name: string }>(BUSINESS_NAME_SQL).data[0]?.name ?? "";
 }
 
-export function useBusinessLoad(): Load {
+export function useBusinessLoad(): Load & { zone: string | null } {
     const db = usePowerSync();
-    const business = useQuery<{ id: string }>(BUSINESS_ID_SQL);
+    const business = useQuery<{ id: string; timezone: string }>(BUSINESS_ZONE_SQL);
     const synced = useStatus().hasSynced ?? false;
     const empty = business.data.length === 0;
     const [confirmedEmpty, setConfirmedEmpty] = useState(false);
@@ -247,7 +275,7 @@ export function useBusinessLoad(): Load {
             active = false;
         };
     }, [db, synced, business.isLoading, empty, attempt]);
-    return useLoad(
+    const load = useLoad(
         [
             business,
             {
@@ -260,6 +288,7 @@ export function useBusinessLoad(): Load {
         ],
         empty,
     );
+    return { ...load, zone: business.data[0]?.timezone ?? null };
 }
 
 export function useBusinessId(): string | null {
@@ -270,25 +299,90 @@ export function useBusinessId(): string | null {
 type ProvinceCode =
     "AB" | "BC" | "MB" | "NB" | "NL" | "NS" | "NT" | "NU" | "ON" | "PE" | "QC" | "SK" | "YT";
 
-export interface Province {
+interface Province {
     code: ProvinceCode;
     name: string;
 }
 
 export const PROVINCES: Province[] = [
-    { code: "AB", name: strings.business.onboarding.provinceAB },
-    { code: "BC", name: strings.business.onboarding.provinceBC },
-    { code: "MB", name: strings.business.onboarding.provinceMB },
-    { code: "NB", name: strings.business.onboarding.provinceNB },
-    { code: "NL", name: strings.business.onboarding.provinceNL },
-    { code: "NS", name: strings.business.onboarding.provinceNS },
-    { code: "NT", name: strings.business.onboarding.provinceNT },
-    { code: "NU", name: strings.business.onboarding.provinceNU },
-    { code: "ON", name: strings.business.onboarding.provinceON },
-    { code: "PE", name: strings.business.onboarding.provincePE },
-    { code: "QC", name: strings.business.onboarding.provinceQC },
-    { code: "SK", name: strings.business.onboarding.provinceSK },
-    { code: "YT", name: strings.business.onboarding.provinceYT },
+    {
+        code: "AB",
+        get name() {
+            return strings.business.onboarding.provinceAB;
+        },
+    },
+    {
+        code: "BC",
+        get name() {
+            return strings.business.onboarding.provinceBC;
+        },
+    },
+    {
+        code: "MB",
+        get name() {
+            return strings.business.onboarding.provinceMB;
+        },
+    },
+    {
+        code: "NB",
+        get name() {
+            return strings.business.onboarding.provinceNB;
+        },
+    },
+    {
+        code: "NL",
+        get name() {
+            return strings.business.onboarding.provinceNL;
+        },
+    },
+    {
+        code: "NS",
+        get name() {
+            return strings.business.onboarding.provinceNS;
+        },
+    },
+    {
+        code: "NT",
+        get name() {
+            return strings.business.onboarding.provinceNT;
+        },
+    },
+    {
+        code: "NU",
+        get name() {
+            return strings.business.onboarding.provinceNU;
+        },
+    },
+    {
+        code: "ON",
+        get name() {
+            return strings.business.onboarding.provinceON;
+        },
+    },
+    {
+        code: "PE",
+        get name() {
+            return strings.business.onboarding.provincePE;
+        },
+    },
+    {
+        code: "QC",
+        get name() {
+            return strings.business.onboarding.provinceQC;
+        },
+    },
+    {
+        code: "SK",
+        get name() {
+            return strings.business.onboarding.provinceSK;
+        },
+    },
+    {
+        code: "YT",
+        get name() {
+            return strings.business.onboarding.provinceYT;
+        },
+    },
 ];
 
 interface OnboardInput {
@@ -432,7 +526,10 @@ export function setupTasks(c: SetupCounts): SetupTask[] {
         {
             key: "business",
             ...o.tasks.business,
-            hint: [c.name, province].filter((x) => x !== null && x !== "").join(", "),
+            hint: formatList(
+                [c.name, province].filter((x): x is string => x !== null && x !== ""),
+                "unit",
+            ),
             done: true,
             target: "business",
         },
@@ -469,7 +566,7 @@ export function setupTasks(c: SetupCounts): SetupTask[] {
         {
             key: "team",
             ...o.tasks.team,
-            hint: o.teamHint(invites),
+            hint: o.teamHint(invites.length, invites[0] ?? ""),
             done: c.team > 1,
             target: "team",
         },
@@ -739,13 +836,11 @@ export function useBookingPreview(limit: number): BookingPreview {
             return {
                 key: i.id,
                 label: i.name,
-                hint: [
+                hint: formatParts([
                     i.duration_min !== null ? durationLabel(i.duration_min) : null,
-                    money(i.price_cents),
-                    deposit > 0 ? b.deposit(money(deposit)) : null,
-                ]
-                    .filter((x) => x !== null)
-                    .join(" · "),
+                    formatMoney(i.price_cents, BUSINESS_CURRENCY),
+                    deposit > 0 ? b.deposit(formatMoney(deposit, BUSINESS_CURRENCY)) : null,
+                ]),
                 detail: i.description ?? undefined,
             };
         }),
@@ -767,7 +862,7 @@ export function useBookingPreview(limit: number): BookingPreview {
         rating:
             rating?.average === null || rating === undefined || rating.n === 0
                 ? null
-                : b.reviews(rating.average.toFixed(1), rating.n),
+                : b.reviews(formatRating(rating.average), rating.n),
     };
 }
 

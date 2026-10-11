@@ -8,10 +8,15 @@ import {
     taxableItemPriceLabel,
     strings,
     taxClassLabel,
+    exampleSale,
+    smallSupplierLimit,
     taxExample,
     taxExampleTitle,
     useItemTaxClasses,
     useTaxSettingsForm,
+    formatParts,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -39,6 +44,7 @@ const provinceName = (code: string): string => PROVINCES.find((p) => p.code === 
 
 /** Sales tax settings and the tax class of every item, on a phone. */
 export function TaxesScreen() {
+    const zone = useBusinessZone();
     const form = useTaxSettingsForm(api, provinceName);
     const items = useItemTaxClasses(api);
     const open = useOpenLink();
@@ -82,7 +88,11 @@ export function TaxesScreen() {
                             onChange={form.setRegistration}
                             options={[
                                 { key: "registered", label: s.regYes, hint: s.regYesHint },
-                                { key: "small", label: s.regSmall, hint: s.regSmallHint },
+                                {
+                                    key: "small",
+                                    label: s.regSmall(smallSupplierLimit()),
+                                    hint: s.regSmallHint,
+                                },
                             ]}
                         />
                     </Field>
@@ -148,12 +158,12 @@ export function TaxesScreen() {
                         <View style={styles.flex}>
                             <Text style={styles.small}>{s.filingTitle}</Text>
                             <Text style={styles.due}>
-                                {s.filingDue(formatDate(form.filing.due))}
+                                {s.filingDue(formatDate(form.filing.due, zone))}
                             </Text>
                             <Text style={styles.small}>
                                 {s.filingPeriod(
-                                    formatDate(form.filing.from),
-                                    formatDate(form.filing.to),
+                                    formatDate(form.filing.from, zone),
+                                    formatDate(form.filing.to, zone),
                                 )}
                             </Text>
                             <View style={styles.link}>
@@ -171,14 +181,14 @@ export function TaxesScreen() {
                         <View style={styles.right}>
                             <Text style={styles.small}>{s.filingCollected}</Text>
                             <Text style={styles.total}>
-                                {formatMoney(form.filing.collectedCents)}
+                                {formatMoney(form.filing.collectedCents, BUSINESS_CURRENCY)}
                             </Text>
                         </View>
                     </View>
                 ) : null}
 
                 <View style={styles.card}>
-                    <Text style={styles.title}>{s.exampleTitle}</Text>
+                    <Text style={styles.title}>{s.exampleTitle(exampleSale())}</Text>
                     {TAX_CLASS_KEYS.map((cls) => {
                         const ex = taxExample(cls, form.province, registered);
                         return (
@@ -189,13 +199,18 @@ export function TaxesScreen() {
                                     </Text>
                                     <Text style={styles.small}>
                                         {ex.lines.length > 0
-                                            ? ex.lines
-                                                  .map((l) => `${l.label} ${formatMoney(l.cents)}`)
-                                                  .join(" · ")
+                                            ? formatParts(
+                                                  ex.lines.map(
+                                                      (l) =>
+                                                          `${l.label} ${formatMoney(l.cents, BUSINESS_CURRENCY)}`,
+                                                  ),
+                                              )
                                             : s.classes.exempt}
                                     </Text>
                                 </View>
-                                <Text style={styles.total}>{formatMoney(ex.totalCents)}</Text>
+                                <Text style={styles.total}>
+                                    {formatMoney(ex.totalCents, BUSINESS_CURRENCY)}
+                                </Text>
                             </View>
                         );
                     })}
@@ -241,7 +256,10 @@ export function TaxesScreen() {
                                         {it.name}
                                     </Text>
                                     <Text style={styles.small}>
-                                        {s.kinds[it.kind] ?? it.kind} · {taxableItemPriceLabel(it)}
+                                        {formatParts([
+                                            s.kinds[it.kind] ?? it.kind,
+                                            taxableItemPriceLabel(it),
+                                        ])}
                                     </Text>
                                 </View>
                                 <Badge
@@ -258,9 +276,7 @@ export function TaxesScreen() {
             {n > 0 ? (
                 <View style={styles.bulk}>
                     <View style={styles.bulkHead}>
-                        <Text style={styles.bulkText}>
-                            {s.selected(n)} · {s.setTo}
-                        </Text>
+                        <Text style={styles.bulkText}>{formatParts([s.selected(n), s.setTo])}</Text>
                         <Button
                             style={{ alignSelf: "center" }}
                             size="sm"

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { isConnectionFailure, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import { type PublicBrand, usePublicResource } from "./publicResource";
+import { refusal } from "../api";
 
 export interface PublicFormField {
     id: string;
@@ -20,22 +21,13 @@ export interface PublicForm {
     form_name: string;
     business_name: string;
     brand: PublicBrand;
+    timezone: string;
     completed: boolean;
     fields: PublicFormField[];
 }
 
 /** A form answer value: a string (most fields), a string list (multiselect), or a boolean (checkbox). */
 export type FormAnswer = string | string[] | boolean;
-
-class PublicFormError extends Error {
-    constructor(
-        readonly status: number,
-        message: string,
-    ) {
-        super(message);
-        this.name = "PublicFormError";
-    }
-}
 
 interface PublicFormClient {
     getForm: (token: string) => Promise<PublicForm>;
@@ -48,8 +40,7 @@ export function createPublicFormClient(baseUrl: string): PublicFormClient {
     const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
         const res = await fetch(`${baseUrl}${path}`, init);
         if (!res.ok) {
-            const text = await res.text().catch(() => "");
-            throw new PublicFormError(res.status, text || res.statusText);
+            throw await refusal(res);
         }
         return (await res.json()) as T;
     };
@@ -75,7 +66,9 @@ export function createPublicFormClient(baseUrl: string): PublicFormClient {
             if (file.type) headers["Content-Type"] = file.type;
             const put = await fetch(meta.upload_url, { method: "PUT", headers, body: file });
             if (!put.ok)
-                throw new PublicFormError(put.status, strings.publicForm.fileUploadFailedDetail);
+                throw Object.assign(new Error(`upload → ${String(put.status)}`), {
+                    status: put.status,
+                });
             await request(
                 `/form/${encodeURIComponent(token)}/upload/${encodeURIComponent(meta.file_id)}/complete`,
                 { method: "POST" },

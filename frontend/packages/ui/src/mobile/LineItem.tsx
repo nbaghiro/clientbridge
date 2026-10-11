@@ -16,6 +16,7 @@ export function LineItem({
     quantity,
     count,
     cents,
+    currency,
     originalCents,
     tag,
     onPress,
@@ -74,9 +75,9 @@ export function LineItem({
                 {originalCents !== undefined &&
                 originalCents !== null &&
                 originalCents !== cents ? (
-                    <Text style={styles.was}>{formatMoney(originalCents)}</Text>
+                    <Text style={styles.was}>{formatMoney(originalCents, currency)}</Text>
                 ) : null}
-                <Text style={styles.cents}>{formatMoney(cents)}</Text>
+                <Text style={styles.cents}>{formatMoney(cents, currency)}</Text>
             </View>
             {onRemove !== undefined ? (
                 <Pressable

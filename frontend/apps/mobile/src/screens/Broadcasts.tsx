@@ -4,6 +4,7 @@ import {
     type BroadcastSeed,
     type Channel,
     broadcastIntent,
+    broadcastAudience,
     broadcastWhen,
     formatDate,
     parseTimestamp,
@@ -12,6 +13,8 @@ import {
     useBroadcastDraft,
     useBroadcastsHome,
     dateKey,
+    formatParts,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -41,14 +44,25 @@ import { api } from "../lib/api";
 const c = theme.colors;
 const s = strings.broadcasts;
 const CHANNELS: { key: Channel; label: string }[] = [
-    { key: "sms", label: s.channels.sms ?? "" },
-    { key: "email", label: s.channels.email ?? "" },
+    {
+        key: "sms",
+        get label() {
+            return s.channels.sms;
+        },
+    },
+    {
+        key: "email",
+        get label() {
+            return s.channels.email;
+        },
+    },
 ];
 const ALL = "__all";
 type Step = "audience" | "message" | "review";
 const STEPS: Step[] = ["audience", "message", "review"];
 
-const dateOf = (value: string): string => (value === "" ? "" : formatDate(parseTimestamp(value)));
+const dateOf = (value: string, zone: string): string =>
+    value === "" ? "" : formatDate(parseTimestamp(value), zone);
 
 const shareCsv = (_filename: string, content: string): void => {
     Share.share({ message: content }).catch(() => undefined);
@@ -69,6 +83,7 @@ export function Broadcasts() {
 }
 
 function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
+    const zone = useBusinessZone();
     const home = useBroadcastsHome();
     const actions = useBroadcastActions(api, shareCsv);
     const [open, setOpen] = useState<BroadcastItem | null>(null);
@@ -129,7 +144,7 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                             <ListRow
                                 key={x.id}
                                 title={x.name}
-                                detail={`${s.audienceTags(x.tags)} · ${broadcastWhen(x)}`}
+                                detail={formatParts([broadcastAudience(x), broadcastWhen(x, zone)])}
                                 meta={
                                     <StatusPill
                                         status={s.status[x.status] ?? x.status}
@@ -164,12 +179,12 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                         <View style={styles.flex}>
                             <Text style={styles.rowName}>{o.name}</Text>
                             <Text style={styles.meta}>
-                                {s.consentSource(o.source, dateOf(o.at))}
+                                {s.consentSource(o.source, dateOf(o.at, zone))}
                             </Text>
                         </View>
                         <StatusPill
                             style={{ alignSelf: "center" }}
-                            status={s.consentChannel[o.channel] ?? o.channel}
+                            status={s.consentChannel[o.channel]}
                             intent="danger"
                             asWritten
                         />
@@ -184,7 +199,10 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                         <View style={styles.flex}>
                             <Text style={styles.rowName}>{o.name}</Text>
                             <Text style={styles.meta}>
-                                {s.consentChannel[o.channel]} · {s.endsOn(dateOf(o.expires))}
+                                {formatParts([
+                                    s.consentChannel[o.channel],
+                                    s.endsOn(dateOf(o.expires, zone)),
+                                ])}
                             </Text>
                         </View>
                     </View>
@@ -201,8 +219,7 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                     <ScrollView contentContainerStyle={styles.gap}>
                         <Text style={styles.title}>{open.name}</Text>
                         <Text style={styles.meta}>
-                            {s.viaChannel(s.channels[open.channel] ?? open.channel)} ·{" "}
-                            {broadcastWhen(open)}
+                            {formatParts([s.viaChannel(open.channel), broadcastWhen(open, zone)])}
                         </Text>
                         <KeyValueList
                             layout="stack"
@@ -249,6 +266,7 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
 }
 
 function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void }) {
+    const zone = useBusinessZone();
     const draft = useBroadcastDraft(api, seed);
     const [step, setStep] = useState<Step>("audience");
     const index = STEPS.indexOf(step);
@@ -331,7 +349,10 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
                         }
                     />
                     <Notice tone="info" banner>
-                        {`${draft.channel === "sms" ? s.optOutSms : s.optOutEmail} ${s.optOutNote}`}
+                        {strings.common.twoSentences(
+                            draft.channel === "sms" ? s.optOutSms : s.optOutEmail,
+                            s.optOutNote,
+                        )}
                     </Notice>
                 </View>
             ) : null}
@@ -356,8 +377,9 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
                     </Field>
                     {draft.schedule === "later" ? (
                         <DateTimeField
+                            zone={zone}
                             label={s.sendAtLabel}
-                            min={dateKey(new Date())}
+                            min={dateKey(new Date(), zone)}
                             value={draft.sendAt}
                             onChange={draft.setSendAt}
                         />
@@ -432,8 +454,10 @@ function AudienceSummary({ draft }: { draft: BroadcastDraft }) {
                 <Text style={styles.meta}>{s.recipientsWord(a.recipients.length)}</Text>
             </Text>
             <Text style={styles.meta}>
-                {s.matched(a.matched)}
-                {a.excluded.length > 0 ? ` · ${s.leftOut(a.excluded.length)}` : ""}
+                {formatParts([
+                    s.matched(a.matched),
+                    a.excluded.length > 0 ? s.leftOut(a.excluded.length) : null,
+                ])}
             </Text>
             {a.excluded.slice(0, 8).map((x) => (
                 <View key={x.id} style={styles.row}>
@@ -441,8 +465,7 @@ function AudienceSummary({ draft }: { draft: BroadcastDraft }) {
                     <View style={styles.flex}>
                         <Text style={styles.rowName}>{x.name}</Text>
                         <Text style={styles.meta}>
-                            {s.reasons[x.reason]}
-                            {x.detail !== "" ? ` · ${x.detail}` : ""}
+                            {formatParts([s.reasons[x.reason], x.detail])}
                         </Text>
                     </View>
                 </View>

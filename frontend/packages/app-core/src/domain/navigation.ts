@@ -12,11 +12,36 @@ export type DestinationKey = "today" | "schedule" | "clients" | "payments" | "in
 
 /** The five top-level destinations, in order. Each app maps `key` to its own route + icon. */
 export const DESTINATIONS: { key: DestinationKey; label: string }[] = [
-    { key: "today", label: strings.navigation.today },
-    { key: "schedule", label: strings.navigation.schedule },
-    { key: "clients", label: strings.navigation.clients },
-    { key: "payments", label: strings.navigation.payments },
-    { key: "inbox", label: strings.navigation.inbox },
+    {
+        key: "today",
+        get label() {
+            return strings.navigation.today;
+        },
+    },
+    {
+        key: "schedule",
+        get label() {
+            return strings.navigation.schedule;
+        },
+    },
+    {
+        key: "clients",
+        get label() {
+            return strings.navigation.clients;
+        },
+    },
+    {
+        key: "payments",
+        get label() {
+            return strings.navigation.payments;
+        },
+    },
+    {
+        key: "inbox",
+        get label() {
+            return strings.navigation.inbox;
+        },
+    },
 ];
 
 export type PaymentsTabKey =
@@ -30,14 +55,62 @@ export type PaymentsTabKey =
     | "reports";
 
 const PAYMENTS_TABS: { key: PaymentsTabKey; label: string; managersOnly: boolean }[] = [
-    { key: "invoices", label: strings.navigation.paymentsTabs.invoices, managersOnly: true },
-    { key: "sales", label: strings.navigation.paymentsTabs.sales, managersOnly: false },
-    { key: "giftCards", label: strings.navigation.paymentsTabs.giftCards, managersOnly: true },
-    { key: "refunds", label: strings.navigation.paymentsTabs.refunds, managersOnly: true },
-    { key: "staffPay", label: strings.navigation.paymentsTabs.staffPay, managersOnly: true },
-    { key: "taxReturns", label: strings.navigation.paymentsTabs.taxReturns, managersOnly: true },
-    { key: "payouts", label: strings.navigation.paymentsTabs.payouts, managersOnly: true },
-    { key: "reports", label: strings.navigation.paymentsTabs.reports, managersOnly: true },
+    {
+        key: "invoices",
+        get label() {
+            return strings.navigation.paymentsTabs.invoices;
+        },
+        managersOnly: true,
+    },
+    {
+        key: "sales",
+        get label() {
+            return strings.navigation.paymentsTabs.sales;
+        },
+        managersOnly: false,
+    },
+    {
+        key: "giftCards",
+        get label() {
+            return strings.navigation.paymentsTabs.giftCards;
+        },
+        managersOnly: true,
+    },
+    {
+        key: "refunds",
+        get label() {
+            return strings.navigation.paymentsTabs.refunds;
+        },
+        managersOnly: true,
+    },
+    {
+        key: "staffPay",
+        get label() {
+            return strings.navigation.paymentsTabs.staffPay;
+        },
+        managersOnly: true,
+    },
+    {
+        key: "taxReturns",
+        get label() {
+            return strings.navigation.paymentsTabs.taxReturns;
+        },
+        managersOnly: true,
+    },
+    {
+        key: "payouts",
+        get label() {
+            return strings.navigation.paymentsTabs.payouts;
+        },
+        managersOnly: true,
+    },
+    {
+        key: "reports",
+        get label() {
+            return strings.navigation.paymentsTabs.reports;
+        },
+        managersOnly: true,
+    },
 ];
 
 export function visiblePaymentsTabs(role: string | null): typeof PAYMENTS_TABS {
@@ -47,11 +120,41 @@ export function visiblePaymentsTabs(role: string | null): typeof PAYMENTS_TABS {
 export type InboxSegmentKey = "messages" | "reviews" | "broadcasts" | "forms" | "contracts";
 
 const INBOX_SEGMENTS: { key: InboxSegmentKey; label: string; managersOnly: boolean }[] = [
-    { key: "messages", label: strings.navigation.inboxSegments.messages, managersOnly: false },
-    { key: "reviews", label: strings.navigation.inboxSegments.reviews, managersOnly: true },
-    { key: "broadcasts", label: strings.navigation.inboxSegments.broadcasts, managersOnly: true },
-    { key: "forms", label: strings.navigation.inboxSegments.forms, managersOnly: true },
-    { key: "contracts", label: strings.navigation.inboxSegments.contracts, managersOnly: true },
+    {
+        key: "messages",
+        get label() {
+            return strings.navigation.inboxSegments.messages;
+        },
+        managersOnly: false,
+    },
+    {
+        key: "reviews",
+        get label() {
+            return strings.navigation.inboxSegments.reviews;
+        },
+        managersOnly: true,
+    },
+    {
+        key: "broadcasts",
+        get label() {
+            return strings.navigation.inboxSegments.broadcasts;
+        },
+        managersOnly: true,
+    },
+    {
+        key: "forms",
+        get label() {
+            return strings.navigation.inboxSegments.forms;
+        },
+        managersOnly: true,
+    },
+    {
+        key: "contracts",
+        get label() {
+            return strings.navigation.inboxSegments.contracts;
+        },
+        managersOnly: true,
+    },
 ];
 
 export function visibleInboxSegments(role: string | null): typeof INBOX_SEGMENTS {
@@ -76,49 +179,65 @@ const SETUP_SECTIONS: {
 }[] = [
     {
         key: "start",
-        label: strings.navigation.setupSections.start,
+        get label() {
+            return strings.navigation.setupSections.start;
+        },
         webOnly: false,
         managersOnly: true,
     },
     {
         key: "business",
-        label: strings.navigation.setupSections.business,
+        get label() {
+            return strings.navigation.setupSections.business;
+        },
         webOnly: false,
         managersOnly: true,
     },
     {
         key: "services",
-        label: strings.navigation.setupSections.services,
+        get label() {
+            return strings.navigation.setupSections.services;
+        },
         webOnly: false,
         managersOnly: true,
     },
     {
         key: "team",
-        label: strings.navigation.setupSections.team,
+        get label() {
+            return strings.navigation.setupSections.team;
+        },
         webOnly: false,
         managersOnly: false,
     },
     {
         key: "gettingPaid",
-        label: strings.navigation.setupSections.gettingPaid,
+        get label() {
+            return strings.navigation.setupSections.gettingPaid;
+        },
         webOnly: false,
         managersOnly: true,
     },
     {
         key: "taxes",
-        label: strings.navigation.setupSections.taxes,
+        get label() {
+            return strings.navigation.setupSections.taxes;
+        },
         webOnly: false,
         managersOnly: true,
     },
     {
         key: "onlineBooking",
-        label: strings.navigation.setupSections.onlineBooking,
+        get label() {
+            return strings.navigation.setupSections.onlineBooking;
+        },
         webOnly: false,
         managersOnly: true,
     },
     {
         key: "reminders",
-        label: strings.navigation.setupSections.reminders,
+        get label() {
+            return strings.navigation.setupSections.reminders;
+        },
         webOnly: false,
         managersOnly: true,
     },

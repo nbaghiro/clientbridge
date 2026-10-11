@@ -7,6 +7,9 @@ import {
     useEntitlementDetail,
     useEntitlementWallet,
     useGiftCardRedeemForm,
+    formatParts,
+    BUSINESS_CURRENCY,
+    currencyAffix,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { useEffect, useState } from "react";
@@ -107,15 +110,24 @@ export function GiftCards() {
                                 rows={[
                                     {
                                         label: w.deferred,
-                                        value: formatMoney(wallet.totals.deferredCents),
+                                        value: formatMoney(
+                                            wallet.totals.deferredCents,
+                                            BUSINESS_CURRENCY,
+                                        ),
                                     },
                                     {
                                         label: w.giftLiability,
-                                        value: formatMoney(wallet.totals.giftCents),
+                                        value: formatMoney(
+                                            wallet.totals.giftCents,
+                                            BUSINESS_CURRENCY,
+                                        ),
                                     },
                                     {
                                         label: w.walletMonthly,
-                                        value: formatMoney(wallet.totals.monthlyCents),
+                                        value: formatMoney(
+                                            wallet.totals.monthlyCents,
+                                            BUSINESS_CURRENCY,
+                                        ),
                                     },
                                 ]}
                             />
@@ -144,7 +156,7 @@ export function GiftCards() {
                 <DetailView
                     open
                     title={detail.summary.title}
-                    subtitle={`${detail.summary.kindLabel} · ${wallet.client?.name ?? ""}`}
+                    subtitle={formatParts([detail.summary.kindLabel, wallet.client?.name ?? ""])}
                     status={{ status: detail.summary.statusLabel, intent: detail.summary.intent }}
                     onClose={() => {
                         setOpenId(null);
@@ -219,7 +231,9 @@ function WalletCard({
                 ) : (
                     <View>
                         <Text style={styles.balanceLabel}>{summary.balanceLabel}</Text>
-                        <Text style={styles.figure}>{formatMoney(summary.valueCents)}</Text>
+                        <Text style={styles.figure}>
+                            {formatMoney(summary.valueCents, BUSINESS_CURRENCY)}
+                        </Text>
                     </View>
                 )}
                 {summary.note !== null ? (
@@ -315,7 +329,7 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
             <TextField
                 label={g.balance}
                 type="number"
-                prefix="$"
+                {...currencyAffix(BUSINESS_CURRENCY)}
                 value={form.amount}
                 onChange={form.setAmount}
                 placeholder={g.redeemAmountPlaceholder}

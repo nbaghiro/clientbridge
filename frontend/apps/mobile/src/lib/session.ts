@@ -14,10 +14,11 @@ export function useSignOut(): () => void {
             return;
         }
         const t = strings.sync;
-        const list = sync.pending.map((p) => `• ${p.label}`).join("\n");
+        const list = sync.pending.map((p) => strings.common.bullet(p.label)).join("\n");
+        const summary = sync.queueKnown ? t.signOutBody(sync.pendingCount) : t.signOutUnknown;
         confirm({
             title: t.signOutTitle,
-            message: `${sync.queueKnown ? t.signOutBody(sync.pendingCount) : t.signOutUnknown}\n\n${list}\n\n${t.signOutSafe}`,
+            message: [summary, list, t.signOutSafe].join("\n\n"),
             confirmLabel: t.signOutConfirm,
             cancelLabel: t.signOutCancel,
             destructive: true,

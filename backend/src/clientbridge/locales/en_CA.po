@@ -1,0 +1,388 @@
+msgid ""
+msgstr ""
+"Language: en_CA\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Content-Type: text/plain; charset=utf-8\n"
+
+msgid "booking_canceled.body"
+msgstr "Your appointment with {business} on {when} was canceled."
+
+msgid "booking_canceled.subject"
+msgstr "Appointment canceled — {business}"
+
+msgid "booking_confirmed.body"
+msgstr "You're booked with {business} on {when}."
+
+msgid "booking_confirmed.body_link"
+msgstr "You're booked with {business} on {when}. Change or cancel: {link}"
+
+msgid "booking_confirmed.subject"
+msgstr "Booking confirmed — {business}"
+
+msgid "booking_reminder.body"
+msgstr "Reminder: you have an appointment with {business} on {when}."
+
+msgid "booking_reminder.body_link"
+msgstr "Reminder: you have an appointment with {business} on {when}. Change or cancel: {link}"
+
+msgid "booking_reminder.subject"
+msgstr "Appointment reminder — {business}"
+
+msgid "booking_rescheduled.body"
+msgstr "Your appointment with {business} was moved to {when}."
+
+msgid "booking_rescheduled.subject"
+msgstr "Appointment rescheduled — {business}"
+
+msgid "broadcast.email"
+msgstr ""
+"{body}\n"
+"\n"
+"{business}\n"
+"Unsubscribe or change what you get: {link}"
+
+msgid "broadcast.sms"
+msgstr "{business}: {body} Reply {keyword} to opt out."
+
+msgid "consent_csv.channel"
+msgstr "channel"
+
+msgid "consent_csv.client"
+msgstr "client"
+
+msgid "consent_csv.email"
+msgstr "email"
+
+msgid "consent_csv.expires_at"
+msgstr "expires_at"
+
+msgid "consent_csv.phone"
+msgstr "phone"
+
+msgid "consent_csv.recorded_at"
+msgstr "recorded_at"
+
+msgid "consent_csv.recorded_by"
+msgstr "recorded_by"
+
+msgid "consent_csv.source"
+msgstr "source"
+
+msgid "consent_csv.status"
+msgstr "status"
+
+msgid "contract_sent.body"
+msgstr "{business} has asked you to sign the contract \"{contract}\": {link}"
+
+msgid "contract_sent.subject"
+msgstr "{business}: please sign \"{contract}\""
+
+msgid "datetime.day_at_time"
+msgstr "{day} at {time}"
+
+msgid "dispute.push"
+msgstr "Payment disputed: {amount}. Review the dispute details."
+
+msgid "estimate_accepted.body"
+msgstr "Estimate #{number} was accepted."
+
+msgid "estimate_accepted.subject"
+msgstr "Estimate #{number} accepted"
+
+msgid "estimate_declined.body"
+msgstr "Estimate #{number} was declined."
+
+msgid "estimate_declined.body_reason"
+msgstr "Estimate #{number} was declined. The client said: {reason}"
+
+msgid "estimate_declined.subject"
+msgstr "Estimate #{number} declined"
+
+msgid "estimate_sent.body"
+msgstr "Estimate #{number} for {amount} from {business}"
+
+msgid "estimate_sent.body_link"
+msgstr "Estimate #{number} for {amount} from {business} — read and accept it at {link}"
+
+msgid "estimate_sent.subject"
+msgstr "Estimate #{number} from {business}"
+
+msgid "form_sent.body"
+msgstr "{business} has asked you to complete the form \"{form}\": {link}"
+
+msgid "form_sent.subject"
+msgstr "{business}: please complete \"{form}\""
+
+msgid "gift_card_issued.body"
+msgstr "You've received a {amount} gift card from {business}. Code: {code}"
+
+msgid "gift_card_issued.subject"
+msgstr "You've received a gift card from {business}"
+
+msgid "interac_requested.body"
+msgstr "{business}: please send {amount} by Interac e-Transfer to {send_to} with {reference} in the message."
+
+msgid "interac_requested.body_link"
+msgstr "{business}: please send {amount} by Interac e-Transfer to {send_to} with {reference} in the message. Details: {link}"
+
+msgid "interac_requested.subject"
+msgstr "Interac e-Transfer requested"
+
+msgid "invoice_line.visit"
+msgstr "Visit"
+
+msgid "invoice_overdue.body"
+msgstr "Invoice #{number} for {amount} from {business} is overdue"
+
+msgid "invoice_overdue.body_link"
+msgstr "Invoice #{number} for {amount} from {business} is overdue — pay at {link}"
+
+msgid "invoice_overdue.subject"
+msgstr "Invoice #{number} overdue — {business}"
+
+msgid "invoice_sent.body"
+msgstr "Invoice #{number} for {amount} from {business}"
+
+msgid "invoice_sent.body_link"
+msgstr "Invoice #{number} for {amount} from {business} — pay at {link}"
+
+msgid "invoice_sent.subject"
+msgstr "Invoice #{number} from {business}"
+
+msgid "manage_blocked.by_phone"
+msgstr "this business takes changes by phone; call the studio"
+
+msgid "manage_blocked.class_session"
+msgstr "class sessions are shared with other clients; call the studio to move"
+
+msgid "manage_blocked.cutoff"
+msgid_plural "manage_blocked.cutoff"
+msgstr[0] "it's less than {count} hour away; call the studio"
+msgstr[1] "it's less than {count} hours away; call the studio"
+
+msgid "manage_blocked.reschedule_limit"
+msgstr "this visit has been moved as many times as the policy allows"
+
+msgid "manage_blocked.status"
+msgstr "this booking is {status} and can't be changed online"
+
+msgid "online_order.body"
+msgstr "A client paid {amount} for an online order. It is waiting under Payments, Sales."
+
+msgid "online_order.subject"
+msgstr "Online order paid: {amount}, for pickup"
+
+msgid "order_ready.body"
+msgstr "Your order from {business} is ready to pick up."
+
+msgid "order_ready.subject"
+msgstr "Your order from {business} is ready"
+
+msgid "order_reminder.body"
+msgstr "Your order is ready to collect from {business}. Please contact the studio if you need more time."
+
+msgid "order_reminder.subject"
+msgstr "Your order is waiting at {business}"
+
+msgid "password_reset.body"
+msgstr "Reset code: {code}"
+
+msgid "password_reset.subject"
+msgstr "Reset your password"
+
+msgid "payment_failed.body"
+msgstr "Your payment of {amount} to {business} failed. Please try again."
+
+msgid "payment_failed.subject"
+msgstr "Payment failed — {business}"
+
+msgid "pickup.body"
+msgstr "Collect your order at {business}. We'll let you know when it's ready."
+
+msgid "receipt.body"
+msgstr "Thank you! Your payment of {amount} to {business} was received."
+
+msgid "receipt.line"
+msgstr "{item} x{quantity}  {amount}"
+
+msgid "receipt.push"
+msgstr "Payment received: {amount}"
+
+msgid "receipt.subject"
+msgstr "Receipt from {business}"
+
+msgid "receipt.subtotal"
+msgstr "Subtotal  {amount}"
+
+msgid "receipt.tax"
+msgstr "{tax}  {amount}"
+
+msgid "receipt.total"
+msgstr "Total  {amount}"
+
+msgid "refund.body"
+msgstr "A refund of {amount} from {business} was issued."
+
+msgid "refund.body_credit_note"
+msgstr "A refund of {amount} from {business} was issued. Credit note {credit_note}."
+
+msgid "refund.subject"
+msgstr "Refund from {business}"
+
+msgid "report.unnamed_payee"
+msgstr "Unnamed payee"
+
+msgid "report_csv.amount_cents"
+msgstr "amount_cents"
+
+msgid "report_csv.arrival"
+msgstr "arrival"
+
+msgid "report_csv.by_method"
+msgstr "method:{method}"
+
+msgid "report_csv.code"
+msgstr "code"
+
+msgid "report_csv.collected_cents"
+msgstr "collected_cents"
+
+msgid "report_csv.gross"
+msgstr "gross"
+
+msgid "report_csv.gst_hst_number"
+msgstr "gst_hst_number"
+
+msgid "report_csv.item"
+msgstr "item"
+
+msgid "report_csv.kind"
+msgstr "kind"
+
+msgid "report_csv.metric"
+msgstr "metric"
+
+msgid "report_csv.name"
+msgstr "name"
+
+msgid "report_csv.net"
+msgstr "net"
+
+msgid "report_csv.number"
+msgstr "number"
+
+msgid "report_csv.payout"
+msgstr "payout"
+
+msgid "report_csv.pst_cents"
+msgstr "pst_cents"
+
+msgid "report_csv.qst_cents"
+msgstr "qst_cents"
+
+msgid "report_csv.quantity"
+msgstr "quantity"
+
+msgid "report_csv.rate_bps"
+msgstr "rate_bps"
+
+msgid "report_csv.refunded_cents"
+msgstr "refunded_cents"
+
+msgid "report_csv.refunds"
+msgstr "refunds"
+
+msgid "report_csv.sales_cents"
+msgstr "sales_cents"
+
+msgid "report_csv.staff_id"
+msgstr "staff_id"
+
+msgid "report_csv.status"
+msgstr "status"
+
+msgid "report_csv.tax_cents"
+msgstr "tax_cents"
+
+msgid "report_csv.tax_collected_cents"
+msgstr "tax_collected_cents"
+
+msgid "report_csv.taxable_sales_cents"
+msgstr "taxable_sales_cents"
+
+msgid "report_csv.total_cents"
+msgstr "total_cents"
+
+msgid "returning_code.body"
+msgid_plural "returning_code.body"
+msgstr[0] "Your verification code is {code}. It expires in {count} minute. Use it to find your previous visit and pets. If you did not request it, ignore this email."
+msgstr[1] "Your verification code is {code}. It expires in {count} minutes. Use it to find your previous visit and pets. If you did not request it, ignore this email."
+
+msgid "returning_code.subject"
+msgstr "Your booking verification code for {business}"
+
+msgid "review_requested.body"
+msgstr "Thanks for choosing {business}! Leave a review: {link}"
+
+msgid "review_requested.subject"
+msgstr "How was your visit to {business}?"
+
+msgid "sale_receipt.body"
+msgstr "Thank you for visiting {business}. Your receipt: {link}"
+
+msgid "sale_receipt.body_numbered"
+msgstr "Thank you for visiting {business}. Your receipt for sale S-{number}: {link}"
+
+msgid "sale_receipt.subject"
+msgstr "Your receipt from {business}"
+
+msgid "series.separator"
+msgstr "; "
+
+msgid "series_booked.body"
+msgstr "You're booked with {business} on: {whens}."
+
+msgid "series_booked.subject"
+msgstr "Your visits are booked — {business}"
+
+msgid "series_canceled.body"
+msgstr "These visits with {business} were canceled: {whens}."
+
+msgid "series_canceled.subject"
+msgstr "Your visits were canceled — {business}"
+
+msgid "series_moved.body"
+msgstr "Your visits with {business} are now on: {whens}."
+
+msgid "series_moved.subject"
+msgstr "Your visits were moved — {business}"
+
+msgid "staff_invite.body"
+msgstr "Invite code: {code}"
+
+msgid "staff_invite.subject"
+msgstr "You're invited to Clientbridge"
+
+msgid "stripe.pad_interval_description"
+msgstr "When an invoice or a scheduled membership payment is due"
+
+msgid "stripe.subscription_product"
+msgstr "Subscription"
+
+msgid "subscription_canceled.body"
+msgstr "Your subscription to {business} was canceled."
+
+msgid "subscription_canceled.subject"
+msgstr "Subscription canceled — {business}"
+
+msgid "subscription_past_due.body"
+msgstr "Your subscription payment to {business} failed. Please update your payment method."
+
+msgid "subscription_past_due.subject"
+msgstr "Payment past due — {business}"
+
+msgid "verify_email.body"
+msgstr "Verify code: {code}"
+
+msgid "verify_email.subject"
+msgstr "Verify your email"

@@ -13,6 +13,9 @@ import {
     useBookkeeperPack,
     useMoneyReports,
     useReportFile,
+    formatParts,
+    BUSINESS_CURRENCY,
+    formatCredit,
 } from "@clientbridge/app-core";
 import {
     BarChart,
@@ -86,7 +89,7 @@ export function Reports() {
                             label={s.periodLabel}
                             options={REPORT_PERIODS.map((key) => ({
                                 key,
-                                label: s.period[key] ?? key,
+                                label: s.period[key],
                             }))}
                             value={r.period}
                             onChange={r.setPeriod}
@@ -199,7 +202,9 @@ export function Reports() {
                 }}
             >
                 <h2 className="font-display text-lg font-bold text-ink">{s.packTitle}</h2>
-                <p className="mt-1 text-sm text-muted">{`${spanLabel(r.span)} · ${s.packSubtitle}`}</p>
+                <p className="mt-1 text-sm text-muted">
+                    {formatParts([spanLabel(r.span), s.packSubtitle])}
+                </p>
                 <div className="mt-5 space-y-5">
                     <div>
                         <p className="text-sm font-medium text-ink-soft">{s.packIncluded}</p>
@@ -244,7 +249,7 @@ function PackRow({
     checked: boolean;
     onToggle: () => void;
 }) {
-    const name = kind === "pst" && v?.provincial ? v.provincial.label : (s.library[kind] ?? kind);
+    const name = kind === "pst" && v?.provincial ? v.provincial.label : s.library[kind];
     return (
         <li className="flex items-center gap-3 px-3.5 py-3">
             <Checkbox label={name} hideLabel value={checked} onChange={onToggle} />
@@ -292,17 +297,17 @@ function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
                                     {row.quantity}
                                 </td>
                                 <td className={`${td} pl-4 text-right tabular-nums text-ink-soft`}>
-                                    {formatMoney(row.salesCents)}
+                                    {formatMoney(row.salesCents, BUSINESS_CURRENCY)}
                                 </td>
                                 <td className={`${td} pl-4 text-right tabular-nums text-muted`}>
                                     {row.refundedCents > 0
-                                        ? `−${formatMoney(row.refundedCents)}`
+                                        ? formatCredit(row.refundedCents, BUSINESS_CURRENCY)
                                         : strings.clients.dash}
                                 </td>
                                 <td
                                     className={`${td} pl-4 text-right font-medium tabular-nums text-ink`}
                                 >
-                                    {formatMoney(row.netCents)}
+                                    {formatMoney(row.netCents, BUSINESS_CURRENCY)}
                                 </td>
                             </tr>
                         ))}
@@ -313,6 +318,7 @@ function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
             return (
                 <div className="space-y-3">
                     <DocTotals
+                        currency={BUSINESS_CURRENCY}
                         lines={[
                             {
                                 key: "101",
@@ -328,7 +334,9 @@ function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
                             },
                         ]}
                     />
-                    <p className="text-xs text-muted">{s.gstNumber(v.gst.number)}</p>
+                    <p className="text-xs text-muted">
+                        {v.gst.number === null ? s.noGstNumber : s.gstNumber(v.gst.number)}
+                    </p>
                 </div>
             );
         case "pst":
@@ -337,6 +345,7 @@ function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
             ) : (
                 <div className="space-y-3">
                     <DocTotals
+                        currency={BUSINESS_CURRENCY}
                         lines={[
                             {
                                 key: "sales",
@@ -354,7 +363,9 @@ function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
                         ]}
                     />
                     <p className="text-xs text-muted">
-                        {s.provincialNumber(v.provincial.label, v.provincial.number)}
+                        {v.provincial.number === null
+                            ? s.provincialFiled
+                            : s.provincialNumber(v.provincial.label, v.provincial.number)}
                     </p>
                 </div>
             );
@@ -384,7 +395,7 @@ function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
                                         <td
                                             className={`${td} pl-4 text-right font-medium tabular-nums text-ink`}
                                         >
-                                            {formatMoney(row.totalCents)}
+                                            {formatMoney(row.totalCents, BUSINESS_CURRENCY)}
                                         </td>
                                     </tr>
                                 ))}
@@ -402,6 +413,7 @@ function IncomeBody({ v }: { v: ReportsView }) {
         <div className="space-y-8">
             <div className="grid gap-8 xl:grid-cols-2">
                 <DocTotals
+                    currency={BUSINESS_CURRENCY}
                     lines={[
                         { key: "sales", label: s.sales, cents: v.salesCents, kind: "subtotal" },
                         {
@@ -442,7 +454,7 @@ function IncomeBody({ v }: { v: ReportsView }) {
                             {s.byMethod}
                         </h3>
                         <span className="text-xs tabular-nums text-muted">
-                            {s.received(formatMoney(v.receivedCents))}
+                            {s.received(formatMoney(v.receivedCents, BUSINESS_CURRENCY))}
                         </span>
                     </div>
                     {v.methods.length === 0 ? (
@@ -455,7 +467,10 @@ function IncomeBody({ v }: { v: ReportsView }) {
                                         value={Math.max(0, m.cents)}
                                         max={Math.max(1, v.receivedCents)}
                                         label={m.label}
-                                        detail={`${s.share(m.share)} · ${formatMoney(m.cents)}`}
+                                        detail={formatParts([
+                                            s.share(m.share),
+                                            formatMoney(m.cents, BUSINESS_CURRENCY),
+                                        ])}
                                         labelPosition="above"
                                         size="sm"
                                     />
@@ -479,8 +494,8 @@ function IncomeBody({ v }: { v: ReportsView }) {
                         label: b.label,
                         value: Math.max(0, b.netCents),
                         valueLabel: b.partial
-                            ? `${formatMoney(b.netCents)} ${s.soFar}`
-                            : formatMoney(b.netCents),
+                            ? s.soFarAmount(formatMoney(b.netCents, BUSINESS_CURRENCY))
+                            : formatMoney(b.netCents, BUSINESS_CURRENCY),
                         partial: b.partial,
                         dim: !b.inSpan,
                     }))}

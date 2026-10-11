@@ -8,6 +8,7 @@ import {
     useCatalogView,
     useKindPicker,
     useProductsView,
+    BUSINESS_CURRENCY,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -35,9 +36,24 @@ const c = theme.colors;
 type View_ = "catalog" | "products" | "inventory";
 
 const VIEWS: { key: View_; label: string }[] = [
-    { key: "catalog", label: s.views.catalog },
-    { key: "products", label: s.views.products },
-    { key: "inventory", label: s.views.inventory },
+    {
+        key: "catalog",
+        get label() {
+            return s.views.catalog;
+        },
+    },
+    {
+        key: "products",
+        get label() {
+            return s.views.products;
+        },
+    },
+    {
+        key: "inventory",
+        get label() {
+            return s.views.inventory;
+        },
+    },
 ];
 
 export function CatalogScreen() {
@@ -271,6 +287,7 @@ function ProductGrid() {
                     renderItem={({ item: r }) => (
                         <View style={styles.flex}>
                             <ItemTile
+                                currency={BUSINESS_CURRENCY}
                                 variant="card"
                                 name={r.item.name}
                                 imageSrc={mediaUrl(apiBaseUrl, r.item.image_file_id)}

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import NotFound
+from clientbridge.core.locale import locale_for, message
 from clientbridge.core.scoping import scoped
 from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
@@ -35,7 +36,6 @@ from clientbridge.services import ledger
 from clientbridge.services.tax import rates_for_province
 
 _CASH = ("stripe", "bank", "cash")
-_UNNAMED_PAYEE = "Unnamed payee"
 
 
 def period_bounds(start: date, end: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
@@ -85,6 +85,10 @@ class ReportService:
         if business is None:
             raise NotFound("business not found")
         return business
+
+    async def _locale(self) -> str:
+        user = await self.db.get(User, self.principal.user_id)
+        return locale_for(business=await self._business(), user=user)
 
     async def income_summary(self, start: date, end: date) -> IncomeReport:
         lo, hi = period_bounds(start, end, ZoneInfo((await self._business()).timezone))
@@ -154,8 +158,9 @@ class ReportService:
             .join(User, User.id == Staff.user_id, isouter=True)
             .order_by(paid.c.owner_id)
         )
+        unnamed = message(await self._locale(), "report.unnamed_payee")
         return [
-            T4ARow(staff_id=staff_id, name=name or _UNNAMED_PAYEE, total_cents=int(total))
+            T4ARow(staff_id=staff_id, name=name or unnamed, total_cents=int(total))
             for staff_id, name, total in rows.tuples().all()
             if total
         ]
@@ -222,9 +227,19 @@ class ReportService:
         return sorted(out, key=lambda r: (-r.sales_cents, r.name))
 
     async def sales_by_item_csv(self, start: date, end: date) -> str:
+        locale = await self._locale()
         buf = io.StringIO()
         writer = csv.writer(buf)
-        writer.writerow(["item", "kind", "quantity", "sales_cents", "tax_cents", "refunded_cents"])
+        writer.writerow(
+            [
+                message(locale, "report_csv.item"),
+                message(locale, "report_csv.kind"),
+                message(locale, "report_csv.quantity"),
+                message(locale, "report_csv.sales_cents"),
+                message(locale, "report_csv.tax_cents"),
+                message(locale, "report_csv.refunded_cents"),
+            ]
+        )
         for r in await self.sales_by_item(start, end):
             writer.writerow(
                 [r.name, r.kind, f"{r.quantity:g}", r.sales_cents, r.tax_cents, r.refunded_cents]
@@ -235,25 +250,29 @@ class ReportService:
         report = await self.income_summary(start, end)
         buf = io.StringIO()
         writer = csv.writer(buf)
-        writer.writerow(["metric", "amount_cents"])
-        writer.writerow(["gross", report.gross_cents])
-        writer.writerow(["refunds", report.refunds_cents])
-        writer.writerow(["net", report.net_cents])
+        locale = await self._locale()
+        writer.writerow(
+            [message(locale, "report_csv.metric"), message(locale, "report_csv.amount_cents")]
+        )
+        writer.writerow([message(locale, "report_csv.gross"), report.gross_cents])
+        writer.writerow([message(locale, "report_csv.refunds"), report.refunds_cents])
+        writer.writerow([message(locale, "report_csv.net"), report.net_cents])
         for method, net in report.by_method.items():
-            writer.writerow([f"method:{method}", net])
+            writer.writerow([message(locale, "report_csv.by_method", method=method), net])
         return buf.getvalue()
 
     async def gst_hst_csv(self, start: date, end: date) -> str:
         report = await self.gst_hst_return(start, end)
         buf = io.StringIO()
         writer = csv.writer(buf)
+        locale = await self._locale()
         writer.writerow(
             [
-                "tax_collected_cents",
-                "pst_cents",
-                "qst_cents",
-                "taxable_sales_cents",
-                "gst_hst_number",
+                message(locale, "report_csv.tax_collected_cents"),
+                message(locale, "report_csv.pst_cents"),
+                message(locale, "report_csv.qst_cents"),
+                message(locale, "report_csv.taxable_sales_cents"),
+                message(locale, "report_csv.gst_hst_number"),
             ]
         )
         writer.writerow(
@@ -271,7 +290,14 @@ class ReportService:
         rows = await self.t4a_summary(year)
         buf = io.StringIO()
         writer = csv.writer(buf)
-        writer.writerow(["staff_id", "name", "total_cents"])
+        locale = await self._locale()
+        writer.writerow(
+            [
+                message(locale, "report_csv.staff_id"),
+                message(locale, "report_csv.name"),
+                message(locale, "report_csv.total_cents"),
+            ]
+        )
         for row in rows:
             writer.writerow([row.staff_id, row.name, row.total_cents])
         return buf.getvalue()
@@ -303,9 +329,7 @@ class ReportService:
             t4a=await self.t4a_payees(end.year),
             months=await self._months(end, tz),
             payouts=await self.payouts(lo, hi),
-            rates=[
-                ReportRate(code=r.jurisdiction, name=r.name, rate_bps=r.rate_bps) for r in rates
-            ],
+            rates=[ReportRate(code=r.jurisdiction, rate_bps=r.rate_bps) for r in rates],
         )
 
     async def _tax_by_code(self, lo: datetime, hi: datetime) -> dict[str, int]:
@@ -426,8 +450,15 @@ class ReportService:
 
     async def pst_csv(self, start: date, end: date) -> str:
         provincial = (await self.summary(start, end)).provincial
+        locale = await self._locale()
         return _csv(
-            ["code", "rate_bps", "taxable_sales_cents", "collected_cents", "number"],
+            [
+                message(locale, "report_csv.code"),
+                message(locale, "report_csv.rate_bps"),
+                message(locale, "report_csv.taxable_sales_cents"),
+                message(locale, "report_csv.collected_cents"),
+                message(locale, "report_csv.number"),
+            ],
             [
                 [
                     provincial.code or "",
@@ -441,8 +472,14 @@ class ReportService:
 
     async def payouts_csv(self, start: date, end: date) -> str:
         lo, hi = period_bounds(start, end, ZoneInfo((await self._business()).timezone))
+        locale = await self._locale()
         return _csv(
-            ["payout", "arrival", "amount_cents", "status"],
+            [
+                message(locale, "report_csv.payout"),
+                message(locale, "report_csv.arrival"),
+                message(locale, "report_csv.amount_cents"),
+                message(locale, "report_csv.status"),
+            ],
             [
                 [
                     p.id,
@@ -476,15 +513,17 @@ class ReportService:
         if not paid:
             return []
         names = await self.db.execute(
-            select(Staff.id, func.coalesce(Staff.name, User.name))
+            scoped(Staff, self.biz)
+            .with_only_columns(Staff.id, func.coalesce(Staff.name, User.name))
             .join(User, User.id == Staff.user_id, isouter=True)
-            .where(Staff.id.in_(paid), Staff.business_id == self.biz)
+            .where(Staff.id.in_(paid))
         )
         named = {staff_id: name for staff_id, name in names.tuples().all()}
+        unnamed = message(await self._locale(), "report.unnamed_payee")
         return [
             T4APayee(
                 staff_id=staff_id,
-                name=named.get(staff_id) or _UNNAMED_PAYEE,
+                name=named.get(staff_id) or unnamed,
                 payments=count,
                 total_cents=total,
             )

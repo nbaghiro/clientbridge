@@ -1,11 +1,12 @@
 from datetime import UTC, datetime
-from zoneinfo import ZoneInfo
+from functools import cache
+from zoneinfo import ZoneInfo, available_timezones
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.deps import Principal, assert_role
-from clientbridge.core.errors import Conflict, NotFound
+from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import ConnectAccount
@@ -20,6 +21,17 @@ async def business_tz(db: AsyncSession, business_id: str) -> ZoneInfo:
         await db.execute(select(Business.timezone).where(Business.id == business_id))
     ).scalar_one_or_none()
     return ZoneInfo(tz) if tz is not None else ZoneInfo("UTC")
+
+
+def valid_timezone(name: str | None) -> str:
+    if name is None or name not in _iana_zones():
+        raise Unprocessable("timezone must be an IANA time zone name", code="invalid_timezone")
+    return name
+
+
+@cache
+def _iana_zones() -> frozenset[str]:
+    return frozenset(available_timezones())
 
 
 async def business_province(db: AsyncSession, business_id: str) -> str | None:
@@ -123,6 +135,8 @@ class BusinessService:
         if business is None:
             raise NotFound("business not found")
         fields = data.model_dump(exclude_unset=True, exclude={"brand", "setup_dismissed"})
+        if "timezone" in fields:
+            valid_timezone(data.timezone)
         for key, value in fields.items():
             if value is None and key in ("review_hold_at", "filing_frequency", "tax_registered"):
                 continue
@@ -189,7 +203,7 @@ class OnboardingService:
             name=data.name,
             slug=data.slug,
             province=data.province,
-            timezone=data.timezone or "America/Toronto",
+            timezone=valid_timezone(data.timezone or "America/Toronto"),
         )
         self.db.add(biz)
         await self.db.flush()  # insert the business first so the Staff FK resolves

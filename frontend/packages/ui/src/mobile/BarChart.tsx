@@ -1,4 +1,4 @@
-import type { BarChartProps } from "@clientbridge/app-core";
+import { type BarChartProps, strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -16,7 +16,15 @@ export function BarChart({ bars, label, height = 140, style }: NativeProps<BarCh
     return (
         <View style={style} accessibilityRole="list" accessibilityLabel={label}>
             <Text style={styles.readout}>
-                {shown ? `${shown.label}  ${shown.valueLabel}` : " "}
+                {shown ? (
+                    <>
+                        {shown.label}
+                        {"  "}
+                        {shown.valueLabel}
+                    </>
+                ) : (
+                    " "
+                )}
             </Text>
             <View style={[styles.plot, { height }]}>
                 {bars.map((b) => (
@@ -24,7 +32,7 @@ export function BarChart({ bars, label, height = 140, style }: NativeProps<BarCh
                         key={b.key}
                         style={styles.slot}
                         accessibilityRole="button"
-                        accessibilityLabel={`${b.label}: ${b.valueLabel}`}
+                        accessibilityLabel={strings.common.labelColonValue(b.label, b.valueLabel)}
                         onPress={() => {
                             setPicked(b.key);
                         }}

@@ -1,8 +1,4 @@
-import {
-    type StatProps,
-    formatMoney,
-    formatMoneyWithCurrency,
-} from "@clientbridge/app-core/public";
+import { type StatProps, formatMoney } from "@clientbridge/app-core/public";
 
 import { type WebProps, cx } from "./props";
 
@@ -25,9 +21,8 @@ export function Stat({
     className,
 }: WebProps<StatProps>) {
     const large = size === "lg";
-    const money = (n: number): string =>
-        currency === undefined ? formatMoney(n) : formatMoneyWithCurrency(n, currency);
-    const shown = value ?? (cents === null || cents === undefined ? null : money(cents));
+    const shown =
+        value ?? (cents === null || cents === undefined ? null : formatMoney(cents, currency));
     return (
         <div
             className={cx(

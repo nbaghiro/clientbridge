@@ -3,9 +3,19 @@ import { useMemo, useRef, useState } from "react";
 import { type Load, useAsyncAction, useLoad, useRemote } from "../hooks";
 import { strings } from "../strings";
 import { type ApiLike, newIdempotencyKey } from "../api";
-import { addDays, dateKey, daysUntil, formatShortDay } from "../datetime";
-import { parseCents } from "../format";
+import {
+    addDays,
+    dateKey,
+    daysUntil,
+    formatDate,
+    formatShortDay,
+    formatShortMonthYear,
+    parseDateKey,
+    useBusinessZone,
+} from "../datetime";
+import { parseCents, BUSINESS_CURRENCY } from "../format";
 import type { Intent } from "../ui";
+import { taxName } from "./printing";
 
 export type TaxFamily = "federal" | "provincial";
 
@@ -69,27 +79,26 @@ export interface FilingPeriod {
     provincialReturn: FiledReturn | null;
 }
 
-const day = (key: string): Date => new Date(`${key}T12:00:00`);
+const day = (key: string, zone: string): Date => parseDateKey(key, zone) ?? new Date(NaN);
 
-function filingDay(key: string): string {
-    return formatShortDay(day(key));
+function filingDay(key: string, zone: string): string {
+    return formatShortDay(day(key, zone), zone);
 }
 
-function periodTitle(row: FilingPeriodRow, frequency: string): string {
-    const start = day(row.start);
-    if (frequency === "annual") return String(start.getFullYear());
-    if (frequency === "monthly")
-        return start.toLocaleDateString("en-CA", { month: "short", year: "numeric" });
-    return strings.remittances.quarter(Math.floor(start.getMonth() / 3) + 1, start.getFullYear());
+function periodTitle(row: FilingPeriodRow, frequency: string, zone: string): string {
+    const [year = 0, month = 1] = row.start.split("-").map(Number);
+    if (frequency === "annual") return String(year);
+    if (frequency === "monthly") return formatShortMonthYear(day(row.start, zone), zone);
+    return strings.remittances.quarter(Math.floor((month - 1) / 3) + 1, year);
 }
 
-function toPeriod(row: FilingPeriodRow, frequency: string, now: Date): FilingPeriod {
-    const due = day(row.due);
+function toPeriod(row: FilingPeriodRow, frequency: string, now: Date, zone: string): FilingPeriod {
+    const due = day(row.due, zone);
     const provincialDone = row.provincial_status === "none" || row.provincial_status === "filed";
     const status: FilingStatus =
         row.federal_status === "filed" && provincialDone
             ? "filed"
-            : day(row.end) < now
+            : day(row.end, zone) < now
               ? "due"
               : "open";
     const find = (family: TaxFamily): FiledReturn | null =>
@@ -100,13 +109,13 @@ function toPeriod(row: FilingPeriodRow, frequency: string, now: Date): FilingPer
         key: row.start,
         start: row.start,
         end: row.end,
-        title: periodTitle(row, frequency),
+        title: periodTitle(row, frequency, zone),
         span: strings.remittances.span(
-            filingDay(row.start),
-            `${filingDay(row.end)}, ${row.end.slice(0, 4)}`,
+            filingDay(row.start, zone),
+            formatDate(day(row.end, zone), zone),
         ),
         due,
-        daysToDue: daysUntil(due, now),
+        daysToDue: daysUntil(due, zone, now),
         status,
         federalCents: row.federal_cents,
         provincialCents: row.provincial_cents,
@@ -131,18 +140,18 @@ export function filingStatusIntent(status: FilingStatus): Intent {
 }
 
 /** When a period is due, or was filed. */
-export function filingWhen(p: FilingPeriod): string {
+export function filingWhen(p: FilingPeriod, zone: string): string {
     const filedOn = p.federalReturn?.filed_on ?? p.provincialReturn?.filed_on;
     if (p.status === "filed") {
         // filed per the server, but with no return row to date it (e.g. recorded before returns)
         return filedOn === undefined
             ? strings.remittances.filed
-            : strings.remittances.filedOn(filingDay(filedOn));
+            : strings.remittances.filedOn(filingDay(filedOn, zone));
     }
     if (p.status === "due" && p.daysToDue < 0)
-        return strings.remittances.overdue(formatShortDay(p.due));
-    if (p.status === "open") return strings.remittances.dueOn(formatShortDay(p.due));
-    return strings.remittances.dueIn(p.daysToDue, formatShortDay(p.due));
+        return strings.remittances.overdue(formatShortDay(p.due, zone));
+    if (p.status === "open") return strings.remittances.dueOn(formatShortDay(p.due, zone));
+    return strings.remittances.dueIn(p.daysToDue, formatShortDay(p.due, zone));
 }
 
 export interface TaxFilings {
@@ -166,18 +175,20 @@ export interface TaxFilings {
 export function useTaxFilings(api: ApiLike): TaxFilings {
     const remote = useRemote(() => api.get<TaxFilingsData>("/v1/payments/remittances"));
     const [now] = useState(() => new Date());
+    const zone = useBusinessZone();
     const data = remote.data;
     const periods = useMemo(
-        () => (data === null ? [] : data.periods.map((p) => toPeriod(p, data.frequency, now))),
-        [data, now],
+        () =>
+            data === null ? [] : data.periods.map((p) => toPeriod(p, data.frequency, now, zone)),
+        [data, now, zone],
     );
     const nextDue =
         data?.next_due === null || data === null
             ? null
             : ([...periods].reverse().find((p) => p.status === "due") ??
-              periods.find((p) => dateKey(p.due) === data.next_due) ??
+              periods.find((p) => dateKey(p.due, zone) === data.next_due) ??
               null);
-    const reminder = nextDue === null ? null : addDays(nextDue.due, -7);
+    const reminder = nextDue === null ? null : addDays(nextDue.due, -7, zone);
     const load = useLoad([remote], data !== null && periods.length === 0);
     return {
         load,
@@ -190,7 +201,7 @@ export function useTaxFilings(api: ApiLike): TaxFilings {
         reminderOn: reminder !== null && reminder > now ? reminder : null,
         federalLabel:
             data?.federal_code === "HST" ? strings.remittances.hst : strings.remittances.gstHst,
-        provincialLabel: data?.provincial_code ?? null,
+        provincialLabel: data?.provincial_code == null ? null : taxName(data.provincial_code),
         provincialRate:
             data?.provincial_rate_bps === null || data === null
                 ? ""
@@ -240,7 +251,8 @@ export function useFilingForm(
     const family = families.includes(chosen) ? chosen : (families[0] ?? "federal");
     const [itc, setItcState] = useState("");
     const [confirmation, setConfirmationState] = useState("");
-    const [filedOn, setFiledOnState] = useState(() => dateKey(new Date()));
+    const zone = useBusinessZone();
+    const [filedOn, setFiledOnState] = useState(() => dateKey(new Date(), zone));
     const key = useRef<string | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     const edit =
@@ -250,7 +262,7 @@ export function useFilingForm(
             setError(null);
             set(v);
         };
-    const itcCents = family === "federal" ? (parseCents(itc) ?? 0) : 0;
+    const itcCents = family === "federal" ? (parseCents(itc, BUSINESS_CURRENCY) ?? 0) : 0;
     const owedCents =
         period === null ? 0 : family === "federal" ? period.federalCents : period.provincialCents;
     return {
@@ -272,7 +284,7 @@ export function useFilingForm(
             if (period === null) return;
             const r = strings.remittances.errors;
             const problem =
-                itc.trim() !== "" && (parseCents(itc) ?? -1) < 0
+                itc.trim() !== "" && (parseCents(itc, BUSINESS_CURRENCY) ?? -1) < 0
                     ? r.itcInvalid
                     : itcCents > owedCents
                       ? r.itcTooHigh
@@ -280,7 +292,7 @@ export function useFilingForm(
                         ? family === "federal"
                             ? r.needConfirmation
                             : r.needPstConfirmation
-                        : filedOn === "" || filedOn > dateKey(new Date())
+                        : filedOn === "" || filedOn > dateKey(new Date(), zone)
                           ? r.filedOn
                           : null;
             if (problem !== null) {

@@ -1,6 +1,11 @@
-import { BUSINESS_TEXT_FIELDS, strings, useBusinessForm } from "@clientbridge/app-core";
+import {
+    BUSINESS_TEXT_FIELDS,
+    strings,
+    timeZoneOptions,
+    useBusinessForm,
+} from "@clientbridge/app-core";
 
-import { Button, Loading, Notice, Panel, TextField } from "@clientbridge/ui";
+import { Button, Loading, Notice, Panel, Select, TextField } from "@clientbridge/ui";
 import { api } from "../lib/api";
 
 export function Business() {
@@ -35,6 +40,15 @@ export function Business() {
                                     size="lg"
                                 />
                             ))}
+                            <Select
+                                label={strings.business.timezoneLabel}
+                                value={fields.timezone}
+                                options={timeZoneOptions(fields.timezone)}
+                                onChange={(v) => {
+                                    form.set("timezone", v);
+                                }}
+                                size="lg"
+                            />
                             {form.error !== null && <Notice tone="danger">{form.error}</Notice>}
                             {form.saved && <Notice tone="success">{strings.common.saved}</Notice>}
                             <Button submit busy={form.busy}>

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import { type PublicBrand, usePublicResource } from "./publicResource";
+import { refusal } from "../api";
 
 interface PublicPreferences {
     business_name: string;
@@ -12,16 +13,6 @@ interface PublicPreferences {
     phone_hint: string | null;
     email: boolean;
     sms: boolean;
-}
-
-class PublicPreferencesError extends Error {
-    constructor(
-        readonly status: number,
-        message: string,
-    ) {
-        super(message);
-        this.name = "PublicPreferencesError";
-    }
 }
 
 interface PublicPreferencesClient {
@@ -34,8 +25,7 @@ export function createPublicPreferencesClient(baseUrl: string): PublicPreference
     const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
         const res = await fetch(`${baseUrl}${path}`, init);
         if (!res.ok) {
-            const text = await res.text().catch(() => "");
-            throw new PublicPreferencesError(res.status, text || res.statusText);
+            throw await refusal(res);
         }
         return (await res.json()) as T;
     };

@@ -5,7 +5,7 @@
             "ignoreDependencies": ["@journeyapps/wa-sqlite"]
         },
         "apps/connect": {
-            "entry": ["public/embed.js"]
+            "entry": ["public/embed.js", "src/embedLoader.ts"]
         },
         "apps/site": {
             "entry": ["src/entry-server.tsx", "scripts/*.ts"]
@@ -21,7 +21,7 @@
             "entry": ["scripts/*.cjs"]
         },
         "packages/config": {
-            "entry": ["scripts/*.mjs"]
+            "entry": ["scripts/*.mjs", "*.test.mjs"]
         },
         "apps/playground": {
             "entry": [

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import NotFound, TooManyRequests, Unauthorized, Unprocessable
 from clientbridge.core.ids import new_id
+from clientbridge.core.locale import locale_for
 from clientbridge.core.scoping import scoped
 from clientbridge.core.security import hash_token
 from clientbridge.integrations.postmark import Email, EmailSender
@@ -28,6 +29,8 @@ from clientbridge.schemas.returning import (
     ReturningVisit,
 )
 from clientbridge.services.notifications import returning_code
+
+_CODE_MINUTES = 10
 
 
 def _digest(value: str) -> str:
@@ -116,11 +119,13 @@ class ReturningService:
                 client_id=clients[0].id if len(clients) == 1 else None,
                 destination_hash=destination,
                 code_hash=_digest(f"{challenge_id}:{code}"),
-                expires_at=now + timedelta(minutes=10),
+                expires_at=now + timedelta(minutes=_CODE_MINUTES),
             )
         )
         await self.db.commit()
-        subject, body = returning_code(business.name, code)
+        subject, body = returning_code(
+            locale_for(business=business), business.name, code, _CODE_MINUTES
+        )
         if channel == "email":
             await sender.send(Email(to=address, subject=subject, body=body))
         else:

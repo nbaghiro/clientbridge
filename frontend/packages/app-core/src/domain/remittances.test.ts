@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { formatShortDay } from "../datetime";
+import { formatShortDay, zonedDate } from "../datetime";
 import { strings } from "../strings";
 import { type FilingPeriod, filingWhen } from "./remittances";
+
+const ZONE = "America/Vancouver";
 
 const r = strings.remittances;
 
 type FiledReturn = NonNullable<FilingPeriod["federalReturn"]>;
 
-const due = new Date(2026, 6, 31, 12);
+const due = zonedDate(2026, 7, 31, 12, 0, ZONE);
 
 function period(extra: Partial<FilingPeriod>): FilingPeriod {
     return {
@@ -53,27 +55,35 @@ describe("filingWhen", () => {
                     federalReturn: filed("federal", "2026-07-15"),
                     provincialReturn: filed("provincial", "2026-07-20"),
                 }),
+                ZONE,
             ),
-        ).toBe(r.filedOn(formatShortDay(new Date(2026, 6, 15, 12))));
+        ).toBe(r.filedOn(formatShortDay(zonedDate(2026, 7, 15, 12, 0, ZONE), ZONE)));
         expect(
             filingWhen(
                 period({ status: "filed", provincialReturn: filed("provincial", "2026-07-20") }),
+                ZONE,
             ),
-        ).toBe(r.filedOn(formatShortDay(new Date(2026, 6, 20, 12))));
+        ).toBe(r.filedOn(formatShortDay(zonedDate(2026, 7, 20, 12, 0, ZONE), ZONE)));
     });
 
     it("says filed, never due, for a filed period with no return row", () => {
         for (const daysToDue of [10, 0, -30]) {
-            expect(filingWhen(period({ status: "filed", daysToDue }))).toBe(r.filed);
+            expect(filingWhen(period({ status: "filed", daysToDue }), ZONE)).toBe(r.filed);
         }
     });
 
     it("counts down to the due date and flags a late one", () => {
-        expect(filingWhen(period({ daysToDue: 10 }))).toBe(r.dueIn(10, formatShortDay(due)));
-        expect(filingWhen(period({ daysToDue: 0 }))).toBe(r.dueIn(0, formatShortDay(due)));
-        expect(filingWhen(period({ daysToDue: -1 }))).toBe(r.overdue(formatShortDay(due)));
-        expect(filingWhen(period({ status: "open", daysToDue: 40 }))).toBe(
-            r.dueOn(formatShortDay(due)),
+        expect(filingWhen(period({ daysToDue: 10 }), ZONE)).toBe(
+            r.dueIn(10, formatShortDay(due, ZONE)),
+        );
+        expect(filingWhen(period({ daysToDue: 0 }), ZONE)).toBe(
+            r.dueIn(0, formatShortDay(due, ZONE)),
+        );
+        expect(filingWhen(period({ daysToDue: -1 }), ZONE)).toBe(
+            r.overdue(formatShortDay(due, ZONE)),
+        );
+        expect(filingWhen(period({ status: "open", daysToDue: 40 }), ZONE)).toBe(
+            r.dueOn(formatShortDay(due, ZONE)),
         );
     });
 });

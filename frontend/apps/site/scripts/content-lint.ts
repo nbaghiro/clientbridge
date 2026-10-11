@@ -1,4 +1,4 @@
-// Holds src/content and the built pages to the house style: no em-dashes, hype words or "coming soon".
+// Holds the catalog, src/content and the built pages to the house style: no em-dashes, hype words or "coming soon".
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -51,6 +51,13 @@ const check = (where: string, text: string): void => {
             problems.push(`${where}: ${rule.name} "${hit[0]}" in "${text.trim().slice(0, 80)}"`);
     }
 };
+
+const catalog = JSON.parse(readFileSync(join(root, "locales", "en-CA.json"), "utf8")) as Record<
+    string,
+    { message: string }
+>;
+for (const [key, entry] of Object.entries(catalog))
+    check(`locales/en-CA.json ${key}`, entry.message);
 
 for (const file of walk(join(root, "src", "content"), ".ts")) {
     for (const text of literals(readFileSync(file, "utf8"))) check(relative(root, file), text);

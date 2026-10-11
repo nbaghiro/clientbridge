@@ -21,6 +21,8 @@ import {
     useInvoices,
     useLetterhead,
     useLines,
+    formatParts,
+    BUSINESS_CURRENCY,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { useEffect, useState } from "react";
@@ -180,6 +182,7 @@ function InvoiceDeskView({
                         <View style={styles.stats}>
                             <View style={styles.stat}>
                                 <Stat
+                                    currency={BUSINESS_CURRENCY}
                                     label={s.statOutstanding}
                                     cents={ready ? desk.stats.outstandingCents : null}
                                     hint={
@@ -191,6 +194,7 @@ function InvoiceDeskView({
                             </View>
                             <View style={styles.stat}>
                                 <Stat
+                                    currency={BUSINESS_CURRENCY}
                                     label={s.statOverdue}
                                     cents={ready ? desk.stats.overdueCents : null}
                                     tone={desk.stats.overdueCents > 0 ? "danger" : "ink"}
@@ -245,11 +249,12 @@ function InvoiceDeskView({
                                 {r.row.client_name}
                             </Text>
                             <Text style={[styles.rowSub, r.late && styles.late]} numberOfLines={1}>
-                                {[r.number, r.dueLabel].filter(Boolean).join(" · ")}
+                                {formatParts([r.number, r.dueLabel])}
                             </Text>
                         </View>
                         <View style={styles.rowRight}>
                             <Money
+                                currency={BUSINESS_CURRENCY}
                                 cents={
                                     (r.row.balance_cents ?? 0) > 0
                                         ? r.row.balance_cents
@@ -409,11 +414,15 @@ function InvoicePanel({
                                 <Text style={styles.lineName}>{l.description}</Text>
                                 <Text style={styles.rowSub}>{rec.lineDetail(l)}</Text>
                             </View>
-                            <Money cents={l.amountCents} />
+                            <Money currency={BUSINESS_CURRENCY} cents={l.amountCents} />
                         </View>
                     ))}
                     <View style={styles.totals}>
-                        <DocTotals lines={rec.totals} density="compact" />
+                        <DocTotals
+                            currency={BUSINESS_CURRENCY}
+                            lines={rec.totals}
+                            density="compact"
+                        />
                     </View>
                 </DetailSection>
                 {rec.payUrl !== null ? (
@@ -437,6 +446,7 @@ function InvoicePanel({
                                     <Text style={styles.rowSub}>{p.detail}</Text>
                                 </View>
                                 <Money
+                                    currency={BUSINESS_CURRENCY}
                                     cents={p.refund ? -p.amountCents : p.amountCents}
                                     tone={p.refund ? "danger" : "ink"}
                                 />
@@ -572,11 +582,11 @@ function EstimateDeskView({
                                 {r.row.client_name}
                             </Text>
                             <Text style={styles.rowSub} numberOfLines={1}>
-                                {[r.number, r.validLabel].filter(Boolean).join(" · ")}
+                                {formatParts([r.number, r.validLabel])}
                             </Text>
                         </View>
                         <View style={styles.rowRight}>
-                            <Money cents={r.row.total_cents} strong />
+                            <Money currency={BUSINESS_CURRENCY} cents={r.row.total_cents} strong />
                             <StatusPill status={r.statusLabel} intent={r.intent} asWritten />
                         </View>
                     </View>
@@ -697,7 +707,10 @@ function EstimatePanel({
                     layout="stack"
                     columns={2}
                     rows={[
-                        { label: s.total, value: formatMoney(rec.row.total_cents) },
+                        {
+                            label: s.total,
+                            value: formatMoney(rec.row.total_cents, BUSINESS_CURRENCY),
+                        },
                         { label: s.colValid, value: rec.validLabel },
                     ]}
                 />
@@ -719,17 +732,22 @@ function EstimatePanel({
                                     {l.description}
                                 </Text>
                                 <Text style={styles.rowSub}>
-                                    {[rec.lineDetail(l), l.note].filter(Boolean).join(" · ")}
+                                    {formatParts([rec.lineDetail(l), l.note])}
                                 </Text>
                             </View>
                             <Money
+                                currency={BUSINESS_CURRENCY}
                                 cents={l.amountCents}
                                 tone={l.optional && !l.selected ? "muted" : "ink"}
                             />
                         </View>
                     ))}
                     <View style={styles.totals}>
-                        <DocTotals lines={rec.totals} density="compact" />
+                        <DocTotals
+                            currency={BUSINESS_CURRENCY}
+                            lines={rec.totals}
+                            density="compact"
+                        />
                     </View>
                 </DetailSection>
                 {rec.acceptUrl !== null ? (

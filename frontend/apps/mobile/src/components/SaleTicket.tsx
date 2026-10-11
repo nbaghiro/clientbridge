@@ -13,6 +13,11 @@ import {
     useConnectionToken,
     useDiscountEditor,
     useDiscountSheet,
+    formatParts,
+    BUSINESS_CURRENCY,
+    currencyAffix,
+    parseCents,
+    formatAmountInput,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { type ReactNode, useEffect, useState } from "react";
@@ -39,7 +44,7 @@ const d = strings.pos.desk;
 const c = theme.colors;
 
 function Heading({ children }: { children: string }) {
-    return <Text style={styles.heading}>{children.toUpperCase()}</Text>;
+    return <Text style={styles.heading}>{children}</Text>;
 }
 
 function DiscountFields({ editor, baseCents }: { editor: DiscountEditor; baseCents: number }) {
@@ -59,7 +64,7 @@ function DiscountFields({ editor, baseCents }: { editor: DiscountEditor; baseCen
             <TextField
                 label={editor.kind === "amount" ? d.amountOff : d.percentOff}
                 type="number"
-                {...(editor.kind === "amount" ? { prefix: "$" } : {})}
+                {...(editor.kind === "amount" ? currencyAffix(BUSINESS_CURRENCY) : {})}
                 value={editor.value}
                 onChange={editor.setValue}
             />
@@ -78,8 +83,8 @@ function DiscountFields({ editor, baseCents }: { editor: DiscountEditor; baseCen
             {editor.previewCents > 0 ? (
                 <Text style={styles.soft}>
                     {d.discountPreview(
-                        formatMoney(editor.previewCents),
-                        formatMoney(baseCents - editor.previewCents),
+                        formatMoney(editor.previewCents, BUSINESS_CURRENCY),
+                        formatMoney(baseCents - editor.previewCents, BUSINESS_CURRENCY),
                     )}
                 </Text>
             ) : null}
@@ -196,7 +201,7 @@ function ClientPicker({ sale }: { sale: SaleTicket }) {
     );
 }
 
-const pct = (bps: number | null): string => String((bps ?? 0) / 100);
+const pct = (bps: number | null): number => (bps ?? 0) / 100;
 
 function Approval({
     body,
@@ -239,7 +244,10 @@ function TicketApproval({ sale }: { sale: SaleTicket }) {
         <Approval
             body={d.approvalBody(
                 pct(sale.limitBps),
-                formatMoney(Math.round((sale.totals.grossCents * (sale.limitBps ?? 0)) / 10000)),
+                formatMoney(
+                    Math.round((sale.totals.grossCents * (sale.limitBps ?? 0)) / 10000),
+                    BUSINESS_CURRENCY,
+                ),
             )}
             pin={pin}
             setPin={(v) => {
@@ -287,6 +295,7 @@ function DiscountSheetBody({ sale, onDone }: { sale: SaleTicket; onDone: () => v
                         label: d.scopeSale,
                         hint: formatMoney(
                             sale.totals.subtotalCents + sale.totals.saleDiscountCents,
+                            BUSINESS_CURRENCY,
                         ),
                     },
                     { key: "lines", label: d.scopeLines, hint: d.items(sale.itemCount) },
@@ -296,7 +305,10 @@ function DiscountSheetBody({ sale, onDone }: { sale: SaleTicket; onDone: () => v
                 ? sale.lines.map((l) => (
                       <Checkbox
                           key={l.key}
-                          label={`${l.description} · ${formatMoney(l.grossCents)}`}
+                          label={formatParts([
+                              l.description,
+                              formatMoney(l.grossCents, BUSINESS_CURRENCY),
+                          ])}
                           value={sheet.keys.includes(l.key)}
                           onChange={() => {
                               sheet.toggleKey(l.key);
@@ -306,6 +318,7 @@ function DiscountSheetBody({ sale, onDone }: { sale: SaleTicket; onDone: () => v
                 : null}
             <DiscountFields editor={sheet.editor} baseCents={base} />
             <DocTotals
+                currency={BUSINESS_CURRENCY}
                 density="compact"
                 lines={[
                     { key: "off", label: d.youSave, cents: p.after.discountCents, kind: "credit" },
@@ -326,6 +339,7 @@ function DiscountSheetBody({ sale, onDone }: { sale: SaleTicket; onDone: () => v
                         pct(sale.limitBps),
                         formatMoney(
                             Math.round((p.after.grossCents * (sale.limitBps ?? 0)) / 10000),
+                            BUSINESS_CURRENCY,
                         ),
                     )}
                     pin={sheet.approval.pin}
@@ -368,7 +382,7 @@ function TipBlock({ sale }: { sale: SaleTicket }) {
                     else if (k === "custom")
                         sale.setTip({
                             kind: "custom",
-                            cents: Math.round(Number(custom || "0") * 100),
+                            cents: parseCents(custom, BUSINESS_CURRENCY) ?? 0,
                         });
                     else sale.setTip({ kind: "percent", pct: Number(k) });
                 }}
@@ -376,20 +390,21 @@ function TipBlock({ sale }: { sale: SaleTicket }) {
             {sale.tip.kind === "custom" ? (
                 <TextField
                     label={d.tipAmount}
-                    prefix="$"
+                    {...currencyAffix(BUSINESS_CURRENCY)}
                     type="number"
                     value={custom}
                     onChange={(v) => {
                         setCustom(v);
-                        const n = Number(v);
                         sale.setTip({
                             kind: "custom",
-                            cents: Number.isFinite(n) && n > 0 ? Math.round(n * 100) : 0,
+                            cents: parseCents(v, BUSINESS_CURRENCY) ?? 0,
                         });
                     }}
                 />
             ) : null}
-            <Text style={styles.note}>{d.tipOn(formatMoney(sale.totals.subtotalCents))}</Text>
+            <Text style={styles.note}>
+                {d.tipOn(formatMoney(sale.totals.subtotalCents, BUSINESS_CURRENCY))}
+            </Text>
             {tip > 0 ? (
                 <View style={styles.stack}>
                     <Choice
@@ -420,7 +435,7 @@ function TipBlock({ sale }: { sale: SaleTicket }) {
                                 leading={<Avatar name={sh.name} size="sm" color={sh.color} />}
                                 title={sh.name}
                                 detail={d.tipShareOf(Math.round((sh.cents / tip) * 100))}
-                                meta={formatMoney(sh.cents)}
+                                meta={formatMoney(sh.cents, BUSINESS_CURRENCY)}
                             />
                         ))
                     )}
@@ -441,7 +456,7 @@ function CashBox({ sale }: { sale: SaleTicket }) {
         <View style={styles.box}>
             <TextField
                 label={d.cashGiven}
-                prefix="$"
+                {...currencyAffix(BUSINESS_CURRENCY)}
                 type="number"
                 value={sale.cashGiven}
                 onChange={sale.setCashGiven}
@@ -453,16 +468,18 @@ function CashBox({ sale }: { sale: SaleTicket }) {
                         size="sm"
                         variant="outline"
                         onPress={() => {
-                            sale.setCashGiven((cents / 100).toFixed(2));
+                            sale.setCashGiven(formatAmountInput(cents, BUSINESS_CURRENCY));
                         }}
                     >
-                        {i === 0 ? d.exactCash : formatMoney(cents)}
+                        {i === 0 ? d.exactCash : formatMoney(cents, BUSINESS_CURRENCY)}
                     </Button>
                 ))}
             </View>
             <View style={styles.row}>
                 <Text style={styles.soft}>{d.changeDue}</Text>
-                <Text style={styles.big}>{formatMoney(Math.max(0, sale.changeCents ?? 0))}</Text>
+                <Text style={styles.big}>
+                    {formatMoney(Math.max(0, sale.changeCents ?? 0), BUSINESS_CURRENCY)}
+                </Text>
             </View>
         </View>
     );
@@ -524,10 +541,18 @@ function ReceiptChooser({ sale }: { sale: SaleTicket }) {
 }
 
 const METHOD_LABEL: Record<SalePayMethod, string> = {
-    tap: d.methodTap,
-    saved: d.methodCard,
-    card: d.methodCard,
-    cash: d.methodCash,
+    get tap() {
+        return d.methodTap;
+    },
+    get saved() {
+        return d.methodCard;
+    },
+    get card() {
+        return d.methodCard;
+    },
+    get cash() {
+        return d.methodCash;
+    },
 };
 
 /** Tap to Pay: connects the phone's reader, then collects the sale's PaymentIntent. */
@@ -583,9 +608,13 @@ function PaidSummary({
     return (
         <View style={styles.stack}>
             <Text style={styles.title}>{d.paidTitle}</Text>
-            <Text style={styles.soft}>{d.paidBody(formatMoney(sale.paidCents), method)}</Text>
+            <Text style={styles.soft}>
+                {d.paidBody(formatMoney(sale.paidCents, BUSINESS_CURRENCY), method)}
+            </Text>
             {sale.changeGiven !== null && sale.changeGiven > 0 ? (
-                <Notice tone="info">{d.changeToGive(formatMoney(sale.changeGiven))}</Notice>
+                <Notice tone="info">
+                    {d.changeToGive(formatMoney(sale.changeGiven, BUSINESS_CURRENCY))}
+                </Notice>
             ) : null}
             <Heading>{d.receiptTitle}</Heading>
             <ReceiptChooser sale={sale} />
@@ -609,8 +638,8 @@ function PayBody({ sale, onBack }: { sale: SaleTicket; onBack: () => void }) {
             <ChargeSheet
                 checkout={sale.checkout}
                 methods={[]}
-                amountLabel={formatMoney(sale.paidCents)}
-                submitLabel={d.charge(formatMoney(sale.paidCents))}
+                amountLabel={formatMoney(sale.paidCents, BUSINESS_CURRENCY)}
+                submitLabel={d.charge(formatMoney(sale.paidCents, BUSINESS_CURRENCY))}
                 busyLabel={d.charging}
                 onSubmit={() => undefined}
                 onCancel={sale.checkout.cancel}
@@ -623,11 +652,11 @@ function PayBody({ sale, onBack }: { sale: SaleTicket; onBack: () => void }) {
                     <Text style={styles.title}>{d.payTitle}</Text>
                     <Text style={styles.soft}>{d.payFor(sale.client?.name ?? d.walkIn)}</Text>
                 </View>
-                <Text style={styles.big}>{formatMoney(due)}</Text>
+                <Text style={styles.big}>{formatMoney(due, BUSINESS_CURRENCY)}</Text>
             </View>
             {sale.totals.depositCents > 0 ? (
                 <Text style={styles.note}>
-                    {d.depositCredit(formatMoney(sale.totals.depositCents))}
+                    {d.depositCredit(formatMoney(sale.totals.depositCents, BUSINESS_CURRENCY))}
                 </Text>
             ) : null}
             <TipBlock sale={sale} />
@@ -657,8 +686,8 @@ function PayBody({ sale, onBack }: { sale: SaleTicket; onBack: () => void }) {
                 {sale.busy
                     ? d.charging
                     : sale.method === "tap"
-                      ? d.collect(formatMoney(due))
-                      : d.charge(formatMoney(due))}
+                      ? d.collect(formatMoney(due, BUSINESS_CURRENCY))
+                      : d.charge(formatMoney(due, BUSINESS_CURRENCY))}
             </Button>
             <Button variant="quiet" full onPress={onBack} disabled={sale.busy}>
                 {d.backToTicket}
@@ -735,6 +764,7 @@ export function TicketSheet({
                 {sale.views.map((v) => (
                     <View key={v.key}>
                         <LineItem
+                            currency={BUSINESS_CURRENCY}
                             title={v.title}
                             meta={v.meta}
                             tag={v.tag}
@@ -806,7 +836,13 @@ export function TicketSheet({
                     </View>
                 )}
                 <TicketApproval sale={sale} />
-                {sale.isEmpty ? null : <DocTotals lines={sale.totalLines} density="compact" />}
+                {sale.isEmpty ? null : (
+                    <DocTotals
+                        currency={BUSINESS_CURRENCY}
+                        lines={sale.totalLines}
+                        density="compact"
+                    />
+                )}
                 {sale.error !== null ? <Notice tone="danger">{sale.error}</Notice> : null}
                 <Button
                     size="lg"
@@ -816,7 +852,7 @@ export function TicketSheet({
                         setStep("pay");
                     }}
                 >
-                    {d.charge(formatMoney(sale.totals.dueCents))}
+                    {d.charge(formatMoney(sale.totals.dueCents, BUSINESS_CURRENCY))}
                 </Button>
             </View>
         );
@@ -838,7 +874,13 @@ const styles = StyleSheet.create({
     row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
     wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     grow: { flex: 1 },
-    heading: { color: c.muted, fontSize: 11, fontWeight: "600", letterSpacing: 0.6 },
+    heading: {
+        color: c.muted,
+        fontSize: 11,
+        fontWeight: "600",
+        letterSpacing: 0.6,
+        textTransform: "uppercase",
+    },
     title: { color: c.ink, fontSize: 18, fontWeight: "700" },
     big: { color: c.ink, fontSize: 24, fontWeight: "700", fontVariant: ["tabular-nums"] },
     soft: { color: c.inkSoft, fontSize: 14 },

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useAsyncAction } from "../hooks";
 import type { SignatureStrokes } from "../ui";
 import { type PublicBrand, usePublicResource } from "./publicResource";
+import { refusal } from "../api";
 
 export interface PublicContract {
     contract_name: string;
@@ -13,6 +14,7 @@ export interface PublicContract {
     status: string;
     version: number;
     signed_at: string | null;
+    timezone: string;
     signer_ip: string | null;
     method: string | null;
     typed_name: string | null;
@@ -25,16 +27,6 @@ interface SignInput {
     agreed: boolean;
 }
 
-class PublicContractError extends Error {
-    constructor(
-        readonly status: number,
-        message: string,
-    ) {
-        super(message);
-        this.name = "PublicContractError";
-    }
-}
-
 interface PublicContractClient {
     getContract: (token: string) => Promise<PublicContract>;
     sign(token: string, input: SignInput): Promise<PublicContract>;
@@ -45,8 +37,7 @@ export function createPublicContractClient(baseUrl: string): PublicContractClien
     const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
         const res = await fetch(`${baseUrl}${path}`, init);
         if (!res.ok) {
-            const text = await res.text().catch(() => "");
-            throw new PublicContractError(res.status, text || res.statusText);
+            throw await refusal(res);
         }
         return (await res.json()) as T;
     };

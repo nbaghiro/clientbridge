@@ -1,4 +1,8 @@
-import type { ProgressStepState, ProgressStepsProps } from "@clientbridge/app-core";
+import {
+    formatList,
+    type ProgressStepsProps,
+    type ProgressStepState,
+} from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -70,7 +74,9 @@ export function ProgressSteps({
                     key={s.key}
                     style={styles.item}
                     accessible
-                    accessibilityLabel={s.hint !== undefined ? `${s.label}, ${s.hint}` : s.label}
+                    accessibilityLabel={
+                        s.hint !== undefined ? formatList([s.label, s.hint], "unit") : s.label
+                    }
                     accessibilityState={{
                         selected: s.state === "current",
                         disabled: s.state === "todo",

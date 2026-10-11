@@ -4,6 +4,7 @@ import {
     type BroadcastSeed,
     type Channel,
     broadcastIntent,
+    broadcastAudience,
     broadcastWhen,
     formatDate,
     parseTimestamp,
@@ -12,6 +13,8 @@ import {
     useBroadcastDraft,
     useBroadcastsHome,
     dateKey,
+    formatParts,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -41,14 +44,25 @@ import { useOpenLink } from "../lib/links";
 
 const s = strings.broadcasts;
 const CHANNELS: { key: Channel; label: string }[] = [
-    { key: "sms", label: s.channels.sms ?? "" },
-    { key: "email", label: s.channels.email ?? "" },
+    {
+        key: "sms",
+        get label() {
+            return s.channels.sms;
+        },
+    },
+    {
+        key: "email",
+        get label() {
+            return s.channels.email;
+        },
+    },
 ];
 const ALL = "__all";
 const grid =
     "grid grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_minmax(0,1.5fr)_minmax(0,1fr)] items-center gap-4";
 
-const dateOf = (value: string): string => (value === "" ? "" : formatDate(parseTimestamp(value)));
+const dateOf = (value: string, zone: string): string =>
+    value === "" ? "" : formatDate(parseTimestamp(value), zone);
 
 function download(filename: string, content: string): void {
     const url = URL.createObjectURL(new Blob([content], { type: "text/csv" }));
@@ -80,6 +94,7 @@ export function Broadcasts() {
 }
 
 function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
+    const zone = useBusinessZone();
     const home = useBroadcastsHome();
     const actions = useBroadcastActions(api, download);
     const [openId, setOpenId] = useState<string | null>(null);
@@ -177,12 +192,12 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                                             name={x.channel === "sms" ? "phoneDevice" : "mail"}
                                             size={12}
                                         />
-                                        {s.viaChannel(s.channels[x.channel] ?? x.channel)}
+                                        {s.viaChannel(x.channel)}
                                     </div>
                                 </div>
                                 <div className="min-w-0">
                                     <div className="truncate text-sm text-ink-soft">
-                                        {s.audienceTags(x.tags)}
+                                        {broadcastAudience(x)}
                                     </div>
                                     <div className="text-xs text-muted">
                                         {s.recipientsLine(x.recipient_count, x.excluded_count)}
@@ -194,21 +209,19 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                                             {s.delivered(x.delivered_count)}
                                         </div>
                                         <div className="truncate text-xs text-muted">
-                                            {[
+                                            {formatParts([
                                                 s.replies(x.reply_count),
                                                 x.opt_out_count > 0
                                                     ? s.optOutsCount(x.opt_out_count)
                                                     : null,
-                                            ]
-                                                .filter((v) => v !== null)
-                                                .join(" · ")}
+                                            ])}
                                         </div>
                                     </div>
                                 ) : (
                                     <span className="text-sm text-muted">—</span>
                                 )}
                                 <div className="text-right text-sm text-ink-soft">
-                                    {broadcastWhen(x)}
+                                    {broadcastWhen(x, zone)}
                                 </div>
                             </div>
                         )}
@@ -244,11 +257,11 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                                                     {o.name}
                                                 </div>
                                                 <div className="truncate text-xs text-muted">
-                                                    {s.consentSource(o.source, dateOf(o.at))}
+                                                    {s.consentSource(o.source, dateOf(o.at, zone))}
                                                 </div>
                                             </div>
                                             <StatusPill
-                                                status={s.consentChannel[o.channel] ?? o.channel}
+                                                status={s.consentChannel[o.channel]}
                                                 intent="danger"
                                                 asWritten
                                             />
@@ -273,8 +286,10 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                                                     {o.name}
                                                 </div>
                                                 <div className="truncate text-xs text-muted">
-                                                    {s.consentChannel[o.channel]} ·{" "}
-                                                    {s.endsOn(dateOf(o.expires))}
+                                                    {formatParts([
+                                                        s.consentChannel[o.channel],
+                                                        s.endsOn(dateOf(o.expires, zone)),
+                                                    ])}
                                                 </div>
                                             </div>
                                         </li>
@@ -289,7 +304,7 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                 <DetailView
                     open
                     title={open.name}
-                    subtitle={`${s.viaChannel(s.channels[open.channel] ?? open.channel)} · ${broadcastWhen(open)}`}
+                    subtitle={formatParts([s.viaChannel(open.channel), broadcastWhen(open, zone)])}
                     status={{
                         status: s.status[open.status] ?? open.status,
                         intent: broadcastIntent(open.status),
@@ -344,7 +359,7 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                         />
                     </DetailSection>
                     <DetailSection title={s.colAudience}>
-                        <p className="text-sm text-ink-soft">{s.audienceTags(open.tags)}</p>
+                        <p className="text-sm text-ink-soft">{broadcastAudience(open)}</p>
                     </DetailSection>
                     <DetailSection title={s.messageTitle}>
                         <p className="whitespace-pre-wrap rounded-md border border-line bg-bg px-4 py-3 text-sm leading-relaxed text-ink-soft">
@@ -361,6 +376,7 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
 }
 
 function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void }) {
+    const zone = useBusinessZone();
     const draft = useBroadcastDraft(api, seed);
     const n = draft.load.hasData ? draft.audience.recipients.length : 0;
     const send = (): void => {
@@ -461,9 +477,10 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
                             </Field>
                             {draft.schedule === "later" ? (
                                 <DateTimeField
+                                    zone={zone}
                                     className="max-w-md"
                                     label={s.sendAtLabel}
-                                    min={dateKey(new Date())}
+                                    min={dateKey(new Date(), zone)}
                                     value={draft.sendAt}
                                     onChange={draft.setSendAt}
                                 />
@@ -552,8 +569,10 @@ function AudienceSummary({ draft }: { draft: BroadcastDraft }) {
                 <span className="text-sm text-muted">{s.recipientsWord(a.recipients.length)}</span>
             </div>
             <p className="mt-1 text-xs text-muted">
-                {s.matched(a.matched)}
-                {a.excluded.length > 0 ? ` · ${s.leftOut(a.excluded.length)}` : ""}
+                {formatParts([
+                    s.matched(a.matched),
+                    a.excluded.length > 0 ? s.leftOut(a.excluded.length) : null,
+                ])}
             </p>
             {a.excluded.length > 0 ? (
                 <>
@@ -575,7 +594,9 @@ function AudienceSummary({ draft }: { draft: BroadcastDraft }) {
                                         >
                                             {s.reasons[x.reason]}
                                         </span>
-                                        {x.detail !== "" ? ` · ${x.detail}` : ""}
+                                        {x.detail !== ""
+                                            ? `${strings.common.separator}${x.detail}`
+                                            : ""}
                                     </div>
                                 </div>
                             </li>

@@ -42,7 +42,13 @@ export function PublicReview() {
             brand={ctx.brand}
             businessName={ctx.business_name}
             title={ctx.pet !== null ? s.promptPet(ctx.pet) : s.prompt(ctx.business_name)}
-            subtitle={ctx.service !== null ? s.context(ctx.service, ctx.staff) : ""}
+            subtitle={
+                ctx.service === null
+                    ? ""
+                    : ctx.staff === null
+                      ? ctx.service
+                      : s.context(ctx.service, ctx.staff)
+            }
             actions={
                 <>
                     {page.error !== null ? <Notice tone="danger">{page.error}</Notice> : null}
@@ -98,7 +104,7 @@ function ReviewThanks({ page }: { page: ReviewPage }) {
         <DocumentLetter
             brand={ctx.brand}
             businessName={ctx.business_name}
-            title={s.thanksTitle(ctx.first_name)}
+            title={ctx.first_name === null ? s.thanks : s.thanksTitle(ctx.first_name)}
             subtitle={body}
             actions={
                 google !== null && !closed ? (

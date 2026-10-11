@@ -11,6 +11,8 @@ const config: ExpoConfig = {
     version: "0.1.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
+    // Permission prompts and the display name, per language; Expo writes InfoPlist.strings and strings.xml.
+    locales: { en: "./locales/en.json" },
     ios: {
         supportsTablet: true,
         bundleIdentifier: "ca.clientbridge.app",
@@ -34,14 +36,8 @@ const config: ExpoConfig = {
             },
         ],
         "expo-sharing",
-        [
-            "expo-image-picker",
-            {
-                cameraPermission: false,
-                microphonePermission: false,
-                photosPermission: "Choose a photo for your business logo or cover.",
-            },
-        ],
+        ["expo-image-picker", { cameraPermission: false, microphonePermission: false }],
+        ["expo-localization", { supportedLocales: ["en"] }],
         ["expo-notifications", { icon: "./assets/notification-icon.png", color: "#3F5E80" }],
         [
             "@stripe/stripe-react-native",

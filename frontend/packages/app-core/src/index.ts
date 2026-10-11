@@ -54,3 +54,4 @@ export * from "./domain/search";
 export * from "./domain/publicLanding";
 
 export * from "./domain/publicReturning";
+export { activeLocale, setPseudoLocale } from "./locale";

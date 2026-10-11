@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { strings } from "../strings";
 import { type ClientRow, filterClients, visitPill } from "./clients";
+import { zonedDate } from "../datetime";
+
+const ZONE = "America/Vancouver";
 
 const r = strings.clients.record;
 
@@ -29,13 +32,13 @@ describe("filterClients", () => {
 
 describe("visitPill", () => {
     type Visit = Parameters<typeof visitPill>[0];
-    const now = new Date(2026, 9, 7, 12);
+    const now = zonedDate(2026, 10, 7, 12, 0, ZONE);
     const visit = (extra: Partial<Visit>): Visit => ({
         id: "bk_1",
         status: "confirmed",
         subjectId: null,
-        start: new Date(2026, 9, 8, 10),
-        end: new Date(2026, 9, 8, 11),
+        start: zonedDate(2026, 10, 8, 10, 0, ZONE),
+        end: zonedDate(2026, 10, 8, 11, 0, ZONE),
         service: "Groom",
         color: null,
         staffName: null,
@@ -47,7 +50,9 @@ describe("visitPill", () => {
     it("marks a visit under way, from the minute it starts", () => {
         const pill = { label: r.inProgress, intent: "accent" };
         expect(visitPill(visit({ start: now, depositCents: 2000 }), now)).toEqual(pill);
-        expect(visitPill(visit({ start: new Date(2026, 9, 7, 11, 59) }), now)).toEqual(pill);
+        expect(visitPill(visit({ start: zonedDate(2026, 10, 7, 11, 59, ZONE) }), now)).toEqual(
+            pill,
+        );
     });
 
     it("shows a coming visit's deposit as paid or due, and nothing without one", () => {

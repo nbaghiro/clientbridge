@@ -11,6 +11,8 @@ import {
     useFormDraft,
     useFormEditor,
     useFormLibrary,
+    formatParts,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     Badge,
@@ -71,13 +73,15 @@ export function Forms() {
                                         detail={
                                             <>
                                                 <span className="block">
-                                                    {s.fields(form.field_count)} ·{" "}
-                                                    {form.submitted > 0
-                                                        ? s.responses(form.submitted)
-                                                        : s.noResponsesYet}
-                                                    {form.waiting > 0
-                                                        ? ` · ${s.waiting(form.waiting)}`
-                                                        : ""}
+                                                    {formatParts([
+                                                        s.fields(form.field_count),
+                                                        form.submitted > 0
+                                                            ? s.responses(form.submitted)
+                                                            : s.noResponsesYet,
+                                                        form.waiting > 0
+                                                            ? s.waiting(form.waiting)
+                                                            : null,
+                                                    ])}
                                                 </span>
                                                 <span className="mt-1.5 inline-block">
                                                     <Badge
@@ -158,6 +162,7 @@ function Editor({
     picker: React.ReactNode;
     onCreated: (id: string) => void;
 }) {
+    const zone = useBusinessZone();
     const editor = useFormEditor(api, formId, initial, onCreated);
     const [sending, setSending] = useState(false);
 
@@ -324,6 +329,7 @@ function Editor({
                                         className={`-mx-3 rounded-md px-3 py-2.5 ${q.id === editor.selectedKey ? "bg-accent-weak/60 ring-1 ring-accent-line" : ""}`}
                                     >
                                         <FormQuestion
+                                            zone={zone}
                                             field={{ ...q, label: q.label || s.untitled }}
                                             value={undefined}
                                             chooseFileLabel={f.chooseFile}

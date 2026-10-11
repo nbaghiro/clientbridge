@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { type Load } from "../hooks";
 import { strings } from "../strings";
-import { addDays, formatShortDay, parseTimestamp } from "../datetime";
+import { addDays, formatShortDay, parseTimestamp, useBusinessZone } from "../datetime";
 import type { Intent } from "../ui";
 import { utcSql } from "../datetime";
 import { useReplicaLoad } from "./sync";
@@ -91,9 +91,9 @@ export function payoutStatusIntent(status: string): Intent {
     return status === "failed" ? "danger" : "success";
 }
 
-function payoutWhen(row: PayoutRow): string {
+function payoutWhen(row: PayoutRow, zone: string): string {
     const at = row.arrival_at ?? row.occurred_at;
-    const when = formatShortDay(parseTimestamp(at));
+    const when = formatShortDay(parseTimestamp(at), zone);
     return row.status === "failed" ? strings.payouts.returned(when) : strings.payouts.arrived(when);
 }
 
@@ -118,7 +118,8 @@ export interface Payouts {
 
 /** Stripe payouts to the bank and the recent card charges with their fees, from the ledger. */
 export function usePayouts(): Payouts {
-    const [since] = useState(() => addDays(new Date(), -30).toISOString());
+    const zone = useBusinessZone();
+    const [since] = useState(() => addDays(new Date(), -30, zone).toISOString());
     const payouts = useQuery<PayoutRow>(PAYOUTS_SQL);
     const balance = useQuery<{ cents: number }>(STRIPE_BALANCE_SQL);
     const fees = useQuery<{ cents: number }>(FEES_SINCE_SQL, [since]);
@@ -130,7 +131,7 @@ export function usePayouts(): Payouts {
         amountCents: p.amount_cents,
         arrivalAt: p.arrival_at === null ? null : parseTimestamp(p.arrival_at),
         status: p.status,
-        when: payoutWhen(p),
+        when: payoutWhen(p, zone),
     }));
     const chargeViews = charges.data.map((c) => ({
         id: c.id,

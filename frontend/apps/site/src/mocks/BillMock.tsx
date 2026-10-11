@@ -1,7 +1,11 @@
+import { BUSINESS_CURRENCY, formatCredit, formatMoney } from "@clientbridge/app-core/public";
+
 import type { Brand } from "../content/brands";
 import { tradePage } from "../content/solutions";
 import type { Bill } from "../content/trades";
-import { money, taxOn } from "../format";
+
+// Each tax is rounded half-up on its base, like the app's tax engine.
+const taxOn = (base: number, rate: number): number => Math.round(base * rate + 1e-9);
 
 export function BillMock({ bill, brand }: { bill: Bill; brand: Brand }) {
     const subtotal = bill.lines.reduce((sum, [, cents]) => sum + cents, 0);
@@ -10,12 +14,13 @@ export function BillMock({ bill, brand }: { bill: Bill; brand: Brand }) {
     );
     const total = subtotal + taxes.reduce((sum, [, cents]) => sum + cents, 0);
     const retainer = bill.retainerPct ? Math.round(total * bill.retainerPct) : 0;
-    const row = (label: string, cents: number, cls = "", sign = "") => (
+    const row = (label: string, cents: number, cls = "", credit = false) => (
         <div key={label} className={`sumrow${cls}`}>
             <span>{label}</span>
             <span className="mono">
-                {sign}
-                {money(cents)}
+                {credit
+                    ? formatCredit(cents, BUSINESS_CURRENCY)
+                    : formatMoney(cents, BUSINESS_CURRENCY)}
             </span>
         </div>
     );
@@ -37,22 +42,19 @@ export function BillMock({ bill, brand }: { bill: Bill; brand: Brand }) {
             {taxes.map(([label, cents]) => row(label, cents))}
             <div className="sumrow tot">
                 <span>{tradePage.total}</span>
-                <span className="mono">{tradePage.inCad(money(total))}</span>
+                <span className="mono">
+                    {tradePage.inCad(formatMoney(total, BUSINESS_CURRENCY))}
+                </span>
             </div>
             {bill.deposit ? (
                 <>
-                    {row(tradePage.depositPaid, bill.deposit, "", "−")}
+                    {row(tradePage.depositPaid, bill.deposit, "", true)}
                     {row(tradePage.paidToday, total - bill.deposit, " tot")}
                 </>
             ) : null}
             {bill.retainerPct ? (
                 <>
-                    {row(
-                        tradePage.retainerPaid(Math.round(bill.retainerPct * 100)),
-                        retainer,
-                        "",
-                        "−",
-                    )}
+                    {row(tradePage.retainerPaid(bill.retainerPct), retainer, "", true)}
                     {row(tradePage.balanceDue, total - retainer, " tot")}
                 </>
             ) : null}

@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     env: str = "dev"
+    pseudo_locale: bool = False  # renders backend text in en_XA; development and tests only
     # the API reads and writes data; only migrations and the demo seed change the schema
     database_url: str = (
         "postgresql+asyncpg://clientbridge_api:clientbridge_api@localhost:8702/clientbridge"

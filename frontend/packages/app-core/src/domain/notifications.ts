@@ -3,8 +3,16 @@ import { useBusinessQuery as useQuery } from "../hooks";
 import { useMemo, useState } from "react";
 
 import type { ApiLike } from "../api";
-import { addDays, parseTimestamp, relativeDayTime, stampLabel, startOfDay } from "../datetime";
-import { formatMoney } from "../format";
+import {
+    addDays,
+    parseTimestamp,
+    relativeDayTime,
+    stampLabel,
+    startOfDay,
+    utcSql,
+    useBusinessZone,
+} from "../datetime";
+import { formatMoney, BUSINESS_CURRENCY } from "../format";
 import type { Load } from "../hooks";
 import type { IconName } from "../icons";
 import { strings } from "../strings";
@@ -50,8 +58,7 @@ interface FeedRow {
     starts_at: string | null;
 }
 
-const since = (column: string): string =>
-    `datetime(CASE WHEN ${column} LIKE '%+__' THEN ${column} || ':00' ELSE ${column} END) >= datetime(?)`;
+const since = (column: string): string => `${utcSql(column)} >= datetime(?)`;
 
 // Derived from synced rows, so each member only sees what their sync bucket holds. Six `since` params.
 export const NOTIFICATION_FEED_SQL = `
@@ -137,11 +144,11 @@ interface NotificationGroup {
     items: NotificationItem[];
 }
 
-function describeRow(row: FeedRow): { title: string; body: string } {
+function describeRow(row: FeedRow, zone: string): { title: string; body: string } {
     const n = strings.notifications.kinds;
     const client = row.client_name ?? strings.notifications.someone;
-    const amount = formatMoney(row.amount_cents);
-    const when = row.starts_at === null ? "" : relativeDayTime(parseTimestamp(row.starts_at));
+    const amount = formatMoney(row.amount_cents, BUSINESS_CURRENCY);
+    const when = row.starts_at === null ? "" : relativeDayTime(parseTimestamp(row.starts_at), zone);
     switch (row.kind) {
         case "payment":
             return { title: n.payment, body: n.paymentBody(client, amount) };
@@ -173,6 +180,7 @@ function notificationItems(
     read: ReadonlySet<string>,
     seenAt: Date | null,
     now: Date,
+    zone: string,
 ): NotificationItem[] {
     return rows
         .map((row) => {
@@ -182,8 +190,8 @@ function notificationItems(
                 id: row.id,
                 kind: row.kind,
                 ...meta,
-                ...describeRow(row),
-                when: stampLabel(at, now),
+                ...describeRow(row, zone),
+                when: stampLabel(at, zone, now),
                 at,
                 read: read.has(row.id) || (seenAt !== null && at <= seenAt),
                 refId: row.ref_id,
@@ -208,7 +216,8 @@ const FEED_DAYS = 7;
 /** The bell: what happened in the last week, from this member's synced rows, read state per device. */
 export function useNotifications(viewer: Viewer | null): NotificationsView {
     const [now] = useState(() => new Date());
-    const from = startOfDay(addDays(now, -FEED_DAYS)).toISOString();
+    const zone = useBusinessZone();
+    const from = addDays(now, -FEED_DAYS, zone).toISOString();
     const feed = useQuery<FeedRow>(NOTIFICATION_FEED_SQL, [from, from, from, from, from, from]);
     const manager = canManagePayments(viewer?.role ?? null);
     const mine = useQuery<{ client_id: string }>(MY_CLIENTS_SQL, [viewer?.staffId ?? ""]).data;
@@ -221,12 +230,12 @@ export function useNotifications(viewer: Viewer | null): NotificationsView {
             ? feed.data
             : feed.data.filter((r) => r.kind !== "message" || clients.has(r.client_id ?? ""));
         // Before the first "mark all read" on this device, only the last day counts as new.
-        const seen = seenRaw === null ? addDays(now, -1) : new Date(seenRaw);
-        return notificationItems(rows, new Set(readIds), seen, now);
-    }, [feed.data, mine, manager, readIds, seenRaw, now]);
+        const seen = seenRaw === null ? addDays(now, -1, zone) : new Date(seenRaw);
+        return notificationItems(rows, new Set(readIds), seen, now, zone);
+    }, [feed.data, mine, manager, readIds, seenRaw, now, zone]);
     const shown = filter === "all" ? items : items.filter((n) => !n.read);
-    const today = startOfDay(now).getTime();
-    const yesterday = startOfDay(addDays(now, -1)).getTime();
+    const today = startOfDay(now, zone).getTime();
+    const yesterday = addDays(now, -1, zone).getTime();
     const bucket = (n: NotificationItem): NotificationGroup["key"] =>
         n.at.getTime() >= today ? "today" : n.at.getTime() >= yesterday ? "yesterday" : "earlier";
     const groups = (["today", "yesterday", "earlier"] as const)

@@ -16,6 +16,9 @@ import {
     useCheckoutQueue,
     useRegisterCatalog,
     useSale,
+    formatParts,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { useState } from "react";
@@ -88,13 +91,14 @@ function VisitCard({
     onTicket: boolean;
     onCheckOut: () => void;
 }) {
+    const zone = useBusinessZone();
     const st = VISIT_STATE[v.state];
     return (
         <View style={[styles.visit, onTicket ? styles.visitOn : null]}>
             <View style={styles.row}>
                 <Text style={styles.soft}>
-                    <Text style={styles.strong}>{formatTime(v.start)}</Text>{" "}
-                    {d.endsAt(formatTime(v.end))}
+                    <Text style={styles.strong}>{formatTime(v.start, zone)}</Text>{" "}
+                    {d.endsAt(formatTime(v.end, zone))}
                 </Text>
                 <StatusPill
                     style={{ alignSelf: "center" }}
@@ -105,10 +109,16 @@ function VisitCard({
             </View>
             <Text style={styles.name}>{v.clientName}</Text>
             <Text style={styles.soft}>
-                {`${v.staffName} · ${v.itemName} · ${formatMoney(v.priceCents)}`}
+                {formatParts([
+                    v.staffName,
+                    v.itemName,
+                    formatMoney(v.priceCents, BUSINESS_CURRENCY),
+                ])}
             </Text>
             {v.depositCents > 0 ? (
-                <Text style={styles.ok}>{d.depositCredit(formatMoney(v.depositCents))}</Text>
+                <Text style={styles.ok}>
+                    {d.depositCredit(formatMoney(v.depositCents, BUSINESS_CURRENCY))}
+                </Text>
             ) : null}
             {v.state === "paid" ? null : onTicket ? (
                 <Text style={styles.accent}>{d.onTicket}</Text>
@@ -124,9 +134,24 @@ function VisitCard({
 }
 
 const PLAN_KINDS: { key: WalletKind; label: string }[] = [
-    { key: "gift_card", label: d.sellGiftCard },
-    { key: "package", label: d.sellPackage },
-    { key: "membership", label: d.sellMembership },
+    {
+        key: "gift_card",
+        get label() {
+            return d.sellGiftCard;
+        },
+    },
+    {
+        key: "package",
+        get label() {
+            return d.sellPackage;
+        },
+    },
+    {
+        key: "membership",
+        get label() {
+            return d.sellMembership;
+        },
+    },
 ];
 
 function Register({
@@ -158,7 +183,7 @@ function Register({
                         {d.walkInSale}
                     </Button>
                 </View>
-                <Text style={styles.heading}>{d.todaysVisits.toUpperCase()}</Text>
+                <Text style={styles.heading}>{d.todaysVisits}</Text>
                 {queue.load.state === "loading" ? (
                     <Skeleton variant="row" count={3} label={d.loadingVisits} />
                 ) : queue.load.state === "error" ? (
@@ -177,7 +202,7 @@ function Register({
                         />
                     ))
                 )}
-                <Text style={styles.heading}>{d.addExtras.toUpperCase()}</Text>
+                <Text style={styles.heading}>{d.addExtras}</Text>
                 <SearchField
                     value={catalog.q}
                     onChange={catalog.setQ}
@@ -200,6 +225,7 @@ function Register({
                             return (
                                 <View key={item.id} style={styles.cell}>
                                     <ItemTile
+                                        currency={BUSINESS_CURRENCY}
                                         name={item.name}
                                         imageSrc={mediaUrl(apiBaseUrl, item.image_file_id)}
                                         color={item.color}
@@ -216,7 +242,7 @@ function Register({
                         })}
                     </View>
                 )}
-                <Text style={styles.heading}>{d.alsoSell.toUpperCase()}</Text>
+                <Text style={styles.heading}>{d.alsoSell}</Text>
                 <Text style={styles.note}>{d.alsoSellHint}</Text>
                 <View style={styles.wrap}>
                     {PLAN_KINDS.map((k) => (
@@ -246,7 +272,7 @@ function Register({
                             setTicketOpen(true);
                         }}
                     >
-                        {d.charge(formatMoney(sale.totals.dueCents))}
+                        {d.charge(formatMoney(sale.totals.dueCents, BUSINESS_CURRENCY))}
                     </Button>
                 </View>
             )}
@@ -289,7 +315,14 @@ const styles = StyleSheet.create({
     left: { flexDirection: "row" },
     grow: { flex: 1 },
     title: { color: c.ink, fontSize: 24, fontWeight: "700" },
-    heading: { color: c.muted, fontSize: 11, fontWeight: "600", letterSpacing: 0.6, marginTop: 8 },
+    heading: {
+        color: c.muted,
+        fontSize: 11,
+        fontWeight: "600",
+        letterSpacing: 0.6,
+        marginTop: 8,
+        textTransform: "uppercase",
+    },
     name: { color: c.ink, fontSize: 16, fontWeight: "600" },
     strong: { color: c.ink, fontSize: 14, fontWeight: "600" },
     soft: { color: c.inkSoft, fontSize: 14 },

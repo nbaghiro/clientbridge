@@ -251,10 +251,10 @@ async def test_walk_in_gets_an_itemised_receipt(
     pay = ok(await as_owner.post(f"/v1/orders/{sale['id']}/pay", json={})).json()
     await settle(as_owner, db, pay["payment_id"], "evt_rcp1")
     (receipt,) = [m for m in email.sent if m.to == "walkin@example.ca"]
-    assert "it_shampoo x2  $48.00 CAD" in receipt.body
-    assert "GST  $2.40 CAD" in receipt.body
-    assert "PST  $3.36 CAD" in receipt.body
-    assert "Total  $53.76 CAD" in receipt.body
+    assert "it_shampoo x2  $48.00" in receipt.body
+    assert "GST  $2.40" in receipt.body
+    assert "PST  $3.36" in receipt.body
+    assert "Total  $53.76" in receipt.body
 
 
 async def test_bad_receipt_email_422(as_owner: httpx.AsyncClient) -> None:

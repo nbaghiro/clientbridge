@@ -4,6 +4,7 @@ import {
     useAddonOffers,
     useBookingPolicy,
     useOnlineBookingSettings,
+    formatParts,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -89,7 +90,9 @@ function PageSettings() {
     return (
         <>
             {st.bookableCount === 0 ? (
-                <Notice tone="info" banner>{`${s.noneBookable}. ${s.noneBookableBody}`}</Notice>
+                <Notice tone="info" banner>
+                    {strings.common.titleAndBody(s.noneBookable, s.noneBookableBody)}
+                </Notice>
             ) : null}
             <View style={styles.card}>
                 <Text style={styles.cardTitle}>{s.share}</Text>
@@ -119,7 +122,7 @@ function PageSettings() {
                     <Toggle
                         key={x.id}
                         label={x.name}
-                        hint={`${x.meta} · ${x.deposit}`}
+                        hint={formatParts([x.meta, x.deposit])}
                         value={x.bookable}
                         onChange={() => {
                             st.toggleService(x.id);
@@ -234,11 +237,9 @@ function Addons() {
                             size={44}
                         />
                         <View style={styles.flex}>
-                            <Text style={styles.value}>{`${x.name} · ${x.price}`}</Text>
+                            <Text style={styles.value}>{formatParts([x.name, x.price])}</Text>
                             <Text style={styles.muted}>
-                                {[x.stockLabel, x.addon ? x.attachLabel : null]
-                                    .filter(Boolean)
-                                    .join(" · ")}
+                                {formatParts([x.stockLabel, x.addon ? x.attachLabel : null])}
                             </Text>
                         </View>
                         {x.addon ? null : (
@@ -258,9 +259,9 @@ function Addons() {
                     />
                     {x.addon ? (
                         <>
-                            <Text
-                                style={styles.label}
-                            >{`${a.pickServices} · ${x.scopeLabel}`}</Text>
+                            <Text style={styles.label}>
+                                {formatParts([a.pickServices, x.scopeLabel])}
+                            </Text>
                             <Choice
                                 label={a.pickServices}
                                 options={[{ key: "all", label: a.withEvery }, ...o.services]}
@@ -353,7 +354,9 @@ function Policy() {
             <View style={styles.card}>
                 <Text style={styles.cardTitle}>{p.examples}</Text>
                 {pol.examples.map((x) => (
-                    <Text key={x.key} style={styles.soft}>{`• ${x.text}`}</Text>
+                    <Text key={x.key} style={styles.soft}>
+                        {strings.common.bullet(x.text)}
+                    </Text>
                 ))}
             </View>
             {pol.error !== null ? <Notice tone="danger">{pol.error}</Notice> : null}

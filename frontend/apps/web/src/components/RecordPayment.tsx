@@ -5,6 +5,10 @@ import {
     formatMoney,
     strings,
     usePaymentRecorder,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
+    currencyAffix,
+    formatAmountInput,
 } from "@clientbridge/app-core";
 import {
     Button,
@@ -23,6 +27,7 @@ import { api } from "../lib/api";
 const r = strings.billing.rec;
 
 export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: () => void }) {
+    const zone = useBusinessZone();
     const pay = usePaymentRecorder(api, {
         invoiceId: rec.row.id,
         label: rec.title,
@@ -55,7 +60,7 @@ export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: (
                         {strings.billing.balanceDue}
                     </p>
                     <p className="font-display text-xl font-bold tabular-nums text-ink">
-                        {formatMoney(pay.balanceCents)}
+                        {formatMoney(pay.balanceCents, BUSINESS_CURRENCY)}
                     </p>
                 </div>
             </div>
@@ -111,7 +116,9 @@ export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: (
                                 options={[
                                     {
                                         key: "full",
-                                        label: r.fullBalance(formatMoney(pay.balanceCents)),
+                                        label: r.fullBalance(
+                                            formatMoney(pay.balanceCents, BUSINESS_CURRENCY),
+                                        ),
                                     },
                                     { key: "part", label: r.partial },
                                 ]}
@@ -122,7 +129,7 @@ export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: (
                                 <TextField
                                     name={r.amount}
                                     width="narrow"
-                                    prefix="$"
+                                    {...currencyAffix(BUSINESS_CURRENCY)}
                                     value={pay.amount}
                                     placeholder="0.00"
                                     autoFocus
@@ -140,9 +147,9 @@ export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: (
                             <TextField
                                 label={r.tendered}
                                 optional
-                                prefix="$"
+                                {...currencyAffix(BUSINESS_CURRENCY)}
                                 value={pay.tendered}
-                                placeholder={formatMoney(pay.amountCents).replace("$", "")}
+                                placeholder={formatAmountInput(pay.amountCents, BUSINESS_CURRENCY)}
                                 error={pay.tenderedError}
                                 onChange={pay.setTendered}
                             />
@@ -150,7 +157,7 @@ export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: (
                                 {r.change}{" "}
                                 <strong>
                                     {pay.changeCents > 0
-                                        ? formatMoney(pay.changeCents)
+                                        ? formatMoney(pay.changeCents, BUSINESS_CURRENCY)
                                         : r.noChange}
                                 </strong>
                             </Notice>
@@ -170,6 +177,7 @@ export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: (
                                 onChange={pay.setReference}
                             />
                             <DateField
+                                zone={zone}
                                 label={r.receivedOn}
                                 value={pay.receivedOn}
                                 error={pay.dateError}
@@ -200,7 +208,7 @@ export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: (
                     ) : null}
 
                     <div className="rounded-lg border border-line bg-bg px-4 py-3">
-                        <DocTotals lines={summary} density="compact" />
+                        <DocTotals currency={BUSINESS_CURRENCY} lines={summary} density="compact" />
                     </div>
 
                     {pay.error !== null ? <Notice tone="danger">{pay.error}</Notice> : null}

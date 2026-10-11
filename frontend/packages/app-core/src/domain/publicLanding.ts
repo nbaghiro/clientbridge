@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { formatDayTime, formatWeekdayName, parseTimestamp } from "../datetime";
 import { strings } from "../strings";
+import { zoneNote } from "./publicBooking";
 import { type PublicBrand, usePublicResource } from "./publicResource";
 import type { createPublicBookingClient } from "./publicBooking";
 
@@ -107,19 +109,20 @@ export function usePublicProfile(client: PublicProfileClient, slug: string) {
                   ),
               }));
     const openingLabel = (starts: string): string =>
-        new Intl.DateTimeFormat(undefined, {
-            timeZone: page?.timezone,
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-        }).format(new Date(starts));
-    const weekday = (day: number): string =>
-        new Intl.DateTimeFormat(undefined, { weekday: "long", timeZone: "UTC" }).format(
-            new Date(Date.UTC(2026, 0, 5 + day)),
-        );
-    return { page, status, retry, categories, openings, openingsStatus, openingLabel, weekday };
+        page === null ? "" : formatDayTime(parseTimestamp(starts), page.timezone);
+    // Opening hours count weekdays from Monday (0), as the server does.
+    const weekday = (day: number): string => formatWeekdayName((day + 1) % 7);
+    return {
+        page,
+        status,
+        retry,
+        categories,
+        openings,
+        openingsStatus,
+        openingLabel,
+        weekday,
+        zoneNote: page === null ? null : zoneNote(page.timezone),
+    };
 }
 
 interface BusinessNavigationAvailability {

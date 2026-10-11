@@ -1,12 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 
-import { formatDate } from "../datetime";
-import { formatMoney, parseCents } from "../format";
+import { formatDate, parseTimestamp } from "../datetime";
+import { formatList, formatMoney, formatPercent, parseCents, BUSINESS_CURRENCY } from "../format";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { DocTotalLine, PrintedDoc, PrintedDocLine, PrintedDocTax } from "../ui";
-import { longDate, printedDoc, ratePct, shortDate } from "./printing";
+import {
+    discountReason,
+    docReference,
+    longDate,
+    printedDoc,
+    shortDate,
+    taxRateLabel,
+} from "./printing";
 import { type PublicBrand, usePublicResource } from "./publicResource";
+import { refusal } from "../api";
 
 type PayMethod = "interac" | "card";
 
@@ -44,6 +52,7 @@ interface PublicInvoice {
     business_name: string;
     brand: PublicBrand;
     currency: string;
+    timezone: string;
     subtotal_cents: number;
     tax_total_cents: number;
     total_cents: number;
@@ -77,7 +86,7 @@ interface PublicInteracRequest {
 export function publicDocTaxes(taxes: readonly PublicDocTax[]): PrintedDocTax[] {
     return taxes.map((t) => ({
         code: t.code,
-        label: strings.billing.taxRow(t.code, ratePct(t.code, t.rate_bps)),
+        label: taxRateLabel(t.code, t.rate_bps),
         baseCents: t.base_cents,
         cents: t.cents,
     }));
@@ -107,7 +116,7 @@ export function publicInvoiceTotals(invoice: PublicInvoice): DocTotalLine[] {
                       label: strings.publicReceipt.discount,
                       cents: discount,
                       kind: "credit" as const,
-                      hint: invoice.discount_reason ?? undefined,
+                      hint: discountReason(invoice.discount_reason) ?? undefined,
                   },
               ]
             : []),
@@ -125,8 +134,8 @@ export function publicInvoiceTotals(invoice: PublicInvoice): DocTotalLine[] {
                 c.kind === "deposit"
                     ? pp.depositCredit
                     : pp.credit(
-                          pp.method[c.method ?? "other"] ?? pp.method.other ?? "",
-                          shortDate(c.at),
+                          pp.method[c.method ?? "other"] ?? pp.method.other,
+                          shortDate(c.at, invoice.timezone),
                       ),
             cents: c.amount_cents,
             kind: "credit",
@@ -143,17 +152,18 @@ export function printedPublicInvoice(
 ): PrintedDoc {
     const pr = strings.printing;
     const paid = invoice.balance_cents <= 0;
-    const number = invoice.number === null ? pr.draftNumber : String(invoice.number);
+    const number = invoice.number === null ? null : String(invoice.number);
     return printedDoc(
         {
             kind: "invoice",
+            currency: invoice.currency,
             number,
             partyName: invoice.client_name ?? "",
             partyLines: [],
             meta: [
-                { label: pr.invoiceNumber, value: `#${number}` },
-                { label: pr.issued, value: longDate(invoice.issued_at) },
-                { label: pr.due, value: longDate(invoice.due_at) },
+                { label: pr.invoiceNumber, value: docReference(number) },
+                { label: pr.issued, value: longDate(invoice.issued_at, invoice.timezone) },
+                { label: pr.due, value: longDate(invoice.due_at, invoice.timezone) },
             ],
             lines: publicDocLines(invoice.lines),
             taxes: publicDocTaxes(invoice.taxes),
@@ -197,16 +207,6 @@ interface PublicCardIntent {
     stripe_account_id: string;
 }
 
-class PublicPayError extends Error {
-    constructor(
-        readonly status: number,
-        message: string,
-    ) {
-        super(message);
-        this.name = "PublicPayError";
-    }
-}
-
 interface PublicPayClient {
     getPublicInvoice: (token: string) => Promise<PublicInvoice>;
     payInterac(token: string): Promise<InteracRequest>;
@@ -217,8 +217,7 @@ export function createPublicPayClient(baseUrl: string): PublicPayClient {
     const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
         const res = await fetch(`${baseUrl}${path}`, init);
         if (!res.ok) {
-            const text = await res.text().catch(() => "");
-            throw new PublicPayError(res.status, text || res.statusText);
+            throw await refusal(res);
         }
         return (await res.json()) as T;
     };
@@ -334,7 +333,8 @@ function usePayLinkTip(invoice: PublicInvoice | null): PayLinkTip {
     const [custom, setCustom] = useState("");
     const base = invoice?.tip_base_cents ?? invoice?.subtotal_cents ?? 0;
     const balance = invoice?.balance_cents ?? 0;
-    const customCents = parseCents(custom);
+    const currency = invoice?.currency ?? BUSINESS_CURRENCY;
+    const customCents = parseCents(custom, currency);
     const pct = TIP_PERCENTS.find((n) => String(n) === key);
     const cents =
         pct !== undefined
@@ -351,17 +351,17 @@ function usePayLinkTip(invoice: PublicInvoice | null): PayLinkTip {
     const names = invoice?.tip_for ?? [];
     return {
         available: base > 0,
-        title: pp.tipTitle(names.length === 0 ? pp.tipTeam : names.join(" and ")),
-        note: pp.tipBase(formatMoney(base)),
+        title: pp.tipTitle(names.length === 0 ? pp.tipTeam : formatList(names)),
+        note: pp.tipBase(formatMoney(base, currency)),
         key,
         options: [
             ...TIP_PERCENTS.map((n) => ({
                 key: String(n),
-                label: `${String(n)}%`,
-                hint: formatMoney(Math.round((base * n) / 100)),
+                label: formatPercent(n / 100),
+                hint: formatMoney(Math.round((base * n) / 100), currency),
             })),
             { key: "custom", label: pp.tipCustom, hint: pp.tipAmount },
-            { key: "none", label: pp.tipNone, hint: formatMoney(0) },
+            { key: "none", label: pp.tipNone, hint: formatMoney(0, currency) },
         ],
         choose: setKey,
         custom,
@@ -439,7 +439,10 @@ export function usePublicInterac(pay: PublicPayClient, token: string): PublicInt
         };
     }, [load, paid, pay, token, setData]);
 
-    const amount = formatMoney(waiting?.amount_cents ?? invoice?.balance_cents ?? 0);
+    const amount = formatMoney(
+        waiting?.amount_cents ?? invoice?.balance_cents ?? 0,
+        invoice?.currency ?? BUSINESS_CURRENCY,
+    );
     const reference = waiting?.reference_code ?? "";
     const email = waiting?.send_to ?? invoice?.interac_email ?? null;
     const steps: InteracStep[] = [
@@ -478,7 +481,9 @@ export function usePublicInterac(pay: PublicPayClient, token: string): PublicInt
         validUntil:
             waiting?.expires_at === null || waiting?.expires_at === undefined
                 ? null
-                : pp.validUntil(formatDate(new Date(waiting.expires_at))),
+                : invoice === null
+                  ? null
+                  : pp.validUntil(formatDate(parseTimestamp(waiting.expires_at), invoice.timezone)),
         error,
     };
 }

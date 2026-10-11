@@ -7,14 +7,16 @@ import { useEffect, useMemo, useState } from "react";
 import { type ApiLike, newIdempotencyKey } from "../api";
 import {
     formatDate,
+    formatDateTime,
     formatRelativeTime,
     formatTime,
-    formatWeekday,
+    formatWeekdayTime,
     parseTimestamp,
     relativeDay,
     sameDay,
+    useBusinessZone,
 } from "../datetime";
-import { formatPhone } from "../format";
+import { formatParts, formatPhone } from "../format";
 import { isConnectionFailure, type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
@@ -131,11 +133,35 @@ export function resolveInboxTarget(
 type InboxFilter = "all" | "unread" | "sms" | "email";
 
 export const INBOX_FILTERS: { key: InboxFilter; label: string }[] = [
-    { key: "all", label: m.filters.all },
-    { key: "unread", label: m.filters.unread },
-    { key: "sms", label: m.filters.sms },
-    { key: "email", label: m.filters.email },
+    {
+        key: "all",
+        get label() {
+            return m.filters.all;
+        },
+    },
+    {
+        key: "unread",
+        get label() {
+            return m.filters.unread;
+        },
+    },
+    {
+        key: "sms",
+        get label() {
+            return m.filters.sms;
+        },
+    },
+    {
+        key: "email",
+        get label() {
+            return m.filters.email;
+        },
+    },
 ];
+
+export function quickReplies(): { key: string; label: string; text: string }[] {
+    return m.quickReplyOptions.map((q, i) => ({ key: String(i), label: q.label, text: q.text }));
+}
 
 export function channelLabel(channel: string): string {
     if (channel === "sms") return m.channelSms;
@@ -160,6 +186,7 @@ interface InboxView {
 export function useInbox(): InboxView {
     const rows = useQuery<InboxRow>(INBOX_SQL);
     const consents = useConsents();
+    const zone = useBusinessZone();
     const [filter, setFilter] = useState<InboxFilter>("all");
     const [q, setQ] = useState("");
     const threads = useMemo(() => {
@@ -167,7 +194,7 @@ export function useInbox(): InboxView {
         return rows.data.map((t) => ({
             ...t,
             title: t.client_name ?? formatPhone(t.phone),
-            ago: t.last_message_at === null ? "" : formatRelativeTime(t.last_message_at, now),
+            ago: t.last_message_at === null ? "" : formatRelativeTime(t.last_message_at, zone, now),
             pets: t.pet_names === null ? [] : t.pet_names.split(", "),
             textsOff: stopped(consentFor(consents.map, t.client_id, "sms")),
             channelKind:
@@ -177,7 +204,7 @@ export function useInbox(): InboxView {
                       ? ("chat" as const)
                       : ("sms" as const),
         }));
-    }, [rows.data, consents.map]);
+    }, [rows.data, consents.map, zone]);
     const filtered = useMemo(() => {
         const term = q.trim().toLowerCase();
         return threads.filter(
@@ -247,25 +274,36 @@ interface ConversationPage {
 }
 
 const MESSAGE_STATUS: Record<string, string> = {
-    delivered: m.thread.status.delivered,
-    sent: m.thread.status.sent,
-    read: m.thread.status.delivered,
-    failed: m.thread.status.failed,
-    queued: m.thread.status.queued,
+    get delivered() {
+        return m.thread.status.delivered;
+    },
+    get sent() {
+        return m.thread.status.sent;
+    },
+    get read() {
+        return m.thread.status.delivered;
+    },
+    get failed() {
+        return m.thread.status.failed;
+    },
+    get queued() {
+        return m.thread.status.queued;
+    },
 };
 
-/** "Today 2:30 p.m." or "Fri 9:00 a.m." for a visit in the coming week, else the date. */
-function visitWhen(d: Date, now: Date): string {
-    const time = formatTime(d);
-    if (sameDay(d, now)) return `${strings.common.today} ${time}`;
+/** "Today, 2:30 p.m." or "Fri 9:00 a.m." for a visit in the coming week, else the date. */
+function visitWhen(d: Date, now: Date, zone: string): string {
+    if (sameDay(d, now, zone))
+        return strings.common.dayAndTime(strings.common.today, formatTime(d, zone));
     return d.getTime() - now.getTime() < 6 * 86_400_000
-        ? `${formatWeekday(d)} ${time}`
-        : `${formatDate(d)}, ${time}`;
+        ? formatWeekdayTime(d, zone)
+        : formatDateTime(d, zone);
 }
 
 /** Messages grouped by day; outbound ones carry who sent them, or Automatic for the system. */
 export function useConversation(api: ApiLike, thread: InboxThread): Conversation {
     const now = useMemo(() => new Date(), []);
+    const zone = useBusinessZone();
     const iso = now.toISOString();
     const local = useQuery<ConversationRow>(CONVERSATION_SQL, [thread.id]).data;
     const [older, setOlder] = useState<{ thread: string; rows: ConversationRow[]; more: boolean }>({
@@ -310,14 +348,12 @@ export function useConversation(api: ApiLike, thread: InboxThread): Conversation
         const out: Conversation["days"] = [];
         for (const r of rows) {
             const d = parseTimestamp(r.created_at);
-            const label = relativeDay(d, "long");
+            const label = relativeDay(d, zone, "long");
             const author = r.author === null ? m.thread.automatic : r.author.split(" ")[0];
             const meta =
                 r.direction === "out"
-                    ? [formatTime(d), author, MESSAGE_STATUS[r.status] ?? null]
-                          .filter((v) => v !== null && v !== undefined)
-                          .join(" · ")
-                    : formatTime(d);
+                    ? formatParts([formatTime(d, zone), author, MESSAGE_STATUS[r.status] ?? null])
+                    : formatTime(d, zone);
             const item: ThreadItem = {
                 id: r.id,
                 direction: r.direction === "in" ? "in" : "out",
@@ -330,7 +366,7 @@ export function useConversation(api: ApiLike, thread: InboxThread): Conversation
             else out.push({ label, items: [item] });
         }
         return out;
-    }, [rows]);
+    }, [rows, zone]);
     return {
         days,
         client,
@@ -341,9 +377,10 @@ export function useConversation(api: ApiLike, thread: InboxThread): Conversation
         nextVisit:
             client?.next_at === null || client === null
                 ? null
-                : [client.next_service, visitWhen(parseTimestamp(client.next_at), now)]
-                      .filter((v) => v !== null)
-                      .join(" · "),
+                : formatParts([
+                      client.next_service,
+                      visitWhen(parseTimestamp(client.next_at), now, zone),
+                  ]),
         earlier: {
             show: earlier.more,
             busy: fetching.busy,
@@ -353,12 +390,15 @@ export function useConversation(api: ApiLike, thread: InboxThread): Conversation
     };
 }
 
-export function consentDetail(c: ChannelConsent): string | null {
+export function consentDetail(c: ChannelConsent, zone: string): string | null {
     const b = strings.broadcasts;
     if (c.state === "implied" && c.expiresAt !== null)
-        return m.consentImpliedUntil(formatDate(parseTimestamp(c.expiresAt)));
+        return m.consentImpliedUntil(formatDate(parseTimestamp(c.expiresAt), zone));
     if (c.source !== null && c.at !== null)
-        return b.consentSource(b.sources[c.source] ?? c.source, formatDate(parseTimestamp(c.at)));
+        return b.consentSource(
+            b.sources[c.source] ?? c.source,
+            formatDate(parseTimestamp(c.at), zone),
+        );
     return null;
 }
 

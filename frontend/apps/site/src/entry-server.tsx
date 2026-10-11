@@ -10,6 +10,7 @@ export interface RenderedPage {
     path: string;
     file: string;
     title: string;
+    headline: string;
     description: string;
     ogImage: string;
     indexable: boolean;
@@ -21,6 +22,7 @@ const render = (route: SiteRoute): RenderedPage => ({
     path: route.path,
     file: fileFor(route),
     title: route.meta.title,
+    headline: route.meta.headline,
     description: route.meta.description,
     ogImage: ogImageFor(route.path),
     indexable: route !== NOT_FOUND,

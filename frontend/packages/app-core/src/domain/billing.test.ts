@@ -14,6 +14,9 @@ import {
     priceDoc,
 } from "./billing";
 import { type SavedCardRow, canBeDefault, checkoutMethods } from "./payments";
+import { zonedDate } from "../datetime";
+
+const ZONE = "America/Vancouver";
 
 const BC = [
     { code: "GST", rateBps: 500 },
@@ -54,8 +57,8 @@ describe("priceDoc", () => {
     it("prices QST at its exact rate and collects nothing for a small supplier", () => {
         const qc = docRates(
             [
-                { id: "QC_GST", jurisdiction: "GST", province: "QC", rate_bps: 500, name: "GST" },
-                { id: "QC_QST", jurisdiction: "QST", province: "QC", rate_bps: 998, name: "QST" },
+                { id: "QC_GST", jurisdiction: "GST", province: "QC", rate_bps: 500 },
+                { id: "QC_QST", jurisdiction: "QST", province: "QC", rate_bps: 998 },
             ],
             true,
         );
@@ -66,10 +69,7 @@ describe("priceDoc", () => {
         ]);
         expect(docRates(null, true)).toEqual([]);
         expect(
-            docRates(
-                [{ id: "x", jurisdiction: "GST", province: "AB", rate_bps: 500, name: "GST" }],
-                false,
-            ),
+            docRates([{ id: "x", jurisdiction: "GST", province: "AB", rate_bps: 500 }], false),
         ).toEqual([]);
     });
 });
@@ -210,6 +210,7 @@ function invoice(extra: Partial<InvoiceRow> = {}): InvoiceRow {
         client_email: null,
         client_phone: null,
         number: 7,
+        currency: "CAD",
         status: "sent",
         subtotal_cents: 5000,
         tax_total_cents: 0,
@@ -228,29 +229,31 @@ function invoice(extra: Partial<InvoiceRow> = {}): InvoiceRow {
 }
 
 describe("invoice status and stats", () => {
-    const now = new Date(2026, 9, 7, 12);
-    const due = (days: number): string => new Date(2026, 9, 7 + days, 9).toISOString();
+    const now = zonedDate(2026, 10, 7, 12, 0, ZONE);
+    const due = (days: number): string => zonedDate(2026, 10, 7 + days, 9, 0, ZONE).toISOString();
 
     it("counts whole days past due only while a balance is owed on a sent invoice", () => {
-        expect(daysOverdue(invoice({ due_at: due(-6) }), now)).toBe(6);
-        expect(daysOverdue(invoice({ due_at: due(-1) }), now)).toBe(1);
-        expect(daysOverdue(invoice({ due_at: due(0) }), now)).toBe(0);
-        expect(daysOverdue(invoice({ due_at: due(3) }), now)).toBe(0);
-        expect(daysOverdue(invoice({ due_at: null }), now)).toBe(0);
-        expect(daysOverdue(invoice({ due_at: due(-6), balance_cents: 0 }), now)).toBe(0);
-        expect(daysOverdue(invoice({ due_at: due(-6), balance_cents: null }), now)).toBe(0);
-        expect(daysOverdue(invoice({ due_at: due(-6), status: "partial" }), now)).toBe(6);
-        expect(daysOverdue(invoice({ due_at: due(-6), status: "draft" }), now)).toBe(0);
-        expect(daysOverdue(invoice({ due_at: due(-6), status: "paid" }), now)).toBe(0);
+        expect(daysOverdue(invoice({ due_at: due(-6) }), ZONE, now)).toBe(6);
+        expect(daysOverdue(invoice({ due_at: due(-1) }), ZONE, now)).toBe(1);
+        expect(daysOverdue(invoice({ due_at: due(0) }), ZONE, now)).toBe(0);
+        expect(daysOverdue(invoice({ due_at: due(3) }), ZONE, now)).toBe(0);
+        expect(daysOverdue(invoice({ due_at: null }), ZONE, now)).toBe(0);
+        expect(daysOverdue(invoice({ due_at: due(-6), balance_cents: 0 }), ZONE, now)).toBe(0);
+        expect(daysOverdue(invoice({ due_at: due(-6), balance_cents: null }), ZONE, now)).toBe(0);
+        expect(daysOverdue(invoice({ due_at: due(-6), status: "partial" }), ZONE, now)).toBe(6);
+        expect(daysOverdue(invoice({ due_at: due(-6), status: "draft" }), ZONE, now)).toBe(0);
+        expect(daysOverdue(invoice({ due_at: due(-6), status: "paid" }), ZONE, now)).toBe(0);
     });
 
     it("turns a sent invoice overdue the day after it was due", () => {
-        expect(invoiceStatus(invoice({ due_at: due(0) }), now)).toBe("sent");
-        expect(invoiceStatus(invoice({ due_at: due(-1) }), now)).toBe("overdue");
-        expect(invoiceStatus(invoice({ due_at: due(-1), status: "partial" }), now)).toBe("partial");
-        expect(invoiceStatus(invoice({ status: "refunded" }), now)).toBe("refunded");
-        expect(invoiceStatus(invoice({ status: "mystery" }), now)).toBe("sent");
-        const row = listRow(invoice({ due_at: due(-2) }), now);
+        expect(invoiceStatus(invoice({ due_at: due(0) }), ZONE, now)).toBe("sent");
+        expect(invoiceStatus(invoice({ due_at: due(-1) }), ZONE, now)).toBe("overdue");
+        expect(invoiceStatus(invoice({ due_at: due(-1), status: "partial" }), ZONE, now)).toBe(
+            "partial",
+        );
+        expect(invoiceStatus(invoice({ status: "refunded" }), ZONE, now)).toBe("refunded");
+        expect(invoiceStatus(invoice({ status: "mystery" }), ZONE, now)).toBe("sent");
+        const row = listRow(invoice({ due_at: due(-2) }), ZONE, now);
         expect(row).toMatchObject({
             status: "overdue",
             statusLabel: strings.billing.statusLabel.overdue,
@@ -262,7 +265,8 @@ describe("invoice status and stats", () => {
     });
 
     it("totals what is outstanding, overdue, paid in the last 30 days and still in draft", () => {
-        const daysAgo = (n: number): string => new Date(2026, 9, 7 - n, 12).toISOString();
+        const daysAgo = (n: number): string =>
+            zonedDate(2026, 10, 7 - n, 12, 0, ZONE).toISOString();
         const rows = [
             invoice({ id: "late", due_at: due(-3), balance_cents: 5000 }),
             invoice({ id: "part", status: "partial", balance_cents: 3000, paid_cents: 2000 }),
@@ -282,8 +286,8 @@ describe("invoice status and stats", () => {
                 paid_at: daysAgo(40),
             }),
             invoice({ id: "void", status: "void", balance_cents: 0 }),
-        ].map((r) => listRow(r, now));
-        expect(invoiceStats(rows, now)).toEqual({
+        ].map((r) => listRow(r, ZONE, now));
+        expect(invoiceStats(rows, ZONE, now)).toEqual({
             outstandingCents: 8000,
             outstandingCount: 2,
             overdueCents: 5000,
@@ -293,6 +297,6 @@ describe("invoice status and stats", () => {
             draftCents: 7000,
             draftCount: 1,
         });
-        expect(invoiceStats([], now).outstandingCents).toBe(0);
+        expect(invoiceStats([], ZONE, now).outstandingCents).toBe(0);
     });
 });

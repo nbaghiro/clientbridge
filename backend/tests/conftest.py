@@ -263,7 +263,13 @@ class FakePaymentGateway:
         return SetupIntentResult(id=sid, client_secret=f"{sid}_secret")
 
     async def create_pad_setup_intent(
-        self, account_id: str, *, customer_id: str, idempotency_key: str, email: str | None = None
+        self,
+        account_id: str,
+        *,
+        customer_id: str,
+        idempotency_key: str,
+        interval_description: str,
+        email: str | None = None,
     ) -> SetupIntentResult:
         if idempotency_key in self.pad_keys:
             state = self.pad_intents[self.pad_keys[idempotency_key]]
@@ -299,6 +305,7 @@ class FakePaymentGateway:
         currency: str,
         interval_count: int,
         frequency: str,
+        product_name: str,
     ) -> str:
         self._seq += 1
         pid = f"price_fake{self._seq}"

@@ -1,5 +1,6 @@
 import { creditsPage } from "../content/solutions";
-import { PHOTOS } from "../content/photos";
+import { PHOTOS, type PhotoName } from "../content/photos";
+import { strings } from "../strings";
 
 export function Credits() {
     return (
@@ -18,12 +19,12 @@ export function Credits() {
                         </tr>
                     </thead>
                     <tbody>
-                        {Object.entries(PHOTOS).map(([name, p]) => (
+                        {(Object.keys(PHOTOS) as PhotoName[]).map((name) => (
                             <tr key={name}>
-                                <td>{p.subject}</td>
-                                <td>{p.photographer}</td>
+                                <td>{strings.photos[name].subject}</td>
+                                <td>{PHOTOS[name].photographer}</td>
                                 <td>
-                                    <a href={p.source}>{creditsPage.view}</a>
+                                    <a href={PHOTOS[name].source}>{creditsPage.view}</a>
                                 </td>
                             </tr>
                         ))}

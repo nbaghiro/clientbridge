@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { formatDate } from "../datetime";
+import { formatDate, zonedDate } from "../datetime";
 import { strings } from "../strings";
 import { disputeView, partLabel, refundState } from "./refunds";
+
+const ZONE = "America/Vancouver";
 
 const s = strings.refunds;
 
@@ -48,8 +50,8 @@ describe("refunds", () => {
 });
 
 describe("disputeView", () => {
-    const now = new Date(2026, 9, 7, 12);
-    const respondBy = new Date(2026, 9, 10, 18).toISOString();
+    const now = zonedDate(2026, 10, 7, 12, 0, ZONE);
+    const respondBy = zonedDate(2026, 10, 10, 18, 0, ZONE).toISOString();
     const dispute = (extra: Partial<DisputeRow> = {}): DisputeRow => ({
         id: "pay_web",
         client_name: "Ben",
@@ -72,14 +74,14 @@ describe("disputeView", () => {
     });
 
     it("counts the days left to respond and holds the charge plus the fee", () => {
-        const view = disputeView(dispute(), now);
+        const view = disputeView(dispute(), now, ZONE);
         expect(view).toMatchObject({
             open: true,
             subject: s.subject.sale(42),
             statusLabel: s.disputeStatus.needs_response,
             intent: "danger",
             reason: s.disputeReasons.fraudulent,
-            deadline: s.respondBy(formatDate(new Date(respondBy)), 3),
+            deadline: s.respondBy(formatDate(new Date(respondBy), ZONE), 3),
         });
         expect(view.held.map((h) => [h.key, h.cents])).toEqual([
             ["withdrawn", 4800],
@@ -88,7 +90,7 @@ describe("disputeView", () => {
         ]);
         expect(view.facts.map((f) => f.value)).toEqual([
             s.disputeReasons.fraudulent,
-            `${s.method.card ?? ""} · $48.00`,
+            `${s.method.card} · $48.00`,
             s.subject.sale(42),
             "",
         ]);
@@ -96,16 +98,20 @@ describe("disputeView", () => {
 
     it("never counts a passed deadline below zero days", () => {
         const late = disputeView(
-            dispute({ dispute_respond_by: new Date(2026, 9, 1, 9).toISOString() }),
+            dispute({ dispute_respond_by: zonedDate(2026, 10, 1, 9, 0, ZONE).toISOString() }),
             now,
+            ZONE,
         );
-        expect(late.deadline).toBe(s.respondBy(formatDate(new Date(2026, 9, 1, 9)), 0));
+        expect(late.deadline).toBe(
+            s.respondBy(formatDate(zonedDate(2026, 10, 1, 9, 0, ZONE), ZONE), 0),
+        );
     });
 
     it("uses what the bank withdrew, and closes won and lost disputes", () => {
         const won = disputeView(
             dispute({ dispute_status: "won", withdrawn_cents: 4000, dispute_reason: null }),
             now,
+            ZONE,
         );
         expect(won).toMatchObject({
             open: false,
@@ -114,12 +120,12 @@ describe("disputeView", () => {
             reason: s.disputeReasons.general,
         });
         expect(won.held.map((h) => h.cents)).toEqual([4000, 1500, 5500]);
-        expect(disputeView(dispute({ dispute_status: "lost" }), now)).toMatchObject({
+        expect(disputeView(dispute({ dispute_status: "lost" }), now, ZONE)).toMatchObject({
             open: false,
             intent: "neutral",
             deadline: s.lostNote,
         });
-        expect(disputeView(dispute({ dispute_status: "under_review" }), now)).toMatchObject({
+        expect(disputeView(dispute({ dispute_status: "under_review" }), now, ZONE)).toMatchObject({
             open: true,
             intent: "warning",
             deadline: s.reviewNote,

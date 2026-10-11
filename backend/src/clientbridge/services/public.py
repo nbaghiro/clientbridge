@@ -11,6 +11,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base
 from clientbridge.core.errors import Conflict, NotFound, Unauthorized, Unprocessable
 from clientbridge.core.ids import new_id
+from clientbridge.core.locale import currency_for, locale_for, message, plural
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.s3 import FileStorage
 from clientbridge.integrations.stripe import PaymentGateway
@@ -202,6 +203,7 @@ class PublicBookingService:
             stripe_account_id=_account(business),
             slug=business.slug,
             now=datetime.now(tz),
+            timezone=business.timezone,
             policy=_policy_out(policy_of(business)),
             rating=rating,
             review_count=reviews,
@@ -712,21 +714,22 @@ class PublicManageService:
     def _blocked(self, booking: Booking, slot: Slot, business: Business, change: str) -> str | None:
         """Why the client can't make this change online, or None when they can."""
         policy = policy_of(business)
+        locale = locale_for(business=business)
         if booking.status not in ("pending", "confirmed"):
-            return f"this booking is {booking.status} and can't be changed online"
+            return message(locale, "manage_blocked.status", status=booking.status)
         if not policy.self_service:
-            return "this business takes changes by phone; call the studio"
+            return message(locale, "manage_blocked.by_phone")
         hours_away = (slot.starts_at - datetime.now(UTC)).total_seconds() / 3600
         if change == "cancel":
             if hours_away < policy.cancel_cutoff_hours:
-                return f"it's less than {policy.cancel_cutoff_hours} hours away; call the studio"
+                return plural(locale, "manage_blocked.cutoff", policy.cancel_cutoff_hours)
             return None
         if slot.capacity > 1:
-            return "class sessions are shared with other clients; call the studio to move"
+            return message(locale, "manage_blocked.class_session")
         if booking.reschedule_count >= policy.max_reschedules:
-            return "this visit has been moved as many times as the policy allows"
+            return message(locale, "manage_blocked.reschedule_limit")
         if hours_away < policy.reschedule_cutoff_hours:
-            return f"it's less than {policy.reschedule_cutoff_hours} hours away; call the studio"
+            return plural(locale, "manage_blocked.cutoff", policy.reschedule_cutoff_hours)
         return None
 
     async def _resolve(self, token: str) -> tuple[Booking, Slot, Business]:
@@ -791,6 +794,7 @@ class PublicManageService:
             reschedules_used=booking.reschedule_count,
             policy=_policy_out(policy_of(business)),
             now=datetime.now(tz),
+            timezone=business.timezone,
             can_move=move is None,
             can_cancel=cancel is None,
             blocked=cancel or move,
@@ -894,6 +898,7 @@ class PublicContractService:
             signer_name=client.name if client is not None else None,
             status=signature.status,
             version=(signature.contract_version if signed else None) or contract.version,
+            timezone=business.timezone,
             signed_at=signature.signed_at,
             signer_ip=signature.ip if signed else None,
             method=signature.method,
@@ -970,6 +975,7 @@ class PublicFormService:
             form_name=form.name,
             business_name=business.name,
             brand=public_brand(business),
+            timezone=business.timezone,
             completed=response.status == "submitted",
             fields=[_field_out(f) for f in fields],
         )
@@ -1054,6 +1060,7 @@ class PublicFormService:
             form_name=form.name,
             business_name=business.name,
             brand=public_brand(business),
+            timezone=business.timezone,
             completed=True,
             fields=[_field_out(f) for f in fields],
         )
@@ -1107,6 +1114,7 @@ class PublicPayService:
             business_name=business.name,
             brand=public_brand(business),
             currency=invoice.currency,
+            timezone=business.timezone,
             subtotal_cents=invoice.subtotal_cents,
             tax_total_cents=invoice.tax_total_cents,
             total_cents=invoice.total_cents,
@@ -1312,7 +1320,8 @@ class PublicEstimateService:
             qst_number=business.qst_number,
             client_name=client.name if client is not None else None,
             status=estimate_status(estimate),
-            currency="CAD",
+            currency=currency_for(business),
+            timezone=business.timezone,
             subtotal_cents=estimate.subtotal_cents,
             tax_total_cents=estimate.tax_total_cents,
             total_cents=estimate.total_cents,
@@ -1411,6 +1420,7 @@ class PublicReceiptService:
             served_by=[n for sid in staff_ids if (n := by_id.get(sid))],
             status=status,
             currency=order.currency,
+            timezone=business.timezone,
             created_at=order.created_at,
             lines=[line for line, _ in doc_lines],
             discount_cents=sum(ln.sale_discount_cents for ln in lines),
@@ -1725,6 +1735,7 @@ class PublicShopService:
         return PublicPickupDays(
             windows=await pickup_windows(self.db, business),
             hold_days=pickup_setting(business, "pickup_hold_days", 3),
+            timezone=business.timezone,
         )
 
     async def order(
@@ -1733,7 +1744,7 @@ class PublicShopService:
         business = await self._business(slug)
         account_id = _account(business)
         if account_id is None:
-            raise Conflict("this shop isn't taking online payments yet")
+            raise Conflict("this shop isn't taking online payments yet", code="shop_not_ready")
         prior = (
             await self.db.execute(
                 scoped(IdempotencyKey, business.id).where(
@@ -1754,13 +1765,18 @@ class PublicShopService:
                 window.starts_at == data.pickup_from and window.ends_at == data.pickup_to
                 for window in available
             ):
-                raise Conflict("that pickup window is no longer available")
+                raise Conflict(
+                    "that pickup window is no longer available", code="pickup_window_taken"
+                )
         wanted = await online_items(self.db, business.id, data.lines)
         for item, qty in wanted:
             if item.track_stock and (item.stock_on_hand or 0) < qty:
-                raise Conflict(f"only {max(item.stock_on_hand or 0, 0)} left of {item.name}")
+                raise Conflict(
+                    f"only {max(item.stock_on_hand or 0, 0)} left of {item.name}",
+                    code="out_of_stock",
+                )
         if len({item.currency for item, _ in wanted}) > 1:
-            raise Unprocessable("one order can't mix currencies")
+            raise Unprocessable("one order can't mix currencies", code="mixed_currencies")
         client = await find_or_create_by_contact(
             self.db,
             business.id,

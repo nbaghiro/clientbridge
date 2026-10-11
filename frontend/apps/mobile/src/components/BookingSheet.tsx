@@ -18,6 +18,11 @@ import {
     useReschedule,
     useSavedCards,
     useStationPicker,
+    formatParts,
+    formatList,
+    temperamentLabel,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -64,7 +69,7 @@ function DepositDue({ event }: { event: ScheduleEvent }) {
         cards.at(0)?.id,
     );
     if (!event.depositRequired || event.depositStatus !== "pending") return null;
-    const amount = formatMoney(event.depositAmountCents);
+    const amount = formatMoney(event.depositAmountCents, BUSINESS_CURRENCY);
     return (
         <View style={styles.due}>
             <View style={styles.rowGap}>
@@ -116,12 +121,11 @@ function Addons({ event }: { event: ScheduleEvent }) {
                 {addons.addons.map((a, i) => (
                     <View key={a.id} style={[styles.cardRow, i > 0 && styles.divider]}>
                         <Icon name="bag" size={15} color={c.muted} />
-                        <Text
-                            style={[styles.flex, styles.addon]}
-                            numberOfLines={1}
-                        >{`${String(a.quantity)} × ${a.description}`}</Text>
+                        <Text style={[styles.flex, styles.addon]} numberOfLines={1}>
+                            {strings.common.quantityOf(a.quantity, a.description)}
+                        </Text>
                         <Text style={styles.money}>
-                            {formatMoney(a.quantity * a.unit_amount_cents)}
+                            {formatMoney(a.quantity * a.unit_amount_cents, BUSINESS_CURRENCY)}
                         </Text>
                         {addons.canEdit ? (
                             <Button
@@ -138,7 +142,9 @@ function Addons({ event }: { event: ScheduleEvent }) {
                     </View>
                 ))}
             </View>
-            <Text style={styles.hint}>{s.addonsTotal(formatMoney(addons.totalCents))}</Text>
+            <Text style={styles.hint}>
+                {s.addonsTotal(formatMoney(addons.totalCents, BUSINESS_CURRENCY))}
+            </Text>
             {addons.canInvoice ? (
                 <View style={styles.invoice}>
                     <Button
@@ -200,6 +206,7 @@ function Station({ event }: { event: ScheduleEvent }) {
 }
 
 export function BookingBody({ detail }: { detail: BookingDetail }) {
+    const zone = useBusinessZone();
     const e = detail.event;
     const { client, pet } = detail;
     const [messaging, setMessaging] = useState(false);
@@ -221,7 +228,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                     rows={[
                         {
                             label: s.detailWhen,
-                            value: `${formatFullDate(e.start)}\n${e.timeLabel}`,
+                            value: `${formatFullDate(e.start, zone)}\n${e.timeLabel}`,
                         },
                         { label: s.detailWith, value: e.staffName },
                         ...(e.resourceName !== null
@@ -295,7 +302,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                                 {pet.temperament !== null ? (
                                     <Badge
                                         style={{ alignSelf: "center" }}
-                                        label={pet.temperament}
+                                        label={temperamentLabel(pet.temperament)}
                                         intent={detail.petNervous ? "warning" : "neutral"}
                                     />
                                 ) : null}
@@ -326,7 +333,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                             <View key={r.id} style={[styles.cardRow, i > 0 && styles.divider]}>
                                 <Avatar name={r.pet === "" ? r.name : r.pet} size="sm" />
                                 <Text style={[styles.flex, styles.petName]} numberOfLines={1}>
-                                    {r.pet === "" ? r.name : `${r.pet} · ${r.name}`}
+                                    {r.pet === "" ? r.name : formatParts([r.pet, r.name])}
                                 </Text>
                                 {r.waiting ? (
                                     <Badge
@@ -460,10 +467,9 @@ export function RescheduleSheet({ event, onClose }: { event: ScheduleEvent; onCl
     return (
         <Modal size="xl" onClose={onClose}>
             <Text style={styles.sheetTitle}>{s.rescheduleTitle}</Text>
-            <Text
-                style={styles.sub}
-                numberOfLines={1}
-            >{`${event.headline} · ${event.timeLabel}`}</Text>
+            <Text style={styles.sub} numberOfLines={1}>
+                {formatParts([event.headline, event.timeLabel])}
+            </Text>
             <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetBody}>
                 <Text style={styles.label}>{s.rescheduleWith}</Text>
                 <Choice
@@ -590,7 +596,10 @@ export function BookingComposerSheet({
                         <View style={styles.flex}>
                             <Text style={styles.name}>{form.client.name}</Text>
                             <Text style={styles.sub}>
-                                {form.pets.map((p) => p.name).join(", ")}
+                                {formatList(
+                                    form.pets.map((p) => p.name),
+                                    "unit",
+                                )}
                             </Text>
                         </View>
                         <Button
@@ -618,7 +627,7 @@ export function BookingComposerSheet({
                                     density="compact"
                                     leading={<Avatar name={m.client.name} size="sm" />}
                                     title={m.client.name}
-                                    detail={m.pets.join(", ")}
+                                    detail={formatList(m.pets, "unit")}
                                     onPress={() => {
                                         form.pickClient(m.client.id);
                                     }}
@@ -643,7 +652,10 @@ export function BookingComposerSheet({
                     options={form.services.map((i) => ({
                         key: i.id,
                         label: i.name,
-                        hint: `${String(i.duration_min ?? 60)} min · ${formatMoney(i.price_cents ?? 0)}`,
+                        hint: formatParts([
+                            strings.catalog.minutes(i.duration_min ?? 60),
+                            formatMoney(i.price_cents ?? 0, BUSINESS_CURRENCY),
+                        ]),
                     }))}
                     value={form.item?.id ?? null}
                     onChange={form.setItemId}
@@ -685,7 +697,10 @@ export function BookingComposerSheet({
                     label={s.composerRepeat}
                     hint={
                         form.repeat
-                            ? `${s.everyWeeks(form.every)} · ${s.composerBookSeries(form.count)}`
+                            ? formatParts([
+                                  s.everyWeeks(form.every),
+                                  s.composerBookSeries(form.count),
+                              ])
                             : undefined
                     }
                     value={form.repeat}

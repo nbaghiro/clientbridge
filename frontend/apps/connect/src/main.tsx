@@ -1,4 +1,5 @@
 import React from "react";
+import { activeLocale, setPseudoLocale } from "@clientbridge/app-core/public";
 import { configureStripe } from "@clientbridge/ui";
 import ReactDOM from "react-dom/client";
 import { App } from "./App";
@@ -14,8 +15,14 @@ if (isEmbedded()) document.documentElement.setAttribute("data-embed", "");
 
 configureStripe(config.stripePublishableKey);
 
-ReactDOM.createRoot(root).render(
-    <React.StrictMode>
-        <App />
-    </React.StrictMode>,
-);
+const render = (): void => {
+    document.documentElement.lang = activeLocale();
+    ReactDOM.createRoot(root).render(
+        <React.StrictMode>
+            <App />
+        </React.StrictMode>,
+    );
+};
+
+if (config.pseudoLocale) setPseudoLocale(true).then(render, render);
+else render();

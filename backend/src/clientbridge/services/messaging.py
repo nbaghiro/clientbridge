@@ -10,6 +10,7 @@ from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound
 from clientbridge.core.ids import new_id
+from clientbridge.core.locale import locale_for
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.postmark import Email, EmailSender
 from clientbridge.integrations.twilio import Sms, SmsSender
@@ -142,7 +143,13 @@ async def fan_out_broadcast(
         db.add(message)
         await db.flush()
         link = f"{prefs_url(client.id)}?unsubscribe=email"
-        text = broadcast_text(business_name, broadcast.channel, broadcast.body or "", link)
+        text = broadcast_text(
+            locale_for(business=business, client=client),
+            business_name,
+            broadcast.channel,
+            broadcast.body or "",
+            link,
+        )
         ok = await dispatch_message(sms, email, broadcast.channel, to, broadcast.name, text)
         message.status = "sent" if ok else "failed"  # best-effort per recipient
     await db.flush()

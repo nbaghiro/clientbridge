@@ -13,6 +13,7 @@ import {
     useCatalogView,
     useKindPicker,
     useProductsView,
+    BUSINESS_CURRENCY,
 } from "@clientbridge/app-core";
 import {
     Badge,
@@ -39,9 +40,24 @@ const s = strings.catalog;
 type View = "catalog" | "products" | "inventory";
 
 const VIEWS: { key: View; label: string }[] = [
-    { key: "catalog", label: s.views.catalog },
-    { key: "products", label: s.views.products },
-    { key: "inventory", label: s.views.inventory },
+    {
+        key: "catalog",
+        get label() {
+            return s.views.catalog;
+        },
+    },
+    {
+        key: "products",
+        get label() {
+            return s.views.products;
+        },
+    },
+    {
+        key: "inventory",
+        get label() {
+            return s.views.inventory;
+        },
+    },
 ];
 
 interface Open {
@@ -337,12 +353,12 @@ function ProductTable() {
                                         </div>
                                     </div>
                                     <span className="text-right font-semibold text-ink tabular-nums">
-                                        {formatMoney(r.item.price_cents)}
+                                        {formatMoney(r.item.price_cents, BUSINESS_CURRENCY)}
                                     </span>
                                     <span className="text-right text-ink-soft tabular-nums">
                                         {r.item.cost_cents === null
                                             ? ""
-                                            : formatMoney(r.item.cost_cents)}
+                                            : formatMoney(r.item.cost_cents, BUSINESS_CURRENCY)}
                                     </span>
                                     <span
                                         className={`text-right font-medium tabular-nums ${

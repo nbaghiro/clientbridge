@@ -5,6 +5,7 @@ import {
     canManagePayments,
     strings,
     useClientEditor,
+    formatParts,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -47,7 +48,7 @@ function DuplicateCard({
                     {s.duplicateBody(match.reasons.join(s.and))}
                 </p>
                 <p className="mt-0.5 truncate text-xs text-muted">
-                    {[match.client.phoneLabel, match.client.email].filter(Boolean).join(" · ")}
+                    {formatParts([match.client.phoneLabel, match.client.email])}
                 </p>
                 <div className="mt-2 flex gap-2">
                     <Button size="sm" onPress={onOpen}>

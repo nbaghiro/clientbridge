@@ -87,7 +87,6 @@ class PayoutRow(BaseModel):
 
 class ReportRate(BaseModel):
     code: str
-    name: str
     rate_bps: int
 
 

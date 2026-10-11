@@ -4,8 +4,16 @@ import { useMemo, useRef, useState } from "react";
 
 import { type Load, useAsyncAction } from "../hooks";
 import { type ApiLike, newIdempotencyKey } from "../api";
-import { formatDate, formatMonthDay } from "../datetime";
-import { blankToNull, formatMoney, formatPhone, parseCents } from "../format";
+import { formatDate, formatMonthDay, readDate, useBusinessZone } from "../datetime";
+import {
+    blankToNull,
+    formatMoney,
+    formatMoneyShort,
+    formatParts,
+    formatPhone,
+    parseCents,
+    BUSINESS_CURRENCY,
+} from "../format";
 import type { IconName } from "../icons";
 import type { DocTotalLine, Intent, TimelineEntry } from "../ui";
 import { strings } from "../strings";
@@ -162,7 +170,7 @@ export function useGiftCardRedeemForm(api: ApiLike, onDone: () => void): GiftCar
             setError(strings.entitlements.giftCards.enterCode);
             return;
         }
-        const cents = Math.round(Number(amount) * 100);
+        const cents = parseCents(amount, BUSINESS_CURRENCY) ?? NaN;
         if (!Number.isFinite(cents) || cents <= 0) {
             setError(strings.entitlements.giftCards.enterRedeemAmount);
             return;
@@ -283,9 +291,9 @@ export interface EntitlementSummary {
     note: string | null;
 }
 
-const day = (iso: string): string => formatDate(new Date(iso));
+const day = (iso: string, zone: string): string => formatDate(readDate(iso, zone), zone);
 
-function summarizeEntitlement(r: WalletRow): EntitlementSummary {
+function summarizeEntitlement(r: WalletRow, zone: string): EntitlementSummary {
     const status = walletStatus(r);
     const base = {
         row: r,
@@ -311,11 +319,11 @@ function summarizeEntitlement(r: WalletRow): EntitlementSummary {
             valueCents: r.balance_cents ?? 0,
             note:
                 status === "expired" && r.expires_at !== null
-                    ? w.expired(day(r.expires_at))
+                    ? w.expired(day(r.expires_at, zone))
                     : left === 1 && status === "active"
                       ? w.lastSession
                       : r.expires_at !== null
-                        ? w.expires(day(r.expires_at))
+                        ? w.expires(day(r.expires_at, zone))
                         : null,
         };
     }
@@ -334,7 +342,7 @@ function summarizeEntitlement(r: WalletRow): EntitlementSummary {
                 status === "past_due"
                     ? w.retrying
                     : r.period_end !== null
-                      ? w.renews(formatMonthDay(new Date(r.period_end)))
+                      ? w.renews(formatMonthDay(readDate(r.period_end, zone), zone))
                       : "",
             meter: null,
             valueCents: r.price_cents ?? 0,
@@ -346,17 +354,17 @@ function summarizeEntitlement(r: WalletRow): EntitlementSummary {
     return {
         ...base,
         title: r.code ?? w.kindNoun.gift_card,
-        balanceLabel: w.moneyLeft(formatMoney(balance)),
+        balanceLabel: w.moneyLeft(formatMoney(balance, BUSINESS_CURRENCY)),
         meter: {
             value: initial > 0 ? Math.round((balance / initial) * 100) : 0,
             max: 100,
             units: false,
-            detail: w.ofAmount(formatMoney(initial)),
+            detail: w.ofAmount(formatMoney(initial, BUSINESS_CURRENCY)),
         },
         valueCents: balance,
         note:
             status === "expired" && r.expires_at !== null
-                ? w.expired(day(r.expires_at))
+                ? w.expired(day(r.expires_at, zone))
                 : r.recipient !== null
                   ? w.forRecipient(r.recipient)
                   : null,
@@ -391,16 +399,17 @@ export function useEntitlementWallet(initialClientId: string | null = null): Ent
     const rowsQuery = useQuery<WalletRow>(WALLET_SQL, [clientId]);
     const client = useQuery<WalletClient>(WALLET_CLIENT_SQL, [clientId]).data[0] ?? null;
     const load = useReplicaLoad([holdersQuery, rowsQuery], holdersQuery.data.length === 0);
+    const zone = useBusinessZone();
     const summaries = useMemo(
         () =>
             rowsQuery.data
-                .map(summarizeEntitlement)
+                .map((r) => summarizeEntitlement(r, zone))
                 .sort(
                     (a, b) =>
                         KIND_ORDER.indexOf(a.row.kind) - KIND_ORDER.indexOf(b.row.kind) ||
                         Number(a.status !== "active") - Number(b.status !== "active"),
                 ),
-        [rowsQuery.data],
+        [rowsQuery.data, zone],
     );
     const live = (x: EntitlementSummary): boolean =>
         x.status === "active" || x.status === "past_due";
@@ -413,9 +422,10 @@ export function useEntitlementWallet(initialClientId: string | null = null): Ent
         contact:
             client === null
                 ? ""
-                : [client.phone === null ? null : formatPhone(client.phone), client.email]
-                      .filter(Boolean)
-                      .join(" · "),
+                : formatParts([
+                      client.phone === null ? null : formatPhone(client.phone),
+                      client.email,
+                  ]),
         summaries,
         totals: {
             deferredCents: summaries
@@ -469,6 +479,7 @@ export function useEntitlementDetail(
     const subjectType = r?.kind === "gift_card" ? "gift_card" : "package";
     const history = useQuery<HistoryRow>(ENTITLEMENT_HISTORY_SQL, [subjectType, r?.id ?? ""]).data;
     const { busy, error, run } = useAsyncAction();
+    const zone = useBusinessZone();
     if (summary === null || r === null) return null;
 
     const facts: { label: string; value: string }[] = [];
@@ -479,12 +490,16 @@ export function useEntitlementDetail(
         const used = r.sessions_used ?? 0;
         const share = Math.floor((r.price_cents ?? 0) / Math.max(1, total));
         if (r.paid_cents !== null)
-            facts.push({ label: w.factPaid, value: formatMoney(r.paid_cents) });
-        facts.push({ label: w.factDeferred, value: formatMoney(r.balance_cents) });
+            facts.push({ label: w.factPaid, value: formatMoney(r.paid_cents, BUSINESS_CURRENCY) });
+        facts.push({
+            label: w.factDeferred,
+            value: formatMoney(r.balance_cents, BUSINESS_CURRENCY),
+        });
         if (summary.status === "active" && used < total)
-            facts.push({ label: w.factNextSession, value: formatMoney(share) });
-        if (r.expires_at !== null) facts.push({ label: w.factExpires, value: day(r.expires_at) });
-        ledgerNote = w.ledgerPackage(formatMoney(share));
+            facts.push({ label: w.factNextSession, value: formatMoney(share, BUSINESS_CURRENCY) });
+        if (r.expires_at !== null)
+            facts.push({ label: w.factExpires, value: day(r.expires_at, zone) });
+        ledgerNote = w.ledgerPackage(formatMoney(share, BUSINESS_CURRENCY));
         if (summary.status === "active" && used < total) actions.push("use");
         if (summary.status === "active" && used === 0 && r.payment_id !== null)
             actions.push("refund");
@@ -494,7 +509,10 @@ export function useEntitlementDetail(
         if (r.period_end !== null)
             facts.push({
                 label: w.factNextCharge,
-                value: `${day(r.period_end)} · ${formatMoney(r.price_cents)}`,
+                value: formatParts([
+                    day(r.period_end, zone),
+                    formatMoney(r.price_cents, BUSINESS_CURRENCY),
+                ]),
             });
         if (summary.status !== "canceled") actions.push("cancel");
     } else {
@@ -502,9 +520,10 @@ export function useEntitlementDetail(
         if (r.recipient !== null) facts.push({ label: w.factRecipient, value: r.recipient });
         facts.push({
             label: w.factBalance,
-            value: `${formatMoney(r.balance_cents)} ${w.ofAmount(formatMoney(r.price_cents))}`,
+            value: `${formatMoney(r.balance_cents, BUSINESS_CURRENCY)} ${w.ofAmount(formatMoney(r.price_cents, BUSINESS_CURRENCY))}`,
         });
-        if (r.expires_at !== null) facts.push({ label: w.factExpires, value: day(r.expires_at) });
+        if (r.expires_at !== null)
+            facts.push({ label: w.factExpires, value: day(r.expires_at, zone) });
         ledgerNote = w.ledgerGift;
         if (
             summary.status === "active" &&
@@ -513,7 +532,7 @@ export function useEntitlementDetail(
         )
             actions.push("refund");
     }
-    facts.push({ label: w.factBought, value: day(r.created_at) });
+    facts.push({ label: w.factBought, value: day(r.created_at, zone) });
 
     return {
         summary,
@@ -525,9 +544,12 @@ export function useEntitlementDetail(
             key: h.journal_id,
             label:
                 h.cents !== 0
-                    ? `${w.event[h.event] ?? h.event} · ${formatMoney(Math.abs(h.cents))}`
+                    ? formatParts([
+                          w.event[h.event] ?? h.event,
+                          formatMoney(Math.abs(h.cents), BUSINESS_CURRENCY),
+                      ])
                     : (w.event[h.event] ?? h.event),
-            at: h.at === null ? "" : day(h.at),
+            at: h.at === null ? "" : day(h.at, zone),
             intent: (h.event === "payment"
                 ? "accent"
                 : h.event === "consumption" || h.event === "redemption"
@@ -554,9 +576,13 @@ export function useEntitlementDetail(
 
 const CASH = "cash";
 
+const GIFT_PRESETS = ["25", "50", "75", "100"];
+const GIFT_MIN_CENTS = 500;
+const GIFT_MAX_CENTS = 100_000;
+
 function giftPresets(item: Parameters<typeof giftAmounts>[0] | null): string[] {
     const suggested = item === null ? [] : giftAmounts(item);
-    return suggested.length > 0 ? suggested.map((c) => String(c / 100)) : [...w.giftPresets];
+    return suggested.length > 0 ? suggested.map((c) => String(c / 100)) : [...GIFT_PRESETS];
 }
 const SALE_KINDS: WalletKind[] = ["package", "membership", "gift_card"];
 
@@ -617,11 +643,11 @@ export function useEntitlementSaleForm(
     const saved = checkoutMethods(cards);
     const methods: CheckoutMethod[] =
         kind === "membership" ? saved : [{ id: CASH, label: w.cash }, ...saved];
-    const giftCents = parseCents(amount) ?? 0;
+    const giftCents = parseCents(amount, BUSINESS_CURRENCY) ?? 0;
     const client = clients.find((c) => c.id === clientId) ?? null;
     const what =
         kind === "gift_card"
-            ? `${formatMoney(giftCents)} ${w.kindNoun.gift_card.toLowerCase()}`
+            ? w.giftCardAmount(formatMoney(giftCents, BUSINESS_CURRENCY))
             : (item?.name ?? "");
     const checkout = useCheckout(
         () => {
@@ -672,8 +698,13 @@ export function useEntitlementSaleForm(
             checkout.setError(w.errClient);
             return;
         }
-        if (kind === "gift_card" && (giftCents < 500 || giftCents > 100_000)) {
-            checkout.setError(w.errAmount);
+        if (kind === "gift_card" && (giftCents < GIFT_MIN_CENTS || giftCents > GIFT_MAX_CENTS)) {
+            checkout.setError(
+                w.errAmount(
+                    formatMoneyShort(GIFT_MIN_CENTS, BUSINESS_CURRENCY),
+                    formatMoneyShort(GIFT_MAX_CENTS, BUSINESS_CURRENCY),
+                ),
+            );
             return;
         }
         if (kind !== "gift_card" && item === null) {
@@ -727,19 +758,16 @@ export function useEntitlementSaleForm(
         items: pool.map((i) => ({
             key: i.id,
             label: i.name,
-            hint: formatMoney(i.price_cents),
+            hint: formatMoney(i.price_cents, BUSINESS_CURRENCY),
         })),
-        noItems:
-            kind !== "gift_card" && pool.length === 0
-                ? w.noItems(w.kindNoun[kind].toLowerCase())
-                : null,
+        noItems: kind !== "gift_card" && pool.length === 0 ? w.noItems(kind) : null,
         itemId: item?.id ?? "",
         setItemId,
         amount,
         setAmount,
         presets: giftPresets(giftItems(catalog)[0] ?? null).map((p) => ({
             key: p,
-            label: `$${p}`,
+            label: formatMoneyShort(Math.round(Number(p) * 100), BUSINESS_CURRENCY),
         })),
         recipient,
         setRecipient,
@@ -752,7 +780,9 @@ export function useEntitlementSaleForm(
         lines,
         totalCents: total,
         submitLabel:
-            checkout.method === CASH ? w.record(formatMoney(total)) : w.charge(formatMoney(total)),
+            checkout.method === CASH
+                ? w.record(formatMoney(total, BUSINESS_CURRENCY))
+                : w.charge(formatMoney(total, BUSINESS_CURRENCY)),
         busyLabel: w.busy,
         submit,
         sold,

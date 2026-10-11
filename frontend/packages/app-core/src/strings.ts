@@ -1,4451 +1,4207 @@
-// Every user-facing string, shared by web and mobile.
+// Generated from locales/en-CA.json by `make gen-strings`; edit the catalog, not this file.
+import english from "../locales/en-CA.json" with { type: "json" };
+import { catalog } from "./locale";
 
-export const strings = {
-    common: {
-        appName: "Clientbridge",
-        somethingWrongRetry: "Something went wrong. Please try again.",
-        fileUploadError: "Couldn't upload that file. Please try again.",
-        fileUploadOffline: "Uploading needs a connection. Try again when you're back online.",
-        loading: "Loading…",
-        saved: "Saved.",
-        save: "Save changes",
-        saving: "Saving…",
-        cancel: "Cancel",
-        done: "Done",
-        close: "Close",
-        somethingWrong: "Something went wrong",
-        tryAgainLater: "Please try again later.",
-        working: "Working…",
-        busyEllipsis: "…",
-        optional: "(optional)",
-        decrease: (label: string) => `Decrease ${label}`,
-        increase: (label: string) => `Increase ${label}`,
-        stars: (n: number) => `${n} star${n === 1 ? "" : "s"}`,
-        ratingOf: (n: number) => `${n} out of 5`,
-        stillSyncing: "Still syncing — try again in a moment.",
-        today: "Today",
-        yesterday: "Yesterday",
-        tomorrow: "Tomorrow",
-        relativeTime: {
-            justNow: "just now",
-            minutes: (n: number) => `${n}m`,
-            hours: (n: number) => `${n}h`,
-            days: (n: number) => `${n}d`,
-        },
-    },
-    ui: {
-        clearSearch: "Clear search",
-        clear: "Clear",
-        copy: "Copy",
-        copied: "Copied",
-        removeTag: (tag: string) => `Remove ${tag}`,
-        createTag: (text: string) => `Add "${text}"`,
-        previous: "Previous",
-        next: "Next",
-        done: "(done)",
-        withCount: (label: string, count: string) => `${label}, ${count}`,
-        onTicket: (name: string, count: number) => `${name}, ${count} on ticket`,
-        startOf: (day: string) => `${day} start`,
-        endOf: (day: string) => `${day} end`,
-        cardFallback: "CARD",
-        listError: "This list didn't load.",
-        listErrorBody: "Check your connection, then try again.",
-        retry: "Try again",
-        retrying: "Trying…",
-        searchOptions: "Search",
-        noMatches: "Nothing matches.",
-        noOptions: "Nothing to choose yet.",
-        choose: "Choose…",
-        pickDate: "Pick a date",
-        pickTime: "Pick a time",
-        previousMonth: "Previous month",
-        nextMonth: "Next month",
-        chooseYear: (month: string) => `${month}, choose a year`,
-        dateTimeDay: (label: string) => `${label} day`,
-        dateTimeTime: (label: string) => `${label} time`,
-        loadFailed: "This didn't load.",
-        loadFailedBody: "Check your connection and try again. Nothing you saved is lost.",
-    },
-    billing: {
-        invoices: "Invoices",
-        estimates: "Estimates",
-        invoiceNo: (n: number) => `Invoice #${n}`,
-        estimateNo: (n: number) => `Estimate #${n}`,
-        draftInvoice: "Draft invoice",
-        draftEstimate: "Draft estimate",
-        number: (n: number) => `#${n}`,
-        newInvoice: "New invoice",
-        newEstimate: "New estimate",
-        dash: "—",
-        search: "Search client or number",
-        itemsTotal: "Items",
-        lineDiscounts: "Line discounts",
-        docDiscount: "Discount",
-        discountTitle: "Discount",
-        addDiscount: "Discount",
-        discountedBy: (label: string) => `${label} off`,
-        lineDiscount: (name: string) => `Discount on ${name}`,
-        subtotal: "Subtotal",
-        total: "Total",
-        balanceDue: "Balance due",
-        depositApplied: "Deposit applied",
-        paymentOn: (method: string, when: string) => `${method}, ${when}`,
-        taxRow: (code: string, pct: string) => `${code} ${pct}`,
-        lines: "Lines",
-        qtyTimes: (qty: number, price: string) => `${qty} × ${price}`,
-        notes: "Notes",
-        history: "History",
-        payments: "Payments",
-        payLink: "Pay link",
-        acceptLink: "Client link",
-        copyLink: "Copy link",
-        copied: "Copied",
-        pdf: "PDF",
-        edit: "Edit",
-        colNumber: "Number",
-        colClient: "Client",
-        colIssued: "Issued",
-        colDue: "Due",
-        colValid: "Valid until",
-        colStatus: "Status",
-        colTotal: "Total",
-        colBalance: "Balance",
-        statusLabel: {
-            draft: "Draft",
-            sent: "Sent",
-            partial: "Partly paid",
-            overdue: "Overdue",
-            paid: "Paid",
-            refunded: "Refunded",
-            void: "Void",
-        } as Record<string, string>,
-        dueOn: (when: string) => `Due ${when}`,
-        dueToday: "Due today",
-        overdueBy: (days: number) => `${days} ${days === 1 ? "day" : "days"} overdue`,
-        paidOn: (when: string) => `Paid ${when}`,
-        voidedOn: (when: string) => `Voided ${when}`,
-        notSent: "Not sent",
-        segments: {
-            all: "All",
-            open: "Open",
-            overdue: "Overdue",
-            draft: "Drafts",
-            paid: "Paid",
-            void: "Void",
-        },
-        segmentCount: (label: string, n: number) => `${label} ${n}`,
-        statOutstanding: "Outstanding",
-        statOutstandingHint: (n: number) =>
-            `${n} ${n === 1 ? "invoice" : "invoices"} awaiting payment`,
-        statOverdue: "Overdue",
-        statOverdueHint: (n: number) =>
-            n === 0 ? "Nothing overdue" : `${n} ${n === 1 ? "invoice" : "invoices"} past due`,
-        statPaid: "Paid, last 30 days",
-        statPaidHint: (n: number) => `${n} ${n === 1 ? "invoice" : "invoices"} settled`,
-        statDrafts: "Drafts",
-        statDraftsHint: (n: number) =>
-            n === 0 ? "Nothing waiting" : `${n} ${n === 1 ? "draft" : "drafts"} to send`,
-        summary: (n: number, owed: string) =>
-            `${n} ${n === 1 ? "invoice" : "invoices"} · ${owed} outstanding`,
-        estimatesSummary: (n: number, open: string) =>
-            `${n} ${n === 1 ? "estimate" : "estimates"} · ${open} waiting on clients`,
-        emptyInvoicesTitle: "No invoices yet",
-        emptyInvoicesBody: "Invoice a client from a completed booking, or start one here.",
-        emptySegment: (label: string) => `No ${label.toLowerCase()} invoices.`,
-        emptySearch: "Nothing matches that search.",
-        emptyEstimatesTitle: "No estimates yet",
-        emptyEstimatesBody:
-            "Quote a job before you book it, and convert it to an invoice when it's accepted.",
-        emptyEstimateSegment: (label: string) => `No ${label.toLowerCase()} estimates.`,
-        send: "Send",
-        sendInvoice: "Send invoice",
-        remind: "Remind",
-        recordPayment: "Record payment",
-        settling: "Payment received. Updating the balance on this device.",
-        settlingLate:
-            "The payment went through. The balance on this device is taking longer than usual to update.",
-        void: "Void",
-        voidConfirmTitle: (n: number) => `Void invoice #${n}?`,
-        voidConfirmBody:
-            "The client's pay link stops working and the amount comes off what they owe. This can't be undone.",
-        voidDraftConfirmTitle: "Void this draft?",
-        invoiceSentTo: (n: number, name: string) => `Invoice #${n} sent to ${name}.`,
-        reminderSentTo: (name: string) => `Reminder sent to ${name}.`,
-        invoiceVoided: (label: string) => `${label} voided. It stays in the list for your records.`,
-        actionError: "Couldn't do that. Nothing changed; try again.",
-        event: {
-            created: "Created",
-            sent: "Sent to the client",
-            payment: (amount: string, method: string) => `Payment of ${amount}, ${method}`,
-            depositApplied: (amount: string) => `Deposit of ${amount} applied`,
-            refund: (amount: string) => `Refunded ${amount}`,
-            voided: "Voided",
-            accepted: "Accepted",
-            declined: "Declined",
-            converted: (n: string) => `Converted to invoice ${n}`,
-        },
-        method: {
-            card: "Card",
-            cash: "Cash",
-            interac: "Interac e-Transfer",
-            bank_eft: "Bank debit",
-            cheque: "Cheque",
-            other: "Other",
-            deposit: "Booking deposit",
-        } as Record<string, string>,
-        paymentPending: "Processing",
-        estimateStatus: {
-            draft: "Draft",
-            sent: "Sent",
-            accepted: "Accepted",
-            declined: "Declined",
-            expired: "Expired",
-            converted: "Converted",
-        } as Record<string, string>,
-        estimateSegments: {
-            all: "All",
-            draft: "Drafts",
-            sent: "Waiting",
-            accepted: "Accepted",
-            closed: "Closed",
-        },
-        validUntil: (when: string) => `Valid until ${when}`,
-        expiresIn: (days: number) =>
-            days === 0 ? "Expires today" : `Expires in ${days} ${days === 1 ? "day" : "days"}`,
-        expiredOn: (when: string) => `Expired ${when}`,
-        acceptedOn: (when: string) => `Accepted ${when}`,
-        declinedOn: (when: string) => `Declined ${when}`,
-        convertedTo: (n: string) => `Invoice ${n}`,
-        convert: "Convert to invoice",
-        convertTitle: "Convert to invoice?",
-        convertBody:
-            "The invoice gets the same lines and tax, plus any add-ons the client picked. It starts as a draft you can edit before sending.",
-        markAccepted: "Mark accepted",
-        markDeclined: "Mark declined",
-        sendEstimate: "Send estimate",
-        declineReason: "Reason given",
-        addOnPicked: "Add-on, picked by the client",
-        addOnNotPicked: "Add-on, not picked",
-        addOnOffered: "Optional add-on",
-        estimateSentTo: (n: number, name: string) => `Estimate #${n} sent to ${name}.`,
-        estimateMarkedAccepted: (label: string) => `${label} marked accepted.`,
-        estimateMarkedDeclined: (label: string) => `${label} marked declined.`,
-        convertedDraft: "Invoice created as a draft. Find it under Drafts.",
-        client: "Client",
-        chooseClient: "Choose a client",
-        addFromCatalog: "Add from catalog",
-        addCustomLine: "Custom line",
-        description: "Description",
-        descriptionPlaceholder: "Service or item",
-        qty: "Qty",
-        price: "Price",
-        taxClass: "Tax",
-        optional: "Optional add-on",
-        optionalHint: "Starts unticked; the client can add it when accepting",
-        removeLine: "Remove line",
-        validFor: "Valid for",
-        dueTerms: "Payment due",
-        terms: {
-            receipt: "On receipt",
-            d7: "7 days",
-            d14: "14 days",
-            d30: "30 days",
-        },
-        messageToClient: "Message to client",
-        messagePlaceholder: "Shown above the lines",
-        saveDraft: "Save draft",
-        saving: "Saving…",
-        sending: "Sending…",
-        livePreview: "Live preview",
-        preview: "Preview",
-        taxNote: (rates: string) => `Tax: ${rates}`,
-        noTaxNote: "You don't collect sales tax yet, so nothing is added.",
-        needClient: "Choose a client.",
-        needLine: "Add at least one line with a price.",
-        lineIncomplete: "Add a description and price.",
-        saveError: "Couldn't save. Your lines are still here, try again.",
-        sendError: "Couldn't send. Try again; nothing was sent twice.",
-        draftSaved: "Draft saved. It stays in Drafts until you send it.",
-        sentTitle: (noun: string) => `${noun} sent`,
-        sentBody: (who: string) => `${who} gets it by email with a link to open it.`,
-        startAnother: "Start another",
-        discardTitle: "Close without saving?",
-        discardBody: "Changes since the last save are lost.",
-        discard: "Close",
-        keepEditing: "Keep editing",
-        rec: {
-            title: "Record a payment",
-            subtitle: (client: string, n: string) => `${client} · ${n}`,
-            howPaid: "How did they pay?",
-            savedCardHint: "Charge it now",
-            noSavedCard: "Saved card",
-            noSavedCardHint: "None on file for this client",
-            reader: "Tap to Pay",
-            readerHint: "Take it at the desk under Sales",
-            cash: "Cash",
-            cashHint: "Paid at the desk",
-            etransfer: "e-Transfer received",
-            etransferHint: "Already in your bank",
-            cheque: "Cheque",
-            chequeHint: "Record it once deposited",
-            amount: "Amount",
-            fullBalance: (amount: string) => `Full balance ${amount}`,
-            partial: "Part of it",
-            tendered: "Cash handed over",
-            change: "Change to give",
-            noChange: "Exact amount",
-            reference: "Interac reference",
-            referenceHint: "From the deposit notice, so the bookkeeper can match it",
-            referencePlaceholder: "e.g. CA1MRx7Q",
-            receivedOn: "Received on",
-            chequeNo: "Cheque number",
-            note: "Note",
-            notePlaceholder: "Seen by staff only",
-            sendReceipt: "Email a receipt",
-            sendReceiptTo: (email: string) => `To ${email}`,
-            thisPayment: "This payment",
-            resultPaid: "Paid in full",
-            resultPartial: "Still owing",
-            charge: (amount: string) => `Charge ${amount}`,
-            record: (amount: string) => `Record ${amount}`,
-            recording: "Recording…",
-            charging: "Charging…",
-            amountInvalid: "Enter an amount more than $0.",
-            amountTooHigh: (max: string) => `That's more than the ${max} owing.`,
-            tenderedShort: "That's less than the amount being paid.",
-            dateInvalid: "Use a date like 2026-10-07, and not one in the future.",
-            error: "Couldn't record the payment. Nothing was charged; try again.",
-            doneTitle: "Payment recorded",
-            cardTitle: "Card charge started",
-            cardBody: "The invoice updates when the card payment settles, usually within a minute.",
-            donePaid: (n: string) => `Invoice ${n} is paid in full.`,
-            donePartial: (n: string, left: string) => `Invoice ${n} has ${left} left to pay.`,
-            receiptSent: (email: string) => `Receipt sent to ${email}.`,
-            giveChange: (amount: string) => `Give ${amount} change.`,
-            recordAnother: "Record another payment",
-            nothingOwed: "Nothing left to record on this invoice.",
-        },
-        doc: {
-            title: "Documents",
-            kinds: { invoice: "Invoice", estimate: "Estimate", receipt: "Receipt" },
-            fileName: (business: string, kind: string, n: string) =>
-                `${business.replace(/[^A-Za-z0-9]+/g, "-")}-${kind}-${n}.pdf`,
-            pages: "1 page",
-            print: "Print",
-            download: "Download PDF",
-            share: "Share",
-            back: "Back",
-            attachedTo: "Sent with",
-            attachedInvoice: (when: string) => `Invoice email, ${when}`,
-            attachedEstimate: (when: string) => `Estimate email, ${when}`,
-            attachedReceipt: (when: string) => `Receipt email, ${when}`,
-            notSentYet: "Not sent yet",
-            noReceipt: "No payment on this invoice yet, so there's no receipt.",
-            noEstimate: "This invoice didn't start as an estimate.",
-            downloadHint: "Download opens your browser's print dialog; choose Save as PDF.",
-        },
-        refund: "Refund",
-        refundBadge: "Refund",
-    },
-    printing: {
-        kinds: { invoice: "INVOICE", estimate: "ESTIMATE", receipt: "RECEIPT" },
-        from: "From",
-        billTo: "Bill to",
-        preparedFor: "Prepared for",
-        receivedFrom: "Received from",
-        issued: "Issued",
-        due: "Due",
-        validUntil: "Valid until",
-        paidOn: "Paid",
-        invoiceNumber: "Invoice",
-        estimateNumber: "Estimate",
-        forInvoice: "For invoice",
-        item: "Item",
-        qty: "Qty",
-        price: "Price",
-        tax: "Tax",
-        amount: "Amount",
-        paymentMethod: "Payment method",
-        amountPaid: "Amount paid",
-        balanceRemaining: "Balance remaining",
-        estimateTotal: "Estimate total",
-        taxSummary: "Tax summary",
-        taxBase: "On",
-        howToPay: "How to pay",
-        payOnline: (url: string) => `Pay online at ${url}`,
-        payInterac: (email: string) =>
-            `Interac e-Transfer to ${email}, with the invoice number in the message`,
-        acceptOnline: (url: string) => `Read and accept it online at ${url}`,
-        acceptBy: (when: string) => `To go ahead, accept before ${when}.`,
-        thanks: "Thank you for your business.",
-        page: "Page 1 of 1",
-        registration: (parts: string[]) => parts.join(" · "),
-        gstNo: (n: string) => `GST/HST ${n}`,
-        qstNo: (n: string) => `QST ${n}`,
-        scanToPay: "Scan to pay",
-        paidStamp: "Paid",
-        forPet: (pet: string) => `for ${pet}`,
-        draftNumber: "Draft",
-    },
-    pos: {
-        pickup: {
-            toPack: "To pack",
-            ready: "Ready",
-            pickedUp: "Picked up",
-            guest: "Guest",
-            placed: (when: string) => `Placed ${when}`,
-            readySince: (when: string) => `Ready since ${when}`,
-            pickedAt: (when: string) => `Picked up ${when}`,
-            items: (n: number) => (n === 1 ? "1 item" : `${String(n)} items`),
-            waiting: (days: number) =>
-                days === 0
-                    ? "Today"
-                    : days === 1
-                      ? "Waiting 1 day"
-                      : `Waiting ${String(days)} days`,
-            emptyToPack: "Nothing to pack. New online orders show up here.",
-            emptyReady: "Nothing waiting on the shelf.",
-            emptyPickedUp: "Nothing picked up yet.",
-            error: "Couldn’t update the order. Try again.",
-        },
-        desk: {
-            title: "Sales",
-            newSaleTitle: "New sale",
-            saleNumber: (n: string) => `Sale ${n}`,
-            itemsTotal: "Items",
-            lineDiscounts: "Line discounts",
-            saleDiscount: "Sale discount",
-            subtotal: "Subtotal",
-            tax: "Tax",
-            tip: "Tip",
-            tipNoTax: "no tax",
-            total: "Total",
-            depositPaid: "Deposit paid",
-            dueNow: "Due now",
-            searchShort: "Search",
-            catAll: "All",
-            catServices: "Services",
-            catRetail: "Retail",
-            notTracked: "Not tracked",
-            outOfStock: "Out of stock",
-            inStock: (n: number) => `${String(n)} in stock`,
-            minutes: (n: number) => `${String(n)} min`,
-            noResults: "Nothing matches that search.",
-            alsoSell: "Gift cards and plans",
-            alsoSellHint: "These have their own checkout.",
-            sellGiftCard: "Gift card",
-            sellPackage: "Package",
-            sellMembership: "Membership",
-            ticket: "Ticket",
-            clear: "Clear",
-            walkIn: "Walk-in",
-            chooseClient: "Add client",
-            changeClient: "Change",
-            clientSearch: "Search clients",
-            clientHint: "Optional. A client gets the receipt and the visit on their record.",
-            emptyTicket: "Tap a service or product to start.",
-            emptyTicketShort: "Nothing on the ticket yet.",
-            items: (n: number) => (n === 1 ? "1 item" : `${String(n)} items`),
-            each: (money: string) => `${money} each`,
-            quantity: "quantity",
-            removeLine: (name: string) => `Remove ${name}`,
-            servedBy: (name: string) => `with ${name}`,
-            noStaff: "No staff",
-            fromBooking: "Booked",
-            review: "Review and pay",
-            charge: (money: string) => `Charge ${money}`,
-            collect: (money: string) => `Collect ${money}`,
-            holdSale: "Hold",
-            addDiscount: "Discount",
-            todaysVisits: "Today's visits",
-            todaysVisitsHint: "Booked services ready to check out. Add retail and add-ons after.",
-            visitPaid: "Paid",
-            visitInProgress: "In progress",
-            visitReady: "Ready to pay",
-            visitUpcoming: "Later today",
-            endsAt: (time: string) => `ends ${time}`,
-            checkOut: "Check out",
-            onTicket: "On ticket",
-            depositCredit: (money: string) => `${money} deposit paid`,
-            addExtras: "Add-ons and retail",
-            noVisits: "No booked visits left today.",
-            walkInSale: "Walk-in sale",
-            payTitle: "Take payment",
-            payFor: (client: string) => `Payment from ${client}`,
-            howPaying: "How is the client paying?",
-            methodTap: "Tap to Pay",
-            methodTapHint: "Card or phone",
-            methodTapWebHint: "On the phone app",
-            methodSavedHint: "Card on file",
-            methodCard: "Enter card",
-            methodCardHint: "Type the card number",
-            methodCash: "Cash",
-            methodCashHint: "Count change",
-            cashGiven: "Cash received",
-            changeDue: "Change due",
-            cashShort: (money: string) => `Cash received must cover ${money}`,
-            exactCash: "Exact",
-            tapReady: "Ready for the card",
-            tapHold: "Hold the card or phone near the top of this device",
-            tapWaiting: "Waiting for the card…",
-            tapWeb: "Tap to Pay runs on the phone app. Use a saved card, enter a card or take cash here.",
-            savedCardCharge: (card: string) => `We'll charge ${card} now.`,
-            payError: "The card was declined. Try another card or payment method.",
-            addItemFirst: "Add an item before taking payment.",
-            overLimit: (pct: string) => `Discounts over ${pct}% need an owner or admin to approve.`,
-            backToTicket: "Back to ticket",
-            cancel: "Cancel",
-            charging: "Charging…",
-            secure: "Card details are sent securely to our payment processor and are never stored by Clientbridge.",
-            paidTitle: "Payment received",
-            paidBody: (money: string, method: string) => `${money} by ${method}`,
-            changeToGive: (money: string) => `Give ${money} in change`,
-            receiptTitle: "Send a receipt",
-            receiptEmail: "Email",
-            receiptText: "Text",
-            receiptNone: "No receipt",
-            receiptEmailTo: "Email address",
-            receiptPhoneTo: "Mobile number",
-            sendEmail: "Email receipt",
-            sendText: "Text receipt",
-            receiptSent: (to: string) => `Receipt sent to ${to}`,
-            receiptSkipped: "No receipt sent",
-            receiptEmailInvalid: "Enter a valid email address",
-            receiptPhoneInvalid: "Enter a 10-digit mobile number",
-            receiptError: "Couldn't send the receipt. Please try again.",
-            newSale: "New sale",
-            bookNext: "Book the next visit",
-            tipCustom: "Custom",
-            tipCustomHint: "Any amount",
-            tipNone: "No tip",
-            tipOn: (money: string) => `Tip is worked out on ${money}, before tax.`,
-            tipAmount: "Tip amount",
-            tipSplitEven: "By service",
-            tipToOne: "One person",
-            tipNobody:
-                "No one is set on the services, so the tip goes to whoever rang up the sale.",
-            discountTitle: "Discount",
-            discountLine: (name: string) => `Discount on ${name}`,
-            discountScope: "Apply to",
-            scopeSale: "Whole sale",
-            scopeLines: "Chosen items",
-            percent: "Percent",
-            percentOff: "Percent off",
-            amountOff: "Amount off",
-            amount: "Amount",
-            discountValue: "Discount",
-            discountReason: "Reason",
-            discountReasonPlaceholder: "Why is this discounted?",
-            reasons: [
-                "First visit",
-                "Loyalty",
-                "Price match",
-                "Service issue",
-                "Staff",
-                "Damaged item",
-            ],
-            applyDiscount: "Apply",
-            removeDiscount: "Remove discount",
-            discountPreview: (off: string, after: string) => `${off} off, ${after} before tax`,
-            discountInvalid: "Enter a discount like 10% or $5.00",
-            discountPercentMax: "A discount can't be more than 100%",
-            discountTooBig: (money: string) => `The discount can't be more than ${money}`,
-            discountReasonRequired: "Choose or type a reason",
-            taxFollows: "Tax is worked out on the discounted price.",
-            limitNote: (pct: string) => `Staff can discount up to ${pct}% of a sale.`,
-            approvalTitle: "Owner or admin approval",
-            approvalBody: (pct: string, money: string) =>
-                `This sale is discounted more than ${pct}% (over ${money}). Ask an owner or admin to approve it.`,
-            approvalPin: "Approver PIN",
-            approve: "Approve",
-            approvalOk: "Approved. The PIN is checked again when you charge.",
-            ordersTitle: "Orders",
-            filterAll: "All",
-            filterDesk: "Front desk",
-            filterOnline: "Online",
-            filterOpen: "Open",
-            filterRefunds: "Refunds",
-            historySearch: "Search by client, item or sale number",
-            historyNoMatch: "No sales match that search.",
-            historyEmpty: "Sales you ring up at the front desk and online orders appear here.",
-            historyFilterEmpty: "Nothing here right now.",
-            dayTotal: (n: number, money: string) =>
-                `${String(n)} ${n === 1 ? "sale" : "sales"} · ${money}`,
-            todaySales: "Today's sales",
-            todayCount: (n: number) => `${String(n)} paid, before tips`,
-            todayTips: "Tips",
-            todayDiscounts: "Discounts",
-            todayAverage: "Average sale",
-            notPaid: "Not paid",
-            status: {
-                open: "Open",
-                paid: "Paid",
-                partly_refunded: "Part refunded",
-                refunded: "Refunded",
-                void: "Void",
-            },
-            sourceOnline: "Online",
-            rungBy: (name: string) => `Rung up by ${name}`,
-            lines: "Items",
-            payments: "Payments",
-            tipsTo: "Tips",
-            receiptSection: "Receipt",
-            sentBy: (channel: string, to: string) =>
-                `${channel === "sms" ? "Texted" : "Emailed"} to ${to}`,
-            noReceipt: "No receipt was sent.",
-            resumeSale: "Resume sale",
-            markReady: "Mark ready",
-            markPickedUp: "Picked up",
-            resendReceipt: "Resend receipt",
-            refund: "Refund",
-            voidSale: "Void",
-            refunded: (money: string) => `${money} refunded`,
-            openTickets: "Open tickets",
-            openTicketsHint: "Held sales waiting for payment",
-            toPrepare: "To prepare",
-            toPrepareHint: "Online orders to pack",
-            readyForPickup: "Ready for pickup",
-            readyHint: "Packed, waiting for the client",
-            nothingOpen: "No held sales.",
-            nothingToPrepare: "Nothing to pack.",
-            nothingReady: "Nothing waiting.",
-            heldAt: (when: string) => `Held ${when}`,
-            history: "History",
-            ago: (when: string) => `${when} ago`,
-            pickupNotify: "We'll text the client when you mark it ready.",
-            tipSection: "Tip",
-            tipSplitTitle: "Who gets the tip",
-            tipShareOf: (pct: number) => `${String(pct)}% of the tip`,
-            tipPickPerson: "Give it all to",
-            pinInvalid: "Enter the 4-digit PIN",
-            pinHint: "An owner or admin enters their PIN on this screen.",
-            before: "Before",
-            after: "After",
-            youSave: "Discount",
-            chooseLines: "Choose at least one item",
-            otherReason: "Other reason",
-            discountedBy: (label: string) => `${label} off`,
-            markedReady: (name: string) => `Marked ready. We texted ${name}.`,
-            markedPickedUp: (name: string) => `${name}'s order is picked up.`,
-            details: "Details",
-            loadingCatalog: "Loading services and products",
-            loadingTicket: "Loading the sale",
-            loadingVisits: "Loading today's visits",
-            loadingSales: "Loading sales",
-            loadingOrders: "Loading orders",
-            catalogErrorBody: "Check the connection, then try again.",
-            visitsError: "Couldn't load today's visits.",
-            salesError: "Couldn't load sales.",
-            ordersError: "Couldn't load orders.",
-            noItemsTitle: "No services or products yet",
-            noItemsBody: "Add what you sell in Setup, Catalog, and it appears here.",
-            addCatalog: "Open the catalog",
-            ordersEmpty: "Nothing waiting at the front desk",
-            ordersEmptyBody: "Held sales and online orders to pack or hand over show up here.",
-            historyEmptyTitle: "No sales yet",
-            heldNotice: (n: string) => `${n} is on hold. Find it under Orders, Open tickets.`,
-            holdError: "Couldn't hold this sale. Please try again.",
-            actionError: "That didn't go through. Please try again.",
-            refundTitle: (n: string) => `Refund sale ${n}?`,
-            refundBody: (money: string, card: string, cn: string) =>
-                `${money} goes back to ${card}. We issue credit note ${cn} and email it with the refund.`,
-            refundConfirm: (money: string) => `Refund ${money}`,
-            refundDone: (money: string, cn: string) =>
-                `Refunded ${money}. Credit note ${cn} is on its way to the client.`,
-            voidTitle: (n: string) => `Void sale ${n}?`,
-            voidBody:
-                "Nothing was charged, so voiding removes it from Open tickets. It stays in history, marked void.",
-            voidDone: (n: string) => `${n} is void.`,
-            creditNote: (cn: string) => `Credit note ${cn}`,
-        },
-    },
-    earnings: {
-        subtitle: "Staff earn a share of what they do, and tips. Approve them, then pay them.",
-        toApprove: "To approve",
-        toPay: "Approved, to pay",
-        paidYtd: "Paid this year",
-        stage: {
-            pending: "To approve",
-            approved: "Approved",
-            paid: "Paid",
-            reversed: "Reversed",
-        } as Record<string, string>,
-        serviceRate: (rate: string) => `${rate} of services`,
-        fixedRate: (amount: string) => `${amount} per visit`,
-        hourlyRate: (amount: string) => `${amount} an hour`,
-        retailRate: (rate: string) => `${rate} of retail`,
-        noRate: "No pay rate set",
-        lineOf: (rate: string, base: string) => `${rate} of ${base}`,
-        fixed: "Fixed rate",
-        hourly: "Hourly rate",
-        sourceBooking: "Booking",
-        sourceSale: "Retail sale",
-        sourceTip: "Tip",
-        tipTitle: "Tip",
-        saleTitle: (n: number) => `Sale S-${String(n)}`,
-        selectAll: "Select all to approve",
-        approveSelected: (count: number) =>
-            count === 0
-                ? "Approve selected"
-                : `Approve ${String(count)} ${count === 1 ? "earning" : "earnings"}`,
-        payApproved: (amount: string) => `Pay ${amount}`,
-        working: "Saving…",
-        count: (count: number) => `${String(count)} ${count === 1 ? "earning" : "earnings"}`,
-        noEarnings: "No earnings yet. They appear when a visit or sale this person did is paid.",
-        noStaff: "No one is paid a share yet",
-        noStaffBody: "Set a pay rate for a team member in Team to start tracking what they earn.",
-        openTeam: "Open Team",
-        choosePayee: "Choose a person to see their earnings.",
-        paidVia: "Pay them by e-Transfer or direct deposit, then mark it paid here.",
-        updateError: "Couldn't update these earnings. Please try again.",
-        loading: "Loading staff pay…",
-    },
-    entitlements: {
-        walletTitle: "Prepaid and plans",
-        subtitle:
-            "Prepaid visits, monthly plans and gift cards, with what is still owed to each client.",
-        sellNew: "Sell package, plan or gift card",
-        redeemGift: "Redeem a gift card",
-        clientPicker: "Client",
-        emptyTitle: "Nothing sold yet",
-        empty: "Packages, memberships and gift cards you sell appear here, with what each client has left.",
-        emptyClient: (name: string) => `${name} has no packages, memberships or gift cards yet.`,
-        deferred: "Unused package value",
-        giftLiability: "Gift card balances",
-        walletMonthly: "Plans per month, before tax",
-        kindNoun: { package: "Package", membership: "Membership", gift_card: "Gift card" },
-        sessionsLeft: (left: number, total: number) => `${String(left)} of ${String(total)} left`,
-        sessionsUsedOf: (used: number, total: number) => `${String(used)} of ${String(total)} used`,
-        moneyLeft: (amount: string) => `${amount} left`,
-        ofAmount: (amount: string) => `of ${amount}`,
-        renews: (when: string) => `Renews ${when}`,
-        retrying: "Payment failed",
-        expires: (when: string) => `Expires ${when}`,
-        expired: (when: string) => `Expired ${when}`,
-        forRecipient: (name: string) => `For ${name}`,
-        statusLabel: {
-            active: "Active",
-            pending: "Waiting for payment",
-            paused: "Paused",
-            past_due: "Past due",
-            expired: "Expired",
-            used: "Used up",
-            redeemed: "Spent",
-            canceled: "Canceled",
-            void: "Void",
-        } as Record<string, string>,
-        lastSession: "One session left",
-        pastDueNote: "The card was declined; payment will be retried automatically.",
-        factBought: "Bought",
-        factPaid: "Paid",
-        factDeferred: "Not yet earned",
-        factNextSession: "Next session earns",
-        factExpires: "Expires",
-        factRecipient: "For",
-        factBalance: "Balance",
-        factNextCharge: "Next charge",
-        factCode: "Code",
-        history: "History",
-        ledgerPackage: (share: string) =>
-            `Each session moves ${share} from unused package value to revenue. Unused value at expiry is booked as revenue.`,
-        ledgerGift:
-            "The balance is a liability until it is spent. An unspent balance is booked as revenue when the card expires.",
-        ledgerMembership:
-            "Each period the saved card is charged and an invoice is issued; tax is on the invoice.",
-        event: {
-            payment: "Sold",
-            consumption: "Session used",
-            redemption: "Spent",
-            breakage: "Expired",
-            refund: "Refunded",
-            dispute: "Disputed",
-        } as Record<string, string>,
-        action: { use: "Use a session", cancel: "Cancel plan", refund: "Refund" },
-        actionBusy: "Saving…",
-        actionError: "Couldn't save that. Please try again.",
-        cancelTitle: "Cancel this plan?",
-        cancelBody: "The card won't be charged again. The client keeps what they already paid for.",
-        notYet: "Pausing a plan and retrying a declined card aren't available yet. Cancel and sell again, or ask the client to update their card.",
-        sellTitle: "Sell",
-        chooseKind: "What are you selling?",
-        chooseItem: "Choose one",
-        noItems: (kind: string) =>
-            `No ${kind} in your catalog yet. Add one under Services & products.`,
-        giftAmount: "Amount",
-        giftPresets: ["25", "50", "75", "100"],
-        recipient: "Recipient's name",
-        recipientHint: "Printed on the gift card email",
-        client: "Client",
-        chooseClient: "Choose a client",
-        cash: "Cash",
-        noTax: "No tax on gift cards until they are spent",
-        subtotal: "Subtotal",
-        total: "Total",
-        perPeriodTotal: "Charged each period",
-        membershipNeedsCard: "Memberships need a saved card or bank account.",
-        charge: (amount: string) => `Charge ${amount}`,
-        record: (amount: string) => `Record ${amount} cash`,
-        busy: "Saving…",
-        doneTitle: "Sold",
-        doneBody: (what: string, who: string) => `${what} is on ${who}'s account.`,
-        errItem: "Choose what you're selling.",
-        errClient: "Choose a client.",
-        errAmount: "Enter a gift card amount from $5 to $1,000.",
-        sellError: "The sale didn't go through. Nothing was sold; please try again.",
-        loadError: "Couldn't load packages and memberships",
-        giftCards: {
-            redeem: "Redeem",
-            redeemTitle: "Redeem gift card",
-            redeeming: "Redeeming…",
-            code: "Code",
-            codePlaceholder: "ABCD2345EFGH",
-            balance: "Balance",
-            redeemAmountPlaceholder: "25.00",
-            enterCode: "Enter a gift card code",
-            enterRedeemAmount: "Enter a redemption amount",
-            redeemError: "Couldn't redeem this gift card. Please try again.",
-        },
-    },
-    bookings: {
-        title: "Schedule",
-        today: "Today",
-        prev: "Previous",
-        next: "Next",
-        newBooking: "New booking",
-        newShort: "New",
-        viewLabel: "Schedule view",
-        viewBoard: "Calendar",
-        viewClasses: "Classes",
-        viewSeries: "Repeat visits",
-        off: "Off",
-        offToday: "Not working",
-        noHoursSet: "No hours set",
-        breakLabel: "Break",
-        closed: (reason: string) => `Closed · ${reason}`,
-        hoursRange: (start: string, end: string) => `${start} – ${end}`,
-        bookings: (visits: number, classes: number) =>
-            [
-                visits === 1 ? "1 visit" : `${String(visits)} visits`,
-                classes === 0 ? null : classes === 1 ? "1 class" : `${String(classes)} classes`,
-            ]
-                .filter(Boolean)
-                .join(" · "),
-        booked: "Booked",
-        expected: "Expected",
-        openTime: "Open time",
-        chairTime: "Chair time",
-        hoursOpen: (h: string) => `${h} h`,
-        utilization: (pct: number) => `${String(pct)}% booked`,
-        legendConfirmed: "Confirmed",
-        legendPending: "Awaiting deposit",
-        legendCompleted: "Completed",
-        legendNoShow: "No-show",
-        classSeats: (booked: number, cap: number) => `${String(booked)} of ${String(cap)} booked`,
-        dragHint: "Drag to move, drag the bottom edge to change the length",
-        dragTo: (when: string, who: string) => `Move to ${when} with ${who}`,
-        dropRefused: "Can't move here",
-        resizeTo: (end: string, min: number) => `Ends ${end} · ${String(min)} min`,
-        problemOverlap: (who: string) => `${who} is already booked then`,
-        problemOffHours: (who: string) => `Outside ${who}'s hours`,
-        problemTimeOff: (who: string, why: string) => `${who} is away: ${why}`,
-        problemClosed: (why: string) => `The business is closed: ${why}`,
-        problemPast: "That time has passed",
-        problemRoom: "That room or station is taken then",
-        problemClass: "A class moves as a whole from its session",
-        moved: (when: string) =>
-            `Moved to ${when.replace(/\.$/, "")}. The client gets an updated confirmation.`,
-        undo: "Undo",
-        emptyDayTitle: "Nothing booked yet",
-        dash: "–",
-        emptyDay: "Tap New to add a visit, or share your booking link.",
-        emptyDayWeb: "Click an open time on the board to add a visit, or share your booking link.",
-        emptyClosed: "The business is closed this day.",
-        nobodyWorking: "No one is scheduled to work this day.",
-        nobodyWorkingHint: "Working hours are set per person in Setup.",
-        dayVisits: "Visits",
-        noBookings: "Nothing booked.",
-        loading: "Loading the schedule",
-        loadError: "Couldn't load the schedule",
-        timeUntil: (min: number) =>
-            min < 60
-                ? `in ${String(min)} min`
-                : min % 60 === 0
-                  ? `in ${String(min / 60)} h`
-                  : `in ${String(Math.floor(min / 60))} h ${String(min % 60)} min`,
-        statusLabel: (status: string): string =>
-            ({
-                confirmed: "Confirmed",
-                pending: "Awaiting deposit",
-                completed: "Completed",
-                no_show: "No-show",
-                canceled: "Canceled",
-                waitlisted: "Waitlist",
-            })[status] ?? status,
-        unpaid: "Unpaid",
-        waitlist: "Waitlist",
-        detailWhen: "When",
-        detailWith: "With",
-        detailWhere: "Station",
-        detailNotes: "Notes",
-        detailDeposit: "Deposit",
-        detailAddons: "Added to this visit",
-        detailSeries: "Series",
-        detailHistory: "History",
-        detailClient: "Client",
-        visitsCount: (n: number) => `${String(n)} visits`,
-        lastVisit: (when: string) => `Last visit ${when}`,
-        firstVisit: "First visit",
-        seriesLabel: (i: number, n: number | null, every: string) =>
-            n === null
-                ? `Visit ${String(i)} · ${every}`
-                : `Visit ${String(i)} of ${String(n)} · ${every}`,
-        everyWeeks: (n: number) => (n === 1 ? "every week" : `every ${String(n)} weeks`),
-        everyMonths: (n: number) => (n === 1 ? "every month" : `every ${String(n)} months`),
-        everyDays: (n: number) => (n === 1 ? "every day" : `every ${String(n)} days`),
-        historyOnline: "Booked online",
-        historyStaff: "Booked by the team",
-        historyDeposit: (amount: string) => `Deposit of ${amount} paid`,
-        historyDepositDue: (amount: string) => `Deposit of ${amount} requested`,
-        historyReminderSent: "Reminder sent",
-        historyReminderDue: "Reminder scheduled",
-        historyCheckedIn: "Checked in",
-        depositPaid: (amount: string) => `${amount} paid`,
-        depositDue: (amount: string) => `${amount} due`,
-        depositKept: (amount: string) => `${amount} kept`,
-        depositApplied: (amount: string) => `${amount} applied to the invoice`,
-        depositRefunded: (amount: string) => `${amount} refunded`,
-        addonsTotal: (amount: string) => `Paid with the visit · ${amount}`,
-        cardOnFile: (label: string) => `Card on file: ${label}`,
-        noCard: "No card on file",
-        complete: "Complete",
-        completeVisit: "Mark completed",
-        noShow: "No-show",
-        markNoShow: "Mark no-show",
-        reschedule: "Reschedule",
-        cancel: "Cancel visit",
-        message: "Message",
-        messageTitle: (name: string) => `Message ${name}`,
-        messageChannel: "Send by",
-        messageSms: "Text",
-        messageEmail: "Email",
-        messageBody: "Message",
-        messagePlaceholder: "Running about 15 minutes late today.",
-        messageSend: "Send",
-        messageCancel: "Cancel",
-        working: "Saving…",
-        completed: "Completed",
-        noShowDone: "Marked no-show",
-        noShowTitle: "Mark as a no-show?",
-        noShowKeep: (amount: string) => `The ${amount} deposit is kept, as your policy says.`,
-        noShowCharge: (amount: string) =>
-            `The ${amount} deposit is charged to the card on file, as your policy says.`,
-        noShowNoDeposit: "No deposit was taken for this visit.",
-        cancelTitle: "Cancel this visit?",
-        cancelKept: (amount: string) =>
-            `The ${amount} deposit stays paid. Refund it from Payments if you want to give it back.`,
-        cancelNotify: "The client gets a cancellation message.",
-        keepVisit: "Keep visit",
-        confirmCancel: "Cancel visit",
-        confirmNoShow: "Mark no-show",
-        actionError: "Couldn't update this visit. Please try again.",
-        endsIn: (min: number) => `Ends in ${String(min)} min`,
-        endedAgo: "Ended, not closed yet",
-        startsIn: (label: string) => `Starts ${label}`,
-        composerTitle: "New booking",
-        composerClient: "Client",
-        composerClientSearch: "Search clients or pets",
-        composerPet: "Pet",
-        composerService: "Service",
-        composerServicePlaceholder: "Choose a service",
-        composerWith: "With",
-        composerDate: "Date",
-        composerTime: "Start",
-        composerRepeat: "Repeat",
-        composerRepeatEvery: "Every",
-        composerRepeatTimes: "Visits",
-        composerNote: "Note for the team",
-        composerNotePlaceholder: "Anything the groomer should know",
-        composerConfirm: "Send the client a confirmation",
-        composerDeposit: (amount: string) => `A ${amount} deposit will be due for this visit`,
-        composerEnds: (time: string, min: number) => `Ends ${time} · ${String(min)} min`,
-        composerBook: "Book visit",
-        composerBookSeries: (n: number) => `Book ${String(n)} visits`,
-        composerBooking: "Booking…",
-        composerIncomplete: "Pick a client, a service and a time.",
-        composerError: "Couldn't book that time. It may have just been taken.",
-        composerSeriesSkipped: (created: number, skipped: number) =>
-            `Booked ${String(created)} visits. ${String(skipped)} dates were taken and left out.`,
-        composerNoClients: "No clients match. Add the client in Clients first.",
-        busy: "Busy",
-        composerChange: "Change",
-        composerCancel: "Cancel",
-        rescheduleTitle: "Reschedule visit",
-        rescheduleWith: "With",
-        rescheduleDay: "Day",
-        rescheduleTimes: "Open times",
-        morning: "Morning",
-        afternoon: "Afternoon",
-        evening: "Evening",
-        noTimes: "No open times that day. Try another day or person.",
-        rescheduleTo: (label: string) => `Move to ${label}`,
-        rescheduling: "Moving…",
-        rescheduleNotice: "The client gets an updated confirmation.",
-        rescheduleError: "Couldn't move the visit. That time may have just been taken.",
-        depositDueTitle: (amount: string) => `${amount} deposit not paid yet`,
-        depositDueBody: "Collect it now with a saved card or a new one.",
-        collectNow: "Collect now",
-        collectDepositError: "Couldn't collect the deposit. Please try again.",
-        depositSettling: "Deposit received. Updating the booking on this device.",
-        collecting: "Collecting…",
-        collectAmount: (amount: string) => `Collect ${amount}`,
-        addonRemove: "Remove",
-        addonRemoveError: "Couldn't remove this item. Please try again.",
-        invoiceVisit: "Create invoice",
-        invoiceVisitError: "Couldn't create the invoice. Please try again.",
-        visitInvoiced: "This visit has an invoice.",
-        close: "Close",
-        railInProgress: "In progress",
-        railUpNext: "Up next",
-        railToClose: "Needs closing",
-        railTeam: "Team today",
-        groupTeam: "Team",
-        railJump: "This week",
-        railNothingNext: "No more visits today.",
-        stationNone: "No station",
-    },
-    recurrences: {
-        newTitle: "New repeating booking",
-        newSubtitle:
-            "Book a regular client's visits in one go. Every date is checked before anything is booked.",
-        listTitle: "Repeat visits",
-        listSubtitle: (n: number) => `${String(n)} active series`,
-        newSeries: "New series",
-        newShort: "New",
-        search: "Search client, pet or service",
-        filterAll: "All",
-        filterAttention: "Needs a decision",
-        filterEnding: "Ending soon",
-        emptyListTitle: "No repeat visits yet",
-        emptyList: "Start a series here, or turn on Repeat when you book a visit.",
-        emptySearch: "No series match that search or filter.",
-        loading: "Loading repeat visits",
-        loadError: "Couldn't load repeat visits",
-        client: "Client",
-        pickClient: "Choose a client",
-        service: "Service",
-        pickService: "Choose a service",
-        with: "With",
-        firstVisit: "First visit",
-        time: "Time",
-        repeats: "Repeats",
-        every: "Every",
-        weekly: "Weekly",
-        monthly: "Monthly",
-        weeksUnit: (n: number) => (n === 1 ? "week" : "weeks"),
-        monthsUnit: (n: number) => (n === 1 ? "month" : "months"),
-        ends: "Ends",
-        endCount: "After",
-        endUntil: "On a date",
-        endCountSuffix: "visits",
-        endNeeded: "A series needs an end for now: a number of visits or a last date.",
-        lastDate: "Last date",
-        oneConfirmation: "Send one confirmation with every date",
-        oneConfirmationHint:
-            "Instead of a message per visit. Reminders still go out before each one.",
-        pet: (name: string) => `Pet: ${name}`,
-        dates: "Dates",
-        datesHint: "Each date is checked against hours, time off and other visits.",
-        patternWeekly: (n: number, day: string, time: string) =>
-            n === 1 ? `Every ${day} at ${time}` : `Every ${String(n)} weeks on ${day} at ${time}`,
-        patternMonthly: (n: number, ord: string, day: string, time: string) =>
-            n === 1
-                ? `The ${ord} ${day} of every month at ${time}`
-                : `The ${ord} ${day} every ${String(n)} months at ${time}`,
-        ordinal: (n: number) => ["first", "second", "third", "fourth", "fifth"][n - 1] ?? "last",
-        summary: (n: number, pattern: string, from: string, to: string) =>
-            `${String(n)} visits · ${pattern} · ${from} to ${to}`,
-        countsLine: (booked: number, moved: number, skipped: number) =>
-            [
-                `${String(booked)} to book`,
-                moved > 0 ? `${String(moved)} at another time` : null,
-                skipped > 0 ? `${String(skipped)} skipped` : null,
-            ]
-                .filter(Boolean)
-                .join(" · "),
-        closed: (why: string) => `Closed for ${why}`,
-        away: (name: string, why: string) => `${name} is away: ${why}`,
-        notWorking: (name: string, day: string) => `${name} doesn't work ${day}s`,
-        outsideHours: (name: string) => `Outside ${name}'s hours`,
-        taken: (name: string, time: string) => `${name} is booked at ${time}`,
-        moveTo: (time: string) => `Book ${time} instead`,
-        skip: "Skip this date",
-        stateBooked: "Free",
-        stateScheduled: "Booked",
-        stateMoved: "New time",
-        stateSkipped: "Skipped",
-        stateConflict: "Clash",
-        stateDone: "Done",
-        stateMissed: "Missed",
-        stateCanceled: "Canceled",
-        nothingToBook: "There are no dates left to book.",
-        createError: "Couldn't book the series. Nothing was booked; please try again.",
-        book: (n: number) => (n === 1 ? "Book 1 visit" : `Book ${String(n)} visits`),
-        booking: "Booking…",
-        resolveFirst: "Choose a time or skip each clash first.",
-        doneTitle: "Series booked",
-        doneBody: (n: number, name: string) =>
-            `${String(n)} visits are on the schedule. ${name} gets one confirmation with every date.`,
-        doneBodyEach: (n: number) =>
-            `${String(n)} visits are on the schedule. Each one gets its own confirmation.`,
-        doneSkipped: (n: number) =>
-            n === 1
-                ? "1 date was taken while you booked and was left out."
-                : `${String(n)} dates were taken while you booked and were left out.`,
-        viewSchedule: "View on schedule",
-        bookAnother: "Book another",
-        progress: (done: number, total: number) => `${String(done)} of ${String(total)} done`,
-        todayAt: (time: string) => `Today, ${time}`,
-        noneLeft: "No visits left",
-        endsOn: (date: string, left: number) => `Ends ${date} · ${String(left)} left`,
-        next: "Next visit",
-        needsDecision: (n: number) => (n === 1 ? "1 clash" : `${String(n)} clashes`),
-        endingSoon: "Last visit",
-        changeSeries: "Change series",
-        cancelSeries: "Cancel series",
-        upcoming: "Upcoming",
-        colProgress: "Progress",
-        history: "Done",
-        scope: "Apply to",
-        scopeOne: "Next visit only",
-        scopeFollowing: "Next visit and after",
-        scopeAll: "Whole series",
-        newDay: "Day",
-        newTime: "Time",
-        newWith: "With",
-        preview: "What changes",
-        noChange: "Pick a new day, time or groomer to see what moves.",
-        changeSummary: (n: number, day: string, time: string, who: string, conflicts: number) =>
-            `${n === 1 ? "1 visit moves" : `${String(n)} visits move`} to ${day} at ${time} with ${who}.${
-                conflicts > 0
-                    ? ` ${conflicts === 1 ? "1 clashes" : `${String(conflicts)} clash`} and will be left where it is.`
-                    : ""
-            }`,
-        saveChange: "Move visits",
-        changeSaved: (moved: number, left: number) =>
-            left === 0
-                ? `Series updated: ${String(moved)} visits moved. The client gets one message with the new dates.`
-                : `${String(moved)} visits moved, ${String(left)} left where they were because of a clash.`,
-        changeError: "Couldn't change the series. Please try again.",
-        cancelTitle: "Cancel the rest of this series?",
-        cancelSummary: (n: number, from: string, deposit: boolean) =>
-            `Cancels ${n === 1 ? "1 upcoming visit" : `${String(n)} upcoming visits`} from ${from}. Past visits stay in the history.${
-                deposit ? " Deposits already paid are refunded." : ""
-            }`,
-        notifyClient: "Tell the client",
-        keepSeries: "Keep series",
-        confirmCancel: "Cancel series",
-        canceledNote: "Series canceled. The upcoming visits are off the schedule.",
-        cancelError: "Couldn't cancel the series. Please try again.",
-        backToList: "Back to repeat visits",
-        cancel: "Cancel",
-        selectSeries: "Choose a series to see its dates.",
-    },
-    classes: {
-        title: "Classes",
-        subtitle: "Who's coming, who's here, and who's waiting for a seat.",
-        upcoming: "Coming up",
-        full: "Full",
-        fullWaiting: (n: number) => `Full · ${String(n)} waiting`,
-        seatsLeft: (n: number) => (n === 1 ? "1 seat left" : `${String(n)} seats left`),
-        seatsBooked: (booked: number, cap: number) => `${String(booked)} of ${String(cap)} booked`,
-        add: "Add",
-        checkedIn: (n: number, of: number) => `${String(n)} of ${String(of)} here`,
-        with: (name: string, room: string) => (room === "" ? name : `${name} · ${room}`),
-        roster: "Roster",
-        waitlist: "Waitlist",
-        waitlistHint: "Offered a seat in order when someone cancels.",
-        emptyRoster: "No one has booked this class yet.",
-        emptyWaitlist: "No one is waiting.",
-        statusBooked: "Booked",
-        statusHere: "Here",
-        statusNoShow: "No-show",
-        statusWaiting: "Waiting",
-        checkIn: "Check in",
-        checkInAll: "Check in everyone",
-        undo: "Undo",
-        noShow: "No-show",
-        promote: "Give seat",
-        promoted: "Seat given. They get a message with the details.",
-        promoteFull: "The class is full. Free a seat first, or raise the capacity.",
-        unpaid: "Unpaid",
-        gentleNote: "Nervous around other dogs",
-        addPlaceholder: "Add a client or pet",
-        added: (name: string) => `${name} is booked into this class.`,
-        addedWaitlist: (name: string) => `The class is full, so ${name} is on the waitlist.`,
-        messageClass: "Message everyone",
-        messageClassTitle: (name: string, when: string) => `Message everyone in ${name}, ${when}`,
-        messageClassHint: (n: number) =>
-            n === 1
-                ? "Goes to the 1 client booked, by text when they have a mobile, otherwise by email."
-                : `Goes to the ${String(n)} clients booked, by text when they have a mobile, otherwise by email.`,
-        messageClassLabel: "Message",
-        messageClassPlaceholder: "Bring a favourite toy today, we're doing a sharing exercise.",
-        messageClassSend: "Send",
-        messageClassCancel: "Cancel",
-        messageSent: (n: number) =>
-            n === 1 ? "Sent to 1 client." : `Sent to ${String(n)} clients.`,
-        loading: "Loading classes",
-        loadError: "Couldn't load classes",
-        emptyClasses: "No classes coming up",
-        emptyClassesBody:
-            "Class sessions show here once someone books one, with their roster and waitlist.",
-        rosterError: "Couldn't update the roster. Please try again.",
-        startsLater: "Check-in opens on the day of the class.",
-        pickTitle: "Station for this visit",
-        pickSubtitle: "Taken stations show who has them at that time.",
-        takenBy: (pet: string, time: string) => `${pet} · ${time}`,
-        freeThen: "Free then",
-        saveStation: "Save station",
-        stationError: "Couldn't save the station. Please try again.",
-    },
-    reminders: {
-        subtitle: "What clients hear before a visit, and closing visits when the day is over.",
-        remindersTitle: "Reminders",
-        remindersHint: "Sent before every visit, booked online or by staff.",
-        ruleLead: "1 day before",
-        channelSms: "Text",
-        channelEmail: "Email",
-        channelsHint: "By text when the client has a mobile, and by email when they have an email.",
-        rulesFixed:
-            "Reminder times and channels can't be changed yet. Every visit gets this one reminder.",
-        includeLink: "Includes a link to change or cancel",
-        includeLinkHint: "Within your cancellation rules in Online booking.",
-        preview: "Preview",
-        previewVisit: (who: string) => `Shown with ${who}'s next visit`,
-        previewNone: "Book a visit to see the reminder it would get.",
-        sendsAt: (when: string) => `Sends ${when}`,
-        sentAt: (when: string) => `Sent ${when}`,
-        deliveryTitle: "Last 7 days",
-        sent: "Reminders sent",
-        sentCount: (n: number) => String(n),
-        endOfDayTitle: "End of day",
-        endOfDayHint: "Visits nobody marked stay open until someone closes them.",
-        autoCloseLater:
-            "Closing open visits automatically at night isn't available yet. Close them here or on the schedule.",
-        openToday: (n: number) =>
-            n === 0
-                ? "No visits are left open today."
-                : n === 1
-                  ? "1 visit today has ended and is still open."
-                  : `${String(n)} visits today have ended and are still open.`,
-        openEarlier: "Still open from earlier days",
-        noneOpen: "Every past visit is closed.",
-        complete: "Completed",
-        noShow: "No-show",
-        loading: "Loading reminders",
-        loadError: "Couldn't load reminder settings",
-        actionError: "Couldn't update this visit. Please try again.",
-    },
-    forms: {
-        fieldTypeText: "Short text",
-        fieldTypeLongtext: "Paragraph",
-        fieldTypeEmail: "Email",
-        fieldTypePhone: "Phone",
-        fieldTypeNumber: "Number",
-        fieldTypeCurrency: "Amount",
-        fieldTypeDate: "Date",
-        fieldTypeTime: "Time",
-        fieldTypeSelect: "Dropdown",
-        fieldTypeMultiselect: "Multi-select",
-        fieldTypeCheckbox: "Checkbox",
-        fieldTypeAddress: "Address",
-        fieldTypeRating: "Rating",
-        fieldTypeFile: "File",
-        fieldTypeImage: "Image",
-        fieldTypeSignature: "Signature",
-        subtitle: "Questions clients answer before they visit.",
-        loading: "Loading forms",
-        loadError: "Forms didn't load",
-        library: "Forms",
-        newForm: "New form",
-        noFormsTitle: "No forms yet",
-        empty: "Start with a new client intake: pet details, vaccinations and an emergency contact.",
-        fields: (n: number) => `${String(n)} question${n === 1 ? "" : "s"}`,
-        responses: (n: number) => `${String(n)} answered`,
-        waiting: (n: number) => `${String(n)} waiting`,
-        noResponsesYet: "No answers yet",
-        sendsOnBooking: "Sends on first booking",
-        sendsManually: "Sent by staff",
-        draft: "Draft",
-        selectForm: "Choose a form",
-        formName: "Form name",
-        questions: "Questions",
-        emptyFields: "This form has no questions yet. Add the first one below.",
-        preview: "Client preview",
-        addQuestion: "Add question",
-        questionLabel: "Question",
-        questionPlaceholder: "What should we ask?",
-        helpLabel: "Help text",
-        helpPlaceholder: "Shown under the question",
-        type: "Answer type",
-        required: "Required",
-        optionsLabel: "Choices",
-        optionPlaceholder: (n: number) => `Choice ${String(n)}`,
-        addOption: "Add choice",
-        removeOption: (n: number) => `Remove choice ${String(n)}`,
-        moveUp: "Move up",
-        moveDown: "Move down",
-        remove: "Remove question",
-        untitled: "Untitled question",
-        untitledForm: "Untitled form",
-        uploadLimits: "Clients can attach a PDF, JPG, PNG or HEIC up to 10 MB.",
-        sendWhen: "When it goes out",
-        sendOnBooking: "When a new client books",
-        sendOnBookingHint: "Sent once, the first time a client books.",
-        sendManual: "Only when staff send it",
-        sendManualHint: "Send it from here when a client needs it.",
-        requireSignature: "Ask for a signature at the end",
-        requireSignatureHint: "The client types their name to sign.",
-        save: "Save form",
-        saving: "Saving…",
-        saved: "Saved",
-        unsaved: "Unsaved changes",
-        send: "Send to a client",
-        sendTitle: (form: string) => `Send "${form}"`,
-        sendBody: "They get a link by email, and by text when they have a number on file.",
-        client: "Client",
-        chooseClient: "Choose a client",
-        sendLink: "Send link",
-        sent: (name: string) => `Sent to ${name}.`,
-        pickClient: "Choose who to send it to.",
-        sendFailed: "The link didn't send. Try again.",
-        cancel: "Cancel",
-        done: "Done",
-        errors: {
-            "name-missing": "Give the form a name.",
-            "no-fields": "Add at least one question with a label.",
-            "options-missing": "Give this question at least two choices.",
-            "save-failed": "Couldn't save the form. Please try again.",
-        },
-    },
-    contracts: {
-        subtitle: "Policies and agreements clients sign online.",
-        loading: "Loading contracts",
-        loadError: "Contracts didn't load",
-        newContract: "New contract",
-        templates: "Contracts",
-        version: (n: number) => `Version ${String(n)}`,
-        versionShort: (n: number) => `v${String(n)}`,
-        signedCount: (n: number) => `${String(n)} signed`,
-        waitingCount: (n: number) => `${String(n)} waiting`,
-        updated: (when: string) => `Updated ${when}`,
-        send: "Send for signature",
-        sendTitle: (name: string) => `Send "${name}" for signature`,
-        editText: "Edit text",
-        signatures: "Signatures",
-        noSignatures: "No one has been asked to sign this yet.",
-        text: "Contract text",
-        signedCopy: "Signed copy",
-        print: "Print",
-        printNote:
-            "A signed PDF sent to the client is on the way. Until then, print or save this copy.",
-        resend: "Resend link",
-        copyLink: "Copy signing link",
-        shareLink: "Share signing link",
-        copied: "Link copied",
-        resent: "Link resent",
-        actionFailed: "That didn't go through. Try again.",
-        newTitle: "New contract",
-        newHint:
-            "Write each clause as a heading line, then its text, with a blank line between clauses.",
-        nameLabel: "Name",
-        namePlaceholder: "Boarding agreement",
-        bodyPlaceholder: "1. Drop-off and pickup\nDrop-off is between 7:30 and 9:00 a.m.",
-        create: "Save as version 1",
-        creating: "Saving…",
-        cancel: "Cancel",
-        close: "Close",
-        newErrors: {
-            "name-missing": "Give the contract a name.",
-            "body-missing": "Add the contract text.",
-            failed: "Couldn't save the contract. Please try again.",
-        },
-        noContractsTitle: "No contracts yet",
-        noContractsBody:
-            "Add your policy or release so clients can sign it online before their first visit.",
-        activity: {
-            pending: (d: string) => `Sent ${d}`,
-            opened: (d: string) => `Opened ${d}`,
-            signed: (d: string) => `Signed ${d}`,
-            declined: (d: string) => `Declined ${d}`,
-            expired: (d: string) => `Sent ${d}, link expired`,
-        },
-        status: {
-            pending: "Sent",
-            opened: "Opened",
-            signed: "Signed",
-            declined: "Declined",
-            expired: "Expired",
-        } as Record<string, string>,
-        history: "History",
-        event: {
-            sent: "Sent",
-            opened: "Opened",
-            signed: "Signed",
-            declined: "Declined",
-        },
-        eventIp: (ip: string) => `From IP ${ip}`,
-        versionNotice: (next: number) =>
-            `Saving publishes version ${String(next)}. Clients who already signed keep the version they signed.`,
-        publish: (next: number) => `Publish version ${String(next)}`,
-        publishError: "Couldn't publish the new version. Please try again.",
-        publishing: "Publishing…",
-        facts: {
-            signedAt: "Signed",
-            ip: "IP address",
-            method: "Method",
-            version: "Version",
-            reference: "Reference",
-        },
-        method: { typed: "Typed name", drawn: "Drawn signature" } as Record<string, string>,
-        signatureHeading: "Signed by",
-    },
-    clients: {
-        title: "Clients",
-        add: "Add client",
-        addShort: "Add",
-        dash: "—",
-        emptySearch: "No clients match your search.",
-        starting: "Starting…",
-        addCard: "Add card",
-        addBankWeb: "Request bank authorization",
-        cardNoun: "card",
-        saveMethod: (noun: string) => `Save ${noun}`,
-        subscriptions: "Subscriptions",
-        startSubscriptionLink: "+ Start subscription",
-        noSubscriptions: "No subscriptions yet.",
-        subscriptionFallback: "Subscription",
-        nextCharge: (date: string) => `Next charge ${date}`,
-        cancelSubscriptionTitle: "Cancel subscription",
-        cancelSubscriptionConfirm: "Cancel this subscription?",
-        cancelSubscriptionError: "Couldn't cancel this subscription. Please try again.",
-        keep: "Keep",
-        packages: "Packages",
-        sellPackageLink: "+ Sell package",
-        noPackages: "No packages yet.",
-        packageFallback: "Package",
-        consumeSessionError: "Couldn't consume a session. Please try again.",
-        sessionsLeft: (remaining: number, total: number) =>
-            `${remaining} of ${total} sessions left`,
-        sessionsLeftShort: (remaining: number, total: number) => `${remaining} of ${total} left`,
-        consumeSession: "Consume session",
-        consumeShort: "Consume",
-        record: {
-            searchPlaceholder: "Search name, phone, email or pet",
-            emptyTitle: "No clients yet",
-            emptyBody: "Add your first client, or they appear here when they book online.",
-            colClient: "Client",
-            colPets: "Pets",
-            colNext: "Next visit",
-            colBalance: "Balance",
-            colTags: "Tags",
-            noUpcoming: "Nothing booked",
-            settled: "Settled",
-            lifetime: "Lifetime",
-            visits: "Visits",
-            balance: "Balance due",
-            since: "Client since",
-            pets: "Pets",
-            addPet: "Add pet",
-            upcoming: "Upcoming",
-            lastVisit: (when: string) => `Last visit ${when}`,
-            notes: "Notes",
-            addNote: "Add note",
-            pinned: "Pinned",
-            wallet: "Payment and plans",
-            manageWallet: "Manage",
-            noCards: "No saved card or bank account",
-            renews: (when: string) => `Renews ${when}`,
-            book: "Book",
-            message: "Message",
-            invoice: "Invoice",
-            history: "History",
-            call: "Call",
-            text: "Text",
-            prefers: (channel: string) => (channel === "email" ? "Prefers email" : "Prefers text"),
-            inProgress: "In progress",
-            depositDue: (amount: string) => `${amount} deposit due`,
-            depositPaid: (amount: string) => `${amount} deposit paid`,
-            noNotes: "No notes yet.",
-            noPets: "No pets yet.",
-            loadingRecord: "Loading the record",
-            loadError: "Couldn't load clients",
-            editShort: "Edit",
-            editPetNamed: (name: string) => `Edit ${name}`,
-            addNoteTitle: "Add a note",
-            back: "Clients",
-            goneBody: "They may have been merged into another record or removed on another device.",
-            archived: "Archived",
-        },
-        edit: {
-            addTitle: "Add client",
-            editTitle: "Edit client",
-            nameLabel: "Full name",
-            namePlaceholder: "First and last name",
-            phoneLabel: "Mobile phone",
-            phonePlaceholder: "250 555 0100",
-            phoneHint: "Used for text reminders.",
-            emailLabel: "Email",
-            emailPlaceholder: "name@example.com",
-            channelLabel: "Preferred contact",
-            channelText: "Text",
-            channelEmail: "Email",
-            tagsLabel: "Tags",
-            tagsPlaceholder: "Add a tag",
-            consentLabel: "Agrees to news and offers",
-            consentHint:
-                "Needed before they can get broadcasts. We record today's date and who recorded it.",
-            consentRecorded: (when: string, who: string) => `Agreed ${when}, recorded by ${who}`,
-            petSection: "First pet",
-            petSectionHint: "You can add more pets from the record.",
-            petName: "Pet's name",
-            petNamePlaceholder: "Bella",
-            petBreed: "Breed",
-            petBreedPlaceholder: "Goldendoodle",
-            nameRequired: "Enter the client's name.",
-            contactRequired: "Add a phone number or an email so you can reach them.",
-            emailInvalid: "That email doesn't look right.",
-            phoneInvalid: "Enter a 10-digit phone number.",
-            saveError: "Couldn't save this client. Check your connection and try again.",
-            add: "Add client",
-            adding: "Adding…",
-            save: "Save changes",
-            saving: "Saving…",
-            done: "Done",
-            duplicateTitle: (name: string) => `${name} may already be a client`,
-            duplicateBody: (reasons: string) =>
-                `Same ${reasons}. Open their record instead of adding a second one.`,
-            duplicateOpen: "Open record",
-            duplicateKeep: "Add anyway",
-            reasonPhone: "phone number",
-            reasonEmail: "email",
-            reasonName: "name",
-            and: " and ",
-            archive: "Archive client",
-            archiveTitle: (name: string) => `Archive ${name}?`,
-            archiveBody:
-                "They leave search and booking pickers. Their bookings, invoices and payments stay, and you can restore them any time.",
-            archiveConfirm: "Archive",
-            archiveError: "Couldn't archive this client. Please try again.",
-            archivedBanner: (when: string) =>
-                `Archived ${when}. Hidden from search and booking; history is kept.`,
-            archivedNoDate: "Archived. Hidden from search and booking; history is kept.",
-            restore: "Restore",
-            restoreError: "Couldn't restore this client. Please try again.",
-            segmentActive: (n: number) => `Active ${String(n)}`,
-            segmentArchived: (n: number) => `Archived ${String(n)}`,
-            listSummary: (active: number, archived: number) =>
-                `${String(active)} active · ${String(archived)} archived`,
-            emptyArchived:
-                "No archived clients. Archived clients keep their history and can be restored.",
-            dangerHint: "Archiving keeps every booking, invoice and payment.",
-        },
-        pets: {
-            pets: "Pets",
-            addPet: "Add pet",
-            editPet: "Edit pet",
-            editNamed: (name: string) => `Edit ${name}`,
-            removePet: "Remove pet",
-            removeTitle: (name: string) => `Remove ${name}?`,
-            removeBody:
-                "Past bookings and invoices keep the pet's name. It won't be offered for new bookings.",
-            removeConfirm: "Remove",
-            removeError: "Couldn't remove this pet. Please try again.",
-            nameLabel: "Name",
-            nameRequired: "Give the pet a name.",
-            speciesLabel: "Species",
-            dog: "Dog",
-            cat: "Cat",
-            other: "Other",
-            breedLabel: "Breed",
-            weightLabel: "Weight",
-            weightUnit: "kg",
-            weightInvalid: "Enter a weight in kilograms, like 22 or 6.5.",
-            dateInvalid: "Use the format YYYY-MM-DD.",
-            birthdayLabel: "Birthday",
-            sexLabel: "Sex",
-            female: "Female",
-            male: "Male",
-            temperamentLabel: "Temperament",
-            temperaments: ["calm", "friendly", "energetic", "anxious", "reactive"] as const,
-            coatLabel: "Coat",
-            allergiesLabel: "Allergies",
-            allergiesPlaceholder: "Products or treats to avoid",
-            vetLabel: "Vet clinic",
-            rabiesLabel: "Rabies vaccine valid until",
-            styleLabel: "Grooming style",
-            stylePlaceholder: "How they like the cut, in your words",
-            save: "Save pet",
-            saveShort: "Save",
-            saving: "Saving…",
-            saveError: "Couldn't save this pet. Please try again.",
-            edit: "Edit",
-            age: (years: number) => (years < 1 ? "Under 1 yr" : `${String(years)} yr`),
-            weight: (kg: number) => `${String(kg)} kg`,
-            allergy: (what: string) => `Allergic: ${what}`,
-            temperamentAlert: (t: string) => `Temperament: ${t}`,
-            rabiesExpired: "Rabies vaccine expired",
-            rabiesSoon: (when: string) => `Rabies vaccine expires ${when}`,
-            visits: "Visits",
-            lastVisit: "Last visit",
-            nextVisit: "Next visit",
-            nothingBooked: "Nothing booked",
-            noPetsTitle: "No pets yet",
-            noPetsBody: "Add one so bookings and invoices name the right animal.",
-            loading: "Loading pets",
-            loadError: "Couldn't load pets",
-        },
-        history: {
-            title: "History",
-            filterAll: "All",
-            filterVisits: "Visits",
-            filterMoney: "Money",
-            filterMessages: "Messages",
-            filterNotes: "Notes",
-            withCount: (label: string, n: string) => `${label} ${n}`,
-            notePlaceholder: "Add a note about this client or a pet",
-            noteRequired: "Write something first.",
-            pin: "Pin to the top",
-            pinHint: "Pinned notes show on every booking for this client.",
-            about: "About",
-            aboutClient: "Client",
-            saveNote: "Add note",
-            savingNote: "Adding…",
-            noteError: "Couldn't save this note. It's kept here; try again.",
-            noteChangeError: "Couldn't change this note. Please try again.",
-            editNote: "Edit",
-            deleteNote: "Delete",
-            deleteNoteTitle: "Delete this note?",
-            deleteNoteBody: "It's removed for everyone on the team.",
-            pinNote: "Pin",
-            unpin: "Unpin",
-            by: (who: string, when: string) => `${who} · ${when}`,
-            empty: "Nothing here yet. Bookings, payments, messages and notes appear as they happen.",
-            emptyFilter: "Nothing of this kind yet.",
-            emptyTitle: "No history yet",
-            headsUp: "Heads up",
-            loadOlder: "Show older",
-            overdue: "Overdue",
-            upcoming: "Coming up",
-            since: (when: string) => `Client since ${when}`,
-            you: "You",
-            teammate: "A teammate",
-            visit: (service: string, pet: string | null) =>
-                pet === null ? service : `${service} · ${pet}`,
-            canceled: "Canceled",
-            noShow: "No-show",
-            invoiceDrafted: (n: number | null) => `Invoice #${String(n ?? "")} drafted`,
-            invoiceSent: (n: number | null) => `Invoice #${String(n ?? "")} sent`,
-            invoiceVoid: (n: number | null) => `Invoice #${String(n ?? "")} voided`,
-            paymentReceived: "Payment received",
-            depositReceived: "Deposit received",
-            refundIssued: "Refund issued",
-            textReceived: "Text received",
-            textSent: "Text sent",
-            emailReceived: "Email received",
-            emailSent: "Email sent",
-            review: (rating: number) => `Left a ${String(rating)}-star review`,
-            note: "Note",
-            pinnedNote: "Pinned note",
-            loading: "Loading history",
-            loadError: "Couldn't load this client's history",
-        },
-        wallet: {
-            title: "Payment methods",
-            subtitle: "Saved securely. Card numbers are never stored by Clientbridge.",
-            addCard: "Add card",
-            makeDefault: "Make default",
-            remove: "Remove",
-            removeTitle: (label: string) => `Remove ${label}?`,
-            removeBody: "It can't be charged again. Past payments made with it are kept.",
-            removeBodyInUse: (plans: string) =>
-                `It pays ${plans}. Those charges will move to the default method, or fail if there is none.`,
-            removeConfirm: "Remove",
-            removeError: "Couldn't remove this method. Please try again.",
-            defaultError: "Couldn't change the default. Please try again.",
-            loading: "Loading payment methods",
-            loadError: "Couldn't load payment methods",
-            emptyTitle: "No saved payment methods",
-            empty: "No saved methods. Save one to charge deposits, no-shows and memberships without asking again.",
-            default: "Default",
-            expires: (mm: string, yy: string) => `Expires ${mm}/${yy}`,
-            expired: (mm: string, yy: string) => `Expired ${mm}/${yy}`,
-            expiresSoon: (mm: string, yy: string) => `Expires ${mm}/${yy}, ask for a new card`,
-            mandateActive: "Mandate active",
-            mandatePending: "Mandate pending",
-            mandatePendingNote:
-                "Not chargeable yet. Send an authorization link to the client, or ask them to finish Stripe bank verification.",
-            mandateRevoked: "Mandate revoked",
-            pays: (plans: string) => `Pays ${plans}`,
-            added: (when: string) => `Added ${when}`,
-            defaultHint:
-                "The default is charged for memberships, no-show fees and invoices on autopay.",
-            more: (label: string) => `More actions for ${label}`,
-            expiringBanner: (label: string) =>
-                `${label} expires soon. Ask for a new card at the next visit.`,
-            onlyManagers: "Only owners and admins can add or remove payment methods.",
-        },
-        tidy: {
-            select: "Select",
-            selectAll: "Select all",
-            selected: (n: number) => `${String(n)} selected`,
-            clear: "Clear",
-            tag: "Tag",
-            mergeSelected: "Merge",
-            mergeNeedsTwo: "Select exactly two clients to merge",
-            archive: "Archive",
-            applyTags: (n: number) => `Tags for ${String(n)} clients`,
-            onAll: "On all selected",
-            onSome: (n: number, total: number) => `On ${String(n)} of ${String(total)}`,
-            clientsCount: (n: number) => (n === 1 ? "1 client" : `${String(n)} clients`),
-            newTag: "New tag",
-            apply: "Apply",
-            applying: "Applying…",
-            tagError: "Couldn't update tags. Please try again.",
-            archiveError: "Couldn't archive these clients. Nothing was changed; try again.",
-            archiveTitle: (n: number) =>
-                n === 1 ? "Archive 1 client?" : `Archive ${String(n)} clients?`,
-            archiveBody:
-                "They leave search and booking pickers. Their bookings, invoices and payments stay, and you can restore them from Archived.",
-            archiveConfirm: "Archive",
-            archived: (n: number) =>
-                n === 1 ? "1 client archived." : `${String(n)} clients archived.`,
-            tagsUpdated: (n: number) =>
-                n === 1 ? "Tags updated for 1 client." : `Tags updated for ${String(n)} clients.`,
-            mergeTitle: "Merge these records?",
-            whichToKeep: "Which record should stay?",
-            chooseValues: "Choose what the merged record keeps",
-            whatMoves: "Moves to the merged record",
-            nothingMoves: "The other record holds nothing else.",
-            moves: {
-                bookings: (n: number) => (n === 1 ? "1 booking" : `${String(n)} bookings`),
-                pets: (names: string) => `Pets: ${names}`,
-                messages: (n: number) => (n === 1 ? "1 message" : `${String(n)} messages`),
-                notes: (n: number) => (n === 1 ? "1 note" : `${String(n)} notes`),
-            },
-            footprint: (bookings: number, pets: number) =>
-                `${bookings === 1 ? "1 booking" : `${String(bookings)} bookings`} · ${
-                    pets === 1 ? "1 pet" : `${String(pets)} pets`
-                }`,
-            created: (when: string) => `Added ${when}`,
-            same: "Same on both",
-            none: "Not set",
-            field: { name: "Name", phone: "Phone", email: "Email" },
-            blockedMoney:
-                "The other record has payment history, so it can't be merged yet. Merging records with payments is coming later.",
-            blockedMethods:
-                "The other record has a saved card or bank account. Remove it from that record first, then merge.",
-            merge: (name: string) => `Merge into ${name}`,
-            merging: "Merging…",
-            mergeConfirmBody: (from: string, into: string) =>
-                `${from} is removed and everything it holds moves to ${into}. This can't be undone.`,
-            mergeConfirm: "Merge",
-            mergeError: "Couldn't merge these records. Nothing was changed; try again.",
-            merged: (name: string) =>
-                `Merged into ${name}. Every booking and note now sits under one client.`,
-        },
-    },
-    messaging: {
-        title: "Inbox",
-        channelSms: "Text",
-        channelEmail: "Email",
-        channelChat: "Chat",
-        loading: "Loading conversations",
-        loadError: "Conversations didn't load",
-        unreadCount: (n: number) =>
-            n === 0 ? "All caught up" : `${String(n)} conversation${n === 1 ? "" : "s"} unread`,
-        newShort: "New",
-        newMessageTitle: "New message",
-        clientLabel: "To",
-        chooseClient: "Choose a client",
-        newMessagePlaceholder: "Write your message",
-        smsBlockedNew: "This client replied STOP, so texts are off. Send an email instead.",
-        sendMessage: "Send message",
-        sentNew: (name: string) => `Sent to ${name}. Their reply will show up here.`,
-        searchPlaceholder: "Search name, pet or message",
-        filters: { all: "All", unread: "Unread", sms: "Text", email: "Email" },
-        filterLabel: "Show",
-        noThreads:
-            "No conversations yet. When a client replies to a text or an email, it lands here.",
-        noThreadsFiltered: "Nothing matches. Try another filter or search.",
-        selectThread: "Choose a conversation to read and reply.",
-        thread: {
-            automatic: "Automatic",
-            showEarlier: "Show earlier messages",
-            earlierFailed: "We couldn't load earlier messages. Please try again.",
-            earlierOffline:
-                "Earlier messages need a connection. Try again when you're back online.",
-            status: {
-                delivered: "Delivered",
-                sent: "Sent",
-                failed: "Not delivered",
-                queued: "Sending",
-            },
-        },
-        channelLabel: "Reply by",
-        channels: { sms: "Text", email: "Email" },
-        replyPlaceholder: (channel: string) => `Reply by ${channel.toLowerCase()}`,
-        send: "Send",
-        sending: "Sending",
-        smsCount: (chars: number, segments: number) =>
-            `${String(chars)} characters · ${String(segments)} text${segments === 1 ? "" : "s"}`,
-        quickReplies: "Quick replies",
-        quickReplyOptions: [
-            { label: "Confirmed", text: "Yes, you're all set. See you then." },
-            {
-                label: "Ready by noon",
-                text: "We'll have them ready by noon and text you the moment they're done.",
-            },
-            {
-                label: "Running late",
-                text: "We're running about 15 minutes behind today. Sorry for the wait.",
-            },
-        ],
-        textsOffTitle: (name: string) => `${name} replied STOP.`,
-        textsOffBody:
-            "Texts to this number are off until they reply START. Switch to email to reach them.",
-        textsOffShort: "Texts off (STOP)",
-        details: "Client details",
-        openRecord: "Open record",
-        book: "Book",
-        pets: "Pets",
-        nextVisit: "Next visit",
-        nothingBooked: "Nothing booked",
-        balance: "Balance",
-        settled: "Settled",
-        consentTitle: "Can we contact them?",
-        consentChannel: { sms: "Texts", email: "Email" },
-        consentState: {
-            express: "Agreed",
-            implied: "Implied",
-            none: "Not asked",
-            opted_out: "Opted out",
-        },
-        consentImpliedUntil: (date: string) => `From a purchase · ends ${date}`,
-        back: "Inbox",
-        cancel: "Cancel",
-        selectClient: "Choose who to message.",
-        writeMessage: "Write a message",
-        sendError: "Couldn't send your message. Please try again.",
-    },
-    broadcasts: {
-        subtitle: "Send news and offers to clients who agreed to hear from you.",
-        loading: "Loading broadcasts",
-        loadError: "Broadcasts didn't load",
-        newBroadcast: "New broadcast",
-        back: "Broadcasts",
-        nameLabel: "Name",
-        nameHint: "Only your team sees this.",
-        namePlaceholder: "Fall de-shed offer",
-        channelPick: "Send as",
-        channels: { sms: "Text", email: "Email" } as Record<string, string>,
-        audienceLabel: "Who gets it",
-        everyone: "Everyone",
-        tagChip: (tag: string, n: number) => `${tag} · ${String(n)}`,
-        messageLabel: "Message",
-        messagePlaceholder: "Book a de-shed this week and we'll add a free nail trim.",
-        optOutSms: "Reply STOP to opt out.",
-        optOutEmail: "Unsubscribe or change what you get:",
-        optOutNote:
-            "We add your business name and the opt-out line to every broadcast. The law requires both.",
-        whenLabel: "When",
-        sendNow: "Send now",
-        sendLater: "Schedule",
-        sendAtLabel: "Send at",
-        recipientsWord: (n: number) => (n === 1 ? "recipient" : "recipients"),
-        matched: (n: number) => `${String(n)} match the audience`,
-        noAudience: "No clients to send to yet",
-        noAudienceBody:
-            "Broadcasts go to clients who agreed to hear from you. Record consent on a client's record when they agree.",
-        openClients: "Go to clients",
-        leftOut: (n: number) => `${String(n)} left out`,
-        reasons: {
-            opted_out: "Opted out",
-            no_consent: "Hasn't agreed",
-            no_contact: "No contact on file",
-        } as Record<string, string>,
-        leftOutHelp:
-            "Clients who opted out or never agreed are skipped, and checked again at send time.",
-        previewLabel: "Preview",
-        sendTo: (n: number) => `Send to ${String(n)} client${n === 1 ? "" : "s"}`,
-        scheduleFor: (n: number) => `Schedule for ${String(n)} client${n === 1 ? "" : "s"}`,
-        confirmTitle: (n: number) => `Send to ${String(n)} client${n === 1 ? "" : "s"} now?`,
-        confirmBody: "A broadcast can't be recalled once it goes out.",
-        confirmSend: "Send now",
-        sentTitle: "Broadcast sent",
-        scheduledTitle: "Broadcast scheduled",
-        sentBody: (n: number) =>
-            `${String(n)} client${n === 1 ? "" : "s"} will get it. Replies land in your inbox, and opt-outs are recorded automatically.`,
-        sentDone: "Back to broadcasts",
-        newAnother: "Write another",
-        cancel: "Cancel",
-        next: "Next",
-        stepBack: "Back",
-        steps: { audience: "Audience", message: "Message", review: "Review" },
-        stepOf: (n: number, total: number) => `Step ${String(n)} of ${String(total)}`,
-        smsCount: (chars: number, segments: number) =>
-            `${String(chars)} characters · ${String(segments)} text${segments === 1 ? "" : "s"}`,
-        errors: {
-            nameRequired: "Give the broadcast a name.",
-            bodyRequired: "Write the message.",
-            noRecipients: "No one in this audience can get it. Pick another tag or channel.",
-            pickTime: "Pick a send time in the future.",
-            sendError: "Couldn't send the broadcast. Please try again.",
-        },
-        reachText: "Can text",
-        reachEmail: "Can email",
-        reachOut: "Opted out",
-        reachOf: (n: number) => `of ${String(n)} clients`,
-        colBroadcast: "Broadcast",
-        colAudience: "Audience",
-        colResult: "Result",
-        colWhen: "When",
-        status: {
-            sent: "Sent",
-            sending: "Sending",
-            scheduled: "Scheduled",
-            draft: "Draft",
-            canceled: "Canceled",
-        } as Record<string, string>,
-        delivered: (n: number) => `${String(n)} delivered`,
-        replies: (n: number) => `${String(n)} repl${n === 1 ? "y" : "ies"}`,
-        optOutsCount: (n: number) => `${String(n)} opt-out${n === 1 ? "" : "s"}`,
-        audienceTags: (tags: string[]) => (tags.length === 0 ? "Everyone" : tags.join(", ")),
-        notSent: "Not sent",
-        noBroadcasts:
-            "No broadcasts yet. Send your first one to let clients know about hours, offers or new services.",
-        optOutsTitle: "Opt-outs",
-        optOutsSubtitle:
-            "Kept for your records. These clients won't get broadcasts on that channel.",
-        noOptOuts: "No one has opted out.",
-        impliedTitle: "On implied consent",
-        impliedSubtitle:
-            "Clients who bought from you but never agreed. Ask them in person before it lapses.",
-        noImplied: "No one is on implied consent.",
-        endsOn: (date: string) => `Ends ${date}`,
-        exportLog: "Export consent log",
-        exported: (file: string) => `${file} is ready in your downloads.`,
-        exportShared: "Consent log ready to share.",
-        consentSource: (source: string, date: string) => `${source} · ${date}`,
-        sources: {
-            in_person: "In person",
-            form: "Form",
-            online_booking: "Online booking",
-            reply: "STOP reply",
-            unsubscribe: "Unsubscribe link",
-            import: "Import",
-            preferences: "Preferences page",
-        } as Record<string, string>,
-        consentChannel: { sms: "Texts", email: "Email" } as Record<string, string>,
-        resultsTitle: "Results",
-        messageTitle: "Message",
-        cancelSchedule: "Cancel send",
-        cancelScheduleTitle: "Cancel this send?",
-        cancelScheduleBody: "Nobody gets it. You can write it again any time.",
-        keepScheduled: "Keep it scheduled",
-        duplicate: "Duplicate",
-        copyOf: (name: string) => `${name} (copy)`,
-        viaChannel: (ch: string) => `By ${ch.toLowerCase()}`,
-        recipientsLine: (n: number, out: number) =>
-            `${String(n)} recipient${n === 1 ? "" : "s"}${out > 0 ? ` · ${String(out)} left out` : ""}`,
-        statRecipients: "Recipients",
-        statLeftOut: "Left out",
-        statDelivered: "Delivered",
-        statReplies: "Replies",
-        statOptOuts: "Opt-outs",
-        actionErrors: {
-            exportFailed: "The consent log didn't export. Try again.",
-            cancelFailed: "The send wasn't canceled. Try again.",
-        },
-    },
-    reviews: {
-        subtitle: "Approve, reply to and share what clients say.",
-        loading: "Loading reviews",
-        loadError: "Reviews didn't load",
-        requestReview: "Request review",
-        requestTitle: "Ask for a review",
-        requestBody:
-            "They get a text or email with a link to rate their visit. Low ratings come to you first.",
-        requestClient: "Client",
-        chooseClient: "Choose a client",
-        requestSend: "Send request",
-        requestSent: (name: string) => `Review request sent to ${name}.`,
-        done: "Done",
-        cancel: "Cancel",
-        noReviewsTitle: "No reviews yet",
-        noReviewsBody:
-            "Ask a client from a recent visit. Their rating shows up here, and low ones wait for your OK.",
-        noRequests: "No requests waiting.",
-        reviewCount: (n: number) => `${String(n)} published review${n === 1 ? "" : "s"}`,
-        distributionRow: (stars: number, n: number) =>
-            `${String(stars)} star${stars === 1 ? "" : "s"}: ${String(n)} review${n === 1 ? "" : "s"}`,
-        holdToggle: "Hold 3 stars and below for my OK",
-        holdHint: "They stay private until you publish them. Clients aren't told.",
-        googleUrl: "Google review link",
-        googleUrlHint: "Clients who leave 4 or 5 stars are offered this link to post it on Google.",
-        googleUrlPlaceholder: "https://g.page/r/…/review",
-        googleUrlInvalid: "The link must start with https://",
-        saveLink: "Save link",
-        linkSaved: "Saved",
-        settingsError: "The review settings didn't save. Try again.",
-        heldTitle: "Waiting for your OK",
-        heldEmpty: "Nothing waiting. Low ratings land here before anyone else sees them.",
-        publishedTitle: "Published",
-        hiddenTitle: "Hidden",
-        hiddenLink: (n: number) => `${String(n)} hidden review${n === 1 ? "" : "s"}`,
-        noPublished: "No published reviews yet.",
-        noComment: "No comment left.",
-        publish: "Publish",
-        hide: "Hide",
-        reply: "Reply",
-        editReply: "Edit reply",
-        yourReply: "Your reply",
-        replyPlaceholder: "Thank them, or say what you'll do differently. Replies are public.",
-        postReply: "Post reply",
-        messageClient: (first: string) => `Message ${first}`,
-        messageShort: "Message",
-        shareGoogle: "Share to Google",
-        sharedGoogle: "On Google",
-        shareNeedsLink: "Add your Google review link to share good reviews to Google.",
-        replied: (date: string) => `You replied ${date}`,
-        askTitle: "Ask for a review",
-        askSubtitle: "Recent visits that haven't been asked yet.",
-        askEmpty: "Everyone from the last few days has been asked.",
-        ask: "Ask",
-        asked: "Asked",
-        requestsTitle: "Waiting on clients",
-        requestState: { requested: "Sent", opened: "Opened" } as Record<string, string>,
-        requestedOn: (date: string) => `Asked ${date}`,
-        visitLine: (service: string, staff: string, when: string) =>
-            `${service} with ${staff} · ${when}`,
-        suggestedReply: "Suggested reply",
-        suggestedReplyFor: (first: string, low: boolean) =>
-            low
-                ? `Thank you for the honest feedback, ${first}. We're sorry this visit fell short of what you expect from us, and we'd like to make it right. We'll be in touch today.`
-                : `Thank you, ${first}. It means a lot to the whole team, and we look forward to seeing you again.`,
-        useSuggestion: "Use this",
-        state: { held: "Needs your OK", published: "Published", hidden: "Hidden" },
-        clientFallback: "Client",
-        postReplyError: "Couldn't post your reply. Please try again.",
-        hideError: "Couldn't hide this review. Please try again.",
-        publishError: "Couldn't publish this review. Please try again.",
-        shareError: "Couldn't share this review. Please try again.",
-        sendRequestError: "Couldn't send the review request. Please try again.",
-    },
-    business: {
-        selectBusiness: "Business",
-        chooseBusiness: "Choose a business to continue",
-        switchError: "Could not switch businesses. Try again.",
-        subtitle: "Your business profile. Sales tax numbers are in Sales tax.",
-        getSetUp: {
-            title: "Get set up",
-            body: "Everything you need to take bookings and get paid.",
-            gettingStarted: "Getting started",
-            start: "Start",
-            progress: (done: number, total: number) => `${String(done)} of ${String(total)} done`,
-            hide: "Hide this list",
-            hiddenTitle: "The setup list is hidden",
-            hiddenBody: (left: number) =>
-                `${String(left)} ${left === 1 ? "step is" : "steps are"} still open. Show the list again whenever you're ready.`,
-            showList: "Show the list",
-            shareTitle: "Your booking page",
-            shareBody: "Share this link on Instagram, Google and your website.",
-            notLive: "Goes live once you add a service and set your hours.",
-            live: "Live",
-            copyLink: "Copy link",
-            copied: "Copied",
-            share: "Share link",
-            tasks: {
-                business: { label: "Create your business", action: "Edit" },
-                services: { label: "Add your services", action: "Edit" },
-                hours: { label: "Set your hours", action: "Edit" },
-                brand: {
-                    label: "Brand your booking page",
-                    hint: "Add your logo and colour so clients recognise you.",
-                    action: "Add brand",
-                },
-                stripe: { label: "Set up card payments", action: "Open" },
-                team: { label: "Invite your team", action: "Invite" },
-                tax: { label: "Turn on sales tax", action: "Review" },
-            },
-            fresh: {
-                services: "Add what you offer, with prices and how long each takes.",
-                hours: "When clients can book you. Start from 9 to 5 and adjust.",
-                stripe: "Take cards, deposits and Tap to Pay. About 10 minutes.",
-                tax: "Add your GST/HST number when you're registered.",
-            },
-            servicesHint: (services: number, classes: number) =>
-                [
-                    `${String(services)} ${services === 1 ? "service" : "services"}`,
-                    classes > 0 ? `${String(classes)} ${classes === 1 ? "class" : "classes"}` : "",
-                ]
-                    .filter(Boolean)
-                    .join(" and "),
-            hoursSet: "Your weekly hours are set.",
-            stripeOn: "Card payments are on.",
-            teamHint: (emails: string[]) =>
-                emails.length === 0
-                    ? "Give staff their own sign-in and schedule."
-                    : emails.length === 1
-                      ? `Invite waiting for ${emails[0] ?? ""}`
-                      : `${String(emails.length)} invites waiting`,
-            taxHint: (pst: boolean) => (pst ? "GST and PST registered" : "GST/HST registered"),
-            loading: "Loading your setup",
-            loadError: "We couldn't load your setup progress.",
-            coverPhoto: "Cover photo",
-            coverHint:
-                "Use a wide photo of your business. Without a photo, clients see your brand colour.",
-            uploadCover: "Upload cover photo",
-            replaceCover: "Replace cover photo",
-            removeCover: "Remove cover photo",
-            profileTitle: "Public business page",
-            profileHint:
-                "Only publish contact details and images you want clients to see. List one gallery image URL per line.",
-            publicTeamHint: "Choose team members who have agreed to appear publicly.",
-            profile: {
-                cover_url: "Cover image URL",
-                about: "About your business",
-                address: "Public address",
-                phone: "Public phone number",
-                email: "Public email",
-                website: "Website URL",
-                neighbourhood: "Neighbourhood",
-                gallery_urls: "Gallery image URLs",
-                pickup_prep_minutes: "Pickup preparation time (minutes)",
-                pickup_hold_days: "Hold ready orders for (days)",
-                pickup_capacity: "Orders per pickup window",
-            },
-            brandTitle: "Brand your booking page",
-            brandBody: "Clients see this on your booking page, invoices and receipts.",
-            logo: "Logo",
-            logoHint: "PNG or SVG, square works best.",
-            colour: "Brand colour",
-            tagline: "Tagline",
-            taglinePlaceholder: "Gentle grooming, happy pets.",
-            save: "Save brand",
-            saving: "Saving…",
-            saved: "Saved. Your booking page uses it now.",
-            preview: "Booking page preview",
-            previewNoServices: "Your services will appear here.",
-        },
-        nameLabel: "Business name",
-        namePlaceholder: "Birch Bark Pet Care",
-        timezoneLabel: "Time zone",
-        timezonePlaceholder: "America/Toronto",
-        billingEmailLabel: "Billing email",
-        billingEmailPlaceholder: "you@example.com",
-        nameRequired: "Business name is required",
-        saveError: "Could not save account settings",
-        onboarding: {
-            provinceAB: "Alberta",
-            provinceBC: "British Columbia",
-            provinceMB: "Manitoba",
-            provinceNB: "New Brunswick",
-            provinceNL: "Newfoundland and Labrador",
-            provinceNS: "Nova Scotia",
-            provinceNT: "Northwest Territories",
-            provinceNU: "Nunavut",
-            provinceON: "Ontario",
-            provincePE: "Prince Edward Island",
-            provinceQC: "Quebec",
-            provinceSK: "Saskatchewan",
-            provinceYT: "Yukon",
-            settingUp: "Setting up your workspace…",
-            title: "Create your business",
-            subtitleWeb:
-                "Tell us about your practice — we’ll set up your bookings, invoices, and the right tax rates for your province.",
-            subtitleMobile:
-                "We’ll set up your bookings, invoices, and the right tax rates for your province.",
-            businessName: "Business name",
-            businessNamePlaceholder: "Birch Bark Pet Care",
-            webAddress: "Web address",
-            slugPrefix: "clientbridge.ca/",
-            slugPlaceholder: "birch-bark",
-            province: "Province",
-            taxTitle: (province: string) => `Sales tax in ${province}`,
-            taxNone: "No sales tax is charged until you turn it on in Setup.",
-            creating: "Creating…",
-            createBusiness: "Create business",
-            notYou: "Not you?",
-            signOut: "Sign out",
-            notYouSignOut: "Not you? Sign out",
-            nameRequired: "Business name is required",
-            slugRequired: "A web address is required",
-            createError: "Couldn’t create your business — that web address may be taken.",
-        },
-    },
-    hours: {
-        title: "Hours and time off",
-        subtitle: "Online booking only offers times when someone is working.",
-        monday: "Monday",
-        tuesday: "Tuesday",
-        wednesday: "Wednesday",
-        thursday: "Thursday",
-        friday: "Friday",
-        saturday: "Saturday",
-        sunday: "Sunday",
-        monShort: "Mon",
-        tueShort: "Tue",
-        wedShort: "Wed",
-        thuShort: "Thu",
-        friShort: "Fri",
-        satShort: "Sat",
-        sunShort: "Sun",
-        teamMember: "Team member",
-        prevWeek: "Previous week",
-        nextWeek: "Next week",
-        off: "Off",
-        noHours: "No regular hours",
-        noStaff: "No team members yet.",
-        perWeek: (h: number) => `${String(Math.round(h * 10) / 10)} h a week`,
-        dayHours: (h: number) => (h === 0 ? "" : `${String(Math.round(h * 10) / 10)} h`),
-        daysOpen: (n: number) => (n === 1 ? "1 day" : `${String(n)} days`),
-        closed: "Closed",
-        to: "to",
-        copyWeekdays: "Copy to weekdays",
-        emptyHours: "No working hours yet",
-        emptyHoursBody:
-            "Set each person's regular week. Online booking only offers times inside these hours.",
-        setHours: "Set hours",
-        editHoursFor: (name: string) => `${name}'s hours`,
-        regularHours: "Regular hours",
-        regularHoursHint: "Repeats every week. Time off below overrides it.",
-        saveHours: "Save hours",
-        saving: "Saving…",
-        saved: "Saved. Online booking uses the new hours now.",
-        savedLocally: "Saved on this device. Waiting for the server to confirm these hours.",
-        conflict:
-            "These hours could not be saved. Review your changes, then apply them to the current server version or discard them.",
-        refused:
-            "The server refused these hours. Change them and apply them again, or discard them.",
-        applyChanges: "Apply my changes",
-        discardChanges: "Discard my changes",
-        saveError: "Couldn't save hours. Please try again.",
-        timeFormatError: "Times must be in HH:MM format.",
-        timeOrderError: "Each open day needs a start time before its end time.",
-        timeOrderShort: "Ends before it starts",
-        addTimeOff: "Add time off",
-        addClosure: "Close the business",
-        timeOffTitle: "Time off",
-        closuresTitle: "Closures",
-        closuresHint: "Holidays and days the whole business is closed. No one can be booked.",
-        timeOffHint: "Days or hours someone is away. Their open times disappear online.",
-        noTimeOff: "No time off planned.",
-        noClosures: "No closures planned. Statutory holidays aren't added for you.",
-        upcomingFor: (name: string) => `Coming up for ${name.split(" ")[0] ?? name}`,
-        everyone: "Everyone",
-        wholeBusiness: "Whole business (closure)",
-        who: "Who",
-        length: "How long",
-        lengthDay: "One day",
-        lengthDays: "Several days",
-        lengthWeek: "A week",
-        lengthPart: "Part of a day",
-        date: "Date",
-        firstDay: "First day",
-        lastDay: "Last day",
-        startTime: "From",
-        endTime: "Until",
-        reason: "Reason",
-        reasonPlaceholder: "Vacation, appointment, holiday",
-        reasonHint: "Only your team sees this.",
-        reasonRequired: "Add a short reason so the team knows why.",
-        endBeforeStart: "The end has to be after the start.",
-        awaySummary: (who: string, when: string) => `${who} · ${when}`,
-        timeOffAffects: (n: number) =>
-            n === 1
-                ? "1 visit is already booked in this time. Move or cancel it after saving."
-                : `${String(n)} visits are already booked in this time. Move or cancel them after saving.`,
-        closureAffects: (n: number) =>
-            n === 1
-                ? "1 visit is booked that day. Its client isn't told until you move or cancel it."
-                : `${String(n)} visits are booked that day. Clients aren't told until you move or cancel them.`,
-        toMove: (n: number) => (n === 1 ? "1 visit to move" : `${String(n)} visits to move`),
-        nothingBooked: "Nothing booked",
-        saveTimeOff: "Save time off",
-        saveClosure: "Save closure",
-        timeOffError: "Couldn't save time off. Please try again.",
-        removeError: "Couldn't remove it. Please try again.",
-        removeLabel: (what: string) => `Remove ${what}`,
-        cancel: "Cancel",
-        loading: "Loading hours",
-        loadError: "Couldn't load hours and time off",
-        selectPerson: "Choose a team member",
-        teamHoursTitle: "Team hours by week",
-        weekTotal: (h: number) => `${String(Math.round(h * 10) / 10)} h`,
-        rowLabel: (name: string) => `Edit ${name}'s hours`,
-        ownOnly: "You can change your own hours and time off.",
-    },
-    staff: {
-        inviteMissingCode: "This invite link is missing its code.",
-        passwordTooShort: "Choose a password of at least 8 characters.",
-        acceptInviteError: "Couldn’t accept this invite — it may be invalid or expired.",
-        noMembers: "No team members yet.",
-        members: "Members",
-        youSuffix: " (You)",
-        pending: "Pending invites",
-        shareLink: "Share link",
-        roleOwner: "Owner",
-        roleStaff: "Staff",
-        roleAdmin: "Admin",
-        roleContractor: "Contractor",
-        payHeading: "Pay",
-        isPayee: "Pay this member through Staff pay",
-        rateType: "Paid for services by",
-        ratePercent: "Percent of the service price",
-        rateFixed: "Fixed amount per booking",
-        rateHourly: "Hourly rate",
-        rateLabel: (type: string) =>
-            type === "percent" ? "Rate (%)" : type === "hourly" ? "Rate ($ per hour)" : "Rate ($)",
-        retailRate: "Commission on products sold (%)",
-        rateInvalid: "Enter a rate of 0 or more (a percentage can't be over 100)",
-        retailInvalid: "Enter a commission between 0 and 100",
-        payError: "Couldn't save this member's pay",
-        notPaid: "Not paid through Staff pay",
-        payPercent: (rate: number) => `${String(rate)}% of services`,
-        payFixed: (money: string) => `$${money} per booking`,
-        payHourly: (money: string) => `$${money} an hour`,
-        payWithRetail: (service: string, retail: number) =>
-            `${service} · ${String(retail)}% on products`,
-        team: {
-            subtitle: "Who can sign in, and what each person can see and do.",
-            inviteMember: "Invite teammate",
-            colPerson: "Person",
-            colRole: "Role",
-            colActive: "Last active",
-            you: "You",
-            activeNow: "Active now",
-            activeAgo: (when: string) => `${when} ago`,
-            neverSignedIn: "Not signed in yet",
-            invitedBy: (name: string, when: string) => `Invited by ${name}, ${when} ago`,
-            invited: (when: string) => `Invited ${when} ago`,
-            expiresIn: (days: number) =>
-                `Expires in ${String(days)} ${days === 1 ? "day" : "days"}`,
-            expired: "Expired",
-            resend: "Resend",
-            resent: "Sent again",
-            revoke: "Revoke",
-            revokeTitle: (email: string) => `Revoke the invite to ${email}?`,
-            revokeBody: "The link in their email stops working. You can invite them again later.",
-            roleAccess: {
-                owner: "Everything, including payouts, bank details, taxes and closing the account.",
-                admin: "Runs the business day to day: all bookings, clients, invoices, refunds, reports and team.",
-                staff: "Their own bookings and hours, client records, messages and front desk sales.",
-                contractor: "Their own bookings and earnings. No invoices, refunds or reports.",
-            } as Record<string, string>,
-            roleCan: {
-                owner: [
-                    "Payouts and bank account",
-                    "Taxes and remittance",
-                    "Everything an admin can do",
-                ],
-                admin: [
-                    "All bookings and clients",
-                    "Invoices, refunds and reports",
-                    "Invite and manage the team",
-                ],
-                staff: [
-                    "Own schedule and hours",
-                    "Client records and messages",
-                    "Front desk sales",
-                ],
-                contractor: [
-                    "Own assigned bookings",
-                    "Check in and complete visits",
-                    "Own earnings",
-                ],
-            } as Record<string, string[]>,
-            roleCant: {
-                owner: [],
-                admin: ["Change payout bank or close the account"],
-                staff: [
-                    "Refunds, voids or invoices",
-                    "Reports and staff pay",
-                    "Other people's hours",
-                ],
-                contractor: ["Refunds, voids or invoices", "Reports and staff pay"],
-            } as Record<string, string[]>,
-            canDo: "Can",
-            cantDo: "Can't",
-            yourRole: (role: string) => `Your role: ${role}`,
-            readOnly: (owner: string) =>
-                `Only owners and admins can invite people or change roles. Ask ${owner} if something needs to change.`,
-            readOnlyNoName: "Only owners and admins can invite people or change roles.",
-            emails: "Email addresses",
-            emailsHint: "Separate several with commas.",
-            emailPlaceholder: "sam@example.com",
-            role: "Role",
-            send: "Send invite",
-            sending: "Sending…",
-            sentTitle: (n: number) => (n === 1 ? "Invite sent" : `${String(n)} invites sent`),
-            sentBody:
-                "They get an email with a link that works for 7 days. You can also share the link yourself.",
-            copyLink: "Copy invite link",
-            inviteAnother: "Invite another",
-            emailRequired: "Enter at least one email address.",
-            emailInvalid: (email: string) => `${email} doesn't look like an email address.`,
-            alreadyMember: (email: string) => `${email} is already on the team.`,
-            inviteError: "We couldn't send that invite. Check your connection and try again.",
-            actionError: "That didn't go through. Check your connection and try again.",
-            email: "Email",
-            lastActive: "Last active",
-            changeRole: "Role",
-            saveRole: "Save role",
-            saving: "Saving…",
-            remove: "Remove from team",
-            removeTitle: (name: string) => `Remove ${name}?`,
-            removeBody:
-                "They are signed out on every device. Their past bookings, sales and pay records stay.",
-            removeConfirm: "Remove",
-            ownerNote: "The owner's role can't be changed here.",
-            selfNote: "You can't change your own role or remove yourself.",
-            noInvites: "No invites waiting.",
-            loading: "Loading your team",
-            loadError: "We couldn't load your team.",
-            aloneTitle: "It's just you so far",
-            aloneBody:
-                "Invite the people who work with you. Each gets their own sign-in, schedule and pay.",
-        },
-    },
-    catalog: {
-        variantParent: "Variant of",
-        variantLabel: "Variant label",
-        standaloneProduct: "Standalone product",
-        variantHint:
-            "Each variant keeps its own price, SKU and stock. Choose the main product shown in the shop.",
-        title: "Catalog",
-        summary: (items: number, low: number) =>
-            low > 0
-                ? `${String(items)} items · ${String(low)} need restocking`
-                : `${String(items)} items`,
-        views: { catalog: "Catalog", products: "Products", inventory: "Inventory" },
-        viewsLabel: "Catalog views",
-        addItem: "Add item",
-        addShort: "Add",
-        searchPlaceholder: "Search name, category or SKU",
-        filterAll: "All",
-        filterServices: "Services",
-        filterProducts: "Products",
-        filterPlans: "Plans",
-        filterLowStock: "Low stock",
-        filterArchived: "Archived",
-        filterNotOnline: "Not in shop",
-        filterCount: (label: string, n: number) => `${label} ${String(n)}`,
-        noMatch: "No items match that search.",
-        filterEmpty: "Nothing here right now.",
-        countIn: (n: number) => (n === 1 ? "1 item" : `${String(n)} items`),
-        groups: {
-            service: "Services",
-            class: "Classes",
-            product: "Products",
-            package: "Packages",
-            subscription: "Memberships",
-            gift: "Gift cards",
-        } as Record<string, string>,
-        online: "Online",
-        inShop: "In shop",
-        notOnline: "Desk only",
-        archived: "Archived",
-        colItem: "Item",
-        colType: "Type",
-        colPrice: "Price",
-        colOnline: "Online",
-        loadingCatalog: "Loading your catalog",
-        loadErrorCatalog: "Couldn’t load your catalog",
-        emptyCatalogTitle: "Nothing in your catalog yet",
-        emptyCatalogBody:
-            "Add the services you offer and the products you sell. Booking, Sales and the shop all read from here.",
-        loadingProducts: "Loading products",
-        loadErrorProducts: "Couldn’t load your products",
-        emptyProductsTitle: "No products yet",
-        emptyProductsBody:
-            "Add what you sell at the desk or in the online shop, with a photo, price and stock count.",
-        loadingStock: "Loading stock levels",
-        loadErrorStock: "Couldn’t load stock levels",
-        emptyStockTitle: "No products tracked yet",
-        emptyStockBody:
-            "Turn on Track stock in a product’s editor and its count, low-stock warning and history show here.",
-        emptyDeliveryTitle: "No products to receive",
-        emptyDeliveryBody: "Add a product and turn on Track stock, then count deliveries in here.",
-        kindService: "Service",
-        kindProduct: "Product",
-        kindClass: "Class",
-        kindPackage: "Package",
-        kindSubscription: "Membership",
-        kindGift: "Gift card",
-        kindHints: {
-            service: "Booked by time, one client at a time",
-            class: "Booked by time, several clients at once",
-            product: "Sold at the desk or in your shop",
-            package: "Prepaid visits, used over time",
-            subscription: "Billed every week, month or year",
-            gift: "Any amount, spent on anything",
-        } as Record<string, string>,
-        whatAdding: "What are you adding?",
-        whatAddingHint: "You can’t change the type later, so pick the closest fit.",
-        next: "Next",
-        cancel: "Cancel",
-        minutes: (n: number) => `${String(n)} min`,
-        plusBuffer: (n: number) => ` · ${String(n)} min buffer`,
-        classSize: (n: number) => `up to ${String(n)}`,
-        visits: (n: number) => (n === 1 ? "1 visit" : `${String(n)} visits`),
-        validDays: (days: number | null) =>
-            days === null
-                ? "no expiry"
-                : days % 365 === 0
-                  ? `valid ${String((days / 365) * 12)} months`
-                  : `valid ${String(days)} days`,
-        every: (interval: number, freq: string) =>
-            interval === 1 ? `every ${freq}` : `every ${String(interval)} ${freq}s`,
-        perPeriod: (money: string, freq: string) => `${money} / ${freq}`,
-        anyAmount: "Any amount",
-        depositMeta: (label: string) => `${label} deposit`,
-        skuLine: (sku: string) => `SKU ${sku}`,
-        untracked: "Stock not tracked",
-        newItem: (kind: string) => `New ${kind.toLowerCase()}`,
-        save: "Save",
-        saving: "Saving…",
-        add: "Add to catalog",
-        archive: "Archive",
-        restore: "Restore",
-        archivedNote:
-            "Archived items are hidden from Sales, booking and the shop. Past sales keep them.",
-        sectionBasics: "Basics",
-        sectionTime: "Price and time",
-        sectionBooking: "Online booking",
-        sectionDeposit: "Deposit",
-        sectionPrice: "Price",
-        sectionTax: "Sales tax",
-        sectionStock: "Stock",
-        sectionShop: "Selling",
-        sectionImage: "Photo",
-        sectionPlan: "What it includes",
-        name: "Name",
-        namePlaceholderService: "e.g. Full Groom: Small Dog",
-        namePlaceholderProduct: "e.g. Oatmeal Shampoo (500 ml)",
-        description: "Description",
-        descriptionHint: "Clients see this on your booking page and in the shop.",
-        category: "Category",
-        price: "Price",
-        durationLabel: "Duration (min)",
-        bufferBefore: "Setup before (min)",
-        bufferAfter: "Clean-up after (min)",
-        capacity: "Class size",
-        capacityHint: "How many clients can book one class.",
-        onlineBookable: "Clients can book this online",
-        onlineBookableHint: "Shows on your booking page with the times you’re open.",
-        depositNone: "None",
-        depositFixed: "Fixed",
-        depositPercent: "Percent",
-        depositAmount: "Deposit amount",
-        depositPercentLabel: "Deposit percent",
-        depositSummary: (deposit: string, rest: string) =>
-            `Clients pay ${deposit} when they book. The other ${rest} is due at the visit.`,
-        depositNoneSummary:
-            "Clients pay at the visit. Without a deposit, no-shows cost you the slot.",
-        timelineCaption: (total: number, before: number, main: number, after: number) =>
-            before + after === 0
-                ? `Blocks ${String(total)} min on the calendar.`
-                : `Blocks ${String(total)} min: ${[
-                      before > 0 ? `${String(before)} min setup` : "",
-                      `${String(main)} min with the client`,
-                      after > 0 ? `${String(after)} min clean-up` : "",
-                  ]
-                      .filter(Boolean)
-                      .join(", ")}. No one else can book the buffers.`,
-        mainSegment: (name: string, minutes: number) => `${name} · ${String(minutes)} min`,
-        taxClass: "Tax",
-        taxAll: "All sales taxes",
-        taxJoin: (codes: string[]) => codes.join(" and "),
-        taxOnly: (codes: string) => `${codes} only`,
-        taxFederalOnly: "GST or HST only",
-        taxExempt: "No tax",
-        taxNotRegistered: "You don’t collect sales tax yet, so clients pay the price as listed.",
-        taxHintService:
-            "Which taxes apply to a service depends on your province. Confirm with your accountant.",
-        taxHintProduct:
-            "Retail usually carries every sales tax in your province. Confirm with your accountant.",
-        taxPreview: (rates: string, money: string) => `${rates}: a client pays ${money}`,
-        productsSummary: (n: number, value: string) =>
-            `${String(n)} products · ${value} on the shelf at cost`,
-        addProduct: "Add product",
-        photo: "Add photo",
-        changePhoto: "Change photo",
-        photoHint: "Square photos look best. JPG or PNG, up to 10 MB. Drop a file here or click.",
-        photoAfterSave: "Save the product first, then add its photo.",
-        photoUploaded: "Photo updated.",
-        sku: "SKU",
-        skuHint: "Optional. Your own code or the barcode number.",
-        cost: "Your cost",
-        costHint: "What you pay the supplier. Never shown to clients.",
-        margin: "Margin",
-        marginSummary: (money: string, pct: number) => `${money} a sale · ${String(pct)}%`,
-        marginUnknown: "Add your cost to see the margin",
-        marginLow: "Below 30%: check the price",
-        trackStock: "Track stock",
-        trackStockHint: "Counts go down as you sell and back up on refunds and restocks.",
-        stockOnHand: "On hand now",
-        lowAt: "Warn at",
-        lowAtHint: "We flag it as low at or below this count.",
-        sellOnline: "Sell in the online shop",
-        sellOnlineHint: "Clients can buy it for pickup.",
-        colProduct: "Product",
-        colCost: "Cost",
-        colMargin: "Margin",
-        colStock: "Stock",
-        colSold: "Sold 30d",
-        colShop: "Shop",
-        marginPct: (pct: number) => `${String(pct)}%`,
-        sold30: (n: number) => `${String(n)} sold in 30 days`,
-        sortBy: "Sort by",
-        sortName: "Name",
-        sortMargin: "Margin",
-        sortStock: "Stock",
-        stockOut: "Out of stock",
-        stockLow: (n: number) => `Low: ${String(n)} left`,
-        stockIn: (n: number) => `${String(n)} in stock`,
-        inventorySubtitle: "Products you track stock for.",
-        statTracked: "Tracked products",
-        statLow: "Low",
-        statOut: "Out of stock",
-        statValue: "Stock at cost",
-        statRetail: (money: string) => `${money} at retail`,
-        needsRestock: "Needs restocking",
-        needsRestockHint: "Low or out, most urgent first.",
-        allTracked: "All tracked products",
-        allGood: "Everything is above its low-stock line.",
-        restock: "Restock",
-        receive: "Receive stock",
-        suggested: (n: number) => `Suggest ordering ${String(n)}`,
-        daysLeft: (n: number) =>
-            n <= 0 ? "Sold out" : n === 1 ? "About a day left" : `About ${String(n)} days left`,
-        restockTitle: (name: string) => `Restock ${name}`,
-        restockQuantity: "Units received",
-        restockQuantityHint: "Use a negative number to correct a miscount.",
-        restockNote: "Note",
-        restockNotePlaceholder: "Delivery, supplier or reason",
-        restockAfter: (n: number) => `${String(n)} on hand after this`,
-        restockSave: "Add to stock",
-        restocking: "Saving…",
-        restockDone: (n: number, name: string) =>
-            n < 0 ? `Corrected ${name} by ${String(n)}.` : `Added ${String(n)} to ${name}.`,
-        restockInvalid: "Enter a whole number other than zero",
-        restockError: "Could not update stock",
-        openingStockNote: "Opening count",
-        moveKinds: {
-            sale: "Sold at the desk",
-            online: "Sold online",
-            invoice: "Sold on an invoice",
-            refund: "Refunded",
-            restock: "Restocked",
-            correction: "Corrected",
-        } as Record<string, string>,
-        moveQty: (n: number) => (n > 0 ? `+${String(n)}` : `−${String(Math.abs(n))}`),
-        moveLabel: (name: string, qty: string) => `${name} ${qty}`,
-        by: (name: string) => `by ${name}`,
-        recentMoves: "Recent stock changes",
-        noMoves: "Stock changes show here as you sell and restock.",
-        backToInventory: "Inventory",
-        receiveTitle: "Receive a delivery",
-        receiveSubtitle: "Count everything in one go. Each product’s stock goes up when you save.",
-        supplier: "Supplier",
-        supplierPlaceholder: "e.g. Coastal Pet Supply",
-        reference: "Packing slip or PO",
-        referencePlaceholder: "e.g. INV-30417",
-        addSearch: "Search products to add",
-        deliveryEmpty: "Add the products in this delivery.",
-        colOnHand: "On hand",
-        colReceived: "Received",
-        colAfter: "After",
-        colUnitCost: "Unit cost",
-        colLineCost: "Cost",
-        onHandShort: (n: number) => `${String(n)} on hand`,
-        onHandAfter: (from: number, to: number) => `On hand ${String(from)} → ${String(to)}`,
-        unitCostHint: "Changed costs update the product.",
-        deliveryTotal: (units: number, money: string) => `${String(units)} units · ${money}`,
-        removeLine: (name: string) => `Remove ${name}`,
-        receivedFor: (name: string) => `Received ${name}`,
-        unitCostFor: (name: string) => `Unit cost for ${name}`,
-        receiveSave: (n: number) =>
-            n === 1 ? "Receive 1 product" : `Receive ${String(n)} products`,
-        received: (n: number) =>
-            n === 1 ? "Stock updated for 1 product." : `Stock updated for ${String(n)} products.`,
-        receiveError: "Couldn’t save this delivery. Please try again.",
-        receiveInvalid: "Enter a whole number for each product, or remove it",
-        lowAfter: "Still low",
-        covers: "Each visit covers",
-        coversHint: "Booking one of these will use a visit instead of charging.",
-        chooseService: "Choose a service",
-        visitsLabel: "Visits",
-        validForDays: "Valid for (days)",
-        noExpiryHint: "Leave blank for no expiry",
-        billsEvery: "Bills every",
-        includes: "Visits each period",
-        includesHint: "Visits reset at each renewal and don’t roll over.",
-        memberPerk: "Member retail discount (%)",
-        memberPerkHint: "Taken off products at checkout.",
-        giftAmounts: "Suggested amounts",
-        giftAmountsHint: "Staff and clients can still enter any amount.",
-        giftNote: "Gift cards don’t expire and can be spent on anything.",
-        perVisit: (money: string) => `${money} a visit`,
-        saves: (money: string, n: number, name: string) =>
-            `Saves ${money} against ${String(n)} × ${name}`,
-        noSaving: "No saving against paying each visit",
-        perYear: (money: string) => `${money} a year`,
-        planSummaryPackage: (n: number, name: string) => `${String(n)} × ${name}`,
-        planSummaryIncomplete: "Choose the service and how many visits it includes",
-        planSummaryMembership: (money: string, freq: string) => `${money} every ${freq}`,
-        sellsAt: "Sells from Sales, with its own checkout.",
-        freqLabel: { day: "day", week: "week", month: "month", year: "year" } as Record<
+type Labels = Readonly<Record<string, string>>;
+
+interface Strings {
+    readonly common: {
+        readonly appName: string;
+        readonly somethingWrongRetry: string;
+        readonly fileUploadError: string;
+        readonly fileUploadOffline: string;
+        readonly loading: string;
+        readonly saved: string;
+        readonly save: string;
+        readonly saving: string;
+        readonly cancel: string;
+        readonly done: string;
+        readonly close: string;
+        readonly somethingWrong: string;
+        readonly tryAgainLater: string;
+        readonly working: string;
+        readonly busyEllipsis: string;
+        readonly optional: string;
+        readonly separator: string;
+        readonly labelValue: (label: string, value: string) => string;
+        readonly labelCount: (label: string, count: number) => string;
+        readonly labelColonValue: (label: string, value: string) => string;
+        readonly withDetail: (label: string, detail: string) => string;
+        readonly withCount: (label: string, count: number) => string;
+        readonly titleAndBody: (title: string, body: string) => string;
+        readonly twoSentences: (first: string, second: string) => string;
+        readonly quantityOf: (quantity: number, name: string) => string;
+        readonly bullet: (item: string) => string;
+        readonly requiredLabel: (label: string) => string;
+        readonly decrease: (label: string) => string;
+        readonly increase: (label: string) => string;
+        readonly stars: (n: number) => string;
+        readonly ratingOf: (n: number) => string;
+        readonly stillSyncing: string;
+        readonly today: string;
+        readonly yesterday: string;
+        readonly tomorrow: string;
+        readonly range: (start: string, end: string) => string;
+        readonly shortRange: (start: string, end: string) => string;
+        readonly dayAndTime: (day: string, time: string) => string;
+        readonly weekdayAndTime: (weekday: string, time: string) => string;
+        readonly amountWithCurrency: (amount: string, currency: string) => string;
+        readonly relativeTime: {
+            readonly justNow: string;
+            readonly minutes: (n: number) => string;
+            readonly hours: (n: number) => string;
+            readonly days: (n: number) => string;
+        };
+    };
+    readonly api: {
+        readonly invalidTimezone: string;
+        readonly outOfStock: string;
+        readonly pickupWindowTaken: string;
+        readonly shopNotReady: string;
+        readonly mixedCurrencies: string;
+    } & Labels;
+    readonly ui: {
+        readonly clearSearch: string;
+        readonly clear: string;
+        readonly copy: string;
+        readonly copied: string;
+        readonly removeTag: (tag: string) => string;
+        readonly createTag: (text: string) => string;
+        readonly previous: string;
+        readonly next: string;
+        readonly done: string;
+        readonly withCount: (label: string, count: string) => string;
+        readonly onTicket: (name: string, count: number) => string;
+        readonly startOf: (day: string) => string;
+        readonly endOf: (day: string) => string;
+        readonly cardFallback: string;
+        readonly listError: string;
+        readonly listErrorBody: string;
+        readonly retry: string;
+        readonly retrying: string;
+        readonly searchOptions: string;
+        readonly noMatches: string;
+        readonly noOptions: string;
+        readonly choose: string;
+        readonly pickDate: string;
+        readonly pickTime: string;
+        readonly previousMonth: string;
+        readonly nextMonth: string;
+        readonly chooseYear: (month: string) => string;
+        readonly dateTimeDay: (label: string) => string;
+        readonly dateTimeTime: (label: string) => string;
+        readonly loadFailed: string;
+        readonly loadFailedBody: string;
+    };
+    readonly billing: {
+        readonly invoices: string;
+        readonly estimates: string;
+        readonly invoiceNo: (n: number) => string;
+        readonly estimateNo: (n: number) => string;
+        readonly draftInvoice: string;
+        readonly draftEstimate: string;
+        readonly number: (n: number) => string;
+        readonly newInvoice: string;
+        readonly newEstimate: string;
+        readonly dash: string;
+        readonly search: string;
+        readonly itemsTotal: string;
+        readonly lineDiscounts: string;
+        readonly docDiscount: string;
+        readonly discountTitle: string;
+        readonly addDiscount: string;
+        readonly discountedBy: (label: string) => string;
+        readonly lineDiscount: (name: string) => string;
+        readonly subtotal: string;
+        readonly total: string;
+        readonly balanceDue: string;
+        readonly depositApplied: string;
+        readonly paymentOn: (method: string, when: string) => string;
+        readonly lines: string;
+        readonly qtyTimes: (qty: number, price: string) => string;
+        readonly notes: string;
+        readonly history: string;
+        readonly payments: string;
+        readonly payLink: string;
+        readonly acceptLink: string;
+        readonly copyLink: string;
+        readonly copied: string;
+        readonly pdf: string;
+        readonly edit: string;
+        readonly colNumber: string;
+        readonly colClient: string;
+        readonly colIssued: string;
+        readonly colDue: string;
+        readonly colValid: string;
+        readonly colStatus: string;
+        readonly colTotal: string;
+        readonly colBalance: string;
+        readonly statusLabel: {
+            readonly draft: string;
+            readonly sent: string;
+            readonly partial: string;
+            readonly overdue: string;
+            readonly paid: string;
+            readonly refunded: string;
+            readonly void: string;
+        } & Labels;
+        readonly dueOn: (when: string) => string;
+        readonly dueToday: string;
+        readonly overdueBy: (days: number) => string;
+        readonly paidOn: (when: string) => string;
+        readonly voidedOn: (when: string) => string;
+        readonly notSent: string;
+        readonly segments: {
+            readonly all: string;
+            readonly open: string;
+            readonly overdue: string;
+            readonly draft: string;
+            readonly paid: string;
+            readonly void: string;
+        } & Labels;
+        readonly segmentCount: (label: string, n: number) => string;
+        readonly statOutstanding: string;
+        readonly statOutstandingHint: (n: number) => string;
+        readonly statOverdue: string;
+        readonly statOverdueHint: (n: number) => string;
+        readonly statPaid: string;
+        readonly statPaidHint: (n: number) => string;
+        readonly statDrafts: string;
+        readonly statDraftsHint: (n: number) => string;
+        readonly summary: (n: number, owed: string) => string;
+        readonly estimatesSummary: (n: number, open: string) => string;
+        readonly emptyInvoicesTitle: string;
+        readonly emptyInvoicesBody: string;
+        readonly emptySegment: (segment: string) => string;
+        readonly emptySearch: string;
+        readonly emptyEstimatesTitle: string;
+        readonly emptyEstimatesBody: string;
+        readonly emptyEstimateSegment: (segment: string) => string;
+        readonly send: string;
+        readonly sendInvoice: string;
+        readonly remind: string;
+        readonly recordPayment: string;
+        readonly settling: string;
+        readonly settlingLate: string;
+        readonly void: string;
+        readonly voidConfirmTitle: (n: number) => string;
+        readonly voidConfirmBody: string;
+        readonly voidDraftConfirmTitle: string;
+        readonly invoiceSentTo: (n: number, name: string) => string;
+        readonly reminderSentTo: (name: string) => string;
+        readonly invoiceVoided: (label: string) => string;
+        readonly actionError: string;
+        readonly event: {
+            readonly created: string;
+            readonly sent: string;
+            readonly payment: (amount: string, method: string) => string;
+            readonly depositApplied: (amount: string) => string;
+            readonly refund: (amount: string) => string;
+            readonly voided: string;
+            readonly accepted: string;
+            readonly declined: string;
+            readonly converted: (n: string) => string;
+        };
+        readonly method: {
+            readonly card: string;
+            readonly cash: string;
+            readonly interac: string;
+            readonly bank_eft: string;
+            readonly cheque: string;
+            readonly other: string;
+            readonly deposit: string;
+        } & Labels;
+        readonly paymentPending: string;
+        readonly estimateStatus: {
+            readonly draft: string;
+            readonly sent: string;
+            readonly accepted: string;
+            readonly declined: string;
+            readonly expired: string;
+            readonly converted: string;
+        } & Labels;
+        readonly estimateSegments: {
+            readonly all: string;
+            readonly draft: string;
+            readonly sent: string;
+            readonly accepted: string;
+            readonly closed: string;
+        } & Labels;
+        readonly validUntil: (when: string) => string;
+        readonly expiresIn: (days: number) => string;
+        readonly expiredOn: (when: string) => string;
+        readonly acceptedOn: (when: string) => string;
+        readonly declinedOn: (when: string) => string;
+        readonly convertedTo: (n: string) => string;
+        readonly convert: string;
+        readonly convertTitle: string;
+        readonly convertBody: string;
+        readonly markAccepted: string;
+        readonly markDeclined: string;
+        readonly sendEstimate: string;
+        readonly declineReason: string;
+        readonly addOnPicked: string;
+        readonly addOnNotPicked: string;
+        readonly addOnOffered: string;
+        readonly estimateSentTo: (n: number, name: string) => string;
+        readonly estimateMarkedAccepted: (label: string) => string;
+        readonly estimateMarkedDeclined: (label: string) => string;
+        readonly convertedDraft: string;
+        readonly client: string;
+        readonly chooseClient: string;
+        readonly addFromCatalog: string;
+        readonly addCustomLine: string;
+        readonly description: string;
+        readonly descriptionPlaceholder: string;
+        readonly qty: string;
+        readonly price: string;
+        readonly taxClass: string;
+        readonly optional: string;
+        readonly optionalHint: string;
+        readonly removeLine: string;
+        readonly validFor: string;
+        readonly dueTerms: string;
+        readonly terms: {
+            readonly receipt: string;
+            readonly d7: string;
+            readonly d14: string;
+            readonly d30: string;
+        } & Labels;
+        readonly messageToClient: string;
+        readonly messagePlaceholder: string;
+        readonly saveDraft: string;
+        readonly saving: string;
+        readonly sending: string;
+        readonly livePreview: string;
+        readonly preview: string;
+        readonly taxNote: (rates: string) => string;
+        readonly noTaxNote: string;
+        readonly needClient: string;
+        readonly needLine: string;
+        readonly lineIncomplete: string;
+        readonly saveError: string;
+        readonly sendError: string;
+        readonly draftSaved: string;
+        readonly sentTitle: (noun: string) => string;
+        readonly sentBody: (who: string) => string;
+        readonly startAnother: string;
+        readonly discardTitle: string;
+        readonly discardBody: string;
+        readonly discard: string;
+        readonly keepEditing: string;
+        readonly rec: {
+            readonly title: string;
+            readonly subtitle: (client: string, n: string) => string;
+            readonly howPaid: string;
+            readonly savedCardHint: string;
+            readonly noSavedCard: string;
+            readonly noSavedCardHint: string;
+            readonly reader: string;
+            readonly readerHint: string;
+            readonly cash: string;
+            readonly cashHint: string;
+            readonly etransfer: string;
+            readonly etransferHint: string;
+            readonly cheque: string;
+            readonly chequeHint: string;
+            readonly amount: string;
+            readonly fullBalance: (amount: string) => string;
+            readonly partial: string;
+            readonly tendered: string;
+            readonly change: string;
+            readonly noChange: string;
+            readonly reference: string;
+            readonly referenceHint: string;
+            readonly referencePlaceholder: string;
+            readonly receivedOn: string;
+            readonly chequeNo: string;
+            readonly note: string;
+            readonly notePlaceholder: string;
+            readonly sendReceipt: string;
+            readonly sendReceiptTo: (email: string) => string;
+            readonly thisPayment: string;
+            readonly resultPaid: string;
+            readonly resultPartial: string;
+            readonly charge: (amount: string) => string;
+            readonly record: (amount: string) => string;
+            readonly recording: string;
+            readonly charging: string;
+            readonly amountInvalid: (zero: string) => string;
+            readonly amountTooHigh: (max: string) => string;
+            readonly tenderedShort: string;
+            readonly dateInvalid: string;
+            readonly error: string;
+            readonly doneTitle: string;
+            readonly cardTitle: string;
+            readonly cardBody: string;
+            readonly donePaid: (n: string) => string;
+            readonly donePartial: (n: string, left: string) => string;
+            readonly receiptSent: (email: string) => string;
+            readonly giveChange: (amount: string) => string;
+            readonly recordAnother: string;
+            readonly nothingOwed: string;
+        };
+        readonly doc: {
+            readonly title: string;
+            readonly kinds: {
+                readonly invoice: string;
+                readonly estimate: string;
+                readonly receipt: string;
+            } & Labels;
+            readonly fileName: (business: string, kind: string, n: string) => string;
+            readonly pages: string;
+            readonly print: string;
+            readonly download: string;
+            readonly share: string;
+            readonly back: string;
+            readonly attachedTo: string;
+            readonly attachedInvoice: (when: string) => string;
+            readonly attachedEstimate: (when: string) => string;
+            readonly attachedReceipt: (when: string) => string;
+            readonly notSentYet: string;
+            readonly noReceipt: string;
+            readonly noEstimate: string;
+            readonly downloadHint: string;
+        };
+        readonly refund: string;
+        readonly refundBadge: string;
+    };
+    readonly printing: {
+        readonly kinds: {
+            readonly invoice: string;
+            readonly estimate: string;
+            readonly receipt: string;
+        } & Labels;
+        readonly from: string;
+        readonly billTo: string;
+        readonly preparedFor: string;
+        readonly receivedFrom: string;
+        readonly issued: string;
+        readonly due: string;
+        readonly validUntil: string;
+        readonly paidOn: string;
+        readonly invoiceNumber: string;
+        readonly estimateNumber: string;
+        readonly forInvoice: string;
+        readonly item: string;
+        readonly qty: string;
+        readonly price: string;
+        readonly tax: string;
+        readonly amount: string;
+        readonly paymentMethod: string;
+        readonly amountPaid: string;
+        readonly balanceRemaining: string;
+        readonly estimateTotal: string;
+        readonly taxSummary: string;
+        readonly taxBase: (amount: string) => string;
+        readonly howToPay: string;
+        readonly payOnline: (url: string) => string;
+        readonly payInterac: (email: string) => string;
+        readonly acceptOnline: (url: string) => string;
+        readonly acceptBy: (when: string) => string;
+        readonly thanks: string;
+        readonly page: (page: number, pages: number) => string;
+        readonly registration: (first: string, second: string) => string;
+        readonly gstNo: (n: string) => string;
+        readonly qstNo: (n: string) => string;
+        readonly scanToPay: string;
+        readonly paidStamp: string;
+        readonly forPet: (pet: string) => string;
+        readonly reference: (number: string) => string;
+        readonly saleNumber: (n: number) => string;
+        readonly receiptNumber: (invoice: string, n: number) => string;
+        readonly heading: (title: string, reference: string) => string;
+        readonly deadline: (label: string, date: string) => string;
+        readonly draftNumber: string;
+    };
+    readonly pos: {
+        readonly pickup: {
+            readonly toPack: string;
+            readonly ready: string;
+            readonly pickedUp: string;
+            readonly guest: string;
+            readonly placed: (when: string) => string;
+            readonly readySince: (when: string) => string;
+            readonly pickedAt: (when: string) => string;
+            readonly items: (n: number) => string;
+            readonly waiting: (days: number) => string;
+            readonly emptyToPack: string;
+            readonly emptyReady: string;
+            readonly emptyPickedUp: string;
+            readonly error: string;
+        };
+        readonly desk: {
+            readonly title: string;
+            readonly newSaleTitle: string;
+            readonly saleNumber: (n: string) => string;
+            readonly itemsTotal: string;
+            readonly lineDiscounts: string;
+            readonly saleDiscount: string;
+            readonly subtotal: string;
+            readonly tax: string;
+            readonly tip: string;
+            readonly tipNoTax: string;
+            readonly total: string;
+            readonly depositPaid: string;
+            readonly dueNow: string;
+            readonly searchShort: string;
+            readonly catAll: string;
+            readonly catServices: string;
+            readonly catRetail: string;
+            readonly notTracked: string;
+            readonly outOfStock: string;
+            readonly inStock: (n: number) => string;
+            readonly minutes: (n: number) => string;
+            readonly noResults: string;
+            readonly alsoSell: string;
+            readonly alsoSellHint: string;
+            readonly sellGiftCard: string;
+            readonly sellPackage: string;
+            readonly sellMembership: string;
+            readonly ticket: string;
+            readonly clear: string;
+            readonly walkIn: string;
+            readonly chooseClient: string;
+            readonly changeClient: string;
+            readonly clientSearch: string;
+            readonly clientHint: string;
+            readonly emptyTicket: string;
+            readonly emptyTicketShort: string;
+            readonly items: (n: number) => string;
+            readonly each: (money: string) => string;
+            readonly quantity: string;
+            readonly removeLine: (name: string) => string;
+            readonly servedBy: (name: string) => string;
+            readonly noStaff: string;
+            readonly fromBooking: string;
+            readonly review: string;
+            readonly charge: (money: string) => string;
+            readonly collect: (money: string) => string;
+            readonly holdSale: string;
+            readonly addDiscount: string;
+            readonly todaysVisits: string;
+            readonly todaysVisitsHint: string;
+            readonly visitPaid: string;
+            readonly visitInProgress: string;
+            readonly visitReady: string;
+            readonly visitUpcoming: string;
+            readonly endsAt: (time: string) => string;
+            readonly checkOut: string;
+            readonly onTicket: string;
+            readonly depositCredit: (money: string) => string;
+            readonly addExtras: string;
+            readonly noVisits: string;
+            readonly walkInSale: string;
+            readonly payTitle: string;
+            readonly payFor: (client: string) => string;
+            readonly howPaying: string;
+            readonly methodTap: string;
+            readonly methodTapHint: string;
+            readonly methodTapWebHint: string;
+            readonly methodSavedHint: string;
+            readonly methodCard: string;
+            readonly methodCardHint: string;
+            readonly methodCash: string;
+            readonly methodCashHint: string;
+            readonly cashGiven: string;
+            readonly changeDue: string;
+            readonly cashShort: (money: string) => string;
+            readonly exactCash: string;
+            readonly tapReady: string;
+            readonly tapHold: string;
+            readonly tapWaiting: string;
+            readonly tapWeb: string;
+            readonly savedCardCharge: (card: string) => string;
+            readonly payError: string;
+            readonly addItemFirst: string;
+            readonly overLimit: (pct: number) => string;
+            readonly backToTicket: string;
+            readonly cancel: string;
+            readonly charging: string;
+            readonly secure: string;
+            readonly paidTitle: string;
+            readonly paidBody: (money: string, method: string) => string;
+            readonly changeToGive: (money: string) => string;
+            readonly receiptTitle: string;
+            readonly receiptEmail: string;
+            readonly receiptText: string;
+            readonly receiptNone: string;
+            readonly receiptEmailTo: string;
+            readonly receiptPhoneTo: string;
+            readonly sendEmail: string;
+            readonly sendText: string;
+            readonly receiptSent: (to: string) => string;
+            readonly receiptSkipped: string;
+            readonly receiptEmailInvalid: string;
+            readonly receiptPhoneInvalid: string;
+            readonly receiptError: string;
+            readonly newSale: string;
+            readonly bookNext: string;
+            readonly tipCustom: string;
+            readonly tipCustomHint: string;
+            readonly tipNone: string;
+            readonly tipOn: (money: string) => string;
+            readonly tipAmount: string;
+            readonly tipSplitEven: string;
+            readonly tipToOne: string;
+            readonly tipNobody: string;
+            readonly discountTitle: string;
+            readonly discountLine: (name: string) => string;
+            readonly discountScope: string;
+            readonly scopeSale: string;
+            readonly scopeLines: string;
+            readonly percent: string;
+            readonly percentOff: string;
+            readonly amountOff: string;
+            readonly amount: string;
+            readonly discountValue: string;
+            readonly discountReason: string;
+            readonly discountReasonPlaceholder: string;
+            readonly reasons: readonly [string, string, string, string, string, string];
+            readonly applyDiscount: string;
+            readonly removeDiscount: string;
+            readonly discountPreview: (off: string, after: string) => string;
+            readonly discountInvalid: (percent: string, amount: string) => string;
+            readonly discountPercentMax: (max: string) => string;
+            readonly discountTooBig: (money: string) => string;
+            readonly discountReasonRequired: string;
+            readonly taxFollows: string;
+            readonly limitNote: (pct: number) => string;
+            readonly approvalTitle: string;
+            readonly approvalBody: (pct: number, money: string) => string;
+            readonly approvalPin: string;
+            readonly approve: string;
+            readonly approvalOk: string;
+            readonly ordersTitle: string;
+            readonly filterAll: string;
+            readonly filterDesk: string;
+            readonly filterOnline: string;
+            readonly filterOpen: string;
+            readonly filterRefunds: string;
+            readonly historySearch: string;
+            readonly historyNoMatch: string;
+            readonly historyEmpty: string;
+            readonly historyFilterEmpty: string;
+            readonly dayTotal: (n: number, money: string) => string;
+            readonly todaySales: string;
+            readonly todayCount: (n: number) => string;
+            readonly todayTips: string;
+            readonly todayDiscounts: string;
+            readonly todayAverage: string;
+            readonly notPaid: string;
+            readonly status: {
+                readonly open: string;
+                readonly paid: string;
+                readonly partly_refunded: string;
+                readonly refunded: string;
+                readonly void: string;
+            } & Labels;
+            readonly sourceOnline: string;
+            readonly rungBy: (name: string) => string;
+            readonly lines: string;
+            readonly payments: string;
+            readonly tipsTo: string;
+            readonly receiptSection: string;
+            readonly sentBy: (channel: string, to: string) => string;
+            readonly noReceipt: string;
+            readonly resumeSale: string;
+            readonly markReady: string;
+            readonly markPickedUp: string;
+            readonly resendReceipt: string;
+            readonly refund: string;
+            readonly voidSale: string;
+            readonly refunded: (money: string) => string;
+            readonly openTickets: string;
+            readonly openTicketsHint: string;
+            readonly toPrepare: string;
+            readonly toPrepareHint: string;
+            readonly readyForPickup: string;
+            readonly readyHint: string;
+            readonly nothingOpen: string;
+            readonly nothingToPrepare: string;
+            readonly nothingReady: string;
+            readonly heldAt: (when: string) => string;
+            readonly history: string;
+            readonly ago: (when: string) => string;
+            readonly waitMinutes: (n: number) => string;
+            readonly waitHours: (n: number) => string;
+            readonly waitDays: (n: number) => string;
+            readonly pickupNotify: string;
+            readonly tipSection: string;
+            readonly tipSplitTitle: string;
+            readonly tipShareOf: (pct: number) => string;
+            readonly tipPickPerson: string;
+            readonly pinInvalid: string;
+            readonly pinHint: string;
+            readonly before: string;
+            readonly after: string;
+            readonly youSave: string;
+            readonly chooseLines: string;
+            readonly otherReason: string;
+            readonly discountedBy: (label: string) => string;
+            readonly markedReady: (name: string) => string;
+            readonly markedPickedUp: (name: string) => string;
+            readonly details: string;
+            readonly loadingCatalog: string;
+            readonly loadingTicket: string;
+            readonly loadingVisits: string;
+            readonly loadingSales: string;
+            readonly loadingOrders: string;
+            readonly catalogErrorBody: string;
+            readonly visitsError: string;
+            readonly salesError: string;
+            readonly ordersError: string;
+            readonly noItemsTitle: string;
+            readonly noItemsBody: string;
+            readonly addCatalog: string;
+            readonly ordersEmpty: string;
+            readonly ordersEmptyBody: string;
+            readonly historyEmptyTitle: string;
+            readonly heldNotice: (n: string) => string;
+            readonly holdError: string;
+            readonly actionError: string;
+            readonly refundTitle: (n: string) => string;
+            readonly refundBody: (money: string, card: string, cn: string) => string;
+            readonly refundConfirm: (money: string) => string;
+            readonly refundDone: (money: string, cn: string) => string;
+            readonly voidTitle: (n: string) => string;
+            readonly voidBody: string;
+            readonly voidDone: (n: string) => string;
+            readonly creditNote: (cn: string) => string;
+        };
+    };
+    readonly earnings: {
+        readonly subtitle: string;
+        readonly toApprove: string;
+        readonly toPay: string;
+        readonly paidYtd: string;
+        readonly stage: {
+            readonly pending: string;
+            readonly approved: string;
+            readonly paid: string;
+            readonly reversed: string;
+        } & Labels;
+        readonly serviceRate: (rate: string) => string;
+        readonly fixedRate: (amount: string) => string;
+        readonly hourlyRate: (amount: string) => string;
+        readonly retailRate: (rate: string) => string;
+        readonly noRate: string;
+        readonly lineOf: (rate: string, base: string) => string;
+        readonly fixed: string;
+        readonly hourly: string;
+        readonly sourceBooking: string;
+        readonly sourceSale: string;
+        readonly sourceTip: string;
+        readonly tipTitle: string;
+        readonly saleTitle: (n: number) => string;
+        readonly selectAll: string;
+        readonly approveSelected: (count: number) => string;
+        readonly payApproved: (amount: string) => string;
+        readonly working: string;
+        readonly count: (count: number) => string;
+        readonly noEarnings: string;
+        readonly noStaff: string;
+        readonly noStaffBody: string;
+        readonly openTeam: string;
+        readonly choosePayee: string;
+        readonly paidVia: string;
+        readonly updateError: string;
+        readonly loading: string;
+    };
+    readonly entitlements: {
+        readonly walletTitle: string;
+        readonly subtitle: string;
+        readonly sellNew: string;
+        readonly redeemGift: string;
+        readonly clientPicker: string;
+        readonly emptyTitle: string;
+        readonly empty: string;
+        readonly emptyClient: (name: string) => string;
+        readonly deferred: string;
+        readonly giftLiability: string;
+        readonly walletMonthly: string;
+        readonly kindNoun: {
+            readonly package: string;
+            readonly membership: string;
+            readonly gift_card: string;
+        } & Labels;
+        readonly sessionsLeft: (left: number, total: number) => string;
+        readonly sessionsUsedOf: (used: number, total: number) => string;
+        readonly moneyLeft: (amount: string) => string;
+        readonly ofAmount: (amount: string) => string;
+        readonly renews: (when: string) => string;
+        readonly retrying: string;
+        readonly expires: (when: string) => string;
+        readonly expired: (when: string) => string;
+        readonly forRecipient: (name: string) => string;
+        readonly statusLabel: {
+            readonly active: string;
+            readonly pending: string;
+            readonly paused: string;
+            readonly past_due: string;
+            readonly expired: string;
+            readonly used: string;
+            readonly redeemed: string;
+            readonly canceled: string;
+            readonly void: string;
+        } & Labels;
+        readonly lastSession: string;
+        readonly pastDueNote: string;
+        readonly factBought: string;
+        readonly factPaid: string;
+        readonly factDeferred: string;
+        readonly factNextSession: string;
+        readonly factExpires: string;
+        readonly factRecipient: string;
+        readonly factBalance: string;
+        readonly factNextCharge: string;
+        readonly factCode: string;
+        readonly history: string;
+        readonly ledgerPackage: (share: string) => string;
+        readonly ledgerGift: string;
+        readonly ledgerMembership: string;
+        readonly event: {
+            readonly payment: string;
+            readonly consumption: string;
+            readonly redemption: string;
+            readonly breakage: string;
+            readonly refund: string;
+            readonly dispute: string;
+        } & Labels;
+        readonly action: {
+            readonly use: string;
+            readonly cancel: string;
+            readonly refund: string;
+        } & Labels;
+        readonly actionBusy: string;
+        readonly actionError: string;
+        readonly cancelTitle: string;
+        readonly cancelBody: string;
+        readonly notYet: string;
+        readonly sellTitle: string;
+        readonly chooseKind: string;
+        readonly chooseItem: string;
+        readonly noItems: (kind: string) => string;
+        readonly giftCardAmount: (amount: string) => string;
+        readonly giftAmount: string;
+        readonly recipient: string;
+        readonly recipientHint: string;
+        readonly client: string;
+        readonly chooseClient: string;
+        readonly cash: string;
+        readonly noTax: string;
+        readonly subtotal: string;
+        readonly total: string;
+        readonly perPeriodTotal: string;
+        readonly membershipNeedsCard: string;
+        readonly charge: (amount: string) => string;
+        readonly record: (amount: string) => string;
+        readonly busy: string;
+        readonly doneTitle: string;
+        readonly doneBody: (what: string, who: string) => string;
+        readonly errItem: string;
+        readonly errClient: string;
+        readonly errAmount: (min: string, max: string) => string;
+        readonly sellError: string;
+        readonly loadError: string;
+        readonly giftCards: {
+            readonly redeem: string;
+            readonly redeemTitle: string;
+            readonly redeeming: string;
+            readonly code: string;
+            readonly codePlaceholder: string;
+            readonly balance: string;
+            readonly redeemAmountPlaceholder: string;
+            readonly enterCode: string;
+            readonly enterRedeemAmount: string;
+            readonly redeemError: string;
+        } & Labels;
+    };
+    readonly bookings: {
+        readonly title: string;
+        readonly today: string;
+        readonly prev: string;
+        readonly next: string;
+        readonly newBooking: string;
+        readonly newShort: string;
+        readonly viewLabel: string;
+        readonly viewBoard: string;
+        readonly viewClasses: string;
+        readonly viewSeries: string;
+        readonly off: string;
+        readonly offToday: string;
+        readonly noHoursSet: string;
+        readonly breakLabel: string;
+        readonly closed: (reason: string) => string;
+        readonly bookings: (visits: number, classes: number) => string;
+        readonly booked: string;
+        readonly expected: string;
+        readonly expectedAmount: (amount: string) => string;
+        readonly openTime: string;
+        readonly chairTime: string;
+        readonly hoursOpen: (h: number) => string;
+        readonly utilization: (pct: number) => string;
+        readonly legendConfirmed: string;
+        readonly legendPending: string;
+        readonly legendCompleted: string;
+        readonly legendNoShow: string;
+        readonly classSeats: (booked: number, cap: number) => string;
+        readonly dragHint: string;
+        readonly dragTo: (when: string, who: string) => string;
+        readonly dropRefused: string;
+        readonly dropRefusedBecause: (reason: string) => string;
+        readonly resizeTo: (end: string, min: number) => string;
+        readonly problemOverlap: (who: string) => string;
+        readonly problemOffHours: (who: string) => string;
+        readonly problemTimeOff: (who: string, why: string) => string;
+        readonly problemClosed: (why: string) => string;
+        readonly problemPast: string;
+        readonly problemRoom: string;
+        readonly problemClass: string;
+        readonly moved: (when: string) => string;
+        readonly undo: string;
+        readonly emptyDayTitle: string;
+        readonly dash: string;
+        readonly emptyDay: string;
+        readonly emptyDayWeb: string;
+        readonly emptyClosed: string;
+        readonly nobodyWorking: string;
+        readonly nobodyWorkingHint: string;
+        readonly dayVisits: string;
+        readonly noBookings: string;
+        readonly loading: string;
+        readonly loadError: string;
+        readonly timeUntil: (hours: number, minutes: number) => string;
+        readonly statusLabel: (status: string) => string;
+        readonly unpaid: string;
+        readonly waitlist: string;
+        readonly detailWhen: string;
+        readonly detailWith: string;
+        readonly detailWhere: string;
+        readonly detailNotes: string;
+        readonly detailDeposit: string;
+        readonly detailAddons: string;
+        readonly detailSeries: string;
+        readonly detailHistory: string;
+        readonly detailClient: string;
+        readonly visitsCount: (n: number) => string;
+        readonly lastVisit: (when: string) => string;
+        readonly firstVisit: string;
+        readonly seriesLabel: (i: number, n: number, every: string) => string;
+        readonly seriesLabelOpen: (i: number, every: string) => string;
+        readonly everyWeeks: (n: number) => string;
+        readonly everyMonths: (n: number) => string;
+        readonly everyDays: (n: number) => string;
+        readonly historyOnline: string;
+        readonly historyStaff: string;
+        readonly historyDeposit: (amount: string) => string;
+        readonly historyDepositDue: (amount: string) => string;
+        readonly historyReminderSent: string;
+        readonly historyReminderDue: string;
+        readonly historyCheckedIn: string;
+        readonly depositPaid: (amount: string) => string;
+        readonly depositDue: (amount: string) => string;
+        readonly depositKept: (amount: string) => string;
+        readonly depositApplied: (amount: string) => string;
+        readonly depositRefunded: (amount: string) => string;
+        readonly addonsTotal: (amount: string) => string;
+        readonly cardOnFile: (label: string) => string;
+        readonly noCard: string;
+        readonly complete: string;
+        readonly completeVisit: string;
+        readonly noShow: string;
+        readonly markNoShow: string;
+        readonly reschedule: string;
+        readonly cancel: string;
+        readonly message: string;
+        readonly messageTitle: (name: string) => string;
+        readonly messageChannel: string;
+        readonly messageSms: string;
+        readonly messageEmail: string;
+        readonly messageBody: string;
+        readonly messagePlaceholder: string;
+        readonly messageSend: string;
+        readonly messageCancel: string;
+        readonly working: string;
+        readonly completed: string;
+        readonly noShowDone: string;
+        readonly noShowTitle: string;
+        readonly noShowKeep: (amount: string) => string;
+        readonly noShowCharge: (amount: string) => string;
+        readonly noShowNoDeposit: string;
+        readonly cancelTitle: string;
+        readonly cancelKept: (amount: string) => string;
+        readonly cancelNotify: string;
+        readonly keepVisit: string;
+        readonly confirmCancel: string;
+        readonly confirmNoShow: string;
+        readonly actionError: string;
+        readonly endsIn: (min: number) => string;
+        readonly endedAgo: string;
+        readonly startsIn: (label: string) => string;
+        readonly composerTitle: string;
+        readonly composerClient: string;
+        readonly composerClientSearch: string;
+        readonly composerPet: string;
+        readonly composerService: string;
+        readonly composerServicePlaceholder: string;
+        readonly composerWith: string;
+        readonly composerDate: string;
+        readonly composerTime: string;
+        readonly composerRepeat: string;
+        readonly composerRepeatEvery: string;
+        readonly composerRepeatTimes: string;
+        readonly composerNote: string;
+        readonly composerNotePlaceholder: string;
+        readonly composerConfirm: string;
+        readonly composerDeposit: (amount: string) => string;
+        readonly composerEnds: (time: string, min: number) => string;
+        readonly composerBook: string;
+        readonly composerBookSeries: (n: number) => string;
+        readonly composerBooking: string;
+        readonly composerIncomplete: string;
+        readonly composerError: string;
+        readonly composerSeriesSkipped: (created: number, skipped: number) => string;
+        readonly composerNoClients: string;
+        readonly busy: string;
+        readonly composerChange: string;
+        readonly composerCancel: string;
+        readonly rescheduleTitle: string;
+        readonly rescheduleWith: string;
+        readonly rescheduleDay: string;
+        readonly rescheduleTimes: string;
+        readonly morning: string;
+        readonly afternoon: string;
+        readonly evening: string;
+        readonly noTimes: string;
+        readonly rescheduleTo: (label: string) => string;
+        readonly rescheduling: string;
+        readonly rescheduleNotice: string;
+        readonly rescheduleError: string;
+        readonly depositDueTitle: (amount: string) => string;
+        readonly depositDueBody: string;
+        readonly collectNow: string;
+        readonly collectDepositError: string;
+        readonly depositSettling: string;
+        readonly collecting: string;
+        readonly collectAmount: (amount: string) => string;
+        readonly addonRemove: string;
+        readonly addonRemoveError: string;
+        readonly invoiceVisit: string;
+        readonly invoiceVisitError: string;
+        readonly visitInvoiced: string;
+        readonly close: string;
+        readonly railInProgress: string;
+        readonly railUpNext: string;
+        readonly railToClose: string;
+        readonly railTeam: string;
+        readonly groupTeam: string;
+        readonly railJump: string;
+        readonly railNothingNext: string;
+        readonly stationNone: string;
+    };
+    readonly recurrences: {
+        readonly newTitle: string;
+        readonly newSubtitle: string;
+        readonly listTitle: string;
+        readonly listSubtitle: (n: number) => string;
+        readonly newSeries: string;
+        readonly newShort: string;
+        readonly search: string;
+        readonly filterAll: string;
+        readonly filterAttention: string;
+        readonly filterEnding: string;
+        readonly emptyListTitle: string;
+        readonly emptyList: string;
+        readonly emptySearch: string;
+        readonly loading: string;
+        readonly loadError: string;
+        readonly client: string;
+        readonly pickClient: string;
+        readonly service: string;
+        readonly pickService: string;
+        readonly with: string;
+        readonly firstVisit: string;
+        readonly time: string;
+        readonly repeats: string;
+        readonly every: string;
+        readonly weekly: string;
+        readonly monthly: string;
+        readonly weeksUnit: (n: number) => string;
+        readonly monthsUnit: (n: number) => string;
+        readonly ends: string;
+        readonly endCount: string;
+        readonly endUntil: string;
+        readonly endCountSuffix: string;
+        readonly endNeeded: string;
+        readonly lastDate: string;
+        readonly oneConfirmation: string;
+        readonly oneConfirmationHint: string;
+        readonly pet: (name: string) => string;
+        readonly dates: string;
+        readonly datesHint: string;
+        readonly patternWeekly: (n: number, day: string, time: string) => string;
+        readonly patternMonthly: (n: number, ord: string, day: string, time: string) => string;
+        readonly ordinal: (n: number) => string;
+        readonly summary: (n: number, pattern: string, from: string, to: string) => string;
+        readonly countsLine: (booked: number, moved: number, skipped: number) => string;
+        readonly closed: (why: string) => string;
+        readonly away: (name: string, why: string) => string;
+        readonly notWorking: (name: string, day: string) => string;
+        readonly outsideHours: (name: string) => string;
+        readonly taken: (name: string, time: string) => string;
+        readonly moveTo: (time: string) => string;
+        readonly skip: string;
+        readonly stateBooked: string;
+        readonly stateScheduled: string;
+        readonly stateMoved: string;
+        readonly stateSkipped: string;
+        readonly stateConflict: string;
+        readonly stateDone: string;
+        readonly stateMissed: string;
+        readonly stateCanceled: string;
+        readonly nothingToBook: string;
+        readonly createError: string;
+        readonly book: (n: number) => string;
+        readonly booking: string;
+        readonly resolveFirst: string;
+        readonly doneTitle: string;
+        readonly doneBody: (n: number, name: string) => string;
+        readonly doneBodyEach: (n: number) => string;
+        readonly doneSkipped: (n: number) => string;
+        readonly viewSchedule: string;
+        readonly bookAnother: string;
+        readonly progress: (done: number, total: number) => string;
+        readonly todayAt: (time: string) => string;
+        readonly noneLeft: string;
+        readonly endsOn: (date: string, left: number) => string;
+        readonly next: string;
+        readonly needsDecision: (n: number) => string;
+        readonly endingSoon: string;
+        readonly changeSeries: string;
+        readonly cancelSeries: string;
+        readonly upcoming: string;
+        readonly colProgress: string;
+        readonly history: string;
+        readonly scope: string;
+        readonly scopeOne: string;
+        readonly scopeFollowing: string;
+        readonly scopeAll: string;
+        readonly newDay: string;
+        readonly newTime: string;
+        readonly newWith: string;
+        readonly preview: string;
+        readonly noChange: string;
+        readonly changeSummary: (
+            n: number,
+            day: string,
+            time: string,
+            who: string,
+            conflicts: number,
+        ) => string;
+        readonly saveChange: string;
+        readonly changeSaved: (moved: number, left: number) => string;
+        readonly changeError: string;
+        readonly cancelTitle: string;
+        readonly cancelSummary: (n: number, from: string, deposit: boolean) => string;
+        readonly notifyClient: string;
+        readonly keepSeries: string;
+        readonly confirmCancel: string;
+        readonly canceledNote: string;
+        readonly cancelError: string;
+        readonly backToList: string;
+        readonly cancel: string;
+        readonly selectSeries: string;
+    };
+    readonly classes: {
+        readonly title: string;
+        readonly subtitle: string;
+        readonly upcoming: string;
+        readonly full: string;
+        readonly fullWaiting: (n: number) => string;
+        readonly seatsLeft: (n: number) => string;
+        readonly seatsBooked: (booked: number, cap: number) => string;
+        readonly add: string;
+        readonly checkedIn: (n: number, of: number) => string;
+        readonly with: (when: string, name: string) => string;
+        readonly withRoom: (when: string, name: string, room: string) => string;
+        readonly roster: string;
+        readonly waitlist: string;
+        readonly waitlistHint: string;
+        readonly emptyRoster: string;
+        readonly emptyWaitlist: string;
+        readonly statusBooked: string;
+        readonly statusHere: string;
+        readonly statusNoShow: string;
+        readonly statusWaiting: string;
+        readonly checkIn: string;
+        readonly checkInAll: string;
+        readonly undo: string;
+        readonly noShow: string;
+        readonly promote: string;
+        readonly promoted: string;
+        readonly promoteFull: string;
+        readonly unpaid: string;
+        readonly gentleNote: string;
+        readonly addPlaceholder: string;
+        readonly added: (name: string) => string;
+        readonly addedWaitlist: (name: string) => string;
+        readonly messageClass: string;
+        readonly messageClassTitle: (name: string, when: string) => string;
+        readonly messageClassHint: (n: number) => string;
+        readonly messageClassLabel: string;
+        readonly messageClassPlaceholder: string;
+        readonly messageClassSend: string;
+        readonly messageClassCancel: string;
+        readonly messageSent: (n: number) => string;
+        readonly loading: string;
+        readonly loadError: string;
+        readonly emptyClasses: string;
+        readonly emptyClassesBody: string;
+        readonly rosterError: string;
+        readonly startsLater: string;
+        readonly pickTitle: string;
+        readonly pickSubtitle: string;
+        readonly takenBy: (pet: string, time: string) => string;
+        readonly freeThen: string;
+        readonly saveStation: string;
+        readonly stationError: string;
+    };
+    readonly reminders: {
+        readonly subtitle: string;
+        readonly remindersTitle: string;
+        readonly remindersHint: string;
+        readonly ruleLead: string;
+        readonly channelSms: string;
+        readonly channelEmail: string;
+        readonly channelsHint: string;
+        readonly rulesFixed: string;
+        readonly includeLink: string;
+        readonly includeLinkHint: string;
+        readonly preview: string;
+        readonly previewVisit: (who: string) => string;
+        readonly previewNone: string;
+        readonly sendsAt: (when: string) => string;
+        readonly sentAt: (when: string) => string;
+        readonly deliveryTitle: string;
+        readonly sent: string;
+        readonly sentCount: (n: number) => string;
+        readonly endOfDayTitle: string;
+        readonly endOfDayHint: string;
+        readonly autoCloseLater: string;
+        readonly openToday: (n: number) => string;
+        readonly openEarlier: string;
+        readonly noneOpen: string;
+        readonly complete: string;
+        readonly noShow: string;
+        readonly loading: string;
+        readonly loadError: string;
+        readonly actionError: string;
+    };
+    readonly forms: {
+        readonly fieldTypeText: string;
+        readonly fieldTypeLongtext: string;
+        readonly fieldTypeEmail: string;
+        readonly fieldTypePhone: string;
+        readonly fieldTypeNumber: string;
+        readonly fieldTypeCurrency: string;
+        readonly fieldTypeDate: string;
+        readonly fieldTypeTime: string;
+        readonly fieldTypeSelect: string;
+        readonly fieldTypeMultiselect: string;
+        readonly fieldTypeCheckbox: string;
+        readonly fieldTypeAddress: string;
+        readonly fieldTypeRating: string;
+        readonly fieldTypeFile: string;
+        readonly fieldTypeImage: string;
+        readonly fieldTypeSignature: string;
+        readonly subtitle: string;
+        readonly loading: string;
+        readonly loadError: string;
+        readonly library: string;
+        readonly newForm: string;
+        readonly noFormsTitle: string;
+        readonly empty: string;
+        readonly fields: (n: number) => string;
+        readonly responses: (n: number) => string;
+        readonly waiting: (n: number) => string;
+        readonly noResponsesYet: string;
+        readonly sendsOnBooking: string;
+        readonly sendsManually: string;
+        readonly draft: string;
+        readonly selectForm: string;
+        readonly formName: string;
+        readonly questions: string;
+        readonly emptyFields: string;
+        readonly preview: string;
+        readonly addQuestion: string;
+        readonly questionLabel: string;
+        readonly questionPlaceholder: string;
+        readonly helpLabel: string;
+        readonly helpPlaceholder: string;
+        readonly type: string;
+        readonly required: string;
+        readonly optionsLabel: string;
+        readonly optionPlaceholder: (n: number) => string;
+        readonly addOption: string;
+        readonly removeOption: (n: number) => string;
+        readonly moveUp: string;
+        readonly moveDown: string;
+        readonly remove: string;
+        readonly untitled: string;
+        readonly untitledForm: string;
+        readonly uploadLimits: string;
+        readonly sendWhen: string;
+        readonly sendOnBooking: string;
+        readonly sendOnBookingHint: string;
+        readonly sendManual: string;
+        readonly sendManualHint: string;
+        readonly requireSignature: string;
+        readonly requireSignatureHint: string;
+        readonly save: string;
+        readonly saving: string;
+        readonly saved: string;
+        readonly unsaved: string;
+        readonly send: string;
+        readonly sendTitle: (form: string) => string;
+        readonly sendBody: string;
+        readonly client: string;
+        readonly chooseClient: string;
+        readonly sendLink: string;
+        readonly sent: (name: string) => string;
+        readonly pickClient: string;
+        readonly sendFailed: string;
+        readonly cancel: string;
+        readonly done: string;
+        readonly errors: {
+            readonly "name-missing": string;
+            readonly "no-fields": string;
+            readonly "options-missing": string;
+            readonly "save-failed": string;
+        } & Labels;
+    };
+    readonly contracts: {
+        readonly subtitle: string;
+        readonly loading: string;
+        readonly loadError: string;
+        readonly newContract: string;
+        readonly templates: string;
+        readonly version: (n: number) => string;
+        readonly versionShort: (n: number) => string;
+        readonly signedCount: (n: number) => string;
+        readonly waitingCount: (n: number) => string;
+        readonly updated: (when: string) => string;
+        readonly send: string;
+        readonly sendTitle: (name: string) => string;
+        readonly editText: string;
+        readonly signatures: string;
+        readonly noSignatures: string;
+        readonly text: string;
+        readonly signedCopy: string;
+        readonly print: string;
+        readonly printNote: string;
+        readonly resend: string;
+        readonly copyLink: string;
+        readonly shareLink: string;
+        readonly copied: string;
+        readonly resent: string;
+        readonly actionFailed: string;
+        readonly newTitle: string;
+        readonly newHint: string;
+        readonly nameLabel: string;
+        readonly namePlaceholder: string;
+        readonly bodyPlaceholder: string;
+        readonly create: string;
+        readonly creating: string;
+        readonly cancel: string;
+        readonly close: string;
+        readonly newErrors: {
+            readonly "name-missing": string;
+            readonly "body-missing": string;
+            readonly failed: string;
+        } & Labels;
+        readonly noContractsTitle: string;
+        readonly noContractsBody: string;
+        readonly activity: {
+            readonly pending: (d: string) => string;
+            readonly opened: (d: string) => string;
+            readonly signed: (d: string) => string;
+            readonly declined: (d: string) => string;
+            readonly expired: (d: string) => string;
+        };
+        readonly status: {
+            readonly pending: string;
+            readonly opened: string;
+            readonly signed: string;
+            readonly declined: string;
+            readonly expired: string;
+        } & Labels;
+        readonly history: string;
+        readonly event: {
+            readonly sent: string;
+            readonly opened: string;
+            readonly signed: string;
+            readonly declined: string;
+        } & Labels;
+        readonly eventIp: (ip: string) => string;
+        readonly versionNotice: (next: number) => string;
+        readonly publish: (next: number) => string;
+        readonly publishError: string;
+        readonly publishing: string;
+        readonly facts: {
+            readonly signedAt: string;
+            readonly ip: string;
+            readonly method: string;
+            readonly version: string;
+            readonly reference: string;
+        } & Labels;
+        readonly method: { readonly typed: string; readonly drawn: string } & Labels;
+        readonly signatureHeading: string;
+    };
+    readonly clients: {
+        readonly title: string;
+        readonly add: string;
+        readonly addShort: string;
+        readonly dash: string;
+        readonly emptySearch: string;
+        readonly starting: string;
+        readonly addCard: string;
+        readonly addBankWeb: string;
+        readonly cardNoun: string;
+        readonly saveMethod: (noun: string) => string;
+        readonly subscriptions: string;
+        readonly startSubscriptionLink: string;
+        readonly noSubscriptions: string;
+        readonly subscriptionFallback: string;
+        readonly nextCharge: (date: string) => string;
+        readonly cancelSubscriptionTitle: string;
+        readonly cancelSubscriptionConfirm: string;
+        readonly cancelSubscriptionError: string;
+        readonly keep: string;
+        readonly packages: string;
+        readonly sellPackageLink: string;
+        readonly noPackages: string;
+        readonly packageFallback: string;
+        readonly consumeSessionError: string;
+        readonly sessionsLeft: (remaining: number, total: number) => string;
+        readonly sessionsLeftShort: (remaining: number, total: number) => string;
+        readonly consumeSession: string;
+        readonly consumeShort: string;
+        readonly record: {
+            readonly searchPlaceholder: string;
+            readonly emptyTitle: string;
+            readonly emptyBody: string;
+            readonly colClient: string;
+            readonly colPets: string;
+            readonly colNext: string;
+            readonly colBalance: string;
+            readonly colTags: string;
+            readonly noUpcoming: string;
+            readonly settled: string;
+            readonly lifetime: string;
+            readonly visits: string;
+            readonly balance: string;
+            readonly since: string;
+            readonly pets: string;
+            readonly addPet: string;
+            readonly upcoming: string;
+            readonly lastVisit: (when: string) => string;
+            readonly notes: string;
+            readonly addNote: string;
+            readonly pinned: string;
+            readonly wallet: string;
+            readonly manageWallet: string;
+            readonly noCards: string;
+            readonly renews: (when: string) => string;
+            readonly book: string;
+            readonly message: string;
+            readonly invoice: string;
+            readonly history: string;
+            readonly call: string;
+            readonly text: string;
+            readonly prefers: (channel: string) => string;
+            readonly inProgress: string;
+            readonly depositDue: (amount: string) => string;
+            readonly depositPaid: (amount: string) => string;
+            readonly noNotes: string;
+            readonly noPets: string;
+            readonly loadingRecord: string;
+            readonly loadError: string;
+            readonly editShort: string;
+            readonly editPetNamed: (name: string) => string;
+            readonly addNoteTitle: string;
+            readonly back: string;
+            readonly goneBody: string;
+            readonly archived: string;
+        };
+        readonly edit: {
+            readonly addTitle: string;
+            readonly editTitle: string;
+            readonly nameLabel: string;
+            readonly namePlaceholder: string;
+            readonly phoneLabel: string;
+            readonly phonePlaceholder: string;
+            readonly phoneHint: string;
+            readonly emailLabel: string;
+            readonly emailPlaceholder: string;
+            readonly channelLabel: string;
+            readonly channelText: string;
+            readonly channelEmail: string;
+            readonly tagsLabel: string;
+            readonly tagsPlaceholder: string;
+            readonly consentLabel: string;
+            readonly consentHint: string;
+            readonly consentRecorded: (when: string, who: string) => string;
+            readonly petSection: string;
+            readonly petSectionHint: string;
+            readonly petName: string;
+            readonly petNamePlaceholder: string;
+            readonly petBreed: string;
+            readonly petBreedPlaceholder: string;
+            readonly nameRequired: string;
+            readonly contactRequired: string;
+            readonly emailInvalid: string;
+            readonly phoneInvalid: string;
+            readonly saveError: string;
+            readonly add: string;
+            readonly adding: string;
+            readonly save: string;
+            readonly saving: string;
+            readonly done: string;
+            readonly duplicateTitle: (name: string) => string;
+            readonly duplicateBody: (reasons: string) => string;
+            readonly duplicateOpen: string;
+            readonly duplicateKeep: string;
+            readonly reasonPhone: string;
+            readonly reasonEmail: string;
+            readonly reasonName: string;
+            readonly and: string;
+            readonly archive: string;
+            readonly archiveTitle: (name: string) => string;
+            readonly archiveBody: string;
+            readonly archiveConfirm: string;
+            readonly archiveError: string;
+            readonly archivedBanner: (when: string) => string;
+            readonly archivedNoDate: string;
+            readonly restore: string;
+            readonly restoreError: string;
+            readonly segmentActive: (n: number) => string;
+            readonly segmentArchived: (n: number) => string;
+            readonly listSummary: (active: number, archived: number) => string;
+            readonly emptyArchived: string;
+            readonly dangerHint: string;
+        };
+        readonly pets: {
+            readonly pets: string;
+            readonly addPet: string;
+            readonly editPet: string;
+            readonly editNamed: (name: string) => string;
+            readonly removePet: string;
+            readonly removeTitle: (name: string) => string;
+            readonly removeBody: string;
+            readonly removeConfirm: string;
+            readonly removeError: string;
+            readonly nameLabel: string;
+            readonly nameRequired: string;
+            readonly speciesLabel: string;
+            readonly dog: string;
+            readonly cat: string;
+            readonly other: string;
+            readonly breedLabel: string;
+            readonly weightLabel: string;
+            readonly weightUnit: string;
+            readonly weightInvalid: string;
+            readonly dateInvalid: string;
+            readonly birthdayLabel: string;
+            readonly sexLabel: string;
+            readonly female: string;
+            readonly male: string;
+            readonly temperamentLabel: string;
+            readonly temperaments: {
+                readonly calm: string;
+                readonly friendly: string;
+                readonly energetic: string;
+                readonly anxious: string;
+                readonly reactive: string;
+            } & Labels;
+            readonly coatLabel: string;
+            readonly allergiesLabel: string;
+            readonly allergiesPlaceholder: string;
+            readonly vetLabel: string;
+            readonly rabiesLabel: string;
+            readonly styleLabel: string;
+            readonly stylePlaceholder: string;
+            readonly save: string;
+            readonly saveShort: string;
+            readonly saving: string;
+            readonly saveError: string;
+            readonly edit: string;
+            readonly age: (years: number) => string;
+            readonly weight: (kg: number) => string;
+            readonly allergy: (what: string) => string;
+            readonly temperamentAlert: (t: string) => string;
+            readonly rabiesExpired: string;
+            readonly rabiesSoon: (when: string) => string;
+            readonly visits: string;
+            readonly lastVisit: string;
+            readonly nextVisit: string;
+            readonly nothingBooked: string;
+            readonly noPetsTitle: string;
+            readonly noPetsBody: string;
+            readonly loading: string;
+            readonly loadError: string;
+        };
+        readonly history: {
+            readonly title: string;
+            readonly filterAll: string;
+            readonly filterVisits: string;
+            readonly filterMoney: string;
+            readonly filterMessages: string;
+            readonly filterNotes: string;
+            readonly withCount: (label: string, n: string) => string;
+            readonly notePlaceholder: string;
+            readonly noteRequired: string;
+            readonly pin: string;
+            readonly pinHint: string;
+            readonly about: string;
+            readonly aboutClient: string;
+            readonly saveNote: string;
+            readonly savingNote: string;
+            readonly noteError: string;
+            readonly noteChangeError: string;
+            readonly editNote: string;
+            readonly deleteNote: string;
+            readonly deleteNoteTitle: string;
+            readonly deleteNoteBody: string;
+            readonly pinNote: string;
+            readonly unpin: string;
+            readonly by: (who: string, when: string) => string;
+            readonly empty: string;
+            readonly emptyFilter: string;
+            readonly emptyTitle: string;
+            readonly headsUp: string;
+            readonly loadOlder: string;
+            readonly overdue: string;
+            readonly upcoming: string;
+            readonly since: (when: string) => string;
+            readonly you: string;
+            readonly teammate: string;
+            readonly visit: (service: string, pet: string) => string;
+            readonly canceled: string;
+            readonly noShow: string;
+            readonly invoiceDrafted: (n: string) => string;
+            readonly invoiceSent: (n: string) => string;
+            readonly invoiceVoid: (n: string) => string;
+            readonly paymentReceived: string;
+            readonly depositReceived: string;
+            readonly refundIssued: string;
+            readonly textReceived: string;
+            readonly textSent: string;
+            readonly emailReceived: string;
+            readonly emailSent: string;
+            readonly review: (rating: number) => string;
+            readonly note: string;
+            readonly pinnedNote: string;
+            readonly loading: string;
+            readonly loadError: string;
+        };
+        readonly wallet: {
+            readonly title: string;
+            readonly subtitle: string;
+            readonly addCard: string;
+            readonly makeDefault: string;
+            readonly remove: string;
+            readonly removeTitle: (label: string) => string;
+            readonly removeBody: string;
+            readonly removeBodyInUse: (plans: string) => string;
+            readonly removeConfirm: string;
+            readonly removeError: string;
+            readonly defaultError: string;
+            readonly loading: string;
+            readonly loadError: string;
+            readonly emptyTitle: string;
+            readonly empty: string;
+            readonly default: string;
+            readonly expires: (mm: string, yy: string) => string;
+            readonly expired: (mm: string, yy: string) => string;
+            readonly expiresSoon: (mm: string, yy: string) => string;
+            readonly mandateActive: string;
+            readonly mandatePending: string;
+            readonly mandatePendingNote: string;
+            readonly mandateRevoked: string;
+            readonly pays: (plans: string) => string;
+            readonly added: (when: string) => string;
+            readonly defaultHint: string;
+            readonly more: (label: string) => string;
+            readonly expiringBanner: (label: string) => string;
+            readonly onlyManagers: string;
+        };
+        readonly tidy: {
+            readonly select: string;
+            readonly selectAll: string;
+            readonly selected: (n: number) => string;
+            readonly clear: string;
+            readonly tag: string;
+            readonly mergeSelected: string;
+            readonly mergeNeedsTwo: string;
+            readonly archive: string;
+            readonly applyTags: (n: number) => string;
+            readonly onAll: string;
+            readonly onSome: (n: number, total: number) => string;
+            readonly clientsCount: (n: number) => string;
+            readonly newTag: string;
+            readonly apply: string;
+            readonly applying: string;
+            readonly tagError: string;
+            readonly archiveError: string;
+            readonly archiveTitle: (n: number) => string;
+            readonly archiveBody: string;
+            readonly archiveConfirm: string;
+            readonly archived: (n: number) => string;
+            readonly tagsUpdated: (n: number) => string;
+            readonly mergeTitle: string;
+            readonly whichToKeep: string;
+            readonly chooseValues: string;
+            readonly whatMoves: string;
+            readonly nothingMoves: string;
+            readonly moves: {
+                readonly bookings: (n: number) => string;
+                readonly pets: (names: string) => string;
+                readonly messages: (n: number) => string;
+                readonly notes: (n: number) => string;
+            };
+            readonly footprint: (bookings: number, pets: number) => string;
+            readonly created: (when: string) => string;
+            readonly same: string;
+            readonly none: string;
+            readonly field: {
+                readonly name: string;
+                readonly phone: string;
+                readonly email: string;
+            } & Labels;
+            readonly blockedMoney: string;
+            readonly blockedMethods: string;
+            readonly merge: (name: string) => string;
+            readonly merging: string;
+            readonly mergeConfirmBody: (from: string, into: string) => string;
+            readonly mergeConfirm: string;
+            readonly mergeError: string;
+            readonly merged: (name: string) => string;
+        };
+    };
+    readonly messaging: {
+        readonly title: string;
+        readonly channelSms: string;
+        readonly channelEmail: string;
+        readonly channelChat: string;
+        readonly loading: string;
+        readonly loadError: string;
+        readonly unreadCount: (n: number) => string;
+        readonly newShort: string;
+        readonly newMessageTitle: string;
+        readonly clientLabel: string;
+        readonly chooseClient: string;
+        readonly newMessagePlaceholder: string;
+        readonly smsBlockedNew: string;
+        readonly sendMessage: string;
+        readonly sentNew: (name: string) => string;
+        readonly searchPlaceholder: string;
+        readonly filters: {
+            readonly all: string;
+            readonly unread: string;
+            readonly sms: string;
+            readonly email: string;
+        } & Labels;
+        readonly filterLabel: string;
+        readonly noThreads: string;
+        readonly noThreadsFiltered: string;
+        readonly selectThread: string;
+        readonly thread: {
+            readonly automatic: string;
+            readonly showEarlier: string;
+            readonly earlierFailed: string;
+            readonly earlierOffline: string;
+            readonly status: {
+                readonly delivered: string;
+                readonly sent: string;
+                readonly failed: string;
+                readonly queued: string;
+            } & Labels;
+        };
+        readonly channelLabel: string;
+        readonly channels: { readonly sms: string; readonly email: string } & Labels;
+        readonly replyPlaceholder: (channel: string) => string;
+        readonly send: string;
+        readonly sending: string;
+        readonly smsCount: (chars: number, segments: number) => string;
+        readonly quickReplies: string;
+        readonly quickReplyOptions: readonly [
+            { readonly label: string; readonly text: string } & Labels,
+            { readonly label: string; readonly text: string } & Labels,
+            { readonly label: string; readonly text: string } & Labels,
+        ];
+        readonly textsOffTitle: (name: string) => string;
+        readonly textsOffBody: string;
+        readonly textsOffShort: string;
+        readonly details: string;
+        readonly openRecord: string;
+        readonly book: string;
+        readonly pets: string;
+        readonly nextVisit: string;
+        readonly nothingBooked: string;
+        readonly balance: string;
+        readonly settled: string;
+        readonly consentTitle: string;
+        readonly consentChannel: { readonly sms: string; readonly email: string } & Labels;
+        readonly consentState: {
+            readonly express: string;
+            readonly implied: string;
+            readonly none: string;
+            readonly opted_out: string;
+        } & Labels;
+        readonly consentImpliedUntil: (date: string) => string;
+        readonly back: string;
+        readonly cancel: string;
+        readonly selectClient: string;
+        readonly writeMessage: string;
+        readonly sendError: string;
+    };
+    readonly broadcasts: {
+        readonly subtitle: string;
+        readonly loading: string;
+        readonly loadError: string;
+        readonly newBroadcast: string;
+        readonly back: string;
+        readonly nameLabel: string;
+        readonly nameHint: string;
+        readonly namePlaceholder: string;
+        readonly channelPick: string;
+        readonly channels: { readonly sms: string; readonly email: string } & Labels;
+        readonly audienceLabel: string;
+        readonly everyone: string;
+        readonly tagChip: (tag: string, n: number) => string;
+        readonly messageLabel: string;
+        readonly messagePlaceholder: string;
+        readonly optOutSms: string;
+        readonly optOutEmail: string;
+        readonly smsPreview: (business: string, text: string, optOut: string) => string;
+        readonly emailPreview: (text: string, business: string, optOut: string) => string;
+        readonly optOutNote: string;
+        readonly whenLabel: string;
+        readonly sendNow: string;
+        readonly sendLater: string;
+        readonly sendAtLabel: string;
+        readonly recipientsWord: (n: number) => string;
+        readonly matched: (n: number) => string;
+        readonly noAudience: string;
+        readonly noAudienceBody: string;
+        readonly openClients: string;
+        readonly leftOut: (n: number) => string;
+        readonly reasons: {
+            readonly opted_out: string;
+            readonly no_consent: string;
+            readonly no_contact: string;
+        } & Labels;
+        readonly leftOutHelp: string;
+        readonly previewLabel: string;
+        readonly sendTo: (n: number) => string;
+        readonly scheduleFor: (n: number) => string;
+        readonly confirmTitle: (n: number) => string;
+        readonly confirmBody: string;
+        readonly confirmSend: string;
+        readonly sentTitle: string;
+        readonly scheduledTitle: string;
+        readonly sentBody: (n: number) => string;
+        readonly sentDone: string;
+        readonly newAnother: string;
+        readonly cancel: string;
+        readonly next: string;
+        readonly stepBack: string;
+        readonly steps: {
+            readonly audience: string;
+            readonly message: string;
+            readonly review: string;
+        } & Labels;
+        readonly stepOf: (n: number, total: number) => string;
+        readonly smsCount: (chars: number, segments: number) => string;
+        readonly errors: {
+            readonly nameRequired: string;
+            readonly bodyRequired: string;
+            readonly noRecipients: string;
+            readonly pickTime: string;
+            readonly sendError: string;
+        } & Labels;
+        readonly reachText: string;
+        readonly reachEmail: string;
+        readonly reachOut: string;
+        readonly reachOf: (n: number) => string;
+        readonly colBroadcast: string;
+        readonly colAudience: string;
+        readonly colResult: string;
+        readonly colWhen: string;
+        readonly status: {
+            readonly sent: string;
+            readonly sending: string;
+            readonly scheduled: string;
+            readonly draft: string;
+            readonly canceled: string;
+        } & Labels;
+        readonly delivered: (n: number) => string;
+        readonly replies: (n: number) => string;
+        readonly optOutsCount: (n: number) => string;
+        readonly notSent: string;
+        readonly noBroadcasts: string;
+        readonly optOutsTitle: string;
+        readonly optOutsSubtitle: string;
+        readonly noOptOuts: string;
+        readonly impliedTitle: string;
+        readonly impliedSubtitle: string;
+        readonly noImplied: string;
+        readonly endsOn: (date: string) => string;
+        readonly exportLog: string;
+        readonly exported: (file: string) => string;
+        readonly exportShared: string;
+        readonly consentSource: (source: string, date: string) => string;
+        readonly sources: {
+            readonly in_person: string;
+            readonly form: string;
+            readonly online_booking: string;
+            readonly reply: string;
+            readonly unsubscribe: string;
+            readonly import: string;
+            readonly preferences: string;
+        } & Labels;
+        readonly consentChannel: { readonly sms: string; readonly email: string } & Labels;
+        readonly resultsTitle: string;
+        readonly messageTitle: string;
+        readonly cancelSchedule: string;
+        readonly cancelScheduleTitle: string;
+        readonly cancelScheduleBody: string;
+        readonly keepScheduled: string;
+        readonly duplicate: string;
+        readonly copyOf: (name: string) => string;
+        readonly viaChannel: (channel: string) => string;
+        readonly recipientsLine: (n: number, out: number) => string;
+        readonly statRecipients: string;
+        readonly statLeftOut: string;
+        readonly statDelivered: string;
+        readonly statReplies: string;
+        readonly statOptOuts: string;
+        readonly actionErrors: {
+            readonly exportFailed: string;
+            readonly cancelFailed: string;
+        } & Labels;
+    };
+    readonly reviews: {
+        readonly subtitle: string;
+        readonly loading: string;
+        readonly loadError: string;
+        readonly requestReview: string;
+        readonly requestTitle: string;
+        readonly requestBody: string;
+        readonly requestClient: string;
+        readonly chooseClient: string;
+        readonly requestSend: string;
+        readonly requestSent: (name: string) => string;
+        readonly done: string;
+        readonly cancel: string;
+        readonly noReviewsTitle: string;
+        readonly noReviewsBody: string;
+        readonly noRequests: string;
+        readonly reviewCount: (n: number) => string;
+        readonly distributionRow: (stars: number, n: number) => string;
+        readonly holdToggle: string;
+        readonly holdHint: string;
+        readonly googleUrl: string;
+        readonly googleUrlHint: string;
+        readonly googleUrlPlaceholder: string;
+        readonly googleUrlInvalid: string;
+        readonly saveLink: string;
+        readonly linkSaved: string;
+        readonly settingsError: string;
+        readonly heldTitle: string;
+        readonly heldEmpty: string;
+        readonly publishedTitle: string;
+        readonly hiddenTitle: string;
+        readonly hiddenLink: (n: number) => string;
+        readonly noPublished: string;
+        readonly noComment: string;
+        readonly publish: string;
+        readonly hide: string;
+        readonly reply: string;
+        readonly editReply: string;
+        readonly yourReply: string;
+        readonly replyPlaceholder: string;
+        readonly postReply: string;
+        readonly messageClient: (first: string) => string;
+        readonly messageShort: string;
+        readonly shareGoogle: string;
+        readonly sharedGoogle: string;
+        readonly shareNeedsLink: string;
+        readonly replied: (date: string) => string;
+        readonly askTitle: string;
+        readonly askSubtitle: string;
+        readonly askEmpty: string;
+        readonly ask: string;
+        readonly asked: string;
+        readonly requestsTitle: string;
+        readonly requestState: { readonly requested: string; readonly opened: string } & Labels;
+        readonly requestedOn: (date: string) => string;
+        readonly visitLine: (service: string, staff: string, when: string) => string;
+        readonly suggestedReply: string;
+        readonly suggestedReplyFor: (first: string, low: boolean) => string;
+        readonly useSuggestion: string;
+        readonly state: {
+            readonly held: string;
+            readonly published: string;
+            readonly hidden: string;
+        } & Labels;
+        readonly clientFallback: string;
+        readonly postReplyError: string;
+        readonly hideError: string;
+        readonly publishError: string;
+        readonly shareError: string;
+        readonly sendRequestError: string;
+    };
+    readonly business: {
+        readonly selectBusiness: string;
+        readonly chooseBusiness: string;
+        readonly switchError: string;
+        readonly subtitle: string;
+        readonly getSetUp: {
+            readonly title: string;
+            readonly body: string;
+            readonly gettingStarted: string;
+            readonly start: string;
+            readonly progress: (done: number, total: number) => string;
+            readonly hide: string;
+            readonly hiddenTitle: string;
+            readonly hiddenBody: (left: number) => string;
+            readonly showList: string;
+            readonly shareTitle: string;
+            readonly shareBody: string;
+            readonly notLive: string;
+            readonly live: string;
+            readonly copyLink: string;
+            readonly copied: string;
+            readonly share: string;
+            readonly tasks: {
+                readonly business: { readonly label: string; readonly action: string } & Labels;
+                readonly services: { readonly label: string; readonly action: string } & Labels;
+                readonly hours: { readonly label: string; readonly action: string } & Labels;
+                readonly brand: {
+                    readonly label: string;
+                    readonly hint: string;
+                    readonly action: string;
+                } & Labels;
+                readonly stripe: { readonly label: string; readonly action: string } & Labels;
+                readonly team: { readonly label: string; readonly action: string } & Labels;
+                readonly tax: { readonly label: string; readonly action: string } & Labels;
+            };
+            readonly fresh: {
+                readonly services: string;
+                readonly hours: string;
+                readonly stripe: string;
+                readonly tax: string;
+            } & Labels;
+            readonly servicesHint: (services: number, classes: number) => string;
+            readonly hoursSet: string;
+            readonly stripeOn: string;
+            readonly teamHint: (n: number, email: string) => string;
+            readonly taxHint: (pst: boolean) => string;
+            readonly loading: string;
+            readonly loadError: string;
+            readonly coverPhoto: string;
+            readonly coverHint: string;
+            readonly uploadCover: string;
+            readonly replaceCover: string;
+            readonly removeCover: string;
+            readonly profileTitle: string;
+            readonly profileHint: string;
+            readonly publicTeamHint: string;
+            readonly profile: {
+                readonly cover_url: string;
+                readonly about: string;
+                readonly address: string;
+                readonly phone: string;
+                readonly email: string;
+                readonly website: string;
+                readonly neighbourhood: string;
+                readonly gallery_urls: string;
+                readonly pickup_prep_minutes: string;
+                readonly pickup_hold_days: string;
+                readonly pickup_capacity: string;
+            } & Labels;
+            readonly brandTitle: string;
+            readonly brandBody: string;
+            readonly logo: string;
+            readonly logoHint: string;
+            readonly colour: string;
+            readonly tagline: string;
+            readonly taglinePlaceholder: string;
+            readonly save: string;
+            readonly saving: string;
+            readonly saved: string;
+            readonly preview: string;
+            readonly previewNoServices: string;
+        };
+        readonly nameLabel: string;
+        readonly namePlaceholder: string;
+        readonly timezoneLabel: string;
+        readonly timeZones: {
+            readonly newfoundland: string;
+            readonly atlantic: string;
+            readonly eastern: string;
+            readonly central: string;
+            readonly saskatchewan: string;
+            readonly mountain: string;
+            readonly yukon: string;
+            readonly pacific: string;
+        } & Labels;
+        readonly billingEmailLabel: string;
+        readonly billingEmailPlaceholder: string;
+        readonly nameRequired: string;
+        readonly saveError: string;
+        readonly onboarding: {
+            readonly provinceAB: string;
+            readonly provinceBC: string;
+            readonly provinceMB: string;
+            readonly provinceNB: string;
+            readonly provinceNL: string;
+            readonly provinceNS: string;
+            readonly provinceNT: string;
+            readonly provinceNU: string;
+            readonly provinceON: string;
+            readonly provincePE: string;
+            readonly provinceQC: string;
+            readonly provinceSK: string;
+            readonly provinceYT: string;
+            readonly settingUp: string;
+            readonly title: string;
+            readonly subtitleWeb: string;
+            readonly subtitleMobile: string;
+            readonly businessName: string;
+            readonly businessNamePlaceholder: string;
+            readonly webAddress: string;
+            readonly slugPrefix: string;
+            readonly slugPlaceholder: string;
+            readonly province: string;
+            readonly taxTitle: (province: string) => string;
+            readonly taxNone: string;
+            readonly creating: string;
+            readonly createBusiness: string;
+            readonly notYou: string;
+            readonly signOut: string;
+            readonly notYouSignOut: string;
+            readonly nameRequired: string;
+            readonly slugRequired: string;
+            readonly createError: string;
+        };
+    };
+    readonly hours: {
+        readonly title: string;
+        readonly subtitle: string;
+        readonly monday: string;
+        readonly tuesday: string;
+        readonly wednesday: string;
+        readonly thursday: string;
+        readonly friday: string;
+        readonly saturday: string;
+        readonly sunday: string;
+        readonly monShort: string;
+        readonly tueShort: string;
+        readonly wedShort: string;
+        readonly thuShort: string;
+        readonly friShort: string;
+        readonly satShort: string;
+        readonly sunShort: string;
+        readonly teamMember: string;
+        readonly prevWeek: string;
+        readonly nextWeek: string;
+        readonly off: string;
+        readonly noHours: string;
+        readonly noStaff: string;
+        readonly perWeek: (h: number) => string;
+        readonly dayHours: (h: number) => string;
+        readonly daysOpen: (n: number) => string;
+        readonly closed: string;
+        readonly to: string;
+        readonly copyWeekdays: string;
+        readonly emptyHours: string;
+        readonly emptyHoursBody: string;
+        readonly setHours: string;
+        readonly editHoursFor: (name: string) => string;
+        readonly regularHours: string;
+        readonly regularHoursHint: string;
+        readonly saveHours: string;
+        readonly saving: string;
+        readonly saved: string;
+        readonly savedLocally: string;
+        readonly conflict: string;
+        readonly refused: string;
+        readonly applyChanges: string;
+        readonly discardChanges: string;
+        readonly saveError: string;
+        readonly timeFormatError: string;
+        readonly timeOrderError: string;
+        readonly timeOrderShort: string;
+        readonly addTimeOff: string;
+        readonly addClosure: string;
+        readonly timeOffTitle: string;
+        readonly closuresTitle: string;
+        readonly closuresHint: string;
+        readonly timeOffHint: string;
+        readonly noTimeOff: string;
+        readonly noClosures: string;
+        readonly upcomingFor: (name: string) => string;
+        readonly everyone: string;
+        readonly wholeBusiness: string;
+        readonly who: string;
+        readonly length: string;
+        readonly lengthDay: string;
+        readonly lengthDays: string;
+        readonly lengthWeek: string;
+        readonly lengthPart: string;
+        readonly date: string;
+        readonly firstDay: string;
+        readonly lastDay: string;
+        readonly startTime: string;
+        readonly endTime: string;
+        readonly reason: string;
+        readonly reasonPlaceholder: string;
+        readonly reasonHint: string;
+        readonly reasonRequired: string;
+        readonly endBeforeStart: string;
+        readonly awaySummary: (who: string, when: string) => string;
+        readonly timeOffAffects: (n: number) => string;
+        readonly closureAffects: (n: number) => string;
+        readonly toMove: (n: number) => string;
+        readonly nothingBooked: string;
+        readonly saveTimeOff: string;
+        readonly saveClosure: string;
+        readonly timeOffError: string;
+        readonly removeError: string;
+        readonly removeLabel: (what: string) => string;
+        readonly cancel: string;
+        readonly loading: string;
+        readonly loadError: string;
+        readonly selectPerson: string;
+        readonly teamHoursTitle: string;
+        readonly weekTotal: (h: number) => string;
+        readonly rowLabel: (name: string) => string;
+        readonly ownOnly: string;
+        readonly partialAway: (time: string, reason: string) => string;
+    };
+    readonly staff: {
+        readonly inviteMissingCode: string;
+        readonly passwordTooShort: string;
+        readonly acceptInviteError: string;
+        readonly noMembers: string;
+        readonly members: string;
+        readonly youSuffix: string;
+        readonly pending: string;
+        readonly shareLink: string;
+        readonly roleOwner: string;
+        readonly roleStaff: string;
+        readonly roleAdmin: string;
+        readonly roleContractor: string;
+        readonly payHeading: string;
+        readonly isPayee: string;
+        readonly rateType: string;
+        readonly ratePercent: string;
+        readonly rateFixed: string;
+        readonly rateHourly: string;
+        readonly rateLabel: (type: string) => string;
+        readonly retailRate: string;
+        readonly rateInvalid: string;
+        readonly retailInvalid: string;
+        readonly payError: string;
+        readonly notPaid: string;
+        readonly payPercent: (rate: number) => string;
+        readonly payFixed: (money: string) => string;
+        readonly payHourly: (money: string) => string;
+        readonly payWithRetail: (service: string, retail: number) => string;
+        readonly team: {
+            readonly subtitle: string;
+            readonly inviteMember: string;
+            readonly colPerson: string;
+            readonly colRole: string;
+            readonly colActive: string;
+            readonly you: string;
+            readonly activeNow: string;
+            readonly activeAgo: (when: string) => string;
+            readonly neverSignedIn: string;
+            readonly invitedBy: (name: string, when: string) => string;
+            readonly invited: (when: string) => string;
+            readonly expiresIn: (days: number) => string;
+            readonly expired: string;
+            readonly resend: string;
+            readonly resent: string;
+            readonly revoke: string;
+            readonly revokeTitle: (email: string) => string;
+            readonly revokeBody: string;
+            readonly roleAccess: {
+                readonly owner: string;
+                readonly admin: string;
+                readonly staff: string;
+                readonly contractor: string;
+            } & Labels;
+            readonly roleCan: {
+                readonly owner: readonly [string, string, string];
+                readonly admin: readonly [string, string, string];
+                readonly staff: readonly [string, string, string];
+                readonly contractor: readonly [string, string, string];
+            } & Readonly<Record<string, readonly string[]>>;
+            readonly roleCant: {
+                readonly admin: readonly [string];
+                readonly staff: readonly [string, string, string];
+                readonly contractor: readonly [string, string];
+            } & Readonly<Record<string, readonly string[]>>;
+            readonly canDo: string;
+            readonly cantDo: string;
+            readonly yourRole: (role: string) => string;
+            readonly readOnly: (owner: string) => string;
+            readonly readOnlyNoName: string;
+            readonly emails: string;
+            readonly emailsHint: string;
+            readonly emailPlaceholder: string;
+            readonly role: string;
+            readonly send: string;
+            readonly sending: string;
+            readonly sentTitle: (n: number) => string;
+            readonly sentBody: string;
+            readonly copyLink: string;
+            readonly inviteAnother: string;
+            readonly emailRequired: string;
+            readonly emailInvalid: (email: string) => string;
+            readonly alreadyMember: (email: string) => string;
+            readonly inviteError: string;
+            readonly actionError: string;
+            readonly email: string;
+            readonly lastActive: string;
+            readonly changeRole: string;
+            readonly saveRole: string;
+            readonly saving: string;
+            readonly remove: string;
+            readonly removeTitle: (name: string) => string;
+            readonly removeBody: string;
+            readonly removeConfirm: string;
+            readonly ownerNote: string;
+            readonly selfNote: string;
+            readonly noInvites: string;
+            readonly loading: string;
+            readonly loadError: string;
+            readonly aloneTitle: string;
+            readonly aloneBody: string;
+        };
+    };
+    readonly catalog: {
+        readonly variantParent: string;
+        readonly variantLabel: string;
+        readonly standaloneProduct: string;
+        readonly variantHint: string;
+        readonly title: string;
+        readonly summary: (items: number, low: number) => string;
+        readonly views: {
+            readonly catalog: string;
+            readonly products: string;
+            readonly inventory: string;
+        } & Labels;
+        readonly viewsLabel: string;
+        readonly addItem: string;
+        readonly addShort: string;
+        readonly searchPlaceholder: string;
+        readonly filterAll: string;
+        readonly filterServices: string;
+        readonly filterProducts: string;
+        readonly filterPlans: string;
+        readonly filterLowStock: string;
+        readonly filterArchived: string;
+        readonly filterNotOnline: string;
+        readonly filterCount: (label: string, n: number) => string;
+        readonly noMatch: string;
+        readonly filterEmpty: string;
+        readonly countIn: (n: number) => string;
+        readonly groups: {
+            readonly service: string;
+            readonly class: string;
+            readonly product: string;
+            readonly package: string;
+            readonly subscription: string;
+            readonly gift: string;
+        } & Labels;
+        readonly online: string;
+        readonly inShop: string;
+        readonly notOnline: string;
+        readonly archived: string;
+        readonly colItem: string;
+        readonly colType: string;
+        readonly colPrice: string;
+        readonly colOnline: string;
+        readonly loadingCatalog: string;
+        readonly loadErrorCatalog: string;
+        readonly emptyCatalogTitle: string;
+        readonly emptyCatalogBody: string;
+        readonly loadingProducts: string;
+        readonly loadErrorProducts: string;
+        readonly emptyProductsTitle: string;
+        readonly emptyProductsBody: string;
+        readonly loadingStock: string;
+        readonly loadErrorStock: string;
+        readonly emptyStockTitle: string;
+        readonly emptyStockBody: string;
+        readonly emptyDeliveryTitle: string;
+        readonly emptyDeliveryBody: string;
+        readonly kindService: string;
+        readonly kindProduct: string;
+        readonly kindClass: string;
+        readonly kindPackage: string;
+        readonly kindSubscription: string;
+        readonly kindGift: string;
+        readonly kindHints: {
+            readonly service: string;
+            readonly class: string;
+            readonly product: string;
+            readonly package: string;
+            readonly subscription: string;
+            readonly gift: string;
+        } & Labels;
+        readonly whatAdding: string;
+        readonly whatAddingHint: string;
+        readonly next: string;
+        readonly cancel: string;
+        readonly minutes: (n: number) => string;
+        readonly plusBuffer: (n: number) => string;
+        readonly classSize: (n: number) => string;
+        readonly visits: (n: number) => string;
+        readonly noExpiry: string;
+        readonly validMonths: (n: number) => string;
+        readonly validDays: (n: number) => string;
+        readonly every: (interval: number, freq: string) => string;
+        readonly perPeriod: (money: string, freq: string) => string;
+        readonly anyAmount: string;
+        readonly depositMeta: (label: string) => string;
+        readonly skuLine: (sku: string) => string;
+        readonly untracked: string;
+        readonly newItem: (kind: string) => string;
+        readonly save: string;
+        readonly saving: string;
+        readonly add: string;
+        readonly archive: string;
+        readonly restore: string;
+        readonly archivedNote: string;
+        readonly sectionBasics: string;
+        readonly sectionTime: string;
+        readonly sectionBooking: string;
+        readonly sectionDeposit: string;
+        readonly sectionPrice: string;
+        readonly sectionTax: string;
+        readonly sectionStock: string;
+        readonly sectionShop: string;
+        readonly sectionImage: string;
+        readonly sectionPlan: string;
+        readonly name: string;
+        readonly namePlaceholderService: string;
+        readonly namePlaceholderProduct: string;
+        readonly description: string;
+        readonly descriptionHint: string;
+        readonly category: string;
+        readonly price: string;
+        readonly durationLabel: string;
+        readonly bufferBefore: string;
+        readonly bufferAfter: string;
+        readonly capacity: string;
+        readonly capacityHint: string;
+        readonly onlineBookable: string;
+        readonly onlineBookableHint: string;
+        readonly depositNone: string;
+        readonly depositFixed: string;
+        readonly depositPercent: string;
+        readonly depositAmount: string;
+        readonly depositPercentLabel: string;
+        readonly depositSummary: (deposit: string, rest: string) => string;
+        readonly depositNoneSummary: string;
+        readonly timelineCaption: (
+            total: number,
+            before: number,
+            main: number,
+            after: number,
+        ) => string;
+        readonly mainSegment: (name: string, minutes: number) => string;
+        readonly taxClass: string;
+        readonly taxAll: string;
+        readonly taxOnly: (codes: string) => string;
+        readonly taxFederalOnly: string;
+        readonly taxExempt: string;
+        readonly taxNotRegistered: string;
+        readonly taxHintService: string;
+        readonly taxHintProduct: string;
+        readonly taxPreview: (rates: string, money: string) => string;
+        readonly productsSummary: (n: number, value: string) => string;
+        readonly addProduct: string;
+        readonly photo: string;
+        readonly changePhoto: string;
+        readonly photoHint: string;
+        readonly photoAfterSave: string;
+        readonly photoUploaded: string;
+        readonly sku: string;
+        readonly skuHint: string;
+        readonly cost: string;
+        readonly costHint: string;
+        readonly margin: string;
+        readonly marginSummary: (money: string, pct: number) => string;
+        readonly marginUnknown: string;
+        readonly marginLow: (threshold: string) => string;
+        readonly trackStock: string;
+        readonly trackStockHint: string;
+        readonly stockOnHand: string;
+        readonly lowAt: string;
+        readonly lowAtHint: string;
+        readonly sellOnline: string;
+        readonly sellOnlineHint: string;
+        readonly colProduct: string;
+        readonly colCost: string;
+        readonly colMargin: string;
+        readonly colStock: string;
+        readonly colSold: string;
+        readonly colShop: string;
+        readonly marginPct: (pct: number) => string;
+        readonly sold30: (n: number) => string;
+        readonly sortBy: string;
+        readonly sortName: string;
+        readonly sortMargin: string;
+        readonly sortStock: string;
+        readonly stockOut: string;
+        readonly stockLow: (n: number) => string;
+        readonly stockIn: (n: number) => string;
+        readonly inventorySubtitle: string;
+        readonly statTracked: string;
+        readonly statLow: string;
+        readonly statOut: string;
+        readonly statValue: string;
+        readonly statRetail: (money: string) => string;
+        readonly needsRestock: string;
+        readonly needsRestockHint: string;
+        readonly allTracked: string;
+        readonly allGood: string;
+        readonly restock: string;
+        readonly receive: string;
+        readonly suggested: (n: number) => string;
+        readonly daysLeft: (n: number) => string;
+        readonly restockTitle: (name: string) => string;
+        readonly restockQuantity: string;
+        readonly restockQuantityHint: string;
+        readonly restockNote: string;
+        readonly restockNotePlaceholder: string;
+        readonly restockAfter: (n: number) => string;
+        readonly restockSave: string;
+        readonly restocking: string;
+        readonly restockDone: (n: number, name: string) => string;
+        readonly restockCorrected: (n: number, name: string) => string;
+        readonly restockInvalid: string;
+        readonly restockError: string;
+        readonly openingStockNote: string;
+        readonly moveKinds: {
+            readonly sale: string;
+            readonly online: string;
+            readonly invoice: string;
+            readonly refund: string;
+            readonly restock: string;
+            readonly correction: string;
+        } & Labels;
+        readonly moveQtyIn: (n: number) => string;
+        readonly moveQtyOut: (n: number) => string;
+        readonly moveLabel: (name: string, qty: string) => string;
+        readonly by: (name: string) => string;
+        readonly recentMoves: string;
+        readonly noMoves: string;
+        readonly backToInventory: string;
+        readonly receiveTitle: string;
+        readonly receiveSubtitle: string;
+        readonly supplier: string;
+        readonly supplierPlaceholder: string;
+        readonly reference: string;
+        readonly referencePlaceholder: string;
+        readonly addSearch: string;
+        readonly deliveryEmpty: string;
+        readonly colOnHand: string;
+        readonly colReceived: string;
+        readonly colAfter: string;
+        readonly colUnitCost: string;
+        readonly colLineCost: string;
+        readonly onHandShort: (n: number) => string;
+        readonly onHandAfter: (from: number, to: number) => string;
+        readonly unitCostHint: string;
+        readonly deliveryTotal: (units: number, money: string) => string;
+        readonly removeLine: (name: string) => string;
+        readonly receivedFor: (name: string) => string;
+        readonly unitCostFor: (name: string) => string;
+        readonly receiveSave: (n: number) => string;
+        readonly received: (n: number) => string;
+        readonly receiveError: string;
+        readonly receiveInvalid: string;
+        readonly lowAfter: string;
+        readonly covers: string;
+        readonly coversHint: string;
+        readonly chooseService: string;
+        readonly visitsLabel: string;
+        readonly validForDays: string;
+        readonly noExpiryHint: string;
+        readonly billsEvery: string;
+        readonly includes: string;
+        readonly includesHint: string;
+        readonly memberPerk: string;
+        readonly memberPerkHint: string;
+        readonly giftAmounts: string;
+        readonly giftAmountsHint: string;
+        readonly giftNote: string;
+        readonly perVisit: (money: string) => string;
+        readonly saves: (money: string, n: number, name: string) => string;
+        readonly noSaving: string;
+        readonly perYear: (money: string) => string;
+        readonly planSummaryPackage: (n: number, name: string) => string;
+        readonly planSummaryIncomplete: string;
+        readonly planSummaryMembership: (money: string, freq: string) => string;
+        readonly sellsAt: string;
+        readonly freqLabel: {
+            readonly day: string;
+            readonly week: string;
+            readonly month: string;
+            readonly year: string;
+        } & Labels;
+        readonly freqWeek: string;
+        readonly freqMonth: string;
+        readonly freqYear: string;
+        readonly nameRequired: string;
+        readonly priceInvalid: string;
+        readonly durationRequired: string;
+        readonly depositRequired: string;
+        readonly depositPercentMax: string;
+        readonly sessionsRequired: string;
+        readonly coversRequired: string;
+        readonly intervalRequired: string;
+        readonly perkInvalid: string;
+        readonly stockInvalid: string;
+        readonly addError: string;
+        readonly saveError: string;
+    };
+    readonly refunds: {
+        readonly title: string;
+        readonly subtitle: string;
+        readonly tabs: {
+            readonly payments: string;
+            readonly notes: string;
+            readonly disputes: string;
+        } & Labels;
+        readonly paymentsTitle: string;
+        readonly searchPlaceholder: string;
+        readonly emptyTitle: string;
+        readonly emptyBody: string;
+        readonly noMatch: string;
+        readonly selectPayment: string;
+        readonly statusLabel: {
+            readonly paid: string;
+            readonly partly_refunded: string;
+            readonly refunded: string;
+        } & Labels;
+        readonly paid: string;
+        readonly refundedSoFar: string;
+        readonly leftToRefund: string;
+        readonly stripeFee: string;
+        readonly feeKept: (fee: string) => string;
+        readonly byHandNote: string;
+        readonly creditNote: string;
+        readonly howMuch: string;
+        readonly full: (amount: string) => string;
+        readonly part: string;
+        readonly amount: string;
+        readonly amountPlaceholder: (max: string) => string;
+        readonly reason: string;
+        readonly reasons: {
+            readonly service: string;
+            readonly skipped: string;
+            readonly duplicate: string;
+            readonly canceled: string;
+            readonly other: string;
+        } & Labels;
+        readonly notify: string;
+        readonly reverses: string;
+        readonly previewLoading: string;
+        readonly previewError: string;
+        readonly part_revenue: string;
+        readonly part_deferred: string;
+        readonly part_gift_card: string;
+        readonly part_deposit: string;
+        readonly part_tax: (code: string) => string;
+        readonly backTo: (method: string) => string;
+        readonly refundButton: (amount: string) => string;
+        readonly refunding: string;
+        readonly refundedDone: (amount: string, note: string) => string;
+        readonly errAmount: (max: string) => string;
+        readonly refundError: string;
+        readonly confirmTitle: (amount: string) => string;
+        readonly confirmBody: (note: string) => string;
+        readonly wholeOnly: string;
+        readonly history: string;
+        readonly paymentEvent: string;
+        readonly refundEvent: (note: string) => string;
+        readonly method: {
+            readonly card: string;
+            readonly cash: string;
+            readonly interac: string;
+            readonly bank_eft: string;
+            readonly cheque: string;
+            readonly other: string;
+        } & Labels;
+        readonly subject: {
+            readonly invoice: (n: number) => string;
+            readonly sale: (n: number) => string;
+            readonly giftCard: (code: string) => string;
+            readonly deposit: string;
+            readonly payment: string;
+        };
+        readonly notesSummary: (n: number, amount: string) => string;
+        readonly noNotes: string;
+        readonly colNote: string;
+        readonly colClient: string;
+        readonly colFor: string;
+        readonly colDate: string;
+        readonly colReason: string;
+        readonly colAmount: string;
+        readonly noReason: string;
+        readonly disputesSummary: (open: number) => string;
+        readonly noDisputes: string;
+        readonly openGroup: string;
+        readonly closedGroup: string;
+        readonly disputeStatus: {
+            readonly needs_response: string;
+            readonly under_review: string;
+            readonly won: string;
+            readonly lost: string;
+        } & Labels;
+        readonly disputeTitle: (amount: string) => string;
+        readonly respondBy: (when: string, days: number) => string;
+        readonly reviewNote: string;
+        readonly wonNote: string;
+        readonly lostNote: string;
+        readonly reasonLabel: string;
+        readonly payment: string;
+        readonly forLabel: string;
+        readonly opened: string;
+        readonly withdrawn: string;
+        readonly disputeFee: string;
+        readonly held: string;
+        readonly returnedIfWon: string;
+        readonly refundPending: string;
+        readonly refundFailed: string;
+        readonly disputeReasons: {
+            readonly fraudulent: string;
+            readonly duplicate: string;
+            readonly product_not_received: string;
+            readonly product_unacceptable: string;
+            readonly subscription_canceled: string;
+            readonly credit_not_processed: string;
+            readonly general: string;
+        } & Labels;
+    };
+    readonly taxes: {
+        readonly subtitle: string;
+        readonly registeredQ: string;
+        readonly regYes: string;
+        readonly regYesHint: string;
+        readonly regSmall: (threshold: string) => string;
+        readonly regSmallHint: string;
+        readonly offNotice: string;
+        readonly province: string;
+        readonly gst: string;
+        readonly gstHint: string;
+        readonly gstInvalid: string;
+        readonly pst: string;
+        readonly pstHint: string;
+        readonly pstInvalid: string;
+        readonly frequency: string;
+        readonly freq: {
+            readonly monthly: string;
+            readonly quarterly: string;
+            readonly annual: string;
+        } & Labels;
+        readonly save: string;
+        readonly saving: string;
+        readonly saved: string;
+        readonly saveError: string;
+        readonly filingTitle: string;
+        readonly filingDue: (date: string) => string;
+        readonly filingPeriod: (from: string, to: string) => string;
+        readonly filingCollected: string;
+        readonly openReport: string;
+        readonly classesTitle: string;
+        readonly classesBody: string;
+        readonly colItem: string;
+        readonly colKind: string;
+        readonly colPrice: string;
+        readonly colClass: string;
+        readonly classFor: (name: string) => string;
+        readonly anyAmount: string;
+        readonly selectAll: string;
+        readonly selectItem: (name: string) => string;
+        readonly selected: (n: number) => string;
+        readonly setTo: string;
+        readonly clear: string;
+        readonly kinds: {
+            readonly service: string;
+            readonly class: string;
+            readonly product: string;
+            readonly package: string;
+            readonly subscription: string;
+            readonly gift: string;
+        } & Labels;
+        readonly classes: { readonly exempt: string } & Labels;
+        readonly only: (name: string) => string;
+        readonly names: {
+            readonly GST: string;
+            readonly HST: string;
+            readonly PST: string;
+            readonly QST: string;
+            readonly RST: string;
+        } & Labels;
+        readonly rate: (name: string, rate: string) => string;
+        readonly plus: (first: string, second: string) => string;
+        readonly exampleFor: { readonly federal_only: string; readonly standard: string } & Labels;
+        readonly exampleTitle: (amount: string) => string;
+        readonly total: string;
+        readonly noItemsTitle: string;
+        readonly noItemsBody: string;
+        readonly addItems: string;
+        readonly loading: string;
+        readonly loadError: string;
+        readonly classError: string;
+    };
+    readonly payments: {
+        readonly setupStartError: string;
+        readonly notConfigured: string;
+        readonly bankAccountNoun: string;
+        readonly cardNoun: string;
+        readonly interacNoun: string;
+        readonly savedCardLabel: (noun: string, last4: string) => string;
+        readonly interac: {
+            readonly title: string;
+            readonly requestFor: (n: string, name: string) => string;
+            readonly open: string;
+            readonly facts: {
+                readonly total: string;
+                readonly paid: string;
+                readonly balance: string;
+                readonly due: string;
+            } & Labels;
+            readonly newRequest: string;
+            readonly amount: string;
+            readonly amountHint: (balance: string) => string;
+            readonly sendBy: string;
+            readonly channels: { readonly sms: string; readonly email: string } & Labels;
+            readonly noPhone: string;
+            readonly noEmail: string;
+            readonly expiresIn: string;
+            readonly expiryOptions: {
+                readonly "7": string;
+                readonly "14": string;
+                readonly "30": string;
+            } & Labels;
+            readonly preview: string;
+            readonly previewMessage: (
+                biz: string,
+                amount: string,
+                to: string,
+                ref: string,
+                link: string,
+            ) => string;
+            readonly newCode: string;
+            readonly noPayEmail: string;
+            readonly send: string;
+            readonly sending: string;
+            readonly sent: (to: string) => string;
+            readonly errAmount: (balance: string) => string;
+            readonly errContact: string;
+            readonly requestError: string;
+            readonly replacesOld: (ref: string) => string;
+            readonly requests: string;
+            readonly noRequests: string;
+            readonly requested: (ref: string, amount: string) => string;
+            readonly received: (amount: string) => string;
+            readonly state: {
+                readonly pending: string;
+                readonly succeeded: string;
+                readonly canceled: string;
+                readonly expired: string;
+            } & Labels;
+            readonly sentVia: (channel: string) => string;
+            readonly expiresOn: (when: string) => string;
+            readonly inboxLater: string;
+        };
+    };
+    readonly terminal: {
+        readonly failed: string;
+        readonly connecting: string;
+        readonly setup: string;
+        readonly unavailable: string;
+        readonly discoveryError: string;
+        readonly connectionError: string;
+        readonly locationMissing: string;
+        readonly paymentError: string;
+        readonly retry: string;
+    } & Labels;
+    readonly paymentAccount: {
+        readonly onboarding: string;
+        readonly account: string;
+        readonly payments: string;
+        readonly payouts: string;
+        readonly loading: string;
+        readonly error: string;
+        readonly unavailable: string;
+        readonly preview: string;
+        readonly retry: string;
+        readonly close: string;
+        readonly manage: string;
+        readonly manageOnWeb: string;
+        readonly reviewSetup: string;
+        readonly webError: string;
+        readonly viewPayouts: string;
+        readonly manageDisputes: string;
+        readonly disputeHelp: string;
+        readonly expired: string;
+    } & Labels;
+    readonly gettingPaid: {
+        readonly reqExternalAccount: string;
+        readonly reqBusinessWebsite: string;
+        readonly reqBusinessCategory: string;
+        readonly reqProductDescription: string;
+        readonly reqIdNumber: string;
+        readonly reqPhotoId: string;
+        readonly reqProofOfAddress: string;
+        readonly reqHomeAddress: string;
+        readonly reqBusinessNumber: string;
+        readonly reqTosAcceptance: string;
+        readonly reqDateOfBirth: string;
+        readonly reqFirstName: string;
+        readonly reqLastName: string;
+        readonly reqEmail: string;
+        readonly reqPhone: string;
+        readonly reqJobTitle: string;
+        readonly reqBusinessName: string;
+        readonly reqBusinessAddress: string;
+        readonly reqBusinessType: string;
+        readonly reqOther: string;
+        readonly reqWhy: {
+            readonly external_account: string;
+            readonly individual_verification_document: string;
+            readonly individual_verification_additional_document: string;
+            readonly individual_id_number: string;
+            readonly tos_acceptance_date: string;
+        } & Labels;
+        readonly subtitle: string;
+        readonly titleInProgress: string;
+        readonly titlePending: string;
+        readonly titleDisabled: string;
+        readonly pausedTitle: string;
+        readonly pausedBody: (date: string) => string;
+        readonly pausedBodyNoDate: string;
+        readonly readyTitle: string;
+        readonly readyBody: string;
+        readonly phaseNotConnected: string;
+        readonly phaseInProgress: string;
+        readonly phasePending: string;
+        readonly phaseDisabled: string;
+        readonly finish: string;
+        readonly connect: string;
+        readonly refresh: string;
+        readonly checking: string;
+        readonly loadError: string;
+        readonly loadingStatus: string;
+        readonly connectTitle: string;
+        readonly whatsNeeded: string;
+        readonly nothingNeeded: string;
+        readonly pastDue: string;
+        readonly due: (date: string) => string;
+        readonly dueSoon: string;
+        readonly help: string;
+        readonly capabilities: string;
+        readonly capCards: string;
+        readonly capTap: string;
+        readonly capPayouts: string;
+        readonly capOn: string;
+        readonly capOff: string;
+        readonly balance: string;
+        readonly available: string;
+        readonly held: string;
+        readonly balanceUnknown: string;
+    };
+    readonly today: {
+        readonly goodMorning: string;
+        readonly goodAfternoon: string;
+        readonly goodEvening: string;
+        readonly greetingNamed: (part: string, name: string) => string;
+        readonly newBooking: string;
+        readonly newSale: string;
+        readonly booked: string;
+        readonly bookedHint: (done: number, left: number) => string;
+        readonly expected: string;
+        readonly expectedHint: string;
+        readonly viewAllPayments: string;
+        readonly noOverdueInvoices: string;
+        readonly collected: string;
+        readonly collectedHint: (n: number) => string;
+        readonly awaiting: string;
+        readonly awaitingHint: (n: number) => string;
+        readonly setAside: string;
+        readonly filing: (due: string, days: number) => string;
+        readonly filingLate: (due: string) => string;
+        readonly filingShort: (due: string) => string;
+        readonly notRegistered: string;
+        readonly schedule: string;
+        readonly openSchedule: string;
+        readonly needsYou: string;
+        readonly allClear: string;
+        readonly team: string;
+        readonly teamOff: string;
+        readonly teamCount: (n: number) => string;
+        readonly quietTitle: string;
+        readonly quietBody: string;
+        readonly shareBookingPage: string;
+        readonly shareLink: string;
+        readonly linkCopied: string;
+        readonly stateNow: string;
+        readonly stateNext: string;
+        readonly stateNoShow: string;
+        readonly stateDone: string;
+        readonly depositDue: string;
+        readonly classBooked: (n: number, cap: number) => string;
+        readonly nowLine: (time: string) => string;
+        readonly checkIn: string;
+        readonly checkout: string;
+        readonly checkedIn: string;
+        readonly inMinutes: (hours: number, minutes: number) => string;
+        readonly endsAt: (time: string) => string;
+        readonly withStaff: (name: string) => string;
+        readonly upNext: string;
+        readonly restOfDay: string;
+        readonly hoursValue: (from: string, to: string) => string;
+        readonly loading: string;
+        readonly loadError: string;
+        readonly loadErrorBody: string;
+        readonly numbersError: string;
+        readonly numbersErrorBody: string;
+        readonly sent: string;
+        readonly actionError: string;
+        readonly attention: {
+            readonly depositTitle: string;
+            readonly depositDetail: (client: string, amount: string, time: string) => string;
+            readonly depositAction: string;
+            readonly overdueTitle: (n: number) => string;
+            readonly overdueDetail: (client: string, amount: string, days: number) => string;
+            readonly overdueAction: string;
+            readonly unreadTitle: (n: number) => string;
+            readonly unreadDetail: (names: string) => string;
+            readonly unreadAction: string;
+            readonly reviewTitle: (stars: number) => string;
+            readonly reviewAction: string;
+            readonly stockTitle: (item: string) => string;
+            readonly stockDetail: (left: number, at: number) => string;
+            readonly stockManyTitle: (n: number) => string;
+            readonly stockManyDetail: (a: string, b: string, more: number) => string;
+            readonly stockAction: string;
+            readonly filingTitle: string;
+            readonly filingDetail: (amount: string, due: string) => string;
+            readonly filingAction: string;
+            readonly earningsTitle: string;
+            readonly earningsDetail: (n: number, amount: string) => string;
+            readonly earningsAction: string;
+            readonly draftTitle: string;
+            readonly draftDetail: (client: string, amount: string) => string;
+            readonly draftAction: string;
+        };
+        readonly staff: {
+            readonly subtitle: (n: number) => string;
+            readonly nextClient: string;
+            readonly service: string;
+            readonly time: string;
+            readonly client: string;
+            readonly yourDay: string;
+            readonly hours: string;
+            readonly earnings: string;
+            readonly earningsHint: string;
+            readonly lastVisit: (when: string) => string;
+            readonly free: (from: string, to: string) => string;
+            readonly dayEnds: (time: string) => string;
+            readonly message: string;
+            readonly noNext: string;
+            readonly noNextBody: string;
+            readonly tomorrow: string;
+            readonly messagesForYou: string;
+            readonly nothingElse: string;
+        };
+    };
+    readonly reports: {
+        readonly title: string;
+        readonly subtitle: string;
+        readonly period: {
+            readonly thisMonth: string;
+            readonly lastMonth: string;
+            readonly lastQuarter: string;
+            readonly ytd: string;
+        } & Labels;
+        readonly periodLabel: string;
+        readonly range: (from: string, to: string) => string;
+        readonly library: {
+            readonly income: string;
+            readonly salesByItem: string;
+            readonly gstHst: string;
+            readonly pst: string;
+            readonly t4a: string;
+            readonly payouts: string;
+        } & Labels;
+        readonly libraryHint: {
+            readonly income: string;
+            readonly salesByItem: string;
+            readonly gstHst: string;
+            readonly pst: string;
+            readonly t4a: string;
+            readonly payouts: string;
+        } & Labels;
+        readonly pstTitle: (code: string) => string;
+        readonly noProvincial: string;
+        readonly gstHst: string;
+        readonly sales: string;
+        readonly refunds: string;
+        readonly netSales: string;
+        readonly taxCollected: (code: string) => string;
+        readonly salesWithTax: string;
+        readonly tips: string;
+        readonly received: (amount: string) => string;
+        readonly byMethod: string;
+        readonly noPayments: string;
+        readonly method: {
+            readonly card: string;
+            readonly interac: string;
+            readonly bank_eft: string;
+            readonly cash: string;
+            readonly cheque: string;
+            readonly other: string;
+        } & Labels;
+        readonly share: (fraction: number) => string;
+        readonly kind: {
+            readonly service: string;
+            readonly class: string;
+            readonly product: string;
+            readonly subscription: string;
+            readonly package: string;
+            readonly gift: string;
+        } & Labels;
+        readonly months: readonly [
             string,
-            string
-        >,
-        freqWeek: "Every week",
-        freqMonth: "Every month",
-        freqYear: "Every year",
-        nameRequired: "Give it a name",
-        priceInvalid: "Enter a price like 45 or 45.00",
-        durationRequired: "Set how long it takes, in minutes",
-        depositRequired: "Enter the deposit amount",
-        depositPercentMax: "A percentage deposit can’t be over 100",
-        sessionsRequired: "Set how many visits the package includes",
-        coversRequired: "Choose which service a visit covers",
-        intervalRequired: "Set how often it bills",
-        perkInvalid: "Enter a discount between 0 and 100",
-        stockInvalid: "Stock on hand must be a whole number",
-        addError: "Couldn’t add the item. Please try again.",
-        saveError: "Couldn’t save the item. Please try again.",
-    },
-    refunds: {
-        title: "Refunds",
-        subtitle:
-            "Refund all or part of a payment. Each refund is a credit note that reverses its share of revenue and tax.",
-        tabs: { payments: "Payments", notes: "Credit notes", disputes: "Disputes" },
-        paymentsTitle: "Recent payments",
-        searchPlaceholder: "Search client, invoice or card",
-        emptyTitle: "No payments to refund",
-        emptyBody:
-            "Card, Tap to Pay, e-Transfer and cash payments show here once clients pay. Refund one to issue a credit note.",
-        noMatch: "Nothing matches that search.",
-        selectPayment: "Choose a payment to refund.",
-        statusLabel: {
-            paid: "Paid",
-            partly_refunded: "Partly refunded",
-            refunded: "Refunded",
-        } as Record<string, string>,
-        paid: "Paid",
-        refundedSoFar: "Refunded so far",
-        leftToRefund: "Left to refund",
-        stripeFee: "Processing fee",
-        feeKept: (fee: string) => `The ${fee} processing fee isn't returned on refunds.`,
-        byHandNote:
-            "This payment must be returned outside Clientbridge. Give the money back yourself; the refund records it.",
-        creditNote: "Credit note",
-        howMuch: "How much",
-        full: (amount: string) => `All of it (${amount})`,
-        part: "Part",
-        amount: "Amount",
-        amountPlaceholder: (max: string) => `Up to ${max}`,
-        reason: "Reason",
-        reasons: {
-            service: "Service not as expected",
-            skipped: "Part of the service skipped",
-            duplicate: "Charged twice",
-            canceled: "Canceled by the client",
-            other: "Other",
-        } as Record<string, string>,
-        notify: "Email the client the credit note",
-        reverses: "This refund reverses",
-        previewLoading: "Working out the split",
-        previewError: "Couldn't work out the split. Try again.",
-        part_revenue: "Revenue",
-        part_deferred: "Unused package value",
-        part_gift_card: "Gift card balance",
-        part_deposit: "Deposit",
-        part_tax: (code: string) => code,
-        backTo: (method: string) => `Back to ${method}`,
-        refundButton: (amount: string) => `Refund ${amount}`,
-        refunding: "Refunding…",
-        refundedDone: (amount: string, note: string) =>
-            `Refunded ${amount}. ${note} is on the client's account.`,
-        errAmount: (max: string) => `Enter an amount up to ${max}.`,
-        refundError: "The refund didn't go through. Nothing changed; please try again.",
-        confirmTitle: (amount: string) => `Refund ${amount}?`,
-        confirmBody: (note: string) => `This issues credit note ${note} and can't be undone.`,
-        wholeOnly: "Gift card and package purchases are refunded in full only.",
-        history: "Refunds on this payment",
-        paymentEvent: "Payment",
-        refundEvent: (note: string) => `Refunded · ${note}`,
-        method: {
-            card: "Card",
-            cash: "Cash",
-            interac: "e-Transfer",
-            bank_eft: "Bank debit",
-            cheque: "Cheque",
-            other: "Payment",
-        } as Record<string, string>,
-        subject: {
-            invoice: (n: number) => `Invoice #${String(n)}`,
-            sale: (n: number) => `Sale S-${String(n)}`,
-            giftCard: (code: string) => `Gift card ${code}`,
-            deposit: "Booking deposit",
-            payment: "Payment",
-        },
-        notesSummary: (n: number, amount: string) =>
-            `${String(n)} credit notes · ${amount} refunded this month`,
-        noNotes: "No refunds yet. Credit notes appear here after a refund.",
-        colNote: "Credit note",
-        colClient: "Client",
-        colFor: "For",
-        colDate: "Date",
-        colReason: "Reason",
-        colAmount: "Amount",
-        noReason: "No reason given",
-        disputesSummary: (open: number) => `${String(open)} open`,
-        noDisputes:
-            "No disputes. When a client disputes a card charge it shows here with the bank's deadline.",
-        openGroup: "Open",
-        closedGroup: "Closed",
-        disputeStatus: {
-            needs_response: "Needs response",
-            under_review: "Under review",
-            won: "Won",
-            lost: "Lost",
-        } as Record<string, string>,
-        disputeTitle: (amount: string) => `Dispute · ${amount}`,
-        respondBy: (when: string, days: number) =>
-            `Respond by ${when} · ${String(days)} ${days === 1 ? "day" : "days"} left`,
-        reviewNote: "Evidence is with the card issuer.",
-        wonNote: "Won. The funds and the fee came back.",
-        lostNote: "Lost. The funds and the dispute fee stay with the client's bank.",
-        reasonLabel: "Reason given",
-        payment: "Payment",
-        forLabel: "For",
-        opened: "Opened",
-        withdrawn: "Withdrawn by the bank",
-        disputeFee: "Dispute fee",
-        held: "Held from your payments balance",
-        returnedIfWon: "Returned if you win",
-        refundPending: "The refund is processing. Its credit note will appear after it succeeds.",
-        refundFailed:
-            "The refund did not complete. No money was recorded as returned. Try again or review the payment.",
-        disputeReasons: {
-            fraudulent: "Didn't recognise the charge",
-            duplicate: "Charged twice",
-            product_not_received: "Service not received",
-            product_unacceptable: "Service not as described",
-            subscription_canceled: "Membership was canceled",
-            credit_not_processed: "Refund not received",
-            general: "Other",
-        } as Record<string, string>,
-    },
-    taxes: {
-        subtitle: "What you charge, and the numbers that go on invoices and receipts.",
-        registeredQ: "Are you registered for GST/HST?",
-        regYes: "Yes, I have a GST/HST number",
-        regYesHint: "Tax is added to sales, invoices and bookings.",
-        regSmall: "Not yet, I earn under $30,000 a year",
-        regSmallHint:
-            "Small suppliers don't have to register. No tax is added until you add your number.",
-        offNotice: "Sales tax is off. Invoices, sales and bookings show no tax.",
-        province: "Province",
-        gst: "GST/HST number",
-        gstHint: "9 digits, then RT and 4 digits.",
-        gstInvalid: "Enter it like 84720 1539 RT0001.",
-        pst: "PST number",
-        pstHint: "Needed only if you sell products or taxable services.",
-        pstInvalid: "Enter it like PST-1234-5678.",
-        frequency: "Filing period",
-        freq: { monthly: "Monthly", quarterly: "Quarterly", annual: "Yearly" },
-        save: "Save tax settings",
-        saving: "Saving…",
-        saved: "Saved",
-        saveError: "We couldn't save your tax settings. Try again.",
-        filingTitle: "Next GST/HST return",
-        filingDue: (date: string) => `Due ${date}`,
-        filingPeriod: (from: string, to: string) => `${from} to ${to}`,
-        filingCollected: "Collected so far",
-        openReport: "Open GST/HST report",
-        classesTitle: "Tax by item",
-        classesBody:
-            "Each item carries a tax class. It's copied onto every line, so changing it never alters past invoices.",
-        colItem: "Item",
-        colKind: "Kind",
-        colPrice: "Price",
-        colClass: "Tax",
-        classFor: (name: string) => `Tax for ${name}`,
-        anyAmount: "Any amount",
-        selectAll: "Select all items",
-        selectItem: (name: string) => `Select ${name}`,
-        selected: (n: number) => `${String(n)} selected`,
-        setTo: "Set to",
-        clear: "Clear",
-        kinds: {
-            service: "Service",
-            class: "Class",
-            product: "Product",
-            package: "Package",
-            subscription: "Membership",
-            gift: "Gift card",
-        } as Record<string, string>,
-        classes: { exempt: "No tax" },
-        only: (name: string) => `${name} only`,
-        exampleFor: { federal_only: "Service", standard: "Product" } as Record<string, string>,
-        exampleTitle: "On a $100 sale",
-        total: "Total",
-        noItemsTitle: "Nothing to tax yet",
-        noItemsBody: "Add your services and products. Each one starts with the standard tax class.",
-        addItems: "Add services",
-        loading: "Loading tax settings",
-        loadError: "We couldn't load your tax settings.",
-        classError: "We couldn't change the tax class. Try again.",
-    },
-    payments: {
-        setupStartError: "Couldn't start payment setup. Please try again.",
-        notConfigured: "Card payments aren't set up on this server yet.",
-        bankAccountNoun: "Bank account",
-        cardNoun: "Card",
-        interacNoun: "Interac e-Transfer",
-        savedCardLabel: (noun: string, last4: string) => `${noun} ···· ${last4}`,
-
-        interac: {
-            title: "Request an e-Transfer",
-            requestFor: (n: string, name: string) => `${n} · ${name}`,
-            open: "Request e-Transfer",
-            facts: { total: "Total", paid: "Paid", balance: "Balance due", due: "Due" },
-            newRequest: "New request",
-            amount: "Amount",
-            amountHint: (balance: string) => `Balance due is ${balance}`,
-            sendBy: "Send by",
-            channels: { sms: "Text", email: "Email" } as Record<string, string>,
-            noPhone: "No phone number on file",
-            noEmail: "No email on file",
-            expiresIn: "Expires after",
-            expiryOptions: { "7": "7 days", "14": "14 days", "30": "30 days" } as Record<
-                string,
-                string
-            >,
-            preview: "What the client gets",
-            previewMessage: (biz: string, amount: string, to: string, ref: string, link: string) =>
-                `${biz}: please send ${amount} by Interac e-Transfer to ${to} with ${ref} in the message. Details: ${link}`,
-            newCode: "a new code",
-            noPayEmail: "your payment email",
-            send: "Send request",
-            sending: "Sending…",
-            sent: (to: string) => `Request sent to ${to}`,
-            errAmount: (balance: string) => `Enter an amount up to the ${balance} balance.`,
-            errContact: "Add a phone number or email to this client first.",
-            requestError: "Couldn't send the request. Please try again.",
-            replacesOld: (ref: string) => `Sending a new request cancels ${ref}.`,
-            requests: "e-Transfer requests",
-            noRequests: "No e-Transfer requested yet.",
-            requested: (ref: string, amount: string) => `${ref} · ${amount}`,
-            received: (amount: string) => `${amount} received`,
-            state: {
-                pending: "Waiting",
-                succeeded: "Received",
-                canceled: "Replaced",
-                expired: "Expired",
-            } as Record<string, string>,
-            sentVia: (channel: string | null) =>
-                channel === "sms"
-                    ? "Sent by text"
-                    : channel === "email"
-                      ? "Sent by email"
-                      : "Requested",
-            expiresOn: (when: string) => `Expires ${when}`,
-            inboxLater:
-                "Transfers are matched by their reference code. A matching inbox for transfers without one needs a bank feed and comes later.",
-        },
-    },
-    terminal: {
-        failed: "Tap to Pay needs attention",
-        connecting: "Connecting Tap to Pay",
-        setup: "Keep this screen open while your device connects.",
-        unavailable:
-            "Tap to Pay couldn't start. Use a supported device with a current app build, then try again. You can also choose another payment method.",
-        discoveryError:
-            "We couldn't find this device's Tap to Pay reader. Check your connection and device permissions, then try again.",
-        connectionError:
-            "The reader couldn't connect. Check your internet connection and payment setup, then try again.",
-        locationMissing:
-            "Your payment location hasn't synced yet. Check your connection, reopen this sale and try again.",
-        paymentError:
-            "The payment couldn't finish on this device. Check the sale's payment status before retrying or choosing another payment method.",
-        retry: "Reconnect reader",
-    },
-    paymentAccount: {
-        onboarding: "Set up payments",
-        account: "Payment account and bank details",
-        payments: "Payments and disputes",
-        payouts: "Payout activity",
-        loading: "Opening secure payment tools…",
-        error: "We couldn't open your payment account. Check your connection and try again.",
-        unavailable: "Payment account tools are not configured in this environment.",
-        preview: "This preview doesn't connect to a payment account.",
-        retry: "Try again",
-        close: "Done",
-        manage: "Manage account and bank details",
-        manageOnWeb: "Manage bank details on web",
-        reviewSetup: "Review payment setup",
-        webError:
-            "We couldn't open the web app. Try again or sign in to Clientbridge in your browser.",
-        viewPayouts: "View payout activity",
-        manageDisputes: "Respond to disputes",
-        disputeHelp:
-            "Open payments to review the disputed charge and submit your response. Refunds stay in Clientbridge so your records remain up to date.",
-        expired: "This payment account session has closed. Open it again to continue.",
-    },
-    gettingPaid: {
-        reqExternalAccount: "Bank account for payouts",
-        reqBusinessWebsite: "Business website",
-        reqBusinessCategory: "Business category",
-        reqProductDescription: "What you sell",
-        reqIdNumber: "ID number (SIN)",
-        reqPhotoId: "Photo ID",
-        reqProofOfAddress: "Proof of address",
-        reqHomeAddress: "Home address",
-        reqBusinessNumber: "Business number",
-        reqTosAcceptance: "Accept the payment terms",
-        reqDateOfBirth: "Date of birth",
-        reqWhy: {
-            external_account:
-                "Where your payouts go. A Canadian chequing account in the business or owner's name.",
-            "individual.verification.document":
-                "A driver's licence or passport for the account representative. A clear photo of the front and back.",
-            "individual.verification.additional_document":
-                "A utility bill or bank statement from the last 3 months showing a home address.",
-            "individual.id_number": "The account representative's social insurance number.",
-            "tos_acceptance.date": "Read and accept the payment services agreement.",
-        } as Record<string, string>,
-        subtitle: "Take card payments and receive payouts to your bank.",
-        titleInProgress: "Finish setting up payments",
-        titlePending: "Your details are being verified",
-        titleDisabled: "Payments are turned off",
-        pausedTitle: "Payouts are paused",
-        pausedBody: (date: Date) =>
-            `You can still take card payments, but your payouts are on hold until you send what's listed below. Send it by ${date.toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })} to keep card payments on.`,
-        pausedBodyNoDate:
-            "You can still take card payments, but your payouts are on hold until you send what's listed below.",
-        readyTitle: "You're set up to get paid",
-        readyBody: "Card payments, Tap to Pay and payouts are all on.",
-        phaseNotConnected:
-            "Set up card payments, deposits and Tap to Pay. It takes about 10 minutes and you'll need a photo ID and your bank details.",
-        phaseInProgress: "You started setting up payments. Pick up where you left off.",
-        phasePending:
-            "Your details are being verified. No action is needed while verification is pending.",
-        phaseDisabled:
-            "Card payments are turned off on this account. Contact support and we'll help sort it out.",
-        finish: "Finish payment setup",
-        connect: "Set up payments",
-        opening: "Opening payment setup…",
-        refresh: "Check again",
-        checking: "Checking…",
-        loadError: "We couldn't check your payment setup. Try again.",
-        loadingStatus: "Checking your payment setup",
-        connectTitle: "Card payments aren't set up yet",
-        whatsNeeded: "What we need from you",
-        nothingNeeded: "Nothing is needed from you right now.",
-        pastDue: "Overdue",
-        due: (date: string) => `Due ${date}`,
-        dueSoon: "Due",
-        help: "These details are needed to verify your business for payments. Identity documents are collected by our payment partner.",
-        capabilities: "What's on",
-        capCards: "Card payments",
-        capTap: "Tap to Pay on iPhone and Android",
-        capPayouts: "Payouts to your bank",
-        capOn: "On",
-        capOff: "Paused",
-        balance: "Balance",
-        available: "Ready to pay out",
-        held: "Held until verified",
-        balanceUnknown: "Shown once card payments are on",
-    },
-    today: {
-        goodMorning: "Good morning",
-        goodAfternoon: "Good afternoon",
-        goodEvening: "Good evening",
-        greetingNamed: (part: string, name: string) => `${part}, ${name}`,
-        newBooking: "New booking",
-        newSale: "New sale",
-        booked: "Booked today",
-        bookedHint: (done: number, left: number) => `${String(done)} done, ${String(left)} to go`,
-        expected: "Still to come",
-        expectedHint: "left to take today, after deposits",
-        viewAllPayments: "View all",
-        noOverdueInvoices: "No overdue invoices",
-        collected: "Collected today",
-        collectedHint: (n: number) =>
-            n === 1 ? "1 payment, after refunds" : `${String(n)} payments, after refunds`,
-        awaiting: "Awaiting payment",
-        awaitingHint: (n: number) => (n === 1 ? "1 open invoice" : `${String(n)} open invoices`),
-        setAside: "Sales tax set aside",
-        filing: (due: string, days: number) =>
-            days < 0
-                ? `Return was due ${due}`
-                : days === 0
-                  ? `Return due today, ${due}`
-                  : `Return due ${due}, in ${String(days)} days`,
-        filingShort: (due: string) => `Due ${due}`,
-        notRegistered: "Not registered for GST/HST, so nothing is set aside.",
-        schedule: "Today’s schedule",
-        openSchedule: "Open schedule",
-        needsYou: "Needs you",
-        allClear: "Nothing needs you right now.",
-        team: "Team today",
-        teamOff: "Off today",
-        teamCount: (n: number) => (n === 1 ? "1 booking" : `${String(n)} bookings`),
-        quietTitle: "A quiet day",
-        quietBody:
-            "Nothing is booked and nothing is waiting on you. Share your booking page or add a booking.",
-        shareBookingPage: "Copy booking link",
-        shareLink: "Share booking link",
-        linkCopied: "Link copied",
-        stateNow: "In progress",
-        stateNext: "Up next",
-        stateNoShow: "No-show",
-        stateDone: "Done",
-        depositDue: "Deposit due",
-        classBooked: (n: number, cap: number) => `${String(n)} of ${String(cap)} booked`,
-        nowLine: (time: string) => `Now ${time}`,
-        checkIn: "Check in",
-        checkout: "Checkout",
-        checkedIn: "Checked in",
-        inMinutes: (m: number) =>
-            m < 60
-                ? `in ${String(m)} min`
-                : `in ${String(Math.floor(m / 60))} h${m % 60 ? ` ${String(m % 60)} min` : ""}`,
-        endsAt: (time: string) => `until ${time}`,
-        withStaff: (name: string) => `with ${name}`,
-        upNext: "Up next",
-        restOfDay: "Later today",
-        hoursValue: (from: string, to: string) => `${from} to ${to}`,
-        loading: "Loading today",
-        loadError: "Couldn’t load today",
-        loadErrorBody:
-            "Check your connection. Your schedule on this device is still here once it loads.",
-        numbersError: "Couldn’t load your numbers",
-        numbersErrorBody:
-            "Money figures come from the server. Your bookings and clients are still here.",
-        sent: "Sent",
-        actionError: "That didn’t go through. Try again.",
-        attention: {
-            depositTitle: "Deposit not paid",
-            depositDetail: (client: string, amount: string, time: string) =>
-                `${client}, ${amount} for ${time} today`,
-            depositAction: "View",
-            overdueTitle: (n: number) => `Invoice #${String(n)} overdue`,
-            overdueDetail: (client: string, amount: string, days: number) =>
-                days <= 0
-                    ? `${client}, ${amount}, due today`
-                    : days === 1
-                      ? `${client}, ${amount}, 1 day late`
-                      : `${client}, ${amount}, ${String(days)} days late`,
-            overdueAction: "Remind",
-            unreadTitle: (n: number) =>
-                n === 1 ? "1 unread message" : `${String(n)} unread messages`,
-            unreadDetail: (names: string[]) => `From ${names.join(" and ")}`,
-            unreadAction: "Open",
-            reviewTitle: (stars: number) => `${String(stars)}-star review to answer`,
-            reviewAction: "Reply",
-            stockTitle: (item: string) => `${item} is low`,
-            stockDetail: (left: number, at: number) =>
-                `${String(left)} left, you reorder at ${String(at)}`,
-            stockManyTitle: (n: number) => `${String(n)} products running low`,
-            stockManyDetail: (a: string, b: string, more: number) =>
-                more > 0 ? `${a}, ${b} and ${String(more)} more` : `${a} and ${b}`,
-            stockAction: "Restock",
-            filingTitle: "Tax returns to file",
-            filingDetail: (amount: string, due: string) => `${amount} to file by ${due}`,
-            filingAction: "Prepare",
-            earningsTitle: "Staff earnings to approve",
-            earningsDetail: (n: number, amount: string) =>
-                n === 1 ? `1 earning, ${amount}` : `${String(n)} earnings, ${amount}`,
-            earningsAction: "Review",
-            draftTitle: "Draft invoice",
-            draftDetail: (client: string, amount: string) => `${amount} for ${client}`,
-            draftAction: "Review",
-        },
-        staff: {
-            subtitle: (n: number) =>
-                n === 0
-                    ? "No bookings for you today."
-                    : n === 1
-                      ? "You have 1 booking today."
-                      : `You have ${String(n)} bookings today.`,
-            nextClient: "Your next client",
-            service: "Service",
-            time: "Time",
-            client: "Client",
-            yourDay: "Your day",
-            hours: "Your hours",
-            earnings: "Earned, not paid yet",
-            earningsHint: "Paid out when your owner runs staff pay",
-            lastVisit: (when: string) => `Last visit ${when}`,
-            free: (from: string, to: string) => `Free from ${from} to ${to}`,
-            dayEnds: (time: string) => `Your day ends at ${time}`,
-            message: "Message",
-            noNext: "You’re done for today.",
-            noNextBody: "New bookings for you show up here as soon as they are made.",
-            tomorrow: "Tomorrow",
-            messagesForYou: "Messages from your clients",
-            nothingElse: "Nothing else on your plate.",
-        },
-    },
-    reports: {
-        title: "Reports",
-        subtitle:
-            "Income, sales, tax and staff pay for any period. Download them for your bookkeeper.",
-        period: {
-            thisMonth: "This month",
-            lastMonth: "Last month",
-            lastQuarter: "Last quarter",
-            ytd: "This year",
-        } as Record<string, string>,
-        periodLabel: "Period",
-        range: (from: string, to: string) => `${from} to ${to}`,
-        library: {
-            income: "Income",
-            salesByItem: "Sales by item",
-            gstHst: "GST/HST",
-            pst: "Provincial tax",
-            t4a: "T4A",
-            payouts: "Bank deposits",
-        } as Record<string, string>,
-        libraryHint: {
-            income: "Sales and how clients paid",
-            salesByItem: "Before tax, per item",
-            gstHst: "Remit to the CRA",
-            pst: "Filed with the province",
-            t4a: "Payments to staff this year",
-            payouts: "Payouts to your bank",
-        } as Record<string, string>,
-        pstTitle: (code: string) => `${code} collected`,
-        noProvincial: "Your province has no separate sales tax, so there is nothing to file here.",
-        gstHst: "GST/HST",
-        sales: "Sales",
-        refunds: "Refunds",
-        netSales: "Net sales",
-        taxCollected: (code: string) => `${code} collected`,
-        salesWithTax: "Sales with tax",
-        tips: "Tips, paid to staff",
-        received: (amount: string) => `Received ${amount}`,
-        byMethod: "How clients paid",
-        noPayments: "No payments received in this period.",
-        method: {
-            card: "Card",
-            interac: "Interac e-Transfer",
-            bank_eft: "Pre-authorized debit",
-            cash: "Cash",
-            cheque: "Cheque",
-            other: "Other",
-        } as Record<string, string>,
-        share: (fraction: number) => `${(fraction * 100).toFixed(1)}%`,
-        kind: {
-            service: "Service",
-            class: "Class",
-            product: "Retail",
-            subscription: "Membership",
-            package: "Package",
-            gift: "Gift card",
-        } as Record<string, string>,
-        months: [
-            "Jan",
-            "Feb",
-            "Mar",
-            "Apr",
-            "May",
-            "Jun",
-            "Jul",
-            "Aug",
-            "Sep",
-            "Oct",
-            "Nov",
-            "Dec",
-        ],
-        soFar: "so far",
-        monthlyNet: "Net sales by month",
-        monthlyNetHint: "Before tax, after refunds",
-        colItem: "Item",
-        colKind: "Type",
-        colQty: "Qty",
-        colSales: "Sales",
-        colRefunded: "Refunded",
-        colNet: "Net",
-        colPayee: "Payee",
-        colPayments: "Payments",
-        colPaid: "Paid",
-        qty: (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2)),
-        sold: (n: number) => `${Number.isInteger(n) ? String(n) : n.toFixed(2)} sold`,
-        taxableSales: "Taxable sales (line 101)",
-        gstLine105: (code: string) => `${code} collected (line 105)`,
-        gstNumber: (n: string | null) =>
-            n === null ? "No GST/HST number on file" : `GST/HST ${n}`,
-        provincialSales: "Sales that carried it",
-        provincialNumber: (code: string, n: string | null) =>
-            n === null ? `Filed with the province` : `${code} ${n}`,
-        t4aYear: (y: number) => `Calendar year ${String(y)}`,
-        t4aNote:
-            "Amounts paid to staff and contractors. Slips are due to payees and the CRA by the last day of February.",
-        noT4a: "Nothing paid to staff this year yet.",
-        noItems: "No items sold in this period.",
-        downloadCsv: "Download CSV",
-        csv: "CSV",
-        pdf: "PDF",
-        printHint: "PDF opens your browser's print dialog; choose Save as PDF.",
-        downloaded: (file: string) => `${file} is ready in your downloads.`,
-        downloadFailed: "Couldn't prepare the file. Please try again.",
-        noSales: "No sales in this period yet",
-        noSalesBody: "Reports fill in as you take payments. Try a longer period.",
-        loadError: "Couldn't load these figures",
-        loading: "Loading reports…",
-        bookkeeperPack: "Bookkeeper pack",
-        packTitle: "Bookkeeper pack",
-        packSubtitle: "Pick the reports, then download them as one ZIP of CSVs.",
-        packIncluded: "Included",
-        packRows: (n: number) => `${String(n)} ${n === 1 ? "row" : "rows"}`,
-        packDownload: "Download ZIP",
-        packWorking: "Preparing…",
-        packDone: "Your ZIP is ready. Check your downloads.",
-        packEmailLater: "Emailing the pack to your bookkeeper is coming; for now, attach the ZIP.",
-        shareCsv: "Share",
-        pickReport: "Pick at least one report.",
-        packFailed: "Couldn't prepare the pack. Please try again.",
-    },
-    remittances: {
-        subtitle: (federal: string, provincial: string | null) =>
-            provincial === null
-                ? `${federal} goes to the CRA for each period you file.`
-                : `${federal} goes to the CRA and ${provincial} to the province, each period you file.`,
-        owed: "Owed to the CRA",
-        owedHint: "Collected and not yet filed",
-        breakdown: "What makes up the amount",
-        provincialOwed: (code: string) => `${code} owed`,
-        provincialOwedHint: "Filed separately with the province",
-        quarter: (q: number, y: number) => `Q${String(q)} ${String(y)}`,
-        span: (from: string, to: string) => `${from} to ${to}`,
-        status: { filed: "Filed", due: "Ready to file", open: "In progress" } as Record<
             string,
-            string
-        >,
-        dueOn: (when: string) => `Due ${when}`,
-        overdue: (when: string) => `Was due ${when}; file it as soon as you can`,
-        dueIn: (days: number, when: string) =>
-            days === 0
-                ? `Due ${when}, today`
-                : `Due ${when}, in ${String(days)} ${days === 1 ? "day" : "days"}`,
-        filedOn: (when: string) => `Filed ${when}`,
-        filed: "Filed",
-        recordFiled: "Record filed return",
-        downloadCsv: "Download CSV",
-        reminder: (when: string) => `We'll remind you on ${when}`,
-        history: "Filed returns",
-        noHistory: "No returns filed yet.",
-        notRegistered:
-            "You don't collect sales tax yet, so there is nothing to file. Turn on tax registration in Setup once you pass $30,000 in a year.",
-        recordTitle: (period: string) => `Record the filed return: ${period}`,
-        whichReturn: "Return",
-        familyFor: (code: string) => `${code} return`,
-        worksheet: "GST/HST return worksheet",
-        worksheetHint: "Copy these lines into CRA My Business Account or NETFILE.",
-        provincialWorksheet: (code: string) => `${code} return`,
-        provincialWorksheetHint: "File it with the province for the same period.",
-        taxableSales: "Taxable sales (line 101)",
-        collected: (code: string) => `${code} collected (line 105)`,
-        itcLine: "Input tax credits (line 108)",
-        netLine: "Net tax (line 109)",
-        provincialSales: "Sales that carried it",
-        provincialCollected: (code: string) => `${code} collected`,
-        itcField: "Input tax credits",
-        itcHint: "GST/HST you paid on business expenses, from your receipts. Leave blank for none.",
-        confirmationField: "CRA confirmation number",
-        provincialConfirmationField: "Provincial confirmation number",
-        filedOnField: "Filed on",
-        paid: "Amount you paid",
-        record: "Record return",
-        recording: "Recording…",
-        recordHint: "Once recorded, the amount leaves tax set aside and the period is locked.",
-        recorded: (period: string, which: string) => `${which} for ${period} recorded as filed.`,
-        nothingToFile: "Both returns for this period are filed.",
-        noPeriods: "No tax periods yet",
-        noPeriodsBody: "Your first period appears once you take a taxed payment.",
-        loadError: "Couldn't load your tax returns",
-        loading: "Loading tax returns…",
-        gstHst: "GST/HST",
-        hst: "HST",
-        errors: {
-            itcInvalid: "Enter input tax credits as an amount, like 12.50.",
-            itcTooHigh: "Input tax credits can't be more than the tax collected for the period.",
-            needConfirmation: "Enter the confirmation number from the CRA.",
-            needPstConfirmation: "Enter the confirmation number from the province.",
-            filedOn: "Enter the day you filed, today or earlier.",
-            filingFailed: "Couldn't record the return. Please try again.",
-        },
-    },
-    payouts: {
-        subtitle: "Card payments are paid out to your bank automatically on your payout schedule.",
-        inStripe: "Awaiting payout",
-        inStripeHint: "Card money not paid out yet",
-        deposited: "Deposited",
-        depositedHint: "Last 30 days",
-        fees: "Fees",
-        feesHint: "Processing and Clientbridge fees, last 30 days",
-        status: { paid: "Deposited", failed: "Returned" } as Record<string, string>,
-        arrived: (when: string) => `Arrived ${when}`,
-        returned: (when: string) => `Returned ${when}`,
-        payoutRef: "Payout reference",
-        settledNotice:
-            "Which charges a payout settled isn't recorded yet. The recent card charges below show each one's fee.",
-        returnedNotice:
-            "Your bank returned this payout. Check your payout bank details before the next payout.",
-        chargesTitle: "Recent card charges",
-        chargesHint: "Last 30 days, with the processing and Clientbridge fees for each",
-        colCharge: "Charge",
-        colAmount: "Amount",
-        colFees: "Fees",
-        colNet: "Net",
-        refunded: (amount: string) => `refunded ${amount}`,
-        feePending: "Fee pending",
-        feePendingHint: "The fee is not available yet; it appears once the payment settles.",
-        invoiceCharge: (n: number) => `Invoice #${String(n)}`,
-        saleCharge: (n: number) => `Sale S-${String(n)}`,
-        depositCharge: "Booking deposit",
-        prepaidCharge: "Package, plan or gift card",
-        walkIn: "Walk-in",
-        noPayouts: "No payouts yet",
-        noPayoutsBody: "Card payments reach your bank a few business days after they settle.",
-        noCharges: "No card charges in the last 30 days.",
-        loadError: "Couldn't load your payouts",
-        loading: "Loading payouts…",
-    },
-    auth: {
-        invalidCredentials:
-            "That email and password don't match. Try again or reset your password.",
-        createAccountError: "Couldn't create that account. Try another email.",
-        heroHeadlineLine1: "The bridge between you",
-        heroHeadlineLine2: "and your clients.",
-        heroSubtitle:
-            "Bookings, invoices, payments and messages, synced to every device, online or off. Built for service businesses.",
-        heroFeatures: ["Scheduling", "Invoicing", "Payments", "GST/HST"],
-        signInTitle: "Sign in",
-        signUpTitle: "Create your account",
-        signInSubtitle: "Welcome back.",
-        signUpSubtitle: "Start running your business in minutes.",
-        name: "Your name",
-        namePlaceholder: "Hannah Wong",
-        email: "Email",
-        emailPlaceholder: "you@business.ca",
-        password: "Password",
-        passwordPlaceholder: "••••••••",
-        signingIn: "Signing in…",
-        creatingAccount: "Creating account…",
-        signIn: "Sign in",
-        createAccount: "Create account",
-        or: "or",
-        continueWithGoogle: "Continue with Google",
-        newToApp: "New to Clientbridge?",
-        haveAccount: "Already have an account?",
-        createAnAccount: "Create an account",
-        inviteTitle: "Accept your invite",
-        inviteSubtitle: "Set a password to join your team and start collaborating.",
-        inviteMissingCode:
-            "This invite link is missing its code. Please use the link from your email.",
-        inviteName: "Your name",
-        joining: "Joining…",
-        joinTeam: "Join team",
-        googleNotConfigured: "Google sign-in isn't set up yet. Use your email and password.",
-        newPassword: "Create a password",
-        passwordHint: "At least 8 characters.",
-        forgot: "Forgot password?",
-        showPassword: "Show password",
-        resetTitle: "Reset your password",
-        resetSubtitle:
-            "Enter the email you sign in with and we will send you a link to choose a new password.",
-        sentTitle: "Check your email",
-        sentBody: (email: string) =>
-            `If an account exists for ${email}, a reset link is on its way. It works for one hour.`,
-        sendLink: "Send reset link",
-        sending: "Sending…",
-        resend: "Resend email",
-        resendIn: (s: number) => `Resend in ${String(s)}s`,
-        backToSignIn: "Back to sign in",
-        openMail: "Open email app",
-        resetError: "Couldn't send the reset email. Check your connection and try again.",
-        locked: "Too many attempts. Try again in 15 minutes, or reset your password.",
-        attemptsLeft: (n: number) =>
-            `${String(n)} ${n === 1 ? "attempt" : "attempts"} left before a 15 minute pause.`,
-        emailRequired: "Enter your email address.",
-        emailInvalid: "Enter an email like name@business.ca.",
-        passwordRequired: "Enter your password.",
-        passwordShort: "Use at least 8 characters.",
-        nameRequired: "Enter your name.",
-        terms: "By creating an account you agree to the Terms and Privacy Policy.",
-    },
-    publicReceipt: {
-        notFoundTitle: "This receipt isn't available",
-        notFoundBody: "The link may be old. Ask the business to send it again.",
-        errorTitle: "Couldn't load this receipt.",
-        errorBody: "Check the connection, then reload the page.",
-        title: (name: string) => `Receipt from ${name}`,
-        sale: (n: string) => `Sale ${n}`,
-        servedBy: (names: string) => `Served by ${names}`,
-        discount: "Discount",
-        subtotal: "Subtotal",
-        total: "Total",
-        tip: "Tip",
-        tipNoTax: "no tax",
-        deposit: "Deposit paid",
-        refund: "Refunded",
-        method: {
-            card: "Card",
-            cash: "Cash",
-            interac: "Interac e-Transfer",
-            cheque: "Cheque",
-            deposit: "Deposit",
-            other: "Other",
-        } as Record<string, string>,
-        gst: (n: string) => `GST/HST ${n}`,
-        qst: (n: string) => `QST ${n}`,
-        print: "Print or save as PDF",
-        status: {
-            paid: "Paid",
-            refunded: "Refunded",
-            open: "Not paid",
-            void: "Void",
-        } as Record<string, string>,
-    },
-    publicPay: {
-        tipTitle: (name: string) => `Add a tip for ${name}?`,
-        tipTeam: "the team",
-        tipHint: "Optional. All of it goes to the staff, and a tip carries no tax.",
-        tipCustom: "Custom",
-        tipNone: "No tip",
-        tipAmount: "Tip amount",
-        tipInvalid: "Enter a tip like 10 or 10.00",
-        tipTooBig: "A tip can't be more than the amount owed",
-        tipRow: "Tip",
-        tipBase: (money: string) => `Tip is worked out on ${money}, before tax.`,
-        payWithTip: (money: string) => `Pay ${money} by card`,
-        notFoundTitle: "Invoice not found",
-        notFoundBody:
-            "This payment link is invalid or has expired. Please check with the business that sent it to you.",
-        cardNotConfigured: "Card payments aren't configured. Please use Interac e-Transfer.",
-        details: "What this is for",
-        invoice: "Invoice",
-        invoiceNumber: (n: number) => `Invoice #${n}`,
-        issued: "Issued",
-        due: "Due",
-        dueOn: (when: string) => `Due ${when}`,
-        balanceDue: "Balance due",
-        total: "Total",
-        subtotal: "Subtotal",
-        chooseHowToPay: "How would you like to pay?",
-        interacLabel: "Interac e-Transfer",
-        interacBadge: "From your bank, no fee",
-        cardLabel: "Credit or debit card",
-        cardBadge: "Visa, Mastercard, Amex",
-        payByInterac: "Get my reference code",
-        payByCard: "Pay by card",
-        paidTitle: "This invoice is paid, thank you",
-        paidBody: (businessName: string) =>
-            `Your payment to ${businessName} is complete. A receipt will follow from the business.`,
-        interacStartError: "We couldn't start the Interac payment. Please try again.",
-        cardStartError: "We couldn't start the card payment. Please try again.",
-        credit: (method: string, when: string) => `${method}, ${when}`,
-        depositCredit: "Deposit you paid when booking",
-        method: {
-            card: "Card",
-            cash: "Cash",
-            interac: "Interac e-Transfer",
-            bank_eft: "Bank debit",
-            cheque: "Cheque",
-            other: "Payment",
-        } as Record<string, string>,
-        downloadInvoice: "Download invoice",
-        seeSteps: "See how to send it",
-        etransferTitle: (biz: string) => `Pay ${biz} by e‑Transfer`,
-        amountToSend: "Amount to send",
-        paidSoFar: "Paid",
-        sendTo: "Send to",
-        putInMessage: "Put this in the message",
-        steps: "How to send it",
-        step1: "Open your bank's app or website and choose Interac e-Transfer.",
-        step2: (email: string) =>
-            `Add ${email} as a recipient. No security question is needed; deposits are automatic.`,
-        step2NoEmail: "Add the business's payment email as a recipient.",
-        step3: (amount: string) => `Send exactly ${amount}.`,
-        step4: (ref: string) => `Type ${ref} in the message box, then send.`,
-        progressLabel: (done: number, total: number) => `${String(done)} of ${String(total)} done`,
-        markStep: (n: number) => `Mark step ${String(n)} done`,
-        copy: "Copy",
-        copied: "Copied",
-        statusWaiting: "Waiting for your transfer",
-        statusWaitingBody: "This page updates on its own when it arrives.",
-        statusReceived: "Payment received",
-        statusReceivedBody: (amount: string, biz: string) =>
-            `Thanks. ${amount} reached ${biz} and your invoice is paid.`,
-        validUntil: (when: string) => `This request is open until ${when}.`,
-        payByCardInstead: "Pay by card instead",
-        viewInvoice: "View invoice",
-    },
-    publicEstimate: {
-        waiting: "Waiting for you",
-        note: "A note from the business",
-        notFoundTitle: "This estimate is no longer available",
-        notFoundBody:
-            "The link may be old, or the business replaced the estimate. Ask them for a new link.",
-        from: (biz: string) => `From ${biz}`,
-        estimate: "Estimate",
-        estimateNumber: (n: number) => `Estimate #${n}`,
-        preparedFor: (client: string) => `Prepared for ${client}`,
-        estimateTotal: "Estimate total",
-        validUntil: (when: string) => `Valid until ${when}`,
-        lines: "What's included",
-        optional: "Optional",
-        optionalNote: "Tick it to add it",
-        subtotal: "Subtotal",
-        total: "Total",
-        accept: "Accept estimate",
-        acceptFor: (amount: string) => `Accept for ${amount}`,
-        accepting: "Accepting…",
-        decline: "Decline",
-        declineReason: "Anything they should know?",
-        declineReasonHint: "Optional. It goes to the business.",
-        declinePlaceholder: "Timing, price, or a different service",
-        sendDecline: "Send",
-        cancel: "Cancel",
-        acceptNote: (biz: string) =>
-            `Accepting tells ${biz} to go ahead. Nothing is charged now; you'll get an invoice.`,
-        acceptedTitle: "Estimate accepted",
-        acceptedBody: (biz: string) => `Thanks. ${biz} has been told and will be in touch.`,
-        declinedTitle: "Estimate declined",
-        declinedBody: (biz: string) => `Thanks for letting ${biz} know.`,
-        expiredTitle: "This estimate has expired",
-        expiredBody: (biz: string) => `Ask ${biz} for an updated one.`,
-        downloadPdf: "Download PDF",
-        answerError: "We couldn't send your answer. Please try again.",
-    },
-    publicReturning: {
-        title: "Been here before?",
-        intro: "Verify your email or phone to find your pets and last visit.",
-        email: "Email",
-        sms: "Text message",
-        contact: "Email or phone",
-        sendCode: "Send verification code",
-        sent: "Enter the six-digit code we sent. It expires in 10 minutes.",
-        code: "Verification code",
-        verify: "Verify and find my visits",
-        changeContact: "Use a different email or phone",
-        missing:
-            "No previous client record was found for that contact. Continue with a new booking.",
-        welcome: (name: string) => `Welcome back, ${name}`,
-        usual: "Book the usual",
-        choosePet: "Choose a pet",
-        newPet: "Add a different pet",
-        contactRequired: "Enter your email address or phone number.",
-        codeRequired: "Enter the six-digit verification code.",
-        requestError:
-            "We couldn't send a code. Check your contact details or wait a few minutes before trying again.",
-        verifyError:
-            "That code could not be verified. Check it or request a new code if it has expired.",
-    },
-    publicBooking: {
-        guided: {
-            welcome: (business: string) => `Book at ${business}`,
-            intro: "Choose a service and a time. You'll review everything before confirming.",
-            first: "First visit",
-            firstBody: "Choose a service and a time to get started.",
-            returning: "I've been here before",
-            returningBody: "Verify your details to find your pets and last visit.",
-            different: "Book something different",
-            continueNew: "Continue without finding a past visit",
-        },
-        title: "Book your visit",
-        change: "Change",
-        shopLink: "Shop products",
-        stepService: "Service",
-        stepTime: "Time",
-        stepExtras: "Extras",
-        secureBooking: "Secure booking",
-        stepDetails: "Your details",
-        stepPay: "Deposit",
-        stepOf: (i: number, n: number) => `Step ${String(i)} of ${String(n)}`,
-        chooseService: "Choose a service",
-        chooseServiceHint: "Choose a service to see the price.",
-        with: "With",
-        anyone: "Anyone available",
-        anyoneHint: "Most open times",
-        date: "Date",
-        prevWeek: "Earlier dates",
-        nextWeek: "Later dates",
-        openTimes: "Open times",
-        morning: "Morning",
-        afternoon: "Afternoon",
-        evening: "Evening",
-        loadingTimes: "Finding open times…",
-        noTimes: (day: string) =>
-            day === "today" || day === "tomorrow"
-                ? `No open times ${day}.`
-                : `No open times on ${day}.`,
-        nextOpen: (day: string) => `Next opening ${day}`,
-        noTimesWeek: "Nothing is open this week. Try later dates or call the studio.",
-        closedDay: (reason: string) => `Closed for ${reason}.`,
-        slotsError: "We couldn't load open times. Try another day.",
-        retry: "Try again",
-        withName: (name: string) => `with ${name}`,
-        deposit: (amount: string) => `${amount} deposit`,
-        addOne: "Add",
-        soldOut: "Sold out",
-        oftenAdded: "Often added",
-        addonsPaidLater: "Paid at your visit, not now",
-        detailsTitle: "Your details",
-        name: "Your name",
-        namePlaceholder: "First and last name",
-        phone: "Mobile",
-        phonePlaceholder: "(250) 555-0123",
-        email: "Email",
-        emailPlaceholder: "you@example.com",
-        pet: "Pet's name",
-        petPlaceholder: "Who's coming in?",
-        note: "Anything we should know",
-        notePlaceholder: "Matting, nervous with dryers, allergies",
-        reachHint: "We text a reminder the day before. Add an email for receipts.",
-        nameRequired: "Add your name.",
-        contactRequired: "Add a mobile number or an email.",
-        emailInvalid: "That email doesn't look right.",
-        petRequired: "Add your pet's name.",
-        summary: "Your visit",
-        dueNow: "Due now",
-        dueAtVisit: "At your visit",
-        total: "Estimated total",
-        taxNote: "Tax is added at your visit.",
-        continue: "Continue",
-        back: "Back",
-        confirm: "Confirm booking",
-        confirmAndPay: (amount: string) => `Continue to ${amount} deposit`,
-        booking: "Booking…",
-        bookError: "We couldn't book that time. It may have just been taken; pick another.",
-        payTitle: "Hold your spot",
-        payBody: (amount: string) =>
-            `Pay the ${amount} deposit to confirm. It comes off your bill at the visit.`,
-        payPolicy: (cancel: number, move: number, kept: boolean) =>
-            `Free to cancel up to ${String(cancel)} hours before and to move up to ${String(move)} hours before.${
-                kept ? " A later cancellation keeps the deposit." : ""
-            }`,
-        pay: (amount: string) => `Pay ${amount}`,
-        paying: "Paying…",
-        secure: "Payments are processed securely.",
-        payLater:
-            "This business can't take card payments online yet. They'll be in touch about the deposit.",
-        doneTitle: "You're booked",
-        pendingTitle: "Request sent",
-        pendingBody: (when: string) =>
-            `The studio confirms new clients first. You'll hear back about ${when.replace(/\.$/, "")}.`,
-        doneBody: (pet: string, when: string) =>
-            `${pet} is booked for ${when.replace(/\.$/, "")}. A confirmation is on its way.`,
-        doneNoPet: (when: string) =>
-            `You're booked for ${when.replace(/\.$/, "")}. A confirmation is on its way.`,
-        addToCalendar: "Add to calendar",
-        calendarTitle: (service: string, business: string) => `${service} at ${business}`,
-        manage: "Change or cancel",
-        depositPaid: (amount: string) => `${amount} deposit paid`,
-        bookAnother: "Book another visit",
-        notFoundTitle: "Booking page not found",
-        notFoundBody:
-            "This link is invalid or the business isn't taking online bookings right now.",
-        errorTitle: "We couldn't load the booking page",
-        errorBody: "Check your connection and try again.",
-        minutes: (n: number) => `${String(n)} min`,
-        hoursMinutes: (h: number, m: number) =>
-            m === 0 ? `${String(h)} h` : `${String(h)} h ${String(m)} min`,
-        reviews: (rating: string, n: number) =>
-            `${rating} · ${n === 1 ? "1 review" : `${String(n)} reviews`}`,
-        today: "today",
-        tomorrow: "tomorrow",
-        at: (day: string, time: string) => `${day} at ${time}`,
-        nothingBookable: "Nothing can be booked online right now. Call the studio to book.",
-    },
-    publicOrder: {
-        pickup: "Your pickup",
-        pickupTime: "When",
-        pickupWhere: "Where",
-        items: "Your items",
-        alertTitle: "Keep me updated",
-        contact: "Need a hand?",
-        contactBody: "Contact the studio if you have a question about your order.",
-        refundPending: "Your refund is being processed",
-        cancelFailed: "The refund could not be completed. Try again or contact the business.",
-        startPreparing: "Start preparing",
-        preparingStarted: "Order preparation started.",
-        cancel: "Cancel order",
-        cancelTitle: "Cancel this order?",
-        cancelBody:
-            "You can cancel before preparation starts. Your payment will be refunded in full.",
-        keep: "Keep order",
-        title: "Your order",
-        placed: "Order placed",
-        preparing: "Preparing",
-        emptyPreparing: "No orders are being prepared.",
-        ready: "Ready for pickup",
-        collected: "Collected",
-        canceled: "Order canceled",
-        awaitingPayment: "Waiting for payment confirmation",
-        alerts: "Text me when my order is ready",
-        receipt: "View receipt",
-        pending: "We'll update this page as your order is prepared.",
-        updated: "Order updates",
-        refresh: "Refresh status",
-        error: "We couldn't update your order. Try again.",
-        subtotal: "Subtotal",
-        tax: "Tax",
-        total: "Total",
-    },
-    publicShop: {
-        checkoutBody: "Choose when to collect, tell us who’s coming, and pay securely.",
-        pickupDay: "Pickup day",
-        sectionPickup: "When will you pick up?",
-        sectionDetails: "Who’s collecting?",
-        sectionPay: "Payment",
-        noTip: "No tip on product orders. Just your items and tax.",
-        hideSummary: "Hide order summary",
-        showSummary: (total: string) => `Show order summary · ${total}`,
-        inStock: "In stock",
-
-        variant: "Choose an option",
-        pickupWindow: "Pickup time",
-        pickupAsap: "When my order is ready",
-        pickupNote: "Pickup note",
-        pickupHold: (days: number) =>
-            `We hold your order for ${String(days)} days after it's ready.`,
-        search: "Search products",
-        addToOrder: "Add to order",
-        checkout: "Checkout",
-        backToShop: "Back to shop",
-        close: "Close",
-        noMatches: "No products match your search.",
-        title: "Shop",
-        subtitle: "Order online, pick up at the studio.",
-        all: "All",
-        categories: "Categories",
-        soldOut: "Sold out",
-        lowStock: (n: number) => `Only ${String(n)} left`,
-        cart: "Your order",
-        cartEmpty: "Your order is empty. Add something to get started.",
-        items: (n: number) => (n === 1 ? "1 item" : `${String(n)} items`),
-        viewOrder: "View order",
-        subtotal: "Subtotal",
-        tax: "Tax",
-        taxLater: "Calculated at payment",
-        remove: "Remove",
-        pickupTitle: "Pick up at the studio",
-        pickupWhen: "We'll let you know when it's ready to pick up during opening hours.",
-        name: "Your name",
-        phone: "Mobile",
-        email: "Email",
-        reach: "We'll text or email you when it's ready for pickup.",
-        continuePay: "Continue to payment",
-        placing: "Placing order…",
-        payTitle: "Pay for your order",
-        payBody: (total: string) => `${total}, tax included. Paid now, picked up later.`,
-        pay: (amount: string) => `Pay ${amount}`,
-        paying: "Paying…",
-        doneTitle: "Order placed",
-        doneBody: (number: string) =>
-            `Order ${number} is with the studio. We'll let you know as soon as it's ready to pick up.`,
-        whatNext: "What happens next",
-        nextPrepare: "We pack your order",
-        nextText: "You get a message when it's ready",
-        nextPickup: "Pick up at the front desk",
-        incomplete: "Add your name and a mobile number or email.",
-        orderError: "We couldn't place the order. Please try again.",
-        notFoundTitle: "Shop not found",
-        notFoundBody: "This link is invalid or the studio isn't selling online right now.",
-        loadErrorTitle: "We couldn't load the shop",
-        emptyTitle: "Nothing for sale online right now",
-        notTakingPayments: "This shop isn't taking online payments right now.",
-    },
-    onlineBooking: {
-        title: "Online booking",
-        tabPage: "Booking page",
-        tabAddons: "Add-ons",
-        tabPolicy: "Changes and cancellations",
-        ownerAdminOnly: "Only owners and admins can change online booking.",
-        share: "Share your page",
-        shareHint: "Put it in your Instagram bio, Google Business profile and text signature.",
-        frontDesk: "Show at the front desk",
-        frontDeskHint: "Clients scan it to book their next visit before they leave.",
-        link: "Booking link",
-        copy: "Copy",
-        copied: "Copied",
-        open: "Open page",
-        shareSheet: "Share",
-        embed: "Add to your website",
-        embedCode: "Embed code",
-        embedHint: "Paste this where the booking page should appear. It resizes to fit.",
-        qrDownload: "Download QR",
-        qrLabel: "QR code for your booking page",
-        services: "What clients can book",
-        servicesHint: "Services and classes, with the deposit set for each in the catalog.",
-        deposit: (amount: string) => `${amount} deposit`,
-        noDeposit: "No deposit",
-        team: "Who can be booked",
-        teamHint: "Hidden team members keep their schedule but don't appear online.",
-        rules: "Booking rules",
-        leadTime: "Earliest booking",
-        leadTimeHint: "How soon before a visit clients can book.",
-        leadOptions: {
-            0: "Any time",
-            2: "2 hours ahead",
-            12: "12 hours ahead",
-            24: "1 day ahead",
-            48: "2 days ahead",
-        } as Record<string, string>,
-        advance: "Furthest ahead",
-        advanceOptions: {
-            14: "2 weeks",
-            30: "1 month",
-            60: "2 months",
-            90: "3 months",
-            365: "1 year",
-        } as Record<string, string>,
-        step: "Start times every",
-        stepOptions: { 0: "Service length", 15: "15 min", 30: "30 min", 60: "Hour" } as Record<
             string,
-            string
-        >,
-        newClients: "New clients",
-        newClientsAllow: "Book right away",
-        newClientsApprove: "Ask me first",
-        save: "Save changes",
-        saving: "Saving…",
-        saved: "Saved",
-        saveError: "Couldn't save your settings. Please try again.",
-        unsaved: "Unsaved changes",
-        discard: "Discard",
-        preview: "Preview",
-        previewHint: "What clients see right now",
-        previewEmpty: "Nothing is bookable yet.",
-        previewMore: (n: number) =>
-            n === 1 ? "and 1 more service" : `and ${String(n)} more services`,
-        stats: "Last 30 days",
-        bookings: "Online bookings",
-        deposits: "Deposits on them",
-        minutes: (n: number) => `${String(n)} min`,
-        loading: "Loading online booking",
-        loadError: "We couldn't load your online booking settings",
-        noneBookable: "Clients can't book anything yet",
-        noneBookableBody: "Turn on at least one service. Until then your page has nothing to book.",
-        policy: {
-            title: "Changes and cancellations",
-            subtitle: "Let clients move or cancel from their confirmation link, within your rules.",
-            selfService: "Clients can change their own bookings",
-            selfServiceHint: "Every confirmation and reminder includes a manage link.",
-            cancelCutoff: "Cancel online until",
-            moveCutoff: "Move online until",
-            hoursBefore: (h: number) =>
-                h === 0
-                    ? "the start time"
-                    : h % 24 === 0
-                      ? `${String(h / 24)} ${h === 24 ? "day" : "days"} before`
-                      : `${String(h)} hours before`,
-            lateDeposit: "Deposit on a late cancel",
-            keep: "Keep it",
-            refund: "Refund it",
-            maxMoves: "Moves per booking",
-            maxMovesOptions: { 1: "Once", 2: "Twice", 99: "No limit" } as Record<string, string>,
-            clientSees: "What clients read",
-            clientText: (cancel: string, move: string, keepLate: boolean) =>
-                `You can cancel up to ${cancel} and move your visit up to ${move}, from the link in your confirmation. ${
-                    keepLate ? "After that, the deposit is kept." : "Deposits are always refunded."
-                }`,
-            clientTextOff: "To change or cancel, call or text the studio.",
-            examples: "How this plays out",
-            exampleCancelEarly: (day: string, visit: string) =>
-                `Cancels on ${day} for a ${visit} visit: deposit refunded, slot reopens`,
-            exampleCancelLate: (hours: number) =>
-                `Tries to cancel ${String(hours)} hours before: refused, asked to call`,
-            exampleMove: (hours: number) =>
-                `Moves ${String(hours)} hours before: allowed, deposit moves too`,
-            save: "Save policy",
-            saved: "Saved",
-            saveError: "Couldn't save the policy. Please try again.",
-        },
-        addons: {
-            subtitle:
-                "Products clients can add while booking. They're set aside and added to the visit's invoice.",
-            offered: "Offered",
-            notOffered: "Not offered",
-            offer: "Offer at booking",
-            withEvery: "With every service",
-            withSome: (n: number) => (n === 1 ? "With 1 service" : `With ${String(n)} services`),
-            pickServices: "Show with",
-            attach: (pct: number) => `${String(pct)}% of online bookings add it`,
-            noStock: "Out of stock: hidden from clients until restocked",
-            stock: (n: number) => `${String(n)} in stock`,
-            save: "Save",
-            saved: "Saved",
-            saveError: "Couldn't save. Please try again.",
-            revenue: "Add-on sales, 30 days",
-            emptyTitle: "No products to offer yet",
-            emptyBody:
-                "Add retail products to the catalog, then choose which ones clients can add while booking.",
-        },
-    },
-    publicManage: {
-        gettingThere: "Getting here",
-        payment: "Your payment",
-        directions: "Directions",
-        message: "Message",
-        messageTitle: "Message the studio",
-        messageLabel: "Your message",
-        messageSend: "Send message",
-        messageSent: "Message sent. The studio can reply to your booking contact details.",
-        messageError: "We couldn't send your message. Try again.",
-        cancelDeadline: (when: string) => `Cancel before ${when}`,
-        moveDeadline: (when: string) => `Reschedule before ${when}`,
-        title: "Your booking",
-        hello: (name: string) => `Hi ${name.split(" ")[0] ?? name}`,
-        extras: "Extras",
-        deposit: "Deposit",
-        depositPaid: (amount: string) => `${amount} paid`,
-        reschedule: "Reschedule",
-        cancel: "Cancel booking",
-        keep: "Keep my booking",
-        policyTitle: "Changes and cancellations",
-        policyLine: (cancel: number, move: number) =>
-            `Cancel up to ${String(cancel)} hours before, move up to ${String(move)} hours before.`,
-        policyOff: "To change or cancel, call or text the studio.",
-        countdown: (label: string) => `Your visit is ${label}`,
-        inHours: (h: number) =>
-            h < 1 ? "within the hour" : `in ${String(h)} ${h === 1 ? "hour" : "hours"}`,
-        inDays: (d: number) => `in ${String(d)} ${d === 1 ? "day" : "days"}`,
-        cancelTitle: "Cancel this visit?",
-        cancelRefund: (amount: string) =>
-            `Your ${amount} deposit goes back to your card within 5 to 10 days.`,
-        cancelNoDeposit: "There's nothing to pay or refund.",
-        cancelConfirm: "Yes, cancel it",
-        canceling: "Cancelling…",
-        canceledTitle: "Booking cancelled",
-        refundPending:
-            "Your booking is cancelled. Your deposit refund is still processing. Check this link again for an update.",
-        refundFailed:
-            "Your booking is cancelled, but the deposit refund could not be completed. Message the business to arrange your refund.",
-        canceledBody: (amount: string | null) =>
-            amount !== null
-                ? `Your ${amount} deposit is on its way back to your card.`
-                : "Nothing more to do. We hope to see you soon.",
-        bookAgain: "Book a new time",
-        moveTitle: "Pick a new time",
-        moveHint: (who: string, mins: string) => `Same service, ${mins} with ${who}.`,
-        current: "Current time",
-        newTime: "New time",
-        confirmMove: (time: string) => `Move to ${time}`,
-        moving: "Moving…",
-        movedTitle: "Booking moved",
-        movedBody: (when: string) =>
-            `See you ${when.replace(/\.$/, "")}. Your deposit moved with it.`,
-        back: "Back",
-        notFoundTitle: "Booking not found",
-        notFoundBody:
-            "This link has expired or the booking was already changed. Check your latest message from the studio.",
-        canceledAlready: "This booking was cancelled.",
-        error: "We couldn't save that change. Please try again.",
-        addCalendar: "Add to calendar",
-        noTimes: "No open times that day.",
-    },
-    navigation: {
-        createMenu: "Create",
-        search: "Search",
-        searchShortcut: "⌘K",
-        notifications: "Notifications",
-        businessMenu: "Open business settings",
-        accountMenu: "Account menu",
-        main: "Main",
-        finishSetup: "Finish setting up",
-        setupProgress: (done: number, total: number) =>
-            `${String(done)} of ${String(total)} set up`,
-        yourHours: "Your hours",
-        more: "More",
-        createActions: {
-            booking: { label: "Booking", hint: "Book a client into a service or class" },
-            sale: { label: "Sale", hint: "Ring up services and products" },
-            invoice: { label: "Invoice", hint: "Bill a client and send a pay link" },
-            estimate: { label: "Estimate", hint: "Quote a job before booking it" },
-            client: { label: "Client", hint: "Add someone new to your client list" },
-            message: { label: "Message", hint: "Text or email a client" },
-            timeOff: { label: "Time off", hint: "Change your hours or block a day" },
-        },
-        today: "Today",
-        schedule: "Schedule",
-        clients: "Clients",
-        payments: "Payments",
-        viewPayments: "View payments",
-        overduePayments: (count: number) => `${String(count)} overdue`,
-        inbox: "Inbox",
-        setup: "Setup",
-        signOut: "Sign out",
-        paymentsTabs: {
-            invoices: "Invoices",
-            sales: "Sales",
-            giftCards: "Gift cards",
-            refunds: "Refunds",
-            staffPay: "Staff pay",
-            taxReturns: "Tax returns",
-            payouts: "Payouts",
-            reports: "Reports",
-        },
-        setupSections: {
-            start: "Get set up",
-            business: "Business",
-            services: "Services & products",
-            team: "Team & hours",
-            gettingPaid: "Getting paid",
-            taxes: "Sales tax",
-            onlineBooking: "Online booking",
-            reminders: "Reminders",
-        },
-        inboxSegments: {
-            messages: "Messages",
-            reviews: "Reviews",
-            broadcasts: "Broadcasts",
-            forms: "Forms",
-            contracts: "Contracts",
-        },
-    },
-    publicContract: {
-        notFoundTitle: "Contract not found",
-        notFoundBody:
-            "This signing link is invalid or has expired. Please check with the business that sent it to you.",
-        intro: (business: string) =>
-            `${business} asks you to read and sign this before your visit.`,
-        signTitle: "Sign",
-        typeTab: "Type",
-        drawTab: "Draw",
-        nameLabel: "Full legal name",
-        namePlaceholder: "Your full name",
-        drawLabel: "Draw your signature",
-        drawPlaceholder: "Sign here with your finger or mouse",
-        clear: "Clear",
-        preview: "Your signature",
-        agree: (business: string) =>
-            `I agree to the terms above and to sign electronically with ${business}.`,
-        sign: "Sign agreement",
-        signing: "Signing…",
-        decline: "Decline",
-        recorded: "We record the time, your IP address and the exact text you sign.",
-        errors: {
-            "name-missing": "Type your full name.",
-            "drawing-missing": "Draw your signature in the box.",
-            "consent-missing": "Tick the box to agree before signing.",
-            failed: "We couldn't record your signature. Please try again.",
-        },
-        signedTitle: "Signed",
-        signedBody: (contract: string, business: string) =>
-            `Your signature on ${contract} is recorded. ${business} has a copy.`,
-        print: "Print a copy",
-        declinedTitle: "You declined this agreement",
-        declinedBody: (business: string) =>
-            `${business} has been told. Contact them if this was a mistake.`,
-        errorTitle: "This agreement didn't load",
-        errorBody: "Check your connection and try again.",
-        version: (n: number) => `Version ${String(n)}`,
-        facts: { signedAt: "Signed", ip: "IP address", version: "Version" },
-        signatureHeading: "Signed by",
-    },
-    publicForm: {
-        submitting: "Submitting…",
-        notFoundTitle: "Form not found",
-        notFoundBody:
-            "This link is invalid or has expired. Please check with the business that sent it to you.",
-        selectPlaceholder: "Select…",
-        doneTitle: "Thanks — all done",
-        fileUploadFailedDetail: "the file upload failed",
-        answerRequired: (label: string) => `“${label}” is required.`,
-        fileUploadError: "We couldn't upload that file. Please try again.",
-        fileUploadOffline: "Uploading needs a connection. Try again when you're back online.",
-        submitAnswersError: "We couldn't submit your answers. Please try again.",
-        intro: (business: string) => `${business} reads this before your visit.`,
-        progress: (done: number, total: number) => `${String(done)} of ${String(total)} answered`,
-        chooseFile: "Choose a file",
-        sendAnswers: "Send answers",
-        uploadTooBig: "That file is over 10 MB. Try a photo or a smaller PDF.",
-        uploadWrongType: "Attach a PDF, JPG, PNG or HEIC file.",
-        errorTitle: "This form didn't load",
-        errorBody: "Check your connection and try again.",
-        privacy: (business: string) => `Only ${business} sees your answers.`,
-        allDone: (business: string) =>
-            `Your answers are with ${business}. You can close this page.`,
-    },
-    publicPreferences: {
-        title: "Email and text preferences",
-        greeting: (first: string, business: string) =>
-            `Hi ${first}, choose what ${business} sends you.`,
-        offers: "News and offers",
-        offersHint: "Seasonal specials, new services and studio news. A few times a year.",
-        byEmail: (email: string | null) => (email === null ? "By email" : `By email to ${email}`),
-        byText: (phone: string | null) => (phone === null ? "By text" : `By text to ${phone}`),
-        reminders: "Appointment messages",
-        remindersHint:
-            "Reminders, confirmations and receipts for visits you book. These always come so you don't miss a booking.",
-        alwaysOn: "Always on",
-        save: "Save preferences",
-        saving: "Saving",
-        saved: "Saved. Changes apply right away.",
-        unsubscribeAll: "Unsubscribe from all news and offers",
-        unsubscribedTitle: "You're unsubscribed",
-        unsubscribedBody: (business: string, email: string | null) =>
-            `${business} won't send news or offers to ${email ?? "your email"}. A message already on its way can take up to a day.`,
-        unsubscribedReminders: "You'll still get reminders and receipts for visits you book.",
-        resubscribe: "Subscribe again",
-        resubscribedTitle: "You're subscribed again",
-        resubscribedBody: (business: string) => `Thanks for staying in touch with ${business}.`,
-        manageAll: "Manage text and email preferences",
-        notFoundTitle: "This link has expired",
-        notFoundBody:
-            "Use the unsubscribe link in a newer message, or reply STOP to any text from us.",
-        errorTitle: "Your preferences didn't load",
-        errorBody: "Check your connection and try again. Nothing has changed yet.",
-        saveError: "That didn't save. Try again.",
-    },
-    publicReview: {
-        prompt: (businessName: string) => `How was your visit to ${businessName}?`,
-        promptPet: (pet: string) => `How was ${pet}'s visit?`,
-        context: (service: string, staff: string | null) =>
-            staff === null ? service : `${service} with ${staff}`,
-        ratingLabel: "Your rating",
-        ratingWords: ["", "Not good", "Could be better", "It was fine", "Really good", "Loved it"],
-        tellMore: "Tell us more",
-        tellMoreOptional: "Anything else?",
-        privateNote: (business: string) => `Only ${business} sees this.`,
-        placeholderPositive: "What went well?",
-        placeholderNegative: "What happened, and what would have made it better?",
-        submit: "Send review",
-        submitting: "Sending",
-        pickRating: "Tap a star to rate your visit.",
-        submitError: "Couldn't send your review. Please try again.",
-        notFoundTitle: "This review link has expired",
-        notFoundBody:
-            "It may already have been used. If you'd still like to share how the visit went, reply to the message it came in.",
-        errorTitle: "This page didn't load",
-        errorBody: "Check your connection and try again.",
-        thanksTitle: (first: string | null) =>
-            first === null ? "Thank you" : `Thank you, ${first}`,
-        thanksPublicBody: (business: string) =>
-            `${business} will see your review shortly. Would you share it on Google too? It helps other people find them.`,
-        thanksGoogleLess: (business: string) => `${business} will see your review shortly.`,
-        thanksPrivateBody: (business: string) =>
-            `${business} has your feedback and will be in touch. Nothing you wrote is posted publicly.`,
-        copyReview: "Copy my review",
-        copied: "Copied",
-        postGoogle: "Post on Google",
-        noThanks: "No thanks",
-        closePage: "All done. You can close this page.",
-    },
-    publicLanding: {
-        poweredBy: "Powered by Clientbridge",
-        menu: "Menu",
-        navigation: "Business navigation",
-        home: "Home",
-        booking: "Book",
-        shop: "Shop",
-        cart: "Cart",
-        about: "About us",
-        team: "Meet the team",
-        reviews: "Client reviews",
-        visit: "Plan your visit",
-        policies: "Booking policies",
-        gallery: "Around the studio",
-        jumpTo: "Explore this business",
-        call: "Call us",
-        email: "Email us",
-        website: "Visit website",
-        directions: "Directions",
-        hours: "Regular booking hours",
-        hoursHint: "Hours may change on holidays. Choose a service to see live availability.",
-        noServices: "Contact us to arrange your visit.",
-        loadingOpenings: "Checking availability…",
-        openingsUnavailable: "View booking calendar for availability",
-        noOpenings: "No openings in the next 7 days",
-        reviewer: "Verified client",
-        response: "Business response",
-        rating: (rating: string, count: number) => `${rating} · ${String(count)} reviews`,
-        cancelPolicy: (hours: number) =>
-            `Cancel at least ${String(hours)} hours before your visit.`,
-        reschedulePolicy: (hours: number) =>
-            `Reschedule at least ${String(hours)} hours before your visit.`,
-        contactPolicy: "Contact the business to change your booking.",
-        lateCancelPolicy: "Your deposit may be kept for late cancellations.",
+            string,
+            string,
+            string,
+            string,
+            string,
+            string,
+            string,
+            string,
+            string,
+        ];
+        readonly soFarAmount: (amount: string) => string;
+        readonly monthlyNet: string;
+        readonly monthlyNetHint: string;
+        readonly colItem: string;
+        readonly colKind: string;
+        readonly colQty: string;
+        readonly colSales: string;
+        readonly colRefunded: string;
+        readonly colNet: string;
+        readonly colPayee: string;
+        readonly colPayments: string;
+        readonly qtyValue: (qty: string) => string;
+        readonly refundedValue: (amount: string) => string;
+        readonly paymentsValue: (n: number) => string;
+        readonly colPaid: string;
+        readonly qty: (n: number) => string;
+        readonly sold: (n: number) => string;
+        readonly taxableSales: string;
+        readonly gstLine105: (code: string) => string;
+        readonly gstNumber: (n: string) => string;
+        readonly noGstNumber: string;
+        readonly provincialSales: string;
+        readonly provincialNumber: (code: string, n: string) => string;
+        readonly provincialFiled: string;
+        readonly t4aYear: (y: number) => string;
+        readonly t4aNote: string;
+        readonly noT4a: string;
+        readonly noItems: string;
+        readonly downloadCsv: string;
+        readonly csv: string;
+        readonly pdf: string;
+        readonly printHint: string;
+        readonly downloaded: (file: string) => string;
+        readonly downloadFailed: string;
+        readonly noSales: string;
+        readonly noSalesBody: string;
+        readonly loadError: string;
+        readonly loading: string;
+        readonly bookkeeperPack: string;
+        readonly packTitle: string;
+        readonly packSubtitle: string;
+        readonly packIncluded: string;
+        readonly packRows: (n: number) => string;
+        readonly packDownload: string;
+        readonly packWorking: string;
+        readonly packDone: string;
+        readonly packEmailLater: string;
+        readonly pickReport: string;
+        readonly packFailed: string;
+    };
+    readonly remittances: {
+        readonly subtitle: (federal: string) => string;
+        readonly subtitleWithProvince: (federal: string, provincial: string) => string;
+        readonly owed: string;
+        readonly owedHint: string;
+        readonly breakdown: string;
+        readonly provincialOwed: (code: string) => string;
+        readonly provincialOwedHint: string;
+        readonly quarter: (q: number, y: number) => string;
+        readonly span: (from: string, to: string) => string;
+        readonly status: {
+            readonly filed: string;
+            readonly due: string;
+            readonly open: string;
+        } & Labels;
+        readonly dueOn: (when: string) => string;
+        readonly overdue: (when: string) => string;
+        readonly dueIn: (days: number, when: string) => string;
+        readonly filedOn: (when: string) => string;
+        readonly filed: string;
+        readonly recordFiled: string;
+        readonly downloadCsv: string;
+        readonly reminder: (when: string) => string;
+        readonly history: string;
+        readonly noHistory: string;
+        readonly notRegistered: (threshold: string) => string;
+        readonly recordTitle: (period: string) => string;
+        readonly whichReturn: string;
+        readonly familyFor: (code: string) => string;
+        readonly worksheet: string;
+        readonly worksheetHint: string;
+        readonly provincialWorksheet: (code: string) => string;
+        readonly provincialWorksheetHint: string;
+        readonly taxableSales: string;
+        readonly collected: (code: string) => string;
+        readonly itcLine: string;
+        readonly netLine: string;
+        readonly provincialSales: string;
+        readonly provincialCollected: (code: string) => string;
+        readonly itcField: string;
+        readonly itcHint: string;
+        readonly confirmationField: string;
+        readonly provincialConfirmationField: string;
+        readonly filedOnField: string;
+        readonly paid: string;
+        readonly record: string;
+        readonly recording: string;
+        readonly recordHint: string;
+        readonly recorded: (period: string, which: string) => string;
+        readonly nothingToFile: string;
+        readonly noPeriods: string;
+        readonly noPeriodsBody: string;
+        readonly loadError: string;
+        readonly loading: string;
+        readonly gstHst: string;
+        readonly hst: string;
+        readonly errors: {
+            readonly itcInvalid: string;
+            readonly itcTooHigh: string;
+            readonly needConfirmation: string;
+            readonly needPstConfirmation: string;
+            readonly filedOn: string;
+            readonly filingFailed: string;
+        } & Labels;
+    };
+    readonly payouts: {
+        readonly subtitle: string;
+        readonly inStripe: string;
+        readonly inStripeHint: string;
+        readonly deposited: string;
+        readonly depositedHint: string;
+        readonly fees: string;
+        readonly feesHint: string;
+        readonly status: { readonly paid: string; readonly failed: string } & Labels;
+        readonly arrived: (when: string) => string;
+        readonly returned: (when: string) => string;
+        readonly payoutRef: string;
+        readonly settledNotice: string;
+        readonly returnedNotice: string;
+        readonly chargesTitle: string;
+        readonly chargesHint: string;
+        readonly colCharge: string;
+        readonly colAmount: string;
+        readonly colFees: string;
+        readonly colNet: string;
+        readonly refunded: (amount: string) => string;
+        readonly feePending: string;
+        readonly feePendingHint: string;
+        readonly invoiceCharge: (n: number) => string;
+        readonly saleCharge: (n: number) => string;
+        readonly depositCharge: string;
+        readonly prepaidCharge: string;
+        readonly walkIn: string;
+        readonly noPayouts: string;
+        readonly noPayoutsBody: string;
+        readonly noCharges: string;
+        readonly loadError: string;
+        readonly loading: string;
+    };
+    readonly auth: {
+        readonly invalidCredentials: string;
+        readonly createAccountError: string;
+        readonly heroHeadlineLine1: string;
+        readonly heroHeadlineLine2: string;
+        readonly heroSubtitle: string;
+        readonly heroFeatures: readonly [string, string, string, string];
+        readonly signInTitle: string;
+        readonly signUpTitle: string;
+        readonly signInSubtitle: string;
+        readonly signUpSubtitle: string;
+        readonly name: string;
+        readonly namePlaceholder: string;
+        readonly email: string;
+        readonly emailPlaceholder: string;
+        readonly password: string;
+        readonly passwordPlaceholder: string;
+        readonly signingIn: string;
+        readonly creatingAccount: string;
+        readonly signIn: string;
+        readonly createAccount: string;
+        readonly or: string;
+        readonly continueWithGoogle: string;
+        readonly newToApp: string;
+        readonly haveAccount: string;
+        readonly createAnAccount: string;
+        readonly inviteTitle: string;
+        readonly inviteSubtitle: string;
+        readonly inviteMissingCode: string;
+        readonly inviteName: string;
+        readonly joining: string;
+        readonly joinTeam: string;
+        readonly googleNotConfigured: string;
+        readonly newPassword: string;
+        readonly passwordHint: string;
+        readonly forgot: string;
+        readonly showPassword: string;
+        readonly resetTitle: string;
+        readonly resetSubtitle: string;
+        readonly sentTitle: string;
+        readonly sentBody: (email: string) => string;
+        readonly sendLink: string;
+        readonly sending: string;
+        readonly resend: string;
+        readonly resendIn: (s: number) => string;
+        readonly backToSignIn: string;
+        readonly openMail: string;
+        readonly resetError: string;
+        readonly locked: string;
+        readonly attemptsLeft: (n: number) => string;
+        readonly emailRequired: string;
+        readonly emailInvalid: string;
+        readonly passwordRequired: string;
+        readonly passwordShort: string;
+        readonly nameRequired: string;
+        readonly terms: string;
+    };
+    readonly publicReceipt: {
+        readonly notFoundTitle: string;
+        readonly notFoundBody: string;
+        readonly errorTitle: string;
+        readonly errorBody: string;
+        readonly title: (name: string) => string;
+        readonly sale: (n: string) => string;
+        readonly servedBy: (names: string) => string;
+        readonly discount: string;
+        readonly subtotal: string;
+        readonly total: string;
+        readonly tip: string;
+        readonly tipNoTax: string;
+        readonly deposit: string;
+        readonly refund: string;
+        readonly method: {
+            readonly card: string;
+            readonly cash: string;
+            readonly interac: string;
+            readonly cheque: string;
+            readonly deposit: string;
+            readonly other: string;
+        } & Labels;
+        readonly gst: (n: string) => string;
+        readonly qst: (n: string) => string;
+        readonly print: string;
+        readonly status: {
+            readonly paid: string;
+            readonly refunded: string;
+            readonly open: string;
+            readonly void: string;
+        } & Labels;
+    };
+    readonly publicPay: {
+        readonly tipTitle: (name: string) => string;
+        readonly tipTeam: string;
+        readonly tipHint: string;
+        readonly tipCustom: string;
+        readonly tipNone: string;
+        readonly tipAmount: string;
+        readonly tipInvalid: string;
+        readonly tipTooBig: string;
+        readonly tipRow: string;
+        readonly tipBase: (money: string) => string;
+        readonly payWithTip: (money: string) => string;
+        readonly notFoundTitle: string;
+        readonly notFoundBody: string;
+        readonly cardNotConfigured: string;
+        readonly details: string;
+        readonly invoice: string;
+        readonly invoiceNumber: (n: number) => string;
+        readonly dueOn: (when: string) => string;
+        readonly balanceDue: string;
+        readonly total: string;
+        readonly subtotal: string;
+        readonly chooseHowToPay: string;
+        readonly interacLabel: string;
+        readonly interacBadge: string;
+        readonly cardLabel: string;
+        readonly cardBadge: string;
+        readonly payByInterac: string;
+        readonly payByCard: string;
+        readonly paidTitle: string;
+        readonly paidBody: (businessName: string) => string;
+        readonly interacStartError: string;
+        readonly cardStartError: string;
+        readonly credit: (method: string, when: string) => string;
+        readonly depositCredit: string;
+        readonly method: {
+            readonly card: string;
+            readonly cash: string;
+            readonly interac: string;
+            readonly bank_eft: string;
+            readonly cheque: string;
+            readonly other: string;
+        } & Labels;
+        readonly downloadInvoice: string;
+        readonly seeSteps: string;
+        readonly etransferTitle: (biz: string) => string;
+        readonly amountToSend: string;
+        readonly paidSoFar: string;
+        readonly sendTo: string;
+        readonly putInMessage: string;
+        readonly steps: string;
+        readonly step1: string;
+        readonly step2: (email: string) => string;
+        readonly step2NoEmail: string;
+        readonly step3: (amount: string) => string;
+        readonly step4: (ref: string) => string;
+        readonly progressLabel: (done: number, total: number) => string;
+        readonly markStep: (n: number) => string;
+        readonly copy: string;
+        readonly copied: string;
+        readonly statusWaiting: string;
+        readonly statusWaitingBody: string;
+        readonly statusReceived: string;
+        readonly statusReceivedBody: (amount: string, biz: string) => string;
+        readonly validUntil: (when: string) => string;
+        readonly payByCardInstead: string;
+        readonly viewInvoice: string;
+    };
+    readonly publicEstimate: {
+        readonly waiting: string;
+        readonly note: string;
+        readonly notFoundTitle: string;
+        readonly notFoundBody: string;
+        readonly estimate: string;
+        readonly estimateNumber: (n: number) => string;
+        readonly preparedFor: (client: string) => string;
+        readonly estimateTotal: string;
+        readonly validUntil: (when: string) => string;
+        readonly lines: string;
+        readonly optional: string;
+        readonly optionalNote: string;
+        readonly subtotal: string;
+        readonly total: string;
+        readonly acceptFor: (amount: string) => string;
+        readonly accepting: string;
+        readonly decline: string;
+        readonly declineReason: string;
+        readonly declineReasonHint: string;
+        readonly declinePlaceholder: string;
+        readonly sendDecline: string;
+        readonly cancel: string;
+        readonly acceptNote: (biz: string) => string;
+        readonly acceptedTitle: string;
+        readonly acceptedBody: (biz: string) => string;
+        readonly declinedTitle: string;
+        readonly declinedBody: (biz: string) => string;
+        readonly expiredTitle: string;
+        readonly expiredBody: (biz: string) => string;
+        readonly downloadPdf: string;
+        readonly answerError: string;
+    };
+    readonly publicReturning: {
+        readonly title: string;
+        readonly intro: string;
+        readonly email: string;
+        readonly sms: string;
+        readonly contact: string;
+        readonly sendCode: string;
+        readonly sent: string;
+        readonly code: string;
+        readonly verify: string;
+        readonly changeContact: string;
+        readonly missing: string;
+        readonly welcome: (name: string) => string;
+        readonly usual: string;
+        readonly choosePet: string;
+        readonly newPet: string;
+        readonly contactRequired: string;
+        readonly codeRequired: string;
+        readonly requestError: string;
+        readonly verifyError: string;
+    };
+    readonly publicBooking: {
+        readonly guided: {
+            readonly welcome: (business: string) => string;
+            readonly intro: string;
+            readonly first: string;
+            readonly firstBody: string;
+            readonly returning: string;
+            readonly returningBody: string;
+            readonly different: string;
+            readonly continueNew: string;
+        };
+        readonly title: string;
+        readonly change: string;
+        readonly shopLink: string;
+        readonly stepService: string;
+        readonly stepTime: string;
+        readonly stepExtras: string;
+        readonly secureBooking: string;
+        readonly stepDetails: string;
+        readonly stepPay: string;
+        readonly stepOf: (i: number, n: number) => string;
+        readonly chooseService: string;
+        readonly chooseServiceHint: string;
+        readonly with: string;
+        readonly anyone: string;
+        readonly anyoneHint: string;
+        readonly date: string;
+        readonly prevWeek: string;
+        readonly nextWeek: string;
+        readonly openTimes: string;
+        readonly morning: string;
+        readonly afternoon: string;
+        readonly evening: string;
+        readonly loadingTimes: string;
+        readonly noTimes: (day: string) => string;
+        readonly nextOpen: (day: string) => string;
+        readonly noTimesWeek: string;
+        readonly closedDay: (reason: string) => string;
+        readonly slotsError: string;
+        readonly retry: string;
+        readonly withName: (name: string) => string;
+        readonly deposit: (amount: string) => string;
+        readonly addNamed: (name: string) => string;
+        readonly soldOut: string;
+        readonly oftenAdded: string;
+        readonly addonsPaidLater: string;
+        readonly name: string;
+        readonly namePlaceholder: string;
+        readonly phone: string;
+        readonly phonePlaceholder: string;
+        readonly email: string;
+        readonly emailPlaceholder: string;
+        readonly pet: string;
+        readonly petPlaceholder: string;
+        readonly note: string;
+        readonly notePlaceholder: string;
+        readonly reachHint: string;
+        readonly nameRequired: string;
+        readonly contactRequired: string;
+        readonly emailInvalid: string;
+        readonly petRequired: string;
+        readonly summary: string;
+        readonly dueNow: string;
+        readonly dueAtVisit: string;
+        readonly total: string;
+        readonly taxNote: string;
+        readonly continue: string;
+        readonly back: string;
+        readonly confirm: string;
+        readonly confirmAndPay: (amount: string) => string;
+        readonly booking: string;
+        readonly bookError: string;
+        readonly payTitle: string;
+        readonly payBody: (amount: string) => string;
+        readonly payPolicy: (cancel: number, move: number, kept: boolean) => string;
+        readonly pay: (amount: string) => string;
+        readonly paying: string;
+        readonly secure: string;
+        readonly payLater: string;
+        readonly doneTitle: string;
+        readonly pendingTitle: string;
+        readonly pendingBody: (when: string) => string;
+        readonly doneBody: (pet: string, when: string) => string;
+        readonly doneNoPet: (when: string) => string;
+        readonly addToCalendar: string;
+        readonly calendarTitle: (service: string, business: string) => string;
+        readonly manage: string;
+        readonly depositPaid: (amount: string) => string;
+        readonly bookAnother: string;
+        readonly notFoundTitle: string;
+        readonly notFoundBody: string;
+        readonly errorTitle: string;
+        readonly errorBody: string;
+        readonly minutes: (n: number) => string;
+        readonly hoursMinutes: (h: number, m: number) => string;
+        readonly reviews: (rating: string, n: number) => string;
+        readonly today: string;
+        readonly tomorrow: string;
+        readonly at: (day: string, time: string) => string;
+        readonly nothingBookable: string;
+        readonly timesIn: (zone: string) => string;
+    };
+    readonly publicOrder: {
+        readonly pickup: string;
+        readonly pickupTime: string;
+        readonly pickupWhere: string;
+        readonly items: string;
+        readonly alertTitle: string;
+        readonly contact: string;
+        readonly contactBody: string;
+        readonly refundPending: string;
+        readonly cancelFailed: string;
+        readonly startPreparing: string;
+        readonly preparingStarted: string;
+        readonly cancel: string;
+        readonly cancelTitle: string;
+        readonly cancelBody: string;
+        readonly keep: string;
+        readonly title: string;
+        readonly placed: string;
+        readonly preparing: string;
+        readonly emptyPreparing: string;
+        readonly ready: string;
+        readonly collected: string;
+        readonly canceled: string;
+        readonly awaitingPayment: string;
+        readonly alerts: string;
+        readonly receipt: string;
+        readonly pending: string;
+        readonly updated: string;
+        readonly refresh: string;
+        readonly error: string;
+        readonly subtotal: string;
+        readonly tax: string;
+        readonly total: string;
+    } & Labels;
+    readonly publicShop: {
+        readonly checkoutBody: string;
+        readonly pickupDay: string;
+        readonly sectionPickup: string;
+        readonly sectionDetails: string;
+        readonly sectionPay: string;
+        readonly noTip: string;
+        readonly hideSummary: string;
+        readonly showSummary: (total: string) => string;
+        readonly inStock: string;
+        readonly variant: string;
+        readonly pickupWindow: string;
+        readonly pickupWindowAt: (when: string) => string;
+        readonly pickupAsap: string;
+        readonly pickupNote: string;
+        readonly pickupHold: (days: number) => string;
+        readonly search: string;
+        readonly addToOrder: string;
+        readonly checkout: string;
+        readonly backToShop: string;
+        readonly close: string;
+        readonly noMatches: string;
+        readonly title: string;
+        readonly subtitle: string;
+        readonly all: string;
+        readonly categories: string;
+        readonly soldOut: string;
+        readonly lowStock: (n: number) => string;
+        readonly cart: string;
+        readonly cartEmpty: string;
+        readonly items: (n: number) => string;
+        readonly viewOrder: string;
+        readonly subtotal: string;
+        readonly tax: string;
+        readonly taxLater: string;
+        readonly remove: string;
+        readonly pickupTitle: string;
+        readonly pickupWhen: string;
+        readonly name: string;
+        readonly phone: string;
+        readonly email: string;
+        readonly reach: string;
+        readonly continuePay: string;
+        readonly placing: string;
+        readonly payTitle: string;
+        readonly payBody: (total: string) => string;
+        readonly pay: (amount: string) => string;
+        readonly paying: string;
+        readonly doneTitle: string;
+        readonly doneBody: (number: string) => string;
+        readonly whatNext: string;
+        readonly nextPrepare: string;
+        readonly nextText: string;
+        readonly nextPickup: string;
+        readonly incomplete: string;
+        readonly orderError: string;
+        readonly notFoundTitle: string;
+        readonly notFoundBody: string;
+        readonly loadErrorTitle: string;
+        readonly emptyTitle: string;
+        readonly notTakingPayments: string;
+    };
+    readonly onlineBooking: {
+        readonly title: string;
+        readonly tabPage: string;
+        readonly tabAddons: string;
+        readonly tabPolicy: string;
+        readonly ownerAdminOnly: string;
+        readonly share: string;
+        readonly shareHint: string;
+        readonly frontDesk: string;
+        readonly frontDeskHint: string;
+        readonly link: string;
+        readonly copy: string;
+        readonly copied: string;
+        readonly open: string;
+        readonly shareSheet: string;
+        readonly embed: string;
+        readonly embedCode: string;
+        readonly embedTitle: (business: string) => string;
+        readonly embedHint: string;
+        readonly qrDownload: string;
+        readonly qrLabel: string;
+        readonly services: string;
+        readonly servicesHint: string;
+        readonly deposit: (amount: string) => string;
+        readonly noDeposit: string;
+        readonly team: string;
+        readonly teamHint: string;
+        readonly rules: string;
+        readonly leadTime: string;
+        readonly leadTimeHint: string;
+        readonly leadOptions: {
+            readonly "0": string;
+            readonly "2": string;
+            readonly "12": string;
+            readonly "24": string;
+            readonly "48": string;
+        } & Labels;
+        readonly advance: string;
+        readonly advanceOptions: {
+            readonly "14": string;
+            readonly "30": string;
+            readonly "60": string;
+            readonly "90": string;
+            readonly "365": string;
+        } & Labels;
+        readonly step: string;
+        readonly stepOptions: {
+            readonly "0": string;
+            readonly "15": string;
+            readonly "30": string;
+            readonly "60": string;
+        } & Labels;
+        readonly newClients: string;
+        readonly newClientsAllow: string;
+        readonly newClientsApprove: string;
+        readonly save: string;
+        readonly saving: string;
+        readonly saved: string;
+        readonly saveError: string;
+        readonly unsaved: string;
+        readonly discard: string;
+        readonly preview: string;
+        readonly previewHint: string;
+        readonly previewEmpty: string;
+        readonly previewMore: (n: number) => string;
+        readonly stats: string;
+        readonly bookings: string;
+        readonly deposits: string;
+        readonly minutes: (n: number) => string;
+        readonly loading: string;
+        readonly loadError: string;
+        readonly noneBookable: string;
+        readonly noneBookableBody: string;
+        readonly policy: {
+            readonly title: string;
+            readonly subtitle: string;
+            readonly selfService: string;
+            readonly selfServiceHint: string;
+            readonly cancelCutoff: string;
+            readonly moveCutoff: string;
+            readonly hoursBefore: (n: number) => string;
+            readonly lateDeposit: string;
+            readonly keep: string;
+            readonly refund: string;
+            readonly maxMoves: string;
+            readonly maxMovesOptions: {
+                readonly "1": string;
+                readonly "2": string;
+                readonly "99": string;
+            } & Labels;
+            readonly clientSees: string;
+            readonly clientText: (cancel: string, move: string, keepLate: boolean) => string;
+            readonly clientTextOff: string;
+            readonly examples: string;
+            readonly exampleCancelEarly: (day: string, visit: string) => string;
+            readonly exampleCancelLate: (hours: number) => string;
+            readonly exampleMove: (hours: number) => string;
+            readonly save: string;
+            readonly saved: string;
+            readonly saveError: string;
+        };
+        readonly addons: {
+            readonly subtitle: string;
+            readonly offered: string;
+            readonly notOffered: string;
+            readonly offer: string;
+            readonly withEvery: string;
+            readonly withSome: (n: number) => string;
+            readonly pickServices: string;
+            readonly attach: (pct: number) => string;
+            readonly noStock: string;
+            readonly stock: (n: number) => string;
+            readonly save: string;
+            readonly saved: string;
+            readonly saveError: string;
+            readonly revenue: string;
+            readonly emptyTitle: string;
+            readonly emptyBody: string;
+        };
+    };
+    readonly publicManage: {
+        readonly gettingThere: string;
+        readonly payment: string;
+        readonly directions: string;
+        readonly message: string;
+        readonly messageTitle: string;
+        readonly messageLabel: string;
+        readonly messageSend: string;
+        readonly messageSent: string;
+        readonly messageError: string;
+        readonly cancelDeadline: (when: string) => string;
+        readonly moveDeadline: (when: string) => string;
+        readonly title: string;
+        readonly hello: (name: string) => string;
+        readonly extras: string;
+        readonly deposit: string;
+        readonly depositPaid: (amount: string) => string;
+        readonly reschedule: string;
+        readonly cancel: string;
+        readonly keep: string;
+        readonly policyTitle: string;
+        readonly policyLine: (cancel: number, move: number) => string;
+        readonly policyOff: string;
+        readonly countdown: (label: string) => string;
+        readonly inHours: (h: number) => string;
+        readonly inDays: (d: number) => string;
+        readonly cancelTitle: string;
+        readonly cancelRefund: (amount: string) => string;
+        readonly cancelNoDeposit: string;
+        readonly cancelConfirm: string;
+        readonly canceling: string;
+        readonly canceledTitle: string;
+        readonly refundPending: string;
+        readonly refundFailed: string;
+        readonly canceledBody: (amount: string) => string;
+        readonly canceledNoDeposit: string;
+        readonly bookAgain: string;
+        readonly moveTitle: string;
+        readonly moveHint: (who: string, mins: string) => string;
+        readonly current: string;
+        readonly newTime: string;
+        readonly confirmMove: (time: string) => string;
+        readonly moving: string;
+        readonly movedTitle: string;
+        readonly movedBody: (when: string) => string;
+        readonly back: string;
+        readonly notFoundTitle: string;
+        readonly notFoundBody: string;
+        readonly canceledAlready: string;
+        readonly error: string;
+        readonly addCalendar: string;
+        readonly noTimes: string;
+    };
+    readonly navigation: {
+        readonly createMenu: string;
+        readonly search: string;
+        readonly searchShortcut: string;
+        readonly notifications: string;
+        readonly businessMenu: string;
+        readonly accountMenu: string;
+        readonly main: string;
+        readonly finishSetup: string;
+        readonly setupProgress: (done: number, total: number) => string;
+        readonly yourHours: string;
+        readonly more: string;
+        readonly createActions: {
+            readonly booking: { readonly label: string; readonly hint: string } & Labels;
+            readonly sale: { readonly label: string; readonly hint: string } & Labels;
+            readonly invoice: { readonly label: string; readonly hint: string } & Labels;
+            readonly estimate: { readonly label: string; readonly hint: string } & Labels;
+            readonly client: { readonly label: string; readonly hint: string } & Labels;
+            readonly message: { readonly label: string; readonly hint: string } & Labels;
+            readonly timeOff: { readonly label: string; readonly hint: string } & Labels;
+        };
+        readonly today: string;
+        readonly schedule: string;
+        readonly clients: string;
+        readonly payments: string;
+        readonly viewPayments: string;
+        readonly overduePayments: (count: number) => string;
+        readonly inbox: string;
+        readonly setup: string;
+        readonly signOut: string;
+        readonly paymentsTabs: {
+            readonly invoices: string;
+            readonly sales: string;
+            readonly giftCards: string;
+            readonly refunds: string;
+            readonly staffPay: string;
+            readonly taxReturns: string;
+            readonly payouts: string;
+            readonly reports: string;
+        } & Labels;
+        readonly setupSections: {
+            readonly start: string;
+            readonly business: string;
+            readonly services: string;
+            readonly team: string;
+            readonly gettingPaid: string;
+            readonly taxes: string;
+            readonly onlineBooking: string;
+            readonly reminders: string;
+        } & Labels;
+        readonly inboxSegments: {
+            readonly messages: string;
+            readonly reviews: string;
+            readonly broadcasts: string;
+            readonly forms: string;
+            readonly contracts: string;
+        } & Labels;
+    };
+    readonly publicContract: {
+        readonly notFoundTitle: string;
+        readonly notFoundBody: string;
+        readonly intro: (business: string) => string;
+        readonly signTitle: string;
+        readonly typeTab: string;
+        readonly drawTab: string;
+        readonly nameLabel: string;
+        readonly namePlaceholder: string;
+        readonly drawLabel: string;
+        readonly drawPlaceholder: string;
+        readonly clear: string;
+        readonly preview: string;
+        readonly agree: (business: string) => string;
+        readonly sign: string;
+        readonly signing: string;
+        readonly decline: string;
+        readonly recorded: string;
+        readonly errors: {
+            readonly "name-missing": string;
+            readonly "drawing-missing": string;
+            readonly "consent-missing": string;
+            readonly failed: string;
+        } & Labels;
+        readonly signedTitle: string;
+        readonly signedBody: (contract: string, business: string) => string;
+        readonly print: string;
+        readonly declinedTitle: string;
+        readonly declinedBody: (business: string) => string;
+        readonly errorTitle: string;
+        readonly errorBody: string;
+        readonly version: (n: number) => string;
+        readonly facts: {
+            readonly signedAt: string;
+            readonly ip: string;
+            readonly version: string;
+        } & Labels;
+        readonly signatureHeading: string;
+    };
+    readonly publicForm: {
+        readonly submitting: string;
+        readonly notFoundTitle: string;
+        readonly notFoundBody: string;
+        readonly selectPlaceholder: string;
+        readonly doneTitle: string;
+        readonly answerRequired: (label: string) => string;
+        readonly fileUploadError: string;
+        readonly fileUploadOffline: string;
+        readonly submitAnswersError: string;
+        readonly intro: (business: string) => string;
+        readonly progress: (done: number, total: number) => string;
+        readonly chooseFile: string;
+        readonly sendAnswers: string;
+        readonly uploadTooBig: string;
+        readonly uploadWrongType: string;
+        readonly errorTitle: string;
+        readonly errorBody: string;
+        readonly privacy: (business: string) => string;
+        readonly allDone: (business: string) => string;
+    };
+    readonly publicPreferences: {
+        readonly title: string;
+        readonly greeting: (first: string, business: string) => string;
+        readonly offers: string;
+        readonly offersHint: string;
+        readonly byEmail: string;
+        readonly byEmailTo: (email: string) => string;
+        readonly byText: string;
+        readonly byTextTo: (phone: string) => string;
+        readonly reminders: string;
+        readonly remindersHint: string;
+        readonly alwaysOn: string;
+        readonly save: string;
+        readonly saving: string;
+        readonly saved: string;
+        readonly unsubscribeAll: string;
+        readonly unsubscribedTitle: string;
+        readonly unsubscribedBody: (business: string, email: string) => string;
+        readonly unsubscribedNoEmail: (business: string) => string;
+        readonly unsubscribedReminders: string;
+        readonly resubscribe: string;
+        readonly resubscribedTitle: string;
+        readonly resubscribedBody: (business: string) => string;
+        readonly manageAll: string;
+        readonly notFoundTitle: string;
+        readonly notFoundBody: string;
+        readonly errorTitle: string;
+        readonly errorBody: string;
+        readonly saveError: string;
+    };
+    readonly publicReview: {
+        readonly prompt: (businessName: string) => string;
+        readonly promptPet: (pet: string) => string;
+        readonly context: (service: string, staff: string) => string;
+        readonly ratingLabel: string;
+        readonly ratingWords: readonly [string, string, string, string, string, string];
+        readonly tellMore: string;
+        readonly tellMoreOptional: string;
+        readonly privateNote: (business: string) => string;
+        readonly placeholderPositive: string;
+        readonly placeholderNegative: string;
+        readonly submit: string;
+        readonly submitting: string;
+        readonly pickRating: string;
+        readonly submitError: string;
+        readonly notFoundTitle: string;
+        readonly notFoundBody: string;
+        readonly errorTitle: string;
+        readonly errorBody: string;
+        readonly thanksTitle: (first: string) => string;
+        readonly thanks: string;
+        readonly thanksPublicBody: (business: string) => string;
+        readonly thanksGoogleLess: (business: string) => string;
+        readonly thanksPrivateBody: (business: string) => string;
+        readonly copyReview: string;
+        readonly copied: string;
+        readonly postGoogle: string;
+        readonly noThanks: string;
+        readonly closePage: string;
+    };
+    readonly publicLanding: {
+        readonly poweredBy: string;
+        readonly menu: string;
+        readonly navigation: string;
+        readonly home: string;
+        readonly booking: string;
+        readonly shop: string;
+        readonly cart: string;
+        readonly about: string;
+        readonly team: string;
+        readonly reviews: string;
+        readonly visit: string;
+        readonly policies: string;
+        readonly gallery: string;
+        readonly jumpTo: string;
+        readonly call: string;
+        readonly email: string;
+        readonly website: string;
+        readonly directions: string;
+        readonly hours: string;
+        readonly hoursHint: string;
+        readonly noServices: string;
+        readonly loadingOpenings: string;
+        readonly openingsUnavailable: string;
+        readonly noOpenings: string;
+        readonly reviewer: string;
+        readonly response: string;
+        readonly rating: (rating: string, count: number) => string;
+        readonly cancelPolicy: (hours: number) => string;
+        readonly reschedulePolicy: (hours: number) => string;
+        readonly contactPolicy: string;
+        readonly lateCancelPolicy: string;
+        readonly book: string;
+        readonly servicesTitle: string;
+        readonly notFoundTitle: string;
+        readonly notFoundBody: string;
+        readonly pageNotFoundTitle: string;
+        readonly pageNotFoundBody: string;
+    };
+    readonly files: { readonly uploadLogo: string; readonly replaceLogo: string } & Labels;
+    readonly checkout: {
+        readonly bankLinkHelp: string;
+        readonly bankLinkLabel: string;
+        readonly bankLinkShare: string;
+        readonly bankLinkRevoke: string;
+        readonly bankLinkRequirements: string;
+        readonly bankLinkError: string;
+        readonly bankSetupTitle: string;
+        readonly bankSetupBody: string;
+        readonly bankSetupStart: string;
+        readonly bankSetupConfirm: string;
+        readonly bankSetupDone: string;
+        readonly bankSetupDoneBody: string;
+        readonly bankSetupPending: string;
+        readonly bankSetupVerify: string;
+        readonly bankSetupRefresh: string;
+        readonly bankSetupUnavailable: string;
+        readonly bankSetupFor: (name: string) => string;
+        readonly payment: string;
+        readonly newCard: string;
+        readonly selectSavedMethod: string;
+        readonly chooseSavedMethod: string;
+        readonly addMethodFirst: string;
+        readonly notConfiguredSavedCard: string;
+        readonly notConfiguredContact: string;
+        readonly back: string;
+        readonly paymentFailed: string;
+        readonly charging: string;
+        readonly charge: (amount: string) => string;
+        readonly pay: (amount: string) => string;
+        readonly saveError: string;
+        readonly saveCard: string;
+    };
+    readonly search: {
+        readonly placeholder: string;
+        readonly recent: string;
+        readonly clearRecent: string;
+        readonly jumpTo: string;
+        readonly actions: string;
+        readonly clients: string;
+        readonly bookings: string;
+        readonly invoices: string;
+        readonly items: string;
+        readonly all: string;
+        readonly filters: string;
+        readonly noResults: (q: string) => string;
+        readonly noResultsHint: string;
+        readonly addClientNamed: (q: string) => string;
+        readonly bookFor: (name: string) => string;
+        readonly messageTo: (name: string) => string;
+        readonly bookingLine: (item: string, when: string, staff: string) => string;
+        readonly invoiceNumber: (n: number) => string;
+        readonly draftInvoice: string;
+        readonly invoiceLine: (client: string, amount: string) => string;
+        readonly minutes: (n: number) => string;
+        readonly navigate: string;
+        readonly open: string;
+        readonly close: string;
+        readonly esc: string;
+        readonly offline: string;
+        readonly seeAll: (n: number) => string;
+        readonly recentSearch: (q: string) => string;
+        readonly cancel: string;
+        readonly loading: string;
+        readonly loadError: string;
+        readonly loadErrorBody: string;
+        readonly nothingYet: string;
+        readonly nothingYetBody: string;
+    };
+    readonly notifications: {
+        readonly title: string;
+        readonly markAllRead: string;
+        readonly all: string;
+        readonly unreadCount: (n: number) => string;
+        readonly filterBy: string;
+        readonly groups: {
+            readonly today: string;
+            readonly yesterday: string;
+            readonly earlier: string;
+        } & Labels;
+        readonly empty: string;
+        readonly emptyUnread: string;
+        readonly emptyHint: string;
+        readonly loading: string;
+        readonly unreadLabel: (title: string, body: string) => string;
+        readonly readLabel: (title: string, body: string) => string;
+        readonly someone: string;
+        readonly kinds: {
+            readonly payment: string;
+            readonly paymentBody: (client: string, amount: string) => string;
+            readonly deposit: string;
+            readonly depositBody: (client: string, amount: string) => string;
+            readonly refund: string;
+            readonly refundBody: (client: string, amount: string) => string;
+            readonly bookingNew: string;
+            readonly bookingCanceled: string;
+            readonly bookingBody: (client: string, item: string, when: string) => string;
+            readonly message: (client: string) => string;
+            readonly review: (stars: number) => string;
+            readonly reviewBody: (client: string, body: string) => string;
+            readonly overdue: (n: number) => string;
+            readonly overdueBody: (client: string) => string;
+        };
+    };
+    readonly sync: {
+        readonly problemTitle: string;
+        readonly problems: {
+            readonly storage: string;
+            readonly upload: string;
+            readonly download: string;
+            readonly full: string;
+        } & Labels;
+        readonly signInAgain: string;
+        readonly retry: string;
+        readonly firstSyncTitle: string;
+        readonly firstSyncBody: string;
+        readonly uploadingTitle: string;
+        readonly uploadingStrip: (n: number) => string;
+        readonly offlineTitle: string;
+        readonly offlineStrip: (n: number) => string;
+        readonly lastSynced: (time: string) => string;
+        readonly signOutTitle: string;
+        readonly signOutUnknown: string;
+        readonly signOutBody: (n: number) => string;
+        readonly signOutListTitle: string;
+        readonly signOutSafe: string;
+        readonly signOutConfirm: string;
+        readonly signOutCancel: string;
+        readonly hoursChanged: string;
+    };
+    readonly embed: {
+        readonly titles: {
+            readonly booking: string;
+            readonly pay: string;
+            readonly form: string;
+            readonly contract: string;
+            readonly review: string;
+        } & Labels;
+        readonly close: string;
+    };
+}
 
-        book: "Book an appointment",
-        servicesTitle: "Services",
-        notFoundTitle: "Business not found",
-        notFoundBody: "This link is invalid or the business is no longer taking bookings here.",
-        pageNotFoundTitle: "Page not found",
-        pageNotFoundBody: "Check the link the business sent you, or contact them directly.",
-    },
-    files: {
-        uploadLogo: "Upload logo",
-        replaceLogo: "Replace logo",
-    },
-    checkout: {
-        bankLinkHelp:
-            "Share this private link with the client. They enter their bank details and authorize payments with Stripe. The client must start within 24 hours, then has 10 days to finish bank verification. Creating another link replaces it.",
-        bankLinkLabel: "Private authorization link",
-        bankLinkShare: "Share authorization link",
-        bankLinkRevoke: "Revoke link",
-        bankLinkRequirements:
-            "Add the client’s email and finish Canadian bank debit setup in Payments. Contact support if this payment method is not enabled.",
-        bankLinkError:
-            "Couldn't load bank authorization. Try again or ask the business for a new link.",
-        bankSetupTitle: "Authorize bank payments",
-        bankSetupBody:
-            "Enter your bank details securely with Stripe and review the pre-authorized debit agreement. No payment is taken now. Stripe may ask you to verify small deposits and send verification and mandate emails.",
-        bankSetupStart: "Continue to secure bank setup",
-        bankSetupConfirm: "Authorize and save bank account",
-        bankSetupDone: "Bank account authorized",
-        bankSetupDoneBody:
-            "Your bank account is ready for authorized future payments. You can close this page.",
-        bankSetupPending:
-            "Bank verification is still in progress. Follow the instructions from Stripe before this account can be used.",
-        bankSetupVerify: "Verify with Stripe",
-        bankSetupRefresh: "Check verification status",
-        bankSetupUnavailable:
-            "This authorization link is expired or unavailable. Ask the business for a new link.",
-        bankSetupFor: (name: string) => `Bank authorization for ${name}`,
-
-        payment: "Payment",
-        newCard: "Pay with a new card",
-        selectSavedMethod: "Select a saved method",
-        chooseSavedMethod: "Choose a saved payment method.",
-        addMethodFirst: "Add a payment method to the client first.",
-        notConfiguredSavedCard: "Card payments aren’t configured. Charge a saved card instead.",
-        notConfiguredContact: "Card payments aren't configured. Please contact the business.",
-        back: "Back",
-        paymentFailed: "Payment failed. Please try again.",
-        charging: "Charging…",
-        charge: (amount: string) => `Charge ${amount}`,
-        pay: (amount: string) => `Pay ${amount}`,
-        saveError: "Couldn’t save the card. Please check the details and try again.",
-        saveCard: "Save card",
-    },
-    search: {
-        placeholder: "Search",
-        recent: "Recent",
-        clearRecent: "Clear",
-        jumpTo: "Go to",
-        actions: "Actions",
-        clients: "Clients",
-        bookings: "Bookings",
-        invoices: "Invoices",
-        items: "Services and products",
-        all: "All",
-        filters: "Filter results",
-        noResults: (q: string) => `Nothing matches “${q}”.`,
-        noResultsHint: "Try a phone number, an email or an invoice number.",
-        addClientNamed: (q: string) => `Add “${q}” as a new client`,
-        bookFor: (name: string) => `Book ${name}`,
-        messageTo: (name: string) => `Message ${name}`,
-        bookingLine: (item: string, when: string, staff: string) => `${item} · ${when} · ${staff}`,
-        invoiceNumber: (n: number) => `#${String(n)}`,
-        draftInvoice: "Draft invoice",
-        invoiceLine: (client: string, amount: string) => `${client} · ${amount}`,
-        minutes: (n: number) => `${String(n)} min`,
-        navigate: "to move",
-        open: "to open",
-        close: "to close",
-        esc: "esc",
-        offline: "Searching what’s on this device. Everything synced is included.",
-        seeAll: (n: number) => `See all ${String(n)}`,
-        recentSearch: (q: string) => `Search again for ${q}`,
-        cancel: "Cancel",
-        loading: "Getting this device ready to search",
-        loadError: "Couldn’t search this device",
-        loadErrorBody:
-            "The local copy of your data didn’t open. Try again, or sign out and back in if it keeps happening.",
-        nothingYet: "Nothing to search yet",
-        nothingYetBody:
-            "Clients, bookings and invoices show up here once you add them or they sync to this device.",
-    },
-    notifications: {
-        title: "Notifications",
-        markAllRead: "Mark all read",
-        all: "All",
-        unreadCount: (n: number) => `Unread ${String(n)}`,
-        filterBy: "Show",
-        groups: { today: "Today", yesterday: "Yesterday", earlier: "Earlier this week" },
-        empty: "You’re all caught up.",
-        emptyUnread: "No unread notifications.",
-        emptyHint: "New bookings, payments and messages show up here.",
-        loading: "Loading notifications",
-        unreadLabel: (title: string, body: string) => `Unread: ${title}. ${body}`,
-        readLabel: (title: string, body: string) => `${title}. ${body}`,
-        someone: "A client",
-        kinds: {
-            payment: "Payment received",
-            paymentBody: (client: string, amount: string) => `${client} paid ${amount}`,
-            deposit: "Deposit received",
-            depositBody: (client: string, amount: string) => `${client} paid a ${amount} deposit`,
-            refund: "Refund sent",
-            refundBody: (client: string, amount: string) => `${amount} back to ${client}`,
-            bookingNew: "New online booking",
-            bookingCanceled: "Booking cancelled",
-            bookingBody: (client: string, item: string, when: string) =>
-                when ? `${client}, ${item}, ${when}` : `${client}, ${item}`,
-            message: (client: string) => `Message from ${client}`,
-            review: (stars: number) => `New ${String(stars)}-star review`,
-            reviewBody: (client: string, body: string) => `${client}: “${body}”`,
-            overdue: (n: number) => `Invoice #${String(n)} is overdue`,
-            overdueBody: (client: string) => `${client} hasn’t paid yet`,
-        },
-    },
-    sync: {
-        problemTitle: "Sync needs attention",
-        problems: {
-            storage:
-                "We can’t read unsent changes on this device. Keep this account signed in while storage recovers.",
-            upload: "Some changes haven’t reached the server. They remain on this device while sync retries.",
-            download:
-                "We can’t get the latest updates. Showing the data already saved on this device.",
-            full: "This device is out of storage, so new updates can’t be saved. Free up space and sync resumes.",
-        },
-        signInAgain: "Sign in again",
-        retry: "Try again",
-        firstSyncTitle: "Your data hasn’t loaded yet",
-        firstSyncBody: "We can’t reach the server to load this account. We’ll keep trying.",
-        uploadingTitle: "Still uploading",
-        uploadingStrip: (n: number) =>
-            n === 1
-                ? "1 change is saved on this device and still on its way to the server"
-                : `${String(n)} changes are saved on this device and still on their way to the server`,
-        offlineTitle: "You’re offline",
-        offlineStrip: (n: number) =>
-            n === 0
-                ? "Changes you make are saved on this device and sync when you reconnect"
-                : n === 1
-                  ? "1 change will sync when you reconnect"
-                  : `${String(n)} changes will sync when you reconnect`,
-        lastSynced: (time: string) => `Last synced at ${time}`,
-        signOutTitle: "Sign out with changes not synced?",
-        signOutUnknown:
-            "We could not check for unsent changes. Signing out will discard any changes that are still only on this device.",
-        signOutBody: (n: number) =>
-            n === 1
-                ? "1 change is only on this device. If you sign out before reconnecting, it will be lost."
-                : `${String(n)} changes are only on this device. If you sign out before reconnecting, they will be lost.`,
-        signOutListTitle: "These changes will be lost",
-        signOutSafe: "Reconnect first and they sync on their own.",
-        signOutConfirm: "Sign out anyway",
-        signOutCancel: "Stay signed in",
-        hoursChanged: "Working hours changed",
-    },
-} as const;
+export const strings = catalog(
+    english,
+    async () => (await import("../locales/en-XA.json")).default,
+) as Strings;

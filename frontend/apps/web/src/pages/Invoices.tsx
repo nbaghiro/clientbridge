@@ -22,6 +22,8 @@ import {
     useInvoices,
     useLetterhead,
     useLines,
+    formatParts,
+    BUSINESS_CURRENCY,
 } from "@clientbridge/app-core";
 import {
     ActivityTimeline,
@@ -160,7 +162,10 @@ function InvoiceDeskView({
     const desk = useInvoiceDesk();
     const { stats } = desk;
     const ready = desk.load.state === "ready";
-    const figure = (cents: number): { cents: number | null } => ({ cents: ready ? cents : null });
+    const figure = (cents: number): { cents: number | null; currency: string } => ({
+        cents: ready ? cents : null,
+        currency: BUSINESS_CURRENCY,
+    });
 
     return (
         <div className="@container space-y-6">
@@ -266,11 +271,16 @@ function InvoiceDeskView({
                             </span>
                         </span>
                         <span className="text-right">
-                            <Money cents={r.row.total_cents} tone="muted" />
+                            <Money
+                                currency={BUSINESS_CURRENCY}
+                                cents={r.row.total_cents}
+                                tone="muted"
+                            />
                         </span>
                         <span className="text-right">
                             {(r.row.balance_cents ?? 0) > 0 && r.status !== "void" ? (
                                 <Money
+                                    currency={BUSINESS_CURRENCY}
                                     cents={r.row.balance_cents}
                                     strong
                                     tone={r.late ? "danger" : "ink"}
@@ -451,12 +461,12 @@ function InvoicePanel({
                                     <p className="text-sm text-ink">{l.description}</p>
                                     <p className="text-xs text-muted">{rec.lineDetail(l)}</p>
                                 </div>
-                                <Money cents={l.amountCents} />
+                                <Money currency={BUSINESS_CURRENCY} cents={l.amountCents} />
                             </div>
                         ))}
                     </div>
                     <div className="mt-3 rounded-lg bg-bg px-4 py-3">
-                        <DocTotals lines={rec.totals} />
+                        <DocTotals currency={BUSINESS_CURRENCY} lines={rec.totals} />
                     </div>
                 </DetailSection>
                 {rec.payUrl !== null ? (
@@ -546,7 +556,12 @@ function invoicePreviewDocs(
             facts:
                 paid === undefined
                     ? []
-                    : [{ label: paid.label, value: formatMoney(paid.amountCents) }],
+                    : [
+                          {
+                              label: paid.label,
+                              value: formatMoney(paid.amountCents, BUSINESS_CURRENCY),
+                          },
+                      ],
         },
     ];
 }
@@ -595,7 +610,7 @@ function PaymentLine({
                 {view.refund ? <Badge label={s.refundBadge} intent="neutral" /> : null}
                 <span className={`tabular-nums ${view.refund ? "text-danger" : "text-ink"}`}>
                     {view.refund ? "−" : ""}
-                    {formatMoney(view.amountCents)}
+                    {formatMoney(view.amountCents, BUSINESS_CURRENCY)}
                 </span>
                 {refundable ? (
                     <Button
@@ -692,7 +707,7 @@ function EstimateDeskView({
                             <span className="truncate text-xs text-muted">{r.validLabel}</span>
                         </span>
                         <span className="text-right">
-                            <Money cents={r.row.total_cents} />
+                            <Money currency={BUSINESS_CURRENCY} cents={r.row.total_cents} />
                         </span>
                     </div>
                 )}
@@ -829,7 +844,10 @@ function EstimatePanel({
                     layout="stack"
                     columns={2}
                     rows={[
-                        { label: s.total, value: formatMoney(rec.row.total_cents) },
+                        {
+                            label: s.total,
+                            value: formatMoney(rec.row.total_cents, BUSINESS_CURRENCY),
+                        },
                         { label: s.colValid, value: rec.validLabel },
                     ]}
                 />
@@ -852,10 +870,11 @@ function EstimatePanel({
                                         {l.description}
                                     </p>
                                     <p className="text-xs text-muted">
-                                        {[rec.lineDetail(l), l.note].filter(Boolean).join(" · ")}
+                                        {formatParts([rec.lineDetail(l), l.note])}
                                     </p>
                                 </div>
                                 <Money
+                                    currency={BUSINESS_CURRENCY}
                                     cents={l.amountCents}
                                     tone={l.optional && !l.selected ? "muted" : "ink"}
                                 />
@@ -863,7 +882,7 @@ function EstimatePanel({
                         ))}
                     </div>
                     <div className="mt-3 rounded-lg bg-bg px-4 py-3">
-                        <DocTotals lines={rec.totals} />
+                        <DocTotals currency={BUSINESS_CURRENCY} lines={rec.totals} />
                     </div>
                 </DetailSection>
                 {rec.acceptUrl !== null ? (

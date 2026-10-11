@@ -1,4 +1,10 @@
-import { type ClassRoster, type RosterEntry, strings, useClassBoard } from "@clientbridge/app-core";
+import {
+    type ClassRoster,
+    type RosterEntry,
+    strings,
+    useClassBoard,
+    formatParts,
+} from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
     Avatar,
@@ -62,8 +68,8 @@ export function ClassesScreen() {
                         label={s.upcoming}
                         options={board.sessions.map((x) => ({
                             key: x.slotId,
-                            label: `${x.day} · ${x.name}`,
-                            hint: `${x.time} · ${x.seatsLabel}`,
+                            label: formatParts([x.day, x.name]),
+                            hint: formatParts([x.time, x.seatsLabel]),
                         }))}
                         value={board.selected}
                         onChange={board.select}
@@ -149,9 +155,11 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
                     <Icon name="users" size={24} color={c.inkSoft} />
                     <View style={styles.flex}>
                         <Text style={styles.className}>{x.name}</Text>
-                        <Text
-                            style={styles.muted}
-                        >{`${x.when} · ${s.with(x.staffName, x.roomName)}`}</Text>
+                        <Text style={styles.muted}>
+                            {x.roomName === ""
+                                ? s.with(x.when, x.staffName)
+                                : s.withRoom(x.when, x.staffName, x.roomName)}
+                        </Text>
                     </View>
                 </View>
                 <View style={styles.meterBig}>
@@ -162,7 +170,10 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
                         max={x.capacity}
                         overflow={x.waitlist}
                         intent={x.full ? "warning" : "accent"}
-                        label={`${s.seatsBooked(x.booked, x.capacity)} · ${s.checkedIn(x.checkedIn, x.booked)}`}
+                        label={formatParts([
+                            s.seatsBooked(x.booked, x.capacity),
+                            s.checkedIn(x.checkedIn, x.booked),
+                        ])}
                     />
                 </View>
             </View>
@@ -176,7 +187,7 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
                     {roster.matches.map((m) => (
                         <ListRow
                             key={m.clientId}
-                            title={m.pet === "" ? m.name : `${m.pet} · ${m.name}`}
+                            title={m.pet === "" ? m.name : formatParts([m.pet, m.name])}
                             leading={<Avatar name={m.pet === "" ? m.name : m.pet} size="sm" />}
                             meta={x.full ? s.waitlist : s.add}
                             onPress={() => {
@@ -255,7 +266,9 @@ function Attendee({ a, roster, first }: { a: RosterEntry; roster: ClassRoster; f
                 <Text style={styles.pet} numberOfLines={1}>
                     {a.petName}
                     {a.petName !== a.clientName ? (
-                        <Text style={styles.muted}>{` · ${a.clientName}`}</Text>
+                        <Text style={styles.muted}>
+                            {`${strings.common.separator}${a.clientName}`}
+                        </Text>
                     ) : null}
                 </Text>
                 <View style={styles.badges}>

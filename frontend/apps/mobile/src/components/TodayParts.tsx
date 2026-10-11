@@ -8,6 +8,9 @@ import {
     strings,
     useShellNav,
     visitAction,
+    formatList,
+    formatParts,
+    BUSINESS_CURRENCY,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -126,7 +129,7 @@ export function PaymentsSummary({ owner }: { owner?: OwnerToday }) {
                         <View style={styles.flex}>
                             <Text style={styles.kpiLabel}>{t.collected}</Text>
                             <Text style={styles.kpiValue}>
-                                {formatMoney(owner.money.collectedCents)}
+                                {formatMoney(owner.money.collectedCents, BUSINESS_CURRENCY)}
                             </Text>
                             <Text style={styles.kpiHint}>
                                 {t.collectedHint(owner.money.paymentCount)}
@@ -135,7 +138,7 @@ export function PaymentsSummary({ owner }: { owner?: OwnerToday }) {
                         <View style={styles.flex}>
                             <Text style={styles.kpiLabel}>{t.awaiting}</Text>
                             <Text style={styles.kpiValue}>
-                                {formatMoney(owner.money.awaitingCents)}
+                                {formatMoney(owner.money.awaitingCents, BUSINESS_CURRENCY)}
                             </Text>
                             <Text style={styles.kpiHint}>
                                 {t.awaitingHint(owner.money.awaitingCount)}
@@ -180,7 +183,7 @@ export function KpiSummary({ items }: { items: MobileKpi[] }) {
                     key={k.label}
                     style={[styles.kpi, styles.flex]}
                     accessible
-                    accessibilityLabel={`${k.label}, ${k.value}, ${k.hint}`}
+                    accessibilityLabel={formatList([k.label, k.value, k.hint], "unit")}
                 >
                     <Text style={styles.kpiLabel}>{k.label}</Text>
                     <Text style={[styles.kpiValue, k.tone === "success" && { color: c.success }]}>
@@ -317,7 +320,7 @@ export function NextCard({ item, children }: { item: AgendaItem; children?: Reac
                                     ? t.checkedIn
                                     : item.state === "now"
                                       ? t.stateNow
-                                      : t.inMinutes(item.minutesAway)
+                                      : item.startsIn
                             }
                             intent={item.checkedIn || item.state === "now" ? "success" : "accent"}
                             asWritten
@@ -327,7 +330,7 @@ export function NextCard({ item, children }: { item: AgendaItem; children?: Reac
                         {item.clientName}
                     </Text>
                     <Text style={styles.nextService} numberOfLines={1}>
-                        {item.serviceName} · {t.withStaff(item.staffName)}
+                        {formatParts([item.serviceName, t.withStaff(item.staffName)])}
                     </Text>
                 </View>
             </View>
@@ -450,7 +453,7 @@ export function AgendaRows({
                             </Text>
                             <Text style={styles.agendaSub} numberOfLines={1}>
                                 {showStaff
-                                    ? `${item.serviceName} · ${item.staffName}`
+                                    ? formatParts([item.serviceName, item.staffName])
                                     : item.serviceName}
                             </Text>
                         </View>

@@ -1,13 +1,23 @@
+import { formatParts } from "../format";
 import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useState } from "react";
 
 import type { ApiLike } from "../api";
-import { addDays, formatTime, parseTimestamp, relativeDay, sameDay, startOfDay } from "../datetime";
+import {
+    addDays,
+    formatTimeRange,
+    parseTimestamp,
+    relativeDay,
+    sameDay,
+    startOfDay,
+    useBusinessZone,
+} from "../datetime";
 import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
 import { type ScheduleEvent, slotBookingsJoin, useNow } from "./bookings";
+import { temperamentLabel } from "./clients";
 import { utcSql } from "../datetime";
 import { staffName, useStaff } from "./staff";
 import { useReplicaLoad } from "./sync";
@@ -117,10 +127,30 @@ export interface ClassRoster {
 }
 
 const STATUS: Record<RosterStatus, { label: string; intent: Intent }> = {
-    confirmed: { label: s.statusBooked, intent: "accent" },
-    checked_in: { label: s.statusHere, intent: "success" },
-    no_show: { label: s.statusNoShow, intent: "danger" },
-    waitlist: { label: s.statusWaiting, intent: "neutral" },
+    confirmed: {
+        get label() {
+            return s.statusBooked;
+        },
+        intent: "accent",
+    },
+    checked_in: {
+        get label() {
+            return s.statusHere;
+        },
+        intent: "success",
+    },
+    no_show: {
+        get label() {
+            return s.statusNoShow;
+        },
+        intent: "danger",
+    },
+    waitlist: {
+        get label() {
+            return s.statusWaiting;
+        },
+        intent: "neutral",
+    },
 };
 
 export function rosterStatus(r: RosterRow): RosterStatus {
@@ -156,10 +186,11 @@ interface ClassBoard {
 /** Class sessions coming up with their seats, and the selected session's roster and waitlist. */
 export function useClassBoard(api: ApiLike): ClassBoard {
     const now = useNow();
-    const from = startOfDay(now);
+    const zone = useBusinessZone();
+    const from = startOfDay(now, zone);
     const sessionsQ = useQuery<SessionRow>(CLASS_SESSIONS_SQL, [
         from.toISOString(),
-        addDays(from, 21).toISOString(),
+        addDays(from, 21, zone).toISOString(),
     ]);
     const rosterQ = useQuery<RosterRow>(CLASS_ROSTER_SQL, [from.toISOString()]);
     const clients = useQuery<{
@@ -190,9 +221,9 @@ export function useClassBoard(api: ApiLike): ClassBoard {
             color: r.item_color,
             start,
             end,
-            when: `${relativeDay(start)} · ${formatTime(start)} – ${formatTime(end)}`,
-            day: relativeDay(start),
-            time: `${formatTime(start)} – ${formatTime(end)}`,
+            when: formatParts([relativeDay(start, zone), formatTimeRange(start, end, zone)]),
+            day: relativeDay(start, zone),
+            time: formatTimeRange(start, end, zone),
             staffName: member ? staffName(member) : "",
             roomName: r.room ?? "",
             capacity: r.capacity,
@@ -220,7 +251,10 @@ export function useClassBoard(api: ApiLike): ClassBoard {
             clientId: r.client_id,
             clientName: r.client_name,
             petName: r.pet_name ?? r.client_name,
-            petDetail: [attrs.breed, attrs.temperament].filter(Boolean).join(" · "),
+            petDetail: formatParts([
+                attrs.breed,
+                attrs.temperament && temperamentLabel(attrs.temperament),
+            ]),
             status,
             statusLabel: STATUS[status].label,
             intent: STATUS[status].intent,
@@ -350,7 +384,7 @@ export function useClassBoard(api: ApiLike): ClassBoard {
                       );
                   },
                   notice,
-                  started: sameDay(session.start, now) || session.start <= now,
+                  started: sameDay(session.start, now, zone) || session.start <= now,
                   busy,
                   error,
               }
@@ -411,6 +445,7 @@ export function useStationPicker(
     visit: ScheduleEvent,
     onSaved: () => void,
 ): StationPicker {
+    const zone = useBusinessZone();
     const stations = useQuery<StationRow>(STATIONS_SQL).data;
     const held = useQuery<HeldRow>(STATIONS_HELD_SQL, [
         visit.end.toISOString(),
@@ -431,7 +466,7 @@ export function useStationPicker(
                     clash && start && end
                         ? s.takenBy(
                               clash.pet_name ?? clash.client_name ?? clash.item_name,
-                              `${formatTime(start)} – ${formatTime(end)}`,
+                              formatTimeRange(start, end, zone),
                           )
                         : s.freeThen,
                 disabled: clash !== undefined,

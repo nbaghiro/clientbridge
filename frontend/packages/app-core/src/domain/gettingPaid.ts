@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { parseTimestamp } from "../datetime";
+import { formatDate, parseTimestamp, useBusinessZone } from "../datetime";
 import type { PaymentAccountComponent, PaymentAccountProps } from "../ui";
 import { useBusinessId } from "./business";
 import { strings } from "../strings";
@@ -44,25 +44,55 @@ function useConnectStatus(api: ApiLike, reloadKey = 0): ConnectStatus | "error" 
 const g = strings.gettingPaid;
 
 const REQUIREMENT_LABELS: Record<string, string> = {
-    external_account: g.reqExternalAccount,
-    "business_profile.url": g.reqBusinessWebsite,
-    "business_profile.mcc": g.reqBusinessCategory,
-    "business_profile.product_description": g.reqProductDescription,
-    "individual.id_number": g.reqIdNumber,
-    "individual.verification.document": g.reqPhotoId,
-    "individual.verification.additional_document": g.reqProofOfAddress,
-    "individual.address.line1": g.reqHomeAddress,
-    "company.tax_id": g.reqBusinessNumber,
-    "tos_acceptance.date": g.reqTosAcceptance,
+    get external_account() {
+        return g.reqExternalAccount;
+    },
+    get "business_profile.url"() {
+        return g.reqBusinessWebsite;
+    },
+    get "business_profile.mcc"() {
+        return g.reqBusinessCategory;
+    },
+    get "business_profile.product_description"() {
+        return g.reqProductDescription;
+    },
+    get "individual.id_number"() {
+        return g.reqIdNumber;
+    },
+    get "individual.verification.document"() {
+        return g.reqPhotoId;
+    },
+    get "individual.verification.additional_document"() {
+        return g.reqProofOfAddress;
+    },
+    get "individual.address.line1"() {
+        return g.reqHomeAddress;
+    },
+    get "company.tax_id"() {
+        return g.reqBusinessNumber;
+    },
+    get "tos_acceptance.date"() {
+        return g.reqTosAcceptance;
+    },
+};
+
+const FIELD_LABELS: Readonly<Record<string, () => string>> = {
+    first_name: () => g.reqFirstName,
+    last_name: () => g.reqLastName,
+    email: () => g.reqEmail,
+    phone: () => g.reqPhone,
+    title: () => g.reqJobTitle,
+    business_type: () => g.reqBusinessType,
 };
 
 function requirementLabel(key: string): string {
     const known = REQUIREMENT_LABELS[key];
     if (known !== undefined) return known;
     if (key.startsWith("individual.dob") || key.startsWith("person.dob")) return g.reqDateOfBirth;
-    const tail = key.split(".").pop() ?? key;
-    const words = tail.replace(/_/g, " ");
-    return words.charAt(0).toUpperCase() + words.slice(1);
+    if (key === "company.name") return g.reqBusinessName;
+    if (key.startsWith("company.address")) return g.reqBusinessAddress;
+    if (key.includes(".address.")) return g.reqHomeAddress;
+    return FIELD_LABELS[key.split(".").pop() ?? key]?.() ?? g.reqOther;
 }
 
 type ConnectPhase =
@@ -112,16 +142,27 @@ function phaseOf(status: ConnectStatus): ConnectPhase {
 }
 
 const TITLES: Partial<Record<ConnectPhase, string>> = {
-    in_progress: g.titleInProgress,
-    pending: g.titlePending,
-    restricted: g.pausedTitle,
-    enabled: g.readyTitle,
-    disabled: g.titleDisabled,
+    get in_progress() {
+        return g.titleInProgress;
+    },
+    get pending() {
+        return g.titlePending;
+    },
+    get restricted() {
+        return g.pausedTitle;
+    },
+    get enabled() {
+        return g.readyTitle;
+    },
+    get disabled() {
+        return g.titleDisabled;
+    },
 };
 
 export function useGettingPaid(api: ApiLike): GettingPaidView {
     const [reloadKey, setReloadKey] = useState(0);
     const status = useConnectStatus(api, reloadKey);
+    const zone = useBusinessZone();
 
     const refresh = useCallback(() => {
         setReloadKey((k) => k + 1);
@@ -148,7 +189,7 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
                   : phase === "restricted"
                     ? deadline === null
                         ? g.pausedBodyNoDate
-                        : g.pausedBody(deadline)
+                        : g.pausedBody(formatDate(deadline, zone))
                     : g.readyBody;
     return {
         phase,
@@ -157,7 +198,7 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
         requirements: keys.map((key) => ({
             key,
             label: requirementLabel(key),
-            why: g.reqWhy[key] ?? "",
+            why: g.reqWhy[key.replaceAll(".", "_")] ?? "",
             pastDue: past.has(key),
             icon: key === "external_account" ? "bank" : "user",
         })),

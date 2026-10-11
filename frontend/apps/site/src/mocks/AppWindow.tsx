@@ -1,24 +1,16 @@
 import { Lockup } from "@clientbridge/ui/logo";
 
-import { Icon, type IconName } from "../art/Icon";
+import { Icon } from "../art/Icon";
 import { appNav, demoBusiness, today } from "../content/demo";
-
-const NAV_ICONS: Record<(typeof appNav.items)[number], IconName> = {
-    Today: "today",
-    Schedule: "calendar",
-    Clients: "clients",
-    Payments: "invoice",
-    Inbox: "inbox",
-};
 
 function SideNav() {
     return (
         <aside className="appwin-side">
             <Lockup className="side-brand" />
-            {appNav.items.map((item) => (
-                <div key={item} className={`navi${item === "Today" ? " on" : ""}`}>
-                    <Icon name={NAV_ICONS[item]} />
-                    {item}
+            {appNav.items.map((item, i) => (
+                <div key={item.icon} className={`navi${i === 0 ? " on" : ""}`}>
+                    <Icon name={item.icon} />
+                    {item.label}
                 </div>
             ))}
             <div className="spacer" />

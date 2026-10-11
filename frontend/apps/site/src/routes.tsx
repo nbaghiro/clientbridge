@@ -2,7 +2,7 @@ import type { ComponentType } from "react";
 
 import { homeMeta } from "./content/home";
 import { notFound } from "./content/site";
-import { featuresMeta, pricingMeta, privacyPage, termsPage } from "./content/pages";
+import { featuresMeta, pageMeta, pricingMeta, privacyPage, termsPage } from "./content/pages";
 import { creditsMeta, solutionsMeta, tradeMeta } from "./content/solutions";
 import { solutionPath, type Trade, TRADES } from "./content/trades";
 import { Credits } from "./pages/Credits";
@@ -16,6 +16,8 @@ import { TradePage } from "./pages/TradePage";
 
 export interface PageMeta {
     title: string;
+    /** The share image's heading: the title without the brand. */
+    headline: string;
     description: string;
 }
 
@@ -46,7 +48,7 @@ export const ROUTES: readonly SiteRoute[] = [
 export const NOT_FOUND: SiteRoute = {
     path: "/404",
     Page: NotFound,
-    meta: { title: `${notFound.title} | Clientbridge`, description: notFound.body },
+    meta: pageMeta({ headline: notFound.title, description: notFound.body }),
 };
 
 export const routeFor = (path: string): SiteRoute => {

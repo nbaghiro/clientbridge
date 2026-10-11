@@ -1,11 +1,14 @@
 import csv
 import io
+import re
 from datetime import UTC, datetime, timedelta
 
 import httpx
+import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.config import get_settings
 from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ratelimit import RateLimiter, public_prefs_rate_limit
 from clientbridge.main import app
@@ -65,6 +68,22 @@ async def test_export_lists_every_change(as_owner: httpx.AsyncClient, db: AsyncS
         ("sms", "withdrawn", "reply"),
     ]
     assert mine[0][0] == "'=HYPERLINK(1)"  # a spreadsheet won't run it as a formula
+
+
+async def test_export_pseudo_localizes_headers_and_keeps_data(
+    as_owner: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    english = list(
+        csv.reader(io.StringIO(ok(await as_owner.post("/v1/consents/export")).json()["content"]))
+    )
+    monkeypatch.setattr(get_settings(), "pseudo_locale", True)
+    body = ok(await as_owner.post("/v1/consents/export")).json()
+    header, *data = list(csv.reader(io.StringIO(body["content"])))
+    assert len(header) == len(english[0]) == 9
+    for cell in header:
+        assert cell.startswith("[") and cell.endswith("~]"), cell
+        assert not re.search(r"[A-Za-z]", cell), cell
+    assert data == english[1:] and len(data) > 0
 
 
 async def test_export_is_for_managers(as_staff: httpx.AsyncClient) -> None:

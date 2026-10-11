@@ -8,6 +8,8 @@ import {
     useSeriesComposer,
     useSeriesList,
     useSeriesRecord,
+    formatParts,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -88,9 +90,12 @@ export function RecurrencesScreen() {
                     { key: "all", label: s.filterAll },
                     {
                         key: "attention",
-                        label: `${s.filterAttention} · ${String(list.counts.attention)}`,
+                        label: formatParts([s.filterAttention, String(list.counts.attention)]),
                     },
-                    { key: "ending", label: `${s.filterEnding} · ${String(list.counts.ending)}` },
+                    {
+                        key: "ending",
+                        label: formatParts([s.filterEnding, String(list.counts.ending)]),
+                    },
                 ]}
                 value={list.filter}
                 onChange={list.setFilter}
@@ -127,8 +132,8 @@ export function RecurrencesScreen() {
                     {list.rows.map((r) => (
                         <ListRow
                             key={r.id}
-                            title={[r.petName, r.clientName].filter(Boolean).join(" · ")}
-                            detail={`${r.pattern}\n${r.nextLabel}`}
+                            title={formatParts([r.petName, r.clientName])}
+                            detail={[r.pattern, r.nextLabel].join("\n")}
                             meta={
                                 r.attention > 0 ? (
                                     <Badge label={s.needsDecision(r.attention)} intent="danger" />
@@ -150,12 +155,28 @@ export function RecurrencesScreen() {
 }
 
 const SCOPES: { key: ChangeScope; label: string }[] = [
-    { key: "one", label: s.scopeOne },
-    { key: "following", label: s.scopeFollowing },
-    { key: "all", label: s.scopeAll },
+    {
+        key: "one",
+        get label() {
+            return s.scopeOne;
+        },
+    },
+    {
+        key: "following",
+        get label() {
+            return s.scopeFollowing;
+        },
+    },
+    {
+        key: "all",
+        get label() {
+            return s.scopeAll;
+        },
+    },
 ];
 
 function Record({ id, onBack }: { id: string; onBack: () => void }) {
+    const zone = useBusinessZone();
     const rec = useSeriesRecord(api, id);
     const [dialog, setDialog] = useState<"change" | "cancel" | null>(null);
     if (rec === null) return null;
@@ -168,9 +189,7 @@ function Record({ id, onBack }: { id: string; onBack: () => void }) {
                 {s.backToList}
             </Button>
             <Text style={styles.muted}>{r.serviceName}</Text>
-            <Text style={styles.title}>
-                {[r.petName, r.clientName].filter(Boolean).join(" · ")}
-            </Text>
+            <Text style={styles.title}>{formatParts([r.petName, r.clientName])}</Text>
             <View style={styles.rowGap}>
                 <Icon name="repeat" size={15} color={c.inkSoft} />
                 <Text style={styles.soft}>{r.pattern}</Text>
@@ -225,7 +244,7 @@ function Record({ id, onBack }: { id: string; onBack: () => void }) {
                 ) : (
                     <OccurrenceList
                         label={s.upcoming}
-                        rows={upcoming.map((o) => occurrenceRow(o))}
+                        rows={upcoming.map((o) => occurrenceRow(o, zone))}
                     />
                 )}
             </View>
@@ -235,7 +254,7 @@ function Record({ id, onBack }: { id: string; onBack: () => void }) {
                     <View style={styles.list}>
                         <OccurrenceList
                             label={s.history}
-                            rows={past.map((o) => occurrenceRow(o))}
+                            rows={past.map((o) => occurrenceRow(o, zone))}
                         />
                     </View>
                 </>
@@ -290,6 +309,7 @@ function Record({ id, onBack }: { id: string; onBack: () => void }) {
 }
 
 function ChangeSheet({ rec, onClose }: { rec: SeriesRecord; onClose: () => void }) {
+    const zone = useBusinessZone();
     return (
         <Modal size="xl" onClose={onClose}>
             <ScrollView contentContainerStyle={styles.sheet}>
@@ -327,7 +347,7 @@ function ChangeSheet({ rec, onClose }: { rec: SeriesRecord; onClose: () => void 
                 {rec.changed ? (
                     <OccurrenceList
                         label={s.preview}
-                        rows={rec.preview.map((o) => occurrenceRow(o))}
+                        rows={rec.preview.map((o) => occurrenceRow(o, zone))}
                     />
                 ) : null}
             </ScrollView>
@@ -347,26 +367,52 @@ function ChangeSheet({ rec, onClose }: { rec: SeriesRecord; onClose: () => void 
 }
 
 const FREQS: { key: SeriesFrequency; label: string }[] = [
-    { key: "week", label: s.weekly },
-    { key: "month", label: s.monthly },
+    {
+        key: "week",
+        get label() {
+            return s.weekly;
+        },
+    },
+    {
+        key: "month",
+        get label() {
+            return s.monthly;
+        },
+    },
 ];
 const ENDS: { key: SeriesEnd; label: string }[] = [
-    { key: "count", label: s.endCount },
-    { key: "until", label: s.endUntil },
+    {
+        key: "count",
+        get label() {
+            return s.endCount;
+        },
+    },
+    {
+        key: "until",
+        get label() {
+            return s.endUntil;
+        },
+    },
 ];
 
 function SeriesComposer({ onDone }: { onDone: () => void }) {
+    const zone = useBusinessZone();
     const f = useSeriesComposer(api, useViewer());
     if (f.done) {
+        const created = f.done.oneConfirmation
+            ? s.doneBody(f.done.created, f.done.clientName)
+            : s.doneBodyEach(f.done.created);
         return (
             <View style={[styles.screen, styles.body]}>
                 <Empty
                     variant="card"
                     icon="check"
                     message={s.doneTitle}
-                    body={`${f.done.oneConfirmation ? s.doneBody(f.done.created, f.done.clientName) : s.doneBodyEach(f.done.created)}${
-                        f.done.skipped > 0 ? ` ${s.doneSkipped(f.done.skipped)}` : ""
-                    }`}
+                    body={
+                        f.done.skipped > 0
+                            ? strings.common.twoSentences(created, s.doneSkipped(f.done.skipped))
+                            : created
+                    }
                     actions={
                         <>
                             <Button size="sm" variant="outline" onPress={f.reset}>
@@ -412,7 +458,12 @@ function SeriesComposer({ onDone }: { onDone: () => void }) {
                     value={f.staffId}
                     onChange={f.setStaffId}
                 />
-                <DateField label={s.firstVisit} value={f.firstDay} onChange={f.setFirstDay} />
+                <DateField
+                    zone={zone}
+                    label={s.firstVisit}
+                    value={f.firstDay}
+                    onChange={f.setFirstDay}
+                />
                 <Text style={styles.label}>{s.time}</Text>
                 <Choice
                     label={s.time}
@@ -464,6 +515,7 @@ function SeriesComposer({ onDone }: { onDone: () => void }) {
                     </View>
                 ) : (
                     <DateField
+                        zone={zone}
                         label={s.lastDate}
                         value={f.until}
                         min={f.firstDay}
@@ -483,7 +535,7 @@ function SeriesComposer({ onDone }: { onDone: () => void }) {
                     <View style={styles.list}>
                         <OccurrenceList
                             label={s.dates}
-                            rows={f.occurrences.map(occurrenceRow)}
+                            rows={f.occurrences.map((o) => occurrenceRow(o, zone))}
                             onAction={(key, action) => {
                                 f.resolve(key, action === "shift" ? "shift" : "skip");
                             }}

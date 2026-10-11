@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { addDays, formatTime, formatWeekday } from "../datetime";
+import { addDays, formatTime, formatWeekday, zonedDate } from "../datetime";
 import { strings } from "../strings";
 import {
     type CalendarEvent,
@@ -24,6 +24,8 @@ import {
 import type { ItemRow } from "./catalog";
 import type { StaffRow } from "./staff";
 
+const ZONE = "America/Vancouver";
+
 const s = strings.bookings;
 
 type HoursRow = Parameters<typeof buildAvailability>[0][number];
@@ -31,7 +33,8 @@ type AwayRow = Parameters<typeof buildAvailability>[1][number];
 type Lane = Parameters<typeof offHourSpans>[0];
 
 // Wednesday 7 October 2026, built in local time so the maths holds in any timezone.
-const at = (h: number, m = 0, dayOffset = 0): Date => new Date(2026, 9, 7 + dayOffset, h, m);
+const at = (h: number, m = 0, dayOffset = 0): Date =>
+    zonedDate(2026, 10, 7 + dayOffset, h, m, ZONE);
 const DAY = at(0);
 
 function event(id: string, start: Date, end: Date, extra: Partial<ScheduleEvent> = {}) {
@@ -135,7 +138,7 @@ const AWAY: AwayRow[] = [
         reason: "Thanksgiving",
     },
 ];
-const avail = buildAvailability(HOURS, AWAY);
+const avail = buildAvailability(HOURS, AWAY, ZONE);
 
 describe("layoutDay", () => {
     it("puts overlapping visits side by side and reuses a column once it frees up", () => {
@@ -148,7 +151,7 @@ describe("layoutDay", () => {
             event("yesterday", at(9, 0, -1), at(10, 0, -1)),
         ];
         expect(
-            layoutDay(events, { dayStart: DAY, pxPerMin: 1 }).map((p) => [
+            layoutDay(events, { dayStart: DAY, zone: ZONE, pxPerMin: 1 }).map((p) => [
                 p.event.id,
                 p.topPx,
                 p.heightPx,
@@ -170,35 +173,41 @@ describe("layoutDay", () => {
             DAY,
             8,
             2,
+            ZONE,
         );
         expect(placed.map((p) => [p.event.id, p.top, p.height, p.leftPct])).toEqual([
             ["a", 120, 118, 0],
             ["b", 180, 58, 50],
         ]);
-        expect(placeEvents([], DAY, 8, 2)).toEqual([]);
+        expect(placeEvents([], DAY, 8, 2, ZONE)).toEqual([]);
     });
 
     it("measures minutes, hour marks and the shaded hours outside a shift", () => {
-        expect(minuteTop(at(9, 30), 8, 2)).toBe(180);
-        expect(minuteTop(at(7, 45), 8, 1)).toBe(-15);
+        expect(minuteTop(at(9, 30), 8, 2, ZONE)).toBe(180);
+        expect(minuteTop(at(7, 45), 8, 1, ZONE)).toBe(-15);
         expect(hourMarks(8, 12)).toEqual([8, 9, 10, 11]);
         expect(hourMarks(9, 9)).toEqual([]);
         const lane = (extra: Partial<Lane>): Lane => ({
             ...laneFor(member("st_bo", "Bo Chen"), DAY, [], avail),
             ...extra,
         });
-        expect(offHourSpans(lane({ unset: true }), 8, 18)).toEqual([]);
-        expect(offHourSpans(lane({ unset: false, hours: null }), 8, 18)).toEqual([
+        expect(offHourSpans(lane({ unset: true }), 8, 18, ZONE)).toEqual([]);
+        expect(offHourSpans(lane({ unset: false, hours: null }), 8, 18, ZONE)).toEqual([
             { from: 0, to: 600 },
         ]);
         expect(
-            offHourSpans(lane({ unset: false, hours: { start: at(9), end: at(17, 30) } }), 8, 18),
+            offHourSpans(
+                lane({ unset: false, hours: { start: at(9), end: at(17, 30) } }),
+                8,
+                18,
+                ZONE,
+            ),
         ).toEqual([
             { from: 0, to: 60 },
             { from: 570, to: 600 },
         ]);
         expect(
-            offHourSpans(lane({ unset: false, hours: { start: at(8), end: at(18) } }), 8, 18),
+            offHourSpans(lane({ unset: false, hours: { start: at(8), end: at(18) } }), 8, 18, ZONE),
         ).toEqual([]);
     });
 });
@@ -271,9 +280,11 @@ describe("slotProblem and planMove", () => {
         const moved = planMove(visit, 32, "st_amy", ctx, at(8));
         expect([moved.start, moved.end, moved.problem]).toEqual([at(10, 30), at(11, 30), null]);
         expect(moved.message).toBe(
-            s.dragTo(`${formatWeekday(at(10, 30))} ${formatTime(at(10, 30))}`, "Amy"),
+            s.dragTo(`${formatWeekday(at(10, 30), ZONE)} ${formatTime(at(10, 30), ZONE)}`, "Amy"),
         );
-        expect(moved.label).toBe(`${formatTime(at(10, 30))} – ${formatTime(at(11, 30))}`);
+        expect(moved.label).toBe(
+            `${formatTime(at(10, 30), ZONE)} – ${formatTime(at(11, 30), ZONE)}`,
+        );
         expect(planMove(visit, 120, "st_amy", ctx, at(8)).problem).toBe("off_hours");
         expect(planMove(visit, -2, "st_amy", ctx, at(12)).problem).toBeNull();
         expect(planMove(visit, -30, "st_amy", ctx, at(12))).toMatchObject({
@@ -287,7 +298,7 @@ describe("slotProblem and planMove", () => {
         const ctx = { avail, events: booked, staff: STAFF };
         const shorter = planMove(visit, -50, "st_amy", ctx, at(12), "resize");
         expect([shorter.start, shorter.end]).toEqual([at(10), at(10, 15)]);
-        expect(shorter.message).toBe(s.resizeTo(formatTime(at(10, 15)), 15));
+        expect(shorter.message).toBe(s.resizeTo(formatTime(at(10, 15), ZONE), 15));
         const longer = planMove(visit, 28, "st_amy", ctx, at(12), "resize");
         expect([longer.end, longer.problem]).toEqual([at(11, 30), null]);
     });
@@ -296,16 +307,20 @@ describe("slotProblem and planMove", () => {
 describe("the day board", () => {
     it("shows a pending move before sync brings it back", () => {
         const events = [event("a", at(9), at(10)), event("b", at(11), at(12))];
-        expect(applyPending(events, {})).toBe(events);
-        const moved = applyPending(events, {
-            b: { start: at(14), end: at(15), staffId: "st_bo" },
-        });
+        expect(applyPending(events, {}, ZONE)).toBe(events);
+        const moved = applyPending(
+            events,
+            {
+                b: { start: at(14), end: at(15), staffId: "st_bo" },
+            },
+            ZONE,
+        );
         expect(moved[0]).toBe(events[0]);
         expect(moved[1]).toMatchObject({
             start: at(14),
             end: at(15),
             staffId: "st_bo",
-            timeLabel: `${formatTime(at(14))} – ${formatTime(at(15))}`,
+            timeLabel: `${formatTime(at(14), ZONE)} – ${formatTime(at(15), ZONE)}`,
         });
     });
 
@@ -322,7 +337,7 @@ describe("the day board", () => {
             initials: "AL",
             hours: { start: at(9), end: at(17) },
             unset: false,
-            hoursLabel: s.hoursRange(formatTime(at(9)), formatTime(at(17))),
+            hoursLabel: "9:00 a.m. – 5:00 p.m.",
             bookedMin: 90,
             availableMin: 360,
             utilization: 0.25,
@@ -338,9 +353,9 @@ describe("the day board", () => {
             availableMin: 0,
             utilization: 0,
         });
-        const dayOff = laneFor(member("st_amy", "Amy Lee"), addDays(DAY, 7), [], avail);
+        const dayOff = laneFor(member("st_amy", "Amy Lee"), addDays(DAY, 7, ZONE), [], avail);
         expect(dayOff).toMatchObject({ unset: false, hours: null, hoursLabel: s.offToday });
-        const closed = laneFor(member("st_bo", "Bo Chen"), addDays(DAY, 5), [], avail);
+        const closed = laneFor(member("st_bo", "Bo Chen"), addDays(DAY, 5, ZONE), [], avail);
         expect(closed).toMatchObject({ unset: false, hours: null, hoursLabel: s.offToday });
     });
 

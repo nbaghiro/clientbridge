@@ -11,22 +11,54 @@ import type { Intent } from "../ui";
 import { type ApiLike, newIdempotencyKey } from "../api";
 
 const FIELD_TYPE_LABEL: Record<string, string> = {
-    text: strings.forms.fieldTypeText,
-    longtext: strings.forms.fieldTypeLongtext,
-    email: strings.forms.fieldTypeEmail,
-    phone: strings.forms.fieldTypePhone,
-    number: strings.forms.fieldTypeNumber,
-    currency: strings.forms.fieldTypeCurrency,
-    date: strings.forms.fieldTypeDate,
-    time: strings.forms.fieldTypeTime,
-    select: strings.forms.fieldTypeSelect,
-    multiselect: strings.forms.fieldTypeMultiselect,
-    checkbox: strings.forms.fieldTypeCheckbox,
-    address: strings.forms.fieldTypeAddress,
-    rating: strings.forms.fieldTypeRating,
-    file: strings.forms.fieldTypeFile,
-    image: strings.forms.fieldTypeImage,
-    signature: strings.forms.fieldTypeSignature,
+    get text() {
+        return strings.forms.fieldTypeText;
+    },
+    get longtext() {
+        return strings.forms.fieldTypeLongtext;
+    },
+    get email() {
+        return strings.forms.fieldTypeEmail;
+    },
+    get phone() {
+        return strings.forms.fieldTypePhone;
+    },
+    get number() {
+        return strings.forms.fieldTypeNumber;
+    },
+    get currency() {
+        return strings.forms.fieldTypeCurrency;
+    },
+    get date() {
+        return strings.forms.fieldTypeDate;
+    },
+    get time() {
+        return strings.forms.fieldTypeTime;
+    },
+    get select() {
+        return strings.forms.fieldTypeSelect;
+    },
+    get multiselect() {
+        return strings.forms.fieldTypeMultiselect;
+    },
+    get checkbox() {
+        return strings.forms.fieldTypeCheckbox;
+    },
+    get address() {
+        return strings.forms.fieldTypeAddress;
+    },
+    get rating() {
+        return strings.forms.fieldTypeRating;
+    },
+    get file() {
+        return strings.forms.fieldTypeFile;
+    },
+    get image() {
+        return strings.forms.fieldTypeImage;
+    },
+    get signature() {
+        return strings.forms.fieldTypeSignature;
+    },
 };
 
 export function hasOptions(input: string): boolean {

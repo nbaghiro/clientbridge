@@ -3,7 +3,17 @@ import { useMemo, useState } from "react";
 import { type Load, useAsyncAction, useLoad, useRemote } from "../hooks";
 import { strings } from "../strings";
 import type { ApiLike } from "../api";
-import { addDays, dateKey, startOfMonth } from "../datetime";
+import {
+    CALENDAR,
+    dateKey,
+    dayKey,
+    formatDate,
+    formatShortDay,
+    parseDateKey,
+    wallTime,
+    useBusinessZone,
+} from "../datetime";
+import { taxName, ratePct } from "./printing";
 
 interface IncomeSummary {
     sales_cents: number;
@@ -46,7 +56,7 @@ interface ReportSummary {
     t4a: { staff_id: string; name: string; payments: number; total_cents: number }[];
     months: { month: string; net_cents: number }[];
     payouts: { id: string }[];
-    rates: { code: string; name: string; rate_bps: number }[];
+    rates: { code: string; rate_bps: number }[];
 }
 
 export type ReportPeriodKey = "thisMonth" | "lastMonth" | "lastQuarter" | "ytd";
@@ -64,37 +74,31 @@ interface ReportSpan {
 }
 
 /** The days a period covers, both ends included, up to today. */
-export function periodSpan(key: ReportPeriodKey, now: Date = new Date()): ReportSpan {
-    const month = startOfMonth(now);
-    const monthEnd = (d: Date): Date => addDays(new Date(d.getFullYear(), d.getMonth() + 1, 1), -1);
+export function periodSpan(key: ReportPeriodKey, zone: string, now: Date = new Date()): ReportSpan {
+    const { year, month } = wallTime(now, zone);
+    const today = dateKey(now, zone);
     switch (key) {
         case "thisMonth":
-            return { start: dateKey(month), end: dateKey(now) };
-        case "lastMonth": {
-            const last = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            return { start: dateKey(last), end: dateKey(monthEnd(last)) };
-        }
+            return { start: dayKey(year, month, 1), end: today };
+        case "lastMonth":
+            return { start: dayKey(year, month - 1, 1), end: dayKey(year, month, 0) };
         case "lastQuarter": {
-            const quarter = Math.floor(now.getMonth() / 3);
-            const first = new Date(now.getFullYear(), quarter * 3 - 3, 1);
+            const quarter = Math.floor((month - 1) / 3);
             return {
-                start: dateKey(first),
-                end: dateKey(monthEnd(new Date(first.getFullYear(), first.getMonth() + 2, 1))),
+                start: dayKey(year, quarter * 3 - 2, 1),
+                end: dayKey(year, quarter * 3 + 1, 0),
             };
         }
         case "ytd":
-            return { start: `${String(now.getFullYear())}-01-01`, end: dateKey(now) };
+            return { start: dayKey(year, 1, 1), end: today };
     }
 }
 
 export function spanLabel(span: ReportSpan): string {
-    const day = (key: string): Date => new Date(`${key}T12:00:00`);
-    const short = (d: Date): string =>
-        d.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
-    const end = day(span.end);
+    const day = (key: string): Date => parseDateKey(key, CALENDAR) ?? new Date(NaN);
     return strings.reports.range(
-        short(day(span.start)),
-        `${short(end)}, ${String(end.getFullYear())}`,
+        formatShortDay(day(span.start), CALENDAR),
+        formatDate(day(span.end), CALENDAR),
     );
 }
 
@@ -177,17 +181,17 @@ export interface ReportsView {
     rows: Record<ExportKind, number>;
 }
 
-const rateText = (bps: number | null | undefined): string =>
-    bps === null || bps === undefined ? "" : `${String(bps / 100)}%`;
+const rateText = (code: string, bps: number | null | undefined): string =>
+    bps === null || bps === undefined ? "" : ratePct(code, bps);
 
-function buildView(r: ReportSummary, span: ReportSpan, now: Date): ReportsView {
+function buildView(r: ReportSummary, span: ReportSpan, now: Date, zone: string): ReportsView {
     const rate = new Map(r.rates.map((x) => [x.code, x.rate_bps]));
     const taxLines = Object.entries(r.income.tax_by_code)
         .sort(([a], [b]) => (a === "PST" || a === "QST" ? 1 : b === "PST" || b === "QST" ? -1 : 0))
         .map(([code, cents]) => ({
             code,
-            label: strings.reports.taxCollected(code),
-            rate: rateText(rate.get(code)),
+            label: strings.reports.taxCollected(taxName(code)),
+            rate: rateText(code, rate.get(code)),
             cents,
         }));
     const received = Object.values(r.income.by_method).reduce((n, c) => n + c, 0);
@@ -200,7 +204,7 @@ function buildView(r: ReportSummary, span: ReportSpan, now: Date): ReportsView {
             cents,
             share: received > 0 ? cents / received : 0,
         }));
-    const thisMonth = dateKey(now).slice(0, 7);
+    const thisMonth = dateKey(now, zone).slice(0, 7);
     const federal = r.rates.find((x) => x.code === "GST" || x.code === "HST");
     const provincialCode = r.provincial.code;
     return {
@@ -226,14 +230,14 @@ function buildView(r: ReportSummary, span: ReportSpan, now: Date): ReportsView {
             taxableCents: r.gst_hst.taxable_sales_cents,
             collectedCents: r.gst_hst.tax_collected_cents,
             number: r.gst_hst.gst_hst_number,
-            label: federal?.code ?? strings.reports.gstHst,
+            label: federal === undefined ? strings.reports.gstHst : taxName(federal.code),
         },
         provincial:
             provincialCode === null
                 ? null
                 : {
-                      label: provincialCode,
-                      rate: rateText(r.provincial.rate_bps),
+                      label: taxName(provincialCode),
+                      rate: rateText(provincialCode, r.provincial.rate_bps),
                       taxableCents: r.provincial.taxable_cents,
                       collectedCents: r.provincial.collected_cents,
                       number: r.provincial.number,
@@ -279,14 +283,15 @@ export function useMoneyReports(
 ): MoneyReports {
     const [period, setPeriod] = useState<ReportPeriodKey>(initial);
     const [now] = useState(() => new Date());
-    const span = useMemo(() => periodSpan(period, now), [period, now]);
+    const zone = useBusinessZone();
+    const span = useMemo(() => periodSpan(period, zone, now), [period, zone, now]);
     const remote = useRemote(
         () => api.get<ReportSummary>(`/v1/reports/summary?start=${span.start}&end=${span.end}`),
         `${span.start}:${span.end}`,
     );
     const view = useMemo(
-        () => (remote.data === null ? null : buildView(remote.data, span, now)),
-        [remote.data, span, now],
+        () => (remote.data === null ? null : buildView(remote.data, span, now, zone)),
+        [remote.data, span, now, zone],
     );
     const empty =
         view !== null &&

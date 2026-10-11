@@ -87,6 +87,7 @@ export function TextField({
     onSubmit,
     placeholder,
     prefix,
+    suffix,
     type = "text",
     multiline = false,
     rows = 3,
@@ -131,17 +132,18 @@ export function TextField({
                 width === "narrow" && fieldStyles.narrow,
                 width === "auto" && fieldStyles.auto,
                 disabled === true && fieldStyles.disabled,
-                prefix !== undefined && fieldStyles.bare,
+                (prefix !== undefined || suffix !== undefined) && fieldStyles.bare,
             ]}
         />
     );
     const box: ReactNode =
-        prefix === undefined ? (
+        prefix === undefined && suffix === undefined ? (
             input
         ) : (
             <View style={[fieldStyles.prefixed, surface === "surface" && fieldStyles.onBg]}>
-                <Text style={fieldStyles.prefix}>{prefix}</Text>
+                {prefix !== undefined ? <Text style={fieldStyles.prefix}>{prefix}</Text> : null}
                 <View style={fieldStyles.prefixInput}>{input}</View>
+                {suffix !== undefined ? <Text style={fieldStyles.suffix}>{suffix}</Text> : null}
             </View>
         );
     if (label === undefined && hint === undefined && (error ?? null) === null) return box;
@@ -212,6 +214,7 @@ export const fieldStyles = StyleSheet.create({
         paddingLeft: 12,
     },
     prefix: { color: c.muted, fontSize: 15 },
+    suffix: { color: c.muted, fontSize: 15, paddingRight: 12 },
     bare: { borderWidth: 0, backgroundColor: "transparent", paddingLeft: 2 },
     prefixInput: { flex: 1 },
     toggle: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 6 },

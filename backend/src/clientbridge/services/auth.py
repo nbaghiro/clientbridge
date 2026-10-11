@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import Conflict, TooManyRequests, Unauthorized
 from clientbridge.core.ids import new_id
+from clientbridge.core.locale import locale_for
 from clientbridge.core.ratelimit import login_guard
 from clientbridge.core.security import (
     hash_password,
@@ -23,6 +24,7 @@ from clientbridge.integrations.postmark import Email, EmailSender
 from clientbridge.models.auth import AuthSession, AuthToken
 from clientbridge.models.business import User
 from clientbridge.schemas.auth import TokenPair
+from clientbridge.services.notifications import email_verification, password_reset
 
 RESET_TTL = timedelta(hours=1)
 VERIFY_TTL = timedelta(hours=24)
@@ -229,9 +231,8 @@ class AuthService:
             return
         raw = await self._create_token(user.id, "reset", RESET_TTL)
         await self.db.commit()
-        await email_sender.send(
-            Email(to=email, subject="Reset your password", body=f"Reset code: {raw}")
-        )
+        subject, body = password_reset(locale_for(user=user), raw)
+        await email_sender.send(Email(to=email, subject=subject, body=body))
 
     async def reset_password(self, token: str, new_password: str) -> None:
         tok = await self._consume_token(token, "reset")
@@ -250,9 +251,9 @@ class AuthService:
     async def send_verification(self, user_id: str, email: str, email_sender: EmailSender) -> None:
         raw = await self._create_token(user_id, "verify", VERIFY_TTL)
         await self.db.commit()
-        await email_sender.send(
-            Email(to=email, subject="Verify your email", body=f"Verify code: {raw}")
-        )
+        user = await self.db.get(User, user_id)
+        subject, body = email_verification(locale_for(user=user), raw)
+        await email_sender.send(Email(to=email, subject=subject, body=body))
 
     async def verify_email(self, token: str) -> None:
         tok = await self._consume_token(token, "verify")

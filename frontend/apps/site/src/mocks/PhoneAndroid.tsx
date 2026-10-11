@@ -1,12 +1,10 @@
+import { docReference } from "@clientbridge/app-core/public";
+
 import { Icon, type IconName } from "../art/Icon";
 import { invoices, invoiceTable, phonePayments } from "../content/demo";
 
-const TAB_ICONS: Record<string, IconName> = {
-    Today: "today",
-    Schedule: "calendar",
-    Clients: "clients",
-    Payments: "invoice",
-};
+const TAB_ICONS: readonly IconName[] = ["today", "calendar", "clients", "invoice"];
+const PAYMENTS_TAB = 3;
 
 function StatusIcons() {
     return (
@@ -24,25 +22,23 @@ function StatusIcons() {
     );
 }
 
-function TabBar({ active }: { active: string }) {
-    const [first, second, ...rest] = phonePayments.tabBar;
-    const tab = (label: string | undefined) =>
-        label === undefined ? null : (
-            <div key={label} className={label === active ? "on" : undefined}>
-                <Icon name={TAB_ICONS[label] ?? "today"} />
-                {label}
-            </div>
-        );
+function TabBar({ active }: { active: number }) {
+    const tab = (label: string, i: number) => (
+        <div key={label} className={i === active ? "on" : undefined}>
+            <Icon name={TAB_ICONS[i] ?? "today"} />
+            {label}
+        </div>
+    );
+    const tabs = phonePayments.tabBar.map(tab);
     return (
         <div className="mtabs">
-            {tab(first)}
-            {tab(second)}
+            {tabs.slice(0, 2)}
             <div>
                 <div className="plus">
                     <Icon name="plus" className="" />
                 </div>
             </div>
-            {rest.map(tab)}
+            {tabs.slice(2)}
         </div>
     );
 }
@@ -84,7 +80,7 @@ export function PhoneAndroid() {
                         {invoices.map((row) => (
                             <div key={row.number} className="minv">
                                 <div>
-                                    <b>#{row.number}</b>
+                                    <b>{docReference(row.number)}</b>
                                     <span className="who">{row.client}</span>
                                 </div>
                                 <div className="r">
@@ -99,7 +95,7 @@ export function PhoneAndroid() {
                             </div>
                         ))}
                     </div>
-                    <TabBar active="Payments" />
+                    <TabBar active={PAYMENTS_TAB} />
                     <i className="homebar" />
                 </div>
             </div>

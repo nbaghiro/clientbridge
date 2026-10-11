@@ -1,12 +1,21 @@
 import { describe, expect, it } from "vitest";
 
-import { dateKey, formatTime, formatWeekday } from "../datetime";
+import {
+    dateKey,
+    deviceZone,
+    formatTime,
+    formatWeekday,
+    formatZoneName,
+    zonedDate,
+} from "../datetime";
 import { strings } from "../strings";
-import { groupSlots, icsFor, toStrip, whenLabel } from "./publicBooking";
+import { groupSlots, icsFor, toStrip, whenLabel, whenTitle, zoneNote } from "./publicBooking";
+
+const ZONE = "America/Vancouver";
 
 const s = strings.publicBooking;
 
-const at = (day: number, h: number, m = 0): Date => new Date(2026, 9, day, h, m);
+const at = (day: number, h: number, m = 0): Date => zonedDate(2026, 10, day, h, m, ZONE);
 const slot = (d: Date, staff: string | null = null) => ({
     starts_at: d.toISOString(),
     ends_at: new Date(d.getTime() + 3_600_000).toISOString(),
@@ -17,6 +26,7 @@ describe("open times", () => {
     it("groups times into morning, afternoon and evening, dropping empty parts", () => {
         const groups = groupSlots(
             [slot(at(7, 9)), slot(at(7, 11, 59)), slot(at(7, 17)), slot(at(7, 20, 30))],
+            ZONE,
             (id) => `Staff ${id}`,
         );
         expect(groups.map((g) => [g.label, g.slots.length])).toEqual([
@@ -25,15 +35,17 @@ describe("open times", () => {
         ]);
         expect(groups[0]?.slots[0]).toEqual({
             key: at(7, 9).toISOString(),
-            label: formatTime(at(7, 9)),
+            label: formatTime(at(7, 9), ZONE),
         });
         expect(groups.map((g) => g.label)).not.toContain(s.afternoon);
-        expect(groupSlots([], undefined)).toEqual([]);
+        expect(groupSlots([], ZONE, undefined)).toEqual([]);
     });
 
     it("hints who a time is with when the page names staff", () => {
-        const [afternoon] = groupSlots([slot(at(7, 12), "st_amy"), slot(at(7, 16, 59))], (id) =>
-            id === "st_amy" ? "Amy" : "",
+        const [afternoon] = groupSlots(
+            [slot(at(7, 12), "st_amy"), slot(at(7, 16, 59))],
+            ZONE,
+            (id) => (id === "st_amy" ? "Amy" : ""),
         );
         expect(afternoon?.label).toBe(s.afternoon);
         expect(afternoon?.slots.map((x) => x.hint)).toEqual(["Amy", undefined]);
@@ -51,6 +63,7 @@ describe("open times", () => {
             ],
             "2026-10-05",
             "2026-10-06",
+            ZONE,
         );
         expect(strip.map((d) => [d.key, d.busy, d.closed, d.disabled, d.isToday])).toEqual([
             ["2026-10-05", 2, false, true, false],
@@ -61,8 +74,8 @@ describe("open times", () => {
             ["2026-10-10", 0, true, false, false],
             ["2026-10-11", 0, false, false, false],
         ]);
-        expect(strip[2]).toMatchObject({ weekday: formatWeekday(at(7, 0)), day: "7" });
-        expect(toStrip(null, "2026-12-29", "2026-12-01").map((d) => d.key)).toEqual([
+        expect(strip[2]).toMatchObject({ weekday: formatWeekday(at(7, 0), ZONE), day: "7" });
+        expect(toStrip(null, "2026-12-29", "2026-12-01", ZONE).map((d) => d.key)).toEqual([
             "2026-12-29",
             "2026-12-30",
             "2026-12-31",
@@ -74,16 +87,16 @@ describe("open times", () => {
     });
 
     it("says when a visit is, naming today and tomorrow", () => {
-        const today = dateKey(at(7, 0));
-        expect(whenLabel(at(7, 14).toISOString(), today)).toBe(
-            s.at(s.today, formatTime(at(7, 14))),
+        const today = dateKey(at(7, 0), ZONE);
+        expect(whenLabel(at(7, 14).toISOString(), today, ZONE)).toBe(
+            s.at(s.today, formatTime(at(7, 14), ZONE)),
         );
-        expect(whenLabel(at(8, 9).toISOString(), today)).toBe(
-            s.at(s.tomorrow, formatTime(at(8, 9))),
+        expect(whenLabel(at(8, 9).toISOString(), today, ZONE)).toBe(
+            s.at(s.tomorrow, formatTime(at(8, 9), ZONE)),
         );
-        const later = whenLabel(at(12, 9).toISOString(), today);
+        const later = whenLabel(at(12, 9).toISOString(), today, ZONE);
         expect(later).toContain("October 12");
-        expect(later.endsWith(formatTime(at(12, 9)))).toBe(true);
+        expect(later.endsWith(formatTime(at(12, 9), ZONE))).toBe(true);
     });
 });
 
@@ -140,5 +153,24 @@ describe("icsFor", () => {
         const b = uid(icsFor({ ...visit, uid: "bk_2.birch" }));
         const c = uid(icsFor({ ...visit, uid: "bk_1.fjord" }));
         expect(new Set([a, b, c]).size).toBe(3);
+    });
+});
+
+describe("the business zone on public pages", () => {
+    it("names the zone only for a visitor whose clock reads another one", () => {
+        const here = deviceZone();
+        const away = formatZoneName(here) === formatZoneName(ZONE) ? "Asia/Tokyo" : ZONE;
+        expect(zoneNote(here)).toBeNull();
+        expect(zoneNote(away)).toBe(s.timesIn(formatZoneName(away)));
+    });
+
+    it("starts a line with a capitalised day", () => {
+        const today = dateKey(at(7, 9), ZONE);
+        expect(whenTitle(at(7, 14).toISOString(), today, ZONE)).toBe(
+            s.at(strings.common.today, formatTime(at(7, 14), ZONE)),
+        );
+        expect(whenLabel(at(8, 9).toISOString(), today, ZONE)).toBe(
+            s.at(s.tomorrow, formatTime(at(8, 9), ZONE)),
+        );
     });
 });

@@ -1,4 +1,8 @@
-import { type DurationBarProps, type DurationSegment } from "@clientbridge/app-core/public";
+import {
+    type DurationBarProps,
+    type DurationSegment,
+    formatList,
+} from "@clientbridge/app-core/public";
 import { cssVar, tint } from "@clientbridge/tokens";
 
 import type { WebProps } from "./props";
@@ -11,7 +15,13 @@ export function DurationBar({ segments, color, caption, className }: WebProps<Du
             <div
                 className="flex h-10 gap-0.5 overflow-hidden rounded-md"
                 role="img"
-                aria-label={caption ?? shown.map((seg) => seg.label).join(", ")}
+                aria-label={
+                    caption ??
+                    formatList(
+                        shown.map((seg) => seg.label),
+                        "unit",
+                    )
+                }
             >
                 {shown.map((seg: DurationSegment) => (
                     <div

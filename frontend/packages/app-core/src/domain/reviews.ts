@@ -3,8 +3,8 @@ import { useBusinessQuery as useQuery } from "../hooks";
 import { useMemo, useState } from "react";
 
 import { type ApiLike, newIdempotencyKey } from "../api";
-import { formatDate, parseTimestamp } from "../datetime";
-import { firstName } from "../format";
+import { formatDate, parseTimestamp, useBusinessZone } from "../datetime";
+import { firstName, formatParts, formatRating } from "../format";
 import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
@@ -90,7 +90,7 @@ interface ReviewSuggestion {
 const r = strings.reviews;
 
 export function formatAverageRating(average: number | null): string {
-    return (average ?? 0).toFixed(1);
+    return formatRating(average ?? 0);
 }
 
 export function roundedRating(average: number | null): number {
@@ -106,12 +106,12 @@ export function reviewState(review: ReviewRow): { label: string; intent: Intent 
 }
 
 /** "Full groom with Hannah · Oct 8", or just the date when the review has no booking. */
-export function reviewVisitLine(review: ReviewRow): string {
-    const when = formatDate(parseTimestamp(review.visit_at ?? review.created_at));
+export function reviewVisitLine(review: ReviewRow, zone: string): string {
+    const when = formatDate(parseTimestamp(review.visit_at ?? review.created_at), zone);
     if (review.service === null) return when;
     const staff = review.staff_name === null ? null : firstName(review.staff_name);
     return staff === null
-        ? `${review.service} · ${when}`
+        ? formatParts([review.service, when])
         : r.visitLine(review.service, staff, when);
 }
 
@@ -139,6 +139,7 @@ export interface ReviewQueue {
 }
 
 export function useReviewQueue(): ReviewQueue {
+    const zone = useBusinessZone();
     const reviews = useQuery<ReviewRow>(REVIEWS_SQL);
     const requests = useQuery<ReviewRequestRow>(REVIEW_REQUESTS_SQL);
     const since = useMemo(() => new Date(Date.now() - SUGGEST_DAYS * 86_400_000).toISOString(), []);
@@ -171,9 +172,7 @@ export function useReviewQueue(): ReviewQueue {
         suggestions: suggestions.data.map((s) => ({
             clientId: s.client_id,
             clientName: s.client_name,
-            visit: [s.service, formatDate(parseTimestamp(s.completed_at))]
-                .filter((v) => v !== null)
-                .join(" · "),
+            visit: formatParts([s.service, formatDate(parseTimestamp(s.completed_at), zone)]),
         })),
         average,
         count: published.length,

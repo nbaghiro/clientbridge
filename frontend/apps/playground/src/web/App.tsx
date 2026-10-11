@@ -167,7 +167,13 @@ function OnBackdrop({
 }
 
 function Pair({ route, web, mobile }: { route: PageRoute; web: ReactNode; mobile: ReactNode }) {
-    if (route.platform !== "compare") return <div className="relative min-h-16 p-4">{web}</div>;
+    if (route.platform !== "compare") {
+        return (
+            <div data-twin="web" className="relative min-h-16 p-4">
+                {web}
+            </div>
+        );
+    }
     const device = phoneOf(route.device);
     return (
         <div className="grid lg:grid-cols-[minmax(0,1fr)_auto]">

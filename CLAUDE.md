@@ -1,7 +1,7 @@
 # Clientbridge — repo conventions
 
-All-in-one business OS for solo/small service providers. All user-facing copy is centralized in one
-place (see **Copy**).
+All-in-one business OS for solo/small service providers. All user-facing copy lives in message catalogs
+and every displayed value goes through one formatter (see **Copy and formatting**).
 Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + turbo: web + mobile) ·
 `infra/` · `.docs/`.
 
@@ -63,19 +63,42 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 - Web (React/Vite/Tailwind) + mobile (Expo RN) share everything UI-agnostic via `@clientbridge/app-core`; only rendering, navigation, and platform APIs differ.
 - **Shared components** live in one package, `@clientbridge/ui`: `src/web/` (DOM + Tailwind, used by web and Connect) and `src/mobile/` (React Native) each implement the props from `app-core/src/ui.ts` under the same file name (`ListPage`, `DetailView`, `Modal`, `Tabs`, `Empty`, `Money`, `ChargeSheet`, `CardForm`…). Every app imports `@clientbridge/ui`; the `react-native` export condition gives mobile the native entry. This is not a cross-platform UI framework: each platform keeps its own idiomatic rendering, the two just live side by side. App screens compose these components and never hand-style a control: buttons, fields, selects, toggles, choices, notices, panels, loading/empty states, badges, stats, stars, steppers, confirm dialogs and page headers all come from `@clientbridge/ui`, and the frontend structure check fails on a raw `<button>`/`<input>`/`<select>`/`<textarea>` with a `className`, or a `Pressable`/`TextInput` with local styles, outside a short allowlist of layout-specific files (calendar grid, tile grids, line rows, nav chrome, debug tools). Status colours come from one palette, `INTENT_COLORS` in `@clientbridge/tokens`.
 - **Every shared component** is a twin (`src/web/<Name>.tsx` and `src/mobile/<Name>.tsx`, same props) with its contract in `app-core/src/ui.ts`, its copy in `strings.ui` and its glyphs in `app-core/icons.ts`; colours come only from `@clientbridge/tokens`. Props use one vocabulary: `variant` (visual form), `layout` (how items are arranged), `size`, `density`, `intent` (status colour), `tone` (text colour of a figure or message), `label` (accessible name), `value`/`defaultValue`/`onChange` (controlled or not), `onPress`, `selected`/`pressed`/`disabled`/`busy`, and slots (`children`, `leading`, `trailing`, `actions`, `footer`, `icon`) rather than boolean flags. Web takes `className` and mobile `style` as an escape hatch merged last; focusable controls take `ref`. Each component has a story in `apps/playground/src/stories/<Name>.tsx` (`make dev-playground`, :8712); the structure check fails without the twin or the story.
-- **One name per concept** across `app-core/src/domain/<concept>.ts`, `strings.<concept>`, the web page and the mobile screen (`hours.ts` · `strings.hours` · `Hours.tsx`). App-core stays flat: `domain/` plus `api`, `hooks`, `format`, `datetime`, `ui`, `strings`, `icons`, `debug` at the root. Mobile exports `XScreen` for navigator screens and a bare name for embedded sections.
+- **One name per concept** across `app-core/src/domain/<concept>.ts`, `strings.<concept>`, the web page and the mobile screen (`hours.ts` · `strings.hours` · `Hours.tsx`). App-core stays flat: `domain/` plus `api`, `hooks`, `format`, `datetime`, `locale`, `ui`, `strings`, `icons`, `debug` at the root. Mobile exports `XScreen` for navigator screens and a bare name for embedded sections.
 - **Every feature's view-model is an app-core hook** — the form (`useXForm`: field state + validation + submit, built on the `useAsyncAction` primitive), the list (`useSearch`), the lifecycle actions, and the status→`Intent` decision. A new screen is thin rendering over a shared hook, never re-implemented glue (mirror `useBookingForm` / `useClientForm` / `useDocForm`).
 - Reads = `useQuery` over the local replica (SQL lives in app-core); writes = shared fns taking `ApiLike` (each app builds its concrete `api` from `createSession`). The only platform seams are the **SQLite driver, the token store, and rendering**. Design tokens come from `@clientbridge/tokens` (one source → Tailwind theme + RN theme); per-platform token maps key off the neutral `Intent` type. No cross-platform UI framework (it would rewrite the idiomatic web UI to dedupe the cheapest layer).
 
-## Copy — one catalog
-- **Every user-facing UI string lives in `frontend/packages/app-core/src/strings.ts`** — a single
-  `strings` object grouped by concept (the same name as the app-core domain file), shared by web + mobile. Screens/components render
-  `strings.<domain>.<key>` (values are literals or functions for interpolation) and **never hold inline
-  copy**. This includes validation/error messages and shared descriptor labels (weekdays, nav, roles,
-  recurrence, account fields) that used to sit inline in the app-core view-model hooks. Non-copy — SQL,
-  class names, test ids, route/enum values, icon names — stays out.
-- **Backend notification copy** is the server-side equivalent: the builder functions in
-  `services/notifications.py` return `(subject, body[, push])` per event, all in one place.
+## Copy and formatting
+- Every user-facing UI string comes from the app catalog, `frontend/packages/app-core/locales/en-CA.json`.
+  Each entry is keyed by concept (`"billing.overdueBy"`, the same group name as the app-core domain file)
+  and holds an ICU message, an optional `description` for translators and, when the message takes values,
+  its ordered `args`. `make gen-strings` checks the catalogs (ICU syntax, `args` against the placeholders,
+  unused keys) and generates `src/strings.ts`, the `en-XA` pseudo-locale and Connect's `public/embed.js`, so
+  edit the catalog and never those files. Screens and hooks render `strings.<domain>.<key>` (a string, or a
+  function of the args) and never hold inline copy, including validation and error messages and shared
+  labels (weekdays, nav, roles). Plurals are ICU `plural` messages, never `n === 1` checks; word order and
+  punctuation live in a message, or in `formatParts`/`formatList` for lists of parts; catalog text is read
+  inside a function or getter, never at module scope. Non-copy (SQL, class names, test ids, route and enum
+  values, icon names) stays out. The marketing site has its own catalog, `apps/site/locales/en-CA.json`,
+  generated the same way.
+- Every displayed amount, number, percentage, date, time, range, list and duration goes through the
+  formatter in app-core `format.ts` and `datetime.ts`. It reads the locale from `activeLocale()` and takes
+  the currency and the time zone explicitly; staff screens and Connect show times in the business time zone
+  (`useBusinessZone()`, the public payload's `timezone`), never the device's. Nothing else calls
+  `toLocale*`, `new Intl.*`, `toFixed` for display or names a locale.
+- Clients render an API error from its stable `error` code (`failureMessage(e, fallback)`); the response's
+  `message` is English developer text and is never shown.
+- `en-XA` (accented, bracketed, about 35% longer) is a development and test locale, never offered to
+  users: `VITE_PSEUDO_LOCALE=1` on the web, Connect and playground dev servers,
+  `EXPO_PUBLIC_PSEUDO_LOCALE=1` in a mobile development build and `PSEUDO_LOCALE=1` on the backend.
+- Backend text (email, SMS and push from the builders in `services/notifications.py`, CSV headers, tax
+  names, client-visible Stripe text) comes from `backend/src/clientbridge/locales/en_CA.po` through
+  `core/locale.py`: `locale_for(...)` picks the locale, `message` and `plural` read the catalog, and
+  `format_money` and `format_day_and_time` format with Babel in the business time zone. `make gen-messages`
+  regenerates `messages.pot` and `en_XA.po` and fails on missing, unused or empty messages.
+- The gate holds this: the eslint rules `local/no-inline-ui-string`, `no-composed-copy`, `no-raw-format`,
+  `no-hand-plural`, `no-module-scope-copy` and `no-error-message-copy` (`packages/config`), the backend
+  structure check on literal text passed to senders and CSV writers, `make codegen-check` on every generated
+  catalog file, and the `en-XA` passes in `make test-playground`, `test-web` and `test-connect`.
 
 ## Testing — the feedback loop (`.docs/engineering.md`)
 - **Integration-first**: `httpx` → real app → real Postgres. Unit-test pure logic only. Don't mock our code.
@@ -113,11 +136,12 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   triggers) lives in the migration, so add it there when a new one is needed. `make migrate` alone brings any
   local database to head.
 - **Regenerate `api-client` (`make gen-api`) whenever the API contract changes**; `make gen-sync-schema`
-  after model/sync-rule changes (`make codegen-check` in the pre-commit hook, `make check` and CI fails on drift).
+  after model/sync-rule changes, `make gen-strings` after an app or site catalog edit and `make gen-messages`
+  after a backend catalog edit (`make codegen-check` in the pre-commit hook, `make check` and CI fails on drift).
 - Python import package = `clientbridge` (at `backend/src/clientbridge/`); the DB name + project are also `clientbridge`.
 
 ## Commands
-`make up · migrate · seed · dev-api · dev-web · dev-mobile · gen-api · gen-sync-schema · test · lint · check`
+`make up · migrate · seed · dev-api · dev-web · dev-mobile · gen-api · gen-sync-schema · gen-strings · gen-messages · test · lint · check`
 
 ## Docs (`.docs/`)
 Keep only the documentation index and main docs at the root: **architecture** (system · data model ·

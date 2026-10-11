@@ -4,6 +4,7 @@ import {
     highlight,
     strings,
     useGlobalSearch,
+    formatList,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -52,7 +53,7 @@ function HitRow({ hit, q, onPress }: { hit: SearchHit; q: string; onPress: () =>
                     </View>
                 ) : undefined
             }
-            label={`${hit.title}, ${hit.detail}`}
+            label={formatList([hit.title, hit.detail], "unit")}
             title={<Highlighted text={hit.title} q={q} style={styles.title} />}
             detail={
                 <Highlighted
@@ -84,7 +85,7 @@ export function SearchScreen() {
     };
     const scopes = search.scopes.map((k) => ({
         key: k.key,
-        label: k.count === null ? k.label : `${k.label} ${String(k.count)}`,
+        label: k.count === null ? k.label : strings.common.labelCount(k.label, k.count),
         disabled: k.count === 0,
     }));
     const q = search.q.trim();

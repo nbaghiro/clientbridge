@@ -3,8 +3,8 @@ import { useBusinessQuery as useQuery } from "../hooks";
 import { useMemo, useRef, useState } from "react";
 
 import { type ApiLike, newIdempotencyKey } from "../api";
-import { formatDate } from "../datetime";
-import { formatMoney, parseCents } from "../format";
+import { daysUntil, formatDate, parseTimestamp, startOfMonth, useBusinessZone } from "../datetime";
+import { formatCredit, formatMoney, formatParts, parseCents, BUSINESS_CURRENCY } from "../format";
 import { type Load, type Remote, useAsyncAction, useRemote } from "../hooks";
 import { strings } from "../strings";
 import type { DocTotalLine, Intent, TimelineEntry } from "../ui";
@@ -103,7 +103,7 @@ function paymentSubject(p: SubjectFields): string {
 }
 
 export function methodLabel(method: string): string {
-    return s.method[method] ?? s.method.other ?? method;
+    return s.method[method] ?? s.method.other;
 }
 
 type RefundState = "paid" | "partly_refunded" | "refunded";
@@ -128,15 +128,15 @@ export interface RefundSummary {
     leftCents: number;
 }
 
-function summarize(p: RefundablePaymentRow): RefundSummary {
+function summarize(p: RefundablePaymentRow, zone: string): RefundSummary {
     const state = refundState(p);
     return {
         payment: p,
         subject: paymentSubject(p),
         method: methodLabel(p.method),
-        when: formatDate(new Date(p.paid_at ?? p.created_at)),
+        when: formatDate(parseTimestamp(p.paid_at ?? p.created_at), zone),
         state,
-        stateLabel: s.statusLabel[state] ?? state,
+        stateLabel: s.statusLabel[state],
         intent: refundStateIntent(state),
         leftCents: Math.max(0, p.amount_cents - p.refunded_cents),
     };
@@ -160,7 +160,11 @@ export function useRefundDesk(initialId: string | null = null): RefundDesk {
     const load = useReplicaLoad([paymentsQuery, notesQuery], paymentsQuery.data.length === 0);
     const [q, setQ] = useState("");
     const [selectedId, select] = useState<string | null>(initialId);
-    const all = useMemo(() => paymentsQuery.data.map(summarize), [paymentsQuery.data]);
+    const zone = useBusinessZone();
+    const all = useMemo(
+        () => paymentsQuery.data.map((p) => summarize(p, zone)),
+        [paymentsQuery.data, zone],
+    );
     const t = q.trim().toLowerCase();
     const rows =
         t === ""
@@ -258,6 +262,7 @@ export function useRefundComposer(
     refunds: readonly RefundRow[],
 ): RefundComposer {
     const p = summary.payment;
+    const zone = useBusinessZone();
     const [mode, setModeState] = useState<RefundMode>("full");
     const [amount, setAmountState] = useState("");
     const [reason, setReason] = useState<string>(REFUND_REASONS[0] ?? "other");
@@ -266,7 +271,7 @@ export function useRefundComposer(
     const { busy, error, setError, run } = useAsyncAction();
     const keyRef = useRef<string | null>(null);
 
-    const typed = parseCents(amount);
+    const typed = parseCents(amount, BUSINESS_CURRENCY);
     const leftCents = summary.leftCents;
     const cents = mode === "full" ? leftCents : (typed ?? 0);
     const valid = cents > 0 && cents <= leftCents;
@@ -302,7 +307,7 @@ export function useRefundComposer(
 
     const submit = (): void => {
         if (!valid || blocked !== null) {
-            setError(s.errAmount(formatMoney(leftCents)));
+            setError(s.errAmount(formatMoney(leftCents, BUSINESS_CURRENCY)));
             return;
         }
         keyRef.current ??= newIdempotencyKey();
@@ -322,7 +327,10 @@ export function useRefundComposer(
                 setModeState("full");
                 setIssued(
                     out.status === "succeeded"
-                        ? s.refundedDone(formatMoney(cents), out.credit_note ?? nextNote)
+                        ? s.refundedDone(
+                              formatMoney(cents, BUSINESS_CURRENCY),
+                              out.credit_note ?? nextNote,
+                          )
                         : s.refundPending,
                 );
             },
@@ -341,7 +349,7 @@ export function useRefundComposer(
         mode,
         setMode,
         modes: [
-            { key: "full", label: s.full(formatMoney(leftCents)) },
+            { key: "full", label: s.full(formatMoney(leftCents, BUSINESS_CURRENCY)) },
             { key: "part", label: s.part, disabled: wholeOnly },
         ],
         amount,
@@ -349,7 +357,7 @@ export function useRefundComposer(
             keyRef.current = null;
             setAmountState(v);
         },
-        amountPlaceholder: s.amountPlaceholder(formatMoney(leftCents)),
+        amountPlaceholder: s.amountPlaceholder(formatMoney(leftCents, BUSINESS_CURRENCY)),
         reason,
         setReason,
         reasons: REFUND_REASONS.map((k) => ({ key: k, label: s.reasons[k] ?? k })),
@@ -358,10 +366,13 @@ export function useRefundComposer(
         cents,
         valid,
         lines,
-        feeNote: data === null || data.by_hand ? null : s.feeKept(formatMoney(data.fee_cents)),
+        feeNote:
+            data === null || data.by_hand
+                ? null
+                : s.feeKept(formatMoney(data.fee_cents, BUSINESS_CURRENCY)),
         nextNote,
-        submitLabel: s.refundButton(formatMoney(valid ? cents : leftCents)),
-        confirmTitle: s.confirmTitle(formatMoney(cents)),
+        submitLabel: s.refundButton(formatMoney(valid ? cents : leftCents, BUSINESS_CURRENCY)),
+        confirmTitle: s.confirmTitle(formatMoney(cents, BUSINESS_CURRENCY)),
         confirmBody: s.confirmBody(nextNote),
         busy,
         error,
@@ -370,16 +381,22 @@ export function useRefundComposer(
         history: [
             {
                 key: p.id,
-                label: `${s.paymentEvent} · ${formatMoney(p.amount_cents)}`,
+                label: formatParts([
+                    s.paymentEvent,
+                    formatMoney(p.amount_cents, BUSINESS_CURRENCY),
+                ]),
                 detail: summary.method,
                 at: summary.when,
                 intent: "success",
             },
             ...mine.map((r): TimelineEntry => ({
                 key: r.id,
-                label: `${s.refundEvent(r.credit_note ?? "")} · −${formatMoney(r.amount_cents)}`,
+                label: formatParts([
+                    s.refundEvent(r.credit_note ?? ""),
+                    formatCredit(r.amount_cents, BUSINESS_CURRENCY),
+                ]),
                 detail: s.reasons[r.reason ?? ""] ?? s.noReason,
-                at: formatDate(new Date(r.paid_at ?? r.created_at)),
+                at: formatDate(parseTimestamp(r.paid_at ?? r.created_at), zone),
                 intent: "neutral",
             })),
         ],
@@ -401,6 +418,7 @@ export function useCreditNotes(refunds: readonly RefundRow[]): {
     rows: CreditNoteView[];
     summary: string;
 } {
+    const zone = useBusinessZone();
     return useMemo(() => {
         const rows = refunds
             .filter((r) => r.status === "succeeded")
@@ -409,21 +427,23 @@ export function useCreditNotes(refunds: readonly RefundRow[]): {
                 number: r.credit_note ?? "",
                 client: r.client_name ?? "",
                 subject: paymentSubject(r),
-                when: formatDate(new Date(r.paid_at ?? r.created_at)),
+                when: formatDate(parseTimestamp(r.paid_at ?? r.created_at), zone),
                 reason: s.reasons[r.reason ?? ""] ?? s.noReason,
                 cents: r.amount_cents,
             }));
-        const now = new Date();
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        const monthStart = startOfMonth(new Date(), zone).getTime();
         const month = refunds
             .filter(
                 (r) =>
                     r.status === "succeeded" &&
-                    new Date(r.paid_at ?? r.created_at).getTime() >= monthStart,
+                    parseTimestamp(r.paid_at ?? r.created_at).getTime() >= monthStart,
             )
             .reduce((sum, r) => sum + r.amount_cents, 0);
-        return { rows, summary: s.notesSummary(rows.length, formatMoney(month)) };
-    }, [refunds]);
+        return {
+            rows,
+            summary: s.notesSummary(rows.length, formatMoney(month, BUSINESS_CURRENCY)),
+        };
+    }, [refunds, zone]);
 }
 
 interface DisputeRow {
@@ -495,22 +515,15 @@ interface DisputeView {
     held: DocTotalLine[];
 }
 
-function daysUntil(iso: string, now: Date): number {
-    const due = new Date(iso);
-    const a = new Date(due.getFullYear(), due.getMonth(), due.getDate()).getTime();
-    const b = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    return Math.max(0, Math.round((a - b) / 86_400_000));
-}
-
-export function disputeView(d: DisputeRow, now: Date): DisputeView {
+export function disputeView(d: DisputeRow, now: Date, zone: string): DisputeView {
     const open = d.dispute_status === "needs_response" || d.dispute_status === "under_review";
     const reason = s.disputeReasons[d.dispute_reason ?? "general"] ?? d.dispute_reason ?? "";
     const subject = paymentSubject(d);
     const deadline =
         d.dispute_status === "needs_response" && d.dispute_respond_by !== null
             ? s.respondBy(
-                  formatDate(new Date(d.dispute_respond_by)),
-                  daysUntil(d.dispute_respond_by, now),
+                  formatDate(parseTimestamp(d.dispute_respond_by), zone),
+                  Math.max(0, daysUntil(parseTimestamp(d.dispute_respond_by), zone, now)),
               )
             : d.dispute_status === "won"
               ? s.wonNote
@@ -530,12 +543,15 @@ export function disputeView(d: DisputeRow, now: Date): DisputeView {
             { label: s.reasonLabel, value: reason },
             {
                 label: s.payment,
-                value: `${methodLabel(d.method)} · ${formatMoney(d.amount_cents)}`,
+                value: formatParts([
+                    methodLabel(d.method),
+                    formatMoney(d.amount_cents, BUSINESS_CURRENCY),
+                ]),
             },
             { label: s.forLabel, value: subject },
             {
                 label: s.opened,
-                value: d.opened_at === null ? "" : formatDate(new Date(d.opened_at)),
+                value: d.opened_at === null ? "" : formatDate(parseTimestamp(d.opened_at), zone),
             },
         ],
         held: [
@@ -567,10 +583,11 @@ export function useDisputes(): DisputeDesk {
     const query = useQuery<DisputeRow>(DISPUTES_SQL);
     const load = useReplicaLoad([query], query.data.length === 0);
     const [selectedId, select] = useState<string | null>(null);
+    const zone = useBusinessZone();
     const all = useMemo(() => {
         const now = new Date();
-        return query.data.map((d) => disputeView(d, now));
-    }, [query.data]);
+        return query.data.map((d) => disputeView(d, now, zone));
+    }, [query.data, zone]);
     const open = all.filter((d) => d.open);
     return {
         load,

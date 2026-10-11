@@ -9,6 +9,7 @@ import {
     highlight,
     strings,
     useGlobalSearch,
+    formatList,
 } from "@clientbridge/app-core";
 import {
     Button,
@@ -80,7 +81,7 @@ function HitRow({
                     </span>
                 ) : undefined
             }
-            label={`${hit.title}, ${hit.detail}`}
+            label={formatList([hit.title, hit.detail], "unit")}
             title={<Highlighted text={hit.title} q={q} />}
             detail={<Highlighted text={hit.detail} q={hit.kind === "actions" ? "" : q} />}
             meta={

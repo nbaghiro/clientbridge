@@ -9,10 +9,14 @@ import {
     taxableItemPriceLabel,
     strings,
     taxClassLabel,
+    exampleSale,
+    smallSupplierLimit,
     taxExample,
     taxExampleTitle,
     useItemTaxClasses,
     useTaxSettingsForm,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     Badge,
@@ -46,7 +50,7 @@ function classOptions(province: string | null) {
 function WorkedExample({ form }: { form: TaxSettingsForm }) {
     const collect = form.registration === "registered";
     return (
-        <Panel title={s.exampleTitle}>
+        <Panel title={s.exampleTitle(exampleSale())}>
             <div className="grid gap-3">
                 {TAX_CLASS_KEYS.map((cls) => {
                     const ex = taxExample(cls, form.province, collect);
@@ -59,21 +63,33 @@ function WorkedExample({ form }: { form: TaxSettingsForm }) {
                                 <div className="flex justify-between text-muted">
                                     <dt>{s.colPrice}</dt>
                                     <dd>
-                                        <Money cents={10000} tone="muted" />
+                                        <Money
+                                            currency={BUSINESS_CURRENCY}
+                                            cents={10000}
+                                            tone="muted"
+                                        />
                                     </dd>
                                 </div>
                                 {ex.lines.map((l) => (
                                     <div key={l.label} className="flex justify-between text-muted">
                                         <dt>{l.label}</dt>
                                         <dd>
-                                            <Money cents={l.cents} tone="muted" />
+                                            <Money
+                                                currency={BUSINESS_CURRENCY}
+                                                cents={l.cents}
+                                                tone="muted"
+                                            />
                                         </dd>
                                     </div>
                                 ))}
                                 <div className="flex justify-between border-t border-line pt-1 font-semibold text-ink">
                                     <dt>{s.total}</dt>
                                     <dd>
-                                        <Money cents={ex.totalCents} strong />
+                                        <Money
+                                            currency={BUSINESS_CURRENCY}
+                                            cents={ex.totalCents}
+                                            strong
+                                        />
                                     </dd>
                                 </div>
                             </dl>
@@ -86,6 +102,7 @@ function WorkedExample({ form }: { form: TaxSettingsForm }) {
 }
 
 function FilingCard({ form }: { form: TaxSettingsForm }) {
+    const zone = useBusinessZone();
     const open = useOpenLink();
     return (
         <Panel>
@@ -94,16 +111,19 @@ function FilingCard({ form }: { form: TaxSettingsForm }) {
                 <div className="min-w-0 flex-1">
                     <p className="text-sm text-muted">{s.filingTitle}</p>
                     <p className="font-display text-lg font-bold text-ink">
-                        {s.filingDue(formatDate(form.filing.due))}
+                        {s.filingDue(formatDate(form.filing.due, zone))}
                     </p>
                     <p className="text-xs text-muted">
-                        {s.filingPeriod(formatDate(form.filing.from), formatDate(form.filing.to))}
+                        {s.filingPeriod(
+                            formatDate(form.filing.from, zone),
+                            formatDate(form.filing.to, zone),
+                        )}
                     </p>
                 </div>
                 <div className="text-right">
                     <p className="text-xs text-muted">{s.filingCollected}</p>
                     <p className="text-base font-semibold">
-                        <Money cents={form.filing.collectedCents} />
+                        <Money currency={BUSINESS_CURRENCY} cents={form.filing.collectedCents} />
                     </p>
                 </div>
             </div>
@@ -279,7 +299,7 @@ export function Taxes() {
                                                 },
                                                 {
                                                     key: "small",
-                                                    label: s.regSmall,
+                                                    label: s.regSmall(smallSupplierLimit()),
                                                     hint: s.regSmallHint,
                                                 },
                                             ]}

@@ -1,3 +1,5 @@
+import { BUSINESS_CURRENCY, formatMoney } from "@clientbridge/app-core/public";
+
 import { ArcDivider, ContourField } from "../art/Art";
 import { TradeGlyph } from "../art/TradeGlyph";
 import { links } from "../config";
@@ -7,7 +9,6 @@ import { BRANDS } from "../content/brands";
 import { testimonialPlaceholder } from "../content/home";
 import { tradePage } from "../content/solutions";
 import { solutionPath, type Trade, TRADES } from "../content/trades";
-import { money } from "../format";
 import { BillMock } from "../mocks/BillMock";
 import { BookingPageMock } from "../mocks/BookingPageMock";
 import { ClientRecordMock } from "../mocks/ClientRecordMock";
@@ -20,11 +21,11 @@ export function TradePage({ trade }: { trade: Trade }) {
     const brand = BRANDS[trade.slug];
     const others = TRADES.filter((o) => o.slug !== trade.slug);
     const booking = {
-        tag: `${trade.booking.tag} · ${brand.city}`,
+        tag: tradePage.bookingTag(trade.booking.tag, brand.city),
         items: trade.booking.items.map((i) => ({
             name: i.name,
             detail: i.detail,
-            price: money(i.cents),
+            price: formatMoney(i.cents, BUSINESS_CURRENCY),
         })),
         date: trade.booking.date,
         times: trade.booking.times,

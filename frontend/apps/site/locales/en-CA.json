@@ -1,0 +1,3387 @@
+{
+    "site.nav.skip": {
+        "message": "Skip to content"
+    },
+    "site.nav.home": {
+        "message": "Clientbridge home"
+    },
+    "site.nav.menu": {
+        "message": "Menu"
+    },
+    "site.nav.primary": {
+        "message": "Primary"
+    },
+    "site.nav.links.0.label": {
+        "message": "Features"
+    },
+    "site.nav.links.1.label": {
+        "message": "Solutions"
+    },
+    "site.nav.links.2.label": {
+        "message": "Payments"
+    },
+    "site.nav.links.3.label": {
+        "message": "Pricing"
+    },
+    "site.nav.signIn.label": {
+        "message": "Sign in"
+    },
+    "site.nav.startFree.label": {
+        "message": "Start free"
+    },
+    "site.footer.blurb": {
+        "message": "Booking, invoices, payments and sales tax for service businesses in Canada."
+    },
+    "site.footer.columns.0.title": {
+        "message": "Product"
+    },
+    "site.footer.columns.0.links.0.label": {
+        "message": "Booking"
+    },
+    "site.footer.columns.0.links.1.label": {
+        "message": "Invoices and estimates"
+    },
+    "site.footer.columns.0.links.2.label": {
+        "message": "Payments"
+    },
+    "site.footer.columns.0.links.3.label": {
+        "message": "Products and stock"
+    },
+    "site.footer.columns.0.links.4.label": {
+        "message": "Sales tax"
+    },
+    "site.footer.columns.0.links.5.label": {
+        "message": "Staff and pay"
+    },
+    "site.footer.columns.0.links.6.label": {
+        "message": "All features"
+    },
+    "site.footer.columns.1.title": {
+        "message": "Solutions"
+    },
+    "site.footer.columns.1.links.1.label": {
+        "message": "All solutions"
+    },
+    "site.footer.columns.2.title": {
+        "message": "Company"
+    },
+    "site.footer.columns.2.links.0.label": {
+        "message": "Pricing"
+    },
+    "site.footer.columns.2.links.1.label": {
+        "message": "Privacy"
+    },
+    "site.footer.columns.2.links.2.label": {
+        "message": "Terms"
+    },
+    "site.footer.columns.2.links.3.label": {
+        "message": "Contact"
+    },
+    "site.footer.columns.2.links.4.label": {
+        "message": "Photo credits"
+    },
+    "site.footer.legal": {
+        "message": "Interac is a registered trade-mark of Interac Corp."
+    },
+    "site.notFound.title": {
+        "message": "Page not found"
+    },
+    "site.notFound.body": {
+        "message": "The page you were looking for has moved or does not exist."
+    },
+    "site.notFound.back": {
+        "message": "Back to the home page"
+    },
+    "home.homeMeta.title": {
+        "message": "Clientbridge: book, sell and get paid, for service businesses in Canada"
+    },
+    "home.homeMeta.description": {
+        "message": "Online booking with deposits, an online shop and front desk sales, memberships, packages and gift cards, invoices and Tap to Pay for service businesses in Canada. Sales tax is worked out on every sale."
+    },
+    "home.homeMeta.headline": {
+        "message": "Book, sell and get paid, for service businesses in Canada"
+    },
+    "home.hero.eyebrow": {
+        "message": "For service businesses in Canada"
+    },
+    "home.hero.title.0": {
+        "message": "Book, sell and get paid"
+    },
+    "home.hero.title.1": {
+        "message": "in one place."
+    },
+    "home.hero.lede": {
+        "message": "Online booking with deposits, an online shop and front desk sales, memberships, packages and gift cards, invoices and Tap to Pay. Sales tax is worked out on every sale."
+    },
+    "home.hero.primary": {
+        "message": "Start free"
+    },
+    "home.hero.secondary": {
+        "message": "See the demo business"
+    },
+    "home.hero.note": {
+        "message": "Web, iPhone and Android. No card required to try it."
+    },
+    "home.props.0.title": {
+        "message": "Clients book and pay online"
+    },
+    "home.props.0.body": {
+        "message": "Your booking page shows your services and open times, takes a deposit if you want one, and can sit on your own website."
+    },
+    "home.props.1.title": {
+        "message": "Paid out to your bank"
+    },
+    "home.props.1.body": {
+        "message": "Track card payments, Tap to Pay and Interac e-Transfers in one place. Card payments are paid out to your bank on a regular schedule."
+    },
+    "home.props.2.title": {
+        "message": "Sales tax worked out for you"
+    },
+    "home.props.2.body": {
+        "message": "GST, HST, PST and QST are calculated for your province on every line, and the amount you owe the CRA is always on the Today screen."
+    },
+    "home.solutionsIntro.eyebrow": {
+        "message": "Solutions"
+    },
+    "home.solutionsIntro.title": {
+        "message": "Set up for the way your trade works."
+    },
+    "home.solutionsIntro.lede": {
+        "message": "The same app runs a grooming salon, a cleaning business and a tutoring studio. Each one starts from services, booking rules and forms that suit the trade."
+    },
+    "home.features.0.eyebrow": {
+        "message": "Schedule"
+    },
+    "home.features.0.title": {
+        "message": "A calendar that knows your services and your staff."
+    },
+    "home.features.0.body": {
+        "message": "Each service carries its own length, price and buffer, so a booking fills the right amount of time. Recurring visits repeat on their own, and reminders go out by email and text before each one."
+    },
+    "home.features.0.points.0": {
+        "message": "Day, week, month and per-staff views"
+    },
+    "home.features.0.points.1": {
+        "message": "Recurring bookings for regular clients"
+    },
+    "home.features.0.points.2": {
+        "message": "Deposits taken at booking and applied to the invoice"
+    },
+    "home.features.1.eyebrow": {
+        "message": "Invoices and estimates"
+    },
+    "home.features.1.title": {
+        "message": "Send an invoice from the booking, and see when it is paid."
+    },
+    "home.features.1.body": {
+        "message": "Invoices pick up the services from the visit, add the right tax, and go out with a link the client can pay from. Estimates turn into invoices when the client accepts them, and overdue invoices are easy to spot."
+    },
+    "home.features.1.points.0": {
+        "message": "Card or Interac e-Transfer on every invoice"
+    },
+    "home.features.1.points.1": {
+        "message": "Partial payments, refunds and credit notes"
+    },
+    "home.features.1.points.2": {
+        "message": "Numbered in order for you"
+    },
+    "home.features.2.eyebrow": {
+        "message": "Point of sale"
+    },
+    "home.features.2.title": {
+        "message": "Take a card at the counter with the phone you already have."
+    },
+    "home.features.2.body": {
+        "message": "Tap to Pay turns an iPhone or Android phone into a card reader, so you can charge for a visit or sell a retail item without extra hardware. The sale is recorded against the client and the tax is included."
+    },
+    "home.features.2.points.0": {
+        "message": "Tap to Pay on iPhone and Android"
+    },
+    "home.features.2.points.1": {
+        "message": "Retail items, gift cards and packages at checkout"
+    },
+    "home.features.2.points.2": {
+        "message": "Schedule and client list available offline"
+    },
+    "home.features.3.eyebrow": {
+        "message": "Products and stock"
+    },
+    "home.features.3.title": {
+        "message": "Sell products too, at the desk and online."
+    },
+    "home.features.3.body": {
+        "message": "Shampoo, brushes, supplements or styling products sit in the same catalog as your services, with a SKU, a cost and a stock count if you want one. Ring them up on the same ticket as a visit, or let clients order from your shop page and pick up."
+    },
+    "home.features.3.points.0": {
+        "message": "Stock counts drop as you sell, with a low-stock list and restock"
+    },
+    "home.features.3.points.1": {
+        "message": "Clients add a product when they book, and it goes on the visit's invoice"
+    },
+    "home.features.3.points.2": {
+        "message": "Itemised receipts by email or text, and sales by item for your bookkeeper"
+    },
+    "home.features.4.eyebrow": {
+        "message": "Your public pages"
+    },
+    "home.features.4.title": {
+        "message": "Booking and payment pages with your name on them."
+    },
+    "home.features.4.body": {
+        "message": "Clients see your logo and colour, not ours. Booking, paying an invoice, signing a form and leaving a review each have their own page, and each one can be embedded on your existing website with a short snippet."
+    },
+    "home.payments.eyebrow": {
+        "message": "How payments work"
+    },
+    "home.payments.title": {
+        "message": "The money goes to your bank, and the records keep themselves."
+    },
+    "home.payments.lede": {
+        "message": "Each business has its own payments account and receives payouts directly to its bank account."
+    },
+    "home.payments.steps.0.title": {
+        "message": "The client pays"
+    },
+    "home.payments.steps.0.body": {
+        "message": "By card online, by Tap to Pay in person, or by Interac e-Transfer using the reference code on the invoice."
+    },
+    "home.payments.steps.1.title": {
+        "message": "It is matched to the invoice"
+    },
+    "home.payments.steps.1.body": {
+        "message": "Card payments mark the invoice paid straight away. An e-Transfer is matched by its reference code when it arrives."
+    },
+    "home.payments.steps.2.title": {
+        "message": "Receive bank payouts"
+    },
+    "home.payments.steps.2.body": {
+        "message": "Your payments balance is paid out to your bank account. Each payout lists the payments, fees and refunds it covers."
+    },
+    "home.payments.steps.3.title": {
+        "message": "Tax is set aside"
+    },
+    "home.payments.steps.3.body": {
+        "message": "The GST/HST you collected is tracked by period, with a return report ready to export and mark as filed."
+    },
+    "home.included.eyebrow": {
+        "message": "Also included"
+    },
+    "home.included.title": {
+        "message": "The rest of the business, in the same app."
+    },
+    "home.included.items.0.title": {
+        "message": "Gift cards"
+    },
+    "home.included.items.0.body": {
+        "message": "Sell them online or at the counter, and redeem them at checkout."
+    },
+    "home.included.items.1.title": {
+        "message": "Packages"
+    },
+    "home.included.items.1.body": {
+        "message": "Prepaid bundles of visits, with sessions counted down as they are used."
+    },
+    "home.included.items.2.title": {
+        "message": "Subscriptions"
+    },
+    "home.included.items.2.body": {
+        "message": "Monthly memberships charged to a saved card or by pre-authorized debit."
+    },
+    "home.included.items.3.title": {
+        "message": "Online shop"
+    },
+    "home.included.items.3.body": {
+        "message": "Clients order products from your booking site, pay by card and pick up. You mark each order ready."
+    },
+    "home.included.items.4.title": {
+        "message": "Stock"
+    },
+    "home.included.items.4.body": {
+        "message": "Optional stock counts per product, a low-stock list, and restock in a tap."
+    },
+    "home.included.items.5.title": {
+        "message": "Add-ons at booking"
+    },
+    "home.included.items.5.body": {
+        "message": "Clients add a product when they book, and it is added to the visit's invoice."
+    },
+    "home.included.items.6.title": {
+        "message": "Staff and pay"
+    },
+    "home.included.items.6.body": {
+        "message": "Roles for owners and staff, earnings on completed work, and pay records."
+    },
+    "home.included.items.7.title": {
+        "message": "Retail commission"
+    },
+    "home.included.items.7.body": {
+        "message": "A commission rate per staff member, recorded on each sale they make."
+    },
+    "home.included.items.8.title": {
+        "message": "Messaging"
+    },
+    "home.included.items.8.body": {
+        "message": "Two-way text and email with clients, kept in one inbox per client."
+    },
+    "home.included.items.9.title": {
+        "message": "Reviews"
+    },
+    "home.included.items.9.body": {
+        "message": "A review request goes out after each visit, and you choose what to show."
+    },
+    "home.included.items.10.title": {
+        "message": "Works offline"
+    },
+    "home.included.items.10.body": {
+        "message": "The schedule and client list stay on your device and sync when you reconnect."
+    },
+    "home.included.items.11.title": {
+        "message": "Reports"
+    },
+    "home.included.items.11.body": {
+        "message": "Income, GST/HST and T4A reports, exported as CSV for your bookkeeper."
+    },
+    "home.proof.eyebrow": {
+        "message": "From businesses using Clientbridge"
+    },
+    "home.proof.logo": {
+        "message": "Customer logo"
+    },
+    "home.pricing.eyebrow": {
+        "message": "Pricing"
+    },
+    "home.pricing.title": {
+        "message": "One plan with everything in it."
+    },
+    "home.pricing.body": {
+        "message": "Every feature on this page is included. Card payments carry a card processing fee, and Interac e-Transfers go bank to bank and are not charged a card fee."
+    },
+    "home.pricing.price": {
+        "message": "$[price]"
+    },
+    "home.pricing.per": {
+        "message": " / month"
+    },
+    "home.pricing.note": {
+        "message": "Placeholder. Final pricing to be confirmed."
+    },
+    "home.pricing.points.0": {
+        "message": "Unlimited clients and bookings"
+    },
+    "home.pricing.points.1": {
+        "message": "Products, stock and an online shop"
+    },
+    "home.pricing.points.2": {
+        "message": "Web, iPhone and Android"
+    },
+    "home.pricing.points.3": {
+        "message": "Staff seats [to be confirmed]"
+    },
+    "home.pricing.cta": {
+        "message": "Start free"
+    },
+    "home.closing.title": {
+        "message": "Try it with a business that is already set up."
+    },
+    "home.closing.lede": {
+        "message": "The demo opens Birchbark Pet Studio, a grooming business in Victoria, with a full week of bookings, invoices and payments to look through."
+    },
+    "home.closing.primary": {
+        "message": "Start free"
+    },
+    "home.closing.secondary": {
+        "message": "Open the demo"
+    },
+    "pages.pricingMeta.headline": {
+        "message": "Pricing"
+    },
+    "pages.pricingMeta.description": {
+        "message": "One monthly plan with booking, invoices, payments, sales tax, staff pay and the iPhone and Android apps included. Card payments carry a card processing fee; Interac e-Transfers do not."
+    },
+    "pages.pricingPage.eyebrow": {
+        "message": "Pricing"
+    },
+    "pages.pricingPage.title": {
+        "message": "One plan, with every feature included."
+    },
+    "pages.pricingPage.lede": {
+        "message": "Every business gets the full product: the booking page, invoices, payments, sales tax, staff pay and the apps. You pay one monthly price, plus a small amount for each extra staff member."
+    },
+    "pages.pricingPage.plan.name": {
+        "message": "Clientbridge"
+    },
+    "pages.pricingPage.plan.price": {
+        "message": "$[price]"
+    },
+    "pages.pricingPage.plan.per": {
+        "message": " / month"
+    },
+    "pages.pricingPage.plan.note": {
+        "message": "Placeholder. Final pricing to be confirmed."
+    },
+    "pages.pricingPage.plan.seat": {
+        "message": "Each additional staff member: $[price] / month (placeholder)."
+    },
+    "pages.pricingPage.plan.cta": {
+        "message": "Start free"
+    },
+    "pages.pricingPage.plan.groups.0.title": {
+        "message": "Front desk"
+    },
+    "pages.pricingPage.plan.groups.0.items.0": {
+        "message": "Online booking page with deposits"
+    },
+    "pages.pricingPage.plan.groups.0.items.1": {
+        "message": "Calendar with day, week, month and staff views"
+    },
+    "pages.pricingPage.plan.groups.0.items.2": {
+        "message": "Recurring bookings, classes and capacity"
+    },
+    "pages.pricingPage.plan.groups.0.items.3": {
+        "message": "Reminders by email and text"
+    },
+    "pages.pricingPage.plan.groups.1.title": {
+        "message": "Getting paid"
+    },
+    "pages.pricingPage.plan.groups.1.items.0": {
+        "message": "Card, Tap to Pay and Interac e-Transfer"
+    },
+    "pages.pricingPage.plan.groups.1.items.1": {
+        "message": "Invoices, estimates and pay links"
+    },
+    "pages.pricingPage.plan.groups.1.items.2": {
+        "message": "Gift cards, packages and memberships"
+    },
+    "pages.pricingPage.plan.groups.1.items.3": {
+        "message": "Products with stock counts and an online shop"
+    },
+    "pages.pricingPage.plan.groups.1.items.4": {
+        "message": "Refunds and partial refunds"
+    },
+    "pages.pricingPage.plan.groups.2.title": {
+        "message": "Back office"
+    },
+    "pages.pricingPage.plan.groups.2.items.0": {
+        "message": "GST, HST, PST and QST on every line"
+    },
+    "pages.pricingPage.plan.groups.2.items.1": {
+        "message": "Return reports and remittance tracking"
+    },
+    "pages.pricingPage.plan.groups.2.items.2": {
+        "message": "Staff roles, hours and pay records"
+    },
+    "pages.pricingPage.plan.groups.2.items.3": {
+        "message": "Income, sales by item and T4A reports for your bookkeeper"
+    },
+    "pages.pricingPage.fees.title": {
+        "message": "Payment fees"
+    },
+    "pages.pricingPage.fees.lede": {
+        "message": "Fees on payments are separate from the plan price and are shown on every payout."
+    },
+    "pages.pricingPage.fees.rows.0.label": {
+        "message": "Card online and Tap to Pay"
+    },
+    "pages.pricingPage.fees.rows.0.value": {
+        "message": "A card processing fee, taken from each payment. Clientbridge platform fee: to be confirmed."
+    },
+    "pages.pricingPage.fees.rows.1.label": {
+        "message": "Interac e-Transfer"
+    },
+    "pages.pricingPage.fees.rows.1.value": {
+        "message": "No card fee. The transfer goes from your client's bank to yours and is matched to the invoice by its reference code."
+    },
+    "pages.pricingPage.fees.rows.2.label": {
+        "message": "Setup"
+    },
+    "pages.pricingPage.fees.rows.2.value": {
+        "message": "No setup fee. Start setting up card payments in the app."
+    },
+    "pages.pricingPage.faqTitle": {
+        "message": "Common questions"
+    },
+    "pages.pricingPage.faq.0.q": {
+        "message": "Can I try it before I pay?"
+    },
+    "pages.pricingPage.faq.0.a": {
+        "message": "Yes. You can start without a card and look around a demo business that already has a full week of bookings, invoices and payments."
+    },
+    "pages.pricingPage.faq.1.q": {
+        "message": "How do I get paid?"
+    },
+    "pages.pricingPage.faq.1.a": {
+        "message": "Your business has its own payments account. Card payments are paid out to your bank on a regular schedule."
+    },
+    "pages.pricingPage.faq.2.q": {
+        "message": "What does an Interac e-Transfer cost?"
+    },
+    "pages.pricingPage.faq.2.a": {
+        "message": "There is no card fee. Your client sends the transfer from their bank using the reference code on the invoice, and the payment is matched to the invoice when it arrives."
+    },
+    "pages.pricingPage.faq.3.q": {
+        "message": "Is sales tax included?"
+    },
+    "pages.pricingPage.faq.3.a": {
+        "message": "Yes. GST, HST, PST and QST are worked out for your province on every invoice line, and the tax you collected is tracked by period with a report ready for your return."
+    },
+    "pages.pricingPage.faq.4.q": {
+        "message": "Do my staff need their own login?"
+    },
+    "pages.pricingPage.faq.4.a": {
+        "message": "Each staff member gets their own login with the right role. Staff see their own schedule and clients, and owners and admins see the money."
+    },
+    "pages.pricingPage.faq.5.q": {
+        "message": "Does it work on my phone?"
+    },
+    "pages.pricingPage.faq.5.a": {
+        "message": "Yes. There is a web app and apps for iPhone and Android. The schedule and client list stay on your device, so they are there even when the connection drops."
+    },
+    "pages.pricingPage.faq.6.q": {
+        "message": "Can clients book from my own website?"
+    },
+    "pages.pricingPage.faq.6.a": {
+        "message": "Yes. Your booking page has its own link, and it can be embedded on your existing website with a short snippet."
+    },
+    "pages.pricingPage.closing.title": {
+        "message": "See it with a business that is already set up."
+    },
+    "pages.pricingPage.closing.lede": {
+        "message": "The demo opens Birchbark Pet Studio, a grooming business in Victoria, with bookings, invoices and payments to look through."
+    },
+    "pages.pricingPage.closing.primary": {
+        "message": "Start free"
+    },
+    "pages.pricingPage.closing.secondary": {
+        "message": "Open the demo"
+    },
+    "pages.featuresMeta.headline": {
+        "message": "Features"
+    },
+    "pages.featuresMeta.description": {
+        "message": "Everything Clientbridge does: online booking and the calendar, client records, invoices and estimates, card, Tap to Pay and Interac payments, sales tax, staff pay, messaging, reviews and the apps."
+    },
+    "pages.featuresPage.eyebrow": {
+        "message": "Features"
+    },
+    "pages.featuresPage.title": {
+        "message": "Everything the business runs on, in one app."
+    },
+    "pages.featuresPage.lede": {
+        "message": "Clientbridge covers the front desk and the back office for a service business. These are the parts, and each one works with the others."
+    },
+    "pages.featuresPage.groups.bookings.title": {
+        "message": "Bookings and the calendar"
+    },
+    "pages.featuresPage.groups.bookings.body": {
+        "message": "Clients book from your page, and every booking fills the right amount of time on the right person's calendar."
+    },
+    "pages.featuresPage.groups.bookings.items.0": {
+        "message": "Services with their own length, price and buffer"
+    },
+    "pages.featuresPage.groups.bookings.items.1": {
+        "message": "Day, week, month and per-staff views"
+    },
+    "pages.featuresPage.groups.bookings.items.2": {
+        "message": "Recurring bookings, classes and capacity"
+    },
+    "pages.featuresPage.groups.bookings.items.3": {
+        "message": "Deposits taken at booking and applied to the invoice"
+    },
+    "pages.featuresPage.groups.bookings.items.4": {
+        "message": "Reminders by email and text"
+    },
+    "pages.featuresPage.groups.bookings.link.label": {
+        "message": "See the calendar"
+    },
+    "pages.featuresPage.groups.clients.title": {
+        "message": "Clients"
+    },
+    "pages.featuresPage.groups.clients.body": {
+        "message": "Each client record holds the people, pets or properties you serve, their history and their saved payment methods."
+    },
+    "pages.featuresPage.groups.clients.items.0": {
+        "message": "Notes, history and lifetime value"
+    },
+    "pages.featuresPage.groups.clients.items.1": {
+        "message": "Intake forms, waivers and contracts signed online"
+    },
+    "pages.featuresPage.groups.clients.items.2": {
+        "message": "Saved cards and pre-authorized debit"
+    },
+    "pages.featuresPage.groups.clients.items.3": {
+        "message": "Packages and memberships on the record"
+    },
+    "pages.featuresPage.groups.clients.link.label": {
+        "message": "See it by trade"
+    },
+    "pages.featuresPage.groups.invoices.title": {
+        "message": "Invoices and estimates"
+    },
+    "pages.featuresPage.groups.invoices.body": {
+        "message": "Invoices pick up the services from the visit, add the right tax and go out with a link the client can pay from."
+    },
+    "pages.featuresPage.groups.invoices.items.0": {
+        "message": "Estimates that turn into invoices"
+    },
+    "pages.featuresPage.groups.invoices.items.1": {
+        "message": "Partial payments, refunds and credit notes"
+    },
+    "pages.featuresPage.groups.invoices.items.2": {
+        "message": "Numbered in order for you"
+    },
+    "pages.featuresPage.groups.invoices.items.3": {
+        "message": "Overdue invoices easy to spot"
+    },
+    "pages.featuresPage.groups.invoices.link.label": {
+        "message": "See invoices"
+    },
+    "pages.featuresPage.groups.payments.title": {
+        "message": "Payments"
+    },
+    "pages.featuresPage.groups.payments.body": {
+        "message": "Card online, Tap to Pay in person and Interac e-Transfer all land in one place, matched to the invoice they pay."
+    },
+    "pages.featuresPage.groups.payments.items.0": {
+        "message": "Tap to Pay on iPhone and Android"
+    },
+    "pages.featuresPage.groups.payments.items.1": {
+        "message": "Interac e-Transfer matched by reference code"
+    },
+    "pages.featuresPage.groups.payments.items.2": {
+        "message": "Payouts to your bank"
+    },
+    "pages.featuresPage.groups.payments.items.3": {
+        "message": "Gift cards, packages and subscriptions"
+    },
+    "pages.featuresPage.groups.payments.link.label": {
+        "message": "How payments work"
+    },
+    "pages.featuresPage.groups.products.title": {
+        "message": "Products and stock"
+    },
+    "pages.featuresPage.groups.products.body": {
+        "message": "Products sit in the same catalog as your services and sell through the same checkout, at the desk and online."
+    },
+    "pages.featuresPage.groups.products.items.0": {
+        "message": "SKU, cost and an optional stock count per product"
+    },
+    "pages.featuresPage.groups.products.items.1": {
+        "message": "Low-stock list and restock"
+    },
+    "pages.featuresPage.groups.products.items.2": {
+        "message": "Services and products on one ticket, by card or Tap to Pay"
+    },
+    "pages.featuresPage.groups.products.items.3": {
+        "message": "An online shop on your booking site, picked up in store"
+    },
+    "pages.featuresPage.groups.products.items.4": {
+        "message": "Add-ons chosen at booking, added to the visit's invoice"
+    },
+    "pages.featuresPage.groups.products.items.5": {
+        "message": "Commission for the staff member who made the sale"
+    },
+    "pages.featuresPage.groups.products.items.6": {
+        "message": "Itemised receipts and a sales by item report"
+    },
+    "pages.featuresPage.groups.products.link.label": {
+        "message": "See products"
+    },
+    "pages.featuresPage.groups.tax.title": {
+        "message": "Sales tax"
+    },
+    "pages.featuresPage.groups.tax.body": {
+        "message": "GST, HST, PST and QST are worked out for your province on every line, and the amount you owe is always on the Today screen."
+    },
+    "pages.featuresPage.groups.tax.items.0": {
+        "message": "Tax by province on every invoice line"
+    },
+    "pages.featuresPage.groups.tax.items.1": {
+        "message": "A tax class per item: all taxes, GST or HST only, or exempt"
+    },
+    "pages.featuresPage.groups.tax.items.2": {
+        "message": "Tax collected tracked by period"
+    },
+    "pages.featuresPage.groups.tax.items.3": {
+        "message": "Return report ready to export"
+    },
+    "pages.featuresPage.groups.tax.items.4": {
+        "message": "Remittances marked as filed"
+    },
+    "pages.featuresPage.groups.tax.link.label": {
+        "message": "How tax works"
+    },
+    "pages.featuresPage.groups.staff.title": {
+        "message": "Staff and pay"
+    },
+    "pages.featuresPage.groups.staff.body": {
+        "message": "Owners, admins and staff each see what their role needs, and completed work is recorded as earnings."
+    },
+    "pages.featuresPage.groups.staff.items.0": {
+        "message": "Invites and roles"
+    },
+    "pages.featuresPage.groups.staff.items.1": {
+        "message": "Working hours per person"
+    },
+    "pages.featuresPage.groups.staff.items.2": {
+        "message": "Earnings approved and marked paid"
+    },
+    "pages.featuresPage.groups.staff.items.3": {
+        "message": "T4A report at year end"
+    },
+    "pages.featuresPage.groups.staff.link.label": {
+        "message": "See pricing for teams"
+    },
+    "pages.featuresPage.groups.messaging.title": {
+        "message": "Messaging and reviews"
+    },
+    "pages.featuresPage.groups.messaging.body": {
+        "message": "Text and email with clients from one inbox, and ask for a review after each visit."
+    },
+    "pages.featuresPage.groups.messaging.items.0": {
+        "message": "Two-way text and email"
+    },
+    "pages.featuresPage.groups.messaging.items.1": {
+        "message": "Broadcasts to a group of clients"
+    },
+    "pages.featuresPage.groups.messaging.items.2": {
+        "message": "Review requests after each visit"
+    },
+    "pages.featuresPage.groups.messaging.items.3": {
+        "message": "Choose which reviews appear on your page"
+    },
+    "pages.featuresPage.groups.messaging.link.label": {
+        "message": "See it by trade"
+    },
+    "pages.featuresPage.groups.apps.title": {
+        "message": "Web, iPhone and Android"
+    },
+    "pages.featuresPage.groups.apps.body": {
+        "message": "The same account on every device. The schedule and client list stay on the device and sync when the connection returns."
+    },
+    "pages.featuresPage.groups.apps.items.0": {
+        "message": "Web app for the front desk"
+    },
+    "pages.featuresPage.groups.apps.items.1": {
+        "message": "iPhone and Android apps"
+    },
+    "pages.featuresPage.groups.apps.items.2": {
+        "message": "Works when the Wi-Fi does not"
+    },
+    "pages.featuresPage.groups.apps.items.3": {
+        "message": "Reports exported as CSV"
+    },
+    "pages.featuresPage.groups.apps.link.label": {
+        "message": "See pricing"
+    },
+    "pages.featuresPage.tradesTitle": {
+        "message": "By trade"
+    },
+    "pages.legalPlaceholder": {
+        "message": "Legal text to be provided."
+    },
+    "pages.paymentDisclosure.title": {
+        "message": "Payment services"
+    },
+    "pages.paymentDisclosure.body": {
+        "message": "Stripe provides payment processing for businesses using Clientbridge. Its Connected Account Agreement applies to those payment services. Stripe receives and processes personal data for payment services as described in its Privacy Policy. The links below provide the agreement, privacy information and acquiring-bank disclosures."
+    },
+    "pages.paymentDisclosure.links.0.label": {
+        "message": "Stripe Connected Account Agreement"
+    },
+    "pages.paymentDisclosure.links.1.label": {
+        "message": "Stripe Privacy Policy"
+    },
+    "pages.paymentDisclosure.links.2.label": {
+        "message": "Acquiring-bank disclosures"
+    },
+    "pages.privacyPage.meta.headline": {
+        "message": "Privacy"
+    },
+    "pages.privacyPage.meta.description": {
+        "message": "How Clientbridge collects, uses and protects personal information."
+    },
+    "pages.privacyPage.title": {
+        "message": "Privacy policy"
+    },
+    "pages.privacyPage.updated": {
+        "message": "Last updated: [date to be confirmed]"
+    },
+    "pages.privacyPage.intro": {
+        "message": "This page will describe how Clientbridge handles personal information for the businesses that use it and for their clients."
+    },
+    "pages.privacyPage.sections.0": {
+        "message": "Information we collect"
+    },
+    "pages.privacyPage.sections.1": {
+        "message": "How we use information"
+    },
+    "pages.privacyPage.sections.2": {
+        "message": "Where information is stored"
+    },
+    "pages.privacyPage.sections.3": {
+        "message": "How long we keep information"
+    },
+    "pages.privacyPage.sections.4": {
+        "message": "Your choices and rights"
+    },
+    "pages.termsPage.meta.headline": {
+        "message": "Terms"
+    },
+    "pages.termsPage.meta.description": {
+        "message": "The terms that apply to using Clientbridge."
+    },
+    "pages.termsPage.title": {
+        "message": "Terms of service"
+    },
+    "pages.termsPage.updated": {
+        "message": "Last updated: [date to be confirmed]"
+    },
+    "pages.termsPage.intro": {
+        "message": "This page will set out the terms that apply to businesses using Clientbridge and to their clients using its booking and payment pages."
+    },
+    "pages.termsPage.sections.0": {
+        "message": "Using Clientbridge"
+    },
+    "pages.termsPage.sections.1": {
+        "message": "Your account"
+    },
+    "pages.termsPage.sections.2": {
+        "message": "Payments and fees"
+    },
+    "pages.termsPage.sections.3": {
+        "message": "Your content and your clients' information"
+    },
+    "pages.termsPage.sections.4": {
+        "message": "Availability and changes"
+    },
+    "pages.termsPage.sections.5": {
+        "message": "Ending your account"
+    },
+    "pages.termsPage.sections.6": {
+        "message": "Liability"
+    },
+    "solutions.solutionsMeta.title": {
+        "message": "Clientbridge solutions"
+    },
+    "solutions.solutionsMeta.description": {
+        "message": "How Clientbridge works for groomers, salons, trainers, cleaners, tutors, therapists, photographers and trades."
+    },
+    "solutions.solutionsPage.eyebrow": {
+        "message": "Solutions"
+    },
+    "solutions.solutionsPage.title": {
+        "message": "One app, set up for the way each trade books, bills and gets paid."
+    },
+    "solutions.solutionsPage.lede": {
+        "message": "A groomer needs each pet's notes on the booking, a cleaner needs the entry instructions for each home, and a photographer needs a signed contract before the date is held. Clientbridge handles each of these with the same bookings, invoices, payments and sales tax underneath."
+    },
+    "solutions.solutionsPage.engineEyebrow": {
+        "message": "The same engine underneath"
+    },
+    "solutions.solutionsPage.engineTitle": {
+        "message": "What every business gets, whatever the trade."
+    },
+    "solutions.solutionsPage.engine.0.title": {
+        "message": "Online booking"
+    },
+    "solutions.solutionsPage.engine.0.body": {
+        "message": "Services with their own length, price, buffer and deposit, staff hours, classes with a capacity, and recurring visits."
+    },
+    "solutions.solutionsPage.engine.1.title": {
+        "message": "Invoices and estimates"
+    },
+    "solutions.solutionsPage.engine.1.body": {
+        "message": "Built from the booking, numbered in order, and paid from a link by card or Interac e-Transfer."
+    },
+    "solutions.solutionsPage.engine.2.title": {
+        "message": "Tap to Pay"
+    },
+    "solutions.solutionsPage.engine.2.body": {
+        "message": "Take a card in person on an iPhone or Android phone, with no separate card reader."
+    },
+    "solutions.solutionsPage.engine.3.title": {
+        "message": "GST, HST, PST and QST"
+    },
+    "solutions.solutionsPage.engine.3.body": {
+        "message": "Worked out from your province on every line, tracked by period, and ready for your return."
+    },
+    "solutions.solutionsPage.engine.4.title": {
+        "message": "Packages, memberships and gift cards"
+    },
+    "solutions.solutionsPage.engine.4.body": {
+        "message": "Prepaid bundles that count down, monthly charges to a saved card or by pre-authorized debit, and gift cards."
+    },
+    "solutions.solutionsPage.engine.5.title": {
+        "message": "Staff and pay"
+    },
+    "solutions.solutionsPage.engine.5.body": {
+        "message": "Hours and services for each person, earnings on completed work, and T4A reports at year end."
+    },
+    "solutions.solutionsPage.engine.6.title": {
+        "message": "Reminders and messaging"
+    },
+    "solutions.solutionsPage.engine.6.body": {
+        "message": "Reminders by text and email, and two-way messages kept in one inbox per client."
+    },
+    "solutions.solutionsPage.engine.7.title": {
+        "message": "Forms and reviews"
+    },
+    "solutions.solutionsPage.engine.7.body": {
+        "message": "Intake forms, waivers and contracts signed online, and a review request after each visit."
+    },
+    "solutions.solutionsPage.engine.8.title": {
+        "message": "Web, iPhone and Android"
+    },
+    "solutions.solutionsPage.engine.8.body": {
+        "message": "The schedule and client list stay on your device when the connection drops, and sync when it returns."
+    },
+    "solutions.solutionsPage.closing.title": {
+        "message": "Your trade is not listed here."
+    },
+    "solutions.solutionsPage.closing.lede": {
+        "message": "If you book appointments, send invoices and take payments in Canada, the same setup applies. Start with your services and hours, and the rest follows from there."
+    },
+    "solutions.solutionsPage.closing.primary": {
+        "message": "Start free"
+    },
+    "solutions.solutionsPage.closing.secondary": {
+        "message": "Open the demo"
+    },
+    "solutions.tradePage.crumb": {
+        "message": "Solutions"
+    },
+    "solutions.tradePage.primary": {
+        "message": "Start free"
+    },
+    "solutions.tradePage.secondary": {
+        "message": "See the demo business"
+    },
+    "solutions.tradePage.note": {
+        "message": "Web, iPhone and Android. No card required to try it."
+    },
+    "solutions.tradePage.bookingsEyebrow": {
+        "message": "Bookings"
+    },
+    "solutions.tradePage.example": {
+        "message": "Example data."
+    },
+    "solutions.tradePage.dayToDay": {
+        "message": "Day to day"
+    },
+    "solutions.tradePage.gettingPaid": {
+        "message": "Getting paid"
+    },
+    "solutions.tradePage.clientsEyebrow": {
+        "message": "Clients"
+    },
+    "solutions.tradePage.bookingPage": {
+        "message": "Your booking page"
+    },
+    "solutions.tradePage.others": {
+        "message": "Other solutions"
+    },
+    "solutions.tradePage.closing.title": {
+        "message": "Set up your services and open your booking page today."
+    },
+    "solutions.tradePage.closing.lede": {
+        "message": "Add your services, hours and staff, set up payments and payouts, and share your booking page. You can also open the demo business to look around first."
+    },
+    "solutions.tradePage.closing.primary": {
+        "message": "Start free"
+    },
+    "solutions.tradePage.closing.secondary": {
+        "message": "Open the demo"
+    },
+    "solutions.tradePage.scheduleTitle": {
+        "message": "Schedule"
+    },
+    "solutions.tradePage.scheduleViews.0": {
+        "message": "Day"
+    },
+    "solutions.tradePage.scheduleViews.1": {
+        "message": "Week"
+    },
+    "solutions.tradePage.scheduleViews.2": {
+        "message": "Month"
+    },
+    "solutions.tradePage.subtotal": {
+        "message": "Subtotal"
+    },
+    "solutions.tradePage.total": {
+        "message": "Total"
+    },
+    "solutions.tradePage.depositPaid": {
+        "message": "Deposit paid at booking"
+    },
+    "solutions.tradePage.paidToday": {
+        "message": "Paid today"
+    },
+    "solutions.tradePage.balanceDue": {
+        "message": "Balance before delivery"
+    },
+    "solutions.tradePage.clients": {
+        "message": "Clients"
+    },
+    "solutions.tradePage.students": {
+        "message": "Students"
+    },
+    "solutions.tradePage.plan": {
+        "message": "Package"
+    },
+    "solutions.tradePage.upcoming": {
+        "message": "Upcoming"
+    },
+    "solutions.tradePage.forms": {
+        "message": "Forms"
+    },
+    "solutions.creditsMeta.headline": {
+        "message": "Photo credits"
+    },
+    "solutions.creditsMeta.description": {
+        "message": "The photographers whose work appears on the Clientbridge website."
+    },
+    "solutions.creditsPage.title": {
+        "message": "Photo credits"
+    },
+    "solutions.creditsPage.lede": {
+        "message": "The photos on this site are from Pexels and are used under the Pexels License, which allows commercial use without attribution. We list the photographers here as a courtesy."
+    },
+    "solutions.creditsPage.license": {
+        "message": "Pexels License"
+    },
+    "solutions.creditsPage.columns.subject": {
+        "message": "Photo"
+    },
+    "solutions.creditsPage.columns.photographer": {
+        "message": "Photographer"
+    },
+    "solutions.creditsPage.columns.source": {
+        "message": "Source"
+    },
+    "solutions.creditsPage.view": {
+        "message": "View on Pexels"
+    },
+    "trades.pet-grooming.name": {
+        "message": "Pet grooming and daycare"
+    },
+    "trades.pet-grooming.who": {
+        "message": "groomers"
+    },
+    "trades.pet-grooming.oneLine": {
+        "message": "Grooms, add-ons and daycare days, with each pet's notes on the booking."
+    },
+    "trades.pet-grooming.h1": {
+        "message": "Grooming and daycare bookings, with the pet on every one."
+    },
+    "trades.pet-grooming.lede": {
+        "message": "Each client record holds their pets, with breed, coat, temperament and notes from the last groom. Owners book a groom or a daycare day online, pay a deposit, and get a reminder the day before."
+    },
+    "trades.pet-grooming.photo.alt": {
+        "message": "A groomer scissoring a Shih Tzu on a grooming table, with a poodle waiting behind"
+    },
+    "trades.pet-grooming.photo2.alt": {
+        "message": "A groomer brushing a Cocker Spaniel"
+    },
+    "trades.pet-grooming.heroCard.label": {
+        "message": "Booked online"
+    },
+    "trades.pet-grooming.heroCard.title": {
+        "message": "Luna, Goldendoodle"
+    },
+    "trades.pet-grooming.heroCard.detail": {
+        "message": "Full Groom · Thu 9:00 with Jess"
+    },
+    "trades.pet-grooming.heroCard.pill.text": {
+        "message": "Deposit $20.00 paid"
+    },
+    "trades.pet-grooming.bookings.title": {
+        "message": "A groom takes as long as the dog needs, and the calendar knows it."
+    },
+    "trades.pet-grooming.bookings.body": {
+        "message": "Each service has its own length and a buffer after it, so a full groom on a doodle blocks enough time for drying and clean-up before the next dog. Daycare runs as a session with a capacity, so you take a set number of dogs per day and the booking page stops offering the day when it is full."
+    },
+    "trades.pet-grooming.bookings.list.0": {
+        "message": "Pets stored on the client, with breed, weight and notes"
+    },
+    "trades.pet-grooming.bookings.list.1": {
+        "message": "Add-ons such as a nail grind or teeth brushing on the same booking"
+    },
+    "trades.pet-grooming.bookings.list.2": {
+        "message": "Daycare days with a daily capacity"
+    },
+    "trades.pet-grooming.bookings.list.3": {
+        "message": "Repeat grooms every four, six or eight weeks"
+    },
+    "trades.pet-grooming.schedule.day": {
+        "message": "Thursday, October 8"
+    },
+    "trades.pet-grooming.schedule.columns.0.0": {
+        "message": "Jess"
+    },
+    "trades.pet-grooming.schedule.columns.0.1": {
+        "message": "Groomer"
+    },
+    "trades.pet-grooming.schedule.columns.1.0": {
+        "message": "Marco"
+    },
+    "trades.pet-grooming.schedule.columns.1.1": {
+        "message": "Groomer"
+    },
+    "trades.pet-grooming.schedule.columns.2.0": {
+        "message": "Daycare"
+    },
+    "trades.pet-grooming.schedule.columns.2.1": {
+        "message": "9 of 12 spots"
+    },
+    "trades.pet-grooming.schedule.events.0.title": {
+        "message": "Luna · Doodle"
+    },
+    "trades.pet-grooming.schedule.events.0.detail": {
+        "message": "Full Groom"
+    },
+    "trades.pet-grooming.schedule.events.1.title": {
+        "message": "Cooper · Beagle"
+    },
+    "trades.pet-grooming.schedule.events.1.detail": {
+        "message": "Bath & Tidy"
+    },
+    "trades.pet-grooming.schedule.events.2.title": {
+        "message": "Miso · Cat"
+    },
+    "trades.pet-grooming.schedule.events.2.detail": {
+        "message": "Nail trim"
+    },
+    "trades.pet-grooming.schedule.events.3.title": {
+        "message": "Pepper · Schnauzer"
+    },
+    "trades.pet-grooming.schedule.events.3.detail": {
+        "message": "Full Groom"
+    },
+    "trades.pet-grooming.schedule.events.4.title": {
+        "message": "Bear · Newfoundland"
+    },
+    "trades.pet-grooming.schedule.events.4.detail": {
+        "message": "De-shedding"
+    },
+    "trades.pet-grooming.schedule.events.5.title": {
+        "message": "Daycare"
+    },
+    "trades.pet-grooming.schedule.events.5.detail": {
+        "message": "9 dogs checked in"
+    },
+    "trades.pet-grooming.booking.tag": {
+        "message": "Book a visit"
+    },
+    "trades.pet-grooming.booking.items.0.name": {
+        "message": "Full Groom"
+    },
+    "trades.pet-grooming.booking.items.0.detail": {
+        "message": "90 min"
+    },
+    "trades.pet-grooming.booking.items.1.name": {
+        "message": "Bath & Tidy"
+    },
+    "trades.pet-grooming.booking.items.1.detail": {
+        "message": "60 min"
+    },
+    "trades.pet-grooming.booking.items.2.name": {
+        "message": "Nail trim"
+    },
+    "trades.pet-grooming.booking.items.2.detail": {
+        "message": "15 min"
+    },
+    "trades.pet-grooming.booking.items.3.name": {
+        "message": "Daycare day"
+    },
+    "trades.pet-grooming.booking.items.3.detail": {
+        "message": "8 a.m. to 6 p.m."
+    },
+    "trades.pet-grooming.booking.date": {
+        "message": "Thursday, October 8"
+    },
+    "trades.pet-grooming.booking.times.0": {
+        "message": "9:00"
+    },
+    "trades.pet-grooming.booking.times.1": {
+        "message": "10:30"
+    },
+    "trades.pet-grooming.booking.times.2": {
+        "message": "1:00"
+    },
+    "trades.pet-grooming.booking.times.3": {
+        "message": "2:30"
+    },
+    "trades.pet-grooming.booking.button": {
+        "message": "Book and pay $20 deposit"
+    },
+    "trades.pet-grooming.capabilities.0.title": {
+        "message": "Deposits that come off the bill"
+    },
+    "trades.pet-grooming.capabilities.0.body": {
+        "message": "Take a fixed amount or a percentage when an owner books online. The deposit is applied to the invoice at pickup, so they only pay the balance."
+    },
+    "trades.pet-grooming.capabilities.1.title": {
+        "message": "Daycare packs and memberships"
+    },
+    "trades.pet-grooming.capabilities.1.body": {
+        "message": "Sell a pack of ten daycare days that counts down as the dog attends, or a monthly membership charged to a saved card."
+    },
+    "trades.pet-grooming.capabilities.2.title": {
+        "message": "Invoices at pickup"
+    },
+    "trades.pet-grooming.capabilities.2.body": {
+        "message": "The invoice is built from the booking and its add-ons. Send it by text or email, or take payment at the counter when the owner arrives."
+    },
+    "trades.pet-grooming.capabilities.3.title": {
+        "message": "Tap to Pay, card or e-Transfer"
+    },
+    "trades.pet-grooming.capabilities.3.body": {
+        "message": "Charge a card with your phone at pickup, or send a payment link. Interac e-Transfers are matched to the invoice by their reference code."
+    },
+    "trades.pet-grooming.capabilities.4.title": {
+        "message": "Gift cards"
+    },
+    "trades.pet-grooming.capabilities.4.body": {
+        "message": "Sell gift cards on your booking page or at the counter, and redeem them against any groom, daycare day or retail item."
+    },
+    "trades.pet-grooming.capabilities.5.title": {
+        "message": "Groomers and their pay"
+    },
+    "trades.pet-grooming.capabilities.5.body": {
+        "message": "Each groomer has their own hours and services. Completed grooms are recorded as earnings, so pay records are ready at the end of the period."
+    },
+    "trades.pet-grooming.capabilities.6.title": {
+        "message": "Sales tax for your province"
+    },
+    "trades.pet-grooming.capabilities.6.body": {
+        "message": "GST, HST, PST or QST is worked out from your province on every line, retail shampoo included, and the period total is ready for your return."
+    },
+    "trades.pet-grooming.capabilities.7.title": {
+        "message": "Reminders and pickup messages"
+    },
+    "trades.pet-grooming.capabilities.7.body": {
+        "message": "Reminders go out by text and email before each appointment, and you can tell the owner their dog is ready from the same inbox."
+    },
+    "trades.pet-grooming.capabilities.8.title": {
+        "message": "Vaccination and consent forms"
+    },
+    "trades.pet-grooming.capabilities.8.body": {
+        "message": "Ask for vaccination dates and a signed grooming consent when a new client books, and keep both on their record."
+    },
+    "trades.pet-grooming.capabilities.9.title": {
+        "message": "Reviews after each visit"
+    },
+    "trades.pet-grooming.capabilities.9.body": {
+        "message": "A review request goes out after pickup. You choose which reviews appear on your page, and clients can share theirs to Google."
+    },
+    "trades.pet-grooming.capabilities.10.title": {
+        "message": "Retail, stock and an online shop"
+    },
+    "trades.pet-grooming.capabilities.10.body": {
+        "message": "Sell shampoo and brushes at the counter or from your shop page for pickup. Owners can add one when they book, and stock counts drop as you sell."
+    },
+    "trades.pet-grooming.capabilities.11.title": {
+        "message": "Works in the back room"
+    },
+    "trades.pet-grooming.capabilities.11.body": {
+        "message": "The schedule and pet notes stay on your phone or tablet when the Wi-Fi drops, and changes sync when you reconnect."
+    },
+    "trades.pet-grooming.pay.title": {
+        "message": "A groom, a nail grind and a shampoo, paid at pickup."
+    },
+    "trades.pet-grooming.pay.body": {
+        "message": "The owner paid a $27.50 deposit and added a bottle of shampoo when they booked online. At pickup the invoice includes the shampoo, applies the deposit, adds the tax, and the owner taps their card on your phone for the balance."
+    },
+    "trades.pet-grooming.bill.meta": {
+        "message": "Invoice 1541 · Noah Schmidt"
+    },
+    "trades.pet-grooming.bill.lines.0.0": {
+        "message": "Full Groom - Large Dog (Cooper)"
+    },
+    "trades.pet-grooming.bill.lines.1.0": {
+        "message": "Nail grind (Cooper)"
+    },
+    "trades.pet-grooming.bill.lines.2.0": {
+        "message": "Oatmeal shampoo, 500 ml (add-on)"
+    },
+    "trades.pet-grooming.bill.taxes.0.0": {
+        "message": "GST 5%"
+    },
+    "trades.pet-grooming.bill.taxes.1.0": {
+        "message": "PST 7% (retail only)"
+    },
+    "trades.pet-grooming.bill.status.text": {
+        "message": "Paid by Tap to Pay"
+    },
+    "trades.salons.name": {
+        "message": "Hair and beauty salons"
+    },
+    "trades.salons.who": {
+        "message": "salons"
+    },
+    "trades.salons.oneLine": {
+        "message": "Booking by stylist, long colour appointments, and retail on the same ticket."
+    },
+    "trades.salons.h1": {
+        "message": "Stylists, colour appointments and retail, run from one schedule."
+    },
+    "trades.salons.lede": {
+        "message": "Clients book with the stylist they want, long colour appointments hold the chair for the right amount of time, and retail products are rung up on the same ticket as the cut."
+    },
+    "trades.salons.photo.alt": {
+        "message": "A stylist trimming a client's hair beside a sunlit window"
+    },
+    "trades.salons.photo2.alt": {
+        "message": "A stylist with a client in a small salon"
+    },
+    "trades.salons.heroCard.label": {
+        "message": "Booked online"
+    },
+    "trades.salons.heroCard.title": {
+        "message": "Priya Raman"
+    },
+    "trades.salons.heroCard.detail": {
+        "message": "Full colour and blow-dry · Sat 10:00 with Dana"
+    },
+    "trades.salons.heroCard.pill.text": {
+        "message": "Deposit $40.00 paid"
+    },
+    "trades.salons.bookings.title": {
+        "message": "Each stylist has their own column, hours and services."
+    },
+    "trades.salons.bookings.body": {
+        "message": "Clients choose a stylist on your booking page, or take the first one available. Each service carries its own length and clean-up time, so a full colour followed by a blow-dry fills the chair for exactly as long as it takes, and the next client is not squeezed."
+    },
+    "trades.salons.bookings.list.0": {
+        "message": "Hours, days off and services for each stylist"
+    },
+    "trades.salons.bookings.list.1": {
+        "message": "Deposits on long colour appointments"
+    },
+    "trades.salons.bookings.list.2": {
+        "message": "Rooms for lashes, brows or waxing booked as a resource"
+    },
+    "trades.salons.bookings.list.3": {
+        "message": "Book the next visit before the client leaves"
+    },
+    "trades.salons.schedule.day": {
+        "message": "Saturday, October 10"
+    },
+    "trades.salons.schedule.columns.0.0": {
+        "message": "Dana"
+    },
+    "trades.salons.schedule.columns.0.1": {
+        "message": "Senior stylist"
+    },
+    "trades.salons.schedule.columns.1.0": {
+        "message": "Kai"
+    },
+    "trades.salons.schedule.columns.1.1": {
+        "message": "Stylist"
+    },
+    "trades.salons.schedule.columns.2.0": {
+        "message": "Room 2"
+    },
+    "trades.salons.schedule.columns.2.1": {
+        "message": "Lashes and brows"
+    },
+    "trades.salons.schedule.events.0.title": {
+        "message": "Priya Raman"
+    },
+    "trades.salons.schedule.events.0.detail": {
+        "message": "Full colour, blow-dry"
+    },
+    "trades.salons.schedule.events.1.title": {
+        "message": "Hannah Lee"
+    },
+    "trades.salons.schedule.events.1.detail": {
+        "message": "Cut and finish"
+    },
+    "trades.salons.schedule.events.2.title": {
+        "message": "Omar Haddad"
+    },
+    "trades.salons.schedule.events.2.detail": {
+        "message": "Men's cut"
+    },
+    "trades.salons.schedule.events.3.title": {
+        "message": "Chloe Martin"
+    },
+    "trades.salons.schedule.events.3.detail": {
+        "message": "Balayage touch-up"
+    },
+    "trades.salons.schedule.events.4.title": {
+        "message": "Ava Wilson"
+    },
+    "trades.salons.schedule.events.4.detail": {
+        "message": "Blow-dry"
+    },
+    "trades.salons.schedule.events.5.title": {
+        "message": "Mei Chen"
+    },
+    "trades.salons.schedule.events.5.detail": {
+        "message": "Lash lift"
+    },
+    "trades.salons.schedule.events.6.title": {
+        "message": "Sara Costa"
+    },
+    "trades.salons.schedule.events.6.detail": {
+        "message": "Brow shape"
+    },
+    "trades.salons.booking.tag": {
+        "message": "Book an appointment"
+    },
+    "trades.salons.booking.items.0.name": {
+        "message": "Cut and blow-dry"
+    },
+    "trades.salons.booking.items.0.detail": {
+        "message": "60 min"
+    },
+    "trades.salons.booking.items.1.name": {
+        "message": "Full colour"
+    },
+    "trades.salons.booking.items.1.detail": {
+        "message": "2 h 30 min"
+    },
+    "trades.salons.booking.items.2.name": {
+        "message": "Gloss"
+    },
+    "trades.salons.booking.items.2.detail": {
+        "message": "45 min"
+    },
+    "trades.salons.booking.items.3.name": {
+        "message": "Lash lift"
+    },
+    "trades.salons.booking.items.3.detail": {
+        "message": "60 min"
+    },
+    "trades.salons.booking.date": {
+        "message": "Saturday, October 10"
+    },
+    "trades.salons.booking.times.0": {
+        "message": "9:30"
+    },
+    "trades.salons.booking.times.1": {
+        "message": "11:00"
+    },
+    "trades.salons.booking.times.2": {
+        "message": "2:15"
+    },
+    "trades.salons.booking.times.3": {
+        "message": "3:45"
+    },
+    "trades.salons.booking.button": {
+        "message": "Book with Dana"
+    },
+    "trades.salons.capabilities.0.title": {
+        "message": "Deposits on long appointments"
+    },
+    "trades.salons.capabilities.0.body": {
+        "message": "Ask for a deposit on the services where a no-show costs you most. It is taken when the client books and applied to the final bill."
+    },
+    "trades.salons.capabilities.1.title": {
+        "message": "Memberships and series"
+    },
+    "trades.salons.capabilities.1.body": {
+        "message": "Run a monthly blow-dry membership charged to a saved card, or sell a series of treatments that counts down with each visit."
+    },
+    "trades.salons.capabilities.2.title": {
+        "message": "Retail on the same ticket"
+    },
+    "trades.salons.capabilities.2.body": {
+        "message": "Add shampoo, styling products or tools to the client's ticket at checkout, with tax on every line and the sale recorded against the client."
+    },
+    "trades.salons.capabilities.3.title": {
+        "message": "Tap to Pay at the front desk"
+    },
+    "trades.salons.capabilities.3.body": {
+        "message": "Take a card with an iPhone or Android phone at the desk, or send the client a link to pay by card or Interac e-Transfer."
+    },
+    "trades.salons.capabilities.4.title": {
+        "message": "Gift cards"
+    },
+    "trades.salons.capabilities.4.body": {
+        "message": "Sell gift cards at the front desk and on your booking page, and redeem them against any service or product."
+    },
+    "trades.salons.capabilities.5.title": {
+        "message": "Stylists and their pay"
+    },
+    "trades.salons.capabilities.5.body": {
+        "message": "Each stylist's completed services are recorded as earnings, so commission and pay records are ready at the end of the period."
+    },
+    "trades.salons.capabilities.6.title": {
+        "message": "HST in Ontario"
+    },
+    "trades.salons.capabilities.6.body": {
+        "message": "Services and retail in Ontario carry 13% HST. It is added to each line and tracked by period, ready for your return."
+    },
+    "trades.salons.capabilities.7.title": {
+        "message": "Consultation and patch-test forms"
+    },
+    "trades.salons.capabilities.7.body": {
+        "message": "Send a consultation or patch-test form before a first colour appointment, and keep the signed copy on the client's record."
+    },
+    "trades.salons.capabilities.8.title": {
+        "message": "Reminders and messages"
+    },
+    "trades.salons.capabilities.8.body": {
+        "message": "Reminders go out by text and email before each appointment. Replies and questions come back to one inbox per client."
+    },
+    "trades.salons.capabilities.9.title": {
+        "message": "Reviews after each visit"
+    },
+    "trades.salons.capabilities.9.body": {
+        "message": "A review request goes out after the appointment. You choose which reviews appear on your page, and clients can share theirs to Google."
+    },
+    "trades.salons.capabilities.10.title": {
+        "message": "Stock and retail commission"
+    },
+    "trades.salons.capabilities.10.body": {
+        "message": "Track stock on the products you sell, see what is running low and restock. Each sale records a commission for the stylist who made it."
+    },
+    "trades.salons.capabilities.11.title": {
+        "message": "Works when the Wi-Fi does not"
+    },
+    "trades.salons.capabilities.11.body": {
+        "message": "The day's schedule and client notes stay on the front desk tablet and your phone, and sync when the connection comes back."
+    },
+    "trades.salons.pay.title": {
+        "message": "A cut, a gloss and a bottle of conditioner on one ticket."
+    },
+    "trades.salons.pay.body": {
+        "message": "Services and retail go on the same invoice, and Ontario HST is added to every line. The client pays by card at the desk, and the sale and the stylist's earnings are recorded together."
+    },
+    "trades.salons.bill.meta": {
+        "message": "Invoice 2208 · Hannah Lee"
+    },
+    "trades.salons.bill.lines.0.0": {
+        "message": "Cut and blow-dry"
+    },
+    "trades.salons.bill.lines.1.0": {
+        "message": "Gloss"
+    },
+    "trades.salons.bill.lines.2.0": {
+        "message": "Leave-in conditioner, 150 ml"
+    },
+    "trades.salons.bill.taxes.0.0": {
+        "message": "HST 13%"
+    },
+    "trades.salons.bill.status.text": {
+        "message": "Paid by card"
+    },
+    "trades.fitness.name": {
+        "message": "Personal training and fitness studios"
+    },
+    "trades.fitness.who": {
+        "message": "trainers"
+    },
+    "trades.fitness.oneLine": {
+        "message": "One-on-one sessions, classes with a set number of spots, packs and memberships."
+    },
+    "trades.fitness.h1": {
+        "message": "Sessions, classes and memberships, with the billing handled."
+    },
+    "trades.fitness.lede": {
+        "message": "One-on-one sessions, small group classes with a set number of spots, and monthly memberships run from the same calendar, and the card on file is charged on schedule."
+    },
+    "trades.fitness.photo.alt": {
+        "message": "A personal trainer and a client reviewing a plan on a tablet in a small gym"
+    },
+    "trades.fitness.heroCard.label": {
+        "message": "Class"
+    },
+    "trades.fitness.heroCard.title": {
+        "message": "Strength 45, Tuesday 12:00 p.m."
+    },
+    "trades.fitness.heroCard.detail": {
+        "message": "With Mathieu · Studio A"
+    },
+    "trades.fitness.heroCard.pill.text": {
+        "message": "10 of 12 spots booked"
+    },
+    "trades.fitness.bookings.title": {
+        "message": "One-on-one or a class of twelve, on the same calendar."
+    },
+    "trades.fitness.bookings.body": {
+        "message": "A personal training session books one client with one trainer. A class is a session with a capacity, so clients book spots until it is full and the booking page stops offering it. Clients who train at the same time each week are booked once and the session repeats."
+    },
+    "trades.fitness.bookings.list.0": {
+        "message": "Classes with a capacity and a live spot count"
+    },
+    "trades.fitness.bookings.list.1": {
+        "message": "Weekly recurring sessions"
+    },
+    "trades.fitness.bookings.list.2": {
+        "message": "Session packs that count down as they are used"
+    },
+    "trades.fitness.bookings.list.3": {
+        "message": "Hours and services for each trainer"
+    },
+    "trades.fitness.schedule.day": {
+        "message": "Tuesday, October 6"
+    },
+    "trades.fitness.schedule.columns.0.0": {
+        "message": "Mathieu"
+    },
+    "trades.fitness.schedule.columns.0.1": {
+        "message": "Trainer"
+    },
+    "trades.fitness.schedule.columns.1.0": {
+        "message": "Elise"
+    },
+    "trades.fitness.schedule.columns.1.1": {
+        "message": "Trainer"
+    },
+    "trades.fitness.schedule.columns.2.0": {
+        "message": "Studio A"
+    },
+    "trades.fitness.schedule.columns.2.1": {
+        "message": "Classes"
+    },
+    "trades.fitness.schedule.events.0.title": {
+        "message": "Julien Roy"
+    },
+    "trades.fitness.schedule.events.0.detail": {
+        "message": "Personal training"
+    },
+    "trades.fitness.schedule.events.1.title": {
+        "message": "Nadia Bouchard"
+    },
+    "trades.fitness.schedule.events.1.detail": {
+        "message": "Personal training"
+    },
+    "trades.fitness.schedule.events.2.title": {
+        "message": "Tom Becker"
+    },
+    "trades.fitness.schedule.events.2.detail": {
+        "message": "Assessment"
+    },
+    "trades.fitness.schedule.events.3.title": {
+        "message": "Laura Gagnon"
+    },
+    "trades.fitness.schedule.events.3.detail": {
+        "message": "Personal training"
+    },
+    "trades.fitness.schedule.events.4.title": {
+        "message": "Sam Ortiz"
+    },
+    "trades.fitness.schedule.events.4.detail": {
+        "message": "Pack session 4 of 10"
+    },
+    "trades.fitness.schedule.events.5.title": {
+        "message": "Mobility"
+    },
+    "trades.fitness.schedule.events.5.detail": {
+        "message": "8 of 10 spots"
+    },
+    "trades.fitness.schedule.events.6.title": {
+        "message": "Strength 45"
+    },
+    "trades.fitness.schedule.events.6.detail": {
+        "message": "10 of 12 spots"
+    },
+    "trades.fitness.booking.tag": {
+        "message": "Book a session"
+    },
+    "trades.fitness.booking.items.0.name": {
+        "message": "Personal training"
+    },
+    "trades.fitness.booking.items.0.detail": {
+        "message": "60 min"
+    },
+    "trades.fitness.booking.items.1.name": {
+        "message": "Strength 45 class"
+    },
+    "trades.fitness.booking.items.1.detail": {
+        "message": "45 min · 2 spots left"
+    },
+    "trades.fitness.booking.items.2.name": {
+        "message": "Mobility class"
+    },
+    "trades.fitness.booking.items.2.detail": {
+        "message": "45 min"
+    },
+    "trades.fitness.booking.items.3.name": {
+        "message": "Assessment"
+    },
+    "trades.fitness.booking.items.3.detail": {
+        "message": "60 min"
+    },
+    "trades.fitness.booking.date": {
+        "message": "Tuesday, October 6"
+    },
+    "trades.fitness.booking.times.0": {
+        "message": "7:00"
+    },
+    "trades.fitness.booking.times.1": {
+        "message": "8:30"
+    },
+    "trades.fitness.booking.times.2": {
+        "message": "12:00"
+    },
+    "trades.fitness.booking.times.3": {
+        "message": "5:30"
+    },
+    "trades.fitness.booking.button": {
+        "message": "Book with Mathieu"
+    },
+    "trades.fitness.capabilities.0.title": {
+        "message": "Monthly memberships"
+    },
+    "trades.fitness.capabilities.0.body": {
+        "message": "Charge a membership each month to a saved card or by pre-authorized debit. Memberships with a failed payment are flagged so you can follow up."
+    },
+    "trades.fitness.capabilities.1.title": {
+        "message": "Session packs with an expiry"
+    },
+    "trades.fitness.capabilities.1.body": {
+        "message": "Sell a pack of ten sessions that counts down as they are booked, with an expiry date if you use one."
+    },
+    "trades.fitness.capabilities.2.title": {
+        "message": "Deposits for first sessions"
+    },
+    "trades.fitness.capabilities.2.body": {
+        "message": "Take a deposit when a new client books an assessment, and it comes off the invoice for that session."
+    },
+    "trades.fitness.capabilities.3.title": {
+        "message": "Invoices and receipts"
+    },
+    "trades.fitness.capabilities.3.body": {
+        "message": "Every pack, membership charge and drop-in class has an invoice and a receipt the client can find in their email."
+    },
+    "trades.fitness.capabilities.4.title": {
+        "message": "Tap to Pay on the gym floor"
+    },
+    "trades.fitness.capabilities.4.body": {
+        "message": "Sell a pack or a drop-in class with Tap to Pay on your phone, or send a payment link by text."
+    },
+    "trades.fitness.capabilities.5.title": {
+        "message": "Gift cards"
+    },
+    "trades.fitness.capabilities.5.body": {
+        "message": "Sell gift cards for sessions or classes online, and redeem them at checkout or against a pack."
+    },
+    "trades.fitness.capabilities.6.title": {
+        "message": "Trainers and their pay"
+    },
+    "trades.fitness.capabilities.6.body": {
+        "message": "Each trainer sets their hours and the sessions they run. Completed sessions are recorded as earnings for their pay."
+    },
+    "trades.fitness.capabilities.7.title": {
+        "message": "GST and QST in Quebec"
+    },
+    "trades.fitness.capabilities.7.body": {
+        "message": "In Quebec, training sessions and memberships carry GST and QST. Both are calculated on every line and tracked for your returns."
+    },
+    "trades.fitness.capabilities.8.title": {
+        "message": "Waivers and health questionnaires"
+    },
+    "trades.fitness.capabilities.8.body": {
+        "message": "Send a waiver and a health questionnaire before the first session, and keep the signed copies with the client."
+    },
+    "trades.fitness.capabilities.9.title": {
+        "message": "Reminders and messages"
+    },
+    "trades.fitness.capabilities.9.body": {
+        "message": "Clients get a reminder before each session and class. Replies, cancellations and questions arrive in one inbox."
+    },
+    "trades.fitness.capabilities.10.title": {
+        "message": "Supplements and gear"
+    },
+    "trades.fitness.capabilities.10.body": {
+        "message": "Sell protein, bands and water bottles at the desk or from your shop page for pickup, with stock counts that drop as you sell."
+    },
+    "trades.fitness.capabilities.11.title": {
+        "message": "Web, iPhone and Android"
+    },
+    "trades.fitness.capabilities.11.body": {
+        "message": "Run the studio from a laptop at the desk and your phone on the floor. The schedule stays on the device when the signal is weak."
+    },
+    "trades.fitness.pay.title": {
+        "message": "A ten-session pack, with GST and QST worked out."
+    },
+    "trades.fitness.pay.body": {
+        "message": "The pack is sold once and counts down with each session. The invoice shows GST and QST on separate lines, and both amounts are tracked by period for your federal and Quebec returns."
+    },
+    "trades.fitness.bill.meta": {
+        "message": "Invoice 0388 · Sam Ortiz"
+    },
+    "trades.fitness.bill.lines.0.0": {
+        "message": "Personal training, pack of 10"
+    },
+    "trades.fitness.bill.taxes.0.0": {
+        "message": "GST 5%"
+    },
+    "trades.fitness.bill.taxes.1.0": {
+        "message": "QST 9.975%"
+    },
+    "trades.fitness.bill.status.text": {
+        "message": "Paid by card"
+    },
+    "trades.cleaning.name": {
+        "message": "Home cleaning"
+    },
+    "trades.cleaning.who": {
+        "message": "cleaners"
+    },
+    "trades.cleaning.oneLine": {
+        "message": "Recurring cleans, each home's entry notes, and the invoice when the job is done."
+    },
+    "trades.cleaning.h1": {
+        "message": "Recurring cleans, the right address, and the invoice after each visit."
+    },
+    "trades.cleaning.lede": {
+        "message": "Clients book a one-off or a regular clean online, the home and its entry notes are on every booking, and the invoice goes out when the job is marked done."
+    },
+    "trades.cleaning.photo.alt": {
+        "message": "A cleaner wiping a white counter in a bright home"
+    },
+    "trades.cleaning.photo2.alt": {
+        "message": "A cleaner in rubber gloves wiping a table"
+    },
+    "trades.cleaning.heroCard.label": {
+        "message": "Every two weeks"
+    },
+    "trades.cleaning.heroCard.title": {
+        "message": "Rachel Moore, 3 bedrooms"
+    },
+    "trades.cleaning.heroCard.detail": {
+        "message": "Standard clean · Wed 9:00 with Ana"
+    },
+    "trades.cleaning.heroCard.pill.text": {
+        "message": "Next visit Oct 21"
+    },
+    "trades.cleaning.bookings.title": {
+        "message": "Weekly, every two weeks, or once before a move."
+    },
+    "trades.cleaning.bookings.body": {
+        "message": "Each home is stored on the client as a property, with the address, the number of rooms, pets in the house and how to get in. Recurring cleans repeat on their own, and each visit lands on the right cleaner's schedule with time for travel after it."
+    },
+    "trades.cleaning.bookings.list.0": {
+        "message": "Properties with address and entry instructions"
+    },
+    "trades.cleaning.bookings.list.1": {
+        "message": "Recurring cleans weekly, every two weeks or monthly"
+    },
+    "trades.cleaning.bookings.list.2": {
+        "message": "Add-ons such as the inside of the oven or fridge"
+    },
+    "trades.cleaning.bookings.list.3": {
+        "message": "Buffers between jobs for travel time"
+    },
+    "trades.cleaning.schedule.day": {
+        "message": "Wednesday, October 7"
+    },
+    "trades.cleaning.schedule.columns.0.0": {
+        "message": "Ana"
+    },
+    "trades.cleaning.schedule.columns.0.1": {
+        "message": "Cleaner"
+    },
+    "trades.cleaning.schedule.columns.1.0": {
+        "message": "Tomas"
+    },
+    "trades.cleaning.schedule.columns.1.1": {
+        "message": "Cleaner"
+    },
+    "trades.cleaning.schedule.columns.2.0": {
+        "message": "Grace"
+    },
+    "trades.cleaning.schedule.columns.2.1": {
+        "message": "Cleaner"
+    },
+    "trades.cleaning.schedule.events.0.title": {
+        "message": "Rachel Moore"
+    },
+    "trades.cleaning.schedule.events.0.detail": {
+        "message": "Standard clean · every 2 weeks"
+    },
+    "trades.cleaning.schedule.events.1.title": {
+        "message": "Ben Clarke"
+    },
+    "trades.cleaning.schedule.events.1.detail": {
+        "message": "Standard clean"
+    },
+    "trades.cleaning.schedule.events.2.title": {
+        "message": "Lopez residence"
+    },
+    "trades.cleaning.schedule.events.2.detail": {
+        "message": "Move-out clean"
+    },
+    "trades.cleaning.schedule.events.3.title": {
+        "message": "Ines Ferreira"
+    },
+    "trades.cleaning.schedule.events.3.detail": {
+        "message": "Standard clean · weekly"
+    },
+    "trades.cleaning.schedule.events.4.title": {
+        "message": "Owen Price"
+    },
+    "trades.cleaning.schedule.events.4.detail": {
+        "message": "Deep clean"
+    },
+    "trades.cleaning.booking.tag": {
+        "message": "Book a clean"
+    },
+    "trades.cleaning.booking.items.0.name": {
+        "message": "Standard clean, 2 bedrooms"
+    },
+    "trades.cleaning.booking.items.0.detail": {
+        "message": "2 h"
+    },
+    "trades.cleaning.booking.items.1.name": {
+        "message": "Standard clean, 3 bedrooms"
+    },
+    "trades.cleaning.booking.items.1.detail": {
+        "message": "2 h 30 min"
+    },
+    "trades.cleaning.booking.items.2.name": {
+        "message": "Deep clean"
+    },
+    "trades.cleaning.booking.items.2.detail": {
+        "message": "4 h"
+    },
+    "trades.cleaning.booking.items.3.name": {
+        "message": "Inside oven"
+    },
+    "trades.cleaning.booking.items.3.detail": {
+        "message": "add-on"
+    },
+    "trades.cleaning.booking.date": {
+        "message": "Wednesday, October 7"
+    },
+    "trades.cleaning.booking.times.0": {
+        "message": "8:30"
+    },
+    "trades.cleaning.booking.times.1": {
+        "message": "9:00"
+    },
+    "trades.cleaning.booking.times.2": {
+        "message": "12:30"
+    },
+    "trades.cleaning.booking.times.3": {
+        "message": "1:00"
+    },
+    "trades.cleaning.booking.button": {
+        "message": "Book every two weeks"
+    },
+    "trades.cleaning.capabilities.0.title": {
+        "message": "Deposits for larger jobs"
+    },
+    "trades.cleaning.capabilities.0.body": {
+        "message": "Take a deposit when a client books a deep clean or a move-out, and it is applied to the invoice when the job is done."
+    },
+    "trades.cleaning.capabilities.1.title": {
+        "message": "Cleaning plans"
+    },
+    "trades.cleaning.capabilities.1.body": {
+        "message": "Bill a regular clean as a monthly plan charged to a saved card, or invoice each visit, whichever suits the client."
+    },
+    "trades.cleaning.capabilities.2.title": {
+        "message": "Estimates that become invoices"
+    },
+    "trades.cleaning.capabilities.2.body": {
+        "message": "Send an estimate for a deep clean or a move-out. When the client accepts it, it becomes an invoice with the same lines."
+    },
+    "trades.cleaning.capabilities.3.title": {
+        "message": "Card or Interac e-Transfer"
+    },
+    "trades.cleaning.capabilities.3.body": {
+        "message": "Clients pay from the invoice link by card or Interac e-Transfer, and each e-Transfer is matched to its invoice by reference code."
+    },
+    "trades.cleaning.capabilities.4.title": {
+        "message": "Tap to Pay at the door"
+    },
+    "trades.cleaning.capabilities.4.body": {
+        "message": "If a client wants to pay in person, charge their card on your phone when you finish, without a separate card reader."
+    },
+    "trades.cleaning.capabilities.5.title": {
+        "message": "Gift cards"
+    },
+    "trades.cleaning.capabilities.5.body": {
+        "message": "Sell cleaning gift cards online, for example for new parents or a housewarming, and redeem them against any visit."
+    },
+    "trades.cleaning.capabilities.6.title": {
+        "message": "Cleaners and their pay"
+    },
+    "trades.cleaning.capabilities.6.body": {
+        "message": "Assign each job to a cleaner. Completed jobs are recorded as earnings, so pay records are ready at the end of the period."
+    },
+    "trades.cleaning.capabilities.7.title": {
+        "message": "HST in Ontario"
+    },
+    "trades.cleaning.capabilities.7.body": {
+        "message": "Cleaning services in Ontario carry 13% HST. It is added to every line and tracked by period, ready for your return."
+    },
+    "trades.cleaning.capabilities.8.title": {
+        "message": "Reminders and on-the-way texts"
+    },
+    "trades.cleaning.capabilities.8.body": {
+        "message": "Clients get a reminder before each clean, and you can text them from the app when you are on the way."
+    },
+    "trades.cleaning.capabilities.9.title": {
+        "message": "Reviews"
+    },
+    "trades.cleaning.capabilities.9.body": {
+        "message": "A review request goes out after each clean. Good reviews can be shown on your booking page and shared to Google."
+    },
+    "trades.cleaning.capabilities.10.title": {
+        "message": "Booking on your own website"
+    },
+    "trades.cleaning.capabilities.10.body": {
+        "message": "Add the booking page to your website with a short snippet, so new clients can choose a clean and a time without a phone call."
+    },
+    "trades.cleaning.capabilities.11.title": {
+        "message": "Works without signal"
+    },
+    "trades.cleaning.capabilities.11.body": {
+        "message": "The day's jobs, addresses and entry notes are stored on your phone, so they are there in a basement or a building with poor reception."
+    },
+    "trades.cleaning.pay.title": {
+        "message": "A three-bedroom clean with an add-on, invoiced when it is done."
+    },
+    "trades.cleaning.pay.body": {
+        "message": "When the cleaner marks the job done, the invoice goes to the client with Ontario HST added. The client pays by Interac e-Transfer with the reference code, and the payment is matched to the invoice when it arrives."
+    },
+    "trades.cleaning.bill.meta": {
+        "message": "Invoice 0912 · Rachel Moore"
+    },
+    "trades.cleaning.bill.lines.0.0": {
+        "message": "Standard clean, 3 bedrooms"
+    },
+    "trades.cleaning.bill.lines.1.0": {
+        "message": "Inside oven"
+    },
+    "trades.cleaning.bill.taxes.0.0": {
+        "message": "HST 13%"
+    },
+    "trades.cleaning.bill.status.text": {
+        "message": "Interac matched · Ref CB-8T3W"
+    },
+    "trades.tutoring.name": {
+        "message": "Tutoring and lessons"
+    },
+    "trades.tutoring.who": {
+        "message": "tutors and teachers"
+    },
+    "trades.tutoring.oneLine": {
+        "message": "Weekly lessons, students under a parent's account, and term packages."
+    },
+    "trades.tutoring.h1": {
+        "message": "Lessons, terms and families, organised around each student."
+    },
+    "trades.tutoring.lede": {
+        "message": "A parent's account holds each of their children, lessons repeat weekly through the term, and packages or monthly plans are billed to the card on file."
+    },
+    "trades.tutoring.photo.alt": {
+        "message": "A teacher guiding a young student through a keyboard lesson"
+    },
+    "trades.tutoring.photo2.alt": {
+        "message": "A music teacher seated beside a student at a keyboard"
+    },
+    "trades.tutoring.heroCard.label": {
+        "message": "Weekly until Dec 17"
+    },
+    "trades.tutoring.heroCard.title": {
+        "message": "Daniel Okafor, Math 11"
+    },
+    "trades.tutoring.heroCard.detail": {
+        "message": "Thursdays 4:30 with Ms. Aziz"
+    },
+    "trades.tutoring.heroCard.pill.text": {
+        "message": "Package: 6 of 10 used"
+    },
+    "trades.tutoring.bookings.title": {
+        "message": "The same time every week, until the term ends."
+    },
+    "trades.tutoring.bookings.body": {
+        "message": "Book a weekly lesson once and it repeats until the date you set. Each lesson is tied to the student, so a parent with two children sees both schedules on one account and pays one bill. Small group classes take bookings up to the number of seats you set."
+    },
+    "trades.tutoring.bookings.list.0": {
+        "message": "Students stored under the parent's account"
+    },
+    "trades.tutoring.bookings.list.1": {
+        "message": "Weekly lessons with an end date"
+    },
+    "trades.tutoring.bookings.list.2": {
+        "message": "Group classes with a seat limit"
+    },
+    "trades.tutoring.bookings.list.3": {
+        "message": "Notes on each lesson for the next tutor"
+    },
+    "trades.tutoring.schedule.day": {
+        "message": "Thursday, October 8"
+    },
+    "trades.tutoring.schedule.columns.0.0": {
+        "message": "Ms. Aziz"
+    },
+    "trades.tutoring.schedule.columns.0.1": {
+        "message": "Math and science"
+    },
+    "trades.tutoring.schedule.columns.1.0": {
+        "message": "Mr. Lewis"
+    },
+    "trades.tutoring.schedule.columns.1.1": {
+        "message": "Piano"
+    },
+    "trades.tutoring.schedule.columns.2.0": {
+        "message": "Room 1"
+    },
+    "trades.tutoring.schedule.columns.2.1": {
+        "message": "Group classes"
+    },
+    "trades.tutoring.schedule.events.0.title": {
+        "message": "Ruth Okafor"
+    },
+    "trades.tutoring.schedule.events.0.detail": {
+        "message": "Science 9"
+    },
+    "trades.tutoring.schedule.events.1.title": {
+        "message": "Daniel Okafor"
+    },
+    "trades.tutoring.schedule.events.1.detail": {
+        "message": "Math 11 · weekly"
+    },
+    "trades.tutoring.schedule.events.2.title": {
+        "message": "Lily Tran"
+    },
+    "trades.tutoring.schedule.events.2.detail": {
+        "message": "Piano, 30 min"
+    },
+    "trades.tutoring.schedule.events.3.title": {
+        "message": "Ruth Okafor"
+    },
+    "trades.tutoring.schedule.events.3.detail": {
+        "message": "Piano, 45 min"
+    },
+    "trades.tutoring.schedule.events.4.title": {
+        "message": "Ethan Ross"
+    },
+    "trades.tutoring.schedule.events.4.detail": {
+        "message": "Piano, 30 min"
+    },
+    "trades.tutoring.schedule.events.5.title": {
+        "message": "Exam prep, Grade 12"
+    },
+    "trades.tutoring.schedule.events.5.detail": {
+        "message": "5 of 6 seats"
+    },
+    "trades.tutoring.booking.tag": {
+        "message": "Book a lesson"
+    },
+    "trades.tutoring.booking.items.0.name": {
+        "message": "Math tutoring"
+    },
+    "trades.tutoring.booking.items.0.detail": {
+        "message": "60 min"
+    },
+    "trades.tutoring.booking.items.1.name": {
+        "message": "Piano lesson"
+    },
+    "trades.tutoring.booking.items.1.detail": {
+        "message": "30 min"
+    },
+    "trades.tutoring.booking.items.2.name": {
+        "message": "Piano lesson"
+    },
+    "trades.tutoring.booking.items.2.detail": {
+        "message": "45 min"
+    },
+    "trades.tutoring.booking.items.3.name": {
+        "message": "Exam prep class"
+    },
+    "trades.tutoring.booking.items.3.detail": {
+        "message": "90 min · 1 seat left"
+    },
+    "trades.tutoring.booking.date": {
+        "message": "Thursday, October 8"
+    },
+    "trades.tutoring.booking.times.0": {
+        "message": "3:30"
+    },
+    "trades.tutoring.booking.times.1": {
+        "message": "4:30"
+    },
+    "trades.tutoring.booking.times.2": {
+        "message": "5:30"
+    },
+    "trades.tutoring.booking.times.3": {
+        "message": "6:30"
+    },
+    "trades.tutoring.booking.button": {
+        "message": "Book weekly until Dec 17"
+    },
+    "trades.tutoring.capabilities.0.title": {
+        "message": "Term packages"
+    },
+    "trades.tutoring.capabilities.0.body": {
+        "message": "Sell a term of ten lessons up front. Each lesson counts against the package, and you can see how many are left on the student's record."
+    },
+    "trades.tutoring.capabilities.1.title": {
+        "message": "Monthly plans"
+    },
+    "trades.tutoring.capabilities.1.body": {
+        "message": "Charge a monthly lesson plan to a saved card or by pre-authorized debit, and pause it over the summer."
+    },
+    "trades.tutoring.capabilities.2.title": {
+        "message": "Invoices to the parent"
+    },
+    "trades.tutoring.capabilities.2.body": {
+        "message": "Lessons for every child on the account are invoiced to the parent, who pays by card or Interac e-Transfer."
+    },
+    "trades.tutoring.capabilities.3.title": {
+        "message": "Registration deposits"
+    },
+    "trades.tutoring.capabilities.3.body": {
+        "message": "Hold a seat in a class or a regular weekly time with a deposit, which is applied to the first invoice."
+    },
+    "trades.tutoring.capabilities.4.title": {
+        "message": "Gift cards"
+    },
+    "trades.tutoring.capabilities.4.body": {
+        "message": "Sell gift cards for lessons, for example as a birthday present from a grandparent, and redeem them against any lesson or package."
+    },
+    "trades.tutoring.capabilities.5.title": {
+        "message": "Tutors and their pay"
+    },
+    "trades.tutoring.capabilities.5.body": {
+        "message": "Each tutor has their own subjects, hours and students. Completed lessons are recorded as earnings, and T4A reports are ready at year end."
+    },
+    "trades.tutoring.capabilities.6.title": {
+        "message": "Taxable and exempt lessons"
+    },
+    "trades.tutoring.capabilities.6.body": {
+        "message": "Some tutoring is exempt from GST/HST and some lessons are not. Each invoice line can be marked as taxable or not, so you can follow your accountant's advice."
+    },
+    "trades.tutoring.capabilities.7.title": {
+        "message": "Registration and consent forms"
+    },
+    "trades.tutoring.capabilities.7.body": {
+        "message": "Collect contact details, allergies and photo consent at registration, signed online and kept with the student."
+    },
+    "trades.tutoring.capabilities.8.title": {
+        "message": "Reminders to parents"
+    },
+    "trades.tutoring.capabilities.8.body": {
+        "message": "Reminders go to the parent by text or email before each lesson, and cancellations come back to one inbox."
+    },
+    "trades.tutoring.capabilities.9.title": {
+        "message": "Reviews from families"
+    },
+    "trades.tutoring.capabilities.9.body": {
+        "message": "A review request goes to the parent after the first few lessons, and you choose which reviews appear on your page."
+    },
+    "trades.tutoring.capabilities.10.title": {
+        "message": "Booking on your own website"
+    },
+    "trades.tutoring.capabilities.10.body": {
+        "message": "Add the booking page to your website so families can pick a subject, a tutor and a weekly time."
+    },
+    "trades.tutoring.capabilities.11.title": {
+        "message": "Web, iPhone and Android"
+    },
+    "trades.tutoring.capabilities.11.body": {
+        "message": "Check the afternoon's lessons on your phone between students. The schedule is stored on the device and syncs when you are online."
+    },
+    "trades.tutoring.pay.title": {
+        "message": "One family, two students, one account."
+    },
+    "trades.tutoring.pay.body": {
+        "message": "Daniel and Ruth are both on their mother's account. Each lesson is booked for the right child, the term package counts down as lessons are taught, and the parent receives one invoice for both."
+    },
+    "trades.tutoring.record.name": {
+        "message": "Grace Okafor"
+    },
+    "trades.tutoring.record.detail": {
+        "message": "Parent · 2 students · card on file"
+    },
+    "trades.tutoring.record.students.0": {
+        "message": "Daniel · Math 11"
+    },
+    "trades.tutoring.record.students.1": {
+        "message": "Ruth · Science 9, Piano"
+    },
+    "trades.tutoring.record.plan.name": {
+        "message": "Math 11, fall term"
+    },
+    "trades.tutoring.record.upcoming.0.when": {
+        "message": "Thu Oct 8, 3:30"
+    },
+    "trades.tutoring.record.upcoming.0.what": {
+        "message": "Ruth · Science 9"
+    },
+    "trades.tutoring.record.upcoming.0.with": {
+        "message": "Ms. Aziz"
+    },
+    "trades.tutoring.record.upcoming.1.when": {
+        "message": "Thu Oct 8, 4:30"
+    },
+    "trades.tutoring.record.upcoming.1.what": {
+        "message": "Ruth · Piano, 45 min"
+    },
+    "trades.tutoring.record.upcoming.1.with": {
+        "message": "Mr. Lewis"
+    },
+    "trades.tutoring.record.upcoming.2.when": {
+        "message": "Thu Oct 8, 4:30"
+    },
+    "trades.tutoring.record.upcoming.2.what": {
+        "message": "Daniel · Math 11"
+    },
+    "trades.tutoring.record.upcoming.2.with": {
+        "message": "Ms. Aziz"
+    },
+    "trades.tutoring.record.forms.0": {
+        "message": "Registration form"
+    },
+    "trades.tutoring.record.forms.1": {
+        "message": "Photo consent"
+    },
+    "trades.wellness.name": {
+        "message": "Massage and wellness"
+    },
+    "trades.wellness.who": {
+        "message": "therapists and practitioners"
+    },
+    "trades.wellness.oneLine": {
+        "message": "Practitioners, treatment rooms, intake forms and treatment packages."
+    },
+    "trades.wellness.h1": {
+        "message": "Treatments, rooms and intake forms, booked together."
+    },
+    "trades.wellness.lede": {
+        "message": "Each booking shows the practitioner and the treatment room, new clients fill in their intake form before the first visit, and every paid visit ends with a receipt by email."
+    },
+    "trades.wellness.photo.alt": {
+        "message": "A massage therapist working on a client's shoulder beside a large window"
+    },
+    "trades.wellness.photo2.alt": {
+        "message": "Two therapists working in a bright treatment room"
+    },
+    "trades.wellness.heroCard.label": {
+        "message": "New client"
+    },
+    "trades.wellness.heroCard.title": {
+        "message": "Helen Brooks"
+    },
+    "trades.wellness.heroCard.detail": {
+        "message": "Massage, 60 min · Mon 11:00 · Room 2"
+    },
+    "trades.wellness.heroCard.pill.text": {
+        "message": "Intake form signed"
+    },
+    "trades.wellness.bookings.title": {
+        "message": "Each treatment on the schedule, with its room."
+    },
+    "trades.wellness.bookings.body": {
+        "message": "Set up your treatment rooms as resources, and each booking shows which room it is in alongside the practitioner. Treatments of different lengths are separate services with their own price, and a buffer after each one leaves time to turn the room over."
+    },
+    "trades.wellness.bookings.list.0": {
+        "message": "Treatments of 30, 60 or 90 minutes"
+    },
+    "trades.wellness.bookings.list.1": {
+        "message": "Turnover time after each treatment"
+    },
+    "trades.wellness.bookings.list.2": {
+        "message": "Rooms shown on the schedule"
+    },
+    "trades.wellness.bookings.list.3": {
+        "message": "Repeat visits for regular clients"
+    },
+    "trades.wellness.schedule.day": {
+        "message": "Monday, October 5"
+    },
+    "trades.wellness.schedule.columns.0.0": {
+        "message": "Room 1"
+    },
+    "trades.wellness.schedule.columns.0.1": {
+        "message": "Leah"
+    },
+    "trades.wellness.schedule.columns.1.0": {
+        "message": "Room 2"
+    },
+    "trades.wellness.schedule.columns.1.1": {
+        "message": "Jonah"
+    },
+    "trades.wellness.schedule.columns.2.0": {
+        "message": "Room 3"
+    },
+    "trades.wellness.schedule.columns.2.1": {
+        "message": "Leah, Priya"
+    },
+    "trades.wellness.schedule.events.0.title": {
+        "message": "Marie Dubois"
+    },
+    "trades.wellness.schedule.events.0.detail": {
+        "message": "Massage, 90 min"
+    },
+    "trades.wellness.schedule.events.1.title": {
+        "message": "Kevin Walsh"
+    },
+    "trades.wellness.schedule.events.1.detail": {
+        "message": "Massage, 60 min"
+    },
+    "trades.wellness.schedule.events.2.title": {
+        "message": "Helen Brooks"
+    },
+    "trades.wellness.schedule.events.2.detail": {
+        "message": "Massage, 60 min · new"
+    },
+    "trades.wellness.schedule.events.3.title": {
+        "message": "Arjun Patel"
+    },
+    "trades.wellness.schedule.events.3.detail": {
+        "message": "Massage, 60 min"
+    },
+    "trades.wellness.schedule.events.4.title": {
+        "message": "Tess Murray"
+    },
+    "trades.wellness.schedule.events.4.detail": {
+        "message": "Consultation"
+    },
+    "trades.wellness.schedule.events.5.title": {
+        "message": "Rosa Silva"
+    },
+    "trades.wellness.schedule.events.5.detail": {
+        "message": "Massage, 90 min"
+    },
+    "trades.wellness.booking.tag": {
+        "message": "Book a treatment"
+    },
+    "trades.wellness.booking.items.0.name": {
+        "message": "Massage"
+    },
+    "trades.wellness.booking.items.0.detail": {
+        "message": "30 min"
+    },
+    "trades.wellness.booking.items.1.name": {
+        "message": "Massage"
+    },
+    "trades.wellness.booking.items.1.detail": {
+        "message": "60 min"
+    },
+    "trades.wellness.booking.items.2.name": {
+        "message": "Massage"
+    },
+    "trades.wellness.booking.items.2.detail": {
+        "message": "90 min"
+    },
+    "trades.wellness.booking.items.3.name": {
+        "message": "Package of 5, 60 min"
+    },
+    "trades.wellness.booking.items.3.detail": {
+        "message": "valid 6 months"
+    },
+    "trades.wellness.booking.date": {
+        "message": "Monday, October 5"
+    },
+    "trades.wellness.booking.times.0": {
+        "message": "9:00"
+    },
+    "trades.wellness.booking.times.1": {
+        "message": "11:00"
+    },
+    "trades.wellness.booking.times.2": {
+        "message": "1:30"
+    },
+    "trades.wellness.booking.times.3": {
+        "message": "4:00"
+    },
+    "trades.wellness.booking.button": {
+        "message": "Book with Jonah"
+    },
+    "trades.wellness.capabilities.0.title": {
+        "message": "Intake and consent forms"
+    },
+    "trades.wellness.capabilities.0.body": {
+        "message": "Send the health intake form when a new client books. It is signed online and kept on their record for the next visit."
+    },
+    "trades.wellness.capabilities.1.title": {
+        "message": "Treatment packages"
+    },
+    "trades.wellness.capabilities.1.body": {
+        "message": "Sell a package of five or ten treatments that counts down as they are used, with an expiry date if you set one."
+    },
+    "trades.wellness.capabilities.2.title": {
+        "message": "Wellness memberships"
+    },
+    "trades.wellness.capabilities.2.body": {
+        "message": "Charge a monthly membership that includes a treatment to a saved card or by pre-authorized debit."
+    },
+    "trades.wellness.capabilities.3.title": {
+        "message": "Deposits for first visits"
+    },
+    "trades.wellness.capabilities.3.body": {
+        "message": "Take a deposit when a new client books, and it is applied to the invoice for that treatment."
+    },
+    "trades.wellness.capabilities.4.title": {
+        "message": "Receipts by email"
+    },
+    "trades.wellness.capabilities.4.body": {
+        "message": "Every paid visit sends a receipt with the treatment, the date and the amount, so clients have it for their records."
+    },
+    "trades.wellness.capabilities.5.title": {
+        "message": "Tap to Pay, card or e-Transfer"
+    },
+    "trades.wellness.capabilities.5.body": {
+        "message": "Take payment in the treatment room with Tap to Pay, or let the client pay from the link in their invoice."
+    },
+    "trades.wellness.capabilities.6.title": {
+        "message": "Gift cards"
+    },
+    "trades.wellness.capabilities.6.body": {
+        "message": "Gift cards are sold online and at the front desk, and redeemed against any treatment or package."
+    },
+    "trades.wellness.capabilities.7.title": {
+        "message": "Practitioners and their pay"
+    },
+    "trades.wellness.capabilities.7.body": {
+        "message": "Each practitioner has their own hours and treatments. Completed treatments are recorded as earnings for their pay."
+    },
+    "trades.wellness.capabilities.8.title": {
+        "message": "Sales tax by province"
+    },
+    "trades.wellness.capabilities.8.body": {
+        "message": "GST, HST, PST or QST is worked out from your province, and a line can be marked as not taxable where a service is exempt. Your accountant can tell you which apply."
+    },
+    "trades.wellness.capabilities.9.title": {
+        "message": "Reminders and messages"
+    },
+    "trades.wellness.capabilities.9.body": {
+        "message": "Clients get a reminder before each visit, and messages come back to one inbox, separate from your personal phone."
+    },
+    "trades.wellness.capabilities.10.title": {
+        "message": "Reviews"
+    },
+    "trades.wellness.capabilities.10.body": {
+        "message": "A review request goes out after the visit. You choose which reviews appear on your booking page."
+    },
+    "trades.wellness.capabilities.11.title": {
+        "message": "Products for home care"
+    },
+    "trades.wellness.capabilities.11.body": {
+        "message": "Sell massage oils and heat packs at checkout, or let clients add one when they book so it is on the visit's invoice."
+    },
+    "trades.wellness.pay.title": {
+        "message": "A new client's first visit, from intake form to receipt."
+    },
+    "trades.wellness.pay.body": {
+        "message": "Helen booked online and received the intake form with her confirmation. She signed it before the visit, and her record now holds the form, the package she bought and her next appointment."
+    },
+    "trades.wellness.record.name": {
+        "message": "Helen Brooks"
+    },
+    "trades.wellness.record.detail": {
+        "message": "Client since October · card on file"
+    },
+    "trades.wellness.record.plan.name": {
+        "message": "Package of 5, 60 min"
+    },
+    "trades.wellness.record.upcoming.0.when": {
+        "message": "Mon Oct 5, 11:00"
+    },
+    "trades.wellness.record.upcoming.0.what": {
+        "message": "Massage, 60 min · Room 2"
+    },
+    "trades.wellness.record.upcoming.0.with": {
+        "message": "Jonah"
+    },
+    "trades.wellness.record.upcoming.1.when": {
+        "message": "Mon Oct 19, 11:00"
+    },
+    "trades.wellness.record.upcoming.1.what": {
+        "message": "Massage, 60 min · Room 2"
+    },
+    "trades.wellness.record.upcoming.1.with": {
+        "message": "Jonah"
+    },
+    "trades.wellness.record.forms.0": {
+        "message": "Health intake form"
+    },
+    "trades.wellness.record.forms.1": {
+        "message": "Treatment consent"
+    },
+    "trades.photography.name": {
+        "message": "Photography"
+    },
+    "trades.photography.who": {
+        "message": "photographers"
+    },
+    "trades.photography.oneLine": {
+        "message": "Estimates, signed contracts, retainers and bookable mini sessions."
+    },
+    "trades.photography.h1": {
+        "message": "Enquiries become estimates, contracts and booked sessions."
+    },
+    "trades.photography.lede": {
+        "message": "Send an estimate for a session or an event, have the client sign your contract and pay a retainer online, and invoice the balance before delivery."
+    },
+    "trades.photography.photo.alt": {
+        "message": "A photographer checking his camera in a daylight studio"
+    },
+    "trades.photography.photo2.alt": {
+        "message": "A photographer taking a portrait in a daylight studio"
+    },
+    "trades.photography.heroCard.label": {
+        "message": "Estimate 0412"
+    },
+    "trades.photography.heroCard.title": {
+        "message": "Family session, 90 min"
+    },
+    "trades.photography.heroCard.detail": {
+        "message": "Sat Oct 24 · High Park"
+    },
+    "trades.photography.heroCard.pill.text": {
+        "message": "Accepted · retainer paid"
+    },
+    "trades.photography.bookings.title": {
+        "message": "Mini sessions on the booking page, larger work by estimate."
+    },
+    "trades.photography.bookings.body": {
+        "message": "Short portrait or mini sessions are booked straight from your booking page in fixed time slots, with a deposit to hold the slot. Weddings, events and commercial work start as an estimate, and the date is booked once the client accepts and pays the retainer."
+    },
+    "trades.photography.bookings.list.0": {
+        "message": "Mini-session days with fixed slots"
+    },
+    "trades.photography.bookings.list.1": {
+        "message": "Contracts signed online"
+    },
+    "trades.photography.bookings.list.2": {
+        "message": "Retainers as a fixed amount or a percentage"
+    },
+    "trades.photography.bookings.list.3": {
+        "message": "Buffers before and after on-location shoots"
+    },
+    "trades.photography.schedule.day": {
+        "message": "Saturday, October 24"
+    },
+    "trades.photography.schedule.columns.0.0": {
+        "message": "Mini sessions"
+    },
+    "trades.photography.schedule.columns.0.1": {
+        "message": "Studio"
+    },
+    "trades.photography.schedule.columns.1.0": {
+        "message": "On location"
+    },
+    "trades.photography.schedule.columns.1.1": {
+        "message": "You"
+    },
+    "trades.photography.schedule.columns.2.0": {
+        "message": "Second shooter"
+    },
+    "trades.photography.schedule.columns.2.1": {
+        "message": "Jordan"
+    },
+    "trades.photography.schedule.events.0.title": {
+        "message": "Kim family"
+    },
+    "trades.photography.schedule.events.0.detail": {
+        "message": "Mini session"
+    },
+    "trades.photography.schedule.events.1.title": {
+        "message": "Ahmed family"
+    },
+    "trades.photography.schedule.events.1.detail": {
+        "message": "Mini session"
+    },
+    "trades.photography.schedule.events.2.title": {
+        "message": "Lucas Moreau"
+    },
+    "trades.photography.schedule.events.2.detail": {
+        "message": "Mini session"
+    },
+    "trades.photography.schedule.events.3.title": {
+        "message": "Open slot"
+    },
+    "trades.photography.schedule.events.4.title": {
+        "message": "Nguyen family"
+    },
+    "trades.photography.schedule.events.4.detail": {
+        "message": "Family session · High Park"
+    },
+    "trades.photography.schedule.events.5.title": {
+        "message": "Nguyen family"
+    },
+    "trades.photography.schedule.events.5.detail": {
+        "message": "Assisting"
+    },
+    "trades.photography.booking.tag": {
+        "message": "Fall mini sessions"
+    },
+    "trades.photography.booking.items.0.name": {
+        "message": "Mini session"
+    },
+    "trades.photography.booking.items.0.detail": {
+        "message": "20 min · 10 images"
+    },
+    "trades.photography.booking.items.1.name": {
+        "message": "Family session"
+    },
+    "trades.photography.booking.items.1.detail": {
+        "message": "90 min"
+    },
+    "trades.photography.booking.items.2.name": {
+        "message": "Headshots"
+    },
+    "trades.photography.booking.items.2.detail": {
+        "message": "45 min"
+    },
+    "trades.photography.booking.date": {
+        "message": "Saturday, October 24"
+    },
+    "trades.photography.booking.times.0": {
+        "message": "9:00"
+    },
+    "trades.photography.booking.times.1": {
+        "message": "9:30"
+    },
+    "trades.photography.booking.times.2": {
+        "message": "10:30"
+    },
+    "trades.photography.booking.times.3": {
+        "message": "11:00"
+    },
+    "trades.photography.booking.button": {
+        "message": "Book and pay $75 deposit"
+    },
+    "trades.photography.capabilities.0.title": {
+        "message": "Estimates that become invoices"
+    },
+    "trades.photography.capabilities.0.body": {
+        "message": "Send an estimate with the coverage, hours and prints listed. When the client accepts it, it becomes an invoice with the same lines."
+    },
+    "trades.photography.capabilities.1.title": {
+        "message": "Contracts signed online"
+    },
+    "trades.photography.capabilities.1.body": {
+        "message": "Attach your contract to the booking. The client signs it online, and the signed copy is kept on their record."
+    },
+    "trades.photography.capabilities.2.title": {
+        "message": "Retainers and deposits"
+    },
+    "trades.photography.capabilities.2.body": {
+        "message": "Take a retainer as a fixed amount or a percentage when the client accepts. It is applied to the final invoice."
+    },
+    "trades.photography.capabilities.3.title": {
+        "message": "Balance invoices"
+    },
+    "trades.photography.capabilities.3.body": {
+        "message": "Invoice the balance before delivery or on the event date, and see at a glance which invoices are still outstanding."
+    },
+    "trades.photography.capabilities.4.title": {
+        "message": "Card or Interac e-Transfer"
+    },
+    "trades.photography.capabilities.4.body": {
+        "message": "Clients pay from the invoice link by card or Interac e-Transfer, and each payment is matched to its invoice."
+    },
+    "trades.photography.capabilities.5.title": {
+        "message": "Session gift cards"
+    },
+    "trades.photography.capabilities.5.body": {
+        "message": "Sell gift cards for a family or portrait session, and redeem them when the session is booked."
+    },
+    "trades.photography.capabilities.6.title": {
+        "message": "Second shooters and assistants"
+    },
+    "trades.photography.capabilities.6.body": {
+        "message": "Add second shooters and assistants as staff, with their own hours and earnings for each job."
+    },
+    "trades.photography.capabilities.7.title": {
+        "message": "HST in Ontario"
+    },
+    "trades.photography.capabilities.7.body": {
+        "message": "Photography services and prints in Ontario carry 13% HST, calculated on every line and tracked for your return."
+    },
+    "trades.photography.capabilities.8.title": {
+        "message": "Messages with clients"
+    },
+    "trades.photography.capabilities.8.body": {
+        "message": "Keep timings, locations and questions in one message thread per client, by text and email."
+    },
+    "trades.photography.capabilities.9.title": {
+        "message": "Reviews"
+    },
+    "trades.photography.capabilities.9.body": {
+        "message": "A review request goes out after delivery. You choose which reviews appear on your booking page, and clients can share theirs to Google."
+    },
+    "trades.photography.capabilities.10.title": {
+        "message": "Booking on your own website"
+    },
+    "trades.photography.capabilities.10.body": {
+        "message": "Embed your mini-session page on your portfolio site, so clients can pick a slot and pay the deposit there."
+    },
+    "trades.photography.capabilities.11.title": {
+        "message": "On location without signal"
+    },
+    "trades.photography.capabilities.11.body": {
+        "message": "Your day's sessions, addresses and client notes stay on your phone at locations with no reception."
+    },
+    "trades.photography.pay.title": {
+        "message": "An accepted estimate with a retainer paid."
+    },
+    "trades.photography.pay.body": {
+        "message": "The client accepted the estimate and paid a 30% retainer online when they signed the contract. The balance is invoiced before the gallery is delivered, with Ontario HST on every line."
+    },
+    "trades.photography.bill.meta": {
+        "message": "Estimate 0412 · Linh Nguyen"
+    },
+    "trades.photography.bill.lines.0.0": {
+        "message": "Family session, 90 minutes"
+    },
+    "trades.photography.bill.lines.1.0": {
+        "message": "Print credit"
+    },
+    "trades.photography.bill.taxes.0.0": {
+        "message": "HST 13%"
+    },
+    "trades.photography.bill.status.text": {
+        "message": "Accepted · contract signed Oct 3"
+    },
+    "trades.trades.name": {
+        "message": "Home services and trades"
+    },
+    "trades.trades.who": {
+        "message": "handypeople and trades"
+    },
+    "trades.trades.oneLine": {
+        "message": "On-site estimates, scheduled jobs, and Tap to Pay when the work is done."
+    },
+    "trades.trades.h1": {
+        "message": "Estimates on site, jobs on the calendar, and payment at the door."
+    },
+    "trades.trades.lede": {
+        "message": "Quote the job from your phone, book it when the client accepts, and take payment with Tap to Pay when the work is done. The property and its notes are on every job."
+    },
+    "trades.trades.photo.alt": {
+        "message": "A tradesperson in a paint-spattered apron restoring a window frame on trestles"
+    },
+    "trades.trades.photo2.alt": {
+        "message": "A tradesperson fitting a window frame with a cordless drill"
+    },
+    "trades.trades.heroCard.label": {
+        "message": "Job done"
+    },
+    "trades.trades.heroCard.title": {
+        "message": "Kitchen faucet replacement"
+    },
+    "trades.trades.heroCard.detail": {
+        "message": "Mike Turner · 3.5 h labour plus parts"
+    },
+    "trades.trades.heroCard.pill.text": {
+        "message": "Paid by Tap to Pay"
+    },
+    "trades.trades.bookings.title": {
+        "message": "Service calls online, larger jobs by estimate."
+    },
+    "trades.trades.bookings.body": {
+        "message": "Clients book a fixed-length service call or an assessment visit online. Larger jobs start as an estimate with labour and materials on separate lines, and the job is scheduled once the client accepts."
+    },
+    "trades.trades.bookings.list.0": {
+        "message": "Service calls with a fixed length"
+    },
+    "trades.trades.bookings.list.1": {
+        "message": "Properties with the address and access notes"
+    },
+    "trades.trades.bookings.list.2": {
+        "message": "Buffers for travel between jobs"
+    },
+    "trades.trades.bookings.list.3": {
+        "message": "Repeat maintenance visits, such as every six months"
+    },
+    "trades.trades.schedule.day": {
+        "message": "Friday, October 9"
+    },
+    "trades.trades.schedule.columns.0.0": {
+        "message": "You"
+    },
+    "trades.trades.schedule.columns.0.1": {
+        "message": "Owner"
+    },
+    "trades.trades.schedule.columns.1.0": {
+        "message": "Dev"
+    },
+    "trades.trades.schedule.columns.1.1": {
+        "message": "Helper"
+    },
+    "trades.trades.schedule.columns.2.0": {
+        "message": "Estimates"
+    },
+    "trades.trades.schedule.columns.2.1": {
+        "message": "Site visits"
+    },
+    "trades.trades.schedule.events.0.title": {
+        "message": "Mike Turner"
+    },
+    "trades.trades.schedule.events.0.detail": {
+        "message": "Faucet replacement"
+    },
+    "trades.trades.schedule.events.1.title": {
+        "message": "Ella Grant"
+    },
+    "trades.trades.schedule.events.1.detail": {
+        "message": "Service call"
+    },
+    "trades.trades.schedule.events.2.title": {
+        "message": "Turner residence"
+    },
+    "trades.trades.schedule.events.2.detail": {
+        "message": "Drywall patch"
+    },
+    "trades.trades.schedule.events.3.title": {
+        "message": "Chris Young"
+    },
+    "trades.trades.schedule.events.3.detail": {
+        "message": "Deck repair"
+    },
+    "trades.trades.schedule.events.4.title": {
+        "message": "Nora Fischer"
+    },
+    "trades.trades.schedule.events.4.detail": {
+        "message": "Bathroom estimate"
+    },
+    "trades.trades.booking.tag": {
+        "message": "Book a visit"
+    },
+    "trades.trades.booking.items.0.name": {
+        "message": "Service call"
+    },
+    "trades.trades.booking.items.0.detail": {
+        "message": "1 h"
+    },
+    "trades.trades.booking.items.1.name": {
+        "message": "Assessment visit"
+    },
+    "trades.trades.booking.items.1.detail": {
+        "message": "45 min"
+    },
+    "trades.trades.booking.items.2.name": {
+        "message": "Gutter cleaning"
+    },
+    "trades.trades.booking.items.2.detail": {
+        "message": "2 h"
+    },
+    "trades.trades.booking.date": {
+        "message": "Friday, October 9"
+    },
+    "trades.trades.booking.times.0": {
+        "message": "8:00"
+    },
+    "trades.trades.booking.times.1": {
+        "message": "10:30"
+    },
+    "trades.trades.booking.times.2": {
+        "message": "1:00"
+    },
+    "trades.trades.booking.times.3": {
+        "message": "3:30"
+    },
+    "trades.trades.booking.button": {
+        "message": "Book a service call"
+    },
+    "trades.trades.capabilities.0.title": {
+        "message": "Estimates from your phone"
+    },
+    "trades.trades.capabilities.0.body": {
+        "message": "Write the estimate on site with labour and materials on separate lines. When the client accepts it, it becomes the invoice."
+    },
+    "trades.trades.capabilities.1.title": {
+        "message": "Deposits for materials"
+    },
+    "trades.trades.capabilities.1.body": {
+        "message": "Take a deposit before you order materials, and it comes off the final invoice."
+    },
+    "trades.trades.capabilities.2.title": {
+        "message": "Labour and materials on one invoice"
+    },
+    "trades.trades.capabilities.2.body": {
+        "message": "Hours, parts and materials each have their own line, and GST is added for your province."
+    },
+    "trades.trades.capabilities.3.title": {
+        "message": "Tap to Pay at the door"
+    },
+    "trades.trades.capabilities.3.body": {
+        "message": "Charge a card on your iPhone or Android phone when the job is done, without carrying a separate card reader."
+    },
+    "trades.trades.capabilities.4.title": {
+        "message": "Interac e-Transfer matched for you"
+    },
+    "trades.trades.capabilities.4.body": {
+        "message": "Clients who pay by e-Transfer use the reference code on the invoice, and the payment is matched to it when it arrives."
+    },
+    "trades.trades.capabilities.5.title": {
+        "message": "Gift cards"
+    },
+    "trades.trades.capabilities.5.body": {
+        "message": "Sell gift cards for a service call or a set amount, and redeem them against any job."
+    },
+    "trades.trades.capabilities.6.title": {
+        "message": "Helpers and their pay"
+    },
+    "trades.trades.capabilities.6.body": {
+        "message": "Assign jobs to your helpers. Their completed work is recorded as earnings, and T4A reports are ready at year end."
+    },
+    "trades.trades.capabilities.7.title": {
+        "message": "GST in Alberta"
+    },
+    "trades.trades.capabilities.7.body": {
+        "message": "Alberta has no provincial sales tax, so services carry 5% GST, calculated on every line and tracked by period for your return."
+    },
+    "trades.trades.capabilities.8.title": {
+        "message": "On-the-way texts"
+    },
+    "trades.trades.capabilities.8.body": {
+        "message": "Clients get a reminder the day before, and you can text them from the app when you are on the way."
+    },
+    "trades.trades.capabilities.9.title": {
+        "message": "Reviews for the next job"
+    },
+    "trades.trades.capabilities.9.body": {
+        "message": "A review request goes out when the job is paid. Good reviews appear on your booking page and can be shared to Google."
+    },
+    "trades.trades.capabilities.10.title": {
+        "message": "Booking on your own website"
+    },
+    "trades.trades.capabilities.10.body": {
+        "message": "Add the booking page to your website so new clients can book a service call without phoning."
+    },
+    "trades.trades.capabilities.11.title": {
+        "message": "Works without signal"
+    },
+    "trades.trades.capabilities.11.body": {
+        "message": "Job notes and the day's addresses stay on your phone in basements and crawl spaces, and sync when you are back online."
+    },
+    "trades.trades.pay.title": {
+        "message": "Labour and parts, paid when the job is done."
+    },
+    "trades.trades.pay.body": {
+        "message": "The client paid a deposit when they accepted the estimate. When the work is done, the invoice applies it, adds GST, and the client taps their card on your phone for the balance."
+    },
+    "trades.trades.bill.meta": {
+        "message": "Invoice 0627 · Mike Turner"
+    },
+    "trades.trades.bill.lines.0.0": {
+        "message": "Labour, 3.5 h at $95.00"
+    },
+    "trades.trades.bill.lines.1.0": {
+        "message": "Kitchen faucet and supply lines"
+    },
+    "trades.trades.bill.taxes.0.0": {
+        "message": "GST 5%"
+    },
+    "trades.trades.bill.status.text": {
+        "message": "Paid by Tap to Pay"
+    },
+    "demo.demoBusiness.name": {
+        "message": "Birchbark Pet Studio"
+    },
+    "demo.demoBusiness.tag": {
+        "message": "Book a visit"
+    },
+    "demo.appNav.items.today": {
+        "message": "Today"
+    },
+    "demo.appNav.items.schedule": {
+        "message": "Schedule"
+    },
+    "demo.appNav.items.clients": {
+        "message": "Clients"
+    },
+    "demo.appNav.items.payments": {
+        "message": "Payments"
+    },
+    "demo.appNav.items.inbox": {
+        "message": "Inbox"
+    },
+    "demo.appNav.setup": {
+        "message": "Setup"
+    },
+    "demo.invoiceTable.columns.number": {
+        "message": "#"
+    },
+    "demo.invoiceTable.columns.client": {
+        "message": "Client"
+    },
+    "demo.invoiceTable.columns.status": {
+        "message": "Status"
+    },
+    "demo.invoiceTable.columns.total": {
+        "message": "Total"
+    },
+    "demo.invoiceTable.paid": {
+        "message": "Paid"
+    },
+    "demo.invoiceTable.draft": {
+        "message": "Draft"
+    },
+    "demo.phonePayments.time": {
+        "message": "10:31"
+    },
+    "demo.phonePayments.title": {
+        "message": "Payments"
+    },
+    "demo.phonePayments.count": {
+        "message": "{invoices, plural, one {# invoice} other {# invoices}} · {estimates, plural, one {# estimate} other {# estimates}}",
+        "args": ["invoices", "estimates"]
+    },
+    "demo.phonePayments.tabs.0": {
+        "message": "Invoices"
+    },
+    "demo.phonePayments.tabs.1": {
+        "message": "Sales"
+    },
+    "demo.phonePayments.tabs.2": {
+        "message": "Gift cards"
+    },
+    "demo.phonePayments.tabs.3": {
+        "message": "Staff pay"
+    },
+    "demo.phonePayments.tabs.4": {
+        "message": "Reports"
+    },
+    "demo.phonePayments.newLabel": {
+        "message": "+ New"
+    },
+    "demo.phonePayments.segments.0": {
+        "message": "Invoices"
+    },
+    "demo.phonePayments.segments.1": {
+        "message": "Estimates"
+    },
+    "demo.phonePayments.search": {
+        "message": "Search invoices…"
+    },
+    "demo.phonePayments.tabBar.0": {
+        "message": "Today"
+    },
+    "demo.phonePayments.tabBar.1": {
+        "message": "Schedule"
+    },
+    "demo.phonePayments.tabBar.2": {
+        "message": "Clients"
+    },
+    "demo.phonePayments.tabBar.3": {
+        "message": "Payments"
+    },
+    "demo.stockList.title": {
+        "message": "Services & products"
+    },
+    "demo.stockList.filters.0": {
+        "message": "All"
+    },
+    "demo.stockList.filters.1": {
+        "message": "Low stock"
+    },
+    "demo.stockList.filters.2": {
+        "message": "Archived"
+    },
+    "demo.stockList.restock": {
+        "message": "Restock"
+    },
+    "demo.shop.title": {
+        "message": "Shop"
+    },
+    "demo.shop.business": {
+        "message": "Birchbark Pet Studio"
+    },
+    "demo.shop.subtotalLabel": {
+        "message": "Subtotal"
+    },
+    "demo.shop.pickup": {
+        "message": "Pick up at Birchbark Pet Studio"
+    },
+    "demo.shop.pay": {
+        "message": "Pay by card"
+    },
+    "demo.shop.minus": {
+        "message": "−"
+    },
+    "demo.minutes": {
+        "message": "{minutes, number} min",
+        "args": ["minutes"]
+    },
+    "demo.stock.inStock": {
+        "message": "{count, number} in stock",
+        "args": ["count"]
+    },
+    "demo.stock.low": {
+        "message": "Low: {count, number} left",
+        "args": ["count"]
+    },
+    "demo.stock.untracked": {
+        "message": "Not tracked"
+    },
+    "demo.stock.service": {
+        "message": "Service"
+    },
+    "demo.tapToPay.charge": {
+        "message": "Charge {name}",
+        "args": ["name"]
+    },
+    "demo.tapToPay.includes": {
+        "message": "includes {taxes}",
+        "args": ["taxes"]
+    },
+    "demo.tapToPay.tax": {
+        "message": "{name} {amount}",
+        "args": ["name", "amount"]
+    },
+    "demo.tapToPay.prompt": {
+        "message": "Hold card near the phone"
+    },
+    "demo.tapToPay.caption": {
+        "message": "Tap to Pay on iPhone and Android"
+    },
+    "demo.bookingPage.payDeposit": {
+        "message": "Book and pay {amount} deposit",
+        "args": ["amount"]
+    },
+    "demo.bookingPage.book": {
+        "message": "Book a visit"
+    },
+    "demo.today.title": {
+        "message": "Business snapshot"
+    },
+    "demo.today.subtitle": {
+        "message": "Birchbark demo history."
+    },
+    "demo.today.sales": {
+        "message": "Sales before tax"
+    },
+    "demo.today.salesCaption": {
+        "message": "demo history"
+    },
+    "demo.today.awaiting": {
+        "message": "Awaiting payment"
+    },
+    "demo.today.awaitingCaption": {
+        "message": "outstanding invoices"
+    },
+    "demo.today.taxes": {
+        "message": "Sales tax set aside"
+    },
+    "demo.today.taxesCaption": {
+        "message": "federal and provincial"
+    },
+    "demo.today.activityTitle": {
+        "message": "Recent activity"
+    },
+    "demo.today.payment": {
+        "message": "{method, select, card {Card payment} cash {Cash payment} interac {Interac payment} bank_eft {Bank payment} cheque {Cheque payment} other {Payment}}",
+        "args": ["method"]
+    },
+    "photos.grooming.subject": {
+        "message": "Groomer trimming a Shih Tzu on a grooming table, a second dog waiting behind"
+    },
+    "photos.grooming-2.subject": {
+        "message": "Close-up of a Cocker Spaniel being brushed by a groomer's hands"
+    },
+    "photos.salon.subject": {
+        "message": "Hairdresser's hands trimming a client's hair by a sunlit window"
+    },
+    "photos.salon-2.subject": {
+        "message": "Stylist with a client in a hair salon, mirrors and styling chairs behind"
+    },
+    "photos.fitness.subject": {
+        "message": "Personal trainer reviewing a plan on a tablet with a client in a small gym"
+    },
+    "photos.cleaning.subject": {
+        "message": "Woman wiping a white counter with a cloth in a bright home"
+    },
+    "photos.cleaning-2.subject": {
+        "message": "Woman in rubber gloves cleaning a table in a home with plants"
+    },
+    "photos.tutoring.subject": {
+        "message": "Teacher guiding a girl at a keyboard during a one-to-one music lesson"
+    },
+    "photos.tutoring-2.subject": {
+        "message": "Music teacher seated beside a student playing a keyboard in a living room"
+    },
+    "photos.wellness.subject": {
+        "message": "Two therapists giving massages to clients in a treatment room"
+    },
+    "photos.wellness-2.subject": {
+        "message": "Therapist working on a client's back and shoulder by a studio window"
+    },
+    "photos.photography.subject": {
+        "message": "Photographer checking his camera in a daylight studio with a softbox"
+    },
+    "photos.photography-2.subject": {
+        "message": "Photographer shooting a portrait of a seated client in a daylight studio"
+    },
+    "photos.trades.subject": {
+        "message": "Tradesperson in a paint-spattered apron preparing a window frame on trestles"
+    },
+    "photos.trades-2.subject": {
+        "message": "Tradesperson fitting a window frame with a cordless drill"
+    },
+    "home.testimonial.lead": {
+        "message": "Testimonial placeholder {n, number}.",
+        "args": ["n"]
+    },
+    "home.testimonial.body": {
+        "message": "A short quote from a pilot customer about a specific outcome (for example, fewer unpaid invoices or less time on GST). To be replaced with a real, approved quote."
+    },
+    "home.testimonial.byline": {
+        "message": "Name, business, city (to be confirmed)"
+    },
+    "pages.privacyPage.contact": {
+        "message": "Questions about privacy: {email} (placeholder address).",
+        "args": ["email"]
+    },
+    "pages.termsPage.contact": {
+        "message": "Questions about these terms: {email} (placeholder address).",
+        "args": ["email"]
+    },
+    "solutions.tradeMeta.title": {
+        "message": "Clientbridge for {trade}",
+        "args": ["trade"],
+        "description": "A trade page's title; the trade's name is lowercased."
+    },
+    "solutions.solutionsPage.cardLink": {
+        "message": "How it works for {who}",
+        "args": ["who"]
+    },
+    "solutions.tradePage.handles": {
+        "message": "What Clientbridge handles for {who}.",
+        "args": ["who"]
+    },
+    "solutions.tradePage.proofEyebrow": {
+        "message": "From {who} using Clientbridge",
+        "args": ["who"]
+    },
+    "solutions.tradePage.bookingTag": {
+        "message": "{tag} · {city}",
+        "args": ["tag", "city"]
+    },
+    "solutions.tradePage.inCad": {
+        "message": "{amount} CAD",
+        "args": ["amount"]
+    },
+    "solutions.tradePage.retainerPaid": {
+        "message": "Retainer {share, number, ::percent} · paid",
+        "args": ["share"]
+    },
+    "solutions.tradePage.used": {
+        "message": "{used, number} of {total, number} used",
+        "args": ["used", "total"]
+    },
+    "solutions.tradePage.signed": {
+        "message": "{form} · signed",
+        "args": ["form"]
+    },
+    "solutions.creditsPage.photoBy": {
+        "message": "Photo by {name}",
+        "args": ["name"]
+    },
+    "site.footer.copyright": {
+        "message": "© {year} Clientbridge",
+        "args": ["year"]
+    },
+    "site.pageTitle": {
+        "message": "{page} | Clientbridge",
+        "args": ["page"]
+    },
+    "site.jsonLd.description": {
+        "message": "Booking, invoices, payments and sales tax for service businesses in Canada."
+    }
+}

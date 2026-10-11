@@ -3,6 +3,8 @@ import {
     strings,
     useInteracRequestForm,
     useLetterhead,
+    currencyAffix,
+    BUSINESS_CURRENCY,
 } from "@clientbridge/app-core";
 import {
     ActivityTimeline,
@@ -61,7 +63,7 @@ export function InteracRequest({ invoice, onClose }: { invoice: InvoiceRow; onCl
                                     label={t.amount}
                                     hint={form.amountHint}
                                     type="number"
-                                    prefix="$"
+                                    {...currencyAffix(BUSINESS_CURRENCY)}
                                     width="full"
                                     value={form.amount}
                                     onChange={form.setAmount}

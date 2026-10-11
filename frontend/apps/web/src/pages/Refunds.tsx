@@ -9,6 +9,9 @@ import {
     useRefundComposer,
     useRefundDesk,
     usePaymentAccount,
+    formatParts,
+    BUSINESS_CURRENCY,
+    currencyAffix,
 } from "@clientbridge/app-core";
 import {
     ActivityTimeline,
@@ -71,7 +74,7 @@ export function Refunds() {
                     { key: "notes", label: s.tabs.notes },
                     {
                         key: "disputes",
-                        label: `${s.tabs.disputes} · ${disputes.summary}`,
+                        label: formatParts([s.tabs.disputes, disputes.summary]),
                     },
                 ]}
                 active={tab}
@@ -123,10 +126,14 @@ function PaymentsDesk({ desk }: { desk: ReturnType<typeof useRefundDesk> }) {
                             key={r.payment.id}
                             selected={r.payment.id === desk.selectedId}
                             title={r.payment.client_name ?? r.subject}
-                            detail={`${r.subject} · ${r.when}`}
+                            detail={formatParts([r.subject, r.when])}
                             meta={
                                 <span className="flex flex-col items-end gap-1">
-                                    <Money cents={r.payment.amount_cents} strong />
+                                    <Money
+                                        currency={BUSINESS_CURRENCY}
+                                        cents={r.payment.amount_cents}
+                                        strong
+                                    />
                                     {r.state !== "paid" ? (
                                         <StatusPill
                                             status={r.stateLabel}
@@ -183,7 +190,7 @@ function Composer({ summary, refunds }: { summary: RefundSummary; refunds: reado
                             {p.client_name ?? summary.subject}
                         </h2>
                         <p className="mt-0.5 text-sm text-muted">
-                            {[summary.subject, summary.method, summary.when].join(" · ")}
+                            {formatParts([summary.subject, summary.method, summary.when])}
                         </p>
                     </div>
                     <StatusPill status={summary.stateLabel} intent={summary.intent} asWritten />
@@ -193,14 +200,23 @@ function Composer({ summary, refunds }: { summary: RefundSummary; refunds: reado
                         layout="stack"
                         columns={4}
                         rows={[
-                            { label: s.paid, value: formatMoney(p.amount_cents) },
+                            {
+                                label: s.paid,
+                                value: formatMoney(p.amount_cents, BUSINESS_CURRENCY),
+                            },
                             {
                                 label: s.refundedSoFar,
-                                value: formatMoney(p.refunded_cents),
+                                value: formatMoney(p.refunded_cents, BUSINESS_CURRENCY),
                                 intent: p.refunded_cents > 0 ? "warning" : undefined,
                             },
-                            { label: s.leftToRefund, value: formatMoney(summary.leftCents) },
-                            { label: s.stripeFee, value: formatMoney(p.fee_cents) },
+                            {
+                                label: s.leftToRefund,
+                                value: formatMoney(summary.leftCents, BUSINESS_CURRENCY),
+                            },
+                            {
+                                label: s.stripeFee,
+                                value: formatMoney(p.fee_cents, BUSINESS_CURRENCY),
+                            },
                         ]}
                     />
                 </div>
@@ -274,7 +290,7 @@ function RefundForm({
                     <TextField
                         label={s.amount}
                         type="number"
-                        prefix="$"
+                        {...currencyAffix(BUSINESS_CURRENCY)}
                         value={form.amount}
                         onChange={form.setAmount}
                         placeholder={form.amountPlaceholder}
@@ -294,7 +310,7 @@ function RefundForm({
                 {form.preview.isLoading && form.lines.length === 0 ? (
                     <Skeleton variant="line" count={3} label={s.previewLoading} />
                 ) : (
-                    <DocTotals lines={form.lines} density="compact" />
+                    <DocTotals currency={BUSINESS_CURRENCY} lines={form.lines} density="compact" />
                 )}
                 {form.feeNote !== null ? (
                     <p className="mt-2 text-xs text-muted">{form.feeNote}</p>
@@ -342,7 +358,7 @@ function CreditNotes({ refunds }: { refunds: readonly RefundRow[] }) {
                     <span className="text-ink-soft">{r.when}</span>
                     <span className="truncate text-ink-soft">{r.reason}</span>
                     <span className="text-right">
-                        <Money cents={-r.cents} strong />
+                        <Money currency={BUSINESS_CURRENCY} cents={-r.cents} strong />
                     </span>
                 </div>
             )}
@@ -377,10 +393,14 @@ function Disputes({ desk }: { desk: DisputeDesk }) {
                                         key={d.row.id}
                                         selected={d.row.id === sel?.row.id}
                                         title={d.row.client_name ?? d.subject}
-                                        detail={`${d.reason} · ${d.subject}`}
+                                        detail={formatParts([d.reason, d.subject])}
                                         meta={
                                             <span className="flex flex-col items-end gap-1">
-                                                <Money cents={d.row.amount_cents} strong />
+                                                <Money
+                                                    currency={BUSINESS_CURRENCY}
+                                                    cents={d.row.amount_cents}
+                                                    strong
+                                                />
                                                 <StatusPill
                                                     status={d.statusLabel}
                                                     intent={d.intent}
@@ -404,10 +424,12 @@ function Disputes({ desk }: { desk: DisputeDesk }) {
                         <div className="flex items-start justify-between gap-4">
                             <div className="min-w-0">
                                 <h2 className="font-display text-xl font-bold text-ink">
-                                    {s.disputeTitle(formatMoney(sel.row.amount_cents))}
+                                    {s.disputeTitle(
+                                        formatMoney(sel.row.amount_cents, BUSINESS_CURRENCY),
+                                    )}
                                 </h2>
                                 <p className="mt-0.5 text-sm text-muted">
-                                    {`${sel.row.client_name ?? ""} · ${sel.subject}`}
+                                    {formatParts([sel.row.client_name ?? "", sel.subject])}
                                 </p>
                             </div>
                             <StatusPill status={sel.statusLabel} intent={sel.intent} asWritten />
@@ -427,7 +449,11 @@ function Disputes({ desk }: { desk: DisputeDesk }) {
                         <div className="grid gap-5 xl:grid-cols-2">
                             <KeyValueList rows={sel.facts} />
                             <div className="rounded-md border border-line bg-bg px-4 py-3">
-                                <DocTotals lines={sel.held} density="compact" />
+                                <DocTotals
+                                    currency={BUSINESS_CURRENCY}
+                                    lines={sel.held}
+                                    density="compact"
+                                />
                             </div>
                         </div>
                         {sel.open ? (

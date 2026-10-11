@@ -55,7 +55,12 @@ export function WeeklyHoursEditor({
                                     {k === 1 ? <Text style={styles.to}>{toLabel}</Text> : null}
                                     <Pressable
                                         accessibilityRole="button"
-                                        accessibilityLabel={`${which === "start" ? strings.ui.startOf(d.label) : strings.ui.endOf(d.label)}: ${label(d[which])}`}
+                                        accessibilityLabel={strings.common.labelColonValue(
+                                            which === "start"
+                                                ? strings.ui.startOf(d.label)
+                                                : strings.ui.endOf(d.label),
+                                            label(d[which]),
+                                        )}
                                         onPress={() => {
                                             setPicking({ weekday: d.weekday, which });
                                         }}

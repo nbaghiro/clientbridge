@@ -13,6 +13,8 @@ import {
     strings,
     useMoneyReports,
     useReportFile,
+    formatParts,
+    BUSINESS_CURRENCY,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -80,15 +82,17 @@ async function sharePack(request: PackRequest, filename: string): Promise<void> 
 function figure(key: ReportKey, v: ReportsView): string {
     switch (key) {
         case "income":
-            return formatMoney(v.netCents);
+            return formatMoney(v.netCents, BUSINESS_CURRENCY);
         case "salesByItem":
             return s.sold(v.unitsSold);
         case "gstHst":
-            return formatMoney(v.gst.collectedCents);
+            return formatMoney(v.gst.collectedCents, BUSINESS_CURRENCY);
         case "pst":
-            return v.provincial === null ? "" : formatMoney(v.provincial.collectedCents);
+            return v.provincial === null
+                ? ""
+                : formatMoney(v.provincial.collectedCents, BUSINESS_CURRENCY);
         case "t4a":
-            return formatMoney(v.t4aTotalCents);
+            return formatMoney(v.t4aTotalCents, BUSINESS_CURRENCY);
     }
 }
 
@@ -100,14 +104,14 @@ export function Reports() {
     const [packing, setPacking] = useState(false);
     const v = r.view;
     const name = (key: ExportKind): string =>
-        key === "pst" && v?.provincial ? v.provincial.label : (s.library[key] ?? key);
+        key === "pst" && v?.provincial ? v.provincial.label : s.library[key];
 
     return (
         <View style={styles.screen}>
             <Tabs
                 variant="pill"
                 label={s.periodLabel}
-                items={REPORT_PERIODS.map((key) => ({ key, label: s.period[key] ?? key }))}
+                items={REPORT_PERIODS.map((key) => ({ key, label: s.period[key] }))}
                 active={r.period}
                 onSelect={(k: ReportPeriodKey) => {
                     r.setPeriod(k);
@@ -192,7 +196,7 @@ export function Reports() {
                                     key: b.key,
                                     label: b.label,
                                     value: Math.max(0, b.netCents),
-                                    valueLabel: formatMoney(b.netCents),
+                                    valueLabel: formatMoney(b.netCents, BUSINESS_CURRENCY),
                                     partial: b.partial,
                                     dim: !b.inSpan,
                                 }))}
@@ -211,12 +215,12 @@ export function Reports() {
             >
                 <View style={{ gap: 16 }}>
                     <Text style={styles.sheetTitle}>{s.packTitle}</Text>
-                    <Text style={ui.note}>{`${spanLabel(r.span)} · ${s.packSubtitle}`}</Text>
+                    <Text style={ui.note}>{formatParts([spanLabel(r.span), s.packSubtitle])}</Text>
                     <Text style={ui.note}>{s.packIncluded}</Text>
                     {EXPORT_KINDS.map((kind) => (
                         <Checkbox
                             key={kind}
-                            label={`${name(kind)} · ${s.packRows(v?.rows[kind] ?? 0)}`}
+                            label={formatParts([name(kind), s.packRows(v?.rows[kind] ?? 0)])}
                             value={pack.chosen.includes(kind)}
                             onChange={() => {
                                 pack.toggle(kind);
@@ -241,6 +245,7 @@ function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
             return (
                 <View style={styles.stack}>
                     <DocTotals
+                        currency={BUSINESS_CURRENCY}
                         lines={[
                             { key: "sales", label: s.sales, cents: v.salesCents, kind: "subtotal" },
                             {
@@ -276,7 +281,10 @@ function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
                         ]}
                     />
                     <Text style={styles.caption}>
-                        {`${s.byMethod} · ${s.received(formatMoney(v.receivedCents))}`}
+                        {formatParts([
+                            s.byMethod,
+                            s.received(formatMoney(v.receivedCents, BUSINESS_CURRENCY)),
+                        ])}
                     </Text>
                     {v.methods.length === 0 ? <Text style={ui.note}>{s.noPayments}</Text> : null}
                     {v.methods.map((m) => (
@@ -285,7 +293,10 @@ function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
                             value={Math.max(0, m.cents)}
                             max={Math.max(1, v.receivedCents)}
                             label={m.label}
-                            detail={`${s.share(m.share)} · ${formatMoney(m.cents)}`}
+                            detail={formatParts([
+                                s.share(m.share),
+                                formatMoney(m.cents, BUSINESS_CURRENCY),
+                            ])}
                             labelPosition="above"
                             size="sm"
                         />
@@ -302,12 +313,16 @@ function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
                             key={row.id}
                             density="compact"
                             title={row.name}
-                            detail={`${row.kind} · ${s.colQty} ${row.quantity}${
+                            detail={formatParts([
+                                row.kind,
+                                s.qtyValue(row.quantity),
                                 row.refundedCents > 0
-                                    ? ` · ${s.colRefunded} ${formatMoney(row.refundedCents)}`
-                                    : ""
-                            }`}
-                            meta={formatMoney(row.netCents)}
+                                    ? s.refundedValue(
+                                          formatMoney(row.refundedCents, BUSINESS_CURRENCY),
+                                      )
+                                    : null,
+                            ])}
+                            meta={formatMoney(row.netCents, BUSINESS_CURRENCY)}
                         />
                     ))}
                 </View>
@@ -316,6 +331,7 @@ function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
             return (
                 <View style={styles.stack}>
                     <DocTotals
+                        currency={BUSINESS_CURRENCY}
                         lines={[
                             {
                                 key: "101",
@@ -331,7 +347,9 @@ function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
                             },
                         ]}
                     />
-                    <Text style={ui.note}>{s.gstNumber(v.gst.number)}</Text>
+                    <Text style={ui.note}>
+                        {v.gst.number === null ? s.noGstNumber : s.gstNumber(v.gst.number)}
+                    </Text>
                 </View>
             );
         case "pst":
@@ -340,6 +358,7 @@ function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
             ) : (
                 <View style={styles.stack}>
                     <DocTotals
+                        currency={BUSINESS_CURRENCY}
                         lines={[
                             {
                                 key: "sales",
@@ -357,7 +376,9 @@ function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
                         ]}
                     />
                     <Text style={ui.note}>
-                        {s.provincialNumber(v.provincial.label, v.provincial.number)}
+                        {v.provincial.number === null
+                            ? s.provincialFiled
+                            : s.provincialNumber(v.provincial.label, v.provincial.number)}
                     </Text>
                 </View>
             );
@@ -369,8 +390,8 @@ function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
                     ) : (
                         <KeyValueList
                             rows={v.t4a.map((row) => ({
-                                label: `${row.name} · ${s.colPayments} ${String(row.payments)}`,
-                                value: formatMoney(row.totalCents),
+                                label: formatParts([row.name, s.paymentsValue(row.payments)]),
+                                value: formatMoney(row.totalCents, BUSINESS_CURRENCY),
                             }))}
                         />
                     )}

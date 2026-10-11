@@ -1,4 +1,4 @@
-import type { ActivityTimelineProps } from "@clientbridge/app-core";
+import { type ActivityTimelineProps, formatParts } from "@clientbridge/app-core";
 import { INTENT_COLORS } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
@@ -53,9 +53,10 @@ export function ActivityTimeline({ entries, style }: NativeProps<ActivityTimelin
                             </View>
                             {e.detail !== undefined || e.aside !== undefined ? (
                                 <Text style={styles.detail}>
-                                    {[e.detail, e.aside !== undefined ? e.at : undefined]
-                                        .filter(Boolean)
-                                        .join(" · ")}
+                                    {formatParts([
+                                        e.detail,
+                                        e.aside !== undefined ? e.at : undefined,
+                                    ])}
                                 </Text>
                             ) : null}
                             {e.quote !== undefined ? (

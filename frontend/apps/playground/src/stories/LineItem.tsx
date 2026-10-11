@@ -17,12 +17,18 @@ export default story<LineItemProps>({
         {
             key: "plain",
             title: "Plain",
-            props: () => ({ title: "Full groom", meta: "Biscuit · Hannah", cents: 8500 }),
+            props: () => ({
+                currency: "CAD",
+                title: "Full groom",
+                meta: "Biscuit · Hannah",
+                cents: 8500,
+            }),
         },
         {
             key: "stepper",
             title: "With a quantity stepper",
             props: () => ({
+                currency: "CAD",
                 title: "Oatmeal shampoo (500ml)",
                 cents: 4800,
                 quantity: { value: 2, onChange: noop, label: "Oatmeal shampoo" },
@@ -34,6 +40,7 @@ export default story<LineItemProps>({
             key: "stepper-max",
             title: "Quantity at the stock left",
             props: () => ({
+                currency: "CAD",
                 title: "Self-Cleaning Slicker Brush",
                 meta: "3 left",
                 cents: 7500,
@@ -45,12 +52,13 @@ export default story<LineItemProps>({
         {
             key: "count",
             title: "Read-only count",
-            props: () => ({ title: "Nail trim", cents: 4000, count: 2 }),
+            props: () => ({ currency: "CAD", title: "Nail trim", cents: 4000, count: 2 }),
         },
         {
             key: "discount",
             title: "Discounted with a tag",
             props: () => ({
+                currency: "CAD",
                 title: "Blueberry facial",
                 cents: 1350,
                 originalCents: 1500,
@@ -62,6 +70,7 @@ export default story<LineItemProps>({
             key: "leading",
             title: "Leading slot and press",
             props: (k) => ({
+                currency: "CAD",
                 title: "Full groom",
                 meta: "Diego Ruiz",
                 leading: <k.Avatar name="Diego Ruiz" size="sm" />,
@@ -74,6 +83,7 @@ export default story<LineItemProps>({
             key: "selected",
             title: "Selected",
             props: () => ({
+                currency: "CAD",
                 title: "Bath and tidy",
                 cents: 5500,
                 selected: true,
@@ -85,6 +95,7 @@ export default story<LineItemProps>({
             key: "tag-warning",
             title: "Warning tag",
             props: () => ({
+                currency: "CAD",
                 title: "Oatmeal shampoo (500ml)",
                 cents: 1600,
                 tag: { label: "Last one", intent: "warning" },
@@ -95,6 +106,7 @@ export default story<LineItemProps>({
             key: "large-amount",
             title: "Large amount and count",
             props: () => ({
+                currency: "CAD",
                 title: "Puppy class package",
                 meta: "12 sessions",
                 count: 12,
@@ -107,6 +119,7 @@ export default story<LineItemProps>({
             key: "long",
             title: "Long text",
             props: () => ({
+                currency: "CAD",
                 title: "Full groom with de-shedding treatment, blueberry facial, nail grind and teeth brushing",
                 meta: "Biscuit, Mochi and Pepper · Hannah Lee and Priya Shah · Saturday morning drop-off",
                 tag: { label: "Bundle saves 15%", intent: "success" },
@@ -120,6 +133,7 @@ export default story<LineItemProps>({
             key: "rtl",
             title: "Right-to-left name",
             props: () => ({
+                currency: "CAD",
                 title: "قص أظافر وتنظيف الأذنين للكلب الصغير",
                 meta: "ليلى حداد · بسكويت",
                 cents: 4000,

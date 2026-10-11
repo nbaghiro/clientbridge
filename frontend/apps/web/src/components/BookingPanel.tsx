@@ -14,6 +14,10 @@ import {
     useNewMessage,
     useSavedCards,
     useStationPicker,
+    formatParts,
+    temperamentLabel,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     ActivityTimeline,
@@ -63,6 +67,7 @@ export function BookingHeading({ detail }: { detail: BookingDetail }) {
 }
 
 function BookingFacts({ detail, layout }: { detail: BookingDetail; layout: "inline" | "stack" }) {
+    const zone = useBusinessZone();
     const e = detail.event;
     return (
         <KeyValueList
@@ -74,7 +79,7 @@ function BookingFacts({ detail, layout }: { detail: BookingDetail; layout: "inli
                     value:
                         layout === "stack"
                             ? e.timeShort
-                            : `${formatFullDate(e.start)} · ${e.timeLabel}`,
+                            : formatParts([formatFullDate(e.start, zone), e.timeLabel]),
                 },
                 {
                     label: s.detailWith,
@@ -158,7 +163,7 @@ function BookingClient({ detail }: { detail: BookingDetail }) {
                         </div>
                         {pet.temperament !== null ? (
                             <Badge
-                                label={pet.temperament}
+                                label={temperamentLabel(pet.temperament)}
                                 intent={detail.petNervous ? "warning" : "neutral"}
                             />
                         ) : null}
@@ -213,7 +218,10 @@ function BookingAddons({ event }: { event: ScheduleEvent }) {
                         <span className="min-w-0 flex-1 truncate text-ink">
                             {a.quantity} × {a.description}
                         </span>
-                        <Money cents={a.quantity * a.unit_amount_cents} />
+                        <Money
+                            currency={BUSINESS_CURRENCY}
+                            cents={a.quantity * a.unit_amount_cents}
+                        />
                         {addons.canEdit ? (
                             <Button
                                 size="sm"
@@ -230,7 +238,7 @@ function BookingAddons({ event }: { event: ScheduleEvent }) {
             </ul>
             <div className="mt-1.5 flex items-center justify-between gap-2">
                 <p className="text-xs text-muted">
-                    {s.addonsTotal(formatMoney(addons.totalCents))}
+                    {s.addonsTotal(formatMoney(addons.totalCents, BUSINESS_CURRENCY))}
                 </p>
                 {addons.invoiceId !== null ? (
                     <span className="text-xs text-muted">{s.visitInvoiced}</span>
@@ -266,7 +274,10 @@ function BookingRoster({ detail }: { detail: BookingDetail }) {
                                     {r.pet === "" ? r.name : r.pet}
                                 </span>
                                 {r.pet !== "" ? (
-                                    <span className="text-muted"> · {r.name}</span>
+                                    <span className="text-muted">
+                                        {strings.common.separator}
+                                        {r.name}
+                                    </span>
                                 ) : null}
                             </span>
                             {r.waiting ? (
@@ -438,7 +449,7 @@ function DepositDue({ event }: { event: ScheduleEvent }) {
         cards.at(0)?.id,
     );
     if (!event.depositRequired || event.depositStatus !== "pending") return null;
-    const amount = formatMoney(event.depositAmountCents);
+    const amount = formatMoney(event.depositAmountCents, BUSINESS_CURRENCY);
     return (
         <div className="rounded-md border border-warn/30 bg-warn-bg px-4 py-3">
             <p className="flex items-center gap-2 text-sm font-semibold text-warn">

@@ -3,6 +3,7 @@ import {
     type OrderOut,
     canManagePayments,
     discountLabel,
+    discountReason,
     formatMoney,
     formatTime,
     strings,
@@ -10,6 +11,10 @@ import {
     useSaleActions,
     useSaleDetail,
     useSalesHistory,
+    formatParts,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
+    formatDayTime,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -53,7 +58,7 @@ function BoardCardView({
                 <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-ink">{card.clientName}</p>
                     <p className="mt-0.5 truncate text-xs text-muted">
-                        {[card.number, card.since].filter(Boolean).join(" · ")}
+                        {formatParts([card.number, card.since])}
                     </p>
                 </div>
                 <span className="text-sm font-semibold tabular-nums text-ink">{card.total}</span>
@@ -172,6 +177,7 @@ export function SalesBoard({ onResume }: { onResume: (order: OrderOut) => void }
 
 /** The sales history: today's figures, filters and the sales by day, with A's sale panel. */
 export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void }) {
+    const zone = useBusinessZone();
     const history = useSalesHistory();
     const [open, setOpen] = useState<string | null>(null);
     const resume = (id: string): void => {
@@ -190,10 +196,23 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
                 <Skeleton variant="stat" count={4} columns={4} label={d.loadingSales} />
             ) : history.load.state === "error" ? null : (
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                    <Stat label={d.todaySales} cents={t.salesCents} hint={d.todayCount(t.count)} />
-                    <Stat label={d.todayTips} cents={t.tipsCents} />
-                    <Stat label={d.todayDiscounts} cents={t.discountsCents} />
-                    <Stat label={d.todayAverage} cents={t.averageCents} />
+                    <Stat
+                        currency={BUSINESS_CURRENCY}
+                        label={d.todaySales}
+                        cents={t.salesCents}
+                        hint={d.todayCount(t.count)}
+                    />
+                    <Stat currency={BUSINESS_CURRENCY} label={d.todayTips} cents={t.tipsCents} />
+                    <Stat
+                        currency={BUSINESS_CURRENCY}
+                        label={d.todayDiscounts}
+                        cents={t.discountsCents}
+                    />
+                    <Stat
+                        currency={BUSINESS_CURRENCY}
+                        label={d.todayAverage}
+                        cents={t.averageCents}
+                    />
                 </div>
             )}
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -229,7 +248,10 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
                         <div className="mb-2 flex items-baseline justify-between px-1">
                             <h3 className="text-sm font-semibold text-ink">{day.label}</h3>
                             <span className="text-xs text-muted">
-                                {d.dayTotal(day.count, formatMoney(day.totalCents))}
+                                {d.dayTotal(
+                                    day.count,
+                                    formatMoney(day.totalCents, BUSINESS_CURRENCY),
+                                )}
                             </span>
                         </div>
                         <div className="divide-y divide-line-soft overflow-hidden rounded-lg border border-line bg-surface">
@@ -240,7 +262,7 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
                                     leading={
                                         <span className="w-20 shrink-0">
                                             <span className="block text-sm font-medium text-ink">
-                                                {formatTime(r.at)}
+                                                {formatTime(r.at, zone)}
                                             </span>
                                             <span className="block text-xs text-muted">
                                                 {r.number}
@@ -258,7 +280,7 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
                                             ) : null}
                                         </span>
                                     }
-                                    label={`${r.number} ${r.clientName}`}
+                                    label={strings.common.labelValue(r.number, r.clientName)}
                                     detail={r.summary}
                                     meta={
                                         <span className="flex items-center gap-6">
@@ -266,7 +288,7 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
                                                 {r.methodLabel}
                                             </span>
                                             <span className="w-20 text-right text-sm font-semibold tabular-nums text-ink">
-                                                {formatMoney(r.totalCents)}
+                                                {formatMoney(r.totalCents, BUSINESS_CURRENCY)}
                                             </span>
                                         </span>
                                     }
@@ -301,6 +323,7 @@ function SalePanel({
     onResume: (id: string) => void;
 }) {
     const role = useRole();
+    const zone = useBusinessZone();
     const { load, detail } = useSaleDetail(api, id, role);
     const actions = useSaleActions(api, confirm, onResume);
     if (id === null) return null;
@@ -313,7 +336,7 @@ function SalePanel({
             subtitle={
                 detail === null
                     ? undefined
-                    : `${detail.clientName} · ${detail.at.toLocaleString("en-CA", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+                    : formatParts([detail.clientName, formatDayTime(detail.at, zone)])
             }
             {...(detail === null
                 ? {}
@@ -354,17 +377,16 @@ function SalePanel({
                                 <LineItem
                                     key={l.key}
                                     title={l.description}
+                                    currency={BUSINESS_CURRENCY}
                                     {...(l.quantity > 1 ? { count: l.quantity } : {})}
                                     tag={
                                         l.discount === null
                                             ? null
                                             : {
-                                                  label: [
+                                                  label: formatParts([
                                                       discountLabel(l.discount),
-                                                      l.discount.reason,
-                                                  ]
-                                                      .filter(Boolean)
-                                                      .join(" · "),
+                                                      discountReason(l.discount.reason),
+                                                  ]),
                                                   intent: "success",
                                               }
                                     }
@@ -374,7 +396,7 @@ function SalePanel({
                             ))}
                         </div>
                         <div className="mt-3 rounded-md bg-bg px-4 py-3">
-                            <DocTotals lines={detail.totalLines} />
+                            <DocTotals currency={BUSINESS_CURRENCY} lines={detail.totalLines} />
                         </div>
                     </DetailSection>
                     {detail.payments.length > 0 ? (
@@ -387,7 +409,7 @@ function SalePanel({
                                         icon={p.refund ? "refresh" : "card"}
                                         title={p.label}
                                         detail={p.detail}
-                                        meta={formatMoney(p.cents)}
+                                        meta={formatMoney(p.cents, BUSINESS_CURRENCY)}
                                     />
                                 ))}
                             </div>
@@ -404,7 +426,7 @@ function SalePanel({
                                         <Avatar name={s.name} size="sm" color={s.color} />
                                         {s.name}
                                         <span className="font-semibold tabular-nums">
-                                            {formatMoney(s.cents)}
+                                            {formatMoney(s.cents, BUSINESS_CURRENCY)}
                                         </span>
                                     </span>
                                 ))}

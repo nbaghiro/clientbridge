@@ -3,12 +3,16 @@
     "version": "0.0.0",
     "private": true,
     "type": "module",
+    "scripts": {
+        "test": "node --test --test-reporter=dot"
+    },
     "exports": {
         "./eslint": "./eslint.mjs",
         "./prettier": "./prettier.config.json"
     },
     "dependencies": {
         "@eslint/js": "^10.0.1",
+        "@formatjs/icu-messageformat-parser": "3.5.20",
         "eslint": "^10.12.0",
         "typescript-eslint": "^8.71.0"
     },

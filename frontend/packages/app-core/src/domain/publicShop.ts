@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import { newIdempotencyKey } from "../api";
+import { failureMessage, newIdempotencyKey, refusal } from "../api";
+import { dateKey, deviceZone, formatTime, parseTimestamp, weekdayDay } from "../datetime";
+import { zoneNote } from "./publicBooking";
 import {
     type PublicBrand,
     readPublicDraft,
@@ -43,16 +45,6 @@ interface PublicShopOrderResult {
     stripe_account_id: string;
 }
 
-class PublicShopError extends Error {
-    constructor(
-        readonly status: number,
-        message: string,
-    ) {
-        super(message);
-        this.name = "PublicShopError";
-    }
-}
-
 interface PickupWindow {
     starts_at: string;
     ends_at: string;
@@ -60,6 +52,7 @@ interface PickupWindow {
 interface PickupDays {
     windows: PickupWindow[];
     hold_days: number;
+    timezone: string;
 }
 
 interface PublicShopClient {
@@ -83,8 +76,7 @@ export function createPublicShopClient(baseUrl: string): PublicShopClient {
     const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
         const res = await fetch(`${baseUrl}${path}`, init);
         if (!res.ok) {
-            const body = (await res.json().catch(() => null)) as { message?: string } | null;
-            throw new PublicShopError(res.status, body?.message ?? res.statusText);
+            throw await refusal(res);
         }
         return (await res.json()) as T;
     };
@@ -250,37 +242,28 @@ function usePublicShop(
         const attempt = key.current;
         run(
             async () => {
-                try {
-                    setOrder(
-                        await client.placeOrder(
-                            slug,
-                            {
-                                client: {
-                                    name: name.trim(),
-                                    email: email.trim() || null,
-                                    phone: phone.trim() || null,
-                                },
-                                lines,
-                                pickup_from: pickupFrom || null,
-                                pickup_to:
-                                    pickup?.windows.find(
-                                        (window) => window.starts_at === pickupFrom,
-                                    )?.ends_at ?? null,
-                                note: note.trim() || null,
-                                notify_sms: notifySms,
+                setOrder(
+                    await client.placeOrder(
+                        slug,
+                        {
+                            client: {
+                                name: name.trim(),
+                                email: email.trim() || null,
+                                phone: phone.trim() || null,
                             },
-                            attempt,
-                        ),
-                    );
-                } catch (e) {
-                    if (e instanceof PublicShopError && e.status === 409) {
-                        setError(e.message);
-                        return;
-                    }
-                    throw e;
-                }
+                            lines,
+                            pickup_from: pickupFrom || null,
+                            pickup_to:
+                                pickup?.windows.find((window) => window.starts_at === pickupFrom)
+                                    ?.ends_at ?? null,
+                            note: note.trim() || null,
+                            notify_sms: notifySms,
+                        },
+                        attempt,
+                    ),
+                );
             },
-            { errorMessage: strings.publicShop.orderError },
+            { errorMessage: (e) => failureMessage(e, strings.publicShop.orderError) },
         );
     };
 
@@ -329,7 +312,10 @@ export function useShopFlow(client: PublicShopClient, slug: string, storage?: Sh
     const base = usePublicShop(client, slug, storage);
     const [search, setSearch] = useState("");
     const [category, setCategory] = useState("all");
-    const pickupDay = base.pickupFrom.slice(0, 10) || "asap";
+    // Until the windows load there are none to show, so the visitor's own zone stands in.
+    const zone = base.pickup?.timezone ?? deviceZone();
+    const dayOf = (iso: string): string => dateKey(parseTimestamp(iso), zone);
+    const pickupDay = base.pickupFrom === "" ? "asap" : dayOf(base.pickupFrom);
     const items = useMemo(() => base.shop?.items ?? [], [base.shop]);
     const cap = (item: PublicShopItem): number => Math.min(MAX_EACH, item.stock_left ?? MAX_EACH);
     const lines = items
@@ -343,41 +329,29 @@ export function useShopFlow(client: PublicShopClient, slug: string, storage?: Sh
         category,
         setCategory,
         pickupDay,
+        zoneNote: base.pickup === null ? null : zoneNote(zone),
         pickupDays: [
             { key: "asap", label: strings.publicShop.pickupAsap },
             ...Array.from(
                 new Map(
-                    (base.pickup?.windows ?? []).map((window) => [
-                        window.starts_at.slice(0, 10),
-                        window,
-                    ]),
+                    (base.pickup?.windows ?? []).map((window) => [dayOf(window.starts_at), window]),
                 ).entries(),
             ).map(([key, window]) => ({
                 key,
-                label: new Date(window.starts_at).toLocaleDateString(undefined, {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                }),
+                label: weekdayDay(parseTimestamp(window.starts_at), zone),
             })),
         ],
         pickupWindows: (base.pickup?.windows ?? [])
-            .filter((window) => window.starts_at.slice(0, 10) === pickupDay)
+            .filter((window) => dayOf(window.starts_at) === pickupDay)
             .map((window) => ({
                 key: window.starts_at,
-                label: new Date(window.starts_at).toLocaleTimeString(undefined, {
-                    hour: "numeric",
-                    minute: "2-digit",
-                }),
-                hint: new Date(window.ends_at).toLocaleTimeString(undefined, {
-                    hour: "numeric",
-                    minute: "2-digit",
-                }),
+                label: formatTime(parseTimestamp(window.starts_at), zone),
+                hint: formatTime(parseTimestamp(window.ends_at), zone),
             })),
         setPickupDay: (day: string) => {
             base.setPickupFrom(
-                base.pickup?.windows.find((window) => window.starts_at.slice(0, 10) === day)
-                    ?.starts_at ?? "",
+                base.pickup?.windows.find((window) => dayOf(window.starts_at) === day)?.starts_at ??
+                    "",
             );
         },
         categories: [

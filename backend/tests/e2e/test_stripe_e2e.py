@@ -63,7 +63,12 @@ async def test_subscription_period_fields_match_current_api(
         "pm_card_visa", customer=customer.id, stripe_account=connected_account_id
     )
     price_id = await live_gateway.create_price(
-        connected_account_id, amount_cents=4500, currency="cad", interval_count=1, frequency="month"
+        connected_account_id,
+        amount_cents=4500,
+        currency="cad",
+        interval_count=1,
+        frequency="month",
+        product_name="Subscription",
     )
     result = await live_gateway.create_subscription(
         connected_account_id,

@@ -4,6 +4,9 @@ import {
     formatShortDay,
     strings,
     useEarningApprovals,
+    formatList,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -25,6 +28,7 @@ import { useOpenLink } from "../lib/links";
 const s = strings.earnings;
 
 export function Earnings() {
+    const zone = useBusinessZone();
     const e = useEarningApprovals(api);
     const openLink = useOpenLink();
     const sel = e.selected;
@@ -64,9 +68,18 @@ export function Earnings() {
         <div>
             <p className="text-sm text-muted">{s.subtitle}</p>
             <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Stat label={s.toApprove} cents={e.totals.pendingCents} />
-                <Stat label={s.toPay} cents={e.totals.approvedCents} />
-                <Stat label={s.paidYtd} cents={e.totals.paidYtdCents} tone="success" />
+                <Stat
+                    currency={BUSINESS_CURRENCY}
+                    label={s.toApprove}
+                    cents={e.totals.pendingCents}
+                />
+                <Stat currency={BUSINESS_CURRENCY} label={s.toPay} cents={e.totals.approvedCents} />
+                <Stat
+                    currency={BUSINESS_CURRENCY}
+                    label={s.paidYtd}
+                    cents={e.totals.paidYtdCents}
+                    tone="success"
+                />
             </div>
 
             <div className="mt-6 grid gap-6 xl:grid-cols-[300px_1fr]">
@@ -83,7 +96,7 @@ export function Earnings() {
                                     meta={
                                         <span className="flex flex-col items-end gap-1">
                                             <span className="text-sm font-medium tabular-nums text-ink">
-                                                {formatMoney(p.pendingCents)}
+                                                {formatMoney(p.pendingCents, BUSINESS_CURRENCY)}
                                             </span>
                                             <span>{s.count(p.pendingCount)}</span>
                                         </span>
@@ -117,19 +130,19 @@ export function Earnings() {
                                 <div>
                                     <dt className="text-xs text-muted">{s.toApprove}</dt>
                                     <dd className="font-semibold tabular-nums text-warn-fg">
-                                        {formatMoney(sel.pendingCents)}
+                                        {formatMoney(sel.pendingCents, BUSINESS_CURRENCY)}
                                     </dd>
                                 </div>
                                 <div>
                                     <dt className="text-xs text-muted">{s.toPay}</dt>
                                     <dd className="font-semibold tabular-nums text-accent-strong">
-                                        {formatMoney(sel.approvedCents)}
+                                        {formatMoney(sel.approvedCents, BUSINESS_CURRENCY)}
                                     </dd>
                                 </div>
                                 <div>
                                     <dt className="text-xs text-muted">{s.paidYtd}</dt>
                                     <dd className="font-semibold tabular-nums text-ink">
-                                        {formatMoney(sel.paidYtdCents)}
+                                        {formatMoney(sel.paidYtdCents, BUSINESS_CURRENCY)}
                                     </dd>
                                 </div>
                             </dl>
@@ -158,7 +171,9 @@ export function Earnings() {
                                     disabled={sel.approvedCents === 0 || e.busy}
                                     onPress={e.payApproved}
                                 >
-                                    {s.payApproved(formatMoney(sel.approvedCents))}
+                                    {s.payApproved(
+                                        formatMoney(sel.approvedCents, BUSINESS_CURRENCY),
+                                    )}
                                 </Button>
                             </span>
                         </div>
@@ -177,7 +192,7 @@ export function Earnings() {
                                         <span className="w-5">
                                             {l.status === "pending" ? (
                                                 <Checkbox
-                                                    label={`${l.title}, ${l.detail}`}
+                                                    label={formatList([l.title, l.detail], "unit")}
                                                     hideLabel
                                                     value={e.picked.includes(l.id)}
                                                     onChange={() => {
@@ -187,7 +202,7 @@ export function Earnings() {
                                             ) : null}
                                         </span>
                                         <span className="w-14 shrink-0 text-xs text-muted">
-                                            {formatShortDay(l.at)}
+                                            {formatShortDay(l.at, zone)}
                                         </span>
                                         <span className="min-w-0 flex-1">
                                             <span className="block truncate text-sm font-medium text-ink">
@@ -203,7 +218,7 @@ export function Earnings() {
                                             asWritten
                                         />
                                         <span className="w-20 text-right text-sm font-semibold tabular-nums text-ink">
-                                            {formatMoney(l.amountCents)}
+                                            {formatMoney(l.amountCents, BUSINESS_CURRENCY)}
                                         </span>
                                     </li>
                                 ))}

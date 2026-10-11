@@ -22,12 +22,17 @@ export default [
             {
                 key: "date",
                 title: "Default",
-                props: () => ({ label: "Date", defaultValue: "2026-10-08" }),
+                props: () => ({
+                    zone: "America/Vancouver",
+                    label: "Date",
+                    defaultValue: "2026-10-08",
+                }),
             },
             {
                 key: "date-empty",
                 title: "Empty with a placeholder",
                 props: () => ({
+                    zone: "America/Vancouver",
                     label: "First visit",
                     placeholder: "Pick a day",
                     defaultValue: "",
@@ -37,6 +42,7 @@ export default [
                 key: "date-bounds",
                 title: "Within a range",
                 props: () => ({
+                    zone: "America/Vancouver",
                     label: "Paid on",
                     hint: "Only days in the last two weeks can be picked.",
                     defaultValue: "2026-10-05",
@@ -47,12 +53,18 @@ export default [
             {
                 key: "date-past",
                 title: "Far in the past, optional",
-                props: () => ({ label: "Birthday", optional: true, defaultValue: "2019-04-12" }),
+                props: () => ({
+                    zone: "America/Vancouver",
+                    label: "Birthday",
+                    optional: true,
+                    defaultValue: "2019-04-12",
+                }),
             },
             {
                 key: "date-error",
                 title: "Error",
                 props: () => ({
+                    zone: "America/Vancouver",
                     label: "Ends on",
                     required: true,
                     defaultValue: "2026-09-30",
@@ -62,18 +74,24 @@ export default [
             {
                 key: "date-disabled",
                 title: "Disabled",
-                props: () => ({ label: "Starts on", disabled: true, defaultValue: "2026-10-01" }),
+                props: () => ({
+                    zone: "America/Vancouver",
+                    label: "Starts on",
+                    disabled: true,
+                    defaultValue: "2026-10-01",
+                }),
             },
             {
                 key: "date-controlled",
                 title: "Controlled",
                 state: { value: "value", onChange: "onChange" },
-                props: () => ({ label: "Day", value: "2026-12-24" }),
+                props: () => ({ zone: "America/Vancouver", label: "Day", value: "2026-12-24" }),
             },
             {
                 key: "date-small",
                 title: "Small, no label",
                 props: () => ({
+                    zone: "America/Vancouver",
                     name: "Day",
                     size: "sm",
                     width: "auto",
@@ -138,12 +156,17 @@ export default [
             {
                 key: "datetime",
                 title: "Default",
-                props: () => ({ label: "Send at", defaultValue: "2026-10-09T10:00" }),
+                props: () => ({
+                    zone: "America/Vancouver",
+                    label: "Send at",
+                    defaultValue: "2026-10-09T10:00",
+                }),
             },
             {
                 key: "datetime-empty",
                 title: "Empty, from today",
                 props: () => ({
+                    zone: "America/Vancouver",
                     label: "Send at",
                     min: "2026-10-07",
                     hint: "Clients in other time zones get it at this local time.",
@@ -154,6 +177,7 @@ export default [
                 key: "datetime-error",
                 title: "Error",
                 props: () => ({
+                    zone: "America/Vancouver",
                     label: "Send at",
                     defaultValue: "2026-10-01T08:00",
                     error: "Pick a time in the future.",

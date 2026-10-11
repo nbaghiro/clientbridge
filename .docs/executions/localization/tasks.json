@@ -1,0 +1,609 @@
+{
+  "title": "Localization foundation task queue",
+  "status": "completed",
+  "generated_on": "2026-10-10",
+  "plan": "plan.md",
+  "worker": {
+    "model": "inherit",
+    "max_active_workers": 1,
+    "auto_commit": false,
+    "auto_push": false
+  },
+  "execution_order": [
+    "F00",
+    "F10",
+    "F11",
+    "F12",
+    "F13",
+    "F14",
+    "F15",
+    "F20",
+    "F21",
+    "F22",
+    "F23",
+    "F24",
+    "F25",
+    "F30",
+    "F31",
+    "F32",
+    "F33",
+    "F34",
+    "F35",
+    "F36",
+    "F40",
+    "F41",
+    "F42",
+    "F43",
+    "F60",
+    "F61",
+    "F62",
+    "F63",
+    "F64",
+    "F65",
+    "F66"
+  ],
+  "tasks": [
+    {
+      "id": "F00",
+      "phase": "Baseline",
+      "title": "Record the localization baseline",
+      "status": "completed",
+      "depends_on": [],
+      "scope": [
+        "frontend/",
+        "backend/src/clientbridge/",
+        ".docs/executions/localization/progress.md"
+      ],
+      "acceptance": [
+        "A script in .scratchpad counts catalog entries, interpolation functions, hand plurals, composed template literals, module-scope catalog reads, locale literals, toLocale/Intl sites, toFixed display sites and backend user-facing strings; progress.md records the counts with file lists.",
+        "Existing gate failures from other sessions are recorded so later tasks do not attribute them to this work.",
+        "A snapshot of every rendered catalog entry (plain values and functions called with fixed sample arguments) is saved for the unchanged-output checks."
+      ]
+    },
+    {
+      "id": "F10",
+      "phase": "Catalog foundation",
+      "title": "Add the catalog runtime and generator",
+      "status": "completed",
+      "depends_on": [
+        "F00"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/strings.ts",
+        "frontend/packages/app-core/locales/",
+        "frontend/packages/config/scripts/",
+        "Makefile"
+      ],
+      "acceptance": [
+        "intl-messageformat is a dependency of app-core only.",
+        "make gen-strings reads locales/en-CA.json and writes the typed accessor and en-XA.json; codegen-check covers both.",
+        "activeLocale() is the single entry point, returns en-CA, and switches to en-XA only through a development or test flag.",
+        "The accessor resolves each leaf against the active locale at read time and caches compiled messages; unit tests cover caching, argument typing and the pseudo-locale switch."
+      ]
+    },
+    {
+      "id": "F11",
+      "phase": "Catalog foundation",
+      "title": "Move English copy into en-CA.json",
+      "status": "completed",
+      "depends_on": [
+        "F10"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/strings.ts",
+        "frontend/packages/app-core/locales/en-CA.json"
+      ],
+      "acceptance": [
+        "A codemod moves every plain entry and every function whose body is a single template literal; remaining functions are listed and converted by hand.",
+        "Every call site compiles unchanged; app-core, web, mobile, Connect and playground typecheck and tests pass, and the F00 snapshot is identical."
+      ]
+    },
+    {
+      "id": "F12",
+      "phase": "Catalog foundation",
+      "title": "Convert plurals, ordinals and selects to ICU",
+      "status": "completed",
+      "depends_on": [
+        "F11"
+      ],
+      "scope": [
+        "frontend/packages/app-core/locales/en-CA.json",
+        "frontend/packages/app-core/src/"
+      ],
+      "acceptance": [
+        "The 95 hand plural checks and the English ordinal array are replaced by ICU plural and selectordinal messages.",
+        "English output is unchanged for 0, 1, 2 and 21 in the converted entries."
+      ]
+    },
+    {
+      "id": "F13",
+      "phase": "Catalog foundation",
+      "title": "Move composed sentences into the catalog",
+      "status": "completed",
+      "depends_on": [
+        "F11"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/domain/",
+        "frontend/apps/*/src/",
+        "frontend/packages/ui/src/"
+      ],
+      "acceptance": [
+        "The roughly 109 template literals that compose copy become whole catalog messages, and the 24 list joins use Intl.ListFormat through the formatter.",
+        "No separator literal joins display text outside the catalog; rendered English is unchanged."
+      ]
+    },
+    {
+      "id": "F14",
+      "phase": "Catalog foundation",
+      "title": "Remove module-scope copy",
+      "status": "completed",
+      "depends_on": [
+        "F11"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/",
+        "frontend/apps/*/src/",
+        "frontend/packages/ui/src/"
+      ],
+      "acceptance": [
+        "Label arrays and maps built at import time become functions or getters.",
+        "A test switching to en-XA after import shows every converted label in the pseudo-locale."
+      ]
+    },
+    {
+      "id": "F15",
+      "phase": "Catalog foundation",
+      "title": "Move remaining frontend text into the catalog",
+      "status": "completed",
+      "depends_on": [
+        "F11"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/",
+        "frontend/apps/*/src/",
+        "frontend/packages/ui/src/"
+      ],
+      "acceptance": [
+        "Copy that F00 found outside strings.ts (domain helpers, stored labels rendered directly, accessibility labels, toUpperCase on copy) reads from the catalog or uses CSS text-transform.",
+        "Subject attribute values stored as English words (pet temperaments) are rendered through a catalog lookup keyed by the stored value, with no data change."
+      ]
+    },
+    {
+      "id": "F20",
+      "phase": "Formatting and time zones",
+      "title": "Build the formatter module",
+      "status": "completed",
+      "depends_on": [
+        "F10"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/format.ts",
+        "frontend/packages/app-core/src/datetime.ts"
+      ],
+      "acceptance": [
+        "Money, number, percent, date, time, range, relative time, list and duration formatting use Intl with activeLocale(), an explicit currency and an explicit time zone.",
+        "No function has a locale default; tests cover en-CA and en-XA output, negative amounts and a non-CAD currency."
+      ]
+    },
+    {
+      "id": "F21",
+      "phase": "Formatting and time zones",
+      "title": "Replace direct formatting call sites",
+      "status": "completed",
+      "depends_on": [
+        "F20"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/",
+        "frontend/apps/*/src/",
+        "frontend/packages/ui/src/"
+      ],
+      "acceptance": [
+        "The roughly 30 locale literals, 42 toLocale/Intl sites and 74 toFixed display sites go through the formatter.",
+        "formatMoney takes the currency of the amount; English output is unchanged for CAD."
+      ]
+    },
+    {
+      "id": "F22",
+      "phase": "Formatting and time zones",
+      "title": "Make money and number input locale-aware",
+      "status": "completed",
+      "depends_on": [
+        "F20"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/format.ts",
+        "frontend/packages/ui/src/"
+      ],
+      "acceptance": [
+        "parseCents and number parsing read the active locale's decimal and grouping separators and currency position from Intl.",
+        "Existing money and number field tests pass; new tests cover grouping separators and a locale with a comma decimal using Intl data only."
+      ]
+    },
+    {
+      "id": "F23",
+      "phase": "Formatting and time zones",
+      "title": "Use the business time zone in the apps",
+      "status": "completed",
+      "depends_on": [
+        "F20"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/",
+        "frontend/apps/web/src/",
+        "frontend/apps/mobile/src/"
+      ],
+      "acceptance": [
+        "Display and day grouping use the business time zone, including the SQL date expressions in app-core.",
+        "app-core tests pass under America/Vancouver, America/Halifax and Asia/Tokyo; Hermes output is checked on iOS and Android."
+      ]
+    },
+    {
+      "id": "F24",
+      "phase": "Formatting and time zones",
+      "title": "Use the business time zone on Connect",
+      "status": "completed",
+      "depends_on": [
+        "F20"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/domain/publicBooking.ts",
+        "frontend/packages/app-core/src/domain/publicLanding.ts",
+        "frontend/apps/connect/src/"
+      ],
+      "acceptance": [
+        "Booking times and all public dates are in the business zone, with a zone label when the visitor's zone differs.",
+        "A Playwright run with a browser time zone different from the business shows correct times and the label."
+      ]
+    },
+    {
+      "id": "F25",
+      "phase": "Formatting and time zones",
+      "title": "Take hour cycle and week start from the locale",
+      "status": "completed",
+      "depends_on": [
+        "F20"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/datetime.ts",
+        "frontend/packages/ui/src/"
+      ],
+      "acceptance": [
+        "Time pickers, clock options and calendars read hour cycle and first day of week through the formatter.",
+        "English output stays 12-hour with a Monday-first week."
+      ]
+    },
+    {
+      "id": "F30",
+      "phase": "Backend",
+      "title": "Add the backend catalog",
+      "status": "completed",
+      "depends_on": [],
+      "scope": [
+        "backend/pyproject.toml",
+        "backend/src/clientbridge/core/locale.py",
+        "backend/src/clientbridge/locales/",
+        "Makefile"
+      ],
+      "acceptance": [
+        "Babel is a dependency; core/locale.py loads en_CA.po, exposes locale_for(...) returning en_CA, a typed message lookup and Babel formatters.",
+        "make gen-messages regenerates messages.pot and en_XA.po; codegen-check covers both; ruff and mypy strict pass."
+      ]
+    },
+    {
+      "id": "F31",
+      "phase": "Backend",
+      "title": "Move notification copy into the catalog",
+      "status": "completed",
+      "depends_on": [
+        "F30"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/notifications.py"
+      ],
+      "acceptance": [
+        "All 38 builders read messages through the catalog using locale_for(...).",
+        "Tests render every builder in en_XA with no unconverted text; English output is unchanged apart from F33."
+      ]
+    },
+    {
+      "id": "F32",
+      "phase": "Backend",
+      "title": "Move remaining backend copy into the catalog",
+      "status": "completed",
+      "depends_on": [
+        "F30"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/auth.py",
+        "backend/src/clientbridge/services/staff.py",
+        "backend/src/clientbridge/services/messaging.py"
+      ],
+      "acceptance": [
+        "Auth and staff emails and the SMS opt-out line come from the catalog.",
+        "Inbound opt-out words are unchanged."
+      ]
+    },
+    {
+      "id": "F33",
+      "phase": "Backend",
+      "title": "Fix backend money and date formatting",
+      "status": "completed",
+      "depends_on": [
+        "F30"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/notifications.py"
+      ],
+      "acceptance": [
+        "_money is replaced by Babel currency formatting with the amount's currency; negative amounts and thousands separators are correct.",
+        "Dates use Babel in the business time zone and match the app's English format; the hardcoded CAD in estimate and gift card messages is removed.",
+        "Tests cover each fix."
+      ]
+    },
+    {
+      "id": "F34",
+      "phase": "Backend",
+      "title": "Render tax labels from jurisdiction codes",
+      "status": "completed",
+      "depends_on": [
+        "F30",
+        "F11"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/tax.py",
+        "frontend/packages/app-core/locales/en-CA.json"
+      ],
+      "acceptance": [
+        "Tax display names and registration labels come from the catalogs, keyed by GST, HST, PST and QST.",
+        "If any English tax name is stored in a table, it is reported in progress.md and left in place; no schema change."
+      ]
+    },
+    {
+      "id": "F35",
+      "phase": "Backend",
+      "title": "Enforce the error contract",
+      "status": "completed",
+      "depends_on": [
+        "F30"
+      ],
+      "scope": [
+        "backend/src/clientbridge/core/errors.py",
+        "frontend/packages/app-core/src/api.ts"
+      ],
+      "acceptance": [
+        "Every client-visible failure maps a stable error code or status to a catalog message.",
+        "No client renders an API error message; a test covers the mapping for each code."
+      ]
+    },
+    {
+      "id": "F36",
+      "phase": "Backend",
+      "title": "Localize CSV exports and validate time zones",
+      "status": "completed",
+      "depends_on": [
+        "F30"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/reports.py",
+        "backend/src/clientbridge/schemas/business.py",
+        "backend/src/clientbridge/services/business.py",
+        "frontend/apps/web/src/",
+        "frontend/apps/mobile/src/"
+      ],
+      "acceptance": [
+        "Report CSV headers come from the catalog; column order and data are unchanged.",
+        "Invalid IANA time zone names are rejected with a typed error, existing rows are checked and reported, and the business screen offers a time zone picker."
+      ]
+    },
+    {
+      "id": "F40",
+      "phase": "Other surfaces",
+      "title": "Localize printed documents",
+      "status": "completed",
+      "depends_on": [
+        "F13",
+        "F21",
+        "F34"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/domain/printing.ts",
+        "frontend/apps/web/src/components/DocumentPreview.tsx",
+        "frontend/apps/connect/src/components/PublicDocument.tsx"
+      ],
+      "acceptance": [
+        "Invoices, estimates, receipts and signed contracts take titles, page counters, tax labels and amounts from the catalog and formatter.",
+        "Printed output in en-CA is unchanged; en-XA shows no unconverted text."
+      ]
+    },
+    {
+      "id": "F41",
+      "phase": "Other surfaces",
+      "title": "Move mobile permission prompts into native files",
+      "status": "completed",
+      "depends_on": [
+        "F10"
+      ],
+      "scope": [
+        "frontend/apps/mobile/app.config.ts",
+        "frontend/apps/mobile/ios/",
+        "frontend/apps/mobile/android/"
+      ],
+      "acceptance": [
+        "Permission prompts and the display name come from English native locale files; CFBundleLocalizations and the Android locale config declare en.",
+        "The iOS simulator and Android emulator builds show the same prompts as before."
+      ]
+    },
+    {
+      "id": "F42",
+      "phase": "Other surfaces",
+      "title": "Build the embed script from the catalog",
+      "status": "completed",
+      "depends_on": [
+        "F11"
+      ],
+      "scope": [
+        "frontend/apps/connect/public/embed.js",
+        "frontend/apps/connect/src/embed.ts",
+        "frontend/apps/connect/"
+      ],
+      "acceptance": [
+        "embed.js is generated from source with its strings from the catalog; codegen-check fails when it is stale.",
+        "The embed dialog renders the same English titles and close label."
+      ]
+    },
+    {
+      "id": "F43",
+      "phase": "Other surfaces",
+      "title": "Move marketing site prose into a catalog",
+      "status": "completed",
+      "depends_on": [
+        "F10",
+        "F20"
+      ],
+      "scope": [
+        "frontend/apps/site/src/content/",
+        "frontend/apps/site/locales/",
+        "frontend/apps/site/src/format.ts"
+      ],
+      "acceptance": [
+        "Site prose lives in apps/site/locales/en-CA.json with the same generator; structural data stays in TypeScript.",
+        "The site's money formatter is replaced by the shared formatter; lint:content and test-site pass with unchanged pages."
+      ]
+    },
+    {
+      "id": "F60",
+      "phase": "Enforcement and acceptance",
+      "title": "Add the frontend lint rules",
+      "status": "completed",
+      "depends_on": [
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F21"
+      ],
+      "scope": [
+        "frontend/packages/config/"
+      ],
+      "acceptance": [
+        "no-raw-format, no-composed-copy, no-module-scope-copy, no-hand-plural and no-error-message-copy are active with tests and a recorded false-positive count.",
+        "no-inline-ui-string also covers the embed source and site components; pnpm lint passes."
+      ]
+    },
+    {
+      "id": "F61",
+      "phase": "Enforcement and acceptance",
+      "title": "Add catalog checks",
+      "status": "completed",
+      "depends_on": [
+        "F10"
+      ],
+      "scope": [
+        "frontend/packages/config/scripts/",
+        "Makefile"
+      ],
+      "acceptance": [
+        "check-catalogs validates ICU syntax, argument lists against placeholders, and unused keys for both app and site catalogs.",
+        "It runs in make check and CI."
+      ]
+    },
+    {
+      "id": "F62",
+      "phase": "Enforcement and acceptance",
+      "title": "Add backend copy checks",
+      "status": "completed",
+      "depends_on": [
+        "F31",
+        "F32",
+        "F36"
+      ],
+      "scope": [
+        "backend/scripts/check_structure.py",
+        "Makefile"
+      ],
+      "acceptance": [
+        "Literal or f-string text passed to senders, CSV writers or client-visible errors outside the catalog fails make lint.",
+        "messages.pot and en_XA.po staleness fail codegen-check."
+      ]
+    },
+    {
+      "id": "F63",
+      "phase": "Enforcement and acceptance",
+      "title": "Run the pseudo-locale e2e suite",
+      "status": "completed",
+      "depends_on": [
+        "F40",
+        "F42",
+        "F60"
+      ],
+      "scope": [
+        "frontend/apps/playground/",
+        "frontend/apps/web/",
+        "frontend/apps/connect/"
+      ],
+      "acceptance": [
+        "Playground stories and key web and Connect pages run in en-XA and fail on unmarked visible text.",
+        "The suite runs in CI."
+      ]
+    },
+    {
+      "id": "F64",
+      "phase": "Enforcement and acceptance",
+      "title": "Fix layouts for longer text",
+      "status": "completed",
+      "depends_on": [
+        "F63"
+      ],
+      "scope": [
+        "frontend/packages/ui/src/",
+        "frontend/apps/*/src/"
+      ],
+      "acceptance": [
+        "The roughly 92 fixed widths and 256 truncation points are reviewed in en-XA; clipped controls, badges and stat tiles are fixed on web, iOS and Android without changing the English layout."
+      ]
+    },
+    {
+      "id": "F65",
+      "phase": "Enforcement and acceptance",
+      "title": "Add the time zone test matrix",
+      "status": "completed",
+      "depends_on": [
+        "F23",
+        "F24"
+      ],
+      "scope": [
+        ".github/workflows/ci.yml",
+        "Makefile"
+      ],
+      "acceptance": [
+        "CI runs app-core tests under three TZ values and formatter tests under en-CA and en-XA."
+      ]
+    },
+    {
+      "id": "F66",
+      "phase": "Enforcement and acceptance",
+      "title": "Update the conventions and close",
+      "status": "completed",
+      "depends_on": [
+        "F41",
+        "F43",
+        "F61",
+        "F62",
+        "F64",
+        "F65"
+      ],
+      "scope": [
+        "CLAUDE.md",
+        ".docs/engineering.md",
+        ".docs/architecture.md",
+        ".docs/executions/localization/progress.md"
+      ],
+      "acceptance": [
+        "The Copy section describes the catalog format, the formatter rule, the pseudo-locale and the gate; architecture.md describes activeLocale(), locale_for(...) and the time zone rule.",
+        "make check, the playground suite and manual en-XA passes on web, iOS and Android are green and recorded."
+      ]
+    }
+  ]
+}

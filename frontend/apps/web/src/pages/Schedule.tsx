@@ -12,6 +12,9 @@ import {
     useBookingStart,
     useMoveEvent,
     useScheduleBoard,
+    formatParts,
+    useBusinessZone,
+    minutesInto,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -55,6 +58,7 @@ import { useLinkIntent } from "../lib/links";
 const s = strings.bookings;
 
 export function Schedule() {
+    const zone = useBusinessZone();
     const viewer = useViewer();
     const mover = useMoveEvent(api);
     const board = useScheduleBoard(viewer, mover.pending);
@@ -85,13 +89,7 @@ export function Schedule() {
         board.select(null);
         setComposer({
             staffId,
-            start: new Date(
-                day.date.getFullYear(),
-                day.date.getMonth(),
-                day.date.getDate(),
-                startHour,
-                min,
-            ),
+            start: minutesInto(day.date, startHour * 60 + min, board.zone),
         });
     };
     const openNew = (): void => {
@@ -216,6 +214,7 @@ export function Schedule() {
                                             day.date,
                                             startHour,
                                             pxPerMin,
+                                            zone,
                                         );
                                         const hovering =
                                             hover?.lane === lane.id &&
@@ -236,7 +235,12 @@ export function Schedule() {
                                                 }}
                                             >
                                                 <OffHours
-                                                    spans={offHourSpans(lane, startHour, endHour)}
+                                                    spans={offHourSpans(
+                                                        lane,
+                                                        startHour,
+                                                        endHour,
+                                                        zone,
+                                                    )}
                                                     pxPerMin={pxPerMin}
                                                 />
                                                 <HourLines
@@ -266,6 +270,7 @@ export function Schedule() {
                                                                 startHour,
                                                                 hover.min,
                                                             ),
+                                                            zone,
                                                         )}
                                                     />
                                                 ) : null}
@@ -288,8 +293,8 @@ export function Schedule() {
                                     })}
                                     {day.isToday ? (
                                         <NowLine
-                                            top={minuteTop(board.now, startHour, pxPerMin)}
-                                            label={formatTime(board.now)}
+                                            top={minuteTop(board.now, startHour, pxPerMin, zone)}
+                                            label={formatTime(board.now, zone)}
                                         />
                                     ) : null}
                                     {day.events.length === 0 && !day.closure ? (
@@ -335,7 +340,7 @@ export function Schedule() {
                         <StatusLegend />
                     </div>
                     {mover.refusal !== null ? (
-                        <Toast tone="danger">{`${s.dropRefused}: ${mover.refusal}`}</Toast>
+                        <Toast tone="danger">{s.dropRefusedBecause(mover.refusal)}</Toast>
                     ) : null}
                     {mover.last !== null && mover.refusal === null ? (
                         <Toast
@@ -345,7 +350,7 @@ export function Schedule() {
                                 </Button>
                             }
                         >
-                            {s.moved(mover.last.label)}
+                            {s.moved(mover.last.label.replace(/\.$/, ""))}
                         </Toast>
                     ) : null}
                 </div>
@@ -371,7 +376,7 @@ export function Schedule() {
                     <DetailView
                         open={!moving}
                         title={detail.event.headline}
-                        subtitle={`${detail.event.serviceName} · ${detail.event.timeLabel}`}
+                        subtitle={formatParts([detail.event.serviceName, detail.event.timeLabel])}
                         onClose={closeDetail}
                         actions={
                             <BookingActionBar

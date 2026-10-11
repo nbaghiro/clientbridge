@@ -24,27 +24,43 @@ export default story<MoneyStory>({
         strong: { type: "boolean" },
     },
     examples: [
-        { key: "default", title: "Default", props: () => ({ cents: 8500 }) },
-        { key: "strong", title: "Strong", props: () => ({ cents: 214592, strong: true }) },
-        { key: "muted", title: "Muted", props: () => ({ cents: 1410, tone: "muted" }) },
-        { key: "success", title: "Success", props: () => ({ cents: 5040, tone: "success" }) },
-        { key: "danger", title: "Danger", props: () => ({ cents: 35616, tone: "danger" }) },
-        { key: "zero", title: "Zero", props: () => ({ cents: 0 }) },
-        { key: "null", title: "No amount", props: () => ({ cents: null }) },
+        { key: "default", title: "Default", props: () => ({ currency: "CAD", cents: 8500 }) },
+        {
+            key: "strong",
+            title: "Strong",
+            props: () => ({ currency: "CAD", cents: 214592, strong: true }),
+        },
+        {
+            key: "muted",
+            title: "Muted",
+            props: () => ({ currency: "CAD", cents: 1410, tone: "muted" }),
+        },
+        {
+            key: "success",
+            title: "Success",
+            props: () => ({ currency: "CAD", cents: 5040, tone: "success" }),
+        },
+        {
+            key: "danger",
+            title: "Danger",
+            props: () => ({ currency: "CAD", cents: 35616, tone: "danger" }),
+        },
+        { key: "zero", title: "Zero", props: () => ({ currency: "CAD", cents: 0 }) },
+        { key: "null", title: "No amount", props: () => ({ currency: "CAD", cents: null }) },
         {
             key: "column",
             title: "A column of amounts",
-            props: () => ({ cents: null, column: [7500, 128450, 99, 1234567] }),
+            props: () => ({ currency: "CAD", cents: null, column: [7500, 128450, 99, 1234567] }),
         },
         {
             key: "negative",
             title: "Negative (a refund)",
-            props: () => ({ cents: -4250, tone: "danger" }),
+            props: () => ({ currency: "CAD", cents: -4250, tone: "danger" }),
         },
         {
             key: "large",
             title: "Large and strong",
-            props: () => ({ cents: 123456789, strong: true, tone: "success" }),
+            props: () => ({ currency: "CAD", cents: 123456789, strong: true, tone: "success" }),
         },
     ],
 });

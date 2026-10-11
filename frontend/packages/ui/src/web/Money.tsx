@@ -9,7 +9,13 @@ const TONES: Record<NonNullable<MoneyProps["tone"]>, string> = {
     danger: "text-danger",
 };
 
-export function Money({ cents, tone = "ink", strong = false, className }: WebProps<MoneyProps>) {
+export function Money({
+    cents,
+    currency,
+    tone = "ink",
+    strong = false,
+    className,
+}: WebProps<MoneyProps>) {
     return (
         <span
             className={cx(
@@ -17,7 +23,7 @@ export function Money({ cents, tone = "ink", strong = false, className }: WebPro
                 className,
             )}
         >
-            {formatMoney(cents)
+            {formatMoney(cents, currency)
                 .split(/([.,])/)
                 .map((part, i) =>
                     part === "." || part === "," ? (

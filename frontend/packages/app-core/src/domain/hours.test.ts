@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { formatTime } from "../datetime";
+import { formatTime, zonedDate } from "../datetime";
 import type { ScheduleEvent } from "./bookings";
 import { affectedBy, rebaseWeek, seedDays, shiftLabel } from "./hours";
+
+const ZONE = "America/Vancouver";
 
 type RecurringRow = Parameters<typeof seedDays>[0][number];
 
@@ -41,7 +43,7 @@ describe("the weekly hours editor", () => {
     });
 
     it("labels a shift in full or as a short twelve-hour span", () => {
-        const t = (h: number, m = 0) => formatTime(new Date(2000, 0, 1, h, m));
+        const t = (h: number, m = 0) => formatTime(zonedDate(2000, 1, 1, h, m, ZONE), ZONE);
         expect(shiftLabel("09:00", "17:00")).toBe(`${t(9)} – ${t(17)}`);
         expect(shiftLabel("09:00", "17:00", true)).toBe("9–5");
         expect(shiftLabel("08:30", "12:00", true)).toBe("8:30–12");
@@ -50,7 +52,7 @@ describe("the weekly hours editor", () => {
 });
 
 describe("affectedBy", () => {
-    const at = (h: number, day = 7) => new Date(2026, 9, day, h);
+    const at = (h: number, day = 7) => zonedDate(2026, 10, day, h, 0, ZONE);
     const visit = (id: string, staffId: string, start: Date, end: Date, status = "confirmed") =>
         ({ id, staffId, start, end, status }) as ScheduleEvent;
     const events = [

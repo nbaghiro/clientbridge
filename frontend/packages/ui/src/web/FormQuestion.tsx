@@ -4,6 +4,7 @@ import {
     type FormQuestionProps,
     type TextFieldType,
     optionPair,
+    strings,
 } from "@clientbridge/app-core/public";
 
 import { Choice } from "./Choice";
@@ -32,6 +33,7 @@ export function FormQuestion({
     chooseFileLabel,
     selectPlaceholder,
     invalid = false,
+    zone,
     className,
 }: WebProps<FormQuestionProps>) {
     const preview = onChange === undefined;
@@ -86,7 +88,7 @@ export function FormQuestion({
                     className={`rounded-md border px-3.5 py-3 ${invalid ? "border-danger" : "border-line"} bg-bg`}
                 >
                     <Toggle
-                        label={f.required ? `${label} *` : label}
+                        label={f.required ? strings.common.requiredLabel(label) : label}
                         hint={help}
                         value={value === true}
                         onChange={set}
@@ -121,10 +123,20 @@ export function FormQuestion({
                 </Field>
             );
         }
-        if (f.input === "date" || f.input === "time") {
-            const Picker = f.input === "date" ? DateField : TimeField;
+        if (f.input === "date")
             return (
-                <Picker
+                <DateField
+                    label={label}
+                    hint={help}
+                    required={f.required}
+                    value={typeof value === "string" ? value : ""}
+                    onChange={set}
+                    zone={zone}
+                />
+            );
+        if (f.input === "time")
+            return (
+                <TimeField
                     label={label}
                     hint={help}
                     required={f.required}
@@ -132,7 +144,6 @@ export function FormQuestion({
                     onChange={set}
                 />
             );
-        }
         return (
             <TextField
                 label={label}

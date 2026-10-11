@@ -1,4 +1,4 @@
-import { type StatProps, formatMoney, formatMoneyWithCurrency } from "@clientbridge/app-core";
+import { type StatProps, formatMoney } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -25,9 +25,8 @@ export function Stat({
     style,
 }: NativeProps<StatProps>) {
     const large = size === "lg";
-    const money = (n: number): string =>
-        currency === undefined ? formatMoney(n) : formatMoneyWithCurrency(n, currency);
-    const shown = value ?? (cents === null || cents === undefined ? null : money(cents));
+    const shown =
+        value ?? (cents === null || cents === undefined ? null : formatMoney(cents, currency));
     return (
         <View style={[large ? styles.card : styles.row, style]}>
             <View style={large ? null : styles.words}>

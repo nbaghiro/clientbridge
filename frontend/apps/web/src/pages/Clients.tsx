@@ -19,6 +19,11 @@ import {
     useClientSelection,
     useNoteActions,
     visitPill,
+    formatParts,
+    formatList,
+    temperamentLabel,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     ActionMenu,
@@ -75,6 +80,7 @@ export function Clients() {
 }
 
 function ClientList() {
+    const zone = useBusinessZone();
     const dir = useClientDirectory();
     const manager = canManagePayments(useRole());
     const [openId, setOpenId] = useState<string | null>(null);
@@ -250,13 +256,17 @@ function ClientList() {
                                     c.next === null ? "text-sm text-muted" : "text-sm text-ink-soft"
                                 }
                             >
-                                {nextVisitLabel(c.next)}
+                                {nextVisitLabel(c.next, zone)}
                             </span>
                         )}
                         {manager && !selecting ? (
                             <span className="text-right text-sm">
                                 {c.balanceCents > 0 ? (
-                                    <Money cents={c.balanceCents} tone="danger" />
+                                    <Money
+                                        currency={BUSINESS_CURRENCY}
+                                        cents={c.balanceCents}
+                                        tone="danger"
+                                    />
                                 ) : (
                                     <span className="text-muted">{strings.clients.dash}</span>
                                 )}
@@ -595,6 +605,7 @@ function RecordActions({
 }
 
 function RecordFacts({ record, manager }: { record: ClientRecord; manager: boolean }) {
+    const zone = useBusinessZone();
     const c = record.client;
     return (
         <KeyValueList
@@ -603,23 +614,31 @@ function RecordFacts({ record, manager }: { record: ClientRecord; manager: boole
             rows={[
                 ...(manager
                     ? [
-                          { label: r.lifetime, value: <Money cents={c.lifetimeCents} /> },
+                          {
+                              label: r.lifetime,
+                              value: <Money currency={BUSINESS_CURRENCY} cents={c.lifetimeCents} />,
+                          },
                           {
                               label: r.balance,
                               value:
-                                  c.balanceCents > 0 ? <Money cents={c.balanceCents} /> : r.settled,
+                                  c.balanceCents > 0 ? (
+                                      <Money currency={BUSINESS_CURRENCY} cents={c.balanceCents} />
+                                  ) : (
+                                      r.settled
+                                  ),
                               intent: c.balanceCents > 0 ? ("warning" as const) : undefined,
                           },
                       ]
                     : []),
                 { label: r.visits, value: String(record.visits) },
-                { label: r.since, value: formatDate(c.since) },
+                { label: r.since, value: formatDate(c.since, zone) },
             ]}
         />
     );
 }
 
 function NoteItem({ note, manager }: { note: ClientNote; manager: boolean }) {
+    const zone = useBusinessZone();
     const actions = useNoteActions(api);
     const [menu, setMenu] = useState(false);
     const can = manager || note.mine;
@@ -630,7 +649,7 @@ function NoteItem({ note, manager }: { note: ClientNote; manager: boolean }) {
                 <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
                     {strings.clients.history.by(
                         note.author,
-                        formatRelativeTime(note.at.toISOString()),
+                        formatRelativeTime(note.at.toISOString(), zone),
                     )}
                     {note.pet !== null ? <Badge label={note.pet} intent="neutral" /> : null}
                     {note.pinned ? <Badge label={r.pinned} intent="warning" /> : null}
@@ -705,6 +724,7 @@ function RecordPanel({
     onClose: () => void;
     onDialog: (d: Dialog) => void;
 }) {
+    const zone = useBusinessZone();
     const viewer = useViewer();
     const { load, record } = useClientRecord(api, clientId, viewer?.staffId ?? null);
     const navigate = useNavigate();
@@ -735,9 +755,13 @@ function RecordPanel({
         <DetailView
             open={visible}
             title={c.name}
-            subtitle={[c.phoneLabel, record.pets.map((p) => p.name).join(", ")]
-                .filter(Boolean)
-                .join(" · ")}
+            subtitle={formatParts([
+                c.phoneLabel,
+                formatList(
+                    record.pets.map((p) => p.name),
+                    "unit",
+                ),
+            ])}
             status={c.archived ? { status: r.archived, intent: "warning" } : undefined}
             leading={<Avatar name={c.name} size="lg" />}
             onClose={onClose}
@@ -756,7 +780,7 @@ function RecordPanel({
                     {c.tags.map((tag) => (
                         <Badge key={tag} label={tag} intent="accent" />
                     ))}
-                    <span>{[c.email, r.prefers(c.channel)].filter(Boolean).join(" · ")}</span>
+                    <span>{formatParts([c.email, r.prefers(c.channel)])}</span>
                 </div>
             ) : null}
             <div className="rounded-md border border-line bg-bg px-4 py-3">
@@ -804,7 +828,7 @@ function RecordPanel({
                                 meta={
                                     typeof pet.attributes.temperament === "string" ? (
                                         <Badge
-                                            label={pet.attributes.temperament}
+                                            label={temperamentLabel(pet.attributes.temperament)}
                                             intent={
                                                 pet.attributes.temperament === "anxious" ||
                                                 pet.attributes.temperament === "reactive"
@@ -845,9 +869,12 @@ function RecordPanel({
                                             {v.service}
                                         </div>
                                         <div className="text-xs text-muted">
-                                            {formatWeekday(v.start)} · {formatDate(v.start)} ·{" "}
-                                            {formatTime(v.start)}
-                                            {v.staffName === null ? "" : ` · ${v.staffName}`}
+                                            {formatParts([
+                                                formatWeekday(v.start, zone),
+                                                formatDate(v.start, zone),
+                                                formatTime(v.start, zone),
+                                                v.staffName,
+                                            ])}
                                         </div>
                                     </div>
                                     {pill !== null ? (
@@ -864,7 +891,7 @@ function RecordPanel({
                 )}
                 {record.lastVisitAt !== null ? (
                     <p className="mt-2 text-xs text-muted">
-                        {r.lastVisit(formatDate(record.lastVisitAt))}
+                        {r.lastVisit(formatDate(record.lastVisitAt, zone))}
                     </p>
                 ) : null}
             </DetailSection>
@@ -938,12 +965,19 @@ function RecordPanel({
 }
 
 const VIEW_TITLE: Record<View, string> = {
-    history: strings.clients.history.title,
-    pets: strings.clients.pets.pets,
-    "payment-methods": strings.clients.wallet.title,
+    get history() {
+        return strings.clients.history.title;
+    },
+    get pets() {
+        return strings.clients.pets.pets;
+    },
+    get "payment-methods"() {
+        return strings.clients.wallet.title;
+    },
 };
 
 function ClientPage({ clientId, view }: { clientId: string; view: View }) {
+    const zone = useBusinessZone();
     const viewer = useViewer();
     const manager = canManagePayments(useRole());
     const { load, record } = useClientRecord(api, clientId, viewer?.staffId ?? null);
@@ -982,13 +1016,11 @@ function ClientPage({ clientId, view }: { clientId: string; view: View }) {
                                 {c.name}
                             </h1>
                             <p className="text-sm text-muted">
-                                {[
+                                {formatParts([
                                     VIEW_TITLE[view],
                                     c.phoneLabel,
-                                    strings.clients.history.since(formatDate(c.since)),
-                                ]
-                                    .filter(Boolean)
-                                    .join(" · ")}
+                                    strings.clients.history.since(formatDate(c.since, zone)),
+                                ])}
                             </p>
                         </div>
                         <div className="flex gap-2">

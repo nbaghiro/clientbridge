@@ -7,4 +7,5 @@ export const config = {
     bookUrl: env.VITE_BOOK_URL ?? "http://localhost:8709",
     stripePublishableKey: env.VITE_STRIPE_PUBLISHABLE_KEY,
     dev: env.DEV,
+    pseudoLocale: env.DEV && env.VITE_PSEUDO_LOCALE === "1",
 };

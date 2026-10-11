@@ -1,9 +1,11 @@
 import {
     type ShopFlow,
     createPublicShopClient,
-    money,
     strings,
     useShopFlow,
+    formatParts,
+    formatMoney,
+    BUSINESS_CURRENCY,
 } from "@clientbridge/app-core/public";
 import {
     Button,
@@ -89,8 +91,8 @@ function ShopPage({ slug }: { slug: string }) {
         );
         if (result) result.catch(() => undefined);
     };
-    const currency = page.items[0]?.currency ?? "CAD";
-    const subtotal = money(shop.subtotalCents, currency);
+    const currency = page.items[0]?.currency ?? BUSINESS_CURRENCY;
+    const subtotal = formatMoney(shop.subtotalCents, currency);
     const checkingOut = checkoutRoute || shop.status === "paying" || shop.status === "paid";
     const product = page.items.find((item) => item.id === productId) ?? null;
     const variants = product ? shop.variants(product.id) : [];
@@ -184,7 +186,10 @@ function ShopPage({ slug }: { slug: string }) {
                                         )}
                                         {shop.pickup ? (
                                             <p className="text-xs text-muted">
-                                                {s.pickupHold(shop.pickup.hold_days)}
+                                                {formatParts([
+                                                    shop.zoneNote,
+                                                    s.pickupHold(shop.pickup.hold_days),
+                                                ])}
                                             </p>
                                         ) : null}
                                         <TextField
@@ -318,6 +323,7 @@ function ShopPage({ slug }: { slug: string }) {
                                         imageSrc={item.image_url}
                                         color={null}
                                         cents={item.price_cents}
+                                        currency={item.currency}
                                         meta={item.category ?? undefined}
                                         count={shop.cart[item.id] ?? 0}
                                         tag={
@@ -349,7 +355,9 @@ function ShopPage({ slug }: { slug: string }) {
                                 onPress={() => {
                                     setCartOpen(true);
                                 }}
-                            >{`${s.viewOrder} · ${s.items(shop.count)} · ${subtotal}`}</Button>
+                            >
+                                {formatParts([s.viewOrder, s.items(shop.count), subtotal])}
+                            </Button>
                         </div>
                     ) : null}
                 </>
@@ -405,7 +413,7 @@ function ShopPage({ slug }: { slug: string }) {
                             </h2>
                             {chosen ? (
                                 <p className="font-mono text-xl font-semibold text-ink">
-                                    {money(chosen.price_cents, chosen.currency)}
+                                    {formatMoney(chosen.price_cents, chosen.currency)}
                                 </p>
                             ) : null}
                             {product.description ? (
@@ -422,7 +430,7 @@ function ShopPage({ slug }: { slug: string }) {
                                     options={variants.map((variant) => ({
                                         key: variant.id,
                                         label: variant.variant_label ?? variant.name,
-                                        hint: money(variant.price_cents, variant.currency),
+                                        hint: formatMoney(variant.price_cents, variant.currency),
                                         disabled: !variant.in_stock,
                                     }))}
                                 />
@@ -498,7 +506,7 @@ function CheckoutSection({
 }
 
 function OrderSummary({ shop }: { shop: ShopFlow }) {
-    const currency = shop.shop?.items[0]?.currency ?? "CAD";
+    const currency = shop.shop?.items[0]?.currency ?? BUSINESS_CURRENCY;
     return (
         <div className="space-y-4">
             <div className="flex items-baseline justify-between">
@@ -509,7 +517,9 @@ function OrderSummary({ shop }: { shop: ShopFlow }) {
             <dl className="space-y-2 border-t border-line pt-3 text-sm">
                 <div className="flex justify-between">
                     <dt>{s.subtotal}</dt>
-                    <dd>{money(shop.order?.subtotal_cents ?? shop.subtotalCents, currency)}</dd>
+                    <dd>
+                        {formatMoney(shop.order?.subtotal_cents ?? shop.subtotalCents, currency)}
+                    </dd>
                 </div>
                 <div className="flex justify-between text-muted">
                     <dt>{s.tax}</dt>
@@ -517,7 +527,7 @@ function OrderSummary({ shop }: { shop: ShopFlow }) {
                         {shop.order
                             ? shop.order.tax_total_cents !== null &&
                               shop.order.tax_total_cents !== undefined
-                                ? money(shop.order.tax_total_cents, currency)
+                                ? formatMoney(shop.order.tax_total_cents, currency)
                                 : s.taxLater
                             : s.taxLater}
                     </dd>
@@ -525,7 +535,7 @@ function OrderSummary({ shop }: { shop: ShopFlow }) {
                 {shop.order ? (
                     <div className="flex justify-between font-bold">
                         <dt>{strings.publicOrder.total}</dt>
-                        <dd>{money(shop.order.total_cents, currency)}</dd>
+                        <dd>{formatMoney(shop.order.total_cents, currency)}</dd>
                     </div>
                 ) : null}
             </dl>
@@ -550,6 +560,7 @@ function CartLines({ shop }: { shop: ShopFlow }) {
                     key={l.item.id}
                     title={l.item.name}
                     cents={l.item.price_cents * l.quantity}
+                    currency={l.item.currency}
                     quantity={
                         shop.order
                             ? undefined
@@ -579,7 +590,7 @@ function CartLines({ shop }: { shop: ShopFlow }) {
 function ShopPay({ shop }: { shop: ShopFlow }) {
     const o = shop.order;
     if (o === null) return null;
-    const total = money(o.total_cents, o.currency);
+    const total = formatMoney(o.total_cents, o.currency);
     return (
         <div className="space-y-4">
             <div>

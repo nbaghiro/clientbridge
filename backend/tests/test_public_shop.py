@@ -145,7 +145,7 @@ async def test_order_blocks_more_than_in_stock_409(
     await db.commit()
     res = await api.post(f"/book/{SLUG}/shop/orders", json=_order((SHAMPOO, 2)), headers=_key())
     assert res.status_code == 409
-    assert "only 1 left" in res.json()["message"]
+    assert res.json()["error"] == "out_of_stock"
 
 
 async def test_order_needs_card_payments_on_409(api: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -156,6 +156,7 @@ async def test_order_needs_card_payments_on_409(api: httpx.AsyncClient, db: Asyn
     await db.flush()
     res = await api.post(f"/book/{SLUG}/shop/orders", json=_order((SHAMPOO, 1)), headers=_key())
     assert res.status_code == 409
+    assert res.json()["error"] == "shop_not_ready"
 
 
 async def test_paid_order_notifies_owner_and_client_with_pickup(

@@ -15,6 +15,10 @@ import {
     useBookingDetail,
     useBookingStart,
     useScheduleBoard,
+    formatParts,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
+    minutesInto,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -53,6 +57,7 @@ const PX = HOUR / 60;
 const GUTTER = 44;
 
 export function ScheduleScreen() {
+    const zone = useBusinessZone();
     const viewer = useViewer();
     const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const route = useRoute<RouteProp<TabParamList, "Schedule">>();
@@ -69,7 +74,7 @@ export function ScheduleScreen() {
         const first = day.lanes.find((l) => l.hours) ?? day.lanes[0];
         setComposer({
             staffId: first?.id ?? viewer?.staffId ?? "",
-            start: new Date(day.date.getFullYear(), day.date.getMonth(), day.date.getDate(), 10),
+            start: minutesInto(day.date, 10 * 60, board.zone),
         });
     };
     const create = route.params?.create;
@@ -124,10 +129,10 @@ export function ScheduleScreen() {
                         if (hit) board.setAnchor(hit.date);
                     }}
                     onPrev={() => {
-                        board.setAnchor(addDays(board.anchor, -7));
+                        board.setAnchor(addDays(board.anchor, -7, zone));
                     }}
                     onNext={() => {
-                        board.setAnchor(addDays(board.anchor, 7));
+                        board.setAnchor(addDays(board.anchor, 7, zone));
                     }}
                     prevLabel={s.prev}
                     nextLabel={s.next}
@@ -136,11 +141,13 @@ export function ScheduleScreen() {
             <Text style={styles.summary} numberOfLines={1}>
                 {waiting
                     ? s.loading
-                    : [
+                    : formatParts([
                           s.bookings(board.summary.visits, board.summary.classes),
-                          `${formatMoney(board.summary.expectedCents)} ${s.expected.toLowerCase()}`,
+                          s.expectedAmount(
+                              formatMoney(board.summary.expectedCents, BUSINESS_CURRENCY),
+                          ),
                           s.utilization(board.summary.utilization),
-                      ].join("  ·  ")}
+                      ])}
             </Text>
 
             <View style={styles.lanesHead}>
@@ -214,7 +221,7 @@ export function ScheduleScreen() {
                         </View>
                         {day.lanes.map((lane) => (
                             <View key={lane.id} style={styles.lane}>
-                                {offHourSpans(lane, startHour, endHour).map((sp) => (
+                                {offHourSpans(lane, startHour, endHour, zone).map((sp) => (
                                     <View
                                         key={sp.from}
                                         style={[
@@ -232,7 +239,10 @@ export function ScheduleScreen() {
                                         style={[
                                             styles.block,
                                             {
-                                                top: Math.max(0, minuteTop(b.start, startHour, PX)),
+                                                top: Math.max(
+                                                    0,
+                                                    minuteTop(b.start, startHour, PX, zone),
+                                                ),
                                                 height: Math.max(
                                                     20,
                                                     ((b.end.getTime() - b.start.getTime()) /
@@ -253,52 +263,54 @@ export function ScheduleScreen() {
                                         </Text>
                                     </View>
                                 ))}
-                                {placeEvents(lane.events, day.date, startHour, PX).map((p) => (
-                                    <View
-                                        key={p.event.id}
-                                        style={[
-                                            styles.event,
-                                            {
-                                                top: p.top,
-                                                height: p.height,
-                                                left: `${p.leftPct}%`,
-                                                width: `${p.widthPct}%`,
-                                            },
-                                        ]}
-                                    >
-                                        <CalendarEventCard
-                                            headline={p.event.petName ?? p.event.headline}
-                                            detail={
-                                                p.event.kind === "class"
-                                                    ? s.classSeats(
-                                                          p.event.bookedCount,
-                                                          p.event.capacity,
-                                                      )
-                                                    : p.event.serviceName
-                                            }
-                                            time={formatTime(p.event.start)}
-                                            intent={p.event.intent}
-                                            color={p.event.color}
-                                            density={
-                                                p.height < 30
-                                                    ? "compact"
-                                                    : p.height < 58
-                                                      ? "regular"
-                                                      : "full"
-                                            }
-                                            flags={eventFlags(p.event).slice(0, 2)}
-                                            state={
-                                                board.selectedId === p.event.id
-                                                    ? "selected"
-                                                    : "idle"
-                                            }
-                                            label={eventLabelFor(p.event)}
-                                            onPress={() => {
-                                                board.select(p.event.id);
-                                            }}
-                                        />
-                                    </View>
-                                ))}
+                                {placeEvents(lane.events, day.date, startHour, PX, zone).map(
+                                    (p) => (
+                                        <View
+                                            key={p.event.id}
+                                            style={[
+                                                styles.event,
+                                                {
+                                                    top: p.top,
+                                                    height: p.height,
+                                                    left: `${p.leftPct}%`,
+                                                    width: `${p.widthPct}%`,
+                                                },
+                                            ]}
+                                        >
+                                            <CalendarEventCard
+                                                headline={p.event.petName ?? p.event.headline}
+                                                detail={
+                                                    p.event.kind === "class"
+                                                        ? s.classSeats(
+                                                              p.event.bookedCount,
+                                                              p.event.capacity,
+                                                          )
+                                                        : p.event.serviceName
+                                                }
+                                                time={formatTime(p.event.start, zone)}
+                                                intent={p.event.intent}
+                                                color={p.event.color}
+                                                density={
+                                                    p.height < 30
+                                                        ? "compact"
+                                                        : p.height < 58
+                                                          ? "regular"
+                                                          : "full"
+                                                }
+                                                flags={eventFlags(p.event).slice(0, 2)}
+                                                state={
+                                                    board.selectedId === p.event.id
+                                                        ? "selected"
+                                                        : "idle"
+                                                }
+                                                label={eventLabelFor(p.event)}
+                                                onPress={() => {
+                                                    board.select(p.event.id);
+                                                }}
+                                            />
+                                        </View>
+                                    ),
+                                )}
                             </View>
                         ))}
                         {day.isToday ? (
@@ -306,7 +318,10 @@ export function ScheduleScreen() {
                                 pointerEvents="none"
                                 style={[
                                     styles.now,
-                                    { top: minuteTop(board.now, startHour, PX), left: GUTTER - 4 },
+                                    {
+                                        top: minuteTop(board.now, startHour, PX, zone),
+                                        left: GUTTER - 4,
+                                    },
                                 ]}
                             >
                                 <View style={styles.nowDot} />

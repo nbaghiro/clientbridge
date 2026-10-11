@@ -2,6 +2,7 @@ import { StatusBar } from "expo-status-bar";
 import type { ReactNode } from "react";
 import {
     strings,
+    BusinessZoneContext,
     useBusinessLoad,
     useBusinessSelection,
     useReplicaSession,
@@ -175,102 +176,111 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
     }
 
     return (
-        <SignOutContext.Provider value={onSignOut}>
-            <StripeAppProvider>
-                <NavigationContainer theme={navTheme}>
-                    <RootStack.Navigator screenOptions={{ headerShown: false }}>
-                        <RootStack.Screen name="Tabs" component={Tabs} />
-                        <RootStack.Screen name="Search" component={SearchScreen} />
-                        <RootStack.Screen name="Notifications" component={NotificationsScreen} />
-                        <RootStack.Group
-                            screenOptions={{
-                                headerShown: true,
-                                headerStyle: { backgroundColor: theme.colors.surface },
-                                headerTintColor: theme.colors.ink,
-                                headerShadowVisible: false,
-                                headerBackTitle: "Back",
-                            }}
-                        >
+        <BusinessZoneContext.Provider value={business.zone}>
+            <SignOutContext.Provider value={onSignOut}>
+                <StripeAppProvider>
+                    <NavigationContainer theme={navTheme}>
+                        <RootStack.Navigator screenOptions={{ headerShown: false }}>
+                            <RootStack.Screen name="Tabs" component={Tabs} />
+                            <RootStack.Screen name="Search" component={SearchScreen} />
                             <RootStack.Screen
-                                name="Payments"
-                                component={PaymentsScreen}
-                                options={{ title: strings.navigation.payments }}
+                                name="Notifications"
+                                component={NotificationsScreen}
                             />
-                            <RootStack.Screen
-                                name="Setup"
-                                component={SetupScreen}
-                                options={{ title: strings.navigation.setup }}
-                            />
-                            <RootStack.Screen
-                                name="GetSetUp"
-                                component={GetSetUpScreen}
-                                options={{ title: strings.navigation.setupSections.start }}
-                            />
-                            <RootStack.Screen
-                                name="Taxes"
-                                component={TaxesScreen}
-                                options={{ title: strings.navigation.setupSections.taxes }}
-                            />
-                            <RootStack.Screen
-                                name="Business"
-                                component={BusinessScreen}
-                                options={{ title: strings.navigation.setupSections.business }}
-                            />
-                            <RootStack.Screen
-                                name="Services"
-                                component={CatalogScreen}
-                                options={{ title: strings.navigation.setupSections.services }}
-                            />
-                            <RootStack.Screen
-                                name="Team"
-                                component={TeamHoursScreen}
-                                options={{ title: strings.navigation.setupSections.team }}
-                            />
-                            <RootStack.Screen
-                                name="GettingPaid"
-                                component={GettingPaidScreen}
-                                options={{ title: strings.navigation.setupSections.gettingPaid }}
-                            />
-                            <RootStack.Screen
-                                name="ClientHistory"
-                                component={ClientHistoryScreen}
-                                options={({ route }) => ({ title: route.params.name })}
-                            />
-                            <RootStack.Screen
-                                name="ClientPets"
-                                component={ClientPetsScreen}
-                                options={{ title: strings.clients.pets.pets }}
-                            />
-                            <RootStack.Screen
-                                name="ClientWallet"
-                                component={ClientWalletScreen}
-                                options={{ title: strings.clients.wallet.title }}
-                            />
-                            <RootStack.Screen
-                                name="OnlineBooking"
-                                component={OnlineBookingScreen}
-                                options={{ title: strings.navigation.setupSections.onlineBooking }}
-                            />
-                            <RootStack.Screen
-                                name="Reminders"
-                                component={RemindersScreen}
-                                options={{ title: strings.navigation.setupSections.reminders }}
-                            />
-                            <RootStack.Screen
-                                name="Classes"
-                                component={ClassesScreen}
-                                options={{ title: strings.classes.title }}
-                            />
-                            <RootStack.Screen
-                                name="Recurrences"
-                                component={RecurrencesScreen}
-                                options={{ title: strings.recurrences.listTitle }}
-                            />
-                        </RootStack.Group>
-                    </RootStack.Navigator>
-                </NavigationContainer>
-            </StripeAppProvider>
-        </SignOutContext.Provider>
+                            <RootStack.Group
+                                screenOptions={{
+                                    headerShown: true,
+                                    headerStyle: { backgroundColor: theme.colors.surface },
+                                    headerTintColor: theme.colors.ink,
+                                    headerShadowVisible: false,
+                                    headerBackTitle: "Back",
+                                }}
+                            >
+                                <RootStack.Screen
+                                    name="Payments"
+                                    component={PaymentsScreen}
+                                    options={{ title: strings.navigation.payments }}
+                                />
+                                <RootStack.Screen
+                                    name="Setup"
+                                    component={SetupScreen}
+                                    options={{ title: strings.navigation.setup }}
+                                />
+                                <RootStack.Screen
+                                    name="GetSetUp"
+                                    component={GetSetUpScreen}
+                                    options={{ title: strings.navigation.setupSections.start }}
+                                />
+                                <RootStack.Screen
+                                    name="Taxes"
+                                    component={TaxesScreen}
+                                    options={{ title: strings.navigation.setupSections.taxes }}
+                                />
+                                <RootStack.Screen
+                                    name="Business"
+                                    component={BusinessScreen}
+                                    options={{ title: strings.navigation.setupSections.business }}
+                                />
+                                <RootStack.Screen
+                                    name="Services"
+                                    component={CatalogScreen}
+                                    options={{ title: strings.navigation.setupSections.services }}
+                                />
+                                <RootStack.Screen
+                                    name="Team"
+                                    component={TeamHoursScreen}
+                                    options={{ title: strings.navigation.setupSections.team }}
+                                />
+                                <RootStack.Screen
+                                    name="GettingPaid"
+                                    component={GettingPaidScreen}
+                                    options={{
+                                        title: strings.navigation.setupSections.gettingPaid,
+                                    }}
+                                />
+                                <RootStack.Screen
+                                    name="ClientHistory"
+                                    component={ClientHistoryScreen}
+                                    options={({ route }) => ({ title: route.params.name })}
+                                />
+                                <RootStack.Screen
+                                    name="ClientPets"
+                                    component={ClientPetsScreen}
+                                    options={{ title: strings.clients.pets.pets }}
+                                />
+                                <RootStack.Screen
+                                    name="ClientWallet"
+                                    component={ClientWalletScreen}
+                                    options={{ title: strings.clients.wallet.title }}
+                                />
+                                <RootStack.Screen
+                                    name="OnlineBooking"
+                                    component={OnlineBookingScreen}
+                                    options={{
+                                        title: strings.navigation.setupSections.onlineBooking,
+                                    }}
+                                />
+                                <RootStack.Screen
+                                    name="Reminders"
+                                    component={RemindersScreen}
+                                    options={{ title: strings.navigation.setupSections.reminders }}
+                                />
+                                <RootStack.Screen
+                                    name="Classes"
+                                    component={ClassesScreen}
+                                    options={{ title: strings.classes.title }}
+                                />
+                                <RootStack.Screen
+                                    name="Recurrences"
+                                    component={RecurrencesScreen}
+                                    options={{ title: strings.recurrences.listTitle }}
+                                />
+                            </RootStack.Group>
+                        </RootStack.Navigator>
+                    </NavigationContainer>
+                </StripeAppProvider>
+            </SignOutContext.Provider>
+        </BusinessZoneContext.Provider>
     );
 }
 

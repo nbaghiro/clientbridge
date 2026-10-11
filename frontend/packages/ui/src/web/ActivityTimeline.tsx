@@ -1,4 +1,8 @@
-import { type ActivityTimelineProps, type TimelineEntry } from "@clientbridge/app-core/public";
+import {
+    type ActivityTimelineProps,
+    type TimelineEntry,
+    formatParts,
+} from "@clientbridge/app-core/public";
 import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
 
 import { Icon } from "./Icon";
@@ -58,9 +62,10 @@ export function ActivityTimeline({ entries, className }: WebProps<ActivityTimeli
                             </div>
                             {e.detail !== undefined || e.aside !== undefined ? (
                                 <p className="mt-0.5 text-xs text-muted">
-                                    {[e.detail, e.aside !== undefined ? e.at : undefined]
-                                        .filter(Boolean)
-                                        .join(" · ")}
+                                    {formatParts([
+                                        e.detail,
+                                        e.aside !== undefined ? e.at : undefined,
+                                    ])}
                                 </p>
                             ) : null}
                             {e.quote !== undefined ? (

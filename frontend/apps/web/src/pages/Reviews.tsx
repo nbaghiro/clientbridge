@@ -14,6 +14,7 @@ import {
     useRequestReview,
     useReviewQueue,
     useReviewSettings,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -38,7 +39,7 @@ import { useOpenLink } from "../lib/links";
 
 const s = strings.reviews;
 
-const dateOf = (value: string): string => formatDate(parseTimestamp(value));
+const dateOf = (value: string, zone: string): string => formatDate(parseTimestamp(value), zone);
 
 const openExternal = (url: string): void => {
     globalThis.open(url, "_blank", "noopener");
@@ -285,6 +286,7 @@ function ReviewCard({
     queue: ReviewQueue;
     showState?: boolean;
 }) {
+    const zone = useBusinessZone();
     const m = useModeratedReview(api, review, openExternal);
     const openLink = useOpenLink();
     const [replying, setReplying] = useState(false);
@@ -306,7 +308,7 @@ function ReviewCard({
                             <StatusPill status={state.label} intent={state.intent} asWritten />
                         ) : null}
                     </div>
-                    <p className="mt-0.5 text-xs text-muted">{reviewVisitLine(review)}</p>
+                    <p className="mt-0.5 text-xs text-muted">{reviewVisitLine(review, zone)}</p>
                 </div>
                 {review.sent_to_google === 1 ? (
                     <Badge label={s.sharedGoogle} intent="neutral" />
@@ -320,7 +322,7 @@ function ReviewCard({
             {review.response !== null && !replying ? (
                 <div className="mt-3 border-l-2 border-accent-line pl-3">
                     <div className="text-xs font-semibold text-ink-soft">
-                        {s.replied(dateOf(review.responded_at ?? review.created_at))}
+                        {s.replied(dateOf(review.responded_at ?? review.created_at, zone))}
                     </div>
                     <p className="mt-0.5 text-sm text-ink-soft">{review.response}</p>
                 </div>
@@ -397,6 +399,7 @@ function ReviewCard({
 }
 
 function AskPanel({ queue }: { queue: ReviewQueue }) {
+    const zone = useBusinessZone();
     const req = useRequestReview(api);
     return (
         <div className="space-y-4">
@@ -453,7 +456,7 @@ function AskPanel({ queue }: { queue: ReviewQueue }) {
                                         {r.client_name ?? s.clientFallback}
                                     </div>
                                     <div className="truncate text-xs text-muted">
-                                        {s.requestedOn(dateOf(r.requested_at))}
+                                        {s.requestedOn(dateOf(r.requested_at, zone))}
                                     </div>
                                 </div>
                                 <StatusPill

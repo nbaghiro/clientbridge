@@ -1,9 +1,8 @@
-import type { RatingDistributionProps } from "@clientbridge/app-core";
+import { type RatingDistributionProps, strings } from "@clientbridge/app-core";
 
 import { story } from "../story";
 
-const label = (stars: number, count: number): string =>
-    `${String(stars)} stars: ${String(count)} review${count === 1 ? "" : "s"}`;
+const label = strings.reviews.distributionRow;
 
 export default story<RatingDistributionProps>({
     component: "RatingDistribution",

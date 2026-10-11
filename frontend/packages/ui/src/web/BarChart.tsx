@@ -1,4 +1,4 @@
-import { type BarChartProps, type BarChartBar } from "@clientbridge/app-core/public";
+import { type BarChartProps, type BarChartBar, strings } from "@clientbridge/app-core/public";
 
 import { type WebProps, cx } from "./props";
 
@@ -20,7 +20,7 @@ export function BarChart({ bars, label, height = 160, className }: WebProps<BarC
                         <div
                             key={b.key}
                             className="group relative flex h-full flex-1 items-end justify-center"
-                            title={`${b.label}: ${b.valueLabel}`}
+                            title={strings.common.labelColonValue(b.label, b.valueLabel)}
                         >
                             <span
                                 className={`w-full max-w-10 rounded-t transition group-hover:opacity-80 ${b.dim ? "bg-accent-line" : "bg-accent"} ${b.partial ? "opacity-50" : ""}`}

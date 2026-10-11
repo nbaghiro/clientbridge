@@ -1,4 +1,11 @@
-import { type GettingPaidView, formatDate, strings, useGettingPaid } from "@clientbridge/app-core";
+import {
+    type GettingPaidView,
+    formatDate,
+    strings,
+    useGettingPaid,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
+} from "@clientbridge/app-core";
 import {
     Button,
     PaymentAccount,
@@ -68,7 +75,8 @@ function Hero({ paid }: { paid: GettingPaidView }) {
 }
 
 function Body({ paid }: { paid: GettingPaidView }) {
-    const deadline = paid.deadline === null ? "" : formatDate(paid.deadline);
+    const zone = useBusinessZone();
+    const deadline = paid.deadline === null ? "" : formatDate(paid.deadline, zone);
     return (
         <div className="space-y-6">
             <Hero paid={paid} />
@@ -150,7 +158,10 @@ function Body({ paid }: { paid: GettingPaidView }) {
                                         paid.availableCents === null ? (
                                             g.balanceUnknown
                                         ) : (
-                                            <Money cents={paid.availableCents} />
+                                            <Money
+                                                currency={BUSINESS_CURRENCY}
+                                                cents={paid.availableCents}
+                                            />
                                         ),
                                 },
                             ]}

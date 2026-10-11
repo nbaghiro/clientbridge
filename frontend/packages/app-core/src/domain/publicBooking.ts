@@ -2,9 +2,23 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { newIdempotencyKey } from "../api";
-import { addDays, dateKey, formatTime, formatWeekday, parseTimestamp } from "../datetime";
-import { formatMoney, formatMoneyWithCurrency } from "../format";
+import { newIdempotencyKey, refusal } from "../api";
+import {
+    addDays,
+    dateKey,
+    deviceZone,
+    formatDayNumber,
+    formatFullDate,
+    formatShortMonth,
+    formatTime,
+    formatTimeRange,
+    formatWeekday,
+    formatZoneName,
+    parseDateKey,
+    parseTimestamp,
+    wallTime,
+} from "../datetime";
+import { formatMoney, formatParts, BUSINESS_CURRENCY } from "../format";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { DocTotalLine, ProgressStep } from "../ui";
@@ -37,8 +51,10 @@ interface PublicService {
 
 /** Price and length of a service, e.g. "$45.00 · 60 min". */
 export function serviceSummary(svc: PublicService): string {
-    const mins = svc.duration_min !== null ? ` · ${s.minutes(svc.duration_min)}` : "";
-    return `${money(svc.price_cents, svc.currency)}${mins}`;
+    return formatParts([
+        formatMoney(svc.price_cents, svc.currency),
+        svc.duration_min !== null ? s.minutes(svc.duration_min) : null,
+    ]);
 }
 
 interface PublicStaff {
@@ -76,6 +92,7 @@ interface PublicBookingPage {
     stripe_account_id: string | null;
     slug: string;
     now: string | null;
+    timezone: string;
     policy: PublicPolicy | null;
     rating: number | null;
     review_count: number;
@@ -115,21 +132,10 @@ interface BookingInput {
     addons: { itemId: string; quantity: number }[];
 }
 
-class PublicRequestError extends Error {
-    constructor(
-        readonly status: number,
-        message: string,
-    ) {
-        super(message);
-        this.name = "PublicRequestError";
-    }
-}
-
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await fetch(url, init);
     if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new PublicRequestError(res.status, text || res.statusText);
+        throw await refusal(res);
     }
     return (await res.json()) as T;
 }
@@ -195,26 +201,45 @@ export function durationLabel(min: number): string {
     return min < 60 ? s.minutes(min) : s.hoursMinutes(Math.floor(min / 60), min % 60);
 }
 
-// Prices on a Canadian business's own page read as plain dollars; other currencies keep their code.
-export function money(cents: number, currency = "CAD"): string {
-    return currency === "CAD" ? formatMoney(cents) : formatMoneyWithCurrency(cents, currency);
+const dayOf = (key: string, zone: string): Date => parseDateKey(key, zone) ?? new Date(NaN);
+
+const shiftKey = (key: string, n: number, zone: string): string =>
+    dateKey(addDays(dayOf(key, zone), n, zone), zone);
+
+interface DayWords {
+    today: string;
+    tomorrow: string;
 }
 
-const ymd = (key: string): Date => {
-    const [y = 2026, mo = 1, d = 1] = key.split("-").map(Number);
-    return new Date(y, mo - 1, d);
-};
+// Mid-sentence day words; a label that starts a line takes the capitalised common ones.
+const midSentence = (): DayWords => ({ today: s.today, tomorrow: s.tomorrow });
+const lineStart = (): DayWords => ({
+    today: strings.common.today,
+    tomorrow: strings.common.tomorrow,
+});
 
-function dayLabel(key: string, today: string): string {
-    if (key === today) return s.today;
-    if (key === dateKey(addDays(ymd(today), 1))) return s.tomorrow;
-    const d = ymd(key);
-    return `${d.toLocaleDateString("en-CA", { weekday: "long" })}, ${d.toLocaleDateString("en-CA", { month: "long", day: "numeric" })}`;
+function dayLabel(key: string, today: string, zone: string, words = midSentence()): string {
+    if (key === today) return words.today;
+    if (key === shiftKey(today, 1, zone)) return words.tomorrow;
+    return formatFullDate(dayOf(key, zone), zone);
 }
 
-export function whenLabel(startsAt: string, today: string): string {
+export function whenLabel(startsAt: string, today: string, zone: string): string {
     const d = parseTimestamp(startsAt);
-    return s.at(dayLabel(dateKey(d), today), formatTime(d));
+    return s.at(dayLabel(dateKey(d, zone), today, zone), formatTime(d, zone));
+}
+
+/** The same as whenLabel, for a label that starts a line: "Today at 2:30 p.m." */
+export function whenTitle(startsAt: string, today: string, zone: string): string {
+    const d = parseTimestamp(startsAt);
+    return s.at(dayLabel(dateKey(d, zone), today, zone, lineStart()), formatTime(d, zone));
+}
+
+/** "Times are in Pacific Time" when the visitor's clock reads a different zone, else null. */
+export function zoneNote(zone: string): string | null {
+    return formatZoneName(zone) === formatZoneName(deviceZone())
+        ? null
+        : s.timesIn(formatZoneName(zone));
 }
 
 interface SlotGroup {
@@ -224,6 +249,7 @@ interface SlotGroup {
 
 export function groupSlots(
     slots: readonly OpenSlot[],
+    zone: string,
     staffName?: (id: string) => string,
 ): SlotGroup[] {
     const parts: { label: string; test: (h: number) => boolean }[] = [
@@ -235,10 +261,10 @@ export function groupSlots(
         .map((p) => ({
             label: p.label,
             slots: slots
-                .filter((x) => p.test(parseTimestamp(x.starts_at).getHours()))
+                .filter((x) => p.test(wallTime(parseTimestamp(x.starts_at), zone).hour))
                 .map((x) => ({
                     key: x.starts_at,
-                    label: formatTime(parseTimestamp(x.starts_at)),
+                    label: formatTime(parseTimestamp(x.starts_at), zone),
                     ...(staffName && x.staff_id !== null ? { hint: staffName(x.staff_id) } : {}),
                 })),
         }))
@@ -259,15 +285,16 @@ export function toStrip(
     days: readonly DayOpenings[] | null,
     from: string,
     today: string,
+    zone: string,
 ): StripDay[] {
     return Array.from({ length: 7 }, (_, i) => {
-        const date = addDays(ymd(from), i);
-        const key = dateKey(date);
+        const date = addDays(dayOf(from, zone), i, zone);
+        const key = dateKey(date, zone);
         const o = days?.find((d) => d.date === key);
         return {
             key,
-            weekday: formatWeekday(date),
-            day: String(date.getDate()),
+            weekday: formatWeekday(date, zone),
+            day: formatDayNumber(date, zone),
             busy: o === undefined || o.count === 0 ? 0 : o.count < 4 ? 1 : o.count < 10 ? 2 : 3,
             closed: o?.closed === true,
             disabled: key < today || (o?.count === 0 && !o.closed),
@@ -328,7 +355,9 @@ export function usePublicBookingFlow(
     },
 ) {
     const { status, data: page } = usePublicResource(client.getServices, slug);
-    const today = page?.now ? page.now.slice(0, 10) : dateKey(new Date());
+    // Until the page loads nothing is shown, so the visitor's own zone stands in.
+    const zone = page?.timezone ?? deviceZone();
+    const today = page?.now ? page.now.slice(0, 10) : dateKey(new Date(), zone);
     const storage = initial?.storage;
     const draftKey = `connect-booking:${slug}`;
     const [draft] = useState(() => readPublicDraft(storage, draftKey));
@@ -467,7 +496,7 @@ export function usePublicBookingFlow(
     const addonsCents = addonLines.reduce((sum, l) => sum + l.cents, 0);
     const depositCents = service?.deposit_required === true ? service.deposit_amount_cents : 0;
     const serviceCents = service?.price_cents ?? 0;
-    const currency = service?.currency ?? "CAD";
+    const currency = service?.currency ?? BUSINESS_CURRENCY;
     const slot = slots?.find((x) => x.starts_at === startsAt) ?? null;
 
     const errors = {
@@ -556,7 +585,7 @@ export function usePublicBookingFlow(
 
     const totalLines: DocTotalLine[] = addonLines.map((l) => ({
         key: l.addon.id,
-        label: l.quantity > 1 ? `${String(l.quantity)} × ${l.addon.name}` : l.addon.name,
+        label: l.quantity > 1 ? strings.common.quantityOf(l.quantity, l.addon.name) : l.addon.name,
         cents: l.cents,
         kind: "subtotal",
     }));
@@ -588,6 +617,8 @@ export function usePublicBookingFlow(
         status,
         page,
         today,
+        zone,
+        zoneNote: page ? zoneNote(zone) : null,
         step,
         steps,
         goTo: (k: BookingStep) => {
@@ -639,28 +670,28 @@ export function usePublicBookingFlow(
             setStaffId(id);
             setDate(null);
         },
-        strip: toStrip(days, from, today),
+        strip: toStrip(days, from, today, zone),
         canPrevWeek: from > today,
         prevWeek: () => {
-            const d = dateKey(addDays(ymd(from), -7));
+            const d = shiftKey(from, -7, zone);
             setWeekFrom(d < today ? today : d);
             setDate(null);
         },
         nextWeek: () => {
-            setWeekFrom(dateKey(addDays(ymd(from), 7)));
+            setWeekFrom(shiftKey(from, 7, zone));
             setDate(null);
         },
         date: day,
         setDate,
-        dateLabel: day === null ? "" : dayLabel(day, today),
+        dateLabel: day === null ? "" : dayLabel(day, today, zone),
         slots,
         slotsError,
         retrySlots: () => {
             setReload((n) => n + 1);
         },
-        slotGroups: groupSlots(slots ?? [], staffId === ANY_STAFF ? staffFirst : undefined),
+        slotGroups: groupSlots(slots ?? [], zone, staffId === ANY_STAFF ? staffFirst : undefined),
         firstOpen: firstOpen
-            ? { key: firstOpen.date, label: dayLabel(firstOpen.date, today) }
+            ? { key: firstOpen.date, label: dayLabel(firstOpen.date, today, zone) }
             : null,
         closure: closure?.reason ?? null,
         startsAt,
@@ -731,17 +762,19 @@ export function usePublicBookingFlow(
         },
         errors: touched ? errors : { name: null, contact: null, email: null, pet: null },
         totals: {
-            service: money(serviceCents, currency),
-            addons: money(addonsCents, currency),
-            deposit: money(depositCents, currency),
+            service: formatMoney(serviceCents, currency),
+            addons: formatMoney(addonsCents, currency),
+            deposit: formatMoney(depositCents, currency),
             depositCents,
-            dueLater: money(serviceCents + addonsCents - depositCents, currency),
-            total: money(serviceCents + addonsCents, currency),
+            dueLater: formatMoney(serviceCents + addonsCents - depositCents, currency),
+            total: formatMoney(serviceCents + addonsCents, currency),
         },
         totalLines,
-        when: slot ? whenLabel(slot.starts_at, today) : null,
+        currency,
+        when: slot ? whenLabel(slot.starts_at, today, zone) : null,
+        whenTitle: slot ? whenTitle(slot.starts_at, today, zone) : null,
         timeRange: slot
-            ? `${formatTime(parseTimestamp(slot.starts_at))} – ${formatTime(parseTimestamp(slot.ends_at))}`
+            ? formatTimeRange(parseTimestamp(slot.starts_at), parseTimestamp(slot.ends_at), zone)
             : null,
         result,
         calendar:
@@ -792,6 +825,7 @@ interface ManagedBooking {
     reschedules_used: number;
     policy: PublicPolicy;
     now: string;
+    timezone: string;
     can_move: boolean;
     can_cancel: boolean;
     blocked: string | null;
@@ -862,12 +896,14 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
     const { busy, error, run } = useAsyncAction();
 
     const now = data ? parseTimestamp(data.now) : new Date();
-    const today = data ? data.now.slice(0, 10) : dateKey(now);
+    // Until the booking loads nothing is shown, so the visitor's own zone stands in.
+    const zone = data?.timezone ?? deviceZone();
+    const today = data ? data.now.slice(0, 10) : dateKey(now, zone);
     const start = data ? parseTimestamp(data.starts_at) : now;
     const hoursAway = Math.floor((start.getTime() - now.getTime()) / 3_600_000);
     const live = data !== null && (data.status === "confirmed" || data.status === "pending");
     const weekFrom = from ?? today;
-    const day = date ?? (data ? dateKey(start) : today);
+    const day = date ?? (data ? dateKey(start, zone) : today);
 
     useEffect(() => {
         if (mode !== "move") return;
@@ -903,7 +939,8 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
         };
     }, [client, token, mode, day]);
 
-    const deposit = data ? money(data.deposit_cents) : "";
+    const currency = data?.service.currency ?? BUSINESS_CURRENCY;
+    const deposit = data ? formatMoney(data.deposit_cents, currency) : "";
     const hasDeposit =
         data !== null && data.deposit_status === "collected" && data.deposit_cents > 0;
     const policy = data?.policy;
@@ -937,8 +974,10 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
             key.current = null;
             setModeRaw(x);
         },
-        when: data ? whenLabel(data.starts_at, today) : "",
-        timeRange: data ? `${formatTime(start)} – ${formatTime(parseTimestamp(data.ends_at))}` : "",
+        zoneNote: data ? zoneNote(zone) : null,
+        when: data ? whenLabel(data.starts_at, today, zone) : "",
+        whenTitle: data ? whenTitle(data.starts_at, today, zone) : "",
+        timeRange: data ? formatTimeRange(start, parseTimestamp(data.ends_at), zone) : "",
         calendar: data
             ? {
                   uid: `${data.booking_id}.${data.slug}`,
@@ -956,14 +995,11 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
         live,
         canCancel: live && data.can_cancel,
         canMove: live && data.can_move,
-        blocked:
-            live && data.blocked !== null
-                ? `${data.blocked.charAt(0).toUpperCase()}${data.blocked.slice(1)}.`
-                : null,
+        blocked: live ? data.blocked : null,
         dateTile: {
-            month: start.toLocaleDateString(undefined, { month: "short" }),
-            day: String(start.getDate()),
-            weekday: start.toLocaleDateString(undefined, { weekday: "short" }),
+            month: formatShortMonth(start, zone),
+            day: formatDayNumber(start, zone),
+            weekday: formatWeekday(start, zone),
         },
         windowMeter: (() => {
             const span = Math.max(
@@ -986,6 +1022,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
                           start.getTime() - policy.cancel_cutoff_hours * 3_600_000,
                       ).toISOString(),
                       today,
+                      zone,
                   )
                 : "",
         moveDeadline:
@@ -995,6 +1032,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
                           start.getTime() - policy.reschedule_cutoff_hours * 3_600_000,
                       ).toISOString(),
                       today,
+                      zone,
                   )
                 : "",
         policyLine: policy
@@ -1005,24 +1043,24 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
         cancelOutcome: hasDeposit ? m.cancelRefund(deposit) : m.cancelNoDeposit,
         deposit,
         hasDeposit,
-        strip: toStrip(days, weekFrom, today),
+        strip: toStrip(days, weekFrom, today, zone),
         canPrevWeek: weekFrom > today,
         prevWeek: () => {
-            const d = dateKey(addDays(ymd(weekFrom), -7));
+            const d = shiftKey(weekFrom, -7, zone);
             setFrom(d < today ? today : d);
         },
         nextWeek: () => {
-            setFrom(dateKey(addDays(ymd(weekFrom), 7)));
+            setFrom(shiftKey(weekFrom, 7, zone));
         },
         date: day,
         setDate,
-        dateLabel: dayLabel(day, today),
+        dateLabel: dayLabel(day, today, zone),
         slots,
-        slotGroups: groupSlots(slots ?? []),
+        slotGroups: groupSlots(slots ?? [], zone),
         pick,
         setPick,
-        pickLabel: pick ? whenLabel(pick, today) : null,
-        pickTime: pick ? formatTime(parseTimestamp(pick)) : null,
+        pickTitle: pick ? whenTitle(pick, today, zone) : null,
+        pickTime: pick ? formatTime(parseTimestamp(pick), zone) : null,
         confirmMove: () => {
             if (pick === "") return;
             key.current ??= newIdempotencyKey();
@@ -1055,7 +1093,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
                 { errorMessage: m.error },
             );
         },
-        refundLabel: refund !== null ? money(refund) : null,
+        refundLabel: refund !== null ? formatMoney(refund, currency) : null,
         refundMessage:
             data?.refund_status === "pending"
                 ? m.refundPending

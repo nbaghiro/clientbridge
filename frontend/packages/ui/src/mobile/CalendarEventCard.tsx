@@ -1,4 +1,9 @@
-import type { CalendarEventCardProps, CalendarEventFlag, IconName } from "@clientbridge/app-core";
+import {
+    type CalendarEventCardProps,
+    type CalendarEventFlag,
+    formatParts,
+    type IconName,
+} from "@clientbridge/app-core";
 import { INTENT_COLORS, SHADOW } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -74,7 +79,7 @@ export function CalendarEventCard({
                                 <View style={[styles.swatch, { backgroundColor: color }]} />
                             ) : null}
                             <Text style={[styles.line, { color: fg }]} numberOfLines={1}>
-                                {[time, detail].filter(Boolean).join(" · ")}
+                                {formatParts([time, detail])}
                             </Text>
                         </View>
                     ) : (

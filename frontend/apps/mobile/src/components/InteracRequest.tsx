@@ -4,6 +4,8 @@ import {
     strings,
     useInteracRequestForm,
     useLetterhead,
+    currencyAffix,
+    BUSINESS_CURRENCY,
 } from "@clientbridge/app-core";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import {
@@ -51,7 +53,7 @@ export function InteracRequest({ invoice, onClose }: { invoice: InvoiceRow; onCl
                             label={t.amount}
                             hint={form.amountHint}
                             type="number"
-                            prefix="$"
+                            {...currencyAffix(BUSINESS_CURRENCY)}
                             value={form.amount}
                             onChange={form.setAmount}
                         />

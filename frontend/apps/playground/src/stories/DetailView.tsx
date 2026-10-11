@@ -53,7 +53,7 @@ export default [
                     status: { status: "overdue", intent: "danger" },
                     leading: <k.Icon name="invoices" size={28} />,
                     actions: <k.Button size="sm">Send reminder</k.Button>,
-                    children: <k.Money cents={8400} strong />,
+                    children: <k.Money currency="CAD" cents={8400} strong />,
                 }),
             },
             {

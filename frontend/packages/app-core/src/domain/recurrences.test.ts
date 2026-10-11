@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatTime, formatWeekday, weekdayDay } from "../datetime";
+import { formatTime, formatWeekday, weekdayDay, zonedDate } from "../datetime";
 import { strings } from "../strings";
 import { type CalendarEvent, buildAvailability } from "./bookings";
 import {
@@ -14,6 +14,8 @@ import {
 } from "./recurrences";
 import type { StaffRow } from "./staff";
 
+const ZONE = "America/Vancouver";
+
 const s = strings.recurrences;
 
 type Ctx = Parameters<typeof problemAt>[0];
@@ -22,7 +24,8 @@ type SeriesRow = Parameters<typeof datesOf>[0];
 type VisitRow = Parameters<typeof datesOf>[1][number];
 
 // Wednesday 7 October 2026 in local time.
-const at = (day: number, h: number, m = 0, month = 9): Date => new Date(2026, month, day, h, m);
+const at = (day: number, h: number, m = 0, month = 9): Date =>
+    zonedDate(2026, month + 1, day, h, m, ZONE);
 const none = () => false;
 
 const amy: StaffRow = {
@@ -91,6 +94,7 @@ const avail = buildAvailability(
             reason: "Inventory",
         },
     ],
+    ZONE,
 );
 
 const ctx = (events: CalendarEvent[] = [], now = at(1, 9)): Ctx => ({
@@ -102,28 +106,30 @@ const ctx = (events: CalendarEvent[] = [], now = at(1, 9)): Ctx => ({
 
 describe("stepDate", () => {
     it("steps weekly by whole weeks at the same local time", () => {
-        expect(stepDate(at(7, 10), "week", 1, 0)).toEqual(at(7, 10));
-        expect(stepDate(at(7, 10), "week", 2, 3)).toEqual(at(18, 10, 0, 10));
-        expect(stepDate(at(28, 9, 30), "week", 1, 1)).toEqual(at(4, 9, 30, 10));
+        expect(stepDate(at(7, 10), "week", 1, 0, ZONE)).toEqual(at(7, 10));
+        expect(stepDate(at(7, 10), "week", 2, 3, ZONE)).toEqual(at(18, 10, 0, 10));
+        expect(stepDate(at(28, 9, 30), "week", 1, 1, ZONE)).toEqual(at(4, 9, 30, 10));
     });
 
     it("keeps the nth weekday monthly, and falls back to the last when a month is short", () => {
-        expect(stepDate(at(7, 10), "month", 1, 1)).toEqual(at(4, 10, 0, 10));
-        expect(stepDate(at(7, 10), "month", 1, 3)).toEqual(new Date(2027, 0, 6, 10));
-        expect(stepDate(at(14, 10), "month", 2, 1)).toEqual(at(9, 10, 0, 11));
-        expect(stepDate(at(29, 10), "month", 1, 1)).toEqual(at(26, 10, 0, 10));
-        expect(stepDate(at(29, 10), "month", 1, 0)).toEqual(at(29, 10));
+        expect(stepDate(at(7, 10), "month", 1, 1, ZONE)).toEqual(at(4, 10, 0, 10));
+        expect(stepDate(at(7, 10), "month", 1, 3, ZONE)).toEqual(
+            zonedDate(2027, 1, 6, 10, 0, ZONE),
+        );
+        expect(stepDate(at(14, 10), "month", 2, 1, ZONE)).toEqual(at(9, 10, 0, 11));
+        expect(stepDate(at(29, 10), "month", 1, 1, ZONE)).toEqual(at(26, 10, 0, 10));
+        expect(stepDate(at(29, 10), "month", 1, 0, ZONE)).toEqual(at(29, 10));
     });
 
     it("describes the pattern in words", () => {
-        const day = at(7, 10).toLocaleDateString("en-CA", { weekday: "long" });
-        expect(patternLabel("week", 2, at(7, 10))).toBe(
-            s.patternWeekly(2, day, formatTime(at(7, 10))),
+        const day = "Wednesday";
+        expect(patternLabel("week", 2, at(7, 10), ZONE)).toBe(
+            s.patternWeekly(2, day, formatTime(at(7, 10), ZONE)),
         );
-        expect(patternLabel("month", 1, at(14, 10))).toBe(
-            s.patternMonthly(1, s.ordinal(2), day, formatTime(at(14, 10))),
+        expect(patternLabel("month", 1, at(14, 10), ZONE)).toBe(
+            s.patternMonthly(1, s.ordinal(2), day, formatTime(at(14, 10), ZONE)),
         );
-        expect(patternLabel("month", 1, at(29, 10))).toContain(s.ordinal(5));
+        expect(patternLabel("month", 1, at(29, 10), ZONE)).toContain(s.ordinal(5));
     });
 });
 
@@ -134,9 +140,13 @@ describe("problemAt and suggest", () => {
             problemAt(c, "st_amy", start, end, ignore);
         expect(check(at(21, 10), at(21, 11))).toBe(s.closed("Inventory"));
         expect(check(at(7, 14), at(7, 15))).toBe(s.away("Amy", "Vet"));
-        expect(check(at(14, 10), at(14, 11))).toBe(s.notWorking("Amy", formatWeekday(at(14, 10))));
+        expect(check(at(14, 10), at(14, 11))).toBe(
+            s.notWorking("Amy", formatWeekday(at(14, 10), ZONE)),
+        );
         expect(check(at(7, 11, 30), at(7, 12, 30))).toBe(s.outsideHours("Amy"));
-        expect(check(at(7, 10, 30), at(7, 11, 30))).toBe(s.taken("Amy", formatTime(at(7, 10))));
+        expect(check(at(7, 10, 30), at(7, 11, 30))).toBe(
+            s.taken("Amy", formatTime(at(7, 10), ZONE)),
+        );
         expect(check(at(7, 10, 30), at(7, 11, 30), (id) => id === "bk_1")).toBeNull();
         expect(check(at(7, 9), at(7, 10))).toBeNull();
     });
@@ -148,7 +158,7 @@ describe("problemAt and suggest", () => {
             visit("bk_live", at(7, 10, 15), at(7, 11)),
         ]);
         expect(problemAt(c, "st_amy", at(7, 10), at(7, 11), none)).toBe(
-            s.taken("Amy", formatTime(at(7, 10, 15))),
+            s.taken("Amy", formatTime(at(7, 10, 15), ZONE)),
         );
         const onlyCanceled = ctx([visit("bk_gone", at(7, 10), at(7, 11), "canceled")]);
         expect(problemAt(onlyCanceled, "st_amy", at(7, 10), at(7, 11), none)).toBeNull();
@@ -254,17 +264,17 @@ describe("a booked series", () => {
             ["ss_e", 5, "missed", false, "e"],
             ["ss_f", 6, "booked", false, "f"],
         ]);
-        expect(dates[2]?.problem).toBe(s.notWorking("Amy", formatWeekday(at(14, 10))));
+        expect(dates[2]?.problem).toBe(s.notWorking("Amy", formatWeekday(at(14, 10), ZONE)));
         expect(dates[0]).toMatchObject({
-            dateLabel: weekdayDay(at(30, 10, 0, 8)),
-            timeLabel: formatTime(at(30, 10, 0, 8)),
+            dateLabel: weekdayDay(at(30, 10, 0, 8), ZONE),
+            timeLabel: formatTime(at(30, 10, 0, 8), ZONE),
         });
         expect(datesOf({ ...row, id: "sch_none" }, visits, ctx([], now))).toEqual([]);
     });
 
     it("summarizes progress, what's next, how many are left and what needs attention", () => {
         const dates = datesOf(row, visits, ctx([], now));
-        const summary = summarize(row, dates, new Map([["st_amy", amy]]), now, "Rex");
+        const summary = summarize(row, dates, new Map([["st_amy", amy]]), now, "Rex", ZONE);
         expect(summary).toMatchObject({
             id: "sch_1",
             clientName: "Ann",
@@ -274,34 +284,25 @@ describe("a booked series", () => {
             progress: s.progress(2, 5),
             ratio: 0.4,
             next: at(14, 10),
-            nextLabel: `${weekdayDay(at(14, 10))}, ${formatTime(at(14, 10))}`,
+            nextLabel: `${weekdayDay(at(14, 10), ZONE)}, ${formatTime(at(14, 10), ZONE)}`,
             attention: 1,
             ending: false,
             status: "active",
         });
-        expect(summary.endsLabel).toBe(
-            s.endsOn(
-                at(4, 10, 0, 10).toLocaleDateString("en-CA", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                }),
-                3,
-            ),
-        );
-        expect(summary.pattern).toBe(patternLabel("week", 1, at(14, 10)));
+        expect(summary.endsLabel).toBe(s.endsOn("Nov 4, 2026", 3));
+        expect(summary.pattern).toBe(patternLabel("week", 1, at(14, 10), ZONE));
     });
 
     it("names today's visit, the last one left and an empty series", () => {
         const today = datesOf(row, [seriesVisit("t", at(7, 16), "confirmed")], ctx([], now));
-        const one = summarize(row, today, new Map(), now, "");
+        const one = summarize(row, today, new Map(), now, "", ZONE);
         expect(one).toMatchObject({
-            nextLabel: s.todayAt(formatTime(at(7, 16))),
+            nextLabel: s.todayAt(formatTime(at(7, 16), ZONE)),
             ending: true,
             ratio: 0,
             staffName: "",
         });
-        const empty = summarize(row, [], new Map(), now, "");
+        const empty = summarize(row, [], new Map(), now, "", ZONE);
         expect(empty).toMatchObject({
             next: null,
             nextLabel: s.noneLeft,

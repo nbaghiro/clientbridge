@@ -1,4 +1,11 @@
-import { type ClassRoster, type RosterEntry, strings, useClassBoard } from "@clientbridge/app-core";
+import {
+    type ClassRoster,
+    type RosterEntry,
+    strings,
+    useClassBoard,
+    formatParts,
+    firstName,
+} from "@clientbridge/app-core";
 import {
     Avatar,
     Badge,
@@ -94,9 +101,11 @@ export function Classes() {
                                             : "border-line bg-surface hover:bg-bg"
                                     }`}
                                 >
-                                    <span className="block truncate text-sm font-semibold text-ink">{`${x.day} · ${x.name}`}</span>
+                                    <span className="block truncate text-sm font-semibold text-ink">
+                                        {formatParts([x.day, x.name])}
+                                    </span>
                                     <span className="mt-0.5 block truncate text-xs text-muted">
-                                        {x.time} · {x.staffName.split(" ")[0]}
+                                        {formatParts([x.time, firstName(x.staffName)])}
                                     </span>
                                     <span className="mt-2.5 block">
                                         <Meter
@@ -223,7 +232,9 @@ function RosterPanel({ roster }: { roster: ClassRoster }) {
                             {x.name}
                         </h2>
                         <p className="truncate text-sm text-muted">
-                            {x.when} · {s.with(x.staffName, x.roomName)}
+                            {x.roomName === ""
+                                ? s.with(x.when, x.staffName)
+                                : s.withRoom(x.when, x.staffName, x.roomName)}
                         </p>
                     </div>
                 </div>
@@ -235,7 +246,10 @@ function RosterPanel({ roster }: { roster: ClassRoster }) {
                         max={x.capacity}
                         overflow={x.waitlist}
                         intent={x.full ? "warning" : "accent"}
-                        label={`${s.seatsBooked(x.booked, x.capacity)} · ${s.checkedIn(x.checkedIn, x.booked)}`}
+                        label={formatParts([
+                            s.seatsBooked(x.booked, x.capacity),
+                            s.checkedIn(x.checkedIn, x.booked),
+                        ])}
                     />
                 </div>
             </header>
@@ -256,7 +270,7 @@ function RosterPanel({ roster }: { roster: ClassRoster }) {
                                     leading={
                                         <Avatar name={m.pet === "" ? m.name : m.pet} size="sm" />
                                     }
-                                    title={m.pet === "" ? m.name : `${m.pet} · ${m.name}`}
+                                    title={m.pet === "" ? m.name : formatParts([m.pet, m.name])}
                                     meta={x.full ? s.waitlist : s.add}
                                     onPress={() => {
                                         roster.add(m.clientId);
@@ -319,7 +333,8 @@ function RosterPanel({ roster }: { roster: ClassRoster }) {
                                 <Avatar name={w.petName} size="sm" />
                                 <span className="min-w-0 flex-1">
                                     <span className="block truncate text-sm font-medium text-ink">
-                                        {w.petName} ·{" "}
+                                        {w.petName}
+                                        {strings.common.separator}
                                         <span className="font-normal text-muted">
                                             {w.clientName}
                                         </span>

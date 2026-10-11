@@ -1,0 +1,379 @@
+msgid "booking_canceled.body"
+msgstr ""
+
+msgid "booking_canceled.subject"
+msgstr ""
+
+msgid "booking_confirmed.body"
+msgstr ""
+
+msgid "booking_confirmed.body_link"
+msgstr ""
+
+msgid "booking_confirmed.subject"
+msgstr ""
+
+msgid "booking_reminder.body"
+msgstr ""
+
+msgid "booking_reminder.body_link"
+msgstr ""
+
+msgid "booking_reminder.subject"
+msgstr ""
+
+msgid "booking_rescheduled.body"
+msgstr ""
+
+msgid "booking_rescheduled.subject"
+msgstr ""
+
+msgid "broadcast.email"
+msgstr ""
+
+msgid "broadcast.sms"
+msgstr ""
+
+msgid "consent_csv.channel"
+msgstr ""
+
+msgid "consent_csv.client"
+msgstr ""
+
+msgid "consent_csv.email"
+msgstr ""
+
+msgid "consent_csv.expires_at"
+msgstr ""
+
+msgid "consent_csv.phone"
+msgstr ""
+
+msgid "consent_csv.recorded_at"
+msgstr ""
+
+msgid "consent_csv.recorded_by"
+msgstr ""
+
+msgid "consent_csv.source"
+msgstr ""
+
+msgid "consent_csv.status"
+msgstr ""
+
+msgid "contract_sent.body"
+msgstr ""
+
+msgid "contract_sent.subject"
+msgstr ""
+
+msgid "datetime.day_at_time"
+msgstr ""
+
+msgid "dispute.push"
+msgstr ""
+
+msgid "estimate_accepted.body"
+msgstr ""
+
+msgid "estimate_accepted.subject"
+msgstr ""
+
+msgid "estimate_declined.body"
+msgstr ""
+
+msgid "estimate_declined.body_reason"
+msgstr ""
+
+msgid "estimate_declined.subject"
+msgstr ""
+
+msgid "estimate_sent.body"
+msgstr ""
+
+msgid "estimate_sent.body_link"
+msgstr ""
+
+msgid "estimate_sent.subject"
+msgstr ""
+
+msgid "form_sent.body"
+msgstr ""
+
+msgid "form_sent.subject"
+msgstr ""
+
+msgid "gift_card_issued.body"
+msgstr ""
+
+msgid "gift_card_issued.subject"
+msgstr ""
+
+msgid "interac_requested.body"
+msgstr ""
+
+msgid "interac_requested.body_link"
+msgstr ""
+
+msgid "interac_requested.subject"
+msgstr ""
+
+msgid "invoice_line.visit"
+msgstr ""
+
+msgid "invoice_overdue.body"
+msgstr ""
+
+msgid "invoice_overdue.body_link"
+msgstr ""
+
+msgid "invoice_overdue.subject"
+msgstr ""
+
+msgid "invoice_sent.body"
+msgstr ""
+
+msgid "invoice_sent.body_link"
+msgstr ""
+
+msgid "invoice_sent.subject"
+msgstr ""
+
+msgid "manage_blocked.by_phone"
+msgstr ""
+
+msgid "manage_blocked.class_session"
+msgstr ""
+
+msgid "manage_blocked.cutoff"
+msgid_plural "manage_blocked.cutoff"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "manage_blocked.reschedule_limit"
+msgstr ""
+
+msgid "manage_blocked.status"
+msgstr ""
+
+msgid "online_order.body"
+msgstr ""
+
+msgid "online_order.subject"
+msgstr ""
+
+msgid "order_ready.body"
+msgstr ""
+
+msgid "order_ready.subject"
+msgstr ""
+
+msgid "order_reminder.body"
+msgstr ""
+
+msgid "order_reminder.subject"
+msgstr ""
+
+msgid "password_reset.body"
+msgstr ""
+
+msgid "password_reset.subject"
+msgstr ""
+
+msgid "payment_failed.body"
+msgstr ""
+
+msgid "payment_failed.subject"
+msgstr ""
+
+msgid "pickup.body"
+msgstr ""
+
+msgid "receipt.body"
+msgstr ""
+
+msgid "receipt.line"
+msgstr ""
+
+msgid "receipt.push"
+msgstr ""
+
+msgid "receipt.subject"
+msgstr ""
+
+msgid "receipt.subtotal"
+msgstr ""
+
+msgid "receipt.tax"
+msgstr ""
+
+msgid "receipt.total"
+msgstr ""
+
+msgid "refund.body"
+msgstr ""
+
+msgid "refund.body_credit_note"
+msgstr ""
+
+msgid "refund.subject"
+msgstr ""
+
+msgid "report.unnamed_payee"
+msgstr ""
+
+msgid "report_csv.amount_cents"
+msgstr ""
+
+msgid "report_csv.arrival"
+msgstr ""
+
+msgid "report_csv.by_method"
+msgstr ""
+
+msgid "report_csv.code"
+msgstr ""
+
+msgid "report_csv.collected_cents"
+msgstr ""
+
+msgid "report_csv.gross"
+msgstr ""
+
+msgid "report_csv.gst_hst_number"
+msgstr ""
+
+msgid "report_csv.item"
+msgstr ""
+
+msgid "report_csv.kind"
+msgstr ""
+
+msgid "report_csv.metric"
+msgstr ""
+
+msgid "report_csv.name"
+msgstr ""
+
+msgid "report_csv.net"
+msgstr ""
+
+msgid "report_csv.number"
+msgstr ""
+
+msgid "report_csv.payout"
+msgstr ""
+
+msgid "report_csv.pst_cents"
+msgstr ""
+
+msgid "report_csv.qst_cents"
+msgstr ""
+
+msgid "report_csv.quantity"
+msgstr ""
+
+msgid "report_csv.rate_bps"
+msgstr ""
+
+msgid "report_csv.refunded_cents"
+msgstr ""
+
+msgid "report_csv.refunds"
+msgstr ""
+
+msgid "report_csv.sales_cents"
+msgstr ""
+
+msgid "report_csv.staff_id"
+msgstr ""
+
+msgid "report_csv.status"
+msgstr ""
+
+msgid "report_csv.tax_cents"
+msgstr ""
+
+msgid "report_csv.tax_collected_cents"
+msgstr ""
+
+msgid "report_csv.taxable_sales_cents"
+msgstr ""
+
+msgid "report_csv.total_cents"
+msgstr ""
+
+msgid "returning_code.body"
+msgid_plural "returning_code.body"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "returning_code.subject"
+msgstr ""
+
+msgid "review_requested.body"
+msgstr ""
+
+msgid "review_requested.subject"
+msgstr ""
+
+msgid "sale_receipt.body"
+msgstr ""
+
+msgid "sale_receipt.body_numbered"
+msgstr ""
+
+msgid "sale_receipt.subject"
+msgstr ""
+
+msgid "series.separator"
+msgstr ""
+
+msgid "series_booked.body"
+msgstr ""
+
+msgid "series_booked.subject"
+msgstr ""
+
+msgid "series_canceled.body"
+msgstr ""
+
+msgid "series_canceled.subject"
+msgstr ""
+
+msgid "series_moved.body"
+msgstr ""
+
+msgid "series_moved.subject"
+msgstr ""
+
+msgid "staff_invite.body"
+msgstr ""
+
+msgid "staff_invite.subject"
+msgstr ""
+
+msgid "stripe.pad_interval_description"
+msgstr ""
+
+msgid "stripe.subscription_product"
+msgstr ""
+
+msgid "subscription_canceled.body"
+msgstr ""
+
+msgid "subscription_canceled.subject"
+msgstr ""
+
+msgid "subscription_past_due.body"
+msgstr ""
+
+msgid "subscription_past_due.subject"
+msgstr ""
+
+msgid "verify_email.body"
+msgstr ""
+
+msgid "verify_email.subject"
+msgstr ""
+

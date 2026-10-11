@@ -8,14 +8,18 @@ import {
     addDays,
     combineDayAndTime,
     daysUntil,
+    formatClock,
+    formatFullDate,
     formatHour,
     formatMonthDay,
     formatTime,
-    formatWeekday,
+    formatWeekdayMonthDay,
     parseTimestamp,
     startOfDay,
+    wallTime,
+    useBusinessZone,
 } from "../datetime";
-import { firstName, formatMoney } from "../format";
+import { firstName, formatList, formatMoney, BUSINESS_CURRENCY } from "../format";
 import { type Load, type Remote, useAsyncAction, useRemote } from "../hooks";
 import type { IconName } from "../icons";
 import type { Intent } from "../ui";
@@ -116,12 +120,13 @@ export interface AgendaItem {
     depositPaidCents: number;
     checkedIn: boolean;
     minutesAway: number;
+    startsIn: string;
 }
 
 const isClassRow = (r: AgendaRow): boolean => r.item_kind === "class" || r.capacity > 1;
 
 /** Today's visits in time order with now/next state; a class is one row however many are booked. */
-export function buildAgenda(rows: AgendaRow[], now: Date): AgendaItem[] {
+export function buildAgenda(rows: AgendaRow[], now: Date, zone: string): AgendaItem[] {
     const bySlot = new Map<string, AgendaRow[]>();
     for (const r of rows) bySlot.set(r.slot_id, [...(bySlot.get(r.slot_id) ?? []), r]);
     const items: Omit<AgendaItem, "state">[] = [];
@@ -132,6 +137,7 @@ export function buildAgenda(rows: AgendaRow[], now: Date): AgendaItem[] {
         const asItem = (r: AgendaRow, isClass: boolean): Omit<AgendaItem, "state"> => {
             const start = parseTimestamp(r.starts_at);
             const end = parseTimestamp(r.ends_at);
+            const away = Math.round((start.getTime() - now.getTime()) / MIN);
             const paid = r.deposit_status === "collected" || r.deposit_status === "applied";
             const staff = { name: r.staff_name, title: r.staff_title, role: r.staff_role ?? "" };
             return {
@@ -140,8 +146,8 @@ export function buildAgenda(rows: AgendaRow[], now: Date): AgendaItem[] {
                 bookingId: isClass ? null : r.booking_id,
                 start,
                 end,
-                time: formatTime(start),
-                endTime: formatTime(end),
+                time: formatTime(start, zone),
+                endTime: formatTime(end, zone),
                 clientId: isClass ? null : r.client_id,
                 clientName: isClass ? r.item_name : (r.client_name ?? ""),
                 clientPhone: isClass ? null : r.client_phone,
@@ -160,7 +166,8 @@ export function buildAgenda(rows: AgendaRow[], now: Date): AgendaItem[] {
                 depositAmountCents: r.deposit_amount_cents ?? 0,
                 depositPaidCents: isClass || !paid ? 0 : (r.deposit_amount_cents ?? 0),
                 checkedIn: !isClass && r.checked_in_at !== null,
-                minutesAway: Math.round((start.getTime() - now.getTime()) / MIN),
+                minutesAway: away,
+                startsIn: strings.today.inMinutes(Math.floor(away / 60), away % 60),
             };
         };
         if (isClassRow(first)) items.push(asItem(first, true));
@@ -184,9 +191,9 @@ export function buildAgenda(rows: AgendaRow[], now: Date): AgendaItem[] {
         });
 }
 
-function useAgendaRows(day: Date, staffId: string | null) {
-    const start = startOfDay(day);
-    const params = [addDays(start, 1).toISOString(), start.toISOString()];
+function useAgendaRows(day: Date, staffId: string | null, zone: string) {
+    const start = startOfDay(day, zone);
+    const params = [addDays(start, 1, zone).toISOString(), start.toISOString()];
     const result = useQuery<AgendaRow>(AGENDA_SQL, params);
     const rows = useMemo(
         () => (staffId === null ? result.data : result.data.filter((r) => r.staff_id === staffId)),
@@ -253,26 +260,18 @@ interface HoursRow {
 }
 
 /** Monday 0 … Sunday 6, the server's weekday numbering. */
-const isoWeekday = (d: Date): number => (d.getDay() + 6) % 7;
+const isoWeekday = (d: Date, zone: string): number => (wallTime(d, zone).weekday + 6) % 7;
 
-function clock(hhmm: string, day: Date): Date {
-    const [h = 0, m = 0] = hhmm.split(":").map(Number);
-    return new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, m);
-}
+const shortClock = (hhmm: string): string =>
+    hhmm.slice(3, 5) === "00" ? formatHour(Number(hhmm.slice(0, 2))) : formatClock(hhmm);
 
-const shortClock = (d: Date): string =>
-    d.getMinutes() === 0 ? formatHour(d.getHours()) : formatTime(d);
-
-function hoursLabel(row: HoursRow | undefined, day: Date): string | null {
+function hoursLabel(row: HoursRow | undefined): string | null {
     if (row?.available !== 1 || row.start_time === null || row.end_time === null) return null;
-    return strings.today.hoursValue(
-        shortClock(clock(row.start_time, day)),
-        shortClock(clock(row.end_time, day)),
-    );
+    return strings.today.hoursValue(shortClock(row.start_time), shortClock(row.end_time));
 }
 
-function useTodayHours(day: Date) {
-    const result = useQuery<HoursRow>(TODAY_HOURS_SQL, [isoWeekday(day)]);
+function useTodayHours(day: Date, zone: string) {
+    const result = useQuery<HoursRow>(TODAY_HOURS_SQL, [isoWeekday(day, zone)]);
     return result;
 }
 
@@ -288,6 +287,7 @@ function ownerAttention(input: {
     filingDue: Date | null;
     filingCents: number;
     now: Date;
+    zone: string;
 }): AttentionItem[] {
     const a = strings.today.attention;
     const out: AttentionItem[] = [];
@@ -300,7 +300,7 @@ function ownerAttention(input: {
             title: a.depositTitle,
             detail: a.depositDetail(
                 item.clientName,
-                formatMoney(item.depositAmountCents),
+                formatMoney(item.depositAmountCents, BUSINESS_CURRENCY),
                 item.time,
             ),
             action: a.depositAction,
@@ -310,7 +310,8 @@ function ownerAttention(input: {
         });
     }
     for (const inv of input.invoices.filter((i) => i.status === "overdue")) {
-        const late = inv.due_at === null ? 0 : -daysUntil(parseTimestamp(inv.due_at), input.now);
+        const late =
+            inv.due_at === null ? 0 : -daysUntil(parseTimestamp(inv.due_at), input.zone, input.now);
         out.push({
             key: `inv-${inv.id}`,
             intent: "danger",
@@ -318,7 +319,7 @@ function ownerAttention(input: {
             title: a.overdueTitle(inv.number ?? 0),
             detail: a.overdueDetail(
                 inv.client_name ?? "",
-                formatMoney(inv.balance_cents),
+                formatMoney(inv.balance_cents, BUSINESS_CURRENCY),
                 Math.max(late, 0),
             ),
             action: a.overdueAction,
@@ -334,7 +335,9 @@ function ownerAttention(input: {
             intent: "accent",
             icon: "inbox",
             title: a.unreadTitle(unread.reduce((n, t) => n + t.unread_count, 0)),
-            detail: a.unreadDetail(unread.map((t) => firstName(t.client_name ?? "")).slice(0, 3)),
+            detail: a.unreadDetail(
+                formatList(unread.map((t) => firstName(t.client_name ?? "")).slice(0, 3)),
+            ),
             action: a.unreadAction,
             act: "open",
             target: "inbox",
@@ -378,13 +381,18 @@ function ownerAttention(input: {
             refId: null,
         });
     }
-    if (input.filingDue !== null && daysUntil(input.filingDue, input.now) <= 30) {
+    const filingDays =
+        input.filingDue === null ? null : daysUntil(input.filingDue, input.zone, input.now);
+    if (input.filingDue !== null && filingDays !== null && filingDays <= 30) {
         out.push({
             key: "filing",
-            intent: daysUntil(input.filingDue, input.now) <= 14 ? "warning" : "neutral",
+            intent: filingDays <= 14 ? "warning" : "neutral",
             icon: "building",
             title: a.filingTitle,
-            detail: a.filingDetail(formatMoney(input.filingCents), formatMonthDay(input.filingDue)),
+            detail: a.filingDetail(
+                formatMoney(input.filingCents, BUSINESS_CURRENCY),
+                formatMonthDay(input.filingDue, input.zone),
+            ),
             action: a.filingAction,
             act: "open",
             target: "taxReturns",
@@ -399,7 +407,7 @@ function ownerAttention(input: {
             title: a.earningsTitle,
             detail: a.earningsDetail(
                 input.pendingEarnings.count,
-                formatMoney(input.pendingEarnings.cents),
+                formatMoney(input.pendingEarnings.cents, BUSINESS_CURRENCY),
             ),
             action: a.earningsAction,
             act: "open",
@@ -413,7 +421,10 @@ function ownerAttention(input: {
             intent: "neutral",
             icon: "edit",
             title: a.draftTitle,
-            detail: a.draftDetail(inv.client_name ?? "", formatMoney(inv.total_cents)),
+            detail: a.draftDetail(
+                inv.client_name ?? "",
+                formatMoney(inv.total_cents, BUSINESS_CURRENCY),
+            ),
             action: a.draftAction,
             act: "open",
             target: "invoice",
@@ -437,7 +448,9 @@ function staffAttention(
             intent: "accent",
             icon: "inbox",
             title: a.unreadTitle(unread.reduce((n, t) => n + t.unread_count, 0)),
-            detail: a.unreadDetail(unread.map((t) => firstName(t.client_name ?? "")).slice(0, 3)),
+            detail: a.unreadDetail(
+                formatList(unread.map((t) => firstName(t.client_name ?? "")).slice(0, 3)),
+            ),
             action: a.unreadAction,
             act: "open",
             target: "inbox",
@@ -473,7 +486,7 @@ function useTodayNow(): Date {
     return now;
 }
 
-function useTodayView(viewer: Viewer | null, now: Date) {
+function useTodayView(viewer: Viewer | null, now: Date, zone: string) {
     const me = useQuery<{ name: string | null; title: string | null; role: string }>(
         VIEWER_STAFF_SQL,
         [viewer?.staffId ?? ""],
@@ -481,23 +494,20 @@ function useTodayView(viewer: Viewer | null, now: Date) {
     const viewerName = me?.name ?? "";
     const manager = canManagePayments(viewer?.role ?? null);
     const scopeTo = manager ? null : (viewer?.staffId ?? "");
-    const { result, rows } = useAgendaRows(now, scopeTo);
-    const hours = useTodayHours(now);
+    const { result, rows } = useAgendaRows(now, scopeTo, zone);
+    const hours = useTodayHours(now, zone);
     const staff = useStaff();
-    const agenda = useMemo(() => buildAgenda(rows, now), [rows, now]);
+    const agenda = useMemo(() => buildAgenda(rows, now, zone), [rows, now, zone]);
     const team = useMemo<TeamDay[]>(
         () =>
             staff.map((s) => ({
                 staffId: s.id,
                 name: staffName(s),
                 color: s.color,
-                hours: hoursLabel(
-                    hours.data.find((h) => h.staff_id === s.id),
-                    now,
-                ),
+                hours: hoursLabel(hours.data.find((h) => h.staff_id === s.id)),
                 bookings: agenda.filter((a) => a.staffId === s.id).length,
             })),
-        [staff, hours.data, agenda, now],
+        [staff, hours.data, agenda],
     );
     const upcoming = agenda.filter(
         (a) => a.state === "now" || a.state === "next" || a.state === "later",
@@ -507,9 +517,9 @@ function useTodayView(viewer: Viewer | null, now: Date) {
         agenda,
         team,
         base: {
-            greeting: greeting(now.getHours(), viewerName),
-            dateLabel: `${now.toLocaleDateString("en-CA", { weekday: "long" })}, ${formatMonthDay(now)}`,
-            nowLabel: formatTime(now),
+            greeting: greeting(wallTime(now, zone).hour, viewerName),
+            dateLabel: formatFullDate(now, zone),
+            nowLabel: formatTime(now, zone),
             agenda,
             current: agenda.find((a) => a.state === "now") ?? null,
             next: agenda.find((a) => a.state === "next") ?? null,
@@ -524,7 +534,8 @@ function useTodayView(viewer: Viewer | null, now: Date) {
 /** The owner's Today: the agenda, what needs them and the money figures, from one hook. */
 export function useOwnerToday(api: ApiLike, viewer: Viewer | null): OwnerToday {
     const now = useTodayNow();
-    const { result, agenda, base } = useTodayView(viewer, now);
+    const zone = useBusinessZone();
+    const { result, agenda, base } = useTodayView(viewer, now, zone);
     const invoices = useInvoices();
     const threads = useThreads();
     const reviews = useReviews();
@@ -532,11 +543,11 @@ export function useOwnerToday(api: ApiLike, viewer: Viewer | null): OwnerToday {
     const earnings = useEarnings();
     const summary = useTodaySummary(api);
     const payments = useQuery<{ id: string; kind: string }>(TODAY_PAYMENTS_SQL, [
-        startOfDay(now).toISOString(),
+        startOfDay(now, zone).toISOString(),
     ]);
     const s = summary.data;
     const filingDue = s?.gst_hst_filing_due
-        ? combineDayAndTime(s.gst_hst_filing_due, "00:00")
+        ? combineDayAndTime(s.gst_hst_filing_due, "00:00", zone)
         : null;
     const open = invoices.filter((i) => OPEN_INVOICE.has(i.status) && (i.balance_cents ?? 0) > 0);
     const pending = earnings.filter((e) => e.status === "pending");
@@ -553,6 +564,7 @@ export function useOwnerToday(api: ApiLike, viewer: Viewer | null): OwnerToday {
         filingDue,
         filingCents: s?.gst_hst_set_aside_cents ?? 0,
         now,
+        zone,
     });
     const load = useReplicaLoad([result], agenda.length === 0 && attention.length === 0);
     const moneyLoad = useReplicaLoad([summary], false);
@@ -567,7 +579,7 @@ export function useOwnerToday(api: ApiLike, viewer: Viewer | null): OwnerToday {
             awaitingCount: open.length,
             setAsideCents: s?.gst_hst_set_aside_cents ?? 0,
             filingDue,
-            filingDays: filingDue === null ? null : daysUntil(filingDue, now),
+            filingDays: filingDue === null ? null : daysUntil(filingDue, zone, now),
         },
     };
 }
@@ -596,15 +608,16 @@ ORDER BY ${utcSql("s.starts_at")} DESC LIMIT 1`;
 /** A staff member's Today: their own visits, the next client, free gaps and what they've earned. */
 export function useStaffToday(viewer: Viewer | null): StaffToday {
     const now = useTodayNow();
-    const { result, agenda, base } = useTodayView(viewer, now);
+    const zone = useBusinessZone();
+    const { result, agenda, base } = useTodayView(viewer, now, zone);
     const threads = useThreads();
-    const hours = useTodayHours(now);
-    const tomorrow = useAgendaRows(addDays(now, 1), viewer?.staffId ?? "");
+    const hours = useTodayHours(now, zone);
+    const tomorrow = useAgendaRows(addDays(now, 1, zone), viewer?.staffId ?? "", zone);
     const earnings = useEarnings();
     const next = base.current ?? base.next;
     const last = useQuery<{ starts_at: string }>(CLIENT_LAST_VISIT_SQL, [
         next?.clientId ?? "",
-        startOfDay(now).toISOString(),
+        startOfDay(now, zone).toISOString(),
     ]).data[0];
     const attention = useMemo(() => staffAttention(agenda, threads), [agenda, threads]);
     const mine = hours.data.find((h) => h.staff_id === viewer?.staffId);
@@ -613,7 +626,11 @@ export function useStaffToday(viewer: Viewer | null): StaffToday {
         const a = agenda[i];
         const b = agenda[i + 1];
         if (a && b && b.start.getTime() - a.end.getTime() >= 60 * MIN) {
-            gaps.push({ after: a.id, from: formatTime(a.end), to: formatTime(b.start) });
+            gaps.push({
+                after: a.id,
+                from: formatTime(a.end, zone),
+                to: formatTime(b.start, zone),
+            });
         }
     }
     const lastAt = last === undefined ? null : parseTimestamp(last.starts_at);
@@ -622,11 +639,9 @@ export function useStaffToday(viewer: Viewer | null): StaffToday {
         load,
         view: { ...base, attention },
         day: {
-            hours: hoursLabel(mine, now),
+            hours: hoursLabel(mine),
             endsAt:
-                mine?.available === 1 && mine.end_time !== null
-                    ? formatTime(clock(mine.end_time, now))
-                    : null,
+                mine?.available === 1 && mine.end_time !== null ? formatClock(mine.end_time) : null,
             earnedCents: earnings
                 .filter(
                     (e) =>
@@ -636,8 +651,7 @@ export function useStaffToday(viewer: Viewer | null): StaffToday {
                 .reduce((n, e) => n + e.amount_cents, 0),
             gaps,
             tomorrow: new Set(tomorrow.rows.map((r) => r.slot_id)).size,
-            lastVisit:
-                lastAt === null ? null : `${formatWeekday(lastAt)} ${formatMonthDay(lastAt)}`,
+            lastVisit: lastAt === null ? null : formatWeekdayMonthDay(lastAt, zone),
         },
     };
 }

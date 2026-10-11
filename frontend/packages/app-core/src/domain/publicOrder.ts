@@ -25,6 +25,7 @@ interface PublicOrder {
     can_cancel: boolean;
     receipt_token: string | null;
     currency: string;
+    timezone: string;
     subtotal_cents: number;
     tax_total_cents: number;
     total_cents: number;

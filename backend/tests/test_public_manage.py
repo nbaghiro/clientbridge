@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -5,6 +6,7 @@ import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.config import get_settings
 from clientbridge.models.business import Business
 from clientbridge.models.scheduling import Booking, Slot
 from tests.conftest import BIZ, FakeEmailSender, FakePaymentGateway
@@ -133,6 +135,37 @@ async def test_inside_the_cutoff_nothing_changes_online(
     assert (await api.post(f"/manage/{token}/cancel")).status_code == 409
     moved = await api.post(f"/manage/{token}/reschedule", json={"starts_at": TEN_LOCAL})
     assert moved.status_code == 409
+
+
+async def test_blocked_reason_reads_the_catalog(
+    api: httpx.AsyncClient, db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    token = await _book(api)
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(booking_policy={"cancel_cutoff_hours": 1, "reschedule_cutoff_hours": 1})
+    )
+    soon = datetime.now(UTC) + timedelta(minutes=30)
+    slot = await _slot(db, token)
+    await db.execute(
+        update(Slot)
+        .where(
+            Slot.staff_id == "st_owner",
+            Slot.id != slot.id,
+            Slot.starts_at < soon + timedelta(minutes=75),
+            Slot.ends_at > soon,
+        )
+        .values(status="canceled")
+    )
+    slot.starts_at, slot.ends_at = soon, soon + timedelta(minutes=75)
+    await db.flush()
+    view = (await api.get(f"/manage/{token}")).json()
+    assert view["blocked"] == "it's less than 1 hour away; call the studio"
+    monkeypatch.setattr(get_settings(), "pseudo_locale", True)
+    pseudo = (await api.get(f"/manage/{token}")).json()["blocked"]
+    assert pseudo.startswith("[") and pseudo.endswith("~]") and " 1 " in pseudo
+    assert not re.search(r"[A-Za-z]", pseudo), pseudo
 
 
 async def test_moving_onto_a_taken_time_is_refused(api: httpx.AsyncClient) -> None:

@@ -16,6 +16,8 @@ import {
     useStaffPay,
     useStaffPayForm,
     useTeam,
+    formatParts,
+    formatList,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -286,7 +288,10 @@ function InviteLine({ invite, team }: { invite: TeamInvite; team: TeamView }) {
         <ListRow
             icon="mail"
             title={invite.email}
-            detail={`${roleLabel(invite.role)} · ${invite.expired ? t.expired : t.expiresIn(invite.daysLeft)}`}
+            detail={formatParts([
+                roleLabel(invite.role),
+                invite.expired ? t.expired : t.expiresIn(invite.daysLeft),
+            ])}
             intent={invite.expired ? "danger" : "neutral"}
             trailing={
                 <View style={styles.inviteActions}>
@@ -354,7 +359,7 @@ export function Team({ footer }: { footer?: ReactNode }) {
                         <View style={[styles.card, styles.access]}>
                             <Text style={styles.accessTitle}>{t.yourRole(roleLabel(role))}</Text>
                             <Text style={styles.small}>{t.roleAccess[role]}</Text>
-                            {(t.roleCan[role] ?? []).map((x) => (
+                            {t.roleCan[role].map((x) => (
                                 <View key={x} style={styles.accessRow}>
                                     <Icon name="check" size={14} color={c.okFg} />
                                     <Text style={styles.accessText}>{x}</Text>
@@ -400,7 +405,7 @@ export function Team({ footer }: { footer?: ReactNode }) {
                                             intent={memberRoleIntent(m.role)}
                                         />
                                     }
-                                    label={`${m.name}, ${roleLabel(m.role)}`}
+                                    label={formatList([m.name, roleLabel(m.role)], "unit")}
                                     onPress={() => {
                                         setOpenId(m.id);
                                     }}

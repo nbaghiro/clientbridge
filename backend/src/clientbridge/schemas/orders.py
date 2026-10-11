@@ -140,6 +140,7 @@ class PublicReceipt(BaseModel):
     served_by: list[str] = Field(default_factory=list)
     status: str
     currency: str
+    timezone: str = Field(description="The business's IANA time zone, which its times are shown in")
     created_at: datetime
     lines: list[PublicDocLine]
     discount_cents: int = 0
@@ -191,6 +192,7 @@ class PublicOrderStatus(Mirror):
     can_cancel: bool
     receipt_token: str | None
     currency: str
+    timezone: str = Field(description="The business's IANA time zone, which its times are shown in")
     subtotal_cents: int
     tax_total_cents: int
     total_cents: int

@@ -8,6 +8,8 @@ import {
     strings,
     upNext,
     useBookingActions,
+    formatParts,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -49,7 +51,7 @@ function QuickClose({
             <div className="h-14">
                 <CalendarEventCard
                     headline={event.headline}
-                    detail={`${event.serviceName} · ${event.staffShort}`}
+                    detail={formatParts([event.serviceName, event.staffShort])}
                     time={event.timeLabel}
                     intent={event.intent}
                     color={event.color}
@@ -90,6 +92,7 @@ function QuickClose({
 
 /** The right rail when nothing is selected: jump to a day, what's on now, what to close, the team's day. */
 export function ScheduleRail({ board }: { board: ScheduleBoard }) {
+    const zone = useBusinessZone();
     const day = board.focus;
     const inProgress = day.events.filter((e) => e.inProgress);
     const toClose = needsClosing(day.events);
@@ -168,7 +171,7 @@ export function ScheduleRail({ board }: { board: ScheduleBoard }) {
                                         leading={
                                             <span className="flex items-center gap-3">
                                                 <span className="w-[68px] shrink-0 whitespace-nowrap text-[13px] font-semibold text-ink">
-                                                    {formatTime(e.start)}
+                                                    {formatTime(e.start, zone)}
                                                 </span>
                                                 <span
                                                     className="h-8 w-1 shrink-0 rounded-full"
@@ -179,7 +182,7 @@ export function ScheduleRail({ board }: { board: ScheduleBoard }) {
                                             </span>
                                         }
                                         title={e.headline}
-                                        detail={`${e.serviceName} · ${e.staffShort}`}
+                                        detail={formatParts([e.serviceName, e.staffShort])}
                                         meta={
                                             e.depositRequired && e.depositStatus === "pending" ? (
                                                 <Icon

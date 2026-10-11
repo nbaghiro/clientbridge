@@ -1,4 +1,10 @@
-import { type PrintedDocumentProps, formatMoney } from "@clientbridge/app-core";
+import {
+    formatMoney,
+    formatParts,
+    type PrintedDocumentProps,
+    taxList,
+    taxName,
+} from "@clientbridge/app-core";
 import { ON_DATA, SHADOW, tintHex } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
@@ -36,7 +42,7 @@ function Parties({ doc }: { doc: Doc }) {
                         {l}
                     </Text>
                 ))}
-                <Text style={styles.body}>{[b.phone, b.email].filter(Boolean).join(" · ")}</Text>
+                <Text style={styles.body}>{formatParts([b.phone, b.email])}</Text>
             </View>
             <View style={styles.flex}>
                 <Text style={styles.cap}>{doc.partyLabel}</Text>
@@ -78,17 +84,20 @@ function Lines({ doc }: { doc: Doc }) {
                     <View style={styles.flex}>
                         <Text style={styles.strong}>{line.description}</Text>
                         <Text style={styles.small}>
-                            {[
+                            {formatParts([
                                 line.subject !== null ? l.forPet(line.subject) : null,
-                                `${String(line.quantity)} × ${formatMoney(line.unitCents)}`,
-                            ]
-                                .filter(Boolean)
-                                .join(" · ")}
+                                l.qtyTimes(
+                                    line.quantity,
+                                    formatMoney(line.unitCents, doc.currency),
+                                ),
+                            ])}
                         </Text>
                     </View>
-                    <Text style={[styles.body, styles.taxCol]}>{line.taxCodes.join(" + ")}</Text>
+                    <Text style={[styles.body, styles.taxCol]}>
+                        {taxList(line.taxCodes.map(taxName))}
+                    </Text>
                     <Text style={[styles.strong, styles.amountCol]}>
-                        {formatMoney(line.amountCents)}
+                        {formatMoney(line.amountCents, doc.currency)}
                     </Text>
                 </View>
             ))}
@@ -103,14 +112,11 @@ export function PrintedDocument({
 }: NativeProps<PrintedDocumentProps>) {
     const statement = template === "statement";
     return (
-        <View style={[styles.paper, style]} accessibilityLabel={`${doc.title} ${doc.number}`}>
+        <View style={[styles.paper, style]} accessibilityLabel={doc.heading}>
             {statement ? (
                 <View style={[styles.band, { backgroundColor: doc.business.brandColor }]}>
                     <Brand doc={doc} inverse />
-                    <Text style={[styles.bandTitle, styles.inverse]}>
-                        {doc.title} {/^\d/.test(doc.number) ? "#" : ""}
-                        {doc.number}
-                    </Text>
+                    <Text style={[styles.bandTitle, styles.inverse]}>{doc.heading}</Text>
                 </View>
             ) : (
                 <>
@@ -118,12 +124,9 @@ export function PrintedDocument({
                         <Brand doc={doc} />
                         <View style={styles.right}>
                             <Text style={[styles.title, { color: doc.business.brandColor }]}>
-                                {doc.title.toUpperCase()}
+                                {doc.title}
                             </Text>
-                            <Text style={styles.small}>
-                                {/^\d/.test(doc.number) ? "#" : ""}
-                                {doc.number}
-                            </Text>
+                            <Text style={styles.small}>{doc.reference}</Text>
                         </View>
                     </View>
                     <View style={[styles.rule, { backgroundColor: doc.business.brandColor }]} />
@@ -134,10 +137,10 @@ export function PrintedDocument({
                 <View style={styles.headline}>
                     <View style={styles.flex}>
                         <Text style={styles.cap}>{doc.headline.label}</Text>
-                        <Text style={styles.big}>{formatMoney(doc.headline.cents)}</Text>
-                        <Text style={styles.small}>
-                            {doc.meta[2]?.label} {doc.meta[2]?.value}
+                        <Text style={styles.big}>
+                            {formatMoney(doc.headline.cents, doc.currency)}
                         </Text>
+                        <Text style={styles.small}>{doc.deadline}</Text>
                     </View>
                     {doc.payUrl !== null ? (
                         <PayCode value={doc.payUrl} size={64} label={doc.labels.scanToPay} />
@@ -150,10 +153,10 @@ export function PrintedDocument({
             {doc.message !== null ? <Text style={styles.message}>{doc.message}</Text> : null}
             <Lines doc={doc} />
             <View style={styles.totals}>
-                <DocTotals lines={doc.totals} density="compact" />
+                <DocTotals lines={doc.totals} currency={doc.currency} density="compact" />
                 {doc.stamp !== null ? (
                     <View style={styles.stamp}>
-                        <Text style={styles.stampText}>{doc.stamp.toUpperCase()}</Text>
+                        <Text style={styles.stampText}>{doc.stamp}</Text>
                     </View>
                 ) : null}
             </View>
@@ -161,8 +164,7 @@ export function PrintedDocument({
                 <View style={styles.box}>
                     <Text style={styles.cap}>{doc.labels.paymentMethod}</Text>
                     <Text style={styles.strong}>
-                        {doc.payment.method}
-                        {doc.payment.reference ? ` · ${doc.payment.reference}` : ""}
+                        {formatParts([doc.payment.method, doc.payment.reference])}
                     </Text>
                     <Text style={styles.small}>{doc.payment.at}</Text>
                 </View>
@@ -213,7 +215,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     right: { alignItems: "flex-end" },
-    title: { fontSize: 15, fontWeight: "800", letterSpacing: 2 },
+    title: { fontSize: 15, fontWeight: "800", letterSpacing: 2, textTransform: "uppercase" },
     rule: { height: 2, borderRadius: 1, marginTop: 12, marginBottom: 14 },
     band: {
         marginHorizontal: -18,
@@ -223,7 +225,7 @@ const styles = StyleSheet.create({
         gap: 8,
         marginBottom: 14,
     },
-    bandTitle: { fontSize: 13, fontWeight: "700" },
+    bandTitle: { fontSize: 13, fontWeight: "700", textTransform: "uppercase" },
     headline: {
         flexDirection: "row",
         alignItems: "center",
@@ -296,6 +298,12 @@ const styles = StyleSheet.create({
         paddingVertical: 2,
         transform: [{ rotate: "-10deg" }],
     },
-    stampText: { color: c.success, fontSize: 20, fontWeight: "800", letterSpacing: 3 },
+    stampText: {
+        color: c.success,
+        fontSize: 20,
+        fontWeight: "800",
+        letterSpacing: 3,
+        textTransform: "uppercase",
+    },
     footer: { marginTop: 16, paddingTop: 8, borderTopWidth: 1, borderTopColor: c.border },
 });

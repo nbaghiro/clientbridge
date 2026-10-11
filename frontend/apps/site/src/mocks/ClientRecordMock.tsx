@@ -1,3 +1,5 @@
+import { formatParts } from "@clientbridge/app-core/public";
+
 import type { Brand } from "../content/brands";
 import { tradePage } from "../content/solutions";
 import type { ClientRecord } from "../content/trades";
@@ -54,9 +56,7 @@ export function ClientRecordMock({ record, brand }: { record: ClientRecord; bran
                     <div key={`${u.when}-${u.what}`} className="lp-row py-2">
                         <div>
                             <div>{u.what}</div>
-                            <div className="who">
-                                {u.when} · {u.with}
-                            </div>
+                            <div className="who">{formatParts([u.when, u.with])}</div>
                         </div>
                     </div>
                 ))}

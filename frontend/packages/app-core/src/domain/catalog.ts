@@ -3,8 +3,19 @@ import { useBusinessQuery as useQuery } from "../hooks";
 import { useMemo, useRef, useState } from "react";
 
 import { type ApiLike, newIdempotencyKey } from "../api";
-import { addDays, parseTimestamp, stampLabel, startOfDay } from "../datetime";
-import { blankToNull, formatMoney, parseCents } from "../format";
+import { addDays, parseTimestamp, stampLabel, useBusinessZone } from "../datetime";
+import {
+    blankToNull,
+    formatAmountInput,
+    formatList,
+    formatMoney,
+    formatNumber,
+    formatParts,
+    formatPercent,
+    parseCents,
+    parseNumber,
+    BUSINESS_CURRENCY,
+} from "../format";
 import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import { type DurationSegment, type Intent, type TimelineEntry } from "../ui";
@@ -13,6 +24,7 @@ import { useFileUpload } from "./files";
 import { invoiceStatusSql, orderStatusSql } from "./ledger";
 import { useReplicaLoad } from "./sync";
 import { type TaxRate, useTaxSetup } from "./taxes";
+import { taxName, taxList, taxRateLabel } from "./printing";
 
 const s = strings.catalog;
 
@@ -54,12 +66,24 @@ export interface ItemRow {
 }
 
 export const KIND_LABEL: Record<string, string> = {
-    service: s.kindService,
-    product: s.kindProduct,
-    class: s.kindClass,
-    package: s.kindPackage,
-    subscription: s.kindSubscription,
-    gift: s.kindGift,
+    get service() {
+        return s.kindService;
+    },
+    get product() {
+        return s.kindProduct;
+    },
+    get class() {
+        return s.kindClass;
+    },
+    get package() {
+        return s.kindPackage;
+    },
+    get subscription() {
+        return s.kindSubscription;
+    },
+    get gift() {
+        return s.kindGift;
+    },
 };
 
 const KIND_ORDER = ["service", "class", "product", "package", "subscription", "gift"];
@@ -69,15 +93,45 @@ const LINE_KINDS = ["service", "class", "product"];
 const ENTITLEMENT_KINDS = ["gift", "package", "subscription"] as const;
 
 export const DEPOSIT_TYPES: { value: string; label: string }[] = [
-    { value: "none", label: s.depositNone },
-    { value: "fixed", label: s.depositFixed },
-    { value: "percent", label: s.depositPercent },
+    {
+        value: "none",
+        get label() {
+            return s.depositNone;
+        },
+    },
+    {
+        value: "fixed",
+        get label() {
+            return s.depositFixed;
+        },
+    },
+    {
+        value: "percent",
+        get label() {
+            return s.depositPercent;
+        },
+    },
 ];
 
 export const FREQUENCIES: { value: string; label: string }[] = [
-    { value: "week", label: s.freqWeek },
-    { value: "month", label: s.freqMonth },
-    { value: "year", label: s.freqYear },
+    {
+        value: "week",
+        get label() {
+            return s.freqWeek;
+        },
+    },
+    {
+        value: "month",
+        get label() {
+            return s.freqMonth;
+        },
+    },
+    {
+        value: "year",
+        get label() {
+            return s.freqYear;
+        },
+    },
 ];
 
 export const ITEMS_SQL = `
@@ -302,6 +356,11 @@ export function useCatalogView(initial: CatalogFilter = "all"): CatalogView {
     };
 }
 
+function validity(days: number | null): string {
+    if (days === null) return s.noExpiry;
+    return days % 365 === 0 ? s.validMonths((days / 365) * 12) : s.validDays(days);
+}
+
 function freqWord(frequency: string | null): string {
     return s.freqLabel[frequency ?? "month"] ?? frequency ?? "";
 }
@@ -319,19 +378,19 @@ export function itemMeta(i: ItemRow): string {
                     s.depositMeta(
                         i.deposit_type === "percent"
                             ? `${String(i.deposit_value)}%`
-                            : formatMoney(i.deposit_value),
+                            : formatMoney(i.deposit_value, BUSINESS_CURRENCY),
                     ),
                 );
-            return parts.join(" · ");
+            return formatParts(parts);
         }
         case "class":
-            return [s.minutes(i.duration_min ?? 0), s.classSize(i.capacity ?? 0)].join(" · ");
+            return formatParts([s.minutes(i.duration_min ?? 0), s.classSize(i.capacity ?? 0)]);
         case "product":
             return i.sku === null ? s.untracked : s.skuLine(i.sku);
         case "package":
-            return [s.visits(i.session_count ?? 0), s.validDays(i.validity_days)].join(" · ");
+            return formatParts([s.visits(i.session_count ?? 0), validity(i.validity_days)]);
         case "subscription":
-            return s.every(i.interval ?? 1, freqWord(i.frequency));
+            return s.every(i.interval ?? 1, i.frequency ?? "month");
         default:
             return s.anyAmount;
     }
@@ -340,8 +399,8 @@ export function itemMeta(i: ItemRow): string {
 export function itemPriceLabel(i: ItemRow): string {
     if (i.kind === "gift") return s.anyAmount;
     if (i.kind === "subscription")
-        return s.perPeriod(formatMoney(i.price_cents), freqWord(i.frequency));
-    return formatMoney(i.price_cents);
+        return s.perPeriod(formatMoney(i.price_cents, BUSINESS_CURRENCY), freqWord(i.frequency));
+    return formatMoney(i.price_cents, BUSINESS_CURRENCY);
 }
 
 interface ItemStatus {
@@ -409,13 +468,15 @@ function itemFieldShown(kind: string, field: ItemField): boolean {
     return (KIND_FIELDS[kind] ?? []).includes(field);
 }
 
-const dollars = (cents: number | null): string => (cents === null ? "" : (cents / 100).toFixed(2));
+const dollars = (cents: number | null): string =>
+    cents === null ? "" : formatAmountInput(cents, BUSINESS_CURRENCY);
+const decimal = (n: number): string => formatNumber(n, { useGrouping: false });
 const text = (n: number | null): string => (n === null ? "" : String(n));
 
 function depositText(item: ItemRow | null): string {
     const value = item?.deposit_value ?? null;
     if (item === null || value === null) return "";
-    return item.deposit_type === "fixed" ? dollars(value) : String(value);
+    return item.deposit_type === "fixed" ? dollars(value) : decimal(value);
 }
 
 function initialValues(item: ItemRow | null, kind: string): ItemFormValues {
@@ -448,15 +509,17 @@ function initialValues(item: ItemRow | null, kind: string): ItemFormValues {
         coversItemId: item?.covers_item_id ?? "",
         visitsPerPeriod: text(item?.visits_per_period ?? null),
         memberDiscount:
-            item?.member_discount_bps == null ? "" : String(item.member_discount_bps / 100),
+            item?.member_discount_bps == null ? "" : decimal(item.member_discount_bps / 100),
         giftAmounts: item === null ? [] : giftAmounts(item),
     };
 }
 
 const toInt = (value: string): number | null => {
-    const n = Number(value.trim());
-    return value.trim() === "" || !Number.isInteger(n) ? null : n;
+    const n = parseNumber(value);
+    return n === null || !Number.isInteger(n) ? null : n;
 };
+
+const percentOf = (value: string): number => parseNumber(value) ?? NaN;
 
 const minutesOf = (value: string): number => Math.max(0, toInt(value) ?? 0);
 
@@ -464,10 +527,11 @@ const minutesOf = (value: string): number => Math.max(0, toInt(value) ?? 0);
 export function itemFormError(v: ItemFormValues): string | null {
     const shown = (f: ItemField): boolean => itemFieldShown(v.kind, f);
     if (v.name.trim() === "") return s.nameRequired;
-    if (v.price.trim() !== "" && parseCents(v.price) === null) return s.priceInvalid;
+    if (v.price.trim() !== "" && parseCents(v.price, BUSINESS_CURRENCY) === null)
+        return s.priceInvalid;
     if (shown("duration") && (toInt(v.duration) ?? 0) <= 0) return s.durationRequired;
     if (shown("depositType") && v.depositType !== "none") {
-        const value = Number(v.depositValue);
+        const value = percentOf(v.depositValue);
         if (v.depositValue.trim() === "" || !Number.isFinite(value) || value <= 0)
             return s.depositRequired;
         if (v.depositType === "percent" && value > 100) return s.depositPercentMax;
@@ -476,7 +540,7 @@ export function itemFormError(v: ItemFormValues): string | null {
     if (shown("sessionCount") && (toInt(v.sessionCount) ?? 0) <= 0) return s.sessionsRequired;
     if (shown("interval") && (toInt(v.interval) ?? 0) <= 0) return s.intervalRequired;
     if (shown("memberDiscount") && v.memberDiscount.trim() !== "") {
-        const pct = Number(v.memberDiscount);
+        const pct = percentOf(v.memberDiscount);
         if (!Number.isFinite(pct) || pct < 0 || pct > 100) return s.perkInvalid;
     }
     if (shown("trackStock") && v.trackStock && v.openingStock.trim() !== "") {
@@ -493,7 +557,7 @@ export function itemPayload(v: ItemFormValues, creating: boolean): Record<string
         name: v.name.trim(),
         description: blankToNull(v.description),
         category: blankToNull(v.category),
-        price_cents: parseCents(v.price) ?? 0,
+        price_cents: parseCents(v.price, BUSINESS_CURRENCY) ?? 0,
         tax_class: v.taxClass,
     };
     if (creating) body.kind = v.kind;
@@ -512,8 +576,8 @@ export function itemPayload(v: ItemFormValues, creating: boolean): Record<string
             v.depositType === "none"
                 ? null
                 : v.depositType === "fixed"
-                  ? parseCents(v.depositValue)
-                  : Number(v.depositValue);
+                  ? parseCents(v.depositValue, BUSINESS_CURRENCY)
+                  : percentOf(v.depositValue);
     }
     if (shown("sessionCount")) body.session_count = toInt(v.sessionCount);
     if (shown("validityDays")) body.validity_days = toInt(v.validityDays);
@@ -523,10 +587,10 @@ export function itemPayload(v: ItemFormValues, creating: boolean): Record<string
     if (shown("visitsPerPeriod")) body.visits_per_period = toInt(v.visitsPerPeriod);
     if (shown("memberDiscount"))
         body.member_discount_bps =
-            v.memberDiscount.trim() === "" ? null : Math.round(Number(v.memberDiscount) * 100);
+            v.memberDiscount.trim() === "" ? null : Math.round(percentOf(v.memberDiscount) * 100);
     if (shown("giftAmounts")) body.gift_amounts = v.giftAmounts;
     if (shown("sku")) body.sku = blankToNull(v.sku);
-    if (shown("cost")) body.cost_cents = parseCents(v.cost);
+    if (shown("cost")) body.cost_cents = parseCents(v.cost, BUSINESS_CURRENCY);
     if (shown("trackStock")) body.track_stock = v.trackStock;
     if (shown("lowStockAt")) body.low_stock_at = v.trackStock ? toInt(v.lowStockAt) : null;
     if (shown("sellOnline")) body.sell_online = v.sellOnline;
@@ -638,9 +702,10 @@ export function taxOptions(rates: readonly TaxRate[] | null): { key: string; lab
     return [
         {
             key: "federal_only",
-            label: federal.length > 0 ? s.taxOnly(s.taxJoin(federal)) : s.taxFederalOnly,
+            label:
+                federal.length > 0 ? s.taxOnly(formatList(federal.map(taxName))) : s.taxFederalOnly,
         },
-        { key: "standard", label: every.length > 0 ? s.taxJoin(every) : s.taxAll },
+        { key: "standard", label: every.length > 0 ? formatList(every.map(taxName)) : s.taxAll },
         { key: "exempt", label: s.taxExempt },
     ];
 }
@@ -651,11 +716,15 @@ function taxFacts(
     registered: boolean,
 ): string {
     if (!registered) return s.taxNotRegistered;
-    const price = parseCents(v.price) ?? 0;
+    const price = parseCents(v.price, BUSINESS_CURRENCY) ?? 0;
     const applied = ratesFor(v.taxClass, rates ?? []);
-    if (applied.length === 0) return s.taxPreview(s.taxExempt, formatMoney(price));
+    if (applied.length === 0)
+        return s.taxPreview(s.taxExempt, formatMoney(price, BUSINESS_CURRENCY));
     const tax = applied.reduce((sum, r) => sum + Math.round((price * r.rate_bps) / 10000), 0);
-    return s.taxPreview(applied.map((r) => r.name).join(" + "), formatMoney(price + tax));
+    return s.taxPreview(
+        taxList(applied.map((r) => taxRateLabel(r.jurisdiction, r.rate_bps))),
+        formatMoney(price + tax, BUSINESS_CURRENCY),
+    );
 }
 
 interface ItemTiming {
@@ -683,27 +752,38 @@ function itemTiming(v: ItemFormValues): ItemTiming {
 }
 
 function depositSummary(v: ItemFormValues): string {
-    const price = parseCents(v.price) ?? 0;
+    const price = parseCents(v.price, BUSINESS_CURRENCY) ?? 0;
     if (v.depositType === "none") return s.depositNoneSummary;
     const raw =
         v.depositType === "percent"
-            ? Math.round((price * Number(v.depositValue || 0)) / 100)
-            : (parseCents(v.depositValue) ?? 0);
+            ? Math.round((price * (parseNumber(v.depositValue) ?? 0)) / 100)
+            : (parseCents(v.depositValue, BUSINESS_CURRENCY) ?? 0);
     const deposit = Math.min(price, Math.max(0, raw));
-    return s.depositSummary(formatMoney(deposit), formatMoney(price - deposit));
+    return s.depositSummary(
+        formatMoney(deposit, BUSINESS_CURRENCY),
+        formatMoney(price - deposit, BUSINESS_CURRENCY),
+    );
 }
 
 interface MarginFacts {
     label: string;
     low: boolean;
+    warning: string | null;
 }
 
+const LOW_MARGIN_PERCENT = 30;
+
 function marginFacts(price: string, cost: string): MarginFacts | null {
-    const p = parseCents(price);
-    const c = parseCents(cost);
+    const p = parseCents(price, BUSINESS_CURRENCY);
+    const c = parseCents(cost, BUSINESS_CURRENCY);
     if (p === null || c === null || p === 0) return null;
     const pct = Math.round(((p - c) / p) * 100);
-    return { label: s.marginSummary(formatMoney(p - c), pct), low: pct < 30 };
+    const low = pct < LOW_MARGIN_PERCENT;
+    return {
+        label: s.marginSummary(formatMoney(p - c, BUSINESS_CURRENCY), pct),
+        low,
+        warning: low ? s.marginLow(formatPercent(LOW_MARGIN_PERCENT / 100)) : null,
+    };
 }
 
 interface Taxed {
@@ -822,27 +902,38 @@ const GIFT_CHOICES = [2500, 5000, 7500, 10000, 15000, 20000];
 const PER_YEAR: Record<string, number> = { day: 365, week: 52, month: 12, year: 1 };
 
 function planFacts(v: ItemFormValues, covers: ItemRow | null): PlanFacts {
-    const price = parseCents(v.price) ?? 0;
+    const price = parseCents(v.price, BUSINESS_CURRENCY) ?? 0;
     if (v.kind === "package") {
         const visits = minutesOf(v.sessionCount);
         if (covers === null || visits === 0)
             return { summary: s.planSummaryIncomplete, perVisit: null, perYear: null };
         const full = (covers.price_cents ?? 0) * visits;
         const saving =
-            full > price ? s.saves(formatMoney(full - price), visits, covers.name) : s.noSaving;
+            full > price
+                ? s.saves(formatMoney(full - price, BUSINESS_CURRENCY), visits, covers.name)
+                : s.noSaving;
         return {
             summary: s.planSummaryPackage(visits, covers.name),
-            perVisit: `${s.perVisit(formatMoney(Math.round(price / visits)))} · ${saving}`,
+            perVisit: formatParts([
+                s.perVisit(formatMoney(Math.round(price / visits), BUSINESS_CURRENCY)),
+                saving,
+            ]),
             perYear: null,
         };
     }
     if (v.kind === "subscription") {
         const every = Math.max(1, toInt(v.interval) ?? 1);
         return {
-            summary: s.planSummaryMembership(formatMoney(price), freqWord(v.frequency)),
+            summary: s.planSummaryMembership(
+                formatMoney(price, BUSINESS_CURRENCY),
+                freqWord(v.frequency),
+            ),
             perVisit: null,
             perYear: s.perYear(
-                formatMoney(Math.round((price * (PER_YEAR[v.frequency] ?? 12)) / every)),
+                formatMoney(
+                    Math.round((price * (PER_YEAR[v.frequency] ?? 12)) / every),
+                    BUSINESS_CURRENCY,
+                ),
             ),
         };
     }
@@ -865,7 +956,7 @@ export function usePlanEditor(
         ...useTaxed(api, form),
         coverOptions: services.map((i) => ({
             key: i.id,
-            label: `${i.name} · ${formatMoney(i.price_cents)}`,
+            label: formatParts([i.name, formatMoney(i.price_cents, BUSINESS_CURRENCY)]),
         })),
         giftChoices: [...new Set([...GIFT_CHOICES, ...v.giftAmounts])].sort((a, b) => a - b),
         toggleGiftAmount: (cents) => {
@@ -898,13 +989,10 @@ export function useKindPicker(): {
     };
 }
 
-function soldSince(): string {
-    return addDays(startOfDay(new Date()), -30).toISOString();
-}
-
 /** Units of each item sold on paid sales and paid invoices over the last 30 days. */
 function useUnitsSold(): Map<string, number> {
-    const since = useMemo(soldSince, []);
+    const zone = useBusinessZone();
+    const since = useMemo(() => addDays(new Date(), -30, zone).toISOString(), [zone]);
     const rows = useQuery<{ item_id: string; units: number }>(UNITS_SOLD_SQL, [since, since]).data;
     return useMemo(() => new Map(rows.map((r) => [r.item_id, Math.round(r.units)])), [rows]);
 }
@@ -1004,7 +1092,9 @@ export function useProductsView(): ProductsView {
         q,
         setQ,
         rows,
-        summary: load.ready ? s.productsSummary(active.length, formatMoney(costValue)) : undefined,
+        summary: load.ready
+            ? s.productsSummary(active.length, formatMoney(costValue, BUSINESS_CURRENCY))
+            : undefined,
         empty: q !== "" ? s.noMatch : s.filterEmpty,
         load,
     };
@@ -1033,12 +1123,10 @@ function stockRow(i: ItemRow, sold30: number): StockRowView {
         intent: stockIntent(st),
         label: stockLabel(i),
         low: st === "low" || st === "out",
-        detail: [
+        detail: formatParts([
             daysLeft === null ? null : s.daysLeft(daysLeft),
             sold30 > 0 ? s.sold30(sold30) : null,
-        ]
-            .filter((x): x is string => x !== null)
-            .join(" · "),
+        ]),
         suggested: Math.max(0, target - onHand),
     };
 }
@@ -1107,15 +1195,17 @@ function moveKind(m: StockMoveRow): string {
     return m.order_source === "online" ? "online" : "sale";
 }
 
-function moveEntry(m: StockMoveRow): TimelineEntry {
-    const qty = s.moveQty(m.quantity);
+function moveEntry(m: StockMoveRow, zone: string): TimelineEntry {
+    const qty = m.quantity > 0 ? s.moveQtyIn(m.quantity) : s.moveQtyOut(Math.abs(m.quantity));
     return {
         key: m.id,
         label: s.moveLabel(m.item_name, qty),
-        detail: [s.moveKinds[moveKind(m)], m.note, m.by_name === null ? null : s.by(m.by_name)]
-            .filter((x): x is string => x !== null && x !== undefined && x !== "")
-            .join(" · "),
-        at: stampLabel(parseTimestamp(m.created_at)),
+        detail: formatParts([
+            s.moveKinds[moveKind(m)],
+            m.note,
+            m.by_name === null ? null : s.by(m.by_name),
+        ]),
+        at: stampLabel(parseTimestamp(m.created_at), zone),
         intent: m.quantity > 0 ? "success" : m.reason === "correction" ? "warning" : undefined,
     };
 }
@@ -1123,7 +1213,8 @@ function moveEntry(m: StockMoveRow): TimelineEntry {
 /** Stock changes, newest first, with what caused each and who. */
 export function useStockMoves(limit = 8): TimelineEntry[] {
     const rows = useQuery<StockMoveRow>(STOCK_MOVES_SQL).data;
-    return useMemo(() => rows.slice(0, limit).map(moveEntry), [rows, limit]);
+    const zone = useBusinessZone();
+    return useMemo(() => rows.slice(0, limit).map((m) => moveEntry(m, zone)), [rows, limit, zone]);
 }
 
 interface RestockForm {
@@ -1292,14 +1383,14 @@ export function useReceiveDelivery(
                       .slice(0, 6),
         units: seeded.reduce((sum, l) => sum + (lineQty(l) ?? 0), 0),
         costCents: seeded.reduce(
-            (sum, l) => sum + (lineQty(l) ?? 0) * (parseCents(l.unitCost) ?? 0),
+            (sum, l) => sum + (lineQty(l) ?? 0) * (parseCents(l.unitCost, BUSINESS_CURRENCY) ?? 0),
             0,
         ),
         after: (l) => (l.item.stock_on_hand ?? 0) + (lineQty(l) ?? 0),
         stillLow: (l) =>
             l.item.low_stock_at !== null &&
             (l.item.stock_on_hand ?? 0) + (lineQty(l) ?? 0) <= l.item.low_stock_at,
-        lineCost: (l) => (lineQty(l) ?? 0) * (parseCents(l.unitCost) ?? 0),
+        lineCost: (l) => (lineQty(l) ?? 0) * (parseCents(l.unitCost, BUSINESS_CURRENCY) ?? 0),
         busy,
         error,
         done,
@@ -1308,9 +1399,7 @@ export function useReceiveDelivery(
                 setError(s.receiveInvalid);
                 return;
             }
-            const note = blankToNull(
-                [supplier.trim(), reference.trim()].filter(Boolean).join(" · "),
-            );
+            const note = blankToNull(formatParts([supplier.trim(), reference.trim()]));
             const count = seeded.length;
             run(
                 () =>
@@ -1324,7 +1413,7 @@ export function useReceiveDelivery(
                                 {
                                     quantity: lineQty(l) ?? 0,
                                     note,
-                                    unit_cost_cents: parseCents(l.unitCost),
+                                    unit_cost_cents: parseCents(l.unitCost, BUSINESS_CURRENCY),
                                 },
                                 key,
                             );

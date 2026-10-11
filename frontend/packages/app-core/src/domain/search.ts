@@ -2,8 +2,8 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useMemo, useState } from "react";
 
-import { formatTime, parseTimestamp, sameDay, startOfDay, weekdayDay } from "../datetime";
-import { formatMoney, formatPhone, phoneDigits } from "../format";
+import { formatDayTime, parseTimestamp, sameDay, startOfDay, useBusinessZone } from "../datetime";
+import { formatMoney, formatParts, formatPhone, phoneDigits, BUSINESS_CURRENCY } from "../format";
 import type { Load } from "../hooks";
 import type { IconName } from "../icons";
 import { strings } from "../strings";
@@ -121,6 +121,7 @@ export function searchHits(
         actions: CreateAction[];
     },
     now: Date,
+    zone: string,
 ): Record<SearchKind, SearchHit[]> {
     const s = strings.search;
     const q = raw.trim().toLowerCase().replace(/^#/, "");
@@ -146,7 +147,7 @@ export function searchHits(
         target: "client",
         refId: c.id,
         title: c.name,
-        detail: [formatPhone(c.phone), c.email].filter((v) => v !== null && v !== "").join(" · "),
+        detail: formatParts([formatPhone(c.phone), c.email]),
         meta: c.status === "active" ? null : c.status,
         metaIntent: c.status === "active" ? null : "neutral",
     }));
@@ -167,8 +168,8 @@ export function searchHits(
                 target: "booking",
                 refId: b.id,
                 title: b.client_name ?? b.item_name,
-                detail: s.bookingLine(b.item_name, `${weekdayDay(at)}, ${formatTime(at)}`, who),
-                meta: sameDay(at, now) ? strings.common.today : null,
+                detail: s.bookingLine(b.item_name, formatDayTime(at, zone), who),
+                meta: sameDay(at, now, zone) ? strings.common.today : null,
                 metaIntent: "accent",
             };
         });
@@ -182,7 +183,10 @@ export function searchHits(
             target: "invoice",
             refId: i.id,
             title: i.number === null ? s.draftInvoice : s.invoiceNumber(i.number),
-            detail: s.invoiceLine(i.client_name ?? "", formatMoney(i.total_cents)),
+            detail: s.invoiceLine(
+                i.client_name ?? "",
+                formatMoney(i.total_cents, BUSINESS_CURRENCY),
+            ),
             meta: i.status,
             metaIntent: INVOICE_INTENT[i.status] ?? "neutral",
         }));
@@ -196,10 +200,12 @@ export function searchHits(
             target: "catalog",
             refId: i.id,
             title: i.name,
-            detail: [i.category, i.duration_min ? s.minutes(i.duration_min) : null, i.sku]
-                .filter((v) => v !== null && v !== "")
-                .join(" · "),
-            meta: formatMoney(i.price_cents),
+            detail: formatParts([
+                i.category,
+                i.duration_min ? s.minutes(i.duration_min) : null,
+                i.sku,
+            ]),
+            meta: formatMoney(i.price_cents, BUSINESS_CURRENCY),
             metaIntent: null,
         }));
     const top = clients[0];
@@ -284,23 +290,36 @@ interface GlobalSearch {
 }
 
 const KIND_LABEL: Record<SearchKind, string> = {
-    actions: strings.search.actions,
-    clients: strings.search.clients,
-    bookings: strings.search.bookings,
-    invoices: strings.search.invoices,
-    items: strings.search.items,
+    get actions() {
+        return strings.search.actions;
+    },
+    get clients() {
+        return strings.search.clients;
+    },
+    get bookings() {
+        return strings.search.bookings;
+    },
+    get invoices() {
+        return strings.search.invoices;
+    },
+    get items() {
+        return strings.search.items;
+    },
 };
 
 /** One search box over this device's replica, so it works offline. Invoices are managers only. */
 export function useGlobalSearch(viewer: Viewer | null, perGroup = 4): GlobalSearch {
     const [now] = useState(() => new Date());
+    const zone = useBusinessZone();
     const [q, setQRaw] = useState("");
     const [scope, setScopeRaw] = useState<SearchKind | "all">("all");
     const [active, setActive] = useState(0);
     const [recent, setRecent] = useDeviceList("search.recent", 6);
     const manager = canManagePayments(viewer?.role ?? null);
     const clients = useQuery<ClientHitRow>(SEARCH_CLIENTS_SQL);
-    const bookings = useQuery<BookingHitRow>(SEARCH_BOOKINGS_SQL, [startOfDay(now).toISOString()]);
+    const bookings = useQuery<BookingHitRow>(SEARCH_BOOKINGS_SQL, [
+        startOfDay(now, zone).toISOString(),
+    ]);
     const invoices = useQuery<InvoiceHitRow>(SEARCH_INVOICES_SQL);
     const items = useQuery<ItemHitRow>(SEARCH_ITEMS_SQL);
     const actions = useMemo(() => createActionsFor(viewer?.role ?? null), [viewer]);
@@ -316,8 +335,9 @@ export function useGlobalSearch(viewer: Viewer | null, perGroup = 4): GlobalSear
                     actions,
                 },
                 now,
+                zone,
             ),
-        [q, clients.data, bookings.data, invoices.data, items.data, manager, actions, now],
+        [q, clients.data, bookings.data, invoices.data, items.data, manager, actions, now, zone],
     );
     const kinds = SEARCH_ORDER.filter((k) => k !== "invoices" || manager);
     const groups = kinds

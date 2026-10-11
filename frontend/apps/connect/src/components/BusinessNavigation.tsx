@@ -126,8 +126,9 @@ function Navigation({
                         >
                             <Icon name="bag" size={17} />
                             <span>
-                                {s.cart}
-                                {cartCount === undefined ? "" : ` (${String(cartCount)})`}
+                                {cartCount === undefined
+                                    ? s.cart
+                                    : strings.common.withCount(s.cart, cartCount)}
                             </span>
                         </Link>
                     ) : null}

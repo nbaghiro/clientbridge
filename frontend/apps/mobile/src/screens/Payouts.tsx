@@ -5,6 +5,8 @@ import {
     useAsyncAction,
     usePayouts,
     usePaymentAccount,
+    formatParts,
+    BUSINESS_CURRENCY,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -87,9 +89,23 @@ export function Payouts() {
                         <Text style={ui.note}>{s.subtitle}</Text>
                         <Panel>
                             <View style={styles.stats}>
-                                <Stat label={s.inStripe} cents={p.balanceCents} />
-                                <Stat label={s.deposited} cents={p.depositedCents} tone="success" />
-                                <Stat label={s.fees} cents={p.feesCents} hint={s.depositedHint} />
+                                <Stat
+                                    currency={BUSINESS_CURRENCY}
+                                    label={s.inStripe}
+                                    cents={p.balanceCents}
+                                />
+                                <Stat
+                                    currency={BUSINESS_CURRENCY}
+                                    label={s.deposited}
+                                    cents={p.depositedCents}
+                                    tone="success"
+                                />
+                                <Stat
+                                    currency={BUSINESS_CURRENCY}
+                                    label={s.fees}
+                                    cents={p.feesCents}
+                                    hint={s.depositedHint}
+                                />
                             </View>
                         </Panel>
                         <Panel flush>
@@ -101,11 +117,11 @@ export function Payouts() {
                                         key={row.id}
                                         icon={row.status === "failed" ? "alert" : "bank"}
                                         intent={row.status === "failed" ? "danger" : "neutral"}
-                                        title={formatMoney(row.amountCents)}
+                                        title={formatMoney(row.amountCents, BUSINESS_CURRENCY)}
                                         detail={row.when}
                                         meta={
                                             <StatusPill
-                                                status={s.status[row.status] ?? row.status}
+                                                status={s.status[row.status]}
                                                 intent={payoutStatusIntent(row.status)}
                                                 asWritten
                                             />
@@ -128,16 +144,22 @@ export function Payouts() {
                                         key={ch.id}
                                         density="compact"
                                         title={ch.client}
-                                        detail={`${ch.description}${
+                                        detail={formatParts([
+                                            ch.description,
                                             ch.refundedCents > 0
-                                                ? ` · ${s.refunded(formatMoney(ch.refundedCents))}`
-                                                : ""
-                                        }`}
+                                                ? s.refunded(
+                                                      formatMoney(
+                                                          ch.refundedCents,
+                                                          BUSINESS_CURRENCY,
+                                                      ),
+                                                  )
+                                                : null,
+                                        ])}
                                         meta={
                                             ch.feeCents === null ? (
                                                 <Badge label={s.feePending} intent="warning" />
                                             ) : (
-                                                formatMoney(ch.netCents)
+                                                formatMoney(ch.netCents, BUSINESS_CURRENCY)
                                             )
                                         }
                                     />
@@ -151,7 +173,7 @@ export function Payouts() {
             {open && sel !== null ? (
                 <DetailView
                     open
-                    title={formatMoney(sel.amountCents)}
+                    title={formatMoney(sel.amountCents, BUSINESS_CURRENCY)}
                     subtitle={sel.when}
                     onClose={() => {
                         setOpen(false);

@@ -95,6 +95,7 @@ class PublicBookingPage(BaseModel):
     )
     slug: str = ""
     now: datetime | None = Field(default=None, description="The business's clock, in its zone")
+    timezone: str = Field(description="The business's IANA time zone, which its times are shown in")
     policy: PublicPolicy | None = None
     rating: float | None = Field(default=None, description="Average of published reviews")
     review_count: int = 0
@@ -151,6 +152,7 @@ class ManagedBooking(Mirror):
     reschedules_used: int
     policy: PublicPolicy
     now: datetime
+    timezone: str = Field(description="The business's IANA time zone, which its times are shown in")
     can_move: bool
     can_cancel: bool
     blocked: str | None = Field(default=None, description="Why a change is refused online")
@@ -238,6 +240,7 @@ class PublicPickupWindow(BaseModel):
 class PublicPickupDays(BaseModel):
     windows: list[PublicPickupWindow]
     hold_days: int
+    timezone: str = Field(description="The business's IANA time zone, which its times are shown in")
 
 
 class PublicShopOrderCreate(BaseModel):

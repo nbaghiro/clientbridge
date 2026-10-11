@@ -32,5 +32,8 @@
         "@clientbridge/sync": {
             "optional": true
         }
+    },
+    "dependencies": {
+        "intl-messageformat": "12.1.2"
     }
 }

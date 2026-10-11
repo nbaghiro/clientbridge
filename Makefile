@@ -1,4 +1,4 @@
-.PHONY: help up down logs-sync install stripe-listen dev-api worker dev-web dev-connect dev-site dev-playground dev-mobile build build-site test-site test-web test-connect test-playground test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes codegen-check test test-backend test-frontend test-contract test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
+.PHONY: help up down logs-sync install stripe-listen dev-api worker dev-web dev-connect dev-site dev-playground dev-mobile build build-site test-site test-web test-connect test-playground test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings codegen-check test test-backend test-frontend test-contract test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
 .DEFAULT_GOAL := help
 
 help:
@@ -29,10 +29,12 @@ help:
 	@echo "gen-api          regenerate the frontend api-client from the backend OpenAPI"
 	@echo "gen-sync-schema  regenerate the PowerSync client schema from models + sync streams"
 	@echo "gen-themes       regenerate the theme tokens from .docs/design/app-explorer.html"
-	@echo "codegen-check    regenerate client, sync schema and themes; fail if they were stale"
+	@echo "gen-messages     regenerate the backend messages.pot and en_XA.po from the code and en_CA.po"
+	@echo "gen-strings      regenerate the strings accessors, en-XA pseudo-locales and Connect's embed.js"
+	@echo "codegen-check    regenerate client, sync schema, themes, messages and strings; fail if stale"
 	@echo "test             test-backend + test-frontend"
 	@echo "test-backend     pytest with the 90% branch-coverage gate"
-	@echo "test-frontend    the frontend unit tests (app-core, site)"
+	@echo "test-frontend    the frontend unit tests, with app-core again in three time zones"
 	@echo "test-contract    real StripeGateway vs stripe-mock (starts it; auto-skips if down)"
 	@echo "test-e2e         Stripe test-mode flows (needs STRIPE_TEST_SECRET_KEY)"
 	@echo "stripe-mock      start the stripe-mock contract-test service on :8708"
@@ -139,13 +141,25 @@ gen-themes:
 	node frontend/packages/tokens/scripts/gen-themes.cjs
 	cd frontend && pnpm exec prettier --write packages/tokens/src/themes.css packages/tokens/src/themes.ts
 
+gen-messages:
+	cd backend && uv run python -m scripts.gen_messages
+
+gen-strings:
+	node frontend/packages/config/scripts/gen-strings.mjs
+	cd frontend && pnpm exec prettier --write packages/app-core/src/strings.ts \
+		packages/app-core/locales/en-XA.json apps/site/src/strings.ts apps/site/locales/en-XA.json \
+		apps/connect/public/embed.js
+
 test: test-backend test-frontend
 
 test-backend:
 	cd backend && uv run pytest --cov=clientbridge --cov-branch --cov-fail-under=90 -q
 
+# App-core runs again in three time zones, since displays must follow the business zone, not the device's.
 test-frontend:
 	cd frontend && pnpm test
+	cd frontend && for tz in America/Vancouver America/Halifax Asia/Tokyo; do \
+		TZ=$$tz pnpm --filter @clientbridge/app-core test || exit 1; done
 
 stripe-mock:
 	docker compose --profile test up -d stripe-mock
@@ -185,10 +199,14 @@ format-check-frontend:
 
 # The fast gate the pre-commit hook runs (no tests).
 GENERATED := frontend/packages/api-client/src/generated.ts frontend/packages/sync/src/schema.ts \
-	frontend/packages/tokens/src/themes.css frontend/packages/tokens/src/themes.ts
+	frontend/packages/tokens/src/themes.css frontend/packages/tokens/src/themes.ts \
+	backend/src/clientbridge/locales/messages.pot backend/src/clientbridge/locales/en_XA.po \
+	frontend/packages/app-core/src/strings.ts frontend/packages/app-core/locales/en-XA.json \
+	frontend/apps/site/src/strings.ts frontend/apps/site/locales/en-XA.json \
+	frontend/apps/connect/public/embed.js
 
-# Regenerates the backend-derived client, sync schema and themes, and fails if any differ from git.
-codegen-check: gen-api gen-sync-schema gen-themes
+# Regenerates the client, sync schema, themes, messages and strings; fails if any differ.
+codegen-check: gen-api gen-sync-schema gen-themes gen-messages gen-strings
 	@git diff --quiet -- $(GENERATED) || { git --no-pager diff --stat -- $(GENERATED); \
 		echo "generated files were stale and have been regenerated: review and stage them"; exit 1; }
 

@@ -40,14 +40,15 @@ export function DateField({
     onChange,
     min,
     max,
+    zone,
     style,
 }: NativeProps<DateFieldProps>) {
     const [value, setValue] = useControllable(valueProp, defaultValue, onChange);
     const [open, setOpen] = useState(false);
-    const month = useMonthGrid(value, min, max);
+    const month = useMonthGrid(value, zone, min, max);
     const years = useRef<ScrollView>(null);
-    const day = parseDateKey(value);
-    const today = dateKey(new Date());
+    const day = parseDateKey(value, zone);
+    const today = dateKey(new Date(), zone);
     const todayOk =
         (min === undefined || min === "" || today >= min) &&
         (max === undefined || max === "" || today <= max);
@@ -62,7 +63,9 @@ export function DateField({
             ) : null}
             <PickerTrigger
                 label={label ?? name ?? placeholder ?? strings.ui.pickDate}
-                text={day === null ? (placeholder ?? strings.ui.pickDate) : formatPickedDay(day)}
+                text={
+                    day === null ? (placeholder ?? strings.ui.pickDate) : formatPickedDay(day, zone)
+                }
                 placeholder={day === null}
                 icon="calendar"
                 size={size}
@@ -285,6 +288,7 @@ export function DateTimeField({
     onChange,
     min,
     step,
+    zone,
     style,
 }: NativeProps<DateTimeFieldProps>) {
     const [value, setValue] = useControllable(valueProp, defaultValue, onChange);
@@ -303,6 +307,7 @@ export function DateTimeField({
                     size={size}
                     disabled={disabled}
                     min={min}
+                    zone={zone}
                     required={required}
                     value={day}
                     onChange={(d) => {
@@ -317,7 +322,7 @@ export function DateTimeField({
                     step={step}
                     value={time}
                     onChange={(t) => {
-                        setValue(`${day === "" ? dateKey(new Date()) : day}T${t}`);
+                        setValue(`${day === "" ? dateKey(new Date(), zone) : day}T${t}`);
                     }}
                 />
             </View>

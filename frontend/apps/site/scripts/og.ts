@@ -6,7 +6,7 @@ import { Resvg } from "@resvg/resvg-js";
 import satori from "satori";
 
 export interface OgPage {
-    title: string;
+    headline: string;
     ogImage: string;
 }
 
@@ -43,12 +43,6 @@ const el = (
     type,
     props: { style, children, ...extra },
 });
-
-/** "Grooming and daycare | Clientbridge" → "Grooming and daycare". */
-const headline = (title: string): string => {
-    const text = title.replace(/\s*\|\s*Clientbridge$/, "").replace(/^Clientbridge:\s*/, "");
-    return text.charAt(0).toUpperCase() + text.slice(1);
-};
 
 export async function writeOgImages(
     pages: readonly OgPage[],
@@ -136,7 +130,7 @@ export async function writeOgImages(
                                 lineHeight: 1.08,
                                 letterSpacing: -2,
                             },
-                            headline(page.title),
+                            page.headline,
                         ),
                         el(
                             "div",

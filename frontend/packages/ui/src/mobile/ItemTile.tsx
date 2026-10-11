@@ -14,6 +14,7 @@ export function ItemTile({
     imageSrc,
     color,
     cents,
+    currency,
     meta,
     tag,
     count = 0,
@@ -73,7 +74,7 @@ export function ItemTile({
                             {meta}
                         </Text>
                         {cents === null ? null : (
-                            <Text style={styles.price}>{formatMoney(cents)}</Text>
+                            <Text style={styles.price}>{formatMoney(cents, currency)}</Text>
                         )}
                     </View>
                 </View>
@@ -110,7 +111,9 @@ export function ItemTile({
                 <Text style={styles.meta} numberOfLines={1}>
                     {meta}
                 </Text>
-                {cents === null ? null : <Text style={styles.price}>{formatMoney(cents)}</Text>}
+                {cents === null ? null : (
+                    <Text style={styles.price}>{formatMoney(cents, currency)}</Text>
+                )}
             </View>
         </Pressable>
     );

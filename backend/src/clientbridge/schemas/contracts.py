@@ -36,6 +36,7 @@ class PublicContractContext(BaseModel):
     signer_name: str | None
     status: str
     version: int
+    timezone: str = Field(description="The business's IANA time zone, which its times are shown in")
     signed_at: datetime | None = None
     signer_ip: str | None = None
     method: str | None = None

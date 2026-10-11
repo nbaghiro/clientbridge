@@ -16,11 +16,12 @@ from clientbridge.core.errors import (
     Unprocessable,
 )
 from clientbridge.core.ids import new_id
+from clientbridge.core.locale import locale_for
 from clientbridge.core.scoping import scoped
 from clientbridge.core.security import hash_token, verify_password
 from clientbridge.integrations.postmark import Email, EmailSender
 from clientbridge.models.auth import AuthSession
-from clientbridge.models.business import Staff, User
+from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.platform import Audit
 from clientbridge.schemas.staff import (
     InviteOut,
@@ -32,6 +33,7 @@ from clientbridge.schemas.staff import (
     TeamOut,
 )
 from clientbridge.services.auth import build_user
+from clientbridge.services.notifications import staff_invite
 
 INVITE_TTL = timedelta(days=7)
 
@@ -106,11 +108,8 @@ class StaffService:
             )
             self.db.add(staff)
             await self.db.flush()
-            await email_sender.send(
-                Email(
-                    to=email, subject="You're invited to Clientbridge", body=f"Invite code: {raw}"
-                )
-            )
+            subject, body = await self._invite_email(principal, raw)
+            await email_sender.send(Email(to=email, subject=subject, body=body))
             cmd.record("staff.invite", entity_type="staff", entity_id=staff.id)
             return InviteOut(
                 id=staff.id, email=email, role=staff.role, status=staff.status, invite_token=raw
@@ -211,6 +210,10 @@ class StaffService:
             invites=[out(s) for s in staff if s.status == "invited"] if managers else [],
         )
 
+    async def _invite_email(self, principal: Principal, code: str) -> tuple[str, str]:
+        business = await self.db.get(Business, principal.business_id)
+        return staff_invite(locale_for(business=business), code)
+
     async def _invite(self, principal: Principal, invite_id: str) -> Staff:
         row = (
             await self.db.execute(
@@ -236,13 +239,8 @@ class StaffService:
             staff.invited_at = datetime.now(UTC)
             staff.invited_by = principal.user_id
             await self.db.flush()
-            await email_sender.send(
-                Email(
-                    to=staff.invite_email or "",
-                    subject="You're invited to Clientbridge",
-                    body=f"Invite code: {raw}",
-                )
-            )
+            subject, body = await self._invite_email(principal, raw)
+            await email_sender.send(Email(to=staff.invite_email or "", subject=subject, body=body))
             cmd.record("staff.invite_resend", entity_type="staff", entity_id=staff.id)
             return InviteOut(
                 id=staff.id,

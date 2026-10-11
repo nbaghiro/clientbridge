@@ -4,6 +4,10 @@ import {
     formatShortDay,
     strings,
     useEarningApprovals,
+    formatList,
+    formatParts,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -31,6 +35,7 @@ const s = strings.earnings;
 const c = theme.colors;
 
 export function Earnings() {
+    const zone = useBusinessZone();
     const e = useEarningApprovals(api);
     const openLink = useOpenLink();
     const [open, setOpen] = useState(false);
@@ -67,9 +72,18 @@ export function Earnings() {
                         <Text style={ui.note}>{s.subtitle}</Text>
                         <Panel>
                             <View style={styles.stats}>
-                                <Stat label={s.toApprove} cents={e.totals.pendingCents} />
-                                <Stat label={s.toPay} cents={e.totals.approvedCents} />
                                 <Stat
+                                    currency={BUSINESS_CURRENCY}
+                                    label={s.toApprove}
+                                    cents={e.totals.pendingCents}
+                                />
+                                <Stat
+                                    currency={BUSINESS_CURRENCY}
+                                    label={s.toPay}
+                                    cents={e.totals.approvedCents}
+                                />
+                                <Stat
+                                    currency={BUSINESS_CURRENCY}
                                     label={s.paidYtd}
                                     cents={e.totals.paidYtdCents}
                                     tone="success"
@@ -83,7 +97,7 @@ export function Earnings() {
                                     leading={<Avatar name={p.name} color={p.color} />}
                                     title={p.name}
                                     detail={s.count(p.pendingCount)}
-                                    meta={formatMoney(p.pendingCents)}
+                                    meta={formatMoney(p.pendingCents, BUSINESS_CURRENCY)}
                                     onPress={() => {
                                         e.select(p.staffId);
                                         setOpen(true);
@@ -118,7 +132,7 @@ export function Earnings() {
                                 disabled={sel.approvedCents === 0 || e.busy}
                                 onPress={e.payApproved}
                             >
-                                {s.payApproved(formatMoney(sel.approvedCents))}
+                                {s.payApproved(formatMoney(sel.approvedCents, BUSINESS_CURRENCY))}
                             </Button>
                         </View>
                     }
@@ -139,7 +153,7 @@ export function Earnings() {
                             leading={
                                 l.status === "pending" ? (
                                     <Checkbox
-                                        label={`${l.title}, ${l.detail}`}
+                                        label={formatList([l.title, l.detail], "unit")}
                                         hideLabel
                                         value={e.picked.includes(l.id)}
                                         onChange={() => {
@@ -149,10 +163,12 @@ export function Earnings() {
                                 ) : undefined
                             }
                             title={l.title}
-                            detail={`${formatShortDay(l.at)} · ${l.detail}`}
+                            detail={formatParts([formatShortDay(l.at, zone), l.detail])}
                             meta={
                                 <View style={styles.meta}>
-                                    <Text style={styles.amount}>{formatMoney(l.amountCents)}</Text>
+                                    <Text style={styles.amount}>
+                                        {formatMoney(l.amountCents, BUSINESS_CURRENCY)}
+                                    </Text>
                                     <StatusPill
                                         status={s.stage[l.status] ?? l.status}
                                         intent={earningStageIntent(l.status)}

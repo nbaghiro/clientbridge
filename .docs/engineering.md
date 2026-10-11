@@ -24,10 +24,16 @@ type safety.**
 - **eslint** (`packages/config/eslint.mjs`) — `strictTypeChecked` + `stylisticTypeChecked`
   (type-aware) → bans `any` **and** unsafe-`any` flows. Adds `no-console`, **`no-void`**, and
   `no-floating-promises` with `ignoreVoid:false` (a floating promise needs a real `.catch`/await, not
-  `void`). Registers two local rules: **`no-inline-ui-string`** (forces UI copy into `strings.ts`; allow-lists
-  brand tokens `Clientbridge`/`PowerSync`; off for `Debug*.tsx`) and the **lean-bundle boundary**
-  (`no-restricted-imports` bans `@powersync/*` + `@clientbridge/sync` from `apps/connect` and
-  `app-core/public`).
+  `void`). The local rules in `packages/config` (one file per rule, each with a RuleTester suite run by
+  `pnpm test`) keep copy and formatting in the catalogs: `no-inline-ui-string` (inline text in JSX, copy
+  attributes, error sinks and hand-built DOM such as Connect's embed loader), `no-composed-copy` (template
+  literals, concatenation and `.join` with words or separators reaching UI text; SQL, URLs, class names,
+  styles, markup and test ids are exempt), `no-raw-format` (`toLocale*`, `Intl`, `toFixed` and locale
+  literals outside the formatter), `no-hand-plural` (`count === 1` choosing between texts),
+  `no-module-scope-copy` (typed: catalog text read while a module loads) and `no-error-message-copy` (a
+  caught error's `message` reaching the UI). Debug panels, tests, e2e suites and the playground are exempt
+  where the rule is about product copy. The **lean-bundle boundary** (`no-restricted-imports` bans
+  `@powersync/*` + `@clientbridge/sync` from `apps/connect` and `app-core/public`) is enforced here too.
 - **tsconfig** (`tsconfig.base.json`) — `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`
   + `noUnusedLocals/Parameters` + `noImplicitReturns/Override` + `noFallthroughCasesInSwitch` +
   `verbatimModuleSyntax`.
@@ -38,7 +44,9 @@ make lint          # backend: ruff check + mypy strict + structure check   |  fr
 make typecheck     # backend: mypy strict                 |  frontend: tsc --noEmit
 make format        # backend: ruff format                 |  frontend: prettier --write
 make format-check
-make codegen-check # regenerate api-client, sync schema and themes; fail if they were stale
+make gen-strings   # check the app and site catalogs; regenerate strings.ts, en-XA.json and embed.js
+make gen-messages  # check the backend catalog; regenerate messages.pot and en_XA.po
+make codegen-check # regenerate api-client, sync schema, themes, strings and messages; fail if stale
 make precommit     # format-check + lint + codegen-check + test  (the pre-commit hook; e2e runs in CI)
 make check         # lint + codegen-check + test          (the full local gate)
 ```
@@ -59,15 +67,15 @@ Runs on every push to `main` + all PRs; concurrency-cancels stale runs.
 | Job | Steps |
 |---|---|
 | **backend** | Postgres 16 service · Python 3.14 · `uv sync` → `make format-check-backend lint-backend` (ruff, mypy, structure check) → `make migrate seed` → `make test-backend` (pytest, 90% branch coverage) |
-| **frontend** | Node from `.nvmrc` · pnpm 9 · `pnpm install --frozen-lockfile` → `make format-check-frontend lint-frontend test-frontend` (prettier, eslint + `check-structure.mjs` + knip, tsc, the site copy rules, vitest for app-core and site) → **`make build`** (a broken bundle must fail CI, beyond `tsc --noEmit`) |
+| **frontend** | Node from `.nvmrc` · pnpm 9 · `pnpm install --frozen-lockfile` → `make format-check-frontend lint-frontend test-frontend` (prettier, eslint + `check-structure.mjs` + knip, tsc, the site copy rules, the lint rule tests, vitest for app-core and site, then app-core again under `TZ=America/Vancouver`, `America/Halifax` and `Asia/Tokyo`; the formatter tests assert `en-CA` and `en-XA` output) → **`make build`** (a broken bundle must fail CI, beyond `tsc --noEmit`) |
 | **site** | Node from `.nvmrc` · `make test-site`: a fresh build, then Playwright e2e on it (the copy rules and content tests run in the frontend job): every page returns 200 with its content in the HTML, no console errors, no broken images or internal links, no sideways scroll at 390 and 1440px, axe with no serious or critical issues, 404 page served with a 404 |
-| **connect** | Postgres 16 service · `make migrate seed` · the API on :8701 · `make test-connect`: Connect's Playwright walk (book a visit, cancel it from its manage link, shop, invoice and e-Transfer, estimate, receipt, review, form, contract, preferences, not found), failing on any console error |
-| **playground** | `make test-playground`: every story on web and both phone frames |
+| **connect** | Postgres 16 service · `make migrate seed` · the API on :8701 · `make test-connect`: Connect's Playwright walk (book a visit, cancel it from its manage link, shop, invoice and e-Transfer, estimate, receipt, review, form, contract, preferences, not found), failing on any console error, then the `en-XA` pass over the business, booking, shop, invoice, estimate and receipt pages |
+| **playground** | `make test-playground`: every story on web and both phone frames, then the `en-XA` pass over every story on a pseudo-locale dev server |
 | **sync** | `make test-sync`: disposable Postgres and PowerSync, per-role replica rows and columns, revocation, hours uploads, the signing-key rotation drill and the replication health check |
-| **web** | `make up migrate seed` · the API on :8701 · `make test-web`: sign-in, every page and dialog, record flows, history older than the device window, no console errors |
+| **web** | `make up migrate seed` · the API on :8701 · `make test-web`: sign-in, every page and dialog, record flows, history older than the device window, no console errors, and the `en-XA` pass over Today, Schedule, Clients, a client record, Setup's business page, Invoices and an invoice |
 | **mobile** | a release APK from `expo prebuild` (bundle embedded, no Metro; Gradle's dependencies and build cache are cached) · `make up migrate seed` · the API · the Maestro walkthroughs on an Android 14 emulator booted from a cached snapshot, with `adb reverse` for 8701 and 8704 |
 | **contract** | stripe-mock service · real `StripeGateway` validated against Stripe's OpenAPI mock |
-| **codegen-drift** | `make codegen-check`: `make gen-api` + `make gen-sync-schema` + `make gen-themes`, then a diff check on the four generated artifacts (`api-client/src/generated.ts`, `sync/src/schema.ts`, `tokens/src/themes.css`, `tokens/src/themes.ts`) — the committed generated code can't drift from its source |
+| **codegen-drift** | `make codegen-check`: `make gen-api`, `gen-sync-schema`, `gen-themes`, `gen-messages` and `gen-strings` (which also fail on invalid or unused catalog messages), then a diff check on the generated files (the api-client, sync schema, themes, `messages.pot`, `en_XA.po`, both `strings.ts` accessors and `en-XA.json` files, and Connect's `embed.js`), so the committed generated code cannot drift from its source |
 
 Net effect: no unformatted/untyped/uncovered code, no broken bundle, no drift between backend models and the
 generated frontend contracts/themes.
@@ -159,18 +167,40 @@ Read local, write via command/sync — the server is the source of truth; client
 
 ---
 
-## Copy — one catalog per side
+## Copy and formatting
 
-- **Every user-facing UI string** lives in `frontend/packages/app-core/src/strings.ts` — a single `strings`
-  object grouped by domain, shared by web + mobile. Screens render `strings.<domain>.<key>` (literals or
-  interpolation functions) and never hold inline copy — including validation messages and shared descriptor
-  labels (weekdays, nav, roles). Enforced by the `no-inline-ui-string` lint rule.
-- **Marketing copy** lives in `frontend/apps/site/src/content/` (typed modules), never inline in the page
-  components. `pnpm --filter site lint:content` fails on em-dashes, hype words ("seamless", "robust",
-  "leverage" and similar), wording that reads as unfinished product ("beta", "coming soon", "early access",
-  "waitlist") and exclamation marks, in the content modules and in the visible text of every built page.
-- **Backend notification copy** is the server-side equivalent: the builder functions in
-  `services/notifications.py` return `(subject, body[, push])` per event — all in one place.
+- The app catalog is `frontend/packages/app-core/locales/en-CA.json`, shared by web, mobile, Connect and the
+  embed script. Each key (`"billing.overdueBy"`) holds an ICU message, an optional `description` for
+  translators and, for a message with values, its ordered `args`. `make gen-strings` checks it (ICU syntax,
+  `args` against the placeholders, keys no app reads) and writes the typed `src/strings.ts` accessor, so
+  call sites keep the `strings.<domain>.<key>` shape: plain entries are strings and entries with `args` are
+  functions. It also writes the `en-XA` pseudo-locale and Connect's `public/embed.js`. The marketing site
+  has its own catalog, `apps/site/locales/en-CA.json`, run through the same generator, and its content
+  modules keep only structural data (icons, photo names, routes).
+- Formatted values come from the formatter in app-core `format.ts` and `datetime.ts` and are passed into
+  messages as text: money in the record's currency (`BUSINESS_CURRENCY` until businesses carry one),
+  dates and times in the business time zone, lists through `Intl.ListFormat`. Messages handle plurals,
+  `select` and word order and never format a value themselves.
+- `activeLocale()` in `app-core/src/locale.ts` is the one place the frontend reads its locale, and it
+  returns `en-CA`. `setPseudoLocale(true)` switches to `en-XA` for development and tests:
+  `VITE_PSEUDO_LOCALE=1` on a web, Connect or playground dev server and `EXPO_PUBLIC_PSEUDO_LOCALE=1` in a
+  mobile development build. Web, Connect and the playground set `<html lang>` from the active locale at
+  startup.
+- `make test-playground`, `test-web` and `test-connect` each end with an `en-XA` pass
+  (`pseudo.e2e.ts`, sharing `apps/playground/e2e/pseudo.ts`). It fails on visible text or copy attributes
+  that still read as an English catalog message, which is what a module-scope read, a cached English value
+  or a duplicated inline string looks like, and on text cut off by a box that hides its overflow without an
+  ellipsis. Names, notes and other data are not translated, so the pass does not flag them; inline copy is
+  the lint rules' job.
+- Backend text lives in `backend/src/clientbridge/locales/en_CA.po` and is read through `core/locale.py`
+  (`locale_for`, `message`, `plural`, `format_money`, `format_number`, `format_percent`,
+  `format_day_and_time`). `make gen-messages` writes `messages.pot` and `en_XA.po` and fails on missing,
+  unused or empty messages, and `scripts/check_structure.py` fails on literal text passed to the email, SMS
+  and push senders, CSV writers or returned from notification builders. `PSEUDO_LOCALE=1` renders backend
+  output in `en_XA`.
+- `pnpm --filter site lint:content` fails on em-dashes, hype words ("seamless", "robust", "leverage" and
+  similar), wording that reads as unfinished product ("beta", "coming soon", "early access", "waitlist") and
+  exclamation marks, in the site catalog, the content modules and the visible text of every built page.
 
 ---
 

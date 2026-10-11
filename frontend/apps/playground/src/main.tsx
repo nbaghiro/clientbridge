@@ -1,3 +1,4 @@
+import { activeLocale, setPseudoLocale } from "@clientbridge/app-core/public";
 import { type ComponentType, StrictMode, Suspense, lazy, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -37,7 +38,10 @@ function Root() {
 // React Native runs without StrictMode, and react-native-web's Modal portal detaches under its double effects.
 const isFrame = window.location.hash.startsWith("#/frame/");
 const root = document.getElementById("root");
-if (root) {
+
+function render(): void {
+    document.documentElement.lang = activeLocale();
+    if (!root) return;
     createRoot(root).render(
         isFrame ? (
             <Root />
@@ -48,3 +52,6 @@ if (root) {
         ),
     );
 }
+
+if (import.meta.env.VITE_PSEUDO_LOCALE === "1") setPseudoLocale(true).then(render, render);
+else render();

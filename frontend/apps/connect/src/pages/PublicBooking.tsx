@@ -7,6 +7,8 @@ import {
     strings,
     durationLabel,
     usePublicBookingFlow,
+    formatList,
+    formatRating,
 } from "@clientbridge/app-core/public";
 import {
     Button,
@@ -71,7 +73,7 @@ export function PublicBooking() {
     const rating =
         page.rating !== null && page.review_count > 0 ? (
             <span className="hidden sm:block">
-                <Rating label={s.reviews(page.rating.toFixed(1), page.review_count)} />
+                <Rating label={s.reviews(formatRating(page.rating), page.review_count)} />
             </span>
         ) : null;
 
@@ -192,7 +194,10 @@ export function PublicBooking() {
                             <BookingSection
                                 n={3}
                                 title={s.stepExtras}
-                                summary={flow.addonLines.map((line) => line.addon.name).join(", ")}
+                                summary={formatList(
+                                    flow.addonLines.map((line) => line.addon.name),
+                                    "unit",
+                                )}
                                 state={
                                     flow.step === "extras"
                                         ? "open"
@@ -234,7 +239,11 @@ export function PublicBooking() {
                                 <ReturningPanel returning={returning} flow={flow} />
                                 <DetailsForm flow={flow} />
                                 <div className="border-t border-line pt-4 lg:hidden">
-                                    <DocTotals lines={flow.totalLines} density="compact" />
+                                    <DocTotals
+                                        lines={flow.totalLines}
+                                        currency={flow.currency}
+                                        density="compact"
+                                    />
                                     <p className="pt-2 text-xs text-muted">{s.taxNote}</p>
                                 </div>
                             </div>
@@ -289,7 +298,11 @@ export function PublicBooking() {
                                     </p>
                                 ) : null}
                                 <div className="border-t border-line pt-3">
-                                    <DocTotals lines={flow.totalLines} density="compact" />
+                                    <DocTotals
+                                        lines={flow.totalLines}
+                                        currency={flow.currency}
+                                        density="compact"
+                                    />
                                     <p className="pt-2 text-xs text-muted">{s.taxNote}</p>
                                 </div>
                             </div>
@@ -340,7 +353,7 @@ export function PublicBooking() {
                             </span>
                             {flow.service ? (
                                 <span className="shrink-0 font-semibold text-ink">
-                                    {flow.totals.depositCents > 0 ? `${s.dueNow} ` : ""}
+                                    {flow.totals.depositCents > 0 ? <>{s.dueNow} </> : null}
                                     <span className="font-mono tabular-nums">
                                         {flow.totals.depositCents > 0
                                             ? flow.totals.deposit
@@ -459,7 +472,11 @@ function GuidedBooking({
                                 <>
                                     <DetailsForm flow={flow} />
                                     <div className="border-t border-line pt-4">
-                                        <DocTotals lines={flow.totalLines} density="compact" />
+                                        <DocTotals
+                                            lines={flow.totalLines}
+                                            currency={flow.currency}
+                                            density="compact"
+                                        />
                                         <p className="mt-2 text-xs text-muted">{s.taxNote}</p>
                                     </div>
                                 </>
@@ -476,7 +493,7 @@ function GuidedBooking({
                         <span className="truncate text-ink-soft">{flow.service?.name}</span>
                         <span className="shrink-0 font-semibold">
                             {flow.totals.depositCents > 0
-                                ? `${s.dueNow} ${flow.totals.deposit}`
+                                ? strings.common.labelValue(s.dueNow, flow.totals.deposit)
                                 : flow.totals.total}
                         </span>
                     </div>

@@ -18,6 +18,11 @@ import {
     useClientSelection,
     useNoteActions,
     visitPill,
+    formatParts,
+    formatList,
+    temperamentLabel,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -68,6 +73,7 @@ type Sheet =
     | { kind: "tags" };
 
 export function ClientsScreen() {
+    const zone = useBusinessZone();
     const dir = useClientDirectory();
     const manager = canManagePayments(useRole());
     const [openId, setOpenId] = useState<string | null>(null);
@@ -204,16 +210,17 @@ export function ClientsScreen() {
                             </Text>
                             <Text style={styles.rowSub} numberOfLines={1}>
                                 {selecting
-                                    ? [cl.phoneLabel, cl.tags.join(", ")]
-                                          .filter(Boolean)
-                                          .join(" · ")
-                                    : [cl.pets, cl.next === null ? null : nextVisitLabel(cl.next)]
-                                          .filter(Boolean)
-                                          .join(" · ") || cl.phoneLabel}
+                                    ? formatParts([cl.phoneLabel, formatList(cl.tags, "unit")])
+                                    : formatParts([
+                                          cl.pets,
+                                          cl.next === null ? null : nextVisitLabel(cl.next, zone),
+                                      ]) || cl.phoneLabel}
                             </Text>
                         </View>
                         {manager && !selecting && cl.balanceCents > 0 ? (
-                            <Text style={styles.due}>{formatMoney(cl.balanceCents)}</Text>
+                            <Text style={styles.due}>
+                                {formatMoney(cl.balanceCents, BUSINESS_CURRENCY)}
+                            </Text>
                         ) : null}
                     </View>
                 )}
@@ -350,6 +357,7 @@ export function ClientsScreen() {
 }
 
 function NoteLine({ note, manager }: { note: ClientNote; manager: boolean }) {
+    const zone = useBusinessZone();
     const actions = useNoteActions(api);
     const [menu, setMenu] = useState(false);
     const can = manager || note.mine;
@@ -358,16 +366,14 @@ function NoteLine({ note, manager }: { note: ClientNote; manager: boolean }) {
             <ListRow
                 density="compact"
                 title={note.body}
-                detail={[
+                detail={formatParts([
                     strings.clients.history.by(
                         note.author,
-                        formatRelativeTime(note.at.toISOString()),
+                        formatRelativeTime(note.at.toISOString(), zone),
                     ),
                     note.pet,
                     note.pinned ? r.pinned : null,
-                ]
-                    .filter((x) => x !== null)
-                    .join(" · ")}
+                ])}
                 label={note.body}
                 onPress={
                     can
@@ -431,6 +437,7 @@ function RecordSheet({
     onClose: () => void;
     onSheet: (s: Sheet) => void;
 }) {
+    const zone = useBusinessZone();
     const viewer = useViewer();
     const { load, record } = useClientRecord(api, clientId, viewer?.staffId ?? null);
     const nav = useNavigation<Nav>();
@@ -462,9 +469,13 @@ function RecordSheet({
         <DetailView
             open={visible}
             title={cl.name}
-            subtitle={[cl.phoneLabel, record.pets.map((pet) => pet.name).join(", ")]
-                .filter(Boolean)
-                .join(" · ")}
+            subtitle={formatParts([
+                cl.phoneLabel,
+                formatList(
+                    record.pets.map((pet) => pet.name),
+                    "unit",
+                ),
+            ])}
             status={cl.archived ? { status: r.archived, intent: "warning" } : undefined}
             leading={<Avatar name={cl.name} size="lg" />}
             onClose={onClose}
@@ -551,12 +562,15 @@ function RecordSheet({
                         rows={[
                             ...(manager
                                 ? [
-                                      { label: r.lifetime, value: formatMoney(cl.lifetimeCents) },
+                                      {
+                                          label: r.lifetime,
+                                          value: formatMoney(cl.lifetimeCents, BUSINESS_CURRENCY),
+                                      },
                                       {
                                           label: r.balance,
                                           value:
                                               cl.balanceCents > 0
-                                                  ? formatMoney(cl.balanceCents)
+                                                  ? formatMoney(cl.balanceCents, BUSINESS_CURRENCY)
                                                   : r.settled,
                                           intent:
                                               cl.balanceCents > 0
@@ -566,7 +580,7 @@ function RecordSheet({
                                   ]
                                 : []),
                             { label: r.visits, value: String(record.visits) },
-                            { label: r.since, value: formatDate(cl.since) },
+                            { label: r.since, value: formatDate(cl.since, zone) },
                         ]}
                     />
                 </View>
@@ -596,7 +610,7 @@ function RecordSheet({
                             meta={
                                 typeof pet.attributes.temperament === "string" ? (
                                     <Badge
-                                        label={pet.attributes.temperament}
+                                        label={temperamentLabel(pet.attributes.temperament)}
                                         intent={
                                             pet.attributes.temperament === "anxious" ||
                                             pet.attributes.temperament === "reactive"
@@ -641,8 +655,11 @@ function RecordSheet({
                                     {v.service}
                                 </Text>
                                 <Text style={styles.rowSub}>
-                                    {formatWeekday(v.start)} · {formatDate(v.start)} ·{" "}
-                                    {formatTime(v.start)}
+                                    {formatParts([
+                                        formatWeekday(v.start, zone),
+                                        formatDate(v.start, zone),
+                                        formatTime(v.start, zone),
+                                    ])}
                                 </Text>
                             </View>
                             {pill !== null ? (
@@ -657,7 +674,9 @@ function RecordSheet({
                     );
                 })}
                 {record.lastVisitAt !== null ? (
-                    <Text style={styles.muted}>{r.lastVisit(formatDate(record.lastVisitAt))}</Text>
+                    <Text style={styles.muted}>
+                        {r.lastVisit(formatDate(record.lastVisitAt, zone))}
+                    </Text>
                 ) : null}
             </DetailSection>
             <DetailSection

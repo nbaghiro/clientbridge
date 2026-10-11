@@ -14,6 +14,8 @@ import {
     useAsyncAction,
     useProductEditor,
     useServiceEditor,
+    BUSINESS_CURRENCY,
+    currencyAffix,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -132,7 +134,7 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
                 <View style={styles.pair}>
                     <Num
                         label={s.price}
-                        prefix="$"
+                        {...currencyAffix(BUSINESS_CURRENCY)}
                         value={v.price}
                         onChange={(x) => {
                             set("price", x);
@@ -202,7 +204,7 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
                             label={
                                 v.depositType === "fixed" ? s.depositAmount : s.depositPercentLabel
                             }
-                            prefix={v.depositType === "fixed" ? "$" : undefined}
+                            {...(v.depositType === "fixed" ? currencyAffix(BUSINESS_CURRENCY) : {})}
                             value={v.depositValue}
                             onChange={(x) => {
                                 set("depositValue", x);
@@ -279,7 +281,7 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                 <View style={styles.pair}>
                     <Num
                         label={s.price}
-                        prefix="$"
+                        {...currencyAffix(BUSINESS_CURRENCY)}
                         value={v.price}
                         onChange={(x) => {
                             set("price", x);
@@ -287,7 +289,7 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                     />
                     <Num
                         label={s.cost}
-                        prefix="$"
+                        {...currencyAffix(BUSINESS_CURRENCY)}
                         value={v.cost}
                         onChange={(x) => {
                             set("cost", x);
@@ -300,7 +302,9 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                         {ed.margin === null ? s.marginUnknown : ed.margin.label}
                     </Text>
                 </View>
-                {ed.margin?.low === true ? <Text style={styles.warn}>{s.marginLow}</Text> : null}
+                {ed.margin?.warning != null ? (
+                    <Text style={styles.warn}>{ed.margin.warning}</Text>
+                ) : null}
                 <Text style={styles.hint}>{s.costHint}</Text>
             </DetailSection>
             <DetailSection title={s.sectionStock}>
@@ -417,7 +421,7 @@ function PlanFields({ ed }: { ed: PlanEditor }) {
                             />
                             <Num
                                 label={s.price}
-                                prefix="$"
+                                {...currencyAffix(BUSINESS_CURRENCY)}
                                 value={v.price}
                                 onChange={(x) => {
                                     set("price", x);
@@ -438,7 +442,7 @@ function PlanFields({ ed }: { ed: PlanEditor }) {
                     <>
                         <Num
                             label={s.price}
-                            prefix="$"
+                            {...currencyAffix(BUSINESS_CURRENCY)}
                             value={v.price}
                             onChange={(x) => {
                                 set("price", x);
@@ -479,7 +483,7 @@ function PlanFields({ ed }: { ed: PlanEditor }) {
                             label={s.giftAmounts}
                             options={ed.giftChoices.map((g) => ({
                                 key: String(g),
-                                label: formatMoney(g),
+                                label: formatMoney(g, BUSINESS_CURRENCY),
                             }))}
                             value={v.giftAmounts.map(String)}
                             onChange={(k) => {
@@ -522,7 +526,7 @@ function Frame({
     return (
         <DetailView
             open
-            title={item?.name ?? s.newItem(kindLabel)}
+            title={item?.name ?? s.newItem(kind)}
             subtitle={kindLabel}
             status={archived ? { status: s.archived, intent: "neutral" } : undefined}
             onClose={onClose}

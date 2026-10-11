@@ -1,7 +1,8 @@
-// Flags inline user-facing strings (JSX text and app-core error sinks) so copy stays in strings.ts.
+// Flags inline user-facing strings (JSX text and app-core error sinks) so copy stays in the catalog.
 
 const LETTER = /\p{L}/u;
 const COPY_ATTRS = new Set(["aria-label", "title", "alt", "placeholder", "accessibilityLabel"]);
+const DOM_TEXT = new Set(["textContent", "innerText", "title", "placeholder", "alt"]);
 
 /** True when, after removing allow-listed tokens, the trimmed text still contains a letter. */
 function isCopy(raw, allow) {
@@ -41,7 +42,7 @@ export default {
         },
         messages: {
             attr: "Inline UI string in `{{attr}}`. Move this copy into the `strings` catalog and reference `strings.<domain>.<key>`. See CLAUDE.md → Copy.",
-            jsx: "Inline UI string. Move this copy into the `strings` catalog (packages/app-core/src/strings.ts) and render `strings.<domain>.<key>`. See CLAUDE.md → Copy.",
+            jsx: "Inline UI string. Move this copy into the catalog (packages/app-core/locales/en-CA.json) and render `strings.<domain>.<key>`. See CLAUDE.md → Copy.",
             sink: "Inline UI string passed to `{{sink}}`. Move this copy into the `strings` catalog and reference `strings.<domain>.<key>`. See CLAUDE.md → Copy.",
         },
         schema: [
@@ -95,6 +96,15 @@ export default {
             },
             'Property[key.name="errorMessage"] > Literal'(node) {
                 flagSink(node, "errorMessage");
+            },
+            // The embed loader builds its DOM by hand, outside JSX.
+            'AssignmentExpression[left.type="MemberExpression"] > Literal.right'(node) {
+                const name = node.parent.left.property.name;
+                if (DOM_TEXT.has(name)) flagSink(node, name);
+            },
+            'CallExpression[callee.property.name="setAttribute"] > Literal:nth-child(2)'(node) {
+                const attr = node.parent.arguments[0];
+                if (attr?.type === "Literal" && COPY_ATTRS.has(attr.value)) flagSink(node, attr.value);
             },
         };
     },

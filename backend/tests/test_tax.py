@@ -40,9 +40,7 @@ def test_ab_gst_only() -> None:
 
 
 def test_ns_hst_14() -> None:
-    assert [(r.jurisdiction, r.rate_bps, r.name) for r in rates_for_province("NS")] == [
-        ("HST", 1400, "HST 14%")
-    ]
+    assert [(r.jurisdiction, r.rate_bps) for r in rates_for_province("NS")] == [("HST", 1400)]
     assert compute_tax([TaxLine(10000)], NS).tax_total_cents == 1400
 
 

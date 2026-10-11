@@ -75,7 +75,9 @@ export function PublicPreferences() {
                     <p className="mt-2 text-sm leading-relaxed text-ink-soft">
                         {subscribed
                             ? s.resubscribedBody(prefs.business_name)
-                            : s.unsubscribedBody(prefs.business_name, prefs.email_hint)}
+                            : prefs.email_hint === null
+                              ? s.unsubscribedNoEmail(prefs.business_name)
+                              : s.unsubscribedBody(prefs.business_name, prefs.email_hint)}
                     </p>
                 </div>
                 {subscribed ? null : (
@@ -124,12 +126,18 @@ export function PublicPreferences() {
                     <p className="mb-3 mt-0.5 text-xs text-muted">{s.offersHint}</p>
                     <div className="space-y-3">
                         <Toggle
-                            label={s.byEmail(prefs.email_hint)}
+                            label={
+                                prefs.email_hint === null
+                                    ? s.byEmail
+                                    : s.byEmailTo(prefs.email_hint)
+                            }
                             value={page.offersEmail}
                             onChange={page.setOffersEmail}
                         />
                         <Toggle
-                            label={s.byText(prefs.phone_hint)}
+                            label={
+                                prefs.phone_hint === null ? s.byText : s.byTextTo(prefs.phone_hint)
+                            }
                             value={page.offersSms}
                             onChange={page.setOffersSms}
                         />

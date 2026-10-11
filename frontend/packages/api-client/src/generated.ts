@@ -4922,6 +4922,11 @@ export interface components {
              * Format: date-time
              */
             now: string;
+            /**
+             * Timezone
+             * @description The business's IANA time zone, which its times are shown in
+             */
+            timezone: string;
             /** Can Move */
             can_move: boolean;
             /** Can Cancel */
@@ -5580,6 +5585,11 @@ export interface components {
              * @description The business's clock, in its zone
              */
             now?: string | null;
+            /**
+             * Timezone
+             * @description The business's IANA time zone, which its times are shown in
+             */
+            timezone: string;
             policy?: components["schemas"]["PublicPolicy"] | null;
             /**
              * Rating
@@ -5659,6 +5669,11 @@ export interface components {
             status: string;
             /** Version */
             version: number;
+            /**
+             * Timezone
+             * @description The business's IANA time zone, which its times are shown in
+             */
+            timezone: string;
             /** Signed At */
             signed_at?: string | null;
             /** Signer Ip */
@@ -5787,6 +5802,11 @@ export interface components {
             status: string;
             /** Currency */
             currency: string;
+            /**
+             * Timezone
+             * @description The business's IANA time zone, which its times are shown in
+             */
+            timezone: string;
             /** Subtotal Cents */
             subtotal_cents: number;
             /** Tax Total Cents */
@@ -5881,6 +5901,11 @@ export interface components {
             /** Business Name */
             business_name: string;
             brand: components["schemas"]["PublicBrand"];
+            /**
+             * Timezone
+             * @description The business's IANA time zone, which its times are shown in
+             */
+            timezone: string;
             /** Completed */
             completed: boolean;
             /** Fields */
@@ -5945,6 +5970,11 @@ export interface components {
             brand: components["schemas"]["PublicBrand"];
             /** Currency */
             currency: string;
+            /**
+             * Timezone
+             * @description The business's IANA time zone, which its times are shown in
+             */
+            timezone: string;
             /**
              * Subtotal Cents
              * @default 0
@@ -6054,6 +6084,11 @@ export interface components {
             receipt_token: string | null;
             /** Currency */
             currency: string;
+            /**
+             * Timezone
+             * @description The business's IANA time zone, which its times are shown in
+             */
+            timezone: string;
             /** Subtotal Cents */
             subtotal_cents: number;
             /** Tax Total Cents */
@@ -6101,6 +6136,11 @@ export interface components {
             windows: components["schemas"]["PublicPickupWindow"][];
             /** Hold Days */
             hold_days: number;
+            /**
+             * Timezone
+             * @description The business's IANA time zone, which its times are shown in
+             */
+            timezone: string;
         };
         /** PublicPickupWindow */
         PublicPickupWindow: {
@@ -6195,6 +6235,11 @@ export interface components {
              * @description The business's clock, in its zone
              */
             now?: string | null;
+            /**
+             * Timezone
+             * @description The business's IANA time zone, which its times are shown in
+             */
+            timezone: string;
             policy?: components["schemas"]["PublicPolicy"] | null;
             /**
              * Rating
@@ -6226,8 +6271,6 @@ export interface components {
             reviews?: components["schemas"]["PublicProfileReview"][];
             /** Hours */
             hours?: components["schemas"]["PublicProfileHours"][];
-            /** Timezone */
-            timezone: string;
         };
         /** PublicProfileHours */
         PublicProfileHours: {
@@ -6270,6 +6313,11 @@ export interface components {
             status: string;
             /** Currency */
             currency: string;
+            /**
+             * Timezone
+             * @description The business's IANA time zone, which its times are shown in
+             */
+            timezone: string;
             /**
              * Created At
              * Format: date-time
@@ -6937,8 +6985,6 @@ export interface components {
         ReportRate: {
             /** Code */
             code: string;
-            /** Name */
-            name: string;
             /** Rate Bps */
             rate_bps: number;
         };
@@ -7464,8 +7510,6 @@ export interface components {
             province: string;
             /** Rate Bps */
             rate_bps: number;
-            /** Name */
-            name: string;
         };
         /** TeamMember */
         TeamMember: {

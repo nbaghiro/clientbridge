@@ -10,6 +10,9 @@ import {
     strings,
     useFlash,
     visitAction,
+    formatParts,
+    BUSINESS_CURRENCY,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -72,7 +75,7 @@ function StateTag({ item }: { item: AgendaItem }) {
     if (item.state === "next")
         return (
             <StatusPill
-                status={`${t.stateNext} · ${t.inMinutes(item.minutesAway)}`}
+                status={formatParts([t.stateNext, item.startsIn])}
                 intent="accent"
                 asWritten
             />
@@ -381,25 +384,28 @@ export function FilingCard({
     filingDue: Date | null;
     filingDays: number | null;
 }) {
+    const zone = useBusinessZone();
     return (
         <div className="rounded-lg border border-line bg-surface p-4 shadow-card">
             <div className="flex items-center justify-between gap-2">
                 <p className="text-xs font-medium text-muted">{t.setAside}</p>
                 {filingDue === null ? null : (
                     <StatusPill
-                        status={t.filingShort(formatMonthDay(filingDue))}
+                        status={t.filingShort(formatMonthDay(filingDue, zone))}
                         intent={filingDays !== null && filingDays <= 14 ? "warning" : "neutral"}
                         asWritten
                     />
                 )}
             </div>
             <p className="mt-1 font-display text-2xl font-bold tabular-nums text-ink">
-                {formatMoney(setAsideCents)}
+                {formatMoney(setAsideCents, BUSINESS_CURRENCY)}
             </p>
             <p className="mt-0.5 text-xs text-muted">
                 {filingDue === null || filingDays === null
                     ? t.notRegistered
-                    : t.filing(formatMonthDay(filingDue), filingDays)}
+                    : filingDays < 0
+                      ? t.filingLate(formatMonthDay(filingDue, zone))
+                      : t.filing(formatMonthDay(filingDue, zone), filingDays)}
             </p>
         </div>
     );

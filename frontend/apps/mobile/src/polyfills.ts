@@ -3,6 +3,23 @@
 import "@azure/core-asynciterator-polyfill";
 import "react-native-url-polyfill/auto";
 import "react-native-get-random-values";
+import "@formatjs/intl-locale/polyfill.js";
+import "@formatjs/intl-pluralrules/polyfill.js";
+import "@formatjs/intl-pluralrules/locale-data/en.js";
+import "@formatjs/intl-listformat/polyfill.js";
+import "@formatjs/intl-listformat/locale-data/en.js";
+import "@formatjs/intl-listformat/locale-data/en-CA.js";
+
+// Hermes lacks NumberFormat.formatToParts and DateTimeFormat.formatRange, and formats unlike the web.
+const deviceZone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
+require("@formatjs/intl-numberformat/polyfill-force.js");
+require("@formatjs/intl-numberformat/locale-data/en.js");
+require("@formatjs/intl-numberformat/locale-data/en-CA.js");
+require("@formatjs/intl-datetimeformat/polyfill-force.js");
+require("@formatjs/intl-datetimeformat/locale-data/en.js");
+require("@formatjs/intl-datetimeformat/locale-data/en-CA.js");
+require("@formatjs/intl-datetimeformat/add-all-tz.js");
+Intl.DateTimeFormat.__setDefaultTimeZone(deviceZone);
 
 import { decode as atobPolyfill, encode as btoaPolyfill } from "base-64";
 import { fetch as rnFetch, Headers, Request, Response } from "react-native-fetch-api";

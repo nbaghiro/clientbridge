@@ -5,6 +5,9 @@ import {
     registrationLine,
     strings,
     usePublicEstimatePage,
+    formatParts,
+    taxList,
+    taxName,
 } from "@clientbridge/app-core/public";
 import { Button, Checkbox, DocTotals, Icon, Notice, StatusPill, TextField } from "@clientbridge/ui";
 import { cssVar } from "@clientbridge/tokens";
@@ -62,7 +65,9 @@ export function PublicEstimate() {
                     <dl className="mt-5 flex flex-wrap gap-x-8 gap-y-3">
                         <div>
                             <dt className="text-xs text-muted">{strings.printing.issued}</dt>
-                            <dd className="text-sm font-semibold">{longDate(est.issued_at)}</dd>
+                            <dd className="text-sm font-semibold">
+                                {longDate(est.issued_at, est.timezone)}
+                            </dd>
                         </div>
                         {est.valid_until !== null ? (
                             <div>
@@ -70,7 +75,7 @@ export function PublicEstimate() {
                                     {strings.printing.validUntil}
                                 </dt>
                                 <dd className="text-sm font-semibold">
-                                    {longDate(est.valid_until)}
+                                    {longDate(est.valid_until, est.timezone)}
                                 </dd>
                             </div>
                         ) : null}
@@ -110,7 +115,7 @@ export function PublicEstimate() {
                             <p className="text-sm text-ink-soft">{pe.estimateTotal}</p>
                             {est.valid_until !== null ? (
                                 <p className="text-xs text-muted">
-                                    {pe.validUntil(longDate(est.valid_until))}
+                                    {pe.validUntil(longDate(est.valid_until, est.timezone))}
                                 </p>
                             ) : null}
                         </div>
@@ -149,16 +154,17 @@ export function PublicEstimate() {
                                                     {l.description}
                                                 </p>
                                                 <p className="mt-0.5 text-xs text-muted">
-                                                    {[
+                                                    {formatParts([
                                                         l.optional ? pe.optional : null,
                                                         strings.billing.qtyTimes(
                                                             l.quantity,
-                                                            formatMoney(l.unit_amount_cents),
+                                                            formatMoney(
+                                                                l.unit_amount_cents,
+                                                                est.currency,
+                                                            ),
                                                         ),
-                                                        l.tax_codes.join(" + "),
-                                                    ]
-                                                        .filter(Boolean)
-                                                        .join(" · ")}
+                                                        taxList(l.tax_codes.map(taxName)),
+                                                    ])}
                                                 </p>
                                                 {l.optional && open ? (
                                                     <p className="text-xs text-muted">
@@ -170,13 +176,13 @@ export function PublicEstimate() {
                                         <span
                                             className={`font-medium tabular-nums ${l.optional && !page.picked.has(l.id) && open ? "text-muted" : "text-ink"}`}
                                         >
-                                            {formatMoney(l.amount_cents)}
+                                            {formatMoney(l.amount_cents, est.currency)}
                                         </span>
                                     </li>
                                 ))}
                         </ul>
                         <div className="-mx-6 mt-5 border-t border-line-soft px-6 pt-5">
-                            <DocTotals lines={page.totals} />
+                            <DocTotals lines={page.totals} currency={est.currency} />
                         </div>
                     </div>
                     {open ? (

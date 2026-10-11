@@ -17,6 +17,9 @@ import {
     useClientPackages,
     useClientSubscriptions,
     useClientWallet,
+    formatList,
+    formatParts,
+    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     ActionMenu,
@@ -65,7 +68,7 @@ function MethodRow({ m, wallet }: { m: WalletMethod; wallet: ReturnType<typeof u
                     <span className="text-sm font-semibold text-ink">{m.label}</span>
                     {m.isDefault ? <Badge label={s.default} intent="accent" /> : null}
                     {m.pays.length > 0 ? (
-                        <Badge label={s.pays(m.pays.join(", "))} intent="neutral" />
+                        <Badge label={s.pays(formatList(m.pays, "unit"))} intent="neutral" />
                     ) : null}
                 </div>
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
@@ -77,11 +80,7 @@ function MethodRow({ m, wallet }: { m: WalletMethod; wallet: ReturnType<typeof u
                             {m.expiry}
                         </span>
                     ) : null}
-                    <span>
-                        {[m.bankName, m.holder, m.added, m.note]
-                            .filter((x) => x !== null && x !== "")
-                            .join(" · ")}
-                    </span>
+                    <span>{formatParts([m.bankName, m.holder, m.added, m.note])}</span>
                 </div>
             </div>
             <div className="relative">
@@ -128,6 +127,7 @@ function MethodRow({ m, wallet }: { m: WalletMethod; wallet: ReturnType<typeof u
 }
 
 function SubscriptionLine({ sub }: { sub: SubscriptionRow }) {
+    const zone = useBusinessZone();
     const { busy, error, run } = useAsyncAction();
     const cancel = (): void => {
         confirm({
@@ -155,7 +155,7 @@ function SubscriptionLine({ sub }: { sub: SubscriptionRow }) {
                     {sub.current_period_end !== null ? (
                         <div className="text-xs text-muted">
                             {strings.clients.nextCharge(
-                                formatDate(parseTimestamp(sub.current_period_end)),
+                                formatDate(parseTimestamp(sub.current_period_end), zone),
                             )}
                         </div>
                     ) : null}

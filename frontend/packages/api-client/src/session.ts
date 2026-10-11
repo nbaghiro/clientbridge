@@ -44,6 +44,29 @@ export interface Session {
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
+/** A request the API refused: its status and the stable `error` code of its body, never shown as text. */
+class ApiError extends Error {
+    constructor(
+        readonly status: number,
+        readonly code: string | null,
+        request: string,
+    ) {
+        super(`${request} → ${String(status)}`);
+        this.name = "ApiError";
+    }
+}
+
+async function refused(res: Response, request: string): Promise<ApiError> {
+    let code: string | null = null;
+    try {
+        const body = (await res.json()) as { error?: unknown };
+        if (typeof body.error === "string") code = body.error;
+    } catch {
+        code = null;
+    }
+    return new ApiError(res.status, code, request);
+}
+
 export function createSession(opts: SessionOptions): Session {
     const runLocked = opts.lock ?? (<T>(fn: () => Promise<T>) => fn());
     const epoch = opts.epoch ?? new SessionEpoch();
@@ -163,7 +186,7 @@ export function createSession(opts: SessionOptions): Session {
     ): Promise<T> => {
         const generation = epoch.value;
         const res = await authFetch(path, init, undefined, businessId);
-        if (!res.ok) throw new Error(`${init?.method ?? "GET"} ${path} → ${res.status}`);
+        if (!res.ok) throw await refused(res, `${init?.method ?? "GET"} ${path}`);
         const value = res.status === 204 ? (undefined as T) : ((await res.json()) as T);
         if (generation !== epoch.value) throw new Error("session changed during response");
         return value;
@@ -172,7 +195,7 @@ export function createSession(opts: SessionOptions): Session {
     const text = async (path: string, businessId?: string | null): Promise<string> => {
         const generation = epoch.value;
         const res = await authFetch(path, undefined, undefined, businessId);
-        if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
+        if (!res.ok) throw await refused(res, `GET ${path}`);
         const value = await res.text();
         if (generation !== epoch.value) throw new Error("session changed during response");
         return value;

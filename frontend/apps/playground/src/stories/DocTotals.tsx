@@ -11,6 +11,7 @@ export default story<DocTotalsProps>({
             key: "invoice",
             title: "Invoice with a deposit",
             props: () => ({
+                currency: "CAD",
                 lines: [
                     { key: "sub", label: "Subtotal", cents: 9000, kind: "subtotal" },
                     { key: "gst", label: "GST", hint: "5%", cents: 450, kind: "tax" },
@@ -25,6 +26,7 @@ export default story<DocTotalsProps>({
             key: "payout",
             title: "Payout with a fee (compact)",
             props: () => ({
+                currency: "CAD",
                 density: "compact",
                 lines: [
                     { key: "gross", label: "Card sales", cents: 125000, kind: "subtotal" },
@@ -38,6 +40,7 @@ export default story<DocTotalsProps>({
             key: "estimate",
             title: "Estimate, no balance",
             props: () => ({
+                currency: "CAD",
                 lines: [
                     { key: "sub", label: "Subtotal", cents: 24000, kind: "subtotal" },
                     { key: "gst", label: "GST", hint: "5%", cents: 1200, kind: "tax" },
@@ -49,6 +52,7 @@ export default story<DocTotalsProps>({
             key: "paid",
             title: "Paid in full with a gift card",
             props: () => ({
+                currency: "CAD",
                 lines: [
                     { key: "total", label: "Total", cents: 9520, kind: "total" },
                     {
@@ -67,6 +71,7 @@ export default story<DocTotalsProps>({
             key: "long",
             title: "Long labels and large amounts",
             props: () => ({
+                currency: "CAD",
                 lines: [
                     {
                         key: "sub",
@@ -89,6 +94,7 @@ export default story<DocTotalsProps>({
             key: "rtl",
             title: "Right-to-left labels",
             props: () => ({
+                currency: "CAD",
                 density: "compact",
                 lines: [
                     { key: "sub", label: "المجموع الفرعي", cents: 9000, kind: "subtotal" },

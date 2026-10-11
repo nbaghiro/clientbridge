@@ -4,8 +4,17 @@ import { useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import { formatDate } from "../datetime";
-import { blankToNull, formatMoney, formatPhone, parseCents } from "../format";
+import { dateKey, formatDate, parseTimestamp, useBusinessZone } from "../datetime";
+import {
+    blankToNull,
+    formatAmountInput,
+    formatMoney,
+    formatMoneyShort,
+    formatParts,
+    formatPhone,
+    parseCents,
+    BUSINESS_CURRENCY,
+} from "../format";
 import { type ApiLike, newIdempotencyKey } from "../api";
 import type { CheckoutMethod } from "./checkout";
 import { expectArrival } from "./sync";
@@ -217,12 +226,6 @@ interface PaymentRecorder {
     reset: () => void;
 }
 
-const today = (): string => {
-    const d = new Date();
-    const pad = (n: number): string => String(n).padStart(2, "0");
-    return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-};
-
 /** One payment on an invoice, method first: cash with change, an e-Transfer or cheque received, or a saved card. */
 export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentRecorder {
     const r = strings.billing.rec;
@@ -242,6 +245,8 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
     const [amount, setAmountState] = useState("");
     const [tendered, setTendered] = useState("");
     const [reference, setReference] = useState("");
+    const zone = useBusinessZone();
+    const today = (): string => dateKey(new Date(), zone);
     const [receivedOn, setReceivedOn] = useState(today);
     const [note, setNote] = useState("");
     const [sendReceipt, setSendReceipt] = useState(true);
@@ -254,10 +259,13 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
     };
 
     const balanceCents = target.balanceCents;
-    const parsed = amountMode === "full" ? balanceCents : parseCents(amount);
+    const parsed = amountMode === "full" ? balanceCents : parseCents(amount, BUSINESS_CURRENCY);
     const validAmount = parsed !== null && parsed > 0;
     const amountCents = validAmount ? parsed : 0;
-    const tenderedCents = method === "cash" && tendered.trim() !== "" ? parseCents(tendered) : null;
+    const tenderedCents =
+        method === "cash" && tendered.trim() !== ""
+            ? parseCents(tendered, BUSINESS_CURRENCY)
+            : null;
     const changeCents =
         tenderedCents !== null && tenderedCents > amountCents ? tenderedCents - amountCents : 0;
     const afterCents = Math.max(0, balanceCents - amountCents);
@@ -267,9 +275,9 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
     const amountError = !attempted
         ? null
         : !validAmount
-          ? r.amountInvalid
+          ? r.amountInvalid(formatMoneyShort(0, BUSINESS_CURRENCY))
           : amountCents > balanceCents
-            ? r.amountTooHigh(formatMoney(balanceCents))
+            ? r.amountTooHigh(formatMoney(balanceCents, BUSINESS_CURRENCY))
             : null;
     const tenderedError =
         attempted &&
@@ -319,9 +327,13 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
                 const lines = [
                     res.balance_cents === 0
                         ? r.donePaid(target.label)
-                        : r.donePartial(target.label, formatMoney(res.balance_cents)),
+                        : r.donePartial(
+                              target.label,
+                              formatMoney(res.balance_cents, BUSINESS_CURRENCY),
+                          ),
                 ];
-                if (changeCents > 0) lines.push(r.giveChange(formatMoney(changeCents)));
+                if (changeCents > 0)
+                    lines.push(r.giveChange(formatMoney(changeCents, BUSINESS_CURRENCY)));
                 if (body.send_receipt && target.clientEmail !== null)
                     lines.push(r.receiptSent(target.clientEmail));
                 setDone({ title: r.doneTitle, lines, paidInFull: res.balance_cents === 0 });
@@ -331,7 +343,7 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
     };
 
     const charging = method === "saved_card";
-    const money = formatMoney(amountCents);
+    const money = formatMoney(amountCents, BUSINESS_CURRENCY);
     return {
         methods,
         method,
@@ -468,9 +480,10 @@ export function useInteracRequestForm(
     payBase: string,
 ): InteracRequestForm {
     const t = strings.payments.interac;
+    const zone = useBusinessZone();
     const rows = useQuery<InteracRequestRow>(INVOICE_INTERAC_SQL, [invoice.id]).data;
     const balance = invoice.balance_cents ?? 0;
-    const [amount, setAmountState] = useState((balance / 100).toFixed(2));
+    const [amount, setAmountState] = useState(formatAmountInput(balance, BUSINESS_CURRENCY));
     const hasPhone = (invoice.client_phone ?? "") !== "";
     const hasEmail = (invoice.client_email ?? "") !== "";
     const [channel, setChannelState] = useState<InteracChannel>(hasPhone ? "sms" : "email");
@@ -480,7 +493,7 @@ export function useInteracRequestForm(
     const keyRef = useRef<string | null>(null);
     const now = Date.now();
     const waiting = rows.find((r) => requestState(r, now) === "pending") ?? null;
-    const cents = parseCents(amount);
+    const cents = parseCents(amount, BUSINESS_CURRENCY);
     const to =
         channel === "sms"
             ? hasPhone
@@ -491,7 +504,7 @@ export function useInteracRequestForm(
 
     const submit = (): void => {
         if (cents === null || cents <= 0 || cents > balance) {
-            setError(t.errAmount(formatMoney(balance)));
+            setError(t.errAmount(formatMoney(balance, BUSINESS_CURRENCY)));
             return;
         }
         if (to === "") {
@@ -519,12 +532,16 @@ export function useInteracRequestForm(
     return {
         title: t.requestFor(label, invoice.client_name ?? ""),
         facts: [
-            { label: t.facts.total, value: formatMoney(invoice.total_cents) },
-            { label: t.facts.paid, value: formatMoney((invoice.total_cents ?? 0) - balance) },
-            { label: t.facts.balance, value: formatMoney(balance) },
+            { label: t.facts.total, value: formatMoney(invoice.total_cents, BUSINESS_CURRENCY) },
+            {
+                label: t.facts.paid,
+                value: formatMoney((invoice.total_cents ?? 0) - balance, BUSINESS_CURRENCY),
+            },
+            { label: t.facts.balance, value: formatMoney(balance, BUSINESS_CURRENCY) },
             {
                 label: t.facts.due,
-                value: invoice.due_at === null ? "" : formatDate(new Date(invoice.due_at)),
+                value:
+                    invoice.due_at === null ? "" : formatDate(parseTimestamp(invoice.due_at), zone),
             },
         ],
         amount,
@@ -533,7 +550,7 @@ export function useInteracRequestForm(
             setSent(null);
             setAmountState(v);
         },
-        amountHint: t.amountHint(formatMoney(balance)),
+        amountHint: t.amountHint(formatMoney(balance, BUSINESS_CURRENCY)),
         channel,
         setChannel: (c) => {
             keyRef.current = null;
@@ -541,8 +558,8 @@ export function useInteracRequestForm(
             setChannelState(c);
         },
         channels: [
-            { key: "sms", label: t.channels.sms ?? "sms", disabled: !hasPhone },
-            { key: "email", label: t.channels.email ?? "email", disabled: !hasEmail },
+            { key: "sms", label: t.channels.sms, disabled: !hasPhone },
+            { key: "email", label: t.channels.email, disabled: !hasEmail },
         ],
         to: to === "" ? (channel === "sms" ? t.noPhone : t.noEmail) : to,
         expiry,
@@ -552,11 +569,11 @@ export function useInteracRequestForm(
         },
         expiries: (["7", "14", "30"] as const).map((k) => ({
             key: k,
-            label: t.expiryOptions[k] ?? k,
+            label: t.expiryOptions[k],
         })),
         preview: t.previewMessage(
             sender.name,
-            formatMoney(cents ?? balance),
+            formatMoney(cents ?? balance, BUSINESS_CURRENCY),
             sender.email ?? t.noPayEmail,
             t.newCode,
             invoice.pay_token === null ? "" : payLinkUrl(payBase, invoice.pay_token),
@@ -571,18 +588,19 @@ export function useInteracRequestForm(
                 key: r.id,
                 label:
                     state === "succeeded"
-                        ? t.received(formatMoney(r.amount_cents))
-                        : t.requested(r.reference_code ?? "", formatMoney(r.amount_cents)),
-                detail: [
+                        ? t.received(formatMoney(r.amount_cents, BUSINESS_CURRENCY))
+                        : t.requested(
+                              r.reference_code ?? "",
+                              formatMoney(r.amount_cents, BUSINESS_CURRENCY),
+                          ),
+                detail: formatParts([
                     t.state[state] ?? state,
-                    t.sentVia(r.channel),
+                    t.sentVia(r.channel ?? ""),
                     r.expires_at !== null && state === "pending"
-                        ? t.expiresOn(formatDate(new Date(r.expires_at)))
+                        ? t.expiresOn(formatDate(parseTimestamp(r.expires_at), zone))
                         : "",
-                ]
-                    .filter(Boolean)
-                    .join(" · "),
-                at: formatDate(new Date(r.paid_at ?? r.created_at)),
+                ]),
+                at: formatDate(parseTimestamp(r.paid_at ?? r.created_at), zone),
                 intent: (state === "succeeded"
                     ? "success"
                     : state === "pending"
