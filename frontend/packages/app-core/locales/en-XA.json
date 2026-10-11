@@ -9368,6 +9368,9 @@
     "auth.mfaWebauthn": {
         "message": "[Ûšé ýöûŕ šéçûŕîţý ķéý one two]"
     },
+    "auth.mfaKeyOnly": {
+        "message": "[Ţĥîš åççöûñţ'š šéçöñð šţéþ îš å šéçûŕîţý ķéý, ŵĥîçĥ ŵöŕķš öñļý îñ ţĥé ŵéƀ åþþ. Šîĝñ îñ ţĥéŕé åñð åðð åñ åûţĥéñţîçåţöŕ åþþ öŕ ƀåçķûþ çöðéš ţö ûšé ţĥîš åþþ. one two three four five six seven eight nine]"
+    },
     "auth.mfaUse.totp": {
         "message": "[Ûšé åûţĥéñţîçåţöŕ åþþ one two]"
     },
@@ -9409,6 +9412,12 @@
     },
     "auth.googleFailed": {
         "message": "[Çöûļðñ'ţ çöñţîñûé ŵîţĥ Ĝööĝļé. Ţŕý åĝåîñ öŕ ûšé ýöûŕ éɱåîļ. one two three four]"
+    },
+    "auth.errorTitle": {
+        "message": "[Ŵé çöûļðñ'ţ ƒîñîšĥ šîĝñîñĝ ýöû îñ one two three]"
+    },
+    "auth.errorBody": {
+        "message": "[Ţĥé ļîñķ ɱåý ĥåṽé éẋþîŕéð öŕ ƀééñ öþéñéð ţŵîçé. Ĝö ƀåçķ åñð ţŕý åĝåîñ. one two three four five]"
     },
     "auth.terms": {
         "message": "[Ɓý çŕéåţîñĝ åñ åççöûñţ ýöû åĝŕéé ţö ţĥé Ţéŕɱš åñð Þŕîṽåçý Þöļîçý. one two three four five]"
@@ -9499,6 +9508,9 @@
     },
     "auth.securityReauthBody": {
         "message": "[Éñţéŕ ýöûŕ þåššŵöŕð ţö çĥåñĝé šîĝñ-îñ šéţţîñĝš. one two three four]"
+    },
+    "auth.securityReauthOnWeb": {
+        "message": "[Çöñƒîŕɱ îţ'š ýöû îñ ţĥé ŵéƀ åþþ ţö çĥåñĝé šîĝñ-îñ šéţţîñĝš. one two three four]"
     },
     "auth.kratosError": {
         "message": "[Šöɱéţĥîñĝ ŵéñţ ŵŕöñĝ. Þļéåšé ţŕý åĝåîñ. one two three]"

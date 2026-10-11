@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from clientbridge.core.deps import CurrentIdentity, CurrentPrincipal, CurrentUser, DbSession
+from clientbridge.core.deps import CurrentPrincipal, CurrentUser, DbSession, FreshIdentity
 from clientbridge.schemas.business import BusinessOut, BusinessSettingsUpdate, OnboardBody
 from clientbridge.services.business import BusinessService, OnboardingService
 
@@ -20,7 +20,7 @@ onboarding_router = APIRouter(prefix="/onboarding", tags=["onboarding"])
 
 @onboarding_router.post("", response_model=BusinessOut, status_code=201)
 async def onboard(
-    body: OnboardBody, user: CurrentUser, identity: CurrentIdentity, db: DbSession
+    body: OnboardBody, user: CurrentUser, identity: FreshIdentity, db: DbSession
 ) -> BusinessOut:
     biz = await OnboardingService(db).onboard(user.id, body, email_verified=identity.email_verified)
     return BusinessOut.model_validate(biz)

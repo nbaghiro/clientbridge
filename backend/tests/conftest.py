@@ -11,7 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import engine, get_session
-from clientbridge.core.deps import get_interac_secret, get_sms_webhook_secret
+from clientbridge.core.deps import (
+    get_interac_secret,
+    get_kratos_courier_secret,
+    get_sms_webhook_secret,
+)
 from clientbridge.core.errors import CardDeclined, Conflict, PaymentActionRequired, Unauthorized
 from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import (
@@ -28,6 +32,7 @@ from clientbridge.integrations.kratos import (
     Credential,
     Identity,
     get_identity_provider,
+    normalize_email,
     unavailable,
 )
 from clientbridge.integrations.postmark import Email, EmailSender, get_email_sender
@@ -177,19 +182,20 @@ class FakeIdentityProvider:
 
     def __init__(self) -> None:
         self.sessions: dict[str, Identity] = {}
-        self.revoked: list[str] = []
         self.step_up: set[str] = set()
+        self.deleted: set[str] = set()
+        self.fresh_reads = 0
         self.down = False
-        self.admin_down = False
 
     def issue(self, identity: Identity) -> str:
         credential = f"test-{uuid4().hex}"
         self.sessions[credential] = identity
         return credential
 
-    async def whoami(self, credential: Credential) -> Identity:
+    async def whoami(self, credential: Credential, *, fresh: bool = False) -> Identity:
         if self.down:
             raise unavailable()
+        self.fresh_reads += fresh
         key = credential.session_token or credential.cookie
         if key in self.step_up:
             raise Unauthorized("second factor required", code="aal2_required")
@@ -198,10 +204,13 @@ class FakeIdentityProvider:
             raise Unauthorized("session expired", code="unauthenticated")
         return identity
 
-    async def revoke_sessions(self, identity_id: str) -> None:
-        if self.down or self.admin_down:
+    async def identity_exists(self, identity_id: str) -> bool:
+        if self.down:
             raise unavailable()
-        self.revoked.append(identity_id)
+        return identity_id not in self.deleted
+
+    def end_sessions(self, identity_id: str) -> None:
+        """What Kratos does after a password reset: every session of the identity stops working."""
         self.sessions = {k: v for k, v in self.sessions.items() if v.id != identity_id}
 
 
@@ -217,7 +226,7 @@ def identity_for(
     return Identity(
         id=user.kratos_identity_id,
         email=address,
-        verified_emails=frozenset({address.casefold()}) if verified else frozenset(),
+        verified_emails=frozenset({normalize_email(address)}) if verified else frozenset(),
         name=user.name,
         session_id=f"ses-{uuid4().hex}",
         aal=aal,
@@ -514,6 +523,7 @@ async def api(
     app.dependency_overrides[get_file_storage] = _storage
     app.dependency_overrides[get_interac_secret] = lambda: "testsecret"
     app.dependency_overrides[get_sms_webhook_secret] = lambda: "testsecret"
+    app.dependency_overrides[get_kratos_courier_secret] = lambda: "testsecret"
     app.dependency_overrides[public_pay_rate_limit] = lambda: None  # no throttling under test
     app.dependency_overrides[public_review_rate_limit] = lambda: None
     app.dependency_overrides[public_form_rate_limit] = lambda: None

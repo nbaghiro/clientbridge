@@ -1,4 +1,3 @@
-import re
 from functools import lru_cache
 from urllib.parse import urlsplit
 
@@ -7,7 +6,9 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_DEV_E2E_ORIGINS = ("http://localhost:8721", "http://localhost:8724")  # web e2e, en-CA and en-XA
 _DEV_JWT_SECRET = "clientbridge-dev-secret-do-not-use-in-prod"
+_DEV_COURIER_SECRET = "clientbridge-dev-courier-secret-do-not-use-in-prod"
 
 
 class Settings(BaseSettings):
@@ -28,6 +29,8 @@ class Settings(BaseSettings):
     kratos_admin_url: str = "http://localhost:8714"
     kratos_session_cookie: str = "ory_kratos_session"
     identity_cache_ttl_seconds: float = 30
+    # A session dies this long after its sign-in, however often it was extended.
+    session_max_age_days: int = 90
 
     redis_url: str = "redis://localhost:8703/0"
 
@@ -58,10 +61,12 @@ class Settings(BaseSettings):
     platform_fee_bps: int = 200  # application fee per direct charge (basis points; 200 = 2%)
     interac_webhook_secret: str = ""
     sms_webhook_secret: str = ""
+    kratos_courier_secret: str = _DEV_COURIER_SECRET  # matches docker-compose.yml's kratos
 
     # Outreach channels; empty credentials select the no-op console senders.
     postmark_server_token: str = ""
     email_from: str = ""
+    smtp_url: str = ""  # dev: smtp://localhost:8716 delivers to Mailpit when Postmark is unset
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_sms_from: str = ""
@@ -79,10 +84,10 @@ class Settings(BaseSettings):
                 missing.append("KRATOS_PUBLIC_URL (https, not localhost)")
             if not self.kratos_admin_url or self.kratos_admin_url == self.kratos_public_url:
                 missing.append("KRATOS_ADMIN_URL (private, distinct from the public URL)")
-            if self.web_base_url not in self.allowed_origins():
-                missing.append("CORS_ALLOW_ORIGINS (must include WEB_BASE_URL)")
             if not self.stripe_webhook_secret:
                 missing.append("STRIPE_WEBHOOK_SECRET")
+            if self.kratos_courier_secret in ("", _DEV_COURIER_SECRET):
+                missing.append("KRATOS_COURIER_SECRET")
             if not self.powersync_use_rs256:
                 missing.append("POWERSYNC_USE_RS256=true")
             if not self.powersync_private_key_pem:
@@ -115,9 +120,9 @@ class Settings(BaseSettings):
     def allowed_origin_regex(self) -> str | None:
         return r"http://localhost:\d+" if self.env == "dev" else None
 
-    def origin_allowed(self, origin: str) -> bool:
-        pattern = self.allowed_origin_regex()
-        return origin in self.allowed_origins() or bool(pattern and re.fullmatch(pattern, origin))
+    def app_origins(self) -> list[str]:
+        """The only origins that may send the Kratos cookie: the web app (and its e2e copy)."""
+        return [self.web_base_url, *(_DEV_E2E_ORIGINS if self.env == "dev" else ())]
 
 
 @lru_cache

@@ -14,11 +14,12 @@ export function newAccount(prefix: string): { email: string; password: string; n
     };
 }
 
-/** The newest code Kratos mailed to `email` whose subject mentions `subject`. */
+/** The newest code mailed to `email` whose subject mentions `subject`, other than `previous`. */
 export async function mailedCode(
     request: APIRequestContext,
     email: string,
     subject: string,
+    previous?: string,
 ): Promise<string> {
     for (let attempt = 0; attempt < 40; attempt++) {
         const search = await request.get(`${MAILPIT}/api/v1/search`, {
@@ -33,7 +34,7 @@ export async function mailedCode(
                 Text: string;
             };
             const code = /\b(\d{6})\b/.exec(message.Text)?.[1];
-            if (code) return code;
+            if (code && code !== previous) return code;
         }
         await new Promise((resolve) => setTimeout(resolve, 250));
     }

@@ -13,7 +13,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { DebugPanel } from "./components/DebugPanel";
 import { config } from "./config";
-import { Login, VerifyEmail } from "./pages/Login";
+import { AuthError, Login, VerifyEmail } from "./pages/Login";
 import { Button, ConfirmHost, LoadFailed, Loading, Logo, Select } from "@clientbridge/ui";
 import { api, identity, onSignedOut, selectBusiness } from "./lib/api";
 import { clearUser, getUserId, onSessionChanged, rememberUser, sessionExpected } from "./lib/auth";
@@ -119,6 +119,7 @@ export function App() {
                         }
                     />
                     <Route path="/verify" element={<VerifyEmail />} />
+                    <Route path="/auth-error" element={<AuthError />} />
                     <Route
                         path="*"
                         element={
@@ -155,6 +156,7 @@ function AppRoutes({
                     element={<AcceptInvite onAuthed={onAuthed} onSignOut={onSignOut} />}
                 />
                 <Route path="/verify" element={<VerifyEmail />} />
+                <Route path="/auth-error" element={<AuthError />} />
                 {authed ? (
                     !business.ready ? (
                         <Route

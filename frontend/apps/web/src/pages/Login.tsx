@@ -13,7 +13,7 @@ import { type ReactNode, type SubmitEvent } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { api, identity } from "../lib/api";
-import { expectSession, getUserId } from "../lib/auth";
+import { expectSession, getUserId, heldInvite, hintSession, sessionHinted } from "../lib/auth";
 import { webauthn } from "../lib/webauthn";
 import { BrandBackdrop, resolveVariant } from "../components/BrandBackdrop";
 
@@ -379,13 +379,21 @@ function Shell({ children }: { children: ReactNode }) {
     );
 }
 
+const AUTH_PATHS = ["/", "/login", "/signup", "/recover", "/verify", "/auth-error"];
+
 function SignIn({ onSuccess }: { onSuccess: () => void }) {
     const [params] = useSearchParams();
-    const { pathname } = useLocation();
+    const { pathname, search } = useLocation();
     const navigate = useNavigate();
-    const invite = params.get("invite");
-    const landing = invite ? `/accept-invite?token=${encodeURIComponent(invite)}` : "/";
-    const returned = landing.includes("?") ? `${landing}&session=1` : `${landing}?session=1`;
+    // A deep link the user opened signed out (an invoice, a settings page) is where they land.
+    const landing =
+        heldInvite() !== null
+            ? "/accept-invite"
+            : AUTH_PATHS.includes(pathname)
+              ? "/"
+              : `${pathname}${search}`;
+    const returnTo = new URL(landing, window.location.origin);
+    returnTo.searchParams.set("session", "1");
     const auth = useAuthForm(
         identity,
         () => {
@@ -397,8 +405,9 @@ function SignIn({ onSuccess }: { onSuccess: () => void }) {
         {
             initialMode: pathname === "/signup" ? "signup" : "signin",
             defaultEmail: params.get("email") ?? "",
-            returnTo: `${window.location.origin}${returned}`,
-            probe: getUserId() !== null || params.has("session"),
+            returnTo: returnTo.toString(),
+            probe: getUserId() !== null || params.has("session") || sessionHinted(),
+            onSessionStarted: hintSession,
             openUrl: (url) => {
                 window.location.assign(url);
                 return Promise.resolve(null);
@@ -480,7 +489,9 @@ export function VerifyEmail() {
         flowId ? { flowId } : getUserId() !== null ? { api } : {},
     );
     const home = (): void => {
-        const navigated = navigate("/", { replace: true });
+        const navigated = navigate(heldInvite() !== null ? "/accept-invite" : "/", {
+            replace: true,
+        });
         if (navigated) navigated.catch(() => undefined);
     };
     return (
@@ -509,6 +520,29 @@ export function VerifyEmail() {
                     submitLabel={a.verify}
                 />
             )}
+        </Shell>
+    );
+}
+
+/** Kratos sends the browser here when a flow fails outside the app's screens. */
+export function AuthError() {
+    const navigate = useNavigate();
+    return (
+        <Shell>
+            <h1 className="font-display text-2xl font-bold text-ink">{a.errorTitle}</h1>
+            <p className="mt-1 text-sm text-muted">{a.errorBody}</p>
+            <div className="mt-6">
+                <Button
+                    size="lg"
+                    full
+                    onPress={() => {
+                        const navigated = navigate("/login", { replace: true });
+                        if (navigated) navigated.catch(() => undefined);
+                    }}
+                >
+                    {a.backToSignIn}
+                </Button>
+            </div>
         </Shell>
     );
 }

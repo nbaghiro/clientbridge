@@ -17,20 +17,58 @@ export function getUserId(): string | null {
 
 // Set by a finished sign-in, so the next restore asks the API who it is.
 let signedIn = new URLSearchParams(window.location.search).has("session");
+// Kratos set its cookie before the app signed in (sign-up awaiting verification); survives reloads.
+const HINT = "cb_session_hint";
 
 export function expectSession(): void {
     signedIn = true;
 }
 
+export function hintSession(): void {
+    localStorage.setItem(HINT, "1");
+}
+
+export function sessionHinted(): boolean {
+    return localStorage.getItem(HINT) !== null;
+}
+
 export function sessionExpected(): boolean {
-    const expected = signedIn || getUserId() !== null;
+    const expected = signedIn || getUserId() !== null || sessionHinted();
     signedIn = false;
     return expected;
+}
+
+// An invite token waits here, never in a URL, while its invitee signs up, verifies or uses Google.
+const INVITE = "cb_invite";
+
+export function holdInvite(token: string): void {
+    try {
+        sessionStorage.setItem(INVITE, token);
+    } catch {
+        return;
+    }
+}
+
+export function heldInvite(): string | null {
+    try {
+        return sessionStorage.getItem(INVITE);
+    } catch {
+        return null;
+    }
+}
+
+export function releaseInvite(): void {
+    try {
+        sessionStorage.removeItem(INVITE);
+    } catch {
+        return;
+    }
 }
 
 export function forgetUser(): Promise<void> {
     sessionEpoch.advance();
     localStorage.removeItem(KEY);
+    localStorage.removeItem(HINT);
     return Promise.resolve();
 }
 
@@ -39,6 +77,7 @@ export async function rememberUser(userId: string): Promise<void> {
     sessionEpoch.advance();
     await teardown();
     localStorage.setItem(KEY, userId);
+    localStorage.removeItem(HINT);
     sessionEpoch.advance();
 }
 

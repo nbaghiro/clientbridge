@@ -195,6 +195,18 @@ function CodeStep({
 
 function SecondFactor({ auth }: { auth: Auth }) {
     const others = auth.mfaMethods.filter((m) => m !== auth.mfaMethod);
+    if (auth.mfaMethods.length === 0)
+        return (
+            <View>
+                <Text style={styles.title}>{a.mfaTitle}</Text>
+                <Notice tone="info">{a.mfaKeyOnly}</Notice>
+                <View style={styles.submit}>
+                    <Button variant="link" onPress={auth.cancel}>
+                        {a.notYou}
+                    </Button>
+                </View>
+            </View>
+        );
     return (
         <CodeStep
             title={a.mfaTitle}

@@ -4,14 +4,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import type {
-    ApiLike,
-    Flow,
-    FlowMessage,
-    FlowNode,
-    FlowStep,
-    IdentityLike,
-    WebAuthnLike,
+import {
+    type ApiLike,
+    failedCode,
+    type Flow,
+    type FlowMessage,
+    type FlowNode,
+    type FlowStep,
+    type IdentityLike,
+    type WebAuthnLike,
 } from "../api";
 
 type AuthMode = "signin" | "signup" | "mfa" | "verify";
@@ -82,6 +83,8 @@ interface AuthOptions {
     probe?: boolean;
     /** Web navigates away; mobile opens an auth session and returns the callback URL. */
     openUrl?: (url: string) => Promise<string | null>;
+    /** Kratos set a session before the app signed in (sign-up waiting on email verification). */
+    onSessionStarted?: () => void;
     webauthn?: WebAuthnLike;
 }
 
@@ -190,6 +193,7 @@ export function useAuthForm(
                     secondStep(await identity.resume("login", id));
                 else await opts?.openUrl?.(step.url);
             } else if (step.next?.flow === "verification") {
+                opts?.onSessionStarted?.();
                 pending.current = step.sessionToken;
                 setFlow(await identity.resume("verification", step.next.id));
                 setModeState("verify");
@@ -237,12 +241,20 @@ export function useAuthForm(
 
     const credentials = async (): Promise<void> => {
         const signup = mode === "signup";
-        const current =
-            flow?.kind === (signup ? "registration" : "login")
-                ? flow
-                : await identity.start(signup ? "registration" : "login", {
-                      returnTo: opts?.returnTo,
-                  });
+        let current: Flow;
+        try {
+            current =
+                flow?.kind === (signup ? "registration" : "login")
+                    ? flow
+                    : await identity.start(signup ? "registration" : "login", {
+                          returnTo: opts?.returnTo,
+                      });
+        } catch (e) {
+            // A session cookie the app didn't know about (say, a reload mid-verification).
+            if (failedCode(e) !== "session_already_available") throw e;
+            await finish();
+            return;
+        }
         const body = signup
             ? {
                   method: "password",
@@ -465,11 +477,21 @@ export function useRecoveryForm(
     const savePassword = async (): Promise<void> => {
         if (!flow) return;
         const result = await identity.submit(flow, { method: "password", password }, token.current);
-        if (result.kind === "flow" && result.flow.state !== "success") {
+        const outcome = passwordSaveOutcome(result);
+        if (outcome === "saved") {
+            await onSignedIn(token.current);
+            return;
+        }
+        if (outcome === "retry" && result.kind === "flow") {
             show(result.flow);
             return;
         }
-        await onSignedIn(token.current);
+        // The recovery session's privileged window ran out: the password is unchanged, start again.
+        setFlow(null);
+        setCode("");
+        setPassword("");
+        setStep("email");
+        setError(a.flowExpired);
     };
 
     const submit = (): void => {
@@ -616,6 +638,24 @@ export function useVerificationForm(
     };
 }
 
+/** Recovery's last step: only a finished flow saved the password; a lapsed session starts over. */
+export function passwordSaveOutcome(step: FlowStep): "saved" | "retry" | "restart" {
+    if (step.kind === "done" || (step.kind === "flow" && step.flow.state === "success"))
+        return "saved";
+    return step.kind === "flow" ? "retry" : "restart";
+}
+
+/** How this identity can confirm it's them: the methods Kratos put in the refresh flow. */
+export function reauthMethods(
+    flow: Flow,
+    canOpenUrl: boolean,
+): { password: boolean; google: boolean } {
+    return {
+        password: flow.nodes.some((n) => n.group === "password"),
+        google: canOpenUrl && flow.nodes.some((n) => n.group === "oidc" && n.value === "google"),
+    };
+}
+
 interface SecurityKey {
     id: string;
     name: string;
@@ -649,10 +689,12 @@ interface SecuritySettings {
     setKeyName: (v: string) => void;
     addKey: () => void;
     removeKey: (id: string) => void;
-    reauth: boolean;
+    /** The ways this identity can confirm it's them again, or null while none is asked for. */
+    reauth: { password: boolean; google: boolean } | null;
     reauthPassword: string;
     setReauthPassword: (v: string) => void;
     confirmReauth: () => void;
+    reauthWithGoogle: () => void;
 }
 
 const hasNode = (flow: Flow | null, name: string): boolean =>
@@ -672,7 +714,13 @@ function backupCodesOf(flow: Flow | null): string[] | null {
 /** Account and sign-in security over the Kratos settings flow; `sessionToken` is mobile's. */
 export function useSecuritySettings(
     identity: IdentityLike,
-    opts?: { webauthn?: WebAuthnLike; sessionToken?: () => Promise<string | undefined> },
+    opts?: {
+        webauthn?: WebAuthnLike;
+        sessionToken?: () => Promise<string | undefined>;
+        /** Where Google re-authentication lands, and how to open it (web only). */
+        returnTo?: string;
+        openUrl?: (url: string) => Promise<string | null>;
+    },
 ): SecuritySettings {
     const a = strings.auth;
     const [flow, setFlow] = useState<Flow | null>(null);
@@ -682,8 +730,9 @@ export function useSecuritySettings(
     const [totpCode, setTotpCode] = useState("");
     const [keyName, setKeyName] = useState("");
     const [notice, setNotice] = useState<string | null>(null);
-    const [reauth, setReauth] = useState(false);
+    const [reauthFlow, setReauthFlow] = useState<Flow | null>(null);
     const [reauthPassword, setReauthPassword] = useState("");
+    const savedEmail = useRef("");
     const retry = useRef<(() => Promise<void>) | null>(null);
     const options = useRef(opts);
     options.current = opts;
@@ -705,7 +754,9 @@ export function useSecuritySettings(
     );
 
     const load = useCallback(async (): Promise<void> => {
-        show(await identity.start("settings", { sessionToken: await token() }));
+        const fresh = await identity.start("settings", { sessionToken: await token() });
+        savedEmail.current = nodeValue(fresh, "traits.email");
+        show(fresh);
     }, [identity, show, token]);
 
     useEffect(() => {
@@ -722,7 +773,13 @@ export function useSecuritySettings(
             const step = await identity.submit(current, await body(), await token());
             if (step.kind === "reauth") {
                 retry.current = attempt;
-                setReauth(true);
+                setReauthFlow(
+                    await identity.start("login", {
+                        refresh: true,
+                        sessionToken: await token(),
+                        returnTo: options.current?.returnTo,
+                    }),
+                );
                 return;
             }
             if (step.kind === "restart") {
@@ -846,32 +903,53 @@ export function useSecuritySettings(
         removeKey: (id) => {
             apply(() => Promise.resolve({ method: "webauthn", webauthn_remove: id }));
         },
-        reauth,
+        reauth: reauthFlow ? reauthMethods(reauthFlow, !!options.current?.openUrl) : null,
         reauthPassword,
         setReauthPassword,
         confirmReauth: () => {
             run(
                 async () => {
-                    const login = await identity.start("login", {
-                        refresh: true,
-                        sessionToken: await token(),
-                    });
+                    const login =
+                        reauthFlow ??
+                        (await identity.start("login", {
+                            refresh: true,
+                            sessionToken: await token(),
+                        }));
                     const step = await identity.submit(
                         login,
-                        { method: "password", identifier: email, password: reauthPassword },
+                        {
+                            method: "password",
+                            identifier: savedEmail.current,
+                            password: reauthPassword,
+                        },
                         await token(),
                     );
                     if (step.kind === "flow") {
+                        setReauthFlow(step.flow);
                         setError(flowErrors(step.flow).form ?? a.invalidCredentials);
                         return;
                     }
-                    setReauth(false);
+                    setReauthFlow(null);
                     setReauthPassword("");
                     await load();
                     await retry.current?.();
                     retry.current = null;
                 },
                 { errorMessage: a.invalidCredentials },
+            );
+        },
+        reauthWithGoogle: () => {
+            run(
+                async () => {
+                    if (!reauthFlow) return;
+                    const step = await identity.submit(
+                        reauthFlow,
+                        { method: "oidc", provider: "google" },
+                        await token(),
+                    );
+                    if (step.kind === "redirect") await options.current?.openUrl?.(step.url);
+                },
+                { errorMessage: a.googleFailed },
             );
         },
     };

@@ -45,34 +45,59 @@ def get_sms_webhook_secret() -> str:
 SmsWebhookSecretDep = Annotated[str, Depends(get_sms_webhook_secret)]
 
 
+def get_kratos_courier_secret() -> str:
+    return get_settings().kratos_courier_secret
+
+
+KratosCourierSecretDep = Annotated[str, Depends(get_kratos_courier_secret)]
+
+
 _SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+
+def _credential(request: Request, session_token: str) -> Credential:
+    """Mobile sends the Kratos session token; web sends the session cookie."""
+    if session_token:
+        return Credential(session_token=session_token)
+    settings = get_settings()
+    cookie = request.cookies.get(settings.kratos_session_cookie, "")
+    if not cookie:
+        raise Unauthorized("sign in required", code="unauthenticated")
+    # The cookie also rides along from Connect and Pay, so cookie writes must come from the app.
+    if (
+        request.method not in _SAFE_METHODS
+        and request.headers.get("origin", "") not in settings.app_origins()
+    ):
+        raise Forbidden("request origin not allowed", code="origin_refused")
+    return Credential(cookie=cookie)
 
 
 async def current_identity(
     request: Request, identities: IdentityDep, x_session_token: str = Header(default="")
 ) -> Identity:
-    """Mobile sends the Kratos session token; web sends the session cookie."""
-    if x_session_token:
-        return await identities.whoami(Credential(session_token=x_session_token))
-    settings = get_settings()
-    cookie = request.cookies.get(settings.kratos_session_cookie, "")
-    if not cookie:
-        raise Unauthorized("sign in required", code="unauthenticated")
-    # The cookie rides along on same-site requests too, so cookie writes must come from our origins.
-    if request.method not in _SAFE_METHODS and not settings.origin_allowed(
-        request.headers.get("origin", "")
-    ):
-        raise Forbidden("request origin not allowed", code="origin_refused")
-    return await identities.whoami(Credential(cookie=cookie))
+    return await identities.whoami(_credential(request, x_session_token))
 
 
 CurrentIdentity = Annotated[Identity, Depends(current_identity)]
 
 
+async def fresh_identity(
+    request: Request, identities: IdentityDep, x_session_token: str = Header(default="")
+) -> Identity:
+    """Skips the whoami cache, for checks a just-verified email or a step-up must pass at once."""
+    return await identities.whoami(_credential(request, x_session_token), fresh=True)
+
+
+FreshIdentity = Annotated[Identity, Depends(fresh_identity)]
+
+
 async def current_user(
-    identity: CurrentIdentity, db: DbSession, x_expected_user: str = Header(default="")
+    identity: CurrentIdentity,
+    identities: IdentityDep,
+    db: DbSession,
+    x_expected_user: str = Header(default=""),
 ) -> User:
-    user = await AuthService(db).provision(identity)
+    user = await AuthService(db).provision(identity, identities)
     if x_expected_user and x_expected_user != user.id:
         raise Unauthorized("signed in as a different user", code="session_changed")
     return user

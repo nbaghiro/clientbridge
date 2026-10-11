@@ -3357,6 +3357,7 @@ interface Strings {
         readonly mfaTotp: string;
         readonly mfaLookup: string;
         readonly mfaWebauthn: string;
+        readonly mfaKeyOnly: string;
         readonly mfaUse: {
             readonly totp: string;
             readonly lookup_secret: string;
@@ -3373,6 +3374,8 @@ interface Strings {
         readonly flowExpired: string;
         readonly unavailable: string;
         readonly googleFailed: string;
+        readonly errorTitle: string;
+        readonly errorBody: string;
         readonly terms: string;
         readonly securityTitle: string;
         readonly securityAccount: string;
@@ -3403,6 +3406,7 @@ interface Strings {
         readonly securityNoKeys: string;
         readonly securityReauthTitle: string;
         readonly securityReauthBody: string;
+        readonly securityReauthOnWeb: string;
         readonly kratosError: string;
         readonly kratos: {
             readonly "1010003": string;

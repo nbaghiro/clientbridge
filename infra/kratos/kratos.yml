@@ -9,6 +9,7 @@ serve:
       allowed_origins:
         - http://localhost:8700
         - http://localhost:8721   # web e2e (apps/web/playwright.config.ts)
+        - http://localhost:8724   # web e2e, en-XA pseudo-locale
       allowed_methods: [GET, POST, PUT, PATCH, DELETE]
       allowed_headers: [Accept, Content-Type, Cookie, X-Session-Token, X-CSRF-Token]
       exposed_headers: [Content-Type, Set-Cookie]
@@ -21,6 +22,7 @@ selfservice:
   allowed_return_urls:
     - http://localhost:8700
     - http://localhost:8721
+    - http://localhost:8724
     - clientbridge://auth/callback
 
   methods:
@@ -51,6 +53,7 @@ selfservice:
           origins:
             - http://localhost:8700
             - http://localhost:8721
+            - http://localhost:8724
     oidc:
       enabled: true
       config:
@@ -125,24 +128,26 @@ identity:
     - id: default
       url: file:///etc/config/kratos/identity.schema.json
 
+# The backend words and sends auth email (services/notifications.py); a non-2xx reply is retried.
 courier:
-  template_override_path: /etc/config/kratos/templates
-  smtp:
-    connection_uri: smtp://mailpit:1025/?disable_starttls=true
-    from_address: no-reply@clientbridge.ca
-    from_name: Clientbridge
+  delivery_strategy: http
+  http:
+    request_config:
+      url: http://host.docker.internal:8701/webhooks/kratos-courier
+      method: POST
+      body: file:///etc/config/kratos/courier.jsonnet
+      auth:
+        type: api_key
+        config:
+          name: X-Kratos-Secret
+          value: unset
+          in: header
 
 hashers:
   algorithm: argon2
 
 ciphers:
   algorithm: xchacha20-poly1305
-
-secrets:
-  cookie:
-    - clientbridge-dev-cookie-secret-do-not-use-in-prod
-  cipher:
-    - clientbridge-dev-cipher-key-0032
 
 log:
   level: info

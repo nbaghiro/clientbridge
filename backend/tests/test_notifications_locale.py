@@ -4,6 +4,7 @@ import re
 from collections.abc import Callable
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import get_args
 
 import httpx
 import pytest
@@ -27,6 +28,7 @@ from clientbridge.core.locale import (
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
+from clientbridge.schemas.auth import AuthEmailIn, AuthEmailType
 from clientbridge.services import notifications as n
 from tests.conftest import FakeEmailSender
 
@@ -50,9 +52,20 @@ def _builders() -> dict[str, Render]:
     def amount(locale: str) -> str:
         return format_money(locale, 123456, "CAD")
 
+    def auth_email(locale: str, template_type: AuthEmailType) -> tuple[str, str]:
+        email = AuthEmailIn(
+            template_type=template_type, to="a@x.ca", code="123456", expires_in_minutes=15
+        )
+        if template_type == "verification_code_valid":
+            email.link = LINK
+        return n._auth_email(locale, email)
+
     return {
         "returning_code": lambda c: n.returning_code(c, NAME, "123456", 10),
         "staff_invite": lambda c: n.staff_invite(c, LINK),
+        "_auth_email": lambda c: tuple(
+            text for kind in get_args(AuthEmailType) for text in auth_email(c, kind)
+        ),
         "_receipt": lambda c: n._receipt(c, NAME, amount(c), ["Shampoo"]),
         "_pickup_line": lambda c: n._pickup_line(c, NAME),
         "_online_order_alert": lambda c: n._online_order_alert(c, amount(c)),

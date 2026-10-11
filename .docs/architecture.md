@@ -94,7 +94,7 @@ clientbridge/
 │       ├── tokens/     Pewter design system → Tailwind theme + RN theme
 │       └── config/     shared eslint/prettier + the no-inline-ui-string rule
 ├── infra/powersync/    powersync.yaml (service config) · sync-rules.yaml (read authz)
-├── infra/kratos/       kratos.yml · identity schema · Google mapper · email templates
+├── infra/kratos/       kratos.yml · identity schema · Google mapper · courier body
 └── .docs/              architecture · engineering · launch-readiness · design/
 ```
 
@@ -129,7 +129,7 @@ with the subclass's HTTP status, and a request that fails validation as `invalid
 | `command.py` | **The command wrapper.** `run_command(db, principal, *, action, run, response_model, idempotency_key)` — replays a stored response for a repeated key, stages `Command.record(...)` audit rows, then commits mutation + audit + idempotency key as **one atomic unit** (rollback on any error). Money/uniqueness/cross-tenant mutations go through it. |
 | `scoping.py` | **The one place the tenant filter lives.** `scoped(Model, business_id, soft_delete=…)` + `scoped_update`/`scoped_delete`. Services **never** hand-write a `business_id` filter. |
 | `deps.py` | DI hub — DB session, adapter aliases (`EmailDep`, `GatewayDep`, `IdentityDep`…), the auth chain (`current_identity` asks Kratos who the session is, `current_user` links the local user, `current_principal` re-derives business/role from the DB every request, honoring `X-Business-Id`), and role gates (`assert_role`, `is_manager`). |
-| `config.py` | Pydantic-settings and the allowed-origins list (CORS and the cookie Origin check). **Fails closed in prod:** refuses to boot without real secrets, an https Kratos public URL, a separate admin URL, or with `WEB_BASE_URL` missing from `CORS_ALLOW_ORIGINS`. |
+| `config.py` | Pydantic-settings and the origin lists: `app_origins()` (only `WEB_BASE_URL`; credentialed CORS and the cookie Origin check) and `CORS_ALLOW_ORIGINS` (Connect and Pay, without credentials, through `core/cors.py`). **Fails closed in prod:** refuses to boot without real secrets, an https Kratos public URL or a separate admin URL. |
 | `security.py` | Argon2 hashing for the desk discount PIN · SHA-256 opaque-token hashing (invites) · the PowerSync token (HS256 or RS256 + a JWKS endpoint for prod). |
 | `ids.py` | Prefixed-ULID PKs (`bz_…`, `bk_…`), time-sortable. |
 | `errors.py` | `AppError` taxonomy → HTTP status (`NotFound` 404, `Conflict` 409, `CardDeclined` 402, `TooManyRequests` 429…). |
@@ -355,21 +355,33 @@ verification, recovery, Google sign-in, second factors (TOTP, backup codes, WebA
 settings flow. The apps drive its self-service flows directly with their own screens (app-core
 `useAuthForm`, `useRecoveryForm`, `useVerificationForm`, `useSecuritySettings`): web uses browser
 flows and an HttpOnly session cookie on the shared parent domain; mobile uses native flows and keeps
-the session token in SecureStore. Verification and recovery email copy lives in
-`infra/kratos/templates/`, the one place auth email is worded outside `notifications.py`.
+the session token in SecureStore. Kratos makes and checks every emailed code, but its courier hands each
+message to `POST /webhooks/kratos-courier` (shared `KRATOS_COURIER_SECRET`, shaped by
+`infra/kratos/courier.jsonnet`), which words it in `notifications.py` and sends it through `EmailSender`;
+a non-2xx reply makes Kratos retry.
 
-- **API edge** — `current_identity` sends the session to `/sessions/whoami` (30 s in-process cache,
-  extends sessions nearing expiry). No session is 401 `unauthenticated`; a missing second factor is
+- **API edge** — `current_identity` sends the session to `/sessions/whoami` (30 s in-process cache;
+  `/v1/me`, onboarding and invite accept read it fresh, so a just-verified email or a step-up counts at
+  once). It extends sessions nearing expiry, best effort, and refuses any session signed in more than
+  `SESSION_MAX_AGE_DAYS` (90) ago. No session is 401 `unauthenticated`; a missing second factor is
   401 `aal2_required` (the apps step up instead of signing out); Kratos unreachable is 503, never a
-  sign-out. Cookie-authenticated writes must come from an allowed `Origin`, because the cookie also
-  rides along on same-site requests from `pay.`/`connect.`.
+  sign-out.
+- **Origins** — only the staff web app (`WEB_BASE_URL`) gets credentialed CORS, and cookie-authenticated
+  writes must carry its `Origin` (`core/cors.py`, `app_origins()`). The cookie also rides along on
+  same-site requests from `pay.`/`connect.`, which get CORS without credentials.
 - **Provisioning** — the first authenticated request creates the `users` row for the identity
   (`AuthService.provision`), and later ones copy email/name changes and a throttled `last_seen_at`.
 - **Required verification** — signing in does not need a verified email; opening a business and
   accepting an invite do. An invite joins only an identity that has verified the invited address.
 - **Replica binding** — the apps send `X-Expected-User` from the replica; a different signed-in user
   is 401 `session_changed`, so one account's sync never writes into another's replica.
-- **Removal** — removing a staff member revokes all their Kratos sessions through the admin API.
+- **Removal** — removing a staff member ends that membership only; the next request for that business
+  is 403, and the person stays signed in for any other business.
+- **Relinking** — if an identity is deleted in Kratos and the person signs up again with the same,
+  verified email, the existing `users` row moves to the new identity; otherwise the email stays 409.
+- **Invite tokens** — the emailed link carries the token once; the web app keeps it in session
+  storage (never in a URL again) through sign-up, verification and Google, and the page sends
+  `Referrer-Policy: no-referrer`. The preview is a rate-limited `POST`.
 - **Password changes** — changing or resetting a password revokes every other session of that
   identity (Kratos `revoke_active_sessions` hook on settings and recovery).
 - **Not built in** — Kratos OSS has no login lockout; production rate-limits `/self-service/*` at

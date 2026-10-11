@@ -1,6 +1,8 @@
-"""Identity: Ory Kratos sessions, plus the admin calls staff removal and the seed need."""
+"""Identity: Ory Kratos sessions, plus the admin calls account relinking and the seed need."""
 
 import hashlib
+import logging
+import string
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -14,6 +16,13 @@ from clientbridge.core.errors import AppError, Unauthorized
 
 _EXTEND_WITHIN = timedelta(hours=24)
 _CACHE_LIMIT = 10_000
+_ASCII_LOWER = str.maketrans(string.ascii_uppercase, string.ascii_lowercase)
+log = logging.getLogger(__name__)
+
+
+def normalize_email(address: str) -> str:
+    """ASCII lowercasing only: Unicode folding would match `straße@` with `strasse@`."""
+    return address.strip().translate(_ASCII_LOWER)
 
 
 @dataclass(frozen=True)
@@ -27,7 +36,7 @@ class Identity:
 
     @property
     def email_verified(self) -> bool:
-        return self.email.casefold() in self.verified_emails
+        return normalize_email(self.email) in self.verified_emails
 
 
 @dataclass(frozen=True)
@@ -41,9 +50,9 @@ class Credential:
 
 
 class IdentityProvider(Protocol):
-    async def whoami(self, credential: Credential) -> Identity: ...
+    async def whoami(self, credential: Credential, *, fresh: bool = False) -> Identity: ...
 
-    async def revoke_sessions(self, identity_id: str) -> None: ...
+    async def identity_exists(self, identity_id: str) -> bool: ...
 
 
 def unavailable() -> AppError:
@@ -71,10 +80,14 @@ def parse_session(payload: object) -> tuple[Identity, datetime | None]:
         raise Unauthorized("session expired", code="unauthenticated")
     addresses = identity.get("verifiable_addresses")
     verified = frozenset(
-        value.casefold()
+        normalize_email(value)
         for address in (addresses if isinstance(addresses, list) else [])
         if _dict(address).get("verified") is True and (value := _str(_dict(address).get("value")))
     )
+    signed_in = _str(session.get("authenticated_at"))
+    max_age = timedelta(days=get_settings().session_max_age_days)
+    if signed_in and datetime.now(UTC) - datetime.fromisoformat(signed_in) > max_age:
+        raise Unauthorized("session too old", code="unauthenticated")
     expires = _str(session.get("expires_at"))
     return (
         Identity(
@@ -105,10 +118,10 @@ class KratosIdentityProvider:
         self._cache: dict[str, tuple[float, Identity]] = {}
         self._http = httpx.AsyncClient(timeout=3.0, transport=transport)
 
-    async def whoami(self, credential: Credential) -> Identity:
+    async def whoami(self, credential: Credential, *, fresh: bool = False) -> Identity:
         key = credential.cache_key()
         cached = self._cache.get(key)
-        if cached and cached[0] > time.monotonic():
+        if cached and cached[0] > time.monotonic() and not fresh:
             return cached[1]
         headers = (
             {"X-Session-Token": credential.session_token}
@@ -124,17 +137,25 @@ class KratosIdentityProvider:
             raise unavailable()
         identity, expires = parse_session(response.json())
         if expires and expires - datetime.now(UTC) < _EXTEND_WITHIN:
-            await self._call("PATCH", f"{self._admin}/admin/sessions/{identity.session_id}/extend")
+            await self._extend(identity.session_id)
         self._remember(key, identity)
         return identity
 
-    async def revoke_sessions(self, identity_id: str) -> None:
-        response = await self._call(
-            "DELETE", f"{self._admin}/admin/identities/{identity_id}/sessions"
-        )
-        self._cache = {k: v for k, v in self._cache.items() if v[1].id != identity_id}
-        if response.status_code not in (204, 404):
+    async def identity_exists(self, identity_id: str) -> bool:
+        response = await self._call("GET", f"{self._admin}/admin/identities/{identity_id}")
+        if response.status_code not in (200, 404):
             raise unavailable()
+        return response.status_code == 200
+
+    async def _extend(self, session_id: str) -> None:
+        """Best effort: the session is valid either way, and the next request tries again."""
+        try:
+            response = await self._http.patch(f"{self._admin}/admin/sessions/{session_id}/extend")
+        except httpx.HTTPError:
+            log.warning("kratos session extend failed", exc_info=True)
+            return
+        if response.status_code >= 400:
+            log.warning("kratos session extend refused: %s", response.status_code)
 
     async def find_identity(self, email: str) -> str | None:
         response = await self._call(

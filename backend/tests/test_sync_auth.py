@@ -81,6 +81,6 @@ async def test_revoked_sessions_cannot_exchange_or_call_api(
     user = await factory.user()
     headers = {"X-Session-Token": await session_token(identities, factory.db, user.id)}
     assert (await api.get("/sync/token", headers=headers)).status_code == 200
-    await identities.revoke_sessions(user.kratos_identity_id)
+    identities.end_sessions(user.kratos_identity_id)
     assert (await api.get("/sync/token", headers=headers)).status_code == 401
     assert (await api.get("/v1/staff/team", headers=headers)).status_code == 401

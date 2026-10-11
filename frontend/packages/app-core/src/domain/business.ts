@@ -444,6 +444,8 @@ export function useOnboardingForm(
     const [slug, setSlugState] = useState("");
     const [slugEdited, setSlugEdited] = useState(false);
     const [province, setProvince] = useState<ProvinceCode>("ON");
+    // Stays true across retries so the verify step keeps one code instead of mailing a new one.
+    const [needsVerification, setNeedsVerification] = useState(false);
     const { busy, error, setError, run } = useAsyncAction();
 
     const setName = (v: string): void => {
@@ -470,10 +472,12 @@ export function useOnboardingForm(
                 onCreated(await onboard(api, { name, slug, province }));
             },
             {
-                errorMessage: (e) =>
-                    failedCode(e) === "email_unverified"
-                        ? strings.business.onboarding.verifyFirst
-                        : strings.business.onboarding.createError,
+                errorMessage: (e) => {
+                    if (failedCode(e) !== "email_unverified")
+                        return strings.business.onboarding.createError;
+                    setNeedsVerification(true);
+                    return strings.business.onboarding.verifyFirst;
+                },
             },
         );
     };
@@ -487,7 +491,7 @@ export function useOnboardingForm(
         setProvince,
         busy,
         error,
-        needsVerification: error === strings.business.onboarding.verifyFirst,
+        needsVerification,
         submit,
     };
 }

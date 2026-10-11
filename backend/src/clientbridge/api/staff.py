@@ -3,20 +3,19 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header
 
 from clientbridge.core.deps import (
-    CurrentIdentity,
     CurrentPrincipal,
     CurrentUser,
     DbSession,
     EmailDep,
-    IdentityDep,
+    FreshIdentity,
 )
 from clientbridge.core.ratelimit import public_invite_rate_limit
 from clientbridge.schemas.staff import (
-    AcceptInviteBody,
     AcceptInviteOut,
     InviteBody,
     InviteOut,
     InvitePreviewOut,
+    InviteTokenBody,
     RoleUpdate,
     StaffPayOut,
     StaffPayUpdate,
@@ -44,18 +43,18 @@ async def create_invite(
     )
 
 
-@router.get(
+@router.post(
     "/invites/preview",
     response_model=InvitePreviewOut,
     dependencies=[Depends(public_invite_rate_limit)],
 )
-async def preview_invite(token: str, db: DbSession) -> InvitePreviewOut:
-    return await StaffService(db).preview_invite(token)
+async def preview_invite(body: InviteTokenBody, db: DbSession) -> InvitePreviewOut:
+    return await StaffService(db).preview_invite(body.token)
 
 
 @router.post("/invites/accept", response_model=AcceptInviteOut)
 async def accept_invite(
-    body: AcceptInviteBody, user: CurrentUser, identity: CurrentIdentity, db: DbSession
+    body: InviteTokenBody, user: CurrentUser, identity: FreshIdentity, db: DbSession
 ) -> AcceptInviteOut:
     return await StaffService(db).accept_invite(user, identity, body.token)
 
@@ -92,7 +91,5 @@ async def change_role(
 
 
 @router.delete("/{staff_id}", status_code=204)
-async def remove_member(
-    staff_id: str, principal: CurrentPrincipal, db: DbSession, identities: IdentityDep
-) -> None:
-    await StaffService(db).remove(principal, staff_id, identities=identities)
+async def remove_member(staff_id: str, principal: CurrentPrincipal, db: DbSession) -> None:
+    await StaffService(db).remove(principal, staff_id)

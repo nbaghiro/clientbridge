@@ -43,14 +43,17 @@ services:
     depends_on:
       kratos-migrate:
         condition: service_completed_successfully
-      mailpit:
-        condition: service_started
-    ports: ["8713:4433", "8714:4434"]   # host 8713 → public API, 8714 → admin API (never public)
+    ports: ["8713:4433", "127.0.0.1:8714:4434"]   # host 8713 → public API, 8714 → admin API (never public)
     volumes: ["./infra/kratos:/etc/config/kratos:ro"]
+    extra_hosts: ["host.docker.internal:host-gateway"]   # the courier posts auth email to the host API
     environment:
       DSN: postgres://kratos:${KRATOS_DB_PASSWORD:-kratos}@postgres:5432/kratos?sslmode=disable
       SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS_0_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-unset}
       SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS_0_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-unset}
+      # No secret in kratos.yml: a deploy that forgets these refuses to start.
+      SECRETS_COOKIE: ${KRATOS_COOKIE_SECRET:-clientbridge-dev-cookie-secret-do-not-use-in-prod}
+      SECRETS_CIPHER: ${KRATOS_CIPHER_SECRET:-clientbridge-dev-cipher-key-0032}
+      COURIER_HTTP_REQUEST_CONFIG_AUTH_CONFIG_VALUE: ${KRATOS_COURIER_SECRET:-clientbridge-dev-courier-secret-do-not-use-in-prod}
     command: ["serve", "-c", "/etc/config/kratos/kratos.yml", "--dev", "--watch-courier"]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4434/admin/health/ready || exit 1"]
@@ -58,10 +61,10 @@ services:
       timeout: 3s
       retries: 20
 
-  # Catches Kratos verification and recovery email in dev; the UI is on :8715.
+  # Catches the API's email in dev (SMTP_URL, set by `make dev-api`); the UI is on :8715.
   mailpit:
     image: axllent/mailpit@sha256:b68349e3a014b90c5610bfb26b2ae36f3892d7b8cf25ee140c6c71c98d2fcf48
-    ports: ["8715:8025", "8716:1025"]   # host 8715 → web UI and API, 8716 → SMTP
+    ports: ["127.0.0.1:8715:8025", "127.0.0.1:8716:1025"]   # host 8715 → web UI and API, 8716 → SMTP
 
   # Contract-test only (profile "test"): the official OpenAPI mock. `make stripe-mock` starts it;
   # the real StripeGateway runs against it to validate request/response shapes against the live spec.

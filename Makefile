@@ -75,7 +75,7 @@ stripe-listen:
 	stripe listen --forward-connect-to localhost:8701/webhooks/stripe
 
 dev-api:
-	cd backend && uv run uvicorn clientbridge.main:app --reload --port 8701
+	cd backend && SMTP_URL=$${SMTP_URL-smtp://localhost:8716} uv run uvicorn clientbridge.main:app --reload --port 8701
 
 worker:
 	cd backend && uv run arq clientbridge.tasks.worker.WorkerSettings

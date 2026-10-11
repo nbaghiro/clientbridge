@@ -26,11 +26,11 @@ OWNER = Identity(
 class OwnerSession:
     """The disposable sync stack runs no Kratos; every request is the seeded owner."""
 
-    async def whoami(self, credential: Credential) -> Identity:
+    async def whoami(self, credential: Credential, *, fresh: bool = False) -> Identity:
         return OWNER
 
-    async def revoke_sessions(self, identity_id: str) -> None:
-        return None
+    async def identity_exists(self, identity_id: str) -> bool:
+        return True
 
 
 async def run(payload: str) -> None:

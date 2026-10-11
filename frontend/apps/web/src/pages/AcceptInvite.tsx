@@ -1,9 +1,10 @@
 import { strings, useAcceptInvite } from "@clientbridge/app-core";
 import { Button, Lockup, Notice } from "@clientbridge/ui";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { api, selectBusiness } from "../lib/api";
-import { getUserId } from "../lib/auth";
+import { getUserId, heldInvite, holdInvite, releaseInvite } from "../lib/auth";
 
 const s = strings.staff;
 
@@ -17,19 +18,31 @@ export function AcceptInvite({
 }) {
     const [params] = useSearchParams();
     const navigate = useNavigate();
-    const token = params.get("token") ?? "";
+    const linked = params.get("token");
+    const [token] = useState(() => {
+        if (linked) holdInvite(linked);
+        return linked ?? heldInvite() ?? "";
+    });
     const signedIn = getUserId() !== null;
     const go = (to: string): void => {
         const navigated = navigate(to, { replace: true });
         if (navigated) navigated.catch(() => undefined);
     };
     const invite = useAcceptInvite(api, token, (businessId) => {
+        releaseInvite();
         selectBusiness(businessId);
         go("/");
         onAuthed();
     });
+    useEffect(() => {
+        if (linked) go("/accept-invite");
+    }, []);
+    useEffect(() => {
+        const settled = ["invalid", "expired", "accepted", "member"];
+        if (invite.problem !== null && settled.includes(invite.problem)) releaseInvite();
+    }, [invite.problem]);
     const query = (path: string): string =>
-        `${path}?invite=${encodeURIComponent(token)}&email=${encodeURIComponent(invite.preview?.email ?? "")}`;
+        `${path}?email=${encodeURIComponent(invite.preview?.email ?? "")}`;
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-bg px-6 py-12">

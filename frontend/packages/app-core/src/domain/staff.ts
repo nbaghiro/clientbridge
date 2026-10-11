@@ -380,7 +380,7 @@ export function useAcceptInvite(
 
     useEffect(() => {
         if (!token) return;
-        api.get<InvitePreview>(`/v1/staff/invites/preview?token=${encodeURIComponent(token)}`)
+        api.post<InvitePreview>("/v1/staff/invites/preview", { token })
             .then(setPreview)
             .catch((e: unknown) => {
                 setProblem(INVITE_PROBLEMS[failedCode(e) ?? ""] ?? "invalid");

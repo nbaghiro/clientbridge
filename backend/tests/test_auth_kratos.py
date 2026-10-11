@@ -10,18 +10,23 @@ import pytest
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import AppError, Unauthorized
-from clientbridge.integrations.kratos import Credential, KratosIdentityProvider
+from clientbridge.integrations.kratos import Credential, KratosIdentityProvider, normalize_email
 
 Handler = Callable[[httpx.Request], httpx.Response]
 
 
 def session(
-    *, verified: bool = True, expires_in: timedelta = timedelta(days=20), active: bool = True
+    *,
+    verified: bool = True,
+    expires_in: timedelta = timedelta(days=20),
+    signed_in_ago: timedelta = timedelta(hours=1),
+    active: bool = True,
 ) -> dict[str, object]:
     return {
         "id": "ses-1",
         "active": active,
         "authenticator_assurance_level": "aal2",
+        "authenticated_at": (datetime.now(UTC) - signed_in_ago).isoformat(),
         "expires_at": (datetime.now(UTC) + expires_in).isoformat(),
         "identity": {
             "id": "id-1",
@@ -103,20 +108,34 @@ async def test_outages_are_503() -> None:
         assert (raised.value.status_code, raised.value.code) == (503, "identity_unavailable")
 
 
-async def test_whoami_is_cached_until_revoked() -> None:
+async def test_whoami_is_cached_unless_fresh() -> None:
+    answers = [session(verified=False), session(verified=True)]
+
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.method == "DELETE":
-            return httpx.Response(204)
-        return httpx.Response(200, json=session())
+        return httpx.Response(200, json=answers[min(len(seen), 2) - 1])
 
     kratos, seen = provider(handler)
     for _ in range(3):
-        await kratos.whoami(Credential(session_token="tok"))
+        assert not (await kratos.whoami(Credential(session_token="tok"))).email_verified
     assert seen.count("GET /sessions/whoami") == 1
-    await kratos.revoke_sessions("id-1")
-    assert seen[-1] == "DELETE /admin/identities/id-1/sessions"
-    await kratos.whoami(Credential(session_token="tok"))
+    # just verified: the onboarding and invite checks ask Kratos again instead of the cache
+    assert (await kratos.whoami(Credential(session_token="tok"), fresh=True)).email_verified
+    assert (await kratos.whoami(Credential(session_token="tok"))).email_verified
     assert seen.count("GET /sessions/whoami") == 2
+
+
+async def test_a_session_older_than_the_maximum_age_is_refused() -> None:
+    kratos, _ = provider(
+        lambda r: httpx.Response(200, json=session(signed_in_ago=timedelta(days=91)))
+    )
+    with pytest.raises(Unauthorized) as raised:
+        await kratos.whoami(Credential(session_token="tok"))
+    assert raised.value.code == "unauthenticated"
+
+
+def test_emails_compare_ascii_lowercased_only() -> None:
+    assert normalize_email(" Pat@Test.CA ") == "pat@test.ca"
+    assert normalize_email("Straße@test.ca") != normalize_email("strasse@test.ca")
 
 
 async def test_cache_expires() -> None:
@@ -137,12 +156,32 @@ async def test_a_session_near_expiry_is_extended() -> None:
     assert "PATCH /admin/sessions/ses-1/extend" in seen
 
 
-async def test_revoking_an_unknown_identity_is_fine_but_errors_are_503() -> None:
-    kratos, _ = provider(lambda r: httpx.Response(404))
-    await kratos.revoke_sessions("gone")
+async def test_a_failed_extend_keeps_the_session_valid() -> None:
+    def refused(request: httpx.Request) -> httpx.Response:
+        if request.method == "PATCH":
+            return httpx.Response(500)
+        return httpx.Response(200, json=session(expires_in=timedelta(hours=3)))
+
+    def unreachable(request: httpx.Request) -> httpx.Response:
+        if request.method == "PATCH":
+            raise httpx.ConnectError("admin down", request=request)
+        return httpx.Response(200, json=session(expires_in=timedelta(hours=3)))
+
+    for handler in (refused, unreachable):
+        kratos, _ = provider(handler)
+        assert (await kratos.whoami(Credential(session_token="tok"))).id == "id-1"
+
+
+async def test_identity_exists() -> None:
+    kratos, seen = provider(
+        lambda r: httpx.Response(200 if r.url.path.endswith("/id-1") else 404, json={})
+    )
+    assert await kratos.identity_exists("id-1")
+    assert not await kratos.identity_exists("gone")
+    assert seen[0] == "GET /admin/identities/id-1"
     kratos, _ = provider(lambda r: httpx.Response(500))
     with pytest.raises(AppError):
-        await kratos.revoke_sessions("id-1")
+        await kratos.identity_exists("id-1")
 
 
 async def test_admin_identity_helpers() -> None:
@@ -190,7 +229,8 @@ async def test_contract_against_local_kratos() -> None:
         token = login.json()["session_token"]
         identity = await kratos.whoami(Credential(session_token=token))
         assert identity.id == identity_id and identity.email_verified
-        await kratos.revoke_sessions(identity_id)
+        assert await kratos.identity_exists(identity_id)
+        await http.delete(f"{settings.kratos_admin_url}/admin/identities/{identity_id}")
+        assert not await kratos.identity_exists(identity_id)
         with pytest.raises(Unauthorized):
             await kratos.whoami(Credential(session_token=token))
-        await http.delete(f"{settings.kratos_admin_url}/admin/identities/{identity_id}")

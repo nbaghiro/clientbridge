@@ -26,7 +26,9 @@ class InviteOut(Mirror):
     invite_token: str = Field(description="Raw invite token, returned once and also emailed")
 
 
-class AcceptInviteBody(BaseModel):
+class InviteTokenBody(BaseModel):
+    """The invite token travels in a body, never a URL that logs or referrers could keep."""
+
     token: str
 
 

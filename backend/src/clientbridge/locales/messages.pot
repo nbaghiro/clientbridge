@@ -151,6 +151,14 @@ msgstr ""
 msgid "invoice_sent.subject"
 msgstr ""
 
+msgid "login_code.body"
+msgid_plural "login_code.body"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "login_code.subject"
+msgstr ""
+
 msgid "online_order.body"
 msgstr ""
 
@@ -199,6 +207,20 @@ msgstr ""
 msgid "receipt.total"
 msgstr ""
 
+msgid "recovery_code.body"
+msgid_plural "recovery_code.body"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "recovery_code.subject"
+msgstr ""
+
+msgid "recovery_unknown.body"
+msgstr ""
+
+msgid "recovery_unknown.subject"
+msgstr ""
+
 msgid "refund.body"
 msgstr ""
 
@@ -206,6 +228,14 @@ msgid "refund.body_credit_note"
 msgstr ""
 
 msgid "refund.subject"
+msgstr ""
+
+msgid "registration_code.body"
+msgid_plural "registration_code.body"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "registration_code.subject"
 msgstr ""
 
 msgid "report.unnamed_payee"
@@ -361,5 +391,22 @@ msgid "subscription_past_due.body"
 msgstr ""
 
 msgid "subscription_past_due.subject"
+msgstr ""
+
+msgid "verification_code.body"
+msgid_plural "verification_code.body"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "verification_code.link"
+msgstr ""
+
+msgid "verification_code.subject"
+msgstr ""
+
+msgid "verification_unknown.body"
+msgstr ""
+
+msgid "verification_unknown.subject"
 msgstr ""
 

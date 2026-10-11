@@ -110,7 +110,7 @@ freely, and leave **zero residue** — repeatable, parallel-safe.
 Third parties are never called. Each is an interface injected as a dependency, faked in tests:
 `FakeEmailSender`/`FakeSmsSender`/`FakePushSender` (record `.sent`), `FakeFileStorage`, `FakeIdentityProvider`
 (Kratos: `identities.issue(identity)` mints a session token; `session_token(identities, db, user_id)` signs in a
-seeded user; `.revoked`, `.step_up`, `.down` drive the edge cases), and `FakePaymentGateway` (a substantial in-memory Stripe double that honors idempotency keys and maps magic
+seeded user; `.end_sessions()`, `.deleted`, `.step_up`, `.down` drive the edge cases and `.fresh_reads` counts uncached checks), and `FakePaymentGateway` (a substantial in-memory Stripe double that honors idempotency keys and maps magic
 payment methods to error paths). A test asserts on the fake — *"one reset email to alice@x with a token that
 then resets the password"* — exercising our logic up to the wire.
 
@@ -250,8 +250,8 @@ in the block. Container-internal ports stay conventional; only host mappings use
 | **8709** | Connect (Vite) — customer app | — | `apps/connect` vite (strictPort) |
 | **8710** | Marketing site (Vite, static build) | — | `apps/site` vite (strictPort) · `make dev-site` |
 | **8712** | Component playground (Vite) | — | `apps/playground` vite (strictPort) · `make dev-playground` |
-| **8713 / 8714** | Ory Kratos: public / admin API | 4433 / 4434 | docker-compose · `KRATOS_PUBLIC_URL` / `KRATOS_ADMIN_URL` |
-| **8715 / 8716** | Mailpit: web UI and API / SMTP (Kratos verification and recovery mail) | 8025 / 1025 | docker-compose |
+| **8713 / 8714** | Ory Kratos: public / admin API (admin bound to 127.0.0.1) | 4433 / 4434 | docker-compose · `KRATOS_PUBLIC_URL` / `KRATOS_ADMIN_URL` |
+| **8715 / 8716** | Mailpit: web UI and API / SMTP (the API's mail under `make dev-api`; 127.0.0.1 only) | 8025 / 1025 | docker-compose |
 
 ### Bring-up
 ```
@@ -288,8 +288,10 @@ replication slot (Postgres PANICs on next start), remove `pg_replslot/powersync_
 DB owned by `powersync_storage_owner`),
 `redis:7` (arq queue), `s3` (RustFS, an S3-compatible dev store; MinIO no longer publishes free images),
 `kratos-migrate` + `kratos` (Ory Kratos, `infra/kratos/`, its own `kratos` database), `mailpit` (catches
-verification and recovery email; open :8715 for the codes), `stripe-mock` (test profile only).
+the API's email, auth codes included, when `SMTP_URL` points at it as `make dev-api` does; open :8715), `stripe-mock` (test profile only).
 CI jobs whose Postgres is a service container start Kratos with `infra/kratos/standalone.sh`.
+The compose Kratos posts auth email to the API at `host.docker.internal:8701`; on Linux without Docker
+Desktop that is the bridge address, so run the API with `--host 0.0.0.0` there (CI does).
 
 ---
 

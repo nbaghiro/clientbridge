@@ -9972,6 +9972,9 @@
     "auth.mfaWebauthn": {
         "message": "Use your security key"
     },
+    "auth.mfaKeyOnly": {
+        "message": "This account's second step is a security key, which works only in the web app. Sign in there and add an authenticator app or backup codes to use this app."
+    },
     "auth.mfaUse.totp": {
         "message": "Use authenticator app"
     },
@@ -10013,6 +10016,12 @@
     },
     "auth.googleFailed": {
         "message": "Couldn't continue with Google. Try again or use your email."
+    },
+    "auth.errorTitle": {
+        "message": "We couldn't finish signing you in"
+    },
+    "auth.errorBody": {
+        "message": "The link may have expired or been opened twice. Go back and try again."
     },
     "auth.terms": {
         "message": "By creating an account you agree to the Terms and Privacy Policy."
@@ -10105,6 +10114,9 @@
     },
     "auth.securityReauthBody": {
         "message": "Enter your password to change sign-in settings."
+    },
+    "auth.securityReauthOnWeb": {
+        "message": "Confirm it's you in the web app to change sign-in settings."
     },
     "auth.kratosError": {
         "message": "Something went wrong. Please try again."

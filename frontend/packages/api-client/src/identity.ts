@@ -64,12 +64,13 @@ interface IdentityOptions {
     nativeReturnTo?: string;
 }
 
+/** Read like an API refusal: app-core takes `status` and `code` ("session_already_available"). */
 class IdentityError extends Error {
     constructor(
         readonly status: number,
-        readonly id: string,
+        readonly code: string,
     ) {
-        super(`identity ${id} (${String(status)})`);
+        super(`identity ${code} (${String(status)})`);
     }
 }
 

@@ -11,14 +11,16 @@ from clientbridge.core.deps import (
     EmailDep,
     GatewayDep,
     InteracSecretDep,
+    KratosCourierSecretDep,
     PushDep,
     SmsDep,
     SmsWebhookSecretDep,
 )
 from clientbridge.integrations.stripe import WebhookVerificationError
+from clientbridge.schemas.auth import AuthEmailIn
 from clientbridge.schemas.payments import InteracWebhookBody
 from clientbridge.services.messaging import process_inbound_sms
-from clientbridge.services.notifications import Notifier
+from clientbridge.services.notifications import Notifier, send_auth_email
 from clientbridge.services.payments import process_interac_event, process_stripe_event
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
@@ -95,4 +97,17 @@ async def sms_webhook(
         body=(form.get("Body") or [""])[0],
         message_sid=sid,
     )
+    return Response(status_code=200)
+
+
+@router.post("/kratos-courier")
+async def kratos_courier_webhook(
+    body: AuthEmailIn,
+    secret: KratosCourierSecretDep,
+    email: EmailDep,
+    x_kratos_secret: Annotated[str, Header(alias="X-Kratos-Secret")] = "",
+) -> Response:
+    if not secret or not secrets.compare_digest(x_kratos_secret, secret):
+        return Response(status_code=401)
+    await send_auth_email(email, body)
     return Response(status_code=200)

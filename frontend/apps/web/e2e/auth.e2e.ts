@@ -191,7 +191,7 @@ test("changing the password signs out every other device", async ({ page, reques
     await page.goto("/setup/security");
     await page.getByLabel(a.securityNewPassword, { exact: true }).fill(`${account.password}-new`);
     await page.getByRole("button", { name: a.securityChangePassword, exact: true }).click();
-    await expect(page.getByText(a.kratos[1050001] ?? "", { exact: true })).toBeVisible();
+    await expect(page.getByText(a.kratos[1050001], { exact: true })).toBeVisible();
 
     expect(await sessionActive(request, otherDevice)).toBe(false);
     await page.reload();
@@ -261,6 +261,59 @@ test("an invite refuses an account with a different email", async ({ page, reque
         await page.goto(`/accept-invite?token=${token}`);
         await page.getByRole("button", { name: s.inviteJoin, exact: true }).click();
         await expect(page.getByText(s.inviteProblem.mismatch, { exact: true })).toBeVisible();
+    } finally {
+        await cleanup();
+    }
+});
+
+async function startSignUp(
+    page: Page,
+    account: { email: string; password: string; name: string },
+): Promise<void> {
+    if (!page.url().includes("/signup")) await page.goto("/signup");
+    await page.getByLabel(a.name, { exact: true }).fill(account.name);
+    await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
+    await page.getByLabel(a.newPassword, { exact: true }).fill(account.password);
+    await page.getByRole("button", { name: a.createAccount, exact: true }).click();
+    await expect(page.getByRole("heading", { name: a.verifyTitle })).toBeVisible();
+}
+
+test("reloading while confirming the email keeps the new account signed in", async ({ page }) => {
+    await startSignUp(page, newAccount("reload"));
+    await page.reload();
+    await expect(
+        page.getByRole("heading", { name: strings.business.onboarding.title }),
+    ).toBeVisible();
+});
+
+test("an invitee who skipped confirming the email verifies, then joins", async ({
+    page,
+    request,
+}) => {
+    const s = strings.staff;
+    const account = newAccount("later");
+    const { token, cleanup } = await ownerInvite(request, account.email);
+    try {
+        await page.goto(`/accept-invite?token=${token}`);
+        await expect(page).toHaveURL(/\/accept-invite$/);
+        await page.getByRole("button", { name: s.inviteSignUp, exact: true }).click();
+        await startSignUp(page, account);
+        const skipped = await mailedCode(request, account.email, "verification");
+        await page.getByRole("button", { name: a.skipForNow, exact: true }).click();
+        await page.getByRole("button", { name: s.inviteJoin, exact: true }).click();
+        await page.getByRole("button", { name: s.inviteVerify, exact: true }).click();
+        await expect(page.getByRole("heading", { name: a.verifyTitle })).toBeVisible();
+        await page
+            .getByLabel(a.code, { exact: true })
+            .fill(await mailedCode(request, account.email, "verification", skipped));
+        await page.getByRole("button", { name: a.verify, exact: true }).click();
+        await page.getByRole("button", { name: a.continue, exact: true }).click();
+        await page.getByRole("button", { name: s.inviteJoin, exact: true }).click();
+        await expect(
+            page
+                .locator("aside")
+                .getByRole("link", { name: strings.navigation.businessMenu, exact: true }),
+        ).toBeVisible({ timeout: 60_000 });
     } finally {
         await cleanup();
     }

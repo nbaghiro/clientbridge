@@ -7,7 +7,10 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.errors import TooManyRequests
+from clientbridge.core.ratelimit import RateLimiter, public_invite_rate_limit
 from clientbridge.integrations.kratos import Identity
+from clientbridge.main import app
 from clientbridge.models.business import Business
 from clientbridge.models.platform import Audit
 from tests.conftest import Factory, FakeEmailSender, FakeIdentityProvider, session_token
@@ -227,7 +230,7 @@ async def test_preview_shows_the_business_and_address(
     inv = await _invite(as_owner, "preview@test.ca")
     as_owner.headers.pop("X-Session-Token")
     url = "/v1/staff/invites/preview"
-    res = await as_owner.get(url, params={"token": inv["invite_token"]})
+    res = await as_owner.post(url, json={"token": inv["invite_token"]})
     assert res.status_code == 200, res.text
     body = res.json()
     assert (body["business_name"], body["email"], body["role"]) == (
@@ -235,14 +238,14 @@ async def test_preview_shows_the_business_and_address(
         "preview@test.ca",
         "staff",
     )
-    assert (await as_owner.get(url, params={"token": "bogus"})).status_code == 404
+    assert (await as_owner.post(url, json={"token": "bogus"})).status_code == 404
     accepted = await as_owner.post(
         "/v1/staff/invites/accept",
         json={"token": inv["invite_token"]},
         headers=_joiner(identities, "preview@test.ca"),
     )
     assert accepted.status_code == 200
-    assert (await as_owner.get(url, params={"token": inv["invite_token"]})).status_code == 409
+    assert (await as_owner.post(url, json={"token": inv["invite_token"]})).status_code == 409
 
 
 async def test_invite_is_audited_and_idempotent(
@@ -365,20 +368,14 @@ async def test_change_role_and_remove_member(
     assert await db.scalar(text("SELECT role FROM staff WHERE id = 'st_priya'")) == "admin"
     assert (await as_owner.delete("/v1/staff/st_priya")).status_code == 204
     assert await db.scalar(text("SELECT status FROM staff WHERE id = 'st_priya'")) == "removed"
-    identity = await db.scalar(text("SELECT kratos_identity_id FROM users WHERE id = 'us_priya'"))
-    assert identities.revoked == [str(identity)]
-    signed_out = await as_owner.get("/v1/me", headers={"X-Session-Token": priya})
-    assert signed_out.status_code == 401
+    # Removal ends this membership only: the person stays signed in for any other business.
+    assert (await as_owner.get("/v1/me", headers={"X-Session-Token": priya})).status_code == 200
+    team = await as_owner.get(
+        "/v1/staff/team", headers={"X-Session-Token": priya, "X-Business-Id": "bz_birchbark"}
+    )
+    assert team.status_code == 403
     assert set(await _actions(db, "st_priya")) >= {"staff.role", "staff.remove"}
     assert (await as_owner.delete("/v1/staff/st_priya")).status_code == 404
-
-
-async def test_removal_stands_when_kratos_is_down(
-    as_owner: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
-) -> None:
-    identities.admin_down = True
-    assert (await as_owner.delete("/v1/staff/st_priya")).status_code == 204
-    assert await db.scalar(text("SELECT status FROM staff WHERE id = 'st_priya'")) == "removed"
 
 
 async def test_role_changes_are_guarded(as_owner: httpx.AsyncClient) -> None:
@@ -496,3 +493,31 @@ async def test_resending_to_an_active_member_404(as_owner: httpx.AsyncClient) ->
 async def test_unauth_401(unauth: httpx.AsyncClient, method: str, path: str) -> None:
     body = {"role": "staff"} if method == "PATCH" else None
     assert (await unauth.request(method, path, json=body)).status_code == 401
+
+
+async def test_preview_of_an_expired_invite_410(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    token = (await _invite(as_owner, "old-preview@test.ca"))["invite_token"]
+    await db.execute(
+        text(
+            "UPDATE staff SET invited_at = now() - interval '8 days' "
+            "WHERE invite_email = 'old-preview@test.ca'"
+        )
+    )
+    as_owner.headers.pop("X-Session-Token")
+    res = await as_owner.post("/v1/staff/invites/preview", json={"token": token})
+    assert res.status_code == 410 and res.json()["error"] == "invite_expired"
+
+
+async def test_preview_is_rate_limited(api: httpx.AsyncClient) -> None:
+    limiter = RateLimiter(limit=1, window_s=60.0)
+
+    def limited() -> None:
+        if not limiter.check("ip", 0.0):
+            raise TooManyRequests("slow down")
+
+    app.dependency_overrides[public_invite_rate_limit] = limited
+    url = "/v1/staff/invites/preview"
+    assert (await api.post(url, json={"token": "probe"})).status_code == 404
+    assert (await api.post(url, json={"token": "probe"})).status_code == 429

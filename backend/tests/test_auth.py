@@ -57,10 +57,12 @@ async def test_first_request_provisions_the_user_once(
     assert [u.email for u in users] == ["fresh@test.ca"]
 
 
-async def test_provision_is_idempotent_for_one_identity(db: AsyncSession) -> None:
+async def test_provision_is_idempotent_for_one_identity(
+    db: AsyncSession, identities: FakeIdentityProvider
+) -> None:
     identity = fresh("twice@test.ca")
-    first = await AuthService(db).provision(identity)
-    second = await AuthService(db).provision(identity)
+    first = await AuthService(db).provision(identity, identities)
+    second = await AuthService(db).provision(identity, identities)
     assert first.id == second.id
 
 
@@ -81,6 +83,22 @@ async def test_an_email_held_by_another_user_409(
     taken = fresh("hannah@birchbarkpets.ca")
     res = await api.get("/v1/me", headers={"X-Session-Token": identities.issue(taken)})
     assert res.status_code == 409 and res.json()["error"] == "email_in_use"
+
+
+async def test_a_deleted_identity_is_relinked_when_the_email_is_verified(
+    api: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
+) -> None:
+    owner = await db.get(User, OWNER_USER)
+    assert owner is not None
+    identities.deleted.add(owner.kratos_identity_id)
+    again = fresh("hannah@birchbarkpets.ca")
+    unverified = Identity(**{**again.__dict__, "verified_emails": frozenset()})
+    refused = await api.get("/v1/me", headers={"X-Session-Token": identities.issue(unverified)})
+    assert refused.status_code == 409
+    res = await api.get("/v1/me", headers={"X-Session-Token": identities.issue(again)})
+    assert res.status_code == 200 and res.json()["user_id"] == OWNER_USER
+    await db.refresh(owner)
+    assert str(owner.kratos_identity_id) == again.id
 
 
 async def test_last_seen_is_throttled(
@@ -127,7 +145,12 @@ async def test_cookie_writes_need_an_allowed_origin(
 ) -> None:
     api.cookies.set(COOKIE, await session_token(identities, db, OWNER_USER))
     url, body = "/v1/staff/invites", {"email": "csrf@test.ca", "role": "staff"}
-    for origin in (None, "https://evil.example", "https://pay.clientbridge.ca"):
+    for origin in (
+        None,
+        "https://evil.example",
+        "http://localhost:8709",
+        "https://pay.clientbridge.ca",
+    ):
         headers = {"X-Business-Id": "bz_birchbark"} | ({"Origin": origin} if origin else {})
         res = await api.post(url, json=body, headers=headers)
         assert res.status_code == 403, origin
@@ -152,7 +175,7 @@ async def test_token_writes_need_no_origin(
     assert res.status_code == 201, res.text
 
 
-async def test_production_origins_come_from_configuration(
+async def test_production_cookie_writes_come_only_from_the_web_app(
     api: httpx.AsyncClient,
     db: AsyncSession,
     identities: FakeIdentityProvider,
@@ -160,9 +183,18 @@ async def test_production_origins_come_from_configuration(
 ) -> None:
     settings = get_settings()
     monkeypatch.setattr(settings, "env", "prod")
-    monkeypatch.setattr(settings, "cors_allow_origins", "https://app.clientbridge.ca")
+    monkeypatch.setattr(settings, "web_base_url", "https://app.clientbridge.ca")
+    monkeypatch.setattr(
+        settings,
+        "cors_allow_origins",
+        "https://connect.clientbridge.ca,https://pay.clientbridge.ca",
+    )
     api.cookies.set(COOKIE, await session_token(identities, db, OWNER_USER))
-    for origin, status in (("http://localhost:8700", 403), ("https://app.clientbridge.ca", 201)):
+    for origin, status in (
+        ("http://localhost:8700", 403),
+        ("https://connect.clientbridge.ca", 403),
+        ("https://app.clientbridge.ca", 201),
+    ):
         res = await api.post(
             "/v1/staff/invites",
             json={"email": f"prod-{status}@test.ca", "role": "staff"},
@@ -227,3 +259,37 @@ async def test_old_auth_endpoints_are_gone(api: httpx.AsyncClient, db: AsyncSess
     for path in ("/auth/login", "/auth/register", "/auth/refresh", "/auth/accept-invite"):
         assert (await api.post(path, json={})).status_code == 404, path
     assert await db.scalar(text("SELECT to_regclass('public.sessions')")) is None
+
+
+@pytest.mark.parametrize(
+    ("origin", "credentialed"),
+    [
+        ("http://localhost:8700", True),
+        ("http://localhost:8721", True),
+        ("http://localhost:8709", False),
+    ],
+)
+async def test_only_the_web_app_gets_credentialed_cors(
+    api: httpx.AsyncClient, origin: str, credentialed: bool
+) -> None:
+    res = await api.options(
+        "/sync/token",
+        headers={"Origin": origin, "Access-Control-Request-Method": "GET"},
+    )
+    assert res.headers["access-control-allow-origin"] == origin
+    assert ("access-control-allow-credentials" in res.headers) is credentialed
+
+
+async def test_verification_sensitive_checks_skip_the_session_cache(
+    api: httpx.AsyncClient, factory: Factory, identities: FakeIdentityProvider
+) -> None:
+    user = await factory.user()
+    headers = {"X-Session-Token": await session_token(identities, factory.db, user.id)}
+    await api.get("/v1/me", headers=headers)
+    await api.post(
+        "/v1/onboarding", json={"name": "F", "slug": "fresh-ck", "province": "ON"}, headers=headers
+    )
+    await api.post("/v1/staff/invites/accept", json={"token": "nope"}, headers=headers)
+    assert identities.fresh_reads == 3
+    await api.get("/sync/token", headers=headers)
+    assert identities.fresh_reads == 3

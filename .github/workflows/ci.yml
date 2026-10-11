@@ -334,7 +334,7 @@ jobs:
       - run: pnpm --filter web exec playwright install --with-deps chromium
         working-directory: frontend
       - run: make up migrate seed
-      - run: uv run uvicorn clientbridge.main:app --host 127.0.0.1 --port 8701 > /tmp/api.log 2>&1 &
+      - run: SMTP_URL=smtp://localhost:8716 uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 > /tmp/api.log 2>&1 &  # 0.0.0.0: compose Kratos posts auth email here
         working-directory: backend
       - run: until curl -sf 127.0.0.1:8701/health; do sleep 1; done
         timeout-minutes: 2
@@ -385,7 +385,7 @@ jobs:
           pnpm exec expo prebuild --platform android --no-install
           cd android && ./gradlew assembleRelease --build-cache
       - run: make up migrate seed
-      - run: uv run uvicorn clientbridge.main:app --host 127.0.0.1 --port 8701 > /tmp/api.log 2>&1 &
+      - run: SMTP_URL=smtp://localhost:8716 uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 > /tmp/api.log 2>&1 &  # 0.0.0.0: compose Kratos posts auth email here
         working-directory: backend
       - run: until curl -sf 127.0.0.1:8701/health; do sleep 1; done
         timeout-minutes: 2

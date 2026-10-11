@@ -8,7 +8,14 @@ const a = strings.auth;
 
 /** Account email and name, password, and second factors, all kept in Kratos. */
 export function Security() {
-    const s = useSecuritySettings(identity, webauthn ? { webauthn } : {});
+    const s = useSecuritySettings(identity, {
+        ...(webauthn ? { webauthn } : {}),
+        returnTo: `${window.location.origin}/setup/security`,
+        openUrl: (url) => {
+            window.location.assign(url);
+            return Promise.resolve(null);
+        },
+    });
 
     if (!s.ready && s.error === null) return <Loading label={a.securityTitle} />;
 
@@ -27,20 +34,29 @@ export function Security() {
 
             {s.reauth ? (
                 <Panel title={a.securityReauthTitle} subtitle={a.securityReauthBody}>
-                    <div className="flex items-end gap-3">
-                        <TextField
-                            label={a.password}
-                            type="password"
-                            value={s.reauthPassword}
-                            onChange={s.setReauthPassword}
-                            onSubmit={s.confirmReauth}
-                            autoComplete="current-password"
-                            autoFocus
-                        />
-                        <Button busy={s.busy} onPress={s.confirmReauth}>
-                            {a.confirm}
-                        </Button>
-                    </div>
+                    {s.reauth.password ? (
+                        <div className="flex items-end gap-3">
+                            <TextField
+                                label={a.password}
+                                type="password"
+                                value={s.reauthPassword}
+                                onChange={s.setReauthPassword}
+                                onSubmit={s.confirmReauth}
+                                autoComplete="current-password"
+                                autoFocus
+                            />
+                            <Button busy={s.busy} onPress={s.confirmReauth}>
+                                {a.confirm}
+                            </Button>
+                        </div>
+                    ) : null}
+                    {s.reauth.google ? (
+                        <div>
+                            <Button variant="outline" busy={s.busy} onPress={s.reauthWithGoogle}>
+                                {a.continueWithGoogle}
+                            </Button>
+                        </div>
+                    ) : null}
                 </Panel>
             ) : null}
 

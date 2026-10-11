@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
 
 from clientbridge.api.public import (
     booking_router,
@@ -20,6 +19,7 @@ from clientbridge.api.returning import router as returning_router
 from clientbridge.api.router import api_router
 from clientbridge.api.webhooks import router as webhooks_router
 from clientbridge.core.config import get_settings
+from clientbridge.core.cors import SplitCors
 from clientbridge.core.errors import (
     AppError,
     UnhandledErrors,
@@ -39,15 +39,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(UploadSizeLimit)
 
-    # Dev allows any localhost origin; prod allows the configured ones, including Connect.
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.allowed_origins(),
-        allow_origin_regex=settings.allowed_origin_regex(),
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    app.add_middleware(SplitCors, settings=settings)
 
     @app.get("/health")
     async def health() -> dict[str, object]:

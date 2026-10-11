@@ -20,7 +20,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for
 from clientbridge.core.scoping import scoped
 from clientbridge.core.security import hash_token
-from clientbridge.integrations.kratos import Identity, IdentityProvider
+from clientbridge.integrations.kratos import Identity, normalize_email
 from clientbridge.integrations.postmark import Email, EmailSender
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.platform import Audit
@@ -153,9 +153,9 @@ class StaffService:
     async def accept_invite(self, user: User, identity: Identity, token: str) -> AcceptInviteOut:
         """The signed-in user joins the team, if the invited address is one they have verified."""
         staff = await self._pending(token)
-        invited = (staff.invite_email or "").casefold()
+        invited = normalize_email(staff.invite_email or "")
         if invited not in identity.verified_emails:
-            if invited == identity.email.casefold():
+            if invited == normalize_email(identity.email):
                 raise Forbidden("verify your email address first", code="email_unverified")
             raise Forbidden(
                 "this invite was sent to a different email address", code="invite_email_mismatch"
@@ -313,13 +313,10 @@ class StaffService:
         )
         await self.db.commit()
 
-    async def remove(
-        self, principal: Principal, staff_id: str, *, identities: IdentityProvider
-    ) -> None:
-        """The member loses access here and is signed out of every device; their history stays."""
+    async def remove(self, principal: Principal, staff_id: str) -> None:
+        """The member loses access to this business only; their session and history stay."""
         member = await self._member(principal, staff_id)
         member.status = "removed"
-        user = await self.db.get(User, member.user_id) if member.user_id else None
         self.db.add(
             Audit(
                 id=new_id("audit"),
@@ -331,13 +328,6 @@ class StaffService:
             )
         )
         await self.db.commit()
-        if user is None:
-            return
-        try:
-            await identities.revoke_sessions(user.kratos_identity_id)
-        except AppError:
-            # access already ended with the staff row; sessions also expire on their own
-            log.warning("could not revoke Kratos sessions for %s", user.id)
 
 
 async def load_staff(db: AsyncSession, biz: str, staff_id: str) -> Staff:
