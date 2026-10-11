@@ -26,10 +26,13 @@ type safety.**
   `no-floating-promises` with `ignoreVoid:false` (a floating promise needs a real `.catch`/await, not
   `void`). The local rules in `packages/config` (one file per rule, each with a RuleTester suite run by
   `pnpm test`) keep copy and formatting in the catalogs: `no-inline-ui-string` (inline text in JSX, copy
-  attributes, error sinks and hand-built DOM such as Connect's embed loader), `no-composed-copy` (template
+  attributes, error sinks and hand-built DOM such as Connect's embed loader; in `apps/*/src`, `packages/ui`
+  and `app-core` it is typed and default-deny, so any prose literal, or any text in a copy-named prop such
+  as `label` or `title`, fails unless its contextual type is a string-literal union, it is a class list, SQL,
+  markup, a path, a zone or a key name, or it is a thrown error's message), `no-composed-copy` (template
   literals, concatenation and `.join` with words or separators reaching UI text; SQL, URLs, class names,
   styles, markup and test ids are exempt), `no-raw-format` (`toLocale*`, `Intl`, `toFixed` and locale
-  literals outside the formatter), `no-hand-plural` (`count === 1` choosing between texts),
+  literals outside the formatter), `no-hand-plural` (`count === 1`, or `count > 1` between two literals, choosing between texts),
   `no-module-scope-copy` (typed: catalog text read while a module loads) and `no-error-message-copy` (a
   caught error's `message` reaching the UI). Debug panels, tests, e2e suites and the playground are exempt
   where the rule is about product copy. The **lean-bundle boundary** (`no-restricted-imports` bans

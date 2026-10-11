@@ -96,8 +96,12 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   `format_money` and `format_day_and_time` format with Babel in the business time zone. `make gen-messages`
   regenerates `messages.pot` and `en_XA.po` and fails on missing, unused or empty messages.
 - The gate holds this: the eslint rules `local/no-inline-ui-string`, `no-composed-copy`, `no-raw-format`,
-  `no-hand-plural`, `no-module-scope-copy` and `no-error-message-copy` (`packages/config`), the backend
-  structure check on literal text passed to senders and CSV writers, `make codegen-check` on every generated
+  `no-hand-plural`, `no-module-scope-copy` and `no-error-message-copy` (`packages/config`; in rendering code
+  `no-inline-ui-string` rejects any prose literal whose type is not a string-literal union, so identifiers
+  such as routes and variants need one), the backend structure check (text reaching senders, CSV writers and
+  stored or Stripe-visible descriptions through variables, `+=` and helper functions, plus any capitalized
+  sentence outside a raise, docstring or OpenAPI description, since developer text starts in lowercase),
+  `make codegen-check` on every generated
   catalog file, and the `en-XA` passes in `make test-playground`, `test-web` and `test-connect`.
 
 ## Testing — the feedback loop (`.docs/engineering.md`)

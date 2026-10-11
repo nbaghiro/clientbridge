@@ -48,6 +48,25 @@ export default tseslint.config(
         rules: { "local/no-composed-copy": "off" },
     },
     {
+        // Where text is rendered, every prose literal is copy unless its type says it is an identifier.
+        files: [
+            "**/apps/*/src/**/*.{ts,tsx}",
+            "**/packages/ui/src/**/*.{ts,tsx}",
+            "**/packages/app-core/src/**/*.{ts,tsx}",
+        ],
+        ignores: ["**/*.test.{ts,tsx}", "**/apps/playground/**", "**/Debug*.tsx"],
+        rules: { "local/no-inline-ui-string": ["error", { literals: true }] },
+    },
+    {
+        // Generated demo data, partner brands and photo credits are names, not copy.
+        files: [
+            "**/apps/site/src/content/demo-snapshot.ts",
+            "**/apps/site/src/content/brands.ts",
+            "**/apps/site/src/content/photos.ts",
+        ],
+        rules: { "local/no-inline-ui-string": ["error", { literals: false }] },
+    },
+    {
         // The formatter is the one place that calls Intl and names locales.
         files: [
             "**/packages/app-core/src/format.ts",

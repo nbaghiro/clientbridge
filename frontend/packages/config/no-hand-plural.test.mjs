@@ -26,8 +26,19 @@ tester.run("no-hand-plural", rule, {
         { code: `${header} const label = row.active === 1 ? "" : "opacity-60";`, filename: "a.ts" },
         { code: `${header} const total = count === 1 ? 10 : 20;`, filename: "a.ts" },
         { code: `${header} const word = count === 2 ? "pair" : "many";`, filename: "a.ts" },
+        { code: `${header} const word = count > 5 ? "busy" : "quiet";`, filename: "a.ts" },
     ],
     invalid: [
+        {
+            code: `${header} const label = count > 1 ? "items" : "item";`,
+            filename: "a.ts",
+            errors: [{ messageId: "plural" }],
+        },
+        {
+            code: `${header} const label = count >= 2 ? "items" : "item";`,
+            filename: "a.ts",
+            errors: [{ messageId: "plural" }],
+        },
         {
             code: `${header} const label = count === 1 ? "visit" : "visits";`,
             filename: "a.ts",

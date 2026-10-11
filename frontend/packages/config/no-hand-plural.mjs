@@ -1,7 +1,9 @@
-// Flags `n === 1 ? "…" : "…"` choices between texts, which hard-code English plural rules.
+// Flags `n === 1 ? "…" : "…"` and `n > 1 ? "…" : "…"` choices between texts, which hard-code English plural rules.
 const EQUALITY = new Set(["===", "!==", "==", "!="]);
+const ABOVE_ONE = { ">": 1, "<=": 1, ">=": 2, "<": 2 };
 
-const COUNT = /(count|length|size|total|qty|quantity|amount|days|hours|minutes|weeks|months|years|items|visits|sessions|credits|uses|nights|people|seats|^n|num)$/i;
+const COUNT =
+    /(count|length|size|total|qty|quantity|amount|days|hours|minutes|weeks|months|years|items|visits|sessions|credits|uses|nights|people|seats|^n|num)$/i;
 
 const nameOf = (node) =>
     node.type === "Identifier"
@@ -11,6 +13,8 @@ const nameOf = (node) =>
           : node.type === "CallExpression"
             ? nameOf(node.callee)
             : "";
+
+const isNumber = (node, n) => node.type === "Literal" && node.value === n;
 
 const isOne = (node) =>
     (node.type === "Literal" && (node.value === 1 || node.value === -1)) ||
@@ -43,9 +47,21 @@ export default {
         return {
             ConditionalExpression(node) {
                 const test = node.test;
-                if (test.type !== "BinaryExpression" || !EQUALITY.has(test.operator)) return;
-                const count = isOne(test.right) ? test.left : isOne(test.left) ? test.right : null;
+                if (test.type !== "BinaryExpression") return;
+                const bound = ABOVE_ONE[test.operator];
+                const count = EQUALITY.has(test.operator)
+                    ? isOne(test.right)
+                        ? test.left
+                        : isOne(test.left)
+                          ? test.right
+                          : null
+                    : bound !== undefined && isNumber(test.right, bound)
+                      ? test.left
+                      : null;
                 if (count === null || !COUNT.test(nameOf(count))) return;
+                const literal = (n) => n.type === "Literal" && typeof n.value === "string";
+                if (bound !== undefined && !(literal(node.consequent) && literal(node.alternate)))
+                    return;
                 if (isText(node.consequent) && isText(node.alternate)) {
                     context.report({ node, messageId: "plural" });
                 }
