@@ -7,6 +7,9 @@ name: Owner inbox surfaces
 - assertVisible: "Search name, pet or message"
 - takeScreenshot: messages
 - tapOn: "Amélie Tremblay.*"
+- scrollUntilVisible:
+      element: "Show earlier messages"
+      direction: UP
 - tapOn: "Show earlier messages"
 - assertNotVisible: "We couldn't load earlier messages.*"
 - assertNotVisible: "Earlier messages need a connection.*"
