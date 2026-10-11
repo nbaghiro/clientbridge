@@ -412,9 +412,9 @@ jobs:
             adb reverse tcp:8701 tcp:8701
             adb reverse tcp:8704 tcp:8704
             adb install frontend/apps/mobile/android/app/build/outputs/apk/release/app-release.apk
-            cd frontend/apps/mobile && "$HOME/.maestro/bin/maestro" test e2e --test-output-dir test-results
+            cd frontend/apps/mobile && timeout 40m "$HOME/.maestro/bin/maestro" test e2e --test-output-dir test-results
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: failure() || cancelled()
         with:
           name: mobile-walkthroughs
           path: frontend/apps/mobile/test-results

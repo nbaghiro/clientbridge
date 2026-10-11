@@ -18,6 +18,9 @@ onFlowComplete:
 - tapOn: "Create an account"
 - assertVisible: "Your name"
 - takeScreenshot: sign-up
+- scrollUntilVisible:
+      element: "Sign in"
+      direction: DOWN
 - tapOn: "Sign in"
 - tapOn: "Forgot password\\?"
 - assertVisible: "Reset your password"
@@ -39,6 +42,9 @@ onFlowComplete:
 - assertVisible: "Good .*, Diego"
 - assertNotVisible: "Booked today.*"
 - takeScreenshot: staff-today
+- scrollUntilVisible:
+      element: "View payments"
+      direction: DOWN
 - tapOn: "View payments"
 - assertVisible: "New sale"
 - assertNotVisible: "Invoices"
