@@ -50,6 +50,8 @@ import { strings } from "./strings";
 
 const VAN = "America/Vancouver";
 const TOKYO = "Asia/Tokyo";
+// British Columbia stays on UTC-7 from November 2026, so the fall-back checks use Toronto.
+const TORONTO = "America/Toronto";
 const HALIFAX = "America/Halifax";
 
 // Wednesday 7 October 2026, 3:30 p.m. on a Vancouver clock (22:30 UTC).
@@ -90,7 +92,9 @@ describe("zoned clocks", () => {
         expect(zonedDate(2026, 10, 7, 15, 30, VAN).toISOString()).toBe("2026-10-07T22:30:00.000Z");
         expect(zonedDate(2026, 1, 15, 9, 0, VAN).toISOString()).toBe("2026-01-15T17:00:00.000Z");
         expect(zonedDate(2026, 3, 8, 12, 0, VAN).toISOString()).toBe("2026-03-08T19:00:00.000Z");
-        expect(zonedDate(2026, 11, 1, 12, 0, VAN).toISOString()).toBe("2026-11-01T20:00:00.000Z");
+        expect(zonedDate(2026, 11, 1, 12, 0, TORONTO).toISOString()).toBe(
+            "2026-11-01T17:00:00.000Z",
+        );
         expect(zonedDate(2026, 10, 32, 0, 0, TOKYO).toISOString()).toBe("2026-10-31T15:00:00.000Z");
     });
 
@@ -117,7 +121,8 @@ describe("day arithmetic", () => {
         expect(addDays(WED, 1, VAN)).toEqual(at(10, 8));
         expect(addDays(WED, 0, VAN)).toEqual(at(10, 7));
         expect(addDays(at(10, 31), 1, VAN)).toEqual(at(11, 1));
-        expect(addDays(at(10, 31), 2, VAN).getTime() - at(10, 31).getTime()).toBe(49 * 3_600_000);
+        const halloween = zonedDate(2026, 10, 31, 0, 0, TORONTO);
+        expect(addDays(halloween, 2, TORONTO).getTime() - halloween.getTime()).toBe(49 * 3_600_000);
         expect(addDays(zonedDate(2028, 2, 28, 0, 0, VAN), 1, VAN)).toEqual(
             zonedDate(2028, 2, 29, 0, 0, VAN),
         );
