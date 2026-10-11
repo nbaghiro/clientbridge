@@ -55,21 +55,33 @@ export function totp(secret: string, at = Date.now()): string {
     return value.toString().padStart(6, "0");
 }
 
-/** The demo owner, signed in natively the way the mobile app does it. */
-async function asOwner(request: APIRequestContext): Promise<Record<string, string>> {
+/** A session token from a native sign-in, as a second device (the mobile app) would hold. */
+export async function nativeSession(
+    request: APIRequestContext,
+    email: string,
+    password: string,
+): Promise<string> {
     const flow = (await (await request.get(`${KRATOS}/self-service/login/api`)).json()) as {
         id: string;
     };
     const login = (await (
         await request.post(`${KRATOS}/self-service/login?flow=${flow.id}`, {
-            data: {
-                method: "password",
-                identifier: "hannah@birchbarkpets.ca",
-                password: "demo1234",
-            },
+            data: { method: "password", identifier: email, password },
         })
     ).json()) as { session_token: string };
-    return { "X-Session-Token": login.session_token, "X-Business-Id": "bz_birchbark" };
+    return login.session_token;
+}
+
+export async function sessionActive(request: APIRequestContext, token: string): Promise<boolean> {
+    const res = await request.get(`${KRATOS}/sessions/whoami`, {
+        headers: { "X-Session-Token": token },
+    });
+    return res.ok();
+}
+
+async function asOwner(request: APIRequestContext): Promise<Record<string, string>> {
+    const token = await nativeSession(request, "hannah@birchbarkpets.ca", "demo1234");
+    return { "X-Session-Token": token, "X-Business-Id": "bz_birchbark" };
 }
 
 /** Invites `email` to the demo business; `cleanup` removes the member or revokes the invite. */

@@ -370,6 +370,8 @@ the session token in SecureStore. Verification and recovery email copy lives in
 - **Replica binding** — the apps send `X-Expected-User` from the replica; a different signed-in user
   is 401 `session_changed`, so one account's sync never writes into another's replica.
 - **Removal** — removing a staff member revokes all their Kratos sessions through the admin API.
+- **Password changes** — changing or resetting a password revokes every other session of that
+  identity (Kratos `revoke_active_sessions` hook on settings and recovery).
 - **Not built in** — Kratos OSS has no login lockout; production rate-limits `/self-service/*` at
   the proxy (launch-readiness ENG-2). The admin API must stay on the private network.
 

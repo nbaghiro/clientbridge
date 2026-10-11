@@ -96,10 +96,17 @@ selfservice:
       enabled: true
       ui_url: http://localhost:8700/recover
       use: code
+      after:
+        hooks:
+          - hook: revoke_active_sessions
     settings:
       ui_url: http://localhost:8700/setup/security
       privileged_session_max_age: 15m
       required_aal: highest_available
+      after:
+        password:
+          hooks:
+            - hook: revoke_active_sessions
     logout:
       after:
         default_browser_return_url: http://localhost:8700/login

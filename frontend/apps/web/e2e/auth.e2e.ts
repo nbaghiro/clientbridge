@@ -1,7 +1,14 @@
 import { strings } from "@clientbridge/app-core/public";
 import { type APIRequestContext, type Page, expect, test } from "@playwright/test";
 
-import { mailedCode, newAccount, ownerInvite, totp } from "./identity";
+import {
+    mailedCode,
+    nativeSession,
+    newAccount,
+    ownerInvite,
+    sessionActive,
+    totp,
+} from "./identity";
 
 const a = strings.auth;
 
@@ -145,7 +152,7 @@ test("sign up, confirm the email with the mailed code, then open a business", as
     await openBusiness(page, `Signup Studio ${account.email.slice(7, 15)}`);
 });
 
-test("recover a forgotten password with an emailed code and stay signed in", async ({
+test("recover a forgotten password with an emailed code, staying signed in only here", async ({
     page,
     request,
 }) => {
@@ -154,9 +161,11 @@ test("recover a forgotten password with an emailed code and stay signed in", asy
     await expect(
         page.getByRole("heading", { name: strings.business.onboarding.title }),
     ).toBeVisible();
+    const otherDevice = await nativeSession(request, account.email, account.password);
     await page.context().clearCookies();
     await page.goto("/login");
     await page.getByRole("button", { name: a.forgot, exact: true }).click();
+    await expect(page.getByRole("heading", { name: a.resetTitle })).toBeVisible();
     await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
     await page.getByRole("button", { name: a.sendCode, exact: true }).click();
     await page
@@ -169,6 +178,24 @@ test("recover a forgotten password with an emailed code and stay signed in", asy
     await expect(
         page.getByRole("heading", { name: strings.business.onboarding.title }),
     ).toBeVisible();
+    expect(await sessionActive(request, otherDevice)).toBe(false);
+});
+
+test("changing the password signs out every other device", async ({ page, request }) => {
+    const account = newAccount("password");
+    await signUp(page, request, account);
+    await openBusiness(page, `Password Studio ${account.email.slice(9, 17)}`);
+    const otherDevice = await nativeSession(request, account.email, account.password);
+    expect(await sessionActive(request, otherDevice)).toBe(true);
+
+    await page.goto("/setup/security");
+    await page.getByLabel(a.securityNewPassword, { exact: true }).fill(`${account.password}-new`);
+    await page.getByRole("button", { name: a.securityChangePassword, exact: true }).click();
+    await expect(page.getByText(a.kratos[1050001] ?? "", { exact: true })).toBeVisible();
+
+    expect(await sessionActive(request, otherDevice)).toBe(false);
+    await page.reload();
+    await expect(page.getByRole("heading", { name: a.securityTitle })).toBeVisible();
 });
 
 test("turn on an authenticator app, then sign in with its code", async ({ page, request }) => {
