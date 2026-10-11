@@ -23,6 +23,7 @@ from clientbridge.api import (
     staff,
     subjects,
     tax,
+    zones,
 )
 
 api_router = APIRouter(prefix="/v1")
@@ -60,3 +61,4 @@ api_router.include_router(forms.router)
 api_router.include_router(contracts.router)
 api_router.include_router(contracts.signatures_router)
 api_router.include_router(files.router)
+api_router.include_router(zones.router)

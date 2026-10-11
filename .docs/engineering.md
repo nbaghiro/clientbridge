@@ -49,7 +49,8 @@ make format        # backend: ruff format                 |  frontend: prettier 
 make format-check
 make gen-strings   # check the app and site catalogs; regenerate strings.ts, en-XA.json and embed.js
 make gen-messages  # check the backend catalog; regenerate messages.pot and en_XA.po
-make codegen-check # regenerate api-client, sync schema, themes, strings and messages; fail if stale
+make gen-zones     # regenerate app-core zones.ts and zones.cases.json from the backend's tzdata
+make codegen-check # regenerate api-client, sync schema, themes, strings, messages and zones; fail if stale
 make precommit     # format-check + lint + codegen-check + test  (the pre-commit hook; e2e runs in CI)
 make check         # lint + codegen-check + test          (the full local gate)
 ```
@@ -78,7 +79,7 @@ Runs on every push to `main` + all PRs; concurrency-cancels stale runs.
 | **web** | `make up migrate seed` · the API on :8701 · `make test-web`: sign-in, every page and dialog, record flows, history older than the device window, no console errors, and the `en-XA` pass over Today, Schedule, Clients, a client record, Setup's business page, Invoices and an invoice |
 | **mobile** | a release APK from `expo prebuild` (bundle embedded, no Metro; Gradle's dependencies and build cache are cached) · `make up migrate seed` · the API · the Maestro walkthroughs on an Android 14 emulator booted from a cached snapshot, with `adb reverse` for 8701 and 8704 |
 | **contract** | stripe-mock service · real `StripeGateway` validated against Stripe's OpenAPI mock |
-| **codegen-drift** | `make codegen-check`: `make gen-api`, `gen-sync-schema`, `gen-themes`, `gen-messages` and `gen-strings` (which also fail on invalid or unused catalog messages), then a diff check on the generated files (the api-client, sync schema, themes, `messages.pot`, `en_XA.po`, both `strings.ts` accessors and `en-XA.json` files, and Connect's `embed.js`), so the committed generated code cannot drift from its source |
+| **codegen-drift** | `make codegen-check`: `make gen-api`, `gen-sync-schema`, `gen-themes`, `gen-messages`, `gen-strings` (which also fail on invalid or unused catalog messages) and `gen-zones`, then a diff check on the generated files (the api-client, sync schema, themes, `messages.pot`, `en_XA.po`, both `strings.ts` accessors and `en-XA.json` files, Connect's `embed.js`, and app-core `zones.ts` and `zones.cases.json`), so the committed generated code cannot drift from its source |
 
 Net effect: no unformatted/untyped/uncovered code, no broken bundle, no drift between backend models and the
 generated frontend contracts/themes.

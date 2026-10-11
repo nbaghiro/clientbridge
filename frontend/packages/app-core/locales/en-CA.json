@@ -6167,6 +6167,31 @@
     "business.timezoneLabel": {
         "message": "Time zone"
     },
+    "datetime.zoneNames.newfoundland": {
+        "message": "Newfoundland Time",
+        "description": "The name of a business time zone, as in Times are in Pacific Time."
+    },
+    "datetime.zoneNames.atlantic": {
+        "message": "Atlantic Time"
+    },
+    "datetime.zoneNames.eastern": {
+        "message": "Eastern Time"
+    },
+    "datetime.zoneNames.central": {
+        "message": "Central Time"
+    },
+    "datetime.zoneNames.saskatchewan": {
+        "message": "Saskatchewan Time"
+    },
+    "datetime.zoneNames.mountain": {
+        "message": "Mountain Time"
+    },
+    "datetime.zoneNames.yukon": {
+        "message": "Yukon Time"
+    },
+    "datetime.zoneNames.pacific": {
+        "message": "Pacific Time"
+    },
     "business.timeZones.newfoundland": {
         "message": "Newfoundland Time (St. John's)",
         "description": "A time zone choice; the city names the IANA zone it stands for."

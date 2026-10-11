@@ -21,6 +21,7 @@ import {
     formatTimeRange,
     formatWeekday,
     formatZoneName,
+    sameClock,
     parseDateKey,
     parseTimestamp,
     startOfWeek,
@@ -246,9 +247,7 @@ export function whenTitle(startsAt: string, today: string, zone: string): string
 
 /** "Times are in Pacific Time" when the visitor's clock reads a different zone, else null. */
 export function zoneNote(zone: string): string | null {
-    return formatZoneName(zone) === formatZoneName(deviceZone())
-        ? null
-        : s.timesIn(formatZoneName(zone));
+    return sameClock(zone, deviceZone()) ? null : s.timesIn(formatZoneName(zone));
 }
 
 interface SlotGroup {

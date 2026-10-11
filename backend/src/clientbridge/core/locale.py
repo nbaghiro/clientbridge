@@ -6,13 +6,13 @@ from decimal import Decimal
 from functools import cache
 from io import BytesIO
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 from babel import Locale, dates, numbers
 from babel.messages.mofile import write_mo
 from babel.messages.pofile import read_po
 
 from clientbridge.core.config import get_settings
+from clientbridge.core.zones import zone
 from clientbridge.models.business import Business, User
 from clientbridge.models.clients import Client
 
@@ -65,10 +65,10 @@ def format_percent(locale: str, value: Decimal | float) -> str:
 
 def format_day_and_time(locale: str, moment: datetime, timezone: str) -> str:
     """A moment as the business's clock shows it: "Friday, October 9 at 2:30 p.m." in en_CA."""
-    zone = ZoneInfo(timezone)
+    tz = zone(timezone)
     cldr = _cldr(locale)
-    day = dates.format_date(moment.astimezone(zone), _long_day(cldr), locale=cldr)
-    time = dates.format_time(moment, "short", tzinfo=zone, locale=cldr)
+    day = dates.format_date(moment.astimezone(tz), _long_day(cldr), locale=cldr)
+    time = dates.format_time(moment, "short", tzinfo=tz, locale=cldr)
     return message(
         locale, "datetime.day_at_time", day=_value(locale, day), time=_value(locale, time)
     )

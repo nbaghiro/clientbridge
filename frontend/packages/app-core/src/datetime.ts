@@ -2,6 +2,7 @@ import { createContext, useContext } from "react";
 
 import { activeLocale, type Locale } from "./locale";
 import { strings } from "./strings";
+import { BUNDLED_ZONES, type SupportedZone } from "./zones";
 
 const MS_PER_MIN = 60_000;
 const MS_PER_DAY = 86_400_000;
@@ -9,7 +10,13 @@ const MS_PER_DAY = 86_400_000;
 // CLDR starts en-CA weeks on Sunday; the product shows Monday-first weeks in English.
 const FIRST_WEEKDAY: Record<Locale, number> = { "en-CA": 1, "en-XA": 1 };
 
-type DateOptions = Omit<Intl.DateTimeFormatOptions, "timeZone">;
+type DateOptions = Omit<Intl.DateTimeFormatOptions, "timeZone" | "timeZoneName">;
+
+/** Each zone's UTC offsets as [UTC second it starts, minutes], from the server's tzdata release. */
+export interface ZoneTable {
+    version: string;
+    zones: Readonly<Record<string, readonly (readonly [number, number])[]>>;
+}
 
 interface WallTime {
     year: number;
@@ -23,12 +30,13 @@ interface WallTime {
 
 const formatters = new Map<string, Intl.DateTimeFormat>();
 
-function dateFormat(zone: string, options: DateOptions): Intl.DateTimeFormat {
+// Intl only words a wall clock: times are shifted by the zone table first and formatted in UTC.
+function dateFormat(options: DateOptions): Intl.DateTimeFormat {
     const locale = activeLocale();
-    const key = `${locale}|${zone}|${JSON.stringify(options)}`;
+    const key = `${locale}|${JSON.stringify(options)}`;
     let format = formatters.get(key);
     if (format === undefined) {
-        format = new Intl.DateTimeFormat(locale, { ...options, timeZone: zone });
+        format = new Intl.DateTimeFormat(locale, { ...options, timeZone: "UTC" });
         formatters.set(key, format);
     }
     return format;
@@ -38,10 +46,11 @@ const shown = new Map<string, string>();
 
 // Polyfilled Intl is slow on Hermes, and screens format the same few instants over and over.
 function show(zone: string, options: DateOptions, d: Date | number): string {
-    const key = `${activeLocale()}|${zone}|${JSON.stringify(options)}|${String(+d)}`;
+    const wall = +d + offsetAt(+d, zone);
+    const key = `${activeLocale()}|${JSON.stringify(options)}|${String(wall)}`;
     let text = shown.get(key);
     if (text === undefined) {
-        text = dateFormat(zone, options).format(d);
+        text = dateFormat(options).format(wall);
         if (shown.size > 20_000) shown.clear();
         shown.set(key, text);
     }
@@ -51,10 +60,11 @@ function show(zone: string, options: DateOptions, d: Date | number): string {
 const pieces = new Map<string, Intl.DateTimeFormatPart[]>();
 
 function partsOf(zone: string, options: DateOptions, d: Date | number): Intl.DateTimeFormatPart[] {
-    const key = `${activeLocale()}|${zone}|${JSON.stringify(options)}|${String(+d)}`;
+    const wall = +d + offsetAt(+d, zone);
+    const key = `${activeLocale()}|${JSON.stringify(options)}|${String(wall)}`;
     let parts = pieces.get(key);
     if (parts === undefined) {
-        parts = dateFormat(zone, options).formatToParts(d);
+        parts = dateFormat(options).formatToParts(wall);
         if (pieces.size > 20_000) pieces.clear();
         pieces.set(key, parts);
     }
@@ -82,22 +92,66 @@ export function readDate(value: string, zone: string): Date {
     return (value.length === 10 ? parseDateKey(value, zone) : null) ?? parseTimestamp(value);
 }
 
+let device: string | null = null;
+
+/** Mobile records the device zone before its Intl polyfill, which carries no zone data, loads. */
+export function setDeviceZone(zone: string): void {
+    device = zone;
+}
+
 /** The zone the device runs in; only for telling a visitor that times are shown in another zone. */
 export function deviceZone(): string {
-    return new Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return device ?? new Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+let zoneTable: ZoneTable = BUNDLED_ZONES;
+
+const newer = (a: string, b: string): boolean => {
+    const [ay = 0, ar = 0] = a.split(".").map(Number);
+    const [by = 0, br = 0] = b.split(".").map(Number);
+    return ay !== by ? ay > by : ar > br;
+};
+
+/** Use a zone table the server sent when its tzdata release is newer than the one bundled. */
+export function adoptZoneTable(table: ZoneTable): boolean {
+    if (!newer(table.version, zoneTable.version)) return false;
+    zoneTable = table;
+    offsets.clear();
+    shown.clear();
+    pieces.clear();
+    return true;
+}
+
+export function zoneTableVersion(): string {
+    return zoneTable.version;
 }
 
 const MS_PER_QUARTER = 15 * MS_PER_MIN;
 const offsets = new Map<string, number>();
 
-// Zones change offset only on a quarter hour, so one Intl call serves each zone's quarter hour.
+/** The UTC offset in ms a zone has at `time`: from the server's table, or Intl for a visitor's own zone. */
 function offsetAt(time: number, zone: string): number {
-    const quarter = Math.floor(time / MS_PER_QUARTER);
-    const key = `${zone}|${String(quarter)}`;
-    let offset = offsets.get(key);
-    if (offset === undefined) {
-        const at = quarter * MS_PER_QUARTER;
-        const parts = dateFormat(zone, {
+    if (zone === CALENDAR) return 0;
+    const rules = zoneTable.zones[zone];
+    if (rules === undefined) return deviceOffsetAt(time, zone);
+    const second = Math.floor(time / 1000);
+    let lo = 0;
+    let hi = rules.length - 1;
+    while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if ((rules[mid]?.[0] ?? 0) <= second) lo = mid;
+        else hi = mid - 1;
+    }
+    return (rules[lo]?.[1] ?? 0) * MS_PER_MIN;
+}
+
+const deviceClocks = new Map<string, Intl.DateTimeFormat>();
+
+function deviceClock(zone: string): Intl.DateTimeFormat {
+    let clock = deviceClocks.get(zone);
+    if (clock === undefined) {
+        clock = new Intl.DateTimeFormat("en-CA", {
+            timeZone: zone,
             year: "numeric",
             month: "numeric",
             day: "numeric",
@@ -105,7 +159,20 @@ function offsetAt(time: number, zone: string): number {
             minute: "numeric",
             hourCycle: "h23",
             numberingSystem: "latn",
-        }).formatToParts(at);
+        });
+        deviceClocks.set(zone, clock);
+    }
+    return clock;
+}
+
+// Zones change offset only on a quarter hour, so one Intl call serves each zone's quarter hour.
+function deviceOffsetAt(time: number, zone: string): number {
+    const quarter = Math.floor(time / MS_PER_QUARTER);
+    const key = `${zone}|${String(quarter)}`;
+    let offset = offsets.get(key);
+    if (offset === undefined) {
+        const at = quarter * MS_PER_QUARTER;
+        const parts = deviceClock(zone).formatToParts(at);
         const field = (type: Intl.DateTimeFormatPartTypes): number =>
             Number(parts.find((p) => p.type === type)?.value ?? 0);
         const wall = Date.UTC(
@@ -365,13 +432,32 @@ function weekdayDayYear(d: Date, zone: string): string {
     );
 }
 
+const ZONE_NAMES: Record<SupportedZone, () => string> = {
+    "America/St_Johns": () => strings.datetime.zoneNames.newfoundland,
+    "America/Halifax": () => strings.datetime.zoneNames.atlantic,
+    "America/Toronto": () => strings.datetime.zoneNames.eastern,
+    "America/Winnipeg": () => strings.datetime.zoneNames.central,
+    "America/Regina": () => strings.datetime.zoneNames.saskatchewan,
+    "America/Edmonton": () => strings.datetime.zoneNames.mountain,
+    "America/Whitehorse": () => strings.datetime.zoneNames.yukon,
+    "America/Vancouver": () => strings.datetime.zoneNames.pacific,
+};
+
+const isSupported = (zone: string): zone is SupportedZone => zone in ZONE_NAMES;
+
 /** The name of the zone a visitor is told times are in: "Pacific Time". */
 export function formatZoneName(zone: string, at: Date = new Date()): string {
+    if (isSupported(zone)) return ZONE_NAMES[zone]();
     return (
-        dateFormat(zone, { timeZoneName: "longGeneric" })
+        new Intl.DateTimeFormat(activeLocale(), { timeZone: zone, timeZoneName: "longGeneric" })
             .formatToParts(at)
             .find((p) => p.type === "timeZoneName")?.value ?? zone
     );
+}
+
+/** True when clocks in both zones read the same at `at`. */
+export function sameClock(a: string, b: string, at: Date = new Date()): boolean {
+    return a === b || offsetAt(+at, a) === offsetAt(+at, b);
 }
 
 export function formatShortMonth(d: Date, zone: string): string {

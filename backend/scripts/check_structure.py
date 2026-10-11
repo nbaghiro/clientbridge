@@ -24,6 +24,8 @@ BANNER_MARKS = ("# ─", "# ━", "# ===", "# ---", "# ###")
 BANNED_SUFFIXES = ("_service", "_jobs")
 DIRECTIVES = ("# noqa", "# type:", "# pragma")
 NOTIFICATIONS = PACKAGE / "services" / "notifications.py"
+ZONES = PACKAGE / "core" / "zones.py"
+ZONE_READERS = ("ZoneInfo", "available_timezones", "reset_tzpath")
 COPY_FIELDS = ("subject", "body", "title")
 SENDER_PARAMS = {
     "Email": ("to", "subject", "body"),
@@ -251,6 +253,18 @@ def prose_problems(path: pathlib.Path, tree: ast.Module) -> list[str]:
     ]
 
 
+def zone_problems(path: pathlib.Path, tree: ast.Module) -> list[str]:
+    """Zone data has one reader, core/zones.py, and SQL never converts zones itself."""
+    if path == ZONES:
+        return []
+    return [
+        f"{path}:{node.lineno}: read time zones through core.zones"
+        for node in ast.walk(tree)
+        if (isinstance(node, ast.Call) and call_name(node) in ZONE_READERS)
+        or (isinstance(node, ast.Constant) and "AT TIME ZONE" in str(node.value).upper())
+    ]
+
+
 def concepts() -> set[str]:
     return {p.stem for layer in ("services", "api") for p in (PACKAGE / layer).glob("*.py")}
 
@@ -289,7 +303,9 @@ def main() -> int:
         problems += layout_problems(path)
         problems += comment_problems(path)
         tree = ast.parse(path.read_text())
-        problems += copy_problems(path, tree) + prose_problems(path, tree)
+        problems += (
+            copy_problems(path, tree) + prose_problems(path, tree) + zone_problems(path, tree)
+        )
     for path in sorted([*TESTS.rglob("*.py"), *SCRIPTS.rglob("*.py")]):
         problems += comment_problems(path)
     known = concepts()

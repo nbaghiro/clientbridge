@@ -22,6 +22,7 @@ from clientbridge.core.errors import (
 )
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped, scoped_update
+from clientbridge.core.zones import zone
 from clientbridge.integrations.postmark import EmailSender
 from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.integrations.twilio import SmsSender
@@ -2071,10 +2072,10 @@ async def run_complete_past_bookings(
         )
     ).all()
     closed = 0
-    for business_id, zone, policy in businesses:
+    for business_id, timezone, policy in businesses:
         if not BookingPolicy.model_validate(policy or {}).auto_complete:
             continue
-        closed += await _close_past_visits(db, gateway, business_id, ZoneInfo(zone), now)
+        closed += await _close_past_visits(db, gateway, business_id, zone(timezone), now)
         await db.commit()
     return closed
 

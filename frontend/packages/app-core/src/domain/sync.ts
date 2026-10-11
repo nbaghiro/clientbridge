@@ -2,7 +2,14 @@ import type { CommonPowerSyncDatabase } from "@powersync/common";
 import { usePowerSync, useQuery, useStatus } from "@powersync/react";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
-import { formatTime, useBusinessZone } from "../datetime";
+import type { ApiLike } from "../api";
+import {
+    adoptZoneTable,
+    formatTime,
+    useBusinessZone,
+    type ZoneTable,
+    zoneTableVersion,
+} from "../datetime";
 import { type Load, type LoadSource, useLoad } from "../hooks";
 import { strings } from "../strings";
 
@@ -27,6 +34,38 @@ export function useDevicePref(key: string): [string | null, (value: string | nul
         [db, key],
     );
     return [value, set];
+}
+
+const ZONES_PREF = "zones.table";
+
+const isZoneTable = (v: unknown): v is ZoneTable =>
+    typeof v === "object" &&
+    v !== null &&
+    typeof (v as ZoneTable).version === "string" &&
+    typeof (v as ZoneTable).zones === "object";
+
+/** The server's zone table, kept on this device for app builds that bundle an older one; returns the version in use. */
+export function useServerZones(api: ApiLike): string {
+    const [stored, store] = useDevicePref(ZONES_PREF);
+    const [version, setVersion] = useState(zoneTableVersion);
+    useEffect(() => {
+        if (stored === null) return;
+        try {
+            const table: unknown = JSON.parse(stored);
+            if (isZoneTable(table) && adoptZoneTable(table)) setVersion(table.version);
+        } catch {
+            store(null);
+        }
+    }, [stored, store]);
+    useEffect(() => {
+        api.get<unknown>("/v1/zones")
+            .then((table) => {
+                if (isZoneTable(table) && table.version !== zoneTableVersion())
+                    store(JSON.stringify(table));
+            })
+            .catch(() => undefined);
+    }, [api, store]);
+    return version;
 }
 
 /** A JSON list kept on this device, newest first and capped at `max`. */

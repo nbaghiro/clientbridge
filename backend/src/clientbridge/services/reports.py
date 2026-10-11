@@ -12,6 +12,7 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import NotFound
 from clientbridge.core.locale import locale_for, message
 from clientbridge.core.scoping import scoped
+from clientbridge.core.zones import zone
 from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import Item
@@ -91,7 +92,7 @@ class ReportService:
         return locale_for(business=await self._business(), user=user)
 
     async def income_summary(self, start: date, end: date) -> IncomeReport:
-        lo, hi = period_bounds(start, end, ZoneInfo((await self._business()).timezone))
+        lo, hi = period_bounds(start, end, zone((await self._business()).timezone))
         return await self.income_summary_between(lo, hi)
 
     async def income_summary_between(self, lo: datetime, hi: datetime) -> IncomeReport:
@@ -115,7 +116,7 @@ class ReportService:
 
     async def gst_hst_return(self, start: date, end: date) -> GstHstReport:
         business = await self._business()
-        lo, hi = period_bounds(start, end, ZoneInfo(business.timezone))
+        lo, hi = period_bounds(start, end, zone(business.timezone))
         tax = await self._tax_by_code(lo, hi)
         return GstHstReport(
             tax_collected_cents=tax.get("GST", 0) + tax.get("HST", 0),
@@ -138,7 +139,7 @@ class ReportService:
         return -int(sales.scalar_one())
 
     async def t4a_summary(self, year: int) -> list[T4ARow]:
-        tz = ZoneInfo((await self._business()).timezone)
+        tz = zone((await self._business()).timezone)
         start = datetime(year, 1, 1, tzinfo=tz)
         end = datetime(year + 1, 1, 1, tzinfo=tz)
         paid = (
@@ -181,7 +182,7 @@ class ReportService:
 
     async def sales_by_item(self, start: date, end: date) -> list[SalesByItemRow]:
         """Catalog lines on paid sales and invoices in the period, with full refunds apart."""
-        lo, hi = period_bounds(start, end, ZoneInfo((await self._business()).timezone))
+        lo, hi = period_bounds(start, end, zone((await self._business()).timezone))
         sold: dict[str, list[float]] = {}
         for fk, parent, status, at in (
             (Line.order_id, Order, ledger.order_status_expr(), ledger.order_paid_at_expr()),
@@ -305,7 +306,7 @@ class ReportService:
     async def summary(self, start: date, end: date) -> ReportSummary:
         """Every report for one period in a single read, plus net sales by month."""
         business = await self._business()
-        tz = ZoneInfo(business.timezone)
+        tz = zone(business.timezone)
         lo, hi = period_bounds(start, end, tz)
         rates = rates_for_province(business.province)
         provincial = next((r for r in rates if r.jurisdiction in ("PST", "QST")), None)
@@ -471,7 +472,7 @@ class ReportService:
         )
 
     async def payouts_csv(self, start: date, end: date) -> str:
-        lo, hi = period_bounds(start, end, ZoneInfo((await self._business()).timezone))
+        lo, hi = period_bounds(start, end, zone((await self._business()).timezone))
         locale = await self._locale()
         return _csv(
             [
@@ -492,7 +493,7 @@ class ReportService:
         )
 
     async def t4a_payees(self, year: int) -> list[T4APayee]:
-        tz = ZoneInfo((await self._business()).timezone)
+        tz = zone((await self._business()).timezone)
         start = datetime(year, 1, 1, tzinfo=tz)
         end = datetime(year + 1, 1, 1, tzinfo=tz)
         rows = await self.db.execute(
@@ -547,7 +548,7 @@ class DashboardService:
         business = await self.db.get(Business, self.biz)
         if business is None:
             raise NotFound("business not found")
-        now = datetime.now(ZoneInfo(business.timezone))
+        now = datetime.now(zone(business.timezone))
         day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         received = await self.db.execute(
             scoped(Entry, self.biz)

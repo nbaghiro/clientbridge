@@ -9,6 +9,7 @@ from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound
 from clientbridge.core.scoping import scoped
+from clientbridge.core.zones import zone
 from clientbridge.models.business import Business
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.schemas.payments import (
@@ -70,7 +71,7 @@ class RemittanceService:
                 code="invalid_itc",
             )
         business = await self._business()
-        tz = ZoneInfo(business.timezone)
+        tz = zone(business.timezone)
         today = datetime.now(tz).date()
         if data.period_end >= today:
             raise AppError(
@@ -153,7 +154,7 @@ class RemittanceService:
 
     async def _ranges(self, business: Business, today: date) -> list[tuple[date, date]]:
         """Every filing period from the first tax booked (two years at most), oldest first."""
-        tz = ZoneInfo(business.timezone)
+        tz = zone(business.timezone)
         first = await self._first_tax_day(tz)
         earliest = date(today.year - _HISTORY_YEARS + 1, 1, 1)
         start = period_of(max(first or today, earliest), business.filing_frequency)[0]
@@ -168,7 +169,7 @@ class RemittanceService:
         business = await self._business()
         if not business.tax_registered:
             return None
-        today = datetime.now(ZoneInfo(business.timezone)).date()
+        today = datetime.now(zone(business.timezone)).date()
         filed = await self.filed_returns()
         ranges = await self._ranges(business, today)
         for start, end in ranges:
@@ -182,7 +183,7 @@ class RemittanceService:
 
     async def filings(self) -> TaxFilings:
         business = await self._business()
-        tz = ZoneInfo(business.timezone)
+        tz = zone(business.timezone)
         today = datetime.now(tz).date()
         frequency = business.filing_frequency
         rates = rates_for_province(business.province)

@@ -3,7 +3,6 @@ import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
 from typing import Literal
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -17,6 +16,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for, message
 from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.core.security import hash_token
+from clientbridge.core.zones import zone
 from clientbridge.integrations.stripe import (
     ChargeFees,
     ConnectComponent,
@@ -216,7 +216,7 @@ class PaymentService:
             return await self._charge_saved_card(business, invoice, data, idempotency_key)
         if data.payment_method_id is not None:
             raise Unprocessable("only a card payment takes a saved card")
-        tz = ZoneInfo(business.timezone)
+        tz = zone(business.timezone)
         today = datetime.now(tz).date()
         received = data.received_on or today
         if received > today:

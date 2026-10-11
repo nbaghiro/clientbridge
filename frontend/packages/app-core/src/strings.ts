@@ -2107,6 +2107,18 @@ interface Strings {
             readonly createError: string;
         };
     };
+    readonly datetime: {
+        readonly zoneNames: {
+            readonly newfoundland: string;
+            readonly atlantic: string;
+            readonly eastern: string;
+            readonly central: string;
+            readonly saskatchewan: string;
+            readonly mountain: string;
+            readonly yukon: string;
+            readonly pacific: string;
+        } & Labels;
+    };
     readonly hours: {
         readonly title: string;
         readonly subtitle: string;

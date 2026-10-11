@@ -13,6 +13,7 @@ import { durationLabel } from "./publicBooking";
 import type { ShellTarget } from "./navigation";
 import { useStaff, staffName } from "./staff";
 import { useReplicaLoad } from "./sync";
+import { SUPPORTED_ZONES, type SupportedZone } from "../zones";
 
 interface BusinessRow {
     id: string;
@@ -119,17 +120,18 @@ function parseBrand(raw: string | null): Brand {
     }
 }
 
-// Canada's zones; a business already in another zone keeps it as an extra choice.
-const TIME_ZONES: { zone: string; label: () => string }[] = [
-    { zone: "America/St_Johns", label: () => strings.business.timeZones.newfoundland },
-    { zone: "America/Halifax", label: () => strings.business.timeZones.atlantic },
-    { zone: "America/Toronto", label: () => strings.business.timeZones.eastern },
-    { zone: "America/Winnipeg", label: () => strings.business.timeZones.central },
-    { zone: "America/Regina", label: () => strings.business.timeZones.saskatchewan },
-    { zone: "America/Edmonton", label: () => strings.business.timeZones.mountain },
-    { zone: "America/Whitehorse", label: () => strings.business.timeZones.yukon },
-    { zone: "America/Vancouver", label: () => strings.business.timeZones.pacific },
-];
+// The zones the server supports, in its order; a business already in another zone keeps it as an extra choice.
+const ZONE_LABELS: Record<SupportedZone, () => string> = {
+    "America/St_Johns": () => strings.business.timeZones.newfoundland,
+    "America/Halifax": () => strings.business.timeZones.atlantic,
+    "America/Toronto": () => strings.business.timeZones.eastern,
+    "America/Winnipeg": () => strings.business.timeZones.central,
+    "America/Regina": () => strings.business.timeZones.saskatchewan,
+    "America/Edmonton": () => strings.business.timeZones.mountain,
+    "America/Whitehorse": () => strings.business.timeZones.yukon,
+    "America/Vancouver": () => strings.business.timeZones.pacific,
+};
+const TIME_ZONES = SUPPORTED_ZONES.map((zone) => ({ zone, label: ZONE_LABELS[zone] }));
 
 /** The time zones a business can pick, with the one it has now even when it is not listed. */
 export function timeZoneOptions(current: string): SelectOption<string>[] {

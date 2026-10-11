@@ -5768,6 +5768,30 @@
     "business.timezoneLabel": {
         "message": "[Ţîɱé žöñé one]"
     },
+    "datetime.zoneNames.newfoundland": {
+        "message": "[Ñéŵƒöûñðļåñð Ţîɱé one two]"
+    },
+    "datetime.zoneNames.atlantic": {
+        "message": "[Åţļåñţîç Ţîɱé one two]"
+    },
+    "datetime.zoneNames.eastern": {
+        "message": "[Éåšţéŕñ Ţîɱé one two]"
+    },
+    "datetime.zoneNames.central": {
+        "message": "[Çéñţŕåļ Ţîɱé one two]"
+    },
+    "datetime.zoneNames.saskatchewan": {
+        "message": "[Šåšķåţçĥéŵåñ Ţîɱé one two]"
+    },
+    "datetime.zoneNames.mountain": {
+        "message": "[Ṁöûñţåîñ Ţîɱé one two]"
+    },
+    "datetime.zoneNames.yukon": {
+        "message": "[Ýûķöñ Ţîɱé one two]"
+    },
+    "datetime.zoneNames.pacific": {
+        "message": "[Þåçîƒîç Ţîɱé one two]"
+    },
     "business.timeZones.newfoundland": {
         "message": "[Ñéŵƒöûñðļåñð Ţîɱé (Šţ. Ĵöĥñ'š) one two three]"
     },

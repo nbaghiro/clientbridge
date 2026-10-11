@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 
+import cases from "./zones.cases.json" with { type: "json" };
+import { BUNDLED_ZONES, SUPPORTED_ZONES } from "./zones";
 import {
+    adoptZoneTable,
     addDays,
     addMonths,
     clockKey,
@@ -40,8 +43,10 @@ import {
     startOfDay,
     startOfMonth,
     startOfWeek,
+    sameClock,
     wallTime,
     weekdayDay,
+    zoneTableVersion,
     weekdayNames,
     zonedDate,
 } from "./datetime";
@@ -334,5 +339,46 @@ describe.each([
         expect(
             formatRelativeTime("2026-10-07T16:00:00Z", VAN, new Date("2026-10-07T18:00:00Z")),
         ).toBe(relative);
+    });
+});
+
+const pad = (n: number): string => String(n).padStart(2, "0");
+
+describe("the server's zone table", () => {
+    it("reads every instant the way the backend's tzdata does", () => {
+        for (const c of cases) {
+            const w = wallTime(new Date(c.at), c.zone);
+            expect(
+                `${String(w.year)}-${pad(w.month)}-${pad(w.day)}T${pad(w.hour)}:${pad(w.minute)}`,
+                c.zone,
+            ).toBe(c.wall);
+        }
+    });
+
+    it("finds the instant of an unambiguous wall clock the backend computed", () => {
+        for (const c of cases.filter((x) => x.wall.endsWith("T12:00"))) {
+            const [y = 0, m = 0, d = 0] = c.wall.slice(0, 10).split("-").map(Number);
+            expect(+zonedDate(y, m, d, 12, 0, c.zone), c.zone).toBe(c.at);
+        }
+    });
+
+    it("covers each supported zone and keeps Vancouver on UTC-7 after 2026-11-01", () => {
+        expect(Object.keys(BUNDLED_ZONES.zones)).toEqual([...SUPPORTED_ZONES]);
+        expect(wallTime(new Date("2026-12-01T19:00:00Z"), VAN).hour).toBe(12);
+        expect(sameClock(VAN, "America/Whitehorse", new Date("2026-12-01T19:00:00Z"))).toBe(true);
+    });
+
+    it("adopts only a newer table", () => {
+        const older = { version: "2001.1", zones: { [VAN]: [[0, -480]] as const } };
+        expect(adoptZoneTable(older)).toBe(false);
+        const version = zoneTableVersion();
+        const newer = {
+            version: "2999.1",
+            zones: { ...BUNDLED_ZONES.zones, [VAN]: [[0, -480]] as const },
+        };
+        expect(adoptZoneTable(newer)).toBe(true);
+        expect(wallTime(new Date("2026-12-01T19:00:00Z"), VAN).hour).toBe(11);
+        expect(adoptZoneTable({ ...BUNDLED_ZONES, version: "3000.1" })).toBe(true);
+        expect(zoneTableVersion()).not.toBe(version);
     });
 });

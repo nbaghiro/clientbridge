@@ -1,6 +1,5 @@
 from datetime import UTC, date, datetime
-from functools import cache
-from zoneinfo import ZoneInfo, available_timezones
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +8,7 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
+from clientbridge.core.zones import SUPPORTED_ZONES, zone
 from clientbridge.integrations.stripe import ConnectAccount
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.platform import File
@@ -20,28 +20,23 @@ async def business_tz(db: AsyncSession, business_id: str) -> ZoneInfo:
     tz = (
         await db.execute(select(Business.timezone).where(Business.id == business_id))
     ).scalar_one_or_none()
-    return ZoneInfo(tz) if tz is not None else ZoneInfo("UTC")
+    return zone(tz) if tz is not None else zone("UTC")
 
 
 def local_today(business: Business) -> date:
-    return datetime.now(ZoneInfo(business.timezone)).date()
+    return datetime.now(zone(business.timezone)).date()
 
 
 async def businesses_at_hour(db: AsyncSession, now: datetime, hour: int) -> list[Business]:
     """Businesses whose local clock reads `hour` at `now`, for daily client messages."""
     businesses = (await db.execute(select(Business))).scalars().all()
-    return [b for b in businesses if now.astimezone(ZoneInfo(b.timezone)).hour == hour]
+    return [b for b in businesses if now.astimezone(zone(b.timezone)).hour == hour]
 
 
 def valid_timezone(name: str | None) -> str:
-    if name is None or name not in _iana_zones():
-        raise Unprocessable("timezone must be an IANA time zone name", code="invalid_timezone")
+    if name is None or name not in SUPPORTED_ZONES:
+        raise Unprocessable("timezone must be a supported time zone", code="invalid_timezone")
     return name
-
-
-@cache
-def _iana_zones() -> frozenset[str]:
-    return frozenset(available_timezones())
 
 
 async def business_province(db: AsyncSession, business_id: str) -> str | None:

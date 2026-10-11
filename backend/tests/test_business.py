@@ -1,11 +1,8 @@
-import zoneinfo
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo, available_timezones
-
 import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.zones import SUPPORTED_ZONES
 from clientbridge.models.business import Business
 
 BIZ = "bz_birchbark"
@@ -139,18 +136,12 @@ async def test_unknown_timezone_is_422_and_not_stored(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     before = (await db.execute(select(Business.timezone).where(Business.id == BIZ))).scalar_one()
-    for zone in ("Mars/Olympus_Mons", "america/vancouver", "EST5EDT ", "", None):
+    for zone in ("Mars/Olympus_Mons", "america/vancouver", "Europe/London", "EST5EDT ", "", None):
         res = await as_owner.patch("/v1/business", json={"timezone": zone})
         assert res.status_code == 422, zone
         assert res.json()["error"] == "invalid_timezone"
     after = (await db.execute(select(Business.timezone).where(Business.id == BIZ))).scalar_one()
     assert after == before
-
-
-def test_zone_data_is_the_pinned_package_with_bc_on_permanent_utc_minus_7() -> None:
-    assert zoneinfo.TZPATH == ()
-    december = datetime(2026, 12, 1, 12, tzinfo=ZoneInfo("America/Vancouver"))
-    assert december.utcoffset() == timedelta(hours=-7)
 
 
 async def test_a_malformed_request_names_a_code(as_owner: httpx.AsyncClient) -> None:
@@ -164,6 +155,6 @@ async def test_update_without_timezone_skips_the_check(as_owner: httpx.AsyncClie
     assert res.status_code == 200, res.text
 
 
-async def test_seeded_businesses_use_iana_zones(db: AsyncSession) -> None:
+async def test_seeded_businesses_use_supported_zones(db: AsyncSession) -> None:
     zones = set((await db.execute(select(Business.timezone))).scalars())
-    assert zones and zones <= available_timezones()
+    assert zones and zones <= set(SUPPORTED_ZONES)

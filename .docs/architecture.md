@@ -541,7 +541,7 @@ Everything else — SQL, mutations, validation, status→`Intent` decisions, cop
   **`icons.ts`** is icon geometry as data (rendered `<svg>` on web, `react-native-svg` on mobile).
 - **Layout:** one file per concept in `domain/` (`today`, `hours`, `earnings`, `gettingPaid`, `auth`…),
   named the same as its strings group, web page and mobile screen; the shared plumbing sits flat at the
-  root (`api`, `hooks`, `format`, `datetime`, `ui`, `debug`). `packages/config/scripts/check-structure.mjs`
+  root (`api`, `hooks`, `format`, `datetime`, `zones`, `ui`, `debug`). `packages/config/scripts/check-structure.mjs`
   in `pnpm lint` fails when a concept's names drift apart or a package export is used only in its own
   file, and knip fails on unused files, dependencies and exports. Related things share one concept:
   `entitlements` holds packages, memberships and gift cards, and `business` holds the profile and
@@ -564,11 +564,23 @@ Everything else — SQL, mutations, validation, status→`Intent` decisions, cop
   `backend/src/clientbridge/locales/en_CA.po`. The generated `en-XA` (`en_XA`) pseudo-locale is a
   development and test tool switched on by `VITE_PSEUDO_LOCALE`, `EXPO_PUBLIC_PSEUDO_LOCALE` or the
   backend's `PSEUDO_LOCALE`; it is never offered to users.
-- **Business time zone.** Every date and time on staff surfaces and Connect is shown in the business's IANA
-  time zone (validated on save, picked from a list): staff screens read it with `useBusinessZone()` from
-  `BusinessZoneContext`, Connect from the `timezone` field every public payload carries, and Connect names
-  the zone when the visitor's differs. Grouping by day uses the same zone, never the device's. The backend
-  formats email and SMS times with `format_day_and_time` in the business zone and ships its own `tzdata`.
+- **Business time zone.** Every date and time on staff surfaces and Connect is shown in the business's
+  time zone, one of the Canadian zones in `SUPPORTED_ZONES` (`core/zones.py`, validated on save): staff
+  screens read it with `useBusinessZone()` from `BusinessZoneContext`, Connect from the `timezone` field
+  every public payload carries, and Connect names the zone when the visitor's clock reads differently.
+  Grouping by day uses the same zone, never the device's. The backend formats email and SMS times with
+  `format_day_and_time` in the business zone.
+- **One source of zone data.** The backend's pinned `tzdata` package is the only zone data any surface
+  uses. `core/zones.py` is its one reader (the structure check fails on `ZoneInfo(`, `available_timezones`
+  or `AT TIME ZONE` elsewhere) and computes each supported zone's offsets from 2000 to 2060.
+  `make gen-zones` writes them into app-core `zones.ts` (with `zones.cases.json`, the parity cases the
+  app-core tests check `wallTime` and `zonedDate` against), and `GET /v1/zones` serves the same table with
+  its tzdata version. App-core `datetime.ts` takes every offset from that table and asks `Intl` only to
+  word a wall clock, always in UTC, so browser, Node and Hermes zone data never decide a time. Web and
+  Connect deploy with the backend and so bundle the same release; the mobile app keeps a newer table from
+  `/v1/zones` in `device_prefs` (`useServerZones`), and its Intl polyfill loads no zone data. Zone names
+  ("Pacific Time") come from the catalog. A visitor's own zone outside the table is read through `Intl`
+  only to decide whether Connect shows the zone note.
 - **Errors.** Clients choose a message from the response's `error` code and HTTP status
   (`failureMessage`, `failedCode`, `failedStatus` in app-core `api.ts`); the `message` text is never shown.
 

@@ -1070,9 +1070,8 @@ Not tracked in Jira yet. These are pulled in by demand once the launch stories a
   `locale_for(...)`, language pickers, the device language through `expo-localization`, `/fr` routes and
   `hreflang` on the site, a per-locale prerender of the site (its content reads the catalog at import),
   Stripe's `locale` parameter, translated store listings, and a decision on whether a sent document keeps
-  its language. Known gaps to close then: the mobile date polyfill writes "GMT-7" where browsers write
-  "Pacific Time", so the zone label is web-only; the `no-composed-copy` rule cannot see text placed side by
-  side in JSX; browser and Node time zone data can lag the backend's pinned `tzdata`. The localization
+  its language. Known gap to close then: the `no-composed-copy` rule cannot see text placed side by side in
+  JSX. The localization
   audit of 2026-10-11 found more work that French needs:
   - A missing translation shows the raw key on both sides: `locale.ts` falls back to the key and
     `core/locale.py` passes the key to gettext. Both need a fallback chain to English before a partial

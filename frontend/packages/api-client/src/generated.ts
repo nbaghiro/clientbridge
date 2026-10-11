@@ -2940,6 +2940,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/zones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Zones
+         * @description The offsets clients show times with, so every client uses the server's time zone data.
+         */
+        get: operations["list_zones_v1_zones_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -7711,6 +7731,24 @@ export interface components {
             start_time?: string | null;
             /** End Time */
             end_time?: string | null;
+        };
+        /** ZonesOut */
+        ZonesOut: {
+            /**
+             * Version
+             * @description The tzdata release the offsets come from
+             */
+            version: string;
+            /**
+             * Zones
+             * @description Per supported zone, each UTC offset as (UTC second it starts, minutes)
+             */
+            zones: {
+                [key: string]: [
+                    number,
+                    number
+                ][];
+            };
         };
     };
     responses: never;
@@ -14022,6 +14060,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_zones_v1_zones_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ZonesOut"];
                 };
             };
         };

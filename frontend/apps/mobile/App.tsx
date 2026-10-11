@@ -6,6 +6,7 @@ import {
     useBusinessLoad,
     useBusinessSelection,
     useReplicaSession,
+    useServerZones,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { PowerSyncContext } from "@powersync/react";
@@ -158,6 +159,8 @@ function Root() {
 
 function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
     const business = useBusinessLoad();
+    // A newer server zone table rerenders every formatted time once.
+    const zones = useServerZones(api);
     if (!business.ready) {
         if (business.state === "empty") return <OnboardingScreen onSignOut={onSignOut} />;
         return (
@@ -176,7 +179,7 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
     }
 
     return (
-        <BusinessZoneContext.Provider value={business.zone}>
+        <BusinessZoneContext.Provider key={zones} value={business.zone}>
             <SignOutContext.Provider value={onSignOut}>
                 <StripeAppProvider>
                     <NavigationContainer theme={navTheme}>
