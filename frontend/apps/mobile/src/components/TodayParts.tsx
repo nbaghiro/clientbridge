@@ -323,7 +323,6 @@ export function NextCard({ item, children }: { item: AgendaItem; children?: Reac
                                       : item.startsIn
                             }
                             intent={item.checkedIn || item.state === "now" ? "success" : "accent"}
-                            asWritten
                         />
                     </View>
                     <Text style={styles.nextClient} numberOfLines={1}>

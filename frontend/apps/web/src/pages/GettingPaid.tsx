@@ -106,7 +106,6 @@ function Body({ paid }: { paid: GettingPaidView }) {
                                         </div>
                                         <span className="shrink-0">
                                             <StatusPill
-                                                asWritten
                                                 status={
                                                     r.pastDue
                                                         ? g.pastDue

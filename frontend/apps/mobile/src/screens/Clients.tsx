@@ -667,7 +667,6 @@ function RecordSheet({
                                     style={{ alignSelf: "center" }}
                                     status={pill.label}
                                     intent={pill.intent}
-                                    asWritten
                                 />
                             ) : null}
                         </View>

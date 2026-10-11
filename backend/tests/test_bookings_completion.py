@@ -115,7 +115,9 @@ async def test_a_visit_left_open_yesterday_is_completed_and_asked_for_a_review(
     assert slot.status == "completed"
     [audit] = await _audits(db, visit.id)
     assert audit.action == "booking.auto_complete" and audit.performed_by is None
-    assert await run_review_requests(db, Notifier(email, sms, push), NEXT_MORNING) == 1
+    # review requests go out at 8 a.m. in the business's zone (Vancouver, UTC-8 in January)
+    eight_am = NEXT_MORNING.replace(hour=16)
+    assert await run_review_requests(db, Notifier(email, sms, push), eight_am) == 1
     review = await db.scalar(select(Review).where(Review.booking_id == visit.id))
     assert review is not None and review.status == "requested"
 

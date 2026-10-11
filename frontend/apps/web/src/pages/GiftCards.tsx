@@ -280,7 +280,7 @@ function WalletCard({
                         {summary.title}
                     </h3>
                 </div>
-                <StatusPill status={summary.statusLabel} intent={summary.intent} asWritten />
+                <StatusPill status={summary.statusLabel} intent={summary.intent} />
             </div>
             <div className="mt-4 flex-1">
                 {summary.meter !== null ? (

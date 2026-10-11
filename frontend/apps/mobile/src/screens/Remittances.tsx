@@ -101,7 +101,6 @@ export function Remittances() {
                                         style={{ alignSelf: "center" }}
                                         status={s.status[p.status]}
                                         intent={filingStatusIntent(p.status)}
-                                        asWritten
                                     />
                                     <Text style={styles.lineAmount}>
                                         {formatMoney(p.federalCents, BUSINESS_CURRENCY)}

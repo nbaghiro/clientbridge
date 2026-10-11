@@ -99,6 +99,10 @@ export function useClientSubscriptions(clientId: string): SubscriptionRow[] {
     return useQuery<SubscriptionRow>(CLIENT_SUBSCRIPTIONS_SQL, [clientId]).data;
 }
 
+export function entitlementStatusLabel(status: string): string {
+    return strings.entitlements.statusLabel[status] ?? status;
+}
+
 export function subscriptionStatusIntent(status: string): Intent {
     switch (status) {
         case "active":

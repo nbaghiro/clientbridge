@@ -61,7 +61,6 @@ export function DetailView({
                             style={{ alignSelf: "center" }}
                             status={status.status}
                             intent={status.intent}
-                            asWritten
                         />
                     ) : null}
                     <IconButton

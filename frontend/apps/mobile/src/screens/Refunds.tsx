@@ -131,7 +131,7 @@ function PaymentsList({ desk }: { desk: ReturnType<typeof useRefundDesk> }) {
                                 strong
                             />
                             {r.state !== "paid" ? (
-                                <StatusPill status={r.stateLabel} intent={r.intent} asWritten />
+                                <StatusPill status={r.stateLabel} intent={r.intent} />
                             ) : null}
                         </View>
                     }
@@ -314,7 +314,7 @@ function Disputes({ desk }: { desk: DisputeDesk }) {
                     meta={
                         <View style={styles.meta}>
                             <Money currency={BUSINESS_CURRENCY} cents={d.row.amount_cents} strong />
-                            <StatusPill status={d.statusLabel} intent={d.intent} asWritten />
+                            <StatusPill status={d.statusLabel} intent={d.intent} />
                         </View>
                     }
                     onPress={() => {

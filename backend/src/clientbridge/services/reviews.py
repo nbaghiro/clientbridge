@@ -20,6 +20,7 @@ from clientbridge.schemas.reviews import (
     ReviewRequestCreate,
     ReviewShareOut,
 )
+from clientbridge.services.business import businesses_at_hour
 from clientbridge.services.notifications import Notifier
 
 
@@ -206,16 +207,18 @@ def _review_out(review: Review) -> ReviewOut:
 
 
 _REQUEST_WINDOW = timedelta(days=7)
+_REVIEW_HOUR = 8
 
 
 async def run_review_requests(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
-    """Send one review request per booking completed in the last 7 days."""
+    """Send one review request per booking completed in the last 7 days, at 8 a.m. business time."""
     requested = select(Review.booking_id).where(Review.booking_id.is_not(None))
-    bookings = (
-        (
+    bookings = [
+        booking
+        for business in await businesses_at_hour(db, now, _REVIEW_HOUR)
+        for booking in (
             await db.execute(
-                select(Booking).where(
-                    Booking.deleted_at.is_(None),
+                scoped(Booking, business.id, soft_delete=True).where(
                     Booking.status == "completed",
                     Booking.completed_at.is_not(None),
                     Booking.completed_at >= now - _REQUEST_WINDOW,
@@ -223,10 +226,8 @@ async def run_review_requests(db: AsyncSession, notifier: Notifier, now: datetim
                     Booking.id.not_in(requested),
                 )
             )
-        )
-        .scalars()
-        .all()
-    )
+        ).scalars()
+    ]
     requests = []
     for booking in bookings:
         request = build_review_request(booking.business_id, booking.client_id, booking.id, now)

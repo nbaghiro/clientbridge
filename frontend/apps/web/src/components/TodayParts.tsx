@@ -70,19 +70,12 @@ export function KpiStripLoading() {
 
 function StateTag({ item }: { item: AgendaItem }) {
     if (item.checkedIn && item.state !== "done")
-        return <StatusPill status={t.checkedIn} intent="success" asWritten />;
-    if (item.state === "now") return <StatusPill status={t.stateNow} intent="success" asWritten />;
+        return <StatusPill status={t.checkedIn} intent="success" />;
+    if (item.state === "now") return <StatusPill status={t.stateNow} intent="success" />;
     if (item.state === "next")
-        return (
-            <StatusPill
-                status={formatParts([t.stateNext, item.startsIn])}
-                intent="accent"
-                asWritten
-            />
-        );
-    if (item.state === "no_show")
-        return <StatusPill status={t.stateNoShow} intent="danger" asWritten />;
-    if (item.depositDue) return <StatusPill status={t.depositDue} intent="warning" asWritten />;
+        return <StatusPill status={formatParts([t.stateNext, item.startsIn])} intent="accent" />;
+    if (item.state === "no_show") return <StatusPill status={t.stateNoShow} intent="danger" />;
+    if (item.depositDue) return <StatusPill status={t.depositDue} intent="warning" />;
     return null;
 }
 
@@ -393,7 +386,6 @@ export function FilingCard({
                     <StatusPill
                         status={t.filingShort(formatMonthDay(filingDue, zone))}
                         intent={filingDays !== null && filingDays <= 14 ? "warning" : "neutral"}
-                        asWritten
                     />
                 )}
             </div>

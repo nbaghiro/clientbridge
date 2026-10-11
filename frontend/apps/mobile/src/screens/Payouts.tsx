@@ -123,7 +123,6 @@ export function Payouts() {
                                             <StatusPill
                                                 status={s.status[row.status]}
                                                 intent={payoutStatusIntent(row.status)}
-                                                asWritten
                                             />
                                         }
                                         onPress={() => {

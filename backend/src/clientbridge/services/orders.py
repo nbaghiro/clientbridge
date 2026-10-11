@@ -39,7 +39,7 @@ from clientbridge.schemas.orders import (
 from clientbridge.schemas.public import PublicPickupWindow
 from clientbridge.services import ledger
 from clientbridge.services.bookings import blocking_exception, open_windows
-from clientbridge.services.business import business_tz
+from clientbridge.services.business import business_tz, businesses_at_hour
 from clientbridge.services.lines import (
     apply_totals,
     discount_of,
@@ -614,12 +614,15 @@ async def order_out(db: AsyncSession, order: Order, lines: list[Line]) -> OrderO
     )
 
 
+_PICKUP_REMINDER_HOUR = 9
+
+
 async def run_pickup_reminders(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
-    businesses = (
-        (await db.execute(select(Business).where(Business.status == "active"))).scalars().all()
-    )
+    """Remind clients of orders ready for a day, at 9 a.m. business time."""
     sent = 0
-    for business in businesses:
+    for business in await businesses_at_hour(db, now, _PICKUP_REMINDER_HOUR):
+        if business.status != "active":
+            continue
         reminded = (
             scoped(Audit, business.id)
             .where(Audit.action == "order.pickup_reminder", Audit.entity_id == Order.id)

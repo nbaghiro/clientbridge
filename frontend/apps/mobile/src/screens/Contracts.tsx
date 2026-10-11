@@ -179,7 +179,6 @@ function ContractDetail({
                                 <StatusPill
                                     status={s.status[r.state]}
                                     intent={signatureIntent(r.state)}
-                                    asWritten
                                 />
                             }
                             onPress={

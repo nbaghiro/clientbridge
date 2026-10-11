@@ -381,7 +381,7 @@ function Attendee({ a, roster }: { a: RosterEntry; roster: ClassRoster }) {
                 </p>
             </div>
             {a.status === "confirmed" && roster.started ? null : (
-                <StatusPill status={a.statusLabel} intent={a.intent} asWritten />
+                <StatusPill status={a.statusLabel} intent={a.intent} />
             )}
             <div className="flex justify-end gap-1.5">
                 {a.status === "confirmed" && roster.started ? (

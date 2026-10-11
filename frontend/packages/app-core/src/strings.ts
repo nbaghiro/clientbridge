@@ -3850,6 +3850,13 @@ interface Strings {
         readonly notFoundTitle: string;
         readonly notFoundBody: string;
         readonly canceledAlready: string;
+        readonly blocked: {
+            readonly status: string;
+            readonly by_phone: string;
+            readonly class_session: string;
+            readonly reschedule_limit: string;
+            readonly cutoff: (hours: number) => string;
+        };
         readonly error: string;
         readonly addCalendar: string;
         readonly noTimes: string;
@@ -4131,6 +4138,9 @@ interface Strings {
         readonly open: string;
         readonly close: string;
         readonly esc: string;
+        readonly inactiveClient: string;
+        readonly bookKey: string;
+        readonly messageKey: string;
         readonly offline: string;
         readonly seeAll: (n: number) => string;
         readonly recentSearch: (q: string) => string;

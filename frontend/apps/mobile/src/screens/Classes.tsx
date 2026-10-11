@@ -304,7 +304,6 @@ function Attendee({ a, roster, first }: { a: RosterEntry; roster: ClassRoster; f
                         style={{ alignSelf: "center" }}
                         status={a.statusLabel}
                         intent={a.intent}
-                        asWritten
                     />
                     {a.status === "checked_in" || a.status === "no_show" ? (
                         <Button

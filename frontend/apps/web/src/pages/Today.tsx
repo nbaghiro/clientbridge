@@ -303,7 +303,6 @@ function StaffTodayPage() {
                                                         <StatusPill
                                                             status={t.stateNext}
                                                             intent="accent"
-                                                            asWritten
                                                         />
                                                     ) : null}
                                                 </li>
@@ -403,7 +402,6 @@ function NextClient({
                               : formatParts([item.time, item.startsIn])
                     }
                     intent={item.checkedIn || item.state === "now" ? "success" : "accent"}
-                    asWritten
                 />
             </div>
             <div className="flex flex-wrap items-start gap-5 p-5">

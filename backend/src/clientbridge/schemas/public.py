@@ -127,6 +127,9 @@ class ManagedAddon(BaseModel):
     unit_cents: int
 
 
+ManageBlock = Literal["status", "by_phone", "cutoff", "class_session", "reschedule_limit"]
+
+
 class ManagedBooking(Mirror):
     mirrors = Booking
 
@@ -154,7 +157,12 @@ class ManagedBooking(Mirror):
     timezone: str = Field(description="The business's IANA time zone, which its times are shown in")
     can_move: bool
     can_cancel: bool
-    blocked: str | None = Field(default=None, description="Why a change is refused online")
+    blocked: ManageBlock | None = Field(
+        default=None, description="Why a change is refused online, as a code Connect words"
+    )
+    blocked_hours: int | None = Field(
+        default=None, description="The policy cutoff in hours, when the reason is the cutoff"
+    )
 
 
 class ManageReschedule(BaseModel):

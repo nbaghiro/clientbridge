@@ -215,7 +215,6 @@ export function Earnings() {
                                         <StatusPill
                                             status={s.stage[l.status] ?? l.status}
                                             intent={earningStageIntent(l.status)}
-                                            asWritten
                                         />
                                         <span className="w-20 text-right text-sm font-semibold tabular-nums text-ink">
                                             {formatMoney(l.amountCents, BUSINESS_CURRENCY)}

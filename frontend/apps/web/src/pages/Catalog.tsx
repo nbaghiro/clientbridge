@@ -100,7 +100,7 @@ function CatalogRow({ item }: { item: ItemRow }) {
             </span>
             <span className="flex items-center gap-1.5 text-xs text-muted">
                 {status !== null ? (
-                    <StatusPill status={status.label} intent={status.intent} asWritten />
+                    <StatusPill status={status.label} intent={status.intent} />
                 ) : sellsOnline(item) ? (
                     <>
                         <Icon name="check" size={14} color="var(--success)" />

@@ -30,6 +30,9 @@ BIZ = "bz_birchbark"
 ST_OWNER = "st_owner"
 # far in the past so the global scans see only the rows each test plants (the seed is ~now)
 NOW = datetime(2020, 1, 1, tzinfo=UTC)
+# daily client messages go out at a local hour; the seed business is in Vancouver (UTC-8)
+OVERDUE_AT = datetime(2020, 1, 1, 15, tzinfo=UTC)
+REVIEWS_AT = datetime(2020, 1, 1, 16, tzinfo=UTC)
 
 
 def _notifier(email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender) -> Notifier:
@@ -61,7 +64,7 @@ async def test_overdue_sweep_flags_and_notifies(
     overdue_id = await sent_invoice(db, client=cid, due_at=NOW - timedelta(days=5))
     current_id = await sent_invoice(db, client=cid, due_at=NOW + timedelta(days=5))
 
-    swept = await run_overdue_sweep(db, _notifier(email, sms, push), NOW)
+    swept = await run_overdue_sweep(db, _notifier(email, sms, push), OVERDUE_AT)
 
     assert swept == 1
     assert await _status(db, Invoice, overdue_id) == "overdue"
@@ -75,8 +78,40 @@ async def test_overdue_sweep_is_idempotent(
     cid = await client_id(db, email="od@example.ca")
     await sent_invoice(db, client=cid, due_at=NOW - timedelta(days=5))
     notifier = _notifier(email, sms, push)
-    assert await run_overdue_sweep(db, notifier, NOW) == 1
-    assert await run_overdue_sweep(db, notifier, NOW) == 0  # the transition is the dedup marker
+    assert await run_overdue_sweep(db, notifier, OVERDUE_AT) == 1
+    assert (
+        await run_overdue_sweep(db, notifier, OVERDUE_AT) == 0
+    )  # the transition is the dedup marker
+
+
+async def test_overdue_sweep_waits_for_each_business_morning(
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+    factory: Factory,
+) -> None:
+    eastern = await factory.business(name="Halifax Tenant")
+    eastern.timezone = "America/Halifax"
+    client = await factory.client(business=eastern, name="East Client")
+    await db.flush()
+    inv = await sent_invoice(
+        db, client=client.id, due_at=NOW - timedelta(days=5), business_id=eastern.id
+    )
+    notifier = _notifier(email, sms, push)
+
+    assert await run_overdue_sweep(db, notifier, OVERDUE_AT) == 0  # 11 a.m. in Halifax
+    assert await _status(db, Invoice, inv) == "sent"
+    assert await run_overdue_sweep(db, notifier, datetime(2020, 1, 1, 11, tzinfo=UTC)) == 1
+    assert await _status(db, Invoice, inv) == "overdue"
+
+
+def test_daily_client_messages_run_hourly() -> None:
+    hourly = {"sweep_overdue_invoices", "send_review_requests", "send_pickup_reminders"}
+    for job in WorkerSettings.cron_jobs:
+        assert isinstance(job, CronJob)
+        if job.name.removeprefix("cron:") in hourly:
+            assert job.hour is None and job.minute == 0
 
 
 async def test_overdue_sweep_is_multi_tenant(
@@ -98,7 +133,7 @@ async def test_overdue_sweep_is_multi_tenant(
         db, client=client_b.id, due_at=NOW - timedelta(days=5), business_id=other.id
     )
 
-    swept = await run_overdue_sweep(db, _notifier(email, sms, push), NOW)
+    swept = await run_overdue_sweep(db, _notifier(email, sms, push), OVERDUE_AT)
 
     assert swept == 2  # the single scan resolved both tenants' rows, not just the seeded one
     assert await _status(db, Invoice, inv_a) == "overdue"
@@ -179,11 +214,11 @@ async def test_review_requests_for_recently_completed(
     bid = await _completed_booking(db, cid, completed_at=NOW)
     notifier = _notifier(email, sms, push)
 
-    assert await run_review_requests(db, notifier, NOW) == 1
+    assert await run_review_requests(db, notifier, REVIEWS_AT) == 1
     req = (await db.execute(select(Review).where(Review.booking_id == bid))).scalar_one()
     assert req.status == "requested" and req.token
     assert any(m.to == "rev-job@example.ca" for m in email.sent)
-    assert await run_review_requests(db, notifier, NOW) == 0  # any existing request dedups
+    assert await run_review_requests(db, notifier, REVIEWS_AT) == 0  # any existing request dedups
 
 
 async def test_review_requests_skips_already_requested(
@@ -193,7 +228,7 @@ async def test_review_requests_skips_already_requested(
     bid = await _completed_booking(db, cid, completed_at=NOW)
     db.add(build_review_request(BIZ, cid, bid, NOW))
     await db.flush()
-    assert await run_review_requests(db, _notifier(email, sms, push), NOW) == 0
+    assert await run_review_requests(db, _notifier(email, sms, push), REVIEWS_AT) == 0
 
 
 async def test_review_requests_skips_non_completed_and_stale(
@@ -202,7 +237,7 @@ async def test_review_requests_skips_non_completed_and_stale(
     cid = await client_id(db)
     await _completed_booking(db, cid, completed_at=NOW, status="confirmed")  # not completed
     await _completed_booking(db, cid, completed_at=NOW - timedelta(days=30))  # outside 7d window
-    assert await run_review_requests(db, _notifier(email, sms, push), NOW) == 0
+    assert await run_review_requests(db, _notifier(email, sms, push), REVIEWS_AT) == 0
 
 
 async def test_expiry_sweeps_lapse_only_past_rows(db: AsyncSession) -> None:

@@ -878,11 +878,7 @@ function RecordPanel({
                                         </div>
                                     </div>
                                     {pill !== null ? (
-                                        <StatusPill
-                                            status={pill.label}
-                                            intent={pill.intent}
-                                            asWritten
-                                        />
+                                        <StatusPill status={pill.label} intent={pill.intent} />
                                     ) : null}
                                 </li>
                             );

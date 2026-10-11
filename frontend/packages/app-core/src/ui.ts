@@ -422,11 +422,10 @@ export interface ChargeSheetProps {
     children?: ReactNode | undefined;
 }
 
-// Raw status values are capitalized; asWritten keeps an already-worded label as it is.
+// `status` is a catalog label, shown as written.
 export interface StatusPillProps {
     status: string;
     intent: Intent;
-    asWritten?: boolean | undefined;
 }
 
 // Bank (PAD) mandates are web only, so mobile ignores allowBank.

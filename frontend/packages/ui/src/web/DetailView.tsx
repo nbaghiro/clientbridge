@@ -64,7 +64,7 @@ export function DetailView({
                         </div>
                     </div>
                     {status !== undefined ? (
-                        <StatusPill status={status.status} intent={status.intent} asWritten />
+                        <StatusPill status={status.status} intent={status.intent} />
                     ) : null}
                 </div>
                 <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">{children}</div>

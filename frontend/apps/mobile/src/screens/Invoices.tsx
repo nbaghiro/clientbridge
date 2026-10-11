@@ -263,7 +263,7 @@ function InvoiceDeskView({
                                 strong
                                 tone={r.late ? "danger" : "ink"}
                             />
-                            <StatusPill status={r.statusLabel} intent={r.intent} asWritten />
+                            <StatusPill status={r.statusLabel} intent={r.intent} />
                         </View>
                     </View>
                 )}
@@ -587,7 +587,7 @@ function EstimateDeskView({
                         </View>
                         <View style={styles.rowRight}>
                             <Money currency={BUSINESS_CURRENCY} cents={r.row.total_cents} strong />
-                            <StatusPill status={r.statusLabel} intent={r.intent} asWritten />
+                            <StatusPill status={r.statusLabel} intent={r.intent} />
                         </View>
                     </View>
                 )}

@@ -149,7 +149,6 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                                     <StatusPill
                                         status={s.status[x.status] ?? x.status}
                                         intent={broadcastIntent(x.status)}
-                                        asWritten
                                     />
                                 }
                                 onPress={() => {
@@ -186,7 +185,6 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                             style={{ alignSelf: "center" }}
                             status={s.consentChannel[o.channel]}
                             intent="danger"
-                            asWritten
                         />
                     </View>
                 ))}

@@ -135,11 +135,7 @@ function PaymentsDesk({ desk }: { desk: ReturnType<typeof useRefundDesk> }) {
                                         strong
                                     />
                                     {r.state !== "paid" ? (
-                                        <StatusPill
-                                            status={r.stateLabel}
-                                            intent={r.intent}
-                                            asWritten
-                                        />
+                                        <StatusPill status={r.stateLabel} intent={r.intent} />
                                     ) : null}
                                 </span>
                             }
@@ -193,7 +189,7 @@ function Composer({ summary, refunds }: { summary: RefundSummary; refunds: reado
                             {formatParts([summary.subject, summary.method, summary.when])}
                         </p>
                     </div>
-                    <StatusPill status={summary.stateLabel} intent={summary.intent} asWritten />
+                    <StatusPill status={summary.stateLabel} intent={summary.intent} />
                 </div>
                 <div className="mt-4 rounded-md border border-line bg-bg px-4 py-3">
                     <KeyValueList
@@ -404,7 +400,6 @@ function Disputes({ desk }: { desk: DisputeDesk }) {
                                                 <StatusPill
                                                     status={d.statusLabel}
                                                     intent={d.intent}
-                                                    asWritten
                                                 />
                                             </span>
                                         }
@@ -432,7 +427,7 @@ function Disputes({ desk }: { desk: DisputeDesk }) {
                                     {formatParts([sel.row.client_name ?? "", sel.subject])}
                                 </p>
                             </div>
-                            <StatusPill status={sel.statusLabel} intent={sel.intent} asWritten />
+                            <StatusPill status={sel.statusLabel} intent={sel.intent} />
                         </div>
                         <Notice
                             tone={

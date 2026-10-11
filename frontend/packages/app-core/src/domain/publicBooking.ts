@@ -872,7 +872,29 @@ interface ManagedBooking {
     timezone: string;
     can_move: boolean;
     can_cancel: boolean;
-    blocked: string | null;
+    blocked: ManageBlock | null;
+    blocked_hours: number | null;
+}
+
+type ManageBlock = "status" | "by_phone" | "cutoff" | "class_session" | "reschedule_limit";
+
+/** Why the client can't change the visit online, worded from its code. */
+function blockedReason(code: ManageBlock | null, hours: number | null): string | null {
+    const b = strings.publicManage.blocked;
+    switch (code) {
+        case null:
+            return null;
+        case "cutoff":
+            return b.cutoff(hours ?? 0);
+        case "status":
+            return b.status;
+        case "by_phone":
+            return b.by_phone;
+        case "class_session":
+            return b.class_session;
+        case "reschedule_limit":
+            return b.reschedule_limit;
+    }
 }
 
 interface ManageCancelResult {
@@ -1041,7 +1063,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
         live,
         canCancel: live && data.can_cancel,
         canMove: live && data.can_move,
-        blocked: live ? data.blocked : null,
+        blocked: live ? blockedReason(data.blocked, data.blocked_hours) : null,
         dateTile: {
             month: formatShortMonth(start, zone),
             day: formatDayNumber(start, zone),

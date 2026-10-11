@@ -50,7 +50,7 @@ export function PublicEstimate() {
                         <StatusPill
                             status={pe.waiting}
                             intent="neutral"
-                            asWritten
+
                             className="border border-line !bg-transparent !text-ink"
                         />
                     ) : null}

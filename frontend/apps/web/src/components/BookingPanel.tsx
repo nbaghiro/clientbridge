@@ -48,7 +48,7 @@ export function BookingHeading({ detail }: { detail: BookingDetail }) {
     return (
         <div className="space-y-1">
             <div className="flex items-center gap-2">
-                <StatusPill status={s.statusLabel(e.status)} intent={e.intent} asWritten />
+                <StatusPill status={s.statusLabel(e.status)} intent={e.intent} />
                 <span className="text-xs font-medium text-muted">{detail.timing}</span>
             </div>
             <h2 className="font-display text-xl font-bold text-ink">{e.headline}</h2>
@@ -514,7 +514,6 @@ export function BookingBody({
                     <StatusPill
                         status={s.statusLabel(detail.event.status)}
                         intent={detail.event.intent}
-                        asWritten
                     />
                     <span className="text-xs font-medium text-muted">{detail.timing}</span>
                 </div>

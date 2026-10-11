@@ -7,19 +7,12 @@ import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
-export function StatusPill({
-    status,
-    intent,
-    asWritten = false,
-    style,
-}: NativeProps<StatusPillProps>) {
+export function StatusPill({ status, intent, style }: NativeProps<StatusPillProps>) {
     const p = INTENT_COLORS[intent];
     const tone = { bg: c[p.soft], fg: c[p.ink] };
     return (
         <View style={[styles.badge, { backgroundColor: tone.bg }, style]}>
-            <Text style={[styles.text, asWritten ? null : styles.raw, { color: tone.fg }]}>
-                {status}
-            </Text>
+            <Text style={[styles.text, { color: tone.fg }]}>{status}</Text>
         </View>
     );
 }
@@ -27,5 +20,4 @@ export function StatusPill({
 const styles = StyleSheet.create({
     badge: { alignSelf: "flex-start", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
     text: { fontSize: 11, fontWeight: "600" },
-    raw: { textTransform: "capitalize" },
 });

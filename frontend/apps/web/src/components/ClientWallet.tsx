@@ -11,6 +11,7 @@ import {
     parseTimestamp,
     sessionsRemaining,
     strings,
+    entitlementStatusLabel,
     subscriptionStatusIntent,
     useAddPaymentMethod,
     useAsyncAction,
@@ -73,7 +74,7 @@ function MethodRow({ m, wallet }: { m: WalletMethod; wallet: ReturnType<typeof u
                 </div>
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
                     {m.status !== null ? (
-                        <StatusPill status={m.status.label} intent={m.status.intent} asWritten />
+                        <StatusPill status={m.status.label} intent={m.status.intent} />
                     ) : null}
                     {m.expiry !== null ? (
                         <span className={m.expiringSoon ? "font-medium text-warn-fg" : ""}>
@@ -161,7 +162,10 @@ function SubscriptionLine({ sub }: { sub: SubscriptionRow }) {
                     ) : null}
                 </div>
                 <div className="ml-auto flex shrink-0 items-center gap-2">
-                    <StatusPill status={sub.status} intent={subscriptionStatusIntent(sub.status)} />
+                    <StatusPill
+                        status={entitlementStatusLabel(sub.status)}
+                        intent={subscriptionStatusIntent(sub.status)}
+                    />
                     {isCancelable(sub.status) ? (
                         <Button variant="outline" size="sm" busy={busy} onPress={cancel}>
                             {strings.common.cancel}
@@ -188,7 +192,10 @@ function PackageLine({ pkg }: { pkg: PackageRow }) {
                     </div>
                 </div>
                 <div className="ml-auto flex shrink-0 items-center gap-2">
-                    <StatusPill status={pkg.status} intent={packageStatusIntent(pkg.status)} />
+                    <StatusPill
+                        status={entitlementStatusLabel(pkg.status)}
+                        intent={packageStatusIntent(pkg.status)}
+                    />
                     {canConsume(pkg) ? (
                         <Button
                             variant="outline"

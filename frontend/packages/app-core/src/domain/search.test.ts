@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { strings } from "../strings";
 import { createActionsFor } from "./navigation";
 import { highlight, searchHits } from "./search";
 
@@ -57,7 +58,7 @@ describe("searchHits", () => {
     it("finds clients by name, email or any phone format, with book and message for the top one", () => {
         const hits = searchHits("mar", data, now, ZONE);
         expect(hits.clients.map((h) => h.id)).toEqual(["cl_1", "cl_2"]);
-        expect(hits.clients[1]?.meta).toBe("archived");
+        expect(hits.clients[1]?.meta).toBe(strings.search.inactiveClient);
         expect(hits.actions.map((h) => h.id)).toEqual(["book-cl_1", "msg-cl_1"]);
         expect(searchHits("250-555-0202", data, now, ZONE).clients.map((h) => h.id)).toEqual([
             "cl_1",

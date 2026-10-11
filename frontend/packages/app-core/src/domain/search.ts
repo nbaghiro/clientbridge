@@ -148,7 +148,7 @@ export function searchHits(
         refId: c.id,
         title: c.name,
         detail: formatParts([formatPhone(c.phone), c.email]),
-        meta: c.status === "active" ? null : c.status,
+        meta: c.status === "active" ? null : s.inactiveClient,
         metaIntent: c.status === "active" ? null : "neutral",
     }));
     out.bookings = data.bookings
@@ -187,7 +187,7 @@ export function searchHits(
                 i.client_name ?? "",
                 formatMoney(i.total_cents, BUSINESS_CURRENCY),
             ),
-            meta: i.status,
+            meta: strings.billing.statusLabel[i.status] ?? null,
             metaIntent: INVOICE_INTENT[i.status] ?? "neutral",
         }));
     out.items = data.items
@@ -221,7 +221,7 @@ export function searchHits(
                 refId: null,
                 title: s.bookFor(top.name),
                 detail: strings.navigation.createActions.booking.hint,
-                meta: "B",
+                meta: s.bookKey,
                 metaIntent: null,
             });
         if (can("message"))
@@ -234,7 +234,7 @@ export function searchHits(
                 refId: top.id,
                 title: s.messageTo(top.name),
                 detail: strings.navigation.createActions.message.hint,
-                meta: "M",
+                meta: s.messageKey,
                 metaIntent: null,
             });
     } else if (

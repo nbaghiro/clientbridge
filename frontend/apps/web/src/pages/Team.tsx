@@ -317,7 +317,7 @@ function InviteRow({ invite, team }: { invite: TeamInvite; team: TeamView }) {
             </div>
             <span className="shrink-0">
                 {invite.expired ? (
-                    <StatusPill status={t.expired} intent="danger" asWritten />
+                    <StatusPill status={t.expired} intent="danger" />
                 ) : (
                     <span className="text-xs text-muted">{t.expiresIn(invite.daysLeft)}</span>
                 )}

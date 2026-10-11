@@ -266,7 +266,6 @@ function ReviewCard({ review, queue }: { review: ReviewRow; queue: ReviewQueue }
                         style={{ alignSelf: "center" }}
                         status={s.state.hidden}
                         intent="neutral"
-                        asWritten
                     />
                 ) : null}
             </View>
@@ -405,7 +404,6 @@ function AskList({ queue }: { queue: ReviewQueue }) {
                         style={{ alignSelf: "center" }}
                         status={s.requestState[r.status] ?? r.status}
                         intent={r.status === "opened" ? "accent" : "neutral"}
-                        asWritten
                     />
                 </View>
             ))}

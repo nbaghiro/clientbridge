@@ -151,23 +151,6 @@ msgstr ""
 msgid "invoice_sent.subject"
 msgstr ""
 
-msgid "manage_blocked.by_phone"
-msgstr ""
-
-msgid "manage_blocked.class_session"
-msgstr ""
-
-msgid "manage_blocked.cutoff"
-msgid_plural "manage_blocked.cutoff"
-msgstr[0] ""
-msgstr[1] ""
-
-msgid "manage_blocked.reschedule_limit"
-msgstr ""
-
-msgid "manage_blocked.status"
-msgstr ""
-
 msgid "online_order.body"
 msgstr ""
 

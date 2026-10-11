@@ -161,23 +161,6 @@ msgstr "Invoice #{number} for {amount} from {business} — pay at {link}"
 msgid "invoice_sent.subject"
 msgstr "Invoice #{number} from {business}"
 
-msgid "manage_blocked.by_phone"
-msgstr "this business takes changes by phone; call the studio"
-
-msgid "manage_blocked.class_session"
-msgstr "class sessions are shared with other clients; call the studio to move"
-
-msgid "manage_blocked.cutoff"
-msgid_plural "manage_blocked.cutoff"
-msgstr[0] "it's less than {count} hour away; call the studio"
-msgstr[1] "it's less than {count} hours away; call the studio"
-
-msgid "manage_blocked.reschedule_limit"
-msgstr "this visit has been moved as many times as the policy allows"
-
-msgid "manage_blocked.status"
-msgstr "this booking is {status} and can't be changed online"
-
 msgid "online_order.body"
 msgstr "A client paid {amount} for an online order. It is waiting under Payments, Sales."
 

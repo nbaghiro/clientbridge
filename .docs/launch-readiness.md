@@ -1072,7 +1072,31 @@ Not tracked in Jira yet. These are pulled in by demand once the launch stories a
   Stripe's `locale` parameter, translated store listings, and a decision on whether a sent document keeps
   its language. Known gaps to close then: the mobile date polyfill writes "GMT-7" where browsers write
   "Pacific Time", so the zone label is web-only; the `no-composed-copy` rule cannot see text placed side by
-  side in JSX; browser and Node time zone data can lag the backend's pinned `tzdata`.
+  side in JSX; browser and Node time zone data can lag the backend's pinned `tzdata`. The localization
+  audit of 2026-10-11 found more work that French needs:
+  - A missing translation shows the raw key on both sides: `locale.ts` falls back to the key and
+    `core/locale.py` passes the key to gettext. Both need a fallback chain to English before a partial
+    catalog ships, and `gen-strings` needs the same ICU, `args` and missing-key checks for a translated
+    file that it runs on `en-CA.json`.
+  - Quebec's Charter of the French Language (as amended by Bill 96) applies to Quebec businesses, and
+    contracts of adhesion must be offered in French first. Services, policies, descriptions and contract
+    and form bodies are single text fields today, so supporting French and English versions of
+    business-written content is a product and schema decision, not catalog work.
+  - Almost every `locale_for(...)` call in `services/notifications.py` passes only the business, and one
+    locale serves the client's email and SMS and the staff push for the same event. Separate client and
+    staff languages need the builders' signatures to change, not only the body of `locale_for`. Connect
+    does not read `navigator.languages`, nothing records a visitor's language when they book, and gift card
+    recipients have no locale source.
+  - Some English is written into data: the fallback invoice line "Visit" (`services/billing.py`) and the
+    Stripe subscription product name, which is cached per item through `stripe_price_id`.
+  - Search and sorting do not fold accents. Only the client directory search does; the command palette,
+    Inbox, the booking picker and about 15 other searches use a plain lowercase match, and about 20 replica
+    queries sort with SQLite `COLLATE NOCASE`, which folds ASCII only, so "Élise" sorts after "Zoé".
+    `localeCompare` is called without the active locale, and Postgres has no `unaccent`.
+  - Smaller items: the mobile polyfills load English Intl data only; the frontend ICU JSON and the backend
+    `.po` catalog need one translation workflow and tool, and French plural rules need tests on both sides;
+    `parseCents("12,50")` in English reads $1,250.00; SMS with French accents fall outside GSM-7 and cost
+    more segments; the legal pages are placeholders.
 
 ### Connect, the client experience
 

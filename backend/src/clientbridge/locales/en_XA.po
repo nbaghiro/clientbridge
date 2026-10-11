@@ -155,23 +155,6 @@ msgstr "[Îñṽöîçé #{number} ƒöŕ {amount} ƒŕöɱ {business} — þå�
 msgid "invoice_sent.subject"
 msgstr "[Îñṽöîçé #{number} ƒŕöɱ {business}~~~~~~]"
 
-msgid "manage_blocked.by_phone"
-msgstr "[ţĥîš ƀûšîñéšš ţåķéš çĥåñĝéš ƀý þĥöñé; çåļļ ţĥé šţûðîö~~~~~~~~~~~~~~~~~~~]"
-
-msgid "manage_blocked.class_session"
-msgstr "[çļåšš šéššîöñš åŕé šĥåŕéð ŵîţĥ öţĥéŕ çļîéñţš; çåļļ ţĥé šţûðîö ţö ɱöṽé~~~~~~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "manage_blocked.cutoff"
-msgid_plural "manage_blocked.cutoff"
-msgstr[0] "[îţ'š ļéšš ţĥåñ {count} ĥöûŕ åŵåý; çåļļ ţĥé šţûðîö~~~~~~~~~~~~~~~]"
-msgstr[1] "[îţ'š ļéšš ţĥåñ {count} ĥöûŕš åŵåý; çåļļ ţĥé šţûðîö~~~~~~~~~~~~~~~~]"
-
-msgid "manage_blocked.reschedule_limit"
-msgstr "[ţĥîš ṽîšîţ ĥåš ƀééñ ɱöṽéð åš ɱåñý ţîɱéš åš ţĥé þöļîçý åļļöŵš~~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "manage_blocked.status"
-msgstr "[ţĥîš ƀööķîñĝ îš {status} åñð çåñ'ţ ƀé çĥåñĝéð öñļîñé~~~~~~~~~~~~~~~~]"
-
 msgid "online_order.body"
 msgstr "[Å çļîéñţ þåîð {amount} ƒöŕ åñ öñļîñé öŕðéŕ. Îţ îš ŵåîţîñĝ ûñðéŕ Þåýɱéñţš, Šåļéš.~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 

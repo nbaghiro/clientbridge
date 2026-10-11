@@ -119,7 +119,7 @@ function VisitRow({
                     </span>
                 </p>
             </div>
-            <StatusPill status={st.label} intent={st.intent} asWritten />
+            <StatusPill status={st.label} intent={st.intent} />
             <div className="w-24 shrink-0 text-right">
                 {v.state === "paid" ? null : onTicket ? (
                     <span className="inline-flex items-center gap-1 text-sm font-medium text-accent">

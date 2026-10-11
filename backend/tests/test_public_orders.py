@@ -1,5 +1,6 @@
 import uuid
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import httpx
 from sqlalchemy import select, update
@@ -218,7 +219,9 @@ async def test_ready_order_reminder_sent_once_and_respects_alert_choice(
     email.sent.clear()
     sms.sent.clear()
     notifier = Notifier(email, sms, push)
-    assert await run_pickup_reminders(db, notifier, datetime.now(UTC)) == 1
+    morning = datetime.now(ZoneInfo("America/Vancouver")).replace(hour=9, minute=0)
+    assert await run_pickup_reminders(db, notifier, morning.replace(hour=10)) == 0
+    assert await run_pickup_reminders(db, notifier, morning) == 1
     assert len(email.sent) == 1 and sms.sent == []
-    assert await run_pickup_reminders(db, notifier, datetime.now(UTC)) == 0
+    assert await run_pickup_reminders(db, notifier, morning) == 0
     assert len(email.sent) == 1

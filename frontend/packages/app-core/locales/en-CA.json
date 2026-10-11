@@ -11438,6 +11438,24 @@
     "publicManage.canceledAlready": {
         "message": "This booking was cancelled."
     },
+    "publicManage.blocked.status": {
+        "message": "This visit can no longer be changed online.",
+        "description": "Why the client can't change a visit that is no longer pending or confirmed."
+    },
+    "publicManage.blocked.by_phone": {
+        "message": "This business takes changes by phone. Please call the studio."
+    },
+    "publicManage.blocked.class_session": {
+        "message": "Class sessions are shared with other clients. Please call the studio to move."
+    },
+    "publicManage.blocked.reschedule_limit": {
+        "message": "This visit has been moved as many times as the policy allows."
+    },
+    "publicManage.blocked.cutoff": {
+        "message": "{hours, plural, one {It's less than # hour away.} other {It's less than # hours away.}} Please call the studio.",
+        "args": ["hours"],
+        "description": "The visit is inside the business's change cutoff."
+    },
     "publicManage.error": {
         "message": "We couldn't save that change. Please try again."
     },
@@ -12275,6 +12293,18 @@
     },
     "search.esc": {
         "message": "esc"
+    },
+    "search.inactiveClient": {
+        "message": "Inactive",
+        "description": "Badge on a search result for a client who is no longer active."
+    },
+    "search.bookKey": {
+        "message": "B",
+        "description": "Short hint beside the Book action in search results."
+    },
+    "search.messageKey": {
+        "message": "M",
+        "description": "Short hint beside the Message action in search results."
     },
     "search.offline": {
         "message": "Searching what’s on this device. Everything synced is included."

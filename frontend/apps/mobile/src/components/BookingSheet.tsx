@@ -220,7 +220,6 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                     style={{ alignSelf: "center" }}
                     status={s.statusLabel(e.status)}
                     intent={e.intent}
-                    asWritten
                 />
                 <Text style={styles.timing}>{detail.timing}</Text>
             </View>

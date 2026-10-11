@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from functools import cache
 from zoneinfo import ZoneInfo, available_timezones
 
@@ -21,6 +21,16 @@ async def business_tz(db: AsyncSession, business_id: str) -> ZoneInfo:
         await db.execute(select(Business.timezone).where(Business.id == business_id))
     ).scalar_one_or_none()
     return ZoneInfo(tz) if tz is not None else ZoneInfo("UTC")
+
+
+def local_today(business: Business) -> date:
+    return datetime.now(ZoneInfo(business.timezone)).date()
+
+
+async def businesses_at_hour(db: AsyncSession, now: datetime, hour: int) -> list[Business]:
+    """Businesses whose local clock reads `hour` at `now`, for daily client messages."""
+    businesses = (await db.execute(select(Business))).scalars().all()
+    return [b for b in businesses if now.astimezone(ZoneInfo(b.timezone)).hour == hour]
 
 
 def valid_timezone(name: str | None) -> str:

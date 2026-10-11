@@ -4938,9 +4938,14 @@ export interface components {
             can_cancel: boolean;
             /**
              * Blocked
-             * @description Why a change is refused online
+             * @description Why a change is refused online, as a code Connect words
              */
-            blocked?: string | null;
+            blocked?: ("status" | "by_phone" | "cutoff" | "class_session" | "reschedule_limit") | null;
+            /**
+             * Blocked Hours
+             * @description The policy cutoff in hours, when the reason is the cutoff
+             */
+            blocked_hours?: number | null;
         };
         /** MessageOut */
         MessageOut: {

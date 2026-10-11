@@ -172,7 +172,6 @@ export function Earnings() {
                                     <StatusPill
                                         status={s.stage[l.status] ?? l.status}
                                         intent={earningStageIntent(l.status)}
-                                        asWritten
                                     />
                                 </View>
                             }

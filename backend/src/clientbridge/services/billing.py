@@ -28,6 +28,7 @@ from clientbridge.schemas.billing import (
 )
 from clientbridge.services import ledger
 from clientbridge.services.bookings import apply_deposit, unapply_deposit
+from clientbridge.services.business import business_tz, businesses_at_hour
 from clientbridge.services.ledger import invoice_status_expr
 from clientbridge.services.lines import (
     LineParent,
@@ -48,6 +49,7 @@ from clientbridge.services.tax import tax_for_lines
 
 _DUE_DAYS = 30
 _VALID_DAYS = 14
+_OVERDUE_HOUR = 7
 
 
 class BillingService:
@@ -228,7 +230,7 @@ class BillingService:
                 if not any(included(ln) for ln in lines):
                     raise Unprocessable("add a line before sending the estimate")
                 await self._issue_estimate(estimate, cmd)
-            return _estimate_out(estimate, lines)
+            return _estimate_out(estimate, lines, await self._today())
 
         return await run_command(
             self.db,
@@ -261,7 +263,7 @@ class BillingService:
             await self._apply_totals(estimate, lines)
             await self.db.flush()
             cmd.record("estimate.update", entity_type="estimate", entity_id=estimate.id)
-            return _estimate_out(estimate, lines)
+            return _estimate_out(estimate, lines, await self._today())
 
         return await run_command(
             self.db, self.principal, action="estimate.update", run=run, response_model=EstimateOut
@@ -270,7 +272,7 @@ class BillingService:
     async def send_estimate(self, estimate_id: str) -> EstimateOut:
         self._assert_admin()
         estimate = await self._estimate(estimate_id)
-        status = estimate_status(estimate)
+        status = estimate_status(estimate, await self._today())
         if status in ("accepted", "declined", "expired"):
             raise Conflict(f"a {status} estimate can't be sent")
 
@@ -279,7 +281,9 @@ class BillingService:
                 await self._issue_estimate(estimate, cmd)
             else:
                 cmd.record("estimate.resend", entity_type="estimate", entity_id=estimate.id)
-            return _estimate_out(estimate, await self._lines("estimate", estimate.id))
+            return _estimate_out(
+                estimate, await self._lines("estimate", estimate.id), await self._today()
+            )
 
         return await run_command(
             self.db, self.principal, action="estimate.send", run=run, response_model=EstimateOut
@@ -290,7 +294,7 @@ class BillingService:
         estimate.status = "sent"
         estimate.view_token = secrets.token_urlsafe(16)
         if estimate.valid_until is None:
-            estimate.valid_until = datetime.now(UTC).date() + timedelta(days=_VALID_DAYS)
+            estimate.valid_until = await self._today() + timedelta(days=_VALID_DAYS)
         try:
             await self.db.flush()  # the unique (business_id, number) backstops a concurrent send
         except IntegrityError as exc:
@@ -308,7 +312,7 @@ class BillingService:
         estimate = await self._estimate(estimate_id)
         if estimate.converted_invoice_id is not None:
             raise Conflict("this estimate was already converted")
-        if estimate_status(estimate) not in ("sent", "accepted"):
+        if estimate_status(estimate, await self._today()) not in ("sent", "accepted"):
             raise Conflict("only a sent or accepted estimate can be converted")
         await self._client(estimate.client_id)
 
@@ -363,7 +367,7 @@ class BillingService:
     ) -> EstimateOut:
         self._assert_admin()
         estimate = await self._estimate(estimate_id)
-        current = estimate_status(estimate)
+        current = estimate_status(estimate, await self._today())
         if current not in ("sent", "accepted", "declined"):
             raise Conflict(f"a {current} estimate can't be {status}")
 
@@ -376,7 +380,9 @@ class BillingService:
                 estimate.decline_reason = reason
             await self.db.flush()
             cmd.record(f"estimate.{status}", entity_type="estimate", entity_id=estimate.id)
-            return _estimate_out(estimate, await self._lines("estimate", estimate.id))
+            return _estimate_out(
+                estimate, await self._lines("estimate", estimate.id), await self._today()
+            )
 
         return await run_command(
             self.db,
@@ -489,6 +495,9 @@ class BillingService:
         price_lines(lines, document)
         return lines
 
+    async def _today(self) -> date:
+        return datetime.now(await business_tz(self.db, self.biz)).date()
+
     async def _lines(self, parent: LineParent, parent_id: str) -> list[Line]:
         return await fetch_lines(self.db, self.biz, parent, parent_id)
 
@@ -530,9 +539,8 @@ def _tax_class(value: str) -> TaxClass:
     )
 
 
-def estimate_status(estimate: Estimate, today: date | None = None) -> str:
-    """A sent estimate past its `valid_until` (a UTC date) reads as expired; nothing stores that."""
-    today = today or datetime.now(UTC).date()
+def estimate_status(estimate: Estimate, today: date) -> str:
+    """A sent estimate past its business-local `valid_until` reads as expired; nothing stores it."""
     if estimate.status == "sent" and estimate.valid_until is not None:
         return "expired" if estimate.valid_until < today else "sent"
     return estimate.status
@@ -565,13 +573,13 @@ async def _invoice_out(db: AsyncSession, invoice: Invoice, lines: list[Line]) ->
     )
 
 
-def _estimate_out(estimate: Estimate, lines: list[Line]) -> EstimateOut:
+def _estimate_out(estimate: Estimate, lines: list[Line], today: date) -> EstimateOut:
     return EstimateOut(
         id=estimate.id,
         business_id=estimate.business_id,
         client_id=estimate.client_id,
         number=estimate.number,
-        status=estimate_status(estimate),
+        status=estimate_status(estimate, today),
         subtotal_cents=estimate.subtotal_cents,
         tax_total_cents=estimate.tax_total_cents,
         total_cents=estimate.total_cents,
@@ -589,22 +597,25 @@ def _estimate_out(estimate: Estimate, lines: list[Line]) -> EstimateOut:
 
 
 async def run_overdue_sweep(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
-    """Notify the client once for each sent, unpaid invoice past due."""
-    invoices = (
-        (
-            await db.execute(
-                select(Invoice).where(
-                    Invoice.due_at < now,
-                    Invoice.overdue_notified_at.is_(None),
-                    invoice_status_expr() == "sent",
+    """Notify the client once for each sent, unpaid invoice past due, at 7 a.m. business time."""
+    swept = 0
+    for business in await businesses_at_hour(db, now, _OVERDUE_HOUR):
+        invoices = (
+            (
+                await db.execute(
+                    scoped(Invoice, business.id).where(
+                        Invoice.due_at < now,
+                        Invoice.overdue_notified_at.is_(None),
+                        invoice_status_expr() == "sent",
+                    )
                 )
             )
+            .scalars()
+            .all()
         )
-        .scalars()
-        .all()
-    )
-    for invoice in invoices:
-        invoice.overdue_notified_at = now
-        await notifier.on_invoice_overdue(db, invoice.id)
+        for invoice in invoices:
+            invoice.overdue_notified_at = now
+            await notifier.on_invoice_overdue(db, invoice.id)
+        swept += len(invoices)
     await db.commit()
-    return len(invoices)
+    return swept

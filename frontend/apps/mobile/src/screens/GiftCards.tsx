@@ -223,7 +223,7 @@ function WalletCard({
         <Panel
             title={summary.title}
             subtitle={summary.kindLabel}
-            actions={<StatusPill status={summary.statusLabel} intent={summary.intent} asWritten />}
+            actions={<StatusPill status={summary.statusLabel} intent={summary.intent} />}
         >
             <View style={styles.cardBody}>
                 {summary.meter !== null ? (

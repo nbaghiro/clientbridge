@@ -124,7 +124,7 @@ export function GettingPaidScreen() {
                                 <Text style={styles.reqTitle}>{r.label}</Text>
                                 <StatusPill
                                     style={{ alignSelf: "center" }}
-                                    asWritten
+
                                     status={
                                         r.pastDue
                                             ? g.pastDue

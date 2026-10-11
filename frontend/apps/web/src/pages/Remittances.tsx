@@ -269,9 +269,7 @@ export function Remittances() {
 }
 
 function FilingPill({ p }: { p: FilingPeriod }) {
-    return (
-        <StatusPill status={s.status[p.status]} intent={filingStatusIntent(p.status)} asWritten />
-    );
+    return <StatusPill status={s.status[p.status]} intent={filingStatusIntent(p.status)} />;
 }
 
 function RecordReturn({

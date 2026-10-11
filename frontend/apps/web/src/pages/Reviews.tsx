@@ -305,7 +305,7 @@ function ReviewCard({
                         <span className="font-semibold text-ink">{name}</span>
                         <Stars value={review.rating} size="sm" />
                         {showState ? (
-                            <StatusPill status={state.label} intent={state.intent} asWritten />
+                            <StatusPill status={state.label} intent={state.intent} />
                         ) : null}
                     </div>
                     <p className="mt-0.5 text-xs text-muted">{reviewVisitLine(review, zone)}</p>
@@ -462,7 +462,6 @@ function AskPanel({ queue }: { queue: ReviewQueue }) {
                                 <StatusPill
                                     status={s.requestState[r.status] ?? r.status}
                                     intent={r.status === "opened" ? "accent" : "neutral"}
-                                    asWritten
                                 />
                             </li>
                         ))}

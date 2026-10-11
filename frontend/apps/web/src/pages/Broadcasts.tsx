@@ -184,7 +184,6 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                                         <StatusPill
                                             status={s.status[x.status] ?? x.status}
                                             intent={broadcastIntent(x.status)}
-                                            asWritten
                                         />
                                     </div>
                                     <div className="mt-0.5 flex items-center gap-1 text-xs text-muted">
@@ -263,7 +262,6 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                                             <StatusPill
                                                 status={s.consentChannel[o.channel]}
                                                 intent="danger"
-                                                asWritten
                                             />
                                         </li>
                                     ))}

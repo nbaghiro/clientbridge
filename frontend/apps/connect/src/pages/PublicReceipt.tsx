@@ -45,7 +45,6 @@ export function PublicReceipt() {
                     <StatusPill
                         status={status}
                         intent={receipt.status === "paid" ? "success" : "warning"}
-                        asWritten
                     />
                     <h1 className="mt-3 font-display text-3xl font-bold text-ink sm:text-4xl">
                         {r.title(receipt.business_name)}
@@ -74,7 +73,6 @@ export function PublicReceipt() {
                             <StatusPill
                                 status={status}
                                 intent={receipt.status === "paid" ? "success" : "warning"}
-                                asWritten
                             />
                         </div>
                         <p className="mt-2 font-display text-4xl font-bold tabular-nums text-ink">

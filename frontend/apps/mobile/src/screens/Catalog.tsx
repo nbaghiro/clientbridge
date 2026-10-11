@@ -97,7 +97,7 @@ function CatalogRow({ item }: { item: ItemRow }) {
             <View style={styles.right}>
                 <Text style={styles.price}>{itemPriceLabel(item)}</Text>
                 {status !== null ? (
-                    <StatusPill status={status.label} intent={status.intent} asWritten />
+                    <StatusPill status={status.label} intent={status.intent} />
                 ) : null}
             </View>
         </View>

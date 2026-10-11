@@ -11,7 +11,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base
 from clientbridge.core.errors import Conflict, NotFound, Unauthorized, Unprocessable
 from clientbridge.core.ids import new_id
-from clientbridge.core.locale import currency_for, locale_for, message, plural
+from clientbridge.core.locale import currency_for
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.s3 import FileStorage
 from clientbridge.integrations.stripe import PaymentGateway
@@ -48,6 +48,7 @@ from clientbridge.schemas.payments import (
     PublicPayIn,
 )
 from clientbridge.schemas.public import (
+    ManageBlock,
     ManageCancelResult,
     ManagedAddon,
     ManagedBooking,
@@ -91,7 +92,7 @@ from clientbridge.services.bookings import (
     release_slot,
     slot_problem,
 )
-from clientbridge.services.business import business_tz
+from clientbridge.services.business import business_tz, local_today
 from clientbridge.services.catalog import deposit_cents
 from clientbridge.services.clients import find_or_create_by_contact
 from clientbridge.services.consents import (
@@ -610,7 +611,9 @@ class PublicManageService:
             return await self._view(booking, slot, business)
         blocked = self._blocked(booking, slot, business, "move")
         if blocked is not None:
-            raise Conflict(blocked)
+            raise Conflict(
+                f"this visit can't be moved online ({blocked[0]})", code="change_blocked"
+            )
         policy = policy_of(business)
         _assert_bookable_window(policy, data.starts_at)
         item, staff = await self._visit(booking, slot, business)
@@ -696,7 +699,9 @@ class PublicManageService:
                 return ManageCancelResult.model_validate(prior)
         blocked = self._blocked(booking, slot, business, "cancel")
         if blocked is not None:
-            raise Conflict(blocked)
+            raise Conflict(
+                f"this visit can't be canceled online ({blocked[0]})", code="change_blocked"
+            )
         refunded = 0
         if booking.deposit_status == "collected":
             refunded = await refund_deposit(self.db, self.gateway, booking)
@@ -723,25 +728,26 @@ class PublicManageService:
         await self.db.commit()
         return result
 
-    def _blocked(self, booking: Booking, slot: Slot, business: Business, change: str) -> str | None:
-        """Why the client can't make this change online, or None when they can."""
+    def _blocked(
+        self, booking: Booking, slot: Slot, business: Business, change: str
+    ) -> tuple[ManageBlock, int | None] | None:
+        """Why the client can't make this change online, and the cutoff hours when that is why."""
         policy = policy_of(business)
-        locale = locale_for(business=business)
         if booking.status not in ("pending", "confirmed"):
-            return message(locale, "manage_blocked.status", status=booking.status)
+            return "status", None
         if not policy.self_service:
-            return message(locale, "manage_blocked.by_phone")
+            return "by_phone", None
         hours_away = (slot.starts_at - datetime.now(UTC)).total_seconds() / 3600
         if change == "cancel":
             if hours_away < policy.cancel_cutoff_hours:
-                return plural(locale, "manage_blocked.cutoff", policy.cancel_cutoff_hours)
+                return "cutoff", policy.cancel_cutoff_hours
             return None
         if slot.capacity > 1:
-            return message(locale, "manage_blocked.class_session")
+            return "class_session", None
         if booking.reschedule_count >= policy.max_reschedules:
-            return message(locale, "manage_blocked.reschedule_limit")
+            return "reschedule_limit", None
         if hours_away < policy.reschedule_cutoff_hours:
-            return plural(locale, "manage_blocked.cutoff", policy.reschedule_cutoff_hours)
+            return "cutoff", policy.reschedule_cutoff_hours
         return None
 
     async def _resolve(self, token: str) -> tuple[Booking, Slot, Business]:
@@ -796,6 +802,7 @@ class PublicManageService:
         tz = await business_tz(self.db, business.id)
         move = self._blocked(booking, slot, business, "move")
         cancel = self._blocked(booking, slot, business, "cancel")
+        blocked, blocked_hours = cancel or move or (None, None)
         return ManagedBooking(
             refund_status=await booking_refund_status(self.db, booking),
             address=BrandInput.model_validate(business.brand or {}).address,
@@ -824,7 +831,8 @@ class PublicManageService:
             timezone=business.timezone,
             can_move=move is None,
             can_cancel=cancel is None,
-            blocked=cancel or move,
+            blocked=blocked,
+            blocked_hours=blocked_hours,
         )
 
 
@@ -1300,7 +1308,7 @@ class PublicEstimateService:
 
     async def accept(self, token: str, data: PublicEstimateAccept) -> PublicEstimate:
         estimate, business = await self._resolve(token, lock=True)
-        self._assert_open(estimate)
+        self._assert_open(estimate, business)
         lines = await fetch_lines(self.db, estimate.business_id, "estimate", estimate.id)
         offered = {ln.id for ln in lines if ln.optional}
         if not set(data.line_ids) <= offered:
@@ -1317,7 +1325,7 @@ class PublicEstimateService:
 
     async def decline(self, token: str, data: PublicEstimateDecline) -> PublicEstimate:
         estimate, business = await self._resolve(token, lock=True)
-        self._assert_open(estimate)
+        self._assert_open(estimate, business)
         estimate.status = "declined"
         estimate.declined_at = datetime.now(UTC)
         estimate.decline_reason = (data.reason or "").strip() or None
@@ -1325,8 +1333,8 @@ class PublicEstimateService:
         return await self._context(estimate, business)
 
     @staticmethod
-    def _assert_open(estimate: Estimate) -> None:
-        status = estimate_status(estimate)
+    def _assert_open(estimate: Estimate, business: Business) -> None:
+        status = estimate_status(estimate, local_today(business))
         if status != "sent":
             raise Conflict(f"this estimate is already {status}")
 
@@ -1342,7 +1350,7 @@ class PublicEstimateService:
             gst_hst_number=business.gst_hst_number,
             qst_number=business.qst_number,
             client_name=client.name if client is not None else None,
-            status=estimate_status(estimate),
+            status=estimate_status(estimate, local_today(business)),
             currency=currency_for(business),
             timezone=business.timezone,
             subtotal_cents=estimate.subtotal_cents,

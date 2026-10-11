@@ -100,12 +100,7 @@ function VisitCard({
                     <Text style={styles.strong}>{formatTime(v.start, zone)}</Text>{" "}
                     {d.endsAt(formatTime(v.end, zone))}
                 </Text>
-                <StatusPill
-                    style={{ alignSelf: "center" }}
-                    status={st.label}
-                    intent={st.intent}
-                    asWritten
-                />
+                <StatusPill style={{ alignSelf: "center" }} status={st.label} intent={st.intent} />
             </View>
             <Text style={styles.name}>{v.clientName}</Text>
             <Text style={styles.soft}>

@@ -14,6 +14,7 @@ import {
     packageStatusIntent,
     parseTimestamp,
     sessionsRemaining,
+    entitlementStatusLabel,
     subscriptionStatusIntent,
     useAsyncAction,
     useClientPackages,
@@ -371,7 +372,6 @@ export function ClientWalletScreen() {
                                         <StatusPill
                                             status={m.status.label}
                                             intent={m.status.intent}
-                                            asWritten
                                         />
                                     ) : undefined
                                 }
@@ -501,7 +501,10 @@ function SubscriptionLine({ sub }: { sub: SubscriptionRow }) {
                           )
                 }
                 meta={
-                    <StatusPill status={sub.status} intent={subscriptionStatusIntent(sub.status)} />
+                    <StatusPill
+                        status={entitlementStatusLabel(sub.status)}
+                        intent={subscriptionStatusIntent(sub.status)}
+                    />
                 }
                 trailing={
                     isCancelable(sub.status) ? (
@@ -527,7 +530,12 @@ function PackageLine({ pkg }: { pkg: PackageRow }) {
                     sessionsRemaining(pkg),
                     pkg.sessions_total,
                 )}
-                meta={<StatusPill status={pkg.status} intent={packageStatusIntent(pkg.status)} />}
+                meta={
+                    <StatusPill
+                        status={entitlementStatusLabel(pkg.status)}
+                        intent={packageStatusIntent(pkg.status)}
+                    />
+                }
                 trailing={
                     canConsume(pkg) ? (
                         <Button

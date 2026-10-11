@@ -1,5 +1,4 @@
 import asyncio
-import re
 from datetime import UTC, date, datetime, timedelta
 
 import httpx
@@ -7,7 +6,6 @@ import pytest
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal
 from clientbridge.core.errors import Conflict
 from clientbridge.models.business import Business
@@ -48,9 +46,10 @@ async def test_one_class_attendee_cannot_move_the_shared_session(
         f"/manage/{token}/reschedule", json={"starts_at": "2026-12-02T17:00:00Z"}
     )
     assert moved.status_code == 409, moved.text
+    assert moved.json()["error"] == "change_blocked"
     view = (await api.get(f"/manage/{token}")).json()
     assert view["can_move"] is False and view["can_cancel"] is True
-    assert "class" in view["blocked"]
+    assert view["blocked"] == "class_session" and view["blocked_hours"] is None
     assert (await _slot(db, other_token)).starts_at == original_start
 
 
@@ -141,14 +140,15 @@ async def test_inside_the_cutoff_nothing_changes_online(
     await db.flush()
     view = (await api.get(f"/manage/{token}")).json()
     assert view["can_cancel"] is False and view["can_move"] is False
-    assert "call the studio" in view["blocked"]
-    assert (await api.post(f"/manage/{token}/cancel")).status_code == 409
+    assert view["blocked"] == "cutoff"
+    canceled = await api.post(f"/manage/{token}/cancel")
+    assert canceled.status_code == 409 and canceled.json()["error"] == "change_blocked"
     moved = await api.post(f"/manage/{token}/reschedule", json={"starts_at": OPENING})
     assert moved.status_code == 409
 
 
-async def test_blocked_reason_reads_the_catalog(
-    api: httpx.AsyncClient, db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+async def test_blocked_reason_is_a_code_with_the_cutoff(
+    api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     token = await _book(api)
     await db.execute(
@@ -171,11 +171,7 @@ async def test_blocked_reason_reads_the_catalog(
     slot.starts_at, slot.ends_at = soon, soon + timedelta(minutes=75)
     await db.flush()
     view = (await api.get(f"/manage/{token}")).json()
-    assert view["blocked"] == "it's less than 1 hour away; call the studio"
-    monkeypatch.setattr(get_settings(), "pseudo_locale", True)
-    pseudo = (await api.get(f"/manage/{token}")).json()["blocked"]
-    assert pseudo.startswith("[") and pseudo.endswith("~]") and " 1 " in pseudo
-    assert not re.search(r"[A-Za-z]", pseudo), pseudo
+    assert view["blocked"] == "cutoff" and view["blocked_hours"] == 1
 
 
 async def test_moving_onto_a_taken_time_is_refused(api: httpx.AsyncClient) -> None:

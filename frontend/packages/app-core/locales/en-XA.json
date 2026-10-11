@@ -10751,6 +10751,21 @@
     "publicManage.canceledAlready": {
         "message": "[Ţĥîš ƀööķîñĝ ŵåš çåñçéļļéð. one two three]"
     },
+    "publicManage.blocked.status": {
+        "message": "[Ţĥîš ṽîšîţ çåñ ñö ļöñĝéŕ ƀé çĥåñĝéð öñļîñé. one two three]"
+    },
+    "publicManage.blocked.by_phone": {
+        "message": "[Ţĥîš ƀûšîñéšš ţåķéš çĥåñĝéš ƀý þĥöñé. Þļéåšé çåļļ ţĥé šţûðîö. one two three four]"
+    },
+    "publicManage.blocked.class_session": {
+        "message": "[Çļåšš šéššîöñš åŕé šĥåŕéð ŵîţĥ öţĥéŕ çļîéñţš. Þļéåšé çåļļ ţĥé šţûðîö ţö ɱöṽé. one two three four five]"
+    },
+    "publicManage.blocked.reschedule_limit": {
+        "message": "[Ţĥîš ṽîšîţ ĥåš ƀééñ ɱöṽéð åš ɱåñý ţîɱéš åš ţĥé þöļîçý åļļöŵš. one two three four]"
+    },
+    "publicManage.blocked.cutoff": {
+        "message": "[{hours,plural,one{Îţ'š ļéšš ţĥåñ # ĥöûŕ åŵåý.} other{Îţ'š ļéšš ţĥåñ # ĥöûŕš åŵåý.}} Þļéåšé çåļļ ţĥé šţûðîö. one two three four five]"
+    },
     "publicManage.error": {
         "message": "[Ŵé çöûļðñ'ţ šåṽé ţĥåţ çĥåñĝé. Þļéåšé ţŕý åĝåîñ. one two three]"
     },
@@ -11548,6 +11563,15 @@
     },
     "search.esc": {
         "message": "[éšç one]"
+    },
+    "search.inactiveClient": {
+        "message": "[Îñåçţîṽé one]"
+    },
+    "search.bookKey": {
+        "message": "[Ɓ one]"
+    },
+    "search.messageKey": {
+        "message": "[Ṁ one]"
     },
     "search.offline": {
         "message": "[Šéåŕçĥîñĝ ŵĥåţ’š öñ ţĥîš ðéṽîçé. Éṽéŕýţĥîñĝ šýñçéð îš îñçļûðéð. one two three four five]"
