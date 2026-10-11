@@ -12,7 +12,9 @@ const PATHS = [
 
 async function scrollThrough(page: Page): Promise<void> {
     await page.evaluate(async () => {
-        for (let y = 0; y < document.body.scrollHeight; y += 600) {
+        // Bounded by the starting height: lazy content growing during the scroll must not extend it.
+        const end = document.body.scrollHeight;
+        for (let y = 0; y < end; y += 600) {
             window.scrollTo(0, y);
             await new Promise((r) => setTimeout(r, 40));
         }
