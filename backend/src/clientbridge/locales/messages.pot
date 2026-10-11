@@ -169,12 +169,6 @@ msgstr ""
 msgid "order_reminder.subject"
 msgstr ""
 
-msgid "password_reset.body"
-msgstr ""
-
-msgid "password_reset.subject"
-msgstr ""
-
 msgid "payment_failed.body"
 msgstr ""
 
@@ -367,11 +361,5 @@ msgid "subscription_past_due.body"
 msgstr ""
 
 msgid "subscription_past_due.subject"
-msgstr ""
-
-msgid "verify_email.body"
-msgstr ""
-
-msgid "verify_email.subject"
 msgstr ""
 

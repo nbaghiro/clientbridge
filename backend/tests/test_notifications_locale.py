@@ -52,9 +52,7 @@ def _builders() -> dict[str, Render]:
 
     return {
         "returning_code": lambda c: n.returning_code(c, NAME, "123456", 10),
-        "password_reset": lambda c: n.password_reset(c, "CODE"),
-        "email_verification": lambda c: n.email_verification(c, "CODE"),
-        "staff_invite": lambda c: n.staff_invite(c, "CODE"),
+        "staff_invite": lambda c: n.staff_invite(c, LINK),
         "_receipt": lambda c: n._receipt(c, NAME, amount(c), ["Shampoo"]),
         "_pickup_line": lambda c: n._pickup_line(c, NAME),
         "_online_order_alert": lambda c: n._online_order_alert(c, amount(c)),

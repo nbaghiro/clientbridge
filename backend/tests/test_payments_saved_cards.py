@@ -392,11 +392,14 @@ async def test_off_session_card_declined_402(as_owner: httpx.AsyncClient, db: As
     db.add_all([pm, inv])
     await db.flush()
     await book_invoice(db, inv)
-    res = await _charge(as_owner, inv.id, pm.id)
+    invoice_id = inv.id
+    res = await _charge(as_owner, invoice_id, pm.id)
     assert res.status_code == 402
     assert res.json()["error"] == "card_declined"
     # the declined charge left no phantom pending payment
-    rows = (await db.execute(select(Payment).where(Payment.invoice_id == inv.id))).scalars().all()
+    rows = (
+        (await db.execute(select(Payment).where(Payment.invoice_id == invoice_id))).scalars().all()
+    )
     assert rows == []
 
 

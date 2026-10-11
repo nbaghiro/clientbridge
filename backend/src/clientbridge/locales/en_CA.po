@@ -179,12 +179,6 @@ msgstr "Your order is ready to collect from {business}. Please contact the studi
 msgid "order_reminder.subject"
 msgstr "Your order is waiting at {business}"
 
-msgid "password_reset.body"
-msgstr "Reset code: {code}"
-
-msgid "password_reset.subject"
-msgstr "Reset your password"
-
 msgid "payment_failed.body"
 msgstr "Your payment of {amount} to {business} failed. Please try again."
 
@@ -356,7 +350,7 @@ msgid "signed_copy.signed_by"
 msgstr "— Signed by {name}"
 
 msgid "staff_invite.body"
-msgstr "Invite code: {code}"
+msgstr "You've been invited to join a team on Clientbridge. Accept here: {link}"
 
 msgid "staff_invite.subject"
 msgstr "You're invited to Clientbridge"
@@ -379,8 +373,3 @@ msgstr "Your subscription payment to {business} failed. Please update your payme
 msgid "subscription_past_due.subject"
 msgstr "Payment past due — {business}"
 
-msgid "verify_email.body"
-msgstr "Verify code: {code}"
-
-msgid "verify_email.subject"
-msgstr "Verify your email"

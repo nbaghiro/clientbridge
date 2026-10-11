@@ -1,6 +1,7 @@
 import { StatusBar } from "expo-status-bar";
 import type { ReactNode } from "react";
 import {
+    failedStatus,
     strings,
     BusinessZoneContext,
     useBusinessLoad,
@@ -20,8 +21,8 @@ import { Button, ConfirmHost, configureStripe, LoadFailed, Select } from "@clien
 import { StripeAppProvider } from "./src/components/Stripe";
 import { Splash, revealApp } from "./src/components/Splash";
 import { TabBar } from "./src/components/TabBar";
-import { api, onSignedOut, selectBusiness } from "./src/lib/api";
-import { clearTokens, getTokens } from "./src/lib/auth";
+import { api, identity, onSignedOut, selectBusiness } from "./src/lib/api";
+import { clearSession, getSession, rememberUser, signIn } from "./src/lib/auth";
 import { stripePublishableKey } from "./src/lib/config";
 import { connectPowerSync, replica, signOut } from "./src/lib/powersync";
 import { registerForPush } from "./src/lib/push";
@@ -50,6 +51,7 @@ import { ClassesScreen } from "./src/screens/Classes";
 import { OnlineBookingScreen } from "./src/screens/OnlineBooking";
 import { RecurrencesScreen } from "./src/screens/Recurrences";
 import { RemindersScreen } from "./src/screens/Reminders";
+import { SecurityScreen } from "./src/screens/Security";
 
 configureStripe(stripePublishableKey);
 // transport failures already show in the shell's sync banner; the dev overlay only repeats them
@@ -88,19 +90,41 @@ export function App() {
     );
 }
 
+async function signedInUser(): Promise<string | null> {
+    const stored = await getSession();
+    if (stored === null) return null;
+    try {
+        return (await api.forBusiness(null).get<{ user_id: string }>("/v1/me")).user_id;
+    } catch (e) {
+        // Offline or Kratos down: the remembered user's replica still opens.
+        const status = failedStatus(e);
+        return status === null || status >= 500 ? stored.user_id : null;
+    }
+}
+
+async function endSession(): Promise<void> {
+    const token = (await getSession())?.session_token;
+    await clearSession();
+    if (token) await identity.signOut(token).catch(() => undefined);
+}
+
 const lifecycle = {
     restore: async () => {
-        if (await getTokens()) return connectPowerSync(api);
-        await replica.pause();
-        return null;
+        const userId = await signedInUser();
+        if (userId === null) {
+            await replica.pause();
+            return null;
+        }
+        await rememberUser(userId);
+        return connectPowerSync(api);
     },
     pause: () => replica.pause(),
     discard: async () => {
-        await clearTokens();
+        await endSession();
         await signOut();
     },
     subscribe: onSignedOut,
-    clearCredentials: clearTokens,
+    clearCredentials: endSession,
     onReady: () => {
         registerForPush().catch(() => undefined);
     },
@@ -136,8 +160,9 @@ function Root() {
     if (!db)
         return (
             <LoginScreen
-                onSuccess={() => {
-                    restore();
+                onSuccess={(sessionToken) => {
+                    const stored = sessionToken ? signIn(sessionToken) : Promise.resolve();
+                    stored.then(restore).catch(() => undefined);
                 }}
             />
         );
@@ -267,6 +292,11 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                                     name="Reminders"
                                     component={RemindersScreen}
                                     options={{ title: strings.navigation.setupSections.reminders }}
+                                />
+                                <RootStack.Screen
+                                    name="Security"
+                                    component={SecurityScreen}
+                                    options={{ title: strings.navigation.setupSections.security }}
                                 />
                                 <RootStack.Screen
                                     name="Classes"

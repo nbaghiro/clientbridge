@@ -3,6 +3,7 @@
 import json
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
+from uuid import uuid4
 
 import httpx
 import pytest
@@ -17,13 +18,18 @@ from clientbridge.core.ratelimit import (
     public_booking_rate_limit,
     public_contract_rate_limit,
     public_form_rate_limit,
+    public_invite_rate_limit,
     public_pay_rate_limit,
     public_prefs_rate_limit,
     public_review_rate_limit,
 )
-from clientbridge.core.security import hash_password
 from clientbridge.integrations.expo import Push, get_push_sender
-from clientbridge.integrations.google import OAuthProfile, get_oauth_verifier
+from clientbridge.integrations.kratos import (
+    Credential,
+    Identity,
+    get_identity_provider,
+    unavailable,
+)
 from clientbridge.integrations.postmark import Email, EmailSender, get_email_sender
 from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.integrations.stripe import (
@@ -166,16 +172,64 @@ def storage() -> FakeFileStorage:
     return FakeFileStorage()
 
 
-class FakeOAuthVerifier:
-    async def verify_google(self, id_token: str) -> OAuthProfile:
-        if id_token == "invalid":
-            raise Unauthorized("invalid google token")
-        return OAuthProfile(
-            email=id_token,
-            email_verified="unverified" not in id_token,
-            name="OAuth User",
-            sub=f"google-{id_token}",
-        )
+class FakeIdentityProvider:
+    """Kratos at the boundary: sessions are opaque strings mapped to identities."""
+
+    def __init__(self) -> None:
+        self.sessions: dict[str, Identity] = {}
+        self.revoked: list[str] = []
+        self.step_up: set[str] = set()
+        self.down = False
+        self.admin_down = False
+
+    def issue(self, identity: Identity) -> str:
+        credential = f"test-{uuid4().hex}"
+        self.sessions[credential] = identity
+        return credential
+
+    async def whoami(self, credential: Credential) -> Identity:
+        if self.down:
+            raise unavailable()
+        key = credential.session_token or credential.cookie
+        if key in self.step_up:
+            raise Unauthorized("second factor required", code="aal2_required")
+        identity = self.sessions.get(key)
+        if identity is None:
+            raise Unauthorized("session expired", code="unauthenticated")
+        return identity
+
+    async def revoke_sessions(self, identity_id: str) -> None:
+        if self.down or self.admin_down:
+            raise unavailable()
+        self.revoked.append(identity_id)
+        self.sessions = {k: v for k, v in self.sessions.items() if v.id != identity_id}
+
+
+@pytest.fixture
+def identities() -> FakeIdentityProvider:
+    return FakeIdentityProvider()
+
+
+def identity_for(
+    user: User, *, email: str | None = None, verified: bool = True, aal: str = "aal1"
+) -> Identity:
+    address = email or user.email
+    return Identity(
+        id=user.kratos_identity_id,
+        email=address,
+        verified_emails=frozenset({address.casefold()}) if verified else frozenset(),
+        name=user.name,
+        session_id=f"ses-{uuid4().hex}",
+        aal=aal,
+    )
+
+
+async def session_token(
+    identities: FakeIdentityProvider, db: AsyncSession, user_id: str, *, verified: bool = True
+) -> str:
+    user = await db.get(User, user_id)
+    assert user is not None
+    return identities.issue(identity_for(user, verified=verified))
 
 
 class FakePaymentGateway:
@@ -437,6 +491,7 @@ async def api(
     sms: FakeSmsSender,
     push: FakePushSender,
     storage: FakeFileStorage,
+    identities: FakeIdentityProvider,
 ) -> AsyncIterator[httpx.AsyncClient]:
     async def _session() -> AsyncIterator[AsyncSession]:
         yield db
@@ -452,7 +507,7 @@ async def api(
 
     app.dependency_overrides[get_session] = _session
     app.dependency_overrides[get_email_sender] = _email
-    app.dependency_overrides[get_oauth_verifier] = FakeOAuthVerifier
+    app.dependency_overrides[get_identity_provider] = lambda: identities
     app.dependency_overrides[get_payment_gateway] = _gateway
     app.dependency_overrides[get_sms_sender] = lambda: sms
     app.dependency_overrides[get_push_sender] = lambda: push
@@ -465,29 +520,28 @@ async def api(
     app.dependency_overrides[public_contract_rate_limit] = lambda: None
     app.dependency_overrides[public_booking_rate_limit] = lambda: None
     app.dependency_overrides[public_prefs_rate_limit] = lambda: None
+    app.dependency_overrides[public_invite_rate_limit] = lambda: None
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
     app.dependency_overrides.clear()
 
 
-async def access_token(db: AsyncSession, user_id: str) -> str:
-    from clientbridge.services.auth import AuthService
-
-    return (await AuthService(db).issue_session(user_id)).access_token
-
-
 @pytest.fixture
-async def as_owner(api: httpx.AsyncClient, db: AsyncSession) -> httpx.AsyncClient:
-    token = await access_token(db, OWNER_USER)
-    api.headers.update({"Authorization": f"Bearer {token}", "X-Business-Id": BIZ})
+async def as_owner(
+    api: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
+) -> httpx.AsyncClient:
+    token = await session_token(identities, db, OWNER_USER)
+    api.headers.update({"X-Session-Token": token, "X-Business-Id": BIZ})
     return api
 
 
 @pytest.fixture
-async def as_staff(api: httpx.AsyncClient, db: AsyncSession) -> httpx.AsyncClient:
-    token = await access_token(db, STAFF_USER)
-    api.headers.update({"Authorization": f"Bearer {token}"})
+async def as_staff(
+    api: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
+) -> httpx.AsyncClient:
+    token = await session_token(identities, db, STAFF_USER)
+    api.headers.update({"X-Session-Token": token})
     return api
 
 
@@ -512,13 +566,12 @@ class Factory:
         await self.db.flush()
         return biz
 
-    async def user(self, *, email: str | None = None, password: str | None = None) -> User:
+    async def user(self, *, email: str | None = None) -> User:
         user = User(
             id=new_id("user"),
+            kratos_identity_id=str(uuid4()),
             email=email or f"u-{new_id('user')[3:13].lower()}@test.ca",
             name="Test User",
-            password_hash=hash_password(password) if password else None,
-            oauth={},
         )
         self.db.add(user)
         await self.db.flush()

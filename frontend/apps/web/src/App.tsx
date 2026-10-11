@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
     BusinessZoneContext,
+    failedStatus,
     strings,
     useBusinessLoad,
     useBusinessSelection,
@@ -12,10 +13,10 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { DebugPanel } from "./components/DebugPanel";
 import { config } from "./config";
-import { Login } from "./pages/Login";
+import { Login, VerifyEmail } from "./pages/Login";
 import { Button, ConfirmHost, LoadFailed, Loading, Logo, Select } from "@clientbridge/ui";
-import { api, onSignedOut, selectBusiness } from "./lib/api";
-import { clearTokens, isAuthenticated, onSessionChanged } from "./lib/auth";
+import { api, identity, onSignedOut, selectBusiness } from "./lib/api";
+import { clearUser, getUserId, onSessionChanged, rememberUser, sessionExpected } from "./lib/auth";
 import { connectPowerSync, replica, signOut } from "./lib/powersync";
 import { AcceptInvite } from "./pages/AcceptInvite";
 import { Schedule } from "./pages/Schedule";
@@ -28,19 +29,40 @@ import { Payments } from "./pages/Payments";
 import { Setup } from "./pages/Setup";
 import { Today } from "./pages/Today";
 
+async function signedInUser(): Promise<string | null> {
+    if (!sessionExpected()) return null;
+    try {
+        return (await api.forBusiness(null).get<{ user_id: string }>("/v1/me")).user_id;
+    } catch (e) {
+        // Offline or Kratos down: the remembered user's replica still opens.
+        const status = failedStatus(e);
+        if (status === null || status >= 500) return getUserId();
+        return null;
+    }
+}
+
+async function endSession(): Promise<void> {
+    await clearUser();
+    await identity.signOut().catch(() => undefined);
+}
+
 const lifecycle = {
     restore: async () => {
-        if (isAuthenticated()) return connectPowerSync(api);
-        await replica.pause();
-        return null;
+        const userId = await signedInUser();
+        if (userId === null) {
+            await replica.pause();
+            return null;
+        }
+        await rememberUser(userId);
+        return connectPowerSync(api);
     },
     pause: () => replica.pause(),
     discard: async () => {
-        await clearTokens();
+        await endSession();
         await signOut();
     },
     subscribe: onSignedOut,
-    clearCredentials: clearTokens,
+    clearCredentials: endSession,
     subscribeChanged: onSessionChanged,
 };
 
@@ -96,6 +118,7 @@ export function App() {
                             />
                         }
                     />
+                    <Route path="/verify" element={<VerifyEmail />} />
                     <Route
                         path="*"
                         element={
@@ -127,7 +150,11 @@ function AppRoutes({
     return (
         <BusinessZoneContext.Provider value={business.zone}>
             <Routes>
-                <Route path="/accept-invite" element={<AcceptInvite onAuthed={onAuthed} />} />
+                <Route
+                    path="/accept-invite"
+                    element={<AcceptInvite onAuthed={onAuthed} onSignOut={onSignOut} />}
+                />
+                <Route path="/verify" element={<VerifyEmail />} />
                 {authed ? (
                     !business.ready ? (
                         <Route

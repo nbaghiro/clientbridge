@@ -6,7 +6,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.messaging import Message, Thread
-from tests.conftest import STAFF_USER, Factory, access_token
+from tests.conftest import STAFF_USER, Factory, FakeIdentityProvider, session_token
 from tests.helpers import key
 
 BIZ = "bz_birchbark"
@@ -279,10 +279,12 @@ async def test_merge_refuses_self_money_and_saved_methods_409(
     assert res.status_code == 409
 
 
-async def test_staff_cannot_restore_403(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_staff_cannot_restore_403(
+    as_owner: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
+) -> None:
     cid = (await as_owner.post("/v1/clients", json={"name": "Archived"})).json()["id"]
     assert (await as_owner.post(f"/v1/clients/{cid}/archive")).status_code == 200
-    as_owner.headers["Authorization"] = f"Bearer {await access_token(db, STAFF_USER)}"
+    as_owner.headers["X-Session-Token"] = await session_token(identities, db, STAFF_USER)
     assert (await as_owner.post(f"/v1/clients/{cid}/restore")).status_code == 403
     assert (await _client(db, cid))["status"] == "inactive"
 

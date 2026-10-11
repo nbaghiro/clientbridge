@@ -101,3 +101,69 @@ export async function sendAttempt<T>(
         return send(attemptKey(ref, request));
     }
 }
+
+// Matches api-client's IdentityClient; kept local so app-core needn't depend on api-client.
+type FlowKind = "login" | "registration" | "recovery" | "verification" | "settings";
+
+export interface FlowMessage {
+    id: number;
+    type: string;
+    text: string;
+}
+
+export interface FlowNode {
+    group: string;
+    name: string;
+    kind: string;
+    type?: string;
+    value: unknown;
+    src?: string;
+    text?: string;
+    label?: string;
+    context?: Record<string, unknown>;
+    messages: FlowMessage[];
+}
+
+export interface Flow {
+    id: string;
+    kind: FlowKind;
+    state: string | null;
+    messages: FlowMessage[];
+    nodes: FlowNode[];
+    exchangeCode?: string;
+}
+
+export type FlowStep =
+    | {
+          kind: "done";
+          sessionToken?: string;
+          next?: { flow: "verification" | "settings"; id: string };
+      }
+    | { kind: "flow"; flow: Flow }
+    | { kind: "redirect"; url: string }
+    | { kind: "reauth" }
+    | { kind: "restart" };
+
+// The slice of the Kratos client the auth hooks drive (web: browser flows; mobile: native flows).
+export interface IdentityLike {
+    start(
+        kind: FlowKind,
+        opts?: {
+            aal?: "aal2" | undefined;
+            refresh?: boolean | undefined;
+            returnTo?: string | undefined;
+            sessionToken?: string | undefined;
+        },
+    ): Promise<Flow>;
+    resume(kind: FlowKind, id: string, sessionToken?: string): Promise<Flow>;
+    submit(flow: Flow, body: Record<string, unknown>, sessionToken?: string): Promise<FlowStep>;
+    session(sessionToken?: string): Promise<"active" | "aal2" | "none">;
+    exchange(flow: Flow, returnToCode: string): Promise<string>;
+    signOut(sessionToken?: string): Promise<void>;
+}
+
+// WebAuthn needs the browser's credential API; mobile leaves it out (TOTP and backup codes only).
+export interface WebAuthnLike {
+    register(options: string): Promise<string>;
+    login(options: string): Promise<string>;
+}

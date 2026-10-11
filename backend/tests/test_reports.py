@@ -1,6 +1,7 @@
 import csv
 import io
 from datetime import UTC, datetime
+from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -161,7 +162,10 @@ async def _earn(db: AsyncSession, *, staff_id: str, amount: int, at: datetime, s
 
 async def _new_payee(db: AsyncSession, *, name: str) -> str:
     user = User(
-        id=new_id("user"), email=f"{new_id('user')[3:13].lower()}@test.ca", name=name, oauth={}
+        id=new_id("user"),
+        kratos_identity_id=str(uuid4()),
+        email=f"{new_id('user')[3:13].lower()}@test.ca",
+        name=name,
     )
     db.add(user)
     await db.flush()

@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,19 +9,24 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.db import get_session
 from clientbridge.core.errors import AppError, Forbidden, Unauthorized
 from clientbridge.integrations.expo import PushSender, get_push_sender
-from clientbridge.integrations.google import OAuthVerifier, get_oauth_verifier
+from clientbridge.integrations.kratos import (
+    Credential,
+    Identity,
+    IdentityProvider,
+    get_identity_provider,
+)
 from clientbridge.integrations.postmark import EmailSender, get_email_sender
 from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.integrations.stripe import PaymentGateway, get_payment_gateway
 from clientbridge.integrations.twilio import SmsSender, get_sms_sender
 from clientbridge.models.business import Staff, User
-from clientbridge.services.sessions import authenticate_access
+from clientbridge.services.auth import AuthService
 
 DbSession = Annotated[AsyncSession, Depends(get_session)]
 EmailDep = Annotated[EmailSender, Depends(get_email_sender)]
 SmsDep = Annotated[SmsSender, Depends(get_sms_sender)]
 PushDep = Annotated[PushSender, Depends(get_push_sender)]
-OAuthVerifierDep = Annotated[OAuthVerifier, Depends(get_oauth_verifier)]
+IdentityDep = Annotated[IdentityProvider, Depends(get_identity_provider)]
 GatewayDep = Annotated[PaymentGateway, Depends(get_payment_gateway)]
 StorageDep = Annotated[FileStorage, Depends(get_file_storage)]
 
@@ -40,21 +45,47 @@ def get_sms_webhook_secret() -> str:
 SmsWebhookSecretDep = Annotated[str, Depends(get_sms_webhook_secret)]
 
 
-async def current_user_id(db: DbSession, authorization: str = Header(default="")) -> str:
-    return await authenticate_access(db, authorization)
+_SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
-CurrentUserId = Annotated[str, Depends(current_user_id)]
+async def current_identity(
+    request: Request, identities: IdentityDep, x_session_token: str = Header(default="")
+) -> Identity:
+    """Mobile sends the Kratos session token; web sends the session cookie."""
+    if x_session_token:
+        return await identities.whoami(Credential(session_token=x_session_token))
+    settings = get_settings()
+    cookie = request.cookies.get(settings.kratos_session_cookie, "")
+    if not cookie:
+        raise Unauthorized("sign in required", code="unauthenticated")
+    # The cookie rides along on same-site requests too, so cookie writes must come from our origins.
+    if request.method not in _SAFE_METHODS and not settings.origin_allowed(
+        request.headers.get("origin", "")
+    ):
+        raise Forbidden("request origin not allowed", code="origin_refused")
+    return await identities.whoami(Credential(cookie=cookie))
 
 
-async def current_user(user_id: CurrentUserId, db: DbSession) -> User:
-    user = await db.get(User, user_id)
-    if user is None:
-        raise Unauthorized("user not found")
+CurrentIdentity = Annotated[Identity, Depends(current_identity)]
+
+
+async def current_user(
+    identity: CurrentIdentity, db: DbSession, x_expected_user: str = Header(default="")
+) -> User:
+    user = await AuthService(db).provision(identity)
+    if x_expected_user and x_expected_user != user.id:
+        raise Unauthorized("signed in as a different user", code="session_changed")
     return user
 
 
 CurrentUser = Annotated[User, Depends(current_user)]
+
+
+async def current_user_id(user: CurrentUser) -> str:
+    return user.id
+
+
+CurrentUserId = Annotated[str, Depends(current_user_id)]
 
 
 class Principal(BaseModel):

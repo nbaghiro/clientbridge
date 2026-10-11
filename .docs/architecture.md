@@ -40,8 +40,8 @@ secrets, cross-tenant — must be a **command**, never unvalidated replica CRUD.
 | # | Surface | What it is | Auth | Examples |
 |---|---|---|---|---|
 | 1 | **Sync-read** | PowerSync streams each device its authorized rows into local SQLite | Sync Streams | calendar, clients, invoices on-device |
-| 2 | **Offline command** | Local-only durable intent → typed `/v1` command → authoritative replication | JWT + service role/tenant checks + expected revision | edit working hours |
-| 3 | **Command / RPC** | FastAPI `POST/PATCH/DELETE` under `/v1/*`, wrapped in `run_command` (atomic + audited + idempotent) → writes Postgres → flows back via sync | JWT + role | book a slot, issue an invoice, take a payment |
+| 2 | **Offline command** | Local-only durable intent → typed `/v1` command → authoritative replication | Kratos session + service role/tenant checks + expected revision | edit working hours |
+| 3 | **Command / RPC** | FastAPI `POST/PATCH/DELETE` under `/v1/*`, wrapped in `run_command` (atomic + audited + idempotent) → writes Postgres → flows back via sync | Kratos session + role | book a slot, issue an invoice, take a payment |
 | 4 | **Webhook / public** | inbound provider callbacks + unauthenticated public pages | signature / token / slug | Stripe/Interac/SMS webhooks; book/pay/form/contract/review |
 | 5 | **Job** | arq background work on Redis | system | reminders, reap-unpaid, broadcasts, overdue sweep |
 
@@ -72,12 +72,12 @@ clientbridge/
 │   └── src/clientbridge/
 │       ├── main.py             FastAPI app factory (ASGI entry)
 │       ├── core/               command · scoping · deps · config · security · db · errors · ids · ratelimit
-│       ├── models/             SQLAlchemy — one file per domain (+ auth, base)
+│       ├── models/             SQLAlchemy — one file per domain (+ base)
 │       ├── schemas/            Pydantic DTOs — one file per concept
 │       ├── services/           business logic — one file per concept (28)
 │       ├── api/                router.py (mounts /v1) · one router file per concept · public.py · webhooks.py
 │       ├── sync/               auth.py (token/JWKS)
-│       ├── integrations/       stripe · postmark · twilio · expo · google · s3 (provider adapters)
+│       ├── integrations/       stripe · postmark · twilio · expo · kratos · s3 (provider adapters)
 │       └── tasks/              worker.py: the arq cron schedule
 ├── frontend/           ── TypeScript · pnpm + turbo ──
 │   ├── apps/
@@ -90,10 +90,11 @@ clientbridge/
 │       ├── app-core/   shared view-model hooks + strings + icons + UI prop contracts (ui.ts)
 │       ├── ui/         shared components: src/web (DOM, web + Connect) · src/mobile (React Native)
 │       ├── sync/       PowerSync AppSchema + backend connector
-│       ├── api-client/ generated OpenAPI types + session (refresh/sign-out)
+│       ├── api-client/ generated OpenAPI types + session (cookie/token) + Kratos flow client
 │       ├── tokens/     Pewter design system → Tailwind theme + RN theme
 │       └── config/     shared eslint/prettier + the no-inline-ui-string rule
 ├── infra/powersync/    powersync.yaml (service config) · sync-rules.yaml (read authz)
+├── infra/kratos/       kratos.yml · identity schema · Google mapper · email templates
 └── .docs/              architecture · engineering · launch-readiness · design/
 ```
 
@@ -127,9 +128,9 @@ with the subclass's HTTP status, and a request that fails validation as `invalid
 |---|---|
 | `command.py` | **The command wrapper.** `run_command(db, principal, *, action, run, response_model, idempotency_key)` — replays a stored response for a repeated key, stages `Command.record(...)` audit rows, then commits mutation + audit + idempotency key as **one atomic unit** (rollback on any error). Money/uniqueness/cross-tenant mutations go through it. |
 | `scoping.py` | **The one place the tenant filter lives.** `scoped(Model, business_id, soft_delete=…)` + `scoped_update`/`scoped_delete`. Services **never** hand-write a `business_id` filter. |
-| `deps.py` | DI hub — DB session, adapter aliases (`EmailDep`, `GatewayDep`, `StorageDep`…), the auth chain (`current_principal` re-derives business/role from the DB every request, honoring `X-Business-Id`), and role gates (`assert_role`, `is_manager`). |
-| `config.py` | Pydantic-settings. **Fails closed in prod:** refuses to boot if the JWT secret is still the dev default or the Stripe webhook secret is empty when `env != dev`. |
-| `security.py` | Argon2 password hashing · SHA-256 opaque-token hashing · HS256 access tokens · the PowerSync token (HS256 or RS256 + a JWKS endpoint for prod). |
+| `deps.py` | DI hub — DB session, adapter aliases (`EmailDep`, `GatewayDep`, `IdentityDep`…), the auth chain (`current_identity` asks Kratos who the session is, `current_user` links the local user, `current_principal` re-derives business/role from the DB every request, honoring `X-Business-Id`), and role gates (`assert_role`, `is_manager`). |
+| `config.py` | Pydantic-settings and the allowed-origins list (CORS and the cookie Origin check). **Fails closed in prod:** refuses to boot without real secrets, an https Kratos public URL, a separate admin URL, or with `WEB_BASE_URL` missing from `CORS_ALLOW_ORIGINS`. |
+| `security.py` | Argon2 hashing for the desk discount PIN · SHA-256 opaque-token hashing (invites) · the PowerSync token (HS256 or RS256 + a JWKS endpoint for prod). |
 | `ids.py` | Prefixed-ULID PKs (`bz_…`, `bk_…`), time-sortable. |
 | `errors.py` | `AppError` taxonomy → HTTP status (`NotFound` 404, `Conflict` 409, `CardDeclined` 402, `TooManyRequests` 429…). |
 | `ratelimit.py` | In-process fixed-window limiter for the five public surfaces (30/60s each). |
@@ -146,8 +147,8 @@ hand-written role tuple check.
 Every external dependency is an **adapter interface (`typing.Protocol`) + a prod implementation + a `get_*()`
 dependency** that tests override with a recording fake — so the boundary is covered without the network.
 Six adapters in `integrations/`, one per provider so they read apart from our own services:
-`stripe.py` (Stripe Connect + Terminal), `postmark.py` (email), `twilio.py` (SMS), `expo.py` (push), `google.py`
-(Google sign-in), `s3.py` (S3; RustFS locally).
+`stripe.py` (Stripe Connect + Terminal), `postmark.py` (email), `twilio.py` (SMS), `expo.py` (push), `kratos.py`
+(Ory Kratos sessions and admin calls), `s3.py` (S3; RustFS locally).
 
 ### Jobs (`tasks/`)
 `tasks/worker.py` is the schedule only: one-line arq cron wrappers that open a session and call a `run_*`
@@ -160,8 +161,7 @@ zone and `locale_for(...)` its text renders in), and each is idempotent via a st
 
 ## The data model
 
-**41 tables**: **39 across the 11 domains** plus **2 server-only auth-infra** tables (`sessions`,
-`tokens`). Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
+**39 tables** across the 11 domains; credentials and sessions live in Ory Kratos's own database. Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
 records every money movement and is the only place money balances are stored. The SQLAlchemy models in
 `backend/src/clientbridge/models/` are the exact-DDL source of truth; the migrations in
 `migrations/versions/` start from one baseline (squashed before launch) with increments after it.
@@ -201,12 +201,12 @@ shown after it.
 `rs_`resources `sch_`recurrences · `inv_`invoices `est_`estimates `ord_`orders `ln_`lines · `pay_`payments
 `pm_`payment_methods `acc_`accounts `ent_`entries `jrn_`journal · `th_`threads `msg_`messages `bro_`broadcasts
 · `frm_`forms `ff_`fields `fr_`responses `con_`contracts `sig_`signatures · `rv_`reviews (requests merged in from the old `review_requests` keep `rvr_`)
-· `fl_`files `aud_`audits `wh_`webhooks `dvt_`devices `idk_`commands `ase_`sessions `atk_`tokens
+· `fl_`files `aud_`audits `wh_`webhooks `dvt_`devices `idk_`commands
 
 ### Tables by domain
 
 **business (3)** — `businesses` (all Stripe-Connect/KYC mirror fields + Canadian tax fields + `slug` + brand
-JSONB), `users` (global login, `email` unique, `oauth`), `staff` (user↔business, `role`
+JSONB), `users` (one per Kratos identity via unique `kratos_identity_id`; `email` copied from Kratos, `last_seen_at`, desk `pin_hash`), `staff` (user↔business, `role`
 owner/admin/staff/contractor, payout config `payee`/`rate_type` with the rate in `rate_bps` (percent) or
 `rate_cents` (fixed or hourly), one membership per user per business, pending invites via
 `status=invited` + hashed `invite_token`).
@@ -279,9 +279,6 @@ activity feed; server-only), `webhooks` (inbound provider events, `event` = the 
 **not** business-scoped — routed during processing; server-only), `devices` (Expo push tokens), `commands`
 (unique per business+scope+key — backs `run_command` replay; server-only).
 
-**auth-infra (2, server-only, excluded from sync)** — `sessions` (refresh-token families; rotation
-swaps the hash, replay revokes the family), `tokens` (single-use reset/verify tokens).
-
 > **Note on tax:** there is **no `tax_rates` table** (dropped). Rates are hardcoded per province in
 > `services/tax.py` and derived from `businesses.province`; the tax engine (also `services/tax.py`)
 > is pure and golden-tested. See *Tax* below.
@@ -315,11 +312,11 @@ build + permanent maintenance.)
  Expo (op-sqlite) ─┐                            ┌── logical replication (WAL) ──┐
  Web (WASM)        ─┤── WebSocket (read sync) ─► PowerSync Service ◄────────────┤ Postgres (source of truth)
        ▲ reads local SQLite (offline-first)      (Sync Streams keyed by           │
-       │                                           business_id + role, from JWT)  │
+       │                                           business_id + role, from token) │
        └── local-only hours outbox ─► FastAPI /v1/hours/{staff}/week─┘ writes
 ```
 
-- **Reads** are governed by **Sync Streams** + JWT claims; FastAPI is *not* in the read loop. The on-device
+- **Reads** are governed by **Sync Streams** + the PowerSync token's `sub`; FastAPI is *not* in the read loop. The on-device
   SQLite already holds only the rows this user may see, so the client never filters for *security* — it just
   queries its local DB. Reactive `useQuery(sql)` re-runs on any sync push or local write.
 - **Hours writes** persist proposals separately from canonical rows in a local-only outbox. The typed week command validates authorization, seven weekdays and the expected revision atomically with its replay receipt. Other writes use their existing online commands.
@@ -330,16 +327,16 @@ build + permanent maintenance.)
 - **Device query planning.** PowerSync stores each table as JSON behind a view and indexes JSON expressions. Replica indexes are the model indexes without a leading `business_id`, because a device reads one business at a time. The controller runs `PRAGMA optimize=0x10002` after the first sync, because without statistics SQLite prefers the `business_id` index. SQLite ignores a replica index on the right side of a LEFT JOIN, so a one-to-many join goes through the parent's id (`slotBookingsJoin`).
 
 ### Database roles and replication
-`scripts/db_access.py` creates four roles and is run by `make up` and `make migrate`. `clientbridge_migrator` owns the schema and runs Alembic and the demo seed (`MIGRATION_DATABASE_URL`). `clientbridge_api` has data access without DDL (`DATABASE_URL`). `powersync_source` has `REPLICATION` and `SELECT` on synced tables only. `powersync_storage_owner` owns the `powersync_storage` database. The `powersync` publication lists exactly the synced tables, generated from the stream config, so sessions, tokens, receipts, commands, audits and webhooks never reach the replication service. `make replication-health` fails when PowerSync is not ready, its slot is inactive, retained WAL exceeds 1 GiB or replay lag exceeds 60 seconds.
+`scripts/db_access.py` creates five roles (the fifth, `kratos`, owns the `kratos` database) and is run by `make up` and `make migrate`. `clientbridge_migrator` owns the schema and runs Alembic and the demo seed (`MIGRATION_DATABASE_URL`). `clientbridge_api` has data access without DDL (`DATABASE_URL`). `powersync_source` has `REPLICATION` and `SELECT` on synced tables only. `powersync_storage_owner` owns the `powersync_storage` database. The `powersync` publication lists exactly the synced tables, generated from the stream config, so users, receipts, commands, audits and webhooks never reach the replication service. Kratos has its own `kratos` database and role. `make replication-health` fails when PowerSync is not ready, its slot is inactive, retained WAL exceeds 1 GiB or replay lag exceeds 60 seconds.
 
 ### Attachments
 `POST /v1/files` creates a pending row and a presigned upload URL. After the upload, `POST /v1/files/{id}/complete` (or the public form's `/upload/{file_id}/complete`) checks the object's size in storage and sets `uploaded_at`. A missing object returns 409 `upload_missing`, and a different size returns 422. Readers ignore rows without `uploaded_at`: public media, item images, the logo, form answers and the replica queries. `prune_pending_files` removes pending rows older than 24 hours together with their objects. File metadata syncs, but bytes do not; an image that cannot load falls back to its initial.
 
 ### Device storage
-Replicas are named per API, PowerSync URL and user, and refuse a database that belongs to another account. When a refresh is refused, the shell removes the replica from the screen and shows sign-in; the data and pending work stay on the device for the same account, and sign-out clears them. Web asks the browser to keep its storage persistent. A full device shows its own sync problem. Neither platform encrypts the database at the application level: browser storage does not protect against a script running on the same origin, mobile relies on the platform's file protection, and tokens are in SecureStore on mobile and `localStorage` on web.
+Replicas are named per API, PowerSync URL and user, and refuse a database that belongs to another account. When the API says the session is gone, the shell removes the replica from the screen and shows sign-in; the data and pending work stay on the device for the same account, and sign-out clears them. Web asks the browser to keep its storage persistent. A full device shows its own sync problem. Neither platform encrypts the database at the application level: browser storage does not protect against a script running on the same origin, mobile relies on the platform's file protection, the Kratos session token is in SecureStore on mobile, and on web the session is an HttpOnly cookie (`localStorage` keeps only the user id whose replica is open).
 
 ### `/sync/token` + JWKS (`sync/auth.py`)
-Exchanges an authenticated app JWT for a short-lived PowerSync token in every environment; serves the RS256 JWKS at `/sync/keys`. Development uses HS256. Production uses RS256 with `POWERSYNC_USE_RS256=true` and `powersync.yaml` `jwks_uri` pointing to `/sync/keys`.
+Exchanges a Kratos session (cookie or `X-Session-Token`) for a short-lived PowerSync token whose `sub` is `users.id`; serves the RS256 JWKS at `/sync/keys`. Development uses HS256. Production uses RS256 with `POWERSYNC_USE_RS256=true` and `powersync.yaml` `jwks_uri` pointing to `/sync/keys`.
 
 ### The hours write path
 `POST /v1/hours/{staff_id}/week` is the single recurring-week mutation. Owners/admins may edit any active member in their business; other members may edit only themselves. Each operation includes a device/operation identity, business, creation time, expected revision and all seven weekdays. The service serializes replacement, keeps row IDs stable, increments `staff.hours_revision`, and commits the replay receipt with the write. The same identity and payload replay the original result; changed payloads or stale revisions fail. Existing split-day schedules are rejected for explicit review, never flattened silently.
@@ -347,9 +344,34 @@ Exchanges an authenticated app JWT for a short-lived PowerSync token in every en
 ### The client (`packages/sync`)
 `schema.ts` is generated from explicit sync projections. The connector exchanges live session credentials at `/sync/token`; PowerSync downloads canonical data. `hours_outbox` and device preferences are local-only tables. The outbox coalesces unattempted changes, freezes attempted payloads, backs off transient failures, and blocks only successors of a rejected staff-week. Accepted proposals remain pending until their revision is observed in the replica. Pausing authentication cancels uploads without deleting intent; explicit discard clears the account-scoped replica.
 
-Direct writes to synchronized tables are programming errors. There is no generic CRUD endpoint or old-client fallback. Receipts, sessions, commands, webhooks and audits remain server-only.
+Direct writes to synchronized tables are programming errors. There is no generic CRUD endpoint or old-client fallback. Receipts, commands, webhooks and audits remain server-only.
 
 ---
+
+## Identity (Ory Kratos)
+
+Self-hosted Kratos (`infra/kratos/`, public :8713, admin :8714) owns credentials, sessions, email
+verification, recovery, Google sign-in, second factors (TOTP, backup codes, WebAuthn on web) and the
+settings flow. The apps drive its self-service flows directly with their own screens (app-core
+`useAuthForm`, `useRecoveryForm`, `useVerificationForm`, `useSecuritySettings`): web uses browser
+flows and an HttpOnly session cookie on the shared parent domain; mobile uses native flows and keeps
+the session token in SecureStore. Verification and recovery email copy lives in
+`infra/kratos/templates/`, the one place auth email is worded outside `notifications.py`.
+
+- **API edge** — `current_identity` sends the session to `/sessions/whoami` (30 s in-process cache,
+  extends sessions nearing expiry). No session is 401 `unauthenticated`; a missing second factor is
+  401 `aal2_required` (the apps step up instead of signing out); Kratos unreachable is 503, never a
+  sign-out. Cookie-authenticated writes must come from an allowed `Origin`, because the cookie also
+  rides along on same-site requests from `pay.`/`connect.`.
+- **Provisioning** — the first authenticated request creates the `users` row for the identity
+  (`AuthService.provision`), and later ones copy email/name changes and a throttled `last_seen_at`.
+- **Required verification** — signing in does not need a verified email; opening a business and
+  accepting an invite do. An invite joins only an identity that has verified the invited address.
+- **Replica binding** — the apps send `X-Expected-User` from the replica; a different signed-in user
+  is 401 `session_changed`, so one account's sync never writes into another's replica.
+- **Removal** — removing a staff member revokes all their Kratos sessions through the admin API.
+- **Not built in** — Kratos OSS has no login lockout; production rate-limits `/self-service/*` at
+  the proxy (launch-readiness ENG-2). The admin API must stay on the private network.
 
 ## Authorization & visibility
 

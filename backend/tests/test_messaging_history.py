@@ -89,5 +89,5 @@ async def test_older_messages_require_auth_and_a_bounded_page(
     assert (
         await as_owner.get(url, params={"before": START.isoformat(), "limit": 101})
     ).status_code == 422
-    unauth.headers.pop("Authorization", None)
+    unauth.headers.pop("X-Session-Token", None)
     assert (await unauth.get(url, params={"before": START.isoformat()})).status_code == 401

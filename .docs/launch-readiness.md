@@ -69,19 +69,23 @@ Epic QA: run each story's QA below in order on one business, on web, iPhone and 
 ### Sign-up, sign-in and password reset (ENG-2)
 Priority: P0 · Size: S · Backend, web, iPhone and Android
 
-Flow: A new owner signs up, verifies their email, signs out and back in, resets a forgotten password and signs in with Google.
+Flow: A new owner signs up, verifies their email, signs out and back in, resets a forgotten password, signs in with Google and turns on two-step verification.
 
-Built: Email and password, Google sign-in, rotating sessions, reset and verify emails, sign-in screens on every platform.
+Built: Ory Kratos (self-hosted) for email and password, email verification and recovery codes, Google sign-in, authenticator apps, backup codes and security keys (web), and the Sign-in & security settings; `/signup` has its own URL; web holds an HttpOnly session cookie and mobile a session token. Invites need the invited address verified.
 
 To do:
-- A sign-up page with its own URL, so the marketing site's Start free lands on it.
-- A production email sender for verify and reset emails.
+- Deploy Kratos at `auth.clientbridge.ca` with its own database, the session cookie on `.clientbridge.ca`, WebAuthn for `clientbridge.ca`, and the admin API on the private network only.
+- Production secrets: `SECRETS_COOKIE`, `SECRETS_CIPHER` (32 characters) and the Postmark SMTP URI for the courier, with a verified sender signature.
+- Google OAuth client with the Kratos callback (`https://auth.clientbridge.ca/self-service/methods/oidc/callback/google`) and consent screen; set `GOOGLE_OAUTH_CLIENT_ID`/`SECRET`.
+- Rate limits on `/self-service/*` at the proxy: Kratos OSS has no login lockout.
+- Security keys on mobile (native passkeys need associated domains); mobile has authenticator apps and backup codes.
 
 QA:
-1. From the marketing site, click Start free and sign up with a new email; verify it.
+1. From the marketing site, click Start free and sign up with a new email; enter the emailed code.
 2. Sign out and in on web, iPhone and Android.
-3. Reset the password from the email, then sign in with Google on the same address.
-4. Try a wrong password five times: the error is the same each time and no account detail leaks.
+3. Reset the password with the emailed code, then sign in with Google on the same address.
+4. Turn on an authenticator app in Setup › Sign-in & security; sign out and back in with a code on each platform.
+5. Try a wrong password repeatedly: the error is the same each time, no account detail leaks, and the proxy starts refusing.
 Done when: A new owner gets in and back in on every platform without help.
 
 ### Onboarding, business profile and branding (ENG-3)

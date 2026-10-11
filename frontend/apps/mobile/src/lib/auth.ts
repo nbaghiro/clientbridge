@@ -1,11 +1,15 @@
-import { SessionEpoch, type TokenPair } from "@clientbridge/api-client";
+import { SessionEpoch } from "@clientbridge/api-client";
 import { type Viewer, useCurrentViewer } from "@clientbridge/app-core";
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useState } from "react";
 
-export type { TokenPair };
+// The Kratos session token, and whose replica it opened once the API said who that is.
+interface StoredSession {
+    session_token: string;
+    user_id: string | null;
+}
 
-const KEY = "cb_tokens";
+const KEY = "cb_session";
 
 export const sessionEpoch = new SessionEpoch();
 let teardown: () => Promise<void> = () => Promise.resolve();
@@ -14,14 +18,14 @@ export function beforeSessionReplace(handler: () => Promise<void>): void {
     teardown = handler;
 }
 
-export async function getTokens(): Promise<TokenPair | null> {
+export async function getSession(): Promise<StoredSession | null> {
     const raw = await SecureStore.getItemAsync(KEY);
-    return raw ? (JSON.parse(raw) as TokenPair) : null;
+    return raw ? (JSON.parse(raw) as StoredSession) : null;
 }
 
 let storageTail: Promise<void> = Promise.resolve();
 
-export function withSessionLock<T>(fn: () => Promise<T>): Promise<T> {
+function serialized<T>(fn: () => Promise<T>): Promise<T> {
     const next = storageTail.then(fn);
     storageTail = next.then(
         () => undefined,
@@ -30,45 +34,50 @@ export function withSessionLock<T>(fn: () => Promise<T>): Promise<T> {
     return next;
 }
 
-export async function saveTokens(tokens: TokenPair): Promise<void> {
-    await SecureStore.setItemAsync(KEY, JSON.stringify(tokens));
-}
-
-export async function clearSavedTokens(): Promise<void> {
+export async function forgetSession(): Promise<void> {
     sessionEpoch.advance();
-    await SecureStore.deleteItemAsync(KEY);
+    await serialized(() => SecureStore.deleteItemAsync(KEY));
 }
 
-export async function setTokens(tokens: TokenPair): Promise<void> {
+export async function signIn(sessionToken: string): Promise<void> {
     sessionEpoch.advance();
     await teardown();
-    await withSessionLock(() => saveTokens(tokens));
+    const session: StoredSession = { session_token: sessionToken, user_id: null };
+    await serialized(() => SecureStore.setItemAsync(KEY, JSON.stringify(session)));
     sessionEpoch.advance();
 }
 
-export async function clearTokens(): Promise<void> {
+export async function rememberUser(userId: string): Promise<void> {
+    await serialized(async () => {
+        const session = await getSession();
+        if (session === null || session.user_id === userId) return;
+        await SecureStore.setItemAsync(KEY, JSON.stringify({ ...session, user_id: userId }));
+    });
+}
+
+export async function clearSession(): Promise<void> {
     sessionEpoch.advance();
     await teardown();
-    await withSessionLock(clearSavedTokens);
+    await forgetSession();
 }
 
-function useAccessToken(): string | null {
-    const [token, setToken] = useState<string | null>(null);
+function useUserId(): string | null {
+    const [userId, setUserId] = useState<string | null>(null);
     useEffect(() => {
-        getTokens()
-            .then((t) => {
-                setToken(t?.access_token ?? null);
+        getSession()
+            .then((s) => {
+                setUserId(s?.user_id ?? null);
             })
             .catch(() => {
-                setToken(null);
+                setUserId(null);
             });
     }, []);
-    return token;
+    return userId;
 }
 
-/** SecureStore is read once on mount, then the member resolves from the token. */
+/** SecureStore is read once on mount, then the member resolves from the stored user. */
 export function useViewer(): Viewer | null {
-    return useCurrentViewer(useAccessToken());
+    return useCurrentViewer(useUserId());
 }
 
 export function useRole(): string | null {

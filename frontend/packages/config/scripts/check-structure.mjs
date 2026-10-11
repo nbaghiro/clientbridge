@@ -19,6 +19,7 @@ const PAGE_CONCEPT = {
     schedule: "bookings",
     giftCards: "entitlements",
     onboarding: "business",
+    security: "auth",
 };
 // Screens that compose several concepts and so have no domain file or strings group of their own.
 const COMPOSITE_SCREENS = new Set(["acceptInvite", "login", "setup"]);

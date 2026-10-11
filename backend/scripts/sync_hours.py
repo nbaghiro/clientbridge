@@ -7,10 +7,30 @@ import httpx
 from sqlalchemy import delete, update
 
 from clientbridge.core.db import SessionLocal, engine
+from clientbridge.integrations.kratos import Credential, Identity, get_identity_provider
 from clientbridge.main import create_app
 from clientbridge.models.business import Staff
 from clientbridge.models.scheduling import Hours
-from clientbridge.services.auth import AuthService
+from scripts.sync_fixtures import sync_identity
+
+OWNER = Identity(
+    id=sync_identity("owner"),
+    email="owner@sync.test",
+    verified_emails=frozenset({"owner@sync.test"}),
+    name="owner",
+    session_id="sync-hours",
+    aal="aal1",
+)
+
+
+class OwnerSession:
+    """The disposable sync stack runs no Kratos; every request is the seeded owner."""
+
+    async def whoami(self, credential: Credential) -> Identity:
+        return OWNER
+
+    async def revoke_sessions(self, identity_id: str) -> None:
+        return None
 
 
 async def run(payload: str) -> None:
@@ -32,15 +52,16 @@ async def run(payload: str) -> None:
                 )
                 await db.commit()
                 return
-            token = (await AuthService(db).issue_session("us_owner")).access_token
+        app = create_app()
+        app.dependency_overrides[get_identity_provider] = OwnerSession
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=create_app()), base_url="http://verification"
+            transport=httpx.ASGITransport(app=app), base_url="http://verification"
         ) as client:
             response = await client.post(
                 "/v1/hours/st_owner/week",
                 content=payload,
                 headers={
-                    "Authorization": f"Bearer {token}",
+                    "X-Session-Token": "sync-hours",
                     "Content-Type": "application/json",
                     "X-Business-Id": "bz_first",
                 },

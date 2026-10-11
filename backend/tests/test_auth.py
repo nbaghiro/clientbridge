@@ -1,438 +1,229 @@
-"""Password auth + JWT sessions: register/login, refresh rotation/reuse, logout, token rejection."""
+"""Kratos sessions at the API edge: provisioning, /v1/me, cookie vs token, origin guard, outages."""
 
-import time
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import httpx
-import jwt
-from sqlalchemy import text
+import pytest
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
-from clientbridge.core.security import issue_access_token, issue_powersync_token
-from tests.conftest import OWNER_USER, Factory, FakeEmailSender
+from clientbridge.core.security import issue_powersync_token
+from clientbridge.integrations.kratos import Identity
+from clientbridge.models.business import User
+from clientbridge.services.auth import AuthService
+from tests.conftest import OWNER_USER, Factory, FakeIdentityProvider, identity_for, session_token
+
+COOKIE = get_settings().kratos_session_cookie
 
 
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
+def fresh(email: str = "fresh@test.ca", *, name: str | None = "Fresh") -> Identity:
+    return Identity(
+        id=str(uuid4()),
+        email=email,
+        verified_emails=frozenset({email}),
+        name=name,
+        session_id=str(uuid4()),
+        aal="aal1",
+    )
 
 
-async def test_register_returns_token_pair(api: httpx.AsyncClient) -> None:
+async def test_me_describes_the_signed_in_user(
+    api: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
+) -> None:
+    res = await api.get(
+        "/v1/me", headers={"X-Session-Token": await session_token(identities, db, OWNER_USER)}
+    )
+    assert res.status_code == 200, res.text
+    assert res.json() == {
+        "user_id": OWNER_USER,
+        "email": "hannah@birchbarkpets.ca",
+        "name": "Hannah Wong",
+        "email_verified": True,
+        "aal": "aal1",
+    }
+
+
+async def test_first_request_provisions_the_user_once(
+    api: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
+) -> None:
+    identity = fresh()
+    headers = {"X-Session-Token": identities.issue(identity)}
+    first = (await api.get("/v1/me", headers=headers)).json()
+    second = (await api.get("/v1/me", headers=headers)).json()
+    assert first["user_id"] == second["user_id"] and first["user_id"].startswith("us_")
+    users = (await db.execute(select(User).where(User.kratos_identity_id == identity.id))).scalars()
+    assert [u.email for u in users] == ["fresh@test.ca"]
+
+
+async def test_provision_is_idempotent_for_one_identity(db: AsyncSession) -> None:
+    identity = fresh("twice@test.ca")
+    first = await AuthService(db).provision(identity)
+    second = await AuthService(db).provision(identity)
+    assert first.id == second.id
+
+
+async def test_profile_changes_in_kratos_reach_the_user(
+    api: httpx.AsyncClient, factory: Factory, identities: FakeIdentityProvider
+) -> None:
+    user = await factory.user(email="before@test.ca")
+    changed = identity_for(user, email="after@test.ca")
+    res = await api.get("/v1/me", headers={"X-Session-Token": identities.issue(changed)})
+    assert res.json()["email"] == "after@test.ca"
+    await factory.db.refresh(user)
+    assert user.email == "after@test.ca"
+
+
+async def test_an_email_held_by_another_user_409(
+    api: httpx.AsyncClient, identities: FakeIdentityProvider
+) -> None:
+    taken = fresh("hannah@birchbarkpets.ca")
+    res = await api.get("/v1/me", headers={"X-Session-Token": identities.issue(taken)})
+    assert res.status_code == 409 and res.json()["error"] == "email_in_use"
+
+
+async def test_last_seen_is_throttled(
+    api: httpx.AsyncClient, factory: Factory, identities: FakeIdentityProvider
+) -> None:
+    user = await factory.user()
+    headers = {"X-Session-Token": await session_token(identities, factory.db, user.id)}
+    await api.get("/v1/me", headers=headers)
+    await factory.db.refresh(user)
+    seen = user.last_seen_at
+    assert seen is not None
+    await api.get("/v1/me", headers=headers)
+    await factory.db.refresh(user)
+    assert user.last_seen_at == seen
+    user.last_seen_at = datetime.now(UTC) - timedelta(minutes=6)
+    await factory.db.flush()
+    await api.get("/v1/me", headers=headers)
+    await factory.db.refresh(user)
+    assert user.last_seen_at is not None and user.last_seen_at > seen
+
+
+async def test_missing_or_unknown_credentials_401(api: httpx.AsyncClient) -> None:
+    for headers in ({}, {"X-Session-Token": "unknown"}, {"Authorization": "Bearer anything"}):
+        res = await api.get("/v1/me", headers=headers)
+        assert res.status_code == 401, headers
+        assert res.json()["error"] == "unauthenticated"
+
+
+async def test_a_powersync_token_is_not_a_session(api: httpx.AsyncClient) -> None:
+    res = await api.get("/v1/me", headers={"X-Session-Token": issue_powersync_token(OWNER_USER)})
+    assert res.status_code == 401
+
+
+async def test_cookie_session_reads(
+    api: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
+) -> None:
+    cookie = await session_token(identities, db, OWNER_USER)
+    res = await api.get("/v1/me", cookies={COOKIE: cookie})
+    assert res.status_code == 200 and res.json()["user_id"] == OWNER_USER
+
+
+async def test_cookie_writes_need_an_allowed_origin(
+    api: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
+) -> None:
+    api.cookies.set(COOKIE, await session_token(identities, db, OWNER_USER))
+    url, body = "/v1/staff/invites", {"email": "csrf@test.ca", "role": "staff"}
+    for origin in (None, "https://evil.example", "https://pay.clientbridge.ca"):
+        headers = {"X-Business-Id": "bz_birchbark"} | ({"Origin": origin} if origin else {})
+        res = await api.post(url, json=body, headers=headers)
+        assert res.status_code == 403, origin
+        assert res.json()["error"] == "origin_refused"
+    allowed = await api.post(
+        url, json=body, headers={"X-Business-Id": "bz_birchbark", "Origin": "http://localhost:8700"}
+    )
+    assert allowed.status_code == 201, allowed.text
+
+
+async def test_token_writes_need_no_origin(
+    api: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
+) -> None:
     res = await api.post(
-        "/auth/register", json={"email": "new@test.ca", "password": "pw-123456", "name": "New"}
+        "/v1/staff/invites",
+        json={"email": "native@test.ca", "role": "staff"},
+        headers={
+            "X-Session-Token": await session_token(identities, db, OWNER_USER),
+            "X-Business-Id": "bz_birchbark",
+        },
     )
     assert res.status_code == 201, res.text
-    body = res.json()
-    assert body["access_token"]
-    assert body["refresh_token"]
-    assert body["token_type"] == "bearer"
 
 
-async def test_register_duplicate_email_409(api: httpx.AsyncClient, factory: Factory) -> None:
-    await factory.user(email="dup@test.ca", password="x")
-    res = await api.post("/auth/register", json={"email": "dup@test.ca", "password": "pw-123456"})
-    assert res.status_code == 409
-
-
-async def test_login_seeded_user(api: httpx.AsyncClient) -> None:
-    res = await api.post(
-        "/auth/login", json={"email": "hannah@birchbarkpets.ca", "password": "demo1234"}
-    )
-    assert res.status_code == 200
-    assert res.json()["access_token"]
-
-
-async def test_login_unknown_email_401(api: httpx.AsyncClient) -> None:
-    res = await api.post("/auth/login", json={"email": "nobody@nowhere.ca", "password": "x"})
-    assert res.status_code == 401
-
-
-async def test_login_wrong_password_401(api: httpx.AsyncClient, factory: Factory) -> None:
-    await factory.user(email="pw@test.ca", password="correct-horse")
-    res = await api.post("/auth/login", json={"email": "pw@test.ca", "password": "nope"})
-    assert res.status_code == 401
-
-
-async def test_login_pauses_after_five_failures_429(
-    api: httpx.AsyncClient, factory: Factory
+async def test_production_origins_come_from_configuration(
+    api: httpx.AsyncClient,
+    db: AsyncSession,
+    identities: FakeIdentityProvider,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    await factory.user(email="locked@test.ca", password="correct-horse")
-    for _ in range(5):
-        res = await api.post("/auth/login", json={"email": "locked@test.ca", "password": "nope"})
-        assert res.status_code == 401
-    res = await api.post(
-        "/auth/login", json={"email": "Locked@test.ca", "password": "correct-horse"}
-    )
-    assert res.status_code == 429
-    assert res.json()["error"] == "login_locked"
-    other = await api.post("/auth/login", json={"email": "other@test.ca", "password": "x"})
-    assert other.status_code == 401
-
-
-async def test_login_success_clears_failures(api: httpx.AsyncClient, factory: Factory) -> None:
-    await factory.user(email="clears@test.ca", password="correct-horse")
-    for _ in range(4):
-        await api.post("/auth/login", json={"email": "clears@test.ca", "password": "nope"})
-    ok = await api.post(
-        "/auth/login", json={"email": "clears@test.ca", "password": "correct-horse"}
-    )
-    assert ok.status_code == 200
-    for _ in range(4):
-        await api.post("/auth/login", json={"email": "clears@test.ca", "password": "nope"})
-    ok = await api.post(
-        "/auth/login", json={"email": "clears@test.ca", "password": "correct-horse"}
-    )
-    assert ok.status_code == 200
-
-
-async def test_login_correct_password(api: httpx.AsyncClient, factory: Factory) -> None:
-    await factory.user(email="pw2@test.ca", password="correct-horse")
-    res = await api.post("/auth/login", json={"email": "pw2@test.ca", "password": "correct-horse"})
-    assert res.status_code == 200
-    assert res.json()["access_token"]
-
-
-async def test_access_token_authorizes(api: httpx.AsyncClient, factory: Factory) -> None:
-    biz = await factory.business()
-    user = await factory.user(email="owner@test.ca", password="pw-123456")
-    await factory.staff(business=biz, user=user, role="owner")
-    login = await api.post("/auth/login", json={"email": "owner@test.ca", "password": "pw-123456"})
-    access = login.json()["access_token"]
-    res = await api.get("/v1/staff/team", headers={"Authorization": f"Bearer {access}"})
-    assert res.status_code == 200
-    assert [m["role"] for m in res.json()["members"]] == ["owner"]
-
-
-async def _login(api: httpx.AsyncClient, factory: Factory) -> tuple[str, str]:
-    await factory.user(email="rot@test.ca", password="pw-123456")
-    res = await api.post("/auth/login", json={"email": "rot@test.ca", "password": "pw-123456"})
-    body = res.json()
-    return str(body["access_token"]), str(body["refresh_token"])
-
-
-async def test_refresh_rotates(api: httpx.AsyncClient, factory: Factory) -> None:
-    _, refresh = await _login(api, factory)
-    res = await api.post(
-        "/auth/refresh", json={"refresh_token": refresh, "attempt_id": str(uuid4())}
-    )
-    assert res.status_code == 200
-    assert res.json()["refresh_token"] != refresh  # rotated to a new token
-
-
-async def test_refresh_invalid_401(api: httpx.AsyncClient) -> None:
-    res = await api.post(
-        "/auth/refresh", json={"refresh_token": "not-a-real-token", "attempt_id": str(uuid4())}
-    )
-    assert res.status_code == 401
-
-
-async def test_refresh_requires_an_attempt_identity(api: httpx.AsyncClient) -> None:
-    response = await api.post("/auth/refresh", json={"refresh_token": "unused"})
-    assert response.status_code == 422
-
-
-async def test_refresh_reuse_revokes_family(api: httpx.AsyncClient, factory: Factory) -> None:
-    _, refresh = await _login(api, factory)
-    first = await api.post(
-        "/auth/refresh", json={"refresh_token": refresh, "attempt_id": str(uuid4())}
-    )
-    assert first.status_code == 200
-    new_refresh = first.json()["refresh_token"]
-
-    # replaying the OLD (already-rotated) refresh → reuse detected → 401
-    replay = await api.post(
-        "/auth/refresh", json={"refresh_token": refresh, "attempt_id": str(uuid4())}
-    )
-    assert replay.status_code == 401
-
-    # ...and the whole family is now revoked: the legit NEW refresh no longer works either
-    after = await api.post(
-        "/auth/refresh", json={"refresh_token": new_refresh, "attempt_id": str(uuid4())}
-    )
-    assert after.status_code == 401
-
-
-async def test_logout_revokes(api: httpx.AsyncClient, factory: Factory) -> None:
-    _, refresh = await _login(api, factory)
-    res = await api.post("/auth/logout", json={"refresh_token": refresh})
-    assert res.status_code == 204
-    after = await api.post(
-        "/auth/refresh", json={"refresh_token": refresh, "attempt_id": str(uuid4())}
-    )
-    assert after.status_code == 401
-
-
-async def test_logout_unknown_token_204(api: httpx.AsyncClient) -> None:
-    # no info leak — logging out an unknown token still 204s
-    res = await api.post("/auth/logout", json={"refresh_token": "whatever"})
-    assert res.status_code == 204
-
-
-async def test_tampered_access_token_rejected(api: httpx.AsyncClient) -> None:
-    # real header + payload, but a signature that can't match the HMAC → always rejected
-    header, payload, _sig = issue_access_token(OWNER_USER, family_id="test-family").split(".")
-    tampered = f"{header}.{payload}.wrongsignature"
-    assert (await api.get("/v1/staff/team", headers=_auth(tampered))).status_code == 401
-
-
-async def test_expired_access_token_rejected(api: httpx.AsyncClient) -> None:
-    s = get_settings()
-    now = int(time.time())
-    expired = jwt.encode(
-        {
-            "sub": OWNER_USER,
-            "type": "access",
-            "iss": s.jwt_issuer,
-            "iat": now - 100,
-            "exp": now - 10,
-        },
-        s.jwt_secret,
-        algorithm="HS256",
-    )
-    assert (await api.get("/v1/staff/team", headers=_auth(expired))).status_code == 401
-
-
-async def test_forged_signature_rejected(api: httpx.AsyncClient) -> None:
-    s = get_settings()
-    now = int(time.time())
-    forged = jwt.encode(
-        {"sub": OWNER_USER, "type": "access", "iss": s.jwt_issuer, "iat": now, "exp": now + 300},
-        "not-the-real-signing-secret-but-plenty-long-enough",
-        algorithm="HS256",
-    )
-    assert (await api.get("/v1/staff/team", headers=_auth(forged))).status_code == 401
-
-
-async def test_sync_token_rejected_on_api_route(api: httpx.AsyncClient) -> None:
-    # a PowerSync token (aud=powersync, no iss) must not authorize a /v1 API route
-    sync_token = issue_powersync_token(OWNER_USER)
-    assert (await api.get("/v1/staff/team", headers=_auth(sync_token))).status_code == 401
-
-
-async def test_forgot_password_existing_sends_email(
-    api: httpx.AsyncClient, factory: Factory, email: FakeEmailSender
-) -> None:
-    await factory.user(email="reset-me@test.ca", password="old-password")
-    res = await api.post("/auth/forgot-password", json={"email": "reset-me@test.ca"})
-    assert res.status_code == 200
-    assert len(email.sent) == 1
-    assert email.sent[0].to == "reset-me@test.ca"
-
-
-async def test_forgot_password_unknown_no_enumeration(
-    api: httpx.AsyncClient, email: FakeEmailSender
-) -> None:
-    res = await api.post("/auth/forgot-password", json={"email": "ghost@test.ca"})
-    assert res.status_code == 200  # identical response to the existing-email case
-    assert email.sent == []  # ...but nothing is actually sent
-
-
-async def test_reset_password_changes_credentials(
-    api: httpx.AsyncClient, factory: Factory, email: FakeEmailSender
-) -> None:
-    await factory.user(email="rp@test.ca", password="old-password")
-    await api.post("/auth/forgot-password", json={"email": "rp@test.ca"})
-    token = email.sent[-1].body.split()[-1]
-    res = await api.post(
-        "/auth/reset-password", json={"token": token, "new_password": "new-password"}
-    )
-    assert res.status_code == 204
-    old = await api.post("/auth/login", json={"email": "rp@test.ca", "password": "old-password"})
-    assert old.status_code == 401
-    new = await api.post("/auth/login", json={"email": "rp@test.ca", "password": "new-password"})
-    assert new.status_code == 200
-
-
-async def test_reset_token_single_use(
-    api: httpx.AsyncClient, factory: Factory, email: FakeEmailSender
-) -> None:
-    await factory.user(email="single@test.ca", password="old-password")
-    await api.post("/auth/forgot-password", json={"email": "single@test.ca"})
-    token = email.sent[-1].body.split()[-1]
-    first = await api.post("/auth/reset-password", json={"token": token, "new_password": "new-1"})
-    assert first.status_code == 204
-    second = await api.post("/auth/reset-password", json={"token": token, "new_password": "new-2"})
-    assert second.status_code == 401
-
-
-async def test_reset_expired_token_401(
-    api: httpx.AsyncClient, factory: Factory, email: FakeEmailSender, db: AsyncSession
-) -> None:
-    user = await factory.user(email="exp-reset@test.ca", password="old-password")
-    await api.post("/auth/forgot-password", json={"email": "exp-reset@test.ca"})
-    token = email.sent[-1].body.split()[-1]
-    await db.execute(
-        text("UPDATE tokens SET expires_at = now() - interval '1 hour' WHERE user_id = :u"),
-        {"u": user.id},
-    )
-    res = await api.post("/auth/reset-password", json={"token": token, "new_password": "x"})
-    assert res.status_code == 401
-
-
-async def test_reset_invalidates_sessions(
-    api: httpx.AsyncClient, factory: Factory, email: FakeEmailSender
-) -> None:
-    await factory.user(email="sess@test.ca", password="old-password")
-    login = await api.post(
-        "/auth/login", json={"email": "sess@test.ca", "password": "old-password"}
-    )
-    old_refresh = login.json()["refresh_token"]
-    await api.post("/auth/forgot-password", json={"email": "sess@test.ca"})
-    token = email.sent[-1].body.split()[-1]
-    await api.post("/auth/reset-password", json={"token": token, "new_password": "new-password"})
-    # the pre-reset session is dead
-    refresh = await api.post(
-        "/auth/refresh", json={"refresh_token": old_refresh, "attempt_id": str(uuid4())}
-    )
-    assert refresh.status_code == 401
-
-
-async def test_register_sends_and_verifies_email(
-    api: httpx.AsyncClient, email: FakeEmailSender, db: AsyncSession
-) -> None:
-    res = await api.post(
-        "/auth/register", json={"email": "verify-me@test.ca", "password": "pw-123456"}
-    )
-    assert res.status_code == 201
-    assert len(email.sent) == 1  # the verification email
-    token = email.sent[-1].body.split()[-1]
-    verify = await api.post("/auth/verify-email", json={"token": token})
-    assert verify.status_code == 204
-    verified = (
-        await db.execute(
-            text("SELECT email_verified_at FROM users WHERE email = 'verify-me@test.ca'")
+    settings = get_settings()
+    monkeypatch.setattr(settings, "env", "prod")
+    monkeypatch.setattr(settings, "cors_allow_origins", "https://app.clientbridge.ca")
+    api.cookies.set(COOKIE, await session_token(identities, db, OWNER_USER))
+    for origin, status in (("http://localhost:8700", 403), ("https://app.clientbridge.ca", 201)):
+        res = await api.post(
+            "/v1/staff/invites",
+            json={"email": f"prod-{status}@test.ca", "role": "staff"},
+            headers={"X-Business-Id": "bz_birchbark", "Origin": origin},
         )
-    ).scalar()
-    assert verified is not None
+        assert res.status_code == status, origin
 
 
-async def test_verify_invalid_token_401(api: httpx.AsyncClient) -> None:
-    res = await api.post("/auth/verify-email", json={"token": "bogus"})
-    assert res.status_code == 401
-
-
-async def test_refresh_replays_same_attempt_without_revoking_family(
-    api: httpx.AsyncClient, factory: Factory, db: AsyncSession
+async def test_the_token_wins_over_the_cookie(
+    api: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
 ) -> None:
-    from uuid import uuid4
-
-    from sqlalchemy import select
-
-    from clientbridge.core.security import hash_token
-    from clientbridge.models.auth import AuthSession
-
-    _, refresh = await _login(api, factory)
-    body = {"refresh_token": refresh, "attempt_id": str(uuid4())}
-    first = await api.post("/auth/refresh", json=body)
-    replay = await api.post("/auth/refresh", json=body)
-    assert first.status_code == replay.status_code == 200
-    assert first.json() == replay.json()
-    stored = await db.scalar(
-        select(AuthSession).where(AuthSession.token_hash == hash_token(refresh))
-    )
-    assert stored is not None and stored.replay_ciphertext is not None
-    assert first.json()["refresh_token"] not in stored.replay_ciphertext
-    assert first.json()["access_token"] not in stored.replay_ciphertext
-    next_refresh = await api.post(
-        "/auth/refresh",
-        json={"refresh_token": first.json()["refresh_token"], "attempt_id": str(uuid4())},
-    )
-    assert next_refresh.status_code == 200, next_refresh.text
+    api.cookies.set(COOKIE, await session_token(identities, db, OWNER_USER))
+    token = await session_token(identities, db, "us_diego")
+    res = await api.get("/v1/me", headers={"X-Session-Token": token})
+    assert res.json()["user_id"] == "us_diego"
 
 
-async def test_refresh_different_attempt_revokes_family(
-    api: httpx.AsyncClient, factory: Factory
+async def test_expected_user_mismatch_401(
+    api: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
 ) -> None:
-    from uuid import uuid4
-
-    _, refresh = await _login(api, factory)
-    first = await api.post(
-        "/auth/refresh", json={"refresh_token": refresh, "attempt_id": str(uuid4())}
-    )
-    assert first.status_code == 200
-    replay = await api.post(
-        "/auth/refresh", json={"refresh_token": refresh, "attempt_id": str(uuid4())}
-    )
-    assert replay.status_code == 401
-    after = await api.post(
-        "/auth/refresh",
-        json={"refresh_token": first.json()["refresh_token"], "attempt_id": str(uuid4())},
-    )
-    assert after.status_code == 401
+    headers = {"X-Session-Token": await session_token(identities, db, OWNER_USER)}
+    same = await api.get("/v1/me", headers=headers | {"X-Expected-User": OWNER_USER})
+    assert same.status_code == 200
+    other = await api.get("/v1/me", headers=headers | {"X-Expected-User": "us_diego"})
+    assert other.status_code == 401 and other.json()["error"] == "session_changed"
 
 
-async def test_logout_prevents_refresh_replay(api: httpx.AsyncClient, factory: Factory) -> None:
-    from uuid import uuid4
-
-    _, refresh = await _login(api, factory)
-    body = {"refresh_token": refresh, "attempt_id": str(uuid4())}
-    first = await api.post("/auth/refresh", json=body)
-    assert first.status_code == 200
-    assert (
-        await api.post("/auth/logout", json={"refresh_token": first.json()["refresh_token"]})
-    ).status_code == 204
-    assert (await api.post("/auth/refresh", json=body)).status_code == 401
-
-
-async def test_expired_refresh_replay_is_pruned_and_refused(
-    api: httpx.AsyncClient, factory: Factory, db: AsyncSession
+async def test_second_factor_required_401(
+    api: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
 ) -> None:
-    from datetime import UTC, datetime, timedelta
-    from uuid import uuid4
+    token = await session_token(identities, db, OWNER_USER)
+    identities.step_up.add(token)
+    res = await api.get("/v1/me", headers={"X-Session-Token": token})
+    assert res.status_code == 401 and res.json()["error"] == "aal2_required"
 
-    from sqlalchemy import update
 
-    from clientbridge.models.auth import AuthSession
-    from clientbridge.services.auth import run_prune_refreshes
+async def test_kratos_outage_is_not_a_sign_out(
+    api: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
+) -> None:
+    token = await session_token(identities, db, OWNER_USER)
+    identities.down = True
+    res = await api.get("/v1/me", headers={"X-Session-Token": token})
+    assert res.status_code == 503 and res.json()["error"] == "identity_unavailable"
 
-    _, refresh = await _login(api, factory)
-    body = {"refresh_token": refresh, "attempt_id": str(uuid4())}
-    assert (await api.post("/auth/refresh", json=body)).status_code == 200
-    now = datetime.now(UTC)
-    await db.execute(
-        update(AuthSession)
-        .where(AuthSession.replay_ciphertext.is_not(None))
-        .values(replay_expires_at=now - timedelta(seconds=1))
+
+async def test_onboarding_needs_a_verified_email(
+    api: httpx.AsyncClient, factory: Factory, identities: FakeIdentityProvider
+) -> None:
+    user = await factory.user()
+    token = await session_token(identities, factory.db, user.id, verified=False)
+    res = await api.post(
+        "/v1/onboarding",
+        json={"name": "Unverified Studio", "slug": "unverified-studio", "province": "BC"},
+        headers={"X-Session-Token": token},
     )
-    assert await run_prune_refreshes(db, now) >= 1
-    assert (await api.post("/auth/refresh", json=body)).status_code == 401
+    assert res.status_code == 403 and res.json()["error"] == "email_unverified"
+    me = await api.get("/v1/me", headers={"X-Session-Token": token})
+    assert me.json()["email_verified"] is False
 
 
-async def test_concurrent_same_refresh_attempt_returns_one_rotation(db: AsyncSession) -> None:
-    import asyncio
-    from uuid import uuid4
-
-    from sqlalchemy import delete, select
-
-    from clientbridge.core.db import SessionLocal
-    from clientbridge.core.security import decode_jwt
-    from clientbridge.main import create_app
-    from clientbridge.models.auth import AuthSession
-    from clientbridge.services.auth import AuthService
-
-    async with SessionLocal() as session:
-        pair = await AuthService(session).issue_session(OWNER_USER)
-    family = str(decode_jwt(pair.access_token)["sid"])
-    try:
-        async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=create_app()), base_url="http://test"
-        ) as client:
-            body = {"refresh_token": pair.refresh_token, "attempt_id": str(uuid4())}
-            first, second = await asyncio.gather(
-                client.post("/auth/refresh", json=body), client.post("/auth/refresh", json=body)
-            )
-            assert first.status_code == second.status_code == 200, (first.text, second.text)
-            assert first.json() == second.json()
-        async with SessionLocal() as session:
-            active = list(
-                await session.scalars(
-                    select(AuthSession).where(
-                        AuthSession.family_id == family, AuthSession.revoked_at.is_(None)
-                    )
-                )
-            )
-            assert len(active) == 1
-    finally:
-        async with SessionLocal() as session:
-            await session.execute(delete(AuthSession).where(AuthSession.family_id == family))
-            await session.commit()
+async def test_old_auth_endpoints_are_gone(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    for path in ("/auth/login", "/auth/register", "/auth/refresh", "/auth/accept-invite"):
+        assert (await api.post(path, json={})).status_code == 404, path
+    assert await db.scalar(text("SELECT to_regclass('public.sessions')")) is None

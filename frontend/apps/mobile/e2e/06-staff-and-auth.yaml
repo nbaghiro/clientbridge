@@ -10,8 +10,7 @@ onFlowComplete:
       visible: "Sign in"
       timeout: 30000
 - takeScreenshot: sign-in
-- tapOn: "Continue with Google"
-- assertVisible: "Google sign-in isn't set up yet. Use your email and password."
+- assertVisible: "Continue with Google"
 - scrollUntilVisible:
       element: "Create an account"
       direction: DOWN

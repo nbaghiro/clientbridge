@@ -1,5 +1,7 @@
 import { strings } from "@clientbridge/app-core/public";
-import { expect, test } from "@playwright/test";
+import { type APIRequestContext, type Page, expect, test } from "@playwright/test";
+
+import { mailedCode, newAccount, ownerInvite, totp } from "./identity";
 
 const a = strings.auth;
 
@@ -25,8 +27,7 @@ for (const width of [1440, 390]) {
         await page.getByRole("checkbox", { name: a.showPassword }).uncheck();
         await expect(password).toHaveAttribute("type", "password");
 
-        await page.getByRole("button", { name: a.continueWithGoogle }).click();
-        await expect(page.getByText(a.googleNotConfigured, { exact: true })).toBeVisible();
+        await expect(page.getByRole("button", { name: a.continueWithGoogle })).toBeVisible();
         await page.getByRole("button", { name: a.createAnAccount, exact: true }).click();
         await expect(page.getByRole("heading", { name: a.signUpTitle })).toBeVisible();
         await page.getByLabel(a.newPassword, { exact: true }).fill("short");
@@ -38,7 +39,7 @@ for (const width of [1440, 390]) {
         await page.getByRole("button", { name: a.forgot, exact: true }).click();
         await expect(page.getByRole("heading", { name: a.resetTitle })).toBeVisible();
         await email.fill("not-an-email");
-        await page.getByRole("button", { name: a.sendLink, exact: true }).click();
+        await page.getByRole("button", { name: a.sendCode, exact: true }).click();
         await expect(page.getByText(a.emailInvalid, { exact: true })).toBeVisible();
         await page.getByRole("button", { name: a.backToSignIn, exact: true }).click();
         await expect(page.getByRole("heading", { name: a.signInTitle })).toBeVisible();
@@ -55,9 +56,11 @@ test("signup has its own entry link and invites explain a missing token", async 
     await expect(page.getByRole("textbox", { name: a.email, exact: true })).toHaveValue("");
     await expect(page.getByLabel(a.newPassword, { exact: true })).toHaveValue("");
     await page.goto("/accept-invite");
-    await expect(page.getByRole("heading", { name: a.inviteTitle })).toBeVisible();
-    await expect(page.getByText(a.inviteMissingCode, { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: a.joinTeam })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: strings.staff.inviteTitle })).toBeVisible();
+    await expect(
+        page.getByText(strings.staff.inviteProblem.invalid, { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: strings.staff.inviteJoin })).toHaveCount(0);
 });
 
 test("existing business never flashes onboarding during sign-in or a slow reload", async ({
@@ -102,4 +105,136 @@ test("existing business never flashes onboarding during sign-in or a slow reload
             .getByRole("link", { name: strings.navigation.businessMenu, exact: true }),
     ).toBeVisible();
     expect(await page.evaluate(() => sessionStorage.getItem("onboarding-flashed"))).toBeNull();
+});
+
+async function signUp(
+    page: Page,
+    request: APIRequestContext,
+    account: { email: string; password: string; name: string },
+): Promise<void> {
+    if (!page.url().includes("/signup")) await page.goto("/signup");
+    await page.getByLabel(a.name, { exact: true }).fill(account.name);
+    await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
+    await page.getByLabel(a.newPassword, { exact: true }).fill(account.password);
+    await page.getByRole("button", { name: a.createAccount, exact: true }).click();
+    await expect(page.getByRole("heading", { name: a.verifyTitle })).toBeVisible();
+    await page
+        .getByLabel(a.code, { exact: true })
+        .fill(await mailedCode(request, account.email, "verification"));
+    await page.getByRole("button", { name: a.verify, exact: true }).click();
+}
+
+async function openBusiness(page: Page, name: string): Promise<void> {
+    const o = strings.business.onboarding;
+    await expect(page.getByRole("heading", { name: o.title })).toBeVisible();
+    await page.getByLabel(o.businessName, { exact: true }).fill(name);
+    await page.getByRole("button", { name: o.createBusiness, exact: true }).click();
+    await expect(
+        page
+            .locator("aside")
+            .getByRole("link", { name: strings.navigation.businessMenu, exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
+}
+
+test("sign up, confirm the email with the mailed code, then open a business", async ({
+    page,
+    request,
+}) => {
+    const account = newAccount("signup");
+    await signUp(page, request, account);
+    await openBusiness(page, `Signup Studio ${account.email.slice(7, 15)}`);
+});
+
+test("recover a forgotten password with an emailed code and stay signed in", async ({
+    page,
+    request,
+}) => {
+    const account = newAccount("recover");
+    await signUp(page, request, account);
+    await expect(
+        page.getByRole("heading", { name: strings.business.onboarding.title }),
+    ).toBeVisible();
+    await page.context().clearCookies();
+    await page.goto("/login");
+    await page.getByRole("button", { name: a.forgot, exact: true }).click();
+    await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
+    await page.getByRole("button", { name: a.sendCode, exact: true }).click();
+    await page
+        .getByLabel(a.code, { exact: true })
+        .fill(await mailedCode(request, account.email, "password reset"));
+    await page.getByRole("button", { name: a.checkCode, exact: true }).click();
+    await expect(page.getByRole("heading", { name: a.resetPasswordTitle })).toBeVisible();
+    await page.getByLabel(a.newPassword, { exact: true }).fill(`${account.password}-new`);
+    await page.getByRole("button", { name: a.savePassword, exact: true }).click();
+    await expect(
+        page.getByRole("heading", { name: strings.business.onboarding.title }),
+    ).toBeVisible();
+});
+
+test("turn on an authenticator app, then sign in with its code", async ({ page, request }) => {
+    const account = newAccount("totp");
+    await signUp(page, request, account);
+    await openBusiness(page, `Totp Studio ${account.email.slice(5, 13)}`);
+    await page.goto("/setup/security");
+    const key = page.getByText(/^Or enter this key: /);
+    const secret = ((await key.textContent()) ?? "").replace("Or enter this key: ", "").trim();
+    await page.getByLabel(a.code, { exact: true }).fill(totp(secret));
+    await page.getByRole("button", { name: a.securityTurnOn, exact: true }).click();
+    await expect(page.getByText(a.securityTotpOn, { exact: true })).toBeVisible();
+
+    await page.context().clearCookies();
+    await page.goto("/login");
+    await page.getByRole("textbox", { name: a.email, exact: true }).fill(account.email);
+    await page.getByLabel(a.password, { exact: true }).fill(account.password);
+    await page.getByRole("button", { name: a.signIn, exact: true }).click();
+    await expect(page.getByRole("heading", { name: a.mfaTitle })).toBeVisible();
+    await page.getByLabel(a.mfaTotp, { exact: true }).fill(totp(secret));
+    await page.getByRole("button", { name: a.confirm, exact: true }).click();
+    await expect(
+        page
+            .locator("aside")
+            .getByRole("link", { name: strings.navigation.businessMenu, exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
+});
+
+test("an invite joins the account that signs up with the invited email", async ({
+    page,
+    request,
+}) => {
+    const s = strings.staff;
+    const account = newAccount("invitee");
+    const { token, cleanup } = await ownerInvite(request, account.email);
+    await page.goto(`/accept-invite?token=${token}`);
+    await expect(page.getByText(s.inviteFor(account.email), { exact: false })).toBeVisible();
+    await page.getByRole("button", { name: s.inviteSignUp, exact: true }).click();
+    await expect(page.getByRole("textbox", { name: a.email, exact: true })).toHaveValue(
+        account.email,
+    );
+    try {
+        await signUp(page, request, account);
+        await page.getByRole("button", { name: s.inviteJoin, exact: true }).click();
+        await expect(
+            page
+                .locator("aside")
+                .getByRole("link", { name: strings.navigation.businessMenu, exact: true }),
+        ).toBeVisible({ timeout: 60_000 });
+    } finally {
+        await cleanup();
+    }
+});
+
+test("an invite refuses an account with a different email", async ({ page, request }) => {
+    const s = strings.staff;
+    const { token, cleanup } = await ownerInvite(request, newAccount("invited").email);
+    try {
+        await signUp(page, request, newAccount("other"));
+        await expect(
+            page.getByRole("heading", { name: strings.business.onboarding.title }),
+        ).toBeVisible();
+        await page.goto(`/accept-invite?token=${token}`);
+        await page.getByRole("button", { name: s.inviteJoin, exact: true }).click();
+        await expect(page.getByText(s.inviteProblem.mismatch, { exact: true })).toBeVisible();
+    } finally {
+        await cleanup();
+    }
 });

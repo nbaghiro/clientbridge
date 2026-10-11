@@ -37,7 +37,7 @@ describe("what each role sees", () => {
         expect(visibleInboxSegments(null).map((s) => s.key)).toEqual(["messages"]);
     });
 
-    it("leaves staff only the team section of setup, on web and mobile alike", () => {
+    it("leaves staff the team and security sections of setup, on web and mobile alike", () => {
         const all = [
             "start",
             "business",
@@ -47,12 +47,19 @@ describe("what each role sees", () => {
             "taxes",
             "onlineBooking",
             "reminders",
+            "security",
         ];
         expect(setupSectionsFor("web", "owner").map((s) => s.key)).toEqual(all);
         expect(setupSectionsFor("mobile", "admin").map((s) => s.key)).toEqual(all);
         expect(setupSectionsFor("web", "staff")).toEqual([
             { key: "team", label: n.setupSections.team, webOnly: false, managersOnly: false },
+            {
+                key: "security",
+                label: n.setupSections.security,
+                webOnly: false,
+                managersOnly: false,
+            },
         ]);
-        expect(setupSectionsFor("mobile", null).map((s) => s.key)).toEqual(["team"]);
+        expect(setupSectionsFor("mobile", null).map((s) => s.key)).toEqual(["team", "security"]);
     });
 });

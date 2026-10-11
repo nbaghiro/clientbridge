@@ -6,7 +6,6 @@ from functools import lru_cache
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
-from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
@@ -26,29 +25,9 @@ def verify_password(password: str, hashed: str) -> bool:
         return False
 
 
-def issue_access_token(user_id: str, *, family_id: str) -> str:
-    """Short-lived app access token. Business/role are re-derived from the DB per request."""
-    s = get_settings()
-    now = int(time.time())
-    payload = {
-        "sub": user_id,
-        "type": "access",
-        "iss": s.jwt_issuer,
-        "iat": now,
-        "exp": now + s.access_token_ttl_seconds,
-    }
-    payload["sid"] = family_id
-    return jwt.encode(payload, s.jwt_secret, algorithm="HS256")
-
-
 def hash_token(token: str) -> str:
-    """SHA-256 of an opaque high-entropy token (refresh / one-time) — stored instead of the raw."""
+    """SHA-256 of an opaque high-entropy token (invite / one-time) — stored instead of the raw."""
     return hashlib.sha256(token.encode()).hexdigest()
-
-
-def decode_jwt(token: str) -> dict[str, object]:
-    s = get_settings()
-    return jwt.decode(token, s.jwt_secret, algorithms=["HS256"], issuer=s.jwt_issuer)
 
 
 def issue_powersync_token(user_id: str) -> str:
@@ -120,13 +99,3 @@ def sign_rs256(payload: dict[str, object]) -> str:
     return jwt.encode(
         payload, _private_key(), algorithm="RS256", headers={"kid": get_settings().powersync_kid}
     )
-
-
-def refresh_cipher() -> Fernet:
-    settings = get_settings()
-    key = settings.refresh_replay_key
-    if not key and settings.env == "dev":
-        key = base64.urlsafe_b64encode(
-            hashlib.sha256(b"clientbridge-dev-refresh-replay-only").digest()
-        ).decode()
-    return Fernet(key.encode())

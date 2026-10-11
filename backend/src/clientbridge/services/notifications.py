@@ -49,25 +49,16 @@ def returning_code(locale: str, business_name: str, code: str, minutes: int) -> 
     )
 
 
-def password_reset(locale: str, code: str) -> tuple[str, str]:
-    return (
-        message(locale, "password_reset.subject"),
-        message(locale, "password_reset.body", code=code),
-    )
-
-
-def email_verification(locale: str, code: str) -> tuple[str, str]:
-    return (
-        message(locale, "verify_email.subject"),
-        message(locale, "verify_email.body", code=code),
-    )
-
-
-def staff_invite(locale: str, code: str) -> tuple[str, str]:
+def staff_invite(locale: str, link: str) -> tuple[str, str]:
     return (
         message(locale, "staff_invite.subject"),
-        message(locale, "staff_invite.body", code=code),
+        message(locale, "staff_invite.body", link=link),
     )
+
+
+def invite_link(token: str) -> str:
+    """Where an invitee signs up or in, then joins the team."""
+    return f"{get_settings().web_base_url}/accept-invite?token={token}"
 
 
 def pay_link(token: str) -> str:

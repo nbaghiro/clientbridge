@@ -173,12 +173,6 @@ msgstr "[Ýöûŕ öŕðéŕ îš ŕéåðý ţö çöļļéçţ ƒŕöɱ {busin
 msgid "order_reminder.subject"
 msgstr "[Ýöûŕ öŕðéŕ îš ŵåîţîñĝ åţ {business}~~~~~~~~~]"
 
-msgid "password_reset.body"
-msgstr "[Ŕéšéţ çöðé: {code}~~~~~]"
-
-msgid "password_reset.subject"
-msgstr "[Ŕéšéţ ýöûŕ þåššŵöŕð~~~~~~~]"
-
 msgid "payment_failed.body"
 msgstr "[Ýöûŕ þåýɱéñţ öƒ {amount} ţö {business} ƒåîļéð. Þļéåšé ţŕý åĝåîñ.~~~~~~~~~~~~~~~~~]"
 
@@ -350,7 +344,7 @@ msgid "signed_copy.signed_by"
 msgstr "[— Šîĝñéð ƀý {name}~~~~~]"
 
 msgid "staff_invite.body"
-msgstr "[Îñṽîţé çöðé: {code}~~~~~]"
+msgstr "[Ýöû'ṽé ƀééñ îñṽîţéð ţö ĵöîñ å ţéåɱ öñ Çļîéñţƀŕîðĝé. Åççéþţ ĥéŕé: {link}~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "staff_invite.subject"
 msgstr "[Ýöû'ŕé îñṽîţéð ţö Çļîéñţƀŕîðĝé~~~~~~~~~~~]"
@@ -372,10 +366,4 @@ msgstr "[Ýöûŕ šûƀšçŕîþţîöñ þåýɱéñţ ţö {business} ƒåî
 
 msgid "subscription_past_due.subject"
 msgstr "[Þåýɱéñţ þåšţ ðûé — {business}~~~~~~~]"
-
-msgid "verify_email.body"
-msgstr "[Ṽéŕîƒý çöðé: {code}~~~~~]"
-
-msgid "verify_email.subject"
-msgstr "[Ṽéŕîƒý ýöûŕ éɱåîļ~~~~~~]"
 

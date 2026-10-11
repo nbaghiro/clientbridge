@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type Load, useAsyncAction, useLoad } from "../hooks";
 import { BUSINESS_CURRENCY, formatList, formatMoney, formatParts, formatRating } from "../format";
 import { strings } from "../strings";
-import { type ApiLike, failureMessage } from "../api";
+import { type ApiLike, failedCode, failureMessage } from "../api";
 import type { ChoiceOption, Fact, SelectOption } from "../ui";
 import { mediaUrl } from "./files";
 import { durationLabel } from "./publicBooking";
@@ -432,6 +432,7 @@ interface OnboardingForm {
     setProvince: (v: ProvinceCode) => void;
     busy: boolean;
     error: string | null;
+    needsVerification: boolean;
     submit: () => void;
 }
 
@@ -468,11 +469,27 @@ export function useOnboardingForm(
             async () => {
                 onCreated(await onboard(api, { name, slug, province }));
             },
-            { errorMessage: strings.business.onboarding.createError },
+            {
+                errorMessage: (e) =>
+                    failedCode(e) === "email_unverified"
+                        ? strings.business.onboarding.verifyFirst
+                        : strings.business.onboarding.createError,
+            },
         );
     };
 
-    return { name, setName, slug, setSlug, province, setProvince, busy, error, submit };
+    return {
+        name,
+        setName,
+        slug,
+        setSlug,
+        province,
+        setProvince,
+        busy,
+        error,
+        needsVerification: error === strings.business.onboarding.verifyFirst,
+        submit,
+    };
 }
 
 export const SETUP_PROGRESS_SQL = `

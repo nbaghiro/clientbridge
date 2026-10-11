@@ -32,6 +32,7 @@ const SECTION_SCREEN: Partial<
         | "Taxes"
         | "OnlineBooking"
         | "Reminders"
+        | "Security"
     >
 > = {
     start: "GetSetUp",
@@ -42,6 +43,7 @@ const SECTION_SCREEN: Partial<
     taxes: "Taxes",
     onlineBooking: "OnlineBooking",
     reminders: "Reminders",
+    security: "Security",
 };
 
 export function SetupScreen() {

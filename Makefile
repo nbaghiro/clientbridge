@@ -1,9 +1,10 @@
-.PHONY: help up down logs-sync install stripe-listen dev-api worker dev-web dev-connect dev-site dev-playground dev-mobile build build-site test-site test-web test-connect test-playground test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones codegen-check test test-backend test-frontend test-contract test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
+.PHONY: help up down logs-sync logs-auth install stripe-listen dev-api worker dev-web dev-connect dev-site dev-playground dev-mobile build build-site test-site test-web test-connect test-playground test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones codegen-check test test-backend test-frontend test-contract test-kratos test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
 .DEFAULT_GOAL := help
 
 help:
-	@echo "up / down        docker compose infra (postgres, powersync, redis, s3 on 87xx ports)"
+	@echo "up / down        docker compose infra (postgres, powersync, kratos, mailpit, redis, s3 on 87xx ports)"
 	@echo "logs-sync        follow the PowerSync logs"
+	@echo "logs-auth        follow the Kratos logs (verification and recovery mail is on :8715)"
 	@echo "install          uv sync (backend) and pnpm install (frontend)"
 	@echo "stripe-listen    forward Stripe Connect webhooks to the local API"
 	@echo "dev-api          run FastAPI on :8701 (reload)"
@@ -37,6 +38,7 @@ help:
 	@echo "test-backend     pytest with the 90% branch-coverage gate"
 	@echo "test-frontend    the frontend unit tests, with app-core again in three time zones"
 	@echo "test-contract    real StripeGateway vs stripe-mock (starts it; auto-skips if down)"
+	@echo "test-kratos      KratosIdentityProvider vs the local Kratos (auto-skips if down)"
 	@echo "test-e2e         Stripe test-mode flows (needs STRIPE_TEST_SECRET_KEY)"
 	@echo "stripe-mock      start the stripe-mock contract-test service on :8708"
 	@echo "lint             lint-backend + lint-frontend"
@@ -53,13 +55,17 @@ up:
 	docker compose up -d --wait --wait-timeout 60 postgres
 	cd backend && uv run python -m scripts.db_access roles
 	docker compose up -d
-	@echo "infra up. PowerSync on :8704 (run 'make migrate seed' if the DB is fresh)."
+	docker compose up -d --wait --wait-timeout 120 kratos
+	@echo "infra up. PowerSync on :8704, Kratos on :8713, Mailpit on :8715 (run 'make migrate seed' if the DB is fresh)."
 
 down:
 	docker compose down
 
 logs-sync:
 	docker compose logs -f powersync
+
+logs-auth:
+	docker compose logs -f kratos
 
 install:
 	cd backend && uv sync
@@ -174,6 +180,10 @@ stripe-mock:
 # Contract tier: real StripeGateway vs the OpenAPI mock. Auto-skips if stripe-mock isn't reachable.
 test-contract: stripe-mock
 	cd backend && STRIPE_MOCK_URL=http://localhost:8708 uv run pytest -m contract -q
+
+# Contract tier: the real KratosIdentityProvider vs the local Kratos. Auto-skips if Kratos is down.
+test-kratos:
+	cd backend && uv run pytest -m kratos -q
 
 # E2E tier: real Stripe test mode. Skips unless STRIPE_TEST_SECRET_KEY is exported.
 test-e2e:

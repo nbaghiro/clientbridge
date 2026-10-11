@@ -3,6 +3,7 @@ import Constants from "expo-constants";
 const extra = (Constants.expoConfig?.extra ?? {}) as {
     apiUrl?: string;
     powersyncUrl?: string;
+    kratosUrl?: string;
     publicWebUrl?: string;
     payUrl?: string;
     bookUrl?: string;
@@ -23,6 +24,11 @@ export const powersyncUrl =
     developmentUrl(process.env.EXPO_PUBLIC_POWERSYNC_URL) ??
     extra.powersyncUrl ??
     "http://127.0.0.1:8704";
+
+export const kratosUrl =
+    developmentUrl(process.env.EXPO_PUBLIC_KRATOS_URL) ??
+    extra.kratosUrl ??
+    "http://127.0.0.1:8713";
 
 /** Web app origin for staff invites and payment account management. */
 export const publicWebUrl =

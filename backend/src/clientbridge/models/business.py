@@ -12,6 +12,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     UniqueConstraint,
+    Uuid,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -81,13 +82,15 @@ class Business(PKMixin, TimestampMixin, Base):
 class User(PKMixin, TimestampMixin, Base):
     __tablename__ = "users"
 
+    # Kratos owns credentials, sessions and verification; this row is the tenant-facing profile
+    kratos_identity_id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), unique=True, nullable=False
+    )
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    password_hash: Mapped[str | None] = mapped_column(String)
     pin_hash: Mapped[str | None] = mapped_column(String)  # approves a staff discount at the desk
-    oauth: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
     name: Mapped[str | None] = mapped_column(String)
     phone: Mapped[str | None] = mapped_column(String)
-    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Staff(PKMixin, TimestampMixin, Base):

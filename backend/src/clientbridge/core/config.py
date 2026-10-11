@@ -1,6 +1,7 @@
+import re
 from functools import lru_cache
+from urllib.parse import urlsplit
 
-from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from pydantic import Field, model_validator
@@ -21,11 +22,12 @@ class Settings(BaseSettings):
     migration_database_url: str = "postgresql+asyncpg://clientbridge_migrator:clientbridge_migrator@localhost:8702/clientbridge"
 
     jwt_secret: str = _DEV_JWT_SECRET  # matches infra/powersync jwks
-    jwt_issuer: str = "clientbridge"
-    jwt_ttl_seconds: int = 300  # the PowerSync token, not the app access token
-    access_token_ttl_seconds: int = 900
-    refresh_token_ttl_days: int = 30
-    refresh_replay_key: str = ""
+    jwt_ttl_seconds: int = 300  # the PowerSync token
+
+    kratos_public_url: str = "http://localhost:8713"
+    kratos_admin_url: str = "http://localhost:8714"
+    kratos_session_cookie: str = "ory_kratos_session"
+    identity_cache_ttl_seconds: float = 30
 
     redis_url: str = "redis://localhost:8703/0"
 
@@ -42,13 +44,12 @@ class Settings(BaseSettings):
     powersync_use_rs256: bool = False  # prod: sign PowerSync tokens with RS256, verified via JWKS
     powersync_private_key_pem: str = ""  # prod RSA private key (PEM); empty → ephemeral (dev/test)
     powersync_previous_public_keys: dict[str, str] = Field(default_factory=dict)
-    google_client_id: str = ""
 
     # Stripe Connect; an empty secret key answers every Stripe call with payments_not_configured.
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_connect_country: str = "CA"
-    api_base_url: str = "http://127.0.0.1:8701"
+    api_base_url: str = "http://localhost:8701"
     web_base_url: str = "http://localhost:8700"
     connect_base_url: str = "http://localhost:8709"
     # Every invoice pay link uses this one host (production: https://pay.clientbridge.ca).
@@ -68,13 +69,18 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _require_prod_secrets(self) -> "Settings":
-        """Refuse to boot outside dev without real JWT and Stripe webhook secrets."""
+        """Refuse to boot outside dev without real secrets and a private Kratos admin API."""
         if self.env != "dev":
             missing = []
             if self.jwt_secret == _DEV_JWT_SECRET:
                 missing.append("JWT_SECRET")
-            if not self.refresh_replay_key:
-                missing.append("REFRESH_REPLAY_KEY")
+            kratos = urlsplit(self.kratos_public_url)
+            if kratos.scheme != "https" or kratos.hostname in ("localhost", "127.0.0.1"):
+                missing.append("KRATOS_PUBLIC_URL (https, not localhost)")
+            if not self.kratos_admin_url or self.kratos_admin_url == self.kratos_public_url:
+                missing.append("KRATOS_ADMIN_URL (private, distinct from the public URL)")
+            if self.web_base_url not in self.allowed_origins():
+                missing.append("CORS_ALLOW_ORIGINS (must include WEB_BASE_URL)")
             if not self.stripe_webhook_secret:
                 missing.append("STRIPE_WEBHOOK_SECRET")
             if not self.powersync_use_rs256:
@@ -101,9 +107,17 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "Previous PowerSync keys must be RSA public keys with at least 2048 bits"
                 )
-        if self.refresh_replay_key:
-            Fernet(self.refresh_replay_key.encode())
         return self
+
+    def allowed_origins(self) -> list[str]:
+        return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
+
+    def allowed_origin_regex(self) -> str | None:
+        return r"http://localhost:\d+" if self.env == "dev" else None
+
+    def origin_allowed(self, origin: str) -> bool:
+        pattern = self.allowed_origin_regex()
+        return origin in self.allowed_origins() or bool(pattern and re.fullmatch(pattern, origin))
 
 
 @lru_cache

@@ -1,71 +1,56 @@
 import { useBusinessQuery as useQuery } from "../hooks";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import { type ApiLike, failedStatus } from "../api";
+import type {
+    ApiLike,
+    Flow,
+    FlowMessage,
+    FlowNode,
+    FlowStep,
+    IdentityLike,
+    WebAuthnLike,
+} from "../api";
 
-type AuthMode = "signin" | "signup" | "reset" | "sent";
-
-/** Matches api-client's TokenPair; kept local so app-core needn't depend on api-client for one type. */
-export interface AuthTokens {
-    access_token: string;
-    refresh_token: string;
-    token_type?: string;
-}
+type AuthMode = "signin" | "signup" | "mfa" | "verify";
+type MfaMethod = "totp" | "lookup_secret" | "webauthn";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MAX_ATTEMPTS = 5;
 const RESEND_SECONDS = 30;
 
-interface AuthFieldErrors {
-    name?: string;
-    email?: string;
-    password?: string;
+/** Catalog text for a Kratos message; Kratos's own English is never shown. */
+function kratosMessage(message: FlowMessage): string | null {
+    const known = (strings.auth.kratos as Readonly<Record<string, string | undefined>>)[
+        String(message.id)
+    ];
+    return known ?? (message.type === "error" ? strings.auth.kratosError : null);
 }
 
-interface AuthForm {
-    mode: AuthMode;
-    setMode: (m: AuthMode) => void;
-    name: string;
-    setName: (v: string) => void;
-    email: string;
-    setEmail: (v: string) => void;
-    password: string;
-    setPassword: (v: string) => void;
-    reveal: boolean;
-    toggleReveal: () => void;
-    fieldErrors: AuthFieldErrors;
-    error: string | null;
-    attemptsLeft: number | null;
-    locked: boolean;
-    busy: boolean;
-    cooldown: number;
-    submit: () => void;
-    resend: () => void;
-    googleUnavailable: () => void;
+function flowErrors(flow: Flow): { form: string | null; fields: Record<string, string> } {
+    const fields: Record<string, string> = {};
+    for (const node of flow.nodes) {
+        const error = node.messages.find((m) => m.type === "error");
+        if (error) fields[node.name] = kratosMessage(error) ?? strings.auth.kratosError;
+    }
+    const form = flow.messages.find((m) => m.type === "error");
+    return { form: form ? kratosMessage(form) : null, fields };
 }
 
-/** Sign in, create an account, and reset a password on one card. `setTokens` is injected per platform. */
-export function useAuthForm(
-    api: ApiLike,
-    setTokens: (tokens: AuthTokens) => void | Promise<void>,
-    onSuccess: () => void,
-    opts?: { initialMode?: AuthMode; defaultEmail?: string; defaultPassword?: string },
-): AuthForm {
-    const a = strings.auth;
-    const [mode, setModeState] = useState<AuthMode>(opts?.initialMode ?? "signin");
-    const [name, setName] = useState("");
-    const [email, setEmail] = useState(opts?.defaultEmail ?? "");
-    const [password, setPassword] = useState(opts?.defaultPassword ?? "");
-    const [reveal, setReveal] = useState(false);
-    const [failed, setFailed] = useState(0);
-    const [locked, setLocked] = useState(false);
+// React Native's URL has no searchParams, so query values are read by hand.
+function queryParam(url: string, name: string): string | null {
+    const match = new RegExp(`[?&]${name}=([^&#]*)`).exec(url);
+    return match?.[1] === undefined ? null : decodeURIComponent(match[1]);
+}
+
+function nodeValue(flow: Flow | null, name: string): string {
+    const value = flow?.nodes.find((n) => n.name === name)?.value;
+    return typeof value === "string" ? value : "";
+}
+
+function useCooldown(): [number, (s: number) => void] {
     const [cooldown, setCooldown] = useState(0);
-    const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
-    const { busy, error, setError, run } = useAsyncAction();
-
     useEffect(() => {
         if (cooldown <= 0) return undefined;
         const t = setTimeout(() => {
@@ -75,75 +60,271 @@ export function useAuthForm(
             clearTimeout(t);
         };
     }, [cooldown]);
+    return [cooldown, setCooldown];
+}
 
-    const setMode = (m: AuthMode): void => {
+interface AuthFieldErrors {
+    name?: string | undefined;
+    email?: string | undefined;
+    password?: string | undefined;
+    code?: string | undefined;
+}
+
+interface AuthOptions {
+    initialMode?: "signin" | "signup" | "mfa";
+    defaultEmail?: string;
+    defaultPassword?: string;
+    /** Kratos sent the browser back to the UI with a flow (an OIDC error or an account to link). */
+    flowId?: string;
+    /** Where Google sign-in lands on web. */
+    returnTo?: string;
+    /** Ask Kratos for an existing session first (a step-up, or back from Google). */
+    probe?: boolean;
+    /** Web navigates away; mobile opens an auth session and returns the callback URL. */
+    openUrl?: (url: string) => Promise<string | null>;
+    webauthn?: WebAuthnLike;
+}
+
+interface AuthForm {
+    mode: AuthMode;
+    setMode: (m: "signin" | "signup") => void;
+    name: string;
+    setName: (v: string) => void;
+    email: string;
+    setEmail: (v: string) => void;
+    password: string;
+    setPassword: (v: string) => void;
+    code: string;
+    setCode: (v: string) => void;
+    reveal: boolean;
+    toggleReveal: () => void;
+    fieldErrors: AuthFieldErrors;
+    error: string | null;
+    notice: string | null;
+    busy: boolean;
+    mfaMethods: MfaMethod[];
+    mfaMethod: MfaMethod;
+    setMfaMethod: (m: MfaMethod) => void;
+    cooldown: number;
+    submit: () => void;
+    google: () => void;
+    resend: () => void;
+    skipVerification: () => void;
+    cancel: () => void;
+}
+
+/** Sign in, sign up (then verify), and the second factor, over Kratos; mobile gets a token. */
+export function useAuthForm(
+    identity: IdentityLike,
+    onSignedIn: (sessionToken?: string) => void | Promise<void>,
+    opts?: AuthOptions,
+): AuthForm {
+    const a = strings.auth;
+    const [mode, setModeState] = useState<AuthMode>(opts?.initialMode ?? "signin");
+    const [name, setName] = useState("");
+    const [email, setEmail] = useState(opts?.defaultEmail ?? "");
+    const [password, setPassword] = useState(opts?.defaultPassword ?? "");
+    const [code, setCode] = useState("");
+    const [reveal, setReveal] = useState(false);
+    const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
+    const [notice, setNotice] = useState<string | null>(null);
+    const [mfaMethod, setMfaMethod] = useState<MfaMethod>("totp");
+    const [cooldown, setCooldown] = useCooldown();
+    const [flow, setFlow] = useState<Flow | null>(null);
+    const pending = useRef<string | undefined>(undefined);
+    const { busy, error, setError, run } = useAsyncAction();
+
+    const show = useCallback(
+        (next: Flow): void => {
+            setFlow(next);
+            const errs = flowErrors(next);
+            setFieldErrors({
+                email: errs.fields.identifier ?? errs.fields["traits.email"],
+                name: errs.fields["traits.name"],
+                password: errs.fields.password,
+                code: errs.fields.totp_code ?? errs.fields.lookup_secret ?? errs.fields.code,
+            });
+            setError(errs.form);
+            const info = next.messages.find((m) => m.type !== "error");
+            setNotice(info ? kratosMessage(info) : null);
+        },
+        [setError],
+    );
+
+    const secondStep = useCallback(
+        (next: Flow): void => {
+            setMfaMethod(mfaMethodsOf(next, opts?.webauthn)[0] ?? "totp");
+            setModeState("mfa");
+            setCode("");
+            show(next);
+        },
+        [opts?.webauthn, show],
+    );
+
+    const finish = useCallback(
+        async (sessionToken?: string): Promise<void> => {
+            const state = await identity.session(sessionToken);
+            if (state === "aal2") {
+                pending.current = sessionToken;
+                secondStep(await identity.start("login", { aal: "aal2", sessionToken }));
+                return;
+            }
+            await onSignedIn(sessionToken);
+        },
+        [identity, onSignedIn, secondStep],
+    );
+
+    const handle = useCallback(
+        async (step: FlowStep, restart: () => void): Promise<void> => {
+            if (step.kind === "flow") show(step.flow);
+            else if (step.kind === "restart" || step.kind === "reauth") {
+                setFlow(null);
+                setError(a.flowExpired);
+                restart();
+            } else if (step.kind === "redirect") {
+                // A second factor is due: Kratos points at an aal2 login (its own or our UI's).
+                const id = queryParam(step.url, "flow");
+                if (queryParam(step.url, "aal") === "aal2")
+                    secondStep(await identity.start("login", { aal: "aal2" }));
+                else if (id && /\/login(\?|$)/.test(step.url))
+                    secondStep(await identity.resume("login", id));
+                else await opts?.openUrl?.(step.url);
+            } else if (step.next?.flow === "verification") {
+                pending.current = step.sessionToken;
+                setFlow(await identity.resume("verification", step.next.id));
+                setModeState("verify");
+                setCode("");
+                setCooldown(RESEND_SECONDS);
+            } else await finish(step.sessionToken);
+        },
+        [a.flowExpired, finish, identity, opts, secondStep, setCooldown, setError, show],
+    );
+
+    useEffect(() => {
+        let live = true;
+        const kind = opts?.initialMode === "signup" ? "registration" : "login";
+        const begin = async (): Promise<void> => {
+            if (opts?.flowId) {
+                const resumed = await identity.resume(kind, opts.flowId).catch(() => null);
+                if (!live || !resumed) return;
+                const secondFactorOnly =
+                    mfaMethodsOf(resumed, opts.webauthn).length > 0 &&
+                    !resumed.nodes.some((n) => n.group === "password");
+                if (secondFactorOnly) secondStep(resumed);
+                else show(resumed);
+                return;
+            }
+            if (opts?.probe === false) return;
+            const state = await identity.session();
+            if (!live) return;
+            if (state === "active") await onSignedIn();
+            else if (state === "aal2") await finish();
+        };
+        begin().catch(() => undefined);
+        return () => {
+            live = false;
+        };
+        // Runs once per mount: the URL's flow and the existing session decide the first screen.
+    }, []);
+
+    const setMode = (m: "signin" | "signup"): void => {
         setModeState(m);
+        setFlow(null);
         setFieldErrors({});
+        setNotice(null);
         setError(null);
     };
 
-    const sendReset = (): void => {
-        run(
-            async () => {
-                await api.post("/auth/forgot-password", { email: email.trim() });
-                setModeState("sent");
-                setCooldown(RESEND_SECONDS);
-            },
-            { errorMessage: a.resetError },
-        );
+    const credentials = async (): Promise<void> => {
+        const signup = mode === "signup";
+        const current =
+            flow?.kind === (signup ? "registration" : "login")
+                ? flow
+                : await identity.start(signup ? "registration" : "login", {
+                      returnTo: opts?.returnTo,
+                  });
+        const body = signup
+            ? {
+                  method: "password",
+                  traits: { email: email.trim(), name: name.trim() },
+                  password,
+              }
+            : { method: "password", identifier: email.trim(), password };
+        await handle(await identity.submit(current, body), () => undefined);
+    };
+
+    const secondFactor = async (): Promise<void> => {
+        const current = flow ?? (await identity.start("login", { aal: "aal2" }));
+        let body: Record<string, unknown>;
+        if (mfaMethod === "webauthn") {
+            const options = nodeValue(current, "webauthn_login_trigger");
+            if (!opts?.webauthn || !options) throw new Error("webauthn unavailable");
+            body = { method: "webauthn", webauthn_login: await opts.webauthn.login(options) };
+        } else if (mfaMethod === "lookup_secret")
+            body = { method: "lookup_secret", lookup_secret: code.trim() };
+        else body = { method: "totp", totp_code: code.trim() };
+        const step = await identity.submit(current, body, pending.current);
+        if (step.kind === "done") {
+            await onSignedIn(step.sessionToken ?? pending.current);
+            return;
+        }
+        await handle(step, () => undefined);
+    };
+
+    const verify = async (): Promise<void> => {
+        if (!flow) return;
+        const step = await identity.submit(flow, { method: "code", code: code.trim() });
+        if (step.kind === "flow" && step.flow.state === "passed_challenge") {
+            await onSignedIn(pending.current);
+            return;
+        }
+        await handle(step, () => undefined);
     };
 
     const submit = (): void => {
         const errs: AuthFieldErrors = {};
-        const trimmed = email.trim();
-        if (trimmed === "") errs.email = a.emailRequired;
-        else if (!EMAIL.test(trimmed)) errs.email = a.emailInvalid;
-        if (mode === "signup" && name.trim() === "") errs.name = a.nameRequired;
-        if (mode === "signin" && password === "") errs.password = a.passwordRequired;
-        if (mode === "signup" && password.length < 8) errs.password = a.passwordShort;
+        if (mode === "signin" || mode === "signup") {
+            const trimmed = email.trim();
+            if (trimmed === "") errs.email = a.emailRequired;
+            else if (!EMAIL.test(trimmed)) errs.email = a.emailInvalid;
+            if (mode === "signup" && name.trim() === "") errs.name = a.nameRequired;
+            if (mode === "signin" && password === "") errs.password = a.passwordRequired;
+            if (mode === "signup" && password.length < 8) errs.password = a.passwordShort;
+        } else if (mfaMethod !== "webauthn" && code.trim() === "") errs.code = a.codeRequired;
         setFieldErrors(errs);
         if (Object.keys(errs).length > 0) return;
-        if (mode === "reset") {
-            sendReset();
-            return;
-        }
-        if (mode === "signup") {
-            run(
-                async () => {
-                    const body = { email: trimmed, password, name: name.trim() };
-                    await setTokens(await api.post<AuthTokens>("/auth/register", body));
-                },
-                { onSuccess, errorMessage: a.createAccountError },
-            );
-            return;
-        }
-        if (locked) return;
-        const go = async (): Promise<void> => {
-            setError(null);
-            try {
-                const tokens = await api.post<AuthTokens>("/auth/login", {
-                    email: trimmed,
-                    password,
-                });
-                await setTokens(tokens);
-                setFailed(0);
-                onSuccess();
-            } catch (e) {
-                const status = failedStatus(e);
-                if (status === 429) {
-                    setLocked(true);
-                    setError(a.locked);
-                } else if (status === 401) {
-                    const next = failed + 1;
-                    setFailed(next);
-                    if (next >= MAX_ATTEMPTS) setLocked(true);
-                    setError(next >= MAX_ATTEMPTS ? a.locked : a.invalidCredentials);
-                } else {
-                    setError(strings.common.somethingWrongRetry);
+        const work = mode === "mfa" ? secondFactor : mode === "verify" ? verify : credentials;
+        run(work, { errorMessage: a.unavailable });
+    };
+
+    const google = (): void => {
+        run(
+            async () => {
+                const current = await identity.start("login", { returnTo: opts?.returnTo });
+                const step = await identity.submit(current, { method: "oidc", provider: "google" });
+                if (step.kind !== "redirect") {
+                    await handle(step, () => undefined);
+                    return;
                 }
-            }
-        };
-        run(go);
+                const callback = await opts?.openUrl?.(step.url);
+                const returned = callback ? queryParam(callback, "code") : null;
+                if (returned) await finish(await identity.exchange(current, returned));
+            },
+            { errorMessage: a.googleFailed },
+        );
+    };
+
+    const resend = (): void => {
+        if (cooldown > 0 || !flow) return;
+        run(
+            async () => {
+                const address = nodeValue(flow, "email") || email.trim();
+                const step = await identity.submit(flow, { method: "code", email: address });
+                if (step.kind === "flow") show(step.flow);
+                setCooldown(RESEND_SECONDS);
+            },
+            { errorMessage: a.resendFailed },
+        );
     };
 
     return {
@@ -155,57 +336,545 @@ export function useAuthForm(
         setEmail,
         password,
         setPassword,
+        code,
+        setCode,
         reveal,
         toggleReveal: () => {
             setReveal((r) => !r);
         },
         fieldErrors,
         error,
-        attemptsLeft: failed > 0 && !locked ? MAX_ATTEMPTS - failed : null,
-        locked,
+        notice,
         busy,
+        mfaMethods: mfaMethodsOf(flow, opts?.webauthn),
+        mfaMethod,
+        setMfaMethod: (m) => {
+            setMfaMethod(m);
+            setCode("");
+            setFieldErrors({});
+        },
         cooldown,
         submit,
-        resend: () => {
-            if (cooldown <= 0) sendReset();
+        google,
+        resend,
+        skipVerification: () => {
+            run(() => Promise.resolve(onSignedIn(pending.current)));
         },
-        googleUnavailable: () => {
-            setError(a.googleNotConfigured);
+        cancel: () => {
+            run(async () => {
+                await identity.signOut();
+                pending.current = undefined;
+                setMode("signin");
+            });
         },
     };
 }
 
-const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-// Streaming base64url → byte string (DOM-free so it also type-checks under the mobile lib set).
-function base64UrlDecode(input: string): string {
-    let out = "";
-    let buffer = 0;
-    let bits = 0;
-    for (const ch of input.replace(/-/g, "+").replace(/_/g, "/")) {
-        const idx = B64.indexOf(ch);
-        if (idx < 0) continue; // padding / stray chars
-        buffer = (buffer << 6) | idx;
-        bits += 6;
-        if (bits >= 8) {
-            bits -= 8;
-            out += String.fromCharCode((buffer >> bits) & 0xff);
-        }
-    }
-    return out;
+function mfaMethodsOf(flow: Flow | null, webauthn: WebAuthnLike | undefined): MfaMethod[] {
+    const groups = new Set(flow?.nodes.map((n) => n.group));
+    return (["totp", "webauthn", "lookup_secret"] as const).filter(
+        (m) => groups.has(m) && (m !== "webauthn" || webauthn !== undefined),
+    );
 }
 
-/** Unverified: the value only scopes a local read; the server authorizes every write. */
-function decodeJwtSub(token: string | null): string | null {
-    if (token === null) return null;
-    const payload = token.split(".")[1];
-    if (payload === undefined) return null;
-    try {
-        const claims = JSON.parse(base64UrlDecode(payload)) as { sub?: unknown };
-        return typeof claims.sub === "string" ? claims.sub : null;
-    } catch {
-        return null;
-    }
+interface RecoveryForm {
+    step: "email" | "code" | "password";
+    email: string;
+    setEmail: (v: string) => void;
+    code: string;
+    setCode: (v: string) => void;
+    password: string;
+    setPassword: (v: string) => void;
+    fieldErrors: AuthFieldErrors;
+    error: string | null;
+    notice: string | null;
+    busy: boolean;
+    cooldown: number;
+    submit: () => void;
+    resend: () => void;
+}
+
+/** Email a code, enter it, then choose a new password; the user ends up signed in. */
+export function useRecoveryForm(
+    identity: IdentityLike,
+    onSignedIn: (sessionToken?: string) => void | Promise<void>,
+    opts?: { defaultEmail?: string; flowId?: string },
+): RecoveryForm {
+    const a = strings.auth;
+    const [step, setStep] = useState<RecoveryForm["step"]>("email");
+    const [email, setEmail] = useState(opts?.defaultEmail ?? "");
+    const [code, setCode] = useState("");
+    const [password, setPassword] = useState("");
+    const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
+    const [notice, setNotice] = useState<string | null>(null);
+    const [cooldown, setCooldown] = useCooldown();
+    const [flow, setFlow] = useState<Flow | null>(null);
+    const token = useRef<string | undefined>(undefined);
+    const { busy, error, setError, run } = useAsyncAction();
+
+    const show = (next: Flow): void => {
+        setFlow(next);
+        const errs = flowErrors(next);
+        setFieldErrors({
+            email: errs.fields.email,
+            code: errs.fields.code,
+            password: errs.fields.password,
+        });
+        setError(errs.form);
+        const info = next.messages.find((m) => m.type !== "error");
+        setNotice(info ? kratosMessage(info) : null);
+    };
+
+    useEffect(() => {
+        if (!opts?.flowId) return;
+        identity
+            .resume("recovery", opts.flowId)
+            .then((resumed) => {
+                show(resumed);
+                if (resumed.state === "sent_email") setStep("code");
+            })
+            .catch(() => undefined);
+    }, []);
+
+    const sendCode = async (): Promise<void> => {
+        const current = flow ?? (await identity.start("recovery"));
+        const result = await identity.submit(current, { method: "code", email: email.trim() });
+        if (result.kind !== "flow") throw new Error("recovery did not continue");
+        show(result.flow);
+        if (result.flow.state === "sent_email") {
+            setStep("code");
+            setCooldown(RESEND_SECONDS);
+        }
+    };
+
+    const checkCode = async (): Promise<void> => {
+        if (!flow) return;
+        const result = await identity.submit(flow, { method: "code", code: code.trim() });
+        if (result.kind === "flow") {
+            show(result.flow);
+            return;
+        }
+        if (result.kind !== "done" || result.next?.flow !== "settings")
+            throw new Error("recovery did not continue");
+        token.current = result.sessionToken;
+        setFlow(await identity.resume("settings", result.next.id, result.sessionToken));
+        setNotice(null);
+        setStep("password");
+    };
+
+    const savePassword = async (): Promise<void> => {
+        if (!flow) return;
+        const result = await identity.submit(flow, { method: "password", password }, token.current);
+        if (result.kind === "flow" && result.flow.state !== "success") {
+            show(result.flow);
+            return;
+        }
+        await onSignedIn(token.current);
+    };
+
+    const submit = (): void => {
+        const errs: AuthFieldErrors = {};
+        if (step === "email" && !EMAIL.test(email.trim())) errs.email = a.emailInvalid;
+        if (step === "code" && code.trim() === "") errs.code = a.codeRequired;
+        if (step === "password" && password.length < 8) errs.password = a.passwordShort;
+        setFieldErrors(errs);
+        if (Object.keys(errs).length > 0) return;
+        const work = step === "email" ? sendCode : step === "code" ? checkCode : savePassword;
+        run(work, { errorMessage: a.resetError });
+    };
+
+    return {
+        step,
+        email,
+        setEmail,
+        code,
+        setCode,
+        password,
+        setPassword,
+        fieldErrors,
+        error,
+        notice,
+        busy,
+        cooldown,
+        submit,
+        resend: () => {
+            if (cooldown > 0 || !flow) return;
+            run(
+                async () => {
+                    const result = await identity.submit(flow, {
+                        method: "code",
+                        email: email.trim(),
+                    });
+                    if (result.kind === "flow") show(result.flow);
+                    setCooldown(RESEND_SECONDS);
+                },
+                { errorMessage: a.resendFailed },
+            );
+        },
+    };
+}
+
+interface VerificationForm {
+    verified: boolean;
+    code: string;
+    setCode: (v: string) => void;
+    error: string | null;
+    notice: string | null;
+    busy: boolean;
+    cooldown: number;
+    submit: () => void;
+    resend: () => void;
+}
+
+/** Confirms the email with the code Kratos sent (or a fresh one), e.g. from the verify link. */
+export function useVerificationForm(
+    identity: IdentityLike,
+    opts: { flowId?: string; email?: string; api?: ApiLike },
+): VerificationForm {
+    const a = strings.auth;
+    const [flow, setFlow] = useState<Flow | null>(null);
+    const [code, setCode] = useState("");
+    const [notice, setNotice] = useState<string | null>(null);
+    const [cooldown, setCooldown] = useCooldown();
+    const { busy, error, setError, run } = useAsyncAction();
+
+    const show = useCallback(
+        (next: Flow): void => {
+            setFlow(next);
+            setError(flowErrors(next).form ?? Object.values(flowErrors(next).fields)[0] ?? null);
+            const info = next.messages.find((m) => m.type !== "error");
+            setNotice(info ? kratosMessage(info) : null);
+        },
+        [setError],
+    );
+
+    const sentTo = useRef("");
+    const send = useCallback(
+        async (current: Flow, address: string): Promise<void> => {
+            sentTo.current = address;
+            const step = await identity.submit(current, { method: "code", email: address });
+            if (step.kind === "flow") show(step.flow);
+            setCooldown(RESEND_SECONDS);
+        },
+        [identity, setCooldown, show],
+    );
+
+    useEffect(() => {
+        const begin = async (): Promise<void> => {
+            if (opts.flowId) {
+                show(await identity.resume("verification", opts.flowId));
+                return;
+            }
+            // Signed in without a flow (onboarding, an invite): send a code to the account's email.
+            const email =
+                opts.email ?? (await opts.api?.get<{ email: string }>("/v1/me"))?.email ?? "";
+            const current = await identity.start("verification");
+            if (email) await send(current, email);
+            else show(current);
+        };
+        begin().catch(() => {
+            setError(a.unavailable);
+        });
+    }, []);
+
+    return {
+        verified: flow?.state === "passed_challenge",
+        code,
+        setCode,
+        error,
+        notice,
+        busy,
+        cooldown,
+        submit: () => {
+            if (!flow) return;
+            if (code.trim() === "") {
+                setError(a.codeRequired);
+                return;
+            }
+            run(
+                async () => {
+                    const step = await identity.submit(flow, {
+                        method: "code",
+                        code: code.trim(),
+                    });
+                    if (step.kind === "flow") show(step.flow);
+                    else if (step.kind === "restart") setError(a.flowExpired);
+                },
+                { errorMessage: a.unavailable },
+            );
+        },
+        resend: () => {
+            const address = sentTo.current || nodeValue(flow, "email");
+            if (cooldown > 0 || !address) return;
+            run(
+                async () => {
+                    await send(await identity.start("verification"), address);
+                },
+                { errorMessage: a.resendFailed },
+            );
+        },
+    };
+}
+
+interface SecurityKey {
+    id: string;
+    name: string;
+}
+
+interface SecuritySettings {
+    ready: boolean;
+    error: string | null;
+    notice: string | null;
+    busy: boolean;
+    email: string;
+    setEmail: (v: string) => void;
+    name: string;
+    setName: (v: string) => void;
+    saveProfile: () => void;
+    newPassword: string;
+    setNewPassword: (v: string) => void;
+    savePassword: () => void;
+    totp: { enabled: boolean; qr: string | null; secret: string | null };
+    totpCode: string;
+    setTotpCode: (v: string) => void;
+    enableTotp: () => void;
+    disableTotp: () => void;
+    backupCodes: { enabled: boolean; codes: string[] | null; unconfirmed: boolean };
+    showBackupCodes: () => void;
+    newBackupCodes: () => void;
+    confirmBackupCodes: () => void;
+    disableBackupCodes: () => void;
+    keys: SecurityKey[] | null;
+    keyName: string;
+    setKeyName: (v: string) => void;
+    addKey: () => void;
+    removeKey: (id: string) => void;
+    reauth: boolean;
+    reauthPassword: string;
+    setReauthPassword: (v: string) => void;
+    confirmReauth: () => void;
+}
+
+const hasNode = (flow: Flow | null, name: string): boolean =>
+    flow?.nodes.some((n) => n.name === name) ?? false;
+
+function backupCodesOf(flow: Flow | null): string[] | null {
+    const node = flow?.nodes.find((n: FlowNode) => n.name === "lookup_secret_codes");
+    const secrets = node?.context?.secrets;
+    if (!Array.isArray(secrets)) return null;
+    return secrets.map((s: unknown) => {
+        const entry = typeof s === "object" && s !== null ? (s as Record<string, unknown>) : {};
+        const nested = entry.text;
+        return typeof nested === "string" ? nested : "";
+    });
+}
+
+/** Account and sign-in security over the Kratos settings flow; `sessionToken` is mobile's. */
+export function useSecuritySettings(
+    identity: IdentityLike,
+    opts?: { webauthn?: WebAuthnLike; sessionToken?: () => Promise<string | undefined> },
+): SecuritySettings {
+    const a = strings.auth;
+    const [flow, setFlow] = useState<Flow | null>(null);
+    const [email, setEmail] = useState("");
+    const [name, setName] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [totpCode, setTotpCode] = useState("");
+    const [keyName, setKeyName] = useState("");
+    const [notice, setNotice] = useState<string | null>(null);
+    const [reauth, setReauth] = useState(false);
+    const [reauthPassword, setReauthPassword] = useState("");
+    const retry = useRef<(() => Promise<void>) | null>(null);
+    const options = useRef(opts);
+    options.current = opts;
+    const { busy, error, setError, run } = useAsyncAction();
+
+    const token = useCallback(async () => options.current?.sessionToken?.(), []);
+
+    const show = useCallback(
+        (next: Flow): void => {
+            setFlow(next);
+            setEmail(nodeValue(next, "traits.email"));
+            setName(nodeValue(next, "traits.name"));
+            const errs = flowErrors(next);
+            setError(errs.form ?? Object.values(errs.fields)[0] ?? null);
+            const info = next.messages.find((m) => m.type !== "error");
+            setNotice(info ? kratosMessage(info) : null);
+        },
+        [setError],
+    );
+
+    const load = useCallback(async (): Promise<void> => {
+        show(await identity.start("settings", { sessionToken: await token() }));
+    }, [identity, show, token]);
+
+    useEffect(() => {
+        load().catch(() => {
+            setError(a.unavailable);
+        });
+        // One settings flow per visit: a new flow would mint a new authenticator secret.
+    }, []);
+
+    const apply = (body: () => Promise<Record<string, unknown>>, after?: () => void): void => {
+        const attempt = async (): Promise<void> => {
+            const current =
+                flow ?? (await identity.start("settings", { sessionToken: await token() }));
+            const step = await identity.submit(current, await body(), await token());
+            if (step.kind === "reauth") {
+                retry.current = attempt;
+                setReauth(true);
+                return;
+            }
+            if (step.kind === "restart") {
+                await load();
+                setError(a.flowExpired);
+                return;
+            }
+            if (step.kind !== "flow") {
+                await load();
+                return;
+            }
+            show(step.flow);
+            if (step.flow.state === "success") after?.();
+        };
+        run(attempt, { errorMessage: a.unavailable });
+    };
+
+    const keys: SecurityKey[] | null = opts?.webauthn
+        ? (flow?.nodes ?? [])
+              .filter((n) => n.name === "webauthn_remove")
+              .map((n) => ({
+                  id: typeof n.value === "string" ? n.value : "",
+                  name:
+                      typeof n.context?.display_name === "string"
+                          ? n.context.display_name
+                          : a.securityKey,
+              }))
+        : null;
+
+    return {
+        ready: flow !== null,
+        error,
+        notice,
+        busy,
+        email,
+        setEmail,
+        name,
+        setName,
+        saveProfile: () => {
+            apply(() =>
+                Promise.resolve({
+                    method: "profile",
+                    traits: { email: email.trim(), name: name.trim() },
+                }),
+            );
+        },
+        newPassword,
+        setNewPassword,
+        savePassword: () => {
+            if (newPassword.length < 8) {
+                setError(a.passwordShort);
+                return;
+            }
+            apply(
+                () => Promise.resolve({ method: "password", password: newPassword }),
+                () => {
+                    setNewPassword("");
+                },
+            );
+        },
+        totp: {
+            enabled: hasNode(flow, "totp_unlink"),
+            qr: flow?.nodes.find((n) => n.name === "totp_qr")?.src ?? null,
+            secret: flow?.nodes.find((n) => n.name === "totp_secret_key")?.text ?? null,
+        },
+        totpCode,
+        setTotpCode,
+        enableTotp: () => {
+            if (totpCode.trim() === "") {
+                setError(a.codeRequired);
+                return;
+            }
+            apply(
+                () => Promise.resolve({ method: "totp", totp_code: totpCode.trim() }),
+                () => {
+                    setTotpCode("");
+                },
+            );
+        },
+        disableTotp: () => {
+            apply(() => Promise.resolve({ method: "totp", totp_unlink: true }));
+        },
+        backupCodes: {
+            enabled:
+                hasNode(flow, "lookup_secret_reveal") || hasNode(flow, "lookup_secret_disable"),
+            codes: backupCodesOf(flow),
+            unconfirmed: hasNode(flow, "lookup_secret_confirm"),
+        },
+        showBackupCodes: () => {
+            apply(() => Promise.resolve({ method: "lookup_secret", lookup_secret_reveal: true }));
+        },
+        newBackupCodes: () => {
+            apply(() =>
+                Promise.resolve({ method: "lookup_secret", lookup_secret_regenerate: true }),
+            );
+        },
+        confirmBackupCodes: () => {
+            apply(() => Promise.resolve({ method: "lookup_secret", lookup_secret_confirm: true }));
+        },
+        disableBackupCodes: () => {
+            apply(() => Promise.resolve({ method: "lookup_secret", lookup_secret_disable: true }));
+        },
+        keys,
+        keyName,
+        setKeyName,
+        addKey: () => {
+            const webauthn = opts?.webauthn;
+            const options = nodeValue(flow, "webauthn_register_trigger");
+            if (!webauthn || !options) return;
+            apply(
+                async () => ({
+                    method: "webauthn",
+                    webauthn_register: await webauthn.register(options),
+                    webauthn_register_displayname: keyName.trim() || a.securityKey,
+                }),
+                () => {
+                    setKeyName("");
+                },
+            );
+        },
+        removeKey: (id) => {
+            apply(() => Promise.resolve({ method: "webauthn", webauthn_remove: id }));
+        },
+        reauth,
+        reauthPassword,
+        setReauthPassword,
+        confirmReauth: () => {
+            run(
+                async () => {
+                    const login = await identity.start("login", {
+                        refresh: true,
+                        sessionToken: await token(),
+                    });
+                    const step = await identity.submit(
+                        login,
+                        { method: "password", identifier: email, password: reauthPassword },
+                        await token(),
+                    );
+                    if (step.kind === "flow") {
+                        setError(flowErrors(step.flow).form ?? a.invalidCredentials);
+                        return;
+                    }
+                    setReauth(false);
+                    setReauthPassword("");
+                    await load();
+                    await retry.current?.();
+                    retry.current = null;
+                },
+                { errorMessage: a.invalidCredentials },
+            );
+        },
+    };
 }
 
 export interface Viewer {
@@ -217,13 +886,12 @@ export const CURRENT_VIEWER_SQL =
     "SELECT id, role FROM staff WHERE user_id = ? AND status = 'active' LIMIT 1";
 
 /** `null` until the member's staff row syncs, or when signed out. */
-export function useCurrentViewer(accessToken: string | null): Viewer | null {
-    const userId = useMemo(() => decodeJwtSub(accessToken), [accessToken]);
+export function useCurrentViewer(userId: string | null): Viewer | null {
     const rows = useQuery<{ id: string; role: string }>(CURRENT_VIEWER_SQL, [userId]).data;
     const row = rows[0];
     return row === undefined ? null : { staffId: row.id, role: row.role };
 }
 
-export function useCurrentRole(accessToken: string | null): string | null {
-    return useCurrentViewer(accessToken)?.role ?? null;
+export function useCurrentRole(userId: string | null): string | null {
+    return useCurrentViewer(userId)?.role ?? null;
 }

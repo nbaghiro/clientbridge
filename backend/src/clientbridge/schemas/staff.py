@@ -26,6 +26,24 @@ class InviteOut(Mirror):
     invite_token: str = Field(description="Raw invite token, returned once and also emailed")
 
 
+class AcceptInviteBody(BaseModel):
+    token: str
+
+
+class AcceptInviteOut(BaseModel):
+    business_id: str
+    staff_id: str
+
+
+class InvitePreviewOut(Mirror):
+    mirrors = Staff
+
+    business_name: str
+    email: str
+    role: StaffRole
+    expires_at: datetime
+
+
 class StaffPayUpdate(Mirror):
     mirrors = Staff
 
@@ -65,7 +83,7 @@ class TeamMember(Mirror):
     role: StaffRole
     status: StaffStatus
     last_active_at: datetime | None = Field(
-        description="When the member last signed in or refreshed a session"
+        description="When the member was last seen using the app (to within five minutes)"
     )
     invited_at: datetime | None
     invited_by_name: str | None

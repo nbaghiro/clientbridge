@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
-from clientbridge.api import auth as auth_api
 from clientbridge.api.public import (
     booking_router,
     contract_router,
@@ -41,11 +40,11 @@ def create_app() -> FastAPI:
     app.add_middleware(UploadSizeLimit)
 
     # Dev allows any localhost origin; prod allows the configured ones, including Connect.
-    extra_origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=extra_origins,
-        allow_origin_regex=r"http://localhost:\d+" if settings.env == "dev" else None,
+        allow_origins=settings.allowed_origins(),
+        allow_origin_regex=settings.allowed_origin_regex(),
+        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -54,7 +53,6 @@ def create_app() -> FastAPI:
     async def health() -> dict[str, object]:
         return {"status": "ok", "env": settings.env}
 
-    app.include_router(auth_api.router)
     app.include_router(sync_router)
     # Public surfaces: unauthenticated, checked by signature, token or slug instead.
     app.include_router(webhooks_router)

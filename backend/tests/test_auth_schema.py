@@ -1,4 +1,4 @@
-"""The server-only tables exist and are excluded from the client AppSchema."""
+"""Kratos owns credentials: no local auth tables, users link 1:1 to identities, nothing synced."""
 
 import re
 from pathlib import Path
@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-async def test_auth_tables_and_column_exist(db: AsyncSession) -> None:
+async def test_auth_tables_are_gone_and_users_link_to_identities(db: AsyncSession) -> None:
     for table in ("sessions", "tokens"):
         n = (
             await db.execute(
@@ -15,16 +15,27 @@ async def test_auth_tables_and_column_exist(db: AsyncSession) -> None:
                 {"t": table},
             )
         ).scalar()
-        assert n == 1, table
-    col = (
+        assert n == 0, table
+    columns = set(
+        (
+            await db.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns WHERE table_name = 'users'"
+                )
+            )
+        ).scalars()
+    )
+    assert "kratos_identity_id" in columns and "last_seen_at" in columns
+    assert columns.isdisjoint({"password_hash", "oauth", "email_verified_at"})
+    unique = (
         await db.execute(
             text(
-                "SELECT count(*) FROM information_schema.columns "
-                "WHERE table_name = 'users' AND column_name = 'email_verified_at'"
+                "SELECT count(*) FROM pg_indexes WHERE tablename = 'users' "
+                "AND indexdef LIKE 'CREATE UNIQUE INDEX%(kratos_identity_id)'"
             )
         )
     ).scalar()
-    assert col == 1
+    assert unique == 1
 
 
 def test_server_only_tables_are_not_synced() -> None:
@@ -32,6 +43,4 @@ def test_server_only_tables_are_not_synced() -> None:
         Path(__file__).resolve().parents[2] / "infra" / "powersync" / "sync-rules.yaml"
     ).read_text()
     synced = set(re.findall(r"FROM\s+(\w+)", rules))
-    assert synced.isdisjoint(
-        {"sessions", "tokens", "commands", "webhooks", "audits", "sync_receipts"}
-    )
+    assert synced.isdisjoint({"users", "commands", "webhooks", "audits", "sync_receipts"})

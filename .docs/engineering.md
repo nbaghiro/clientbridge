@@ -108,8 +108,9 @@ freely, and leave **zero residue** — repeatable, parallel-safe.
 
 ### External boundaries: adapters + recording fakes
 Third parties are never called. Each is an interface injected as a dependency, faked in tests:
-`FakeEmailSender`/`FakeSmsSender`/`FakePushSender` (record `.sent`), `FakeFileStorage`, `FakeOAuthVerifier`,
-and `FakePaymentGateway` (a substantial in-memory Stripe double that honors idempotency keys and maps magic
+`FakeEmailSender`/`FakeSmsSender`/`FakePushSender` (record `.sent`), `FakeFileStorage`, `FakeIdentityProvider`
+(Kratos: `identities.issue(identity)` mints a session token; `session_token(identities, db, user_id)` signs in a
+seeded user; `.revoked`, `.step_up`, `.down` drive the edge cases), and `FakePaymentGateway` (a substantial in-memory Stripe double that honors idempotency keys and maps magic
 payment methods to error paths). A test asserts on the fake — *"one reset email to alice@x with a token that
 then resets the password"* — exercising our logic up to the wire.
 
@@ -125,6 +126,7 @@ The fake covers our *logic*; it can't prove the real adapter maps correctly. Thr
 |---|---|---|
 | **Fake** | default suite | our logic + idempotency + error mapping (fast, hermetic, in-memory) |
 | **Contract** | `make test-contract` | the real `StripeGateway` vs **stripe-mock** (OpenAPI spec) — every request shape + response parse. Stateless; asserts shapes, not state. |
+| **Contract** | `make test-kratos` | the real `KratosIdentityProvider` vs the local Kratos: admin-created identity, native login, whoami, revocation. |
 | **E2E** | `make test-e2e` | real test-mode Stripe (KYC transitions, declines/3DS, subscription periods at the current API version, via a Test Clock) — behavior the mock's pinned spec can't reproduce. Skipped without `STRIPE_TEST_SECRET_KEY`. |
 
 `contract`/`e2e` are excluded from the default run (`-m "not contract and not e2e"`) and auto-skip when their
@@ -232,7 +234,7 @@ Read local, write via command/sync — the server is the source of truth; client
 
 ### Ports — the 87xx block
 Clientbridge owns the **8700–8799** block, so a new local service picks a free port inside it. The
-services below use 8700–8712, and test-only servers (web e2e, the sync verification page) use other ports
+services below use 8700–8716, and test-only servers (web e2e, the sync verification page) use other ports
 in the block. Container-internal ports stay conventional; only host mappings use 87xx.
 
 | Port | Service | Container | Set in |
@@ -248,12 +250,14 @@ in the block. Container-internal ports stay conventional; only host mappings use
 | **8709** | Connect (Vite) — customer app | — | `apps/connect` vite (strictPort) |
 | **8710** | Marketing site (Vite, static build) | — | `apps/site` vite (strictPort) · `make dev-site` |
 | **8712** | Component playground (Vite) | — | `apps/playground` vite (strictPort) · `make dev-playground` |
+| **8713 / 8714** | Ory Kratos: public / admin API | 4433 / 4434 | docker-compose · `KRATOS_PUBLIC_URL` / `KRATOS_ADMIN_URL` |
+| **8715 / 8716** | Mailpit: web UI and API / SMTP (Kratos verification and recovery mail) | 8025 / 1025 | docker-compose |
 
 ### Bring-up
 ```
 make hooks                 # once per clone — install the pre-commit gate
 make install               # uv sync + pnpm install (applies the two op-sqlite patches)
-make up                    # Postgres (logical WAL), the four database roles and the storage DB, then powersync/redis/s3
+make up                    # Postgres (logical WAL), the database roles and the storage + kratos DBs, then powersync/kratos/mailpit/redis/s3
 make migrate               # roles, then Alembic as the migrator, then grants and the publication of synced tables
 # separate terminals:
 make dev-api  dev-web  dev-connect  dev-mobile  worker
@@ -272,7 +276,8 @@ make test-sync             # disposable Postgres + PowerSync: per-role replica r
                            # hours uploads, the signing-key rotation drill, then the replication health check
 make replication-health    # local PowerSync readiness, slot, retained WAL (1 GiB) and replay lag (60 s)
 ```
-Devices authenticate to the API, exchange a JWT at `/sync/token` for a PowerSync token, and stream their
+Devices sign in with Kratos (web: session cookie; mobile: session token), exchange that session at
+`/sync/token` for a PowerSync token, and stream their
 Sync Streams from powersync (:8704) into on-device SQLite. After changing `sync-rules.yaml`, restart the
 powersync container so it loads the new streams. If a hard Docker shutdown corrupts the PowerSync
 replication slot (Postgres PANICs on next start), remove `pg_replslot/powersync_*` to recover.
@@ -281,7 +286,10 @@ replication slot (Postgres PANICs on next start), remove `pg_replslot/powersync_
 `postgres:16` (`wal_level=logical`, `max_replication_slots=4`), `journeyapps/powersync-service` (mounts
 `infra/powersync/`, replicates as `powersync_source` and stores buckets in a separate `powersync_storage`
 DB owned by `powersync_storage_owner`),
-`redis:7` (arq queue), `s3` (RustFS, an S3-compatible dev store; MinIO no longer publishes free images), `stripe-mock` (test profile only).
+`redis:7` (arq queue), `s3` (RustFS, an S3-compatible dev store; MinIO no longer publishes free images),
+`kratos-migrate` + `kratos` (Ory Kratos, `infra/kratos/`, its own `kratos` database), `mailpit` (catches
+verification and recovery email; open :8715 for the codes), `stripe-mock` (test profile only).
+CI jobs whose Postgres is a service container start Kratos with `infra/kratos/standalone.sh`.
 
 ---
 
@@ -297,7 +305,7 @@ Demo accounts are normal tenants in the main local `clientbridge` database, usin
 | priya@birchbarkpets.ca | Priya, employee |
 | owner@cedarcoast.example.test | Rowan, a separate business used for isolation checks |
 
-The password is `demo1234` and the approval PIN is `2468`. The scenario is anchored to the current Vancouver date: `seed_demo.build_demo(as_of)` builds the fixture graph, the seed modules enrich it, and it is validated before it is written. Assets in `backend/scripts/demo_assets/` upload to the configured bucket first. A reset replaces only the seeded businesses, their rows and their users' sessions, and refuses when a seeded user also belongs to another business; it pauses the ledger's append-only trigger inside the transaction. Historical provider references are fixture data, not usable Stripe objects, so new card payments, onboarding and message delivery need test-provider credentials as for any account; without them use cash or manual payments.
+The password is `demo1234` and the approval PIN is `2468`. The scenario is anchored to the current Vancouver date: `seed_demo.build_demo(as_of)` builds the fixture graph, the seed modules enrich it, and it is validated before it is written. Assets in `backend/scripts/demo_assets/` upload to the configured bucket first. The seed creates (or finds) a Kratos identity for each demo user with that password and a verified email, so `make seed` needs Kratos running. A reset replaces only the seeded businesses and their rows (Kratos identities are kept and relinked), and refuses when a seeded user also belongs to another business; it pauses the ledger's append-only trigger inside the transaction. Historical provider references are fixture data, not usable Stripe objects, so new card payments, onboarding and message delivery need test-provider credentials as for any account; without them use cash or manual payments.
 
 Two manual Stripe tools need `STRIPE_SECRET_KEY` (test mode): `uv run python -m scripts.stripe_demo_account` connects the demo business to a verified Stripe test account and reuses it on later runs, and `uv run python -m scripts.payment_accounts` audits one connected account's profile and statement descriptor, writing missing fields only with `--apply`. Integration tests use normal dependency-injected recording adapters and per-test rollback; CI databases use the `clientbridge_test*` prefix.
 

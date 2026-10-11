@@ -1,11 +1,13 @@
 import { PROVINCES, strings, taxSummary, useOnboardingForm } from "@clientbridge/app-core";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { Button, Lockup, Logo, Notice, Select, TextField } from "@clientbridge/ui";
 import { api } from "../lib/api";
 
 export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
     const [submitted, setSubmitted] = useState(false);
+    const navigate = useNavigate();
     const form = useOnboardingForm(api, () => {
         setSubmitted(true);
     });
@@ -77,6 +79,19 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                     </div>
 
                     {form.error ? <Notice tone="danger">{form.error}</Notice> : null}
+                    {form.needsVerification ? (
+                        <Button
+                            variant="outline"
+                            size="lg"
+                            full
+                            onPress={() => {
+                                const navigated = navigate("/verify");
+                                if (navigated) navigated.catch(() => undefined);
+                            }}
+                        >
+                            {strings.business.onboarding.verifyEmail}
+                        </Button>
+                    ) : null}
 
                     <Button submit size="lg" full busy={form.busy}>
                         {form.busy

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from clientbridge.api import (
+    auth,
     billing,
     bookings,
     business,
@@ -27,6 +28,7 @@ from clientbridge.api import (
 )
 
 api_router = APIRouter(prefix="/v1")
+api_router.include_router(auth.router)
 api_router.include_router(clients.router)
 api_router.include_router(subjects.router)
 api_router.include_router(notes.router)

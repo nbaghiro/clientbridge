@@ -1,16 +1,16 @@
 import { useBusinessQuery as useQuery } from "../hooks";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { parseTimestamp } from "../datetime";
 import { formatMoney, formatNumber, parseNumber, BUSINESS_CURRENCY } from "../format";
 
 import { type Load, useAsyncAction, useRemote } from "../hooks";
 import type { Intent } from "../ui";
-import type { AuthTokens, Viewer } from "./auth";
+import type { Viewer } from "./auth";
 import { useReplicaLoad } from "./sync";
 import { strings } from "../strings";
-import type { ApiLike } from "../api";
+import { type ApiLike, failedCode } from "../api";
 
 export type MemberRole = "owner" | "admin" | "staff" | "contractor";
 
@@ -338,67 +338,79 @@ function inviteStaff(api: ApiLike, input: InviteInput): Promise<Invite> {
     });
 }
 
-interface AcceptInviteInput {
-    token: string;
-    name?: string;
-    password: string;
-}
-
-/** Creates or links the user and returns a session in the business they joined. */
-function acceptInvite(api: ApiLike, input: AcceptInviteInput): Promise<AuthTokens> {
-    return api.post<AuthTokens>("/auth/accept-invite", {
-        token: input.token,
-        name: input.name?.trim() ?? null,
-        password: input.password,
-    });
-}
-
 export function acceptInviteUrl(base: string, token: string): string {
     return `${base.replace(/\/+$/, "")}/accept-invite?token=${encodeURIComponent(token)}`;
 }
 
-interface AcceptInviteForm {
-    name: string;
-    setName: (v: string) => void;
-    password: string;
-    setPassword: (v: string) => void;
-    busy: boolean;
-    error: string | null;
-    submit: () => void;
+interface InvitePreview {
+    business_name: string;
+    email: string;
+    role: string;
+    expires_at: string;
 }
 
-/** `setTokens` is injected because web stores tokens synchronously and mobile asynchronously. */
-export function useAcceptInviteForm(
+type InviteProblem = "invalid" | "expired" | "accepted" | "mismatch" | "unverified" | "member";
+
+const INVITE_PROBLEMS: Record<string, InviteProblem> = {
+    invite_invalid: "invalid",
+    invite_expired: "expired",
+    invite_accepted: "accepted",
+    invite_email_mismatch: "mismatch",
+    email_unverified: "unverified",
+    already_member: "member",
+};
+
+interface AcceptInvite {
+    preview: InvitePreview | null;
+    problem: InviteProblem | null;
+    busy: boolean;
+    error: string | null;
+    accept: () => void;
+}
+
+/** Shows who invited whom, then joins the signed-in user to that team. */
+export function useAcceptInvite(
     api: ApiLike,
     token: string,
-    setTokens: (tokens: AuthTokens) => void | Promise<void>,
-    onSuccess: () => void,
-): AcceptInviteForm {
-    const [name, setName] = useState("");
-    const [password, setPassword] = useState("");
-    const { busy, error, setError, run } = useAsyncAction();
+    onJoined: (businessId: string) => void,
+): AcceptInvite {
+    const [preview, setPreview] = useState<InvitePreview | null>(null);
+    const [problem, setProblem] = useState<InviteProblem | null>(token ? null : "invalid");
+    const { busy, error, run } = useAsyncAction();
 
-    const submit = (): void => {
-        if (token.length === 0) {
-            setError(strings.staff.inviteMissingCode);
-            return;
-        }
-        if (password.length < 8) {
-            setError(strings.staff.passwordTooShort);
-            return;
-        }
-        run(
-            async () => {
-                await setTokens(await acceptInvite(api, { token, name, password }));
-            },
-            {
-                onSuccess,
-                errorMessage: strings.staff.acceptInviteError,
-            },
-        );
+    useEffect(() => {
+        if (!token) return;
+        api.get<InvitePreview>(`/v1/staff/invites/preview?token=${encodeURIComponent(token)}`)
+            .then(setPreview)
+            .catch((e: unknown) => {
+                setProblem(INVITE_PROBLEMS[failedCode(e) ?? ""] ?? "invalid");
+            });
+    }, [api, token]);
+
+    return {
+        preview,
+        problem,
+        busy,
+        error,
+        accept: () => {
+            run(
+                async () => {
+                    try {
+                        const joined = await api.post<{ business_id: string }>(
+                            "/v1/staff/invites/accept",
+                            { token },
+                        );
+                        onJoined(joined.business_id);
+                    } catch (e) {
+                        const known = INVITE_PROBLEMS[failedCode(e) ?? ""];
+                        if (!known) throw e;
+                        setProblem(known);
+                    }
+                },
+                { errorMessage: strings.staff.acceptInviteError },
+            );
+        },
     };
-
-    return { name, setName, password, setPassword, busy, error, submit };
 }
 
 export interface StaffPayRow {

@@ -1,7 +1,7 @@
-import { type Session, createSession } from "@clientbridge/api-client";
+import { type Session, createIdentityClient, createSession } from "@clientbridge/api-client";
 
-import { clearSavedTokens, getTokens, saveTokens, sessionEpoch, withSessionLock } from "./auth";
-import { apiUrl } from "./config";
+import { forgetSession, getSession, sessionEpoch } from "./auth";
+import { apiUrl, kratosUrl } from "./config";
 
 export const apiBaseUrl = apiUrl;
 
@@ -13,15 +13,34 @@ export function onSignedOut(handler: () => void): void {
 
 const session = createSession({
     baseUrl: apiBaseUrl,
+    mode: "token",
     epoch: sessionEpoch,
-    lock: withSessionLock,
-    store: { get: () => Promise.resolve(getTokens()), set: saveTokens, clear: clearSavedTokens },
+    store: {
+        get: async () => {
+            const stored = await getSession();
+            return stored
+                ? { userId: stored.user_id ?? "", sessionToken: stored.session_token }
+                : null;
+        },
+        clear: forgetSession,
+    },
     onSignedOut: () => {
+        signedOutHandler();
+    },
+    // The token stays; the login screen sees the session wants a second factor.
+    onStepUp: () => {
         signedOutHandler();
     },
 });
 
 export let api: Session = session;
+
+export const identity = createIdentityClient({
+    kratosUrl,
+    mode: "native",
+    sessionToken: async () => (await getSession())?.session_token ?? null,
+    nativeReturnTo: "clientbridge://auth/callback",
+});
 
 export function selectBusiness(businessId: string | null): void {
     api = session.forBusiness(businessId);

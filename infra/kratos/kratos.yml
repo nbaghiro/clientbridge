@@ -1,0 +1,146 @@
+# Dev config. Production overrides through env (see .docs/architecture.md, Identity).
+version: v26.2.0
+
+serve:
+  public:
+    base_url: http://localhost:8713/
+    cors:
+      enabled: true
+      allowed_origins:
+        - http://localhost:8700
+        - http://localhost:8721   # web e2e (apps/web/playwright.config.ts)
+      allowed_methods: [GET, POST, PUT, PATCH, DELETE]
+      allowed_headers: [Accept, Content-Type, Cookie, X-Session-Token, X-CSRF-Token]
+      exposed_headers: [Content-Type, Set-Cookie]
+      allow_credentials: true
+  admin:
+    base_url: http://kratos:4434/
+
+selfservice:
+  default_browser_return_url: http://localhost:8700/
+  allowed_return_urls:
+    - http://localhost:8700
+    - http://localhost:8721
+    - clientbridge://auth/callback
+
+  methods:
+    password:
+      enabled: true
+      config:
+        haveibeenpwned_enabled: true
+        ignore_network_errors: true
+        min_password_length: 8
+        identifier_similarity_check_enabled: true
+    code:
+      enabled: true
+      config:
+        lifespan: 15m
+    totp:
+      enabled: true
+      config:
+        issuer: Clientbridge
+    lookup_secret:
+      enabled: true
+    webauthn:
+      enabled: true
+      config:
+        passwordless: false
+        rp:
+          display_name: Clientbridge
+          id: localhost
+          origins:
+            - http://localhost:8700
+            - http://localhost:8721
+    oidc:
+      enabled: true
+      config:
+        providers:
+          - id: google
+            provider: google
+            label: Google
+            client_id: unset
+            client_secret: unset
+            mapper_url: file:///etc/config/kratos/oidc.google.jsonnet
+            scope: [openid, email, profile]
+            requested_claims:
+              id_token:
+                email: { essential: true }
+                email_verified: { essential: true }
+
+  flows:
+    error:
+      ui_url: http://localhost:8700/auth-error
+    login:
+      ui_url: http://localhost:8700/login
+      lifespan: 10m
+      style: unified
+    registration:
+      ui_url: http://localhost:8700/signup
+      lifespan: 10m
+      style: unified
+      after:
+        password:
+          hooks:
+            - hook: session
+            - hook: show_verification_ui
+        oidc:
+          hooks:
+            - hook: session
+    verification:
+      enabled: true
+      ui_url: http://localhost:8700/verify
+      use: code
+      after:
+        default_browser_return_url: http://localhost:8700/
+    recovery:
+      enabled: true
+      ui_url: http://localhost:8700/recover
+      use: code
+    settings:
+      ui_url: http://localhost:8700/setup/security
+      privileged_session_max_age: 15m
+      required_aal: highest_available
+    logout:
+      after:
+        default_browser_return_url: http://localhost:8700/login
+
+session:
+  lifespan: 720h
+  earliest_possible_extend: 24h
+  cookie:
+    same_site: Lax
+  whoami:
+    required_aal: highest_available
+
+identity:
+  default_schema_id: default
+  schemas:
+    - id: default
+      url: file:///etc/config/kratos/identity.schema.json
+
+courier:
+  template_override_path: /etc/config/kratos/templates
+  smtp:
+    connection_uri: smtp://mailpit:1025/?disable_starttls=true
+    from_address: no-reply@clientbridge.ca
+    from_name: Clientbridge
+
+hashers:
+  algorithm: argon2
+
+ciphers:
+  algorithm: xchacha20-poly1305
+
+secrets:
+  cookie:
+    - clientbridge-dev-cookie-secret-do-not-use-in-prod
+  cipher:
+    - clientbridge-dev-cipher-key-0032
+
+log:
+  level: info
+  format: text
+  leak_sensitive_values: false
+
+feature_flags:
+  use_continue_with_transitions: true

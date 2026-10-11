@@ -76,8 +76,13 @@ jobs:
                       raise
                   time.sleep(1)
           PYTHON
-      - run: make migrate seed  # tests act as the demo business's owner
+      - run: make migrate
+      - run: ./infra/kratos/standalone.sh  # the seed creates the demo users' Kratos identities
+      - run: make seed  # tests act as the demo business's owner
       - run: make test-backend
+      - run: make test-kratos  # KratosIdentityProvider against the real Kratos
+      - if: failure()
+        run: docker logs kratos
 
   contract:
     # The Stripe contract tier: the real StripeGateway against the OpenAPI mock. Marker-gated out of
@@ -210,7 +215,9 @@ jobs:
                       raise
                   time.sleep(1)
           PYTHON
-      - run: make migrate seed
+      - run: make migrate
+      - run: ./infra/kratos/standalone.sh
+      - run: make seed
       - run: uv run uvicorn clientbridge.main:app --port 8701 > /tmp/api.log 2>&1 &
         working-directory: backend
       - uses: pnpm/action-setup@v4
@@ -336,6 +343,7 @@ jobs:
         run: |
           cat /tmp/api.log
           docker compose logs --no-color powersync | tail -200
+          docker compose logs --no-color kratos | tail -200
 
   mobile:
     # The Maestro walkthroughs on an Android 14 emulator, using a release build so the bundle is embedded.
@@ -411,6 +419,7 @@ jobs:
           script: |
             adb reverse tcp:8701 tcp:8701
             adb reverse tcp:8704 tcp:8704
+            adb reverse tcp:8713 tcp:8713
             adb install frontend/apps/mobile/android/app/build/outputs/apk/release/app-release.apk
             cd frontend/apps/mobile && timeout 40m "$HOME/.maestro/bin/maestro" test e2e --test-output-dir test-results
       - uses: actions/upload-artifact@v4
