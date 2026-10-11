@@ -166,6 +166,10 @@
     "api.mixedCurrencies": {
         "message": "One order can't mix currencies."
     },
+    "api.idempotencyKeyReused": {
+        "message": "These details changed after the last attempt was sent. Check them and try again.",
+        "description": "A retried request carried different details from the attempt the server already saved."
+    },
     "common.amountWithCurrency": {
         "message": "{amount} {currency}",
         "args": ["amount", "currency"],
@@ -6540,6 +6544,10 @@
     "hours.toMove": {
         "message": "{n, plural, one {# visit to move} other {# visits to move}}",
         "args": ["n"]
+    },
+    "hours.stranded": {
+        "message": "{n, plural, one {This booked visit is now outside the new hours. Move it or let the client know: {visits}} other {These # booked visits are now outside the new hours. Move them or let the clients know: {visits}}}",
+        "args": ["n", "visits"]
     },
     "hours.nothingBooked": {
         "message": "Nothing booked"

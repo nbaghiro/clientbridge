@@ -184,6 +184,11 @@ function PersonHours({ staffId }: { staffId: string }) {
                 />
             )}
             {editor.splitNote !== null ? <Notice tone="info">{editor.splitNote}</Notice> : null}
+            {editor.stranded !== null ? (
+                <Notice tone="info" banner>
+                    {editor.stranded}
+                </Notice>
+            ) : null}
             {editor.error !== null ? <Notice tone="danger">{editor.error}</Notice> : null}
             {editor.saveMessage ? <Notice tone="info">{editor.saveMessage}</Notice> : null}
             {editor.discardRejected ? (

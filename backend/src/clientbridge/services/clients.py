@@ -144,6 +144,7 @@ class ClientService:
             run=run,
             response_model=ClientOut,
             idempotency_key=idempotency_key,
+            request={"client_id": client_id},
         )
 
     async def _many(self, ids: Sequence[str]) -> Sequence[Client]:
@@ -181,6 +182,7 @@ class ClientService:
             run=run,
             response_model=BulkResult,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def tag_many(self, data: ClientTags, idempotency_key: str | None) -> BulkResult:
@@ -208,6 +210,7 @@ class ClientService:
             run=run,
             response_model=BulkResult,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def merge(
@@ -256,6 +259,7 @@ class ClientService:
             run=run,
             response_model=ClientOut,
             idempotency_key=idempotency_key,
+            request={"client_id": client_id, "data": data},
         )
 
     async def _assert_mergeable(self, gone: Client) -> None:

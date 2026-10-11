@@ -75,6 +75,7 @@ class ReviewService:
             run=run,
             response_model=ReviewLinkOut,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def respond_to_review(self, review_id: str, response: str) -> ReviewOut:

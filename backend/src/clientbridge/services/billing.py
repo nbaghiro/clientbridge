@@ -90,6 +90,7 @@ class BillingService:
             run=run,
             response_model=InvoiceOut,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def update_invoice(self, invoice_id: str, data: InvoiceUpdate) -> InvoiceOut:
@@ -236,6 +237,7 @@ class BillingService:
             run=run,
             response_model=EstimateOut,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def update_estimate(self, estimate_id: str, data: EstimateUpdate) -> EstimateOut:
@@ -353,6 +355,7 @@ class BillingService:
             run=run,
             response_model=InvoiceOut,
             idempotency_key=idempotency_key,
+            request={"estimate_id": estimate_id},
         )
 
     async def _set_estimate_status(
@@ -455,6 +458,7 @@ class BillingService:
             run=run,
             response_model=InvoiceOut,
             idempotency_key=idempotency_key,
+            request={"booking_id": booking_id},
         )
 
     async def _booking(self, booking_id: str) -> Booking:

@@ -26,7 +26,7 @@ import {
 } from "../format";
 import { type Load, useAsyncAction, useLoad, useRemote } from "../hooks";
 import { strings } from "../strings";
-import { type ApiLike, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey, newIdempotencyKey } from "../api";
 import type { ConfirmOptions, DocTotalLine, Intent, PrintedDocTax } from "../ui";
 import {
     type DiscountKind,
@@ -950,7 +950,7 @@ export function useSale(
     const cards = useQuery<SavedCardRow>(SALE_CARDS_SQL, [clientId ?? ""]).data;
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
-    const keyRef = useRef<string | null>(null);
+    const keyRef = useRef<Attempt | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     const receiptAction = useAsyncAction();
 
@@ -1008,12 +1008,12 @@ export function useSale(
     };
 
     const save = async (note?: string | null): Promise<OrderOut> => {
-        keyRef.current ??= newIdempotencyKey();
+        const body = saleBody({ clientId, lines, saleDiscount, pin: approvalPin, note });
         const out = await saveSale(
             api,
             order?.id ?? null,
-            saleBody({ clientId, lines, saleDiscount, pin: approvalPin, note }),
-            keyRef.current,
+            body,
+            attemptKey(keyRef, [order?.id ?? null, body]),
         );
         setOrder(out);
         return out;
@@ -1069,6 +1069,7 @@ export function useSale(
                             { idempotencyKey },
                         ),
                     d.payError,
+                    { orderId: saved_.id, tipPart },
                 );
             },
             { errorMessage: d.payError },

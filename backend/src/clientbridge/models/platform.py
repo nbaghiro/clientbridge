@@ -94,7 +94,7 @@ class Device(PKMixin, BusinessScoped, TimestampMixin, Base):
 
 
 class IdempotencyKey(PKMixin, BusinessScoped, TimestampMixin, Base):
-    """Command replay guard: a repeated (business, scope, key) returns the stored response."""
+    """Command replay guard: a repeated (business, scope, key) with the same request replays."""
 
     __tablename__ = "commands"
     __table_args__ = (
@@ -104,6 +104,7 @@ class IdempotencyKey(PKMixin, BusinessScoped, TimestampMixin, Base):
     scope: Mapped[str] = mapped_column(String, nullable=False)
     key: Mapped[str] = mapped_column(String, nullable=False)
     response: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    request_hash: Mapped[str | None] = mapped_column(String)
 
 
 class SyncReceipt(PKMixin, BusinessScoped, Base):

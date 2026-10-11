@@ -2,7 +2,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useMemo, useRef, useState } from "react";
 
-import { type ApiLike, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey } from "../api";
 import { daysUntil, formatDate, parseTimestamp, startOfMonth, useBusinessZone } from "../datetime";
 import { formatCredit, formatMoney, formatParts, parseCents, BUSINESS_CURRENCY } from "../format";
 import { type Load, type Remote, useAsyncAction, useRemote } from "../hooks";
@@ -269,7 +269,7 @@ export function useRefundComposer(
     const [notify, setNotify] = useState(true);
     const [issued, setIssued] = useState<string | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
-    const keyRef = useRef<string | null>(null);
+    const keyRef = useRef<Attempt | null>(null);
 
     const typed = parseCents(amount, BUSINESS_CURRENCY);
     const leftCents = summary.leftCents;
@@ -310,9 +310,8 @@ export function useRefundComposer(
             setError(s.errAmount(formatMoney(leftCents, BUSINESS_CURRENCY)));
             return;
         }
-        keyRef.current ??= newIdempotencyKey();
-        const key = keyRef.current;
         const body = { amount_cents: cents, reason, notify };
+        const key = attemptKey(keyRef, [p.id, body]);
         run(
             async () => {
                 const out = await api.post<RefundResult>(`/v1/payments/${p.id}/refund`, body, {

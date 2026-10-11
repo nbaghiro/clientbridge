@@ -2,7 +2,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useMemo, useRef, useState } from "react";
 
-import { type ApiLike, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey, newIdempotencyKey } from "../api";
 import { addDays, parseTimestamp, stampLabel, useBusinessZone } from "../datetime";
 import {
     blankToNull,
@@ -1236,7 +1236,7 @@ export function useRestockForm(
 ): RestockForm {
     const [quantity, setQuantityState] = useState("");
     const [note, setNote] = useState("");
-    const keyRef = useRef<string | null>(null);
+    const keyRef = useRef<Attempt | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     const qty = toInt(quantity);
 
@@ -1251,9 +1251,9 @@ export function useRestockForm(
             setError(s.restockInvalid);
             return;
         }
-        keyRef.current ??= newIdempotencyKey();
-        const key = keyRef.current;
-        run(() => restockItem(api, item.id, { quantity: qty, note: blankToNull(note) }, key), {
+        const body = { quantity: qty, note: blankToNull(note) };
+        const key = attemptKey(keyRef, [item.id, body]);
+        run(() => restockItem(api, item.id, body, key), {
             onSuccess: () => {
                 keyRef.current = null;
                 setQuantityState("");
@@ -1332,7 +1332,7 @@ export function useReceiveDelivery(
     const [q, setQ] = useState("");
     const [done, setDone] = useState<string | null>(null);
     const [lines, setLines] = useState<DeliveryLine[] | null>(null);
-    const keys = useRef(new Map<string, string>());
+    const keys = useRef(new Map<string, Attempt | null>());
     const { busy, error, setError, run } = useAsyncAction();
 
     const seeded =
@@ -1405,18 +1405,15 @@ export function useReceiveDelivery(
                 () =>
                     Promise.all(
                         seeded.map((l) => {
-                            const key = keys.current.get(l.item.id) ?? newIdempotencyKey();
-                            keys.current.set(l.item.id, key);
-                            return restockItem(
-                                api,
-                                l.item.id,
-                                {
-                                    quantity: lineQty(l) ?? 0,
-                                    note,
-                                    unit_cost_cents: parseCents(l.unitCost, BUSINESS_CURRENCY),
-                                },
-                                key,
-                            );
+                            const body = {
+                                quantity: lineQty(l) ?? 0,
+                                note,
+                                unit_cost_cents: parseCents(l.unitCost, BUSINESS_CURRENCY),
+                            };
+                            const attempt = { current: keys.current.get(l.item.id) ?? null };
+                            const key = attemptKey(attempt, body);
+                            keys.current.set(l.item.id, attempt.current);
+                            return restockItem(api, l.item.id, body, key);
                         }),
                     ),
                 {

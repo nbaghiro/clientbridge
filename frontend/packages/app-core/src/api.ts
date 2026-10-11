@@ -57,6 +57,7 @@ const FAILURES: Record<string, () => string> = {
     class_seat: () => strings.api.classSeat,
     class_move: () => strings.api.classMove,
     recurrence_too_long: () => strings.api.recurrenceTooLong,
+    idempotency_key_reused: () => strings.api.idempotencyKeyReused,
 };
 
 /** The catalog message for a failure the server named, else the action's own message. */
@@ -69,4 +70,33 @@ export function failureMessage(e: unknown, fallback: string): string {
 /** One key per write attempt, reused across its retries so the server dedups instead of double-charging. */
 export function newIdempotencyKey(): string {
     return crypto.randomUUID();
+}
+
+export interface Attempt {
+    key: string;
+    request: string;
+}
+
+/** The attempt's key: kept across retries of the same request, renewed when the request changes. */
+export function attemptKey(ref: { current: Attempt | null }, request: unknown): string {
+    const fingerprint = JSON.stringify(request);
+    if (ref.current?.request !== fingerprint) {
+        ref.current = { key: newIdempotencyKey(), request: fingerprint };
+    }
+    return ref.current.key;
+}
+
+/** Sends the attempt, and once more with a fresh key if the server saved it for other details. */
+export async function sendAttempt<T>(
+    ref: { current: Attempt | null },
+    request: unknown,
+    send: (key: string) => Promise<T>,
+): Promise<T> {
+    try {
+        return await send(attemptKey(ref, request));
+    } catch (e) {
+        if (failedCode(e) !== "idempotency_key_reused") throw e;
+        ref.current = null;
+        return send(attemptKey(ref, request));
+    }
 }

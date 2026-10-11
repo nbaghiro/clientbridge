@@ -26,3 +26,18 @@ Started on 2026-10-11. Record per-task evidence here.
 - C7: offline move failures say so; the optimistic overlay clears when the replica shows the move; mobile time-off blocks clamp to the visible window; the window extends for events ending at midnight.
 - New error codes `slot_unavailable`, `class_seat`, `class_move` and `recurrence_too_long` map to catalog messages.
 - Checks: frontend typecheck and lint, app-core (267 under three zones), playground (153), web (17) and Connect suites pass; one Connect navigation run failed on the local public rate limit and passed alone. Mobile changes are verified by types and shared helpers only.
+
+## G1: concurrency (completed, uncommitted)
+
+- Lock order is the hours lock, then member locks by id (`lock_staff`), then booking rows by id (`lock_bookings`, `SELECT ... FOR UPDATE` through `scoped()`), then slots. Manage reschedule and cancel take the member lock, then the booking row, then check replay and limits, so concurrent reschedules at the limit cannot both pass; a visit reassigned meanwhile is 409 `visit_changed`. Time off takes the member lock and a closure every active member's lock; staff moves lock both members; recurrence change and cancel lock the series' rows and skip visits that are no longer live.
+- The hours week command takes the hours lock then the member lock and returns `stranded`, the future live bookings outside the new week; a receipt replay recomputes it. The device keeps the ids in `device_prefs` and the Hours screens on web and mobile show a notice for visits still outside the hours.
+- Tests: two-connection races for reschedules at the limit, booking against time off and closures, and booking against an hours change; API tests for `stranded`; app-core tests for `withinHours`, `strandedNote` and `STRANDED_SQL`; the sync e2e checks the stored ids.
+- Checks: backend 1,433 passed, 95.39% coverage; frontend typecheck, lint, app-core (271 under three zones) and the playground suite pass.
+
+## G2: idempotency request hashes (completed)
+
+- Approved schema change: `commands.request_hash text NULL` (`IdempotencyKey.request_hash`), migration `cb0002` (`20261011_000000_command_request_hash.py`) after `cb0001`, no backfill; applied locally and checked with downgrade and upgrade.
+- `core/command.py` has `request_hash()` (SHA-256 of canonical JSON), `replay()` (through `scoped()`; a different stored hash is 422 `idempotency_key_reused`, a null hash replays) and `remember()`. `run_command` requires `request` whenever it gets a key; all 43 keyed callers pass the body and path ids. Public book, manage reschedule and cancel and the shop order use the same helpers; manage scopes are now `manage.move` and `manage.cancel`. The hours receipt path shares `request_hash`.
+- Clients: `api.idempotencyKeyReused` is mapped by `failureMessage`; `attemptKey` keeps one key across retries of an identical request and issues a new one when the request changes, and `sendAttempt` retries once with a fresh key on `idempotency_key_reused` (Connect booking and reschedule).
+- Checks: backend 1,441 passed, 95.40% coverage; frontend typecheck, lint, app-core (274), playground and Connect suites pass.
+- Note: PR #1 also names its migration `cb0002`; it has to renumber to `cb0003` after `cb0002` when it rebases.

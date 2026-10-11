@@ -2,7 +2,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { type ApiLike, failureMessage, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey, failureMessage } from "../api";
 import {
     addDays,
     clockKey,
@@ -1797,7 +1797,7 @@ export function useBookingComposer(
     const [notify, setNotify] = useState(true);
     const [notice, setNotice] = useState<string | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
-    const key = useRef<string | null>(null);
+    const key = useRef<Attempt | null>(null);
 
     const item = services.find((i) => i.id === itemId) ?? null;
     const client = clients.find((c) => c.id === clientId) ?? null;
@@ -1889,8 +1889,6 @@ export function useBookingComposer(
                 setError(s.composerIncomplete);
                 return;
             }
-            key.current ??= newIdempotencyKey();
-            const idempotencyKey = key.current;
             const body = {
                 client_id: client.id,
                 subject_id: petId === "" ? null : petId,
@@ -1898,6 +1896,7 @@ export function useBookingComposer(
                 staff_id: staffId,
                 starts_at: start.toISOString(),
             };
+            const idempotencyKey = attemptKey(key, { body, repeat, every, count, notify, note });
             let skipped = 0;
             let created = 0;
             run(
@@ -2107,17 +2106,21 @@ export function useCollectDeposit(
     const submit = (): void => {
         const bookingId = event.bookingId;
         if (bookingId === null) return;
-        checkout.pay(({ paymentMethodId, idempotencyKey }) => {
-            const query =
-                paymentMethodId !== undefined && paymentMethodId !== ""
-                    ? `?payment_method_id=${encodeURIComponent(paymentMethodId)}`
-                    : "";
-            return api.post<DepositResult>(
-                `/v1/bookings/${bookingId}/deposit${query}`,
-                {},
-                { idempotencyKey },
-            );
-        }, s.collectDepositError);
+        checkout.pay(
+            ({ paymentMethodId, idempotencyKey }) => {
+                const query =
+                    paymentMethodId !== undefined && paymentMethodId !== ""
+                        ? `?payment_method_id=${encodeURIComponent(paymentMethodId)}`
+                        : "";
+                return api.post<DepositResult>(
+                    `/v1/bookings/${bookingId}/deposit${query}`,
+                    {},
+                    { idempotencyKey },
+                );
+            },
+            s.collectDepositError,
+            bookingId,
+        );
     };
     return { checkout, submit, settling };
 }
@@ -2159,7 +2162,7 @@ export function useBookingAddons(
         useQuery<{ invoice_id: string | null }>(BOOKING_INVOICE_SQL, [bookingId]).data.at(0)
             ?.invoice_id ?? null;
     const { busy, error, run } = useAsyncAction();
-    const key = useRef<string | null>(null);
+    const key = useRef<Attempt | null>(null);
     const admin = viewer !== null && canManagePayments(viewer.role);
     const open = invoiceId === null && event.status !== "canceled";
     return {
@@ -2174,8 +2177,7 @@ export function useBookingAddons(
             });
         },
         createInvoice: () => {
-            key.current ??= newIdempotencyKey();
-            const idempotencyKey = key.current;
+            const idempotencyKey = attemptKey(key, bookingId);
             run(() => api.post(`/v1/invoices/from-booking/${bookingId}`, {}, { idempotencyKey }), {
                 errorMessage: s.invoiceVisitError,
             });

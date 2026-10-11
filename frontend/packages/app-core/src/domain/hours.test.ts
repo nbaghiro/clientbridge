@@ -1,9 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { formatTime, zonedDate } from "../datetime";
+import { formatShortDayTime, formatTime, zonedDate } from "../datetime";
+import { formatList, formatParts } from "../format";
 import type { ScheduleEvent } from "./bookings";
 import { strings } from "../strings";
-import { affectedBy, rebaseWeek, refusalMessage, seedDays, shiftLabel, splitNote } from "./hours";
+import {
+    affectedBy,
+    rebaseWeek,
+    refusalMessage,
+    seedDays,
+    shiftLabel,
+    splitNote,
+    strandedNote,
+    withinHours,
+} from "./hours";
 
 const s = strings.hours;
 
@@ -141,5 +151,64 @@ describe("rebaseWeek", () => {
             day(1, "09:00:00", "17:00:00"),
         ];
         expect(rebaseWeek(base, proposal, current)[0]?.start_time).toBe("09:00:00");
+    });
+});
+
+describe("visits a saved week strands", () => {
+    const at = (day: number, h: number, m = 0) => zonedDate(2027, 3, day, h, m, ZONE);
+    const tuesday = {
+        basis: "recurring",
+        weekday: 1,
+        date: null,
+        start_time: "09:00:00",
+        end_time: "17:00:00",
+        available: 1,
+    };
+    const visit = (id: string, start: Date, minutes: number, client: string | null = "Ann") => ({
+        id,
+        starts_at: start.toISOString(),
+        ends_at: new Date(start.getTime() + minutes * 60_000).toISOString(),
+        client_name: client,
+    });
+    const now = at(1, 8);
+
+    it("keeps a visit inside the day's hours and one on a day without hours", () => {
+        expect(withinHours([tuesday], at(2, 9), at(2, 10, 15), ZONE)).toBe(true);
+        expect(withinHours([tuesday], at(1, 7), at(1, 8), ZONE)).toBe(true);
+        expect(withinHours([tuesday], at(2, 16, 30), at(2, 17, 45), ZONE)).toBe(false);
+        expect(withinHours([tuesday], at(2, 23), at(3, 0, 15), ZONE)).toBe(false);
+    });
+
+    it("lets a date row replace the weekday and close the day", () => {
+        const closed = { ...tuesday, basis: "date", weekday: null, date: "2027-03-09" };
+        const shut = { ...closed, start_time: null, end_time: null, available: 0 };
+        const late = { ...closed, start_time: "18:00:00", end_time: "21:00:00" };
+        expect(withinHours([tuesday, shut], at(9, 10), at(9, 11), ZONE)).toBe(false);
+        expect(withinHours([tuesday, late], at(9, 10), at(9, 11), ZONE)).toBe(false);
+        expect(withinHours([tuesday, late], at(9, 18), at(9, 19), ZONE)).toBe(true);
+        expect(withinHours([tuesday, late], at(2, 10), at(2, 11), ZONE)).toBe(true);
+    });
+
+    it("lists only future visits still outside the hours, in one line", () => {
+        const outside = visit("bk_late", at(2, 16, 30), 75);
+        const visits = [
+            visit("bk_in", at(2, 10), 60),
+            outside,
+            visit("bk_past", at(2, 6), 60),
+            visit("bk_walkin", at(16, 18), 60, null),
+        ];
+        const later = at(2, 12);
+        expect(strandedNote(visits, [tuesday], later, ZONE)).toBe(
+            s.stranded(
+                2,
+                formatList([
+                    formatParts([formatShortDayTime(at(2, 16, 30), ZONE), "Ann"]),
+                    formatParts([formatShortDayTime(at(16, 18), ZONE), null]),
+                ]),
+            ),
+        );
+        expect(strandedNote([outside], [tuesday], now, ZONE)).toContain("Ann");
+        expect(strandedNote([visit("bk_in", at(2, 10), 60)], [tuesday], now, ZONE)).toBeNull();
+        expect(strandedNote([], [tuesday], now, ZONE)).toBeNull();
     });
 });

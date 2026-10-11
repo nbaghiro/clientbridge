@@ -3,7 +3,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 import { useMemo, useRef, useState } from "react";
 
 import { type Load, useAsyncAction } from "../hooks";
-import { type ApiLike, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey } from "../api";
 import { formatMoney, formatParts, BUSINESS_CURRENCY } from "../format";
 import { dateKey, parseTimestamp, useBusinessZone } from "../datetime";
 import type { Intent } from "../ui";
@@ -200,7 +200,7 @@ export function useEarningApprovals(api: ApiLike): EarningApprovals {
     const staff = useQuery<PayeeRow>(PAYEES_SQL);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [picked, setPicked] = useState<string[]>([]);
-    const key = useRef<string | null>(null);
+    const key = useRef<Attempt | null>(null);
     const { busy, error, run } = useAsyncAction();
     const zone = useBusinessZone();
     const year = dateKey(new Date(), zone).slice(0, 4);
@@ -236,8 +236,7 @@ export function useEarningApprovals(api: ApiLike): EarningApprovals {
     const shown = picked.filter((id) => pendingIds.includes(id));
     const load = useReplicaLoad([earnings, staff], payees.length === 0);
     const advance = (path: string, ids: string[], onDone: () => void): void => {
-        key.current ??= newIdempotencyKey();
-        const idempotencyKey = key.current;
+        const idempotencyKey = attemptKey(key, [path, ids]);
         run(() => api.post(`/v1/earnings/${path}`, { ids }, { idempotencyKey }), {
             onSuccess: () => {
                 key.current = null;

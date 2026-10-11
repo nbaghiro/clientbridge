@@ -6,7 +6,7 @@ from sqlalchemy import ColumnElement, and_, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.command import Command, PublicPrincipal, run_command
+from clientbridge.core.command import Command, PublicPrincipal, remember, replay, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base
 from clientbridge.core.errors import Conflict, NotFound, Unauthorized, Unprocessable
@@ -22,7 +22,7 @@ from clientbridge.models.clients import Channel, Client, Note, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
 from clientbridge.models.messaging import Message
 from clientbridge.models.payments import Payment
-from clientbridge.models.platform import File, IdempotencyKey
+from clientbridge.models.platform import File
 from clientbridge.models.reviews import REVIEW_OPEN, Review
 from clientbridge.models.scheduling import Addon, Booking, Slot
 from clientbridge.schemas.billing import (
@@ -83,6 +83,8 @@ from clientbridge.services.bookings import (
     create_booking_core,
     exceptions_between,
     local_day,
+    lock_bookings,
+    lock_staff,
     move_slot,
     open_slots,
     policy_of,
@@ -253,7 +255,7 @@ class PublicBookingService:
     ) -> PublicBookingResult:
         business = await self._business(slug)
         if idempotency_key is not None:
-            prior = await _replay(self.db, business.id, _BOOK_SCOPE, idempotency_key)
+            prior = await replay(self.db, business.id, _BOOK_SCOPE, idempotency_key, data)
             if prior is not None:
                 return PublicBookingResult.model_validate(prior)
         item = await self._bookable_item(business.id, data.item_id)
@@ -329,8 +331,13 @@ class PublicBookingService:
             deposit_cents=booking.deposit_amount_cents,
         )
         if idempotency_key is not None:
-            _remember(
-                self.db, business.id, _BOOK_SCOPE, idempotency_key, result.model_dump(mode="json")
+            remember(
+                self.db,
+                business.id,
+                _BOOK_SCOPE,
+                idempotency_key,
+                data,
+                result.model_dump(mode="json"),
             )
         await self.db.commit()
         return result
@@ -548,34 +555,8 @@ async def _pet(db: AsyncSession, business_id: str, client_id: str, name: str | N
     return pet.id
 
 
-async def _replay(
-    db: AsyncSession, business_id: str, scope: str, key: str
-) -> dict[str, object] | None:
-    prior = (
-        await db.execute(
-            scoped(IdempotencyKey, business_id).where(
-                IdempotencyKey.scope == scope, IdempotencyKey.key == key
-            )
-        )
-    ).scalar_one_or_none()
-    return prior.response if prior is not None else None
-
-
-def _remember(
-    db: AsyncSession, business_id: str, scope: str, key: str, response: dict[str, object]
-) -> None:
-    db.add(
-        IdempotencyKey(
-            id=new_id("idempotency_key"),
-            business_id=business_id,
-            scope=scope,
-            key=key,
-            response=response,
-        )
-    )
-
-
-_MANAGE_SCOPE = "manage"
+_MOVE_SCOPE = "manage.move"
+_CANCEL_SCOPE = "manage.cancel"
 _GONE = "booking not found"
 
 
@@ -621,9 +602,11 @@ class PublicManageService:
     async def reschedule(
         self, token: str, data: ManageReschedule, idempotency_key: str | None
     ) -> ManagedBooking:
-        booking, slot, business = await self._resolve(token)
-        key = f"{booking.id}:move:{idempotency_key}" if idempotency_key else None
-        if key is not None and await _replay(self.db, business.id, _MANAGE_SCOPE, key):
+        booking, slot, business = await self._locked(token)
+        request = {"booking_id": booking.id, **data.model_dump(mode="json")}
+        if idempotency_key is not None and await replay(
+            self.db, business.id, _MOVE_SCOPE, idempotency_key, request
+        ):
             return await self._view(booking, slot, business)
         blocked = self._blocked(booking, slot, business, "move")
         if blocked is not None:
@@ -632,10 +615,6 @@ class PublicManageService:
         _assert_bookable_window(policy, data.starts_at)
         item, staff = await self._visit(booking, slot, business)
         ends_at = data.starts_at + (slot.ends_at - slot.starts_at)
-        await self.db.execute(
-            text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
-            {"key": f"{business.id}:{staff.id}"},
-        )
         problem = await slot_problem(
             self.db,
             business.id,
@@ -652,8 +631,15 @@ class PublicManageService:
             raise Conflict(_UNOFFERED, code="slot_unavailable")
         await move_slot(self.db, business.id, slot, data.starts_at, ends_at)
         booking.reschedule_count += 1
-        if key is not None:
-            _remember(self.db, business.id, _MANAGE_SCOPE, key, {"booking_id": booking.id})
+        if idempotency_key is not None:
+            remember(
+                self.db,
+                business.id,
+                _MOVE_SCOPE,
+                idempotency_key,
+                request,
+                {"booking_id": booking.id},
+            )
         try:
             await self.db.flush()
         except IntegrityError as exc:
@@ -698,13 +684,14 @@ class PublicManageService:
             run=run,
             response_model=ManageMessageResult,
             idempotency_key=key,
+            request=data,
         )
 
     async def cancel(self, token: str, idempotency_key: str | None) -> ManageCancelResult:
-        booking, slot, business = await self._resolve(token)
-        key = f"{booking.id}:cancel:{idempotency_key}" if idempotency_key else None
-        if key is not None:
-            prior = await _replay(self.db, business.id, _MANAGE_SCOPE, key)
+        booking, slot, business = await self._locked(token)
+        request = {"booking_id": booking.id}
+        if idempotency_key is not None:
+            prior = await replay(self.db, business.id, _CANCEL_SCOPE, idempotency_key, request)
             if prior is not None:
                 return ManageCancelResult.model_validate(prior)
         blocked = self._blocked(booking, slot, business, "cancel")
@@ -724,8 +711,15 @@ class PublicManageService:
             or ("refunded" if refunded > 0 else "none"),
             refund_cents=refunded,
         )
-        if key is not None:
-            _remember(self.db, business.id, _MANAGE_SCOPE, key, result.model_dump(mode="json"))
+        if idempotency_key is not None:
+            remember(
+                self.db,
+                business.id,
+                _CANCEL_SCOPE,
+                idempotency_key,
+                request,
+                result.model_dump(mode="json"),
+            )
         await self.db.commit()
         return result
 
@@ -761,6 +755,21 @@ class PublicManageService:
         if slot is None:
             raise NotFound(_GONE)
         business = await business_or_404(self.db, booking.business_id, _GONE)
+        return booking, slot, business
+
+    async def _locked(self, token: str) -> tuple[Booking, Slot, Business]:
+        """The booking with its member and row locked, so limits are read after other changes."""
+        booking, slot, business = await self._resolve(token)
+        member = slot.staff_id
+        await lock_staff(self.db, business.id, member)
+        if not await lock_bookings(self.db, business.id, [booking.id]):
+            raise NotFound(_GONE)
+        await self.db.refresh(slot)
+        if slot.staff_id != member:
+            raise Conflict(
+                "this visit changed while you were looking; reload it and try again",
+                code="visit_changed",
+            )
         return booking, slot, business
 
     async def _visit(self, booking: Booking, slot: Slot, business: Business) -> tuple[Item, Staff]:
@@ -1759,16 +1768,9 @@ class PublicShopService:
         account_id = _account(business)
         if account_id is None:
             raise Conflict("this shop isn't taking online payments yet", code="shop_not_ready")
-        prior = (
-            await self.db.execute(
-                scoped(IdempotencyKey, business.id).where(
-                    IdempotencyKey.scope == _SCOPE,
-                    IdempotencyKey.key == idempotency_key,
-                )
-            )
-        ).scalar_one_or_none()
+        prior = await replay(self.db, business.id, _SCOPE, idempotency_key, data)
         if prior is not None:
-            return PublicShopOrderResult.model_validate(prior.response)
+            return PublicShopOrderResult.model_validate(prior)
         if data.pickup_from is not None:
             await self.db.execute(
                 text("SELECT pg_advisory_xact_lock(hashtext(:scope))"),
@@ -1857,14 +1859,8 @@ class PublicShopService:
             client_secret=client_secret,
             stripe_account_id=account_id,
         )
-        self.db.add(
-            IdempotencyKey(
-                id=new_id("idempotency_key"),
-                business_id=business.id,
-                scope=_SCOPE,
-                key=idempotency_key,
-                response=result.model_dump(mode="json"),
-            )
+        remember(
+            self.db, business.id, _SCOPE, idempotency_key, data, result.model_dump(mode="json")
         )
         await self.db.commit()
         return result

@@ -143,6 +143,22 @@ async def test_archive_many_is_idempotent_and_audited(
     assert audits == 2
 
 
+async def test_archive_many_refuses_a_key_reused_for_other_clients(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    ids = [(await as_owner.post("/v1/clients", json={"name": n})).json()["id"] for n in "AB"]
+    headers = {"Idempotency-Key": "archive-many-2"}
+    first = await as_owner.post(
+        "/v1/clients/archive", json={"client_ids": ids[:1]}, headers=headers
+    )
+    assert first.json() == {"count": 1}
+    other = await as_owner.post(
+        "/v1/clients/archive", json={"client_ids": ids[1:]}, headers=headers
+    )
+    assert (other.status_code, other.json()["error"]) == (422, "idempotency_key_reused")
+    assert (await _client(db, ids[1]))["status"] == "active"
+
+
 async def test_archive_many_unknown_client_404(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.post("/v1/clients/archive", json={"client_ids": ["cl_nope"]})
     assert res.status_code == 404
@@ -221,7 +237,9 @@ async def test_merge_moves_records_and_threads(
     body = res.json()
     assert (body["name"], body["phone"], body["tags"]) == ("Gone", "2505550111", ["a", "b"])
     replay = await as_owner.post(
-        f"/v1/clients/{kept}/merge", json={"from_client_id": gone}, headers=headers
+        f"/v1/clients/{kept}/merge",
+        json={"from_client_id": gone, "fields": {"name": "other"}},
+        headers=headers,
     )
     assert replay.json() == body
     pets = await db.scalar(text("SELECT count(*) FROM subjects WHERE client_id = :k"), {"k": kept})

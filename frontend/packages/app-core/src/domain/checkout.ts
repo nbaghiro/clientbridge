@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { usePublicResource } from "./publicResource";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import { type ApiLike, failedStatus, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey, failedStatus, newIdempotencyKey } from "../api";
 
 /** The payment-method choice that means "enter a new card" rather than charge a saved one. */
 export const NEW_CARD = "";
@@ -28,7 +28,11 @@ export interface Checkout {
     setError: (message: string | null) => void;
     /** Set once a new-card charge needs the customer to confirm the card. */
     clientSecret: string | null;
-    pay: (charge: (input: CheckoutCharge) => Promise<object>, errorMessage: string) => void;
+    pay: (
+        charge: (input: CheckoutCharge) => Promise<object>,
+        errorMessage: string,
+        request: unknown,
+    ) => void;
     complete: () => void;
     cancel: () => void;
 }
@@ -47,7 +51,7 @@ export function useCheckout(
     const [chosen, setChosen] = useState<string | null>(null);
     const [clientSecret, setClientSecret] = useState<string | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
-    const keyRef = useRef<string | null>(null);
+    const keyRef = useRef<Attempt | null>(null);
     const method = chosen ?? opts.defaultMethod ?? NEW_CARD;
 
     const reset = (): void => {
@@ -62,13 +66,12 @@ export function useCheckout(
         onDone();
     };
 
-    const pay: Checkout["pay"] = (charge, errorMessage) => {
+    const pay: Checkout["pay"] = (charge, errorMessage, request) => {
         if (method === NEW_CARD && !allowNewCard) {
             setError(strings.checkout.chooseSavedMethod);
             return;
         }
-        keyRef.current ??= newIdempotencyKey();
-        const idempotencyKey = keyRef.current;
+        const idempotencyKey = attemptKey(keyRef, [method, request]);
         run(async () => {
             let result: object;
             try {

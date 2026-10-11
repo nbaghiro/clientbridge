@@ -1,16 +1,30 @@
-from datetime import UTC, datetime
+import asyncio
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import httpx
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.models.scheduling import Hours
-from tests.conftest import BIZ
+from clientbridge.core.db import SessionLocal
+from clientbridge.core.deps import Principal
+from clientbridge.core.errors import Conflict
+from clientbridge.core.ids import new_id
+from clientbridge.models.business import Staff
+from clientbridge.models.platform import Audit, SyncReceipt
+from clientbridge.models.scheduling import Booking, Hours, Slot
+from clientbridge.schemas.bookings import BookingCreate
+from clientbridge.schemas.hours import HoursWeekBody
+from clientbridge.services.bookings import BookingService
+from clientbridge.services.hours import HoursService
+from tests.conftest import BIZ, OWNER_USER, FakePaymentGateway
+from tests.helpers import client_id
+
+OWNER = Principal(user_id=OWNER_USER, business_id=BIZ, staff_id="st_owner", role="owner")
 
 
-def week_body(revision: int = 0) -> dict[str, object]:
+def week_body(revision: int = 0, closed: tuple[int, ...] = (5, 6)) -> dict[str, object]:
     return {
         "request": {
             "version": 2,
@@ -21,7 +35,12 @@ def week_body(revision: int = 0) -> dict[str, object]:
         },
         "expected_revision": revision,
         "days": [
-            {"weekday": day, "available": day < 5, "start_time": "09:00", "end_time": "17:00"}
+            {
+                "weekday": day,
+                "available": day not in closed,
+                "start_time": "09:00",
+                "end_time": "17:00",
+            }
             for day in range(7)
         ],
     }
@@ -40,7 +59,7 @@ async def test_week_replay_conflict_and_stable_rows(
     )
     response = await as_owner.post(url, json=body)
     assert response.status_code == 200, response.text
-    assert response.json() == {"revision": before["revision"] + 1}
+    assert response.json()["revision"] == before["revision"] + 1
     replay = await as_owner.post(url, json=body)
     assert replay.json() == response.json()
     ids = list(
@@ -175,3 +194,128 @@ async def test_week_body_is_bounded(as_owner: httpx.AsyncClient) -> None:
 
 async def test_direct_crud_endpoint_is_absent(as_owner: httpx.AsyncClient) -> None:
     assert (await as_owner.post("/sync/upload", json={"ops": []})).status_code == 404
+
+
+async def _visit(api: httpx.AsyncClient, db: AsyncSession, staff: str, starts: str) -> str:
+    res = await api.post(
+        "/v1/bookings",
+        json={
+            "client_id": await client_id(db),
+            "item_id": "it_groom_sm",
+            "staff_id": staff,
+            "starts_at": starts,
+        },
+    )
+    assert res.status_code == 201, res.text
+    return str(res.json()["id"])
+
+
+async def test_week_reports_the_visits_it_strands(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    tuesday = await _visit(as_owner, db, "st_diego", "2027-03-02T18:00:00Z")
+    late = await _visit(as_owner, db, "st_diego", "2027-03-03T22:00:00Z")
+    inside = await _visit(as_owner, db, "st_diego", "2027-03-04T18:00:00Z")
+    canceled = await _visit(as_owner, db, "st_diego", "2027-03-09T18:00:00Z")
+    assert (
+        await as_owner.patch(f"/v1/bookings/{canceled}", json={"status": "canceled"})
+    ).status_code == 200
+    other = await _visit(as_owner, db, "st_priya", "2027-03-02T18:00:00Z")
+    url = "/v1/hours/st_diego/week"
+    body = week_body((await as_owner.get(url)).json()["revision"], closed=(1,))
+    days = body["days"]
+    assert isinstance(days, list)
+    days[2] = {**days[2], "end_time": "14:00"}
+    response = await as_owner.post(url, json=body)
+    assert response.status_code == 200, response.text
+    stranded = response.json()["stranded"]
+    assert stranded.index(tuesday) < stranded.index(late)
+    assert not {inside, canceled, other} & set(stranded)
+    replay = await as_owner.post(url, json=body)
+    assert replay.json() == response.json()
+
+
+async def test_week_does_not_strand_visits_already_past(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    visit = await _visit(as_owner, db, "st_diego", "2027-03-02T18:00:00Z")
+    booking = await db.get(Booking, visit)
+    assert booking is not None
+    slot = await db.get(Slot, booking.slot_id)
+    assert slot is not None
+    past = datetime.now(UTC) - timedelta(days=7)
+    slot.starts_at, slot.ends_at = past, past + timedelta(minutes=75)
+    booking.starts_at = past
+    await db.flush()
+    url = "/v1/hours/st_diego/week"
+    body = week_body((await as_owner.get(url)).json()["revision"], closed=tuple(range(7)))
+    response = await as_owner.post(url, json=body)
+    assert response.status_code == 200, response.text
+    assert visit not in response.json()["stranded"]
+
+
+async def test_a_booking_racing_an_hours_change_is_refused_or_stranded(db: AsyncSession) -> None:
+    client = await client_id(db)
+    members: list[str] = []
+    bodies: list[HoursWeekBody] = []
+    booked: list[str] = []
+
+    async def book(staff_id: str, ready: asyncio.Barrier) -> str | Conflict:
+        async with SessionLocal() as session:
+            service = BookingService(session, OWNER, FakePaymentGateway())
+            await ready.wait()
+            try:
+                out = await service.create(
+                    BookingCreate(
+                        client_id=client,
+                        item_id="it_groom_sm",
+                        staff_id=staff_id,
+                        starts_at=datetime(2027, 5, 4, 16, tzinfo=UTC),
+                    ),
+                    None,
+                )
+            except Conflict as exc:
+                return exc
+            booked.append(out.id)
+            return out.id
+
+    async def close(staff_id: str, ready: asyncio.Barrier, lag: float) -> list[str]:
+        body = HoursWeekBody.model_validate(week_body(closed=tuple(range(7))))
+        bodies.append(body)
+        async with SessionLocal() as session:
+            service = HoursService(session, OWNER)
+            await ready.wait()
+            await asyncio.sleep(lag)
+            return (await service.replace(staff_id, body)).stranded
+
+    try:
+        # the lag sweeps the week change across the booking's check-then-write window
+        for lag in (0, 0.002, 0.005, 0.01, 0.02):
+            staff_id = new_id("staff")
+            members.append(staff_id)
+            async with SessionLocal() as setup:
+                setup.add(Staff(id=staff_id, business_id=BIZ, role="staff", status="active"))
+                await setup.commit()
+            ready = asyncio.Barrier(2)
+            result, stranded = await asyncio.gather(
+                book(staff_id, ready), close(staff_id, ready, lag), return_exceptions=True
+            )
+            if isinstance(stranded, BaseException):
+                raise stranded
+            assert isinstance(result, Conflict) or stranded == [result], lag
+    finally:
+        async with SessionLocal() as cleanup:
+            slots = list(
+                await cleanup.scalars(select(Booking.slot_id).where(Booking.id.in_(booked)))
+            )
+            await cleanup.execute(delete(Booking).where(Booking.id.in_(booked)))
+            await cleanup.execute(delete(Slot).where(Slot.id.in_(slots)))
+            await cleanup.execute(
+                delete(SyncReceipt).where(
+                    SyncReceipt.operation_id.in_([str(b.request.operation_id) for b in bodies])
+                )
+            )
+            await cleanup.execute(delete(Audit).where(Audit.entity_id.in_(members + booked)))
+            await cleanup.execute(delete(Hours).where(Hours.staff_id.in_(members)))
+            await cleanup.execute(delete(Staff).where(Staff.id.in_(members)))
+            await cleanup.commit()

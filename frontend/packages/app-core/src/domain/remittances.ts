@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 
 import { type Load, useAsyncAction, useLoad, useRemote } from "../hooks";
 import { strings } from "../strings";
-import { type ApiLike, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey } from "../api";
 import {
     addDays,
     dateKey,
@@ -253,7 +253,7 @@ export function useFilingForm(
     const [confirmation, setConfirmationState] = useState("");
     const zone = useBusinessZone();
     const [filedOn, setFiledOnState] = useState(() => dateKey(new Date(), zone));
-    const key = useRef<string | null>(null);
+    const key = useRef<Attempt | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     const edit =
         <T>(set: (v: T) => void) =>
@@ -299,32 +299,24 @@ export function useFilingForm(
                 setError(problem);
                 return;
             }
-            key.current ??= newIdempotencyKey();
-            const idempotencyKey = key.current;
-            run(
-                () =>
-                    api.post(
-                        "/v1/payments/remittances",
-                        {
-                            period_start: period.start,
-                            period_end: period.end,
-                            family,
-                            itc_cents: itcCents,
-                            confirmation: confirmation.trim(),
-                            filed_on: filedOn,
-                        },
-                        { idempotencyKey },
-                    ),
-                {
-                    onSuccess: () => {
-                        key.current = null;
-                        setItcState("");
-                        setConfirmationState("");
-                        onDone(family);
-                    },
-                    errorMessage: r.filingFailed,
+            const body = {
+                period_start: period.start,
+                period_end: period.end,
+                family,
+                itc_cents: itcCents,
+                confirmation: confirmation.trim(),
+                filed_on: filedOn,
+            };
+            const idempotencyKey = attemptKey(key, body);
+            run(() => api.post("/v1/payments/remittances", body, { idempotencyKey }), {
+                onSuccess: () => {
+                    key.current = null;
+                    setItcState("");
+                    setConfirmationState("");
+                    onDone(family);
                 },
-            );
+                errorMessage: r.filingFailed,
+            });
         },
     };
 }

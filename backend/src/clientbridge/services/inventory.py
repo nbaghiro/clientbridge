@@ -59,6 +59,7 @@ class StockService:
             run=run,
             response_model=ItemOut,
             idempotency_key=idempotency_key,
+            request={"item_id": item_id, "data": data},
         )
 
 

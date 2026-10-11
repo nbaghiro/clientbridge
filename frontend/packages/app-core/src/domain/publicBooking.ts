@@ -2,7 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { failedStatus, newIdempotencyKey, refusal } from "../api";
+import {
+    type Attempt,
+    attemptKey,
+    failedStatus,
+    failureMessage,
+    refusal,
+    sendAttempt,
+} from "../api";
 import {
     addDays,
     dateKey,
@@ -359,7 +366,7 @@ export function visitWeekFrom(start: Date, today: string, zone: string): string 
 /** A refused booking or move: a lost connection, a time just taken, or the action's own message. */
 export function bookingFailure(error: unknown, fallback: string): string {
     if (isConnectionFailure(error)) return s.connectionError;
-    return failedStatus(error) === 409 ? s.slotTaken : fallback;
+    return failedStatus(error) === 409 ? s.slotTaken : failureMessage(error, fallback);
 }
 
 type BookingStep = "service" | "time" | "extras" | "details" | "pay" | "done";
@@ -413,7 +420,7 @@ export function usePublicBookingFlow(
     const [note, setNote] = useState(draft.note ?? "");
     const [touched, setTouched] = useState(false);
     const [result, setResult] = useState<PublicBookingResult | null>(null);
-    const key = useRef<string | null>(null);
+    const key = useRef<Attempt | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
 
     useEffect(() => {
@@ -569,31 +576,28 @@ export function usePublicBookingFlow(
             setTouched(true);
             return;
         }
-        key.current ??= newIdempotencyKey();
-        const attempt = key.current;
+        const input = {
+            itemId: service.id,
+            staffId,
+            startsAt: slot.starts_at,
+            client: {
+                name: name.trim(),
+                email: email.trim() || null,
+                phone: phone.trim() || null,
+            },
+            petName: petName.trim(),
+            returningToken,
+            subjectId,
+            note: note.trim(),
+            addons: addonLines.map((l) => ({
+                itemId: l.addon.id,
+                quantity: l.quantity,
+            })),
+        };
         run(
             async () => {
-                const r = await client.book(
-                    slug,
-                    {
-                        itemId: service.id,
-                        staffId,
-                        startsAt: slot.starts_at,
-                        client: {
-                            name: name.trim(),
-                            email: email.trim() || null,
-                            phone: phone.trim() || null,
-                        },
-                        petName: petName.trim(),
-                        returningToken,
-                        subjectId,
-                        note: note.trim(),
-                        addons: addonLines.map((l) => ({
-                            itemId: l.addon.id,
-                            quantity: l.quantity,
-                        })),
-                    },
-                    attempt,
+                const r = await sendAttempt(key, input, (attempt) =>
+                    client.book(slug, input, attempt),
                 );
                 setResult(r);
                 setStep(r.deposit_client_secret !== null ? "pay" : "done");
@@ -924,7 +928,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
     const { status, data, setData } = usePublicResource(client.getBooking, token);
     const [messageBody, setMessageBody] = useState("");
     const [messageSent, setMessageSent] = useState(false);
-    const messageKey = useRef<string | null>(null);
+    const messageKey = useRef<Attempt | null>(null);
     const [mode, setModeRaw] = useState<ManageMode>("view");
     const [from, setFrom] = useState<string | null>(null);
     const [date, setDate] = useState<string | null>(null);
@@ -933,7 +937,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
     const [reload, setReload] = useState(0);
     const [pick, setPick] = useState("");
     const [refund, setRefund] = useState<number | null>(null);
-    const key = useRef<string | null>(null);
+    const key = useRef<Attempt | null>(null);
     const { busy, error, run } = useAsyncAction();
 
     const now = data ? parseTimestamp(data.now) : new Date();
@@ -999,8 +1003,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
         messageSent,
         sendMessage: () => {
             if (!messageBody.trim()) return;
-            messageKey.current ??= newIdempotencyKey();
-            const attempt = messageKey.current;
+            const attempt = attemptKey(messageKey, messageBody.trim());
             run(
                 async () => {
                     await client.message(token, messageBody.trim(), attempt);
@@ -1107,11 +1110,13 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
         pickTime: pick ? formatTime(parseTimestamp(pick), zone) : null,
         confirmMove: () => {
             if (pick === "") return;
-            key.current ??= newIdempotencyKey();
-            const attempt = key.current;
             run(
                 async () => {
-                    setData(await client.reschedule(token, pick, attempt));
+                    setData(
+                        await sendAttempt(key, ["move", pick], (attempt) =>
+                            client.reschedule(token, pick, attempt),
+                        ),
+                    );
                     setModeRaw("moved");
                 },
                 {
@@ -1126,8 +1131,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
             );
         },
         confirmCancel: () => {
-            key.current ??= newIdempotencyKey();
-            const attempt = key.current;
+            const attempt = attemptKey(key, ["cancel", token]);
             run(
                 async () => {
                     const r = await client.cancel(token, attempt);

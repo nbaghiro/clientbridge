@@ -161,6 +161,7 @@ class GiftCardService:
             run=run,
             response_model=GiftCardPurchaseOut,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def redeem_gift_card(
@@ -186,6 +187,7 @@ class GiftCardService:
             run=run,
             response_model=GiftCardOut,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def _face_value(self, data: GiftCardPurchase) -> int:
@@ -355,6 +357,7 @@ class PackageService:
             run=run,
             response_model=PackagePurchaseOut,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def consume_session(
@@ -383,6 +386,7 @@ class PackageService:
             run=run,
             response_model=PackageOut,
             idempotency_key=idempotency_key,
+            request={"package_id": package_id},
         )
 
     def _assert_admin(self) -> None:
@@ -529,6 +533,7 @@ class SubscriptionService:
             run=run,
             response_model=SubscriptionOut,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def cancel_subscription(
@@ -557,6 +562,7 @@ class SubscriptionService:
             run=run,
             response_model=SubscriptionOut,
             idempotency_key=idempotency_key,
+            request={"subscription_id": subscription_id},
         )
 
     def _assert_admin(self) -> None:

@@ -1,16 +1,22 @@
+import asyncio
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
-from sqlalchemy import select, update
+import pytest
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.db import SessionLocal
+from clientbridge.core.deps import Principal
+from clientbridge.core.errors import Conflict
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
 from clientbridge.models.platform import Audit
-from clientbridge.models.scheduling import Hours
-from clientbridge.services.bookings import open_slots
-from tests.conftest import BIZ, Factory
+from clientbridge.models.scheduling import Booking, Hours, Slot
+from clientbridge.schemas.bookings import BookingCreate, TimeOffCreate
+from clientbridge.services.bookings import BookingService, TimeOffService, open_slots
+from tests.conftest import BIZ, OWNER_USER, Factory, FakePaymentGateway
 from tests.helpers import client_id, key
 
 ST_OWNER = "st_owner"
@@ -319,3 +325,71 @@ async def test_time_off_in_the_last_hour_of_a_25_hour_day_blocks_open_times(
     assert item is not None
     starts = await open_slots(db, BIZ, item, ST_OWNER, day)
     assert starts and all(s + timedelta(minutes=60) <= late for s in starts)
+
+
+@pytest.mark.parametrize("away", [ST_OWNER, None])
+async def test_a_booking_racing_new_time_off_is_refused_or_reported(
+    db: AsyncSession, away: str | None
+) -> None:
+    principal = Principal(user_id=OWNER_USER, business_id=BIZ, staff_id=ST_OWNER, role="owner")
+    client = await client_id(db)
+    booked: list[str] = []
+    away_ids: list[str] = []
+
+    async def book(starts_at: datetime, ready: asyncio.Barrier) -> str | Conflict:
+        async with SessionLocal() as session:
+            service = BookingService(session, principal, FakePaymentGateway())
+            await ready.wait()
+            try:
+                out = await service.create(
+                    BookingCreate(
+                        client_id=client,
+                        item_id="it_groom_sm",
+                        staff_id=ST_OWNER,
+                        starts_at=starts_at,
+                    ),
+                    None,
+                )
+            except Conflict as exc:
+                return exc
+            booked.append(out.id)
+            return out.id
+
+    async def close(starts_at: datetime, ready: asyncio.Barrier, lag: float) -> list[str]:
+        async with SessionLocal() as session:
+            service = TimeOffService(session, principal)
+            await ready.wait()
+            await asyncio.sleep(lag)
+            out = await service.create(
+                TimeOffCreate(
+                    staff_id=away,
+                    starts_at=starts_at - timedelta(hours=1),
+                    ends_at=starts_at + timedelta(hours=2),
+                    reason="Race",
+                ),
+                None,
+            )
+            away_ids.append(out.id)
+            return out.affected
+
+    try:
+        # the lag sweeps the time off across the booking's check-then-write window
+        for week, lag in enumerate((0, 0.002, 0.005, 0.01, 0.02)):
+            starts_at = datetime(2027, 5, 11, 16, tzinfo=UTC) + timedelta(weeks=week)
+            ready = asyncio.Barrier(2)
+            result, affected = await asyncio.gather(
+                book(starts_at, ready), close(starts_at, ready, lag), return_exceptions=True
+            )
+            if isinstance(affected, BaseException):
+                raise affected
+            assert isinstance(result, Conflict) or result in affected, lag
+    finally:
+        async with SessionLocal() as cleanup:
+            slots = list(
+                await cleanup.scalars(select(Booking.slot_id).where(Booking.id.in_(booked)))
+            )
+            await cleanup.execute(delete(Booking).where(Booking.id.in_(booked)))
+            await cleanup.execute(delete(Slot).where(Slot.id.in_(slots)))
+            await cleanup.execute(delete(Hours).where(Hours.id.in_(away_ids)))
+            await cleanup.execute(delete(Audit).where(Audit.entity_id.in_(away_ids + booked)))
+            await cleanup.commit()

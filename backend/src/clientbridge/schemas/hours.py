@@ -58,8 +58,12 @@ class HoursWeekBody(BaseModel):
 
 class HoursWeekResult(BaseModel):
     revision: int
+    stranded: list[str] = Field(
+        description="Future live bookings of the member that fall outside the new week"
+    )
 
 
-class HoursWeekOut(HoursWeekResult):
+class HoursWeekOut(BaseModel):
+    revision: int
     staff_id: str
     days: list[WeekDay]

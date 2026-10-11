@@ -303,7 +303,7 @@ async def create_booking_core(
     dedupe_client: bool = False,
 ) -> tuple[Booking, Slot]:
     """Create a confirmed booking under the scheduling invariant (staff and online paths)."""
-    await _lock_staff(db, business_id, staff_id)
+    await lock_staff(db, business_id, staff_id)
     ends_at = starts_at + timedelta(minutes=item.duration_min or 0)
     away = await blocking_exception(db, business_id, staff_id, starts_at, ends_at)
     if away is not None:
@@ -385,11 +385,28 @@ async def move_slot(
         )
 
 
-async def _lock_staff(db: AsyncSession, business_id: str, staff_id: str) -> None:
+async def lock_staff(db: AsyncSession, business_id: str, *staff_ids: str) -> None:
     """Serialise booking writes per member so the conflict check is atomic with the write."""
-    await db.execute(
-        text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": f"{business_id}:{staff_id}"}
+    # Lock order: hours lock, members by id, bookings by id, then slots, so writers never deadlock.
+    for staff_id in sorted(set(staff_ids)):
+        await db.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
+            {"key": f"{business_id}:{staff_id}"},
+        )
+
+
+async def lock_bookings(
+    db: AsyncSession, business_id: str, booking_ids: list[str]
+) -> list[Booking]:
+    """The live rows of these bookings, locked in id order and reloaded."""
+    rows = await db.scalars(
+        scoped(Booking, business_id, soft_delete=True)
+        .where(Booking.id.in_(booking_ids))
+        .order_by(Booking.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
     )
+    return list(rows)
 
 
 async def load_resource(db: AsyncSession, business_id: str, resource_id: str) -> Resource:
@@ -568,6 +585,7 @@ class BookingService:
             run=run,
             response_model=BookingOut,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def patch(
@@ -592,7 +610,11 @@ class BookingService:
         async def run(cmd: Command) -> BookingOut:
             if target is not None:
                 staff_id, starts_at, ends_at, resource_id = target
-                await _lock_staff(self.db, self.biz, staff_id)
+                await lock_staff(self.db, self.biz, slot.staff_id, staff_id)
+                await lock_bookings(self.db, self.biz, [booking.id])
+                await self.db.refresh(slot)
+                if booking.status in _TERMINAL:
+                    raise Conflict(f"a {booking.status} booking can't be modified")
                 item = await self._item(slot.item_id, require_active=False)
                 problem = await slot_problem(
                     self.db,
@@ -854,6 +876,7 @@ class BookingService:
             run=run,
             response_model=DepositOut,
             idempotency_key=idempotency_key,
+            request={"booking_id": booking_id, "payment_method_id": payment_method_id},
         )
 
     async def _forfeit_deposit(self, cmd: Command, booking: Booking) -> None:
@@ -1240,6 +1263,7 @@ class RecurrenceService:
             run=run,
             response_model=RecurrenceOut,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def change(self, recurrence_id: str, data: RecurrenceChange) -> RecurrenceChangeOut:
@@ -1258,7 +1282,11 @@ class RecurrenceService:
         async def run(cmd: Command) -> RecurrenceChangeOut:
             moved: list[str] = []
             skipped: list[RecurrenceOccurrence] = []
-            for booking, slot in visits:
+            members = {slot.staff_id for _, slot in visits}
+            await lock_staff(
+                self.db, self.biz, *members, *([data.staff_id] if data.staff_id else [])
+            )
+            for booking, slot in await self._lock_visits(visits):
                 local = slot.starts_at.astimezone(tz)
                 day = local.date()
                 if data.weekday is not None:
@@ -1269,7 +1297,6 @@ class RecurrenceService:
                 ends_at = starts_at + (slot.ends_at - slot.starts_at)
                 staff_id = data.staff_id or slot.staff_id
                 item = await load_item(self.db, self.biz, slot.item_id, require_active=False)
-                await _lock_staff(self.db, self.biz, staff_id)
                 problem = (
                     _verdict("past", _PAST)
                     if starts_at < datetime.now(UTC)
@@ -1334,7 +1361,7 @@ class RecurrenceService:
             refunded = 0
             canceled: list[str] = []
             now = datetime.now(UTC)
-            for booking, slot in visits:
+            for booking, slot in await self._lock_visits(visits):
                 if booking.deposit_status == "collected":
                     refunded += await refund_deposit(self.db, gateway, booking)
                 elif booking.deposit_status == "pending":
@@ -1367,6 +1394,18 @@ class RecurrenceService:
             run=run,
             response_model=RecurrenceCancelOut,
         )
+
+    async def _lock_visits(self, visits: list[tuple[Booking, Slot]]) -> list[tuple[Booking, Slot]]:
+        """The visits still live once their rows are locked, with their slots reloaded."""
+        live = {
+            b.id
+            for b in await lock_bookings(self.db, self.biz, [b.id for b, _ in visits])
+            if b.status in ("pending", "confirmed")
+        }
+        kept = [(b, s) for b, s in visits if b.id in live]
+        for _, slot in kept:
+            await self.db.refresh(slot)
+        return kept
 
     async def _recurrence(self, recurrence_id: str) -> Recurrence:
         row = (
@@ -1424,6 +1463,10 @@ async def open_windows(
         .scalars()
         .all()
     )
+    return windows_on(rows, on_date)
+
+
+def windows_on(rows: Sequence[Hours], on_date: date) -> list[tuple[time, time]] | None:
     date_rows = [r for r in rows if r.basis == "date" and r.date == on_date]
     if date_rows:
         if any(not r.available and r.start_time is None for r in date_rows):
@@ -1446,8 +1489,18 @@ async def is_within_hours(
 ) -> bool:
     """Whether the window sits inside open hours on its local date, or the day has none set."""
     tz = await business_tz(db, business_id)
+    rows = (
+        (await db.execute(scoped(Hours, business_id).where(Hours.staff_id == staff_id)))
+        .scalars()
+        .all()
+    )
+    return within_hours(rows, tz, start, end)
+
+
+def within_hours(rows: Sequence[Hours], tz: ZoneInfo, start: datetime, end: datetime) -> bool:
+    """Whether the window sits inside these hours on its local date, or the day has none set."""
     start_local, end_local = _as_utc(start).astimezone(tz), _as_utc(end).astimezone(tz)
-    windows = await open_windows(db, staff_id, business_id, start_local.date())
+    windows = windows_on(rows, start_local.date())
     if windows is None:
         return True
     if end_local.date() != start_local.date():
@@ -1475,7 +1528,7 @@ class ClassService:
         item = await load_item(self.db, self.biz, slot.item_id, require_active=False)
 
         async def run(cmd: Command) -> RosterEntry:
-            await _lock_staff(self.db, self.biz, slot.staff_id)
+            await lock_staff(self.db, self.biz, slot.staff_id)
             if await _client_has_seat(self.db, self.biz, slot.id, data.client_id):
                 raise Conflict(_ALREADY_IN_CLASS)
             full = await booked_count(self.db, slot.id) >= slot.capacity
@@ -1534,7 +1587,7 @@ class ClassService:
                     cmd, booking
                 )
             else:
-                await _lock_staff(self.db, self.biz, slot.staff_id)
+                await lock_staff(self.db, self.biz, slot.staff_id)
                 if booking.status != "waitlisted":
                     raise Conflict("only someone on the waitlist can be given a seat")
                 if await booked_count(self.db, slot.id) >= slot.capacity:
@@ -1833,6 +1886,7 @@ class TimeOffService:
             raise Unprocessable("time off can't run longer than a year; add it in parts")
 
         async def run(cmd: Command) -> TimeOffOut:
+            await lock_staff(self.db, self.biz, *await self._covered(data.staff_id))
             row = Hours(
                 id=new_id("hours"),
                 business_id=self.biz,
@@ -1856,6 +1910,7 @@ class TimeOffService:
             run=run,
             response_model=TimeOffOut,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def delete(self, hours_id: str) -> TimeOffOut:
@@ -1882,6 +1937,14 @@ class TimeOffService:
             run=run,
             response_model=TimeOffOut,
         )
+
+    async def _covered(self, staff_id: str | None) -> list[str]:
+        if staff_id is not None:
+            return [staff_id]
+        rows = await self.db.scalars(
+            scoped(Staff, self.biz).with_only_columns(Staff.id).where(Staff.status == "active")
+        )
+        return list(rows)
 
     async def _assert_may_edit(self, staff_id: str | None) -> None:
         if staff_id is None:

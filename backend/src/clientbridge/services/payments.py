@@ -123,6 +123,7 @@ class PaymentService:
             run=run,
             response_model=OnboardingLink,
             idempotency_key=idempotency_key,
+            request={},
         )
 
     async def account_session(self, component: ConnectComponent) -> ConnectSessionOut:
@@ -264,6 +265,7 @@ class PaymentService:
             run=run,
             response_model=InvoicePaymentOut,
             idempotency_key=idempotency_key,
+            request={"invoice_id": invoice_id, "data": data},
         )
 
     async def _charge_saved_card(
@@ -311,6 +313,7 @@ class PaymentService:
             run=run,
             response_model=InvoicePaymentOut,
             idempotency_key=idempotency_key,
+            request={"invoice_id": invoice.id, "data": data},
         )
 
     async def start_card_setup(
@@ -337,6 +340,7 @@ class PaymentService:
             run=run,
             response_model=SetupIntentOut,
             idempotency_key=idempotency_key,
+            request={"client_id": client_id},
         )
 
     async def start_pad_setup(
@@ -585,6 +589,7 @@ class PaymentService:
             run=run,
             response_model=RefundOut,
             idempotency_key=idempotency_key,
+            request={"payment_id": payment_id, "amount_cents": amount_cents, "reason": reason},
         )
 
     async def refund_preview(self, payment_id: str, amount_cents: int | None) -> RefundPreview:
@@ -712,6 +717,12 @@ class PaymentService:
             run=run,
             response_model=InteracRequest,
             idempotency_key=idempotency_key,
+            request={
+                "invoice_id": invoice_id,
+                "amount_cents": amount_cents,
+                "channel": channel,
+                "expires_in_days": expires_in_days,
+            },
         )
 
     def _assert_admin(self) -> None:

@@ -2134,6 +2134,18 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("SALES_SQL").map((r) => r.id)).not.toContain("ord_disc");
     });
 
+    it("lists the stranded visits that are still live, in time order", () => {
+        expect(run("STRANDED_SQL", [JSON.stringify(["bk_4", "bk_1", "bk_gone"])])).toEqual([
+            {
+                id: "bk_4",
+                starts_at: "2026-07-10T09:00:00Z",
+                ends_at: "2026-07-10T10:00:00Z",
+                client_name: "ben",
+            },
+        ]);
+        expect(run("STRANDED_SQL", ["[]"])).toEqual([]);
+    });
+
     it("covers every exported SQL constant", () => {
         const exported = Object.keys(core).filter((k) => k.endsWith("_SQL"));
         expect(exported.filter((k) => !SQL_COVERED.has(k))).toEqual([]);

@@ -61,6 +61,7 @@ class ContractService:
             run=run,
             response_model=SignatureOut,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def create_contract(
@@ -88,6 +89,7 @@ class ContractService:
             run=run,
             response_model=ContractOut,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def publish_version(
@@ -118,6 +120,7 @@ class ContractService:
             run=run,
             response_model=ContractOut,
             idempotency_key=idempotency_key,
+            request={"contract_id": contract_id, "data": data},
         )
 
     async def resend(
@@ -144,6 +147,7 @@ class ContractService:
             run=run,
             response_model=SignatureOut,
             idempotency_key=idempotency_key,
+            request={"signature_id": signature_id},
         )
 
     def _assert_admin(self) -> None:

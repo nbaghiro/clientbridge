@@ -153,6 +153,11 @@ export async function discardRejectedHours(
     });
 }
 
+/** The device pref holding the visits the member's last accepted week left outside their hours. */
+export function strandedKey(businessId: string, staffId: string): string {
+    return `hours.stranded:${businessId}:${staffId}`;
+}
+
 type HoursTransport = (path: string, init?: RequestInit) => Promise<Response>;
 
 export async function uploadHoursOnce(
@@ -231,14 +236,29 @@ export async function uploadHoursOnce(
         );
         if (response.ok) {
             const result = await abortable(
-                response.json() as Promise<{ revision: number }>,
+                response.json() as Promise<{ revision: number; stranded: unknown }>,
                 controller.signal,
             );
-            if (!Number.isSafeInteger(result.revision)) throw new Error("invalid hours result");
-            await db.execute(
-                "UPDATE hours_outbox SET state = 'accepted', result_revision = ?, error_code = NULL WHERE id = ?",
-                [result.revision, row.id],
-            );
+            const stranded = result.stranded;
+            if (
+                !Number.isSafeInteger(result.revision) ||
+                !Array.isArray(stranded) ||
+                !stranded.every((id) => typeof id === "string")
+            )
+                throw new Error("invalid hours result");
+            const key = strandedKey(row.business_id, row.staff_id);
+            await db.writeTransaction(async (tx) => {
+                await tx.execute(
+                    "UPDATE hours_outbox SET state = 'accepted', result_revision = ?, error_code = NULL WHERE id = ?",
+                    [result.revision, row.id],
+                );
+                await tx.execute("DELETE FROM device_prefs WHERE id = ?", [key]);
+                if (stranded.length > 0)
+                    await tx.execute(
+                        "INSERT INTO device_prefs (id, value, updated_at) VALUES (?, ?, ?)",
+                        [key, JSON.stringify(stranded), new Date().toISOString()],
+                    );
+            });
         } else if ([401, 408, 429].includes(response.status) || response.status >= 500) {
             const after = response.headers.get("Retry-After");
             const seconds = after === null ? NaN : Number(after);

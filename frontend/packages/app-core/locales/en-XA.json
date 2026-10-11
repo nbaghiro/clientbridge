@@ -143,6 +143,9 @@
     "api.mixedCurrencies": {
         "message": "[Öñé öŕðéŕ çåñ'ţ ɱîẋ çûŕŕéñçîéš. one two three]"
     },
+    "api.idempotencyKeyReused": {
+        "message": "[Ţĥéšé ðéţåîļš çĥåñĝéð åƒţéŕ ţĥé ļåšţ åţţéɱþţ ŵåš šéñţ. Çĥéçķ ţĥéɱ åñð ţŕý åĝåîñ. one two three four five]"
+    },
     "common.amountWithCurrency": {
         "message": "{amount} {currency}"
     },
@@ -6130,6 +6133,9 @@
     },
     "hours.toMove": {
         "message": "[{n,plural,one{# ṽîšîţ ţö ɱöṽé} other{# ṽîšîţš ţö ɱöṽé}} one two three]"
+    },
+    "hours.stranded": {
+        "message": "[{n,plural,one{Ţĥîš ƀööķéð ṽîšîţ îš ñöŵ öûţšîðé ţĥé ñéŵ ĥöûŕš. Ṁöṽé îţ öŕ ļéţ ţĥé çļîéñţ ķñöŵ: {visits}} other{Ţĥéšé # ƀööķéð ṽîšîţš åŕé ñöŵ öûţšîðé ţĥé ñéŵ ĥöûŕš. Ṁöṽé ţĥéɱ öŕ ļéţ ţĥé çļîéñţš ķñöŵ: {visits}}} one two three four five six seven eight nine ten]"
     },
     "hours.nothingBooked": {
         "message": "[Ñöţĥîñĝ ƀööķéð one two]"

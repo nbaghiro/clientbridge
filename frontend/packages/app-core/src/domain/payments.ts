@@ -15,7 +15,7 @@ import {
     parseCents,
     BUSINESS_CURRENCY,
 } from "../format";
-import { type ApiLike, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey } from "../api";
 import type { CheckoutMethod } from "./checkout";
 import { expectArrival } from "./sync";
 import type { Intent } from "../ui";
@@ -253,7 +253,7 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
     const [attempted, setAttempted] = useState(false);
     const [done, setDone] = useState<PaymentDone | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
-    const keyRef = useRef<string | null>(null);
+    const keyRef = useRef<Attempt | null>(null);
     const resetKey = (): void => {
         keyRef.current = null;
     };
@@ -293,8 +293,6 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
         if (tendered.trim() !== "" && (tenderedCents === null || tenderedCents < amountCents))
             return;
         if (method === "reader" || (method === "saved_card" && card === null)) return;
-        keyRef.current ??= newIdempotencyKey();
-        const key = keyRef.current;
         const body = {
             method: TENDER_METHOD[method],
             amount_cents: amountCents,
@@ -305,6 +303,7 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
             payment_method_id: method === "saved_card" ? card?.id : null,
             send_receipt: sendReceipt && target.clientEmail !== null,
         };
+        const key = attemptKey(keyRef, [target.invoiceId, body]);
         run(
             async () => {
                 const res = await api.post<{ status: string; balance_cents: number }>(
@@ -490,7 +489,7 @@ export function useInteracRequestForm(
     const [expiry, setExpiry] = useState<InteracExpiry>("14");
     const [sent, setSent] = useState<string | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
-    const keyRef = useRef<string | null>(null);
+    const keyRef = useRef<Attempt | null>(null);
     const now = Date.now();
     const waiting = rows.find((r) => requestState(r, now) === "pending") ?? null;
     const cents = parseCents(amount, BUSINESS_CURRENCY);
@@ -511,9 +510,8 @@ export function useInteracRequestForm(
             setError(t.errContact);
             return;
         }
-        keyRef.current ??= newIdempotencyKey();
-        const key = keyRef.current;
         const body = { amount_cents: cents, channel, expires_in_days: Number(expiry) };
+        const key = attemptKey(keyRef, [invoice.id, body]);
         run(
             () =>
                 api.post(`/v1/invoices/${invoice.id}/interac-request`, body, {

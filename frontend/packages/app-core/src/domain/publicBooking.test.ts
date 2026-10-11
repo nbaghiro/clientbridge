@@ -208,5 +208,10 @@ describe("booking a time", () => {
         expect(bookingFailure(refused, s.bookError)).toBe(s.slotTaken);
         const other = Object.assign(new Error("422"), { status: 422, code: "unprocessable" });
         expect(bookingFailure(other, s.bookError)).toBe(s.bookError);
+        const reused = Object.assign(new Error("422"), {
+            status: 422,
+            code: "idempotency_key_reused",
+        });
+        expect(bookingFailure(reused, s.bookError)).toBe(strings.api.idempotencyKeyReused);
     });
 });

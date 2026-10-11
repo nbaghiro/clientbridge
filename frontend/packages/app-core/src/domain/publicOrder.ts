@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { newIdempotencyKey } from "../api";
+import { type Attempt, attemptKey } from "../api";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { ProgressStep } from "../ui";
@@ -68,7 +68,7 @@ export function usePublicOrder(client: ReturnType<typeof createPublicOrderClient
     const { busy, error, setError, run } = useAsyncAction();
     const { setData } = resource;
     const [confirmCancel, setConfirmCancel] = useState(false);
-    const cancelKey = useRef<string | null>(null);
+    const cancelKey = useRef<Attempt | null>(null);
     useEffect(() => {
         let live = true;
         const refresh = (): void => {
@@ -112,8 +112,7 @@ export function usePublicOrder(client: ReturnType<typeof createPublicOrderClient
         confirmCancel,
         setConfirmCancel,
         cancel: () => {
-            cancelKey.current ??= newIdempotencyKey();
-            const key = cancelKey.current;
+            const key = attemptKey(cancelKey, token);
             run(
                 async () => {
                     const updated = await client.cancel(token, key);

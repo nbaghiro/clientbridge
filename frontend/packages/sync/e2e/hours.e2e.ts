@@ -67,18 +67,24 @@ test("hours proposals coalesce before upload and retain immutable identities aft
             (_path, init) => {
                 if (typeof init?.body !== "string") throw new Error("expected serialized command");
                 bodies.push(init.body);
-                return Promise.resolve(Response.json({ revision: 1 }));
+                return Promise.resolve(Response.json({ revision: 1, stranded: ["bk_1"] }));
             },
             new AbortController().signal,
+        );
+        const strandedAfterFirst = await db.getOptional<{ value: string }>(
+            "SELECT value FROM device_prefs WHERE id = 'hours.stranded:business:staff'",
         );
         await uploadHoursOnce(
             db,
             (_path, init) => {
                 if (typeof init?.body !== "string") throw new Error("expected serialized command");
                 bodies.push(init.body);
-                return Promise.resolve(Response.json({ revision: 2 }));
+                return Promise.resolve(Response.json({ revision: 2, stranded: [] }));
             },
             new AbortController().signal,
+        );
+        const strandedAfterSecond = await db.getOptional<{ value: string }>(
+            "SELECT value FROM device_prefs WHERE id = 'hours.stranded:business:staff'",
         );
         const states = await db.getAll<{ state: string }>(
             "SELECT state FROM hours_outbox ORDER BY sequence",
@@ -86,8 +92,15 @@ test("hours proposals coalesce before upload and retain immutable identities aft
         const sdkQueue = (await db.getUploadQueueStats()).count;
         await db.disconnectAndClear();
         await db.close();
-        return { coalesced: coalesced.count, bodies, states, sdkQueue };
+        return {
+            coalesced: coalesced.count,
+            bodies,
+            states,
+            sdkQueue,
+            stranded: [strandedAfterFirst?.value ?? null, strandedAfterSecond?.value ?? null],
+        };
     });
+    expect(result.stranded).toEqual([JSON.stringify(["bk_1"]), null]);
     expect(result.coalesced).toBe(1);
     expect(result.sdkQueue).toBe(0);
     expect(result.bodies).toHaveLength(3);
@@ -139,7 +152,7 @@ test("a rejected week blocks its successors while unrelated staff edits proceed"
             db,
             (url) => {
                 path = url;
-                return Promise.resolve(Response.json({ revision: 1 }));
+                return Promise.resolve(Response.json({ revision: 1, stranded: [] }));
             },
             new AbortController().signal,
         );

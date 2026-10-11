@@ -148,6 +148,7 @@ class RemittanceService:
             run=run,
             response_model=RemittanceOut,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def _ranges(self, business: Business, today: date) -> list[tuple[date, date]]:

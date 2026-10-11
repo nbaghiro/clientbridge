@@ -3,7 +3,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 import { useMemo, useRef, useState } from "react";
 
 import { type Load, useAsyncAction } from "../hooks";
-import { type ApiLike, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey } from "../api";
 import { formatDate, formatMonthDay, readDate, useBusinessZone } from "../datetime";
 import {
     blankToNull,
@@ -155,7 +155,7 @@ export function useGiftCardRedeemForm(api: ApiLike, onDone: () => void): GiftCar
     const [amount, setAmountState] = useState("");
     const { busy, error, setError, run } = useAsyncAction();
     // One key per redeem attempt, kept through retries so a timed-out redeem isn't drawn twice.
-    const keyRef = useRef<string | null>(null);
+    const keyRef = useRef<Attempt | null>(null);
     const setCode = (v: string): void => {
         keyRef.current = null;
         setCodeState(v);
@@ -175,11 +175,11 @@ export function useGiftCardRedeemForm(api: ApiLike, onDone: () => void): GiftCar
             setError(strings.entitlements.giftCards.enterRedeemAmount);
             return;
         }
-        keyRef.current ??= newIdempotencyKey();
-        const key = keyRef.current;
         const input = { code: code.trim().toUpperCase(), amount_cents: cents };
+        const key = attemptKey(keyRef, input);
         run(() => redeemGiftCard(api, input, key), {
             onSuccess: () => {
+                keyRef.current = null;
                 setCode("");
                 setAmount("");
                 onDone();
@@ -715,35 +715,39 @@ export function useEntitlementSaleForm(
             checkout.setError(w.membershipNeedsCard);
             return;
         }
-        checkout.pay(({ paymentMethodId, idempotencyKey }) => {
-            const cash = paymentMethodId === CASH;
-            const card = cash ? undefined : paymentMethodId;
-            const opt = { idempotencyKey };
-            if (kind === "gift_card")
+        checkout.pay(
+            ({ paymentMethodId, idempotencyKey }) => {
+                const cash = paymentMethodId === CASH;
+                const card = cash ? undefined : paymentMethodId;
+                const opt = { idempotencyKey };
+                if (kind === "gift_card")
+                    return api.post<object>(
+                        "/v1/gift-cards",
+                        {
+                            purchaser_client_id: clientId,
+                            amount_cents: giftCents,
+                            recipient: blankToNull(recipient),
+                            payment_method_id: card,
+                            cash,
+                        },
+                        opt,
+                    );
+                const itemRef = item?.id ?? "";
+                if (kind === "package")
+                    return api.post<object>(
+                        "/v1/packages",
+                        { client_id: clientId, item_id: itemRef, payment_method_id: card, cash },
+                        opt,
+                    );
                 return api.post<object>(
-                    "/v1/gift-cards",
-                    {
-                        purchaser_client_id: clientId,
-                        amount_cents: giftCents,
-                        recipient: blankToNull(recipient),
-                        payment_method_id: card,
-                        cash,
-                    },
+                    "/v1/subscriptions",
+                    { client_id: clientId, item_id: itemRef, payment_method_id: card ?? "" },
                     opt,
                 );
-            const itemRef = item?.id ?? "";
-            if (kind === "package")
-                return api.post<object>(
-                    "/v1/packages",
-                    { client_id: clientId, item_id: itemRef, payment_method_id: card, cash },
-                    opt,
-                );
-            return api.post<object>(
-                "/v1/subscriptions",
-                { client_id: clientId, item_id: itemRef, payment_method_id: card ?? "" },
-                opt,
-            );
-        }, w.sellError);
+            },
+            w.sellError,
+            { kind, clientId, giftCents, recipient, itemId: item?.id ?? null },
+        );
     };
 
     return {

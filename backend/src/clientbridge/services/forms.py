@@ -66,6 +66,7 @@ class FormService:
             run=run,
             response_model=FormResponseOut,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def create_form(self, data: FormSave, idempotency_key: str | None) -> FormOut:
@@ -88,6 +89,7 @@ class FormService:
             run=run,
             response_model=FormOut,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def update_form(self, form_id: str, data: FormSave) -> FormOut:

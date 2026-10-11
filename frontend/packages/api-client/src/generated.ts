@@ -4167,6 +4167,11 @@ export interface components {
         HoursWeekResult: {
             /** Revision */
             revision: number;
+            /**
+             * Stranded
+             * @description Future live bookings of the member that fall outside the new week
+             */
+            stranded: string[];
         };
         /** IncomeSummary */
         IncomeSummary: {

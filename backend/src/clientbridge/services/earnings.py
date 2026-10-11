@@ -113,6 +113,7 @@ class EarningService:
             run=run,
             response_model=EarningsOut,
             idempotency_key=idempotency_key,
+            request={"earning_ids": earning_ids},
         )
 
 

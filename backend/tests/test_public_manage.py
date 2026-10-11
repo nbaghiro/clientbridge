@@ -1,14 +1,24 @@
+import asyncio
 import re
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 import pytest
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
+from clientbridge.core.db import SessionLocal
+from clientbridge.core.errors import Conflict
 from clientbridge.models.business import Business
+from clientbridge.models.clients import Client
 from clientbridge.models.scheduling import Booking, Slot
+from clientbridge.schemas.public import (
+    ManageReschedule,
+    PublicBookingClient,
+    PublicBookingCreate,
+)
+from clientbridge.services.public import PublicBookingService, PublicManageService
 from tests.conftest import BIZ, FakeEmailSender, FakePaymentGateway
 from tests.helpers import deposit_payment, enable_payments, key, settle
 
@@ -256,6 +266,38 @@ async def test_reschedule_replays_on_the_same_key(
     assert (await _slot(db, token)).starts_at == datetime.fromisoformat(target)
 
 
+async def test_reschedule_refuses_a_key_reused_for_another_time(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    token = await _book(api)
+    headers = key()
+    target = "2026-12-01T21:40:00Z"
+    first = await api.post(
+        f"/manage/{token}/reschedule", json={"starts_at": target}, headers=headers
+    )
+    assert first.status_code == 200, first.text
+    changed = await api.post(
+        f"/manage/{token}/reschedule", json={"starts_at": "2026-12-02T17:00:00Z"}, headers=headers
+    )
+    assert changed.status_code == 422, changed.text
+    assert changed.json()["error"] == "idempotency_key_reused"
+    assert (await _slot(db, token)).starts_at == datetime.fromisoformat(target)
+
+
+async def test_cancel_refuses_a_key_reused_for_another_visit(api: httpx.AsyncClient) -> None:
+    first = await _book(api)
+    second = await _book(api, starts="2026-12-01T21:40:00Z")
+    headers = key()
+    done = await api.post(f"/manage/{first}/cancel", headers=headers)
+    assert done.status_code == 200, done.text
+    again = await api.post(f"/manage/{first}/cancel", headers=headers)
+    assert again.json() == done.json()
+    other = await api.post(f"/manage/{second}/cancel", headers=headers)
+    assert other.status_code == 422, other.text
+    assert other.json()["error"] == "idempotency_key_reused"
+    assert (await api.get(f"/manage/{second}")).json()["status"] == "confirmed"
+
+
 async def test_reschedule_outside_lead_time_or_horizon_is_refused(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
@@ -390,3 +432,61 @@ async def test_manage_times_include_moves_overlapping_the_visit_and_stop_at_the_
     )
     far = (datetime.now(UTC) + timedelta(days=60)).date().isoformat()
     assert (await api.get(f"/manage/{token}/slots", params={"date": far})).json()["slots"] == []
+
+
+async def test_two_connections_rescheduling_at_the_limit_move_the_visit_once(
+    db: AsyncSession,
+) -> None:
+    email = "limit-race@example.com"
+    async with SessionLocal() as setup:
+        booked = await PublicBookingService(setup, FakePaymentGateway()).book(
+            SLUG,
+            PublicBookingCreate(
+                item_id="it_groom_sm",
+                staff_id="st_owner",
+                starts_at=datetime(2027, 5, 4, 16, tzinfo=UTC),
+                client=PublicBookingClient(name="Limit Racer", email=email),
+            ),
+        )
+        token = booked.manage_token
+        assert token is not None
+        await setup.execute(
+            update(Booking).where(Booking.id == booked.booking_id).values(reschedule_count=1)
+        )
+        await setup.commit()
+        offered = await PublicManageService(setup, FakePaymentGateway()).slots(
+            token, date(2027, 5, 5)
+        )
+    targets = [offered.slots[0].starts_at, offered.slots[-1].starts_at]
+    assert targets[0] != targets[1]
+    ready = asyncio.Barrier(2)
+
+    async def move(starts_at: datetime) -> int | Conflict:
+        async with SessionLocal() as session:
+            service = PublicManageService(session, FakePaymentGateway())
+            await ready.wait()
+            try:
+                moved = await service.reschedule(token, ManageReschedule(starts_at=starts_at), None)
+            except Conflict as exc:
+                return exc
+            return moved.reschedules_used
+
+    try:
+        results = await asyncio.gather(*(move(t) for t in targets))
+        assert sorted(r for r in results if isinstance(r, int)) == [2]
+        assert sum(isinstance(r, Conflict) for r in results) == 1
+        async with SessionLocal() as check:
+            count = await check.scalar(
+                select(Booking.reschedule_count).where(Booking.id == booked.booking_id)
+            )
+            assert count == 2
+    finally:
+        async with SessionLocal() as cleanup:
+            clients = list(await cleanup.scalars(select(Client.id).where(Client.email == email)))
+            slots = list(
+                await cleanup.scalars(select(Booking.slot_id).where(Booking.client_id.in_(clients)))
+            )
+            await cleanup.execute(delete(Booking).where(Booking.client_id.in_(clients)))
+            await cleanup.execute(delete(Slot).where(Slot.id.in_(slots)))
+            await cleanup.execute(delete(Client).where(Client.id.in_(clients)))
+            await cleanup.commit()

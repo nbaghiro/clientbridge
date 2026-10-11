@@ -99,4 +99,5 @@ class PublicOrderService:
             run=run,
             response_model=PublicOrderStatus,
             idempotency_key=key,
+            request={"order_id": order.id},
         )

@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,8 +9,10 @@ from clientbridge.core.errors import Conflict, Forbidden, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.business import Staff
-from clientbridge.models.scheduling import Hours
+from clientbridge.models.scheduling import Booking, Hours, Slot
 from clientbridge.schemas.hours import HoursWeekBody, HoursWeekOut, HoursWeekResult, WeekDay
+from clientbridge.services.bookings import lock_staff, within_hours
+from clientbridge.services.business import business_tz
 from clientbridge.services.receipts import reserve_receipt
 
 
@@ -36,6 +40,29 @@ class HoursService:
         if staff is None:
             raise NotFound("active team member not found")
         return staff
+
+    async def _stranded(self, staff_id: str) -> list[str]:
+        business_id = self.principal.business_id
+        tz = await business_tz(self.db, business_id)
+        hours = list(
+            await self.db.scalars(scoped(Hours, business_id).where(Hours.staff_id == staff_id))
+        )
+        visits = await self.db.execute(
+            scoped(Booking, business_id, soft_delete=True)
+            .join(Slot, Slot.id == Booking.slot_id)
+            .with_only_columns(Booking.id, Slot.starts_at, Slot.ends_at)
+            .where(
+                Slot.staff_id == staff_id,
+                Booking.status.in_(("pending", "confirmed")),
+                Slot.starts_at >= datetime.now(UTC),
+            )
+            .order_by(Slot.starts_at, Booking.id)
+        )
+        return [
+            booking_id
+            for booking_id, starts_at, ends_at in visits
+            if not within_hours(hours, tz, starts_at, ends_at)
+        ]
 
     async def read(self, staff_id: str) -> HoursWeekOut:
         await lock_hours(self.db, self.principal.business_id)
@@ -77,9 +104,12 @@ class HoursService:
                 self.principal.user_id,
                 self.db,
             )
-            if replay is not None:
-                return HoursWeekResult.model_validate(replay)
             await lock_hours(self.db, self.principal.business_id)
+            await lock_staff(self.db, self.principal.business_id, staff_id)
+            if replay is not None:
+                return HoursWeekResult(
+                    revision=replay["revision"], stranded=await self._stranded(staff_id)
+                )
             # Refresh after acquiring the aggregate lock; another writer may have committed.
             self.db.expire_all()
             staff = await self._staff(staff_id)
@@ -125,7 +155,9 @@ class HoursService:
                 entity_id=staff_id,
                 changes={"revision": staff.hours_revision},
             )
-            return HoursWeekResult(revision=staff.hours_revision)
+            return HoursWeekResult(
+                revision=staff.hours_revision, stranded=await self._stranded(staff_id)
+            )
 
         return await run_command(
             self.db, self.principal, action="hours.week", run=run, response_model=HoursWeekResult

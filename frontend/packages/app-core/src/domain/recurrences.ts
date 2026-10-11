@@ -2,7 +2,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useMemo, useRef, useState } from "react";
 
-import { type ApiLike, failureMessage, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey, failureMessage } from "../api";
 import {
     addDays,
     clockKey,
@@ -308,7 +308,7 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
     const [choices, setChoices] = useState<Record<string, "shift" | "skip">>({});
     const [done, setDone] = useState<SeriesComposer["done"]>(null);
     const { busy, error, setError, run } = useAsyncAction();
-    const key = useRef<string | null>(null);
+    const key = useRef<Attempt | null>(null);
     const ctx = useSeriesContext(today, addDays(today, 730, zone));
 
     const item = services.find((i) => i.id === itemId);
@@ -411,36 +411,36 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
                 setError(s.nothingToBook);
                 return;
             }
-            key.current ??= newIdempotencyKey();
-            const idempotencyKey = key.current;
+            const body = {
+                client_id: clientId,
+                item_id: itemId,
+                staff_id: staffId,
+                subject_id: pet?.id ?? null,
+                starts_at: start.toISOString(),
+                frequency,
+                interval: Math.max(1, interval),
+                monthly_by: "weekday",
+                count: end === "count" ? Math.max(1, count) : null,
+                until: end === "until" ? until : null,
+                exceptions: occurrences
+                    .filter((o) => o.choice !== null)
+                    .map((o) =>
+                        o.choice === "skip"
+                            ? { date: o.key, action: "skip" }
+                            : {
+                                  date: o.key,
+                                  action: "shift",
+                                  starts_at: o.finalStart.toISOString(),
+                              },
+                    ),
+                confirmation: oneConfirmation ? "series" : "each",
+            };
+            const idempotencyKey = attemptKey(key, body);
             run(
                 async () => {
                     const out = await api.post<{ created: number; skipped: number }>(
                         "/v1/recurrences",
-                        {
-                            client_id: clientId,
-                            item_id: itemId,
-                            staff_id: staffId,
-                            subject_id: pet?.id ?? null,
-                            starts_at: start.toISOString(),
-                            frequency,
-                            interval: Math.max(1, interval),
-                            monthly_by: "weekday",
-                            count: end === "count" ? Math.max(1, count) : null,
-                            until: end === "until" ? until : null,
-                            exceptions: occurrences
-                                .filter((o) => o.choice !== null)
-                                .map((o) =>
-                                    o.choice === "skip"
-                                        ? { date: o.key, action: "skip" }
-                                        : {
-                                              date: o.key,
-                                              action: "shift",
-                                              starts_at: o.finalStart.toISOString(),
-                                          },
-                                ),
-                            confirmation: oneConfirmation ? "series" : "each",
-                        },
+                        body,
                         { idempotencyKey },
                     );
                     setDone({

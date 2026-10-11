@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { failedCode, failedStatus, failureMessage, refusal } from "./api";
+import {
+    type Attempt,
+    attemptKey,
+    failedCode,
+    failedStatus,
+    failureMessage,
+    refusal,
+    sendAttempt,
+} from "./api";
 import { strings } from "./strings";
 
 const refused = (status: number, code: string | null): Error =>
@@ -41,6 +49,7 @@ describe("refused requests", () => {
             ["class_seat", strings.api.classSeat],
             ["class_move", strings.api.classMove],
             ["recurrence_too_long", strings.api.recurrenceTooLong],
+            ["idempotency_key_reused", strings.api.idempotencyKeyReused],
         ];
         for (const [code, message] of cases)
             expect(failureMessage(refused(409, code), "fallback")).toBe(message);
@@ -50,5 +59,55 @@ describe("refused requests", () => {
         expect(failureMessage(refused(409, "conflict"), "Couldn't save.")).toBe("Couldn't save.");
         expect(failureMessage(refused(500, null), "Couldn't save.")).toBe("Couldn't save.");
         expect(failureMessage(new TypeError("offline"), "Couldn't save.")).toBe("Couldn't save.");
+    });
+});
+
+describe("write attempts", () => {
+    it("keeps one key across retries of the same request and renews it when the request changes", () => {
+        const ref: { current: Attempt | null } = { current: null };
+        const first = attemptKey(ref, { starts_at: "10:00", note: "" });
+        expect(attemptKey(ref, { starts_at: "10:00", note: "" })).toBe(first);
+        const changed = attemptKey(ref, { starts_at: "11:00", note: "" });
+        expect(changed).not.toBe(first);
+        ref.current = null;
+        expect(attemptKey(ref, { starts_at: "11:00", note: "" })).not.toBe(changed);
+    });
+
+    it("retries once with a fresh key when the server holds the key for other details", async () => {
+        const ref: { current: Attempt | null } = { current: null };
+        const stale = attemptKey(ref, "old choice");
+        ref.current = { key: stale, request: JSON.stringify("new choice") };
+        const sent: string[] = [];
+        const out = await sendAttempt(ref, "new choice", (key) => {
+            sent.push(key);
+            return sent.length === 1
+                ? Promise.reject(refused(422, "idempotency_key_reused"))
+                : Promise.resolve("booked");
+        });
+        expect(out).toBe("booked");
+        expect(sent).toHaveLength(2);
+        expect(sent[0]).toBe(stale);
+        expect(sent[1]).not.toBe(stale);
+        expect(ref.current.key).toBe(sent[1]);
+    });
+
+    it("does not retry any other failure, nor a second refusal of a fresh key", async () => {
+        const ref: { current: Attempt | null } = { current: null };
+        let calls = 0;
+        await expect(
+            sendAttempt(ref, "choice", () => {
+                calls += 1;
+                return Promise.reject(refused(409, "slot_unavailable"));
+            }),
+        ).rejects.toMatchObject({ code: "slot_unavailable" });
+        expect(calls).toBe(1);
+        calls = 0;
+        await expect(
+            sendAttempt(ref, "choice", () => {
+                calls += 1;
+                return Promise.reject(refused(422, "idempotency_key_reused"));
+            }),
+        ).rejects.toMatchObject({ code: "idempotency_key_reused" });
+        expect(calls).toBe(2);
     });
 });

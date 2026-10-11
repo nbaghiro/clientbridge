@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import { failureMessage, newIdempotencyKey, refusal } from "../api";
+import { type Attempt, attemptKey, failureMessage, refusal } from "../api";
 import { dateKey, deviceZone, formatTime, parseTimestamp, weekdayDay } from "../datetime";
 import { zoneNote } from "./publicBooking";
 import {
@@ -178,8 +178,7 @@ function usePublicShop(
     const [phone, setPhone] = useState(draft.phone ?? "");
     const [order, setOrder] = useState<PublicShopOrderResult | null>(null);
     const [paid, setPaid] = useState(false);
-    const key = useRef<string | null>(null);
-    const attemptedInput = useRef("");
+    const key = useRef<Attempt | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
 
     useEffect(() => {
@@ -225,7 +224,7 @@ function usePublicShop(
             setError(strings.publicShop.incomplete);
             return;
         }
-        const fingerprint = JSON.stringify({
+        const attempt = attemptKey(key, {
             name: name.trim(),
             email: email.trim(),
             phone: phone.trim(),
@@ -234,12 +233,6 @@ function usePublicShop(
             note: note.trim(),
             notifySms,
         });
-        if (attemptedInput.current !== fingerprint) {
-            key.current = null;
-            attemptedInput.current = fingerprint;
-        }
-        key.current ??= newIdempotencyKey();
-        const attempt = key.current;
         run(
             async () => {
                 setOrder(

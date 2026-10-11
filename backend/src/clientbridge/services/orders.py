@@ -107,6 +107,7 @@ class OrderService:
             run=run,
             response_model=OrderOut,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def update_order(self, order_id: str, data: OrderUpdate) -> OrderOut:
@@ -189,6 +190,7 @@ class OrderService:
             run=run,
             response_model=CheckoutOut,
             idempotency_key=idempotency_key,
+            request={"order_id": order_id, "data": data},
         )
 
     async def pay_by_card(
@@ -234,6 +236,7 @@ class OrderService:
             run=run,
             response_model=CheckoutOut,
             idempotency_key=idempotency_key,
+            request={"order_id": order_id, "data": data},
         )
 
     async def pay_cash(
@@ -286,6 +289,7 @@ class OrderService:
             run=run,
             response_model=OrderCashOut,
             idempotency_key=idempotency_key,
+            request={"order_id": order_id, "data": data},
         )
 
     async def held(self) -> list[OrderOut]:

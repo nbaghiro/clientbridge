@@ -1,6 +1,6 @@
 {
   "title": "Scheduling correctness task queue",
-  "status": "completed",
+  "status": "in_progress",
   "generated_on": "2026-10-11",
   "plan": "plan.md",
   "tasks": [
@@ -144,6 +144,33 @@
         "client lows"
       ],
       "status": "completed"
+    },
+    {
+      "id": "G1",
+      "side": "both",
+      "title": "Concurrency locks and stranded bookings",
+      "covers": [
+        "design.md"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "G2",
+      "side": "both",
+      "title": "Idempotency request hashes",
+      "covers": [
+        "design.md"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "G3",
+      "side": "both",
+      "title": "Time guards and auto-completion",
+      "covers": [
+        "design.md"
+      ],
+      "status": "in_progress"
     }
   ]
 }

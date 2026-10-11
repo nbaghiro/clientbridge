@@ -2,7 +2,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useMemo, useRef, useState } from "react";
 
-import { type ApiLike, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey } from "../api";
 import {
     addDays,
     combineDayAndTime,
@@ -1233,7 +1233,7 @@ interface EstimateActions {
 export function useEstimateActions(api: ApiLike): EstimateActions {
     const { busy, error, setError, run } = useAsyncAction();
     const [notice, setNotice] = useState<string | null>(null);
-    const convertKey = useRef<string | null>(null);
+    const convertKey = useRef<Attempt | null>(null);
     const act = <T>(
         call: () => Promise<T>,
         message: (res: T) => string,
@@ -1276,8 +1276,7 @@ export function useEstimateActions(api: ApiLike): EstimateActions {
             );
         },
         convert: (rec, onDone) => {
-            convertKey.current ??= newIdempotencyKey();
-            const key = convertKey.current;
+            const key = attemptKey(convertKey, rec.row.id);
             act(
                 () =>
                     api.post<{ id: string }>(
@@ -1481,7 +1480,7 @@ export function useDocComposer(
     const [docId, setDocId] = useState<string | null>(draft?.id ?? null);
     const save = useAsyncAction();
     const sendAction = useAsyncAction();
-    const keyRef = useRef<string | null>(null);
+    const keyRef = useRef<Attempt | null>(null);
     const tax = useTaxSetup(api);
     const zone = useBusinessZone();
     const rates = docRates(tax.rates, tax.registered);
@@ -1555,8 +1554,7 @@ export function useDocComposer(
     const saveDraft = (): void => {
         setAttempted(true);
         if (!valid) return;
-        keyRef.current ??= newIdempotencyKey();
-        const key = keyRef.current;
+        const key = attemptKey(keyRef, [path, body(false)]);
         save.run(
             async () => {
                 if (docId !== null) {
@@ -1577,8 +1575,7 @@ export function useDocComposer(
     const send = (): void => {
         setAttempted(true);
         if (!valid) return;
-        keyRef.current ??= newIdempotencyKey();
-        const key = keyRef.current;
+        const key = attemptKey(keyRef, [path, body(true)]);
         sendAction.run(
             async () => {
                 let id = docId;

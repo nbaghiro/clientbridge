@@ -168,6 +168,19 @@ async def test_booking_replays_on_the_same_key(api: httpx.AsyncClient, db: Async
     assert first.json()["booking_id"] in rows.scalars().all()
 
 
+async def test_booking_refuses_a_key_reused_for_a_different_choice(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    headers = key()
+    first = await api.post(f"/book/{SLUG}", json=_body(), headers=headers)
+    assert first.status_code == 200, first.text
+    changed = await api.post(f"/book/{SLUG}", json=_body(note="later please"), headers=headers)
+    assert changed.status_code == 422, changed.text
+    assert changed.json()["error"] == "idempotency_key_reused"
+    notes = await db.execute(select(Note.id).where(Note.parent_id == first.json()["booking_id"]))
+    assert notes.scalars().all() == []
+
+
 def _days(**params: str | int) -> dict[str, str | int]:
     return {"item_id": "it_groom_sm", "staff_id": "st_owner", "from": TUESDAY, **params}
 

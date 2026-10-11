@@ -289,6 +289,7 @@ class MessageService:
             run=run,
             response_model=MessageOut,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def send_broadcast(
@@ -331,6 +332,7 @@ class MessageService:
             run=run,
             response_model=BroadcastOut,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def cancel_broadcast(self, broadcast_id: str) -> BroadcastOut:

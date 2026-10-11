@@ -1,11 +1,10 @@
-import hashlib
-import json
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.command import request_hash
 from clientbridge.core.errors import Conflict, Forbidden, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
@@ -31,9 +30,7 @@ async def reserve_receipt(
     )
     if member is None:
         raise Forbidden("not a member of that business")
-    payload_hash = hashlib.sha256(
-        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-    ).hexdigest()
+    payload_hash = request_hash(payload)
     receipt_id = await db.scalar(
         pg_insert(SyncReceipt)
         .values(

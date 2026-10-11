@@ -164,7 +164,14 @@ async def test_verified_booking_binds_client_and_pet_not_forged_contact(
     booking = await db.get(Booking, booked.json()["booking_id"])
     assert booking is not None and booking.client_id == client.id and booking.subject_id == pet.id
     assert client.name != "Forged contact" and client.email == ADDRESS
-    replay = await _book(api, returning_token=verified.json()["token"], subject_id=pet.id)
+    slot = await db.get(Slot, booking.slot_id)
+    assert slot is not None
+    replay = await _book(
+        api,
+        returning_token=verified.json()["token"],
+        subject_id=pet.id,
+        starts_at=slot.starts_at.isoformat(),
+    )
     assert replay.json()["booking_id"] == booking.id
 
 

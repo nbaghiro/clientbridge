@@ -1,9 +1,9 @@
-import { discardRejectedHours, enqueueHours, type WeekDay } from "@clientbridge/sync";
+import { discardRejectedHours, enqueueHours, strandedKey, type WeekDay } from "@clientbridge/sync";
 import { useBusinessQuery as useQuery } from "../hooks";
 import { usePowerSync } from "@powersync/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { type ApiLike, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey } from "../api";
 import {
     addDays,
     clockKey,
@@ -14,16 +14,19 @@ import {
     formatClock,
     formatClockShort,
     formatDayNumber,
+    formatShortDayTime,
     formatTime,
     formatTimeRange,
     formatWeekday,
+    parseTimestamp,
     sameDay,
     startOfDay,
     startOfWeek,
+    wallTime,
     weekdayDay,
     useBusinessZone,
 } from "../datetime";
-import { formatList, initials } from "../format";
+import { formatList, formatParts, initials } from "../format";
 import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Viewer } from "./auth";
@@ -36,7 +39,7 @@ import {
 } from "./bookings";
 import { useBusinessId } from "./business";
 import { canManageStaff, staffName, useStaff } from "./staff";
-import { useReplicaLoad } from "./sync";
+import { useDevicePref, useReplicaLoad } from "./sync";
 
 const s = strings.hours;
 
@@ -219,6 +222,86 @@ export function shiftLabel(start: string, end: string, short = false): string {
         : strings.common.range(formatClock(start), formatClock(end));
 }
 
+export const STRANDED_SQL = `
+SELECT b.id, s.starts_at, s.ends_at, c.name AS client_name
+FROM bookings b
+JOIN slots s ON s.id = b.slot_id
+LEFT JOIN clients c ON c.id = b.client_id
+WHERE b.id IN (SELECT value FROM json_each(?))
+  AND b.status IN ('pending', 'confirmed') AND b.deleted_at IS NULL
+ORDER BY s.starts_at`;
+
+const STAFF_HOURS_SQL =
+    "SELECT basis, weekday, date, start_time, end_time, available FROM hours WHERE staff_id = ? AND basis IN ('recurring', 'date')";
+
+interface StrandedVisit {
+    id: string;
+    starts_at: string;
+    ends_at: string;
+    client_name: string | null;
+}
+
+interface HoursRow extends RecurringRow {
+    basis: string;
+    date: string | null;
+}
+
+/** Whether a visit sits inside the member's hours on its local day, as the server decides it. */
+export function withinHours(
+    rows: readonly HoursRow[],
+    start: Date,
+    end: Date,
+    zone: string,
+): boolean {
+    const day = dateKey(start, zone);
+    const dated = rows.filter((r) => r.basis === "date" && r.date === day);
+    const weekday = (wallTime(start, zone).weekday + 6) % 7;
+    const recurring = rows.filter((r) => r.basis === "recurring" && r.weekday === weekday);
+    if (dated.length === 0 && recurring.length === 0) return true;
+    if (dated.some((r) => r.available === 0 && r.start_time === null)) return false;
+    if (dateKey(end, zone) !== day) return false;
+    const from = clockKey(start, zone);
+    const to = clockKey(end, zone);
+    return (dated.length > 0 ? dated : recurring).some(
+        (r) =>
+            r.available === 1 &&
+            (r.start_time ?? "00:00").slice(0, 5) <= from &&
+            to <= (r.end_time ?? "24:00").slice(0, 5),
+    );
+}
+
+/** The notice listing visits a saved week left outside the hours, while they still are; or null. */
+export function strandedNote(
+    visits: readonly StrandedVisit[],
+    hours: readonly HoursRow[],
+    now: Date,
+    zone: string,
+): string | null {
+    const left = visits.filter((v) => {
+        const start = parseTimestamp(v.starts_at);
+        return start >= now && !withinHours(hours, start, parseTimestamp(v.ends_at), zone);
+    });
+    if (left.length === 0) return null;
+    return s.stranded(
+        left.length,
+        formatList(
+            left.map((v) =>
+                formatParts([formatShortDayTime(parseTimestamp(v.starts_at), zone), v.client_name]),
+            ),
+        ),
+    );
+}
+
+function useStrandedNote(staffId: string | null): string | null {
+    const businessId = useBusinessId();
+    const [ids] = useDevicePref(strandedKey(businessId ?? "", staffId ?? ""));
+    const visits = useQuery<StrandedVisit>(STRANDED_SQL, [ids ?? "[]"]).data;
+    const hours = useQuery<HoursRow>(STAFF_HOURS_SQL, [staffId ?? ""]).data;
+    const now = useNow();
+    const zone = useBusinessZone();
+    return strandedNote(visits, hours, now, zone);
+}
+
 interface WeekEditorDay extends DayHours {
     label: string;
     short: string;
@@ -242,6 +325,8 @@ interface WeekEditor {
     saveLabel: string;
     saveMessage: string | null;
     splitNote: string | null;
+    // The visits the last accepted week left outside the hours, as one line, or null.
+    stranded: string | null;
     canSave: boolean;
     discardRejected: (() => void) | null;
 }
@@ -275,6 +360,7 @@ export function useWeekEditor(api: ApiLike, staffId: string | null): WeekEditor 
         [staffId ?? "", businessId ?? ""],
     ).data[0];
     const rejected = rejection !== undefined;
+    const stranded = useStrandedNote(staffId);
     const latest = queued.data[0];
     const revision = staff.data[0]?.hours_revision;
     const waiting =
@@ -399,6 +485,7 @@ export function useWeekEditor(api: ApiLike, staffId: string | null): WeekEditor 
         saveLabel: rejected ? s.applyChanges : s.saveHours,
         saveMessage: rejected ? null : waiting ? s.savedLocally : saved ? s.saved : null,
         splitNote: note,
+        stranded,
         canSave: days !== null && !blocked,
         discardRejected: rejected
             ? () => {
@@ -745,7 +832,7 @@ export function useTimeOffForm(
     const [endTime, setEndTime] = useState("12:00");
     const [reason, setReason] = useState("");
     const { busy, error, setError, run } = useAsyncAction();
-    const key = useRef<string | null>(null);
+    const key = useRef<Attempt | null>(null);
 
     const start = combineDayAndTime(from, length === "part" ? startTime : "00:00", zone);
     const lastDay =
@@ -820,28 +907,20 @@ export function useTimeOffForm(
                 setError(s.reasonRequired);
                 return;
             }
-            key.current ??= newIdempotencyKey();
-            const idempotencyKey = key.current;
-            run(
-                () =>
-                    api.post(
-                        "/v1/time-off",
-                        {
-                            staff_id: staffId === "" ? null : staffId,
-                            starts_at: start.toISOString(),
-                            ends_at: end.toISOString(),
-                            reason: reason.trim(),
-                        },
-                        { idempotencyKey },
-                    ),
-                {
-                    onSuccess: () => {
-                        key.current = null;
-                        onDone();
-                    },
-                    errorMessage: s.timeOffError,
+            const body = {
+                staff_id: staffId === "" ? null : staffId,
+                starts_at: start.toISOString(),
+                ends_at: end.toISOString(),
+                reason: reason.trim(),
+            };
+            const idempotencyKey = attemptKey(key, body);
+            run(() => api.post("/v1/time-off", body, { idempotencyKey }), {
+                onSuccess: () => {
+                    key.current = null;
+                    onDone();
                 },
-            );
+                errorMessage: s.timeOffError,
+            });
         },
         timeOptions: timeOptions(),
         pickerDays: (offset) => {

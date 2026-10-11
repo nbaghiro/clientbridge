@@ -63,6 +63,7 @@ interface Strings {
         readonly classMove: string;
         readonly recurrenceTooLong: string;
         readonly mixedCurrencies: string;
+        readonly idempotencyKeyReused: string;
     } & Labels;
     readonly ui: {
         readonly clearSearch: string;
@@ -2184,6 +2185,7 @@ interface Strings {
         readonly timeOffAffects: (n: number) => string;
         readonly closureAffects: (n: number) => string;
         readonly toMove: (n: number) => string;
+        readonly stranded: (n: number, visits: string) => string;
         readonly nothingBooked: string;
         readonly saveTimeOff: string;
         readonly saveClosure: string;

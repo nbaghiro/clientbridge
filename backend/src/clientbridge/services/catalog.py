@@ -63,6 +63,7 @@ class CatalogService:
             run=run,
             response_model=TaxClassResult,
             idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def create(self, data: ItemCreate) -> Item:

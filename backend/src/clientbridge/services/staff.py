@@ -122,6 +122,7 @@ class StaffService:
             run=run,
             response_model=InviteOut,
             idempotency_key=idempotency_key,
+            request={"email": email, "role": role},
         )
 
     async def accept_invite(self, *, token: str, name: str | None, password: str) -> User:
