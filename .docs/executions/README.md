@@ -9,5 +9,6 @@ Each execution that is planned or in progress owns its plan and progress so unre
 | Backend hardening | [Plan](backend-hardening/plan.md), [task queue](backend-hardening/tasks.json), [progress](backend-hardening/progress.md).                 |
 | Ledger            | [Plan](ledger/plan.md), [task queue](ledger/tasks.json).                                                                                 |
 | Stripe Accounts v2 | [Plan](stripe-accounts-v2/plan.md).                                                                                                      |
+| Platform billing  | [Plan](platform-billing/plan.md).                                                                                                         |
 
 Use a new folder for a separate execution. Record tested behavior, remaining work and snapshot-specific evidence in its progress document; keep reusable system decisions in the main docs.

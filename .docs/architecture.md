@@ -503,7 +503,8 @@ file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it
 - The Stripe API version is pinned (`STRIPE_API_VERSION` in `integrations/stripe.py`), and the Connect
   webhook endpoint (snapshot events) must be created with that same version, because the handlers parse
   its payload shapes. Thin events are unversioned and signed with the event destination's own secret
-  (`STRIPE_THIN_WEBHOOK_SECRET`); both arrive at `/webhooks/stripe`.
+  (`STRIPE_THIN_WEBHOOK_SECRET`); both arrive at `/webhooks/stripe`, as do platform events (see Platform
+  billing below).
   Dashboard refunds arrive as `refund.created`/`refund.updated`, and a recurring invoice's PaymentIntent
   is looked up through its invoice payments. The webhook rejects (400) a snapshot event rendered at any
   other version.
@@ -513,6 +514,32 @@ file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it
   keyed + `provider_ref`-deduped, shared by the authed services and the public surfaces. A payment can be
   refunded in part, more than once, up to what is left; a gift card or package purchase, and a forfeited
   deposit, are refunded only in full (and not once the card is partly redeemed or a session is used).
+
+### Platform billing
+
+Clientbridge charges each business for its plan through Stripe Billing on the platform account. The
+business's Accounts v2 account is the billing customer: it gets the `customer` configuration next to its
+`merchant` configuration, and the v1 Billing APIs take `customer_account=acct_...` in place of `customer`.
+A business that subscribes before setting up payments gets an account with only the `customer`
+configuration; onboarding later adds the `merchant` configuration to that same account, and until then the
+KYC status reads `not_started`. Responsibilities and `dashboard=none` are fixed at account creation, so
+every account we create carries ours whichever configuration it starts with.
+
+- Prices: Premium and Team, monthly or yearly (a year costs ten months), plus a monthly seat item on
+  Premium, all CAD and tax-exclusive, defined in `services/plans.py` `PLAN_PRICES` and found in Stripe by
+  lookup key. Subscriptions use flexible billing mode so a yearly plan can carry the monthly seat item.
+- Tax: plan Checkout enables Stripe automatic tax, which locates the account by its identity address. When
+  the customer configuration is added to an account that has no identity address yet, the business
+  address is set as its `business_details.address`; a verified address is never overwritten. The
+  businesses' own sales tax engine (`services/tax.py`) is unrelated.
+- Plan subscriptions live on the platform account, so their events come from a separate platform webhook
+  endpoint (`connect=false`) signed with `STRIPE_PLATFORM_WEBHOOK_SECRET`. The webhook picks the secret by
+  shape: thin events, snapshot events with an `account`, and snapshot events without one.
+- Owners manage the payment method, invoices, billing address and cancellation in the Stripe Billing
+  Portal (`STRIPE_PORTAL_CONFIGURATION`); plan switching is off there because the portal cannot manage the
+  seat item.
+- Platform billing is not business money, so it posts nothing to the ledger. Stripe's invoices are the
+  record.
 
 ### Ledger: double-entry, append-only (`services/ledger.py`)
 Every money movement is a **journal**: two or more `entries` legs that sum to zero per currency. A
