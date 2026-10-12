@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from clientbridge.core.mirrors import Mirror
 from clientbridge.models.business import RateType, Staff, StaffRole, StaffStatus
+from clientbridge.schemas.bookings import Problem
 
 MemberRole = Literal["admin", "staff", "contractor"]
 
@@ -95,3 +96,44 @@ class TeamMember(Mirror):
 class TeamOut(BaseModel):
     members: list[TeamMember]
     invites: list[TeamMember]
+
+
+FutureChoice = Literal["reassign", "cancel"]
+
+
+class StaffRemove(BaseModel):
+    future: FutureChoice | None = Field(
+        default=None, description="What happens to the member's future visits and series"
+    )
+    reassign_to: str | None = Field(
+        default=None, description='A member id, or "any" for the first member free at each time'
+    )
+
+
+class FutureVisit(BaseModel):
+    booking_id: str
+    starts_at: datetime
+    client_id: str
+    recurrence_id: str | None
+
+
+class FutureWork(BaseModel):
+    """The future visits and active series a removal must reassign or cancel first."""
+
+    visits: list[FutureVisit]
+    series: list[str]
+
+
+class LeftVisit(BaseModel):
+    booking_id: str
+    starts_at: datetime
+    problem: Problem | None
+    message: str | None
+
+
+class StaffRemoveOut(BaseModel):
+    moved: list[str]
+    canceled: list[str]
+    left: list[LeftVisit] = Field(description="Visits no member could take, left in place")
+    series_moved: list[str]
+    series_ended: list[str]

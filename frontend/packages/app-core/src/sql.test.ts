@@ -1576,6 +1576,45 @@ describe("app-core SQL against the replica schema", () => {
                 "status",
             ),
         ).toEqual([{ channel: "email", status: "withdrawn" }]);
+        scoped("consents", [
+            {
+                id: "cns_s1",
+                client_id: "cl_ben",
+                channel: "sms",
+                status: "withdrawn",
+                source: "reply",
+                created_at: "2026-06-20T08:00:00Z",
+            },
+            {
+                id: "cns_s2",
+                client_id: "cl_ben",
+                channel: "sms",
+                status: "granted",
+                source: "in_person",
+                created_at: "2026-06-21T08:00:00Z",
+            },
+        ]);
+        expect(run("TEXTS_STOPPED_SQL")).toEqual([
+            { client_id: "cl_ben", created_at: "2026-06-20T08:00:00Z" },
+        ]);
+        expect(run("CLIENT_TEXT_REPLY_SQL", ["cl_ben"])).toEqual([
+            { status: "withdrawn", created_at: "2026-06-20T08:00:00Z" },
+        ]);
+        scoped("consents", [
+            {
+                id: "cns_s3",
+                client_id: "cl_ben",
+                channel: "sms",
+                status: "granted",
+                source: "reply",
+                created_at: "2026-06-22T08:00:00Z",
+            },
+        ]);
+        expect(run("TEXTS_STOPPED_SQL")).toEqual([]);
+        expect(run("CLIENT_TEXT_REPLY_SQL", ["cl_ben"])).toEqual([
+            { status: "granted", created_at: "2026-06-22T08:00:00Z" },
+        ]);
+        db.run("DELETE FROM consents WHERE id IN ('cns_s1', 'cns_s2', 'cns_s3')");
         expect(run("AUDIENCE_CLIENTS_SQL").map((r) => r.id)).toEqual(["cl_ann", "cl_ben"]);
         scoped("broadcasts", [
             {
@@ -1874,14 +1913,19 @@ describe("app-core SQL against the replica schema", () => {
         expect(
             run("CLASS_SESSIONS_SQL", ["2027-01-07T00:00:00.000Z", "2027-02-01T00:00:00.000Z"]),
         ).toEqual([]);
-        const roster = run("CLASS_ROSTER_SQL", ["2027-01-01T00:00:00.000Z"]);
+        const roster = run("CLASS_ROSTER_SQL", [
+            "2027-01-01T00:00:00.000Z",
+            "2027-02-01T00:00:00.000Z",
+        ]);
         expect(pick(roster, "booking_id", "slot_id", "status", "pet_name")).toEqual([
             { booking_id: "bk_k1", slot_id: "ss_k", status: "confirmed", pet_name: "Rex" },
             { booking_id: "bk_k2", slot_id: "ss_k", status: "waitlisted", pet_name: null },
         ]);
         expect(roster.filter((r) => r.status === "confirmed")).toHaveLength(1);
         expect(roster.filter((r) => r.status === "waitlisted")).toHaveLength(1);
-        expect(run("CLASS_ROSTER_SQL", ["2027-01-07T00:00:00.000Z"])).toEqual([]);
+        expect(
+            run("CLASS_ROSTER_SQL", ["2027-01-07T00:00:00.000Z", "2027-02-01T00:00:00.000Z"]),
+        ).toEqual([]);
         expect(pick(run("CLASS_CLIENTS_SQL"), "id", "pet_name")).toEqual([
             { id: "cl_ann", pet_name: "Rex" },
             { id: "cl_ben", pet_name: null },

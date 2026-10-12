@@ -1,6 +1,5 @@
 import hashlib
 import hmac
-import re
 import secrets
 from datetime import UTC, datetime, timedelta
 
@@ -11,6 +10,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.errors import NotFound, TooManyRequests, Unauthorized, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for
+from clientbridge.core.phones import e164, same_phone
 from clientbridge.core.scoping import scoped
 from clientbridge.core.security import hash_token
 from clientbridge.integrations.postmark import Email, EmailSender
@@ -37,17 +37,6 @@ def _digest(value: str) -> str:
     return hmac.new(get_settings().jwt_secret.encode(), value.encode(), hashlib.sha256).hexdigest()
 
 
-def _phone(value: str) -> str | None:
-    digits = re.sub(r"[^0-9]", "", value)
-    if len(digits) == 10 and not value.startswith("+"):
-        digits = "1" + digits
-    if 8 <= len(digits) <= 15 and (
-        value.startswith("+") or (len(digits) == 11 and digits.startswith("1"))
-    ):
-        return "+" + digits
-    return None
-
-
 class ReturningService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -64,7 +53,7 @@ class ReturningService:
         self, slug: str, data: ReturningRequest, sender: EmailSender, sms: SmsSender
     ) -> ReturningChallengeOut:
         business = await self._business(slug)
-        address = data.email.strip().lower() if data.email is not None else _phone(data.phone or "")
+        address = data.email.strip().lower() if data.email is not None else e164(data.phone or "")
         if address is None:
             raise Unprocessable("enter a valid phone number with country code")
         channel = "email" if data.email is not None else "sms"
@@ -96,11 +85,7 @@ class ReturningService:
                         (
                             func.lower(Client.email) == address
                             if channel == "email"
-                            else func.regexp_replace(Client.phone, "[^0-9]", "", "g").in_(
-                                [address[1:], address[2:]]
-                                if address.startswith("+1")
-                                else [address[1:]]
-                            )
+                            else same_phone(Client.phone, address)
                         ),
                         Client.status == "active",
                     )
@@ -181,7 +166,7 @@ class ReturningService:
         contacts = []
         if client.email is not None:
             contacts.append(f"email:{client.email.strip().lower()}")
-        phone = _phone(client.phone) if client.phone is not None else None
+        phone = e164(client.phone) if client.phone is not None else None
         if phone is not None:
             contacts.append(f"sms:{phone}")
         if not any(

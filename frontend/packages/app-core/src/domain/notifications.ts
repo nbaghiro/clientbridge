@@ -33,6 +33,18 @@ export function registerDevice(
     return api.post("/v1/devices/register", { token, platform });
 }
 
+export function unregisterDevice(api: ApiLike, token: string): Promise<unknown> {
+    return api.post("/v1/devices/unregister", { token });
+}
+
+/** The conversation a tapped push opens: its thread for a client's message, else null. */
+export function pushThread(data: unknown): string | null {
+    if (typeof data !== "object" || data === null) return null;
+    const fields = data as Record<string, unknown>;
+    const thread = fields.thread_id;
+    return fields.type === "message" && typeof thread === "string" && thread !== "" ? thread : null;
+}
+
 type NotificationKind =
     | "payment"
     | "deposit"

@@ -15,7 +15,12 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.scheduling import Booking, Hours, Slot
 from clientbridge.schemas.public import PublicBookingClient, PublicBookingCreate
-from clientbridge.services.bookings import open_slots, slot_problem
+from clientbridge.services.bookings import (
+    load_availability,
+    open_slots,
+    slot_problem,
+    windows_on,
+)
 from clientbridge.services.public import PublicBookingService
 from tests.conftest import BIZ, FakePaymentGateway
 
@@ -44,6 +49,19 @@ async def _open_week(db: AsyncSession, zone: ZoneInfo, sunday: date) -> list[dat
                     available=True,
                 )
             )
+    busy = datetime.combine(sunday, time(1, 20), tzinfo=zone).astimezone(UTC)
+    db.add(
+        Slot(
+            id=new_id("slot"),
+            business_id=BIZ,
+            item_id=NAILS,
+            staff_id=ST_OWNER,
+            starts_at=busy,
+            ends_at=busy + timedelta(minutes=15),
+            capacity=1,
+            status="scheduled",
+        )
+    )
     late = datetime.combine(sunday, time(23, 0), tzinfo=zone)
     db.add(
         Hours(
@@ -70,14 +88,22 @@ async def test_open_times_and_accepted_starts_agree_across_daylight_saving(
     item = await db.get(Item, NAILS)
     assert item is not None
     days = await _open_week(db, tz, sunday)
+    found = await load_availability(db, BIZ, [ST_OWNER], days[0], days[-1], tz, [item])
+    hours = list(await db.scalars(select(Hours).where(Hours.staff_id == ST_OWNER)))
+    length = timedelta(minutes=item.duration_min or 0)
+    step = length + timedelta(minutes=item.buffer_before_min + item.buffer_after_min)
     offered: set[datetime] = set()
     for day in days:
-        starts = await open_slots(db, BIZ, item, ST_OWNER, day)
+        starts = found.open_starts(item, ST_OWNER, day)
         assert starts, day
-        for start in starts:
-            end = start + timedelta(minutes=item.duration_min or 0)
-            problem = await slot_problem(db, BIZ, item, ST_OWNER, start, end)
-            assert problem is None, (day, start, problem)
+        assert starts == await open_slots(db, BIZ, item, ST_OWNER, day)
+        for opens, closes in windows_on(hours, day) or []:
+            start = datetime.combine(day, opens, tzinfo=tz).astimezone(UTC)
+            limit = datetime.combine(day, closes, tzinfo=tz).astimezone(UTC)
+            while start + length <= limit:
+                problem = await slot_problem(db, BIZ, item, ST_OWNER, start, start + length)
+                assert (start in starts) == (problem is None), (day, start, problem)
+                start += step
         offered.update(starts)
     first = datetime.combine(sunday, time(0), tzinfo=tz).astimezone(UTC)
     late = datetime.combine(sunday, time(22, 50), tzinfo=tz).astimezone(UTC)

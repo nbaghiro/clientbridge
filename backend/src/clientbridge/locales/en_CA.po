@@ -19,6 +19,12 @@ msgstr "You're booked with {business} on {when}. Change or cancel: {link}"
 msgid "booking_confirmed.subject"
 msgstr "Booking confirmed — {business}"
 
+msgid "booking_reassigned.body"
+msgstr "Your appointment with {business} on {when} is now with {member}."
+
+msgid "booking_reassigned.subject"
+msgstr "New provider for your appointment — {business}"
+
 msgid "booking_reminder.body"
 msgstr "Reminder: you have an appointment with {business} on {when}."
 
@@ -51,6 +57,8 @@ msgstr ""
 "{body}\n"
 "\n"
 "{business}\n"
+"{address}\n"
+"Contact: {contact}\n"
 "Unsubscribe or change what you get: {link}"
 
 msgid "broadcast.sms"
@@ -130,6 +138,9 @@ msgstr "You've received a {amount} gift card from {business}. Code: {code}"
 
 msgid "gift_card_issued.subject"
 msgstr "You've received a gift card from {business}"
+
+msgid "inbound_message.push"
+msgstr "Message from {client}: {body}"
 
 msgid "interac_requested.body"
 msgstr "{business}: please send {amount} by Interac e-Transfer to {send_to} with {reference} in the message."
@@ -379,6 +390,9 @@ msgstr "Your visits were moved — {business}"
 msgid "signed_copy.signed_by"
 msgstr "— Signed by {name}"
 
+msgid "staff.someone"
+msgstr "another member of the team"
+
 msgid "staff_invite.body"
 msgstr "You've been invited to join a team on Clientbridge. Accept here: {link}"
 
@@ -419,3 +433,9 @@ msgstr "Someone asked to verify this address on Clientbridge, but it is not link
 
 msgid "verification_unknown.subject"
 msgstr "Clientbridge verification request"
+
+msgid "visits_reassigned.body"
+msgstr "These visits with {business} are now with {member}: {whens}."
+
+msgid "visits_reassigned.subject"
+msgstr "New provider for your visits — {business}"

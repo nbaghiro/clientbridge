@@ -38,18 +38,18 @@ def get_interac_secret() -> str:
 InteracSecretDep = Annotated[str, Depends(get_interac_secret)]
 
 
-def get_sms_webhook_secret() -> str:
-    return get_settings().sms_webhook_secret
+def get_twilio_auth_token() -> str:
+    return get_settings().twilio_auth_token
 
 
-SmsWebhookSecretDep = Annotated[str, Depends(get_sms_webhook_secret)]
+TwilioAuthTokenDep = Annotated[str, Depends(get_twilio_auth_token)]
 
 
-def get_auth_email_hook_secret() -> str:
+def get_auth_email_secret() -> str:
     return get_settings().auth_email_hook_secret
 
 
-AuthEmailSecretDep = Annotated[str, Depends(get_auth_email_hook_secret)]
+AuthEmailSecretDep = Annotated[str, Depends(get_auth_email_secret)]
 
 
 _SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})

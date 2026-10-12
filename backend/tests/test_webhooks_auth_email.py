@@ -2,7 +2,7 @@ import httpx
 import pytest
 
 from clientbridge.core.config import get_settings
-from clientbridge.core.deps import get_auth_email_hook_secret
+from clientbridge.core.deps import get_auth_email_secret
 from clientbridge.integrations.postmark import Email, get_email_sender
 from clientbridge.main import app
 from tests.conftest import FakeEmailSender
@@ -74,7 +74,7 @@ async def test_bad_secret_401_sends_nothing(
 
 
 async def test_unset_server_secret_401(api: httpx.AsyncClient, email: FakeEmailSender) -> None:
-    app.dependency_overrides[get_auth_email_hook_secret] = lambda: ""
+    app.dependency_overrides[get_auth_email_secret] = lambda: ""
     body = _courier("recovery_code_valid", code="482913", expires_in_minutes=15)
     assert (await api.post(URL, json=body, headers={"X-Webhook-Secret": ""})).status_code == 401
     assert email.sent == []

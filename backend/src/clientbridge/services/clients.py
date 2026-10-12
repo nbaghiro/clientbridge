@@ -9,6 +9,7 @@ from clientbridge.core.db import Base
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.ids import new_id
+from clientbridge.core.phones import same_phone
 from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.models.billing import Estimate, Invoice, Order
 from clientbridge.models.catalog import GiftCard, Package, Subscription
@@ -333,7 +334,7 @@ async def find_or_create_by_contact(
     if email:
         match.append(Client.email == email)
     if phone:
-        match.append(Client.phone == phone)
+        match.append(same_phone(Client.phone, phone))
     existing = (
         (
             await db.execute(

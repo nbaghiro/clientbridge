@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_connect_country: str = "CA"
-    api_base_url: str = "http://localhost:8701"
+    api_base_url: str = "http://127.0.0.1:8701"  # the public API origin, which Twilio signs
     web_base_url: str = "http://localhost:8700"
     connect_base_url: str = "http://localhost:8709"
     # Every invoice pay link uses this one host (production: https://pay.clientbridge.ca).
@@ -60,7 +60,6 @@ class Settings(BaseSettings):
     cors_allow_origins: str = ""
     platform_fee_bps: int = 200  # application fee per direct charge (basis points; 200 = 2%)
     interac_webhook_secret: str = ""
-    sms_webhook_secret: str = ""
     auth_email_hook_secret: str = _DEV_COURIER_SECRET  # matches docker-compose.yml's kratos
 
     # Outreach channels; empty credentials select the no-op console senders.
@@ -74,18 +73,20 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _require_prod_secrets(self) -> "Settings":
-        """Refuse to boot outside dev without real secrets and a private Kratos admin API."""
+        """Refuse to boot outside dev without real webhook secrets and a private auth admin API."""
         if self.env != "dev":
             missing = []
             if self.jwt_secret == _DEV_JWT_SECRET:
                 missing.append("JWT_SECRET")
-            kratos = urlsplit(self.auth_public_url)
-            if kratos.scheme != "https" or kratos.hostname in ("localhost", "127.0.0.1"):
+            auth = urlsplit(self.auth_public_url)
+            if auth.scheme != "https" or auth.hostname in ("localhost", "127.0.0.1"):
                 missing.append("AUTH_PUBLIC_URL (https, not localhost)")
             if not self.auth_admin_url or self.auth_admin_url == self.auth_public_url:
                 missing.append("AUTH_ADMIN_URL (private, distinct from the public URL)")
             if not self.stripe_webhook_secret:
                 missing.append("STRIPE_WEBHOOK_SECRET")
+            if not self.twilio_auth_token:
+                missing.append("TWILIO_AUTH_TOKEN")
             if self.auth_email_hook_secret in ("", _DEV_COURIER_SECRET):
                 missing.append("AUTH_EMAIL_HOOK_SECRET")
             if not self.powersync_use_rs256:

@@ -2,10 +2,11 @@
 
 import secrets
 from typing import Annotated
-from urllib.parse import parse_qs
+from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, Header, Request, Response
 
+from clientbridge.core.config import get_settings
 from clientbridge.core.deps import (
     AuthEmailSecretDep,
     DbSession,
@@ -14,9 +15,10 @@ from clientbridge.core.deps import (
     InteracSecretDep,
     PushDep,
     SmsDep,
-    SmsWebhookSecretDep,
+    TwilioAuthTokenDep,
 )
 from clientbridge.integrations.stripe import WebhookVerificationError
+from clientbridge.integrations.twilio import valid_twilio_signature
 from clientbridge.schemas.auth import AuthEmailIn
 from clientbridge.schemas.payments import InteracWebhookBody
 from clientbridge.services.messaging import process_inbound_sms
@@ -82,21 +84,26 @@ async def interac_webhook(
 async def sms_webhook(
     request: Request,
     db: DbSession,
-    secret: SmsWebhookSecretDep,
+    auth_token: TwilioAuthTokenDep,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
     x_twilio_signature: Annotated[str, Header(alias="X-Twilio-Signature")] = "",
 ) -> Response:
-    if not secret or not secrets.compare_digest(x_twilio_signature, secret):
+    form = parse_qsl((await request.body()).decode(), keep_blank_values=True)
+    query = f"?{request.url.query}" if request.url.query else ""
+    url = f"{get_settings().api_base_url.rstrip('/')}{request.url.path}{query}"
+    if not valid_twilio_signature(auth_token, url, form, x_twilio_signature):
         return Response(status_code=401)
-    form = parse_qs((await request.body()).decode())
-    sid = (form.get("MessageSid") or [""])[0]
+    fields = dict(form)
+    sid = fields.get("MessageSid", "")
     if not sid:
         return Response(status_code=400)
-    await process_inbound_sms(
-        db,
-        from_phone=(form.get("From") or [""])[0],
-        body=(form.get("Body") or [""])[0],
-        message_sid=sid,
+    message_id = await process_inbound_sms(
+        db, from_phone=fields.get("From", ""), body=fields.get("Body", ""), message_sid=sid
     )
+    if message_id is not None:
+        await Notifier(email, sms, push).on_inbound_message(db, message_id)
     return Response(status_code=200)
 
 

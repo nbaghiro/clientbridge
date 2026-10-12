@@ -171,6 +171,96 @@
         "design.md"
       ],
       "status": "completed"
+    },
+    {
+      "id": "G4",
+      "side": "both",
+      "title": "Staff removal with reassign or cancel",
+      "covers": [
+        "design.md"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "G5",
+      "side": "both",
+      "title": "Late-cancel policy",
+      "covers": [
+        "design.md"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "G6",
+      "side": "both",
+      "title": "Server availability in one pass",
+      "covers": [
+        "design.md"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "G7",
+      "side": "both",
+      "title": "Device query prefilters and shorter ranges",
+      "covers": [
+        "design.md"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "G8",
+      "side": "both",
+      "title": "Hours model",
+      "covers": [
+        "design.md"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "G9",
+      "side": "both",
+      "title": "Service-to-staff mapping and fairness",
+      "covers": [
+        "design.md"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "G10",
+      "side": "both",
+      "title": "Resources",
+      "covers": [
+        "design.md"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "G11",
+      "side": "both",
+      "title": "Rolling recurrences",
+      "covers": [
+        "design.md"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "G12",
+      "side": "both",
+      "title": "Class timetables and waitlist",
+      "covers": [
+        "design.md"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "G13",
+      "side": "both",
+      "title": "Local wall times and re-anchoring",
+      "covers": [
+        "design.md"
+      ],
+      "status": "pending"
     }
   ]
 }

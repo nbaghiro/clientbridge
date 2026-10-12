@@ -235,7 +235,7 @@ async def test_merge_moves_records_and_threads(
     )
     assert res.status_code == 200, res.text
     body = res.json()
-    assert (body["name"], body["phone"], body["tags"]) == ("Gone", "2505550111", ["a", "b"])
+    assert (body["name"], body["phone"], body["tags"]) == ("Gone", "+12505550111", ["a", "b"])
     replay = await as_owner.post(
         f"/v1/clients/{kept}/merge",
         json={"from_client_id": gone, "fields": {"name": "other"}},

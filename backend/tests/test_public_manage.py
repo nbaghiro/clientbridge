@@ -10,6 +10,7 @@ from clientbridge.core.db import SessionLocal
 from clientbridge.core.errors import Conflict
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
+from clientbridge.models.platform import Device
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.public import (
     ManageReschedule,
@@ -17,7 +18,7 @@ from clientbridge.schemas.public import (
     PublicBookingCreate,
 )
 from clientbridge.services.public import PublicBookingService, PublicManageService
-from tests.conftest import BIZ, FakeEmailSender, FakePaymentGateway
+from tests.conftest import BIZ, FakeEmailSender, FakePaymentGateway, FakePushSender
 from tests.helpers import deposit_payment, enable_payments, key, settle
 
 SLUG = "birchbark"
@@ -335,11 +336,14 @@ async def test_a_deleted_bookings_token_is_not_found(
 
 
 async def test_manage_message_is_token_scoped_and_idempotent(
-    api: httpx.AsyncClient, db: AsyncSession
+    api: httpx.AsyncClient, db: AsyncSession, push: FakePushSender
 ) -> None:
     from clientbridge.models.messaging import Message, Thread
 
     token = await _book(api)
+    db.add(Device(id="dvt_manage", business_id=BIZ, user_id="us_dev", token="Tok", platform="ios"))
+    await db.flush()
+    push.sent.clear()
     headers = key()
     response = await api.post(
         f"/manage/{token}/message", json={"body": "Running five minutes late"}, headers=headers
@@ -352,6 +356,13 @@ async def test_manage_message_is_token_scoped_and_idempotent(
     message = await db.get(Message, response.json()["id"])
     assert message is not None and message.direction == "in" and message.status == "delivered"
     thread = await db.get(Thread, message.thread_id)
+    assert len(push.sent) == 1  # the replay does not alert staff again
+    assert push.sent[0].tokens == ["Tok"] and "Running five minutes late" in push.sent[0].body
+    assert push.sent[0].data == {
+        "type": "message",
+        "thread_id": message.thread_id,
+        "client_id": thread.client_id if thread is not None else "",
+    }
     booking = (await db.execute(select(Booking).where(Booking.manage_token == token))).scalar_one()
     assert (
         thread is not None

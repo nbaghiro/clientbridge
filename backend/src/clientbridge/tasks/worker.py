@@ -115,7 +115,7 @@ class WorkerSettings:
         cron(send_booking_reminders, minute={0, 15, 30, 45}),
         cron(reap_unpaid_bookings, minute={5, 20, 35, 50}),
         cron(complete_past_bookings, minute={2, 17, 32, 47}),
-        cron(send_due_broadcasts, minute={0, 15, 30, 45}),
+        cron(send_due_broadcasts, second=0),
         cron(sweep_overdue_invoices, minute=0),
         cron(expire_entitlements, hour=3, minute=30),
         cron(prune_devices, hour=3, minute=30),

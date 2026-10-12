@@ -783,6 +783,11 @@ function RecordPanel({
                     <span>{formatParts([c.email, r.prefers(c.channel)])}</span>
                 </div>
             ) : null}
+            {record.textsStopped !== null ? (
+                <Notice tone="info" banner>
+                    {record.textsStopped}
+                </Notice>
+            ) : null}
             <div className="rounded-md border border-line bg-bg px-4 py-3">
                 <RecordFacts record={record} manager={manager} />
             </div>

@@ -8,13 +8,15 @@ import httpx
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.config import get_settings
 from clientbridge.core.ids import new_id
+from clientbridge.integrations.twilio import twilio_signature
 from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Package
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Entry
-from clientbridge.models.messaging import Thread
+from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.billing import InvoiceOut
@@ -25,15 +27,52 @@ from clientbridge.services.billing import _invoice_out
 from clientbridge.services.bookings import _booking_out
 from clientbridge.services.earnings import load_earning
 from clientbridge.services.lines import fetch_lines
-from clientbridge.services.messaging import unread_count
+from clientbridge.services.messaging import open_thread, unread_count
 from clientbridge.services.orders import order_out as _order_out
 from tests.conftest import BIZ, book_invoice
 
 SLUG = "birchbark"
 STRIPE = {"Stripe-Signature": "good"}
 INTERAC = {"X-Interac-Secret": "testsecret"}
-TWILIO = {"X-Twilio-Signature": "testsecret"}
+TWILIO_TOKEN = "testtoken"
 WIDE = "start=2000-01-01&end=2100-01-01"
+
+
+async def text_in(api: httpx.AsyncClient, data: dict[str, str]) -> httpx.Response:
+    """Post an inbound SMS signed the way Twilio signs it."""
+    url = f"{get_settings().api_base_url}/webhooks/sms"
+    signature = twilio_signature(TWILIO_TOKEN, url, list(data.items()))
+    return await api.post("/webhooks/sms", data=data, headers={"X-Twilio-Signature": signature})
+
+
+async def texted(
+    db: AsyncSession, client_id: str, *, business_id: str = BIZ, at: datetime | None = None
+) -> None:
+    """Record an outbound text to the client, which routes the client's replies to the business."""
+    thread = await open_thread(db, business_id, client_id, "sms")
+    db.add(
+        Message(
+            id=new_id("message"),
+            business_id=business_id,
+            thread_id=thread.id,
+            direction="out",
+            channel="sms",
+            body="Hello",
+            status="sent",
+            created_at=at or datetime.now(UTC),
+        )
+    )
+    await db.flush()
+
+
+async def local_hour(db: AsyncSession, hour: int, business_id: str = BIZ) -> datetime:
+    """Move the business to the zone where the local hour is now `hour`; returns now."""
+    now = datetime.now(UTC)
+    offset = (hour - now.hour + 11) % 24 - 11
+    zone = "Etc/GMT" if offset == 0 else f"Etc/GMT{'-' if offset > 0 else '+'}{abs(offset)}"
+    await db.execute(update(Business).where(Business.id == business_id).values(timezone=zone))
+    await db.flush()
+    return now
 
 
 def key() -> dict[str, str]:

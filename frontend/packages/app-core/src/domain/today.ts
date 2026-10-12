@@ -25,7 +25,7 @@ import type { IconName } from "../icons";
 import type { Intent } from "../ui";
 import type { Viewer } from "./auth";
 import { useInvoices } from "./billing";
-import { slotBookingsJoin } from "./bookings";
+import { slotBookingsJoin, slotOverlapSql } from "./bookings";
 import { utcSql } from "../datetime";
 import { useCatalogItems } from "./catalog";
 import { useEarnings } from "./earnings";
@@ -89,9 +89,7 @@ JOIN items i ON i.id = s.item_id
 ${slotBookingsJoin("AND x.deleted_at IS NULL AND x.status != 'canceled'")}
 LEFT JOIN clients c ON c.id = b.client_id
 LEFT JOIN staff st ON st.id = s.staff_id
-WHERE s.status != 'canceled'
-  AND ${utcSql("s.starts_at")} < datetime(?)
-  AND ${utcSql("s.ends_at")} > datetime(?)
+WHERE s.status != 'canceled' AND ${slotOverlapSql("?2", "?1")}
 ORDER BY ${utcSql("s.starts_at")}, s.id`;
 
 type AgendaState = "done" | "now" | "next" | "later" | "no_show";

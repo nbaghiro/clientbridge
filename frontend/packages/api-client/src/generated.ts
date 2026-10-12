@@ -2319,12 +2319,28 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Remove Member */
-        delete: operations["remove_member_v1_staff__staff_id__delete"];
+        delete?: never;
         options?: never;
         head?: never;
         /** Change Role */
         patch: operations["change_role_v1_staff__staff_id__patch"];
+        trace?: never;
+    };
+    "/v1/staff/{staff_id}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remove Member */
+        post: operations["remove_member_v1_staff__staff_id__remove_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/hours/{staff_id}/week": {
@@ -2373,6 +2389,23 @@ export interface paths {
         put?: never;
         /** Register */
         post: operations["register_v1_devices_register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/devices/unregister": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unregister */
+        post: operations["unregister_v1_devices_unregister_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3208,6 +3241,11 @@ export interface components {
              * @description Audience members left out: no consent or no contact
              */
             excluded_count: number;
+            /**
+             * Scheduled At
+             * @description When a scheduled broadcast goes out, moved past the business's quiet hours
+             */
+            scheduled_at: string | null;
         };
         /** BroadcastSend */
         BroadcastSend: {
@@ -3664,6 +3702,11 @@ export interface components {
              * @enum {string}
              */
             platform: "ios" | "android" | "web";
+        };
+        /** DeviceUnregister */
+        DeviceUnregister: {
+            /** Token */
+            token: string;
         };
         /** DiscountIn */
         DiscountIn: {
@@ -4712,6 +4755,20 @@ export interface components {
             /** Gift Amounts */
             gift_amounts?: number[] | null;
         };
+        /** LeftVisit */
+        LeftVisit: {
+            /** Booking Id */
+            booking_id: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Problem */
+            problem: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "resource" | "class") | null;
+            /** Message */
+            message: string | null;
+        };
         /** LineInput */
         LineInput: {
             /** Description */
@@ -4900,7 +4957,7 @@ export interface components {
              * Blocked
              * @description Why a change is refused online, as a code Connect words
              */
-            blocked?: ("status" | "by_phone" | "cutoff" | "class_session" | "reschedule_limit") | null;
+            blocked?: ("status" | "by_phone" | "cutoff" | "class_session" | "reschedule_limit" | "member_unavailable") | null;
             /**
              * Blocked Hours
              * @description The policy cutoff in hours, when the reason is the cutoff
@@ -7272,6 +7329,35 @@ export interface components {
              * @description Commission on product sales in basis points
              */
             retail_rate_bps?: number | null;
+        };
+        /** StaffRemove */
+        StaffRemove: {
+            /**
+             * Future
+             * @description What happens to the member's future visits and series
+             */
+            future?: ("reassign" | "cancel") | null;
+            /**
+             * Reassign To
+             * @description A member id, or "any" for the first member free at each time
+             */
+            reassign_to?: string | null;
+        };
+        /** StaffRemoveOut */
+        StaffRemoveOut: {
+            /** Moved */
+            moved: string[];
+            /** Canceled */
+            canceled: string[];
+            /**
+             * Left
+             * @description Visits no member could take, left in place
+             */
+            left: components["schemas"]["LeftVisit"][];
+            /** Series Moved */
+            series_moved: string[];
+            /** Series Ended */
+            series_ended: string[];
         };
         /**
          * SubjectAttributes
@@ -12693,39 +12779,6 @@ export interface operations {
             };
         };
     };
-    remove_member_v1_staff__staff_id__delete: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-business-id"?: string;
-                "x-expected-user"?: string;
-                "x-session-token"?: string;
-            };
-            path: {
-                staff_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     change_role_v1_staff__staff_id__patch: {
         parameters: {
             query?: never;
@@ -12751,6 +12804,46 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_member_v1_staff__staff_id__remove_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffRemove"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffRemoveOut"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -12884,6 +12977,43 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DeviceRegister"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeviceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unregister_v1_devices_unregister_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceUnregister"];
             };
         };
         responses: {

@@ -1037,7 +1037,8 @@ test.describe("in another time zone than the business", () => {
         const { main } = walk;
         const b = strings.bookings;
         const h = strings.hours;
-        const reason = `Closed for the e2e run ${Date.now().toString()}`;
+        const e2eClosure = "Closed for the e2e run";
+        const reason = `${e2eClosure} ${Date.now().toString()}`;
         const composer = page.getByRole("form", { name: b.newBooking });
         const panel = main.getByRole("complementary").filter({
             has: page.getByRole("button", { name: b.close, exact: true }),
@@ -1058,17 +1059,31 @@ test.describe("in another time zone than the business", () => {
             return point ?? { x: 0, y: 0 };
         };
 
-        await walk.step("close the business tomorrow", async () => {
+        // Removes this run's closure and any an earlier run left behind, so the board names this one.
+        const reopen = async (): Promise<void> => {
             await navigate(page, "/setup/team");
-            await main.getByRole("button", { name: h.addClosure }).click();
-            const form = page.getByRole("form", { name: h.addClosure });
-            await form.getByRole("textbox", { name: h.reason }).fill(reason);
-            await form.getByRole("button", { name: h.saveClosure }).click();
-            await expect(form).toBeHidden();
-            await expect(main.getByText(reason)).toBeVisible();
-        });
-
+            const remove = main.getByRole("button", {
+                name: startsWith(h.removeLabel(e2eClosure)),
+            });
+            while ((await remove.count()) > 0) {
+                const before = await remove.count();
+                await remove.first().click();
+                await expect(remove).toHaveCount(before - 1);
+            }
+            await expect(main.getByText(e2eClosure)).toHaveCount(0);
+        };
+        await walk.step("clear closures earlier runs left behind", reopen);
         try {
+            await walk.step("close the business tomorrow", async () => {
+                await navigate(page, "/setup/team");
+                await main.getByRole("button", { name: h.addClosure }).click();
+                const form = page.getByRole("form", { name: h.addClosure });
+                await form.getByRole("textbox", { name: h.reason }).fill(reason);
+                await form.getByRole("button", { name: h.saveClosure }).click();
+                await expect(form).toBeHidden();
+                await expect(main.getByRole("listitem").filter({ hasText: reason })).toBeVisible();
+            });
+
             await walk.step("the closed day keeps its lanes and visits reachable", async () => {
                 await navigate(page, "/schedule");
                 await main.getByRole("button", { name: b.next, exact: true }).click();
@@ -1090,11 +1105,7 @@ test.describe("in another time zone than the business", () => {
                 }
             });
         } finally {
-            await walk.step("reopen the business", async () => {
-                await navigate(page, "/setup/team");
-                await main.getByRole("button", { name: startsWith(h.removeLabel(reason)) }).click();
-                await expect(main.getByText(reason)).toHaveCount(0);
-            });
+            await walk.step("reopen the business", reopen);
         }
 
         await walk.step("an open time is labelled with the time the composer books", async () => {

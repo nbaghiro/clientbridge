@@ -7,31 +7,16 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.business import Business
-from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Entry
-from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import Device, Webhook
 from clientbridge.services import ledger
 from clientbridge.services.business import kyc_status
-from clientbridge.services.messaging import unread_count
 from tests.conftest import FakePushSender
 from tests.helpers import client_id, column
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
-
-
-async def _client_with_phone(db: AsyncSession, phone: str) -> str:
-    cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
-        .scalars()
-        .first()
-    )
-    assert cid
-    await db.execute(update(Client).where(Client.id == cid).values(phone=phone))
-    await db.flush()
-    return cid
 
 
 def _event(event_id: str, account_id: str, *, charges_enabled: bool = True) -> str:
@@ -260,45 +245,6 @@ async def test_duplicate_event_is_noop(api: httpx.AsyncClient, db: AsyncSession)
     assert enabled is False  # replay was a no-op, not a re-enable
     rows = (await db.execute(select(Webhook.id).where(Webhook.id == "evt_dup"))).scalars().all()
     assert len(rows) == 1
-
-
-async def test_inbound_sms_creates_in_message(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client_with_phone(db, "+15145551111")
-    res = await api.post(
-        "/webhooks/sms",
-        data={"From": "+15145551111", "Body": "Can I reschedule?", "MessageSid": "SM_in_1"},
-        headers={"X-Twilio-Signature": "testsecret"},
-    )
-    assert res.status_code == 200
-    msg = (await db.execute(select(Message).where(Message.provider_ref == "SM_in_1"))).scalar_one()
-    assert msg.direction == "in" and msg.body == "Can I reschedule?" and msg.business_id == BIZ
-    thread = (await db.execute(select(Thread).where(Thread.id == msg.thread_id))).scalar_one()
-    assert thread.client_id == cid and thread.channel == "sms"
-    assert await unread_count(db, thread) == 1
-
-
-async def test_inbound_sms_redelivery_is_noop(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _client_with_phone(db, "+15145551111")
-    payload = {"From": "+15145551111", "Body": "hi", "MessageSid": "SM_dup"}
-    headers = {"X-Twilio-Signature": "testsecret"}
-    first = await api.post("/webhooks/sms", data=payload, headers=headers)
-    second = await api.post("/webhooks/sms", data=payload, headers=headers)
-    assert first.status_code == 200 and second.status_code == 200
-    msgs = (
-        (await db.execute(select(Message).where(Message.provider_ref == "SM_dup"))).scalars().all()
-    )
-    assert len(msgs) == 1  # the redelivery is deduped on the SID
-    thread = (await db.execute(select(Thread).where(Thread.id == msgs[0].thread_id))).scalar_one()
-    assert await unread_count(db, thread) == 1  # counted once, not twice
-
-
-async def test_inbound_sms_bad_secret_401(api: httpx.AsyncClient) -> None:
-    res = await api.post(
-        "/webhooks/sms",
-        data={"From": "+1", "Body": "x", "MessageSid": "SM_bad"},
-        headers={"X-Twilio-Signature": "wrong"},
-    )
-    assert res.status_code == 401
 
 
 def _intent_event(event_id: str, event_type: str, pi: str, **extra: object) -> str:

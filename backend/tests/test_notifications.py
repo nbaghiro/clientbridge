@@ -456,3 +456,26 @@ async def test_failing_channel_does_not_500(
         await db.execute(select(Payment.status).where(Payment.id == pay["payment_id"]))
     ).scalar_one()
     assert status == "succeeded"  # the settlement persisted
+
+
+async def test_sign_out_unregisters_only_the_callers_device(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    ok_body = {"token": "ExpoMine", "platform": "ios"}
+    assert (await as_owner.post("/v1/devices/register", json=ok_body)).status_code == 200
+    db.add(
+        Device(
+            id="dvt_other", business_id=BIZ, user_id="us_diego", token="ExpoTheirs", platform="ios"
+        )
+    )
+    await db.flush()
+    for token in ("ExpoMine", "ExpoTheirs", "ExpoUnknown"):
+        res = await as_owner.post("/v1/devices/unregister", json={"token": token})
+        assert res.status_code == 200 and res.json() == {"registered": False}
+    tokens = set((await db.execute(select(Device.token))).scalars().all())
+    assert "ExpoMine" not in tokens and "ExpoTheirs" in tokens
+
+
+async def test_unregister_needs_a_session(unauth: httpx.AsyncClient) -> None:
+    res = await unauth.post("/v1/devices/unregister", json={"token": "ExpoMine"})
+    assert res.status_code == 401

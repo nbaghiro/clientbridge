@@ -25,6 +25,8 @@ import {
     sameDay,
     startOfDay,
     startOfWeek,
+    utcBeforeSql,
+    utcFromSql,
     utcSql,
     wallTime,
     useBusinessZone,
@@ -243,6 +245,15 @@ export function slotBookingsJoin(conditions: string): string {
     return `LEFT JOIN bookings b ON b.id IN (SELECT x.id FROM bookings x WHERE x.slot_id = s.id ${conditions})`;
 }
 
+// Visits are taken to last under a week, which lets the starts_at index bound an overlap from below.
+const VISIT_SPAN_DAYS = 7;
+
+/** Slots overlapping the instants `start` to `end` (SQL parameters), through the starts_at index. */
+export function slotOverlapSql(start: string, end: string): string {
+    return `${utcBeforeSql("s.starts_at", end)} AND ${utcFromSql("s.starts_at", start, VISIT_SPAN_DAYS)}
+  AND ${utcSql("s.starts_at")} < datetime(${end}) AND ${utcSql("s.ends_at")} > datetime(${start})`;
+}
+
 // One row per visit; a class session (capacity over one) is one row with its seats counted.
 export const EVENTS_SQL = `
 SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.status AS slot_status,
@@ -263,9 +274,7 @@ ${slotBookingsJoin("AND s.capacity <= 1 AND x.deleted_at IS NULL AND x.status !=
 LEFT JOIN clients c ON c.id = b.client_id
 LEFT JOIN subjects sj ON sj.id = b.subject_id
 LEFT JOIN resources r ON r.id = s.resource_id
-WHERE s.status != 'canceled'
-  AND ${utcSql("s.starts_at")} < datetime(?)
-  AND ${utcSql("s.ends_at")} > datetime(?)
+WHERE s.status != 'canceled' AND ${slotOverlapSql("?2", "?1")}
 ORDER BY s.starts_at`;
 
 function enrich(r: EventRow, staff: Map<string, StaffRow>, now: Date, zone: string): ScheduleEvent {
@@ -393,8 +402,8 @@ export const WORKING_HOURS_SQL =
 
 export const AWAY_SQL = `
 SELECT id, staff_id, starts_at, ends_at, reason FROM hours
-WHERE basis = 'exception'
-  AND ${utcSql("starts_at")} < datetime(?) AND ${utcSql("ends_at")} > datetime(?)
+WHERE basis = 'exception' AND ${utcBeforeSql("starts_at", "?1")}
+  AND ${utcSql("starts_at")} < datetime(?1) AND ${utcSql("ends_at")} > datetime(?2)
 ORDER BY starts_at`;
 
 export interface ScheduleBlock {

@@ -6,7 +6,7 @@ import { type Load } from "../hooks";
 import { strings } from "../strings";
 import { addDays, formatShortDay, parseTimestamp, useBusinessZone } from "../datetime";
 import type { Intent } from "../ui";
-import { utcSql } from "../datetime";
+import { utcFromSql, utcSql } from "../datetime";
 import { useReplicaLoad } from "./sync";
 
 interface PayoutRow {
@@ -37,7 +37,7 @@ export const FEES_SINCE_SQL = `
 SELECT COALESCE(SUM(e.amount_cents), 0) AS cents
 FROM entries e JOIN accounts a ON a.id = e.account_id
 WHERE a.owner_type = 'business' AND a.category IN ('processing_fee', 'platform_fee')
-  AND ${utcSql("e.occurred_at")} >= datetime(?)`;
+  AND ${utcFromSql("e.occurred_at", "?1")} AND ${utcSql("e.occurred_at")} >= datetime(?1)`;
 
 interface ChargeRow {
     id: string;

@@ -273,10 +273,8 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
     if (draft.sent !== null)
         return (
             <View style={styles.done}>
-                <Text style={styles.title}>
-                    {draft.sent.scheduled ? s.scheduledTitle : s.sentTitle}
-                </Text>
-                <Text style={styles.meta}>{s.sentBody(draft.sent.count)}</Text>
+                <Text style={styles.title}>{draft.sent.title}</Text>
+                <Text style={styles.meta}>{draft.sent.body}</Text>
                 <Button onPress={onDone}>{s.sentDone}</Button>
             </View>
         );

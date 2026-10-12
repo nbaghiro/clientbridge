@@ -4,8 +4,9 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.reviews import Review
+from clientbridge.services.messaging import run_due_broadcasts
 from tests.conftest import FakeEmailSender, FakeSmsSender
-from tests.helpers import TWILIO, ok, review_id, unread
+from tests.helpers import local_hour, ok, review_id, text_in, unread
 
 
 async def _client(api: httpx.AsyncClient, **contact: str | list[str] | bool) -> str:
@@ -102,18 +103,13 @@ async def test_messages_and_broadcasts(
     assert sms.sent[-1].to == "+16045550199"
 
     for sid in ("SM_flow_1", "SM_flow_2"):
-        ok(
-            await api.post(
-                "/webhooks/sms",
-                data={"From": "+16045550199", "Body": "Reply", "MessageSid": sid},
-                headers=TWILIO,
-            )
-        )
+        ok(await text_in(api, {"From": "+16045550199", "Body": "Reply", "MessageSid": sid}))
     assert await unread(db, sent["thread_id"]) == 2
     read = ok(await api.post(f"/v1/threads/{sent['thread_id']}/read")).json()
     assert (read["id"], read["unread_count"]) == (sent["thread_id"], 0)
     assert await unread(db, sent["thread_id"]) == 0
 
+    now = await local_hour(db, 12)
     blast = ok(
         await api.post(
             "/v1/broadcasts",
@@ -125,5 +121,6 @@ async def test_messages_and_broadcasts(
             },
         )
     ).json()
-    assert (blast["status"], blast["recipient_count"]) == ("sent", 1)
+    assert (blast["status"], blast["recipient_count"]) == ("sending", 1)
+    await run_due_broadcasts(db, sms, FakeEmailSender(), now)
     assert sms.sent[-1].body == "Birchbark Pet Studio: Sale Reply STOP to opt out."

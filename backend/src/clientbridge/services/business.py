@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
@@ -23,6 +23,16 @@ async def business_tz(db: AsyncSession, business_id: str) -> ZoneInfo:
     return zone(tz) if tz is not None else zone("UTC")
 
 
+async def load_staff(db: AsyncSession, biz: str, staff_id: str) -> Staff:
+    """Load an active staff member by id, else NotFound."""
+    row = (
+        await db.execute(scoped(Staff, biz).where(Staff.id == staff_id, Staff.status == "active"))
+    ).scalar_one_or_none()
+    if row is None:
+        raise NotFound("staff not found")
+    return row
+
+
 def local_today(business: Business) -> date:
     return datetime.now(zone(business.timezone)).date()
 
@@ -31,6 +41,25 @@ async def businesses_at_hour(db: AsyncSession, now: datetime, hour: int) -> list
     """Businesses whose local clock reads `hour` at `now`, for daily client messages."""
     businesses = (await db.execute(select(Business))).scalars().all()
     return [b for b in businesses if now.astimezone(zone(b.timezone)).hour == hour]
+
+
+QUIET_FROM = time(21)
+QUIET_UNTIL = time(9)
+
+
+def quiet_hours(now: datetime, tz: ZoneInfo) -> bool:
+    """21:00 to 09:00 local, when no broadcast goes out."""
+    local = now.astimezone(tz).time()
+    return local >= QUIET_FROM or local < QUIET_UNTIL
+
+
+def after_quiet_hours(at: datetime, tz: ZoneInfo) -> datetime:
+    """`at`, or the next 09:00 local when `at` falls in quiet hours."""
+    if not quiet_hours(at, tz):
+        return at
+    local = at.astimezone(tz)
+    day = local.date() if local.time() < QUIET_UNTIL else local.date() + timedelta(days=1)
+    return datetime.combine(day, QUIET_UNTIL, tzinfo=tz).astimezone(UTC)
 
 
 def valid_timezone(name: str | None) -> str:

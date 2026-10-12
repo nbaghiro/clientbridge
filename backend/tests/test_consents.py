@@ -14,8 +14,9 @@ from clientbridge.core.ratelimit import RateLimiter, public_prefs_rate_limit
 from clientbridge.main import app
 from clientbridge.models.clients import Client, Consent
 from clientbridge.services.consents import prefs_token, record_consent
+from clientbridge.services.messaging import broadcast_recipients
 from tests.conftest import Factory, FakeSmsSender
-from tests.helpers import TWILIO, new_client, ok
+from tests.helpers import new_client, ok, text_in, texted
 
 BIZ = "bz_birchbark"
 PHONE = "+16045550177"
@@ -27,7 +28,7 @@ async def _client(db: AsyncSession, *, name: str | None = None) -> str:
     if name is not None:
         values["name"] = name
     await db.execute(update(Client).where(Client.id == cid).values(**values))
-    await db.flush()
+    await texted(db, cid)
     return cid
 
 
@@ -41,13 +42,7 @@ async def _consents(db: AsyncSession, cid: str, channel: str) -> list[tuple[str,
 
 
 async def _text_in(api: httpx.AsyncClient, body: str, sid: str) -> None:
-    ok(
-        await api.post(
-            "/webhooks/sms",
-            data={"From": PHONE, "Body": body, "MessageSid": sid},
-            headers=TWILIO,
-        )
-    )
+    ok(await text_in(api, {"From": PHONE, "Body": body, "MessageSid": sid}))
 
 
 async def test_export_lists_every_change(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -232,3 +227,47 @@ async def test_unsubscribe_without_a_channel_withdraws_both(
 
 async def test_export_needs_a_session(unauth: httpx.AsyncClient) -> None:
     assert (await unauth.post("/v1/consents/export")).status_code == 401
+
+
+async def test_a_staff_toggle_after_stop_does_not_unblock_texts(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    cid = await _client(db)
+    await _text_in(as_owner, "STOP", "SM_sticky_1")
+    ok(await as_owner.patch(f"/v1/clients/{cid}", json={"marketing_consent": False}))
+    ok(await as_owner.patch(f"/v1/clients/{cid}", json={"marketing_consent": True}))
+    assert await _consents(db, cid, "sms") == [("withdrawn", "reply")]
+    assert (await _consents(db, cid, "email"))[-1] == ("granted", "in_person")
+    blocked = await as_owner.post(
+        "/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Back?"}
+    )
+    assert blocked.status_code == 409 and sms.sent == []
+
+
+async def test_an_older_staff_grant_cannot_outrank_a_stop(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    cid = await _client(db)
+    await _text_in(as_owner, "STOP", "SM_sticky_2")
+    await record_consent(
+        db, BIZ, cid, channel="sms", status="granted", source="in_person", recorded_by=None
+    )
+    recipients, _ = await broadcast_recipients(db, BIZ, "sms", {"all": True})
+    assert cid not in {client.id for client, _ in recipients}
+    blocked = await as_owner.post(
+        "/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Back?"}
+    )
+    assert blocked.status_code == 409
+    assert PHONE not in [m.to for m in sms.sent]
+
+
+async def test_the_preferences_page_cannot_lift_a_stop(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await _client(db)
+    await _text_in(api, "STOP", "SM_sticky_3")
+    saved = ok(await api.post(f"/prefs/{prefs_token(cid)}", json={"email": True, "sms": True}))
+    assert saved.json()["sms"] is False
+    assert await _consents(db, cid, "sms") == [("withdrawn", "reply")]
+    await _text_in(api, "START", "SM_sticky_4")
+    assert (await _consents(db, cid, "sms"))[-1] == ("granted", "reply")

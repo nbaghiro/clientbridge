@@ -441,10 +441,15 @@ async def public_manage_message(
     data: ManageMessage,
     db: DbSession,
     gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
     _: BookingRateLimited,
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key")],
 ) -> ManageMessageResult:
-    return await PublicManageService(db, gateway).message(token, data, idempotency_key)
+    return await PublicManageService(db, gateway).message(
+        token, data, idempotency_key, Notifier(email, sms, push)
+    )
 
 
 payment_setup_router = APIRouter(prefix="/payment-method", tags=["public-payments"])

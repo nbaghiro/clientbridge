@@ -12,9 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import engine, get_session
 from clientbridge.core.deps import (
-    get_auth_email_hook_secret,
+    get_auth_email_secret,
     get_interac_secret,
-    get_sms_webhook_secret,
+    get_twilio_auth_token,
 )
 from clientbridge.core.emails import normalize_email
 from clientbridge.core.errors import CardDeclined, Conflict, PaymentActionRequired, Unauthorized
@@ -522,8 +522,8 @@ async def api(
     app.dependency_overrides[get_push_sender] = lambda: push
     app.dependency_overrides[get_file_storage] = _storage
     app.dependency_overrides[get_interac_secret] = lambda: "testsecret"
-    app.dependency_overrides[get_sms_webhook_secret] = lambda: "testsecret"
-    app.dependency_overrides[get_auth_email_hook_secret] = lambda: "testsecret"
+    app.dependency_overrides[get_twilio_auth_token] = lambda: "testtoken"
+    app.dependency_overrides[get_auth_email_secret] = lambda: "testsecret"
     app.dependency_overrides[public_pay_rate_limit] = lambda: None  # no throttling under test
     app.dependency_overrides[public_review_rate_limit] = lambda: None
     app.dependency_overrides[public_form_rate_limit] = lambda: None

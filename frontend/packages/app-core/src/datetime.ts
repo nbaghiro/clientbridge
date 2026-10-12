@@ -658,6 +658,16 @@ export function utcSql(column: string): string {
     return `datetime(CASE WHEN ${column} LIKE '%+__' THEN ${column} || ':00' ELSE ${column} END)`;
 }
 
+/** An indexable whole-day bound on the raw text, a day wide for any stored format; pair with utcSql. */
+export function utcBeforeSql(column: string, param: string): string {
+    return `${column} < date(${param}, '+2 days')`;
+}
+
+/** The lower bound to pair with utcBeforeSql, widened by `spanDays` for rows that start earlier. */
+export function utcFromSql(column: string, param: string, spanDays = 0): string {
+    return `${column} >= date(${param}, '-${String(spanDays + 1)} days')`;
+}
+
 // The app shell provides the business row's zone once it has synced (see useBusinessLoad).
 export const BusinessZoneContext = createContext<string | null>(null);
 

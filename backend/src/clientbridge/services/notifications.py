@@ -19,6 +19,7 @@ from clientbridge.core.locale import (
     message,
     plural,
 )
+from clientbridge.core.phones import e164
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.expo import Push, PushSender
 from clientbridge.integrations.postmark import Email, EmailSender
@@ -28,6 +29,7 @@ from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import GiftCard, Subscription
 from clientbridge.models.clients import Client
 from clientbridge.models.documents import Contract, Form, FormResponse, Signature
+from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Device, DevicePlatform
 from clientbridge.models.reviews import Review
@@ -39,6 +41,7 @@ from clientbridge.services.lines import LineParent, fetch_lines
 from clientbridge.services.tax import tax_breakdown
 
 _log = logging.getLogger(__name__)
+_PREVIEW_CHARS = 120
 
 SeriesNotice = Literal["booked", "moved", "canceled"]
 
@@ -185,6 +188,10 @@ def _receipt_details(
     rows.extend(message(locale, "receipt.tax", tax=code, amount=amount) for code, amount in taxes)
     rows.append(message(locale, "receipt.total", amount=total))
     return rows
+
+
+def _inbound_message_alert(locale: str, client_name: str, body: str) -> str:
+    return message(locale, "inbound_message.push", client=client_name, body=body)
 
 
 def _dispute_alert(locale: str, amount: str) -> str:
@@ -342,6 +349,32 @@ def _booking_canceled(locale: str, business_name: str, when: str) -> tuple[str, 
     )
 
 
+def _booking_reassigned(
+    locale: str, business_name: str, whens: list[str], member: str
+) -> tuple[str, str]:
+    if len(whens) == 1:
+        return (
+            message(locale, "booking_reassigned.subject", business=business_name),
+            message(
+                locale,
+                "booking_reassigned.body",
+                business=business_name,
+                when=whens[0],
+                member=member,
+            ),
+        )
+    return (
+        message(locale, "visits_reassigned.subject", business=business_name),
+        message(
+            locale,
+            "visits_reassigned.body",
+            business=business_name,
+            whens=message(locale, "series.separator").join(whens),
+            member=member,
+        ),
+    )
+
+
 def _booking_requested(locale: str, business_name: str, when: str) -> tuple[str, str]:
     return (
         message(locale, "booking_requested.subject", business=business_name),
@@ -402,12 +435,26 @@ def _review_requested(locale: str, business_name: str, link: str) -> tuple[str, 
 
 
 def broadcast_text(
-    locale: str, business_name: str, channel: str, body: str, prefs_link: str
+    locale: str,
+    business_name: str,
+    channel: str,
+    body: str,
+    prefs_link: str,
+    address: str,
+    contact: str,
 ) -> str:
-    """A broadcast as the client receives it, with the opt-out CASL requires."""
+    """A broadcast as the client receives it, with the identification and opt-out CASL requires."""
     if channel == "sms":
         return message(locale, "broadcast.sms", business=business_name, body=body, keyword="STOP")
-    return message(locale, "broadcast.email", body=body, business=business_name, link=prefs_link)
+    return message(
+        locale,
+        "broadcast.email",
+        body=body,
+        business=business_name,
+        address=address,
+        contact=contact,
+        link=prefs_link,
+    )
 
 
 def _when(locale: str, business: Business, slot: Slot) -> str:
@@ -430,6 +477,25 @@ def _manage_link(business: Business, booking: Booking) -> str | None:
     if booking.manage_token is None or business.booking_policy.get("self_service") is False:
         return None
     return f"{get_settings().connect_base_url}/m/{booking.manage_token}"
+
+
+async def _visits_by_client(
+    db: AsyncSession, booking_ids: list[str], *, by_member: bool = True
+) -> list[tuple[str, str, list[tuple[Booking, Slot]]]]:
+    """Visits grouped by client (and member), each group in time order."""
+    if not booking_ids:
+        return []
+    rows = await db.execute(
+        select(Booking, Slot)
+        .join(Slot, Slot.id == Booking.slot_id)
+        .where(Booking.id.in_(booking_ids))
+        .order_by(Slot.starts_at, Booking.id)
+    )
+    groups: dict[tuple[str, str], list[tuple[Booking, Slot]]] = {}
+    for booking, slot in rows.tuples():
+        key = (booking.client_id, slot.staff_id if by_member else "")
+        groups.setdefault(key, []).append((booking, slot))
+    return [(client, member, visits) for (client, member), visits in groups.items()]
 
 
 class Notifier:
@@ -654,6 +720,25 @@ class Notifier:
         amount = format_money(locale, payment.amount_cents, payment.currency)
         await self._alert_staff(db, business, _dispute_alert(locale, amount), {"type": "dispute"})
 
+    async def on_inbound_message(self, db: AsyncSession, message_id: str) -> None:
+        """Alert the business's staff devices to a client's text or Connect message."""
+        received = await db.get(Message, message_id)
+        if received is None or received.direction != "in":
+            return
+        thread = await db.get(Thread, received.thread_id)
+        business = await db.get(Business, received.business_id)
+        if thread is None or business is None:
+            return
+        client = await db.get(Client, thread.client_id)
+        preview = " ".join((received.body or "").split())
+        if len(preview) > _PREVIEW_CHARS:
+            preview = preview[: _PREVIEW_CHARS - 1].rstrip() + "…"
+        body = _inbound_message_alert(
+            locale_for(business=business), client.name if client is not None else "", preview
+        )
+        data = {"type": "message", "thread_id": thread.id, "client_id": thread.client_id}
+        await self._alert_staff(db, business, body, data)
+
     async def on_subscription_past_due(self, db: AsyncSession, subscription_id: str) -> None:
         sub = await db.get(Subscription, subscription_id)
         if sub is None:
@@ -772,6 +857,30 @@ class Notifier:
         subject, body = build(locale, business.name, whens)
         await self._to_client(db, first.client_id, subject, body)
 
+    async def on_visits_reassigned(self, db: AsyncSession, booking_ids: list[str]) -> None:
+        """One message per client and new member, naming who now does the visits."""
+        for client_id, staff_id, rows in await _visits_by_client(db, booking_ids):
+            business = await db.get(Business, rows[0][0].business_id)
+            member = await db.get(Staff, staff_id)
+            if business is None or member is None:
+                continue
+            locale = locale_for(business=business)
+            subject, body = _booking_reassigned(
+                locale,
+                business.name,
+                [_when(locale, business, slot) for _, slot in rows],
+                member.name or member.title or message(locale, "staff.someone"),
+            )
+            await self._to_client(db, client_id, subject, body)
+
+    async def on_visits_canceled(self, db: AsyncSession, booking_ids: list[str]) -> None:
+        """One notice per client: the single-visit notice, or a list when they had several."""
+        for _, _, rows in await _visits_by_client(db, booking_ids, by_member=False):
+            if len(rows) == 1:
+                await self.on_booking_canceled(db, rows[0][0].id)
+            else:
+                await self.on_series_booked(db, [b.id for b, _ in rows], "canceled")
+
     async def on_review_requested(self, db: AsyncSession, review_id: str) -> None:
         review = await db.get(Review, review_id)
         if review is None or review.token is None:
@@ -847,8 +956,9 @@ class Notifier:
     ) -> None:
         if email:
             await self._safe(self.email.send(Email(to=email, subject=subject, body=body)))
-        if phone:
-            await self._safe(self.sms.send(Sms(to=phone, body=body)))
+        number = e164(phone) if phone else None
+        if number:
+            await self._safe(self.sms.send(Sms(to=number, body=body)))
 
     async def _to_client(
         self,
@@ -867,12 +977,13 @@ class Notifier:
             return
         if client.email and channel != "sms":
             await self._safe(self.email.send(Email(to=client.email, subject=subject, body=body)))
+        number = e164(client.phone) if client.phone else None
         if (
-            client.phone
+            number
             and channel != "email"
             and not await texts_stopped(db, client.business_id, client.id)
         ):
-            await self._safe(self.sms.send(Sms(to=client.phone, body=body)))
+            await self._safe(self.sms.send(Sms(to=number, body=body)))
 
     async def _alert_staff(
         self, db: AsyncSession, business: Business, body: str, data: dict[str, str]
@@ -930,6 +1041,19 @@ class DeviceService:
             await self.db.commit()
         except IntegrityError:
             await self.db.rollback()  # a concurrent register of the same token won — already done
+
+    async def unregister(self, token: str) -> None:
+        """Forget the caller's push token, as on sign-out; another user's token is left alone."""
+        device = (
+            await self.db.execute(
+                select(Device).where(
+                    Device.token == token, Device.user_id == self.principal.user_id
+                )
+            )
+        ).scalar_one_or_none()
+        if device is not None:
+            await self.db.delete(device)
+            await self.db.commit()
 
 
 _DEVICE_TTL = timedelta(days=60)

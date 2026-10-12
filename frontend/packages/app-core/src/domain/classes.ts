@@ -16,9 +16,8 @@ import {
 import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
-import { type ScheduleEvent, slotBookingsJoin, useNow } from "./bookings";
+import { type ScheduleEvent, slotBookingsJoin, slotOverlapSql, useNow } from "./bookings";
 import { temperamentLabel } from "./clients";
-import { utcSql } from "../datetime";
 import { staffName, useStaff } from "./staff";
 import { useReplicaLoad } from "./sync";
 
@@ -53,8 +52,7 @@ export const CLASS_SESSIONS_SQL = `
 SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.capacity, s.staff_id,
        i.name AS item_name, i.color AS item_color, r.name AS room
 FROM slots s JOIN items i ON i.id = s.item_id LEFT JOIN resources r ON r.id = s.resource_id
-WHERE s.capacity > 1 AND s.status != 'canceled'
-  AND ${utcSql("s.ends_at")} > datetime(?) AND ${utcSql("s.starts_at")} < datetime(?)
+WHERE s.capacity > 1 AND s.status != 'canceled' AND ${slotOverlapSql("?1", "?2")}
 ORDER BY s.starts_at`;
 
 export const CLASS_ROSTER_SQL = `
@@ -64,7 +62,7 @@ SELECT b.id AS booking_id, b.slot_id, b.client_id, c.name AS client_name, c.phon
 FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN clients c ON c.id = b.client_id
 LEFT JOIN subjects sj ON sj.id = b.subject_id
 WHERE s.capacity > 1 AND b.status != 'canceled' AND b.deleted_at IS NULL
-  AND ${utcSql("s.ends_at")} > datetime(?)
+  AND ${slotOverlapSql("?1", "?2")}
 ORDER BY b.created_at`;
 
 export const CLASS_CLIENTS_SQL = `
@@ -188,11 +186,9 @@ export function useClassBoard(api: ApiLike): ClassBoard {
     const now = useNow();
     const zone = useBusinessZone();
     const from = startOfDay(now, zone);
-    const sessionsQ = useQuery<SessionRow>(CLASS_SESSIONS_SQL, [
-        from.toISOString(),
-        addDays(from, 21, zone).toISOString(),
-    ]);
-    const rosterQ = useQuery<RosterRow>(CLASS_ROSTER_SQL, [from.toISOString()]);
+    const range = [from.toISOString(), addDays(from, 21, zone).toISOString()];
+    const sessionsQ = useQuery<SessionRow>(CLASS_SESSIONS_SQL, range);
+    const rosterQ = useQuery<RosterRow>(CLASS_ROSTER_SQL, range);
     const clients = useQuery<{
         id: string;
         name: string;
@@ -419,8 +415,8 @@ FROM slots s JOIN items i ON i.id = s.item_id
 ${slotBookingsJoin("AND x.deleted_at IS NULL AND x.status != 'canceled'")}
 LEFT JOIN clients c ON c.id = b.client_id
 LEFT JOIN subjects sj ON sj.id = b.subject_id
-WHERE s.resource_id IS NOT NULL AND s.status != 'canceled'
-  AND ${utcSql("s.starts_at")} < datetime(?) AND ${utcSql("s.ends_at")} > datetime(?)`;
+WHERE s.resource_id IS NOT NULL AND s.status != 'canceled' AND ${slotOverlapSql("?2", "?1")}
+ORDER BY s.starts_at, s.id`;
 
 interface StationChoice {
     key: string;

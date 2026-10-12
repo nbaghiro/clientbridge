@@ -228,7 +228,7 @@ export function ClientEditorSheet({
             <View style={styles.consent}>
                 <Toggle
                     label={e.consentLabel}
-                    hint={editor.consentNote ?? e.consentHint}
+                    hint={editor.textsStopped ?? editor.consentNote ?? e.consentHint}
                     value={draft.consent}
                     onChange={(v) => {
                         set("consent", v);

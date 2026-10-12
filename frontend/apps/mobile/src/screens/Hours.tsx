@@ -244,7 +244,6 @@ const LENGTHS: { key: AwayLength; label: string }[] = [
 function TimeOffSheet({ staffId, onClose }: { staffId: string; onClose: () => void }) {
     const zone = useBusinessZone();
     const form = useTimeOffForm(api, useViewer(), onClose, staffId);
-    const [page, setPage] = useState(0);
     const closure = form.staffId === "";
     const hourly = form.timeOptions.filter(
         (o) => o.key.endsWith(":00") && o.key >= "07:00" && o.key <= "20:00",
@@ -254,18 +253,18 @@ function TimeOffSheet({ staffId, onClose }: { staffId: string; onClose: () => vo
             <Text style={styles.label}>{label}</Text>
             <DateStrip
                 label={label}
-                days={form.pickerDays(page * 7)}
+                days={form.pickerDays}
                 value={value}
                 onChange={onChange}
                 onPrev={
-                    page > 0
+                    form.pickerWeek > 0
                         ? () => {
-                              setPage((p) => p - 1);
+                              form.setPickerWeek(form.pickerWeek - 1);
                           }
                         : undefined
                 }
                 onNext={() => {
-                    setPage((p) => p + 1);
+                    form.setPickerWeek(form.pickerWeek + 1);
                 }}
                 prevLabel={s.prevWeek}
                 nextLabel={s.nextWeek}

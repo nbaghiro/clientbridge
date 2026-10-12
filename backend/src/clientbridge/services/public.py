@@ -80,9 +80,10 @@ from clientbridge.schemas.reviews import PublicReviewContext, PublicReviewSubmit
 from clientbridge.services import ledger
 from clientbridge.services.billing import estimate_status
 from clientbridge.services.bookings import (
+    Availability,
     clash,
     create_booking_core,
-    exceptions_between,
+    load_availability,
     local_day,
     lock_bookings,
     lock_staff,
@@ -111,6 +112,7 @@ from clientbridge.services.lines import (
     replace_lines,
 )
 from clientbridge.services.messaging import open_thread
+from clientbridge.services.notifications import Notifier
 from clientbridge.services.orders import next_order_number, pickup_setting, pickup_windows
 from clientbridge.services.payments import (
     assert_payable,
@@ -221,17 +223,24 @@ class PublicBookingService:
         staff = await self._online_staff(business.id)
         tz = await business_tz(self.db, business.id)
         today = datetime.now(tz).date()
+        items = [await self._bookable_item(business.id, i) for i in dict.fromkeys(item_ids)]
+        found = await load_availability(
+            self.db,
+            business.id,
+            [s.id for s in staff],
+            today,
+            today + timedelta(days=6),
+            tz,
+            items,
+        )
         services: list[PublicServiceOpening] = []
-        for item_id in dict.fromkeys(item_ids):
-            item = await self._bookable_item(business.id, item_id)
-            found: list[PublicSlot] = []
+        for item in items:
+            slots: list[PublicSlot] = []
             for offset in range(7):
-                found.extend(
-                    await self._open(business, item, staff, today + timedelta(days=offset))
-                )
-                if len(found) >= 3:
+                slots.extend(_open(business, found, item, staff, today + timedelta(days=offset)))
+                if len(slots) >= 3:
                     break
-            services.append(PublicServiceOpening(item_id=item_id, slots=found[:3]))
+            services.append(PublicServiceOpening(item_id=item.id, slots=slots[:3]))
         return PublicNextOpenings(
             services=services, through=(today + timedelta(days=6)).isoformat()
         )
@@ -240,7 +249,11 @@ class PublicBookingService:
         business = await self._business(slug)
         item = await self._bookable_item(business.id, item_id)
         staff = await self._who(business.id, staff_id)
-        return PublicSlots(slots=await self._open(business, item, staff, on_date))
+        tz = await business_tz(self.db, business.id)
+        found = await load_availability(
+            self.db, business.id, [s.id for s in staff], on_date, on_date, tz, [item]
+        )
+        return PublicSlots(slots=_open(business, found, item, staff, on_date))
 
     async def days(
         self, slug: str, item_id: str, staff_id: str, start: date, count: int
@@ -343,34 +356,15 @@ class PublicBookingService:
         await self.db.commit()
         return result
 
-    async def _open(
-        self, business: Business, item: Item, staff: list[Staff], on_date: date
-    ) -> list[PublicSlot]:
-        policy = policy_of(business)
-        now = datetime.now(UTC)
-        earliest = now + timedelta(hours=policy.lead_hours)
-        latest = now + timedelta(days=policy.horizon_days)
-        delta = timedelta(minutes=item.duration_min or 0)
-        seen: dict[datetime, str] = {}
-        for member in staff:
-            for start in await open_slots(
-                self.db, business.id, item, member.id, on_date, policy.step_min
-            ):
-                if earliest <= start <= latest and start not in seen:
-                    seen[start] = member.id
-        return [
-            PublicSlot(starts_at=start, ends_at=start + delta, staff_id=seen[start])
-            for start in sorted(seen)
-        ]
-
     async def _staff_for(
         self, business: Business, item: Item, staff_id: str, starts_at: datetime
     ) -> str:
         """The member a time is booked with: the first one whose open times list it."""
-        for member in await self._who(business.id, staff_id):
-            if await _offered(self.db, business, item, member.id, starts_at):
-                return member.id
-        raise Conflict(_UNOFFERED, code="slot_unavailable")
+        staff = await self._who(business.id, staff_id)
+        member = await _offered(self.db, business, item, [s.id for s in staff], starts_at)
+        if member is None:
+            raise Conflict(_UNOFFERED, code="slot_unavailable")
+        return member
 
     async def _who(self, business_id: str, staff_id: str) -> list[Staff]:
         staff = await self._online_staff(business_id)
@@ -440,19 +434,42 @@ class PublicBookingService:
         return item
 
 
+def _open(
+    business: Business, found: Availability, item: Item, staff: list[Staff], on_date: date
+) -> list[PublicSlot]:
+    policy = policy_of(business)
+    now = datetime.now(UTC)
+    earliest = now + timedelta(hours=policy.lead_hours)
+    latest = now + timedelta(days=policy.horizon_days)
+    delta = timedelta(minutes=item.duration_min or 0)
+    seen: dict[datetime, str] = {}
+    for member in staff:
+        for start in found.open_starts(item, member.id, on_date, policy.step_min):
+            if earliest <= start <= latest and start not in seen:
+                seen[start] = member.id
+    return [
+        PublicSlot(starts_at=start, ends_at=start + delta, staff_id=seen[start])
+        for start in sorted(seen)
+    ]
+
+
 async def _offered(
     db: AsyncSession,
     business: Business,
     item: Item,
-    staff_id: str,
+    staff_ids: list[str],
     starts_at: datetime,
     exclude: str | None = None,
-) -> bool:
-    """Whether the start is one of the open times listed for this member on its local day."""
-    day = starts_at.astimezone(await business_tz(db, business.id)).date()
+) -> str | None:
+    """The first member whose open times on the start's local day list it."""
+    tz = await business_tz(db, business.id)
+    day = starts_at.astimezone(tz).date()
     step = policy_of(business).step_min
-    starts = await open_slots(db, business.id, item, staff_id, day, step, exclude=exclude)
-    return starts_at in starts
+    found = await load_availability(db, business.id, staff_ids, day, day, tz, [item])
+    for staff_id in staff_ids:
+        if starts_at in found.open_starts(item, staff_id, day, step, exclude=exclude):
+            return staff_id
+    return None
 
 
 def _assert_bookable_window(policy: BookingPolicy, starts_at: datetime) -> None:
@@ -477,22 +494,20 @@ async def open_days(
     now = datetime.now(UTC)
     earliest = now + timedelta(hours=policy.lead_hours)
     latest = now + timedelta(days=policy.horizon_days)
+    days = [start + timedelta(days=offset) for offset in range(min(max(count, 1), _MAX_DAYS))]
+    found = await load_availability(
+        db, business.id, [s.id for s in staff], days[0], days[-1], tz, [item]
+    )
     out: list[PublicDay] = []
-    for offset in range(min(max(count, 1), _MAX_DAYS)):
-        day = start + timedelta(days=offset)
+    for day in days:
         opens, closes = local_day(day, tz)
         closure = next(
-            (
-                w
-                for w in await exceptions_between(db, business.id, None, opens, closes)
-                if w.starts_at <= opens and w.ends_at >= closes
-            ),
-            None,
+            (w for w in found.closures if w.starts_at <= opens and w.ends_at >= closes), None
         )
         starts: set[datetime] = set()
         if closure is None and closes > earliest and opens <= latest:
             for member in staff:
-                for s in await open_slots(db, business.id, item, member.id, day, policy.step_min):
+                for s in found.open_starts(item, member.id, day, policy.step_min):
                     if earliest <= s <= latest:
                         starts.add(s)
         out.append(
@@ -578,12 +593,12 @@ class PublicManageService:
 
     async def days(self, token: str, start: date, count: int) -> PublicDays:
         booking, slot, business = await self._resolve(token)
-        item, staff = await self._visit(booking, slot, business)
+        item, staff = await self._movable(booking, slot, business)
         return PublicDays(days=await open_days(self.db, business, item, [staff], start, count))
 
     async def slots(self, token: str, on_date: date) -> PublicSlots:
         booking, slot, business = await self._resolve(token)
-        item, staff = await self._visit(booking, slot, business)
+        item, staff = await self._movable(booking, slot, business)
         policy = policy_of(business)
         now = datetime.now(UTC)
         earliest = now + timedelta(hours=policy.lead_hours)
@@ -609,14 +624,9 @@ class PublicManageService:
             self.db, business.id, _MOVE_SCOPE, idempotency_key, request
         ):
             return await self._view(booking, slot, business)
-        blocked = self._blocked(booking, slot, business, "move")
-        if blocked is not None:
-            raise Conflict(
-                f"this visit can't be moved online ({blocked[0]})", code="change_blocked"
-            )
+        item, staff = await self._movable(booking, slot, business)
         policy = policy_of(business)
         _assert_bookable_window(policy, data.starts_at)
-        item, staff = await self._visit(booking, slot, business)
         ends_at = data.starts_at + (slot.ends_at - slot.starts_at)
         problem = await slot_problem(
             self.db,
@@ -630,7 +640,7 @@ class PublicManageService:
         )
         if problem is not None:
             raise Conflict(problem.message or _UNOFFERED)
-        if not await _offered(self.db, business, item, staff.id, data.starts_at, slot.id):
+        if await _offered(self.db, business, item, [staff.id], data.starts_at, slot.id) is None:
             raise Conflict(_UNOFFERED, code="slot_unavailable")
         await move_slot(self.db, business.id, slot, data.starts_at, ends_at)
         booking.reschedule_count += 1
@@ -651,7 +661,10 @@ class PublicManageService:
         await self.db.commit()
         return out
 
-    async def message(self, token: str, data: ManageMessage, key: str) -> ManageMessageResult:
+    async def message(
+        self, token: str, data: ManageMessage, key: str, notifier: Notifier
+    ) -> ManageMessageResult:
+        """Record the client's message in their thread and alert staff once, not on a replay."""
         booking, _, business = await self._resolve(token)
         client = (
             await self.db.execute(
@@ -678,9 +691,11 @@ class PublicManageService:
             self.db.add(message)
             await self.db.flush()
             cmd.record("booking.message", entity_type="booking", entity_id=booking.id)
+            received.append(message.id)
             return ManageMessageResult(id=message.id)
 
-        return await run_command(
+        received: list[str] = []
+        result = await run_command(
             self.db,
             PublicPrincipal(business.id),
             action=f"booking.message.{booking.id}",
@@ -689,6 +704,9 @@ class PublicManageService:
             idempotency_key=key,
             request=data,
         )
+        for message_id in received:
+            await notifier.on_inbound_message(self.db, message_id)
+        return result
 
     async def cancel(self, token: str, idempotency_key: str | None) -> ManageCancelResult:
         booking, slot, business = await self._locked(token)
@@ -697,7 +715,8 @@ class PublicManageService:
             prior = await replay(self.db, business.id, _CANCEL_SCOPE, idempotency_key, request)
             if prior is not None:
                 return ManageCancelResult.model_validate(prior)
-        blocked = self._blocked(booking, slot, business, "cancel")
+        _, staff = await self._visit(booking, slot, business)
+        blocked = self._blocked(booking, slot, business, staff, "cancel")
         if blocked is not None:
             raise Conflict(
                 f"this visit can't be canceled online ({blocked[0]})", code="change_blocked"
@@ -729,7 +748,7 @@ class PublicManageService:
         return result
 
     def _blocked(
-        self, booking: Booking, slot: Slot, business: Business, change: str
+        self, booking: Booking, slot: Slot, business: Business, staff: Staff, change: str
     ) -> tuple[ManageBlock, int | None] | None:
         """Why the client can't make this change online, and the cutoff hours when that is why."""
         policy = policy_of(business)
@@ -742,6 +761,8 @@ class PublicManageService:
             if hours_away < policy.cancel_cutoff_hours:
                 return "cutoff", policy.cancel_cutoff_hours
             return None
+        if staff.status != "active":
+            return "member_unavailable", None
         if slot.capacity > 1:
             return "class_session", None
         if booking.reschedule_count >= policy.max_reschedules:
@@ -785,6 +806,18 @@ class PublicManageService:
             raise NotFound(_GONE)
         return item, staff
 
+    async def _movable(
+        self, booking: Booking, slot: Slot, business: Business
+    ) -> tuple[Item, Staff]:
+        """The visit's service and member, when the client may move it online."""
+        item, staff = await self._visit(booking, slot, business)
+        blocked = self._blocked(booking, slot, business, staff, "move")
+        if blocked is not None:
+            raise Conflict(
+                f"this visit can't be moved online ({blocked[0]})", code="change_blocked"
+            )
+        return item, staff
+
     async def _view(self, booking: Booking, slot: Slot, business: Business) -> ManagedBooking:
         item, staff = await self._visit(booking, slot, business)
         client = await self.db.get(Client, booking.client_id)
@@ -800,8 +833,8 @@ class PublicManageService:
         )
         images = await item_images(self.db, business.id, [item.id])
         tz = await business_tz(self.db, business.id)
-        move = self._blocked(booking, slot, business, "move")
-        cancel = self._blocked(booking, slot, business, "cancel")
+        move = self._blocked(booking, slot, business, staff, "move")
+        cancel = self._blocked(booking, slot, business, staff, "cancel")
         blocked, blocked_hours = cancel or move or (None, None)
         return ManagedBooking(
             refund_status=await booking_refund_status(self.db, booking),

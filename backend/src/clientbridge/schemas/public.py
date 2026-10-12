@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from clientbridge.core.mirrors import Mirror
+from clientbridge.core.phones import Phone
 from clientbridge.models.business import Staff
 from clientbridge.models.catalog import Item, ItemKind
 from clientbridge.models.scheduling import Booking, BookingStatus, DepositStatus
@@ -127,7 +128,9 @@ class ManagedAddon(BaseModel):
     unit_cents: int
 
 
-ManageBlock = Literal["status", "by_phone", "cutoff", "class_session", "reschedule_limit"]
+ManageBlock = Literal[
+    "status", "by_phone", "cutoff", "class_session", "reschedule_limit", "member_unavailable"
+]
 
 
 class ManagedBooking(Mirror):
@@ -177,7 +180,7 @@ class ManageCancelResult(BaseModel):
 class PublicBookingClient(BaseModel):
     name: str
     email: str | None = None
-    phone: str | None = None
+    phone: Phone = None
 
     @model_validator(mode="after")
     def _contactable(self) -> "PublicBookingClient":

@@ -1,5 +1,5 @@
 import { StatusBar } from "expo-status-bar";
-import type { ReactNode } from "react";
+import { type ReactNode, useCallback } from "react";
 import {
     failedStatus,
     strings,
@@ -25,7 +25,8 @@ import { api, identity, onSignedOut, selectBusiness } from "./src/lib/api";
 import { clearSession, getSession, rememberUser, signIn } from "./src/lib/auth";
 import { stripePublishableKey } from "./src/lib/config";
 import { connectPowerSync, replica, signOut } from "./src/lib/powersync";
-import { registerForPush } from "./src/lib/push";
+import { registerForPush, unregisterFromPush, usePushTaps } from "./src/lib/push";
+import { useOpenLink } from "./src/lib/links";
 import { SignOutContext } from "./src/lib/session";
 import type { RootStackParamList, TabParamList } from "./src/navigation";
 import { ScheduleScreen } from "./src/screens/Schedule";
@@ -66,6 +67,15 @@ const navTheme = {
 };
 
 function Tabs() {
+    const open = useOpenLink();
+    usePushTaps(
+        useCallback(
+            (threadId: string) => {
+                open("inbox", threadId);
+            },
+            [open],
+        ),
+    );
     return (
         <Tab.Navigator
             initialRouteName="Today"
@@ -122,6 +132,7 @@ const lifecycle = {
     },
     pause: () => replica.pause(),
     discard: async () => {
+        await unregisterFromPush();
         await endSession();
         await signOut();
     },

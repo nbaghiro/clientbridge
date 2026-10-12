@@ -1,7 +1,7 @@
 import { discardRejectedHours, enqueueHours, strandedKey, type WeekDay } from "@clientbridge/sync";
 import { useBusinessQuery as useQuery } from "../hooks";
 import { usePowerSync } from "@powersync/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { type ApiLike, type Attempt, attemptKey } from "../api";
 import {
@@ -808,9 +808,10 @@ interface TimeOffForm {
     error: string | null;
     submit: () => void;
     timeOptions: { key: string; label: string }[];
-    pickerDays: (
-        offset: number,
-    ) => { key: string; weekday: string; day: string; closed: boolean; isToday: boolean }[];
+    pickerDays: { key: string; weekday: string; day: string; closed: boolean; isToday: boolean }[];
+    // Weeks from this one; only the shown week's closures are read.
+    pickerWeek: number;
+    setPickerWeek: (week: number) => void;
 }
 
 /** Time off for one person, or a closure for everyone; lists the visits it would leave without a groomer. */
@@ -846,12 +847,11 @@ export function useTimeOffForm(
             ? combineDayAndTime(from, endTime, zone)
             : addDays(combineDayAndTime(lastDay, "00:00", zone), 1, zone);
     const valid = end > start;
-    const range = useMemo(
-        () => ({ from: startOfDay(now, zone), to: addDays(now, 400, zone) }),
-        [now, zone],
-    );
-    const { events } = useScheduleEvents(range.from, range.to);
-    const avail = useAvailability(range.from, range.to);
+    const today = startOfDay(now, zone);
+    const { events } = useScheduleEvents(start > today ? start : today, end);
+    const [pickerWeek, setPickerWeek] = useState(0);
+    const pickerStart = addDays(today, pickerWeek * 7, zone);
+    const avail = useAvailability(pickerStart, addDays(pickerStart, 7, zone));
     const affected = valid ? affectedBy(events, staffId === "" ? null : staffId, start, end) : [];
     const members = staffRows.filter(
         (m) => m.status === "active" && (manager || m.id === viewer?.staffId),
@@ -923,18 +923,17 @@ export function useTimeOffForm(
             });
         },
         timeOptions: timeOptions(),
-        pickerDays: (offset) => {
-            const base = addDays(now, offset, zone);
-            return Array.from({ length: 7 }, (_, i) => {
-                const d = addDays(base, i, zone);
-                return {
-                    key: dateKey(d, zone),
-                    weekday: formatWeekday(d, zone),
-                    day: formatDayNumber(d, zone),
-                    closed: avail.isClosed(d) !== null,
-                    isToday: sameDay(d, now, zone),
-                };
-            });
-        },
+        pickerDays: Array.from({ length: 7 }, (_, i) => {
+            const d = addDays(pickerStart, i, zone);
+            return {
+                key: dateKey(d, zone),
+                weekday: formatWeekday(d, zone),
+                day: formatDayNumber(d, zone),
+                closed: avail.isClosed(d) !== null,
+                isToday: sameDay(d, now, zone),
+            };
+        }),
+        pickerWeek,
+        setPickerWeek,
     };
 }

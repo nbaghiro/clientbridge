@@ -65,6 +65,9 @@ interface Strings {
         readonly mixedCurrencies: string;
         readonly idempotencyKeyReused: string;
         readonly visitNotStarted: string;
+        readonly staffHasFutureWork: string;
+        readonly broadcastAddressMissing: string;
+        readonly broadcastContactMissing: string;
     } & Labels;
     readonly ui: {
         readonly clearSearch: string;
@@ -1429,6 +1432,7 @@ interface Strings {
             readonly call: string;
             readonly text: string;
             readonly prefers: (channel: string) => string;
+            readonly textsStopped: (when: string) => string;
             readonly inProgress: string;
             readonly depositDue: (amount: string) => string;
             readonly depositPaid: (amount: string) => string;
@@ -1820,6 +1824,8 @@ interface Strings {
         readonly confirmSend: string;
         readonly sentTitle: string;
         readonly scheduledTitle: string;
+        readonly queuedTitle: string;
+        readonly queuedBody: (when: string, n: number) => string;
         readonly sentBody: (n: number) => string;
         readonly sentDone: string;
         readonly newAnother: string;
@@ -2327,6 +2333,21 @@ interface Strings {
             readonly removeTitle: (name: string) => string;
             readonly removeBody: string;
             readonly removeConfirm: string;
+            readonly removeNoWork: string;
+            readonly removeWork: (count: number) => string;
+            readonly removeSeries: (count: number) => string;
+            readonly removeFuture: string;
+            readonly removeReassign: string;
+            readonly removeReassignHint: string;
+            readonly removeCancel: string;
+            readonly removeCancelHint: string;
+            readonly removeTaker: string;
+            readonly removeAnyone: string;
+            readonly removeStateMove: string;
+            readonly removeStateCancel: string;
+            readonly removeLeftState: string;
+            readonly removeLeftTitle: (name: string) => string;
+            readonly removeLeftBody: (count: number) => string;
             readonly ownerNote: string;
             readonly selfNote: string;
             readonly noInvites: string;
@@ -3644,6 +3665,7 @@ interface Strings {
         readonly nameRequired: string;
         readonly contactRequired: string;
         readonly emailInvalid: string;
+        readonly phoneInvalid: string;
         readonly petRequired: string;
         readonly summary: string;
         readonly dueNow: string;
@@ -3769,6 +3791,7 @@ interface Strings {
         readonly nextText: string;
         readonly nextPickup: string;
         readonly incomplete: string;
+        readonly phoneInvalid: string;
         readonly orderError: string;
         readonly notFoundTitle: string;
         readonly notFoundBody: string;
@@ -3957,6 +3980,7 @@ interface Strings {
             readonly by_phone: string;
             readonly class_session: string;
             readonly reschedule_limit: string;
+            readonly member_unavailable: string;
             readonly cutoff: (hours: number) => string;
         };
         readonly error: string;

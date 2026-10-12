@@ -159,6 +159,19 @@ export function phoneDigits(value: string | null | undefined): string {
     return (value ?? "").replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
 }
 
+/** The number as E.164 ("+12505550201"), by the rule the server applies; null when unreadable. */
+export function normalizePhone(value: string | null | undefined): string | null {
+    const raw = (value ?? "").trim();
+    const international = raw.startsWith("+");
+    let digits = raw.replace(/\D/g, "");
+    if (!international && digits.length === 10) digits = `1${digits}`;
+    if (international && digits.length >= 8 && digits.length <= 15 && !digits.startsWith("0"))
+        return `+${digits}`;
+    if (digits.length === 11 && digits.startsWith("1") && !["0", "1"].includes(digits[1] ?? ""))
+        return `+${digits}`;
+    return null;
+}
+
 /** "(250) 555-0201" for a North American number, stored local or as +1; anything else as entered. */
 export function formatPhone(raw: string | null | undefined): string {
     const d = phoneDigits(raw);

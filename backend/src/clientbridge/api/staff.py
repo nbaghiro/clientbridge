@@ -8,6 +8,9 @@ from clientbridge.core.deps import (
     DbSession,
     EmailDep,
     FreshIdentity,
+    GatewayDep,
+    PushDep,
+    SmsDep,
 )
 from clientbridge.core.ratelimit import public_invite_rate_limit
 from clientbridge.schemas.staff import (
@@ -19,8 +22,11 @@ from clientbridge.schemas.staff import (
     RoleUpdate,
     StaffPayOut,
     StaffPayUpdate,
+    StaffRemove,
+    StaffRemoveOut,
     TeamOut,
 )
+from clientbridge.services.notifications import Notifier
 from clientbridge.services.staff import StaffService
 
 router = APIRouter(prefix="/staff", tags=["staff"])
@@ -90,6 +96,23 @@ async def change_role(
     await StaffService(db).change_role(principal, staff_id, body)
 
 
-@router.delete("/{staff_id}", status_code=204)
-async def remove_member(staff_id: str, principal: CurrentPrincipal, db: DbSession) -> None:
-    await StaffService(db).remove(principal, staff_id)
+@router.post("/{staff_id}/remove", response_model=StaffRemoveOut)
+async def remove_member(
+    staff_id: str,
+    body: StaffRemove,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> StaffRemoveOut:
+    result, fresh = await StaffService(db).remove(
+        principal, staff_id, body, gateway=gateway, idempotency_key=idempotency_key
+    )
+    if fresh:
+        notifier = Notifier(email, sms, push)
+        await notifier.on_visits_reassigned(db, result.moved)
+        await notifier.on_visits_canceled(db, result.canceled)
+    return result
