@@ -82,6 +82,8 @@ def test_prod_requires_real_secrets() -> None:
         "RESEND_API_KEY",
         "EMAIL_FROM",
         "RESEND_WEBHOOK_SECRET",
+        "STRIPE_PLATFORM_WEBHOOK_SECRET",
+        "STRIPE_PORTAL_CONFIGURATION",
     ):
         assert name in str(caught.value)
     assert EnvSettings(env="dev").env == "dev"  # dev keeps the convenient defaults

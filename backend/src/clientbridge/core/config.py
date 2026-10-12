@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""  # the Connect endpoint's (snapshot events) signing secret
     stripe_thin_webhook_secret: str = ""  # the account event destination's (thin events) secret
+    stripe_platform_webhook_secret: str = ""  # the platform endpoint's (plan subscriptions) secret
+    stripe_portal_configuration: str = ""  # the Billing Portal configuration owners manage plans in
     stripe_connect_country: str = "CA"
     api_base_url: str = "http://127.0.0.1:8701"  # the public API origin, which Twilio signs
     web_base_url: str = "http://localhost:8700"
@@ -105,6 +107,10 @@ class Settings(BaseSettings):
                 missing.append("STRIPE_WEBHOOK_SECRET")
             if not self.stripe_thin_webhook_secret:
                 missing.append("STRIPE_THIN_WEBHOOK_SECRET")
+            if not self.stripe_platform_webhook_secret:
+                missing.append("STRIPE_PLATFORM_WEBHOOK_SECRET")
+            if not self.stripe_portal_configuration:
+                missing.append("STRIPE_PORTAL_CONFIGURATION")
             if not self.twilio_auth_token:
                 missing.append("TWILIO_AUTH_TOKEN")
             if self.auth_email_hook_secret in ("", _DEV_COURIER_SECRET):

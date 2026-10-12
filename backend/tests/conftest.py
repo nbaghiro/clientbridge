@@ -1,7 +1,8 @@
 """Shared fixtures: each test runs in a transaction rolled back at teardown, over the seeded DB."""
 
 import json
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Sequence
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -50,6 +51,8 @@ from clientbridge.integrations.stripe import (
     MandateState,
     PaymentGateway,
     PaymentIntentResult,
+    PlanItem,
+    PlanSubscription,
     PostalAddress,
     PriceTerms,
     RefundResult,
@@ -292,6 +295,14 @@ async def session_token(
     return identities.issue(identity_for(user, verified=verified))
 
 
+@dataclass(frozen=True)
+class PlanCheckout:
+    account_id: str
+    items: tuple[PlanItem, ...]
+    business_id: str
+    trial_end: datetime | None
+
+
 class FakePaymentGateway:
     refund_status: str = "succeeded"
 
@@ -300,6 +311,12 @@ class FakePaymentGateway:
         self.created_accounts: list[str] = []
         self.configurations: dict[str, set[AccountConfiguration]] = {}
         self.merchant_added: list[str] = []
+        self.customer_added: list[tuple[str, PostalAddress]] = []
+        self.checkouts: list[PlanCheckout] = []
+        self.checkout_keys: dict[str, str] = {}
+        self.portal_sessions: list[str] = []
+        self.plan_subscriptions: dict[str, PlanSubscription] = {}
+        self.plan_item_keys: list[str] = []
         self.detached: list[str] = []
         self.refunds: list[tuple[str, int, bool]] = []
         self.created_prices: list[str] = []
@@ -333,6 +350,7 @@ class FakePaymentGateway:
         email: str | None,
         url: str | None = None,
         configurations: tuple[AccountConfiguration, ...],
+        address: PostalAddress | None = None,
         idempotency_key: str | None = None,
     ) -> str:
         self._seq += 1
@@ -346,6 +364,44 @@ class FakePaymentGateway:
     ) -> None:
         self.merchant_added.append(account_id)
         self.configurations.setdefault(account_id, set()).add("merchant")
+
+    async def add_customer_configuration(self, account_id: str, *, address: PostalAddress) -> None:
+        self.customer_added.append((account_id, address))
+        self.configurations.setdefault(account_id, set()).add("customer")
+
+    async def create_plan_checkout(
+        self,
+        account_id: str,
+        *,
+        items: Sequence[PlanItem],
+        business_id: str,
+        trial_end: datetime | None,
+        success_url: str,
+        cancel_url: str,
+        idempotency_key: str,
+    ) -> str:
+        if idempotency_key not in self.checkout_keys:
+            self.checkouts.append(PlanCheckout(account_id, tuple(items), business_id, trial_end))
+            self.checkout_keys[idempotency_key] = (
+                f"https://checkout.stripe.test/c/{len(self.checkouts)}"
+            )
+        return self.checkout_keys[idempotency_key]
+
+    async def create_portal_session(self, account_id: str, *, return_url: str) -> str:
+        self.portal_sessions.append(account_id)
+        return f"https://billing.stripe.test/p/{len(self.portal_sessions)}"
+
+    async def get_plan_subscription(self, subscription_id: str) -> PlanSubscription:
+        return self.plan_subscriptions[subscription_id]
+
+    async def set_plan_items(
+        self, subscription_id: str, *, items: Sequence[PlanItem], idempotency_key: str
+    ) -> PlanSubscription:
+        self.plan_item_keys.append(idempotency_key)
+        current = self.plan_subscriptions[subscription_id]
+        updated = replace(current, items=tuple(items))
+        self.plan_subscriptions[subscription_id] = updated
+        return updated
 
     async def create_account_link(
         self, account_id: str, *, refresh_url: str, return_url: str

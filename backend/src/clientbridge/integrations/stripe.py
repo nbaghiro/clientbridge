@@ -3,7 +3,7 @@
 import json
 import re
 import unicodedata
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Concatenate, Literal, Protocol, cast
@@ -12,13 +12,17 @@ import stripe
 from stripe.params import (
     AccountSessionCreateParamsComponents,
     AccountSessionCreateParamsComponentsAccountManagementFeatures,
+    SubscriptionModifyParamsItem,
 )
+from stripe.params.checkout import SessionCreateParamsSubscriptionData
 from stripe.params.v2.core import (
     AccountCreateParams,
     AccountCreateParamsConfiguration,
+    AccountCreateParamsConfigurationCustomer,
     AccountCreateParamsConfigurationMerchant,
     AccountCreateParamsDefaults,
     AccountCreateParamsDefaultsResponsibilities,
+    AccountCreateParamsIdentity,
     AccountUpdateParams,
     AccountUpdateParamsConfigurationMerchant,
 )
@@ -264,6 +268,94 @@ class SubscriptionResult:
     current_period_end: datetime
 
 
+@dataclass(frozen=True)
+class PlanItem:
+    lookup_key: str
+    quantity: int = 1
+
+
+@dataclass(frozen=True)
+class PlanSubscription:
+    id: str
+    status: str
+    customer_account: str | None
+    business_id: str | None  # the metadata Checkout copied onto the subscription
+    items: tuple[PlanItem, ...]
+    current_period_end: datetime | None
+    cancel_at_period_end: bool
+    trial_end: datetime | None
+
+
+def _moment(value: object) -> datetime | None:
+    return datetime.fromtimestamp(value, tz=UTC) if isinstance(value, int) else None
+
+
+def plan_subscription_from(data: dict[str, object]) -> PlanSubscription:
+    """A platform subscription (snapshot or fetched) with its items named by price lookup key."""
+    items: list[PlanItem] = []
+    for row in _rows(_dict(data.get("items")).get("data")):
+        key = _dict(row.get("price")).get("lookup_key")
+        quantity = row.get("quantity")
+        if isinstance(key, str):
+            items.append(PlanItem(key, quantity if isinstance(quantity, int) else 1))
+    customer_account = data.get("customer_account")
+    business_id = _dict(data.get("metadata")).get("business_id")
+    return PlanSubscription(
+        id=str(data.get("id")),
+        status=str(data.get("status")),
+        customer_account=customer_account if isinstance(customer_account, str) else None,
+        business_id=business_id if isinstance(business_id, str) else None,
+        items=tuple(items),
+        current_period_end=_moment(period_timestamp(data, "end")),
+        cancel_at_period_end=data.get("cancel_at_period_end") is True,
+        trial_end=_moment(data.get("trial_end")),
+    )
+
+
+def plan_item_changes(
+    subscription: dict[str, object], items: Sequence[PlanItem], price_ids: Mapping[str, str]
+) -> list[dict[str, object]]:
+    """The subscription item updates that leave exactly these items, keeping matching ones."""
+    wanted = {item.lookup_key: item.quantity for item in items}
+    changes: list[dict[str, object]] = []
+    for row in _rows(_dict(subscription.get("items")).get("data")):
+        key = _dict(row.get("price")).get("lookup_key")
+        if isinstance(key, str) and key in wanted:
+            changes.append({"id": row.get("id"), "quantity": wanted.pop(key)})
+        else:
+            changes.append({"id": row.get("id"), "deleted": True})
+    changes += [{"price": price_ids[key], "quantity": qty} for key, qty in wanted.items()]
+    return changes
+
+
+def address_params(address: PostalAddress) -> dict[str, str]:
+    fields = {
+        "line1": address.line1,
+        "city": address.city,
+        "state": address.province,
+        "postal_code": address.postal_code,
+        "country": "CA",
+    }
+    if address.line2 is not None:
+        fields["line2"] = address.line2
+    return fields
+
+
+def has_identity_address(account: dict[str, object]) -> bool:
+    identity = _dict(account.get("identity"))
+    business = _dict(_dict(identity.get("business_details")).get("address"))
+    individual = _dict(_dict(identity.get("individual")).get("address"))
+    return bool(business.get("line1") or individual.get("line1"))
+
+
+# Stripe Tax places a customer account by its identity address
+CUSTOMER_CONFIGURATION: dict[str, object] = {
+    "capabilities": {"automatic_indirect_tax": {"requested": True}}
+}
+# lookup key -> price id; a key moves to a new price only through stripe_setup and a restart
+_PLAN_PRICE_IDS: dict[str, str] = {}
+
+
 class WebhookVerificationError(Exception):
     """A webhook payload's signature could not be verified."""
 
@@ -280,12 +372,39 @@ class PaymentGateway(Protocol):
         email: str | None,
         url: str | None = None,
         configurations: tuple[AccountConfiguration, ...],
+        address: PostalAddress | None = None,
         idempotency_key: str | None = None,
     ) -> str: ...
     async def add_merchant_configuration(
         self, account_id: str, *, business_name: str, email: str | None
     ) -> None:
         """Let an account that only pays us take payments too; repeating it changes nothing."""
+        ...
+
+    async def add_customer_configuration(self, account_id: str, *, address: PostalAddress) -> None:
+        """Let an account pay for its plan; the address is used only when it has none yet."""
+        ...
+
+    async def create_plan_checkout(
+        self,
+        account_id: str,
+        *,
+        items: Sequence[PlanItem],
+        business_id: str,
+        trial_end: datetime | None,
+        success_url: str,
+        cancel_url: str,
+        idempotency_key: str,
+    ) -> str:
+        """A hosted Checkout Session that starts the plan subscription; returns its URL."""
+        ...
+
+    async def create_portal_session(self, account_id: str, *, return_url: str) -> str: ...
+    async def get_plan_subscription(self, subscription_id: str) -> PlanSubscription: ...
+    async def set_plan_items(
+        self, subscription_id: str, *, items: Sequence[PlanItem], idempotency_key: str
+    ) -> PlanSubscription:
+        """Swap the plan price and set the seat quantity, prorating the difference."""
         ...
 
     async def create_account_link(
@@ -451,7 +570,13 @@ def _keyed[**P, R](
 
 class StripeGateway:
     def __init__(
-        self, secret_key: str, webhook_secret: str, country: str, thin_webhook_secret: str = ""
+        self,
+        secret_key: str,
+        webhook_secret: str,
+        country: str,
+        thin_webhook_secret: str = "",
+        platform_webhook_secret: str = "",
+        portal_configuration: str = "",
     ) -> None:
         self.configured = bool(secret_key)
         stripe.api_key = secret_key
@@ -461,6 +586,8 @@ class StripeGateway:
         )
         self._webhook_secret = webhook_secret
         self._thin_webhook_secret = thin_webhook_secret
+        self._platform_webhook_secret = platform_webhook_secret
+        self._portal_configuration = portal_configuration
         self._country = country
 
     @_keyed
@@ -471,6 +598,7 @@ class StripeGateway:
         email: str | None,
         url: str | None = None,
         configurations: tuple[AccountConfiguration, ...],
+        address: PostalAddress | None = None,
         idempotency_key: str | None = None,
     ) -> str:
         # responsibilities and the dashboard are fixed at creation, so every account gets ours
@@ -484,10 +612,18 @@ class StripeGateway:
         configuration: AccountCreateParamsConfiguration = {}
         if "merchant" in configurations:
             configuration["merchant"] = _merchant_configuration(business_name, email)
+        identity: dict[str, object] = {"country": self._country.lower()}
+        if "customer" in configurations:
+            if address is None:
+                raise ValueError("a paying account needs its address for sales tax")
+            configuration["customer"] = cast(
+                AccountCreateParamsConfigurationCustomer, CUSTOMER_CONFIGURATION
+            )
+            identity["business_details"] = {"address": address_params(address)}
         params: AccountCreateParams = {
             "display_name": business_name,
             "dashboard": "none",
-            "identity": {"country": self._country.lower()},
+            "identity": cast(AccountCreateParamsIdentity, identity),
             "configuration": configuration,
             "defaults": defaults,
             "include": ["configuration.merchant", "requirements"],
@@ -511,6 +647,103 @@ class StripeGateway:
             "include": ["configuration.merchant"],
         }
         await self._client.v2.core.accounts.update_async(account_id, params)
+
+    @_keyed
+    async def add_customer_configuration(self, account_id: str, *, address: PostalAddress) -> None:
+        account = await self._client.v2.core.accounts.retrieve_async(
+            account_id, {"include": ["identity"]}
+        )
+        body: dict[str, object] = {"configuration": {"customer": CUSTOMER_CONFIGURATION}}
+        # an onboarded account already has the address its owner verified
+        if not has_identity_address(account.to_dict()):
+            body["identity"] = {"business_details": {"address": address_params(address)}}
+        await self._client.v2.core.accounts.update_async(
+            account_id, cast(AccountUpdateParams, body)
+        )
+
+    async def _price_ids(self, keys: Sequence[str]) -> dict[str, str]:
+        missing = [key for key in keys if key not in _PLAN_PRICE_IDS]
+        if missing:
+            prices = await stripe.Price.list_async(lookup_keys=missing, active=True)
+            for price in prices.data:
+                if price.lookup_key is not None:
+                    _PLAN_PRICE_IDS[price.lookup_key] = price.id
+        unknown = [key for key in keys if key not in _PLAN_PRICE_IDS]
+        if unknown:
+            raise PaymentsNotConfigured(
+                f"no active Stripe price has the lookup key {', '.join(unknown)}; "
+                "run scripts.stripe_setup"
+            )
+        return {key: _PLAN_PRICE_IDS[key] for key in keys}
+
+    @_keyed
+    async def create_plan_checkout(
+        self,
+        account_id: str,
+        *,
+        items: Sequence[PlanItem],
+        business_id: str,
+        trial_end: datetime | None,
+        success_url: str,
+        cancel_url: str,
+        idempotency_key: str,
+    ) -> str:
+        prices = await self._price_ids([item.lookup_key for item in items])
+        subscription: SessionCreateParamsSubscriptionData = {
+            # flexible billing lets a yearly plan carry a monthly seat item
+            "billing_mode": {"type": "flexible"},
+            "metadata": {"business_id": business_id},
+        }
+        if trial_end is not None:
+            subscription["trial_end"] = int(trial_end.timestamp())
+        session = await stripe.checkout.Session.create_async(
+            mode="subscription",
+            customer_account=account_id,
+            line_items=[
+                {"price": prices[item.lookup_key], "quantity": item.quantity} for item in items
+            ],
+            subscription_data=subscription,
+            automatic_tax={"enabled": True},
+            client_reference_id=business_id,
+            metadata={"business_id": business_id},
+            success_url=success_url,
+            cancel_url=cancel_url,
+            idempotency_key=idempotency_key,
+        )
+        if session.url is None:
+            raise ValueError(f"checkout session {session.id} has no url")
+        return session.url
+
+    @_keyed
+    async def create_portal_session(self, account_id: str, *, return_url: str) -> str:
+        if not self._portal_configuration:
+            raise PaymentsNotConfigured("STRIPE_PORTAL_CONFIGURATION is not set")
+        session = await stripe.billing_portal.Session.create_async(
+            customer_account=account_id,
+            configuration=self._portal_configuration,
+            return_url=return_url,
+        )
+        return str(session.url)
+
+    @_keyed
+    async def get_plan_subscription(self, subscription_id: str) -> PlanSubscription:
+        sub = await stripe.Subscription.retrieve_async(subscription_id)
+        return plan_subscription_from(sub.to_dict())
+
+    @_keyed
+    async def set_plan_items(
+        self, subscription_id: str, *, items: Sequence[PlanItem], idempotency_key: str
+    ) -> PlanSubscription:
+        sub = await stripe.Subscription.retrieve_async(subscription_id)
+        prices = await self._price_ids([item.lookup_key for item in items])
+        changes = plan_item_changes(sub.to_dict(), items, prices)
+        updated = await stripe.Subscription.modify_async(
+            subscription_id,
+            items=cast(list[SubscriptionModifyParamsItem], changes),
+            proration_behavior="create_prorations",
+            idempotency_key=idempotency_key,
+        )
+        return plan_subscription_from(updated.to_dict())
 
     @_keyed
     async def create_account_link(  # pragma: no cover
@@ -937,10 +1170,13 @@ class StripeGateway:
             raise WebhookVerificationError("the payload is not JSON") from exc
         if not isinstance(event, dict):
             raise WebhookVerificationError("the payload is not an event")
-        # the Connect endpoint and the thin event destination each sign with their own secret
-        secret = (
-            self._thin_webhook_secret if event.get("object") == THIN_EVENT else self._webhook_secret
-        )
+        # the Connect endpoint, the platform endpoint and the thin destination each have a secret
+        if event.get("object") == THIN_EVENT:
+            secret = self._thin_webhook_secret
+        elif event.get("account"):
+            secret = self._webhook_secret
+        else:
+            secret = self._platform_webhook_secret
         if not secret:
             raise WebhookVerificationError("no signing secret is configured for this event")
         try:
@@ -975,4 +1211,6 @@ def get_payment_gateway() -> PaymentGateway:
         s.stripe_webhook_secret,
         s.stripe_connect_country,
         s.stripe_thin_webhook_secret,
+        s.stripe_platform_webhook_secret,
+        s.stripe_portal_configuration,
     )

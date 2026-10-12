@@ -12,12 +12,13 @@ from clientbridge.integrations.stripe import StripeGateway, WebhookVerificationE
 
 SECRET = "whsec_test_kQ7rZ8m2vP1nX4tL6yB0cD3eF5gH9jK"
 THIN_SECRET = "whsec_test_thin_R4nD0mV2eVeNtDeSt1nAt10n"
+PLATFORM_SECRET = "whsec_test_platform_Pl4tF0rMeNdP01nT"
 FIXTURES = Path(__file__).parent / "fixtures" / "stripe"
 THIN = "account_requirements_updated.json"
 
 
 def _gateway(secret: str = SECRET, thin_secret: str = THIN_SECRET) -> StripeGateway:
-    return StripeGateway("sk_test_unused", secret, "CA", thin_secret)
+    return StripeGateway("sk_test_unused", secret, "CA", thin_secret, PLATFORM_SECRET)
 
 
 def _signed_header(payload: bytes, secret: str, *, timestamp: int | None = None) -> str:
@@ -81,8 +82,28 @@ def test_event_without_account_yields_none() -> None:
             "data": {"object": {"id": "ch_1"}},
         }
     ).encode()
-    event = _gateway().verify_webhook(payload, _signed_header(payload, SECRET))
+    event = _gateway().verify_webhook(payload, _signed_header(payload, PLATFORM_SECRET))
     assert event.account is None
+
+
+def test_a_platform_event_needs_the_platform_secret() -> None:
+    payload = json.dumps(
+        {
+            "id": "evt_plan",
+            "object": "event",
+            "type": "customer.subscription.updated",
+            "data": {"object": {"id": "sub_plan", "customer_account": "acct_paying"}},
+        }
+    ).encode()
+    for wrong in (SECRET, THIN_SECRET):
+        with pytest.raises(WebhookVerificationError):
+            _gateway().verify_webhook(payload, _signed_header(payload, wrong))
+    connect = json.loads(payload) | {"account": "acct_paying"}
+    connect_payload = json.dumps(connect).encode()
+    with pytest.raises(WebhookVerificationError):
+        _gateway().verify_webhook(connect_payload, _signed_header(connect_payload, PLATFORM_SECRET))
+    event = _gateway().verify_webhook(payload, _signed_header(payload, PLATFORM_SECRET))
+    assert event.type == "customer.subscription.updated" and event.account is None
 
 
 def test_rejects_a_tampered_payload() -> None:
