@@ -75,15 +75,20 @@ async def test_unknown_token_404(api: httpx.AsyncClient) -> None:
     assert (await api.get("/pay/nope")).status_code == 404
 
 
-async def test_public_pay_interac_creates_pending(api: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_pay_page_names_the_business_contact_when_it_takes_no_cards(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    brand = {"phone": "+1 250 555 0100", "email": "hello@birchbark.example"}
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(stripe_charges_enabled=False, brand=Business.brand.op("||")(brand))
+    )
     _, token = await _sent_invoice(db)
-    res = await api.post(f"/pay/{token}/interac")
-    assert res.status_code == 200
-    body = res.json()
-    assert len(body["reference_code"]) == 8
-    assert body["amount_cents"] == 8000
-    pay = (await db.execute(select(Payment).where(Payment.id == body["payment_id"]))).scalar_one()
-    assert pay.method == "interac" and pay.status == "pending" and pay.business_id == BIZ
+    body = (await api.get(f"/pay/{token}")).json()
+    assert body["accepts_card"] is False
+    assert (body["contact_phone"], body["contact_email"]) == (brand["phone"], brand["email"])
+    assert "interac" not in body and "interac_email" not in body
 
 
 async def test_public_pay_card_requires_charges_enabled(
@@ -117,6 +122,11 @@ async def test_public_pay_card_returns_client_secret(
 
 
 async def test_cannot_pay_a_paid_invoice(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(stripe_account_id="acct_pub", stripe_charges_enabled=True)
+    )
     inv_id, token = await _sent_invoice(db)
     await ledger.post(
         db,
@@ -126,7 +136,8 @@ async def test_cannot_pay_a_paid_invoice(api: httpx.AsyncClient, db: AsyncSessio
         legs=[Leg("business", BIZ, "bank", 8000), Leg("client", "cl_x", "receivable", -8000)],
         subject=("invoice", inv_id),
     )
-    assert (await api.post(f"/pay/{token}/interac")).status_code == 409
+    assert (await api.post(f"/pay/{token}/card")).status_code == 409
+    assert not (await _card_rows(db, inv_id))
 
 
 async def test_card_double_submit_is_idempotent(api: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -225,17 +236,6 @@ async def test_card_attempt_refused_while_the_payer_already_confirmed(
     assert [s for s, _, _ in await _card_rows(db, inv_id)] == ["pending"]
 
 
-async def test_interac_double_submit_reuses_reference(
-    api: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    inv_id, token = await _sent_invoice(db)
-    first = (await api.post(f"/pay/{token}/interac")).json()
-    second = (await api.post(f"/pay/{token}/interac")).json()
-    assert first["reference_code"] == second["reference_code"]  # same open request
-    rows = (await db.execute(select(Payment).where(Payment.invoice_id == inv_id))).scalars().all()
-    assert len(rows) == 1
-
-
 async def test_public_pay_is_rate_limited(api: httpx.AsyncClient, db: AsyncSession) -> None:
     rl = RateLimiter(limit=1, window_s=60.0)
 
@@ -244,9 +244,14 @@ async def test_public_pay_is_rate_limited(api: httpx.AsyncClient, db: AsyncSessi
             raise TooManyRequests("slow down")
 
     app.dependency_overrides[public_pay_rate_limit] = limited
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(stripe_account_id="acct_pub", stripe_charges_enabled=True)
+    )
     _, token = await _sent_invoice(db)
-    assert (await api.post(f"/pay/{token}/interac")).status_code == 200
-    assert (await api.post(f"/pay/{token}/interac")).status_code == 429
+    assert (await api.post(f"/pay/{token}/card")).status_code == 200
+    assert (await api.post(f"/pay/{token}/card")).status_code == 429
 
 
 async def test_pay_link_get_is_rate_limited(api: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -275,7 +280,7 @@ async def test_public_invoice_carries_the_document(
     ).json()
     paid = await as_owner.post(
         f"/v1/invoices/{sent['id']}/payments",
-        json={"method": "interac", "amount_cents": 5000, "send_receipt": False},
+        json={"method": "etransfer", "amount_cents": 5000, "send_receipt": False},
     )
     assert paid.status_code == 201, paid.text
     page = (await as_owner.get(f"/pay/{sent['pay_token']}")).json()
@@ -288,7 +293,7 @@ async def test_public_invoice_carries_the_document(
     ]
     assert page["total_cents"] == 7413
     assert page["credits"][0]["kind"] == "payment"
-    assert page["credits"][0]["method"] == "interac"
+    assert page["credits"][0]["method"] == "etransfer"
     assert page["credits"][0]["amount_cents"] == 5000
     assert page["balance_cents"] == 2413
 

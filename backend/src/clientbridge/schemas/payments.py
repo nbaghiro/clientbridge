@@ -4,7 +4,6 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from clientbridge.core.mirrors import Mirror
-from clientbridge.models.clients import Channel
 from clientbridge.models.payments import Payment, PaymentMethod, PaymentStatus, PayMethod
 from clientbridge.schemas.public import PublicBrand
 
@@ -93,25 +92,6 @@ class RefundPreview(BaseModel):
     parts: list[RefundPart]
 
 
-class InteracRequestIn(Mirror):
-    mirrors = Payment
-
-    amount_cents: int | None = Field(default=None, gt=0, description="Null requests the balance")
-    channel: Channel = "email"
-    expires_in_days: int = Field(default=14, ge=1, le=60)
-
-
-class InteracRequest(Mirror):
-    mirrors = Payment
-
-    payment_id: str
-    reference_code: str
-    send_to: str | None
-    amount_cents: int
-    channel: Channel | None = None
-    expires_at: datetime | None = None
-
-
 class PaymentMethodOut(Mirror):
     mirrors = PaymentMethod
 
@@ -125,13 +105,6 @@ class PaymentMethodOut(Mirror):
 
 class DetachResult(BaseModel):
     detached: bool
-
-
-class InteracWebhookBody(Mirror):
-    mirrors = Payment
-
-    reference_code: str
-    amount_cents: int
 
 
 TaxFamily = Literal["federal", "provincial"]
@@ -227,15 +200,6 @@ class PublicCredit(Mirror):
     at: datetime | None
 
 
-class PublicInterac(Mirror):
-    mirrors = Payment
-
-    reference_code: str
-    amount_cents: int
-    send_to: str | None
-    expires_at: datetime | None
-
-
 class PublicInvoice(BaseModel):
     tip_base_cents: int = Field(
         default=0, description="Service subtotal before tax; excludes retail and entitlements"
@@ -251,7 +215,12 @@ class PublicInvoice(BaseModel):
     balance_cents: int
     status: str
     accepts_card: bool
-    interac_email: str | None
+    contact_phone: str | None = Field(
+        default=None, description="The business's public phone, for paying when it takes no cards"
+    )
+    contact_email: str | None = Field(
+        default=None, description="The business's public email, for paying when it takes no cards"
+    )
     client_name: str | None = None
     issued_at: datetime | None = None
     due_at: datetime | None = None
@@ -263,9 +232,6 @@ class PublicInvoice(BaseModel):
     discount_reason: str | None = None
     taxes: list[PublicDocTax] = Field(default_factory=list)
     credits: list[PublicCredit] = Field(default_factory=list)
-    interac: PublicInterac | None = Field(
-        default=None, description="The e-Transfer request still waiting, if any"
-    )
     tip_for: list[str] = Field(
         default_factory=list, description="First names of the staff a tip on this invoice goes to"
     )
@@ -288,7 +254,7 @@ class PublicCardIntent(BaseModel):
 class InvoicePaymentIn(Mirror):
     mirrors = Payment
 
-    method: Literal["cash", "interac", "cheque", "card"] = Field(
+    method: Literal["cash", "etransfer", "cheque", "card"] = Field(
         description="cash, an e-Transfer already received, a cheque, or the client's saved card"
     )
     amount_cents: int = Field(gt=0)

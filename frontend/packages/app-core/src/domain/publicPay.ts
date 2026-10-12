@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
-import { formatDate, parseTimestamp } from "../datetime";
 import { formatList, formatMoney, formatPercent, parseCents, BUSINESS_CURRENCY } from "../format";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
@@ -15,13 +14,7 @@ import {
 } from "./printing";
 import { type PublicBrand, usePublicResource } from "./publicResource";
 import { refusal } from "../api";
-
-type PayMethod = "interac" | "card";
-
-/** Ranked pay methods for the public page: Interac first (no fee), card only when enabled. */
-function payMethods(invoice: { accepts_card: boolean }): PayMethod[] {
-    return invoice.accepts_card ? ["interac", "card"] : ["interac"];
-}
+import type { IconName } from "../icons";
 
 export interface PublicDocLine {
     description: string;
@@ -59,7 +52,8 @@ interface PublicInvoice {
     balance_cents: number;
     status: string;
     accepts_card: boolean;
-    interac_email: string | null;
+    contact_phone: string | null;
+    contact_email: string | null;
     client_name: string | null;
     issued_at: string | null;
     due_at: string | null;
@@ -71,16 +65,8 @@ interface PublicInvoice {
     discount_reason?: string | null;
     taxes: PublicDocTax[];
     credits: PublicCredit[];
-    interac?: PublicInteracRequest | null;
     tip_for?: string[];
     tip_base_cents?: number;
-}
-
-interface PublicInteracRequest {
-    reference_code: string;
-    amount_cents: number;
-    send_to: string | null;
-    expires_at: string | null;
 }
 
 export function publicDocTaxes(taxes: readonly PublicDocTax[]): PrintedDocTax[] {
@@ -152,6 +138,7 @@ export function printedPublicInvoice(
 ): PrintedDoc {
     const pr = strings.printing;
     const paid = invoice.balance_cents <= 0;
+    const online = !paid && invoice.accepts_card;
     const number = invoice.number === null ? null : String(invoice.number);
     return printedDoc(
         {
@@ -170,15 +157,8 @@ export function printedPublicInvoice(
             totals: publicInvoiceTotals(invoice),
             headline: { label: strings.publicPay.balanceDue, cents: invoice.balance_cents },
             stamp: paid ? pr.paidStamp : null,
-            payUrl: paid ? null : payUrl,
-            instructions: paid
-                ? []
-                : [
-                      pr.payOnline(payUrl),
-                      ...(invoice.interac_email !== null
-                          ? [pr.payInterac(invoice.interac_email)]
-                          : []),
-                  ],
+            payUrl: online ? payUrl : null,
+            instructions: online ? [pr.payOnline(payUrl)] : [],
             message: invoice.notes,
         },
         {
@@ -186,20 +166,12 @@ export function printedPublicInvoice(
             avatarUrl: invoice.brand.avatar_url ?? invoice.brand.logo_url,
             tagline: invoice.brand.tagline,
             brandColor: invoice.brand.primary,
-            email: invoice.interac_email,
+            email: invoice.contact_email,
             gstHstNumber: invoice.gst_hst_number,
             qstNumber: invoice.qst_number,
         },
         fallbackColor,
     );
-}
-
-export interface InteracRequest {
-    payment_id: string;
-    reference_code: string;
-    send_to: string | null;
-    amount_cents: number;
-    expires_at?: string | null;
 }
 
 interface PublicCardIntent {
@@ -209,7 +181,6 @@ interface PublicCardIntent {
 
 interface PublicPayClient {
     getPublicInvoice: (token: string) => Promise<PublicInvoice>;
-    payInterac(token: string): Promise<InteracRequest>;
     payCard(token: string, tipCents?: number): Promise<PublicCardIntent>;
 }
 
@@ -224,10 +195,6 @@ export function createPublicPayClient(baseUrl: string): PublicPayClient {
 
     return {
         getPublicInvoice: (token) => request<PublicInvoice>(`/pay/${encodeURIComponent(token)}`),
-        payInterac: (token) =>
-            request<InteracRequest>(`/pay/${encodeURIComponent(token)}/interac`, {
-                method: "POST",
-            }),
         payCard: (token, tipCents = 0) =>
             request<PublicCardIntent>(`/pay/${encodeURIComponent(token)}/card`, {
                 method: "POST",
@@ -237,17 +204,41 @@ export function createPublicPayClient(baseUrl: string): PublicPayClient {
     };
 }
 
+interface ContactAction {
+    key: string;
+    icon: IconName;
+    label: string;
+    href: string;
+}
+
+/** How to reach a business that takes no payments online: the phone and email its page shows. */
+function contactActions(invoice: PublicInvoice): ContactAction[] {
+    const actions: ContactAction[] = [];
+    if (invoice.contact_phone !== null)
+        actions.push({
+            key: "phone",
+            icon: "phone",
+            label: invoice.contact_phone,
+            href: `tel:${invoice.contact_phone}`,
+        });
+    if (invoice.contact_email !== null)
+        actions.push({
+            key: "email",
+            icon: "mail",
+            label: invoice.contact_email,
+            href: `mailto:${invoice.contact_email}`,
+        });
+    return actions;
+}
+
 type PublicPayStatus = "loading" | "not-found" | "error" | "ready" | "paid";
 
 interface PublicPayForm {
     status: PublicPayStatus;
     invoice: PublicInvoice | null;
-    methods: PayMethod[];
-    method: PayMethod;
-    setMethod: (m: PayMethod) => void;
-    interac: InteracRequest | null;
+    online: boolean;
+    contact: ContactAction[];
     card: PublicCardIntent | null;
-    payInterac: () => void;
     payCard: () => void;
     tip: PayLinkTip;
     markPaid: () => void;
@@ -259,8 +250,6 @@ interface PublicPayForm {
 
 export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPayForm {
     const { status: load, data: invoice } = usePublicResource(pay.getPublicInvoice, token);
-    const [method, setMethod] = useState<PayMethod>("interac");
-    const [interac, setInterac] = useState<InteracRequest | null>(null);
     const [card, setCard] = useState<PublicCardIntent | null>(null);
     const [paid, setPaid] = useState(false);
     const { busy, error, setError, run } = useAsyncAction();
@@ -268,14 +257,6 @@ export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPay
     const status: PublicPayStatus =
         load !== "ready" ? load : paid || invoice?.status === "paid" ? "paid" : "ready";
 
-    const payInterac = (): void => {
-        run(
-            async () => {
-                setInterac(await pay.payInterac(token));
-            },
-            { errorMessage: strings.publicPay.interacStartError },
-        );
-    };
     const tip = usePayLinkTip(invoice);
     const payCard = (): void => {
         if (tip.error !== null) return;
@@ -290,12 +271,9 @@ export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPay
     return {
         status,
         invoice,
-        methods: invoice !== null ? payMethods(invoice) : [],
-        method,
-        setMethod,
-        interac,
+        online: invoice?.accepts_card === true,
+        contact: invoice !== null ? contactActions(invoice) : [],
         card,
-        payInterac,
         payCard,
         tip,
         cancelCard: () => {
@@ -371,119 +349,6 @@ function usePayLinkTip(invoice: PublicInvoice | null): PayLinkTip {
         },
         cents,
         totalCents: balance + cents,
-        error,
-    };
-}
-
-const POLL_MS = 10_000;
-
-interface InteracStep {
-    text: string;
-    copy: { key: string; label: string; value: string; code: boolean } | null;
-}
-
-interface PublicInterac {
-    status: PublicPayStatus;
-    invoice: PublicInvoice | null;
-    paidCents: number;
-    amount: string;
-    reference: string;
-    steps: InteracStep[];
-    done: number[];
-    toggleStep: (i: number) => void;
-    progress: string;
-    copied: string | null;
-    copy: (key: string) => void;
-    validUntil: string | null;
-    error: string | null;
-}
-
-/** The e-Transfer steps for a pay link: the waiting request (or a new one), checked every few seconds. */
-export function usePublicInterac(pay: PublicPayClient, token: string): PublicInterac {
-    const pp = strings.publicPay;
-    const { status: load, data: invoice, setData } = usePublicResource(pay.getPublicInvoice, token);
-    const [request, setRequest] = useState<PublicInteracRequest | null>(null);
-    const [done, setDone] = useState<number[]>([]);
-    const [copied, setCopied] = useState<string | null>(null);
-    const { error, run } = useAsyncAction();
-    const asked = useRef(false);
-    const waiting = invoice?.interac ?? request;
-    const paid = invoice?.status === "paid";
-
-    useEffect(() => {
-        if (load !== "ready" || paid || waiting !== null || asked.current) return;
-        asked.current = true;
-        run(
-            async () => {
-                const made = await pay.payInterac(token);
-                setRequest({
-                    reference_code: made.reference_code,
-                    amount_cents: made.amount_cents,
-                    send_to: made.send_to,
-                    expires_at: made.expires_at ?? null,
-                });
-            },
-            { errorMessage: pp.interacStartError },
-        );
-    }, [load, paid, waiting, pay, token, run, pp.interacStartError]);
-
-    useEffect(() => {
-        if (load !== "ready" || paid) return;
-        const timer = setInterval(() => {
-            pay.getPublicInvoice(token)
-                .then(setData)
-                .catch(() => undefined);
-        }, POLL_MS);
-        return () => {
-            clearInterval(timer);
-        };
-    }, [load, paid, pay, token, setData]);
-
-    const amount = formatMoney(
-        waiting?.amount_cents ?? invoice?.balance_cents ?? 0,
-        invoice?.currency ?? BUSINESS_CURRENCY,
-    );
-    const reference = waiting?.reference_code ?? "";
-    const email = waiting?.send_to ?? invoice?.interac_email ?? null;
-    const steps: InteracStep[] = [
-        { text: pp.step1, copy: null },
-        {
-            text: email === null ? pp.step2NoEmail : pp.step2(email),
-            copy:
-                email === null
-                    ? null
-                    : { key: "email", label: pp.sendTo, value: email, code: false },
-        },
-        {
-            text: pp.step3(amount),
-            copy: { key: "amount", label: pp.amountToSend, value: amount, code: false },
-        },
-        {
-            text: pp.step4(reference),
-            copy: { key: "ref", label: pp.putInMessage, value: reference, code: true },
-        },
-    ];
-    const status: PublicPayStatus = load !== "ready" ? load : paid ? "paid" : "ready";
-    return {
-        status,
-        invoice,
-        paidCents: invoice === null ? 0 : invoice.total_cents - invoice.balance_cents,
-        amount,
-        reference,
-        steps,
-        done,
-        toggleStep: (i) => {
-            setDone((d) => (d.includes(i) ? d.filter((x) => x !== i) : [...d, i]));
-        },
-        progress: pp.progressLabel(done.length, steps.length),
-        copied,
-        copy: setCopied,
-        validUntil:
-            waiting?.expires_at === null || waiting?.expires_at === undefined
-                ? null
-                : invoice === null
-                  ? null
-                  : pp.validUntil(formatDate(parseTimestamp(waiting.expires_at), invoice.timezone)),
         error,
     };
 }

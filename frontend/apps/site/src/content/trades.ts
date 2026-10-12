@@ -599,7 +599,7 @@ export const TRADES: readonly Trade[] = [
                 body: s.cleaning.capabilities[2].body,
             },
             {
-                icon: "interac",
+                icon: "payout",
                 title: s.cleaning.capabilities[3].title,
                 body: s.cleaning.capabilities[3].body,
             },
@@ -1017,7 +1017,7 @@ export const TRADES: readonly Trade[] = [
                 body: s.photography.capabilities[3].body,
             },
             {
-                icon: "interac",
+                icon: "payout",
                 title: s.photography.capabilities[4].title,
                 body: s.photography.capabilities[4].body,
             },
@@ -1152,7 +1152,7 @@ export const TRADES: readonly Trade[] = [
                 body: s.trades.capabilities[3].body,
             },
             {
-                icon: "interac",
+                icon: "payout",
                 title: s.trades.capabilities[4].title,
                 body: s.trades.capabilities[4].body,
             },

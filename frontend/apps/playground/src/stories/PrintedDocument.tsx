@@ -92,10 +92,7 @@ const invoice: PrintedDoc = {
     payment: null,
     stamp: null,
     payUrl: "https://pay.clientbridge.ca/i/inv_1148",
-    instructions: [
-        "Pay online with the link or code.",
-        "Or send an Interac e-Transfer to pay@birchbarkpets.ca with 1148 as the message.",
-    ],
+    instructions: ["Pay online with the link or code."],
     message: "Thanks for trusting us with Biscuit. See you in six weeks.",
     footer: "Questions about this invoice? Reply to the email it came with.",
     labels,

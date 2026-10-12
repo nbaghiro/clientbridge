@@ -24,9 +24,10 @@ type AccountKey = tuple[str, str, str, str]
 type _Id = InstrumentedAttribute[str] | str
 
 PLATFORM = "clientbridge"
-_CASH = {"stripe": "stripe", "interac": "bank", "manual": "cash"}
+_CASH = {"stripe": "stripe", "manual": "cash"}
+_CASH_CATEGORIES = ("stripe", "cash", "bank")
 # recorded by hand: cash sits in the till, a cheque or an e-Transfer already reached the bank
-_BANKED_BY_HAND = ("cheque", "interac", "bank_eft")
+_BANKED_BY_HAND = ("cheque", "etransfer", "bank_eft")
 # the credit-side kinds a refund unwinds pro rata (never the receivable: a refund is a credit note)
 _UNWOUND = ("revenue", "tax", "deposit", "deferred", "gift_card")
 
@@ -337,7 +338,7 @@ def _collected_expr(subject_type: str, subject_id: _Id) -> ColumnElement[int]:
         .join(Account, Account.id == Entry.account_id)
         .where(
             _subject_legs(subject_type, subject_id),
-            Account.category.in_(_CASH.values()),
+            Account.category.in_(_CASH_CATEGORIES),
             Entry.event.in_(("payment", "refund")),
         )
         .scalar_subquery()
@@ -350,7 +351,7 @@ def _refunded_expr(subject_type: str, subject_id: _Id) -> ColumnElement[bool]:
         .join(Account, Account.id == Entry.account_id)
         .where(
             _subject_legs(subject_type, subject_id),
-            Account.category.in_(_CASH.values()),
+            Account.category.in_(_CASH_CATEGORIES),
             Entry.event == "refund",
         )
         .exists()
@@ -433,7 +434,7 @@ def order_paid_at_expr() -> ColumnElement[datetime | None]:
         .join(Account, Account.id == Entry.account_id)
         .where(
             _subject_legs("order", Order.id),
-            Account.category.in_(_CASH.values()),
+            Account.category.in_(_CASH_CATEGORIES),
             Entry.event == "payment",
         )
         .scalar_subquery()
@@ -470,7 +471,7 @@ async def collected(
         & (Entry.subject_id == subject_id)
         & Entry.event.in_(("payment", "refund")),
     )
-    cash = [(e, a) for e, a in rows if a.category in _CASH.values()]
+    cash = [(e, a) for e, a in rows if a.category in _CASH_CATEGORIES]
     return sum(e.amount_cents for e, _ in cash), any(e.event == "refund" for e, _ in cash)
 
 
@@ -617,7 +618,7 @@ async def tip_returned(db: AsyncSession, original: Payment, returned: int, refun
         original.business_id,
         (Entry.event == "refund") & Entry.source_id.in_(earlier.scalar_subquery()),
     )
-    prior_cash = -sum(e.amount_cents for e, a in rows if a.category in _CASH.values())
+    prior_cash = -sum(e.amount_cents for e, a in rows if a.category in _CASH_CATEGORIES)
     prior_tip = sum(e.amount_cents for e, a in rows if a.category == "staff_cost")
     done = min(original.amount_cents, prior_cash + returned)
     return original.tip_cents * done // original.amount_cents - prior_tip

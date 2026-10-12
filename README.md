@@ -3,7 +3,7 @@
 **The bridge between you and your clients.**
 
 Clientbridge is an all-in-one business operating system for solo and small **service
-providers** — booking, invoicing, payments (cards + Interac e-Transfer / EFT-PAD), sales tax,
+providers** — booking, invoicing, payments (cards, Tap to Pay and EFT-PAD), sales tax,
 clients/CRM, messaging, packages & subscriptions, contracts, POS, and light team tools. It is a
 net-new product, built around a first-class configurable tax engine and modern payment rails.
 

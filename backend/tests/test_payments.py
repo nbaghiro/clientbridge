@@ -214,8 +214,10 @@ async def test_pending_payment_blocks_overpay(
     inv_id = await sent_invoice(db, number=9001, total=11200)
     await card_pay(as_owner, db, inv_id)  # full balance
     # a second method while the first is still pending would overpay → rejected
-    interac = await as_owner.post(f"/v1/invoices/{inv_id}/interac-request", json={})
-    assert interac.status_code == 409
+    cash = await as_owner.post(
+        f"/v1/invoices/{inv_id}/payments", json={"method": "cash", "amount_cents": 1000}
+    )
+    assert cash.status_code == 409
 
 
 async def test_failed_webhook_marks_payment_failed(
@@ -249,8 +251,10 @@ async def test_canceled_intent_frees_room(as_owner: httpx.AsyncClient, db: Async
     pmt = (await db.execute(select(Payment).where(Payment.id == pay["payment_id"]))).scalar_one()
     assert pmt.status == "canceled"
     # the pending row no longer reserves the balance, so another method can take it
-    interac = await as_owner.post(f"/v1/invoices/{inv_id}/interac-request", json={})
-    assert interac.status_code == 200, interac.text
+    cash = await as_owner.post(
+        f"/v1/invoices/{inv_id}/payments", json={"method": "cash", "amount_cents": 11200}
+    )
+    assert cash.status_code == 201, cash.text
 
 
 async def test_cannot_pay_when_not_onboarded(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -331,8 +335,10 @@ async def test_pay_foreign_invoice_404_by_scoping(
     body = {"method": "card", "amount_cents": 1000, "payment_method_id": "default"}
     res = await as_owner.post(f"/v1/invoices/{foreign_inv}/payments", json=body)
     assert res.status_code == 404
-    interac = await as_owner.post(f"/v1/invoices/{foreign_inv}/interac-request", json={})
-    assert interac.status_code == 404
+    cash = await as_owner.post(
+        f"/v1/invoices/{foreign_inv}/payments", json={"method": "cash", "amount_cents": 1000}
+    )
+    assert cash.status_code == 404
     # the foreign invoice is untouched — no payment was minted against it
     minted = (
         await db.execute(select(Payment.id).where(Payment.invoice_id == foreign_inv))

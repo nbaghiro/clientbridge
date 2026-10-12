@@ -59,7 +59,6 @@ class Settings(BaseSettings):
     pay_base_url: str = "http://localhost:8709"
     cors_allow_origins: str = ""
     platform_fee_bps: int = 200  # application fee per direct charge (basis points; 200 = 2%)
-    interac_webhook_secret: str = ""
     auth_email_hook_secret: str = _DEV_COURIER_SECRET  # matches docker-compose.yml's kratos
 
     # Outreach channels; empty credentials select the no-op console senders.

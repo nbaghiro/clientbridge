@@ -37,14 +37,12 @@ from clientbridge.schemas.payments import (
     ConnectSessionOut,
     ConnectStatus,
     DetachResult,
-    InteracRequest,
     InvoicePaymentIn,
     InvoicePaymentOut,
     OnboardingLink,
     PaymentMethodOut,
     PaymentSetupLinkOut,
     PublicCredit,
-    PublicInterac,
     PublicPaymentSetup,
     RefundOut,
     RefundPart,
@@ -63,8 +61,6 @@ from clientbridge.services.earnings import (
 from clientbridge.services.inventory import sync_parent_stock
 from clientbridge.services.lines import allocate, apply_totals
 from clientbridge.services.tax import tax_for_amount, tax_for_lines
-
-_INTERAC_DAYS = 14
 
 
 @dataclass(frozen=True)
@@ -673,58 +669,6 @@ class PaymentService:
                 return "a deposit applied to an invoice is refunded in full"
         return None
 
-    async def request_interac(
-        self,
-        invoice_id: str,
-        amount_cents: int | None,
-        idempotency_key: str | None,
-        *,
-        channel: str | None = None,
-        expires_in_days: int | None = None,
-    ) -> InteracRequest:
-        """Ask for an e-Transfer; with a channel, a new request replaces the one still waiting."""
-        self._assert_admin()
-        business = await self._business()
-        invoice = await self._invoice(invoice_id)
-        balance = await assert_payable(self.db, invoice)
-        amount = balance if amount_cents is None else amount_cents
-        if amount <= 0 or amount > balance:
-            raise Conflict("invalid payment amount")
-        await self._client(invoice.client_id)
-        expires_at = (
-            datetime.now(UTC) + timedelta(days=expires_in_days)
-            if expires_in_days is not None
-            else None
-        )
-
-        async def run(cmd: Command) -> InteracRequest:
-            payment = await open_interac_payment(
-                self.db,
-                business_id=self.biz,
-                invoice=invoice,
-                amount=amount,
-                replace=channel is not None,
-                channel=channel,
-                expires_at=expires_at,
-            )
-            cmd.record("payment.interac_request", entity_type="payment", entity_id=payment.id)
-            return interac_out(payment, business)
-
-        return await run_command(
-            self.db,
-            self.principal,
-            action="payment.interac_request",
-            run=run,
-            response_model=InteracRequest,
-            idempotency_key=idempotency_key,
-            request={
-                "invoice_id": invoice_id,
-                "amount_cents": amount_cents,
-                "channel": channel,
-                "expires_in_days": expires_in_days,
-            },
-        )
-
     def _assert_admin(self) -> None:
         assert_role(
             self.principal, "owner", "admin", message="only an owner or admin can manage payments"
@@ -1316,107 +1260,6 @@ async def open_terminal_payment(
     except IntegrityError as exc:
         raise Conflict("checkout is being set up — please retry") from exc
     return payment, intent.client_secret
-
-
-async def open_interac_payment(
-    db: AsyncSession,
-    *,
-    business_id: str,
-    invoice: Invoice,
-    amount: int,
-    replace: bool = False,
-    channel: str | None = None,
-    expires_at: datetime | None = None,
-) -> Payment:
-    """A pending Interac Payment with a unique reference code; a repeat reuses the waiting one."""
-    existing = (
-        (
-            await db.execute(
-                select(Payment)
-                .where(
-                    Payment.invoice_id == invoice.id,
-                    Payment.provider == "interac",
-                    Payment.status == "pending",
-                )
-                .order_by(Payment.created_at)
-                .limit(1)
-                .with_for_update()
-            )
-        )
-        .scalars()
-        .first()
-    )
-    if existing is not None:
-        lapsed = existing.expires_at is not None and existing.expires_at <= datetime.now(UTC)
-        if not replace and not lapsed:
-            return existing
-        existing.status = "canceled"  # its old code stops matching; a late transfer is reviewed
-        await db.flush()
-    await _assert_room(db, invoice, amount)
-    payment = Payment(
-        id=new_id("payment"),
-        business_id=business_id,
-        client_id=invoice.client_id,
-        kind="payment",
-        invoice_id=invoice.id,
-        amount_cents=amount,
-        currency=invoice.currency,
-        method="interac",
-        provider="interac",
-        reference_code=secrets.token_hex(4).upper(),
-        status="pending",
-        channel=channel,
-        expires_at=expires_at or datetime.now(UTC) + timedelta(days=_INTERAC_DAYS),
-    )
-    db.add(payment)
-    try:
-        await db.flush()  # reference_code is unique — a collision is a rare retry
-    except IntegrityError as exc:
-        raise Conflict("reference code collision — please retry") from exc
-    return payment
-
-
-def interac_out(payment: Payment, business: Business) -> InteracRequest:
-    return InteracRequest(
-        payment_id=payment.id,
-        reference_code=payment.reference_code or "",
-        send_to=business.billing_email,
-        amount_cents=payment.amount_cents,
-        channel=payment.channel,
-        expires_at=payment.expires_at,
-    )
-
-
-async def waiting_interac(
-    db: AsyncSession, invoice: Invoice, business: Business
-) -> PublicInterac | None:
-    """The open e-Transfer request on an invoice, for the client's pay page."""
-    payment = (
-        (
-            await db.execute(
-                select(Payment)
-                .where(
-                    Payment.invoice_id == invoice.id,
-                    Payment.provider == "interac",
-                    Payment.status == "pending",
-                )
-                .order_by(Payment.created_at.desc())
-                .limit(1)
-            )
-        )
-        .scalars()
-        .first()
-    )
-    if payment is None:
-        return None
-    if payment.expires_at is not None and payment.expires_at <= datetime.now(UTC):
-        return None
-    return PublicInterac(
-        reference_code=payment.reference_code or "",
-        amount_cents=payment.amount_cents,
-        send_to=business.billing_email,
-        expires_at=payment.expires_at,
-    )
 
 
 def refunded_by_hand(payment: Payment) -> bool:
@@ -2168,58 +2011,6 @@ async def _recurring_invoice(db: AsyncSession, sub: Subscription, currency: str)
     await db.flush()
     await ledger.post_invoice(db, invoice, result)
     return invoice.id
-
-
-async def match_interac(db: AsyncSession, reference_code: str, amount_cents: int) -> str | None:
-    """Match an inbound e-Transfer to its pending payment by reference code."""
-    payment = (
-        await db.execute(
-            select(Payment).where(
-                Payment.reference_code == reference_code,
-                Payment.provider == "interac",
-                Payment.status == "pending",
-            )
-        )
-    ).scalar_one_or_none()
-    if payment is None or amount_cents < payment.amount_cents:
-        return None
-    payment.status = "succeeded"
-    payment.paid_at = datetime.now(UTC)
-    await db.flush()
-    await ledger.post_payment(db, payment)
-    await _sync_parent(db, payment)
-    return payment.id
-
-
-async def process_interac_event(
-    db: AsyncSession, reference_code: str, amount_cents: int
-) -> str | None:
-    """Dedupe, match and record an Interac webhook; returns the matched payment id."""
-    event_id = f"interac_{reference_code}"
-    seen = (await db.execute(select(Webhook.id).where(Webhook.id == event_id))).scalar_one_or_none()
-    if seen is not None:
-        return None
-    matched_id = await match_interac(db, reference_code, amount_cents)
-    db.add(
-        Webhook(
-            id=event_id,
-            provider="interac",
-            event="etransfer.received",
-            payload={
-                "reference_code": reference_code,
-                "amount_cents": amount_cents,
-                "matched": matched_id is not None,
-            },
-            status="processed",
-            processed_at=datetime.now(UTC),
-        )
-    )
-    try:
-        await db.commit()
-    except IntegrityError:  # a concurrent delivery won the race on the event id — already applied
-        await db.rollback()
-        return None
-    return matched_id
 
 
 async def cancel_open_deposits(db: AsyncSession, gateway: PaymentGateway, booking: Booking) -> bool:

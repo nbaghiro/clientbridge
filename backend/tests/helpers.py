@@ -33,7 +33,6 @@ from tests.conftest import BIZ, book_invoice
 
 SLUG = "birchbark"
 STRIPE = {"Stripe-Signature": "good"}
-INTERAC = {"X-Interac-Secret": "testsecret"}
 TWILIO_TOKEN = "testtoken"
 WIDE = "start=2000-01-01&end=2100-01-01"
 

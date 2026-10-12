@@ -49,7 +49,6 @@ import { useState } from "react";
 
 import { DocEditor } from "../components/DocEditor";
 import { DocumentPreview, type PreviewDoc } from "../components/DocumentPreview";
-import { InteracRequest } from "../components/InteracRequest";
 import { RecordPayment } from "../components/RecordPayment";
 import { config } from "../config";
 import { api, apiBaseUrl } from "../lib/api";
@@ -323,7 +322,6 @@ function InvoicePanel({
     const estimate = useEstimateRecord(api, estimateId, config.payUrl);
     const [recording, setRecording] = useState(false);
     const [previewing, setPreviewing] = useState(false);
-    const [requesting, setRequesting] = useState(false);
     if (rec === null) return null;
 
     const voidIt = (): void => {
@@ -349,13 +347,12 @@ function InvoicePanel({
             size={previewing ? "xl" : "lg"}
             onClose={() => {
                 if (recording) setRecording(false);
-                else if (requesting) setRequesting(false);
                 else if (previewing) setPreviewing(false);
                 else onClose();
             }}
         >
             <DetailView
-                open={!(recording || requesting || previewing)}
+                open={!(recording || previewing)}
                 title={rec.title}
                 subtitle={rec.row.client_name ?? undefined}
                 status={{ status: rec.statusLabel, intent: rec.intent }}
@@ -408,17 +405,6 @@ function InvoicePanel({
                                 }}
                             >
                                 {s.sendInvoice}
-                            </Button>
-                        ) : null}
-                        {rec.canRecord ? (
-                            <Button
-                                variant="outline"
-                                icon="send"
-                                onPress={() => {
-                                    setRequesting(true);
-                                }}
-                            >
-                                {strings.payments.interac.open}
                             </Button>
                         ) : null}
                         {rec.canRecord ? (
@@ -498,14 +484,6 @@ function InvoicePanel({
                     rec={rec}
                     onClose={() => {
                         setRecording(false);
-                    }}
-                />
-            ) : null}
-            {requesting ? (
-                <InteracRequest
-                    invoice={rec.row}
-                    onClose={() => {
-                        setRequesting(false);
                     }}
                 />
             ) : null}

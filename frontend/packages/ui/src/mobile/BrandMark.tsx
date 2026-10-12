@@ -11,12 +11,11 @@ const WORD: Record<string, string> = {
     mastercard: "MC",
     amex: "AMEX",
     discover: "DISC",
-    interac: "INTERAC",
 };
 
 export function BrandMark({ method, brand, size = "md", style }: NativeProps<BrandMarkProps>) {
     const sm = size === "sm";
-    const word = WORD[method === "interac" ? "interac" : (brand ?? "")] ?? strings.ui.cardFallback;
+    const word = WORD[brand ?? ""] ?? strings.ui.cardFallback;
     const long = word.length > 4;
     return (
         <View accessible={false} style={[styles.box, sm ? styles.sm : styles.md, style]}>

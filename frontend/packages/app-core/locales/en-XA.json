@@ -578,8 +578,8 @@
     "billing.method.cash": {
         "message": "[Çåšĥ one]"
     },
-    "billing.method.interac": {
-        "message": "[Îñţéŕåç é-Ţŕåñšƒéŕ one two]"
+    "billing.method.etransfer": {
+        "message": "[é-Ţŕåñšƒéŕ one two]"
     },
     "billing.method.bank_eft": {
         "message": "[Ɓåñķ ðéƀîţ one two]"
@@ -870,7 +870,7 @@
         "message": "[Éẋåçţ åɱöûñţ one two]"
     },
     "billing.rec.reference": {
-        "message": "[Îñţéŕåç ŕéƒéŕéñçé one two]"
+        "message": "[é-Ţŕåñšƒéŕ ŕéƒéŕéñçé one two]"
     },
     "billing.rec.referenceHint": {
         "message": "[Ƒŕöɱ ţĥé ðéþöšîţ ñöţîçé, šö ţĥé ƀööķķééþéŕ çåñ ɱåţçĥ îţ one two three four]"
@@ -1099,9 +1099,6 @@
     },
     "printing.payOnline": {
         "message": "[Þåý öñļîñé åţ {url} one two]"
-    },
-    "printing.payInterac": {
-        "message": "[Îñţéŕåç é-Ţŕåñšƒéŕ ţö {email}, ŵîţĥ ţĥé îñṽöîçé ñûɱƀéŕ îñ ţĥé ɱéššåĝé one two three four]"
     },
     "printing.acceptOnline": {
         "message": "[Ŕéåð åñð åççéþţ îţ öñļîñé åţ {url} one two three]"
@@ -7616,7 +7613,7 @@
     "refunds.method.cash": {
         "message": "[Çåšĥ one]"
     },
-    "refunds.method.interac": {
+    "refunds.method.etransfer": {
         "message": "[é-Ţŕåñšƒéŕ one two]"
     },
     "refunds.method.bank_eft": {
@@ -7967,134 +7964,8 @@
     "payments.cardNoun": {
         "message": "[Çåŕð one]"
     },
-    "payments.interacNoun": {
-        "message": "[Îñţéŕåç é-Ţŕåñšƒéŕ one two]"
-    },
     "payments.savedCardLabel": {
         "message": "{noun} ···· {last4}"
-    },
-    "payments.interac.title": {
-        "message": "[Ŕéǫûéšţ åñ é-Ţŕåñšƒéŕ one two]"
-    },
-    "payments.interac.requestFor": {
-        "message": "{n} · {name}"
-    },
-    "payments.interac.open": {
-        "message": "[Ŕéǫûéšţ é-Ţŕåñšƒéŕ one two]"
-    },
-    "payments.interac.facts.total": {
-        "message": "[Ţöţåļ one]"
-    },
-    "payments.interac.facts.paid": {
-        "message": "[Þåîð one]"
-    },
-    "payments.interac.facts.balance": {
-        "message": "[Ɓåļåñçé ðûé one two]"
-    },
-    "payments.interac.facts.due": {
-        "message": "[Đûé one]"
-    },
-    "payments.interac.newRequest": {
-        "message": "[Ñéŵ ŕéǫûéšţ one two]"
-    },
-    "payments.interac.amount": {
-        "message": "[Åɱöûñţ one]"
-    },
-    "payments.interac.amountHint": {
-        "message": "[Ɓåļåñçé ðûé îš {balance} one two]"
-    },
-    "payments.interac.sendBy": {
-        "message": "[Šéñð ƀý one]"
-    },
-    "payments.interac.channels.sms": {
-        "message": "[Ţéẋţ one]"
-    },
-    "payments.interac.channels.email": {
-        "message": "[Éɱåîļ one]"
-    },
-    "payments.interac.noPhone": {
-        "message": "[Ñö þĥöñé ñûɱƀéŕ öñ ƒîļé one two]"
-    },
-    "payments.interac.noEmail": {
-        "message": "[Ñö éɱåîļ öñ ƒîļé one two]"
-    },
-    "payments.interac.expiresIn": {
-        "message": "[Éẋþîŕéš åƒţéŕ one two]"
-    },
-    "payments.interac.expiryOptions.7": {
-        "message": "[7 ðåýš one]"
-    },
-    "payments.interac.expiryOptions.14": {
-        "message": "[14 ðåýš one]"
-    },
-    "payments.interac.expiryOptions.30": {
-        "message": "[30 ðåýš one]"
-    },
-    "payments.interac.preview": {
-        "message": "[Ŵĥåţ ţĥé çļîéñţ ĝéţš one two]"
-    },
-    "payments.interac.previewMessage": {
-        "message": "[{biz}: þļéåšé šéñð {amount} ƀý Îñţéŕåç é-Ţŕåñšƒéŕ ţö {to} ŵîţĥ {ref} îñ ţĥé ɱéššåĝé. Đéţåîļš: {link} one two three four five]"
-    },
-    "payments.interac.newCode": {
-        "message": "[å ñéŵ çöðé one]"
-    },
-    "payments.interac.noPayEmail": {
-        "message": "[ýöûŕ þåýɱéñţ éɱåîļ one two]"
-    },
-    "payments.interac.send": {
-        "message": "[Šéñð ŕéǫûéšţ one two]"
-    },
-    "payments.interac.sending": {
-        "message": "[Šéñðîñĝ… one]"
-    },
-    "payments.interac.sent": {
-        "message": "[Ŕéǫûéšţ šéñţ ţö {to} one two]"
-    },
-    "payments.interac.errAmount": {
-        "message": "[Éñţéŕ åñ åɱöûñţ ûþ ţö ţĥé {balance} ƀåļåñçé. one two three]"
-    },
-    "payments.interac.errContact": {
-        "message": "[Åðð å þĥöñé ñûɱƀéŕ öŕ éɱåîļ ţö ţĥîš çļîéñţ ƒîŕšţ. one two three four]"
-    },
-    "payments.interac.requestError": {
-        "message": "[Çöûļðñ'ţ šéñð ţĥé ŕéǫûéšţ. Þļéåšé ţŕý åĝåîñ. one two three]"
-    },
-    "payments.interac.replacesOld": {
-        "message": "[Šéñðîñĝ å ñéŵ ŕéǫûéšţ çåñçéļš {ref}. one two three]"
-    },
-    "payments.interac.requests": {
-        "message": "[é-Ţŕåñšƒéŕ ŕéǫûéšţš one two]"
-    },
-    "payments.interac.noRequests": {
-        "message": "[Ñö é-Ţŕåñšƒéŕ ŕéǫûéšţéð ýéţ. one two three]"
-    },
-    "payments.interac.requested": {
-        "message": "{ref} · {amount}"
-    },
-    "payments.interac.received": {
-        "message": "[{amount} ŕéçéîṽéð one]"
-    },
-    "payments.interac.state.pending": {
-        "message": "[Ŵåîţîñĝ one]"
-    },
-    "payments.interac.state.succeeded": {
-        "message": "[Ŕéçéîṽéð one]"
-    },
-    "payments.interac.state.canceled": {
-        "message": "[Ŕéþļåçéð one]"
-    },
-    "payments.interac.state.expired": {
-        "message": "[Éẋþîŕéð one]"
-    },
-    "payments.interac.sentVia": {
-        "message": "[{channel,select,email{Šéñţ ƀý éɱåîļ} other{Ŕéǫûéšţéð} sms{Šéñţ ƀý ţéẋţ}} one two three]"
-    },
-    "payments.interac.expiresOn": {
-        "message": "[Éẋþîŕéš {when} one]"
-    },
-    "payments.interac.inboxLater": {
-        "message": "[Ţŕåñšƒéŕš åŕé ɱåţçĥéð ƀý ţĥéîŕ ŕéƒéŕéñçé çöðé. Å ɱåţçĥîñĝ îñƀöẋ ƒöŕ ţŕåñšƒéŕš ŵîţĥöûţ öñé ñééðš å ƀåñķ ƒééð åñð çöɱéš ļåţéŕ. one two three four five six seven eight]"
     },
     "terminal.failed": {
         "message": "[Ţåþ ţö Þåý ñééðš åţţéñţîöñ one two three]"
@@ -8756,8 +8627,8 @@
     "reports.method.card": {
         "message": "[Çåŕð one]"
     },
-    "reports.method.interac": {
-        "message": "[Îñţéŕåç é-Ţŕåñšƒéŕ one two]"
+    "reports.method.etransfer": {
+        "message": "[é-Ţŕåñšƒéŕ one two]"
     },
     "reports.method.bank_eft": {
         "message": "[Þŕé-åûţĥöŕîžéð ðéƀîţ one two]"
@@ -9686,8 +9557,8 @@
     "publicReceipt.method.cash": {
         "message": "[Çåšĥ one]"
     },
-    "publicReceipt.method.interac": {
-        "message": "[Îñţéŕåç é-Ţŕåñšƒéŕ one two]"
+    "publicReceipt.method.etransfer": {
+        "message": "[é-Ţŕåñšƒéŕ one two]"
     },
     "publicReceipt.method.cheque": {
         "message": "[Çĥéǫûé one]"
@@ -9759,7 +9630,7 @@
         "message": "[Ţĥîš þåýɱéñţ ļîñķ îš îñṽåļîð öŕ ĥåš éẋþîŕéð. Þļéåšé çĥéçķ ŵîţĥ ţĥé ƀûšîñéšš ţĥåţ šéñţ îţ ţö ýöû. one two three four five six]"
     },
     "publicPay.cardNotConfigured": {
-        "message": "[Çåŕð þåýɱéñţš åŕéñ'ţ çöñƒîĝûŕéð. Þļéåšé ûšé Îñţéŕåç é-Ţŕåñšƒéŕ. one two three four five]"
+        "message": "[Çåŕð þåýɱéñţš åŕéñ'ţ åṽåîļåƀļé öñ ţĥîš þåĝé ŕîĝĥţ ñöŵ. Þļéåšé çöñţåçţ ţĥé ƀûšîñéšš ţö þåý. one two three four five six]"
     },
     "publicPay.details": {
         "message": "[Ŵĥåţ ţĥîš îš ƒöŕ one two]"
@@ -9782,23 +9653,17 @@
     "publicPay.subtotal": {
         "message": "[Šûƀţöţåļ one]"
     },
-    "publicPay.chooseHowToPay": {
-        "message": "[Ĥöŵ ŵöûļð ýöû ļîķé ţö þåý? one two]"
-    },
-    "publicPay.interacLabel": {
-        "message": "[Îñţéŕåç é-Ţŕåñšƒéŕ one two]"
-    },
-    "publicPay.interacBadge": {
-        "message": "[Ƒŕöɱ ýöûŕ ƀåñķ, ñö ƒéé one two]"
-    },
     "publicPay.cardLabel": {
         "message": "[Çŕéðîţ öŕ ðéƀîţ çåŕð one two]"
     },
     "publicPay.cardBadge": {
         "message": "[Ṽîšå, Ṁåšţéŕçåŕð, Åɱéẋ one two]"
     },
-    "publicPay.payByInterac": {
-        "message": "[Ĝéţ ɱý ŕéƒéŕéñçé çöðé one two]"
+    "publicPay.offlineTitle": {
+        "message": "[Ţĥîš ƀûšîñéšš îšñ'ţ ţåķîñĝ öñļîñé þåýɱéñţš ýéţ one two three four]"
+    },
+    "publicPay.offlineBody": {
+        "message": "[Çöñţåçţ {businessName} ţö åŕŕåñĝé ĥöŵ ţö þåý ţĥé ƀåļåñçé. one two three]"
     },
     "publicPay.payByCard": {
         "message": "[Þåý ƀý çåŕð one two]"
@@ -9808,9 +9673,6 @@
     },
     "publicPay.paidBody": {
         "message": "[Ýöûŕ þåýɱéñţ ţö {businessName} îš çöɱþļéţé. Å ŕéçéîþţ ŵîļļ ƒöļļöŵ ƒŕöɱ ţĥé ƀûšîñéšš. one two three four five]"
-    },
-    "publicPay.interacStartError": {
-        "message": "[Ŵé çöûļðñ'ţ šţåŕţ ţĥé Îñţéŕåç þåýɱéñţ. Þļéåšé ţŕý åĝåîñ. one two three four]"
     },
     "publicPay.cardStartError": {
         "message": "[Ŵé çöûļðñ'ţ šţåŕţ ţĥé çåŕð þåýɱéñţ. Þļéåšé ţŕý åĝåîñ. one two three four]"
@@ -9827,8 +9689,8 @@
     "publicPay.method.cash": {
         "message": "[Çåšĥ one]"
     },
-    "publicPay.method.interac": {
-        "message": "[Îñţéŕåç é-Ţŕåñšƒéŕ one two]"
+    "publicPay.method.etransfer": {
+        "message": "[é-Ţŕåñšƒéŕ one two]"
     },
     "publicPay.method.bank_eft": {
         "message": "[Ɓåñķ ðéƀîţ one two]"
@@ -9841,75 +9703,6 @@
     },
     "publicPay.downloadInvoice": {
         "message": "[Đöŵñļöåð îñṽöîçé one two]"
-    },
-    "publicPay.seeSteps": {
-        "message": "[Šéé ĥöŵ ţö šéñð îţ one two]"
-    },
-    "publicPay.etransferTitle": {
-        "message": "[Þåý {biz} ƀý é‑Ţŕåñšƒéŕ one two]"
-    },
-    "publicPay.amountToSend": {
-        "message": "[Åɱöûñţ ţö šéñð one two]"
-    },
-    "publicPay.paidSoFar": {
-        "message": "[Þåîð one]"
-    },
-    "publicPay.sendTo": {
-        "message": "[Šéñð ţö one]"
-    },
-    "publicPay.putInMessage": {
-        "message": "[Þûţ ţĥîš îñ ţĥé ɱéššåĝé one two]"
-    },
-    "publicPay.steps": {
-        "message": "[Ĥöŵ ţö šéñð îţ one two]"
-    },
-    "publicPay.step1": {
-        "message": "[Öþéñ ýöûŕ ƀåñķ'š åþþ öŕ ŵéƀšîţé åñð çĥööšé Îñţéŕåç é-Ţŕåñšƒéŕ. one two three four]"
-    },
-    "publicPay.step2": {
-        "message": "[Åðð {email} åš å ŕéçîþîéñţ. Ñö šéçûŕîţý ǫûéšţîöñ îš ñééðéð; ðéþöšîţš åŕé åûţöɱåţîç. one two three four five]"
-    },
-    "publicPay.step2NoEmail": {
-        "message": "[Åðð ţĥé ƀûšîñéšš'š þåýɱéñţ éɱåîļ åš å ŕéçîþîéñţ. one two three four]"
-    },
-    "publicPay.step3": {
-        "message": "[Šéñð éẋåçţļý {amount}. one two]"
-    },
-    "publicPay.step4": {
-        "message": "[Ţýþé {ref} îñ ţĥé ɱéššåĝé ƀöẋ, ţĥéñ šéñð. one two three]"
-    },
-    "publicPay.progressLabel": {
-        "message": "[{done, number} öƒ {total, number} ðöñé one]"
-    },
-    "publicPay.markStep": {
-        "message": "[Ṁåŕķ šţéþ {n, number} ðöñé one two]"
-    },
-    "publicPay.copy": {
-        "message": "[Çöþý one]"
-    },
-    "publicPay.copied": {
-        "message": "[Çöþîéð one]"
-    },
-    "publicPay.statusWaiting": {
-        "message": "[Ŵåîţîñĝ ƒöŕ ýöûŕ ţŕåñšƒéŕ one two three]"
-    },
-    "publicPay.statusWaitingBody": {
-        "message": "[Ţĥîš þåĝé ûþðåţéš öñ îţš öŵñ ŵĥéñ îţ åŕŕîṽéš. one two three]"
-    },
-    "publicPay.statusReceived": {
-        "message": "[Þåýɱéñţ ŕéçéîṽéð one two]"
-    },
-    "publicPay.statusReceivedBody": {
-        "message": "[Ţĥåñķš. {amount} ŕéåçĥéð {biz} åñð ýöûŕ îñṽöîçé îš þåîð. one two three]"
-    },
-    "publicPay.validUntil": {
-        "message": "[Ţĥîš ŕéǫûéšţ îš öþéñ ûñţîļ {when}. one two three]"
-    },
-    "publicPay.payByCardInstead": {
-        "message": "[Þåý ƀý çåŕð îñšţéåð one two]"
-    },
-    "publicPay.viewInvoice": {
-        "message": "[Ṽîéŵ îñṽöîçé one two]"
     },
     "publicEstimate.waiting": {
         "message": "[Ŵåîţîñĝ ƒöŕ ýöû one two]"

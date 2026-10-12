@@ -130,15 +130,6 @@ msgstr ""
 msgid "inbound_message.push"
 msgstr ""
 
-msgid "interac_requested.body"
-msgstr ""
-
-msgid "interac_requested.body_link"
-msgstr ""
-
-msgid "interac_requested.subject"
-msgstr ""
-
 msgid "invoice_line.visit"
 msgstr ""
 

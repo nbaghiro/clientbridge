@@ -50,7 +50,6 @@ interface Strings {
                     ];
                 },
             ];
-            readonly legal: string;
             readonly copyright: (year: string) => string;
         };
         readonly notFound: {

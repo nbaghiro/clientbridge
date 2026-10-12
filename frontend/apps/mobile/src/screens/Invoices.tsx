@@ -49,7 +49,6 @@ import {
 
 import { DocEditor } from "../components/DocEditor";
 import { DocumentPreview } from "../components/DocumentPreview";
-import { InteracRequest } from "../components/InteracRequest";
 import { RecordPayment } from "../components/RecordPayment";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
@@ -281,7 +280,7 @@ function InvoiceDeskView({
     );
 }
 
-type Overlay = "record" | "pdf" | "menu" | "interac" | null;
+type Overlay = "record" | "pdf" | "menu" | null;
 
 function InvoicePanel({
     id,
@@ -308,9 +307,6 @@ function InvoicePanel({
 
     const menu = [
         { key: "pdf", label: s.pdf, icon: "receipt" as const },
-        ...(rec.canRecord
-            ? [{ key: "interac", label: strings.payments.interac.open, icon: "send" as const }]
-            : []),
         ...(rec.canRemind ? [{ key: "remind", label: s.remind, icon: "bell" as const }] : []),
         ...(rec.canSend ? [{ key: "send", label: s.sendInvoice, icon: "send" as const }] : []),
         ...(rec.canEdit ? [{ key: "edit", label: s.edit, icon: "edit" as const }] : []),
@@ -319,7 +315,6 @@ function InvoicePanel({
     const pick = (key: string): void => {
         setOverlay(null);
         if (key === "pdf") setOverlay("pdf");
-        else if (key === "interac") setOverlay("interac");
         else if (key === "remind") act.remind(rec);
         else if (key === "send") act.send(rec);
         else if (key === "edit") onEdit(rec.row.id);
@@ -477,9 +472,6 @@ function InvoicePanel({
                 onSelect={pick}
             />
             {overlay === "record" ? <RecordPayment rec={rec} onClose={closeOverlay} /> : null}
-            {overlay === "interac" ? (
-                <InteracRequest invoice={rec.row} onClose={closeOverlay} />
-            ) : null}
             {overlay === "pdf" ? (
                 <DocumentPreview
                     initial="invoice"

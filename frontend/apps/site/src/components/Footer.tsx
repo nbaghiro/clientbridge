@@ -28,7 +28,6 @@ export function Footer() {
                 </div>
                 <div className="footer-base">
                     <span>{footer.copyright}</span>
-                    <span>{footer.legal}</span>
                 </div>
             </div>
         </footer>

@@ -17,7 +17,7 @@ import {
 import { Button, CardForm, Choice, DocTotals, Icon, Notice, TextField } from "@clientbridge/ui";
 import { cssVar } from "@clientbridge/tokens";
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import { PrintModal, PublicDocument } from "../components/PublicDocument";
 import { PublicDone, PublicStatus } from "../components/PublicStatus";
@@ -31,11 +31,6 @@ const pp = strings.publicPay;
 export function PublicPay() {
     const { token = "" } = useParams<{ token: string }>();
     const form = usePublicPayForm(pay, token);
-    const navigate = useNavigate();
-    const openInterac = (): void => {
-        const done = navigate(`/i/${token}/etransfer`);
-        if (done) done.catch(() => undefined);
-    };
     const invoice = form.invoice;
     const [printing, setPrinting] = useState(false);
     useEmbedSuccess(form.status === "paid", "pay");
@@ -183,33 +178,36 @@ export function PublicPay() {
                                 {pp.paidBody(invoice.business_name)}
                             </p>
                         </div>
+                    ) : !form.online ? (
+                        <div className="space-y-4">
+                            <h2 className="font-display text-xl font-bold text-ink">
+                                {pp.offlineTitle}
+                            </h2>
+                            <p className="text-sm text-ink-soft">
+                                {pp.offlineBody(invoice.business_name)}
+                            </p>
+                            {form.contact.map((c) => (
+                                <Button
+                                    key={c.key}
+                                    variant="outline"
+                                    full
+                                    icon={c.icon}
+                                    onPress={() => {
+                                        window.location.href = c.href;
+                                    }}
+                                >
+                                    {c.label}
+                                </Button>
+                            ))}
+                        </div>
                     ) : (
                         <>
-                            <h2 className="mb-5 font-display text-xl font-bold text-ink">
-                                {pp.chooseHowToPay}
+                            <h2 className="font-display text-xl font-bold text-ink">
+                                {pp.cardLabel}
                             </h2>
+                            <p className="mb-5 mt-1 text-sm text-ink-soft">{pp.cardBadge}</p>
                             <div className="space-y-4">
-                                <Choice
-                                    layout="cards"
-                                    label={pp.chooseHowToPay}
-                                    options={form.methods.map((m) =>
-                                        m === "interac"
-                                            ? {
-                                                  key: m,
-                                                  label: pp.interacLabel,
-                                                  hint: pp.interacBadge,
-                                              }
-                                            : { key: m, label: pp.cardLabel, hint: pp.cardBadge },
-                                    )}
-                                    value={form.method}
-                                    onChange={(m) => {
-                                        form.setMethod(m);
-                                        form.setError(null);
-                                    }}
-                                />
-                                {form.method === "card" &&
-                                form.card === null &&
-                                form.tip.available ? (
+                                {form.card === null && form.tip.available ? (
                                     <section className="space-y-3 border-t border-line-soft pt-4">
                                         <div>
                                             <h3 className="text-sm font-semibold text-ink">
@@ -247,11 +245,7 @@ export function PublicPay() {
                                         ) : null}
                                     </section>
                                 ) : null}
-                                {form.method === "interac" ? (
-                                    <Button size="lg" full onPress={openInterac}>
-                                        {invoice.interac ? pp.seeSteps : pp.payByInterac}
-                                    </Button>
-                                ) : form.card ? (
+                                {form.card ? (
                                     <CardForm
                                         clientSecret={form.card.client_secret}
                                         stripeAccount={form.card.stripe_account_id}

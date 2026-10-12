@@ -1,6 +1,6 @@
 # Backend implementation plan
 
-**Status: execution started after the user's “go.”** This plan covers all **31 findings from the original backend review** and **12 additional principles findings**. It preserves the reproduced fixes already made. It contains 46 dependency-ordered tasks, concrete implementation contracts, acceptance criteria and a low-effort subagent handoff protocol. Implementation and isolated local verification are now authorized; progress is recorded in the task queue.
+**Status: execution started after the user's “go.”** This plan covers all **31 findings from the original backend review** and **12 additional principles findings**. It preserves the reproduced fixes already made. It contains 45 dependency-ordered tasks, concrete implementation contracts, acceptance criteria and a low-effort subagent handoff protocol. Implementation and isolated local verification are now authorized; progress is recorded in the task queue.
 
 The first objective is to make isolation and recovery enforceable, then make every growing list complete and bounded across web, iOS, Android and Connect. The backend remains FastAPI/PostgreSQL with service-owned commands and PowerSync local reads. There is no proposed platform rewrite.
 
@@ -121,7 +121,6 @@ These are recommended implementation defaults. A general “go” permits starti
 | Refund accounting | Pending cash return is not settled cash reversal. Preserve immutable journals; reserve remaining refundable amount. Credit-note timing, returned-goods restocking and entitlement restoration need explicit transition fixtures before T24 finalizes them. |
 | Tax and benefits | Snapshot facts at sale commitment. Validate nil/credit filings, gift tender tax timing, package usage, breakage and filing rules against the intended bookkeeping scope before changing historical treatment. Implement fixtures and forward schemas while policy review proceeds. |
 | SMS ownership | One authenticated inbound destination mapping per business/account; never choose a tenant by the sender's phone alone. Provisioning actual numbers/credentials remains external configuration. No-op delivery cannot count as success when the feature is enabled. |
-| Interac | Keep the unfinished provider capability disabled and visible as unavailable until an authenticated provider contract exists. Implement matching/recovery against recorded fixtures; no fabricated bank integration. |
 | Business closure | Deny new bookings, purchases and ordinary mutations; retain authorized owner history/export and explicitly permitted existing-document reads. Specify debt collection/cancel/refund exceptions in the capability matrix rather than implicitly denying or allowing every public action. |
 | Public links | New secrets are hashed and purpose-bound; rotate/revoke action capabilities. Receipt/legal-document retention differs from booking-action expiry. Preserve supported existing links during additive migration. |
 | Data retention | No automatic purge of ledger or signed evidence. Expire short-lived authentication/challenge material; define raw payload/PII retention and financial idempotency tombstones separately. Retention jobs start in dry-run until the matrix is settled. |
@@ -576,16 +575,6 @@ Apply the recommended CAD-only policy to new unsupported flows, preserve histori
 
 **Acceptance:** Mixed currencies never sum as one amount; unsupported new currency fails clearly; nil and credit returns are representable; historical data is not converted; filing/payment UI accurately states the action performed.
 
-### T41 Complete Interac event matching
-
-**Depends on:** T21, T22, T23, T24. **Covers:** B26.
-
-**Source scope:** `backend/src/clientbridge/api/webhooks.py`; `backend/src/clientbridge/integrations`; `backend/src/clientbridge/services/payments.py`; `backend/src/clientbridge/models/payments.py`; `backend/src/clientbridge/services/ledger.py`.
-
-Keep the stub visibly disabled until a provider contract exists; persist immutable transfer IDs separately from matching; model unmatched/partial/excess funds and reprocessing; use suspense/credit or return policy for surplus.
-
-**Acceptance:** Duplicate transfer versus repeated reference is distinguished; delayed match and underpayment retry; every received cent is represented; provider signature/amount/currency validation is tested before enabling the integration.
-
 ### T42 Protect exports and measure query cost
 
 **Depends on:** T17, T23, T40. **Covers:** B31, N04, N06.
@@ -618,7 +607,7 @@ Make runtime audit records append-only; cover auth/permission/public/financial e
 
 ### T45 Prove migration compatibility recovery and all clients
 
-**Depends on:** T00, T01, T02, T03, T04, T05, T06, T07, T08, T09, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T24, T25, T26, T27, T28, T29, T30, T31, T32, T33, T34, T35, T36, T37, T38, T39, T40, T41, T42, T43, T44. **Covers:** B29, B30, N07, N11, N12.
+**Depends on:** T00, T01, T02, T03, T04, T05, T06, T07, T08, T09, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T24, T25, T26, T27, T28, T29, T30, T31, T32, T33, T34, T35, T36, T37, T38, T39, T40, T42, T43, T44. **Covers:** B29, B30, N07, N11, N12.
 
 **Source scope:** `.github/workflows/ci.yml`; `Makefile`; `docker-compose.yml`; `backend/scripts`; `backend/tests`; `frontend/apps/web/e2e`; `frontend/apps/connect/e2e`; `frontend/apps/mobile/e2e`; `.docs/engineering.md`.
 
@@ -658,7 +647,7 @@ Every finding has assigned implementation work. An already fixed regression rema
 | B23 | T37, T38 |
 | B24 | T23, T39 |
 | B25 | T23, T40 |
-| B26 | T41 |
+| B26 | None: the feature it reviewed was removed |
 | B27 | T30 |
 | B28 | T31 |
 | B29 | T43, T45 |

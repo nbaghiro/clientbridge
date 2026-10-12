@@ -19,7 +19,7 @@ from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, en
 
 FileParent = Literal["business", "client", "subject", "item", "signature", "form_response"]
 FilePurpose = Literal["logo", "image", "photo", "signature", "attachment"]
-WebhookProvider = Literal["stripe", "interac", "twilio", "sendgrid"]
+WebhookProvider = Literal["stripe", "twilio", "sendgrid"]
 WebhookStatus = Literal["pending", "processed", "failed"]
 DevicePlatform = Literal["ios", "android", "web"]
 

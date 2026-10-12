@@ -59,7 +59,6 @@ export const footer = {
         },
     ] satisfies { title: string; links: NavLink[] }[],
     copyright: s.footer.copyright(String(new Date().getFullYear())),
-    legal: s.footer.legal,
 };
 
 export const notFound = s.notFound;

@@ -136,15 +136,6 @@ msgstr "[Ýöû'ṽé ŕéçéîṽéð å ĝîƒţ çåŕð ƒŕöɱ {business}
 msgid "inbound_message.push"
 msgstr "[Ṁéššåĝé ƒŕöɱ {client}: {body}~~~~~~]"
 
-msgid "interac_requested.body"
-msgstr "[{business}: þļéåšé šéñð {amount} ƀý Îñţéŕåç é-Ţŕåñšƒéŕ ţö {send_to} ŵîţĥ {reference} îñ ţĥé ɱéššåĝé.~~~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "interac_requested.body_link"
-msgstr "[{business}: þļéåšé šéñð {amount} ƀý Îñţéŕåç é-Ţŕåñšƒéŕ ţö {send_to} ŵîţĥ {reference} îñ ţĥé ɱéššåĝé. Ðéţåîļš: {link}~~~~~~~~~~~~~~~~~~~~~~~~~~]"
-
-msgid "interac_requested.subject"
-msgstr "[Îñţéŕåç é-Ţŕåñšƒéŕ ŕéǫûéšţéð~~~~~~~~~~]"
-
 msgid "invoice_line.visit"
 msgstr "[Ṽîšîţ~~]"
 

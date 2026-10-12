@@ -12,7 +12,6 @@ from clientbridge.core.deps import (
     DbSession,
     EmailDep,
     GatewayDep,
-    InteracSecretDep,
     PushDep,
     SmsDep,
     TwilioAuthTokenDep,
@@ -20,10 +19,9 @@ from clientbridge.core.deps import (
 from clientbridge.integrations.stripe import WebhookVerificationError
 from clientbridge.integrations.twilio import valid_twilio_signature
 from clientbridge.schemas.auth import AuthEmailIn
-from clientbridge.schemas.payments import InteracWebhookBody
 from clientbridge.services.messaging import process_inbound_sms
 from clientbridge.services.notifications import Notifier, send_auth_email
-from clientbridge.services.payments import process_interac_event, process_stripe_event
+from clientbridge.services.payments import process_stripe_event
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
@@ -59,24 +57,6 @@ async def stripe_webhook(
             await notifier.on_subscription_past_due(db, outcome.target_id)
         elif outcome.notify == "subscription_canceled":
             await notifier.on_subscription_canceled(db, outcome.target_id)
-    return Response(status_code=200)
-
-
-@router.post("/interac")
-async def interac_webhook(
-    body: InteracWebhookBody,
-    db: DbSession,
-    secret: InteracSecretDep,
-    email: EmailDep,
-    sms: SmsDep,
-    push: PushDep,
-    x_interac_secret: Annotated[str, Header(alias="X-Interac-Secret")] = "",
-) -> Response:
-    if not secret or not secrets.compare_digest(x_interac_secret, secret):
-        return Response(status_code=401)
-    matched_id = await process_interac_event(db, body.reference_code, body.amount_cents)
-    if matched_id is not None:
-        await Notifier(email, sms, push).on_payment_succeeded(db, matched_id)
     return Response(status_code=200)
 
 

@@ -59,7 +59,6 @@
     "T37",
     "T39",
     "T40",
-    "T41",
     "T42",
     "T44",
     "T45"
@@ -1175,33 +1174,6 @@
       "proposed_new_paths": []
     },
     {
-      "id": "T41",
-      "phase": "Accounting",
-      "title": "Complete Interac event matching",
-      "status": "planned",
-      "reasoning_effort": "low",
-      "depends_on": [
-        "T21",
-        "T22",
-        "T23",
-        "T24"
-      ],
-      "covers": [
-        "B26"
-      ],
-      "scope": [
-        "backend/src/clientbridge/api/webhooks.py",
-        "backend/src/clientbridge/integrations",
-        "backend/src/clientbridge/services/payments.py",
-        "backend/src/clientbridge/models/payments.py",
-        "backend/src/clientbridge/services/ledger.py"
-      ],
-      "implementation": "Keep the stub visibly disabled until a provider contract exists; persist immutable transfer IDs separately from matching; model unmatched/partial/excess funds and reprocessing; use suspense/credit or return policy for surplus.",
-      "acceptance": "Duplicate transfer versus repeated reference is distinguished; delayed match and underpayment retry; every received cent is represented; provider signature/amount/currency validation is tested before enabling the integration.",
-      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
-      "proposed_new_paths": []
-    },
-    {
       "id": "T42",
       "phase": "Reports",
       "title": "Protect exports and measure query cost",
@@ -1333,7 +1305,6 @@
         "T38",
         "T39",
         "T40",
-        "T41",
         "T42",
         "T43",
         "T44"
