@@ -78,8 +78,12 @@ jobs:
           PYTHON
       - run: make migrate
       - run: make kratos-standalone  # the seed creates the demo users' Kratos identities
-      - run: make seed  # tests act as the demo business's owner
       - run: make test-backend
+      - name: rerun the tests this pull request changed
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --depth=1 origin "$GITHUB_BASE_REF"
+          make rerun-backend FLAKE_BASE="origin/$GITHUB_BASE_REF"
       - run: make test-kratos  # KratosIdentityProvider against the real Kratos
       - if: failure()
         run: docker logs kratos
@@ -128,6 +132,11 @@ jobs:
         working-directory: frontend
       - run: make format-check-frontend lint-frontend test-frontend
       - run: make build  # a broken Vite/tsc-b bundle must fail CI, not just tsc --noEmit
+      - name: rerun the tests this pull request changed
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --depth=1 origin "$GITHUB_BASE_REF"
+          make rerun-frontend FLAKE_BASE="origin/$GITHUB_BASE_REF"
 
   site:
     # The marketing site's browser pass over a fresh build: links, images, layout at phone width and
@@ -148,6 +157,11 @@ jobs:
       - run: pnpm --filter site exec playwright install --with-deps chromium
         working-directory: frontend
       - run: make test-site
+      - name: rerun the tests this pull request changed
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --depth=1 origin "$GITHUB_BASE_REF"
+          make rerun-site FLAKE_BASE="origin/$GITHUB_BASE_REF"
 
   connect:
     # Connect's client pages against the real API over a migrated, seeded Postgres.
@@ -218,7 +232,7 @@ jobs:
       - run: make migrate
       - run: make kratos-standalone
       - run: make seed
-      - run: uv run uvicorn clientbridge.main:app --port 8701 > /tmp/api.log 2>&1 &
+      - run: PUBLIC_RATE_LIMIT_PER_MINUTE=1000 .venv/bin/uvicorn clientbridge.main:app --port 8701 > /tmp/api.log 2>&1 &  # one browser plays every client
         working-directory: backend
       - uses: pnpm/action-setup@v4
         with:
@@ -235,6 +249,11 @@ jobs:
       - run: until curl -sf localhost:8701/health; do sleep 1; done
         timeout-minutes: 2
       - run: make test-connect
+      - name: rerun the tests this pull request changed
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --depth=1 origin "$GITHUB_BASE_REF"
+          make rerun-connect FLAKE_BASE="origin/$GITHUB_BASE_REF"
       - if: failure()
         run: cat /tmp/api.log
 
@@ -315,11 +334,16 @@ jobs:
       - run: pnpm --filter web exec playwright install --with-deps chromium
         working-directory: frontend
       - run: make up migrate seed
-      - run: SMTP_URL=smtp://localhost:8716 uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 > /tmp/api.log 2>&1 &  # 0.0.0.0: compose Kratos posts auth email here
+      - run: SMTP_URL=smtp://localhost:8716 PUBLIC_RATE_LIMIT_PER_MINUTE=1000 .venv/bin/uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 > /tmp/api.log 2>&1 &  # 0.0.0.0: compose Kratos posts auth email here
         working-directory: backend
       - run: until curl -sf 127.0.0.1:8701/health; do sleep 1; done
         timeout-minutes: 2
       - run: make test-web
+      - name: rerun the tests this pull request changed
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --depth=1 origin "$GITHUB_BASE_REF"
+          make rerun-web FLAKE_BASE="origin/$GITHUB_BASE_REF"
       - uses: actions/upload-artifact@v4
         if: failure() || cancelled()
         with:
@@ -452,7 +476,7 @@ jobs:
       - name: start the stack and the API
         run: |
           ( make up migrate seed && cd backend \
-            && SMTP_URL=smtp://localhost:8716 exec uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 ) > /tmp/api.log 2>&1 &  # 0.0.0.0: compose Kratos posts auth email here
+            && SMTP_URL=smtp://localhost:8716 PUBLIC_RATE_LIMIT_PER_MINUTE=1000 exec .venv/bin/uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 ) > /tmp/api.log 2>&1 &  # 0.0.0.0: compose Kratos posts auth email here
       - name: enable KVM for the emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -509,7 +533,9 @@ jobs:
           path: frontend/apps/mobile/test-results
           retention-days: 7
       - if: failure()
-        run: cat /tmp/api.log
+        run: |
+          cat /tmp/api.log
+          docker compose logs --no-color kratos | tail -200
 
   mobile:
     # The required check: passes when every shard passed or the change cannot affect the app.

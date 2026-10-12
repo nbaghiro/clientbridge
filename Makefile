@@ -33,7 +33,7 @@ help:
 	@echo "gen-zones        regenerate the frontend's zone table and parity cases from the backend tzdata"
 	@echo "codegen-check    regenerate client, sync schema, themes, messages and strings; fail if stale"
 	@echo "test             test-backend + test-frontend"
-	@echo "test-backend     pytest with the 90% branch-coverage gate"
+	@echo "test-backend     pytest with the 90% branch-coverage gate, on a freshly seeded database of its own"
 	@echo "test-frontend    the frontend unit tests, with app-core again in three time zones"
 	@echo "test-contract    real StripeGateway vs stripe-mock (starts it; auto-skips if down)"
 	@echo "test-kratos      KratosIdentityProvider vs the local Kratos (auto-skips if down)"
@@ -49,6 +49,9 @@ help:
 	@echo "precommit        format-check + lint + codegen-check + test (the pre-commit hook; e2e runs in CI)"
 	@echo "hooks            install the versioned hooks (.githooks)"
 	@echo "check            lint + codegen-check + test (the full local gate; CI runs the same targets)"
+	@echo "rerun-backend    rerun the backend test files this branch changed, shuffled, FLAKE_RUNS times"
+	@echo "rerun-frontend   rerun the changed frontend unit tests, shuffled, in three time zones"
+	@echo "rerun-web / rerun-connect / rerun-site  repeat the changed e2e files"
 
 up:
 	docker compose up -d --wait --wait-timeout 60 postgres
@@ -74,7 +77,9 @@ stripe-listen:
 	stripe listen --forward-connect-to localhost:8701/webhooks/stripe
 
 dev-api:
-	cd backend && SMTP_URL=$${SMTP_URL-smtp://localhost:8716} uv run uvicorn clientbridge.main:app --reload --port 8701
+	cd backend && SMTP_URL=$${SMTP_URL-smtp://localhost:8716} \
+		PUBLIC_RATE_LIMIT_PER_MINUTE=$${PUBLIC_RATE_LIMIT_PER_MINUTE-1000} \
+		uv run uvicorn clientbridge.main:app --reload --port 8701
 
 worker:
 	cd backend && uv run arq clientbridge.tasks.worker.WorkerSettings
@@ -157,7 +162,8 @@ gen-strings:
 test: test-backend test-frontend
 
 test-backend:
-	cd backend && uv run pytest --cov=clientbridge --cov-branch --cov-fail-under=90 -q
+	cd backend && uv run python -m scripts.fresh_database \
+		pytest --cov=clientbridge --cov-branch --cov-fail-under=90 -q
 
 # App-core runs again in three time zones, since displays must follow the business zone, not the device's.
 test-frontend:
@@ -250,3 +256,45 @@ test-sync:
 # Readiness, an active replication slot, retained WAL (alert above 1 GiB) and lag (above 60 s).
 replication-health:
 	cd backend && uv run python -m scripts.replication_health
+
+.PHONY: rerun-backend rerun-frontend rerun-web rerun-connect rerun-site
+
+# The test files a branch added or changed run again several times in a shuffled order, so a test
+# that depends on order, timing or leftover data fails before it merges. FLAKE_BASE is the base ref.
+FLAKE_BASE ?= origin/main
+FLAKE_RUNS ?= 5
+FLAKE_E2E_RUNS ?= 3
+changed = git diff --name-only --diff-filter=d --relative=$(1) \
+	$$(git merge-base $(FLAKE_BASE) HEAD 2>/dev/null || echo $(FLAKE_BASE)) -- "$(1)$(2)"
+
+rerun-backend:
+	@files=$$($(call changed,backend/,tests/test_*.py)); \
+	if [ -z "$$files" ]; then echo "no changed backend tests"; else \
+		cd backend && uv run python -m scripts.fresh_database pytest -q -o addopts= \
+			-m "not contract and not e2e and not kratos" --count=$(FLAKE_RUNS) $$files; fi
+
+rerun-frontend:
+	@for ws in packages/app-core packages/api-client apps/site; do \
+		files=$$($(call changed,frontend/$$ws/,src/*.test.ts*)); \
+		[ -z "$$files" ] && continue; \
+		for run in $$(seq $(FLAKE_RUNS)); do \
+			for tz in America/Vancouver America/Halifax Asia/Tokyo; do \
+				(cd frontend/$$ws && TZ=$$tz pnpm exec vitest run --sequence.shuffle $$files) || exit 1; \
+			done; \
+		done; \
+	done
+
+rerun-e2e = files=$$($(call changed,frontend/apps/$(1)/,e2e/*.e2e.ts)); \
+	if [ -z "$$files" ]; then echo "no changed $(1) e2e tests"; else \
+		cd frontend && $(2) pnpm --filter $(1) e2e $$files --repeat-each $(FLAKE_E2E_RUNS); fi
+
+rerun-web:
+	@$(call rerun-e2e,web)
+
+rerun-connect:
+	@links="$$(cd backend && uv run python -m scripts.connect_links)" && \
+		$(call rerun-e2e,connect,CONNECT_LINKS="$$links")
+
+# the site reruns against the build test-site made
+rerun-site:
+	@$(call rerun-e2e,site)
