@@ -43,56 +43,59 @@ function useConnectStatus(api: ApiLike, reloadKey = 0): ConnectStatus | "error" 
 
 const g = strings.gettingPaid;
 
-const REQUIREMENT_LABELS: Record<string, string> = {
-    get external_account() {
-        return g.reqExternalAccount;
-    },
-    get "business_profile.url"() {
-        return g.reqBusinessWebsite;
-    },
-    get "business_profile.mcc"() {
-        return g.reqBusinessCategory;
-    },
-    get "business_profile.product_description"() {
-        return g.reqProductDescription;
-    },
-    get "individual.id_number"() {
-        return g.reqIdNumber;
-    },
-    get "individual.verification.document"() {
-        return g.reqPhotoId;
-    },
-    get "individual.verification.additional_document"() {
-        return g.reqProofOfAddress;
-    },
-    get "individual.address.line1"() {
-        return g.reqHomeAddress;
-    },
-    get "company.tax_id"() {
-        return g.reqBusinessNumber;
-    },
-    get "tos_acceptance.date"() {
-        return g.reqTosAcceptance;
-    },
-};
+interface RequirementCopy {
+    label: () => string;
+    why?: () => string;
+}
 
-const FIELD_LABELS: Readonly<Record<string, () => string>> = {
-    first_name: () => g.reqFirstName,
-    last_name: () => g.reqLastName,
+const REQUIREMENTS: readonly (readonly [string, RequirementCopy])[] = [
+    ["external_account", { label: () => g.reqExternalAccount, why: () => g.reqWhy.bankAccount }],
+    ["defaults.profile.business_url", { label: () => g.reqBusinessWebsite }],
+    ["configuration.merchant.mcc", { label: () => g.reqBusinessCategory }],
+    ["defaults.profile.product_description", { label: () => g.reqProductDescription }],
+    [
+        "identity.attestations.terms_of_service",
+        { label: () => g.reqTosAcceptance, why: () => g.reqWhy.terms },
+    ],
+    [
+        "identity.individual.id_numbers",
+        { label: () => g.reqIdNumber, why: () => g.reqWhy.idNumber },
+    ],
+    [
+        "identity.individual.documents.primary_verification",
+        { label: () => g.reqPhotoId, why: () => g.reqWhy.photoId },
+    ],
+    [
+        "identity.individual.documents.secondary_verification",
+        { label: () => g.reqProofOfAddress, why: () => g.reqWhy.proofOfAddress },
+    ],
+    ["identity.business_details.id_numbers", { label: () => g.reqBusinessNumber }],
+    ["identity.business_details.registered_name", { label: () => g.reqBusinessName }],
+    ["identity.business_details.address", { label: () => g.reqBusinessAddress }],
+    ["identity.entity_type", { label: () => g.reqBusinessType }],
+];
+
+const FIELDS: Readonly<Record<string, () => string>> = {
+    date_of_birth: () => g.reqDateOfBirth,
+    address: () => g.reqHomeAddress,
+    given_name: () => g.reqFirstName,
+    surname: () => g.reqLastName,
     email: () => g.reqEmail,
     phone: () => g.reqPhone,
     title: () => g.reqJobTitle,
-    business_type: () => g.reqBusinessType,
 };
 
-function requirementLabel(key: string): string {
-    const known = REQUIREMENT_LABELS[key];
-    if (known !== undefined) return known;
-    if (key.startsWith("individual.dob") || key.startsWith("person.dob")) return g.reqDateOfBirth;
-    if (key === "company.name") return g.reqBusinessName;
-    if (key.startsWith("company.address")) return g.reqBusinessAddress;
-    if (key.includes(".address.")) return g.reqHomeAddress;
-    return FIELD_LABELS[key.split(".").pop() ?? key]?.() ?? g.reqOther;
+/** Stripe's Accounts v2 requirement codes, such as `identity.individual.date_of_birth.day`. */
+export function requirementCopy(key: string): { label: string; why: string } {
+    const match = REQUIREMENTS.find(
+        ([prefix]) => key === prefix || key.startsWith(`${prefix}.`),
+    )?.[1];
+    if (match !== undefined) return { label: match.label(), why: match.why?.() ?? "" };
+    const field = key
+        .split(".")
+        .map((segment) => FIELDS[segment])
+        .find((label) => label !== undefined);
+    return { label: field?.() ?? g.reqOther, why: "" };
 }
 
 type ConnectPhase =
@@ -197,8 +200,7 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
         message,
         requirements: keys.map((key) => ({
             key,
-            label: requirementLabel(key),
-            why: g.reqWhy[key.replaceAll(".", "_")] ?? "",
+            ...requirementCopy(key),
             pastDue: past.has(key),
             icon: key === "external_account" ? "bank" : "user",
         })),

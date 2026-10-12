@@ -41,6 +41,7 @@ from clientbridge.integrations.resend import Email, EmailSender, get_email_sende
 from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.integrations.stripe import (
     STRIPE_API_VERSION,
+    THIN_EVENT,
     ChargeFees,
     ConnectAccount,
     ConnectComponent,
@@ -55,6 +56,7 @@ from clientbridge.integrations.stripe import (
     SetupIntentState,
     SubscriptionResult,
     WebhookVerificationError,
+    event_from,
     get_payment_gateway,
 )
 from clientbridge.integrations.twilio import Sms, get_sms_sender
@@ -353,7 +355,10 @@ class FakePaymentGateway:
                 payouts_enabled=False,
                 details_submitted=False,
                 disabled_reason=None,
-                currently_due=["business_profile.url", "external_account"],
+                currently_due=[
+                    "identity.attestations.terms_of_service.account",
+                    "external_account",
+                ],
                 eventually_due=[],
                 past_due=[],
                 pending_verification=[],
@@ -364,6 +369,8 @@ class FakePaymentGateway:
         if signature != "good":
             raise WebhookVerificationError("bad signature")
         body = json.loads(payload)
+        if body.get("object") == THIN_EVENT:
+            return event_from(body)
         account = body.get("account")
         created = body.get("created")
         return GatewayEvent(

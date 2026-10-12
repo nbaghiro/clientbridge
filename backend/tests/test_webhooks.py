@@ -23,80 +23,134 @@ BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
 
 
-def _event(event_id: str, account_id: str, *, charges_enabled: bool = True) -> str:
-    body: dict[str, object] = {
-        "id": event_id,
-        "type": "account.updated",
-        "data": {"object": {"id": account_id, "charges_enabled": charges_enabled}},
+def _account_event(
+    event_id: str, account_id: str, kind: str = "v2.core.account[requirements].updated"
+) -> str:
+    related = {
+        "id": account_id,
+        "type": "v2.core.account",
+        "url": f"/v2/core/accounts/{account_id}",
     }
-    return json.dumps(body)
-
-
-async def test_account_updated_enables_charges(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id="acct_x"))
-    await db.flush()
-    res = await api.post(
-        "/webhooks/stripe",
-        content=_event("evt_1", "acct_x"),
-        headers={"Stripe-Signature": "good"},
+    return json.dumps(
+        {"id": event_id, "object": "v2.core.event", "type": kind, "related_object": related}
     )
-    assert res.status_code == 200
-    enabled = (
-        await db.execute(select(Business.stripe_charges_enabled).where(Business.id == BIZ))
-    ).scalar_one()
-    assert enabled is True
 
 
-async def test_account_updated_syncs_kyc_state(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    await db.execute(
-        update(Business).where(Business.id == BIZ).values(stripe_account_id="acct_kyc")
-    )
-    await db.flush()
-    body = json.dumps(
+def _snapshot_event(event_id: str) -> str:
+    return json.dumps(
         {
-            "id": "evt_kyc",
-            "type": "account.updated",
-            "data": {
-                "object": {
-                    "id": "acct_kyc",
-                    "charges_enabled": False,
-                    "payouts_enabled": False,
-                    "details_submitted": True,
-                    "requirements": {
-                        "currently_due": ["external_account", "individual.id_number"],
-                        "past_due": [],
-                        "eventually_due": [],
-                        "pending_verification": [],
-                        "disabled_reason": None,
-                    },
-                }
-            },
+            "id": event_id,
+            "type": "payment_intent.canceled",
+            "account": "acct_v",
+            "data": {"object": {"id": "pi_unknown"}},
         }
     )
-    res = await api.post("/webhooks/stripe", content=body, headers={"Stripe-Signature": "good"})
+
+
+def _status(account_id: str, *, charges: bool, due: list[str]) -> ConnectAccount:
+    return ConnectAccount(
+        id=account_id,
+        charges_enabled=charges,
+        payouts_enabled=charges,
+        details_submitted=True,
+        disabled_reason=None,
+        currently_due=due,
+        eventually_due=[],
+        past_due=[],
+        pending_verification=[],
+    )
+
+
+async def _connect(db: AsyncSession, account_id: str) -> None:
+    await db.execute(
+        update(Business).where(Business.id == BIZ).values(stripe_account_id=account_id)
+    )
+    await db.flush()
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "v2.core.account[requirements].updated",
+        "v2.core.account[configuration.merchant].capability_status_updated",
+        "v2.core.account.closed",
+    ],
+)
+async def test_account_event_mirrors_the_fetched_account(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, kind: str
+) -> None:
+    await _connect(db, "acct_x")
+    gateway.accounts["acct_x"] = _status("acct_x", charges=True, due=[])
+    res = await api.post(
+        "/webhooks/stripe", content=_account_event("evt_1", "acct_x", kind), headers=GOOD
+    )
     assert res.status_code == 200
     biz = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
-    # details submitted but Stripe still needs things → provider action required
+    assert biz.stripe_charges_enabled is True and kyc_status(biz) == "enabled"
+    record = await db.get(Webhook, "evt_1")
+    assert record is not None and record.event == kind
+
+
+async def test_account_event_syncs_requirements(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _connect(db, "acct_kyc")
+    due = ["external_account", "identity.individual.id_numbers"]
+    gateway.accounts["acct_kyc"] = _status("acct_kyc", charges=False, due=due)
+    res = await api.post(
+        "/webhooks/stripe", content=_account_event("evt_kyc", "acct_kyc"), headers=GOOD
+    )
+    assert res.status_code == 200
+    biz = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
     assert kyc_status(biz) == "restricted"
     assert biz.stripe_details_submitted is True and biz.stripe_payouts_enabled is False
-    assert biz.stripe_requirements["currently_due"] == ["external_account", "individual.id_number"]
+    assert biz.stripe_requirements["currently_due"] == due
 
 
-async def test_account_updated_golden_payload_syncs_state(
+async def test_account_event_golden_payload_is_applied_once(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    body = (
+        Path(__file__).parent / "fixtures" / "stripe" / "account_requirements_updated.json"
+    ).read_text()
+    acct = json.loads(body)["related_object"]["id"]
+    await _connect(db, acct)
+    gateway.accounts[acct] = _status(acct, charges=False, due=["external_account"])
+    for _ in range(2):
+        assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+    biz = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
+    assert biz.stripe_requirements["currently_due"] == ["external_account"]
+    gateway.accounts[acct] = _status(acct, charges=True, due=[])
+    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+    await db.refresh(biz)
+    assert biz.stripe_charges_enabled is False  # a replayed event id is not applied again
+
+
+async def test_account_event_for_an_unknown_account_changes_nothing(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    # A full real-shaped account.updated event, read through the live webhook path
-    body = (Path(__file__).parent / "fixtures" / "stripe" / "account_updated.json").read_text()
-    acct = json.loads(body)["data"]["object"]["id"]
-    await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id=acct))
-    await db.flush()
-    res = await api.post("/webhooks/stripe", content=body, headers={"Stripe-Signature": "good"})
+    body = _account_event("evt_acct_x", "acct_unknown")
+    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+    assert await db.get(Webhook, "evt_acct_x") is not None
+
+
+async def test_thin_event_about_another_object_is_recorded_only(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    body = json.loads(_account_event("evt_other", "acct_x"))
+    body["related_object"] = {"id": "pers_1", "type": "v2.core.account_person"}
+    res = await api.post("/webhooks/stripe", content=json.dumps(body), headers=GOOD)
     assert res.status_code == 200
-    biz = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
-    assert kyc_status(biz) == "restricted"
-    assert biz.stripe_details_submitted is True and biz.stripe_payouts_enabled is False
-    assert biz.stripe_requirements["currently_due"] == ["external_account", "individual.id_number"]
-    assert biz.stripe_requirements["past_due"] == ["external_account"]
+    assert await db.get(Webhook, "evt_other") is not None
+
+
+async def test_account_event_with_a_bad_signature_is_rejected(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    body = _account_event("evt_forged", "acct_x")
+    res = await api.post("/webhooks/stripe", content=body, headers={"Stripe-Signature": "forged"})
+    assert res.status_code == 400
+    assert await db.get(Webhook, "evt_forged") is None
 
 
 async def test_payment_method_auto_updated_refreshes_card(
@@ -221,34 +275,10 @@ async def test_charge_dispute_alerts_staff(
 async def test_bad_signature_rejected(api: httpx.AsyncClient) -> None:
     res = await api.post(
         "/webhooks/stripe",
-        content=_event("evt_2", "acct_x"),
+        content=_snapshot_event("evt_2"),
         headers={"Stripe-Signature": "bad"},
     )
     assert res.status_code == 400
-
-
-async def test_duplicate_event_is_noop(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    await db.execute(
-        update(Business)
-        .where(Business.id == BIZ)
-        .values(stripe_account_id="acct_y", stripe_charges_enabled=False)
-    )
-    await db.flush()
-    body = _event("evt_dup", "acct_y", charges_enabled=True)
-    first = await api.post("/webhooks/stripe", content=body, headers={"Stripe-Signature": "good"})
-    # flip charges back off, then replay the SAME event id — dedup must skip re-dispatch
-    await db.execute(
-        update(Business).where(Business.id == BIZ).values(stripe_charges_enabled=False)
-    )
-    await db.flush()
-    second = await api.post("/webhooks/stripe", content=body, headers={"Stripe-Signature": "good"})
-    assert first.status_code == 200 and second.status_code == 200
-    enabled = (
-        await db.execute(select(Business.stripe_charges_enabled).where(Business.id == BIZ))
-    ).scalar_one()
-    assert enabled is False  # replay was a no-op, not a re-enable
-    rows = (await db.execute(select(Webhook.id).where(Webhook.id == "evt_dup"))).scalars().all()
-    assert len(rows) == 1
 
 
 def _intent_event(event_id: str, event_type: str, pi: str, **extra: object) -> str:
@@ -630,75 +660,19 @@ async def test_a_failed_delivery_never_overwrites_a_processed_row(db: AsyncSessi
 async def test_event_at_another_api_version_is_rejected(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id="acct_v"))
-    await db.flush()
-    body = json.loads(_event("evt_old", "acct_v"))
+    body = json.loads(_snapshot_event("evt_old"))
     body["api_version"] = "2025-03-31.basil"
     res = await api.post("/webhooks/stripe", content=json.dumps(body), headers=GOOD)
     assert res.status_code == 400
     assert await db.get(Webhook, "evt_old") is None
-    enabled = (
-        await db.execute(select(Business.stripe_charges_enabled).where(Business.id == BIZ))
-    ).scalar_one()
-    assert enabled is False
 
 
 async def test_configured_extra_api_version_is_accepted(
     api: httpx.AsyncClient, db: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(get_settings(), "stripe_webhook_api_versions", ["2026-09-30.endive"])
-    await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id="acct_v"))
-    await db.flush()
-    body = json.loads(_event("evt_new", "acct_v"))
+    body = json.loads(_snapshot_event("evt_new"))
     body["api_version"] = "2026-09-30.endive"
     res = await api.post("/webhooks/stripe", content=json.dumps(body), headers=GOOD)
     assert res.status_code == 200
     assert await db.get(Webhook, "evt_new") is not None
-
-
-async def test_capability_update_refreshes_the_account_state(
-    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
-) -> None:
-    await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id="acct_c"))
-    await db.flush()
-    gateway.accounts["acct_c"] = ConnectAccount(
-        id="acct_c",
-        charges_enabled=True,
-        payouts_enabled=True,
-        details_submitted=True,
-        disabled_reason=None,
-        currently_due=["individual.verification.document"],
-        eventually_due=[],
-        past_due=[],
-        pending_verification=[],
-    )
-    body = json.dumps(
-        {
-            "id": "evt_cap",
-            "type": "capability.updated",
-            "account": "acct_c",
-            "data": {
-                "object": {"id": "acss_debit_payments", "account": "acct_c", "status": "pending"}
-            },
-        }
-    )
-    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
-    business = await db.get(Business, BIZ)
-    assert business is not None
-    assert business.stripe_charges_enabled is True
-    assert business.stripe_requirements["currently_due"] == ["individual.verification.document"]
-
-
-async def test_capability_update_for_an_unknown_account_changes_nothing(
-    api: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    body = json.dumps(
-        {
-            "id": "evt_cap_x",
-            "type": "capability.updated",
-            "account": "acct_unknown",
-            "data": {"object": {"id": "card_payments", "account": "acct_unknown"}},
-        }
-    )
-    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
-    assert await db.get(Webhook, "evt_cap_x") is not None

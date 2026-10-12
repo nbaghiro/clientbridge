@@ -2,6 +2,7 @@ import ast
 import json
 import pathlib
 from collections.abc import Sequence
+from typing import cast
 
 import pytest
 from scripts.stripe_setup import (
@@ -13,15 +14,15 @@ from scripts.stripe_setup import (
     card_token_for,
     main,
     plan_account,
+    plan_destination,
     plan_location,
     plan_webhook,
-    requirement_fill,
     safety_problems,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.scoping import scoped
-from clientbridge.integrations.stripe import STRIPE_API_VERSION, PostalAddress
+from clientbridge.integrations.stripe import ACCOUNT_EVENTS, STRIPE_API_VERSION, PostalAddress
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import PaymentMethod
@@ -115,75 +116,150 @@ def test_webhook_needs_a_public_https_url() -> None:
     assert plan_webhook([], "https://api.example.com/hooks").action == "blocked"
 
 
-def test_missing_account_is_created_with_capabilities_and_test_data() -> None:
-    step = plan_account(BIRCHBARK, [], 1_700_000_000)
-    params = _params(step.params)
-    assert (step.action, step.path) == ("create", "/v1/accounts")
+def _body(step_params: Sequence[str]) -> dict[str, object]:
+    (body,) = step_params
+    return cast(dict[str, object], json.loads(body))
+
+
+def test_missing_account_is_created_as_a_v2_merchant_with_test_identity() -> None:
+    step = plan_account(BIRCHBARK, [])
+    body = _body(step.params)
+    assert (step.action, step.path) == ("create", "/v2/core/accounts")
     assert step.idempotency == "clientbridge-demo-account-bz_birchbark"
-    assert params["type"] == "custom"
-    assert params["country"] == "CA"
-    assert params[f"metadata[{DEMO_TAG}]"] == "bz_birchbark"
-    for name in ("card_payments", "transfers", "acss_debit_payments"):
-        assert params[f"capabilities[{name}][requested]"] == "true"
-    assert params["individual[dob][year]"] == "1901"
-    assert params["individual[address][line1]"] == "address_full_match"
-    assert params["external_account[routing_number]"] == "11000-000"
-    assert params["settings[payments][statement_descriptor]"] == "BIRCHBARK PET STUDIO"
-    assert params["tos_acceptance[date]"] == "1700000000"
+    assert body["dashboard"] == "none"
+    assert body["metadata"] == {DEMO_TAG: "bz_birchbark"}
+    defaults = cast(dict[str, object], body["defaults"])
+    assert defaults["responsibilities"] == {
+        "fees_collector": "stripe",
+        "losses_collector": "stripe",
+    }
+    assert defaults["currency"] == "cad"
+    merchant = cast(
+        dict[str, dict[str, object]], cast(dict[str, object], body["configuration"])["merchant"]
+    )
+    assert merchant["capabilities"] == {
+        name: {"requested": True}
+        for name in ("card_payments", "link_payments", "acss_debit_payments")
+    }
+    assert merchant["statement_descriptor"] == {
+        "descriptor": "BIRCHBARK PET STUDIO",
+        "prefix": "BIRCHBARK",
+    }
+    identity = cast(dict[str, dict[str, object]], body["identity"])
+    assert identity["individual"]["date_of_birth"] == {"day": 1, "month": 1, "year": 1901}
+    assert identity["individual"]["id_numbers"] == [{"type": "ca_sin", "value": "000000000"}]
+    assert (
+        cast(dict[str, object], identity["individual"]["address"])["line1"] == "address_full_match"
+    )
+    assert "attestations" not in identity  # Stripe collects the terms in onboarding
 
 
-def test_existing_account_requests_missing_capabilities_and_fills_due_fields() -> None:
-    account = {
+def _v2_account(**changes: object) -> dict[str, object]:
+    active = {"status": "active", "status_details": []}
+    account: dict[str, object] = {
         "id": "acct_b",
-        "type": "custom",
-        "country": "CA",
+        "dashboard": "none",
         "metadata": {DEMO_TAG: "bz_birchbark"},
-        "capabilities": {"card_payments": "active", "transfers": "active"},
-        "settings": {"branding": {"primary_color": "#2E4A3F"}},
-        "requirements": {
-            "currently_due": ["individual.dob.day", "external_account", "company.tax_id"],
-            "past_due": [],
+        "defaults": {
+            "responsibilities": {"fees_collector": "stripe", "losses_collector": "stripe"}
         },
-    }
-    step = plan_account(BIRCHBARK, [account], 1)
-    params = _params(step.params)
-    assert (step.action, step.path) == ("update", "/v1/accounts/acct_b")
-    assert params == {
-        "capabilities[acss_debit_payments][requested]": "true",
-        "individual[dob][day]": "1",
-        "external_account[object]": "bank_account",
-        "external_account[country]": "CA",
-        "external_account[currency]": "cad",
-        "external_account[routing_number]": "11000-000",
-        "external_account[account_number]": "000123456789",
-    }
-    assert "company.tax_id" in step.detail
-
-
-def test_complete_account_is_kept_and_duplicates_block() -> None:
-    account = {
-        "id": "acct_b",
-        "type": "custom",
-        "country": "CA",
-        "capabilities": {
-            "card_payments": "active",
-            "transfers": "active",
-            "acss_debit_payments": 1,
+        "configuration": {
+            "merchant": {
+                "capabilities": {
+                    "card_payments": active,
+                    "link_payments": active,
+                    "acss_debit_payments": active,
+                    "stripe_balance": {"payouts": active},
+                },
+                "branding": {"primary_color": "#2E4A3F"},
+            }
         },
-        "settings": {"branding": {"primary_color": "#2E4A3F"}},
-        "requirements": {"currently_due": [], "past_due": []},
+        "requirements": {"entries": []},
     }
-    assert plan_account(BIRCHBARK, [account], 1).action == "keep"
-    assert plan_account(BIRCHBARK, [account, account], 1).action == "blocked"
-    assert plan_account(BIRCHBARK, [{**account, "type": "express"}], 1).action == "blocked"
+    return {**account, **changes}
 
 
-def test_verification_document_uses_the_test_file_token() -> None:
-    fill, unknown = requirement_fill(BIRCHBARK, ["individual.verification.document"], 1)
-    assert fill == {
-        "individual": {"verification": {"document": {"front": "file_identity_document_success"}}}
+def test_existing_account_requests_missing_capabilities_and_reports_onboarding() -> None:
+    merchant = {"capabilities": {"card_payments": {"status": "restricted"}}}
+    due = {
+        "awaiting_action_from": "user",
+        "description": "identity.attestations.terms_of_service.account",
+        "minimum_deadline": {"status": "currently_due"},
     }
-    assert unknown == []
+    account = _v2_account(configuration={"merchant": merchant}, requirements={"entries": [due]})
+    step = plan_account(BIRCHBARK, [account])
+    assert (step.action, step.path) == ("update", "/v2/core/accounts/acct_b")
+    assert _body(step.params)["configuration"] == {
+        "merchant": {
+            "capabilities": {
+                "link_payments": {"requested": True},
+                "acss_debit_payments": {"requested": True},
+            },
+            "branding": {"primary_color": "#2E4A3F"},
+        }
+    }
+    assert "onboarding still needs identity.attestations.terms_of_service.account" in step.detail
+
+
+def test_complete_account_is_kept_and_fixed_settings_or_duplicates_block() -> None:
+    account = _v2_account()
+    kept = plan_account(BIRCHBARK, [account])
+    assert kept.action == "keep" and "charges=True payouts=True" in kept.detail
+    assert plan_account(BIRCHBARK, [account, account]).action == "blocked"
+    assert plan_account(BIRCHBARK, [_v2_account(dashboard="express")]).action == "blocked"
+    custom = {
+        "responsibilities": {"fees_collector": "application", "losses_collector": "application"}
+    }
+    assert plan_account(BIRCHBARK, [_v2_account(defaults=custom)]).action == "blocked"
+
+
+def test_destination_is_created_for_thin_account_events() -> None:
+    assert plan_destination([], None).action == "keep"
+    assert plan_destination([], "https://localhost/webhooks/stripe").action == "blocked"
+    step = plan_destination([], URL)
+    body = _body(step.params)
+    assert (step.action, step.path) == ("create", "/v2/core/event_destinations")
+    assert body["event_payload"] == "thin" and body["events_from"] == ["@self"]
+    assert body["enabled_events"] == list(ACCOUNT_EVENTS)
+    assert body["webhook_endpoint"] == {"url": URL}
+    assert body["include"] == ["webhook_endpoint.signing_secret"]
+
+
+def test_destination_keeps_updates_or_blocks_an_existing_one() -> None:
+    current = {
+        "id": "ed_1",
+        "event_payload": "thin",
+        "status": "enabled",
+        "enabled_events": list(ACCOUNT_EVENTS),
+        "webhook_endpoint": {"url": URL},
+        "metadata": {"clientbridge": "account_events"},
+    }
+    assert plan_destination([current], URL).action == "keep"
+    moved = plan_destination(
+        [{**current, "enabled_events": []}], "https://new.example.com/webhooks/stripe"
+    )
+    assert (moved.action, moved.path) == ("update", "/v2/core/event_destinations/ed_1")
+    assert set(_body(moved.params)) == {"enabled_events", "webhook_endpoint"}
+    assert plan_destination([{**current, "status": "disabled"}], URL).action == "blocked"
+    assert plan_destination([current, {**current, "id": "ed_2"}], URL).action == "blocked"
+
+
+def test_v2_lists_follow_the_next_page() -> None:
+    pages = iter(
+        [
+            {"data": [{"id": "acct_1"}], "next_page_url": "/v2/core/accounts?page=p2"},
+            {"data": [{"id": "acct_2"}], "next_page_url": None},
+        ]
+    )
+    calls: list[list[str]] = []
+
+    def runner(args: Sequence[str]) -> str:
+        calls.append(list(args))
+        return json.dumps(next(pages))
+
+    rows = Stripe(runner, None).list_v2("/v2/core/accounts")
+    assert [r["id"] for r in rows] == ["acct_1", "acct_2"]
+    assert json.loads(calls[1][calls[1].index("-d") + 1])["page"] == "p2"
 
 
 ADDRESS = PostalAddress("1207 Government Street", "Victoria", "BC", "V8W 1Y9")
@@ -236,9 +312,11 @@ def test_dry_run_reads_only(capsys: pytest.CaptureFixture[str]) -> None:
     assert ["listen", "--print-secret"] in cli.calls
     out = capsys.readouterr().out
     assert "[create ] connect webhook endpoint" in out
+    assert "[create ] account event destination" in out
     assert "[create ] connected account for bz_birchbark" in out
-    assert "whsec_test_secret" not in out and "whsec_...cret" in out
+    assert "whsec_test_secret" not in out and "STRIPE_THIN_WEBHOOK_SECRET=whsec_...cret" in out
     assert "--forward-connect-to 127.0.0.1:8701/webhooks/stripe" in out
+    assert "v2.core.account[requirements].updated" in out
 
 
 def test_unnamed_sandbox_is_refused_without_account(capsys: pytest.CaptureFixture[str]) -> None:
@@ -248,13 +326,7 @@ def test_unnamed_sandbox_is_refused_without_account(capsys: pytest.CaptureFixtur
     assert main(["--account", "acct_p"], runner=cli) == 0
 
 
-ACCOUNT: dict[str, object] = {
-    "id": "acct_b",
-    "charges_enabled": True,
-    "payouts_enabled": True,
-    "details_submitted": True,
-    "requirements": {"currently_due": []},
-}
+ACCOUNT = _v2_account()
 
 
 async def _cards(db: AsyncSession) -> list[PaymentMethod]:

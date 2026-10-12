@@ -8639,19 +8639,19 @@
     "gettingPaid.reqOther": {
         "message": "Another account detail"
     },
-    "gettingPaid.reqWhy.external_account": {
+    "gettingPaid.reqWhy.bankAccount": {
         "message": "Where your payouts go. A Canadian chequing account in the business or owner's name."
     },
-    "gettingPaid.reqWhy.individual_verification_document": {
+    "gettingPaid.reqWhy.photoId": {
         "message": "A driver's licence or passport for the account representative. A clear photo of the front and back."
     },
-    "gettingPaid.reqWhy.individual_verification_additional_document": {
+    "gettingPaid.reqWhy.proofOfAddress": {
         "message": "A utility bill or bank statement from the last 3 months showing a home address."
     },
-    "gettingPaid.reqWhy.individual_id_number": {
+    "gettingPaid.reqWhy.idNumber": {
         "message": "The account representative's social insurance number."
     },
-    "gettingPaid.reqWhy.tos_acceptance_date": {
+    "gettingPaid.reqWhy.terms": {
         "message": "Read and accept the payment services agreement."
     },
     "gettingPaid.subtitle": {

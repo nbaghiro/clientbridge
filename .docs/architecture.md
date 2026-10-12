@@ -23,7 +23,7 @@ Canadian tax built in. All user-facing copy is centralized in one place. The cus
 | Mobile | **React Native (Expo)** (provider/admin app) |
 | Customer | **React + Vite** (Connect — public, PowerSync-free, embeddable) |
 | Offline sync | **PowerSync** — on-device SQLite (web WASM on IndexedDB · Expo op-sqlite), WAL server-push, per-business Sync Streams; writes through FastAPI |
-| Payments | **Stripe Connect** (Custom accounts, direct charges) + PAD/EFT |
+| Payments | **Stripe Connect** (Accounts v2 merchants, direct charges) + PAD/EFT |
 | Repo | **Polyglot monorepo** — backend (uv) + frontend (pnpm + turbo), one root Makefile |
 
 The toolchain pins Python **3.14** (via `.python-version`) while ruff targets 3.12 for
@@ -456,9 +456,28 @@ upload was completed are served. Every other
 file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it into the media URL.
 
 ### Payments — Stripe Connect custody
-- **Stripe Connect** (Custom accounts, direct charges + application fee, Stripe's automatic payouts) for
-  cards, Tap-to-Pay/Terminal, saved cards, deposits, refunds, subscriptions, and the KYC mirror via
-  `account.updated`.
+- **Stripe Connect** (Accounts v2 merchants, direct charges + application fee, Stripe's automatic payouts) for
+  cards, Link, Tap-to-Pay/Terminal, saved cards, deposits, refunds, subscriptions, and the KYC mirror.
+- **Connected accounts** are created with `POST /v2/core/accounts`: `dashboard=none` (businesses manage
+  everything through embedded components), `fees_collector=stripe` (Stripe takes its processing fee from
+  the business, so the application fee is our fee alone) and `losses_collector=stripe` (Stripe owns negative
+  balances, as Stripe recommends for direct charges). Both responsibilities are fixed at creation. With those
+  values Stripe collects KYC itself (`requirements_collector=stripe`): onboarding is the embedded
+  `account_onboarding` component or a v2 account link, and the platform cannot accept the terms for the
+  business. The merchant configuration requests `card_payments` and `link_payments`; `acss_debit_payments`
+  is requested when a business first asks for a bank authorization. Every payment call (PaymentIntents,
+  refunds, customers, setup intents, mandates, prices, subscriptions, balance, Terminal) stays on `/v1`
+  with the `Stripe-Account` header, which Stripe supports for v2 accounts, and Account Sessions stay on
+  `/v1/account_sessions`.
+- **KYC mirror.** `account_status_from` reads the v2 account (merchant configuration and requirements):
+  charges and payouts are the `card_payments` and `stripe_balance.payouts` capability statuses, the due
+  lists are the requirement `description` codes awaiting the business grouped by
+  `minimum_deadline.status`, entries awaiting Stripe are pending verification, onboarding counts as
+  submitted once no `identity.attestations.terms_of_service` requirement is open, and a closed account
+  or a capability only Stripe support can lift marks it disabled. The app maps the codes to catalog copy
+  (`requirementCopy` in app-core) with a generic fallback. Thin `v2.core.account[requirements].updated`,
+  `v2.core.account[configuration.merchant].capability_status_updated` and `v2.core.account.closed` events
+  arrive through an event destination; the handler fetches the account and mirrors it.
 - **Recorded by hand**: cash, cheques and e-Transfers received outside the app (`provider` manual); cash
   lands in the till's `cash` account, a cheque or e-Transfer in `bank`. There is no e-Transfer request or
   matching.
@@ -467,11 +486,13 @@ file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it
   linked bank on Stripe's schedule; the platform never transmits funds (avoids money-transmitter licensing).
   `payments` records each attempt and Stripe object; the ledger records what each one did to the money.
 - The Stripe API version is pinned (`STRIPE_API_VERSION` in `integrations/stripe.py`), and the Connect
-  webhook endpoint must be created with that same version, because the handlers parse its payload shapes.
+  webhook endpoint (snapshot events) must be created with that same version, because the handlers parse
+  its payload shapes. Thin events are unversioned and signed with the event destination's own secret
+  (`STRIPE_THIN_WEBHOOK_SECRET`); both arrive at `/webhooks/stripe`.
   Dashboard refunds arrive as `refund.created`/`refund.updated`, and a recurring invoice's PaymentIntent
   is looked up through its invoice payments. The webhook rejects (400) an event rendered at any other
   version unless `STRIPE_WEBHOOK_API_VERSIONS` lists it, for a sandbox whose default version differs.
-  `capability.updated` re-reads the account's requirements, and `setup_intent.setup_failed` records a
+  `setup_intent.setup_failed` records a
   failed bank (PAD) setup on its link.
 - Retry-safe `open_*` builders (card/booking-deposit/entitlement/terminal) are Stripe-idempotency-
   keyed + `provider_ref`-deduped, shared by the authed services and the public surfaces. A payment can be

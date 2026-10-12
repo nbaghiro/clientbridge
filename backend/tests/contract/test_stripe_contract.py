@@ -1,11 +1,10 @@
-"""Every StripeGateway call against stripe-mock, catching spec drift the fake can't."""
+"""Every v1 StripeGateway call against stripe-mock; it has no /v2 routes, so v2 calls are e2e."""
 
 import pytest
 import stripe
 
 from clientbridge.integrations.stripe import (
     ChargeFees,
-    ConnectAccount,
     ConnectComponent,
     PostalAddress,
     StripeGateway,
@@ -15,28 +14,6 @@ pytestmark = pytest.mark.contract
 
 ACCT = "acct_contract"
 CUS = "cus_contract"
-
-
-async def test_create_connected_account(contract_gateway: StripeGateway) -> None:
-    acct = await contract_gateway.create_connected_account(
-        business_name="Birchbark Pet Studio",
-        email="owner@birchbark.test",
-        url="https://x.test/book/b",
-    )
-    assert isinstance(acct, str) and acct.startswith("acct_")
-
-
-async def test_create_account_link(contract_gateway: StripeGateway) -> None:
-    url = await contract_gateway.create_account_link(
-        ACCT, refresh_url="https://x.test/refresh", return_url="https://x.test/return"
-    )
-    assert url.startswith("http")
-
-
-async def test_get_account(contract_gateway: StripeGateway) -> None:
-    status = await contract_gateway.get_account(ACCT)
-    assert isinstance(status, ConnectAccount)
-    assert isinstance(status.currently_due, list) and isinstance(status.charges_enabled, bool)
 
 
 async def test_create_customer(contract_gateway: StripeGateway) -> None:

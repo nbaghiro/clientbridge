@@ -2,14 +2,14 @@
 
 import argparse
 import asyncio
+import hashlib
 import json
 import os
 import subprocess
-import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal, cast
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,9 +18,12 @@ from clientbridge.core.db import SessionLocal, engine
 from clientbridge.core.errors import Unprocessable
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import (
+    ACCOUNT_EVENTS,
+    RESPONSIBILITIES,
     STRIPE_API_VERSION,
     PostalAddress,
     account_status_from,
+    merchant_capability,
     payment_descriptor,
 )
 from clientbridge.models.business import Business
@@ -30,11 +33,9 @@ from clientbridge.services.business import apply_account_status, postal_address
 
 TAG = "clientbridge"
 WEBHOOK_KEY = "connect_webhook"
-# shared with scripts/stripe_demo_account.py so both find the same connected account
+DESTINATION_KEY = "account_events"
 DEMO_TAG = "clientbridge_demo"
 WEBHOOK_EVENTS = (
-    "account.updated",
-    "capability.updated",
     "charge.dispute.closed",
     "charge.dispute.created",
     "charge.dispute.funds_reinstated",
@@ -59,20 +60,19 @@ WEBHOOK_EVENTS = (
     "setup_intent.setup_failed",
     "setup_intent.succeeded",
 )
-CAPABILITIES = ("card_payments", "transfers", "acss_debit_payments")
-# Stripe's documented test values: 1901-01-01 verifies, address_full_match passes address checks
+CAPABILITIES = ("card_payments", "link_payments", "acss_debit_payments")
+ACCOUNT_INCLUDE = ["configuration.merchant", "requirements"]
+# Stripe's documented v2 test values: 1901-01-01 and SIN 000000000 verify, address_full_match passes
 TEST_INDIVIDUAL: dict[str, object] = {
-    "dob": {"day": 1, "month": 1, "year": 1901},
-    "id_number": "000000000",
+    "date_of_birth": {"day": 1, "month": 1, "year": 1901},
+    "id_numbers": [{"type": "ca_sin", "value": "000000000"}],
 }
-TEST_BANK: dict[str, object] = {
-    "object": "bank_account",
-    "country": "CA",
-    "currency": "cad",
-    "routing_number": "11000-000",
-    "account_number": "000123456789",
-}
-TEST_DOCUMENT = "file_identity_document_success"
+ONBOARDING_STEPS = (
+    "Stripe collects the rest of KYC itself, so finish onboarding once per demo business: sign in "
+    "as its owner, open Settings > Getting paid and complete the embedded form",
+    "test values: SMS code 000-000, bank transit 11000 institution 000 account 000123456789, "
+    "and accept the service agreement",
+)
 TEST_CARDS = {"visa": "pm_card_visa", "mastercard": "pm_card_mastercard", "amex": "pm_card_amex"}
 CLIENT_TAG = "clientbridge_demo_client"
 
@@ -86,8 +86,8 @@ DASHBOARD_STEPS = (
     "Apple Pay domain registration for the Connect and web hosts once they are public",
     "Terminal and Tap to Pay: enable Terminal for the platform and Tap to Pay on iPhone/Android "
     "for Canada; real-device testing needs the Apple entitlement",
-    "the sandbox default API version, which `stripe listen` uses for payloads unless --latest; "
-    f"handlers parse {STRIPE_API_VERSION}",
+    "the sandbox default API version, which `stripe listen` uses for snapshot payloads unless "
+    f"--latest; handlers parse {STRIPE_API_VERSION} (thin account events are unversioned)",
     "Connect email settings: which payment and payout emails Stripe sends to connected accounts",
 )
 
@@ -168,28 +168,6 @@ def form(params: Mapping[str, object], prefix: str = "") -> list[str]:
         else:
             pairs.append(f"{name}={value}")
     return pairs
-
-
-def dotted(params: Mapping[str, object], prefix: str = "") -> dict[str, object]:
-    flat: dict[str, object] = {}
-    for key, value in params.items():
-        name = f"{prefix}.{key}" if prefix else key
-        if isinstance(value, Mapping):
-            flat.update(dotted(cast(Mapping[str, object], value), name))
-        else:
-            flat[name] = value
-    return flat
-
-
-def nested(flat: Mapping[str, object]) -> dict[str, object]:
-    tree: dict[str, object] = {}
-    for name, value in flat.items():
-        node = tree
-        *parents, leaf = name.split(".")
-        for part in parents:
-            node = cast(dict[str, object], node.setdefault(part, {}))
-        node[leaf] = value
-    return tree
 
 
 def _map(value: object) -> Mapping[str, object]:
@@ -327,130 +305,180 @@ def plan_webhook(endpoints: Sequence[Mapping[str, object]], url: str | None) -> 
     )
 
 
-def account_params(biz: DemoBusiness, now: int) -> dict[str, object]:
+def plan_destination(destinations: Sequence[Mapping[str, object]], url: str | None) -> Step:
+    target = "account event destination"
+    ours = [d for d in destinations if _map(d.get("metadata")).get(TAG) == DESTINATION_KEY]
+    if url is None:
+        detail = "no --webhook-url; forward locally with `stripe listen` (printed below)"
+        return Step("keep", target, f"{len(ours)} registered; {detail}")
+    problem = webhook_url_problem(url)
+    if problem is not None:
+        return Step("blocked", target, problem)
+    if len(ours) > 1:
+        ids = ", ".join(str(d.get("id")) for d in ours)
+        return Step("blocked", target, f"several destinations match ({ids}); delete the extras")
+    if not ours:
+        body = {
+            "name": "Clientbridge account events",
+            "type": "webhook_endpoint",
+            "event_payload": "thin",
+            "events_from": ["@self"],
+            "enabled_events": list(ACCOUNT_EVENTS),
+            "webhook_endpoint": {"url": url},
+            "metadata": {TAG: DESTINATION_KEY},
+            "include": ["webhook_endpoint.signing_secret"],
+        }
+        return Step(
+            "create",
+            target,
+            f"{url} for {len(ACCOUNT_EVENTS)} thin account events",
+            "post",
+            "/v2/core/event_destinations",
+            (json.dumps(body),),
+        )
+    destination = ours[0]
+    destination_id = str(destination.get("id"))
+    if destination.get("event_payload") != "thin" or destination.get("status") != "enabled":
+        return Step(
+            "blocked",
+            target,
+            f"{destination_id} is {destination.get('event_payload')}/"
+            f"{destination.get('status')}; enable it or delete it in Workbench and rerun",
+        )
+    changes: dict[str, object] = {}
+    if set(_strings(destination.get("enabled_events"))) != set(ACCOUNT_EVENTS):
+        changes["enabled_events"] = list(ACCOUNT_EVENTS)
+    if _map(destination.get("webhook_endpoint")).get("url") != url:
+        changes["webhook_endpoint"] = {"url": url}
+    if not changes:
+        return Step("keep", target, f"{destination_id} is current")
+    return Step(
+        "update",
+        target,
+        f"{destination_id}: {', '.join(sorted(changes))}",
+        "post",
+        f"/v2/core/event_destinations/{destination_id}",
+        (json.dumps(changes),),
+    )
+
+
+def account_body(biz: DemoBusiness) -> dict[str, object]:
     descriptor = payment_descriptor(biz.name) or ""
-    profile: dict[str, object] = {
-        "name": biz.name,
-        "mcc": "7299",
-        "support_email": biz.email,
-        "product_description": biz.product_description,
-    }
+    support: dict[str, object] = {"email": biz.email}
+    profile: dict[str, object] = {"product_description": biz.product_description}
     if biz.url is not None:
-        profile["url"] = biz.url
+        support["url"] = biz.url
+        profile["business_url"] = biz.url
     return {
-        "type": "custom",
-        "country": "CA",
-        "email": biz.email,
-        "business_type": "individual",
+        "display_name": biz.name,
+        "contact_email": biz.email,
+        "dashboard": "none",
         "metadata": {DEMO_TAG: biz.id},
-        "capabilities": {name: {"requested": True} for name in CAPABILITIES},
-        "business_profile": profile,
-        "settings": {
-            "payments": {"statement_descriptor": descriptor},
-            "card_payments": {"statement_descriptor_prefix": descriptor[:10].rstrip()},
-            "branding": {"primary_color": biz.primary_color},
-        },
-        "individual": {
-            **TEST_INDIVIDUAL,
-            "first_name": biz.first_name,
-            "last_name": biz.last_name,
-            "email": biz.email,
-            "phone": biz.phone,
-            "address": {
-                "line1": "address_full_match",
-                "city": biz.city,
-                "state": biz.province,
-                "postal_code": biz.postal_code,
-                "country": "CA",
+        "identity": {
+            "country": "ca",
+            "entity_type": "individual",
+            "individual": {
+                **TEST_INDIVIDUAL,
+                "given_name": biz.first_name,
+                "surname": biz.last_name,
+                "email": biz.email,
+                "phone": biz.phone,
+                "address": {
+                    "line1": "address_full_match",
+                    "city": biz.city,
+                    "state": biz.province,
+                    "postal_code": biz.postal_code,
+                    "country": "ca",
+                },
             },
         },
-        "external_account": TEST_BANK,
-        "tos_acceptance": {"date": now, "ip": "127.0.0.1"},
+        "configuration": {
+            "merchant": {
+                "capabilities": {name: {"requested": True} for name in CAPABILITIES},
+                "mcc": "7299",
+                "statement_descriptor": {
+                    "descriptor": descriptor,
+                    "prefix": descriptor[:10].rstrip(),
+                },
+                "branding": {"primary_color": biz.primary_color},
+                "support": support,
+            }
+        },
+        "defaults": {
+            "currency": "cad",
+            "locales": ["en-CA"],
+            "profile": profile,
+            "responsibilities": dict(RESPONSIBILITIES),
+        },
+        "include": ACCOUNT_INCLUDE,
     }
-
-
-def requirement_fill(
-    biz: DemoBusiness, due: Sequence[str], now: int
-) -> tuple[dict[str, object], list[str]]:
-    available = dotted(account_params(biz, now))
-    available["individual.verification.document.front"] = TEST_DOCUMENT
-    available["individual.verification.additional_document.front"] = TEST_DOCUMENT
-    fill: dict[str, object] = {}
-    unknown: list[str] = []
-    for requirement in due:
-        if requirement == "external_account":
-            fill["external_account"] = TEST_BANK
-            continue
-        matches = {
-            k: v
-            for k, v in available.items()
-            if k == requirement or k.startswith(f"{requirement}.")
-        }
-        if not matches or requirement.startswith(("type", "country", "metadata")):
-            unknown.append(requirement)
-        flat = {k: v for k, v in matches.items() if not k.startswith("external_account.")}
-        fill.update(nested(flat))
-    return fill, unknown
 
 
 def find_account(accounts: Sequence[Mapping[str, object]], biz: DemoBusiness) -> list[Json]:
     return [dict(a) for a in accounts if _map(a.get("metadata")).get(DEMO_TAG) == biz.id]
 
 
-def plan_account(biz: DemoBusiness, matches: Sequence[Mapping[str, object]], now: int) -> Step:
+def account_summary(account: Json) -> str:
+    status = account_status_from(str(account.get("id")), account)
+    capabilities = {
+        name: merchant_capability(account, *name.split(".")).get("status")
+        for name in (*CAPABILITIES, "stripe_balance.payouts")
+    }
+    summary = (
+        f"charges={status.charges_enabled} payouts={status.payouts_enabled} "
+        f"capabilities={capabilities}"
+    )
+    owed = [*status.past_due, *status.currently_due]
+    if owed:
+        summary += f"; onboarding still needs {', '.join(owed)}"
+    return summary
+
+
+def plan_account(biz: DemoBusiness, matches: Sequence[Mapping[str, object]]) -> Step:
     target = f"connected account for {biz.id}"
     if len(matches) > 1:
         ids = ", ".join(str(a.get("id")) for a in matches)
         return Step("blocked", target, f"several accounts carry {DEMO_TAG}={biz.id}: {ids}")
     if not matches:
-        params = account_params(biz, now)
         return Step(
             "create",
             target,
-            f"Custom CA account '{biz.name}' with {', '.join(CAPABILITIES)} and test KYC data",
+            f"Accounts v2 merchant '{biz.name}' with {', '.join(CAPABILITIES)}, no Stripe "
+            "dashboard, Stripe-owned fees and losses, and v2 test identity data",
             "post",
-            "/v1/accounts",
-            tuple(form(params)),
+            "/v2/core/accounts",
+            (json.dumps(account_body(biz)),),
             idempotency=f"clientbridge-demo-account-{biz.id}",
         )
-    account = matches[0]
+    account = dict(matches[0])
     account_id = str(account.get("id"))
-    if account.get("type") != "custom" or account.get("country") != "CA":
+    responsibilities = _map(_map(account.get("defaults")).get("responsibilities"))
+    fixed = {k: responsibilities.get(k) for k in RESPONSIBILITIES}
+    if account.get("dashboard") != "none" or fixed != dict(RESPONSIBILITIES):
         return Step(
             "blocked",
             target,
-            f"{account_id} is {account.get('type')}/{account.get('country')}; "
-            "the code expects a Custom CA account",
+            f"{account_id} has dashboard={account.get('dashboard')} and {fixed}; both are fixed "
+            "at creation, so close it in the Dashboard and rerun to create one",
         )
-    changes: dict[str, object] = {}
-    capabilities = _map(account.get("capabilities"))
-    missing = [name for name in CAPABILITIES if name not in capabilities]
+    merchant: dict[str, object] = {}
+    missing = [name for name in CAPABILITIES if not merchant_capability(account, name)]
     if missing:
-        changes["capabilities"] = {name: {"requested": True} for name in missing}
-    branding = _map(_map(account.get("settings")).get("branding"))
-    if not branding.get("primary_color"):
-        changes["settings"] = {"branding": {"primary_color": biz.primary_color}}
-    requirements = _map(account.get("requirements"))
-    due = sorted(
-        {*_strings(requirements.get("currently_due")), *_strings(requirements.get("past_due"))}
-    )
-    fill, unknown = requirement_fill(biz, due, now)
-    changes.update(fill)
-    status = (
-        f"charges={account.get('charges_enabled')} payouts={account.get('payouts_enabled')} "
-        f"capabilities={dict(capabilities)}"
-    )
-    if unknown:
-        status += f"; needs onboarding for {', '.join(unknown)}"
-    if not changes:
-        return Step("keep", target, f"{account_id}: {status}")
+        merchant["capabilities"] = {name: {"requested": True} for name in missing}
+    configured = _map(_map(account.get("configuration")).get("merchant"))
+    if not _map(configured.get("branding")).get("primary_color"):
+        merchant["branding"] = {"primary_color": biz.primary_color}
+    summary = account_summary(account)
+    if not merchant:
+        return Step("keep", target, f"{account_id}: {summary}")
+    body = {"configuration": {"merchant": merchant}, "include": ACCOUNT_INCLUDE}
     return Step(
         "update",
         target,
-        f"{account_id}: set {', '.join(sorted(changes))}; {status}",
+        f"{account_id}: set {', '.join(sorted(merchant))}; {summary}",
         "post",
-        f"/v1/accounts/{account_id}",
-        tuple(form(changes)),
+        f"/v2/core/accounts/{account_id}",
+        (json.dumps(body),),
     )
 
 
@@ -535,14 +563,25 @@ class Stripe:
         version = first.get("api_version") if isinstance(first, dict) else None
         return version if isinstance(version, str) else None
 
-    def settled_account(self, account_id: str, *, wait: float) -> Json:
-        deadline = time.monotonic() + wait
+    def account(self, account_id: str) -> Json:
+        include = json.dumps({"include": ACCOUNT_INCLUDE})
+        return self.call("get", f"/v2/core/accounts/{account_id}", [include])
+
+    def list_v2(self, path: str) -> list[Json]:
+        rows: list[Json] = []
+        page: str | None = None
         while True:
-            account = self.call("get", f"/v1/accounts/{account_id}")
-            ready = account.get("charges_enabled") and account.get("payouts_enabled")
-            if ready or time.monotonic() >= deadline:
-                return account
-            time.sleep(3)
+            query = {"limit": 20, **({"page": page} if page else {})}
+            if path == "/v2/core/event_destinations":
+                query["include"] = ["webhook_endpoint.url"]
+            body = self.call("get", path, [json.dumps(query)])
+            rows += [cast(Json, r) for r in cast(list[object], body.get("data") or [])]
+            next_url = body.get("next_page_url")
+            if not isinstance(next_url, str) or not next_url:
+                return rows
+            page = parse_qs(urlparse(next_url).query).get("page", [""])[0] or None
+            if page is None:
+                return rows
 
     def list_all(self, path: str, *, account: str | None = None) -> list[Json]:
         rows: list[Json] = []
@@ -557,12 +596,14 @@ class Stripe:
             after = str(rows[-1].get("id"))
 
     def run(self, step: Step) -> Json:
+        # Stripe replays a key only for identical parameters, so a changed request gets its own key.
+        digest = hashlib.sha256("&".join(step.params).encode()).hexdigest()[:16]
         return self.call(
             step.method,
             step.path,
             step.params,
             account=step.account,
-            idempotency=step.idempotency,
+            idempotency=f"{step.idempotency}-{digest}" if step.idempotency else None,
         )
 
 
@@ -583,7 +624,7 @@ def listen_args(api_base: str) -> list[str]:
         "--forward-connect-to",
         target,
         "--events",
-        ",".join(WEBHOOK_EVENTS),
+        ",".join((*WEBHOOK_EVENTS, *ACCOUNT_EVENTS)),
     ]
 
 
@@ -790,7 +831,6 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
     )
     parser.add_argument("--listen", action="store_true", help="run `stripe listen` for our events")
     parser.add_argument("--show-secrets", action="store_true", help="print secrets unredacted")
-    parser.add_argument("--wait", type=float, default=90, help="seconds to wait for verification")
     args = parser.parse_args(argv)
     settings = get_settings()
     stripe = Stripe(runner, args.project_name)
@@ -820,12 +860,18 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
     for warning in platform_warnings(platform, settings.stripe_connect_country):
         print(f"  warning: {warning}")
 
-    now = int(time.time())
     endpoints = stripe.list_all("/v1/webhook_endpoints")
-    accounts = stripe.list_all("/v1/accounts")
-    steps = [plan_webhook(endpoints, args.webhook_url)]
-    matched = {biz.id: find_account(accounts, biz) for biz in DEMO_BUSINESSES}
-    steps += [plan_account(biz, matched[biz.id], now) for biz in DEMO_BUSINESSES]
+    destinations = stripe.list_v2("/v2/core/event_destinations")
+    accounts = stripe.list_v2("/v2/core/accounts")
+    steps = [
+        plan_webhook(endpoints, args.webhook_url),
+        plan_destination(destinations, args.webhook_url),
+    ]
+    matched = {
+        biz.id: [stripe.account(str(a["id"])) for a in find_account(accounts, biz)]
+        for biz in DEMO_BUSINESSES
+    }
+    steps += [plan_account(biz, matched[biz.id]) for biz in DEMO_BUSINESSES]
     print("plan:")
     for step in steps:
         show(step)
@@ -835,6 +881,7 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
     )
 
     endpoint_secret: str | None = None
+    destination_secret: str | None = None
     resolved: dict[str, Json | None] = {
         biz.id: matched[biz.id][0] if len(matched[biz.id]) == 1 else None for biz in DEMO_BUSINESSES
     }
@@ -846,11 +893,11 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
             print(f"  done: {step.action} {step.target} -> {result.get('id')}")
             if step.path == "/v1/webhook_endpoints":
                 endpoint_secret = str(result.get("secret") or "") or None
-            if step.path.startswith("/v1/accounts"):
+            if step.path == "/v2/core/event_destinations":
+                webhook = _map(result.get("webhook_endpoint"))
+                destination_secret = str(webhook.get("signing_secret") or "") or None
+            if step.path.startswith("/v2/core/accounts"):
                 resolved[str(_map(result.get("metadata")).get(DEMO_TAG))] = result
-        for biz_id, account in resolved.items():
-            if account is not None:
-                resolved[biz_id] = stripe.settled_account(str(account["id"]), wait=args.wait)
 
     blocked = any(step.action == "blocked" for step in steps)
     if args.write_db:
@@ -863,14 +910,16 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
     print("\nenv (backend/.env unless noted):")
     print(f"  STRIPE_CONNECT_COUNTRY={settings.stripe_connect_country}")
     print(f"  STRIPE_SECRET_KEY={secret(config.get('test_mode_api_key', ''))}  (the CLI's key)")
-    listen_secret = endpoint_secret or stripe.listen_secret()
-    print(f"  STRIPE_WEBHOOK_SECRET={secret(listen_secret)}")
+    listen_secret = stripe.listen_secret()
+    print(f"  STRIPE_WEBHOOK_SECRET={secret(endpoint_secret or listen_secret)}")
+    print(f"  STRIPE_THIN_WEBHOOK_SECRET={secret(destination_secret or listen_secret)}")
     default_version = stripe.default_api_version()
     if default_version is not None and default_version != STRIPE_API_VERSION:
         print(f'  STRIPE_WEBHOOK_API_VERSIONS=["{default_version}"]')
         print(
-            f"    the sandbox renders events at {default_version} and `stripe listen` cannot pin "
-            f"{STRIPE_API_VERSION}; accept it only after checking its changes against the handlers"
+            f"    the sandbox renders snapshot events at {default_version} and `stripe listen` "
+            f"cannot pin {STRIPE_API_VERSION}; accept it only after checking its changes against "
+            "the handlers"
         )
     publishable = config.get("test_mode_pub_key", "<pk_test_...>")
     print(f"  VITE_STRIPE_PUBLISHABLE_KEY={publishable}  (frontend/apps/web and apps/connect)")
@@ -884,12 +933,10 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
         if account is None:
             print(f"  {biz.id}: <created by --apply>")
             continue
-        status = account_status_from(str(account["id"]), account)
-        capabilities = dict(_map(account.get("capabilities")))
-        print(
-            f"  {biz.id}: {account['id']} charges={status.charges_enabled} "
-            f"payouts={status.payouts_enabled} capabilities={capabilities}"
-        )
+        print(f"  {biz.id}: {account['id']} {account_summary(account)}")
+    print("\nonboarding:")
+    for item in ONBOARDING_STEPS:
+        print(f"  - {item}")
     print(f"\nlocal webhooks (make stripe-listen): stripe {' '.join(listen)}")
     print("\nDashboard-only steps:")
     for item in DASHBOARD_STEPS:

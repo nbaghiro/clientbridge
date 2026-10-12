@@ -2899,11 +2899,11 @@ interface Strings {
         readonly reqBusinessType: string;
         readonly reqOther: string;
         readonly reqWhy: {
-            readonly external_account: string;
-            readonly individual_verification_document: string;
-            readonly individual_verification_additional_document: string;
-            readonly individual_id_number: string;
-            readonly tos_acceptance_date: string;
+            readonly bankAccount: string;
+            readonly photoId: string;
+            readonly proofOfAddress: string;
+            readonly idNumber: string;
+            readonly terms: string;
         } & Labels;
         readonly subtitle: string;
         readonly titleInProgress: string;

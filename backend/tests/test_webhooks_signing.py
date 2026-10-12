@@ -11,11 +11,13 @@ from clientbridge.core import clock
 from clientbridge.integrations.stripe import StripeGateway, WebhookVerificationError
 
 SECRET = "whsec_test_kQ7rZ8m2vP1nX4tL6yB0cD3eF5gH9jK"
+THIN_SECRET = "whsec_test_thin_R4nD0mV2eVeNtDeSt1nAt10n"
 FIXTURES = Path(__file__).parent / "fixtures" / "stripe"
+THIN = "account_requirements_updated.json"
 
 
-def _gateway(secret: str = SECRET) -> StripeGateway:
-    return StripeGateway("sk_test_unused", secret, "CA")
+def _gateway(secret: str = SECRET, thin_secret: str = THIN_SECRET) -> StripeGateway:
+    return StripeGateway("sk_test_unused", secret, "CA", thin_secret)
 
 
 def _signed_header(payload: bytes, secret: str, *, timestamp: int | None = None) -> str:
@@ -29,19 +31,40 @@ def _golden(name: str) -> bytes:
     return (FIXTURES / name).read_bytes()
 
 
-def test_accepts_a_genuinely_signed_account_event() -> None:
-    payload = _golden("account_updated.json")
-    event = _gateway().verify_webhook(payload, _signed_header(payload, SECRET))
-    assert event.id == "evt_1NG8Du2eZvKYlo2C8b9Hd0Fb"
-    assert event.type == "account.updated"
+def test_accepts_a_genuinely_signed_thin_account_event() -> None:
+    payload = _golden(THIN)
+    event = _gateway().verify_webhook(payload, _signed_header(payload, THIN_SECRET))
+    assert event.id == "evt_test_65UIRNU7G1XbhCfOim416TgmEI4ASQ3jHxXt8RFwXoeVwO"
+    assert event.type == "v2.core.account[requirements].updated"
+    assert event.thin is True and event.api_version is None
     assert event.account == "acct_1NG8Du2eZvKYlo2C"
-    assert event.data["id"] == "acct_1NG8Du2eZvKYlo2C"
+
+
+def test_each_kind_of_event_needs_its_own_secret() -> None:
+    thin = _golden(THIN)
+    snapshot = _golden("payment_intent_succeeded.json")
+    with pytest.raises(WebhookVerificationError):
+        _gateway().verify_webhook(thin, _signed_header(thin, SECRET))
+    with pytest.raises(WebhookVerificationError):
+        _gateway().verify_webhook(snapshot, _signed_header(snapshot, THIN_SECRET))
+
+
+def test_an_unconfigured_secret_rejects_its_events() -> None:
+    thin = _golden(THIN)
+    with pytest.raises(WebhookVerificationError, match="no signing secret"):
+        _gateway(thin_secret="").verify_webhook(thin, _signed_header(thin, ""))
+
+
+def test_a_body_that_is_not_an_event_is_rejected() -> None:
+    for payload in (b"not json", b"[1, 2]"):
+        with pytest.raises(WebhookVerificationError):
+            _gateway().verify_webhook(payload, _signed_header(payload, SECRET))
 
 
 def test_accepts_a_genuinely_signed_payment_event() -> None:
     payload = _golden("payment_intent_succeeded.json")
     event = _gateway().verify_webhook(payload, _signed_header(payload, SECRET))
-    assert event.type == "payment_intent.succeeded"
+    assert event.type == "payment_intent.succeeded" and event.thin is False
     assert event.data["application_fee_amount"] == 213
     assert event.data["metadata"] == {
         "invoice_id": "inv_birchbark_0042",
@@ -63,30 +86,28 @@ def test_event_without_account_yields_none() -> None:
 
 
 def test_rejects_a_tampered_payload() -> None:
-    payload = _golden("account_updated.json")
-    header = _signed_header(payload, SECRET)  # signed over the original bytes
+    payload = _golden(THIN)
+    header = _signed_header(payload, THIN_SECRET)  # signed over the original bytes
     tampered = payload.replace(b"acct_1NG8Du2eZvKYlo2C", b"acct_attacker0000000")
     with pytest.raises(WebhookVerificationError):
         _gateway().verify_webhook(tampered, header)
 
 
 def test_rejects_a_signature_from_the_wrong_secret() -> None:
-    payload = _golden("account_updated.json")
+    payload = _golden("payment_intent_succeeded.json")
     header = _signed_header(payload, "whsec_some_other_secret")
     with pytest.raises(WebhookVerificationError):
         _gateway(SECRET).verify_webhook(payload, header)
 
 
 def test_rejects_a_stale_timestamp() -> None:
-    payload = _golden("account_updated.json")
-    header = _signed_header(
-        payload, SECRET, timestamp=int(clock.wall().timestamp()) - 1000
-    )  # past tolerance
+    payload = _golden("payment_intent_succeeded.json")
+    header = _signed_header(payload, SECRET, timestamp=int(time.time()) - 1000)  # past tolerance
     with pytest.raises(WebhookVerificationError):
         _gateway().verify_webhook(payload, header)
 
 
 def test_rejects_a_malformed_header() -> None:
-    payload = _golden("account_updated.json")
+    payload = _golden("payment_intent_succeeded.json")
     with pytest.raises(WebhookVerificationError):
         _gateway().verify_webhook(payload, "not-a-real-signature")

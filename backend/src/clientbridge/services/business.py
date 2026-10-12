@@ -149,8 +149,8 @@ async def business_tax_registered(db: AsyncSession, business_id: str) -> bool:
 
 def derive_kyc_status(status: ConnectAccount) -> str:
     """The provider-facing KYC state, derived from the Stripe account (the source of truth)."""
-    if status.disabled_reason is not None and status.disabled_reason.startswith("rejected"):
-        return "disabled"
+    if status.disabled_reason is not None:
+        return "disabled"  # closed, unsupported, or only Stripe support can lift it
     if status.charges_enabled and not status.currently_due and not status.past_due:
         return "enabled"
     if not status.details_submitted:

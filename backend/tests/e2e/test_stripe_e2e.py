@@ -1,24 +1,35 @@
 """Flows only the real Stripe API can prove: KYC shape, real declines, period parsing."""
 
+from uuid import uuid4
+
 import pytest
 import stripe
 
-from clientbridge.core.errors import CardDeclined
-from clientbridge.integrations.stripe import StripeGateway
+from clientbridge.core.errors import CardDeclined, Conflict
+from clientbridge.integrations.stripe import TERMS_REQUIREMENT, StripeGateway
 
 pytestmark = [pytest.mark.e2e, pytest.mark.wall_clock]
 
 
-async def test_fresh_account_reports_kyc_requirements(live_gateway: StripeGateway) -> None:
-    """A brand-new Custom account is not chargeable and lists what Stripe still needs."""
+async def test_fresh_v2_account_reports_kyc_requirements(live_gateway: StripeGateway) -> None:
+    """A new Accounts v2 merchant is not chargeable and lists what Stripe still needs."""
     account_id = await live_gateway.create_connected_account(
-        business_name="E2E Test Co", email="e2e@clientbridge.test", url="https://x.test/book/e2e"
+        business_name="E2E Test Co",
+        email="e2e@clientbridge.test",
+        url="https://x.test/book/e2e",
+        idempotency_key=f"e2e-account-{uuid4()}",
     )
     status = await live_gateway.get_account(account_id)
     assert status.charges_enabled is False
     assert status.details_submitted is False
-    # a fresh Custom account always owes Stripe onboarding data
-    assert status.currently_due or status.eventually_due
+    owed = [*status.currently_due, *status.eventually_due, *status.past_due]
+    assert any(code.startswith(TERMS_REQUIREMENT) for code in owed)
+    url = await live_gateway.create_account_link(
+        account_id, refresh_url="https://x.test/refresh", return_url="https://x.test/return"
+    )
+    assert url.startswith("https://")
+    with pytest.raises(Conflict):
+        await live_gateway.ensure_pad_capability(account_id)
 
 
 async def test_declined_test_card_maps_to_card_declined(

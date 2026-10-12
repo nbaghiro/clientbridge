@@ -1,4 +1,4 @@
-"""Stripe Connect adapter: Custom connected accounts, direct charges with an application fee."""
+"""Stripe Connect adapter: Accounts v2 merchants, direct charges with an application fee."""
 
 import json
 import re
@@ -6,18 +6,16 @@ import unicodedata
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from types import CoroutineType
-from typing import Concatenate, Literal, Protocol
+from typing import Concatenate, Literal, Protocol, cast
 
 import stripe
-from stripe.params import (
+from stripe.params import AccountSessionCreateParamsComponents
+from stripe.params.v2.core import (
     AccountCreateParams,
-    AccountCreateParamsBusinessProfile,
-    AccountSessionCreateParamsComponents,
-    CustomerCreateParams,
-    PaymentIntentCreateParams,
+    AccountCreateParamsConfigurationMerchant,
+    AccountCreateParamsDefaults,
+    AccountCreateParamsDefaultsResponsibilities,
 )
-from stripe.params.terminal import LocationCreateParamsAddress
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import (
@@ -28,8 +26,18 @@ from clientbridge.core.errors import (
 )
 from clientbridge.models.catalog import Frequency
 
-# webhook payloads are parsed for this version; the Connect webhook endpoint must use it too
+# snapshot payloads are parsed at this version; the Connect webhook endpoint must use it too
 STRIPE_API_VERSION = "2026-05-27.dahlia"
+# Stripe takes its fee from the business and owns negative balances; fixed at creation
+RESPONSIBILITIES: AccountCreateParamsDefaultsResponsibilities = {
+    "fees_collector": "stripe",
+    "losses_collector": "stripe",
+}
+ACCOUNT_EVENTS = (
+    "v2.core.account[requirements].updated",
+    "v2.core.account[configuration.merchant].capability_status_updated",
+    "v2.core.account.closed",
+)
 
 
 def _missing(exc: stripe.InvalidRequestError) -> bool:
@@ -60,28 +68,72 @@ class ConnectAccount:
     current_deadline: int | None = None  # unix time Stripe pauses payouts if currently_due stays
 
 
+TERMS_REQUIREMENT = "identity.attestations.terms_of_service"
+_UNFIXABLE = ("contact_stripe", "no_resolution")
+
+
+def _dict(value: object) -> dict[str, object]:
+    return cast(dict[str, object], value) if isinstance(value, dict) else {}
+
+
+def _rows(value: object) -> list[dict[str, object]]:
+    return [_dict(row) for row in value] if isinstance(value, list) else []
+
+
+def _unix(value: object) -> int | None:
+    if not isinstance(value, str):
+        return None
+    return int(datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp())
+
+
+def merchant_capability(data: dict[str, object], *path: str) -> dict[str, object]:
+    node = _dict(_dict(_dict(data.get("configuration")).get("merchant")).get("capabilities"))
+    for key in path:
+        node = _dict(node.get(key))
+    return node
+
+
+def _blocked_reason(data: dict[str, object]) -> str | None:
+    if data.get("closed") is True:
+        return "closed"
+    cards = merchant_capability(data, "card_payments")
+    details = _rows(cards.get("status_details"))
+    first = details[0] if details else {}
+    if cards.get("status") == "unsupported" or first.get("resolution") in _UNFIXABLE:
+        code = first.get("code")
+        return code if isinstance(code, str) else str(cards.get("status"))
+    return None
+
+
 def account_status_from(account_id: str, data: dict[str, object]) -> ConnectAccount:
-    """Parse a Stripe Account object into our KYC state."""
-    req = data.get("requirements")
-    req = req if isinstance(req, dict) else {}
-
-    def _list(key: str) -> list[str]:
-        value = req.get(key)
-        return [str(x) for x in value] if isinstance(value, list) else []
-
-    reason = req.get("disabled_reason")
-    deadline = req.get("current_deadline")
+    """Parse an Accounts v2 object (with merchant configuration and requirements) into KYC state."""
+    requirements = _dict(data.get("requirements"))
+    due: dict[str, list[str]] = {"currently_due": [], "eventually_due": [], "past_due": []}
+    pending: list[str] = []
+    for entry in _rows(requirements.get("entries")):
+        code = entry.get("description")
+        if not isinstance(code, str):
+            continue
+        if entry.get("awaiting_action_from") == "stripe":
+            pending.append(code)
+            continue
+        status = _dict(entry.get("minimum_deadline")).get("status")
+        if isinstance(status, str) and status in due:
+            due[status].append(code)
+    owed = [*due["currently_due"], *due["eventually_due"], *due["past_due"]]
+    deadline = _dict(_dict(requirements.get("summary")).get("minimum_deadline")).get("time")
     return ConnectAccount(
         id=account_id,
-        charges_enabled=bool(data.get("charges_enabled")),
-        payouts_enabled=bool(data.get("payouts_enabled")),
-        details_submitted=bool(data.get("details_submitted")),
-        disabled_reason=str(reason) if isinstance(reason, str) else None,
-        currently_due=_list("currently_due"),
-        eventually_due=_list("eventually_due"),
-        past_due=_list("past_due"),
-        pending_verification=_list("pending_verification"),
-        current_deadline=deadline if isinstance(deadline, int) else None,
+        charges_enabled=merchant_capability(data, "card_payments").get("status") == "active",
+        payouts_enabled=merchant_capability(data, "stripe_balance", "payouts").get("status")
+        == "active",
+        details_submitted=not any(code.startswith(TERMS_REQUIREMENT) for code in owed),
+        disabled_reason=_blocked_reason(data),
+        currently_due=due["currently_due"],
+        eventually_due=due["eventually_due"],
+        past_due=due["past_due"],
+        pending_verification=pending,
+        current_deadline=_unix(deadline),
     )
 
 
@@ -90,9 +142,40 @@ class GatewayEvent:
     id: str
     type: str
     data: dict[str, object]
-    account: str | None = None  # the connected account a Connect event came from
+    account: str | None = None  # the connected account a Connect event came from or is about
     created: datetime | None = None  # when Stripe raised it: the success time of a succeeded event
     api_version: str | None = None
+    thin: bool = False  # an unversioned v2 notification; the handler fetches what it needs
+
+
+THIN_EVENT = "v2.core.event"
+
+
+def event_from(event: dict[str, object]) -> GatewayEvent:
+    """A verified webhook body as a GatewayEvent; a thin event names the account it is about."""
+    if event.get("object") == THIN_EVENT:
+        related = _dict(event.get("related_object"))
+        related_id = related.get("id")
+        about_account = related.get("type") == "v2.core.account" and isinstance(related_id, str)
+        return GatewayEvent(
+            id=str(event["id"]),
+            type=str(event["type"]),
+            data={"related_object": related},
+            account=str(related_id) if about_account else None,
+            thin=True,
+        )
+    obj = _dict(_dict(event.get("data")).get("object"))
+    account = event.get("account")
+    version = event.get("api_version")
+    created = event.get("created")
+    return GatewayEvent(
+        id=str(event["id"]),
+        type=str(event["type"]),
+        data=obj,
+        account=str(account) if account else None,
+        api_version=version if isinstance(version, str) else None,
+        created=datetime.fromtimestamp(created, tz=UTC) if isinstance(created, int) else None,
+    )
 
 
 @dataclass(frozen=True)
@@ -315,11 +398,17 @@ def _keyed[**P, R](
 
 
 class StripeGateway:
-    def __init__(self, secret_key: str, webhook_secret: str, country: str) -> None:
+    def __init__(
+        self, secret_key: str, webhook_secret: str, country: str, thin_webhook_secret: str = ""
+    ) -> None:
         self.configured = bool(secret_key)
         stripe.api_key = secret_key
         stripe.api_version = STRIPE_API_VERSION
+        self._client = stripe.StripeClient(
+            secret_key, stripe_version=STRIPE_API_VERSION, base_addresses={"api": stripe.api_base}
+        )
         self._webhook_secret = webhook_secret
+        self._thin_webhook_secret = thin_webhook_secret
         self._country = country
 
     @_keyed
@@ -331,44 +420,61 @@ class StripeGateway:
         url: str | None = None,
         idempotency_key: str | None = None,
     ) -> str:
-        # Pre-fill everything we already have so Stripe's hosted KYC has less to collect.
-        profile: AccountCreateParamsBusinessProfile = {"name": business_name}
-        if email is not None:
-            profile["support_email"] = email
-        if url is not None:
-            profile["url"] = url
-        descriptor = payment_descriptor(business_name)
-        settings: stripe.params.AccountCreateParamsSettings = {}
-        if descriptor is not None:
-            settings["payments"] = {"statement_descriptor": descriptor}
-            prefix = descriptor[:10].rstrip()
-            if re.search("[A-Z]", prefix):
-                settings["card_payments"] = {"statement_descriptor_prefix": prefix}
-        params: AccountCreateParams = {
-            "settings": settings,
-            "type": "custom",
-            "idempotency_key": idempotency_key,
-            "country": self._country,
-            "business_profile": profile,
+        # Prefill what we already have; Stripe collects the rest in embedded onboarding.
+        merchant: AccountCreateParamsConfigurationMerchant = {
             "capabilities": {
                 "card_payments": {"requested": True},
-                "transfers": {"requested": True},
-            },
+                "link_payments": {"requested": True},
+            }
+        }
+        descriptor = payment_descriptor(business_name)
+        if descriptor is not None:
+            prefix = descriptor[:10].rstrip()
+            merchant["statement_descriptor"] = (
+                {"descriptor": descriptor, "prefix": prefix}
+                if re.search("[A-Z]", prefix)
+                else {"descriptor": descriptor}
+            )
+        if email is not None:
+            merchant["support"] = {"email": email}
+        defaults: AccountCreateParamsDefaults = {
+            "currency": "cad",
+            "locales": ["en-CA"],
+            "responsibilities": RESPONSIBILITIES,
+        }
+        if url is not None:
+            defaults["profile"] = {"business_url": url}
+        params: AccountCreateParams = {
+            "display_name": business_name,
+            "dashboard": "none",
+            "identity": {"country": self._country.lower()},
+            "configuration": {"merchant": merchant},
+            "defaults": defaults,
+            "include": ["configuration.merchant", "requirements"],
         }
         if email is not None:
-            params["email"] = email
-        account = await stripe.Account.create_async(**params)
+            params["contact_email"] = email
+        account = await self._client.v2.core.accounts.create_async(
+            params, {"idempotency_key": idempotency_key} if idempotency_key else None
+        )
         return str(account.id)
 
     @_keyed
     async def create_account_link(
         self, account_id: str, *, refresh_url: str, return_url: str
     ) -> str:
-        link = await stripe.AccountLink.create_async(
-            account=account_id,
-            refresh_url=refresh_url,
-            return_url=return_url,
-            type="account_onboarding",
+        link = await self._client.v2.core.account_links.create_async(
+            {
+                "account": account_id,
+                "use_case": {
+                    "type": "account_onboarding",
+                    "account_onboarding": {
+                        "configurations": ["merchant"],
+                        "refresh_url": refresh_url,
+                        "return_url": return_url,
+                    },
+                },
+            }
         )
         return str(link.url)
 
@@ -423,21 +529,11 @@ class StripeGateway:
         return str(session.client_secret)
 
     @_keyed
-    async def get_account(self, account_id: str) -> ConnectAccount:
-        account = await stripe.Account.retrieve_async(account_id)
-        req = account.requirements
-        return ConnectAccount(
-            id=str(account.id),
-            charges_enabled=bool(account.charges_enabled),
-            payouts_enabled=bool(account.payouts_enabled),
-            details_submitted=bool(account.details_submitted),
-            disabled_reason=req.disabled_reason if req is not None else None,
-            currently_due=list(req.currently_due or []) if req is not None else [],
-            eventually_due=list(req.eventually_due or []) if req is not None else [],
-            past_due=list(req.past_due or []) if req is not None else [],
-            pending_verification=list(req.pending_verification or []) if req is not None else [],
-            current_deadline=req.current_deadline if req is not None else None,
+    async def get_account(self, account_id: str) -> ConnectAccount:  # pragma: no cover
+        account = await self._client.v2.core.accounts.retrieve_async(
+            account_id, {"include": ["configuration.merchant", "requirements"]}
         )
+        return account_status_from(str(account.id), account.to_dict())
 
     @_keyed
     async def create_customer(self, account_id: str, *, name: str, email: str | None) -> str:
@@ -489,15 +585,21 @@ class StripeGateway:
     @_keyed
     async def ensure_pad_capability(self, account_id: str) -> None:
         try:
-            capability = await stripe.Account.modify_capability_async(
-                account_id, "acss_debit_payments", requested=True
+            account = await self._client.v2.core.accounts.update_async(
+                account_id,
+                {
+                    "configuration": {
+                        "merchant": {"capabilities": {"acss_debit_payments": {"requested": True}}}
+                    },
+                    "include": ["configuration.merchant"],
+                },
             )
         except stripe.InvalidRequestError as exc:
             raise Conflict(
                 "enable Canadian pre-authorized debit on the platform "
                 "and complete the business's payments setup"
             ) from exc
-        if capability.status != "active":
+        if merchant_capability(account.to_dict(), "acss_debit_payments").get("status") != "active":
             raise Conflict(
                 "complete the Canadian pre-authorized debit requirements in payments setup"
             )
@@ -773,23 +875,24 @@ class StripeGateway:
 
     def verify_webhook(self, payload: bytes, signature: str) -> GatewayEvent:
         try:
-            stripe.Webhook.construct_event(payload, signature, self._webhook_secret)
+            event = json.loads(payload)
+        except ValueError as exc:
+            raise WebhookVerificationError("the payload is not JSON") from exc
+        if not isinstance(event, dict):
+            raise WebhookVerificationError("the payload is not an event")
+        # the Connect endpoint and the thin event destination each sign with their own secret
+        secret = (
+            self._thin_webhook_secret if event.get("object") == THIN_EVENT else self._webhook_secret
+        )
+        if not secret:
+            raise WebhookVerificationError("no signing secret is configured for this event")
+        try:
+            stripe.WebhookSignature.verify_header(  # type: ignore[no-untyped-call]
+                payload.decode(), signature, secret, stripe.Webhook.DEFAULT_TOLERANCE
+            )
         except Exception as exc:
             raise WebhookVerificationError(str(exc)) from exc
-        # The SDK's StripeObject is not a dict, so read the verified bytes as plain JSON.
-        event = json.loads(payload)
-        obj = event["data"]["object"]
-        account = event.get("account")
-        created = event.get("created")
-        version = event.get("api_version")
-        return GatewayEvent(
-            id=str(event["id"]),
-            type=str(event["type"]),
-            data={str(k): v for k, v in obj.items()},
-            account=str(account) if account else None,
-            created=datetime.fromtimestamp(created, tz=UTC) if isinstance(created, int) else None,
-            api_version=version if isinstance(version, str) else None,
-        )
+        return event_from(cast(dict[str, object], event))
 
 
 def period_timestamp(sub: dict[str, object], edge: str) -> int | None:
@@ -810,4 +913,9 @@ def _period_of(sub: stripe.Subscription, edge: str) -> int:
 
 def get_payment_gateway() -> PaymentGateway:
     s = get_settings()
-    return StripeGateway(s.stripe_secret_key, s.stripe_webhook_secret, s.stripe_connect_country)
+    return StripeGateway(
+        s.stripe_secret_key,
+        s.stripe_webhook_secret,
+        s.stripe_connect_country,
+        s.stripe_thin_webhook_secret,
+    )

@@ -1,0 +1,103 @@
+{
+  "id": "acct_1NG8Du2eZvKYlo2C",
+  "object": "v2.core.account",
+  "applied_configurations": ["merchant"],
+  "closed": false,
+  "configuration": {
+    "customer": null,
+    "merchant": {
+      "applied": true,
+      "card_payments": { "decline_on": { "avs_failure": false, "cvc_failure": false } },
+      "capabilities": {
+        "card_payments": {
+          "status": "restricted",
+          "status_details": [{ "code": "requirements_past_due", "resolution": "provide_info" }]
+        },
+        "link_payments": { "status": "pending", "status_details": [] },
+        "stripe_balance": {
+          "payouts": {
+            "status": "restricted",
+            "status_details": [{ "code": "requirements_past_due", "resolution": "provide_info" }]
+          }
+        }
+      },
+      "statement_descriptor": { "descriptor": "BIRCHBARK PET STUDIO", "prefix": "BIRCHBARK" },
+      "support": { "email": "owner@birchbark.test" }
+    },
+    "recipient": null
+  },
+  "contact_email": "owner@birchbark.test",
+  "contact_phone": null,
+  "created": "2026-10-12T15:08:46.000Z",
+  "dashboard": "none",
+  "defaults": null,
+  "display_name": "Birchbark Pet Studio",
+  "future_requirements": null,
+  "identity": null,
+  "livemode": false,
+  "metadata": {},
+  "requirements": {
+    "entries": [
+      {
+        "awaiting_action_from": "user",
+        "description": "external_account",
+        "errors": [],
+        "impact": {
+          "restricts_capabilities": [
+            {
+              "capability": "stripe_balance.payouts",
+              "configuration": "merchant",
+              "deadline": { "status": "past_due" }
+            }
+          ]
+        },
+        "minimum_deadline": { "status": "past_due" },
+        "reference": null,
+        "requested_reasons": [{ "code": "routine_onboarding" }]
+      },
+      {
+        "awaiting_action_from": "user",
+        "description": "identity.individual.id_numbers",
+        "errors": [
+          {
+            "code": "verification_failed_id_number_match",
+            "description": "The ID number does not match the name and date of birth."
+          }
+        ],
+        "impact": {
+          "restricts_capabilities": [
+            {
+              "capability": "card_payments",
+              "configuration": "merchant",
+              "deadline": { "status": "currently_due" }
+            }
+          ]
+        },
+        "minimum_deadline": { "status": "currently_due" },
+        "reference": null,
+        "requested_reasons": [{ "code": "routine_verification" }]
+      },
+      {
+        "awaiting_action_from": "user",
+        "description": "defaults.profile.product_description",
+        "errors": [],
+        "impact": { "restricts_capabilities": [] },
+        "minimum_deadline": { "status": "eventually_due" },
+        "reference": null,
+        "requested_reasons": [{ "code": "routine_onboarding" }]
+      },
+      {
+        "awaiting_action_from": "stripe",
+        "description": "identity.individual.documents.primary_verification",
+        "errors": [],
+        "impact": { "restricts_capabilities": [] },
+        "minimum_deadline": { "status": "currently_due" },
+        "reference": null,
+        "requested_reasons": [{ "code": "routine_verification" }]
+      }
+    ],
+    "summary": {
+      "minimum_deadline": { "status": "past_due", "time": "2026-11-01T00:00:00.000Z" }
+    }
+  }
+}

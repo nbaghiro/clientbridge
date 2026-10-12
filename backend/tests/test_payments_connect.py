@@ -107,38 +107,88 @@ async def test_unauth_cannot_onboard(unauth: httpx.AsyncClient) -> None:
 FIXTURES = Path(__file__).parent / "fixtures" / "stripe"
 
 
-def _account_object(name: str) -> dict[str, object]:
-    raw = json.loads((FIXTURES / name).read_text())
-    return cast("dict[str, object]", raw["data"]["object"])
+def _account() -> dict[str, object]:
+    return cast("dict[str, object]", json.loads((FIXTURES / "v2_account.json").read_text()))
 
 
-def test_parses_a_full_account_object() -> None:
-    obj = _account_object("account_updated.json")
-    status = account_status_from(str(obj["id"]), obj)
-    assert status.id == "acct_1NG8Du2eZvKYlo2C"
+def test_parses_a_v2_account() -> None:
+    status = account_status_from("acct_1NG8Du2eZvKYlo2C", _account())
     assert status.charges_enabled is False and status.payouts_enabled is False
     assert status.details_submitted is True
-    assert status.currently_due == ["external_account", "individual.id_number"]
     assert status.past_due == ["external_account"]
-    assert status.eventually_due == [
-        "external_account",
-        "individual.id_number",
-        "tos_acceptance.date",
-    ]
-    assert status.disabled_reason == "requirements.past_due"
+    assert status.currently_due == ["identity.individual.id_numbers"]
+    assert status.eventually_due == ["defaults.profile.product_description"]
+    assert status.pending_verification == ["identity.individual.documents.primary_verification"]
+    assert status.disabled_reason is None
+    assert status.current_deadline == 1_793_491_200
 
 
 def test_derives_restricted_when_stripe_still_needs_things() -> None:
-    status = account_status_from("acct_x", _account_object("account_updated.json"))
-    # details submitted, but currently_due/past_due are non-empty → the provider must act
+    status = account_status_from("acct_x", _account())
     assert derive_kyc_status(status) == "restricted"
 
 
-def test_reads_the_requirements_deadline() -> None:
-    data = _account_object("account_updated.json")
-    req = cast(dict[str, object], data["requirements"])
-    data = {**data, "requirements": {**req, "current_deadline": 1_800_000_000}}
-    assert account_status_from("acct_x", data).current_deadline == 1_800_000_000
+def _with(data: dict[str, object], **changes: object) -> dict[str, object]:
+    return {**data, **changes}
+
+
+def _cards(status: str, code: str, resolution: str) -> dict[str, object]:
+    details = [{"code": code, "resolution": resolution}]
+    return {
+        "merchant": {
+            "capabilities": {
+                "card_payments": {"status": status, "status_details": details},
+                "stripe_balance": {"payouts": {"status": status, "status_details": details}},
+            }
+        }
+    }
+
+
+def test_open_terms_mean_onboarding_was_not_submitted() -> None:
+    terms = {
+        "awaiting_action_from": "user",
+        "description": "identity.attestations.terms_of_service.account.date",
+        "minimum_deadline": {"status": "currently_due"},
+    }
+    status = account_status_from("acct_x", _with(_account(), requirements={"entries": [terms]}))
+    assert status.details_submitted is False and status.current_deadline is None
+    assert derive_kyc_status(status) == "not_started"
+
+
+def test_an_active_account_is_enabled() -> None:
+    data = _with(_account(), configuration=_cards("active", "", ""), requirements=None)
+    status = account_status_from("acct_x", data)
+    assert status.charges_enabled and status.payouts_enabled
+    assert derive_kyc_status(status) == "enabled"
+
+
+@pytest.mark.parametrize(
+    ("changes", "reason"),
+    [
+        ({"closed": True}, "closed"),
+        (
+            {"configuration": _cards("unsupported", "unsupported_country", "no_resolution")},
+            "unsupported_country",
+        ),
+        (
+            {"configuration": _cards("restricted", "restricted_other", "contact_stripe")},
+            "restricted_other",
+        ),
+    ],
+)
+def test_a_state_the_business_cannot_fix_is_disabled(
+    changes: dict[str, object], reason: str
+) -> None:
+    status = account_status_from("acct_x", _with(_account(), **changes))
+    assert status.disabled_reason == reason
+    assert derive_kyc_status(status) == "disabled"
+
+
+def test_missing_requirements_parse_as_nothing_due() -> None:
+    data: dict[str, object] = {"requirements": {"entries": [{"awaiting_action_from": "user"}]}}
+    status = account_status_from("acct_x", data)
+    assert status.currently_due == [] and status.pending_verification == []
+    assert status.charges_enabled is False and status.disabled_reason is None
 
 
 async def test_status_shows_deadline_and_available_balance(

@@ -8114,19 +8114,19 @@
     "gettingPaid.reqOther": {
         "message": "[Åñöţĥéŕ åççöûñţ ðéţåîļ one two]"
     },
-    "gettingPaid.reqWhy.external_account": {
+    "gettingPaid.reqWhy.bankAccount": {
         "message": "[Ŵĥéŕé ýöûŕ þåýöûţš ĝö. Å Çåñåðîåñ çĥéǫûîñĝ åççöûñţ îñ ţĥé ƀûšîñéšš öŕ öŵñéŕ'š ñåɱé. one two three four five six]"
     },
-    "gettingPaid.reqWhy.individual_verification_document": {
+    "gettingPaid.reqWhy.photoId": {
         "message": "[Å ðŕîṽéŕ'š ļîçéñçé öŕ þåššþöŕţ ƒöŕ ţĥé åççöûñţ ŕéþŕéšéñţåţîṽé. Å çļéåŕ þĥöţö öƒ ţĥé ƒŕöñţ åñð ƀåçķ. one two three four five six seven]"
     },
-    "gettingPaid.reqWhy.individual_verification_additional_document": {
+    "gettingPaid.reqWhy.proofOfAddress": {
         "message": "[Å ûţîļîţý ƀîļļ öŕ ƀåñķ šţåţéɱéñţ ƒŕöɱ ţĥé ļåšţ 3 ɱöñţĥš šĥöŵîñĝ å ĥöɱé åððŕéšš. one two three four five]"
     },
-    "gettingPaid.reqWhy.individual_id_number": {
+    "gettingPaid.reqWhy.idNumber": {
         "message": "[Ţĥé åççöûñţ ŕéþŕéšéñţåţîṽé'š šöçîåļ îñšûŕåñçé ñûɱƀéŕ. one two three four]"
     },
-    "gettingPaid.reqWhy.tos_acceptance_date": {
+    "gettingPaid.reqWhy.terms": {
         "message": "[Ŕéåð åñð åççéþţ ţĥé þåýɱéñţ šéŕṽîçéš åĝŕééɱéñţ. one two three four]"
     },
     "gettingPaid.subtitle": {

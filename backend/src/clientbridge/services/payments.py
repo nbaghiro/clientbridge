@@ -22,6 +22,7 @@ from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.core.security import hash_token
 from clientbridge.core.zones import zone
 from clientbridge.integrations.stripe import (
+    ACCOUNT_EVENTS,
     STRIPE_API_VERSION,
     ChargeFees,
     ConnectComponent,
@@ -29,7 +30,6 @@ from clientbridge.integrations.stripe import (
     PaymentGateway,
     PriceTerms,
     WebhookVersionError,
-    account_status_from,
     period_timestamp,
 )
 from clientbridge.models.billing import Invoice, Line, Order
@@ -133,7 +133,7 @@ class PaymentService:
                     business_name=business.name,
                     email=business.billing_email,
                     url=f"{settings.connect_base_url}/b/{business.slug}",
-                    idempotency_key=f"connect-account:{business.id}",
+                    idempotency_key=f"connected-account:{business.id}",
                 )
                 business.stripe_account_id = account_id
                 await self.db.flush()
@@ -172,7 +172,7 @@ class PaymentService:
                 business_name=business.name,
                 email=business.billing_email,
                 url=f"{get_settings().connect_base_url}/b/{business.slug}",
-                idempotency_key=f"connect-account:{business.id}",
+                idempotency_key=f"connected-account:{business.id}",
             )
             business.stripe_account_id = created
             apply_account_status(business, await self.gateway.get_account(created))
@@ -1367,7 +1367,7 @@ async def process_stripe_event(
 ) -> WebhookOutcome | None:
     """Verify, dedupe and apply a Stripe webhook; returns the notification to send after commit."""
     event = gateway.verify_webhook(payload, signature)
-    if event.api_version not in accepted_api_versions():
+    if not event.thin and event.api_version not in accepted_api_versions():
         _log.warning(
             "rejected Stripe event %s (%s) rendered at API version %s; handlers parse %s",
             event.id,
@@ -1627,7 +1627,7 @@ def _returned_fee(data: dict[str, object]) -> int:
 async def _refresh_account(
     db: AsyncSession, gateway: PaymentGateway, account_id: str | None
 ) -> None:
-    """A capability changed (such as pre-authorized debit); re-read the account's requirements."""
+    """Mirror a connected account's current state after Stripe reports a change to it."""
     if account_id is None:
         return
     business = (
@@ -1652,15 +1652,8 @@ async def _disputed_payment(db: AsyncSession, data: dict[str, object]) -> Paymen
 async def _dispatch(
     db: AsyncSession, gateway: PaymentGateway, event: GatewayEvent
 ) -> WebhookOutcome | None:
-    if event.type == "account.updated":
-        account_id = event.data.get("id")
-        if isinstance(account_id, str):
-            business = (
-                await db.execute(select(Business).where(Business.stripe_account_id == account_id))
-            ).scalar_one_or_none()
-            if business is not None:
-                apply_account_status(business, account_status_from(account_id, event.data))
-                await db.flush()
+    if event.type in ACCOUNT_EVENTS:
+        await _refresh_account(db, gateway, event.account)
     elif event.type == "payment_intent.succeeded":
         settled = await _settle_payment(
             db, gateway, event.data, account=event.account, occurred_at=event.created
@@ -1681,8 +1674,6 @@ async def _dispatch(
         await _fail_payout(db, event.account, event.data)
     elif event.type in ("setup_intent.succeeded", "setup_intent.setup_failed"):
         await _reconcile_pad_setup(db, gateway, event.account, str(event.data.get("id")))
-    elif event.type == "capability.updated":
-        await _refresh_account(db, gateway, event.account)
     elif event.type == "mandate.updated":
         await _reconcile_pad_mandate(db, gateway, event.account, str(event.data.get("id")))
     elif event.type == "payment_method.attached":

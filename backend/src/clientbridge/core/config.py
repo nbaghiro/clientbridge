@@ -52,8 +52,9 @@ class Settings(BaseSettings):
 
     # Stripe Connect; an empty secret key answers every Stripe call with payments_not_configured.
     stripe_secret_key: str = ""
-    stripe_webhook_secret: str = ""
-    # payload versions accepted besides STRIPE_API_VERSION, for a sandbox whose default differs
+    stripe_webhook_secret: str = ""  # the Connect endpoint's (snapshot events) signing secret
+    stripe_thin_webhook_secret: str = ""  # the account event destination's (thin events) secret
+    # snapshot payload versions accepted besides STRIPE_API_VERSION (a sandbox with a newer default)
     stripe_webhook_api_versions: list[str] = Field(default_factory=list)
     stripe_connect_country: str = "CA"
     api_base_url: str = "http://127.0.0.1:8701"  # the public API origin, which Twilio signs
@@ -96,6 +97,8 @@ class Settings(BaseSettings):
                 missing.append("AUTH_ADMIN_URL (private, distinct from the public URL)")
             if not self.stripe_webhook_secret:
                 missing.append("STRIPE_WEBHOOK_SECRET")
+            if not self.stripe_thin_webhook_secret:
+                missing.append("STRIPE_THIN_WEBHOOK_SECRET")
             if not self.twilio_auth_token:
                 missing.append("TWILIO_AUTH_TOKEN")
             if self.auth_email_hook_secret in ("", _DEV_COURIER_SECRET):
