@@ -2325,6 +2325,14 @@
         gap: 48px;
         padding: 40px;
     }
+    .plans {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+    }
+    .plan-tier {
+        padding: 40px;
+    }
     .plan-price {
         font-size: 44px;
         font-weight: 600;
@@ -2457,6 +2465,9 @@
             grid-template-columns: 1fr;
             gap: 32px;
         }
+        .plans {
+            grid-template-columns: 1fr;
+        }
         .fees,
         .feature-index {
             grid-template-columns: 1fr;
@@ -2466,7 +2477,8 @@
         }
     }
     @media (max-width: 600px) {
-        .plan {
+        .plan,
+        .plan-tier {
             padding: 24px;
         }
         .plan-groups,

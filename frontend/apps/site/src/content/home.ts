@@ -1,5 +1,6 @@
 import type { LineIconName } from "../art/LineIcon";
 import type { GlyphName } from "../art/TradeGlyph";
+import { planPrices } from "./plans";
 import { strings } from "../strings";
 
 const s = strings.home;
@@ -179,6 +180,16 @@ export function testimonialPlaceholder(n: number): TestimonialCopy {
     };
 }
 
-export const pricing = s.pricing;
+export const pricing = {
+    ...s.pricing,
+    price: s.pricing.price(planPrices.premium.month),
+    note: s.pricing.note(planPrices.team.month),
+    points: [
+        s.pricing.points[0],
+        s.pricing.points[1],
+        s.pricing.points[2],
+        s.pricing.points[3](planPrices.seat),
+    ],
+};
 
 export const closing = s.closing;

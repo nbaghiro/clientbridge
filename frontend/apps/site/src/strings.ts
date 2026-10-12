@@ -145,10 +145,10 @@ interface Strings {
             readonly eyebrow: string;
             readonly title: string;
             readonly body: string;
-            readonly price: string;
+            readonly price: (price: string) => string;
             readonly per: string;
-            readonly note: string;
-            readonly points: readonly [string, string, string, string];
+            readonly note: (price: string) => string;
+            readonly points: readonly [string, string, string, (price: string) => string];
             readonly cta: string;
         };
         readonly closing: {
@@ -169,13 +169,25 @@ interface Strings {
             readonly eyebrow: string;
             readonly title: string;
             readonly lede: string;
-            readonly plan: {
-                readonly name: string;
-                readonly price: string;
+            readonly plans: {
+                readonly premium: {
+                    readonly name: string;
+                    readonly summary: string;
+                    readonly staff: (price: string) => string;
+                };
+                readonly team: {
+                    readonly name: string;
+                    readonly summary: string;
+                    readonly staff: string;
+                } & Labels;
+                readonly price: (price: string) => string;
                 readonly per: string;
-                readonly note: string;
-                readonly seat: string;
+                readonly yearly: (price: string) => string;
+                readonly trial: string;
                 readonly cta: string;
+            };
+            readonly included: {
+                readonly title: string;
                 readonly groups: readonly [
                     {
                         readonly title: string;
@@ -204,6 +216,8 @@ interface Strings {
             };
             readonly faqTitle: string;
             readonly faq: readonly [
+                { readonly q: string; readonly a: string } & Labels,
+                { readonly q: string; readonly a: string } & Labels,
                 { readonly q: string; readonly a: string } & Labels,
                 { readonly q: string; readonly a: string } & Labels,
                 { readonly q: string; readonly a: string } & Labels,

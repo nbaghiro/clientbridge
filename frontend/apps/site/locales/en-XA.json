@@ -348,31 +348,31 @@
         "message": "[Þŕîçîñĝ one]"
     },
     "home.pricing.title": {
-        "message": "[Öñé þļåñ ŵîţĥ éṽéŕýţĥîñĝ îñ îţ. one two three]"
+        "message": "[Ţŵö þļåñš, ŵîţĥ éṽéŕý ƒéåţûŕé îñ ƀöţĥ. one two three]"
     },
     "home.pricing.body": {
-        "message": "[Éṽéŕý ƒéåţûŕé öñ ţĥîš þåĝé îš îñçļûðéð. Çåŕð þåýɱéñţš çåŕŕý å çåŕð þŕöçéššîñĝ ƒéé, ŵĥîçĥ îš šĥöŵñ öñ éṽéŕý þåýöûţ. one two three four five six seven]"
+        "message": "[Þŕéɱîûɱ îš ƒöŕ åñ öŵñéŕ ŵĥö ŵöŕķš åļöñé öŕ ŵîţĥ å ƒéŵ šţåƒƒ, åñð Ţéåɱ îñçļûðéš ýöûŕ ŵĥöļé šţåƒƒ åţ öñé þŕîçé. Çåŕð þåýɱéñţš çåŕŕý å çåŕð þŕöçéššîñĝ ƒéé, ŵĥîçĥ îš šĥöŵñ öñ éṽéŕý þåýöûţ. one two three four five six seven eight nine ten one]"
     },
     "home.pricing.price": {
-        "message": "[$[þŕîçé] one]"
+        "message": "{price}"
     },
     "home.pricing.per": {
         "message": "[ / ɱöñţĥ one]"
     },
     "home.pricing.note": {
-        "message": "[Þļåçéĥöļðéŕ. Ƒîñåļ þŕîçîñĝ ţö ƀé çöñƒîŕɱéð. one two three]"
+        "message": "[Þŕéɱîûɱ. Ţéåɱ îš {price} å ɱöñţĥ ŵîţĥ ýöûŕ šţåƒƒ îñçļûðéð. one two three four]"
     },
     "home.pricing.points.0": {
-        "message": "[Ûñļîɱîţéð çļîéñţš åñð ƀööķîñĝš one two three]"
+        "message": "[14-ðåý ƒŕéé ţŕîåļ, ñö çåŕð ñééðéð one two three]"
     },
     "home.pricing.points.1": {
-        "message": "[Þŕöðûçţš, šţöçķ åñð åñ öñļîñé šĥöþ one two three]"
+        "message": "[Ûñļîɱîţéð çļîéñţš åñð ƀööķîñĝš one two three]"
     },
     "home.pricing.points.2": {
         "message": "[Ŵéƀ, îÞĥöñé åñð Åñðŕöîð one two]"
     },
     "home.pricing.points.3": {
-        "message": "[Šţåƒƒ šéåţš [ţö ƀé çöñƒîŕɱéð] one two three]"
+        "message": "[Šţåƒƒ šéåţš öñ Þŕéɱîûɱ åţ {price} å ɱöñţĥ éåçĥ one two three]"
     },
     "home.pricing.cta": {
         "message": "[Šţåŕţ ƒŕéé one two]"
@@ -393,81 +393,99 @@
         "message": "[Þŕîçîñĝ one]"
     },
     "pages.pricingMeta.description": {
-        "message": "[Öñé ɱöñţĥļý þļåñ ŵîţĥ ƀööķîñĝ, îñṽöîçéš, þåýɱéñţš, šåļéš ţåẋ, šţåƒƒ þåý åñð ţĥé îÞĥöñé åñð Åñðŕöîð åþþš îñçļûðéð. Çåŕð þåýɱéñţš çåŕŕý å çåŕð þŕöçéššîñĝ ƒéé. one two three four five six seven eight nine ten]"
+        "message": "[Ţŵö þļåñš, Þŕéɱîûɱ åñð Ţéåɱ, ŵîţĥ ƀööķîñĝ, îñṽöîçéš, þåýɱéñţš, šåļéš ţåẋ, šţåƒƒ þåý åñð ţĥé îÞĥöñé åñð Åñðŕöîð åþþš îñ ƀöţĥ. Éṽéŕý ƀûšîñéšš šţåŕţš ŵîţĥ å 14-ðåý ƒŕéé ţŕîåļ, åñð çåŕð þåýɱéñţš çåŕŕý å çåŕð þŕöçéššîñĝ ƒéé. one two three four five six seven eight nine ten one two three]"
     },
     "pages.pricingPage.eyebrow": {
         "message": "[Þŕîçîñĝ one]"
     },
     "pages.pricingPage.title": {
-        "message": "[Öñé þļåñ, ŵîţĥ éṽéŕý ƒéåţûŕé îñçļûðéð. one two three]"
+        "message": "[Ţŵö þļåñš, ŵîţĥ éṽéŕý ƒéåţûŕé îñ ƀöţĥ. one two three]"
     },
     "pages.pricingPage.lede": {
-        "message": "[Éṽéŕý ƀûšîñéšš ĝéţš ţĥé ƒûļļ þŕöðûçţ: ţĥé ƀööķîñĝ þåĝé, îñṽöîçéš, þåýɱéñţš, šåļéš ţåẋ, šţåƒƒ þåý åñð ţĥé åþþš. Ýöû þåý öñé ɱöñţĥļý þŕîçé, þļûš å šɱåļļ åɱöûñţ ƒöŕ éåçĥ éẋţŕå šţåƒƒ ɱéɱƀéŕ. one two three four five six seven eight nine ten one]"
+        "message": "[Éṽéŕý ƀûšîñéšš ĝéţš ţĥé ƒûļļ þŕöðûçţ: ţĥé ƀööķîñĝ þåĝé, îñṽöîçéš, þåýɱéñţš, šåļéš ţåẋ, šţåƒƒ þåý åñð ţĥé åþþš. Þŕéɱîûɱ çĥåŕĝéš ƒöŕ éåçĥ šţåƒƒ ɱéɱƀéŕ, åñð Ţéåɱ îñçļûðéš ýöûŕ ŵĥöļé šţåƒƒ åţ öñé þŕîçé. one two three four five six seven eight nine ten one two]"
     },
-    "pages.pricingPage.plan.name": {
-        "message": "[Çļîéñţƀŕîðĝé one two]"
+    "pages.pricingPage.plans.premium.name": {
+        "message": "[Þŕéɱîûɱ one]"
     },
-    "pages.pricingPage.plan.price": {
-        "message": "[$[þŕîçé] one]"
+    "pages.pricingPage.plans.premium.summary": {
+        "message": "[Ƒöŕ åñ öŵñéŕ ŵĥö ŵöŕķš åļöñé öŕ ŵîţĥ å ƒéŵ šţåƒƒ. one two three four]"
     },
-    "pages.pricingPage.plan.per": {
+    "pages.pricingPage.plans.premium.staff": {
+        "message": "[Éåçĥ šţåƒƒ ɱéɱƀéŕ åððš {price} å ɱöñţĥ. one two three]"
+    },
+    "pages.pricingPage.plans.team.name": {
+        "message": "[Ţéåɱ one]"
+    },
+    "pages.pricingPage.plans.team.summary": {
+        "message": "[Ƒöŕ å ƀûšîñéšš ŵîţĥ å ļåŕĝéŕ šţåƒƒ. one two three]"
+    },
+    "pages.pricingPage.plans.team.staff": {
+        "message": "[Ýöûŕ ŵĥöļé šţåƒƒ îš îñçļûðéð, ŵîţĥ ñö çĥåŕĝé þéŕ þéŕšöñ. one two three four]"
+    },
+    "pages.pricingPage.plans.price": {
+        "message": "{price}"
+    },
+    "pages.pricingPage.plans.per": {
         "message": "[ / ɱöñţĥ one]"
     },
-    "pages.pricingPage.plan.note": {
-        "message": "[Þļåçéĥöļðéŕ. Ƒîñåļ þŕîçîñĝ ţö ƀé çöñƒîŕɱéð. one two three]"
+    "pages.pricingPage.plans.yearly": {
+        "message": "[öŕ {price} å ýéåŕ, ţŵö ɱöñţĥš ƒŕéé one two]"
     },
-    "pages.pricingPage.plan.seat": {
-        "message": "[Éåçĥ åððîţîöñåļ šţåƒƒ ɱéɱƀéŕ: $[þŕîçé] / ɱöñţĥ (þļåçéĥöļðéŕ). one two three four]"
+    "pages.pricingPage.plans.trial": {
+        "message": "[14-ðåý ƒŕéé ţŕîåļ, ñö çåŕð ñééðéð. Þŕîçéš åŕé îñ Çåñåðîåñ ðöļļåŕš, ƀéƒöŕé ţåẋ. one two three four five]"
     },
-    "pages.pricingPage.plan.cta": {
+    "pages.pricingPage.plans.cta": {
         "message": "[Šţåŕţ ƒŕéé one two]"
     },
-    "pages.pricingPage.plan.groups.0.title": {
+    "pages.pricingPage.included.title": {
+        "message": "[Îñçļûðéð îñ ƀöţĥ þļåñš one two]"
+    },
+    "pages.pricingPage.included.groups.0.title": {
         "message": "[Ƒŕöñţ ðéšķ one two]"
     },
-    "pages.pricingPage.plan.groups.0.items.0": {
+    "pages.pricingPage.included.groups.0.items.0": {
         "message": "[Öñļîñé ƀööķîñĝ þåĝé ŵîţĥ ðéþöšîţš one two three]"
     },
-    "pages.pricingPage.plan.groups.0.items.1": {
+    "pages.pricingPage.included.groups.0.items.1": {
         "message": "[Çåļéñðåŕ ŵîţĥ ðåý, ŵééķ, ɱöñţĥ åñð šţåƒƒ ṽîéŵš one two three]"
     },
-    "pages.pricingPage.plan.groups.0.items.2": {
+    "pages.pricingPage.included.groups.0.items.2": {
         "message": "[Ŕéçûŕŕîñĝ ƀööķîñĝš, çļåššéš åñð çåþåçîţý one two three]"
     },
-    "pages.pricingPage.plan.groups.0.items.3": {
+    "pages.pricingPage.included.groups.0.items.3": {
         "message": "[Ŕéɱîñðéŕš ƀý éɱåîļ åñð ţéẋţ one two three]"
     },
-    "pages.pricingPage.plan.groups.1.title": {
+    "pages.pricingPage.included.groups.1.title": {
         "message": "[Ĝéţţîñĝ þåîð one two]"
     },
-    "pages.pricingPage.plan.groups.1.items.0": {
+    "pages.pricingPage.included.groups.1.items.0": {
         "message": "[Çåŕð öñļîñé åñð Ţåþ ţö Þåý one two three]"
     },
-    "pages.pricingPage.plan.groups.1.items.1": {
+    "pages.pricingPage.included.groups.1.items.1": {
         "message": "[Îñṽöîçéš, éšţîɱåţéš åñð þåý ļîñķš one two three]"
     },
-    "pages.pricingPage.plan.groups.1.items.2": {
+    "pages.pricingPage.included.groups.1.items.2": {
         "message": "[Ĝîƒţ çåŕðš, þåçķåĝéš åñð ɱéɱƀéŕšĥîþš one two three]"
     },
-    "pages.pricingPage.plan.groups.1.items.3": {
+    "pages.pricingPage.included.groups.1.items.3": {
         "message": "[Þŕöðûçţš ŵîţĥ šţöçķ çöûñţš åñð åñ öñļîñé šĥöþ one two three four]"
     },
-    "pages.pricingPage.plan.groups.1.items.4": {
+    "pages.pricingPage.included.groups.1.items.4": {
         "message": "[Ŕéƒûñðš åñð þåŕţîåļ ŕéƒûñðš one two three]"
     },
-    "pages.pricingPage.plan.groups.2.title": {
+    "pages.pricingPage.included.groups.2.title": {
         "message": "[Ɓåçķ öƒƒîçé one two]"
     },
-    "pages.pricingPage.plan.groups.2.items.0": {
+    "pages.pricingPage.included.groups.2.items.0": {
         "message": "[ĜŠŢ, ĤŠŢ, ÞŠŢ åñð ǪŠŢ öñ éṽéŕý ļîñé one two three]"
     },
-    "pages.pricingPage.plan.groups.2.items.1": {
+    "pages.pricingPage.included.groups.2.items.1": {
         "message": "[Ŕéţûŕñ ŕéþöŕţš åñð ŕéɱîţţåñçé ţŕåçķîñĝ one two three]"
     },
-    "pages.pricingPage.plan.groups.2.items.2": {
+    "pages.pricingPage.included.groups.2.items.2": {
         "message": "[Šţåƒƒ ŕöļéš, ĥöûŕš åñð þåý ŕéçöŕðš one two three]"
     },
-    "pages.pricingPage.plan.groups.2.items.3": {
+    "pages.pricingPage.included.groups.2.items.3": {
         "message": "[Îñçöɱé, šåļéš ƀý îţéɱ åñð Ţ4Å ŕéþöŕţš ƒöŕ ýöûŕ ƀööķķééþéŕ one two three four]"
     },
     "pages.pricingPage.fees.title": {
@@ -513,7 +531,7 @@
         "message": "[Çåñ Î ţŕý îţ ƀéƒöŕé Î þåý? one two]"
     },
     "pages.pricingPage.faq.0.a": {
-        "message": "[Ýéš. Ýöû çåñ šţåŕţ ŵîţĥöûţ å çåŕð åñð ļööķ åŕöûñð å ðéɱö ƀûšîñéšš ţĥåţ åļŕéåðý ĥåš å ƒûļļ ŵééķ öƒ ƀööķîñĝš, îñṽöîçéš åñð þåýɱéñţš. one two three four five six seven eight]"
+        "message": "[Ýéš. Éṽéŕý ƀûšîñéšš šţåŕţš ŵîţĥ å 14-ðåý ƒŕéé ţŕîåļ åñð ñö çåŕð îš ñééðéð. Ýöû çåñ åļšö ļööķ åŕöûñð å ðéɱö ƀûšîñéšš ţĥåţ åļŕéåðý ĥåš å ƒûļļ ŵééķ öƒ ƀööķîñĝš, îñṽöîçéš åñð þåýɱéñţš. one two three four five six seven eight nine ten one]"
     },
     "pages.pricingPage.faq.1.q": {
         "message": "[Ĥöŵ ðö Î ĝéţ þåîð? one two]"
@@ -550,6 +568,18 @@
     },
     "pages.pricingPage.faq.6.a": {
         "message": "[Ýéš. Ýöûŕ ƀööķîñĝ þåĝé ĥåš îţš öŵñ ļîñķ, åñð îţ çåñ ƀé éɱƀéððéð öñ ýöûŕ éẋîšţîñĝ ŵéƀšîţé ŵîţĥ å šĥöŕţ šñîþþéţ. one two three four five six seven]"
+    },
+    "pages.pricingPage.faq.7.q": {
+        "message": "[Ŵĥåţ ĥåþþéñš ŵĥéñ ţĥé ţŕîåļ éñðš? one two three]"
+    },
+    "pages.pricingPage.faq.7.a": {
+        "message": "[Çĥööšé Þŕéɱîûɱ öŕ Ţéåɱ, þåîð ɱöñţĥļý öŕ ýéåŕļý, ţö ķééþ ŵöŕķîñĝ åš ƀéƒöŕé. Îƒ ýöû ðöñ'ţ, ýöûŕ ƀûšîñéšš ƀéçöɱéš ŕéåð-öñļý: ýöû çåñ šţîļļ šîĝñ îñ, šéé ýöûŕ ŕéçöŕðš åñð ĝéţ þåîð ƒöŕ îñṽöîçéš ýöû åļŕéåðý šéñţ, åñð ýöûŕ ðåţå îš ķéþţ. one two three four five six seven eight nine ten one two three four]"
+    },
+    "pages.pricingPage.faq.8.q": {
+        "message": "[Îš ţåẋ åððéð ţö ţĥé þļåñ þŕîçé? one two three]"
+    },
+    "pages.pricingPage.faq.8.a": {
+        "message": "[Þļåñ þŕîçéš åŕé ƀéƒöŕé ţåẋ. ĜŠŢ, ĤŠŢ öŕ ǪŠŢ ƒöŕ ýöûŕ þŕöṽîñçé îš åððéð åţ çĥéçķöûţ åñð šĥöŵñ öñ éåçĥ þļåñ îñṽöîçé. one two three four five six seven]"
     },
     "pages.pricingPage.closing.title": {
         "message": "[Šéé îţ ŵîţĥ å ƀûšîñéšš ţĥåţ îš åļŕéåðý šéţ ûþ. one two three]"

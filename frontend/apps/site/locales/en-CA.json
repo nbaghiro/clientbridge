@@ -348,31 +348,35 @@
         "message": "Pricing"
     },
     "home.pricing.title": {
-        "message": "One plan with everything in it."
+        "message": "Two plans, with every feature in both."
     },
     "home.pricing.body": {
-        "message": "Every feature on this page is included. Card payments carry a card processing fee, which is shown on every payout."
+        "message": "Premium is for an owner who works alone or with a few staff, and Team includes your whole staff at one price. Card payments carry a card processing fee, which is shown on every payout."
     },
     "home.pricing.price": {
-        "message": "$[price]"
+        "message": "{price}",
+        "description": "The Premium plan's monthly price, formatted with its currency.",
+        "args": ["price"]
     },
     "home.pricing.per": {
         "message": " / month"
     },
     "home.pricing.note": {
-        "message": "Placeholder. Final pricing to be confirmed."
+        "message": "Premium. Team is {price} a month with your staff included.",
+        "args": ["price"]
     },
     "home.pricing.points.0": {
-        "message": "Unlimited clients and bookings"
+        "message": "14-day free trial, no card needed"
     },
     "home.pricing.points.1": {
-        "message": "Products, stock and an online shop"
+        "message": "Unlimited clients and bookings"
     },
     "home.pricing.points.2": {
         "message": "Web, iPhone and Android"
     },
     "home.pricing.points.3": {
-        "message": "Staff seats [to be confirmed]"
+        "message": "Staff seats on Premium at {price} a month each",
+        "args": ["price"]
     },
     "home.pricing.cta": {
         "message": "Start free"
@@ -393,81 +397,103 @@
         "message": "Pricing"
     },
     "pages.pricingMeta.description": {
-        "message": "One monthly plan with booking, invoices, payments, sales tax, staff pay and the iPhone and Android apps included. Card payments carry a card processing fee."
+        "message": "Two plans, Premium and Team, with booking, invoices, payments, sales tax, staff pay and the iPhone and Android apps in both. Every business starts with a 14-day free trial, and card payments carry a card processing fee."
     },
     "pages.pricingPage.eyebrow": {
         "message": "Pricing"
     },
     "pages.pricingPage.title": {
-        "message": "One plan, with every feature included."
+        "message": "Two plans, with every feature in both."
     },
     "pages.pricingPage.lede": {
-        "message": "Every business gets the full product: the booking page, invoices, payments, sales tax, staff pay and the apps. You pay one monthly price, plus a small amount for each extra staff member."
+        "message": "Every business gets the full product: the booking page, invoices, payments, sales tax, staff pay and the apps. Premium charges for each staff member, and Team includes your whole staff at one price."
     },
-    "pages.pricingPage.plan.name": {
-        "message": "Clientbridge"
+    "pages.pricingPage.plans.premium.name": {
+        "message": "Premium"
     },
-    "pages.pricingPage.plan.price": {
-        "message": "$[price]"
+    "pages.pricingPage.plans.premium.summary": {
+        "message": "For an owner who works alone or with a few staff."
     },
-    "pages.pricingPage.plan.per": {
+    "pages.pricingPage.plans.premium.staff": {
+        "message": "Each staff member adds {price} a month.",
+        "args": ["price"]
+    },
+    "pages.pricingPage.plans.team.name": {
+        "message": "Team"
+    },
+    "pages.pricingPage.plans.team.summary": {
+        "message": "For a business with a larger staff."
+    },
+    "pages.pricingPage.plans.team.staff": {
+        "message": "Your whole staff is included, with no charge per person."
+    },
+    "pages.pricingPage.plans.price": {
+        "message": "{price}",
+        "description": "A plan's monthly price, formatted with its currency.",
+        "args": ["price"]
+    },
+    "pages.pricingPage.plans.per": {
         "message": " / month"
     },
-    "pages.pricingPage.plan.note": {
-        "message": "Placeholder. Final pricing to be confirmed."
+    "pages.pricingPage.plans.yearly": {
+        "message": "or {price} a year, two months free",
+        "args": ["price"]
     },
-    "pages.pricingPage.plan.seat": {
-        "message": "Each additional staff member: $[price] / month (placeholder)."
+    "pages.pricingPage.plans.trial": {
+        "message": "14-day free trial, no card needed. Prices are in Canadian dollars, before tax."
     },
-    "pages.pricingPage.plan.cta": {
+    "pages.pricingPage.plans.cta": {
         "message": "Start free"
     },
-    "pages.pricingPage.plan.groups.0.title": {
+    "pages.pricingPage.included.title": {
+        "message": "Included in both plans"
+    },
+    "pages.pricingPage.included.groups.0.title": {
         "message": "Front desk"
     },
-    "pages.pricingPage.plan.groups.0.items.0": {
+    "pages.pricingPage.included.groups.0.items.0": {
         "message": "Online booking page with deposits"
     },
-    "pages.pricingPage.plan.groups.0.items.1": {
+    "pages.pricingPage.included.groups.0.items.1": {
         "message": "Calendar with day, week, month and staff views"
     },
-    "pages.pricingPage.plan.groups.0.items.2": {
+    "pages.pricingPage.included.groups.0.items.2": {
         "message": "Recurring bookings, classes and capacity"
     },
-    "pages.pricingPage.plan.groups.0.items.3": {
+    "pages.pricingPage.included.groups.0.items.3": {
         "message": "Reminders by email and text"
     },
-    "pages.pricingPage.plan.groups.1.title": {
+    "pages.pricingPage.included.groups.1.title": {
         "message": "Getting paid"
     },
-    "pages.pricingPage.plan.groups.1.items.0": {
+    "pages.pricingPage.included.groups.1.items.0": {
         "message": "Card online and Tap to Pay"
     },
-    "pages.pricingPage.plan.groups.1.items.1": {
+    "pages.pricingPage.included.groups.1.items.1": {
         "message": "Invoices, estimates and pay links"
     },
-    "pages.pricingPage.plan.groups.1.items.2": {
+    "pages.pricingPage.included.groups.1.items.2": {
         "message": "Gift cards, packages and memberships"
     },
-    "pages.pricingPage.plan.groups.1.items.3": {
+    "pages.pricingPage.included.groups.1.items.3": {
         "message": "Products with stock counts and an online shop"
     },
-    "pages.pricingPage.plan.groups.1.items.4": {
+    "pages.pricingPage.included.groups.1.items.4": {
         "message": "Refunds and partial refunds"
     },
-    "pages.pricingPage.plan.groups.2.title": {
+    "pages.pricingPage.included.groups.2.title": {
         "message": "Back office"
     },
-    "pages.pricingPage.plan.groups.2.items.0": {
+    "pages.pricingPage.included.groups.2.items.0": {
         "message": "GST, HST, PST and QST on every line"
     },
-    "pages.pricingPage.plan.groups.2.items.1": {
+    "pages.pricingPage.included.groups.2.items.1": {
         "message": "Return reports and remittance tracking"
     },
-    "pages.pricingPage.plan.groups.2.items.2": {
+    "pages.pricingPage.included.groups.2.items.2": {
         "message": "Staff roles, hours and pay records"
     },
-    "pages.pricingPage.plan.groups.2.items.3": {
+    "pages.pricingPage.included.groups.2.items.3": {
         "message": "Income, sales by item and T4A reports for your bookkeeper"
     },
     "pages.pricingPage.fees.title": {
@@ -513,7 +539,7 @@
         "message": "Can I try it before I pay?"
     },
     "pages.pricingPage.faq.0.a": {
-        "message": "Yes. You can start without a card and look around a demo business that already has a full week of bookings, invoices and payments."
+        "message": "Yes. Every business starts with a 14-day free trial and no card is needed. You can also look around a demo business that already has a full week of bookings, invoices and payments."
     },
     "pages.pricingPage.faq.1.q": {
         "message": "How do I get paid?"
@@ -550,6 +576,18 @@
     },
     "pages.pricingPage.faq.6.a": {
         "message": "Yes. Your booking page has its own link, and it can be embedded on your existing website with a short snippet."
+    },
+    "pages.pricingPage.faq.7.q": {
+        "message": "What happens when the trial ends?"
+    },
+    "pages.pricingPage.faq.7.a": {
+        "message": "Choose Premium or Team, paid monthly or yearly, to keep working as before. If you don't, your business becomes read-only: you can still sign in, see your records and get paid for invoices you already sent, and your data is kept."
+    },
+    "pages.pricingPage.faq.8.q": {
+        "message": "Is tax added to the plan price?"
+    },
+    "pages.pricingPage.faq.8.a": {
+        "message": "Plan prices are before tax. GST, HST or QST for your province is added at checkout and shown on each plan invoice."
     },
     "pages.pricingPage.closing.title": {
         "message": "See it with a business that is already set up."
