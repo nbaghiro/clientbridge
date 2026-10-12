@@ -42,7 +42,7 @@ secrets, cross-tenant — must be a **command**, never unvalidated replica CRUD.
 | 1 | **Sync-read** | PowerSync streams each device its authorized rows into local SQLite | Sync Streams | calendar, clients, invoices on-device |
 | 2 | **Offline command** | Local-only durable intent → typed `/v1` command → authoritative replication | Kratos session + service role/tenant checks + expected revision | edit working hours |
 | 3 | **Command / RPC** | FastAPI `POST/PATCH/DELETE` under `/v1/*`, wrapped in `run_command` (atomic + audited + idempotent) → writes Postgres → flows back via sync | Kratos session + role | book a slot, issue an invoice, take a payment |
-| 4 | **Webhook / public** | inbound provider callbacks + unauthenticated public pages | signature / token / slug | Stripe/SMS webhooks; book/pay/form/contract/review |
+| 4 | **Webhook / public** | inbound provider callbacks + unauthenticated public pages | signature / token / slug | Stripe/SMS/email webhooks; book/pay/form/contract/review |
 | 5 | **Job** | arq background work on Redis | system | reminders, reap-unpaid, broadcasts, overdue sweep |
 
 **Decision rule** — where does a new operation go?
@@ -77,7 +77,7 @@ clientbridge/
 │       ├── services/           business logic — one file per concept (28)
 │       ├── api/                router.py (mounts /v1) · one router file per concept · public.py · webhooks.py
 │       ├── sync/               auth.py (token/JWKS)
-│       ├── integrations/       stripe · postmark · twilio · expo · kratos · s3 (provider adapters)
+│       ├── integrations/       stripe · resend · twilio · expo · kratos · s3 (provider adapters)
 │       └── tasks/              worker.py: the arq cron schedule
 ├── frontend/           ── TypeScript · pnpm + turbo ──
 │   ├── apps/
@@ -128,7 +128,7 @@ with the subclass's HTTP status, and a request that fails validation as `invalid
 | `command.py` | **The command wrapper.** `run_command(db, principal, *, action, run, response_model, idempotency_key)` — replays a stored response for a repeated key, stages `Command.record(...)` audit rows, then commits mutation + audit + idempotency key as **one atomic unit** (rollback on any error). Money/uniqueness/cross-tenant mutations go through it. |
 | `scoping.py` | **The one place the tenant filter lives.** `scoped(Model, business_id, soft_delete=…)` + `scoped_update`/`scoped_delete`. Services **never** hand-write a `business_id` filter. |
 | `deps.py` | DI hub — DB session, adapter aliases (`EmailDep`, `GatewayDep`, `IdentityDep`…), the auth chain (`current_identity` asks Kratos who the session is, `current_user` links the local user, `current_principal` re-derives business/role from the DB every request, honoring `X-Business-Id`), and role gates (`assert_role`, `is_manager`). |
-| `config.py` | Pydantic-settings and the origin lists: `app_origins()` (only `WEB_BASE_URL`; credentialed CORS and the cookie Origin check) and `CORS_ALLOW_ORIGINS` (Connect and Pay, without credentials, through `core/cors.py`). **Fails closed in prod:** refuses to boot without real secrets, an https Kratos public URL or a separate admin URL. |
+| `config.py` | Pydantic-settings and the origin lists: `app_origins()` (only `WEB_BASE_URL`; credentialed CORS and the cookie Origin check) and `CORS_ALLOW_ORIGINS` (Connect and Pay, without credentials, through `core/cors.py`). **Fails closed in prod:** refuses to boot without real secrets (Stripe, Twilio, Resend and the auth email hook), an https Kratos public URL or a separate admin URL. |
 | `security.py` | Argon2 hashing for the desk discount PIN · SHA-256 opaque-token hashing (invites) · the PowerSync token (HS256 or RS256 + a JWKS endpoint for prod). |
 | `ids.py` | Prefixed-ULID PKs (`bz_…`, `bk_…`), time-sortable. |
 | `errors.py` | `AppError` taxonomy → HTTP status (`NotFound` 404, `Conflict` 409, `CardDeclined` 402, `TooManyRequests` 429…). |
@@ -146,7 +146,7 @@ hand-written role tuple check.
 Every external dependency is an **adapter interface (`typing.Protocol`) + a prod implementation + a `get_*()`
 dependency** that tests override with a recording fake — so the boundary is covered without the network.
 Six adapters in `integrations/`, one per provider so they read apart from our own services:
-`stripe.py` (Stripe Connect + Terminal), `postmark.py` (email), `twilio.py` (SMS), `expo.py` (push), `kratos.py`
+`stripe.py` (Stripe Connect + Terminal), `resend.py` (email, the SMTP transport for Mailpit in dev, and the Svix check on the delivery webhook), `twilio.py` (SMS), `expo.py` (push), `kratos.py`
 (Ory Kratos sessions and admin calls), `s3.py` (S3; RustFS locally).
 
 ### Jobs (`tasks/`)

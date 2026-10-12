@@ -160,6 +160,23 @@ async def record_text_reply(db: AsyncSession, client: Client, *, stop: bool) -> 
     return True
 
 
+async def record_complaint(db: AsyncSession, client: Client) -> bool:
+    """A spam complaint withdraws email marketing; True unless one is already on record."""
+    latest = (await latest_consents(db, client.business_id, [client.id], "email")).get(client.id)
+    if latest is not None and latest.status == "withdrawn" and latest.source == "complaint":
+        return False
+    await record_consent(
+        db,
+        client.business_id,
+        client.id,
+        channel="email",
+        status="withdrawn",
+        source="complaint",
+        recorded_by=None,
+    )
+    return True
+
+
 def _prefs_signature(client_id: str) -> str:
     key = get_settings().jwt_secret.encode()
     digest = hmac.new(key, f"prefs:{client_id}".encode(), hashlib.sha256).digest()

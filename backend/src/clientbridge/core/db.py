@@ -1,6 +1,7 @@
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -36,3 +37,8 @@ async def transaction(db: AsyncSession) -> AsyncIterator[None]:
         raise
     finally:
         db.info["atomic"] = False
+
+
+def is_duplicate(exc: IntegrityError) -> bool:
+    """True for a unique or primary-key conflict, the one integrity failure a replay may ignore."""
+    return getattr(exc.orig, "pgcode", None) == "23505"

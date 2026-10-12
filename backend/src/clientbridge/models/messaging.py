@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -36,6 +36,11 @@ class Message(PKMixin, BusinessScoped, TimestampMixin, Base):
         enum_check("messages", "status", MessageStatus),
         Index("ix_messages_thread", "thread_id", "created_at"),
         Index("ix_messages_broadcast", "broadcast_id"),
+        Index(
+            "ix_messages_provider_ref",
+            "provider_ref",
+            postgresql_where=text("provider_ref IS NOT NULL"),
+        ),
     )
 
     thread_id: Mapped[str] = mapped_column(ForeignKey("threads.id"), nullable=False)

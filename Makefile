@@ -38,7 +38,7 @@ help:
 	@echo "test-contract    real StripeGateway vs stripe-mock (starts it; auto-skips if down)"
 	@echo "test-kratos      KratosIdentityProvider vs the local Kratos (auto-skips if down)"
 	@echo "kratos-standalone Kratos on the host network for CI (Postgres as a service container)"
-	@echo "test-e2e         Stripe test-mode flows (needs STRIPE_TEST_SECRET_KEY)"
+	@echo "test-e2e         Stripe and Resend test-mode flows (needs STRIPE_TEST_SECRET_KEY, RESEND_TEST_API_KEY and RESEND_TEST_FROM)"
 	@echo "stripe-mock      start the stripe-mock contract-test service on :8708"
 	@echo "lint             lint-backend + lint-frontend"
 	@echo "lint-backend     ruff, mypy and the structure check"

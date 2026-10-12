@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from urllib.parse import urlencode
 
 import httpx
 from sqlalchemy import select
@@ -161,6 +162,16 @@ def test_the_signature_matches_twilios_documented_example() -> None:
     }
     url = "https://mycompany.com/myapp.php?foo=1&bar=2"
     assert twilio_signature("12345", url, list(params.items())) == "0/KCTR6DLpKmkAf8muzZqo1nDgQ="
+
+
+async def test_a_non_ascii_signature_is_refused(api: httpx.AsyncClient) -> None:
+    body = urlencode({"From": PHONE, "Body": "x", "MessageSid": "SM_latin"}).encode()
+    headers = {
+        b"X-Twilio-Signature": b"\xe9abc",
+        b"content-type": b"application/x-www-form-urlencoded",
+    }
+    res = await api.post("/webhooks/sms", content=body, headers=headers)
+    assert res.status_code == 401
 
 
 async def test_a_wrong_signature_is_refused(api: httpx.AsyncClient, db: AsyncSession) -> None:

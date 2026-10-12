@@ -23,7 +23,7 @@ from clientbridge.core.locale import locale_for
 from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.core.security import hash_token
 from clientbridge.integrations.kratos import Identity
-from clientbridge.integrations.postmark import Email, EmailSender
+from clientbridge.integrations.resend import Email, EmailSender
 from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.platform import Audit
@@ -133,7 +133,14 @@ class StaffService:
             self.db.add(staff)
             await self.db.flush()
             subject, body = await self._invite_email(principal, raw)
-            await email_sender.send(Email(to=email, subject=subject, body=body))
+            await email_sender.send(
+                Email(
+                    to=email,
+                    subject=subject,
+                    body=body,
+                    tags={"business": principal.business_id},
+                )
+            )
             cmd.record("staff.invite", entity_type="staff", entity_id=staff.id)
             return InviteOut(
                 id=staff.id, email=email, role=staff.role, status=staff.status, invite_token=raw
@@ -277,7 +284,14 @@ class StaffService:
             staff.invited_by = principal.user_id
             await self.db.flush()
             subject, body = await self._invite_email(principal, raw)
-            await email_sender.send(Email(to=staff.invite_email or "", subject=subject, body=body))
+            await email_sender.send(
+                Email(
+                    to=staff.invite_email or "",
+                    subject=subject,
+                    body=body,
+                    tags={"business": principal.business_id},
+                )
+            )
             cmd.record("staff.invite_resend", entity_type="staff", entity_id=staff.id)
             return InviteOut(
                 id=staff.id,

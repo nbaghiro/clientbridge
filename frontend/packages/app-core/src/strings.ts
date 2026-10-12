@@ -1885,6 +1885,7 @@ interface Strings {
             readonly unsubscribe: string;
             readonly import: string;
             readonly preferences: string;
+            readonly complaint: string;
         } & Labels;
         readonly consentChannel: { readonly sms: string; readonly email: string } & Labels;
         readonly resultsTitle: string;

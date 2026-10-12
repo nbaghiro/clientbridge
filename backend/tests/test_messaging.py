@@ -114,6 +114,12 @@ async def test_send_email_path_as_staff(
     assert res.json()["status"] == "sent"
     assert len(email.sent) == 1 and email.sent[0].to == "pat@example.ca"
     assert email.sent[0].body == "Hello"
+    message_id = res.json()["id"]
+    assert email.sent[0].reply_to == "hello@birchbark.example"
+    assert email.sent[0].idempotency_key == message_id
+    assert email.sent[0].tags == {"business": BIZ, "message": message_id}
+    stored = (await db.execute(select(Message).where(Message.id == message_id))).scalar_one()
+    assert stored.provider_ref == "email_fake1"
 
 
 async def test_missing_contact_is_422(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:

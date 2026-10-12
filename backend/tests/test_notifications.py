@@ -107,6 +107,7 @@ async def test_card_success_sends_receipt_and_push(
     await _pay_and_settle(as_owner, db, inv_id, "evt_n1")
 
     assert len(email.sent) == 1 and email.sent[0].to == "pat@example.ca"
+    assert email.sent[0].reply_to == "hello@birchbark.example"
     assert len(sms.sent) == 1 and sms.sent[0].to == "+15145551234"
     assert len(push.sent) == 1 and push.sent[0].tokens == ["ExpoTok1"]
 
@@ -259,6 +260,7 @@ async def test_booking_create_notifies_client(
     res = await as_owner.post("/v1/bookings", json=body)
     assert res.status_code == 201, res.text
     assert len(email.sent) == 1 and email.sent[0].to == "pat@example.ca"
+    assert email.sent[0].reply_to == "hello@birchbark.example"
     assert len(sms.sent) == 1 and sms.sent[0].to == "+15145551234"
     assert "on Saturday, May 1 at 10:00 a.m." in email.sent[0].body  # in the business timezone
 

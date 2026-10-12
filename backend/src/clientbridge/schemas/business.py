@@ -14,6 +14,14 @@ QST_NUMBER = re.compile(r"^\d{10}TQ\d{4}$")
 PST_NUMBER = re.compile(r"^(PST)?\d{4}\d{4}$")
 
 
+def public_email(value: str | None) -> str | None:
+    """A trimmed address with an at sign and no whitespace, else None."""
+    value = (value or "").strip()
+    if not value or "@" not in value or any(c.isspace() for c in value):
+        return None
+    return value
+
+
 class OnboardBody(Mirror):
     mirrors = Business
 
@@ -92,7 +100,7 @@ class BrandInput(BaseModel):
     @classmethod
     def _check_public_email(cls, value: str | None) -> str | None:
         value = (value or "").strip()
-        if value and ("@" not in value or any(c.isspace() for c in value)):
+        if value and public_email(value) is None:
             raise ValueError("email must be a valid email address")
         return value or None
 
@@ -121,6 +129,15 @@ class BusinessSettingsUpdate(Mirror):
     timezone: str | None = None
     billing_email: str | None = None
     gst_hst_number: str | None = None
+
+    @field_validator("billing_email")
+    @classmethod
+    def _check_billing_email(cls, value: str | None) -> str | None:
+        value = (value or "").strip()
+        if value and public_email(value) is None:
+            raise ValueError("billing_email must be a valid email address")
+        return value or None
+
     qst_number: str | None = None
     pst_number: str | None = None
     tax_registered: bool | None = None

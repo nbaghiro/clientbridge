@@ -11,7 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import engine, get_session
-from clientbridge.core.deps import get_auth_email_secret, get_twilio_auth_token
+from clientbridge.core.deps import (
+    get_auth_email_secret,
+    get_resend_webhook_secret,
+    get_twilio_auth_token,
+)
 from clientbridge.core.emails import normalize_email
 from clientbridge.core.errors import CardDeclined, Conflict, PaymentActionRequired, Unauthorized
 from clientbridge.core.ids import new_id
@@ -31,7 +35,7 @@ from clientbridge.integrations.kratos import (
     get_identity_provider,
     unavailable,
 )
-from clientbridge.integrations.postmark import Email, EmailSender, get_email_sender
+from clientbridge.integrations.resend import Email, EmailSender, get_email_sender
 from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.integrations.stripe import (
     ChargeFees,
@@ -106,12 +110,16 @@ async def db() -> AsyncIterator[AsyncSession]:
         await engine.dispose()  # function-scoped loop → clear the pool for the next test
 
 
+RESEND_SECRET = "whsec_dGVzdHNlY3JldA=="
+
+
 class FakeEmailSender:
     def __init__(self) -> None:
         self.sent: list[Email] = []
 
-    async def send(self, email: Email) -> None:
+    async def send(self, email: Email) -> str | None:
         self.sent.append(email)
+        return f"email_fake{len(self.sent)}"
 
 
 @pytest.fixture
@@ -533,6 +541,7 @@ async def api(
     app.dependency_overrides[get_file_storage] = _storage
     app.dependency_overrides[get_twilio_auth_token] = lambda: "testtoken"
     app.dependency_overrides[get_auth_email_secret] = lambda: "testsecret"
+    app.dependency_overrides[get_resend_webhook_secret] = lambda: RESEND_SECRET
     app.dependency_overrides[public_pay_rate_limit] = lambda: None  # no throttling under test
     app.dependency_overrides[public_review_rate_limit] = lambda: None
     app.dependency_overrides[public_form_rate_limit] = lambda: None

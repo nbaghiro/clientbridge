@@ -5285,6 +5285,9 @@
     "broadcasts.sources.preferences": {
         "message": "[Þŕéƒéŕéñçéš þåĝé one two]"
     },
+    "broadcasts.sources.complaint": {
+        "message": "[Šþåɱ çöɱþļåîñţ one two]"
+    },
     "broadcasts.consentChannel.sms": {
         "message": "[Ţéẋţš one]"
     },

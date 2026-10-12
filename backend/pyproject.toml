@@ -51,7 +51,7 @@ addopts = "-p no:randomly -m 'not contract and not e2e and not kratos'"
 markers = [
     "kratos: real KratosIdentityProvider against the local Kratos (`make up`)",
     "contract: real StripeGateway against stripe-mock (start it with `make stripe-mock`)",
-    "e2e: Stripe test-mode flows; skipped unless STRIPE_TEST_SECRET_KEY is set",
+    "e2e: Stripe and Resend test-mode flows; skipped unless the provider's test key is set",
 ]
 
 [tool.mypy]

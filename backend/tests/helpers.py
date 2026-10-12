@@ -2,6 +2,7 @@
 
 import json
 import uuid
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -10,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.ids import new_id
+from clientbridge.integrations.resend import resend_signature
 from clientbridge.integrations.twilio import twilio_signature
 from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.business import Business
@@ -29,7 +31,7 @@ from clientbridge.services.earnings import load_earning
 from clientbridge.services.lines import fetch_lines
 from clientbridge.services.messaging import open_thread, unread_count
 from clientbridge.services.orders import order_out as _order_out
-from tests.conftest import BIZ, book_invoice
+from tests.conftest import BIZ, RESEND_SECRET, book_invoice
 
 SLUG = "birchbark"
 STRIPE = {"Stripe-Signature": "good"}
@@ -42,6 +44,28 @@ async def text_in(api: httpx.AsyncClient, data: dict[str, str]) -> httpx.Respons
     url = f"{get_settings().api_base_url}/webhooks/sms"
     signature = twilio_signature(TWILIO_TOKEN, url, list(data.items()))
     return await api.post("/webhooks/sms", data=data, headers={"X-Twilio-Signature": signature})
+
+
+async def email_event(
+    api: httpx.AsyncClient,
+    body: Mapping[str, object],
+    *,
+    svix_id: str,
+    at: datetime | None = None,
+    signature: str | None = None,
+    raw: bytes | None = None,
+) -> httpx.Response:
+    """Post a Resend delivery event signed the way Svix signs it."""
+    payload = raw if raw is not None else json.dumps(body).encode()
+    timestamp = str(int((at or datetime.now(UTC)).timestamp()))
+    signed = signature or f"v1,{resend_signature(RESEND_SECRET, svix_id, timestamp, payload)}"
+    headers = {
+        "svix-id": svix_id,
+        "svix-timestamp": timestamp,
+        "svix-signature": signed,
+        "Content-Type": "application/json",
+    }
+    return await api.post("/webhooks/email", content=payload, headers=headers)
 
 
 async def texted(

@@ -128,7 +128,7 @@ The fake covers our *logic*; it can't prove the real adapter maps correctly. Thr
 | **Fake** | default suite | our logic + idempotency + error mapping (fast, hermetic, in-memory) |
 | **Contract** | `make test-contract` | the real `StripeGateway` vs **stripe-mock** (OpenAPI spec) — every request shape + response parse. Stateless; asserts shapes, not state. |
 | **Contract** | `make test-kratos` | the real `KratosIdentityProvider` vs the local Kratos: admin-created identity, native login, whoami, revocation. |
-| **E2E** | `make test-e2e` | real test-mode Stripe (KYC transitions, declines/3DS, subscription periods at the current API version, via a Test Clock) — behavior the mock's pinned spec can't reproduce. Skipped without `STRIPE_TEST_SECRET_KEY`. |
+| **E2E** | `make test-e2e` | real test-mode Stripe (KYC transitions, declines/3DS, subscription periods at the current API version, via a Test Clock) — behavior the mock's pinned spec can't reproduce. Skipped without `STRIPE_TEST_SECRET_KEY`. One real Resend send to `delivered@resend.dev`, skipped without `RESEND_TEST_API_KEY` and `RESEND_TEST_FROM`. |
 
 `contract`/`e2e` are excluded from the default run (`-m "not contract and not e2e"`) and auto-skip when their
 backing service/keys are absent, so `make test` stays hermetic. Golden Stripe webhook fixtures live in
@@ -291,6 +291,14 @@ The compose Kratos posts auth email to the API at `host.docker.internal:8701`; o
 Desktop that is the bridge address, so run the API with `--host 0.0.0.0` there (CI does).
 
 ---
+
+## Email delivery (Resend)
+
+Email goes out through `integrations/resend.py`: plain-text mail posted to Resend's send endpoint with `EMAIL_FROM` as the sender, the business's brand or billing email as the reply-to on client-facing mail, the message id as the idempotency key on thread, broadcast and class messages, and `business` and `message` tags for filtering in the Resend log. Without `RESEND_API_KEY` and `EMAIL_FROM` the console no-op sender is used; production refuses to boot without them and `RESEND_WEBHOOK_SECRET`. The sender retries a 429 up to twice, waiting for Resend's `retry-after` (capped at ten seconds), and raises on any other 4xx or 5xx, so an outage or an exhausted quota records a failed send.
+
+Resend reports delivery to `POST /webhooks/email`, signed with Svix headers and checked by `valid_resend_signature` within a five-minute window. `process_email_event` records each event once under `resend_<svix-id>` in `webhooks`; `email.delivered` moves the message with that `provider_ref` to delivered, `email.bounced`, `email.failed` and `email.suppressed` move it to failed, and `email.complained` withdraws the client's email marketing consent with source `complaint`, resolving the client through the message's thread or, for transactional mail, through the `business` tag and the recipient address. Subscribe the endpoint to those five events in the Resend dashboard.
+
+Setting up production: create the team, add the sending domain (a subdomain such as `mail.clientbridge.ca`), publish its DKIM, SPF and return-path MX records and a DMARC record, and wait for the domain to verify, since an unverified domain delivers only to the account owner. Create a sending-only API key restricted to that domain and set `RESEND_API_KEY`, `EMAIL_FROM` and the webhook's `RESEND_WEBHOOK_SECRET` in the secret store. Resend's test inboxes (`delivered@`, `bounced@`, `complained@` and `suppressed@resend.dev`) exercise the webhook end to end, and `tests/e2e/test_resend_e2e.py` sends one real mail when `RESEND_TEST_API_KEY` and `RESEND_TEST_FROM` are exported. Confirm the plan's daily cap before broadcasts go live.
 
 ## The demo / QA account
 

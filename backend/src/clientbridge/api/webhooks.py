@@ -1,10 +1,12 @@
 """Webhook surface (#4) — unauthenticated provider callbacks, authenticated by signature."""
 
 import secrets
+from datetime import UTC, datetime
 from typing import Annotated
 from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, Header, Request, Response
+from pydantic import ValidationError
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import (
@@ -13,13 +15,16 @@ from clientbridge.core.deps import (
     EmailDep,
     GatewayDep,
     PushDep,
+    ResendWebhookSecretDep,
     SmsDep,
     TwilioAuthTokenDep,
 )
+from clientbridge.integrations.resend import valid_resend_signature
 from clientbridge.integrations.stripe import WebhookVerificationError
 from clientbridge.integrations.twilio import valid_twilio_signature
 from clientbridge.schemas.auth import AuthEmailIn
-from clientbridge.services.messaging import process_inbound_sms
+from clientbridge.schemas.messaging import EmailEventBody
+from clientbridge.services.messaging import process_email_event, process_inbound_sms
 from clientbridge.services.notifications import Notifier, send_auth_email
 from clientbridge.services.payments import WebhookOutcome, process_stripe_event
 
@@ -103,4 +108,27 @@ async def auth_email_webhook(
     if not secret or not secrets.compare_digest(x_webhook_secret, secret):
         return Response(status_code=401)
     await send_auth_email(email, body)
+    return Response(status_code=200)
+
+
+@router.post("/email")
+async def email_webhook(
+    request: Request,
+    db: DbSession,
+    secret: ResendWebhookSecretDep,
+    svix_id: Annotated[str, Header(alias="svix-id")] = "",
+    svix_timestamp: Annotated[str, Header(alias="svix-timestamp")] = "",
+    svix_signature: Annotated[str, Header(alias="svix-signature")] = "",
+) -> Response:
+    payload = await request.body()
+    now = datetime.now(UTC)
+    if not valid_resend_signature(
+        secret, svix_id, svix_timestamp, payload, svix_signature, now=now
+    ):
+        return Response(status_code=401)
+    try:
+        event = EmailEventBody.model_validate_json(payload)
+    except ValidationError:
+        return Response(status_code=400)
+    await process_email_event(db, svix_id=svix_id, event=event)
     return Response(status_code=200)

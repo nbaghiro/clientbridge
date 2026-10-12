@@ -86,3 +86,28 @@ class ThreadOut(Mirror):
     id: str
     unread_count: int
     status: ThreadStatus
+
+
+class EmailBounce(BaseModel):
+    type: str = ""
+    sub_type: str = Field(default="", alias="subType")
+    message: str = ""
+
+
+class EmailFailure(BaseModel):
+    reason: str = ""
+
+
+class EmailEventData(BaseModel):
+    email_id: str = ""
+    to: list[str] | str | None = None
+    tags: dict[str, str] | None = None
+    bounce: EmailBounce | None = None
+    failed: EmailFailure | None = None
+
+
+class EmailEventBody(BaseModel):
+    """A Resend event, validated only after its Svix signature is checked."""
+
+    type: str
+    data: EmailEventData | None = None

@@ -58,4 +58,5 @@ def valid_twilio_signature(
 ) -> bool:
     if not auth_token or not signature:
         return False
-    return hmac.compare_digest(twilio_signature(auth_token, url, params), signature)
+    expected = twilio_signature(auth_token, url, params).encode()
+    return hmac.compare_digest(expected, signature.encode("latin-1", "replace"))

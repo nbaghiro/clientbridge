@@ -12,7 +12,7 @@ from clientbridge.core.zones import SUPPORTED_ZONES, zone
 from clientbridge.integrations.stripe import ConnectAccount
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.platform import File
-from clientbridge.schemas.business import BusinessSettingsUpdate, OnboardBody
+from clientbridge.schemas.business import BusinessSettingsUpdate, OnboardBody, public_email
 
 
 async def business_tz(db: AsyncSession, business_id: str) -> ZoneInfo:
@@ -257,3 +257,10 @@ class OnboardingService:
         )
         await self.db.commit()
         return biz
+
+
+def reply_address(business: Business) -> str | None:
+    """Where a reply to the business's mail should go: its brand email, else its billing email."""
+    value = (business.brand or {}).get("email")
+    brand_email = public_email(value) if isinstance(value, str) else None
+    return brand_email or public_email(business.billing_email)

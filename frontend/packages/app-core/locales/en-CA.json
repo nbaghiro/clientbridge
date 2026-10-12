@@ -5670,6 +5670,9 @@
     "broadcasts.sources.preferences": {
         "message": "Preferences page"
     },
+    "broadcasts.sources.complaint": {
+        "message": "Spam complaint"
+    },
     "broadcasts.consentChannel.sms": {
         "message": "Texts"
     },

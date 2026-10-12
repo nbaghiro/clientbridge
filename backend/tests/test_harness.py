@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import Settings
 from clientbridge.core.ids import new_id
-from clientbridge.integrations.postmark import Email
+from clientbridge.integrations.resend import Email
 from clientbridge.integrations.stripe import get_payment_gateway
 from clientbridge.main import app
 from clientbridge.models.clients import Client
@@ -63,7 +63,8 @@ async def test_unauth_rejected(unauth: httpx.AsyncClient) -> None:
 
 
 async def test_fake_email_records(email: FakeEmailSender) -> None:
-    await email.send(Email(to="a@b.ca", subject="hi", body="x"))
+    ref = await email.send(Email(to="a@b.ca", subject="hi", body="x"))
+    assert ref == "email_fake1"
     assert len(email.sent) == 1
     assert email.sent[0].to == "a@b.ca"
 
@@ -73,9 +74,17 @@ client = TestClient(app)
 
 def test_prod_requires_real_secrets() -> None:
     # Fail closed: a non-dev env with the public dev jwt secret / empty stripe secret must refuse.
-    with pytest.raises(ValidationError, match="TWILIO_AUTH_TOKEN"):
-        Settings(env="prod")
-    assert Settings(env="dev").env == "dev"  # dev keeps the convenient defaults
+    with pytest.raises(ValidationError) as caught:
+        Settings(env="prod", _env_file=None)  # a developer's .env must not satisfy prod
+    for name in (
+        "TWILIO_AUTH_TOKEN",
+        "AUTH_EMAIL_HOOK_SECRET",
+        "RESEND_API_KEY",
+        "EMAIL_FROM",
+        "RESEND_WEBHOOK_SECRET",
+    ):
+        assert name in str(caught.value)
+    assert Settings(env="dev", _env_file=None).env == "dev"  # dev keeps the convenient defaults
 
 
 def test_health() -> None:

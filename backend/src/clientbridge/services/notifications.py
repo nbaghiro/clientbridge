@@ -22,7 +22,7 @@ from clientbridge.core.locale import (
 from clientbridge.core.phones import e164
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.expo import Push, PushSender
-from clientbridge.integrations.postmark import Email, EmailSender
+from clientbridge.integrations.resend import Email, EmailSender
 from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.billing import Estimate, Invoice, Order
 from clientbridge.models.business import Business, Staff
@@ -36,6 +36,7 @@ from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.auth import AuthEmailIn
 from clientbridge.services import ledger
+from clientbridge.services.business import reply_address
 from clientbridge.services.consents import texts_stopped
 from clientbridge.services.lines import LineParent, fetch_lines
 from clientbridge.services.tax import tax_breakdown
@@ -517,11 +518,15 @@ class Notifier:
         if online:
             push_body, owner_body = _online_order_alert(locale, amount)
             if business.billing_email:
-                await self._to_contact(business.billing_email, None, push_body, owner_body)
+                await self._to_contact(
+                    business.billing_email, None, push_body, owner_body, business=business
+                )
         if payment.client_id is not None:
             await self._to_client(db, payment.client_id, subject, body)
         elif order is not None:
-            await self._to_contact(order.receipt_email, order.receipt_phone, subject, body)
+            await self._to_contact(
+                order.receipt_email, order.receipt_phone, subject, body, business=business
+            )
         await self._alert_staff(
             db, business, push_body, {"type": "payment", "payment_id": payment_id}
         )
@@ -569,9 +574,9 @@ class Notifier:
             receipt_link(order.receipt_token),
         )
         if order.receipt_channel == "email":
-            await self._to_contact(order.receipt_email, None, subject, body)
+            await self._to_contact(order.receipt_email, None, subject, body, business=business)
         elif order.receipt_channel == "sms":
-            await self._to_contact(None, order.receipt_phone, subject, body)
+            await self._to_contact(None, order.receipt_phone, subject, body, business=business)
 
     async def on_invoice_sent(self, db: AsyncSession, invoice_id: str) -> None:
         invoice = await db.get(Invoice, invoice_id)
@@ -754,7 +759,17 @@ class Notifier:
         amount = format_money(locale, card.initial_cents, payment.currency)
         subject, body = _gift_card_issued(locale, business.name, amount, card.code)
         if "@" in card.recipient:
-            await self._safe(self.email.send(Email(to=card.recipient, subject=subject, body=body)))
+            await self._safe(
+                self.email.send(
+                    Email(
+                        to=card.recipient,
+                        subject=subject,
+                        body=body,
+                        reply_to=reply_address(business),
+                        tags={"business": business.id},
+                    )
+                )
+            )
         else:
             await self._safe(self.sms.send(Sms(to=card.recipient, body=body)))
 
@@ -934,10 +949,20 @@ class Notifier:
         )
 
     async def _to_contact(
-        self, email: str | None, phone: str | None, subject: str, body: str
+        self, email: str | None, phone: str | None, subject: str, body: str, *, business: Business
     ) -> None:
         if email:
-            await self._safe(self.email.send(Email(to=email, subject=subject, body=body)))
+            await self._safe(
+                self.email.send(
+                    Email(
+                        to=email,
+                        subject=subject,
+                        body=body,
+                        reply_to=reply_address(business),
+                        tags={"business": business.id},
+                    )
+                )
+            )
         number = e164(phone) if phone else None
         if number:
             await self._safe(self.sms.send(Sms(to=number, body=body)))
@@ -958,7 +983,18 @@ class Notifier:
         if client is None:
             return
         if client.email and channel != "sms":
-            await self._safe(self.email.send(Email(to=client.email, subject=subject, body=body)))
+            business = await db.get(Business, client.business_id)
+            await self._safe(
+                self.email.send(
+                    Email(
+                        to=client.email,
+                        subject=subject,
+                        body=body,
+                        reply_to=reply_address(business) if business is not None else None,
+                        tags={"business": client.business_id},
+                    )
+                )
+            )
         number = e164(client.phone) if client.phone else None
         if (
             number
@@ -986,7 +1022,7 @@ class Notifier:
                 self.push.send(Push(tokens=list(tokens), title=business.name, body=body, data=data))
             )
 
-    async def _safe(self, awaitable: Awaitable[None]) -> None:
+    async def _safe(self, awaitable: Awaitable[object]) -> None:
         try:
             await awaitable
         except Exception:
