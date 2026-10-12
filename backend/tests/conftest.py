@@ -246,7 +246,7 @@ class FakePaymentGateway:
         self.account_sessions: list[tuple[str, ConnectComponent]] = []
         self.created_accounts: list[str] = []
         self.detached: list[str] = []
-        self.refunds: list[tuple[str, int]] = []
+        self.refunds: list[tuple[str, int, bool]] = []
         self.created_prices: list[str] = []
         self.created_price_amounts: list[int] = []  # unit_amount per created Price
         self.created_subscriptions: list[str] = []
@@ -440,10 +440,16 @@ class FakePaymentGateway:
         self.canceled_intents.append(payment_intent_id)
 
     async def refund(
-        self, account_id: str, *, payment_intent_id: str, amount_cents: int, idempotency_key: str
+        self,
+        account_id: str,
+        *,
+        payment_intent_id: str,
+        amount_cents: int,
+        idempotency_key: str,
+        refund_application_fee: bool = False,
     ) -> RefundResult:
         self._seq += 1
-        self.refunds.append((payment_intent_id, amount_cents))
+        self.refunds.append((payment_intent_id, amount_cents, refund_application_fee))
         return RefundResult(id=f"re_fake{self._seq}", status=self.refund_status)
 
     async def detach_payment_method(self, account_id: str, *, payment_method_id: str) -> None:

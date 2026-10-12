@@ -9,7 +9,7 @@ from clientbridge.models.billing import Order
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from tests.conftest import Factory
-from tests.helpers import client_id, enable_payments
+from tests.helpers import client_id, enable_payments, stripe_event
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -238,3 +238,32 @@ async def test_checkout_same_key_mints_one_intent(
     )
     assert len(payments) == 1
     assert payments[0].provider_ref is not None
+
+
+async def test_void_after_checkout_started_409(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    """A tap that lands after the void would post money against a void order."""
+    await enable_payments(db)
+    order = (await as_owner.post("/v1/orders", json={"lines": [LATTE]})).json()
+    assert (await as_owner.post(f"/v1/orders/{order['id']}/checkout")).status_code == 200
+    assert (await as_owner.post(f"/v1/orders/{order['id']}/void")).status_code == 409
+    assert await _order_status(db, order["id"]) == "open"
+
+
+async def test_a_disputed_sale_stays_paid_until_the_case_is_lost(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    order = (await as_owner.post("/v1/orders", json={"lines": [LATTE]})).json()
+    pay_id = (await as_owner.post(f"/v1/orders/{order['id']}/checkout")).json()["payment_id"]
+    pi = (await db.execute(select(Payment.provider_ref).where(Payment.id == pay_id))).scalar_one()
+    await stripe_event(as_owner, "payment_intent.succeeded", {"id": pi})
+    total = order["total_cents"]
+    dispute = {"id": "dp_sale", "payment_intent": pi, "amount": total}
+    await stripe_event(as_owner, "charge.dispute.created", {**dispute, "status": "needs_response"})
+    assert await _order_status(db, order["id"]) == "paid"  # no restock while it can still be won
+    assert await ledger.collected(db, BIZ, "order", order["id"]) == (total, False)
+    await stripe_event(as_owner, "charge.dispute.closed", {**dispute, "status": "lost"})
+    assert await _order_status(db, order["id"]) == "refunded"
+    assert await ledger.collected(db, BIZ, "order", order["id"]) == (0, True)

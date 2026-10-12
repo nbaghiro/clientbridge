@@ -10,14 +10,17 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.deps import Principal
+from clientbridge.core.errors import Conflict
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.stripe import ChargeFees
+from clientbridge.models.billing import Invoice
 from clientbridge.models.ledger import Entry
 from clientbridge.models.payments import Payment
 from clientbridge.schemas.reports import IncomeReport
 from clientbridge.services import ledger
+from clientbridge.services.payments import assert_payable
 from clientbridge.services.reports import ReportService
-from tests.conftest import BIZ, OWNER_USER, FakePaymentGateway
+from tests.conftest import BIZ, OWNER_USER, FakePaymentGateway, book_invoice
 from tests.helpers import (
     business_balance,
     client_id,
@@ -34,7 +37,12 @@ STRIPE = {"Stripe-Signature": "good"}
 
 
 async def _charge(
-    db: AsyncSession, pi: str, *, status: str = "succeeded", invoice_id: str | None = None
+    db: AsyncSession,
+    pi: str,
+    *,
+    status: str = "succeeded",
+    invoice_id: str | None = None,
+    amount: int = 8000,
 ) -> Payment:
     row = Payment(
         id=f"pay_{pi}",
@@ -42,7 +50,7 @@ async def _charge(
         client_id=await client_id(db),
         invoice_id=invoice_id,
         kind="payment",
-        amount_cents=8000,
+        amount_cents=amount,
         currency="CAD",
         method="card",
         provider="stripe",
@@ -61,11 +69,13 @@ def _refund(pi: str, status: str, **extra: object) -> dict[str, object]:
     return {"id": f"re_{pi}", "payment_intent": pi, "amount": 8000, "status": status, **extra}
 
 
-def _dispute(pi: str, status: str, txns: list[dict[str, object]]) -> dict[str, object]:
+def _dispute(
+    pi: str, status: str, txns: list[dict[str, object]], *, amount: int = 8000
+) -> dict[str, object]:
     return {
         "id": f"dp_{pi}",
         "payment_intent": pi,
-        "amount": 8000,
+        "amount": amount,
         "status": status,
         "balance_transactions": txns,
     }
@@ -118,11 +128,20 @@ async def test_won_dispute_reinstates_what_stripe_reinstated(
         api, "charge.dispute.created", _dispute("pi_won", "needs_response", [pulled])
     )
     assert await business_balance(db, "stripe") == before - 9500
-    assert (await invoice(db, inv_id)).status == "sent"  # the money is out, the client owes again
+    assert await _paid(db, inv_id) == ("paid", 0, 8000)  # the case is open, nothing is owed yet
+    row = await db.get(Invoice, inv_id)
+    assert row is not None
+    with pytest.raises(Conflict):
+        await assert_payable(db, row)
     back = {"id": "txn_dp_in", "amount": 8000, "fee": -1500, "net": 9500}
     await stripe_event(api, "charge.dispute.closed", _dispute("pi_won", "won", [pulled, back]))
     assert await business_balance(db, "stripe") == before
-    assert (await invoice(db, inv_id)).status == "paid"
+    assert await _paid(db, inv_id) == ("paid", 0, 8000)
+
+
+async def _paid(db: AsyncSession, invoice_id: str) -> tuple[str, int, int]:
+    out = await invoice(db, invoice_id)
+    return out.status, out.balance_cents, out.amount_paid_cents
 
 
 async def test_lost_dispute_writes_the_sale_off(
@@ -134,6 +153,7 @@ async def test_lost_dispute_writes_the_sale_off(
     assert row.client_id is not None
     revenue = await business_balance(db, "revenue")
     taxable = await _taxable_sales(as_owner)
+    income = await _income(db)
     pulled = {"id": "txn_lost_out", "amount": -8000, "fee": 1500, "net": -9500}
     await stripe_event(
         api, "charge.dispute.created", _dispute("pi_lost", "needs_response", [pulled])
@@ -141,8 +161,44 @@ async def test_lost_dispute_writes_the_sale_off(
     await stripe_event(api, "charge.dispute.closed", _dispute("pi_lost", "lost", [pulled]))
     assert await owner_balance(db, "client", row.client_id, "receivable") == 0
     assert await business_balance(db, "revenue") == revenue + 8000
-    assert (await invoice(db, inv_id)).status == "refunded"
+    assert await _paid(db, inv_id) == ("refunded", 0, 0)
     assert await _taxable_sales(as_owner) == taxable - 8000  # off GST line 101 with the revenue
+    after = await _income(db)
+    assert after.refunds_cents == income.refunds_cents + 8000  # money back, like a refund
+    assert after.by_method["card"] == income.by_method["card"] - 8000
+
+
+async def test_a_lost_dispute_and_a_refund_on_one_invoice_unwind_it_exactly(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    """Each unwind counts the other, so revenue and tax clear to the cent between them."""
+    row = Invoice(
+        id=new_id("invoice"),
+        business_id=BIZ,
+        client_id=await client_id(db),
+        number=9502,
+        status="sent",
+        currency="CAD",
+        subtotal_cents=7619,
+        tax_total_cents=381,
+        total_cents=8000,
+    )
+    db.add(row)
+    await db.flush()
+    await book_invoice(db, row)
+    await _charge(db, "pi_half_a", invoice_id=row.id, amount=4000)
+    await _charge(db, "pi_half_b", invoice_id=row.id, amount=4000)
+    pulled = {"id": "txn_half_out", "amount": -4000, "fee": 1500, "net": -5500}
+    lost = _dispute("pi_half_a", "lost", [pulled], amount=4000)
+    await stripe_event(api, "charge.dispute.created", {**lost, "status": "needs_response"})
+    await stripe_event(api, "charge.dispute.closed", lost)
+    await stripe_event(api, "refund.created", {**_refund("pi_half_b", "succeeded"), "amount": 4000})
+    for category in ("revenue", "tax"):
+        left = await ledger.subject_balance(
+            db, BIZ, category=category, subject_type="invoice", subject_id=row.id
+        )
+        assert left == 0, category
+    assert await _paid(db, row.id) == ("refunded", 0, 0)
 
 
 async def _taxable_sales(as_owner: httpx.AsyncClient) -> int:
@@ -186,6 +242,29 @@ async def test_canceled_payout_comes_back(api: httpx.AsyncClient, db: AsyncSessi
     await stripe_event(api, "payout.canceled", _payout("po_cxl", "canceled"))
     assert await ledger.journal_for(db, BIZ, "payout:po_cxl") is not None
     assert await business_balance(db, "stripe") == before
+
+
+async def test_a_payout_that_fails_before_its_creation_lands_stays_reversed(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    """A retried `payout.created` carries its original snapshot, so it can't tell it failed."""
+    await enable_payments(db)
+    before = await business_balance(db, "stripe")
+    await stripe_event(api, "payout.failed", _payout("po_late", "failed"))
+    await stripe_event(api, "payout.created", _payout("po_late", "pending"))
+    assert await business_balance(db, "stripe") == before
+
+
+async def test_a_paid_payout_books_once(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    await enable_payments(db)
+    before = await business_balance(db, "stripe")
+    for event_type, status in (
+        ("payout.created", "pending"),
+        ("payout.paid", "paid"),
+        ("payout.paid", "paid"),
+    ):
+        await stripe_event(api, event_type, _payout("po_paid", status))
+    assert await business_balance(db, "stripe") == before - 5000
 
 
 async def test_charge_without_a_readable_balance_transaction_is_retried(

@@ -206,6 +206,7 @@ async def subject_balance(
                 Entry.subject_type == subject_type,
                 Entry.subject_id == subject_id,
                 Account.category == category,
+                _settled(),
             )
         )
     ).scalar_one()
@@ -339,7 +340,13 @@ async def invoice_balance(db: AsyncSession, invoice: Invoice) -> int:
 
 
 def _subject_legs(subject_type: str, subject_id: _Id) -> ColumnElement[bool]:
-    return and_(Entry.subject_type == subject_type, Entry.subject_id == subject_id)
+    return and_(Entry.subject_type == subject_type, Entry.subject_id == subject_id, _settled())
+
+
+def _settled() -> ColumnElement[bool]:
+    """Dispute legs count against a document only once the dispute is lost."""
+    lost = select(Payment.id).where(Payment.id == Entry.source_id, Payment.dispute_status == "lost")
+    return or_(Entry.event != "dispute", lost.exists())
 
 
 def _collected_expr(subject_type: str, subject_id: _Id) -> ColumnElement[int]:
@@ -477,12 +484,10 @@ async def collected(
     rows = await _rows(
         db,
         business_id,
-        (Entry.subject_type == subject_type)
-        & (Entry.subject_id == subject_id)
-        & Entry.event.in_(("payment", "refund")),
+        _subject_legs(subject_type, subject_id) & Entry.event.in_(_MONEY_BACK_EVENTS),
     )
     cash = [(e, a) for e, a in rows if a.category in _CASH_CATEGORIES]
-    return sum(e.amount_cents for e, _ in cash), any(e.event == "refund" for e, _ in cash)
+    return sum(e.amount_cents for e, _ in cash), any(e.event != "payment" for e, _ in cash)
 
 
 def cash_category(payment: Payment) -> str:
@@ -672,15 +677,26 @@ async def _unwind(
         if original.invoice_id
         else Payment.parent_payment_id == original.id,
     )
+    disputed = scoped(Payment, original.business_id).where(
+        Payment.kind != "refund",
+        Payment.dispute_status == "lost",
+        Payment.invoice_id == original.invoice_id
+        if original.invoice_id
+        else Payment.id == original.id,
+    )
     owed: dict[str, tuple[Account, int]] = {}
     for entry, account in credits:
         owed[account.id] = (account, owed.get(account.id, (account, 0))[1] - entry.amount_cents)
     prior_rows = await _rows(
         db,
         original.business_id,
-        (Entry.event == "refund")
-        & Entry.account_id.in_(owed)
-        & Entry.source_id.in_(refunds.with_only_columns(Payment.id).scalar_subquery()),
+        Entry.account_id.in_(owed)
+        & or_(
+            (Entry.event == "refund")
+            & Entry.source_id.in_(refunds.with_only_columns(Payment.id).scalar_subquery()),
+            (Entry.event == "dispute")
+            & Entry.source_id.in_(disputed.with_only_columns(Payment.id).scalar_subquery()),
+        ),
     )
     prior: dict[str, int] = {}
     for entry, _ in prior_rows:
@@ -826,12 +842,20 @@ async def post_dispute(
 
 
 async def close_dispute(
-    db: AsyncSession, business_id: str, dispute_id: str, *, returned_fee: int = 0
+    db: AsyncSession, payment: Payment, dispute_id: str, *, returned_fee: int = 0
 ) -> None:
     """A won dispute: Stripe reinstates the amount and returns whatever part of the fee it does."""
+    business_id = payment.business_id
     journal = await journal_for(db, business_id, f"dispute:{dispute_id}")
     if journal is not None:
-        await reverse(db, business_id, journal, ref=f"dispute:{dispute_id}:won", event="dispute")
+        await reverse(
+            db,
+            business_id,
+            journal,
+            ref=f"dispute:{dispute_id}:won",
+            event="dispute",
+            source=("payment", payment.id),
+        )
     fee_rows = await _rows(db, business_id, Entry.ref == f"dispute_fee:{dispute_id}")
     if returned_fee <= 0 or not fee_rows:
         return

@@ -5,10 +5,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.models.billing import Invoice
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
+from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking
 from clientbridge.services import ledger
 from tests.conftest import FakePaymentGateway
-from tests.helpers import card_pay, deposit_payment, enable_payments, payment, provider_ref, settle
+from tests.helpers import (
+    card_pay,
+    deposit_payment,
+    enable_payments,
+    payment,
+    provider_ref,
+    settle,
+    stripe_event,
+)
 from tests.test_bookings import (
     CL_AMELIE,
     _deposit_booking,
@@ -246,3 +255,33 @@ async def test_a_deposit_that_settles_after_the_cancel_is_refunded(
     assert booking is not None
     assert (booking.status, booking.deposit_status) == ("canceled", "refunded")
     assert await ledger.deposit_held(db, booking) == 0
+
+
+async def test_a_rebuilt_deposit_is_held_for_its_booking(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    """A deposit intent whose row never committed settles into the booking it names."""
+    bid, _, _ = await _online_deposit(api, db)
+    held = await ledger.deposit_held(db, await _booking_row(db, bid))
+    intent = {
+        "id": "pi_rebuilt_deposit",
+        "amount": 2500,
+        "currency": "cad",
+        "metadata": {"business_id": BIZ, "booking_id": bid},
+    }
+    await stripe_event(api, "payment_intent.succeeded", intent)
+    rebuilt = await payment(db, (await _payment_id(db, "pi_rebuilt_deposit")))
+    assert (rebuilt.kind, rebuilt.status, rebuilt.booking_id) == ("deposit", "succeeded", bid)
+    assert await ledger.deposit_held(db, await _booking_row(db, bid)) == held + 2500
+
+
+async def _booking_row(db: AsyncSession, booking_id: str) -> Booking:
+    row = await db.get(Booking, booking_id, populate_existing=True)
+    assert row is not None
+    return row
+
+
+async def _payment_id(db: AsyncSession, provider_ref: str) -> str:
+    return (
+        await db.execute(select(Payment.id).where(Payment.provider_ref == provider_ref))
+    ).scalar_one()

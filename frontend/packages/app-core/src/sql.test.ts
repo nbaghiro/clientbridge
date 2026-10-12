@@ -841,13 +841,17 @@ describe("app-core SQL against the replica schema", () => {
         expect(value(ownedLiabilitySql("gift_card", "gift_card", "'gc_none'"))).toBe(0);
     });
 
-    it("follows a dispute: withdrawn funds unsettle the sale and a loss reads refunded", () => {
+    it("follows a dispute: an open or won case leaves the sale paid and a loss reads refunded", () => {
         const onInv3: Row = {
             subject_type: "invoice",
             subject_id: "inv_3",
             source_type: "payment",
             source_id: "pay_3",
         };
+        const disputed = (status: string | null) => {
+            db.run("UPDATE payments SET dispute_status = ? WHERE id = 'pay_3'", [status]);
+        };
+        const inv3 = () => pick(run("INVOICE_SQL", ["inv_3"]), "status", "balance_cents")[0];
         journal(
             "j_dp3",
             "dispute",
@@ -858,9 +862,12 @@ describe("app-core SQL against the replica schema", () => {
             ],
             onInv3,
         );
-        expect(value(collectedSql("invoice", "'inv_3'"))).toBe(0);
-        expect(value(clientValueSql("'cl_ben'"))).toBe(4800);
-        expect(run("INVOICE_SQL", ["inv_3"])[0]?.status).toBe("sent");
+        disputed("needs_response");
+        expect(inv3()).toEqual({ status: "paid", balance_cents: 0 });
+        expect(value(collectedSql("invoice", "'inv_3'"))).toBe(2000);
+        expect(value(clientValueSql("'cl_ben'"))).toBe(6800);
+        disputed("won");
+        expect(inv3()).toEqual({ status: "paid", balance_cents: 0 });
         journal(
             "j_dp3_lost",
             "dispute",
@@ -871,9 +878,13 @@ describe("app-core SQL against the replica schema", () => {
             ],
             onInv3,
         );
-        expect(run("INVOICE_SQL", ["inv_3"])[0]?.status).toBe("refunded");
+        disputed("lost");
+        expect(inv3()).toEqual({ status: "refunded", balance_cents: 0 });
+        expect(value(collectedSql("invoice", "'inv_3'"))).toBe(0);
+        expect(value(clientValueSql("'cl_ben'"))).toBe(4800);
         db.run("DELETE FROM entries WHERE journal_id IN ('j_dp3', 'j_dp3_lost')");
-        expect(run("INVOICE_SQL", ["inv_3"])[0]?.status).toBe("paid");
+        disputed(null);
+        expect(inv3()).toEqual({ status: "paid", balance_cents: 0 });
     });
 
     it("lists estimates, document lines and per-code tax", () => {

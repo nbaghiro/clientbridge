@@ -37,6 +37,7 @@ from clientbridge.services import ledger
 from clientbridge.services.tax import rates_for_province
 
 _CASH = ("stripe", "bank", "cash")
+_MONEY_BACK = ("payment", "refund", "dispute")
 
 
 def period_bounds(start: date, end: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
@@ -97,7 +98,7 @@ class ReportService:
 
     async def income_summary_between(self, lo: datetime, hi: datetime) -> IncomeReport:
         rows = await self.db.execute(
-            self._legs(Account.category.in_(_CASH), Entry.event.in_(("payment", "refund")), lo, hi)
+            self._legs(Account.category.in_(_CASH), Entry.event.in_(_MONEY_BACK), lo, hi)
             .with_only_columns(Entry.event, Payment.method, func.sum(Entry.amount_cents))
             .join(Payment, Payment.id == Entry.source_id)
             .group_by(Entry.event, Payment.method)
@@ -105,7 +106,7 @@ class ReportService:
         gross = refunds = 0
         by_method: dict[str, int] = {}
         for entry_type, method, cents in rows.tuples().all():
-            if entry_type == "refund":
+            if entry_type != "payment":
                 refunds -= int(cents)
             else:
                 gross += int(cents)
@@ -556,7 +557,7 @@ class DashboardService:
             .join_from(Entry, Account, Account.id == Entry.account_id)
             .where(
                 Account.category.in_(("stripe", "bank", "cash")),
-                Entry.event.in_(("payment", "refund")),
+                Entry.event.in_(_MONEY_BACK),
                 Entry.occurred_at >= day_start,
             )
         )

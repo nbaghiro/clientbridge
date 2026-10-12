@@ -8,7 +8,7 @@ from clientbridge.models.billing import Line, Order
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
-from tests.helpers import enable_payments, key, ok, payment, sent_invoice, settle
+from tests.helpers import enable_payments, key, ok, payment, sent_invoice, settle, stripe_event
 
 BIZ = "bz_birchbark"
 GROOM = {
@@ -307,3 +307,32 @@ async def _order(db: AsyncSession, order_id: str) -> Order:
     row = await db.get(Order, order_id, populate_existing=True)
     assert row is not None
     return row
+
+
+async def test_a_rebuilt_card_sale_keeps_its_tip_split(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    """The sale's command never committed; the intent's metadata still owes each staff member."""
+    await enable_payments(db)
+    sale = ok(await as_owner.post("/v1/orders", json={"lines": [SHAMPOO]}), 201).json()
+    intent = {
+        "id": "pi_rebuilt_sale",
+        "amount": sale["total_cents"] + 500,
+        "currency": "cad",
+        "metadata": {
+            "business_id": BIZ,
+            "order_id": sale["id"],
+            "tip_cents": "500",
+            "tip_split": "st_owner:300,st_diego:200",
+        },
+    }
+    await stripe_event(as_owner, "payment_intent.succeeded", intent)
+    rebuilt = (
+        await db.execute(select(Payment).where(Payment.provider_ref == "pi_rebuilt_sale"))
+    ).scalar_one()
+    assert (rebuilt.status, rebuilt.order_id, rebuilt.tip_cents) == ("succeeded", sale["id"], 500)
+    assert await _tip_journals(db, rebuilt.id) == {"st_owner": 300, "st_diego": 200}
+    status = (
+        await db.execute(select(ledger.order_status_expr()).where(Order.id == sale["id"]))
+    ).scalar_one()
+    assert status == "paid"

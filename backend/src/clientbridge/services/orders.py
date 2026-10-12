@@ -141,11 +141,14 @@ class OrderService:
     async def void_order(self, order_id: str) -> OrderOut:
         self._assert_admin()
         order = await self._order(order_id)
-        status = await _status(self.db, order)
-        if status != "open":
-            raise Conflict(f"a {status} order can't be voided")
 
         async def run(cmd: Command) -> OrderOut:
+            await self.db.execute(select(Order.id).where(Order.id == order_id).with_for_update())
+            status = await _status(self.db, order)
+            if status != "open":
+                raise Conflict(f"a {status} order can't be voided")
+            if await self._has_active_payment(order.id):
+                raise Conflict("can't void an order after checkout has started")
             order.status = "void"
             await self._link_visits(order, [])
             await self.db.flush()

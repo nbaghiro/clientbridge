@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 
 import pytest
 from scripts.seed_demo import purge_businesses
-from sqlalchemy import select
+from sqlalchemy import delete, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
@@ -16,13 +16,13 @@ from clientbridge.core.db import SessionLocal
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import Conflict
 from clientbridge.core.ids import new_id
-from clientbridge.integrations.stripe import ChargeFees
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Entry
 from clientbridge.models.payments import Payment
+from clientbridge.models.platform import Webhook
 from clientbridge.schemas.entitlements import GiftCardRedeem
 from clientbridge.schemas.payments import InvoicePaymentIn
 from clientbridge.services import ledger
@@ -30,6 +30,8 @@ from clientbridge.services.entitlements import GiftCardService, PackageService
 from clientbridge.services.ledger import Leg
 from clientbridge.services.payments import PaymentService, process_stripe_event
 from tests.conftest import Factory, FakePaymentGateway, book_invoice
+
+RACE_EVENT = "evt_race_"  # webhooks are not business-scoped, so the purge finds them by id
 
 type Throwaway = Callable[[], Awaitable[tuple[Business, Client, Principal]]]
 
@@ -57,8 +59,25 @@ async def throwaway(db: AsyncSession) -> AsyncIterator[Throwaway]:
     owner = create_async_engine(get_settings().migration_database_url)
     async with AsyncSession(owner) as session:
         await purge_businesses(session, [b for b, _ in made], [u for _, u in made])
+        await session.execute(delete(Webhook).where(Webhook.id.like(f"{RACE_EVENT}%")))
         await session.commit()
     await owner.dispose()
+
+
+async def _queued() -> None:
+    """Hold on until another session waits on a lock this test holds, instead of a fixed sleep."""
+    async with SessionLocal() as probe:
+        for _ in range(500):
+            waiting = await probe.execute(
+                text(
+                    "SELECT count(*) FROM pg_stat_activity"
+                    " WHERE datname = current_database() AND wait_event_type = 'Lock'"
+                )
+            )
+            if waiting.scalar_one():
+                return
+            await asyncio.sleep(0.01)
+    raise AssertionError("the second writer never queued behind the first")
 
 
 async def _journals(session: AsyncSession, ref: str) -> int:
@@ -93,7 +112,7 @@ async def test_two_posts_on_one_ref_write_one_journal(
                 await ledger.post(session, business.id, event="adjustment", ref=ref, legs=legs)
                 if hold:
                     started.set()
-                    await asyncio.sleep(0.3)
+                    await _queued()
                 await session.commit()
             except IntegrityError as exc:
                 return exc
@@ -151,7 +170,7 @@ async def test_two_redemptions_of_one_card_cannot_overspend_it(
                         select(GiftCard.id).where(GiftCard.id == card_id).with_for_update()
                     )
                     started.set()
-                    await asyncio.sleep(0.3)
+                    await _queued()
                 await service.redeem_gift_card(GiftCardRedeem(code=code, amount_cents=700))
             except Conflict as exc:
                 return exc
@@ -213,7 +232,7 @@ async def test_two_consumes_of_a_one_session_package_use_it_once(
                         select(Package.id).where(Package.id == package_id).with_for_update()
                     )
                     started.set()
-                    await asyncio.sleep(0.3)
+                    await _queued()
                 await service.consume_session(package_id)
             except Conflict as exc:
                 return exc
@@ -227,22 +246,10 @@ async def test_two_consumes_of_a_one_session_package_use_it_once(
         assert await ledger.sessions_used(check, used) == 1
 
 
-class _SlowFees(FakePaymentGateway):
-    def __init__(self, started: asyncio.Event) -> None:
-        super().__init__()
-        self.started = started
-
-    async def get_payment_fees(
-        self, account_id: str, *, payment_intent_id: str
-    ) -> ChargeFees | None:
-        self.started.set()
-        await asyncio.sleep(0.3)
-        return ChargeFees(0, 0, None)
-
-
-async def test_cash_cannot_land_while_a_card_charge_is_settling(
+async def test_cash_is_refused_while_a_card_charge_is_pending(
     db: AsyncSession, throwaway: Throwaway
 ) -> None:
+    """The pending sum, not a lock, is what keeps the cash out until the card settles or fails."""
     business, client, principal = await throwaway()
     pi = f"pi_race_{uuid.uuid4().hex[:10]}"
     async with SessionLocal() as session:
@@ -278,35 +285,21 @@ async def test_cash_cannot_land_while_a_card_charge_is_settling(
         )
         await session.commit()
         invoice_id = invoice.id
-    started = asyncio.Event()
     event = json.dumps(
         {
-            "id": f"evt_{uuid.uuid4().hex}",
+            "id": f"{RACE_EVENT}{uuid.uuid4().hex}",
             "type": "payment_intent.succeeded",
             "data": {"object": {"id": pi}},
         }
     )
-
-    async def settle() -> Conflict | None:
-        async with SessionLocal() as session:
-            await process_stripe_event(session, _SlowFees(started), event.encode(), "good")
-            return None
-
-    async def cash() -> Conflict | None:
-        async with SessionLocal() as session:
-            service = PaymentService(session, principal, FakePaymentGateway())
-            try:
-                await service.record_invoice_payment(
-                    invoice_id, InvoicePaymentIn(method="cash", amount_cents=5000), None
-                )
-            except Conflict as exc:
-                return exc
-            return None
-
-    _, refused = await _second_after(started, settle, cash)
-    assert (
-        refused is not None and refused.message == "this invoice already has a payment in progress"
-    )
+    async with SessionLocal() as session:
+        service = PaymentService(session, principal, FakePaymentGateway())
+        with pytest.raises(Conflict, match="already has a payment in progress"):
+            await service.record_invoice_payment(
+                invoice_id, InvoicePaymentIn(method="cash", amount_cents=5000), None
+            )
+    async with SessionLocal() as session:
+        await process_stripe_event(session, FakePaymentGateway(), event.encode(), "good")
     async with SessionLocal() as check:
         paid = await check.get(Invoice, invoice_id)
         assert paid is not None

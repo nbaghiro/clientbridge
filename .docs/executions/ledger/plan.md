@@ -53,8 +53,9 @@ In order. A task depends on the ones above it only where stated.
 
 ## Open questions
 
-- Lost dispute: decided as a write-off. `ledger.lose_dispute` clears the receivable and unwinds the sale pro rata, like a refund. A dispute's cash legs count like a refund's in the status expressions and GST line 101: an open dispute reads as owed (invoice) or refunded (sale), a win restores paid, a loss stays refunded.
+- Lost dispute: decided as a write-off. `ledger.lose_dispute` clears the receivable and unwinds the sale pro rata, like a refund, and the loss runs a full refund's side effects (parent sync, package or gift card voided). Document status counts a dispute's legs only once the payment's `dispute_status` is `lost`: an open or won case leaves the invoice or sale paid (no second charge, dunning or restock), a loss reads refunded. Income reports and GST line 101 count dispute legs as they post, since the money really moved. A `disputed` document status was considered and left for a ticket.
 - Orphaned purchases: a gift card or package charged off-session whose command never committed has no row to rebuild, so the webhook refunds the charge and audits it (`payment.orphan_refunded`).
-- An inquiry that escalates to a chargeback books the dispute on `charge.dispute.updated` or `funds_withdrawn`, since `created` carried no funds.
+- An inquiry that escalates to a chargeback books the dispute on `charge.dispute.updated` or `funds_withdrawn`, since `created` carried no funds, and alerts staff then. A `closed` for a dispute never booked books it first.
+- An off-session purchase with no row is refunded (platform fee included) only an hour after its intent opened; inside that window it is retried, since its command may still be committing.
 - The failed webhook row carries no error text (that would be a new column, not approved); the error goes to the log at error level with the event id.
 - Refunding the application fee: the platform keeps it today. If that changes, the refund journal gains a platform leg and `stripe.refund` passes the flag.
