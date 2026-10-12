@@ -35,7 +35,8 @@ function publicInvoice(extra: Partial<PublicInvoice> = {}): PublicInvoice {
         balance_cents: 3748,
         status: "partial",
         accepts_card: true,
-        interac_email: null,
+        contact_phone: null,
+        contact_email: null,
         client_name: "Ann",
         issued_at: null,
         due_at: null,
@@ -46,7 +47,12 @@ function publicInvoice(extra: Partial<PublicInvoice> = {}): PublicInvoice {
         taxes: TAXES.slice(0, 2),
         credits: [
             { kind: "deposit", method: "card", amount_cents: 2750, at: "2026-10-01T12:00:00Z" },
-            { kind: "payment", method: "interac", amount_cents: 5000, at: "2026-10-03T12:00:00Z" },
+            {
+                kind: "payment",
+                method: "etransfer",
+                amount_cents: 5000,
+                at: "2026-10-03T12:00:00Z",
+            },
         ],
         ...extra,
     };
@@ -130,7 +136,7 @@ describe("the public pay page", () => {
         ]);
         expect(totals[4]?.label).toBe(pp.depositCredit);
         expect(totals[5]?.label).toBe(
-            pp.credit(pp.method.interac, shortDate("2026-10-03T12:00:00Z", ZONE)),
+            pp.credit(pp.method.etransfer, shortDate("2026-10-03T12:00:00Z", ZONE)),
         );
     });
 
@@ -188,6 +194,24 @@ describe("the public pay page", () => {
         const draft = printedPublicInvoice(publicInvoice({ number: null }), "u", "#000");
         expect([draft.reference, draft.heading]).toEqual(["Draft", "Invoice Draft"]);
     });
+
+    it("prints how to pay online only when the business takes cards", () => {
+        const online = printedPublicInvoice(publicInvoice(), "https://pay.test/i/x", "#000");
+        expect([online.payUrl, online.instructions]).toEqual([
+            "https://pay.test/i/x",
+            [strings.printing.payOnline("https://pay.test/i/x")],
+        ]);
+        const offline = printedPublicInvoice(
+            publicInvoice({ accepts_card: false, contact_email: "hi@birch.test" }),
+            "https://pay.test/i/x",
+            "#000",
+        );
+        expect([offline.payUrl, offline.instructions, offline.business.email]).toEqual([
+            null,
+            [],
+            "hi@birch.test",
+        ]);
+    });
 });
 
 describe("printed documents in the pseudo-locale", () => {
@@ -198,7 +222,7 @@ describe("printed documents in the pseudo-locale", () => {
     it("leaves no unconverted text", async () => {
         await setPseudoLocale(true);
         const doc = printedPublicInvoice(
-            publicInvoice({ number: 1002, interac_email: "pay@x.test", gst_hst_number: "1" }),
+            publicInvoice({ number: 1002, contact_email: "pay@x.test", gst_hst_number: "1" }),
             "https://pay.test/i/x",
             "#000",
         );

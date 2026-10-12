@@ -895,12 +895,7 @@ export function printedInvoice(
             },
             stamp: paid ? p.paidStamp : null,
             payUrl: paid ? null : rec.payUrl,
-            instructions: paid
-                ? []
-                : [
-                      ...(rec.payUrl !== null ? [p.payOnline(rec.payUrl)] : []),
-                      ...(letterhead.email !== null ? [p.payInterac(letterhead.email)] : []),
-                  ],
+            instructions: paid || rec.payUrl === null ? [] : [p.payOnline(rec.payUrl)],
             message: r.notes,
         },
         letterhead,
@@ -1785,11 +1780,7 @@ export function useDocComposer(
                         label: estimate ? p.estimateTotal : s.balanceDue,
                         cents: pricing.totalCents,
                     },
-                    instructions: estimate
-                        ? [p.acceptBy(longDate(until, zone))]
-                        : letterhead.email !== null
-                          ? [p.payInterac(letterhead.email)]
-                          : [],
+                    instructions: estimate ? [p.acceptBy(longDate(until, zone))] : [],
                     message: blankToNull(message),
                 },
                 letterhead,

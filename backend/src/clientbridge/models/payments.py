@@ -17,14 +17,13 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from clientbridge.core.db import Base
 from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, enum_check
-from clientbridge.models.clients import Channel
 
 PaymentKind = Literal["payment", "deposit", "refund"]
-PayMethod = Literal["card", "interac", "bank_eft", "cash", "cheque", "other"]
-PaymentProvider = Literal["stripe", "interac", "manual"]
+PayMethod = Literal["card", "etransfer", "bank_eft", "cash", "cheque", "other"]
+PaymentProvider = Literal["stripe", "manual"]
 PaymentStatus = Literal["pending", "succeeded", "failed", "refunded", "canceled"]
 DisputeStatus = Literal["needs_response", "under_review", "won", "lost"]
-SavedMethod = Literal["card", "bank_eft", "interac"]
+SavedMethod = Literal["card", "bank_eft"]
 MandateStatus = Literal["none", "pending", "active", "revoked"]
 SetupPurpose = Literal["pad_setup"]
 
@@ -46,10 +45,8 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
         Index("ix_payments_status", "business_id", "status"),
         Index("ix_payments_invoice", "invoice_id"),
         Index("ix_payments_order", "order_id"),
-        Index("ix_payments_reference_code", "reference_code", unique=True),
         Index("ix_payments_provider_ref", "provider_ref", unique=True),  # one row per Stripe object
         Index("ix_payments_refund_parent", "parent_payment_id"),
-        enum_check("payments", "channel", Channel, nullable=True),
         enum_check("payments", "dispute_status", DisputeStatus, nullable=True),
         Index(
             "ux_payments_credit_note",
@@ -74,7 +71,6 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
     method: Mapped[PayMethod] = mapped_column(String, nullable=False)
     provider: Mapped[PaymentProvider] = mapped_column(String, nullable=False)
     provider_ref: Mapped[str | None] = mapped_column(String)
-    reference_code: Mapped[str | None] = mapped_column(String)  # Interac e-Transfer auto-match
     reference: Mapped[str | None] = mapped_column(String)  # cheque number or e-Transfer reference
     note: Mapped[str | None] = mapped_column(String)
     tendered_cents: Mapped[int | None] = mapped_column(BigInteger)  # cash handed over
@@ -85,8 +81,6 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
     )
     reason: Mapped[str | None] = mapped_column(String)  # why a refund was given
     credit_note: Mapped[str | None] = mapped_column(String)  # a refund's CN-<document>-<n>
-    channel: Mapped[Channel | None] = mapped_column(String)  # how an Interac request went out
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     dispute_status: Mapped[DisputeStatus | None] = mapped_column(String)
     dispute_reason: Mapped[str | None] = mapped_column(String)
     dispute_respond_by: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -214,7 +214,7 @@ interface Strings {
         readonly method: {
             readonly card: string;
             readonly cash: string;
-            readonly interac: string;
+            readonly etransfer: string;
             readonly bank_eft: string;
             readonly cheque: string;
             readonly other: string;
@@ -405,7 +405,6 @@ interface Strings {
         readonly taxBase: (amount: string) => string;
         readonly howToPay: string;
         readonly payOnline: (url: string) => string;
-        readonly payInterac: (email: string) => string;
         readonly acceptOnline: (url: string) => string;
         readonly acceptBy: (when: string) => string;
         readonly thanks: string;
@@ -2710,7 +2709,7 @@ interface Strings {
         readonly method: {
             readonly card: string;
             readonly cash: string;
-            readonly interac: string;
+            readonly etransfer: string;
             readonly bank_eft: string;
             readonly cheque: string;
             readonly other: string;
@@ -2843,62 +2842,7 @@ interface Strings {
         readonly notConfigured: string;
         readonly bankAccountNoun: string;
         readonly cardNoun: string;
-        readonly interacNoun: string;
         readonly savedCardLabel: (noun: string, last4: string) => string;
-        readonly interac: {
-            readonly title: string;
-            readonly requestFor: (n: string, name: string) => string;
-            readonly open: string;
-            readonly facts: {
-                readonly total: string;
-                readonly paid: string;
-                readonly balance: string;
-                readonly due: string;
-            } & Labels;
-            readonly newRequest: string;
-            readonly amount: string;
-            readonly amountHint: (balance: string) => string;
-            readonly sendBy: string;
-            readonly channels: { readonly sms: string; readonly email: string } & Labels;
-            readonly noPhone: string;
-            readonly noEmail: string;
-            readonly expiresIn: string;
-            readonly expiryOptions: {
-                readonly "7": string;
-                readonly "14": string;
-                readonly "30": string;
-            } & Labels;
-            readonly preview: string;
-            readonly previewMessage: (
-                biz: string,
-                amount: string,
-                to: string,
-                ref: string,
-                link: string,
-            ) => string;
-            readonly newCode: string;
-            readonly noPayEmail: string;
-            readonly send: string;
-            readonly sending: string;
-            readonly sent: (to: string) => string;
-            readonly errAmount: (balance: string) => string;
-            readonly errContact: string;
-            readonly requestError: string;
-            readonly replacesOld: (ref: string) => string;
-            readonly requests: string;
-            readonly noRequests: string;
-            readonly requested: (ref: string, amount: string) => string;
-            readonly received: (amount: string) => string;
-            readonly state: {
-                readonly pending: string;
-                readonly succeeded: string;
-                readonly canceled: string;
-                readonly expired: string;
-            } & Labels;
-            readonly sentVia: (channel: string) => string;
-            readonly expiresOn: (when: string) => string;
-            readonly inboxLater: string;
-        };
     };
     readonly terminal: {
         readonly failed: string;
@@ -3142,7 +3086,7 @@ interface Strings {
         readonly noPayments: string;
         readonly method: {
             readonly card: string;
-            readonly interac: string;
+            readonly etransfer: string;
             readonly bank_eft: string;
             readonly cash: string;
             readonly cheque: string;
@@ -3470,7 +3414,7 @@ interface Strings {
         readonly method: {
             readonly card: string;
             readonly cash: string;
-            readonly interac: string;
+            readonly etransfer: string;
             readonly cheque: string;
             readonly deposit: string;
             readonly other: string;
@@ -3507,51 +3451,25 @@ interface Strings {
         readonly balanceDue: string;
         readonly total: string;
         readonly subtotal: string;
-        readonly chooseHowToPay: string;
-        readonly interacLabel: string;
-        readonly interacBadge: string;
         readonly cardLabel: string;
         readonly cardBadge: string;
-        readonly payByInterac: string;
+        readonly offlineTitle: string;
+        readonly offlineBody: (businessName: string) => string;
         readonly payByCard: string;
         readonly paidTitle: string;
         readonly paidBody: (businessName: string) => string;
-        readonly interacStartError: string;
         readonly cardStartError: string;
         readonly credit: (method: string, when: string) => string;
         readonly depositCredit: string;
         readonly method: {
             readonly card: string;
             readonly cash: string;
-            readonly interac: string;
+            readonly etransfer: string;
             readonly bank_eft: string;
             readonly cheque: string;
             readonly other: string;
         } & Labels;
         readonly downloadInvoice: string;
-        readonly seeSteps: string;
-        readonly etransferTitle: (biz: string) => string;
-        readonly amountToSend: string;
-        readonly paidSoFar: string;
-        readonly sendTo: string;
-        readonly putInMessage: string;
-        readonly steps: string;
-        readonly step1: string;
-        readonly step2: (email: string) => string;
-        readonly step2NoEmail: string;
-        readonly step3: (amount: string) => string;
-        readonly step4: (ref: string) => string;
-        readonly progressLabel: (done: number, total: number) => string;
-        readonly markStep: (n: number) => string;
-        readonly copy: string;
-        readonly copied: string;
-        readonly statusWaiting: string;
-        readonly statusWaitingBody: string;
-        readonly statusReceived: string;
-        readonly statusReceivedBody: (amount: string, biz: string) => string;
-        readonly validUntil: (when: string) => string;
-        readonly payByCardInstead: string;
-        readonly viewInvoice: string;
     };
     readonly publicEstimate: {
         readonly waiting: string;

@@ -4,14 +4,11 @@ import { useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import { dateKey, formatDate, parseTimestamp, useBusinessZone } from "../datetime";
+import { dateKey, useBusinessZone } from "../datetime";
 import {
     blankToNull,
-    formatAmountInput,
     formatMoney,
     formatMoneyShort,
-    formatParts,
-    formatPhone,
     parseCents,
     BUSINESS_CURRENCY,
 } from "../format";
@@ -71,7 +68,7 @@ export function creditNoteNumber(docNumber: string | number, n: number): string 
 export interface SavedCardRow {
     id: string;
     client_id: string;
-    method: string; // card | bank_eft | interac
+    method: string; // card | bank_eft
     brand: string | null;
     last4: string | null;
     preferred: number; // SQLite boolean → 0/1
@@ -99,15 +96,13 @@ export function isMandate(card: SavedCardRow): boolean {
 export function savedCardLabel(card: SavedCardRow): string {
     const noun = isMandate(card)
         ? strings.payments.bankAccountNoun
-        : card.method === "interac"
-          ? strings.payments.interacNoun
-          : card.brand
-            ? card.brand.charAt(0).toUpperCase() + card.brand.slice(1)
-            : strings.payments.cardNoun;
+        : card.brand
+          ? card.brand.charAt(0).toUpperCase() + card.brand.slice(1)
+          : strings.payments.cardNoun;
     return card.last4 !== null ? strings.payments.savedCardLabel(noun, card.last4) : noun;
 }
 
-/** A card, or a bank account with an active mandate; an Interac contact can't be charged. */
+/** A card, or a bank account with an active mandate. */
 function isChargeable(card: SavedCardRow): boolean {
     return card.method === "card" || (isMandate(card) && card.mandate_status === "active");
 }
@@ -166,7 +161,7 @@ export type TenderKey = "saved_card" | "reader" | "cash" | "etransfer" | "cheque
 const TENDER_METHOD: Record<Exclude<TenderKey, "reader">, string> = {
     saved_card: "card",
     cash: "cash",
-    etransfer: "interac",
+    etransfer: "etransfer",
     cheque: "cheque",
 };
 
@@ -404,211 +399,5 @@ export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentR
             setReference("");
             setNote("");
         },
-    };
-}
-
-interface InteracRequestRow {
-    id: string;
-    reference_code: string | null;
-    amount_cents: number;
-    status: string;
-    channel: string | null;
-    expires_at: string | null;
-    created_at: string;
-    paid_at: string | null;
-}
-
-export const INVOICE_INTERAC_SQL = `
-SELECT id, reference_code, amount_cents, status, channel, expires_at, created_at, paid_at
-FROM payments WHERE invoice_id = ? AND provider = 'interac' AND kind != 'refund'
-ORDER BY created_at`;
-
-type InteracChannel = "sms" | "email";
-type InteracExpiry = "7" | "14" | "30";
-
-interface InteracInvoice {
-    id: string;
-    number: number | null;
-    client_name: string | null;
-    client_email: string | null;
-    client_phone: string | null;
-    total_cents: number | null;
-    balance_cents: number | null;
-    due_at: string | null;
-    pay_token: string | null;
-}
-
-interface InteracSender {
-    name: string;
-    email: string | null;
-}
-
-interface InteracRequestForm {
-    title: string;
-    facts: { label: string; value: string }[];
-    amount: string;
-    setAmount: (v: string) => void;
-    amountHint: string;
-    channel: InteracChannel;
-    setChannel: (c: InteracChannel) => void;
-    channels: { key: InteracChannel; label: string; disabled?: boolean }[];
-    to: string;
-    expiry: InteracExpiry;
-    setExpiry: (e: InteracExpiry) => void;
-    expiries: { key: InteracExpiry; label: string }[];
-    preview: string;
-    replaces: string | null;
-    history: { key: string; label: string; detail: string; at: string; intent: Intent }[];
-    busy: boolean;
-    error: string | null;
-    sent: string | null;
-    submit: () => void;
-}
-
-function requestState(r: InteracRequestRow, now: number): string {
-    if (r.status === "pending" && r.expires_at !== null && Date.parse(r.expires_at) <= now)
-        return "expired";
-    return r.status;
-}
-
-/** Ask for an e-Transfer from an invoice; a new request cancels the code still waiting. */
-export function useInteracRequestForm(
-    api: ApiLike,
-    invoice: InteracInvoice,
-    sender: InteracSender,
-    payBase: string,
-): InteracRequestForm {
-    const t = strings.payments.interac;
-    const zone = useBusinessZone();
-    const rows = useQuery<InteracRequestRow>(INVOICE_INTERAC_SQL, [invoice.id]).data;
-    const balance = invoice.balance_cents ?? 0;
-    const [amount, setAmountState] = useState(formatAmountInput(balance, BUSINESS_CURRENCY));
-    const hasPhone = (invoice.client_phone ?? "") !== "";
-    const hasEmail = (invoice.client_email ?? "") !== "";
-    const [channel, setChannelState] = useState<InteracChannel>(hasPhone ? "sms" : "email");
-    const [expiry, setExpiry] = useState<InteracExpiry>("14");
-    const [sent, setSent] = useState<string | null>(null);
-    const { busy, error, setError, run } = useAsyncAction();
-    const keyRef = useRef<Attempt | null>(null);
-    const now = Date.now();
-    const waiting = rows.find((r) => requestState(r, now) === "pending") ?? null;
-    const cents = parseCents(amount, BUSINESS_CURRENCY);
-    const to =
-        channel === "sms"
-            ? hasPhone
-                ? formatPhone(invoice.client_phone)
-                : ""
-            : (invoice.client_email ?? "");
-    const label = strings.refunds.subject.invoice(invoice.number ?? 0);
-
-    const submit = (): void => {
-        if (cents === null || cents <= 0 || cents > balance) {
-            setError(t.errAmount(formatMoney(balance, BUSINESS_CURRENCY)));
-            return;
-        }
-        if (to === "") {
-            setError(t.errContact);
-            return;
-        }
-        const body = { amount_cents: cents, channel, expires_in_days: Number(expiry) };
-        const key = attemptKey(keyRef, [invoice.id, body]);
-        run(
-            () =>
-                api.post(`/v1/invoices/${invoice.id}/interac-request`, body, {
-                    idempotencyKey: key,
-                }),
-            {
-                onSuccess: () => {
-                    keyRef.current = null;
-                    setSent(t.sent(to));
-                },
-                errorMessage: t.requestError,
-            },
-        );
-    };
-
-    return {
-        title: t.requestFor(label, invoice.client_name ?? ""),
-        facts: [
-            { label: t.facts.total, value: formatMoney(invoice.total_cents, BUSINESS_CURRENCY) },
-            {
-                label: t.facts.paid,
-                value: formatMoney((invoice.total_cents ?? 0) - balance, BUSINESS_CURRENCY),
-            },
-            { label: t.facts.balance, value: formatMoney(balance, BUSINESS_CURRENCY) },
-            {
-                label: t.facts.due,
-                value:
-                    invoice.due_at === null ? "" : formatDate(parseTimestamp(invoice.due_at), zone),
-            },
-        ],
-        amount,
-        setAmount: (v) => {
-            keyRef.current = null;
-            setSent(null);
-            setAmountState(v);
-        },
-        amountHint: t.amountHint(formatMoney(balance, BUSINESS_CURRENCY)),
-        channel,
-        setChannel: (c) => {
-            keyRef.current = null;
-            setSent(null);
-            setChannelState(c);
-        },
-        channels: [
-            { key: "sms", label: t.channels.sms, disabled: !hasPhone },
-            { key: "email", label: t.channels.email, disabled: !hasEmail },
-        ],
-        to: to === "" ? (channel === "sms" ? t.noPhone : t.noEmail) : to,
-        expiry,
-        setExpiry: (e) => {
-            keyRef.current = null;
-            setExpiry(e);
-        },
-        expiries: (["7", "14", "30"] as const).map((k) => ({
-            key: k,
-            label: t.expiryOptions[k],
-        })),
-        preview: t.previewMessage(
-            sender.name,
-            formatMoney(cents ?? balance, BUSINESS_CURRENCY),
-            sender.email ?? t.noPayEmail,
-            t.newCode,
-            invoice.pay_token === null ? "" : payLinkUrl(payBase, invoice.pay_token),
-        ),
-        replaces:
-            waiting?.reference_code !== undefined && waiting.reference_code !== null
-                ? t.replacesOld(waiting.reference_code)
-                : null,
-        history: rows.map((r) => {
-            const state = requestState(r, now);
-            return {
-                key: r.id,
-                label:
-                    state === "succeeded"
-                        ? t.received(formatMoney(r.amount_cents, BUSINESS_CURRENCY))
-                        : t.requested(
-                              r.reference_code ?? "",
-                              formatMoney(r.amount_cents, BUSINESS_CURRENCY),
-                          ),
-                detail: formatParts([
-                    t.state[state] ?? state,
-                    t.sentVia(r.channel ?? ""),
-                    r.expires_at !== null && state === "pending"
-                        ? t.expiresOn(formatDate(parseTimestamp(r.expires_at), zone))
-                        : "",
-                ]),
-                at: formatDate(parseTimestamp(r.paid_at ?? r.created_at), zone),
-                intent: (state === "succeeded"
-                    ? "success"
-                    : state === "pending"
-                      ? "accent"
-                      : "neutral") satisfies Intent,
-            };
-        }),
-        busy,
-        error,
-        sent,
-        submit,
     };
 }

@@ -251,23 +251,6 @@ def _estimate_declined(locale: str, number: int | None, reason: str | None) -> t
     return message(locale, "estimate_declined.subject", number=str(number)), body
 
 
-def _interac_requested(
-    locale: str, business_name: str, amount: str, send_to: str, reference: str, link: str | None
-) -> tuple[str, str]:
-    values = {
-        "business": business_name,
-        "amount": amount,
-        "send_to": send_to,
-        "reference": reference,
-    }
-    body = (
-        message(locale, "interac_requested.body_link", link=link, **values)
-        if link
-        else message(locale, "interac_requested.body", **values)
-    )
-    return message(locale, "interac_requested.subject"), body
-
-
 def _payment_failed(locale: str, amount: str, business_name: str) -> tuple[str, str]:
     return (
         message(locale, "payment_failed.subject", business=business_name),
@@ -661,27 +644,6 @@ class Notifier:
             await self.on_estimate_accepted(db, estimate.id)
         elif estimate.status == "declined":
             await self.on_estimate_declined(db, estimate.id)
-
-    async def on_interac_requested(self, db: AsyncSession, payment_id: str) -> None:
-        payment = await db.get(Payment, payment_id)
-        if payment is None:
-            return
-        business = await db.get(Business, payment.business_id)
-        if business is None:
-            return
-        locale = locale_for(business=business)
-        amount = format_money(locale, payment.amount_cents, payment.currency)
-        invoice = await db.get(Invoice, payment.invoice_id) if payment.invoice_id else None
-        link = pay_link(invoice.pay_token) if invoice is not None and invoice.pay_token else None
-        subject, body = _interac_requested(
-            locale,
-            business.name,
-            amount,
-            business.billing_email or "",
-            payment.reference_code or "",
-            link,
-        )
-        await self._to_client(db, payment.client_id, subject, body, channel=payment.channel)
 
     async def on_refund(self, db: AsyncSession, refund_payment_id: str) -> None:
         payment = await db.get(Payment, refund_payment_id)

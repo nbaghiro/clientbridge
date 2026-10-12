@@ -42,12 +42,12 @@ export default story<CopyFieldProps>({
         },
         {
             key: "code",
-            title: "e-Transfer reference",
+            title: "Short code",
             props: () => ({
-                label: "Reference",
+                label: "Gift card code",
                 variant: "code",
                 value: "BB-1148",
-                hint: "Type this in the message field.",
+                hint: "Enter it at checkout.",
             }),
         },
         {

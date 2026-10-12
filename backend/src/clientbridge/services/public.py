@@ -40,7 +40,6 @@ from clientbridge.schemas.files import PublicFileComplete, PublicFileCreate, Pub
 from clientbridge.schemas.forms import PublicFormContext, PublicFormField, PublicFormSubmit
 from clientbridge.schemas.orders import PublicReceipt, PublicReceiptPayment
 from clientbridge.schemas.payments import (
-    InteracRequest,
     PublicCardIntent,
     PublicDocLine,
     PublicDocTax,
@@ -118,15 +117,12 @@ from clientbridge.services.payments import (
     assert_payable,
     booking_refund_status,
     cancel_open_deposits,
-    interac_out,
     invoice_credits,
     open_booking_deposit,
     open_card_payment,
-    open_interac_payment,
     open_order_card_payment,
     refund_deposit,
     resolve_tip,
-    waiting_interac,
 )
 from clientbridge.services.returning import ReturningService
 from clientbridge.services.tax import LineTax, rates_for_business, tax_breakdown, tax_for_lines
@@ -1170,6 +1166,7 @@ class PublicPayService:
         client = await self.db.get(Client, invoice.client_id)
         lines = await fetch_lines(self.db, invoice.business_id, "invoice", invoice.id)
         doc_lines, taxes = await public_doc_lines(self.db, invoice.business_id, lines)
+        contact = BrandInput.model_validate(business.brand or {})
         return PublicInvoice(
             tip_base_cents=sum(
                 line.amount_cents for line in await tip_lines(self.db, invoice.business_id, lines)
@@ -1185,7 +1182,8 @@ class PublicPayService:
             balance_cents=await ledger.invoice_balance(self.db, invoice),
             status=(await ledger.invoice_state(self.db, invoice))[0],
             accepts_card=business.stripe_charges_enabled,
-            interac_email=business.billing_email,
+            contact_phone=contact.phone,
+            contact_email=contact.email,
             client_name=client.name if client is not None else None,
             issued_at=invoice.issued_at,
             due_at=invoice.due_at,
@@ -1197,7 +1195,6 @@ class PublicPayService:
             discount_reason=invoice.discount_reason,
             taxes=taxes,
             credits=await invoice_credits(self.db, invoice),
-            interac=await waiting_interac(self.db, invoice, business),
             tip_for=await _tip_names(self.db, invoice.business_id, lines),
         )
 
@@ -1241,15 +1238,6 @@ class PublicPayService:
         return PublicCardIntent(
             client_secret=client_secret, stripe_account_id=business.stripe_account_id
         )
-
-    async def pay_interac(self, token: str) -> InteracRequest:
-        invoice, business = await self._resolve(token)
-        amount = await assert_payable(self.db, invoice)
-        payment = await open_interac_payment(
-            self.db, business_id=invoice.business_id, invoice=invoice, amount=amount
-        )
-        await self.db.commit()
-        return interac_out(payment, business)
 
 
 async def tip_lines(db: AsyncSession, business_id: str, lines: list[Line]) -> list[Line]:

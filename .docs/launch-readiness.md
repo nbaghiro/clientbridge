@@ -33,6 +33,7 @@ Priority: P0 before the first paying customer, P1 within the first month, P2 aft
 | 5. Online booking and shop | Client self-service cancel and reschedule | ENG-28 | P1 | M |
 | 6. Front desk sales and orders | Sales with services and products | ENG-30 | P0 | S |
 | 6. Front desk sales and orders | Card and Tap to Pay checkout with receipts | ENG-31 | P0 | M |
+| 6. Front desk sales and orders | Interac debit on Tap to Pay | not filed | P0 | M |
 | 6. Front desk sales and orders | Tips at checkout | ENG-32 | P0 | M |
 | 6. Front desk sales and orders | Discounts | ENG-33 | P0 | M |
 | 7. Invoices and payments | Estimates: create, send, accept, convert | ENG-35 | P0 | S |
@@ -40,7 +41,6 @@ Priority: P0 before the first paying customer, P1 within the first month, P2 aft
 | 7. Invoices and payments | Recording payments in the app | ENG-37 | P0 | M |
 | 7. Invoices and payments | PDF invoices, estimates and receipts | ENG-38 | P0 | M |
 | 7. Invoices and payments | Packages, memberships and gift cards: sell, use, renew, expire | ENG-39 | P0 | M |
-| 7. Invoices and payments | Interac e-Transfer matching | ENG-40 | P1 | L |
 | 7. Invoices and payments | Refunds and chargebacks | ENG-41 | P0 | S |
 | 8. Money, tax and staff pay | Today dashboard | ENG-43 | P0 | S |
 | 8. Money, tax and staff pay | Reports: income, sales by item, GST/HST, T4A | ENG-44 | P0 | S |
@@ -569,6 +569,26 @@ Done when: Every way of paying at the desk ends in a paid sale and a correct rec
 
 Depends on: Sales with services and products (ENG-30); Stripe connect and payout status (ENG-5).
 
+### Interac debit on Tap to Pay (not filed)
+Priority: P0 · Size: M · Backend, iPhone and Android
+
+Flow: A client pays at the desk with an Interac debit card by Tap to Pay, and the sale or invoice is paid as it would be by credit card.
+
+Built: Nothing. Terminal PaymentIntents are created with `card_present` only, so a Canadian debit card that only carries Interac cannot pay by Tap to Pay.
+
+To do:
+- Add `interac_present` to the Terminal PaymentIntent's payment method types for Canadian businesses.
+- Decide whether an Interac debit payment is stored as a card payment or as a method of its own, and show it that way on receipts, reports and the payment record.
+- Check how Stripe refunds `interac_present` payments, since some must be made with the card on the reader, and offer the right path in the refund dialog.
+
+QA:
+1. On a real phone with a Canadian test business, take a Tap to Pay payment with an Interac test card: the sale is Paid.
+2. Refund it: the refund follows Stripe's Interac rules and the sale reads Refunded.
+3. The receipt and the income report name the payment method.
+Done when: Interac debit cards pay at the desk like credit cards.
+
+Depends on: Card and Tap to Pay checkout with receipts (ENG-31).
+
 ### Tips at checkout (ENG-32)
 Priority: P0 · Size: M · Backend, web, iPhone, Android and Connect (pay link)
 
@@ -639,7 +659,7 @@ Priority: P0 · Size: S · Backend, web, iPhone, Android and Connect (pay page)
 
 Flow: Staff invoice a client, send it, and the client pays through the link; unpaid invoices can be voided.
 
-Built: Create and edit drafts, send, void (blocked while a payment is in progress), invoice from a booking, pay link by card or Interac, tax lines per province.
+Built: Create and edit drafts, send, void (blocked while a payment is in progress), invoice from a booking, pay link by card, tax lines per province.
 
 To do:
 - A run with Stripe test keys.
@@ -710,26 +730,6 @@ QA:
 Done when: Every balance in the app matches what was sold, used or charged.
 
 Depends on: Packages, memberships and gift card items (ENG-17); Saved cards and bank accounts (ENG-11).
-
-### Interac e-Transfer matching (ENG-40)
-Priority: P1 · Size: L · Backend, web, iPhone, Android and Connect (pay page)
-
-Flow: A client pays an invoice by e-Transfer and it is matched automatically, or flagged when it doesn't fit.
-
-Built: A payment request with a reference code, matched to the invoice when a transfer is reported.
-
-To do:
-- A real bank feed for incoming transfers.
-- Overpayments, short payments and expired requests shown to the owner.
-- Send a request from an invoice.
-
-QA:
-1. Request $84; send a matching transfer: Paid.
-2. Send $50 against another request: flagged, not lost.
-3. Let a request expire and send a new one.
-Done when: Every transfer ends up matched or flagged.
-
-Depends on: Invoices: create, send, void, pay link (ENG-36).
 
 ### Refunds and chargebacks (ENG-41)
 Priority: P0 · Size: S · Backend, web, iPhone and Android

@@ -84,12 +84,11 @@ const method = {
 };
 
 describe("chargeable saved methods", () => {
-    it("offers cards and active bank mandates, never an Interac contact", () => {
+    it("offers cards and active bank mandates only", () => {
         const cards: SavedCardRow[] = [
             { ...method, id: "card", method: "card", brand: "visa", last4: "4242" },
             { ...method, id: "bank", method: "bank_eft", mandate_status: "active" },
             { ...method, id: "pending", method: "bank_eft", mandate_status: "pending" },
-            { ...method, id: "interac", method: "interac" },
         ];
         expect(checkoutMethods(cards).map((m) => m.id)).toEqual(["card", "bank"]);
         expect(cards.filter(canBeDefault).map((c) => c.id)).toEqual(["card", "bank"]);

@@ -8,11 +8,10 @@ const WORD: Record<string, string> = {
     mastercard: "MC",
     amex: "AMEX",
     discover: "DISC",
-    interac: "INTERAC",
 };
 
 export function BrandMark({ method, brand, size = "md", className }: WebProps<BrandMarkProps>) {
-    const word = WORD[method === "interac" ? "interac" : (brand ?? "")] ?? strings.ui.cardFallback;
+    const word = WORD[brand ?? ""] ?? strings.ui.cardFallback;
     const long = word.length > 4;
     const box =
         size === "sm"

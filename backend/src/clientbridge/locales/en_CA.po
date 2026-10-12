@@ -142,15 +142,6 @@ msgstr "You've received a gift card from {business}"
 msgid "inbound_message.push"
 msgstr "Message from {client}: {body}"
 
-msgid "interac_requested.body"
-msgstr "{business}: please send {amount} by Interac e-Transfer to {send_to} with {reference} in the message."
-
-msgid "interac_requested.body_link"
-msgstr "{business}: please send {amount} by Interac e-Transfer to {send_to} with {reference} in the message. Details: {link}"
-
-msgid "interac_requested.subject"
-msgstr "Interac e-Transfer requested"
-
 msgid "invoice_line.visit"
 msgstr "Visit"
 

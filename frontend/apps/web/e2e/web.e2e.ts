@@ -521,7 +521,7 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
         await main.getByRole("button", { name: startsWith(s.segments.open) }).click();
     });
 
-    await walk.step("invoice record: payment, PDF, e-Transfer and void", async () => {
+    await walk.step("invoice record: payment, PDF and void", async () => {
         await main.locator("button.block").first().click();
         const record = page.getByRole("dialog");
         await record.getByRole("button", { name: s.recordPayment }).click();
@@ -529,12 +529,6 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
         await page.keyboard.press("Escape");
         await page.getByRole("dialog").getByRole("button", { name: s.pdf }).click();
         await expect(page.getByRole("dialog")).toContainText(s.doc.download);
-        await page.keyboard.press("Escape");
-        await page
-            .getByRole("dialog")
-            .getByRole("button", { name: strings.payments.interac.open })
-            .click();
-        await expect(page.getByRole("dialog")).not.toContainText(s.lines, { useInnerText: true });
         await page.keyboard.press("Escape");
         await expect(page.getByRole("dialog")).toContainText(s.lines);
         await cancelConfirm(

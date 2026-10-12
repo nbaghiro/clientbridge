@@ -53,7 +53,7 @@ async def _add_payment(
         amount_cents=amount,
         currency="CAD",
         method=method,
-        provider="interac" if method == "interac" else "stripe",
+        provider="manual" if method == "etransfer" else "stripe",
         provider_ref=f"pi_{new_id('payment')}",  # full ULID keeps provider_ref unique
         status="succeeded",
         paid_at=paid_at,
@@ -193,7 +193,7 @@ async def test_income_summary_nets_payments_and_refunds(
 ) -> None:
     before = await _income(as_owner)
     card = await _add_payment(db, amount=10000, method="card", paid_at=IN_RANGE)
-    await _add_payment(db, amount=5000, method="interac", paid_at=IN_RANGE)
+    await _add_payment(db, amount=5000, method="etransfer", paid_at=IN_RANGE)
     await _add_payment(db, amount=2000, method="card", paid_at=IN_RANGE, refunds=card)
     await _add_payment(db, amount=99999, method="card", paid_at=OUT_RANGE)
     after = await _income(as_owner)
@@ -202,7 +202,7 @@ async def test_income_summary_nets_payments_and_refunds(
     assert after["refunds"] - before["refunds"] == 2000
     assert after["net"] - before["net"] == 13000  # out-of-range 99999 excluded
     assert after["method:card"] - before.get("method:card", 0) == 8000  # 10000 - 2000
-    assert after["method:interac"] - before.get("method:interac", 0) == 5000
+    assert after["method:etransfer"] - before.get("method:etransfer", 0) == 5000
 
 
 async def test_gst_hst_return_splits_tax_by_code(

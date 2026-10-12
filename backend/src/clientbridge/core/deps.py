@@ -31,13 +31,6 @@ GatewayDep = Annotated[PaymentGateway, Depends(get_payment_gateway)]
 StorageDep = Annotated[FileStorage, Depends(get_file_storage)]
 
 
-def get_interac_secret() -> str:
-    return get_settings().interac_webhook_secret
-
-
-InteracSecretDep = Annotated[str, Depends(get_interac_secret)]
-
-
 def get_twilio_auth_token() -> str:
     return get_settings().twilio_auth_token
 

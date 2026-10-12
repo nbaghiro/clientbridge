@@ -409,12 +409,11 @@ function seed(): void {
             client_id: "cl_ben",
             kind: "payment",
             invoice_id: "inv_3",
-            reference_code: "AB12CD34",
-            channel: "sms",
+            reference: "CA2000ET",
             amount_cents: 2000,
             currency: "CAD",
-            method: "interac",
-            provider: "interac",
+            method: "etransfer",
+            provider: "manual",
             status: "succeeded",
             paid_at: "2026-06-21T10:00:00Z",
         },
@@ -1083,9 +1082,6 @@ describe("app-core SQL against the replica schema", () => {
             pick(run("DISPUTES_SQL"), "id", "dispute_status", "withdrawn_cents", "fee_cents"),
         ).toEqual([
             { id: "pay_web", dispute_status: "needs_response", withdrawn_cents: 0, fee_cents: 0 },
-        ]);
-        expect(pick(run("INVOICE_INTERAC_SQL", ["inv_3"]), "reference_code", "channel")).toEqual([
-            { reference_code: "AB12CD34", channel: "sms" },
         ]);
     });
 

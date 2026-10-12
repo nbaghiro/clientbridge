@@ -23,7 +23,7 @@ Canadian tax built in. All user-facing copy is centralized in one place. The cus
 | Mobile | **React Native (Expo)** (provider/admin app) |
 | Customer | **React + Vite** (Connect — public, PowerSync-free, embeddable) |
 | Offline sync | **PowerSync** — on-device SQLite (web WASM on IndexedDB · Expo op-sqlite), WAL server-push, per-business Sync Streams; writes through FastAPI |
-| Payments | **Stripe Connect** (Custom accounts, direct charges) + **Interac e-Transfer** + PAD/EFT |
+| Payments | **Stripe Connect** (Custom accounts, direct charges) + PAD/EFT |
 | Repo | **Polyglot monorepo** — backend (uv) + frontend (pnpm + turbo), one root Makefile |
 
 The toolchain pins Python **3.14** (via `.python-version`) while ruff/mypy target 3.12 for
@@ -42,7 +42,7 @@ secrets, cross-tenant — must be a **command**, never unvalidated replica CRUD.
 | 1 | **Sync-read** | PowerSync streams each device its authorized rows into local SQLite | Sync Streams | calendar, clients, invoices on-device |
 | 2 | **Offline command** | Local-only durable intent → typed `/v1` command → authoritative replication | Kratos session + service role/tenant checks + expected revision | edit working hours |
 | 3 | **Command / RPC** | FastAPI `POST/PATCH/DELETE` under `/v1/*`, wrapped in `run_command` (atomic + audited + idempotent) → writes Postgres → flows back via sync | Kratos session + role | book a slot, issue an invoice, take a payment |
-| 4 | **Webhook / public** | inbound provider callbacks + unauthenticated public pages | signature / token / slug | Stripe/Interac/SMS webhooks; book/pay/form/contract/review |
+| 4 | **Webhook / public** | inbound provider callbacks + unauthenticated public pages | signature / token / slug | Stripe/SMS webhooks; book/pay/form/contract/review |
 | 5 | **Job** | arq background work on Redis | system | reminders, reap-unpaid, broadcasts, overdue sweep |
 
 **Decision rule** — where does a new operation go?
@@ -191,7 +191,7 @@ records every money movement and is the only place money balances are stored. Th
   requirements); **never** for queried business data.
 - **Concurrency invariants live in SQL:** GiST exclusion constraints stop double-booking a staff member or
   a resource; partial-unique indexes enforce business rules (one active/paused subscription per client+item,
-  one open review request per booking, one refund per payment, unique Interac reference codes).
+  one open review request per booking, one refund per payment).
 
 ### ID prefixes
 Prefixes predate the table renames and are kept so existing ids stay valid; the table each one lands in is
@@ -245,9 +245,9 @@ receivable in the ledger, and partial/paid/refunded/overdue and the paid time ar
 is set; `item_id`/`booking_id`, `tax_amount_cents`).
 
 **payments (2)** — `payments` (payment attempts and Stripe objects: `kind` payment/deposit/refund; status;
-unique `provider_ref` = one row per Stripe object; one-refund-per-payment; Interac `reference_code`; a
+unique `provider_ref` = one row per Stripe object; one-refund-per-payment; a
 refund always has `parent_payment_id`, and a payment targets at most one invoice or one order),
-`payment_methods` (saved card/PAD, `method` card/bank_eft/interac, the same spelling as `payments.method`;
+`payment_methods` (saved card/PAD, `method` card/bank_eft, the same spelling as `payments.method`;
 `preferred` marks the card charged off-session).
 
 **ledger (2)** — `accounts` (one per owner × category × code × currency: owners are a business, client, staff
@@ -285,7 +285,7 @@ activity feed; server-only), `webhooks` (inbound provider events, `event` = the 
 
 ### Polymorphic patterns
 `lines` one FK per document (estimate/invoice/order, exactly one set) · `payments` nullable over invoice/booking/order + `kind`/
-`method`/`reference_code` · `items.kind` = whole catalog · `slots` = every calendar block · `staff` = staff +
+`method` · `items.kind` = whole catalog · `slots` = every calendar block · `staff` = staff +
 invites · `entries.subject_type`/`source_type` = any money event on any entity · `notes`/`files`/`responses`/
 `signatures` `parent_type` and `audits.entity_type` generalize the rest. `kind` is used only on `items`,
 `payments` and `subjects`; other discriminators carry a name that says what they mean (`hours.basis`,
@@ -320,7 +320,7 @@ build + permanent maintenance.)
   SQLite already holds only the rows this user may see, so the client never filters for *security* — it just
   queries its local DB. Reactive `useQuery(sql)` re-runs on any sync push or local write.
 - **Hours writes** persist proposals separately from canonical rows in a local-only outbox. The typed week command validates authorization, seven weekdays and the expected revision atomically with its replay receipt. Other writes use their existing online commands.
-- **Server-initiated push:** *any* write that hits Postgres — a Stripe/Interac webhook, a cron job, another
+- **Server-initiated push:** *any* write that hits Postgres — a Stripe webhook, a cron job, another
   staff member's action — flows back out via the WAL automatically, sub-second, to the relevant devices.
 - **Hours conflicts** reject stale revisions and preserve the proposal for explicit review. The editor offers apply-again against a fresh revision or discard. Money creation remains backend/webhook-only.
 - **History window.** Messages, slots and bookings sync for the past 12 months and the next 24, by UTC month. The replica controller subscribes the three history streams with those months before it connects, so the first sync includes them. A month that leaves the window is unsubscribed and its rows leave the device when the 24-hour TTL ends. Older history is read from the API while online: `GET /v1/bookings/visits` (a client's older visits, plus the count and date of completed ones) and `GET /v1/threads/{id}/messages`. Money tables (invoices, payments, accounts, entries) sync in full, so balances and invoice status stay correct offline. Streams cannot use the current time, so each windowed row needs its own timestamp; bookings carry `starts_at`, a copy of the slot start that `move_slot` keeps in step.
@@ -460,7 +460,9 @@ file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it
 - **Stripe Connect** (Custom accounts, direct charges + application fee, Stripe's automatic payouts) for
   cards, Tap-to-Pay/Terminal, saved cards, deposits, refunds, subscriptions, and the KYC mirror via
   `account.updated`.
-- **Interac e-Transfer**: request + **auto-match by reference code** (the wedge).
+- **Recorded by hand**: cash, cheques and e-Transfers received outside the app (`provider` manual); cash
+  lands in the till's `cash` account, a cheque or e-Transfer in `bank`. There is no e-Transfer request or
+  matching.
 - **PAD/EFT**: pre-authorized debit for recurring.
 - **No platform-held funds.** Stripe Connect custodies each provider's balance and pays it out to their
   linked bank on Stripe's schedule; the platform never transmits funds (avoids money-transmitter licensing).
@@ -469,7 +471,7 @@ file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it
   webhook endpoint must be created with that same version, because the handlers parse its payload shapes.
   Dashboard refunds arrive as `refund.created`/`refund.updated`, and a recurring invoice's PaymentIntent
   is looked up through its invoice payments.
-- Retry-safe `open_*` builders (card/booking-deposit/entitlement/terminal/interac) are Stripe-idempotency-
+- Retry-safe `open_*` builders (card/booking-deposit/entitlement/terminal) are Stripe-idempotency-
   keyed + `provider_ref`-deduped, shared by the authed services and the public surfaces. A payment can be
   refunded in part, more than once, up to what is left; a gift card or package purchase, and a forfeited
   deposit, are refunded only in full (and not once the card is partly redeemed or a session is used).
@@ -486,7 +488,7 @@ What posts, and where:
 | Event | Hook | Legs |
 |---|---|---|
 | Invoice issued / voided | `billing.send_invoice` / `void_invoice` | client receivable + / revenue − / tax(code) − ; void reverses |
-| Payment settled | `payments._settle_payment` (Stripe webhook), `match_interac`, recurring `invoice.payment_succeeded` | cash + / what it paid for −: invoice receivable, order revenue + tax, booking deposit, package deferred + tax, gift card liability |
+| Payment settled | `payments._settle_payment` (Stripe webhook), `record_invoice_payment` (by hand), recurring `invoice.payment_succeeded` | cash + / what it paid for −: invoice receivable, order revenue + tax, booking deposit, package deferred + tax, gift card liability |
 | Fees | same, from the charge's balance transaction (`gateway.get_payment_fees`) | processing fee + / platform fee + / Stripe − ; platform Stripe + / fee revenue − |
 | Refund (full or partial) | `refund_payment`, `charge.refunded` (one refund row per Stripe refund) | cash − / the original credit legs unwound pro rata (a credit note; fees stay with Stripe and the platform) |
 | Dispute opened / won | `charge.dispute.created` / `.closed` | Stripe − / payer receivable + (+ dispute fee); won reverses |

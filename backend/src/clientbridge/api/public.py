@@ -29,7 +29,6 @@ from clientbridge.schemas.files import PublicFileComplete, PublicFileCreate, Pub
 from clientbridge.schemas.forms import PublicFormContext, PublicFormSubmit
 from clientbridge.schemas.orders import PublicReceipt
 from clientbridge.schemas.payments import (
-    InteracRequest,
     PublicCardIntent,
     PublicInvoice,
     PublicPayIn,
@@ -96,13 +95,6 @@ async def public_pay_card(
     data: PublicPayIn | None = None,
 ) -> PublicCardIntent:
     return await PublicPayService(db, gateway).pay_card(token, data)
-
-
-@pay_router.post("/{token}/interac", response_model=InteracRequest)
-async def public_pay_interac(
-    token: str, db: DbSession, gateway: GatewayDep, _: RateLimited
-) -> InteracRequest:
-    return await PublicPayService(db, gateway).pay_interac(token)
 
 
 receipt_router = APIRouter(prefix="/receipt", tags=["public-receipt"])

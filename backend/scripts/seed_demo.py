@@ -619,7 +619,7 @@ CLIENTS = [
         "david",
         "active",
         [("sj_zeus", "Zeus", "Rottweiler", 45, "gentle", "zeus")],
-        "Daycare regular, M/W/F. Pays by Interac.",
+        "Daycare regular, M/W/F.",
     ),
     (
         "cl_grace",
@@ -981,7 +981,7 @@ def _invoice_for(
         if isinstance(r, Booking) and r.id == bk:
             r.invoice_id = inv
     if amount_paid > 0:
-        method = "interac" if i % 3 == 0 else "card"
+        method = "etransfer" if i % 3 == 0 else "card"
         pay = f"pay_{num}"
         rows.append(
             Payment(
@@ -994,9 +994,9 @@ def _invoice_for(
                 amount_cents=amount_paid,
                 currency="CAD",
                 method=method,
-                provider="stripe" if method == "card" else "interac",
+                provider="stripe" if method == "card" else "manual",
                 provider_ref=f"pi_demo_{num}" if method == "card" else None,
-                reference_code=f"BIRCH{num}" if method == "interac" else None,
+                reference=f"CA{num}ET" if method == "etransfer" else None,
                 status="succeeded",
                 paid_at=at(d, 18),
             )
@@ -1873,18 +1873,6 @@ def seed_coverage() -> None:
         )
     )
 
-    rows.append(
-        PaymentMethod(
-            id="pm_amelie_interac",
-            business_id=BIZ,
-            client_id="cl_amelie",
-            method="interac",
-            provider="interac",
-            preferred=False,
-            mandate_status="none",
-            status="active",
-        )
-    )
     rows.append(
         Thread(
             id="th_chat",

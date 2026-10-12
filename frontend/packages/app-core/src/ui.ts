@@ -787,7 +787,7 @@ export interface TagInputProps {
 }
 
 export interface BrandMarkProps {
-    // "card" | "bank_eft" | "interac", as on a saved payment method.
+    // "card" | "bank_eft", as on a saved payment method.
     method: string;
     brand: string | null;
     size?: "sm" | "md" | undefined;

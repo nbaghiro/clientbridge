@@ -72,7 +72,7 @@ export default story<ChoiceProps<string>>({
                 options: [
                     { key: "card", label: "Card", detail: "Tap, insert or swipe" },
                     { key: "cash", label: "Cash" },
-                    { key: "interac", label: "e-Transfer", detail: "Reference shown after" },
+                    { key: "cheque", label: "Cheque", detail: "Record it once deposited" },
                 ],
                 defaultValue: "card",
             }),

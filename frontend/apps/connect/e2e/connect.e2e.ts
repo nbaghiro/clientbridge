@@ -168,21 +168,14 @@ test("a client finds the shop from the landing page and fills a cart", async ({ 
     expect(errors).toEqual([]);
 });
 
-test("a client opens an invoice and starts an e-Transfer", async ({ page }) => {
+test("a client opens an invoice and sees how to pay it", async ({ page }) => {
     const errors = watchErrors(page);
     const pay = strings.publicPay;
     await page.goto(`/i/${links.invoice}`);
     await expect(page.getByRole("heading", { level: 1 })).toContainText("#");
-    await expect(page.getByRole("heading", { name: pay.chooseHowToPay })).toBeVisible();
-    await page
-        .getByRole("button", { name: new RegExp(`^(${pay.payByInterac}|${pay.seeSteps})$`) })
-        .click();
-    await expect(page).toHaveURL(/\/etransfer$/);
-    await expect(page.getByText(pay.statusWaiting)).toBeVisible();
-    await page
-        .getByRole("button", { name: new RegExp(`^(${pay.viewInvoice}|${pay.payByCardInstead})$`) })
-        .click();
-    await expect(page.getByRole("heading", { name: pay.chooseHowToPay })).toBeVisible();
+    await expect(
+        page.getByRole("heading", { name: new RegExp(`^(${pay.cardLabel}|${pay.offlineTitle})$`) }),
+    ).toBeVisible();
     expect(errors).toEqual([]);
 });
 
@@ -240,12 +233,7 @@ const PUBLIC_PAGES = [
     { name: "business", path: `/b/${links.slug}`, landmark: "Birchbark Pet Studio" },
     { name: "booking", path: `/b/${links.slug}/book`, landmark: strings.publicBooking.title },
     { name: "manage", path: `/m/${links.manage}`, landmark: strings.publicManage.title },
-    { name: "invoice", path: `/i/${links.invoice}`, landmark: strings.publicPay.chooseHowToPay },
-    {
-        name: "e-transfer",
-        path: `/i/${links.invoice}/etransfer`,
-        landmark: strings.publicPay.steps,
-    },
+    { name: "invoice", path: `/i/${links.invoice}`, landmark: strings.publicPay.balanceDue },
     {
         name: "estimate",
         path: `/e/${links.estimate}`,
@@ -294,7 +282,6 @@ const MISSING_PAGES = [
     ["/b/missing-business/shop", strings.publicShop.notFoundTitle],
     ["/m/missing-token", strings.publicManage.notFoundTitle],
     ["/i/missing-token", strings.publicPay.notFoundTitle],
-    ["/i/missing-token/etransfer", strings.publicPay.notFoundTitle],
     ["/e/missing-token", strings.publicEstimate.notFoundTitle],
     ["/r/missing-token", strings.publicReceipt.notFoundTitle],
     ["/review/missing-token", strings.publicReview.notFoundTitle],

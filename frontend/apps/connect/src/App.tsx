@@ -8,7 +8,6 @@ import { PublicBooking } from "./pages/PublicBooking";
 import { PublicContract } from "./pages/PublicContract";
 import { PublicEstimate } from "./pages/PublicEstimate";
 import { PublicForm } from "./pages/PublicForm";
-import { PublicInterac } from "./pages/PublicInterac";
 import { PublicLanding } from "./pages/PublicLanding";
 import { PublicManage } from "./pages/PublicManage";
 import { PublicPay } from "./pages/PublicPay";
@@ -30,7 +29,6 @@ export function App() {
                 <Route path="/b/:slug/*" element={<BusinessRoutes />} />
                 <Route path="/m/:token" element={<PublicManage />} />
                 <Route path="/i/:token" element={<PublicPay />} />
-                <Route path="/i/:token/etransfer" element={<PublicInterac />} />
                 <Route path="/e/:token" element={<PublicEstimate />} />
                 <Route path="/r/:token" element={<PublicReceipt />} />
                 <Route path="/form/:token" element={<PublicForm />} />

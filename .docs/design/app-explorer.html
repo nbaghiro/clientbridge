@@ -330,7 +330,7 @@
                     <section class="card">
                       <div class="card-h"><h3>Recent activity</h3><span class="s">today</span></div>
                       <div style="padding:6px 16px 12px">
-                        <div class="tline"><span class="tdot" style="background:var(--ok-bg);color:var(--ok-fg)">✓</span><div><div class="nm" style="font-size:12.5px">Interac received · $95.20</div><div class="sb">from Amélie Tremblay · 9:42a</div></div></div>
+                        <div class="tline"><span class="tdot" style="background:var(--ok-bg);color:var(--ok-fg)">✓</span><div><div class="nm" style="font-size:12.5px">Card payment · $95.20</div><div class="sb">from Amélie Tremblay · 9:42a</div></div></div>
                         <div class="tline"><span class="tdot">＋</span><div><div class="nm" style="font-size:12.5px">New booking confirmed</div><div class="sb">Noah Bélanger · Puppy's First · 2:00p</div></div></div>
                         <div class="tline"><span class="tdot" style="background:var(--warn-bg);color:var(--warn-fg)">★</span><div><div class="nm" style="font-size:12.5px">5-star review</div><div class="sb">Riley Khan · "So gentle with Cooper"</div></div></div>
                       </div>
@@ -395,8 +395,7 @@
                     </div>
                     <div style="padding:14px 17px">
                       <div class="eyebrow">How they'll pay</div>
-                      <div class="pm sel"><span class="ico pin" style="width:32px;height:32px">i⟁</span><div style="flex:1"><div class="nm">Interac e-Transfer</div><div class="sb">Auto-matched · no fee</div></div><span class="badge b-ok">Recommended</span></div>
-                      <div class="pm"><span class="ico" style="background:var(--surface2);color:var(--muted)">▭</span><div style="flex:1"><div class="nm">Card · tap</div><div class="sb">Visa · MC · Amex · 2.7%</div></div></div>
+                      <div class="pm sel"><span class="ico" style="background:var(--surface2);color:var(--muted)">▭</span><div style="flex:1"><div class="nm">Card · tap</div><div class="sb">Visa · MC · Amex · 2.7%</div></div></div>
                       <div class="pm"><span class="ico" style="background:var(--surface2);color:var(--muted)">🏦</span><div style="flex:1"><div class="nm">EFT / PAD</div><div class="sb">Pre-authorized debit</div></div></div>
                       <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:6px"><svg class="ic" style="width:14px;height:14px"><use href="#i-bolt"/></svg> Send payment request</button>
                     </div>
@@ -530,14 +529,13 @@
                 <div class="stats" style="grid-template-columns:repeat(3,1fr)">
                   <div class="stat"><div class="l">Revenue collected</div><div class="v">$18,240</div><div class="t">158 payments</div></div>
                   <div class="stat"><div class="l">Sales tax collected</div><div class="v">$2,006</div><div class="t flat">GST $912 · PST $1,094</div></div>
-                  <div class="stat"><div class="l">Net after fees</div><div class="v">$17,020</div><div class="t flat">Stripe + Interac</div></div>
+                  <div class="stat"><div class="l">Net after fees</div><div class="v">$17,020</div><div class="t flat">Stripe fees</div></div>
                 </div>
                 <div class="cols">
                   <section class="card">
                     <div class="card-h"><h3>Income by method</h3><span class="s">this quarter</span></div>
                     <div style="padding:16px 17px;display:flex;flex-direction:column;gap:14px">
-                      <div><div class="row" style="justify-content:space-between;font-size:12.5px"><span>Card · tap</span><span class="amt">$11,300 · 62%</span></div><div style="height:8px;border-radius:99px;background:var(--surface2);margin-top:6px;overflow:hidden"><div style="width:62%;height:100%;background:var(--accent)"></div></div></div>
-                      <div><div class="row" style="justify-content:space-between;font-size:12.5px"><span>Interac e-Transfer</span><span class="amt">$5,100 · 28%</span></div><div style="height:8px;border-radius:99px;background:var(--surface2);margin-top:6px;overflow:hidden"><div style="width:28%;height:100%;background:var(--primary)"></div></div></div>
+                      <div><div class="row" style="justify-content:space-between;font-size:12.5px"><span>Card · tap</span><span class="amt">$16,400 · 90%</span></div><div style="height:8px;border-radius:99px;background:var(--surface2);margin-top:6px;overflow:hidden"><div style="width:90%;height:100%;background:var(--accent)"></div></div></div>
                       <div><div class="row" style="justify-content:space-between;font-size:12.5px"><span>Cash</span><span class="amt">$1,840 · 10%</span></div><div style="height:8px;border-radius:99px;background:var(--surface2);margin-top:6px;overflow:hidden"><div style="width:10%;height:100%;background:var(--ink-soft)"></div></div></div>
                     </div>
                   </section>
@@ -685,7 +683,7 @@
                     <section class="card"><div class="card-h"><h3>Payments</h3><span class="badge b-ok"><span class="dot" style="background:var(--ok-fg)"></span>Stripe connected</span></div>
                       <div style="padding:14px 17px;display:flex;flex-direction:column;gap:11px;font-size:12.5px">
                         <div class="row" style="justify-content:space-between"><span>Card payments</span><span class="badge b-ok">Enabled · 2.7%</span></div>
-                        <div class="row" style="justify-content:space-between"><span>Interac e-Transfer</span><span class="badge b-ok">Auto-match on</span></div>
+                        <div class="row" style="justify-content:space-between"><span>Pre-authorized debit</span><span class="badge b-ok">Enabled</span></div>
                         <div class="row" style="justify-content:space-between"><span>Payout schedule</span><span class="chip">Daily → RBC ••4471</span></div>
                         <div class="row" style="justify-content:space-between"><span>Tap to Pay / Terminal</span><span class="badge b-ok">Ready</span></div>
                       </div>
@@ -712,7 +710,7 @@
                   <div style="display:flex;flex-direction:column;gap:16px">
                     <section class="card"><div class="card-h"><h3>Pet</h3><button class="btn btn-out btn-sm">Edit</button></div><div style="padding:13px 17px"><div class="who"><div class="av" style="width:40px;height:40px;background:#C2613F;font-size:13px">🐕</div><div><div class="nm" style="font-size:14px">Rocky</div><div class="sb">Golden Retriever · 32 kg · friendly</div></div></div><div class="row" style="gap:6px;margin-top:10px"><span class="chip">Vaccinated · Jun 2026</span><span class="chip">De-shed plan</span></div></div></section>
                     <section class="card"><div class="card-h"><h3>Timeline</h3></div><div style="padding:8px 17px 14px">
-                      <div class="tline"><span class="tdot" style="background:var(--ok-bg);color:var(--ok-fg)">✓</span><div><div class="nm" style="font-size:12.5px">Interac received · $95.20</div><div class="sb">May 30 · Full Groom</div></div></div>
+                      <div class="tline"><span class="tdot" style="background:var(--ok-bg);color:var(--ok-fg)">✓</span><div><div class="nm" style="font-size:12.5px">Card payment · $95.20</div><div class="sb">May 30 · Full Groom</div></div></div>
                       <div class="tline"><span class="tdot">＋</span><div><div class="nm" style="font-size:12.5px">Booking · Full Groom + de-shed</div><div class="sb">Today 10:30a · deposit due</div></div></div>
                       <div class="tline"><span class="tdot" style="background:var(--accent-weak)">✎</span><div><div class="nm" style="font-size:12.5px">Note · "Sensitive to dryer noise"</div><div class="sb">by Diego · Apr 12</div></div></div>
                     </div></section>
@@ -724,7 +722,7 @@
                     </div></section>
                     <section class="card"><div class="card-h"><h3>Payment methods</h3></div><div style="padding:11px 16px 14px">
                       <div class="pm sel"><span class="ico" style="background:var(--surface2);color:var(--muted)">▭</span><div style="flex:1"><div class="nm">Visa ••4242</div><div class="sb">default · exp 08/27</div></div></div>
-                      <div class="pm"><span class="pin">i⟁</span><div style="flex:1"><div class="nm">Interac e-Transfer</div><div class="sb">auto-matched</div></div></div>
+                      <div class="pm"><span class="ico" style="background:var(--surface2);color:var(--muted)">🏦</span><div style="flex:1"><div class="nm">Bank account ••6789</div><div class="sb">pre-authorized debit</div></div></div>
                     </div></section>
                   </div>
                 </div>
@@ -797,8 +795,7 @@
             </div>
             <div class="sect">How they'll pay</div>
             <div class="mcard">
-              <div class="mrow" style="background:var(--accent-weak)"><span class="pin" style="width:26px;height:26px">i⟁</span><div style="flex:1"><div class="nm">Interac e-Transfer</div><div class="sb">No fee · auto-matched</div></div><span class="sdot" style="background:var(--accent-strong)"></span></div>
-              <div class="mrow"><span class="pin" style="width:26px;height:26px;background:var(--surface2);color:var(--muted)">▭</span><div style="flex:1"><div class="nm">Card · tap</div><div class="sb">2.7%</div></div></div>
+              <div class="mrow" style="background:var(--accent-weak)"><span class="pin" style="width:26px;height:26px;background:var(--surface2);color:var(--muted)">▭</span><div style="flex:1"><div class="nm">Card · tap</div><div class="sb">2.7%</div></div><span class="sdot" style="background:var(--accent-strong)"></span></div>
             </div>
             <button class="btn btn-primary" style="justify-content:center;margin-top:2px"><svg class="ic" style="width:14px;height:14px"><use href="#i-bolt"/></svg> Send payment request</button>
           </div>
@@ -864,7 +861,7 @@
                   <button class="btn btn-out btn-sm" style="justify-content:center">3:30 PM</button>
                   <button class="btn btn-out btn-sm" style="justify-content:center;color:var(--muted)">Full</button>
                 </div>
-                <div class="badge b-accent" style="margin-bottom:12px;white-space:normal"><span class="pin">i⟁</span> $42.50 deposit holds your spot · Interac or card</div>
+                <div class="badge b-accent" style="margin-bottom:12px;white-space:normal">$42.50 deposit holds your spot · pay by card</div>
                 <button class="btn btn-primary" style="width:100%;justify-content:center">Continue to deposit</button>
               </div>
 
@@ -876,8 +873,7 @@
                   <div class="mtot"><span>GST + PST (12%)</span><span class="amt">$13.20</span></div>
                   <div class="mtot tot"><span>Total due</span><span class="amt">$123.20</span></div>
                 </div>
-                <div class="pm sel"><span class="pin" style="width:32px;height:32px">i⟁</span><div style="flex:1"><div class="nm">Interac e-Transfer</div><div class="sb">No fee · auto-matched</div></div><span class="badge b-ok">Best</span></div>
-                <div class="pm"><span class="ico" style="width:32px;height:32px;background:var(--surface2);color:var(--muted)">▭</span><div style="flex:1"><div class="nm">Credit / debit card</div><div class="sb">Visa · Mastercard · Amex</div></div></div>
+                <div class="pm sel"><span class="ico" style="width:32px;height:32px;background:var(--surface2);color:var(--muted)">▭</span><div style="flex:1"><div class="nm">Credit / debit card</div><div class="sb">Visa · Mastercard · Amex</div></div></div>
                 <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:6px">Pay $123.20</button>
                 <p class="sb" style="text-align:center;color:var(--muted);margin-top:10px">Secured by Stripe · a receipt is emailed</p>
               </div>
@@ -921,10 +917,10 @@
 
 <script>
   const rows=[
-    {tm:"9:00a",in:"AT",c:"#1A6B5F",nm:"Amélie Tremblay",sb:"Bella · golden retriever",sv:"Full Groom",amt:"$95.20",pay:"interac",st:"paid",lbl:"Paid"},
+    {tm:"9:00a",in:"AT",c:"#1A6B5F",nm:"Amélie Tremblay",sb:"Bella · golden retriever",sv:"Full Groom",amt:"$95.20",pay:"card",st:"paid",lbl:"Paid"},
     {tm:"10:30a",in:"MC",c:"#C2613F",nm:"Marcus Chen",sb:"deposit on file · Rocky",sv:"Full Groom + de-shed",amt:"$123.20",pay:"card",st:"due",lbl:"Deposit due"},
     {tm:"12:00p",in:"RK",c:"#B26A12",nm:"Riley Khan",sb:"5-bath pack 4/5 · Cooper",sv:"Bath & Brush",amt:"incl.",pay:"pkg",st:"ok",lbl:"Confirmed"},
-    {tm:"2:00p",in:"NB",c:"#2C8B7C",nm:"Noah Bélanger",sb:"new client · Max",sv:"Puppy's First Groom",amt:"$56.00",pay:"interac",st:"ok",lbl:"Confirmed"},
+    {tm:"2:00p",in:"NB",c:"#2C8B7C",nm:"Noah Bélanger",sb:"new client · Max",sv:"Puppy's First Groom",amt:"$56.00",pay:"card",st:"ok",lbl:"Confirmed"},
     {tm:"3:30p",in:"SR",c:"#7C5AA6",nm:"Sofia Russo",sb:"rebook · Luna",sv:"Nail Trim + Tidy",amt:"$33.60",pay:"card",st:"unp",lbl:"Unpaid"},
   ];
   const clients=[
@@ -935,7 +931,7 @@
     {in:"PP",c:"#B26A12",nm:"Priya Patel",em:"priya@email.ca",ph:"(236) 555-0150",v:21,lt:"$3,120",bal:"—",ls:"3 days",tag:"ok"},
     {in:"SR",c:"#3F6F8C",nm:"Sofia Russo",em:"sofia@email.ca",ph:"(604) 555-0166",v:4,lt:"$504",bal:"$126.00",ls:"Today",tag:"ok"},
   ];
-  const payChip=p=>p==="interac"?`<span class="pay"><span class="pin">i</span>Interac</span>`:p==="card"?`<span class="pay"><span class="pin" style="background:var(--surface2);color:var(--muted)">▭</span>Card</span>`:`<span class="pay" style="color:var(--muted)">— Package</span>`;
+  const payChip=p=>p==="card"?`<span class="pay"><span class="pin" style="background:var(--surface2);color:var(--muted)">▭</span>Card</span>`:`<span class="pay" style="color:var(--muted)">— Package</span>`;
 
   document.getElementById("schedrows").innerHTML=rows.map(r=>`<tr><td><span class="tm">${r.tm}</span></td><td><div class="who"><div class="av" style="width:30px;height:30px;background:${r.c};font-size:11px">${r.in}</div><div><div class="nm">${r.nm}</div><div class="sb">${r.sb}</div></div></div></td><td>${r.sv}</td><td class="num"><span class="amt ${r.amt==='incl.'?'mut':''}" style="font-size:13px;${r.amt==='incl.'?'color:var(--muted)':''}">${r.amt}</span></td><td>${payChip(r.pay)}</td><td><span class="pill ${r.st}">${r.lbl}</span></td></tr>`).join("");
 

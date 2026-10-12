@@ -79,7 +79,7 @@ async def test_cheque_and_etransfer_land_in_the_bank(
     etransfer = ok(
         await as_owner.post(
             f"/v1/invoices/{inv}/payments",
-            json=_pay("interac", 6000, reference="CA1MRkB7"),
+            json=_pay("etransfer", 6000, reference="CA1MRkB7"),
             headers=key(),
         ),
         201,
@@ -89,6 +89,9 @@ async def test_cheque_and_etransfer_land_in_the_bank(
     row = (await db.execute(select(Payment).where(Payment.id == cheque["payment_id"]))).scalar_one()
     assert row.method == "cheque" and row.reference == "000123"
     assert row.paid_at is not None and row.paid_at.date() < datetime.now(UTC).date() + timedelta(1)
+    sent = await db.get(Payment, etransfer["payment_id"])
+    assert sent is not None
+    assert (sent.method, sent.provider, sent.reference) == ("etransfer", "manual", "CA1MRkB7")
 
 
 async def test_charge_saved_card_opens_an_intent(
@@ -147,6 +150,12 @@ async def test_saved_card_only_for_card(as_owner: httpx.AsyncClient, db: AsyncSe
     assert res.status_code == 422
 
 
+async def test_unknown_method_is_refused(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    inv = await sent_invoice(db, total=3000)
+    res = await as_owner.post(f"/v1/invoices/{inv}/payments", json=_pay("interac", 3000))
+    assert res.status_code == 422
+
+
 async def test_more_than_the_balance_is_refused(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
@@ -173,7 +182,7 @@ async def test_future_date_is_refused(as_owner: httpx.AsyncClient, db: AsyncSess
     inv = await sent_invoice(db, total=3000)
     later = (date.today() + timedelta(days=3)).isoformat()
     res = await as_owner.post(
-        f"/v1/invoices/{inv}/payments", json=_pay("interac", 3000, received_on=later)
+        f"/v1/invoices/{inv}/payments", json=_pay("etransfer", 3000, received_on=later)
     )
     assert res.status_code == 422
 

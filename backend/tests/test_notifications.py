@@ -206,24 +206,6 @@ async def test_invoice_sent_carries_pay_link(
     assert any(f"/i/{token}" in m.body for m in sms.sent)
 
 
-@pytest.mark.parametrize("channel", ["email", "sms"])
-async def test_interac_request_reaches_client(
-    as_owner: httpx.AsyncClient,
-    db: AsyncSession,
-    email: FakeEmailSender,
-    sms: FakeSmsSender,
-    channel: str,
-) -> None:
-    cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
-    inv_id = await sent_invoice(db, client=cid, number=9600)
-    res = await as_owner.post(f"/v1/invoices/{inv_id}/interac-request", json={"channel": channel})
-    assert res.status_code == 200, res.text
-    ref = res.json()["reference_code"]
-    assert ref
-    sent = email.sent if channel == "email" else sms.sent
-    assert any(ref in m.body for m in sent)
-
-
 async def test_refund_notifies_client(
     as_owner: httpx.AsyncClient,
     db: AsyncSession,

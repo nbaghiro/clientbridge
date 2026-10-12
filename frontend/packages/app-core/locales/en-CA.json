@@ -644,8 +644,8 @@
     "billing.method.cash": {
         "message": "Cash"
     },
-    "billing.method.interac": {
-        "message": "Interac e-Transfer"
+    "billing.method.etransfer": {
+        "message": "e-Transfer"
     },
     "billing.method.bank_eft": {
         "message": "Bank debit"
@@ -950,7 +950,7 @@
         "message": "Exact amount"
     },
     "billing.rec.reference": {
-        "message": "Interac reference"
+        "message": "e-Transfer reference"
     },
     "billing.rec.referenceHint": {
         "message": "From the deposit notice, so the bookkeeper can match it"
@@ -1194,10 +1194,6 @@
     "printing.payOnline": {
         "message": "Pay online at {url}",
         "args": ["url"]
-    },
-    "printing.payInterac": {
-        "message": "Interac e-Transfer to {email}, with the invoice number in the message",
-        "args": ["email"]
     },
     "printing.acceptOnline": {
         "message": "Read and accept it online at {url}",
@@ -8120,7 +8116,7 @@
     "refunds.method.cash": {
         "message": "Cash"
     },
-    "refunds.method.interac": {
+    "refunds.method.etransfer": {
         "message": "e-Transfer"
     },
     "refunds.method.bank_eft": {
@@ -8492,145 +8488,9 @@
     "payments.cardNoun": {
         "message": "Card"
     },
-    "payments.interacNoun": {
-        "message": "Interac e-Transfer"
-    },
     "payments.savedCardLabel": {
         "message": "{noun} ···· {last4}",
         "args": ["noun", "last4"]
-    },
-    "payments.interac.title": {
-        "message": "Request an e-Transfer"
-    },
-    "payments.interac.requestFor": {
-        "message": "{n} · {name}",
-        "args": ["n", "name"]
-    },
-    "payments.interac.open": {
-        "message": "Request e-Transfer"
-    },
-    "payments.interac.facts.total": {
-        "message": "Total"
-    },
-    "payments.interac.facts.paid": {
-        "message": "Paid"
-    },
-    "payments.interac.facts.balance": {
-        "message": "Balance due"
-    },
-    "payments.interac.facts.due": {
-        "message": "Due"
-    },
-    "payments.interac.newRequest": {
-        "message": "New request"
-    },
-    "payments.interac.amount": {
-        "message": "Amount"
-    },
-    "payments.interac.amountHint": {
-        "message": "Balance due is {balance}",
-        "args": ["balance"]
-    },
-    "payments.interac.sendBy": {
-        "message": "Send by"
-    },
-    "payments.interac.channels.sms": {
-        "message": "Text"
-    },
-    "payments.interac.channels.email": {
-        "message": "Email"
-    },
-    "payments.interac.noPhone": {
-        "message": "No phone number on file"
-    },
-    "payments.interac.noEmail": {
-        "message": "No email on file"
-    },
-    "payments.interac.expiresIn": {
-        "message": "Expires after"
-    },
-    "payments.interac.expiryOptions.7": {
-        "message": "7 days"
-    },
-    "payments.interac.expiryOptions.14": {
-        "message": "14 days"
-    },
-    "payments.interac.expiryOptions.30": {
-        "message": "30 days"
-    },
-    "payments.interac.preview": {
-        "message": "What the client gets"
-    },
-    "payments.interac.previewMessage": {
-        "message": "{biz}: please send {amount} by Interac e-Transfer to {to} with {ref} in the message. Details: {link}",
-        "args": ["biz", "amount", "to", "ref", "link"]
-    },
-    "payments.interac.newCode": {
-        "message": "a new code"
-    },
-    "payments.interac.noPayEmail": {
-        "message": "your payment email"
-    },
-    "payments.interac.send": {
-        "message": "Send request"
-    },
-    "payments.interac.sending": {
-        "message": "Sending…"
-    },
-    "payments.interac.sent": {
-        "message": "Request sent to {to}",
-        "args": ["to"]
-    },
-    "payments.interac.errAmount": {
-        "message": "Enter an amount up to the {balance} balance.",
-        "args": ["balance"]
-    },
-    "payments.interac.errContact": {
-        "message": "Add a phone number or email to this client first."
-    },
-    "payments.interac.requestError": {
-        "message": "Couldn't send the request. Please try again."
-    },
-    "payments.interac.replacesOld": {
-        "message": "Sending a new request cancels {ref}.",
-        "args": ["ref"]
-    },
-    "payments.interac.requests": {
-        "message": "e-Transfer requests"
-    },
-    "payments.interac.noRequests": {
-        "message": "No e-Transfer requested yet."
-    },
-    "payments.interac.requested": {
-        "message": "{ref} · {amount}",
-        "args": ["ref", "amount"]
-    },
-    "payments.interac.received": {
-        "message": "{amount} received",
-        "args": ["amount"]
-    },
-    "payments.interac.state.pending": {
-        "message": "Waiting"
-    },
-    "payments.interac.state.succeeded": {
-        "message": "Received"
-    },
-    "payments.interac.state.canceled": {
-        "message": "Replaced"
-    },
-    "payments.interac.state.expired": {
-        "message": "Expired"
-    },
-    "payments.interac.sentVia": {
-        "message": "{channel, select, sms {Sent by text} email {Sent by email} other {Requested}}",
-        "args": ["channel"]
-    },
-    "payments.interac.expiresOn": {
-        "message": "Expires {when}",
-        "args": ["when"]
-    },
-    "payments.interac.inboxLater": {
-        "message": "Transfers are matched by their reference code. A matching inbox for transfers without one needs a bank feed and comes later."
     },
     "terminal.failed": {
         "message": "Tap to Pay needs attention"
@@ -9329,8 +9189,8 @@
     "reports.method.card": {
         "message": "Card"
     },
-    "reports.method.interac": {
-        "message": "Interac e-Transfer"
+    "reports.method.etransfer": {
+        "message": "e-Transfer"
     },
     "reports.method.bank_eft": {
         "message": "Pre-authorized debit"
@@ -10304,8 +10164,8 @@
     "publicReceipt.method.cash": {
         "message": "Cash"
     },
-    "publicReceipt.method.interac": {
-        "message": "Interac e-Transfer"
+    "publicReceipt.method.etransfer": {
+        "message": "e-Transfer"
     },
     "publicReceipt.method.cheque": {
         "message": "Cheque"
@@ -10382,7 +10242,7 @@
         "message": "This payment link is invalid or has expired. Please check with the business that sent it to you."
     },
     "publicPay.cardNotConfigured": {
-        "message": "Card payments aren't configured. Please use Interac e-Transfer."
+        "message": "Card payments aren't available on this page right now. Please contact the business to pay."
     },
     "publicPay.details": {
         "message": "What this is for"
@@ -10407,23 +10267,18 @@
     "publicPay.subtotal": {
         "message": "Subtotal"
     },
-    "publicPay.chooseHowToPay": {
-        "message": "How would you like to pay?"
-    },
-    "publicPay.interacLabel": {
-        "message": "Interac e-Transfer"
-    },
-    "publicPay.interacBadge": {
-        "message": "From your bank, no fee"
-    },
     "publicPay.cardLabel": {
         "message": "Credit or debit card"
     },
     "publicPay.cardBadge": {
         "message": "Visa, Mastercard, Amex"
     },
-    "publicPay.payByInterac": {
-        "message": "Get my reference code"
+    "publicPay.offlineTitle": {
+        "message": "This business isn't taking online payments yet"
+    },
+    "publicPay.offlineBody": {
+        "message": "Contact {businessName} to arrange how to pay the balance.",
+        "args": ["businessName"]
     },
     "publicPay.payByCard": {
         "message": "Pay by card"
@@ -10434,9 +10289,6 @@
     "publicPay.paidBody": {
         "message": "Your payment to {businessName} is complete. A receipt will follow from the business.",
         "args": ["businessName"]
-    },
-    "publicPay.interacStartError": {
-        "message": "We couldn't start the Interac payment. Please try again."
     },
     "publicPay.cardStartError": {
         "message": "We couldn't start the card payment. Please try again."
@@ -10454,8 +10306,8 @@
     "publicPay.method.cash": {
         "message": "Cash"
     },
-    "publicPay.method.interac": {
-        "message": "Interac e-Transfer"
+    "publicPay.method.etransfer": {
+        "message": "e-Transfer"
     },
     "publicPay.method.bank_eft": {
         "message": "Bank debit"
@@ -10468,83 +10320,6 @@
     },
     "publicPay.downloadInvoice": {
         "message": "Download invoice"
-    },
-    "publicPay.seeSteps": {
-        "message": "See how to send it"
-    },
-    "publicPay.etransferTitle": {
-        "message": "Pay {biz} by e‑Transfer",
-        "args": ["biz"]
-    },
-    "publicPay.amountToSend": {
-        "message": "Amount to send"
-    },
-    "publicPay.paidSoFar": {
-        "message": "Paid"
-    },
-    "publicPay.sendTo": {
-        "message": "Send to"
-    },
-    "publicPay.putInMessage": {
-        "message": "Put this in the message"
-    },
-    "publicPay.steps": {
-        "message": "How to send it"
-    },
-    "publicPay.step1": {
-        "message": "Open your bank's app or website and choose Interac e-Transfer."
-    },
-    "publicPay.step2": {
-        "message": "Add {email} as a recipient. No security question is needed; deposits are automatic.",
-        "args": ["email"]
-    },
-    "publicPay.step2NoEmail": {
-        "message": "Add the business's payment email as a recipient."
-    },
-    "publicPay.step3": {
-        "message": "Send exactly {amount}.",
-        "args": ["amount"]
-    },
-    "publicPay.step4": {
-        "message": "Type {ref} in the message box, then send.",
-        "args": ["ref"]
-    },
-    "publicPay.progressLabel": {
-        "message": "{done, number} of {total, number} done",
-        "args": ["done", "total"]
-    },
-    "publicPay.markStep": {
-        "message": "Mark step {n, number} done",
-        "args": ["n"]
-    },
-    "publicPay.copy": {
-        "message": "Copy"
-    },
-    "publicPay.copied": {
-        "message": "Copied"
-    },
-    "publicPay.statusWaiting": {
-        "message": "Waiting for your transfer"
-    },
-    "publicPay.statusWaitingBody": {
-        "message": "This page updates on its own when it arrives."
-    },
-    "publicPay.statusReceived": {
-        "message": "Payment received"
-    },
-    "publicPay.statusReceivedBody": {
-        "message": "Thanks. {amount} reached {biz} and your invoice is paid.",
-        "args": ["amount", "biz"]
-    },
-    "publicPay.validUntil": {
-        "message": "This request is open until {when}.",
-        "args": ["when"]
-    },
-    "publicPay.payByCardInstead": {
-        "message": "Pay by card instead"
-    },
-    "publicPay.viewInvoice": {
-        "message": "View invoice"
     },
     "publicEstimate.waiting": {
         "message": "Waiting for you"

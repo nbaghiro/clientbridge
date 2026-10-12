@@ -75,23 +75,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/webhooks/interac": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Interac Webhook */
-        post: operations["interac_webhook_webhooks_interac_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/webhooks/sms": {
         parameters: {
             query?: never;
@@ -154,23 +137,6 @@ export interface paths {
         put?: never;
         /** Public Pay Card */
         post: operations["public_pay_card_pay__token__card_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/pay/{token}/interac": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Public Pay Interac */
-        post: operations["public_pay_interac_pay__token__interac_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1503,23 +1469,6 @@ export interface paths {
         put?: never;
         /** Record Invoice Payment */
         post: operations["record_invoice_payment_v1_invoices__invoice_id__payments_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/invoices/{invoice_id}/interac-request": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Request Invoice Interac */
-        post: operations["request_invoice_interac_v1_invoices__invoice_id__interac_request_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4213,47 +4162,6 @@ export interface components {
                 [key: string]: number;
             };
         };
-        /** InteracRequest */
-        InteracRequest: {
-            /** Payment Id */
-            payment_id: string;
-            /** Reference Code */
-            reference_code: string;
-            /** Send To */
-            send_to: string | null;
-            /** Amount Cents */
-            amount_cents: number;
-            /** Channel */
-            channel?: ("sms" | "email") | null;
-            /** Expires At */
-            expires_at?: string | null;
-        };
-        /** InteracRequestIn */
-        InteracRequestIn: {
-            /**
-             * Amount Cents
-             * @description Null requests the balance
-             */
-            amount_cents?: number | null;
-            /**
-             * Channel
-             * @default email
-             * @enum {string}
-             */
-            channel: "sms" | "email";
-            /**
-             * Expires In Days
-             * @default 14
-             */
-            expires_in_days: number;
-        };
-        /** InteracWebhookBody */
-        InteracWebhookBody: {
-            /** Reference Code */
-            reference_code: string;
-            /** Amount Cents */
-            amount_cents: number;
-        };
         /** InviteBody */
         InviteBody: {
             /** Email */
@@ -4383,7 +4291,7 @@ export interface components {
              * @description cash, an e-Transfer already received, a cheque, or the client's saved card
              * @enum {string}
              */
-            method: "cash" | "interac" | "cheque" | "card";
+            method: "cash" | "etransfer" | "cheque" | "card";
             /** Amount Cents */
             amount_cents: number;
             /**
@@ -5752,7 +5660,7 @@ export interface components {
              */
             kind: "payment" | "deposit";
             /** Method */
-            method: ("card" | "interac" | "bank_eft" | "cash" | "cheque" | "other") | null;
+            method: ("card" | "etransfer" | "bank_eft" | "cash" | "cheque" | "other") | null;
             /** Amount Cents */
             amount_cents: number;
             /** At */
@@ -5979,17 +5887,6 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** PublicInterac */
-        PublicInterac: {
-            /** Reference Code */
-            reference_code: string;
-            /** Amount Cents */
-            amount_cents: number;
-            /** Send To */
-            send_to: string | null;
-            /** Expires At */
-            expires_at: string | null;
-        };
         /** PublicInvoice */
         PublicInvoice: {
             /**
@@ -6028,8 +5925,16 @@ export interface components {
             status: string;
             /** Accepts Card */
             accepts_card: boolean;
-            /** Interac Email */
-            interac_email: string | null;
+            /**
+             * Contact Phone
+             * @description The business's public phone, for paying when it takes no cards
+             */
+            contact_phone?: string | null;
+            /**
+             * Contact Email
+             * @description The business's public email, for paying when it takes no cards
+             */
+            contact_email?: string | null;
             /** Client Name */
             client_name?: string | null;
             /** Issued At */
@@ -6056,8 +5961,6 @@ export interface components {
             taxes?: components["schemas"]["PublicDocTax"][];
             /** Credits */
             credits?: components["schemas"]["PublicCredit"][];
-            /** @description The e-Transfer request still waiting, if any */
-            interac?: components["schemas"]["PublicInterac"] | null;
             /**
              * Tip For
              * @description First names of the staff a tip on this invoice goes to
@@ -6391,7 +6294,7 @@ export interface components {
              * Method
              * @enum {string}
              */
-            method: "card" | "interac" | "bank_eft" | "cash" | "cheque" | "other";
+            method: "card" | "etransfer" | "bank_eft" | "cash" | "cheque" | "other";
             /** Amount Cents */
             amount_cents: number;
             /**
@@ -7861,41 +7764,6 @@ export interface operations {
             };
         };
     };
-    interac_webhook_webhooks_interac_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-Interac-Secret"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InteracWebhookBody"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     sms_webhook_webhooks_sms_post: {
         parameters: {
             query?: never;
@@ -8015,37 +7883,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicCardIntent"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    public_pay_interac_pay__token__interac_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InteracRequest"];
                 };
             };
             /** @description Validation Error */
@@ -11015,46 +10852,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InvoicePaymentOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    request_invoice_interac_v1_invoices__invoice_id__interac_request_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
-                "x-business-id"?: string;
-                "x-expected-user"?: string;
-                "x-session-token"?: string;
-            };
-            path: {
-                invoice_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InteracRequestIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InteracRequest"];
                 };
             };
             /** @description Validation Error */

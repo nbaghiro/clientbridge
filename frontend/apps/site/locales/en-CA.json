@@ -80,9 +80,6 @@
     "site.footer.columns.2.links.4.label": {
         "message": "Photo credits"
     },
-    "site.footer.legal": {
-        "message": "Interac is a registered trade-mark of Interac Corp."
-    },
     "site.notFound.title": {
         "message": "Page not found"
     },
@@ -132,7 +129,7 @@
         "message": "Paid out to your bank"
     },
     "home.props.1.body": {
-        "message": "Track card payments, Tap to Pay and Interac e-Transfers in one place. Card payments are paid out to your bank on a regular schedule."
+        "message": "Track card payments online and Tap to Pay in person in one place. Card payments are paid out to your bank on a regular schedule."
     },
     "home.props.2.title": {
         "message": "Sales tax worked out for you"
@@ -177,7 +174,7 @@
         "message": "Invoices pick up the services from the visit, add the right tax, and go out with a link the client can pay from. Estimates turn into invoices when the client accepts them, and overdue invoices are easy to spot."
     },
     "home.features.1.points.0": {
-        "message": "Card or Interac e-Transfer on every invoice"
+        "message": "Card payment from a link on every invoice"
     },
     "home.features.1.points.1": {
         "message": "Partial payments, refunds and credit notes"
@@ -243,13 +240,13 @@
         "message": "The client pays"
     },
     "home.payments.steps.0.body": {
-        "message": "By card online, by Tap to Pay in person, or by Interac e-Transfer using the reference code on the invoice."
+        "message": "By card online from the invoice link, or by Tap to Pay in person."
     },
     "home.payments.steps.1.title": {
         "message": "It is matched to the invoice"
     },
     "home.payments.steps.1.body": {
-        "message": "Card payments mark the invoice paid straight away. An e-Transfer is matched by its reference code when it arrives."
+        "message": "Card payments mark the invoice paid straight away. Cash and cheques you record by hand are added to the same invoice."
     },
     "home.payments.steps.2.title": {
         "message": "Receive bank payouts"
@@ -354,7 +351,7 @@
         "message": "One plan with everything in it."
     },
     "home.pricing.body": {
-        "message": "Every feature on this page is included. Card payments carry a card processing fee, and Interac e-Transfers go bank to bank and are not charged a card fee."
+        "message": "Every feature on this page is included. Card payments carry a card processing fee, which is shown on every payout."
     },
     "home.pricing.price": {
         "message": "$[price]"
@@ -396,7 +393,7 @@
         "message": "Pricing"
     },
     "pages.pricingMeta.description": {
-        "message": "One monthly plan with booking, invoices, payments, sales tax, staff pay and the iPhone and Android apps included. Card payments carry a card processing fee; Interac e-Transfers do not."
+        "message": "One monthly plan with booking, invoices, payments, sales tax, staff pay and the iPhone and Android apps included. Card payments carry a card processing fee."
     },
     "pages.pricingPage.eyebrow": {
         "message": "Pricing"
@@ -444,7 +441,7 @@
         "message": "Getting paid"
     },
     "pages.pricingPage.plan.groups.1.items.0": {
-        "message": "Card, Tap to Pay and Interac e-Transfer"
+        "message": "Card online and Tap to Pay"
     },
     "pages.pricingPage.plan.groups.1.items.1": {
         "message": "Invoices, estimates and pay links"
@@ -486,10 +483,10 @@
         "message": "A card processing fee, taken from each payment. Clientbridge platform fee: to be confirmed."
     },
     "pages.pricingPage.fees.rows.1.label": {
-        "message": "Interac e-Transfer"
+        "message": "Cash and cheques"
     },
     "pages.pricingPage.fees.rows.1.value": {
-        "message": "No card fee. The transfer goes from your client's bank to yours and is matched to the invoice by its reference code."
+        "message": "No fee. Payments you receive outside the app are recorded on the invoice by hand."
     },
     "pages.pricingPage.fees.rows.2.label": {
         "message": "Setup"
@@ -513,10 +510,10 @@
         "message": "Your business has its own payments account. Card payments are paid out to your bank on a regular schedule."
     },
     "pages.pricingPage.faq.2.q": {
-        "message": "What does an Interac e-Transfer cost?"
+        "message": "Can I record payments taken outside the app?"
     },
     "pages.pricingPage.faq.2.a": {
-        "message": "There is no card fee. Your client sends the transfer from their bank using the reference code on the invoice, and the payment is matched to the invoice when it arrives."
+        "message": "Yes. Cash, cheques and other payments you receive directly are recorded on the invoice, so its balance and your reports stay correct."
     },
     "pages.pricingPage.faq.3.q": {
         "message": "Is sales tax included?"
@@ -558,7 +555,7 @@
         "message": "Features"
     },
     "pages.featuresMeta.description": {
-        "message": "Everything Clientbridge does: online booking and the calendar, client records, invoices and estimates, card, Tap to Pay and Interac payments, sales tax, staff pay, messaging, reviews and the apps."
+        "message": "Everything Clientbridge does: online booking and the calendar, client records, invoices and estimates, card and Tap to Pay payments, sales tax, staff pay, messaging, reviews and the apps."
     },
     "pages.featuresPage.eyebrow": {
         "message": "Features"
@@ -639,13 +636,13 @@
         "message": "Payments"
     },
     "pages.featuresPage.groups.payments.body": {
-        "message": "Card online, Tap to Pay in person and Interac e-Transfer all land in one place, matched to the invoice they pay."
+        "message": "Card payments online and Tap to Pay in person land in one place, recorded against the invoice they pay."
     },
     "pages.featuresPage.groups.payments.items.0": {
         "message": "Tap to Pay on iPhone and Android"
     },
     "pages.featuresPage.groups.payments.items.1": {
-        "message": "Interac e-Transfer matched by reference code"
+        "message": "Card payments from the invoice link"
     },
     "pages.featuresPage.groups.payments.items.2": {
         "message": "Payouts to your bank"
@@ -891,7 +888,7 @@
         "message": "Invoices and estimates"
     },
     "solutions.solutionsPage.engine.1.body": {
-        "message": "Built from the booking, numbered in order, and paid from a link by card or Interac e-Transfer."
+        "message": "Built from the booking, numbered in order, and paid by card from a link."
     },
     "solutions.solutionsPage.engine.2.title": {
         "message": "Tap to Pay"
@@ -1233,10 +1230,10 @@
         "message": "The invoice is built from the booking and its add-ons. Send it by text or email, or take payment at the counter when the owner arrives."
     },
     "trades.pet-grooming.capabilities.3.title": {
-        "message": "Tap to Pay, card or e-Transfer"
+        "message": "Tap to Pay or card"
     },
     "trades.pet-grooming.capabilities.3.body": {
-        "message": "Charge a card with your phone at pickup, or send a payment link. Interac e-Transfers are matched to the invoice by their reference code."
+        "message": "Charge a card with your phone at pickup, or send a payment link the client pays by card."
     },
     "trades.pet-grooming.capabilities.4.title": {
         "message": "Gift cards"
@@ -1494,7 +1491,7 @@
         "message": "Tap to Pay at the front desk"
     },
     "trades.salons.capabilities.3.body": {
-        "message": "Take a card with an iPhone or Android phone at the desk, or send the client a link to pay by card or Interac e-Transfer."
+        "message": "Take a card with an iPhone or Android phone at the desk, or send the client a link to pay by card."
     },
     "trades.salons.capabilities.4.title": {
         "message": "Gift cards"
@@ -1983,10 +1980,10 @@
         "message": "Send an estimate for a deep clean or a move-out. When the client accepts it, it becomes an invoice with the same lines."
     },
     "trades.cleaning.capabilities.3.title": {
-        "message": "Card or Interac e-Transfer"
+        "message": "Paid from the invoice link"
     },
     "trades.cleaning.capabilities.3.body": {
-        "message": "Clients pay from the invoice link by card or Interac e-Transfer, and each e-Transfer is matched to its invoice by reference code."
+        "message": "Clients pay the invoice by card from the link it arrives with, and the invoice is marked paid as soon as the payment goes through."
     },
     "trades.cleaning.capabilities.4.title": {
         "message": "Tap to Pay at the door"
@@ -2040,7 +2037,7 @@
         "message": "A three-bedroom clean with an add-on, invoiced when it is done."
     },
     "trades.cleaning.pay.body": {
-        "message": "When the cleaner marks the job done, the invoice goes to the client with Ontario HST added. The client pays by Interac e-Transfer with the reference code, and the payment is matched to the invoice when it arrives."
+        "message": "When the cleaner marks the job done, the invoice goes to the client with Ontario HST added. The client pays by card from the invoice link, and the invoice is marked paid when the payment goes through."
     },
     "trades.cleaning.bill.meta": {
         "message": "Invoice 0912 · Rachel Moore"
@@ -2055,7 +2052,7 @@
         "message": "HST 13%"
     },
     "trades.cleaning.bill.status.text": {
-        "message": "Interac matched · Ref CB-8T3W"
+        "message": "Paid by card"
     },
     "trades.tutoring.name": {
         "message": "Tutoring and lessons"
@@ -2226,7 +2223,7 @@
         "message": "Invoices to the parent"
     },
     "trades.tutoring.capabilities.2.body": {
-        "message": "Lessons for every child on the account are invoiced to the parent, who pays by card or Interac e-Transfer."
+        "message": "Lessons for every child on the account are invoiced to the parent, who pays by card from the invoice link."
     },
     "trades.tutoring.capabilities.3.title": {
         "message": "Registration deposits"
@@ -2520,7 +2517,7 @@
         "message": "Every paid visit sends a receipt with the treatment, the date and the amount, so clients have it for their records."
     },
     "trades.wellness.capabilities.5.title": {
-        "message": "Tap to Pay, card or e-Transfer"
+        "message": "Tap to Pay or card"
     },
     "trades.wellness.capabilities.5.body": {
         "message": "Take payment in the treatment room with Tap to Pay, or let the client pay from the link in their invoice."
@@ -2769,10 +2766,10 @@
         "message": "Invoice the balance before delivery or on the event date, and see at a glance which invoices are still outstanding."
     },
     "trades.photography.capabilities.4.title": {
-        "message": "Card or Interac e-Transfer"
+        "message": "Card payments from the invoice"
     },
     "trades.photography.capabilities.4.body": {
-        "message": "Clients pay from the invoice link by card or Interac e-Transfer, and each payment is matched to its invoice."
+        "message": "Clients pay from the invoice link by card, and each payment is recorded against its invoice."
     },
     "trades.photography.capabilities.5.title": {
         "message": "Session gift cards"
@@ -3003,10 +3000,10 @@
         "message": "Charge a card on your iPhone or Android phone when the job is done, without carrying a separate card reader."
     },
     "trades.trades.capabilities.4.title": {
-        "message": "Interac e-Transfer matched for you"
+        "message": "Card payments from the invoice link"
     },
     "trades.trades.capabilities.4.body": {
-        "message": "Clients who pay by e-Transfer use the reference code on the invoice, and the payment is matched to it when it arrives."
+        "message": "Clients who are not there when the job is done pay the invoice by card from its link, and the payment is recorded against it."
     },
     "trades.trades.capabilities.5.title": {
         "message": "Gift cards"
@@ -3266,7 +3263,7 @@
         "message": "Recent activity"
     },
     "demo.today.payment": {
-        "message": "{method, select, card {Card payment} cash {Cash payment} interac {Interac payment} bank_eft {Bank payment} cheque {Cheque payment} other {Payment}}",
+        "message": "{method, select, card {Card payment} cash {Cash payment} etransfer {e-Transfer payment} bank_eft {Bank payment} cheque {Cheque payment} other {Payment}}",
         "args": ["method"]
     },
     "photos.grooming.subject": {

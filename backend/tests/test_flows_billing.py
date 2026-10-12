@@ -1,4 +1,4 @@
-"""Billing flows: estimate to refund, Interac, disputes, payouts, remittance, and subscriptions."""
+"""Billing flows: estimate to refund, disputes, payouts, remittance, and subscriptions."""
 
 from datetime import datetime, timedelta
 
@@ -12,7 +12,6 @@ from clientbridge.models.payments import PaymentMethod
 from clientbridge.services.business import business_tz
 from tests.conftest import BIZ, FakePaymentGateway
 from tests.helpers import (
-    INTERAC,
     business_balance,
     card_pay,
     enable_payments,
@@ -124,26 +123,6 @@ async def test_estimate_to_invoice_partial_pay_and_refund(
     ok(await api.post(f"/v1/payments/{intent['payment_id']}/refund", json={}))
     back = await invoice(db, converted["id"])
     assert (back.status, back.amount_paid_cents) == ("refunded", 0)
-
-
-async def test_interac_request_is_matched(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    api = as_owner
-    inv = await _sent_invoice(api)
-    total = (await invoice(db, inv)).total_cents
-    request = ok(await api.post(f"/v1/invoices/{inv}/interac-request", json={})).json()
-    assert request["amount_cents"] == total and len(request["reference_code"]) == 8
-
-    ok(
-        await api.post(
-            "/webhooks/interac",
-            json={"reference_code": request["reference_code"], "amount_cents": total},
-            headers=INTERAC,
-        )
-    )
-    settled = await payment(db, request["payment_id"])
-    assert (settled.status, settled.method) == ("succeeded", "interac")
-    paid = await invoice(db, inv)
-    assert (paid.status, paid.balance_cents) == ("paid", 0)
 
 
 async def test_dispute_opens_and_is_won(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
