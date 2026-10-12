@@ -22,6 +22,7 @@ async def test_fresh_v2_account_reports_kyc_requirements(live_gateway: StripeGat
         business_name="E2E Test Co",
         email="e2e@clientbridge.test",
         url="https://x.test/book/e2e",
+        configurations=("merchant",),
         idempotency_key=f"e2e-account-{uuid4()}",
     )
     status = await live_gateway.get_account(account_id)

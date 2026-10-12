@@ -73,7 +73,7 @@ from clientbridge.schemas.payments import (
     TipShareIn,
 )
 from clientbridge.services import ledger
-from clientbridge.services.business import apply_account_status, kyc_status
+from clientbridge.services.business import apply_account_status, has_merchant, kyc_status
 from clientbridge.services.earnings import (
     ensure_earnings,
     ensure_order_earning,
@@ -128,19 +128,7 @@ class PaymentService:
         settings = get_settings()
 
         async def run(cmd: Command) -> OnboardingLink:
-            account_id = business.stripe_account_id
-            if account_id is None:
-                account_id = await self.gateway.create_connected_account(
-                    business_name=business.name,
-                    email=business.billing_email,
-                    url=f"{settings.connect_base_url}/b/{business.slug}",
-                    idempotency_key=f"connected-account:{business.id}",
-                )
-                business.stripe_account_id = account_id
-                await self.db.flush()
-                cmd.record("connect.account_created", entity_type="business", entity_id=business.id)
-                # Seed the KYC state from Stripe right away (the webhook keeps it in sync after).
-                apply_account_status(business, await self.gateway.get_account(account_id))
+            account_id = await self._ensure_merchant(business, cmd)
             url = await self.gateway.create_account_link(
                 account_id,
                 refresh_url=f"{settings.web_base_url}/setup/getting-paid?refresh=1",
@@ -166,23 +154,15 @@ class PaymentService:
         ).scalar_one_or_none()
         if business is None:
             raise NotFound("business not found")
-        if business.stripe_account_id is None:
+        if business.stripe_account_id is None or not has_merchant(business):
             if component != "onboarding":
                 raise Conflict("set up payments before managing your payment account")
-            created = await self.gateway.create_connected_account(
-                business_name=business.name,
-                email=business.billing_email,
-                url=f"{get_settings().connect_base_url}/b/{business.slug}",
-                idempotency_key=f"connected-account:{business.id}",
-            )
-            business.stripe_account_id = created
-            apply_account_status(business, await self.gateway.get_account(created))
             cmd = Command(self.db, self.principal)
-            cmd.record("connect.account_created", entity_type="business", entity_id=business.id)
+            await self._ensure_merchant(business, cmd)
             self.db.add_all(cmd.audits)
             await self.db.commit()
-        account_id = business.stripe_account_id
-        secret = await self.gateway.create_account_session(account_id, component)
+        assert business.stripe_account_id is not None
+        secret = await self.gateway.create_account_session(business.stripe_account_id, component)
         cmd = Command(self.db, self.principal)
         cmd.record(
             "connect.session",
@@ -194,6 +174,31 @@ class PaymentService:
         # Single-use credentials must never enter command response storage.
         await self.db.commit()
         return ConnectSessionOut(client_secret=secret)
+
+    async def _ensure_merchant(self, business: Business, cmd: Command) -> str:
+        """The business's account with the merchant configuration, reusing an account it has."""
+        account_id = business.stripe_account_id
+        if account_id is not None and has_merchant(business):
+            return account_id
+        if account_id is None:
+            account_id = await self.gateway.create_connected_account(
+                business_name=business.name,
+                email=business.billing_email,
+                url=f"{get_settings().connect_base_url}/b/{business.slug}",
+                configurations=("merchant",),
+                idempotency_key=f"connected-account:{business.id}",
+            )
+            business.stripe_account_id = account_id
+            cmd.record("connect.account_created", entity_type="business", entity_id=business.id)
+        else:
+            await self.gateway.add_merchant_configuration(
+                account_id, business_name=business.name, email=business.billing_email
+            )
+            cmd.record("connect.merchant_added", entity_type="business", entity_id=business.id)
+        await self.db.flush()
+        # seed the KYC state from Stripe right away; the webhook keeps it in sync after
+        apply_account_status(business, await self.gateway.get_account(account_id))
+        return account_id
 
     async def status(self) -> ConnectStatus:
         self._assert_admin()

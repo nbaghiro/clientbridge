@@ -15,9 +15,12 @@ from stripe.params import (
 )
 from stripe.params.v2.core import (
     AccountCreateParams,
+    AccountCreateParamsConfiguration,
     AccountCreateParamsConfigurationMerchant,
     AccountCreateParamsDefaults,
     AccountCreateParamsDefaultsResponsibilities,
+    AccountUpdateParams,
+    AccountUpdateParamsConfigurationMerchant,
 )
 
 from clientbridge.core.config import get_settings
@@ -57,6 +60,7 @@ def payment_descriptor(name: str) -> str | None:
 
 
 type ConnectComponent = Literal["onboarding", "account", "notices", "payments", "payouts"]
+type AccountConfiguration = Literal["merchant", "customer"]
 
 
 @dataclass(frozen=True)
@@ -72,6 +76,7 @@ class ConnectAccount:
     pending_verification: list[str]
     card_status: str | None  # card_payments: active, pending, restricted, unsupported or rejected
     current_deadline: int | None = None  # unix time Stripe pauses payouts if currently_due stays
+    merchant: bool = True  # False for an account that so far only pays for its plan
 
 
 TERMS_REQUIREMENT = "identity.attestations.terms_of_service"
@@ -146,6 +151,7 @@ def account_status_from(account_id: str, data: dict[str, object]) -> ConnectAcco
         pending_verification=pending,
         card_status=card_status if isinstance(card_status, str) else None,
         current_deadline=_unix(deadline),
+        merchant=bool(_dict(data.get("configuration")).get("merchant")),
     )
 
 
@@ -273,8 +279,15 @@ class PaymentGateway(Protocol):
         business_name: str,
         email: str | None,
         url: str | None = None,
+        configurations: tuple[AccountConfiguration, ...],
         idempotency_key: str | None = None,
     ) -> str: ...
+    async def add_merchant_configuration(
+        self, account_id: str, *, business_name: str, email: str | None
+    ) -> None:
+        """Let an account that only pays us take payments too; repeating it changes nothing."""
+        ...
+
     async def create_account_link(
         self, account_id: str, *, refresh_url: str, return_url: str
     ) -> str: ...
@@ -402,6 +415,29 @@ class PaymentGateway(Protocol):
         ...
 
 
+def _merchant_configuration(
+    business_name: str, email: str | None
+) -> AccountCreateParamsConfigurationMerchant:
+    # prefill what we already have; Stripe collects the rest in embedded onboarding
+    merchant: AccountCreateParamsConfigurationMerchant = {
+        "capabilities": {
+            "card_payments": {"requested": True},
+            "link_payments": {"requested": True},
+        }
+    }
+    descriptor = payment_descriptor(business_name)
+    if descriptor is not None:
+        prefix = descriptor[:10].rstrip()
+        merchant["statement_descriptor"] = (
+            {"descriptor": descriptor, "prefix": prefix}
+            if re.search("[A-Z]", prefix)
+            else {"descriptor": descriptor}
+        )
+    if email is not None:
+        merchant["support"] = {"email": email}
+    return merchant
+
+
 def _keyed[**P, R](
     method: Callable[Concatenate["StripeGateway", P], Coroutine[object, object, R]],
 ) -> Callable[Concatenate["StripeGateway", P], CoroutineType[object, object, R]]:
@@ -434,25 +470,10 @@ class StripeGateway:
         business_name: str,
         email: str | None,
         url: str | None = None,
+        configurations: tuple[AccountConfiguration, ...],
         idempotency_key: str | None = None,
     ) -> str:
-        # Prefill what we already have; Stripe collects the rest in embedded onboarding.
-        merchant: AccountCreateParamsConfigurationMerchant = {
-            "capabilities": {
-                "card_payments": {"requested": True},
-                "link_payments": {"requested": True},
-            }
-        }
-        descriptor = payment_descriptor(business_name)
-        if descriptor is not None:
-            prefix = descriptor[:10].rstrip()
-            merchant["statement_descriptor"] = (
-                {"descriptor": descriptor, "prefix": prefix}
-                if re.search("[A-Z]", prefix)
-                else {"descriptor": descriptor}
-            )
-        if email is not None:
-            merchant["support"] = {"email": email}
+        # responsibilities and the dashboard are fixed at creation, so every account gets ours
         defaults: AccountCreateParamsDefaults = {
             "currency": SETTLEMENT_CURRENCY,
             "locales": ["en-CA"],
@@ -460,11 +481,14 @@ class StripeGateway:
         }
         if url is not None:
             defaults["profile"] = {"business_url": url}
+        configuration: AccountCreateParamsConfiguration = {}
+        if "merchant" in configurations:
+            configuration["merchant"] = _merchant_configuration(business_name, email)
         params: AccountCreateParams = {
             "display_name": business_name,
             "dashboard": "none",
             "identity": {"country": self._country.lower()},
-            "configuration": {"merchant": merchant},
+            "configuration": configuration,
             "defaults": defaults,
             "include": ["configuration.merchant", "requirements"],
         }
@@ -476,7 +500,20 @@ class StripeGateway:
         return str(account.id)
 
     @_keyed
-    async def create_account_link(
+    async def add_merchant_configuration(  # pragma: no cover
+        self, account_id: str, *, business_name: str, email: str | None
+    ) -> None:
+        merchant = cast(
+            AccountUpdateParamsConfigurationMerchant, _merchant_configuration(business_name, email)
+        )
+        params: AccountUpdateParams = {
+            "configuration": {"merchant": merchant},
+            "include": ["configuration.merchant"],
+        }
+        await self._client.v2.core.accounts.update_async(account_id, params)
+
+    @_keyed
+    async def create_account_link(  # pragma: no cover
         self, account_id: str, *, refresh_url: str, return_url: str
     ) -> str:
         link = await self._client.v2.core.account_links.create_async(

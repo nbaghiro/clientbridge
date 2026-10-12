@@ -153,13 +153,18 @@ def derive_kyc_status(status: ConnectAccount) -> str:
         return "disabled"  # closed, unsupported, or only Stripe support can lift it
     if status.charges_enabled:
         return "enabled"
-    if not status.details_submitted:
+    if not status.details_submitted or not status.merchant:
         return "not_started"
     if status.card_status == "pending":
         return "pending"
     if status.card_status == "restricted" or status.currently_due or status.past_due:
         return "restricted"
     return "pending"
+
+
+def has_merchant(business: Business) -> bool:
+    """Whether the mirrored account can take payments, not only pay for its plan."""
+    return business.stripe_requirements.get("merchant") is not False
 
 
 def kyc_status(business: Business) -> str:
@@ -183,6 +188,7 @@ def kyc_status(business: Business) -> str:
             past_due=_due("past_due"),
             pending_verification=_due("pending_verification"),
             card_status=card if isinstance(card := req.get("card_status"), str) else None,
+            merchant=has_merchant(business),
         )
     )
 
@@ -199,6 +205,7 @@ def apply_account_status(business: Business, status: ConnectAccount) -> None:
         "pending_verification": status.pending_verification,
         "disabled_reason": status.disabled_reason,
         "card_status": status.card_status,
+        "merchant": status.merchant,
         "current_deadline": status.current_deadline,
     }
 

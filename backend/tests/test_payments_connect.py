@@ -94,6 +94,45 @@ async def test_onboard_seeds_kyc_state(as_owner: httpx.AsyncClient, db: AsyncSes
     assert "external_account" in body["currently_due"]
 
 
+async def _customer_only_account(db: AsyncSession, gateway: FakePaymentGateway) -> None:
+    gateway.configurations["acct_customer"] = {"customer"}
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(stripe_account_id="acct_customer", stripe_requirements={"merchant": False})
+    )
+    await db.flush()
+
+
+async def test_onboard_adds_payments_to_an_account_that_only_pays_for_its_plan(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _customer_only_account(db, gateway)
+    assert (await as_owner.get("/v1/connect/status")).json()["kyc_status"] == "not_started"
+    res = await as_owner.post("/v1/connect/onboard")
+    assert res.status_code == 200, res.text
+    assert gateway.created_accounts == [] and gateway.merchant_added == ["acct_customer"]
+    biz = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
+    assert biz.stripe_account_id == "acct_customer"
+    assert biz.stripe_requirements["merchant"] is True
+    audits = (await db.execute(select(Audit.action).where(Audit.entity_id == BIZ))).scalars()
+    assert "connect.merchant_added" in set(audits)
+    await as_owner.post("/v1/connect/onboard")
+    assert gateway.merchant_added == ["acct_customer"]
+
+
+async def test_embedded_onboarding_reuses_an_account_that_only_pays_for_its_plan(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _customer_only_account(db, gateway)
+    payments = await as_owner.post("/v1/connect/session", json={"component": "payments"})
+    assert payments.status_code == 409 and gateway.merchant_added == []
+    res = await as_owner.post("/v1/connect/session", json={"component": "onboarding"})
+    assert res.status_code == 200, res.text
+    assert gateway.created_accounts == [] and gateway.merchant_added == ["acct_customer"]
+    assert gateway.account_sessions == [("acct_customer", "onboarding")]
+
+
 async def test_staff_cannot_onboard(as_staff: httpx.AsyncClient) -> None:
     res = await as_staff.post("/v1/connect/onboard")
     assert res.status_code == 403
@@ -188,6 +227,13 @@ def test_open_terms_mean_onboarding_was_not_submitted() -> None:
     }
     status = account_status_from("acct_x", _with(_account(), requirements={"entries": [terms]}))
     assert status.details_submitted is False and status.current_deadline is None
+    assert derive_kyc_status(status) == "not_started"
+
+
+def test_an_account_without_the_merchant_configuration_has_not_started() -> None:
+    data = _with(_account(), configuration={"customer": {"applied": True}}, requirements=None)
+    status = account_status_from("acct_x", data)
+    assert status.merchant is False and status.details_submitted is True
     assert derive_kyc_status(status) == "not_started"
 
 

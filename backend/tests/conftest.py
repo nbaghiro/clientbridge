@@ -42,6 +42,7 @@ from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.integrations.stripe import (
     STRIPE_API_VERSION,
     THIN_EVENT,
+    AccountConfiguration,
     ChargeFees,
     ConnectAccount,
     ConnectComponent,
@@ -297,6 +298,8 @@ class FakePaymentGateway:
     def __init__(self) -> None:
         self.account_sessions: list[tuple[str, ConnectComponent]] = []
         self.created_accounts: list[str] = []
+        self.configurations: dict[str, set[AccountConfiguration]] = {}
+        self.merchant_added: list[str] = []
         self.detached: list[str] = []
         self.refunds: list[tuple[str, int, bool]] = []
         self.created_prices: list[str] = []
@@ -329,12 +332,20 @@ class FakePaymentGateway:
         business_name: str,
         email: str | None,
         url: str | None = None,
+        configurations: tuple[AccountConfiguration, ...],
         idempotency_key: str | None = None,
     ) -> str:
         self._seq += 1
         acct = f"acct_fake{self._seq}"
         self.created_accounts.append(acct)
+        self.configurations[acct] = set(configurations)
         return acct
+
+    async def add_merchant_configuration(
+        self, account_id: str, *, business_name: str, email: str | None
+    ) -> None:
+        self.merchant_added.append(account_id)
+        self.configurations.setdefault(account_id, set()).add("merchant")
 
     async def create_account_link(
         self, account_id: str, *, refresh_url: str, return_url: str
@@ -364,6 +375,7 @@ class FakePaymentGateway:
                 past_due=[],
                 pending_verification=[],
                 card_status="restricted",
+                merchant="merchant" in self.configurations.get(account_id, {"merchant"}),
             )
         )
 
