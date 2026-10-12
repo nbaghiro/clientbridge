@@ -396,6 +396,12 @@ jobs:
     if: needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    env:
+      E2E_CLEARTEXT: "1"
+      # the emulator's own address for the host, so a dropped adb connection cannot cut the app off
+      API_URL: http://10.0.2.2:8701
+      POWERSYNC_URL: http://10.0.2.2:8704
+      AUTH_URL: http://10.0.2.2:8713
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -411,8 +417,6 @@ jobs:
       - name: key the native build
         id: native
         working-directory: frontend/apps/mobile
-        env:
-          E2E_CLEARTEXT: "1"
         run: |
           hash=$(node ../../node_modules/@expo/fingerprint/bin/cli.js fingerprint:generate --platform android \
             | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).hash))')
@@ -437,8 +441,6 @@ jobs:
       - name: build the release APK
         if: steps.rebundle.outcome != 'success'
         working-directory: frontend/apps/mobile
-        env:
-          E2E_CLEARTEXT: "1"
         run: |
           pnpm exec expo prebuild --platform android --no-install
           cd android && ./gradlew assembleRelease --build-cache -PreactNativeArchitectures=x86_64
@@ -521,9 +523,6 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
-            adb reverse tcp:8701 tcp:8701
-            adb reverse tcp:8704 tcp:8704
-            adb reverse tcp:8713 tcp:8713
             adb install app-release.apk
             cd frontend/apps/mobile && timeout 20m "$HOME/.maestro/bin/maestro" test shard --test-output-dir test-results
       - uses: actions/upload-artifact@v4

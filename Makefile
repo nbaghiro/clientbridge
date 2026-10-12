@@ -284,9 +284,10 @@ rerun-frontend:
 		done; \
 	done
 
+# one worker, so two copies of a test never race each other for the same booking or record
 rerun-e2e = files=$$($(call changed,frontend/apps/$(1)/,e2e/*.e2e.ts)); \
 	if [ -z "$$files" ]; then echo "no changed $(1) e2e tests"; else \
-		cd frontend && $(2) pnpm --filter $(1) e2e $$files --repeat-each $(FLAKE_E2E_RUNS); fi
+		cd frontend && $(2) pnpm --filter $(1) e2e $$files --repeat-each $(FLAKE_E2E_RUNS) --workers 1; fi
 
 rerun-web:
 	@$(call rerun-e2e,web)
