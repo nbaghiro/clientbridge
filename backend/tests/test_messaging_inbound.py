@@ -1,28 +1,36 @@
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
+from clientbridge.core.ids import new_id
 from clientbridge.integrations.twilio import twilio_signature
 from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.platform import Device, Webhook
 from clientbridge.services.consents import texts_stopped
 from clientbridge.services.messaging import unread_count
-from tests.conftest import Factory, FakePushSender
-from tests.helpers import TWILIO_TOKEN, client_id, ok, text_in, texted
+from tests.conftest import BIZ, Factory, FakePushSender
+from tests.helpers import TWILIO_TOKEN, ok, text_in, texted
 
-BIZ = "bz_birchbark"
 PHONE = "+15145551111"
 
 
 async def _client_with_phone(db: AsyncSession, phone: str = PHONE) -> str:
-    cid = await client_id(db)
-    await db.execute(update(Client).where(Client.id == cid).values(phone=phone))
+    # A fresh client: a seeded one may already have been texted, which changes the routing.
+    client = Client(
+        id=new_id("client"),
+        business_id=BIZ,
+        name="Inbound Client",
+        phone=phone,
+        tags=[],
+        custom_fields={},
+    )
+    db.add(client)
     await db.flush()
-    return cid
+    return client.id
 
 
 async def _inbound(db: AsyncSession, sid: str) -> Message | None:
