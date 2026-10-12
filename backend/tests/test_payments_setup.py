@@ -12,6 +12,7 @@ from scripts.stripe_setup import (
     Linker,
     Stripe,
     card_token_for,
+    listen_args,
     main,
     plan_account,
     plan_destination,
@@ -262,6 +263,18 @@ def test_v2_lists_follow_the_next_page() -> None:
     assert json.loads(calls[1][calls[1].index("-d") + 1])["page"] == "p2"
 
 
+def test_account_read_includes_the_fixed_settings_it_checks() -> None:
+    calls: list[list[str]] = []
+
+    def runner(args: Sequence[str]) -> str:
+        calls.append(list(args))
+        return json.dumps({"id": "acct_1"})
+
+    Stripe(runner, None).account("acct_1")
+    include = json.loads(calls[0][calls[0].index("-d") + 1])["include"]
+    assert {"defaults", "configuration.merchant", "requirements"} <= set(include)
+
+
 ADDRESS = PostalAddress("1207 Government Street", "Victoria", "BC", "V8W 1Y9")
 
 
@@ -370,3 +383,38 @@ def test_card_tokens_follow_the_saved_brand() -> None:
     assert card_token_for("Mastercard") == "pm_card_mastercard"
     assert card_token_for("Amex") == "pm_card_amex"
     assert card_token_for(None) == "pm_card_visa"
+
+
+async def test_linking_a_restricted_account_waits_to_attach_cards(db: AsyncSession) -> None:
+    restricted = {"status": "restricted", "status_details": []}
+    account = _v2_account(
+        configuration={
+            "merchant": {
+                "capabilities": {
+                    "card_payments": restricted,
+                    "stripe_balance": {"payouts": restricted},
+                }
+            }
+        }
+    )
+    before = {m.id: m.provider_ref for m in await _cards(db)}
+    cli = FakeCli()
+    linker = Linker(Stripe(cli, None), db, apply=True)
+    await linker.business(BIRCHBARK, account)
+    business = await db.get(Business, "bz_birchbark")
+    assert business is not None and business.stripe_account_id == "acct_b"
+    assert not [
+        c for c in cli.calls if c[:2] == ["post", "/v1/payment_methods/pm_card_visa/attach"]
+    ]
+    assert {m.id: m.provider_ref for m in await _cards(db)} == before
+    assert any(s.target == "saved cards for bz_birchbark" for s in linker.steps)
+
+
+def test_snapshot_and_thin_events_listen_separately_to_one_route() -> None:
+    snapshot, thin = listen_args("http://127.0.0.1:8701")
+    route = "127.0.0.1:8701/webhooks/stripe"
+    assert snapshot[snapshot.index("--forward-connect-to") + 1] == route
+    assert thin[thin.index("--forward-to") + 1] == route
+    assert "--forward-connect-to" not in thin
+    assert set(snapshot[snapshot.index("--events") + 1].split(",")) == set(WEBHOOK_EVENTS)
+    assert set(thin[thin.index("--events") + 1].split(",")) == set(ACCOUNT_EVENTS)

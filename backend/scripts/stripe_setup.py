@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import subprocess
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal, cast
@@ -61,7 +62,7 @@ WEBHOOK_EVENTS = (
     "setup_intent.succeeded",
 )
 CAPABILITIES = ("card_payments", "link_payments", "acss_debit_payments")
-ACCOUNT_INCLUDE = ["configuration.merchant", "requirements"]
+ACCOUNT_INCLUDE = ["configuration.merchant", "defaults", "requirements"]
 # Stripe's documented v2 test values: 1901-01-01 and SIN 000000000 verify, address_full_match passes
 TEST_INDIVIDUAL: dict[str, object] = {
     "date_of_birth": {"day": 1, "month": 1, "year": 1901},
@@ -614,18 +615,27 @@ def cli_runner(args: Sequence[str]) -> str:
     return result.stdout
 
 
-def listen_args(api_base: str) -> list[str]:
+def listen_args(api_base: str) -> list[list[str]]:
+    # The CLI forwards snapshot and thin events from separate listeners; both reach one route.
     host = urlparse(api_base).netloc or "127.0.0.1:8701"
     target = f"{host}/webhooks/stripe"
-    return [
-        "listen",
-        "--forward-to",
-        target,
-        "--forward-connect-to",
-        target,
-        "--events",
-        ",".join((*WEBHOOK_EVENTS, *ACCOUNT_EVENTS)),
-    ]
+    snapshot = ["listen", "--forward-connect-to", target, "--events", ",".join(WEBHOOK_EVENTS)]
+    snapshot[1:1] = ["--forward-to", target]
+    thin = ["listen", "--forward-to", target, "--events", ",".join(ACCOUNT_EVENTS)]
+    return [snapshot, thin]
+
+
+def run_listeners(commands: Sequence[Sequence[str]]) -> int:
+    procs = [subprocess.Popen(["stripe", *command]) for command in commands]
+    try:
+        while all(proc.poll() is None for proc in procs):
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        pass
+    for proc in procs:
+        if proc.poll() is None:
+            proc.terminate()
+    return max(proc.wait() for proc in procs)
 
 
 def redact(value: str) -> str:
@@ -696,7 +706,13 @@ class Linker:
             business.stripe_account_id = account_id
             business.stripe_terminal_location_id = location
             apply_account_status(business, status)
-        await self._cards(business, account_id)
+        if status.charges_enabled:
+            await self._cards(business, account_id)
+        else:
+            # Stripe refuses to attach cards until the account can charge, which needs onboarding.
+            self.steps.append(
+                Step("keep", f"saved cards for {business.id}", "after onboarding; rerun this then")
+            )
 
     async def _location(self, business: Business, account_id: str) -> str | None:
         try:
@@ -852,9 +868,9 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
         return 2
     listen = listen_args(settings.api_base_url)
     if args.project_name:
-        listen += ["--project-name", args.project_name]
+        listen = [[*command, "--project-name", args.project_name] for command in listen]
     if args.listen:
-        os.execvp("stripe", ["stripe", *listen])
+        return run_listeners(listen)
     mode = "apply" if args.apply else "dry run"
     print(f"{mode} against {config.get('display_name')} ({platform.get('id')}), test mode")
     for warning in platform_warnings(platform, settings.stripe_connect_country):
@@ -935,7 +951,9 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
     print("\nonboarding:")
     for item in ONBOARDING_STEPS:
         print(f"  - {item}")
-    print(f"\nlocal webhooks (make stripe-listen): stripe {' '.join(listen)}")
+    print("\nlocal webhooks (make stripe-listen runs both):")
+    for command in listen:
+        print(f"  stripe {' '.join(command)}")
     print("\nDashboard-only steps:")
     for item in DASHBOARD_STEPS:
         print(f"  - {item}")

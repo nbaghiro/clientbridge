@@ -13,7 +13,12 @@ BIZ = "bz_birchbark"
 
 
 async def _set_account(db: AsyncSession, account: str | None) -> None:
-    await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id=account))
+    # A Terminal location belongs to an account, so a linked local demo's location is cleared too.
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(stripe_account_id=account, stripe_terminal_location_id=None)
+    )
     await db.flush()
 
 
