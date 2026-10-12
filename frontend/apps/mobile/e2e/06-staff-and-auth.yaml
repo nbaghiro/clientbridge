@@ -5,6 +5,9 @@ onFlowComplete:
 ---
 - runFlow: helpers/owner.yaml
 - tapOn: "Setup"
+- scrollUntilVisible:
+      element: "Sign out"
+      direction: DOWN
 - tapOn: "Sign out"
 - extendedWaitUntil:
       visible: "Sign in"

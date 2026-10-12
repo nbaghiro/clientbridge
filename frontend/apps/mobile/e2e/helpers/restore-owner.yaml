@@ -11,6 +11,9 @@ appId: ca.clientbridge.app
           visible: "Today"
       commands:
           - tapOn: "Setup"
+          - scrollUntilVisible:
+                element: "Sign out"
+                direction: DOWN
           - tapOn: "Sign out"
           - extendedWaitUntil:
                 visible: "Sign in"
