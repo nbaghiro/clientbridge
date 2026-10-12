@@ -39,8 +39,8 @@ from clientbridge.schemas.auth import AuthEmailIn
 from clientbridge.services import ledger
 from clientbridge.services.business import reply_address
 from clientbridge.services.consents import texts_stopped
-from clientbridge.services.lines import LineParent, fetch_lines
-from clientbridge.services.tax import tax_breakdown
+from clientbridge.services.lines import LineParent, fetch_lines, issued_at
+from clientbridge.services.tax import issued_tax
 
 _log = logging.getLogger(__name__)
 _PREVIEW_CHARS = 120
@@ -959,9 +959,14 @@ class Notifier:
         if parent is None:
             return []
         lines = await fetch_lines(db, payment.business_id, *parent)
-        if not lines:
+        document = (
+            await db.get(Order, parent[1])
+            if parent[0] == "order"
+            else await db.get(Invoice, parent[1])
+        )
+        if not lines or document is None:
             return []
-        tax = await tax_breakdown(db, payment.business_id, lines)
+        tax = await issued_tax(db, payment.business_id, lines, issued_at(document))
         cur = payment.currency
         return receipt_detail_lines(
             locale,

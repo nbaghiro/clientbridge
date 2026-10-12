@@ -1,7 +1,7 @@
 {
   "id": "evt_3NG9aB2eZvKYlo2C0kLmNoP1",
   "object": "event",
-  "api_version": "2024-06-20",
+  "api_version": "2026-05-27.dahlia",
   "created": 1719750500,
   "type": "payment_intent.succeeded",
   "account": "acct_1NG8Du2eZvKYlo2C",

@@ -32,6 +32,10 @@ from clientbridge.models.catalog import Frequency
 STRIPE_API_VERSION = "2026-05-27.dahlia"
 
 
+def _missing(exc: stripe.InvalidRequestError) -> bool:
+    return exc.code == "resource_missing"
+
+
 def payment_descriptor(name: str) -> str | None:
     ascii_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
     descriptor = re.sub(r"[<>\\'\"*]", "", ascii_name).upper()
@@ -88,6 +92,16 @@ class GatewayEvent:
     data: dict[str, object]
     account: str | None = None  # the connected account a Connect event came from
     created: datetime | None = None  # when Stripe raised it: the success time of a succeeded event
+    api_version: str | None = None
+
+
+@dataclass(frozen=True)
+class PostalAddress:
+    line1: str
+    city: str
+    province: str
+    postal_code: str
+    line2: str | None = None
 
 
 @dataclass(frozen=True)
@@ -134,6 +148,14 @@ class RefundResult:
 
 
 @dataclass(frozen=True)
+class PriceTerms:
+    amount_cents: int
+    currency: str
+    interval_count: int
+    frequency: str
+
+
+@dataclass(frozen=True)
 class SubscriptionResult:
     id: str
     status: str
@@ -143,6 +165,10 @@ class SubscriptionResult:
 
 class WebhookVerificationError(Exception):
     """A webhook payload's signature could not be verified."""
+
+
+class WebhookVersionError(Exception):
+    """A webhook payload was rendered at an API version the handlers do not parse."""
 
 
 class PaymentGateway(Protocol):
@@ -196,6 +222,8 @@ class PaymentGateway(Protocol):
     ) -> str:
         """A recurring Price for a subscription item; returns the price id."""
         ...
+
+    async def get_price(self, account_id: str, price_id: str) -> PriceTerms: ...
 
     async def create_subscription(
         self,
@@ -256,9 +284,9 @@ class PaymentGateway(Protocol):
         ...
 
     async def create_terminal_location(
-        self, account_id: str, *, display_name: str, country: str, state: str | None
+        self, account_id: str, *, display_name: str, address: PostalAddress
     ) -> str:
-        """A Terminal Location (a logical address) the reader connects under; returns its id."""
+        """A Terminal Location at a Canadian street address for the reader; returns its id."""
         ...
 
     async def create_terminal_payment_intent(
@@ -535,6 +563,16 @@ class StripeGateway:
         )
         return str(price.id)
 
+    async def get_price(self, account_id: str, price_id: str) -> PriceTerms:  # pragma: no cover
+        price = await stripe.Price.retrieve_async(price_id, stripe_account=account_id)
+        recurring = price.recurring
+        return PriceTerms(
+            amount_cents=price.unit_amount or 0,
+            currency=price.currency.upper(),
+            interval_count=recurring.interval_count if recurring else 0,
+            frequency=recurring.interval if recurring else "",
+        )
+
     @_keyed
     async def create_subscription(
         self,
@@ -560,8 +598,15 @@ class StripeGateway:
         )
 
     @_keyed
-    async def cancel_subscription(self, account_id: str, *, subscription_id: str) -> None:
-        await stripe.Subscription.cancel_async(subscription_id, stripe_account=account_id)
+    async def cancel_subscription(  # pragma: no cover
+        self, account_id: str, *, subscription_id: str
+    ) -> None:
+        try:
+            await stripe.Subscription.cancel_async(subscription_id, stripe_account=account_id)
+        except stripe.InvalidRequestError as exc:
+            if _missing(exc):
+                raise Conflict("this subscription is not on the business's Stripe account") from exc
+            raise
 
     @_keyed
     async def create_payment_intent(
@@ -595,6 +640,12 @@ class StripeGateway:
             if exc.code == "authentication_required":
                 raise PaymentActionRequired("this card requires authentication") from exc
             raise CardDeclined("the card was declined") from exc
+        except stripe.InvalidRequestError as exc:
+            if _missing(exc) and exc.param in ("payment_method", "customer"):
+                raise Conflict(
+                    "the saved payment method is not on the business's Stripe account"
+                ) from exc
+            raise
         return PaymentIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
 
     @_keyed
@@ -614,13 +665,18 @@ class StripeGateway:
         idempotency_key: str,
         refund_application_fee: bool = False,
     ) -> RefundResult:
-        refund = await stripe.Refund.create_async(
-            payment_intent=payment_intent_id,
-            amount=amount_cents,
-            refund_application_fee=refund_application_fee,
-            stripe_account=account_id,
-            idempotency_key=idempotency_key,
-        )
+        try:
+            refund = await stripe.Refund.create_async(
+                payment_intent=payment_intent_id,
+                amount=amount_cents,
+                refund_application_fee=refund_application_fee,
+                stripe_account=account_id,
+                idempotency_key=idempotency_key,
+            )
+        except stripe.InvalidRequestError as exc:
+            if _missing(exc):
+                raise Conflict("this payment is not on the business's Stripe account") from exc
+            raise
         return RefundResult(id=str(refund.id), status=str(refund.status))
 
     @_keyed
@@ -676,20 +732,20 @@ class StripeGateway:
         return str(token.secret)
 
     @_keyed
-    async def create_terminal_location(
-        self, account_id: str, *, display_name: str, country: str, state: str | None
+    async def create_terminal_location(  # pragma: no cover
+        self, account_id: str, *, display_name: str, address: PostalAddress
     ) -> str:
-        address: LocationCreateParamsAddress = {
-            "line1": display_name,
-            "city": state or country,
-            "country": country,
+        fields: stripe.params.terminal.LocationCreateParamsAddress = {
+            "line1": address.line1,
+            "city": address.city,
+            "state": address.province,
+            "postal_code": address.postal_code,
+            "country": "CA",
         }
-        if state is not None:
-            address["state"] = state
+        if address.line2 is not None:
+            fields["line2"] = address.line2
         location = await stripe.terminal.Location.create_async(
-            display_name=display_name,
-            address=address,
-            stripe_account=account_id,
+            display_name=display_name, address=fields, stripe_account=account_id
         )
         return str(location.id)
 
@@ -725,12 +781,14 @@ class StripeGateway:
         obj = event["data"]["object"]
         account = event.get("account")
         created = event.get("created")
+        version = event.get("api_version")
         return GatewayEvent(
             id=str(event["id"]),
             type=str(event["type"]),
             data={str(k): v for k, v in obj.items()},
             account=str(account) if account else None,
             created=datetime.fromtimestamp(created, tz=UTC) if isinstance(created, int) else None,
+            api_version=version if isinstance(version, str) else None,
         )
 
 

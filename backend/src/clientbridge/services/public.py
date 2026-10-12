@@ -108,6 +108,7 @@ from clientbridge.services.lines import (
     fetch_lines,
     included,
     included_totals,
+    issued_at,
     price_lines,
     replace_lines,
 )
@@ -126,7 +127,7 @@ from clientbridge.services.payments import (
     resolve_tip,
 )
 from clientbridge.services.returning import ReturningService
-from clientbridge.services.tax import LineTax, rates_for_business, tax_breakdown, tax_for_lines
+from clientbridge.services.tax import LineTax, issued_tax, rates_for_business, tax_for_lines
 
 
 def _account(business: Business) -> str | None:
@@ -1165,7 +1166,7 @@ class PublicPayService:
         invoice, business = await self._resolve(token)
         client = await self.db.get(Client, invoice.client_id)
         lines = await fetch_lines(self.db, invoice.business_id, "invoice", invoice.id)
-        doc_lines, taxes = await public_doc_lines(self.db, invoice.business_id, lines)
+        doc_lines, taxes = await public_doc_lines(self.db, invoice, lines)
         contact = BrandInput.model_validate(business.brand or {})
         return PublicInvoice(
             tip_base_cents=sum(
@@ -1275,11 +1276,14 @@ async def _tip_names(db: AsyncSession, business_id: str, lines: list[Line]) -> l
 
 
 async def public_doc_lines(
-    db: AsyncSession, business_id: str, lines: list[Line]
+    db: AsyncSession, document: Invoice | Estimate | Order, lines: list[Line]
 ) -> tuple[list[tuple[PublicDocLine, LineTax]], list[PublicDocTax]]:
-    """A document's lines with their tax codes, and its tax per code over included lines."""
-    result = await tax_breakdown(db, business_id, lines)
-    rates = {r.jurisdiction: r.rate_bps for r in await rates_for_business(db, business_id)}
+    """A document's lines with the tax fixed on them, and its tax per code over included lines."""
+    at = issued_at(document)
+    result = await issued_tax(db, document.business_id, lines, at)
+    rates = {
+        r.jurisdiction: r.rate_bps for r in await rates_for_business(db, document.business_id, at)
+    }
     taxes: dict[str, PublicDocTax] = {}
     for line, line_tax in zip(lines, result.lines, strict=True):
         if not included(line):
@@ -1362,7 +1366,7 @@ class PublicEstimateService:
     async def _context(self, estimate: Estimate, business: Business) -> PublicEstimate:
         client = await self.db.get(Client, estimate.client_id)
         lines = await fetch_lines(self.db, estimate.business_id, "estimate", estimate.id)
-        doc_lines, taxes = await public_doc_lines(self.db, estimate.business_id, lines)
+        doc_lines, taxes = await public_doc_lines(self.db, estimate, lines)
         return PublicEstimate(
             number=estimate.number,
             business_name=business.name,
@@ -1423,7 +1427,7 @@ class PublicReceiptService:
         order = await resolve_by_token(self.db, Order, Order.receipt_token == token, msg)
         business = await business_or_404(self.db, order.business_id, msg)
         lines = await fetch_lines(self.db, order.business_id, "order", order.id)
-        doc_lines, taxes = await public_doc_lines(self.db, order.business_id, lines)
+        doc_lines, taxes = await public_doc_lines(self.db, order, lines)
         client = await self.db.get(Client, order.client_id) if order.client_id else None
         staff_ids = list(dict.fromkeys(ln.staff_id for ln in lines if ln.staff_id))
         names = (

@@ -30,7 +30,7 @@ import { useClients } from "./clients";
 import { ownedLiabilitySql, sessionsUsedSql } from "./ledger";
 import { checkoutMethods, useSavedCards } from "./payments";
 import { useReplicaLoad } from "./sync";
-import { useTaxSetup } from "./taxes";
+import { asTaxClass, useTaxSetup } from "./taxes";
 
 export interface PackageRow {
     id: string;
@@ -629,7 +629,7 @@ export function useEntitlementSaleForm(
 ): EntitlementSaleForm {
     const catalog = useCatalogItems();
     const clients = useClients();
-    const tax = useTaxSetup(api);
+    const tax = useTaxSetup();
     const [kind, setKindState] = useState<WalletKind>(opts.kind ?? "package");
     const [itemId, setItemId] = useState("");
     const [amount, setAmount] = useState("50");
@@ -665,7 +665,7 @@ export function useEntitlementSaleForm(
     const priced = priceDoc(
         kind === "gift_card"
             ? []
-            : [{ amountCents: subtotal, taxClass: "standard", included: true }],
+            : [{ amountCents: subtotal, taxClass: asTaxClass(item?.tax_class), included: true }],
         docRates(tax.rates, tax.registered),
     );
     const total = subtotal + priced.taxCents;

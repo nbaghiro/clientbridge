@@ -7,8 +7,8 @@ import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core import clock
-from clientbridge.integrations.stripe import ChargeFees, GatewayEvent
+from clientbridge.core.config import get_settings
+from clientbridge.integrations.stripe import ChargeFees, ConnectAccount, GatewayEvent
 from clientbridge.models.business import Business
 from clientbridge.models.ledger import Entry
 from clientbridge.models.payments import Payment, PaymentMethod
@@ -625,3 +625,80 @@ async def test_a_failed_delivery_never_overwrites_a_processed_row(db: AsyncSessi
     event = GatewayEvent(id="evt_done", type="payout.paid", data={})
     await record_failed_delivery(db, event, RuntimeError("the loser of a race"))
     assert await column(db, "webhooks", "evt_done", "status") == "processed"
+
+
+async def test_event_at_another_api_version_is_rejected(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id="acct_v"))
+    await db.flush()
+    body = json.loads(_event("evt_old", "acct_v"))
+    body["api_version"] = "2025-03-31.basil"
+    res = await api.post("/webhooks/stripe", content=json.dumps(body), headers=GOOD)
+    assert res.status_code == 400
+    assert await db.get(Webhook, "evt_old") is None
+    enabled = (
+        await db.execute(select(Business.stripe_charges_enabled).where(Business.id == BIZ))
+    ).scalar_one()
+    assert enabled is False
+
+
+async def test_configured_extra_api_version_is_accepted(
+    api: httpx.AsyncClient, db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(get_settings(), "stripe_webhook_api_versions", ["2026-09-30.endive"])
+    await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id="acct_v"))
+    await db.flush()
+    body = json.loads(_event("evt_new", "acct_v"))
+    body["api_version"] = "2026-09-30.endive"
+    res = await api.post("/webhooks/stripe", content=json.dumps(body), headers=GOOD)
+    assert res.status_code == 200
+    assert await db.get(Webhook, "evt_new") is not None
+
+
+async def test_capability_update_refreshes_the_account_state(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id="acct_c"))
+    await db.flush()
+    gateway.accounts["acct_c"] = ConnectAccount(
+        id="acct_c",
+        charges_enabled=True,
+        payouts_enabled=True,
+        details_submitted=True,
+        disabled_reason=None,
+        currently_due=["individual.verification.document"],
+        eventually_due=[],
+        past_due=[],
+        pending_verification=[],
+    )
+    body = json.dumps(
+        {
+            "id": "evt_cap",
+            "type": "capability.updated",
+            "account": "acct_c",
+            "data": {
+                "object": {"id": "acss_debit_payments", "account": "acct_c", "status": "pending"}
+            },
+        }
+    )
+    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    assert business.stripe_charges_enabled is True
+    assert business.stripe_requirements["currently_due"] == ["individual.verification.document"]
+
+
+async def test_capability_update_for_an_unknown_account_changes_nothing(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    body = json.dumps(
+        {
+            "id": "evt_cap_x",
+            "type": "capability.updated",
+            "account": "acct_unknown",
+            "data": {"object": {"id": "card_payments", "account": "acct_unknown"}},
+        }
+    )
+    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+    assert await db.get(Webhook, "evt_cap_x") is not None

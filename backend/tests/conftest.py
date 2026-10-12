@@ -40,6 +40,7 @@ from clientbridge.integrations.kratos import (
 from clientbridge.integrations.resend import Email, EmailSender, get_email_sender
 from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.integrations.stripe import (
+    STRIPE_API_VERSION,
     ChargeFees,
     ConnectAccount,
     ConnectComponent,
@@ -47,6 +48,8 @@ from clientbridge.integrations.stripe import (
     MandateState,
     PaymentGateway,
     PaymentIntentResult,
+    PostalAddress,
+    PriceTerms,
     RefundResult,
     SetupIntentResult,
     SetupIntentState,
@@ -296,6 +299,7 @@ class FakePaymentGateway:
         self.refunds: list[tuple[str, int, bool]] = []
         self.created_prices: list[str] = []
         self.created_price_amounts: list[int] = []  # unit_amount per created Price
+        self.prices: dict[str, PriceTerms] = {}
         self.created_subscriptions: list[str] = []
         self.canceled_subscriptions: list[str] = []
         self.pad_enabled = True
@@ -307,6 +311,8 @@ class FakePaymentGateway:
         self._subs: dict[str, SubscriptionResult] = {}  # honor subscription idempotency keys
         self.charged_methods: list[str] = []  # off-session payment_methods passed to a charge
         self.created_locations: list[str] = []  # Terminal locations minted
+        self.location_addresses: list[PostalAddress] = []
+        self.accounts: dict[str, ConnectAccount] = {}  # per-account get_account() results
         self.account_status: ConnectAccount | None = None  # override get_account() in a test
         self.charges: dict[str, tuple[int, int]] = {}  # intent id -> (amount, application fee)
         self.balance_cents = 0  # get_balance_cents() result
@@ -338,16 +344,20 @@ class FakePaymentGateway:
 
     async def get_account(self, account_id: str) -> ConnectAccount:
         # a freshly-created account: nothing submitted, Stripe wants the hosted KYC details
-        return self.account_status or ConnectAccount(
-            id=account_id,
-            charges_enabled=False,
-            payouts_enabled=False,
-            details_submitted=False,
-            disabled_reason=None,
-            currently_due=["business_profile.url", "external_account"],
-            eventually_due=[],
-            past_due=[],
-            pending_verification=[],
+        return (
+            self.accounts.get(account_id)
+            or self.account_status
+            or ConnectAccount(
+                id=account_id,
+                charges_enabled=False,
+                payouts_enabled=False,
+                details_submitted=False,
+                disabled_reason=None,
+                currently_due=["business_profile.url", "external_account"],
+                eventually_due=[],
+                past_due=[],
+                pending_verification=[],
+            )
         )
 
     def verify_webhook(self, payload: bytes, signature: str) -> GatewayEvent:
@@ -362,6 +372,7 @@ class FakePaymentGateway:
             data=dict(body["data"]["object"]),
             account=str(account) if account is not None else None,
             created=datetime.fromtimestamp(created, tz=UTC) if isinstance(created, int) else None,
+            api_version=str(body.get("api_version", STRIPE_API_VERSION)),
         )
 
     async def create_customer(self, account_id: str, *, name: str, email: str | None) -> str:
@@ -422,7 +433,11 @@ class FakePaymentGateway:
         pid = f"price_fake{self._seq}"
         self.created_prices.append(pid)
         self.created_price_amounts.append(amount_cents)
+        self.prices[pid] = PriceTerms(amount_cents, currency.upper(), interval_count, frequency)
         return pid
+
+    async def get_price(self, account_id: str, price_id: str) -> PriceTerms:
+        return self.prices[price_id]
 
     async def create_subscription(
         self,
@@ -507,11 +522,12 @@ class FakePaymentGateway:
         return f"pst_fake{self._seq}"
 
     async def create_terminal_location(
-        self, account_id: str, *, display_name: str, country: str, state: str | None
+        self, account_id: str, *, display_name: str, address: PostalAddress
     ) -> str:
         self._seq += 1
         loc = f"tml_fake{self._seq}"
         self.created_locations.append(loc)
+        self.location_addresses.append(address)
         return loc
 
     async def create_terminal_payment_intent(

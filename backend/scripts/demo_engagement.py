@@ -682,7 +682,7 @@ def _profile(ctx: DemoContext) -> None:
                 "offer patient grooming, coat care and supervised daycare, with time to "
                 "discuss each pet's needs."
             ),
-            "address": "1207 Government Street, Victoria, BC (fictional demo location)",
+            "address": "1207 Government Street, Victoria, BC V8W 1Y9",
             "phone": "+1 250-555-0110",
             "email": "hello@birchbark.example",
             "neighbourhood": "Downtown Victoria",

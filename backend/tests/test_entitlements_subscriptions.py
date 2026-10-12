@@ -18,7 +18,7 @@ from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import Audit, Webhook
 from clientbridge.services import ledger
 from tests.conftest import Factory, FakeEmailSender, FakePaymentGateway
-from tests.helpers import client_id, enable_payments, key
+from tests.helpers import client_id, enable_payments, invoice, key, payment_by_ref, stripe_event
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -134,6 +134,62 @@ async def test_subscription_price_is_tax_inclusive(
     assert res.status_code == 201, res.text
     # BC + tax-registered: GST 5% + PST 7% on 5000 → 600 tax → a 5600 tax-inclusive Price
     assert gateway.created_price_amounts == [5600]
+
+
+async def test_subscription_price_and_renewal_follow_the_item_tax_class(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    item = await _sub_item(db, price=5000)
+    item.tax_class = "federal_only"
+    await db.flush()
+    pm = await _saved_method(db, cid)
+    ok = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    assert ok.status_code == 201, ok.text
+    assert gateway.created_price_amounts == [5250]
+    gateway.invoice_intents["in_class"] = "pi_class_sub"
+    charge: dict[str, object] = {
+        "id": "in_class",
+        "parent": {"subscription_details": {"subscription": gateway.created_subscriptions[-1]}},
+        "amount_paid": 5250,
+        "currency": "cad",
+    }
+    await stripe_event(as_owner, "invoice.payment_succeeded", charge)
+    paid = await payment_by_ref(db, "pi_class_sub")
+    assert paid.invoice_id is not None
+    minted = await invoice(db, paid.invoice_id)
+    assert (minted.tax_total_cents, minted.total_cents, minted.balance_cents) == (250, 5250, 0)
+
+
+async def test_cached_price_is_replaced_when_the_taxed_amount_changes(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    item = await _sub_item(db, price=5000)
+    clients = [await _new_client(db, name=f"Client {n}") for n in range(4)]
+    methods = [await _saved_method(db, c, ref=f"pm_{n}") for n, c in enumerate(clients)]
+
+    async def subscribe(n: int) -> None:
+        res = await as_owner.post(
+            "/v1/subscriptions", json=_body(clients[n], item.id, methods[n].id)
+        )
+        assert res.status_code == 201, res.text
+
+    await subscribe(0)
+    first = item.stripe_price_id
+    await db.execute(update(Business).where(Business.id == BIZ).values(tax_registered=False))
+    await db.flush()
+    await subscribe(1)
+    item.tax_class = "federal_only"
+    await db.execute(update(Business).where(Business.id == BIZ).values(tax_registered=True))
+    await db.flush()
+    await subscribe(2)
+    await subscribe(3)
+    assert gateway.created_price_amounts == [5600, 5000, 5250]
+    assert item.stripe_price_id == gateway.created_prices[-1] != first
+    rows = (await db.execute(select(Subscription).where(Subscription.item_id == item.id))).scalars()
+    assert len({row.provider_ref for row in rows}) == 4
 
 
 async def test_same_idempotency_key_creates_one_subscription(

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { allocate, discountCents } from "./billing";
+import { ratesOn } from "./taxes";
 import {
     discountFrom,
     discountLabel,
@@ -77,10 +78,7 @@ describe("the pickup queue", () => {
     });
 });
 
-const RATES = [
-    { id: "BC_GST", jurisdiction: "GST", province: "BC", rate_bps: 500, name: "GST 5%" },
-    { id: "BC_PST", jurisdiction: "PST", province: "BC", rate_bps: 700, name: "PST (BC) 7%" },
-];
+const RATES = ratesOn("BC", "2026-07-01");
 
 function line(
     key: string,

@@ -34,7 +34,7 @@ class PublicOrderService:
         order = await self.resolve(token)
         business = await business_or_404(self.db, order.business_id, "order not found")
         lines = await fetch_lines(self.db, order.business_id, "order", order.id)
-        doc_lines, taxes = await public_doc_lines(self.db, order.business_id, lines)
+        doc_lines, taxes = await public_doc_lines(self.db, order, lines)
         status, _ = await ledger.order_state(self.db, order)
         pending = await has_pending_order_refund(self.db, order)
         brand = BrandInput.model_validate(business.brand or {})

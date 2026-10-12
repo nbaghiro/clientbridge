@@ -269,7 +269,7 @@ function TicketApproval({ sale }: { sale: SaleTicket }) {
 
 /** Discounts B on a phone: scope, amount and reason, a before and after, and the approver's PIN. */
 function DiscountSheetBody({ sale, onDone }: { sale: SaleTicket; onDone: () => void }) {
-    const sheet = useDiscountSheet(api, sale);
+    const sheet = useDiscountSheet(sale);
     const p = sheet.preview;
     const base =
         sheet.scope === "sale"
@@ -847,7 +847,7 @@ export function TicketSheet({
                 <Button
                     size="lg"
                     full
-                    disabled={sale.isEmpty || !sale.ratesReady || sale.overLimit}
+                    disabled={sale.isEmpty || sale.overLimit}
                     onPress={() => {
                         setStep("pay");
                     }}

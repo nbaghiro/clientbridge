@@ -278,7 +278,7 @@ activity feed; server-only), `webhooks` (inbound provider events, `event` = the 
 **not** business-scoped — routed during processing; server-only), `devices` (Expo push tokens), `commands`
 (unique per business+scope+key — backs `run_command` replay; server-only).
 
-> **Note on tax:** there is **no `tax_rates` table** (dropped). Rates are hardcoded per province in
+> **Note on tax:** there is **no `tax_rates` table** (dropped). Rates are effective-dated rows per province in
 > `services/tax.py` and derived from `businesses.province`; the tax engine (also `services/tax.py`)
 > is pure and golden-tested. See *Tax* below.
 
@@ -469,7 +469,10 @@ file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it
 - The Stripe API version is pinned (`STRIPE_API_VERSION` in `integrations/stripe.py`), and the Connect
   webhook endpoint must be created with that same version, because the handlers parse its payload shapes.
   Dashboard refunds arrive as `refund.created`/`refund.updated`, and a recurring invoice's PaymentIntent
-  is looked up through its invoice payments.
+  is looked up through its invoice payments. The webhook rejects (400) an event rendered at any other
+  version unless `STRIPE_WEBHOOK_API_VERSIONS` lists it, for a sandbox whose default version differs.
+  `capability.updated` re-reads the account's requirements, and `setup_intent.setup_failed` records a
+  failed bank (PAD) setup on its link.
 - Retry-safe `open_*` builders (card/booking-deposit/entitlement/terminal) are Stripe-idempotency-
   keyed + `provider_ref`-deduped, shared by the authed services and the public surfaces. A payment can be
   refunded in part, more than once, up to what is left; a gift card or package purchase, and a forfeited
@@ -489,9 +492,9 @@ What posts, and where:
 | Invoice issued / voided | `billing.send_invoice` / `void_invoice` | client receivable + / revenue − / tax(code) − ; void reverses |
 | Payment settled | `payments._settle_payment` (Stripe webhook), `record_invoice_payment` (by hand), recurring `invoice.payment_succeeded` | cash + / what it paid for −: invoice receivable, order revenue + tax, booking deposit, package deferred + tax, gift card liability |
 | Fees | same, from the charge's balance transaction (`gateway.get_payment_fees`) | processing fee + / platform fee + / Stripe − ; platform Stripe + / fee revenue − |
-| Refund (full or partial) | `refund_payment`, `charge.refunded` (one refund row per Stripe refund) | cash − / the original credit legs unwound pro rata (a credit note; fees stay with Stripe and the platform) |
-| Dispute opened / won | `charge.dispute.created` / `.closed` | Stripe − / payer receivable + (+ dispute fee); won reverses |
-| Stripe payout paid / failed | `payout.paid` / `payout.failed` | bank + / Stripe − ; failed reverses |
+| Refund (full or partial) | `refund_payment`, `refund.created` / `refund.updated` (one refund row per Stripe refund) | cash − / the original credit legs unwound pro rata (a credit note; fees stay with Stripe and the platform) |
+| Dispute opened / won | `charge.dispute.created` or `.funds_withdrawn` (an escalated inquiry) / `.closed` won or `.funds_reinstated` | Stripe − / payer receivable + (+ dispute fee); won reverses |
+| Stripe payout paid / failed | `payout.paid` / `payout.failed` or `payout.canceled` | bank + / Stripe − ; failed reverses |
 | Gift card redeemed | `entitlements.redeem_gift_card` | gift card liability + / revenue − |
 | Package session used | `entitlements.consume_session` | deferred + / revenue − (the last session takes the remainder) |
 | Gift card or package expired | `entitlements.run_expiry_sweeps` (`ledger.post_breakage`) | gift card liability or deferred + / revenue − (breakage on the unused balance) |
@@ -511,8 +514,17 @@ and records any drift in `audits`.
 ### Tax
 GST/HST/PST/QST computed per **province** at the **line level** (QST at exact 9.975%, half-up rounding).
 The business stores registration numbers; small-supplier mode (`tax_registered=false`) collects nothing.
-The engine (`services/tax.py`) is pure and golden-tested; rates are hardcoded per province in the same
-file (no table). Each item carries a tax class (`standard` charges every component,
+The engine (`services/tax.py`) is pure and golden-tested; rates are rows of (province, code, rate,
+valid_from) in the same file (no table), and a supply is taxed at the rows in force on its date in the
+business time zone. Devices read the same rows from the generated `app-core/src/taxRates.ts` (`make
+gen-taxes`), so offline previews price tax without the network, and `taxes.cases.json` holds backend
+results that the device engine must reproduce. Once a document is issued its tax is fixed: settlement,
+receipts and the pay and receipt pages read each line's stored `tax_amount_cents` and split it by code at
+the rates in force on the issue date (`tax.issued_tax`), never from current settings; a package's tax is
+backed out of the amount paid when its price has changed since the sale. A subscription item's Stripe
+Price carries the item's tax class and is checked against the current tax-inclusive amount and interval
+each time a subscription starts; when they differ a new Price replaces the cached one for new
+subscriptions, and active subscriptions keep the Price they started on. Each item carries a tax class (`standard` charges every component,
 `federal_only` only the GST or HST, `exempt` nothing), copied onto each line when it is created, so a later
 change to the item does not alter issued documents. Which services carry PST in BC, Saskatchewan and
 Manitoba still needs an accountant's confirmation before defaults are set.

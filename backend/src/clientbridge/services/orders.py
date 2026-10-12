@@ -40,7 +40,7 @@ from clientbridge.schemas.orders import (
 from clientbridge.schemas.public import PublicPickupWindow
 from clientbridge.services import ledger
 from clientbridge.services.bookings import blocking_exception, open_windows
-from clientbridge.services.business import business_tz, businesses_at_hour
+from clientbridge.services.business import business_tz, businesses_at_hour, postal_address
 from clientbridge.services.lines import (
     apply_totals,
     discount_of,
@@ -414,8 +414,7 @@ class OrderService:
             business.stripe_terminal_location_id = await self.gateway.create_terminal_location(
                 business.stripe_account_id,
                 display_name=business.name,
-                country="CA",
-                state=business.province,
+                address=postal_address(business),
             )
             await self.db.commit()
         secret = await self.gateway.create_connection_token(business.stripe_account_id)

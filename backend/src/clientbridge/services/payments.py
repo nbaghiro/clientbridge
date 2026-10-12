@@ -22,10 +22,13 @@ from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.core.security import hash_token
 from clientbridge.core.zones import zone
 from clientbridge.integrations.stripe import (
+    STRIPE_API_VERSION,
     ChargeFees,
     ConnectComponent,
     GatewayEvent,
     PaymentGateway,
+    PriceTerms,
+    WebhookVersionError,
     account_status_from,
     period_timestamp,
 )
@@ -973,13 +976,15 @@ async def ensure_subscription_price(
     interval_count: int,
     frequency: Frequency,
 ) -> str:
-    """The item's Stripe recurring Price (tax included), created and cached on first use."""
-    if item.stripe_price_id is not None:
-        return item.stripe_price_id
-    tax = await tax_for_amount(db, item.business_id, item.price_cents)
+    """The item's Stripe recurring Price (tax included), replaced whenever its terms change."""
+    tax = await tax_for_amount(db, item.business_id, item.price_cents, tax_class=item.tax_class)
+    terms = PriceTerms(tax.total_cents, item.currency.upper(), interval_count, frequency)
+    cached = item.stripe_price_id
+    if cached is not None and await gateway.get_price(account_id, cached) == terms:
+        return cached
     price_id = await gateway.create_price(
         account_id,
-        amount_cents=tax.total_cents,
+        amount_cents=terms.amount_cents,
         currency=item.currency,
         interval_count=interval_count,
         frequency=frequency,
@@ -1353,11 +1358,24 @@ async def next_credit_note(db: AsyncSession, payment: Payment) -> str:
     return credit_note_number(await _credit_document(db, payment), int(issued) + 1)
 
 
+def accepted_api_versions() -> set[str]:
+    return {STRIPE_API_VERSION, *get_settings().stripe_webhook_api_versions}
+
+
 async def process_stripe_event(
     db: AsyncSession, gateway: PaymentGateway, payload: bytes, signature: str
 ) -> WebhookOutcome | None:
     """Verify, dedupe and apply a Stripe webhook; returns the notification to send after commit."""
     event = gateway.verify_webhook(payload, signature)
+    if event.api_version not in accepted_api_versions():
+        _log.warning(
+            "rejected Stripe event %s (%s) rendered at API version %s; handlers parse %s",
+            event.id,
+            event.type,
+            event.api_version,
+            STRIPE_API_VERSION,
+        )
+        raise WebhookVersionError(str(event.api_version))
     record = await db.get(Webhook, event.id)
     if record is not None and record.status != "failed":
         return None
@@ -1606,6 +1624,20 @@ def _returned_fee(data: dict[str, object]) -> int:
     )
 
 
+async def _refresh_account(
+    db: AsyncSession, gateway: PaymentGateway, account_id: str | None
+) -> None:
+    """A capability changed (such as pre-authorized debit); re-read the account's requirements."""
+    if account_id is None:
+        return
+    business = (
+        await db.execute(select(Business).where(Business.stripe_account_id == account_id))
+    ).scalar_one_or_none()
+    if business is not None:
+        apply_account_status(business, await gateway.get_account(account_id))
+        await db.flush()
+
+
 async def _disputed_payment(db: AsyncSession, data: dict[str, object]) -> Payment | None:
     intent = data.get("payment_intent")
     if not isinstance(intent, str):
@@ -1647,8 +1679,10 @@ async def _dispatch(
         await _record_payout(db, event.account, event.data)
     elif event.type in ("payout.failed", "payout.canceled"):
         await _fail_payout(db, event.account, event.data)
-    elif event.type == "setup_intent.succeeded":
+    elif event.type in ("setup_intent.succeeded", "setup_intent.setup_failed"):
         await _reconcile_pad_setup(db, gateway, event.account, str(event.data.get("id")))
+    elif event.type == "capability.updated":
+        await _refresh_account(db, gateway, event.account)
     elif event.type == "mandate.updated":
         await _reconcile_pad_mandate(db, gateway, event.account, str(event.data.get("id")))
     elif event.type == "payment_method.attached":
@@ -2343,6 +2377,7 @@ async def _recurring_invoice(db: AsyncSession, sub: Subscription, currency: str)
         quantity=1,
         unit_amount_cents=item.price_cents,
         amount_cents=item.price_cents,
+        tax_class=item.tax_class,
         position=0,
     )
     db.add(line)

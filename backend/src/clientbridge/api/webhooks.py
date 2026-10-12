@@ -19,7 +19,7 @@ from clientbridge.core.deps import (
     TwilioAuthTokenDep,
 )
 from clientbridge.integrations.resend import valid_resend_signature
-from clientbridge.integrations.stripe import WebhookVerificationError
+from clientbridge.integrations.stripe import WebhookVerificationError, WebhookVersionError
 from clientbridge.integrations.twilio import valid_twilio_signature
 from clientbridge.schemas.auth import AuthEmailIn
 from clientbridge.services.messaging import (
@@ -46,7 +46,7 @@ async def stripe_webhook(
     payload = await request.body()
     try:
         outcome = await process_stripe_event(db, gateway, payload, stripe_signature)
-    except WebhookVerificationError:
+    except (WebhookVerificationError, WebhookVersionError):
         return Response(status_code=400)
     if outcome is not None:  # post-commit so a notify failure can't roll back the settlement
         await _notify(Notifier(email, sms, push), db, outcome)

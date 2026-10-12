@@ -1547,7 +1547,7 @@ describe("app-core SQL against the replica schema", () => {
             { id: "stk_2", item_name: "Soap", order_source: "online", by_name: "Owner" },
             { id: "stk_1", item_name: "Soap", order_source: null, by_name: "Groomer" },
         ]);
-        expect(run("TAX_REGISTERED_SQL")).toEqual([{ tax_registered: 1 }]);
+        expect(run("TAX_SETUP_SQL")).toEqual([{ province: null, tax_registered: 1 }]);
     });
 
     it("reads a client's record: pets, visits, notes, methods, plans and history", () => {

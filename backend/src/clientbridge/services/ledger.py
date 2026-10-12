@@ -21,7 +21,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking
 from clientbridge.services.lines import allocate, fetch_lines
-from clientbridge.services.tax import TaxResult, tax_for_amount, tax_for_lines
+from clientbridge.services.tax import TaxResult, issued_tax, tax_for_amount, tax_within
 
 type AccountKey = tuple[str, str, str, str]
 type _Id = InstrumentedAttribute[str] | str
@@ -534,13 +534,7 @@ async def _settlement(db: AsyncSession, payment: Payment) -> tuple[tuple[str, st
         await db.execute(scoped(Package, biz).where(Package.payment_id == payment.id))
     ).scalar_one_or_none()
     if package is not None:
-        item = await db.get(Item, package.item_id)
-        tax = await tax_for_amount(
-            db,
-            biz,
-            item.price_cents if item is not None else amount,
-            tax_class=item.tax_class if item is not None else "standard",
-        )
+        tax = await _package_tax(db, payment, await db.get(Item, package.item_id))
         return ("package", package.id), [
             Leg("package", package.id, "deferred", -(amount - tax.tax_total_cents)),
             *_tax_legs(biz, tax),
@@ -551,6 +545,17 @@ async def _settlement(db: AsyncSession, payment: Payment) -> tuple[tuple[str, st
     if card is not None:
         return ("gift_card", card.id), [Leg("gift_card", card.id, "gift_card", -amount)]
     return ("payment", payment.id), [Leg("business", biz, "revenue", -amount)]
+
+
+async def _package_tax(db: AsyncSession, payment: Payment, item: Item | None) -> TaxResult:
+    """The tax charged in a package's price when it was sold, backed out of the paid total."""
+    biz, amount, sold = payment.business_id, payment.amount_cents, payment.created_at
+    tax_class = item.tax_class if item is not None else "standard"
+    if item is not None:
+        priced = await tax_for_amount(db, biz, item.price_cents, tax_class=tax_class, at=sold)
+        if priced.total_cents == amount:
+            return priced
+    return await tax_within(db, biz, amount, tax_class=tax_class, at=sold)
 
 
 def _tip_contra(payment: Payment) -> list[Leg]:
@@ -565,8 +570,9 @@ async def _order_sale(db: AsyncSession, payment: Payment) -> list[Leg]:
     biz = payment.business_id
     assert payment.order_id is not None
     lines = await fetch_lines(db, biz, "order", payment.order_id)
-    tax = await tax_for_lines(db, biz, lines)
     order = await db.get(Order, payment.order_id)
+    sold = order.created_at if order is not None else payment.created_at
+    tax = await issued_tax(db, biz, lines, sold)
     paid = payment.amount_cents - payment.tip_cents
     want = (order.total_cents if order is not None else paid) - paid
     applied: list[Leg] = []

@@ -23,7 +23,7 @@ import { utcSql } from "../datetime";
 import { useFileUpload } from "./files";
 import { invoiceStatusSql, orderStatusSql } from "./ledger";
 import { useReplicaLoad } from "./sync";
-import { type TaxRate, useTaxSetup } from "./taxes";
+import { asTaxClass, type DocRate, isFederal, lineTax, useTaxSetup } from "./taxes";
 import { taxName, taxList, taxRateLabel } from "./printing";
 
 const s = strings.catalog;
@@ -685,20 +685,10 @@ function useItemForm(
     };
 }
 
-const FEDERAL = ["GST", "HST"];
-
-function ratesFor(taxClass: string, rates: readonly TaxRate[]): TaxRate[] {
-    if (taxClass === "exempt") return [];
-    return taxClass === "federal_only"
-        ? rates.filter((r) => FEDERAL.includes(r.jurisdiction))
-        : [...rates];
-}
-
 /** The three tax classes, named after the taxes this business actually charges. */
-export function taxOptions(rates: readonly TaxRate[] | null): { key: string; label: string }[] {
-    const all = rates ?? [];
-    const federal = ratesFor("federal_only", all).map((r) => r.jurisdiction);
-    const every = all.map((r) => r.jurisdiction);
+export function taxOptions(rates: readonly DocRate[]): { key: string; label: string }[] {
+    const federal = rates.filter((r) => isFederal(r.code)).map((r) => r.code);
+    const every = rates.map((r) => r.code);
     return [
         {
             key: "federal_only",
@@ -710,19 +700,16 @@ export function taxOptions(rates: readonly TaxRate[] | null): { key: string; lab
     ];
 }
 
-function taxFacts(
-    v: ItemFormValues,
-    rates: readonly TaxRate[] | null,
-    registered: boolean,
-): string {
+function taxFacts(v: ItemFormValues, rates: readonly DocRate[], registered: boolean): string {
     if (!registered) return s.taxNotRegistered;
     const price = parseCents(v.price, BUSINESS_CURRENCY) ?? 0;
-    const applied = ratesFor(v.taxClass, rates ?? []);
+    const byCode = lineTax(price, asTaxClass(v.taxClass), rates);
+    const applied = rates.filter((r) => r.code in byCode);
     if (applied.length === 0)
         return s.taxPreview(s.taxExempt, formatMoney(price, BUSINESS_CURRENCY));
-    const tax = applied.reduce((sum, r) => sum + Math.round((price * r.rate_bps) / 10000), 0);
+    const tax = Object.values(byCode).reduce((sum, c) => sum + c, 0);
     return s.taxPreview(
-        taxList(applied.map((r) => taxRateLabel(r.jurisdiction, r.rate_bps))),
+        taxList(applied.map((r) => taxRateLabel(r.code, r.ppm / 100))),
         formatMoney(price + tax, BUSINESS_CURRENCY),
     );
 }
@@ -792,8 +779,8 @@ interface Taxed {
     taxOptions: { key: string; label: string }[];
 }
 
-function useTaxed(api: ApiLike, form: ItemForm): Taxed {
-    const setup = useTaxSetup(api);
+function useTaxed(form: ItemForm): Taxed {
+    const setup = useTaxSetup();
     return {
         form,
         tax: taxFacts(form.values, setup.rates, setup.registered),
@@ -816,7 +803,7 @@ export function useServiceEditor(
 ): ServiceEditor {
     const form = useItemForm(api, item, kind, onDone);
     return {
-        ...useTaxed(api, form),
+        ...useTaxed(form),
         timing: itemTiming(form.values),
         deposit: depositSummary(form.values),
         isClass: form.values.kind === "class",
@@ -851,7 +838,7 @@ export function useProductEditor(
     const files = useFileUpload(api, setFileId);
     const sold = useUnitsSold();
     return {
-        ...useTaxed(api, form),
+        ...useTaxed(form),
         parentOptions: [
             { key: "", label: s.standaloneProduct },
             ...products
@@ -953,7 +940,7 @@ export function usePlanEditor(
     const services = items.filter((i) => isActive(i) && BOOKABLE_KINDS.includes(i.kind));
     const covers = services.find((i) => i.id === v.coversItemId) ?? null;
     return {
-        ...useTaxed(api, form),
+        ...useTaxed(form),
         coverOptions: services.map((i) => ({
             key: i.id,
             label: formatParts([i.name, formatMoney(i.price_cents, BUSINESS_CURRENCY)]),

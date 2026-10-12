@@ -36,8 +36,6 @@ import {
 } from "@clientbridge/ui";
 import { type ReactNode, useState } from "react";
 
-import { api } from "../lib/api";
-
 const d = strings.pos.desk;
 
 function Heading({ children }: { children: ReactNode }) {
@@ -391,7 +389,7 @@ function PreviewRow({
 
 /** Discounts B: scope, amount and reason with a before and after, and approval past the staff limit. */
 function DiscountSheet({ sale, onClose }: { sale: SaleTicket; onClose: () => void }) {
-    const sheet = useDiscountSheet(api, sale);
+    const sheet = useDiscountSheet(sale);
     const p = sheet.preview;
     const base =
         sheet.scope === "sale"
@@ -647,12 +645,7 @@ export function TicketPanel({ sale, onCharge }: { sale: SaleTicket; onCharge: ()
                 {sale.error !== null && sale.phase === "cart" ? (
                     <Notice tone="danger">{sale.error}</Notice>
                 ) : null}
-                <Button
-                    size="lg"
-                    full
-                    onPress={onCharge}
-                    disabled={sale.isEmpty || !sale.ratesReady || sale.overLimit}
-                >
+                <Button size="lg" full onPress={onCharge} disabled={sale.isEmpty || sale.overLimit}>
                     {sale.isEmpty
                         ? d.review
                         : d.charge(formatMoney(sale.totals.dueCents, BUSINESS_CURRENCY))}

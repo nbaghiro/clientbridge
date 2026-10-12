@@ -186,6 +186,9 @@
     "api.broadcastContactMissing": {
         "message": "Add a business email, phone number or website in Business settings before sending a broadcast."
     },
+    "api.businessAddressIncomplete": {
+        "message": "Add the business street address, city, province and postal code in Business settings before taking in-person card payments."
+    },
     "common.amountWithCurrency": {
         "message": "{amount} {currency}",
         "args": ["amount", "currency"],
@@ -8437,10 +8440,6 @@
     },
     "taxes.names.QST": {
         "message": "QST"
-    },
-    "taxes.names.RST": {
-        "message": "RST",
-        "description": "Manitoba's Retail Sales Tax."
     },
     "taxes.rate": {
         "message": "{name} {rate}",

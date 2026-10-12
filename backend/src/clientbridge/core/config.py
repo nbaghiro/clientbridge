@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     # Stripe Connect; an empty secret key answers every Stripe call with payments_not_configured.
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
+    # payload versions accepted besides STRIPE_API_VERSION, for a sandbox whose default differs
+    stripe_webhook_api_versions: list[str] = Field(default_factory=list)
     stripe_connect_country: str = "CA"
     api_base_url: str = "http://127.0.0.1:8701"  # the public API origin, which Twilio signs
     web_base_url: str = "http://localhost:8700"

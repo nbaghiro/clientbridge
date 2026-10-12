@@ -14,14 +14,12 @@ import {
     priceDoc,
 } from "./billing";
 import { type SavedCardRow, canBeDefault, checkoutMethods } from "./payments";
+import { ratesOn } from "./taxes";
 import { zonedDate } from "../datetime";
 
 const ZONE = "America/Vancouver";
 
-const BC = [
-    { code: "GST", rateBps: 500 },
-    { code: "PST", rateBps: 700 },
-];
+const BC = ratesOn("BC", "2026-07-01");
 
 describe("priceDoc", () => {
     it("taxes each line by its class and totals per code, half up", () => {
@@ -55,22 +53,13 @@ describe("priceDoc", () => {
     });
 
     it("prices QST at its exact rate and collects nothing for a small supplier", () => {
-        const qc = docRates(
-            [
-                { id: "QC_GST", jurisdiction: "GST", province: "QC", rate_bps: 500 },
-                { id: "QC_QST", jurisdiction: "QST", province: "QC", rate_bps: 998 },
-            ],
-            true,
-        );
+        const qc = docRates(ratesOn("QC", "2026-07-01"), true);
         const priced = priceDoc([{ amountCents: 10000, taxClass: "standard", included: true }], qc);
         expect(priced.taxes.map((t) => [t.label, t.cents])).toEqual([
             ["GST 5%", 500],
             ["QST 9.975%", 998],
         ]);
-        expect(docRates(null, true)).toEqual([]);
-        expect(
-            docRates([{ id: "x", jurisdiction: "GST", province: "AB", rate_bps: 500 }], false),
-        ).toEqual([]);
+        expect(docRates(ratesOn("AB", "2026-07-01"), false)).toEqual([]);
     });
 });
 

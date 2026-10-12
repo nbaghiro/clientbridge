@@ -8,52 +8,76 @@ import { formatList, formatMoney, formatMoneyShort, BUSINESS_CURRENCY } from "..
 import { type Load, useAsyncAction, useRemote } from "../hooks";
 import { strings } from "../strings";
 import { useReplicaLoad } from "./sync";
+import { FEDERAL_TAX_CODES, TAX_RATES } from "../taxRates";
 import { taxList, taxName, taxRateLabel } from "./printing";
 
 const t = strings.taxes;
 
-export interface TaxRate {
-    id: string;
-    jurisdiction: string;
-    province: string;
-    rate_bps: number;
-}
-
 export type ProvinceCode =
     "AB" | "BC" | "MB" | "NB" | "NL" | "NS" | "NT" | "NU" | "ON" | "PE" | "QC" | "SK" | "YT";
 
-interface ProvinceTaxLine {
-    // The jurisdiction code the catalog names; Manitoba's provincial tax is the RST.
+export interface RateRow {
+    province: string;
     code: string;
-    rateBps: number;
-    level: "federal" | "provincial";
+    ppm: number;
+    from: string;
 }
 
-const HST = (bps: number): ProvinceTaxLine[] => [{ code: "HST", rateBps: bps, level: "federal" }];
-const GST: ProvinceTaxLine = { code: "GST", rateBps: 500, level: "federal" };
-
-// The same rates as services/tax.py; the server computes every real tax amount.
-const PROVINCE_TAX: Record<ProvinceCode, ProvinceTaxLine[]> = {
-    AB: [GST],
-    BC: [GST, { code: "PST", rateBps: 700, level: "provincial" }],
-    MB: [GST, { code: "RST", rateBps: 700, level: "provincial" }],
-    NB: HST(1500),
-    NL: HST(1500),
-    NS: HST(1400),
-    NT: [GST],
-    NU: [GST],
-    ON: HST(1300),
-    PE: HST(1500),
-    QC: [GST, { code: "QST", rateBps: 997, level: "provincial" }],
-    SK: [GST, { code: "PST", rateBps: 600, level: "provincial" }],
-    YT: [GST],
-};
-
-function taxLinesFor(province: string | null): ProvinceTaxLine[] {
-    return province !== null && province in PROVINCE_TAX
-        ? PROVINCE_TAX[province as ProvinceCode]
-        : [GST];
+export interface DocRate {
+    code: string;
+    ppm: number;
 }
+
+export const isFederal = (code: string): boolean => FEDERAL_TAX_CODES.includes(code);
+
+/** The taxes a province charges on a business date ("2026-07-01"), as services/tax.py picks them. */
+export function ratesOn(province: string | null, day: string): DocRate[] {
+    const current = new Map<string, RateRow>();
+    for (const row of TAX_RATES) {
+        if (row.province !== province || row.from > day) continue;
+        const seen = current.get(row.code);
+        if (seen === undefined || row.from > seen.from) current.set(row.code, row);
+    }
+    return [...current.values()]
+        .filter((r) => r.ppm > 0)
+        .map((r) => ({ code: r.code, ppm: r.ppm }));
+}
+
+export type ItemTaxClass = "standard" | "federal_only" | "exempt";
+
+export function asTaxClass(value: string | null | undefined): ItemTaxClass {
+    return value === "federal_only" || value === "exempt" ? value : "standard";
+}
+
+function halfUp(num: number, den: number): number {
+    const whole = Math.floor((2 * Math.abs(num) + den) / (2 * den));
+    return num < 0 ? 0 - whole : whole;
+}
+
+/** One line's tax per code, as services/tax.py works it: exact rates, each code half up. */
+export function lineTax(
+    amountCents: number,
+    taxClass: ItemTaxClass,
+    rates: readonly DocRate[],
+    inclusive = false,
+): Record<string, number> {
+    const applied =
+        taxClass === "exempt"
+            ? []
+            : rates.filter((r) => taxClass === "standard" || isFederal(r.code));
+    const den = 1_000_000 + (inclusive ? applied.reduce((sum, r) => sum + r.ppm, 0) : 0);
+    return Object.fromEntries(applied.map((r) => [r.code, halfUp(amountCents * r.ppm, den)]));
+}
+
+const today = (): string => new Date().toISOString().slice(0, 10);
+
+function taxLinesFor(province: string | null, day = today()): DocRate[] {
+    const rates = ratesOn(province, day);
+    // A business without a province is shown the GST alone, as Alberta charges it.
+    return rates.length > 0 ? rates : ratesOn("AB", day);
+}
+
+const rateLabel = (r: DocRate): string => taxRateLabel(r.code, r.ppm / 100);
 
 /** "GST 5% + PST 7%" for a province; federal_only keeps only the GST or HST. */
 export function taxSummary(
@@ -61,12 +85,11 @@ export function taxSummary(
     cls: "standard" | "federal_only" = "standard",
 ): string {
     const labels = taxLinesFor(province)
-        .filter((l) => cls === "standard" || l.level === "federal")
-        .map((l) => taxRateLabel(l.code, l.rateBps));
+        .filter((l) => cls === "standard" || isFederal(l.code))
+        .map(rateLabel);
     return taxList(labels);
 }
 
-export type ItemTaxClass = "standard" | "federal_only" | "exempt";
 type FilingFrequency = "monthly" | "quarterly" | "annual";
 type TaxRegistration = "registered" | "small";
 
@@ -82,9 +105,7 @@ export function taxClassLabel(cls: ItemTaxClass, province: string | null): strin
     if (cls === "exempt") return t.classes.exempt;
     const lines = taxLinesFor(province);
     const names = taxList(
-        lines
-            .filter((l) => cls === "standard" || l.level === "federal")
-            .map((l) => taxName(l.code)),
+        lines.filter((l) => cls === "standard" || isFederal(l.code)).map((l) => taxName(l.code)),
     );
     return cls === "federal_only" && lines.length > 1 ? t.only(names) : names;
 }
@@ -121,17 +142,10 @@ export function taxExample(
     collect: boolean,
     cents = EXAMPLE_SALE_CENTS,
 ): { lines: TaxExampleLine[]; totalCents: number } {
-    const all = taxLinesFor(province);
-    const applied =
-        !collect || cls === "exempt"
-            ? []
-            : cls === "federal_only"
-              ? all.filter((l) => l.level === "federal")
-              : all;
-    const lines = applied.map((l) => ({
-        label: taxRateLabel(l.code, l.rateBps),
-        cents: Math.round((cents * l.rateBps) / 10000),
-    }));
+    const byCode = collect ? lineTax(cents, cls, taxLinesFor(province)) : {};
+    const lines = taxLinesFor(province)
+        .filter((r) => r.code in byCode)
+        .map((r) => ({ label: rateLabel(r), cents: byCode[r.code] ?? 0 }));
     return { lines, totalCents: cents + lines.reduce((sum, l) => sum + l.cents, 0) };
 }
 
@@ -217,8 +231,8 @@ export function useTaxSettingsForm(
     }, [initial]);
 
     const province = row?.province ?? null;
-    const lines = taxLinesFor(province);
     const zone = useBusinessZone();
+    const lines = taxLinesFor(province, dateKey(new Date(), zone));
     const period = filingPeriod(draft.frequency, zone);
     const from = dateKey(period.from, zone);
     const collected = useRemote(
@@ -238,10 +252,10 @@ export function useTaxSettingsForm(
         province,
         provinceName: province === null ? "" : provinceName(province),
         taxLines: lines.map((l) => ({
-            label: taxRateLabel(l.code, l.rateBps),
-            level: l.level,
+            label: rateLabel(l),
+            level: isFederal(l.code) ? "federal" : "provincial",
         })),
-        hasPst: lines.some((l) => l.level === "provincial" && l.code !== "QST"),
+        hasPst: lines.some((l) => l.code === "PST"),
         registration: draft.registration,
         setRegistration: (r) => {
             edit({ registration: r });
@@ -365,28 +379,20 @@ export function taxableItemPriceLabel(item: TaxableItem): string {
         : formatMoney(item.price_cents, BUSINESS_CURRENCY);
 }
 
-function useTaxRates(api: ApiLike): TaxRate[] | null {
-    const [rates, setRates] = useState<TaxRate[] | null>(null);
-    useEffect(() => {
-        api.get<TaxRate[]>("/v1/tax-rates")
-            .then(setRates)
-            .catch(() => {
-                setRates([]);
-            });
-    }, [api]);
-    return rates;
-}
-
-export const TAX_REGISTERED_SQL = "SELECT tax_registered FROM businesses LIMIT 1";
+export const TAX_SETUP_SQL = "SELECT province, tax_registered FROM businesses LIMIT 1";
 
 interface TaxSetup {
-    rates: TaxRate[] | null;
+    rates: DocRate[];
     registered: boolean;
 }
 
-/** The rates this business charges, and whether it collects tax at all (a small supplier doesn't). */
-export function useTaxSetup(api: ApiLike): TaxSetup {
-    const rates = useTaxRates(api);
-    const row = useQuery<{ tax_registered: number | null }>(TAX_REGISTERED_SQL).data[0];
-    return { rates, registered: row?.tax_registered !== 0 };
+/** The rates this business charges today, and whether it collects tax at all (a small supplier doesn't). */
+export function useTaxSetup(): TaxSetup {
+    const row = useQuery<{ province: string | null; tax_registered: number | null }>(TAX_SETUP_SQL)
+        .data[0];
+    const day = dateKey(new Date(), useBusinessZone());
+    return {
+        rates: ratesOn(row?.province ?? null, day),
+        registered: row?.tax_registered !== 0,
+    };
 }

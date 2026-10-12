@@ -44,7 +44,7 @@ import { canManagePayments, creditNoteNumber, type SavedCardRow, savedCardLabel 
 import { discountReason, saleNumber } from "./printing";
 import { staffName } from "./staff";
 import { useReplicaLoad } from "./sync";
-import { type TaxRate, useTaxSetup } from "./taxes";
+import { asTaxClass, type DocRate, useTaxSetup } from "./taxes";
 
 interface CheckoutResult {
     order_id: string;
@@ -400,7 +400,7 @@ export function tipCentsFor(tip: TipChoice, subtotalCents: number): number {
 export function priceSale(
     lines: readonly SaleLine[],
     saleDiscount: SaleDiscount | null,
-    rates: readonly TaxRate[] | null,
+    rates: readonly DocRate[],
     registered: boolean,
     tip: TipChoice,
     depositCents = 0,
@@ -417,7 +417,7 @@ export function priceSale(
     const doc = priceDoc(
         lines.map((l, i) => ({
             amountCents: net[i] ?? 0,
-            taxClass: asSaleTaxClass(l.taxClass),
+            taxClass: asTaxClass(l.taxClass),
             included: true,
         })),
         docRates(rates, registered),
@@ -450,10 +450,6 @@ export function priceSale(
             dueCents: Math.max(0, totalCents - deposit),
         },
     };
-}
-
-function asSaleTaxClass(value: string): "standard" | "federal_only" | "exempt" {
-    return value === "federal_only" || value === "exempt" ? value : "standard";
 }
 
 /** The DocTotals rows for a sale, top to bottom; discounts and the deposit print as credits. */
@@ -516,7 +512,7 @@ interface DiscountPreview {
 export function previewDiscount(
     lines: readonly SaleLine[],
     saleDiscount: SaleDiscount | null,
-    rates: readonly TaxRate[] | null,
+    rates: readonly DocRate[],
     registered: boolean,
     change: { scope: "sale" | "lines"; lineKeys: readonly string[]; discount: SaleDiscount | null },
     limitBps: number | null,
@@ -733,7 +729,7 @@ function saleBody(t: {
             unit_amount_cents: l.unitAmountCents,
             item_id: l.itemId,
             booking_id: l.bookingId,
-            tax_class: asSaleTaxClass(l.taxClass),
+            tax_class: asTaxClass(l.taxClass),
             staff_id: l.staffId,
             discount: l.discount,
         })),
@@ -789,7 +785,6 @@ export interface SaleTicket {
     savedCardLabel: string | null;
     totals: SaleTotals;
     totalLines: DocTotalLine[];
-    ratesReady: boolean;
     isEmpty: boolean;
     itemCount: number;
     clientId: string | null;
@@ -924,7 +919,7 @@ export function useSale(
     api: ApiLike,
     opts: { role: string | null; viewerStaffId?: string | null; platform: "web" | "mobile" },
 ): SaleTicket {
-    const { rates, registered } = useTaxSetup(api);
+    const { rates, registered } = useTaxSetup();
     const staffRows = useQuery<SaleStaffRow>(SALE_STAFF_SQL).data;
     const limitBps = useDiscountLimit(opts.role);
     const [lines, setLines] = useState<SaleLine[]>([]);
@@ -1097,7 +1092,6 @@ export function useSale(
         savedCardLabel: saved === null ? null : savedCardLabel(saved),
         totals: t,
         totalLines: saleTotalLines(t, { saleDiscountReason: saleDiscount?.reason ?? null }),
-        ratesReady: rates !== null,
         isEmpty: lines.length === 0,
         itemCount: lines.reduce((n, l) => n + l.quantity, 0),
         clientId,
@@ -1232,7 +1226,7 @@ export function useSale(
             setCashGivenState(v);
         },
         changeCents: cash === null ? null : cash - t.dueCents,
-        canCharge: lines.length > 0 && !overLimit && rates !== null,
+        canCharge: lines.length > 0 && !overLimit,
         charge,
         checkout,
         terminal,
@@ -1978,14 +1972,13 @@ interface SaleDetail {
 
 /** One sale with its maths, payments, tip shares and the actions its status allows. */
 export function useSaleDetail(
-    api: ApiLike,
     id: string | null,
     role: string | null,
 ): {
     load: Load;
     detail: SaleDetail | null;
 } {
-    const { rates, registered } = useTaxSetup(api);
+    const { rates, registered } = useTaxSetup();
     const zone = useBusinessZone();
     const staffRows = useQuery<SaleStaffRow>(SALE_STAFF_SQL).data;
     const record = useQuery<SaleRecordRow>(SALE_RECORD_SQL, [id ?? ""]);
@@ -2269,8 +2262,8 @@ export interface DiscountSheet {
 }
 
 /** Scope, amount and reason with a before and after preview; over the staff limit an owner's PIN is asked. */
-export function useDiscountSheet(api: ApiLike, sale: SaleTicket): DiscountSheet {
-    const { rates, registered } = useTaxSetup(api);
+export function useDiscountSheet(sale: SaleTicket): DiscountSheet {
+    const { rates, registered } = useTaxSetup();
     const [scope, setScopeState] = useState<"sale" | "lines">("sale");
     const [keys, setKeys] = useState<string[]>([]);
     const [pin, setPinState] = useState("");

@@ -1,5 +1,6 @@
 """Shared line and tax helpers for invoices, estimates and orders."""
 
+from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Literal
 
@@ -221,6 +222,12 @@ def included_totals(lines: list[Line], result: TaxResult) -> TaxResult:
         for code, cents in lt.by_jurisdiction.items():
             by_code[code] = by_code.get(code, 0) + cents
     return TaxResult(subtotal, tax, subtotal + tax, by_code, kept)
+
+
+def issued_at(document: Invoice | Estimate | Order) -> datetime:
+    """When a document's tax was fixed: an invoice's issue, otherwise its creation."""
+    issued = document.issued_at if isinstance(document, Invoice) else None
+    return issued or document.created_at
 
 
 def apply_totals(parent: Invoice | Estimate | Order, result: TaxResult) -> None:

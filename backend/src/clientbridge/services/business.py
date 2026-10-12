@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -10,10 +11,71 @@ from clientbridge.core.errors import Conflict, Forbidden, NotFound, Unprocessabl
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.core.zones import SUPPORTED_ZONES, zone
-from clientbridge.integrations.stripe import ConnectAccount
-from clientbridge.models.business import Business, Staff, User
+from clientbridge.integrations.stripe import ConnectAccount, PostalAddress
+from clientbridge.models.business import Business, ProvinceCode, Staff, User
 from clientbridge.models.platform import File
 from clientbridge.schemas.business import BusinessSettingsUpdate, OnboardBody, public_email
+
+_POSTAL_CODE = re.compile(r"\b([A-Z]\d[A-Z])\s?(\d[A-Z]\d)\b", re.IGNORECASE)
+_PROVINCES: dict[str, ProvinceCode] = {
+    "alberta": "AB",
+    "british columbia": "BC",
+    "manitoba": "MB",
+    "new brunswick": "NB",
+    "newfoundland and labrador": "NL",
+    "nova scotia": "NS",
+    "northwest territories": "NT",
+    "nunavut": "NU",
+    "ontario": "ON",
+    "prince edward island": "PE",
+    "quebec": "QC",
+    "québec": "QC",
+    "saskatchewan": "SK",
+    "yukon": "YT",
+}
+
+
+def postal_address(business: Business) -> PostalAddress:
+    """The business's street address from its brand, or 422 naming what Terminal still needs."""
+    brand = business.brand or {}
+    raw = brand.get("address")
+    text = raw.strip() if isinstance(raw, str) else ""
+    codes = list(_POSTAL_CODE.finditer(text))
+    province = business.province
+    if not text or not codes or province is None:
+        raise Unprocessable(
+            "add the business street address, city, province and postal code in Business "
+            "settings before taking in-person card payments",
+            code="business_address_incomplete",
+        )
+    postal = codes[-1]
+    rest = (text[: postal.start()] + text[postal.end() :]).strip(" ,")
+    parts = [p.strip() for p in rest.split(",") if p.strip()]
+    if parts:
+        named = parts[-1].rsplit(" ", 1)
+        tail = named[-1].upper()
+        whole = _PROVINCES.get(parts[-1].lower())
+        if whole is not None or tail in _PROVINCES.values():
+            if (whole or tail) != province:
+                raise Unprocessable(
+                    "the business address is in a different province than the business",
+                    code="business_address_incomplete",
+                )
+            parts[-1] = "" if whole is not None or len(named) == 1 else named[0].strip()
+            parts = [p for p in parts if p]
+    if len(parts) < 2:
+        raise Unprocessable(
+            "add the business street address, city, province and postal code in Business "
+            "settings before taking in-person card payments",
+            code="business_address_incomplete",
+        )
+    return PostalAddress(
+        line1=parts[0],
+        line2=", ".join(parts[1:-1]) or None,
+        city=parts[-1],
+        province=province,
+        postal_code=f"{postal.group(1)} {postal.group(2)}".upper(),
+    )
 
 
 async def business_tz(db: AsyncSession, business_id: str) -> ZoneInfo:

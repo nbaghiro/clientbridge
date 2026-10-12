@@ -1053,6 +1053,11 @@ Not tracked in Jira yet. These are pulled in by demand once the launch stories a
 
 - **Growth and commerce:** multiple locations per business (needs a location model), loyalty and rewards,
   waitlists with auto-promote, online gift card purchase and balance check.
+- **Buy now, pay later:** Affirm, Afterpay and Klarna as Stripe payment methods on each connected
+  account, offered in the same Payment Element as cards and Link on our direct-charge PaymentIntents,
+  once a business turns them on and Stripe activates the capabilities. Confirm current Canadian
+  availability and fees in the Stripe docs first; provider fees are higher than card fees, so the
+  platform fee for these methods needs a decision.
 - **Platform and scale:** a public developer API with keys and outbound webhooks (`webhooks` is inbound
   only), a platform admin role and support console, custom permissions (`contractor` has staff permissions
   today), suspending or offboarding a business through `businesses.status`.

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { filingPeriod, taxExample, taxSummary } from "./taxes";
+import parity from "../taxes.cases.json" with { type: "json" };
+import { docRates, priceDoc } from "./billing";
+import { asTaxClass, filingPeriod, ratesOn, taxExample, taxSummary } from "./taxes";
 import { zonedDate } from "../datetime";
 
 const ZONE = "America/Vancouver";
@@ -16,6 +18,34 @@ describe("taxSummary", () => {
         expect(taxSummary("AB")).toBe("GST 5%");
         expect(taxSummary(null)).toBe("GST 5%");
         expect(taxSummary("ZZ")).toBe("GST 5%");
+    });
+});
+
+describe("the device engine against services/tax.py", () => {
+    const lines = parity.lines.map((l) => ({
+        amountCents: l.amountCents,
+        taxClass: asTaxClass(l.taxClass),
+        included: true,
+    }));
+
+    it.each(parity.cases)(
+        "$province on $on, registered $registered, inclusive $inclusive",
+        ({ province, on, registered, inclusive, expected }) => {
+            const priced = priceDoc(lines, docRates(ratesOn(province, on), registered), inclusive);
+            expect(priced.lines.map((l) => [l.baseCents, l.taxByCode])).toEqual(expected.lines);
+            expect(priced.subtotalCents).toBe(expected.subtotalCents);
+            expect(priced.taxCents).toBe(expected.taxCents);
+            expect(priced.totalCents).toBe(expected.totalCents);
+            expect(Object.fromEntries(priced.taxes.map((t) => [t.code, t.cents]))).toEqual(
+                Object.fromEntries(Object.entries(expected.byCode).filter(([, c]) => c !== 0)),
+            );
+        },
+    );
+
+    it("takes Nova Scotia's HST from 15% to 14% on 2025-04-01", () => {
+        expect(ratesOn("NS", "2025-03-31")).toEqual([{ code: "HST", ppm: 150_000 }]);
+        expect(ratesOn("NS", "2025-04-01")).toEqual([{ code: "HST", ppm: 140_000 }]);
+        expect(ratesOn("ZZ", "2026-07-01")).toEqual([]);
     });
 });
 
@@ -38,6 +68,11 @@ describe("taxExample", () => {
         });
         expect(taxExample("standard", "BC", true, 999).lines.map((l) => l.cents)).toEqual([50, 70]);
         expect(taxExample("standard", "NS", true, 1001).totalCents).toBe(1141);
+        expect(taxExample("standard", "QC", true, 100000).lines.map((l) => l.cents)).toEqual([
+            5000, 9975,
+        ]);
+        expect(taxSummary("MB")).toBe("GST 5% + PST 7%");
+        expect(taxSummary("QC")).toBe("GST 5% + QST 9.975%");
     });
 
     it("collects nothing on exempt items or for a small supplier", () => {

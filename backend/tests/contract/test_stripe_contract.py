@@ -7,6 +7,7 @@ from clientbridge.integrations.stripe import (
     ChargeFees,
     ConnectAccount,
     ConnectComponent,
+    PostalAddress,
     StripeGateway,
 )
 
@@ -70,6 +71,11 @@ async def test_create_price(contract_gateway: StripeGateway) -> None:
     assert price.startswith("price_")
 
 
+async def test_get_price(contract_gateway: StripeGateway) -> None:
+    terms = await contract_gateway.get_price(ACCT, "price_contract")
+    assert terms.amount_cents >= 0 and terms.currency
+
+
 async def test_create_payment_intent(contract_gateway: StripeGateway) -> None:
     result = await contract_gateway.create_payment_intent(
         ACCT,
@@ -97,7 +103,11 @@ async def test_create_connection_token(contract_gateway: StripeGateway) -> None:
 
 async def test_create_terminal_location(contract_gateway: StripeGateway) -> None:
     loc = await contract_gateway.create_terminal_location(
-        ACCT, display_name="Front desk", country="CA", state="ON"
+        ACCT,
+        display_name="Front desk",
+        address=PostalAddress(
+            line1="100 Queen St W", city="Toronto", province="ON", postal_code="M5H 2N2"
+        ),
     )
     assert loc.startswith("tml_")
 

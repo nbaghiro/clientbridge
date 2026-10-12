@@ -35,7 +35,7 @@ from clientbridge.schemas.reports import (
     T4ARow,
 )
 from clientbridge.services import ledger
-from clientbridge.services.tax import rates_for_province
+from clientbridge.services.tax import rates_on
 
 _CASH = ("stripe", "bank", "cash")
 _MONEY_BACK = ("payment", "refund", "dispute")
@@ -310,7 +310,7 @@ class ReportService:
         business = await self._business()
         tz = zone(business.timezone)
         lo, hi = period_bounds(start, end, tz)
-        rates = rates_for_province(business.province)
+        rates = rates_on(business.province, datetime.now(tz).date())
         provincial = next((r for r in rates if r.jurisdiction in ("PST", "QST")), None)
         tax = await self._tax_by_code(lo, hi)
         return ReportSummary(

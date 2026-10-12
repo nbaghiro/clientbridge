@@ -82,7 +82,8 @@ make format-check
 make gen-strings   # check the app and site catalogs; regenerate strings.ts, en-XA.json and embed.js
 make gen-messages  # check the backend catalog; regenerate messages.pot and en_XA.po
 make gen-zones     # regenerate app-core zones.ts and zones.cases.json from the backend's tzdata
-make codegen-check # regenerate api-client, sync schema, themes, strings, messages and zones; fail if stale
+make gen-taxes     # regenerate app-core taxRates.ts and taxes.cases.json from services/tax.py
+make codegen-check # regenerate api-client, sync schema, themes, strings, messages, zones and taxes; fail if stale
 make precommit     # format-check + lint + codegen-check + test  (the pre-commit hook; e2e runs in CI)
 make check         # lint + codegen-check + test          (the full local gate)
 ```
@@ -113,7 +114,7 @@ Runs on every push to `main` + all PRs; concurrency-cancels stale runs. The work
 | **mobile-shard** | three shards, each with `make up migrate seed` and the API started in the background, the APK from `mobile-build` and its share of the Maestro walkthroughs on an Android 14 emulator from `scripts/ci-emulator.sh`: a pinned emulator build (checked against its sha256), the system image at a pinned revision and the AVD with its quick-boot snapshot are cached together under a key named after those pins. Only pushes to `main` save that cache, so pull requests restore main's copy and download nothing from Google unless the pins changed; on a miss the script installs them, retrying the image download. The workflow step waits for the API only after booting and installing the APK. Maestro is installed at the version in `MAESTRO_VERSION` and prints it. Every shard uploads its Maestro results, debug output, logcat and the emulator and API logs (kept 3 days), prints the emulator log and logcat when it fails, and warns when a walkthrough takes over three times its usual time in `e2e/flow-seconds.json`. The APK reaches the API, PowerSync and Kratos at `10.0.2.2`, the emulator's address for the host, rather than through `adb reverse`, whose mappings vanish when the emulator's adb connection drops. The shards are listed in `e2e/shards.json`, and the `shards` job fails when a walkthrough is in none or two |
 | **mobile** | the required check: passes when the build and every shard passed |
 | **contract** | stripe-mock service · real `StripeGateway` validated against Stripe's OpenAPI mock; a missing mock fails the job in CI instead of skipping |
-| **codegen-drift** | `make codegen-check`: `make gen-api`, `gen-sync-schema`, `gen-themes`, `gen-messages`, `gen-strings` (which also fail on invalid or unused catalog messages) and `gen-zones`, then a diff check on the generated files (the api-client, sync schema, themes, `messages.pot`, `en_XA.po`, both `strings.ts` accessors and `en-XA.json` files, Connect's `embed.js`, and app-core `zones.ts` and `zones.cases.json`), so the committed generated code cannot drift from its source |
+| **codegen-drift** | `make codegen-check`: `make gen-api`, `gen-sync-schema`, `gen-themes`, `gen-messages`, `gen-strings` (which also fail on invalid or unused catalog messages), `gen-zones` and `gen-taxes`, then a diff check on the generated files (the api-client, sync schema, themes, `messages.pot`, `en_XA.po`, both `strings.ts` accessors and `en-XA.json` files, Connect's `embed.js`, app-core `zones.ts` and `zones.cases.json`, and app-core `taxRates.ts` and `taxes.cases.json`), so the committed generated code cannot drift from its source |
 
 Net effect: no unformatted/untyped/uncovered code, no broken bundle, no drift between backend models and the
 generated frontend contracts/themes.
@@ -236,6 +237,9 @@ order (Clients → Catalog/Tax → Booking → Invoices → Payments).
    unguarded REST write + a router running raw queries — exactly the class this pass exists to catch.)
 
 Read local, write via command/sync — the server is the source of truth; clients are optimistic caches.
+
+### Each release
+- Review the sales-tax rates in `services/tax.py` against the CRA and provincial pages cited in `tests/test_tax_rates.py`, and again whenever a federal or provincial budget changes a rate: add a dated row (never edit a past one), update the golden test, and run `make gen-taxes`.
 
 ---
 
@@ -378,6 +382,10 @@ Demo accounts are normal tenants in the main local `clientbridge` database, usin
 | owner@cedarcoast.example.test | Rowan, a separate business used for isolation checks |
 
 The password is `demo1234` and the approval PIN is `2468`. The scenario is anchored to the current Vancouver date: `seed_demo.build_demo(as_of)` builds the fixture graph, the seed modules enrich it, and it is validated before it is written. Assets in `backend/scripts/demo_assets/` upload to the configured bucket first. The seed creates (or finds) a Kratos identity for each demo user with that password and a verified email, so `make seed` needs Kratos running. A reset replaces only the seeded businesses and their rows (Kratos identities are kept and relinked), and refuses when a seeded user also belongs to another business; it pauses the ledger's append-only trigger inside the transaction. Historical provider references are fixture data, not usable Stripe objects, so new card payments, onboarding and message delivery need test-provider credentials as for any account; without them use cash or manual payments.
+
+`make stripe-setup` prepares a Stripe sandbox for the demo through the locally authenticated Stripe CLI (`scripts/stripe_setup.py`). It refuses to run unless `ENV=dev`, the CLI answers in test mode and the CLI account is named Clientbridge (or `--account` names it), and by default it only reads and prints its plan. `ARGS=--apply` creates or updates, found by metadata, a Custom CA connected account per demo business with `card_payments`, `transfers` and `acss_debit_payments` and Stripe's documented test identity and bank data, and waits for verification. With `--webhook-url https://<public host>/webhooks/stripe` it also registers one Connect endpoint at the pinned API version for the events `services/payments.py` handles; locally, `make stripe-listen` forwards the same events (platform and Connect) to `127.0.0.1:8701/webhooks/stripe` instead. `--write-db` prints the demo rows it would change, and with `--apply` points the demo businesses at their accounts, creates their Terminal locations from the business address, and replaces the seeded fixture cards with test cards (`pm_card_visa` and the like) attached to a Customer per client on the connected account. Run it again after `make demo-reset`, which restores the fixture ids. The seeded subscriptions and past payments keep fixture references, so refunding or cancelling them answers 409 rather than reaching Stripe. Platform prices are not needed (each subscription item creates its Price on the connected account). The script prints the env values to set, with secrets redacted unless `--show-secrets`, and the settings that only the Dashboard can change.
+
+A sandbox renders events at its own default API version, and `stripe listen` cannot pin another. The webhook rejects events rendered at any version other than `STRIPE_API_VERSION` unless `STRIPE_WEBHOOK_API_VERSIONS` lists it, so a sandbox created at a newer version needs that setting in `backend/.env` after its changelog has been checked against the handlers.
 
 Two manual Stripe tools need `STRIPE_SECRET_KEY` (test mode): `uv run python -m scripts.stripe_demo_account` connects the demo business to a verified Stripe test account and reuses it on later runs, and `uv run python -m scripts.payment_accounts` audits one connected account's profile and statement descriptor, writing missing fields only with `--apply`. Integration tests use normal dependency-injected recording adapters and per-test rollback; CI databases use the `clientbridge_test*` prefix.
 

@@ -63,6 +63,7 @@ const FAILURES: Record<string, () => string> = {
     staff_has_future_work: () => strings.api.staffHasFutureWork,
     broadcast_address_missing: () => strings.api.broadcastAddressMissing,
     broadcast_contact_missing: () => strings.api.broadcastContactMissing,
+    business_address_incomplete: () => strings.api.businessAddressIncomplete,
 };
 
 /** The catalog message for a failure the server named, else the action's own message. */
