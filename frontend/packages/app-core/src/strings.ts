@@ -3369,6 +3369,7 @@ interface Strings {
         readonly verifyTitle: string;
         readonly verifyBody: (email: string) => string;
         readonly verifyBodyAnyEmail: string;
+        readonly verifyToContinue: string;
         readonly verifyDone: string;
         readonly verify: string;
         readonly skipForNow: string;
@@ -3395,6 +3396,7 @@ interface Strings {
         readonly flowExpired: string;
         readonly unavailable: string;
         readonly googleFailed: string;
+        readonly reauthDifferentAccount: string;
         readonly errorTitle: string;
         readonly errorBody: string;
         readonly terms: string;

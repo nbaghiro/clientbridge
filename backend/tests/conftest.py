@@ -182,6 +182,8 @@ class FakeIdentityProvider:
 
     def __init__(self) -> None:
         self.sessions: dict[str, Identity] = {}
+        # What a cached (non-fresh) read still returns for a session, as Kratos's old answer.
+        self.cached: dict[str, Identity] = {}
         self.step_up: set[str] = set()
         self.deleted: set[str] = set()
         self.fresh_reads = 0
@@ -199,7 +201,7 @@ class FakeIdentityProvider:
         key = credential.session_token or credential.cookie
         if key in self.step_up:
             raise Unauthorized("second factor required", code="aal2_required")
-        identity = self.sessions.get(key)
+        identity = self.sessions.get(key) if fresh else self.cached.get(key, self.sessions.get(key))
         if identity is None:
             raise Unauthorized("session expired", code="unauthenticated")
         return identity

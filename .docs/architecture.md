@@ -362,7 +362,7 @@ a non-2xx reply makes Kratos retry.
 
 - **API edge** — `current_identity` sends the session to `/sessions/whoami` (30 s in-process cache;
   `/v1/me`, onboarding and invite accept read it fresh, so a just-verified email or a step-up counts at
-  once). It extends sessions nearing expiry, best effort, and refuses any session signed in more than
+  once; `/v1/me` also provisions from that fresh read, so a relink lands on the first retry). It extends sessions nearing expiry, best effort, and refuses any session signed in more than
   `SESSION_MAX_AGE_DAYS` (90) ago, ending it in Kratos too so the next sign-in starts fresh. No session is 401 `unauthenticated`; a missing second factor is
   401 `aal2_required` (the apps step up instead of signing out); Kratos unreachable is 503, never a
   sign-out.
@@ -379,6 +379,8 @@ a non-2xx reply makes Kratos retry.
   is 403, and the person stays signed in for any other business.
 - **Relinking** — if an identity is deleted in Kratos and the person signs up again with the same,
   verified email, the existing `users` row moves to the new identity; otherwise the email stays 409.
+  The apps treat that 409 as a held session (app-core `checkSession`): the verify screen with a
+  sign-out, never the sign-in screen, which would find the live session and loop.
 - **Invite tokens** — the emailed link carries the token once; the web app keeps it in session
   storage (never in a URL again) through sign-up, verification and Google, and the page sends
   `Referrer-Policy: no-referrer`. The preview is a rate-limited `POST`.

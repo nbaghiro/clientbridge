@@ -10015,6 +10015,10 @@
     "auth.verifyBodyAnyEmail": {
         "message": "We sent a code to your email."
     },
+    "auth.verifyToContinue": {
+        "message": "This email already has an account. Confirm it's yours to keep going, or sign out.",
+        "description": "The confirm-email screen when the API refuses the session until the address is verified"
+    },
     "auth.verifyDone": {
         "message": "Your email is confirmed."
     },
@@ -10086,6 +10090,10 @@
     },
     "auth.googleFailed": {
         "message": "Couldn't continue with Google. Try again or use your email."
+    },
+    "auth.reauthDifferentAccount": {
+        "message": "That's a different Google account. Confirm it's you with the account you're signed in with.",
+        "description": "Re-authenticating with Google returned a session for another account"
     },
     "auth.errorTitle": {
         "message": "We couldn't finish signing you in"

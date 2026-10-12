@@ -1,7 +1,7 @@
 import { StatusBar } from "expo-status-bar";
 import { type ReactNode, useCallback } from "react";
 import {
-    failedStatus,
+    checkSession,
     strings,
     BusinessZoneContext,
     useBusinessLoad,
@@ -42,7 +42,7 @@ import {
 import { InboxScreen } from "./src/screens/Inbox";
 import { NotificationsScreen } from "./src/screens/Notifications";
 import { SearchScreen } from "./src/screens/Search";
-import { LoginScreen } from "./src/screens/Login";
+import { ConfirmEmailScreen, LoginScreen } from "./src/screens/Login";
 import { OnboardingScreen } from "./src/screens/Onboarding";
 import { PaymentsScreen } from "./src/screens/Payments";
 import { GettingPaidScreen } from "./src/screens/GettingPaid";
@@ -100,18 +100,6 @@ export function App() {
     );
 }
 
-async function signedInUser(): Promise<string | null> {
-    const stored = await getSession();
-    if (stored === null) return null;
-    try {
-        return (await api.forBusiness(null).get<{ user_id: string }>("/v1/me")).user_id;
-    } catch (e) {
-        // Offline or Kratos down: the remembered user's replica still opens.
-        const status = failedStatus(e);
-        return status === null || status >= 500 ? stored.user_id : null;
-    }
-}
-
 async function endSession(): Promise<void> {
     const token = (await getSession())?.session_token;
     await clearSession();
@@ -120,14 +108,18 @@ async function endSession(): Promise<void> {
 
 const lifecycle = {
     restore: async (stale: () => boolean) => {
-        const userId = await signedInUser();
+        const stored = await getSession();
+        const session =
+            stored === null
+                ? { state: "none" as const }
+                : await checkSession(api.forBusiness(null), stored.user_id);
         // A replaced restore (development runs effects twice) must not touch the replica.
         if (stale()) return null;
-        if (userId === null) {
+        if (session.state !== "user") {
             await replica.pause();
-            return null;
+            return session.state === "unverified" ? "unverified" : null;
         }
-        await rememberUser(userId);
+        await rememberUser(session.userId);
         return connectPowerSync(api);
     },
     pause: () => replica.pause(),
@@ -144,7 +136,7 @@ const lifecycle = {
 };
 
 function Root() {
-    const { db, loading, failed, restore, discard, retry, reauthenticate } =
+    const { db, loading, failed, unverified, restore, discard, retry, reauthenticate } =
         useReplicaSession(lifecycle);
     if (loading || failed) {
         return (
@@ -170,6 +162,15 @@ function Root() {
             </View>
         );
     }
+    if (unverified)
+        return (
+            <ConfirmEmailScreen
+                onContinue={restore}
+                onSignOut={() => {
+                    discard();
+                }}
+            />
+        );
     if (!db)
         return (
             <LoginScreen

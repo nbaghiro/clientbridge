@@ -2,7 +2,9 @@ import { strings } from "@clientbridge/app-core/public";
 import { type APIRequestContext, type Page, expect, test } from "@playwright/test";
 
 import {
+    deleteIdentity,
     mailedCode,
+    mailedCodeForFlow,
     mailedVerificationLink,
     nativeSession,
     newAccount,
@@ -285,6 +287,38 @@ test("reloading while confirming the email keeps the new account signed in", asy
     await expect(
         page.getByRole("heading", { name: strings.business.onboarding.title }),
     ).toBeVisible();
+});
+
+test("an account whose identity was recreated confirms its email instead of looping", async ({
+    page,
+    request,
+}) => {
+    const account = newAccount("relink");
+    await signUp(page, request, account);
+    await openBusiness(page, `Relink Studio ${account.email.slice(7, 15)}`);
+    await deleteIdentity(request, account.email);
+    await page.goto("/signup");
+    await expect(page.getByRole("heading", { name: a.signUpTitle })).toBeVisible();
+    await startSignUp(page, account);
+    // A reload here finds a live session the API refuses (409) until the email is verified.
+    const sent = page.waitForRequest(
+        (r) => r.method() === "POST" && r.url().includes("/self-service/verification?flow="),
+    );
+    await page.reload();
+    await expect(page).toHaveURL(/\/verify$/);
+    await expect(page.getByText(a.verifyToContinue, { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: strings.navigation.signOut })).toBeVisible();
+    const flowId = new URL((await sent).url()).searchParams.get("flow") ?? "";
+    await page
+        .getByLabel(a.code, { exact: true })
+        .fill(await mailedCodeForFlow(request, account.email, flowId));
+    await page.getByRole("button", { name: a.verify, exact: true }).click();
+    await page.getByRole("button", { name: a.continue, exact: true }).click();
+    await expect(
+        page
+            .locator("aside")
+            .getByRole("link", { name: strings.navigation.businessMenu, exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
 });
 
 test("an invitee who skipped confirming the email verifies, then joins", async ({

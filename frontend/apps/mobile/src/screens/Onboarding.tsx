@@ -19,7 +19,7 @@ const a = strings.auth;
 
 /** Onboarding needs a confirmed email; this sends a code to the account's address. */
 function VerifyEmail() {
-    const v = useVerificationForm(identity, { api });
+    const v = useVerificationForm(identity, {});
     if (v.verified) return <Notice tone="success">{a.verifyDone}</Notice>;
     return (
         <View style={styles.verify}>

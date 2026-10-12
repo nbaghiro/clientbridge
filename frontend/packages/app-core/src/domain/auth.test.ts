@@ -2,9 +2,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { Flow, FlowNode, FlowStep, IdentityLike } from "../api";
+import type { ApiLike, Flow, FlowNode, FlowStep, IdentityLike } from "../api";
 import { strings } from "../strings";
 import {
+    checkSession,
     passwordSaveOutcome,
     reauthMethods,
     useAuthForm,
@@ -43,10 +44,56 @@ function fakeIdentity(steps: FlowStep[]) {
             return next ? Promise.resolve(next) : Promise.reject(new Error("no step queued"));
         }),
         session: vi.fn<IdentityLike["session"]>(() => Promise.resolve("none")),
+        whoami: vi.fn<IdentityLike["whoami"]>(() =>
+            Promise.resolve({ id: "id-1", email: "saved@test.ca" }),
+        ),
         exchange: vi.fn<IdentityLike["exchange"]>(() => Promise.resolve("exchanged-token")),
         signOut: vi.fn<IdentityLike["signOut"]>(() => Promise.resolve()),
     };
 }
+
+describe("checkSession", () => {
+    const unused = (): Promise<never> => Promise.reject(new Error("unused"));
+    const apiOf = (get: ApiLike["get"]): ApiLike => ({
+        get,
+        getText: unused,
+        post: unused,
+        patch: unused,
+        delete: unused,
+    });
+    const refusing = (status: number, code: string): ApiLike =>
+        apiOf(() => Promise.reject(Object.assign(new Error(code), { status, code })));
+
+    it("names the signed-in user", async () => {
+        const api = apiOf((() => Promise.resolve({ user_id: "us_1" })) as ApiLike["get"]);
+        expect(await checkSession(api, null)).toEqual({ state: "user", userId: "us_1" });
+    });
+
+    it("keeps the remembered user through an outage, and nobody otherwise", async () => {
+        expect(await checkSession(refusing(503, "identity_unavailable"), "us_1")).toEqual({
+            state: "user",
+            userId: "us_1",
+        });
+        expect(await checkSession(refusing(503, "identity_unavailable"), null)).toEqual({
+            state: "none",
+        });
+        expect(await checkSession(refusing(401, "unauthenticated"), "us_1")).toEqual({
+            state: "none",
+        });
+    });
+
+    it("holds a live session the API refuses until its email is verified", async () => {
+        expect(await checkSession(refusing(409, "email_in_use"), "us_1")).toEqual({
+            state: "unverified",
+        });
+    });
+
+    it("surfaces any other refusal instead of a sign-in that would loop", async () => {
+        await expect(checkSession(refusing(403, "origin_refused"), "us_1")).rejects.toMatchObject({
+            code: "origin_refused",
+        });
+    });
+});
 
 describe("passwordSaveOutcome", () => {
     it("counts only a finished flow as saved", () => {
@@ -231,6 +278,20 @@ describe("useVerificationForm", () => {
         expect(identity.submit.mock.calls[0]?.[1]).toEqual({ method: "code", code: "654321" });
     });
 
+    it("sends the code to the identity's own email when signed in without a flow", async () => {
+        const identity = fakeIdentity([
+            { kind: "flow", flow: flow([], "sent_email", "verification") },
+        ]);
+        const { result } = renderHook(() => useVerificationForm(identity, {}));
+        await waitFor(() => {
+            expect(result.current.cooldown).toBeGreaterThan(0);
+        });
+        expect(identity.submit.mock.calls[0]?.[1]).toEqual({
+            method: "code",
+            email: "saved@test.ca",
+        });
+    });
+
     it("sends one code and holds resends during the cooldown", async () => {
         const identity = fakeIdentity([
             { kind: "flow", flow: flow([], "sent_email", "verification") },
@@ -332,5 +393,35 @@ describe("useSecuritySettings", () => {
             expect(identity.submit).toHaveBeenCalledTimes(3);
         });
         expect(result.current.reauth).toBeNull();
+    });
+
+    it("discards a Google session that belongs to another account", async () => {
+        const kept = vi.fn(() => Promise.resolve());
+        const { identity, result } = render(
+            [{ kind: "reauth" }, { kind: "redirect", url: "https://accounts.google.test/auth" }],
+            flow([node("oidc", "provider", "google")], null, "login"),
+            {
+                openUrl: () => Promise.resolve("clientbridge://auth/callback?code=returned"),
+                onSessionToken: kept,
+            },
+        );
+        await askForReauth(result);
+        identity.whoami.mockImplementation((sessionToken) =>
+            Promise.resolve(
+                sessionToken === "exchanged-token"
+                    ? { id: "id-2", email: "other@test.ca" }
+                    : { id: "id-1", email: "saved@test.ca" },
+            ),
+        );
+        act(() => {
+            result.current.reauthWithGoogle();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.auth.reauthDifferentAccount);
+        });
+        expect(kept).not.toHaveBeenCalled();
+        expect(identity.signOut).toHaveBeenCalledWith("exchanged-token");
+        expect(result.current.reauth).not.toBeNull();
+        expect(identity.submit).toHaveBeenCalledTimes(2);
     });
 });

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import {
     BusinessZoneContext,
-    failedStatus,
+    checkSession,
     strings,
     useBusinessLoad,
     useBusinessSelection,
@@ -29,18 +29,6 @@ import { Payments } from "./pages/Payments";
 import { Setup } from "./pages/Setup";
 import { Today } from "./pages/Today";
 
-async function signedInUser(): Promise<string | null> {
-    if (!sessionExpected()) return null;
-    try {
-        return (await api.forBusiness(null).get<{ user_id: string }>("/v1/me")).user_id;
-    } catch (e) {
-        // Offline or Kratos down: the remembered user's replica still opens.
-        const status = failedStatus(e);
-        if (status === null || status >= 500) return getUserId();
-        return null;
-    }
-}
-
 async function endSession(): Promise<void> {
     await clearUser();
     await identity.signOut().catch(() => undefined);
@@ -48,14 +36,16 @@ async function endSession(): Promise<void> {
 
 const lifecycle = {
     restore: async (stale: () => boolean) => {
-        const userId = await signedInUser();
+        const session = sessionExpected()
+            ? await checkSession(api.forBusiness(null), getUserId())
+            : { state: "none" as const };
         // A replaced restore (development runs effects twice) must not touch the replica.
         if (stale()) return null;
-        if (userId === null) {
+        if (session.state !== "user") {
             await replica.pause();
-            return null;
+            return session.state === "unverified" ? "unverified" : null;
         }
-        await rememberUser(userId);
+        await rememberUser(session.userId);
         return connectPowerSync(api);
     },
     pause: () => replica.pause(),
@@ -69,12 +59,28 @@ const lifecycle = {
 };
 
 export function App() {
-    const { db, loading, failed, restore, discard, retry, reauthenticate } =
+    const { db, loading, failed, unverified, restore, discard, retry, reauthenticate } =
         useReplicaSession(lifecycle);
     return (
         <BrowserRouter>
             {loading ? (
                 <Splash />
+            ) : unverified ? (
+                <Routes>
+                    <Route
+                        path="/verify"
+                        element={
+                            <VerifyEmail
+                                unverified
+                                onContinue={restore}
+                                onSignOut={() => {
+                                    discard();
+                                }}
+                            />
+                        }
+                    />
+                    <Route path="*" element={<Navigate to="/verify" replace />} />
+                </Routes>
             ) : failed ? (
                 <>
                     <LoadFailed

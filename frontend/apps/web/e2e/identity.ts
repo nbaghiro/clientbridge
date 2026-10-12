@@ -4,6 +4,7 @@ import type { APIRequestContext } from "@playwright/test";
 const API = process.env.VITE_API_URL ?? "http://localhost:8701";
 const AUTH = process.env.VITE_AUTH_URL ?? "http://localhost:8713";
 const MAILPIT = process.env.MAILPIT_URL ?? "http://localhost:8715";
+const AUTH_ADMIN = process.env.AUTH_ADMIN_URL ?? "http://localhost:8714";
 
 export function newAccount(prefix: string): { email: string; password: string; name: string } {
     const id = randomUUID().slice(0, 8);
@@ -25,6 +26,17 @@ export async function mailedCode(
         const code = /\b(\d{6})\b/.exec(text)?.[1];
         return code !== previous ? code : undefined;
     });
+}
+
+/** The code mailed for one verification flow, whichever other codes reached `email`. */
+export async function mailedCodeForFlow(
+    request: APIRequestContext,
+    email: string,
+    flowId: string,
+): Promise<string> {
+    return mailed(request, email, "verification", (text) =>
+        text.includes(`flow=${flowId}`) ? /\b(\d{6})\b/.exec(text)?.[1] : undefined,
+    );
 }
 
 /** The verification link in the newest verification email to `email`. */
@@ -59,6 +71,17 @@ async function mailed(
         await new Promise((resolve) => setTimeout(resolve, 250));
     }
     throw new Error(`nothing mailed to ${email}`);
+}
+
+/** Deletes the Kratos identity behind `email`, as an operator would; its sessions die with it. */
+export async function deleteIdentity(request: APIRequestContext, email: string): Promise<void> {
+    const found = (await (
+        await request.get(`${AUTH_ADMIN}/admin/identities`, {
+            params: { credentials_identifier: email },
+        })
+    ).json()) as { id: string }[];
+    for (const identity of found)
+        await request.delete(`${AUTH_ADMIN}/admin/identities/${identity.id}`);
 }
 
 /** RFC 6238, as an authenticator app computes it from the base32 secret. */

@@ -279,6 +279,27 @@ describe("identity client", () => {
         );
         expect(await identity.session("tok")).toBe("none");
     });
+
+    it("names the identity behind a session, and nobody without one", async () => {
+        const identity = createIdentityClient({ baseUrl: "https://auth.test", mode: "native" });
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(() =>
+                Promise.resolve(
+                    Response.json({
+                        id: "s",
+                        identity: { id: "id-1", traits: { email: "pat@test.ca" } },
+                    }),
+                ),
+            ),
+        );
+        expect(await identity.whoami("tok")).toEqual({ id: "id-1", email: "pat@test.ca" });
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(() => Promise.resolve(Response.json({}, { status: 401 }))),
+        );
+        expect(await identity.whoami("tok")).toBeNull();
+    });
 });
 
 describe("refused requests", () => {

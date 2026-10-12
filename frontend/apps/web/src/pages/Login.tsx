@@ -12,7 +12,7 @@ import {
 import { type ReactNode, type SubmitEvent } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
-import { api, identity } from "../lib/api";
+import { identity } from "../lib/api";
 import { expectSession, getUserId, heldInvite, hintSession, sessionHinted } from "../lib/auth";
 import { webauthn } from "../lib/webauthn";
 import { BrandBackdrop, resolveVariant } from "../components/BrandBackdrop";
@@ -479,20 +479,27 @@ function Recover({ onSuccess }: { onSuccess: () => void }) {
     );
 }
 
-/** Kratos's verify link lands here; it also works while signed in. */
-export function VerifyEmail() {
+/** Kratos's verify link lands here; it also works while signed in, or held back by the API. */
+export function VerifyEmail({
+    unverified = false,
+    onContinue,
+    onSignOut,
+}: {
+    /** The API refuses this session until the email is verified, so sign-out is the way out. */
+    unverified?: boolean;
+    onContinue?: () => void;
+    onSignOut?: () => void;
+}) {
     const [params] = useSearchParams();
     const navigate = useNavigate();
     const flowId = params.get("flow");
-    const verification = useVerificationForm(
-        identity,
-        flowId ? { flowId } : getUserId() !== null ? { api } : {},
-    );
+    const verification = useVerificationForm(identity, flowId ? { flowId } : {});
     const home = (): void => {
         const navigated = navigate(heldInvite() !== null ? "/accept-invite" : "/", {
             replace: true,
         });
         if (navigated) navigated.catch(() => undefined);
+        onContinue?.();
     };
     return (
         <Shell>
@@ -508,7 +515,7 @@ export function VerifyEmail() {
             ) : (
                 <CodeCard
                     title={a.verifyTitle}
-                    body={a.verifyBodyAnyEmail}
+                    body={unverified ? a.verifyToContinue : a.verifyBodyAnyEmail}
                     code={verification.code}
                     setCode={verification.setCode}
                     error={verification.error}
@@ -518,6 +525,13 @@ export function VerifyEmail() {
                     submit={verification.submit}
                     resend={verification.resend}
                     submitLabel={a.verify}
+                    footer={
+                        onSignOut ? (
+                            <Button variant="link" onPress={onSignOut}>
+                                {strings.navigation.signOut}
+                            </Button>
+                        ) : undefined
+                    }
                 />
             )}
         </Shell>

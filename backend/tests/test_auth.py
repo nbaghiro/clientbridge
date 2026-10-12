@@ -101,6 +101,20 @@ async def test_a_deleted_identity_is_relinked_when_the_email_is_verified(
     assert str(owner.identity_id) == again.id
 
 
+async def test_me_relinks_from_the_fresh_identity_right_after_verification(
+    api: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
+) -> None:
+    owner = await db.get(User, OWNER_USER)
+    assert owner is not None
+    identities.deleted.add(owner.identity_id)
+    again = fresh("hannah@birchbarkpets.ca")
+    token = identities.issue(again)
+    identities.cached[token] = Identity(**{**again.__dict__, "verified_emails": frozenset()})
+    res = await api.get("/v1/me", headers={"X-Session-Token": token})
+    assert res.status_code == 200 and res.json()["user_id"] == OWNER_USER
+    assert res.json()["email_verified"] is True
+
+
 async def test_last_seen_is_throttled(
     api: httpx.AsyncClient, factory: Factory, identities: FakeIdentityProvider
 ) -> None:

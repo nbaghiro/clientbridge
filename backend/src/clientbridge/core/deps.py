@@ -91,19 +91,38 @@ async def fresh_identity(
 FreshIdentity = Annotated[Identity, Depends(fresh_identity)]
 
 
+async def _provisioned(
+    identity: Identity, identities: IdentityProvider, db: AsyncSession, expected_user: str
+) -> User:
+    user = await AuthService(db).provision(identity, identities)
+    if expected_user and expected_user != user.id:
+        raise Unauthorized("signed in as a different user", code="session_changed")
+    return user
+
+
 async def current_user(
     identity: CurrentIdentity,
     identities: IdentityDep,
     db: DbSession,
     x_expected_user: str = Header(default=""),
 ) -> User:
-    user = await AuthService(db).provision(identity, identities)
-    if x_expected_user and x_expected_user != user.id:
-        raise Unauthorized("signed in as a different user", code="session_changed")
-    return user
+    return await _provisioned(identity, identities, db, x_expected_user)
 
 
 CurrentUser = Annotated[User, Depends(current_user)]
+
+
+async def fresh_user(
+    identity: FreshIdentity,
+    identities: IdentityDep,
+    db: DbSession,
+    x_expected_user: str = Header(default=""),
+) -> User:
+    """Provisions from the fresh identity, so a just-verified email relinks on the first retry."""
+    return await _provisioned(identity, identities, db, x_expected_user)
+
+
+FreshUser = Annotated[User, Depends(fresh_user)]
 
 
 async def current_user_id(user: CurrentUser) -> str:

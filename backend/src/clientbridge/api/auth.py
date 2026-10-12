@@ -1,13 +1,13 @@
 from fastapi import APIRouter
 
-from clientbridge.core.deps import CurrentUser, FreshIdentity
+from clientbridge.core.deps import FreshIdentity, FreshUser
 from clientbridge.schemas.auth import MeOut
 
 router = APIRouter(prefix="/me", tags=["auth"])
 
 
 @router.get("", response_model=MeOut)
-async def me(user: CurrentUser, identity: FreshIdentity) -> MeOut:
+async def me(user: FreshUser, identity: FreshIdentity) -> MeOut:
     return MeOut(
         user_id=user.id,
         email=user.email,

@@ -41,6 +41,11 @@ export type FlowStep =
 
 type SessionState = "active" | "aal2" | "none";
 
+interface SessionIdentity {
+    id: string;
+    email: string;
+}
+
 interface StartOptions {
     aal?: "aal2" | undefined;
     refresh?: boolean | undefined;
@@ -53,6 +58,8 @@ export interface IdentityClient {
     resume(kind: FlowKind, id: string, sessionToken?: string): Promise<Flow>;
     submit(flow: Flow, body: Record<string, unknown>, sessionToken?: string): Promise<FlowStep>;
     session(sessionToken?: string): Promise<SessionState>;
+    /** Who the session belongs to, or null when it is not (fully) signed in. */
+    whoami(sessionToken?: string): Promise<SessionIdentity | null>;
     exchange(flow: Flow, returnToCode: string): Promise<string>;
     signOut(sessionToken?: string): Promise<void>;
 }
@@ -261,6 +268,16 @@ export function createIdentityClient(opts: IdentityOptions): IdentityClient {
             if (res.status === 403 && errorId(json) === "session_aal2_required") return "aal2";
             if (res.status === 401 || res.status === 403) return "none";
             throw new IdentityError(res.status, errorId(json) || "identity_unavailable");
+        },
+
+        async whoami(sessionToken) {
+            const res = await request("/sessions/whoami", {}, sessionToken);
+            const json = await body(res);
+            if (res.status === 401 || res.status === 403) return null;
+            if (!res.ok)
+                throw new IdentityError(res.status, errorId(json) || "identity_unavailable");
+            const identity = record(json.identity);
+            return { id: text(identity.id), email: text(record(identity.traits).email) };
         },
 
         async exchange(flow, returnToCode) {

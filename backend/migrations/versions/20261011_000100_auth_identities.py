@@ -13,6 +13,13 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    users = op.get_bind().execute(sa.text("SELECT count(*) FROM users")).scalar_one()
+    if users:
+        raise SystemExit(
+            f"users holds {users} rows with no auth identity to link to, and this migration "
+            "needs an empty users table. Recreate the local database: "
+            "docker compose down -v && make up migrate seed"
+        )
     op.drop_index("ix_tokens_user", table_name="tokens")
     op.drop_table("tokens")
     op.drop_index("ix_sessions_user", table_name="sessions")

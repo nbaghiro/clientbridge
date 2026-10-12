@@ -9404,6 +9404,9 @@
     "auth.verifyBodyAnyEmail": {
         "message": "[Ŵé šéñţ å çöðé ţö ýöûŕ éɱåîļ. one two three]"
     },
+    "auth.verifyToContinue": {
+        "message": "[Ţĥîš éɱåîļ åļŕéåðý ĥåš åñ åççöûñţ. Çöñƒîŕɱ îţ'š ýöûŕš ţö ķééþ ĝöîñĝ, öŕ šîĝñ öûţ. one two three four five]"
+    },
     "auth.verifyDone": {
         "message": "[Ýöûŕ éɱåîļ îš çöñƒîŕɱéð. one two]"
     },
@@ -9475,6 +9478,9 @@
     },
     "auth.googleFailed": {
         "message": "[Çöûļðñ'ţ çöñţîñûé ŵîţĥ Ĝööĝļé. Ţŕý åĝåîñ öŕ ûšé ýöûŕ éɱåîļ. one two three four]"
+    },
+    "auth.reauthDifferentAccount": {
+        "message": "[Ţĥåţ'š å ðîƒƒéŕéñţ Ĝööĝļé åççöûñţ. Çöñƒîŕɱ îţ'š ýöû ŵîţĥ ţĥé åççöûñţ ýöû'ŕé šîĝñéð îñ ŵîţĥ. one two three four five six]"
     },
     "auth.errorTitle": {
         "message": "[Ŵé çöûļðñ'ţ ƒîñîšĥ šîĝñîñĝ ýöû îñ one two three]"

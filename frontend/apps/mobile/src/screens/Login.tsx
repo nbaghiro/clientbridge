@@ -1,4 +1,4 @@
-import { strings, useAuthForm, useRecoveryForm } from "@clientbridge/app-core";
+import { strings, useAuthForm, useRecoveryForm, useVerificationForm } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StatusBar } from "expo-status-bar";
 import { type ReactNode, useState } from "react";
@@ -343,12 +343,7 @@ function Recovering({
     return <Recover recovery={recovery} onBack={onBack} />;
 }
 
-export function LoginScreen({ onSuccess }: { onSuccess: (sessionToken?: string) => void }) {
-    const [recovering, setRecovering] = useState(false);
-    const auth = useAuthForm(identity, onSuccess, { openUrl: openAuthSession });
-    const credentials = auth.mode === "signin" || auth.mode === "signup";
-    const signup = auth.mode === "signup";
-
+function Frame({ children }: { children: ReactNode }) {
     return (
         <SafeAreaView style={styles.screen}>
             <StatusBar style="dark" />
@@ -368,46 +363,106 @@ export function LoginScreen({ onSuccess }: { onSuccess: (sessionToken?: string) 
                             textColor={c.ink}
                             style={styles.brand}
                         />
-                        {recovering ? (
-                            <Recovering
-                                email={auth.email}
-                                onBack={() => {
-                                    setRecovering(false);
-                                }}
-                                onSuccess={onSuccess}
-                            />
-                        ) : auth.mode === "mfa" ? (
-                            <SecondFactor auth={auth} />
-                        ) : auth.mode === "verify" ? (
-                            <Verify auth={auth} />
-                        ) : (
-                            <Credentials
-                                auth={auth}
-                                onForgot={() => {
-                                    setRecovering(true);
-                                }}
-                            />
-                        )}
+                        {children}
                     </View>
-                    {credentials && !recovering ? (
-                        <View style={styles.toggleRow}>
-                            <Text style={styles.toggleText}>
-                                {signup ? a.haveAccount : a.newToApp}
-                            </Text>
-                            <Button
-                                style={{ alignSelf: "center" }}
-                                variant="link"
-                                onPress={() => {
-                                    auth.setMode(signup ? "signin" : "signup");
-                                }}
-                            >
-                                {signup ? a.signIn : a.createAnAccount}
-                            </Button>
-                        </View>
-                    ) : null}
                 </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>
+    );
+}
+
+/** The API refuses the stored session until its email is verified; sign-out is the other way out. */
+export function ConfirmEmailScreen({
+    onContinue,
+    onSignOut,
+}: {
+    onContinue: () => void;
+    onSignOut: () => void;
+}) {
+    const v = useVerificationForm(identity, {});
+    if (v.verified)
+        return (
+            <Frame>
+                <Text style={styles.title}>{a.verifyDone}</Text>
+                <View style={styles.submit}>
+                    <Button size="lg" full onPress={onContinue}>
+                        {a.continue}
+                    </Button>
+                </View>
+            </Frame>
+        );
+    return (
+        <Frame>
+            <CodeStep
+                title={a.verifyTitle}
+                body={a.verifyToContinue}
+                label={a.code}
+                code={v.code}
+                setCode={v.setCode}
+                error={v.error}
+                notice={v.notice}
+                busy={v.busy}
+                submit={v.submit}
+                submitLabel={a.verify}
+            >
+                <View style={styles.links}>
+                    <Button variant="link" onPress={v.resend} disabled={v.cooldown > 0}>
+                        {v.cooldown > 0 ? a.resendIn(v.cooldown) : a.resendCode}
+                    </Button>
+                    <Button variant="link" onPress={onSignOut}>
+                        {strings.navigation.signOut}
+                    </Button>
+                </View>
+            </CodeStep>
+        </Frame>
+    );
+}
+
+export function LoginScreen({ onSuccess }: { onSuccess: (sessionToken?: string) => void }) {
+    const [recovering, setRecovering] = useState(false);
+    const auth = useAuthForm(identity, onSuccess, { openUrl: openAuthSession });
+    const credentials = auth.mode === "signin" || auth.mode === "signup";
+    const signup = auth.mode === "signup";
+
+    return (
+        <Frame>
+            <>
+                {recovering ? (
+                    <Recovering
+                        email={auth.email}
+                        onBack={() => {
+                            setRecovering(false);
+                        }}
+                        onSuccess={onSuccess}
+                    />
+                ) : auth.mode === "mfa" ? (
+                    <SecondFactor auth={auth} />
+                ) : auth.mode === "verify" ? (
+                    <Verify auth={auth} />
+                ) : (
+                    <Credentials
+                        auth={auth}
+                        onForgot={() => {
+                            setRecovering(true);
+                        }}
+                    />
+                )}
+                {credentials && !recovering ? (
+                    <View style={styles.toggleRow}>
+                        <Text style={styles.toggleText}>{signup ? a.haveAccount : a.newToApp}</Text>
+                        <Button
+                            style={{ alignSelf: "center" }}
+                            variant="link"
+                            onPress={() => {
+                                auth.setMode(signup ? "signin" : "signup");
+                            }}
+                        >
+                            {signup ? a.signIn : a.createAnAccount}
+                        </Button>
+                    </View>
+                ) : null}
+            </>
+        </Frame>
     );
 }
 

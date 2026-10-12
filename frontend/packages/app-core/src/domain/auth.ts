@@ -7,6 +7,7 @@ import { strings } from "../strings";
 import {
     type ApiLike,
     failedCode,
+    failedStatus,
     type Flow,
     type FlowMessage,
     type FlowNode,
@@ -62,6 +63,28 @@ function useCooldown(): [number, (s: number) => void] {
         };
     }, [cooldown]);
     return [cooldown, setCooldown];
+}
+
+type SessionCheck =
+    | { state: "user"; userId: string }
+    | { state: "none" }
+    /** A live session the API refuses until its email is verified (a recreated identity). */
+    | { state: "unverified" };
+
+/** What `/v1/me` says about the session this device holds; offline, the remembered user stands. */
+export async function checkSession(api: ApiLike, remembered: string | null): Promise<SessionCheck> {
+    try {
+        const me = await api.get<{ user_id: string }>("/v1/me");
+        return { state: "user", userId: me.user_id };
+    } catch (e) {
+        const status = failedStatus(e);
+        if (status === null || status >= 500)
+            return remembered === null ? { state: "none" } : { state: "user", userId: remembered };
+        if (status === 401) return { state: "none" };
+        if (failedCode(e) === "email_in_use") return { state: "unverified" };
+        // Any other refusal: the shell offers retry and sign-out rather than a sign-in that loops.
+        throw e;
+    }
 }
 
 interface AuthFieldErrors {
@@ -551,7 +574,7 @@ interface VerificationForm {
 /** Confirms the email with the code Kratos sent (or a fresh one), e.g. from the verify link. */
 export function useVerificationForm(
     identity: IdentityLike,
-    opts: { flowId?: string; email?: string; api?: ApiLike },
+    opts: { flowId?: string; email?: string },
 ): VerificationForm {
     const a = strings.auth;
     const [flow, setFlow] = useState<Flow | null>(null);
@@ -605,9 +628,8 @@ export function useVerificationForm(
                 } else show(resumed);
                 return;
             }
-            // Signed in without a flow (onboarding, an invite): send a code to the account's email.
-            const email =
-                opts.email ?? (await opts.api?.get<{ email: string }>("/v1/me"))?.email ?? "";
+            // Signed in without a flow (onboarding, an invite): send a code to the identity's email.
+            const email = opts.email ?? (await identity.whoami())?.email ?? "";
             const current = await identity.start("verification");
             if (!live) return;
             if (email) await send(current, email);
@@ -966,9 +988,18 @@ export function useSecuritySettings(
                     const callback = await options.current?.openUrl?.(step.url);
                     const returned = callback ? queryParam(callback, "code") : null;
                     if (!returned) return;
-                    await options.current?.onSessionToken?.(
-                        await identity.exchange(reauthFlow, returned),
-                    );
+                    const refreshed = await identity.exchange(reauthFlow, returned);
+                    const [before, after] = await Promise.all([
+                        identity.whoami(await token()),
+                        identity.whoami(refreshed),
+                    ]);
+                    if (before === null || before.id !== after?.id) {
+                        // Another Google account signed in: that session is not this person's.
+                        await identity.signOut(refreshed).catch(() => undefined);
+                        setError(a.reauthDifferentAccount);
+                        return;
+                    }
+                    await options.current?.onSessionToken?.(refreshed);
                     setReauthFlow(null);
                     await load();
                     await retry.current?.();
