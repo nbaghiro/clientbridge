@@ -73,7 +73,7 @@ client = TestClient(app)
 
 def test_prod_requires_real_secrets() -> None:
     # Fail closed: a non-dev env with the public dev jwt secret / empty stripe secret must refuse.
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="TWILIO_AUTH_TOKEN"):
         Settings(env="prod")
     assert Settings(env="dev").env == "dev"  # dev keeps the convenient defaults
 

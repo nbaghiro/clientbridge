@@ -75,6 +75,9 @@ class BroadcastOut(Mirror):
     status: BroadcastStatus
     recipient_count: int
     excluded_count: int = Field(description="Audience members left out: no consent or no contact")
+    scheduled_at: datetime | None = Field(
+        description="When a scheduled broadcast goes out, moved past the business's quiet hours"
+    )
 
 
 class ThreadOut(Mirror):

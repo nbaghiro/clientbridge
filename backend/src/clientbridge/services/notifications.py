@@ -19,6 +19,7 @@ from clientbridge.core.locale import (
     message,
     plural,
 )
+from clientbridge.core.phones import e164
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.expo import Push, PushSender
 from clientbridge.integrations.postmark import Email, EmailSender
@@ -28,6 +29,7 @@ from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import GiftCard, Subscription
 from clientbridge.models.clients import Client
 from clientbridge.models.documents import Contract, Form, FormResponse, Signature
+from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Device, DevicePlatform
 from clientbridge.models.reviews import Review
@@ -38,6 +40,7 @@ from clientbridge.services.lines import LineParent, fetch_lines
 from clientbridge.services.tax import tax_breakdown
 
 _log = logging.getLogger(__name__)
+_PREVIEW_CHARS = 120
 
 SeriesNotice = Literal["booked", "moved", "canceled"]
 
@@ -152,6 +155,10 @@ def _receipt_details(
     rows.extend(message(locale, "receipt.tax", tax=code, amount=amount) for code, amount in taxes)
     rows.append(message(locale, "receipt.total", amount=total))
     return rows
+
+
+def _inbound_message_alert(locale: str, client_name: str, body: str) -> str:
+    return message(locale, "inbound_message.push", client=client_name, body=body)
 
 
 def _dispute_alert(locale: str, amount: str) -> str:
@@ -369,12 +376,26 @@ def _review_requested(locale: str, business_name: str, link: str) -> tuple[str, 
 
 
 def broadcast_text(
-    locale: str, business_name: str, channel: str, body: str, prefs_link: str
+    locale: str,
+    business_name: str,
+    channel: str,
+    body: str,
+    prefs_link: str,
+    address: str,
+    contact: str,
 ) -> str:
-    """A broadcast as the client receives it, with the opt-out CASL requires."""
+    """A broadcast as the client receives it, with the identification and opt-out CASL requires."""
     if channel == "sms":
         return message(locale, "broadcast.sms", business=business_name, body=body, keyword="STOP")
-    return message(locale, "broadcast.email", body=body, business=business_name, link=prefs_link)
+    return message(
+        locale,
+        "broadcast.email",
+        body=body,
+        business=business_name,
+        address=address,
+        contact=contact,
+        link=prefs_link,
+    )
 
 
 def _when(locale: str, business: Business, slot: Slot) -> str:
@@ -621,6 +642,25 @@ class Notifier:
         amount = format_money(locale, payment.amount_cents, payment.currency)
         await self._alert_staff(db, business, _dispute_alert(locale, amount), {"type": "dispute"})
 
+    async def on_inbound_message(self, db: AsyncSession, message_id: str) -> None:
+        """Alert the business's staff devices to a client's text or Connect message."""
+        received = await db.get(Message, message_id)
+        if received is None or received.direction != "in":
+            return
+        thread = await db.get(Thread, received.thread_id)
+        business = await db.get(Business, received.business_id)
+        if thread is None or business is None:
+            return
+        client = await db.get(Client, thread.client_id)
+        preview = " ".join((received.body or "").split())
+        if len(preview) > _PREVIEW_CHARS:
+            preview = preview[: _PREVIEW_CHARS - 1].rstrip() + "…"
+        body = _inbound_message_alert(
+            locale_for(business=business), client.name if client is not None else "", preview
+        )
+        data = {"type": "message", "thread_id": thread.id, "client_id": thread.client_id}
+        await self._alert_staff(db, business, body, data)
+
     async def on_subscription_past_due(self, db: AsyncSession, subscription_id: str) -> None:
         sub = await db.get(Subscription, subscription_id)
         if sub is None:
@@ -814,8 +854,9 @@ class Notifier:
     ) -> None:
         if email:
             await self._safe(self.email.send(Email(to=email, subject=subject, body=body)))
-        if phone:
-            await self._safe(self.sms.send(Sms(to=phone, body=body)))
+        number = e164(phone) if phone else None
+        if number:
+            await self._safe(self.sms.send(Sms(to=number, body=body)))
 
     async def _to_client(
         self,
@@ -834,12 +875,13 @@ class Notifier:
             return
         if client.email and channel != "sms":
             await self._safe(self.email.send(Email(to=client.email, subject=subject, body=body)))
+        number = e164(client.phone) if client.phone else None
         if (
-            client.phone
+            number
             and channel != "email"
             and not await texts_stopped(db, client.business_id, client.id)
         ):
-            await self._safe(self.sms.send(Sms(to=client.phone, body=body)))
+            await self._safe(self.sms.send(Sms(to=number, body=body)))
 
     async def _alert_staff(
         self, db: AsyncSession, business: Business, body: str, data: dict[str, str]
@@ -897,6 +939,19 @@ class DeviceService:
             await self.db.commit()
         except IntegrityError:
             await self.db.rollback()  # a concurrent register of the same token won — already done
+
+    async def unregister(self, token: str) -> None:
+        """Forget the caller's push token, as on sign-out; another user's token is left alone."""
+        device = (
+            await self.db.execute(
+                select(Device).where(
+                    Device.token == token, Device.user_id == self.principal.user_id
+                )
+            )
+        ).scalar_one_or_none()
+        if device is not None:
+            await self.db.delete(device)
+            await self.db.commit()
 
 
 _DEVICE_TTL = timedelta(days=60)

@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_connect_country: str = "CA"
-    api_base_url: str = "http://127.0.0.1:8701"
+    api_base_url: str = "http://127.0.0.1:8701"  # the public API origin, which Twilio signs
     web_base_url: str = "http://localhost:8700"
     connect_base_url: str = "http://localhost:8709"
     # Every invoice pay link uses this one host (production: https://pay.clientbridge.ca).
@@ -56,7 +56,6 @@ class Settings(BaseSettings):
     cors_allow_origins: str = ""
     platform_fee_bps: int = 200  # application fee per direct charge (basis points; 200 = 2%)
     interac_webhook_secret: str = ""
-    sms_webhook_secret: str = ""
 
     # Outreach channels; empty credentials select the no-op console senders.
     postmark_server_token: str = ""
@@ -68,7 +67,7 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _require_prod_secrets(self) -> "Settings":
-        """Refuse to boot outside dev without real JWT and Stripe webhook secrets."""
+        """Refuse to boot outside dev without real JWT, Stripe and Twilio webhook secrets."""
         if self.env != "dev":
             missing = []
             if self.jwt_secret == _DEV_JWT_SECRET:
@@ -77,6 +76,8 @@ class Settings(BaseSettings):
                 missing.append("REFRESH_REPLAY_KEY")
             if not self.stripe_webhook_secret:
                 missing.append("STRIPE_WEBHOOK_SECRET")
+            if not self.twilio_auth_token:
+                missing.append("TWILIO_AUTH_TOKEN")
             if not self.powersync_use_rs256:
                 missing.append("POWERSYNC_USE_RS256=true")
             if not self.powersync_private_key_pem:

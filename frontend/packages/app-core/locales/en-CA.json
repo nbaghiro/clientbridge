@@ -173,6 +173,12 @@
     "api.visitNotStarted": {
         "message": "This visit hasn't started yet. Complete it or mark a no-show once it starts."
     },
+    "api.broadcastAddressMissing": {
+        "message": "Add your business mailing address in Business settings before sending a broadcast. Canada's anti-spam law requires it in every broadcast."
+    },
+    "api.broadcastContactMissing": {
+        "message": "Add a business email, phone number or website in Business settings before sending a broadcast."
+    },
     "common.amountWithCurrency": {
         "message": "{amount} {currency}",
         "args": ["amount", "currency"],
@@ -4325,6 +4331,10 @@
         "message": "{channel, select, email {Prefers email} other {Prefers text}}",
         "args": ["channel"]
     },
+    "clients.record.textsStopped": {
+        "message": "Texts stopped by the client on {when}. Texts stay off until they reply START.",
+        "args": ["when"]
+    },
     "clients.record.inProgress": {
         "message": "In progress"
     },
@@ -4447,7 +4457,7 @@
         "message": "That email doesn't look right."
     },
     "clients.edit.phoneInvalid": {
-        "message": "Enter a 10-digit phone number."
+        "message": "Enter a 10-digit phone number, or + and the country code for a number outside North America."
     },
     "clients.edit.saveError": {
         "message": "Couldn't save this client. Check your connection and try again."
@@ -5482,6 +5492,14 @@
     },
     "broadcasts.scheduledTitle": {
         "message": "Broadcast scheduled"
+    },
+    "broadcasts.queuedTitle": {
+        "message": "Broadcast queued"
+    },
+    "broadcasts.queuedBody": {
+        "message": "It's quiet hours for your clients, so it goes out at {when}. {n, plural, one {# client} other {# clients}} will get it.",
+        "args": ["when", "n"],
+        "description": "Broadcasts don't send between 9 p.m. and 9 a.m. in the business's time zone."
     },
     "broadcasts.sentBody": {
         "message": "{n, plural, one {# client} other {# clients}} will get it. Replies land in your inbox, and opt-outs are recorded automatically.",
@@ -10550,6 +10568,9 @@
     "publicBooking.emailInvalid": {
         "message": "That email doesn't look right."
     },
+    "publicBooking.phoneInvalid": {
+        "message": "That phone number doesn't look right. Use 10 digits, or + and the country code."
+    },
     "publicBooking.petRequired": {
         "message": "Add your pet's name."
     },
@@ -10934,6 +10955,9 @@
     },
     "publicShop.incomplete": {
         "message": "Add your name and a mobile number or email."
+    },
+    "publicShop.phoneInvalid": {
+        "message": "That mobile number doesn't look right. Use 10 digits, or + and the country code."
     },
     "publicShop.orderError": {
         "message": "We couldn't place the order. Please try again."

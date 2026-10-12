@@ -27,7 +27,7 @@ import {
     startOfWeek,
     wallTime,
 } from "../datetime";
-import { formatMoney, formatParts, BUSINESS_CURRENCY } from "../format";
+import { formatMoney, formatParts, normalizePhone, BUSINESS_CURRENCY } from "../format";
 import { isConnectionFailure, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { DocTotalLine, ProgressStep } from "../ui";
@@ -532,7 +532,12 @@ export function usePublicBookingFlow(
 
     const errors = {
         name: name.trim() === "" ? s.nameRequired : null,
-        contact: phone.trim() === "" && email.trim() === "" ? s.contactRequired : null,
+        contact:
+            phone.trim() === "" && email.trim() === ""
+                ? s.contactRequired
+                : phone.trim() !== "" && normalizePhone(phone) === null
+                  ? s.phoneInvalid
+                  : null,
         email: email.trim() !== "" && !EMAIL.test(email.trim()) ? s.emailInvalid : null,
         pet: petName.trim() === "" ? s.petRequired : null,
     };
@@ -582,7 +587,7 @@ export function usePublicBookingFlow(
             client: {
                 name: name.trim(),
                 email: email.trim() || null,
-                phone: phone.trim() || null,
+                phone: normalizePhone(phone),
             },
             petName: petName.trim(),
             returningToken,

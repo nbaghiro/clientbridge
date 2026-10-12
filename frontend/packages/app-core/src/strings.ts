@@ -65,6 +65,8 @@ interface Strings {
         readonly mixedCurrencies: string;
         readonly idempotencyKeyReused: string;
         readonly visitNotStarted: string;
+        readonly broadcastAddressMissing: string;
+        readonly broadcastContactMissing: string;
     } & Labels;
     readonly ui: {
         readonly clearSearch: string;
@@ -1429,6 +1431,7 @@ interface Strings {
             readonly call: string;
             readonly text: string;
             readonly prefers: (channel: string) => string;
+            readonly textsStopped: (when: string) => string;
             readonly inProgress: string;
             readonly depositDue: (amount: string) => string;
             readonly depositPaid: (amount: string) => string;
@@ -1820,6 +1823,8 @@ interface Strings {
         readonly confirmSend: string;
         readonly sentTitle: string;
         readonly scheduledTitle: string;
+        readonly queuedTitle: string;
+        readonly queuedBody: (when: string, n: number) => string;
         readonly sentBody: (n: number) => string;
         readonly sentDone: string;
         readonly newAnother: string;
@@ -3554,6 +3559,7 @@ interface Strings {
         readonly nameRequired: string;
         readonly contactRequired: string;
         readonly emailInvalid: string;
+        readonly phoneInvalid: string;
         readonly petRequired: string;
         readonly summary: string;
         readonly dueNow: string;
@@ -3679,6 +3685,7 @@ interface Strings {
         readonly nextText: string;
         readonly nextPickup: string;
         readonly incomplete: string;
+        readonly phoneInvalid: string;
         readonly orderError: string;
         readonly notFoundTitle: string;
         readonly notFoundBody: string;

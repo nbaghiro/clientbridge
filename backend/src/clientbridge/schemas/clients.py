@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from clientbridge.core.mirrors import Mirror
+from clientbridge.core.phones import Phone
 from clientbridge.models.clients import Channel, Client, ClientStatus, Subject, SubjectKind
 from clientbridge.schemas.subjects import SubjectAttributes
 
@@ -31,6 +32,7 @@ class FirstSubject(Mirror):
 
 
 class ClientCreate(ClientBase):
+    phone: Phone = None
     marketing_consent: bool = Field(
         default=False, description="Record that the client agreed to news and offers"
     )
@@ -42,7 +44,7 @@ class ClientUpdate(Mirror):
 
     name: str | None = Field(default=None, min_length=1)
     email: str | None = None
-    phone: str | None = None
+    phone: Phone = None
     tags: list[str] | None = None
     status: ClientStatus | None = None
     custom_fields: dict[str, object] | None = None

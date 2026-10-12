@@ -2,7 +2,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useMemo, useState } from "react";
 
-import { type ApiLike, newIdempotencyKey } from "../api";
+import { type ApiLike, failureMessage, newIdempotencyKey } from "../api";
 import {
     formatDate,
     formatDateTime,
@@ -27,6 +27,16 @@ FROM consents k
 WHERE NOT EXISTS (
     SELECT 1 FROM consents n
     WHERE n.client_id = k.client_id AND n.channel = k.channel
+      AND (n.created_at > k.created_at OR (n.created_at = k.created_at AND n.id > k.id))
+)`;
+
+// Clients whose newest STOP or START reply was STOP: only their own START reply lifts it.
+export const TEXTS_STOPPED_SQL = `
+SELECT k.client_id, k.created_at
+FROM consents k
+WHERE k.channel = 'sms' AND k.source = 'reply' AND k.status = 'withdrawn' AND NOT EXISTS (
+    SELECT 1 FROM consents n
+    WHERE n.client_id = k.client_id AND n.channel = 'sms' AND n.source = 'reply'
       AND (n.created_at > k.created_at OR (n.created_at = k.created_at AND n.id > k.id))
 )`;
 
@@ -111,6 +121,7 @@ type ConsentMap = Map<string, Record<Channel, ChannelConsent>>;
 /** Every client's current consent on both channels. */
 export function useConsents(): { map: ConsentMap; isLoading: boolean } {
     const rows = useQuery<ConsentRow>(LATEST_CONSENTS_SQL);
+    const stopped = useQuery<{ client_id: string; created_at: string }>(TEXTS_STOPPED_SQL);
     const map = useMemo(() => {
         const now = new Date();
         const out: ConsentMap = new Map();
@@ -123,9 +134,22 @@ export function useConsents(): { map: ConsentMap; isLoading: boolean } {
                 entry[row.channel] = consentOf(row, now);
             out.set(row.client_id, entry);
         }
+        for (const stop of stopped.data) {
+            const entry = out.get(stop.client_id) ?? {
+                sms: consentOf(undefined),
+                email: consentOf(undefined),
+            };
+            entry.sms = {
+                state: "opted_out",
+                source: "reply",
+                at: stop.created_at,
+                expiresAt: null,
+            };
+            out.set(stop.client_id, entry);
+        }
         return out;
-    }, [rows.data]);
-    return { map, isLoading: rows.isLoading };
+    }, [rows.data, stopped.data]);
+    return { map, isLoading: rows.isLoading || stopped.isLoading };
 }
 
 export function consentFor(map: ConsentMap, clientId: string, channel: Channel): ChannelConsent {
@@ -261,9 +285,38 @@ export interface BroadcastDraft {
     segments: { chars: number; segments: number };
     busy: boolean;
     error: string | null;
-    sent: { count: number; scheduled: boolean } | null;
+    sent: BroadcastSent | null;
     reset: () => void;
     submit: () => void;
+}
+
+/** What the confirmation says: sent, scheduled, or held until quiet hours end. */
+interface BroadcastSent {
+    scheduled: boolean;
+    title: string;
+    body: string;
+}
+
+interface BroadcastResult {
+    status: string;
+    scheduled_at: string | null;
+}
+
+function sentNote(
+    result: BroadcastResult,
+    count: number,
+    asked: "now" | "later",
+    zone: string,
+): BroadcastSent {
+    if (result.status !== "scheduled" || result.scheduled_at === null)
+        return { scheduled: false, title: b.sentTitle, body: b.sentBody(count) };
+    if (asked === "now")
+        return {
+            scheduled: true,
+            title: b.queuedTitle,
+            body: b.queuedBody(formatDateTime(parseTimestamp(result.scheduled_at), zone), count),
+        };
+    return { scheduled: true, title: b.scheduledTitle, body: b.sentBody(count) };
 }
 
 /** The count is a preview; the server applies the same consent rules again at send time. */
@@ -277,7 +330,7 @@ export function useBroadcastDraft(api: ApiLike, seed?: BroadcastSeed): Broadcast
     const [tags, setTags] = useState<string[]>(seed?.tags ?? []);
     const [schedule, setSchedule] = useState<"now" | "later">("now");
     const [sendAt, setSendAt] = useState("");
-    const [sent, setSent] = useState<{ count: number; scheduled: boolean } | null>(null);
+    const [sent, setSent] = useState<BroadcastSent | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     const zone = useBusinessZone();
     const audience = useMemo(
@@ -314,8 +367,8 @@ export function useBroadcastDraft(api: ApiLike, seed?: BroadcastSeed): Broadcast
         }
         const count = audience.recipients.length;
         run(
-            () =>
-                api.post(
+            async () => {
+                const result = await api.post<BroadcastResult>(
                     "/v1/broadcasts",
                     {
                         name: name.trim(),
@@ -325,13 +378,10 @@ export function useBroadcastDraft(api: ApiLike, seed?: BroadcastSeed): Broadcast
                         scheduled_at: at === null ? null : at.toISOString(),
                     },
                     { idempotencyKey: newIdempotencyKey() },
-                ),
-            {
-                onSuccess: () => {
-                    setSent({ count, scheduled: at !== null });
-                },
-                errorMessage: b.errors.sendError,
+                );
+                setSent(sentNote(result, count, schedule, zone));
             },
+            { errorMessage: (e) => failureMessage(e, b.errors.sendError) },
         );
     };
 

@@ -78,7 +78,10 @@ async def set_marketing_consent(
     db: AsyncSession, business_id: str, client_id: str, *, agreed: bool, recorded_by: str | None
 ) -> None:
     """Record an in-person yes or no on both channels, only where it changes the current state."""
+    stopped = await stopped_clients(db, business_id, [client_id])
     for channel in get_args(Channel):
+        if agreed and channel == "sms" and client_id in stopped:
+            continue  # only the client's own START reply lifts a STOP
         current = (await latest_consents(db, business_id, [client_id], channel)).get(client_id)
         if allows_marketing(current) == agreed:
             continue
@@ -97,6 +100,8 @@ async def set_channel_consent(
     db: AsyncSession, client: Client, channel: Channel, *, agreed: bool, source: ConsentSource
 ) -> bool:
     """Record a yes or no on one channel when it changes the current state; True if it did."""
+    if agreed and channel == "sms" and await texts_stopped(db, client.business_id, client.id):
+        return False
     current = (await latest_consents(db, client.business_id, [client.id], channel)).get(client.id)
     if allows_marketing(current) == agreed:
         return False
@@ -112,10 +117,31 @@ async def set_channel_consent(
     return True
 
 
+async def stopped_clients(
+    db: AsyncSession, business_id: str, client_ids: Sequence[str]
+) -> set[str]:
+    """Clients whose newest text reply was STOP: only their START reply lifts it."""
+    rows = (
+        await db.execute(
+            scoped(Consent, business_id)
+            .with_only_columns(Consent.client_id, Consent.status)
+            .where(
+                Consent.client_id.in_(client_ids),
+                Consent.channel == "sms",
+                Consent.source == "reply",
+            )
+            .order_by(Consent.client_id, Consent.created_at.desc(), Consent.id.desc())
+        )
+    ).all()
+    newest: dict[str, str] = {}
+    for client_id, status in rows:
+        newest.setdefault(client_id, status)
+    return {client_id for client_id, status in newest.items() if status == "withdrawn"}
+
+
 async def texts_stopped(db: AsyncSession, business_id: str, client_id: str) -> bool:
     """A STOP reply blocks every text to the client until they reply START."""
-    latest = (await latest_consents(db, business_id, [client_id], "sms")).get(client_id)
-    return latest is not None and latest.status == "withdrawn" and latest.source == "reply"
+    return client_id in await stopped_clients(db, business_id, [client_id])
 
 
 async def record_text_reply(db: AsyncSession, client: Client, *, stop: bool) -> bool:

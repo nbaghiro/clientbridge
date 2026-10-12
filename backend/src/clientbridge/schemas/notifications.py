@@ -11,5 +11,11 @@ class DeviceRegister(Mirror):
     platform: DevicePlatform
 
 
+class DeviceUnregister(Mirror):
+    mirrors = Device
+
+    token: str
+
+
 class DeviceOut(BaseModel):
     registered: bool

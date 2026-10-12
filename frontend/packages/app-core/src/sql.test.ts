@@ -1576,6 +1576,45 @@ describe("app-core SQL against the replica schema", () => {
                 "status",
             ),
         ).toEqual([{ channel: "email", status: "withdrawn" }]);
+        scoped("consents", [
+            {
+                id: "cns_s1",
+                client_id: "cl_ben",
+                channel: "sms",
+                status: "withdrawn",
+                source: "reply",
+                created_at: "2026-06-20T08:00:00Z",
+            },
+            {
+                id: "cns_s2",
+                client_id: "cl_ben",
+                channel: "sms",
+                status: "granted",
+                source: "in_person",
+                created_at: "2026-06-21T08:00:00Z",
+            },
+        ]);
+        expect(run("TEXTS_STOPPED_SQL")).toEqual([
+            { client_id: "cl_ben", created_at: "2026-06-20T08:00:00Z" },
+        ]);
+        expect(run("CLIENT_TEXT_REPLY_SQL", ["cl_ben"])).toEqual([
+            { status: "withdrawn", created_at: "2026-06-20T08:00:00Z" },
+        ]);
+        scoped("consents", [
+            {
+                id: "cns_s3",
+                client_id: "cl_ben",
+                channel: "sms",
+                status: "granted",
+                source: "reply",
+                created_at: "2026-06-22T08:00:00Z",
+            },
+        ]);
+        expect(run("TEXTS_STOPPED_SQL")).toEqual([]);
+        expect(run("CLIENT_TEXT_REPLY_SQL", ["cl_ben"])).toEqual([
+            { status: "granted", created_at: "2026-06-22T08:00:00Z" },
+        ]);
+        db.run("DELETE FROM consents WHERE id IN ('cns_s1', 'cns_s2', 'cns_s3')");
         expect(run("AUDIENCE_CLIENTS_SQL").map((r) => r.id)).toEqual(["cl_ann", "cl_ben"]);
         scoped("broadcasts", [
             {

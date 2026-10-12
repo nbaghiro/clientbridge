@@ -11,7 +11,7 @@ from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.services.consents import record_consent
 from clientbridge.services.messaging import run_due_broadcasts, unread_count
 from tests.conftest import Factory, FakeEmailSender, FakeSmsSender
-from tests.helpers import new_client
+from tests.helpers import local_hour, new_client
 
 BIZ = "bz_birchbark"
 
@@ -167,7 +167,7 @@ async def test_send_is_idempotent(
 
 
 async def test_broadcast_fans_out(
-    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender, email: FakeEmailSender
 ) -> None:
     await db.execute(update(Client).where(Client.business_id == BIZ).values(phone=None))
     for i in range(3):
@@ -183,13 +183,16 @@ async def test_broadcast_fans_out(
             )
         )
     await _agree_to_texts(db)
+    now = await local_hour(db, 12)
     res = await as_owner.post(
         "/v1/broadcasts", json={"name": "Spring promo", "channel": "sms", "body": "Sale!"}
     )
     assert res.status_code == 200, res.text
     out = res.json()
-    assert out["status"] == "sent"
+    assert out["status"] == "sending" and out["scheduled_at"] is None
     assert out["recipient_count"] == 3
+    assert sms.sent == []  # the job sends it, not the request
+    assert await run_due_broadcasts(db, sms, email, now) >= 1
     assert len(sms.sent) == 3
 
 
@@ -286,7 +289,11 @@ async def test_staff_cannot_send_a_broadcast_403(
 
 
 async def test_broadcast_excludes_other_business(
-    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory, sms: FakeSmsSender
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    factory: Factory,
+    sms: FakeSmsSender,
+    email: FakeEmailSender,
 ) -> None:
     # null the seed phones so only the clients added here are reachable
     await db.execute(update(Client).where(Client.business_id == BIZ).values(phone=None))
@@ -305,16 +312,18 @@ async def test_broadcast_excludes_other_business(
     foreign = await factory.client(business=other)
     foreign.phone = "+15145559999"  # fully contactable, but a different business
     await _agree_to_texts(db)
+    now = await local_hour(db, 12)
     res = await as_owner.post(
         "/v1/broadcasts", json={"name": "Ours only", "channel": "sms", "body": "Sale!"}
     )
     assert res.status_code == 200, res.text
+    await run_due_broadcasts(db, sms, email, now)
     assert res.json()["recipient_count"] == 1  # only our own client, never the foreign one
     assert [m.to for m in sms.sent] == ["+15145559001"]
 
 
 async def test_broadcast_audience_tag_filter(
-    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender, email: FakeEmailSender
 ) -> None:
     await db.execute(update(Client).where(Client.business_id == BIZ).values(phone=None))
     db.add_all(
@@ -324,11 +333,13 @@ async def test_broadcast_audience_tag_filter(
         ]
     )
     await _agree_to_texts(db)
+    now = await local_hour(db, 12)
     res = await as_owner.post(
         "/v1/broadcasts",
         json={"name": "VIP sale", "channel": "sms", "body": "Hi", "audience": {"tags": ["vip"]}},
     )
     assert res.status_code == 200, res.text
+    await run_due_broadcasts(db, sms, email, now)
     assert res.json()["recipient_count"] == 1
     assert len(sms.sent) == 1 and sms.sent[0].to == "+15145559001"  # only the tagged client
 
@@ -395,3 +406,14 @@ async def test_run_due_broadcasts_skips_future(
     await db.flush()
     assert await run_due_broadcasts(db, sms, email, now) == 0
     assert sms.sent == []
+
+
+async def test_a_text_goes_to_the_e164_number_of_a_phone_stored_as_typed(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    cid = await _client_with_contact(db, phone="(514) 555-1234")
+    ok = await as_owner.post(
+        "/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Hi"}
+    )
+    assert ok.status_code == 200, ok.text
+    assert [m.to for m in sms.sent] == ["+15145551234"]

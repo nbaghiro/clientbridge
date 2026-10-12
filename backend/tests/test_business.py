@@ -1,9 +1,13 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.zones import SUPPORTED_ZONES
 from clientbridge.models.business import Business
+from clientbridge.services.business import after_quiet_hours, quiet_hours
 
 BIZ = "bz_birchbark"
 
@@ -158,3 +162,15 @@ async def test_update_without_timezone_skips_the_check(as_owner: httpx.AsyncClie
 async def test_seeded_businesses_use_supported_zones(db: AsyncSession) -> None:
     zones = set((await db.execute(select(Business.timezone))).scalars())
     assert zones and zones <= set(SUPPORTED_ZONES)
+
+
+def test_quiet_hours_run_from_nine_at_night_to_nine_in_the_morning() -> None:
+    zone = ZoneInfo("America/Toronto")
+    evening = datetime(2026, 3, 7, 21, 30, tzinfo=zone)
+    early = datetime(2026, 3, 8, 6, 0, tzinfo=zone)  # the morning the clocks spring forward
+    noon = datetime(2026, 3, 8, 12, 0, tzinfo=zone)
+    assert quiet_hours(evening, zone) and quiet_hours(early, zone) and not quiet_hours(noon, zone)
+    nine = datetime(2026, 3, 8, 9, 0, tzinfo=zone)
+    assert after_quiet_hours(evening, zone) == nine
+    assert after_quiet_hours(early, zone) == nine
+    assert after_quiet_hours(noon, zone) == noon

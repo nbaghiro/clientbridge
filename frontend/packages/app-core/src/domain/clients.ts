@@ -23,6 +23,7 @@ import {
     formatMoney,
     formatParts,
     formatPhone,
+    normalizePhone,
     parseNumber,
     phoneDigits,
     BUSINESS_CURRENCY,
@@ -90,7 +91,7 @@ export function createClient(
     return api.post<{ id: string }>("/v1/clients", {
         name: input.name.trim(),
         email: blankToNull(input.email),
-        phone: blankToNull(input.phone),
+        phone: normalizePhone(input.phone),
     });
 }
 
@@ -418,6 +419,23 @@ function toNote(r: NoteDbRow, viewerStaffId: string | null): ClientNote {
     };
 }
 
+// The client's newest STOP or START reply: a STOP holds until their own START, whatever staff record.
+export const CLIENT_TEXT_REPLY_SQL = `
+SELECT cn.status, cn.created_at FROM consents cn
+WHERE cn.client_id = ? AND cn.channel = 'sms' AND cn.source = 'reply'
+ORDER BY cn.created_at DESC, cn.id DESC LIMIT 1`;
+
+/** "Texts stopped by the client" with the day they replied STOP, or null while texts are allowed. */
+function useTextsStopped(clientId: string): string | null {
+    const zone = useBusinessZone();
+    const reply = useQuery<{ status: string; created_at: string }>(CLIENT_TEXT_REPLY_SQL, [
+        clientId,
+    ]).data[0];
+    return reply?.status === "withdrawn"
+        ? s.record.textsStopped(formatDate(parseTimestamp(reply.created_at), zone))
+        : null;
+}
+
 export const CLIENT_METHODS_SQL = `
 SELECT pm.id, pm.client_id, pm.method, pm.brand, pm.last4, pm.preferred, pm.mandate_status,
        pm.status, pm.exp_month, pm.exp_year, pm.holder_name, pm.bank_name, pm.created_at,
@@ -494,6 +512,7 @@ export interface ClientRecord {
     visits: number;
     methods: SavedCardRow[];
     plans: ClientPlan[];
+    textsStopped: string | null;
 }
 
 interface EarlierVisits {
@@ -531,6 +550,7 @@ export function useClientRecord(
     const notes = useQuery<NoteDbRow>(CLIENT_NOTES_SQL, [id, id]);
     const methods = useQuery<SavedCardRow>(CLIENT_METHODS_SQL, [id]);
     const plans = useQuery<PlanDbRow>(CLIENT_PLANS_SQL, [id, id]);
+    const textsStopped = useTextsStopped(id);
     const zone = useBusinessZone();
     const row = client.data[0];
     const load = useReplicaLoad([client, visits, subjects, notes], row === undefined);
@@ -552,8 +572,10 @@ export function useClientRecord(
             visits: done.length + (earlier?.completed ?? 0),
             methods: methods.data,
             plans: plans.data.map((p) => toPlan(p, zone)),
+            textsStopped,
         };
     }, [
+        textsStopped,
         zone,
         row,
         visits.data,
@@ -578,14 +600,14 @@ function findDuplicates(
     rows: readonly ClientListRow[],
     exceptId: string | null,
 ): DuplicateMatch[] {
-    const phone = phoneDigits(draft.phone);
+    const phone = normalizePhone(draft.phone);
     const email = draft.email.trim().toLowerCase();
     const name = fold(draft.name);
     return rows
         .filter((c) => c.id !== exceptId)
         .map((c) => {
             const reasons: string[] = [];
-            if (phone.length === 10 && phoneDigits(c.phone) === phone)
+            if (phone !== null && normalizePhone(c.phone) === phone)
                 reasons.push(s.edit.reasonPhone);
             if (email.includes("@") && (c.email ?? "").toLowerCase() === email)
                 reasons.push(s.edit.reasonEmail);
@@ -611,7 +633,7 @@ type DraftErrors = Partial<Record<"name" | "phone" | "email" | "contact", string
 function validateDraft(d: ClientDraft): DraftErrors {
     const e: DraftErrors = {};
     if (d.name.trim() === "") e.name = s.edit.nameRequired;
-    if (d.phone.trim() !== "" && phoneDigits(d.phone).length !== 10) e.phone = s.edit.phoneInvalid;
+    if (d.phone.trim() !== "" && normalizePhone(d.phone) === null) e.phone = s.edit.phoneInvalid;
     if (d.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email.trim()))
         e.email = s.edit.emailInvalid;
     if (d.phone.trim() === "" && d.email.trim() === "") e.contact = s.edit.contactRequired;
@@ -634,6 +656,7 @@ export interface ClientEditor {
     ignoreDuplicates: () => void;
     dirty: boolean;
     consentNote: string | null;
+    textsStopped: string | null;
     archivedNote: string | null;
     busy: boolean;
     error: string | null;
@@ -671,6 +694,7 @@ export function useClientEditor(
         recorded_by_name: string | null;
     }>(CLIENT_CONSENT_SQL, [clientId ?? ""]).data[0];
     const agreed = consentRow !== undefined && consentRow.status !== "withdrawn";
+    const textsStopped = useTextsStopped(clientId ?? "");
     const initial = useMemo(() => draftFor(client, agreed), [client, agreed]);
     const [draft, setDraft] = useState<ClientDraft>(initial);
     const [tried, setTried] = useState(false);
@@ -693,7 +717,7 @@ export function useClientEditor(
         if (Object.keys(validateDraft(draft)).length > 0) return;
         const body = {
             name: draft.name.trim(),
-            phone: phoneDigits(draft.phone) || null,
+            phone: normalizePhone(draft.phone),
             email: blankToNull(draft.email),
             preferred_channel: draft.channel,
             tags: draft.tags,
@@ -756,6 +780,7 @@ export function useClientEditor(
                       consentRow.recorded_by_name ?? s.history.teammate,
                   )
                 : null,
+        textsStopped,
         archivedNote:
             client?.archived === true
                 ? client.archivedAt === null

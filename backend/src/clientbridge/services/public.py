@@ -111,6 +111,7 @@ from clientbridge.services.lines import (
     replace_lines,
 )
 from clientbridge.services.messaging import open_thread
+from clientbridge.services.notifications import Notifier
 from clientbridge.services.orders import next_order_number, pickup_setting, pickup_windows
 from clientbridge.services.payments import (
     assert_payable,
@@ -651,7 +652,10 @@ class PublicManageService:
         await self.db.commit()
         return out
 
-    async def message(self, token: str, data: ManageMessage, key: str) -> ManageMessageResult:
+    async def message(
+        self, token: str, data: ManageMessage, key: str, notifier: Notifier
+    ) -> ManageMessageResult:
+        """Record the client's message in their thread and alert staff once, not on a replay."""
         booking, _, business = await self._resolve(token)
         client = (
             await self.db.execute(
@@ -678,9 +682,11 @@ class PublicManageService:
             self.db.add(message)
             await self.db.flush()
             cmd.record("booking.message", entity_type="booking", entity_id=booking.id)
+            received.append(message.id)
             return ManageMessageResult(id=message.id)
 
-        return await run_command(
+        received: list[str] = []
+        result = await run_command(
             self.db,
             PublicPrincipal(business.id),
             action=f"booking.message.{booking.id}",
@@ -689,6 +695,9 @@ class PublicManageService:
             idempotency_key=key,
             request=data,
         )
+        for message_id in received:
+            await notifier.on_inbound_message(self.db, message_id)
+        return result
 
     async def cancel(self, token: str, idempotency_key: str | None) -> ManageCancelResult:
         booking, slot, business = await self._locked(token)

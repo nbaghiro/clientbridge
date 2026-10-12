@@ -121,6 +121,9 @@ msgstr ""
 msgid "gift_card_issued.subject"
 msgstr ""
 
+msgid "inbound_message.push"
+msgstr ""
+
 msgid "interac_requested.body"
 msgstr ""
 

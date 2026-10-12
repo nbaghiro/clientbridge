@@ -4,6 +4,7 @@ Each execution that is planned or in progress owns its plan and progress so unre
 
 | Execution         | Plan and tracking                                                                                                                         |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Messaging         | [Plan](messaging/plan.md), [progress](messaging/progress.md).                                                                             |
 | Scheduling        | [Plan](scheduling/plan.md), [design gaps](scheduling/design.md), [task queue](scheduling/tasks.json), [progress](scheduling/progress.md). |
 | Backend hardening | [Plan](backend-hardening/plan.md), [task queue](backend-hardening/tasks.json), [progress](backend-hardening/progress.md).                 |
 

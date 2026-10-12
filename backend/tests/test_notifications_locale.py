@@ -33,8 +33,10 @@ from tests.conftest import FakeEmailSender
 BIZ = "bz_birchbark"
 NAME = "Birchbark"
 LINK = "https://pay.test/i/tok"
+ADDRESS = "12 Main St, Victoria, BC"
+CONTACT = "hi@birchbark.example"
 INPUTS = [LINK, NAME, "123456", "CODE", "Intake", "Waiver", "Too far", "REF-1", "pay@x.ca"]
-INPUTS += ["CN-1", "GC-1", "GST", "Shampoo", "Sale", "STOP"]
+INPUTS += ["CN-1", "GC-1", "GST", "Shampoo", "Sale", "STOP", ADDRESS, CONTACT]
 MOMENT = datetime(2026, 10, 9, 21, 30, tzinfo=UTC)
 
 Render = Callable[[str], tuple[str, ...] | list[str] | str]
@@ -116,9 +118,10 @@ def _builders() -> dict[str, Render]:
         "_form_sent": lambda c: n._form_sent(c, NAME, "Intake", LINK),
         "_contract_sent": lambda c: n._contract_sent(c, NAME, "Waiver", LINK),
         "_review_requested": lambda c: n._review_requested(c, NAME, LINK),
+        "_inbound_message_alert": lambda c: n._inbound_message_alert(c, NAME, "Sale"),
         "broadcast_text": lambda c: (
-            n.broadcast_text(c, NAME, "sms", "Sale", LINK),
-            n.broadcast_text(c, NAME, "email", "Sale", LINK),
+            n.broadcast_text(c, NAME, "sms", "Sale", LINK, ADDRESS, CONTACT),
+            n.broadcast_text(c, NAME, "email", "Sale", LINK, ADDRESS, CONTACT),
         ),
     }
 
@@ -154,10 +157,19 @@ def test_english_builders_render_complete_text() -> None:
 
 
 def test_sms_opt_out_keeps_the_carrier_keyword() -> None:
-    assert n.broadcast_text(SOURCE_LOCALE, NAME, "sms", "Sale", LINK) == (
+    assert n.broadcast_text(SOURCE_LOCALE, NAME, "sms", "Sale", LINK, ADDRESS, CONTACT) == (
         "Birchbark: Sale Reply STOP to opt out."
     )
-    assert " STOP " in n.broadcast_text(PSEUDO_LOCALE, NAME, "sms", "Sale", LINK)
+    pseudo_sms = n.broadcast_text(PSEUDO_LOCALE, NAME, "sms", "Sale", LINK, ADDRESS, CONTACT)
+    assert " STOP " in pseudo_sms
+
+
+def test_a_broadcast_email_identifies_the_business() -> None:
+    text = n.broadcast_text(SOURCE_LOCALE, NAME, "email", "Sale", LINK, ADDRESS, CONTACT)
+    assert text == (
+        f"Sale\n\nBirchbark\n{ADDRESS}\nContact: {CONTACT}\n"
+        f"Unsubscribe or change what you get: {LINK}"
+    )
 
 
 def test_pseudo_keeps_placeholders_and_grows_the_text() -> None:

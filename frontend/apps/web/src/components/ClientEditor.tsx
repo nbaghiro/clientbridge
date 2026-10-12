@@ -137,7 +137,7 @@ function ClientFields({ editor }: { editor: ClientEditor }) {
             <div className="rounded-md border border-line bg-bg px-3 py-2.5">
                 <Toggle
                     label={s.consentLabel}
-                    hint={editor.consentNote ?? s.consentHint}
+                    hint={editor.textsStopped ?? editor.consentNote ?? s.consentHint}
                     value={draft.consent}
                     onChange={(v) => {
                         set("consent", v);

@@ -51,6 +51,8 @@ msgstr ""
 "{body}\n"
 "\n"
 "{business}\n"
+"{address}\n"
+"Contact: {contact}\n"
 "Unsubscribe or change what you get: {link}"
 
 msgid "broadcast.sms"
@@ -130,6 +132,9 @@ msgstr "You've received a {amount} gift card from {business}. Code: {code}"
 
 msgid "gift_card_issued.subject"
 msgstr "You've received a gift card from {business}"
+
+msgid "inbound_message.push"
+msgstr "Message from {client}: {body}"
 
 msgid "interac_requested.body"
 msgstr "{business}: please send {amount} by Interac e-Transfer to {send_to} with {reference} in the message."

@@ -45,7 +45,9 @@ msgstr ""
 "[{body}\n"
 "\n"
 "{business}\n"
-"Ûñšûƀšçŕîƀé öŕ çĥåñĝé ŵĥåţ ýöû ĝéţ: {link}~~~~~~~~~~~~~~]"
+"{address}\n"
+"Çöñţåçţ: {contact}\n"
+"Ûñšûƀšçŕîƀé öŕ çĥåñĝé ŵĥåţ ýöû ĝéţ: {link}~~~~~~~~~~~~~~~~~~]"
 
 msgid "broadcast.sms"
 msgstr "[{business}: {body} Ŕéþļý {keyword} ţö öþţ öûţ.~~~~~~~~]"
@@ -124,6 +126,9 @@ msgstr "[Ýöû'ṽé ŕéçéîṽéð å {amount} ĝîƒţ çåŕð ƒŕöɱ {
 
 msgid "gift_card_issued.subject"
 msgstr "[Ýöû'ṽé ŕéçéîṽéð å ĝîƒţ çåŕð ƒŕöɱ {business}~~~~~~~~~~~~]"
+
+msgid "inbound_message.push"
+msgstr "[Ṁéššåĝé ƒŕöɱ {client}: {body}~~~~~~]"
 
 msgid "interac_requested.body"
 msgstr "[{business}: þļéåšé šéñð {amount} ƀý Îñţéŕåç é-Ţŕåñšƒéŕ ţö {send_to} ŵîţĥ {reference} îñ ţĥé ɱéššåĝé.~~~~~~~~~~~~~~~~~~~~~~]"

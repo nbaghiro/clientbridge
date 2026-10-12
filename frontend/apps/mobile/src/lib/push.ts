@@ -1,5 +1,11 @@
-import { type DevicePlatform, registerDevice } from "@clientbridge/app-core";
+import {
+    type DevicePlatform,
+    pushThread,
+    registerDevice,
+    unregisterDevice,
+} from "@clientbridge/app-core";
 import * as Notifications from "expo-notifications";
+import { useEffect } from "react";
 import { Platform } from "react-native";
 
 import { api } from "./api";
@@ -21,6 +27,8 @@ function devicePlatform(): DevicePlatform {
     return "web";
 }
 
+let registered: string | null = null;
+
 /** Best-effort Expo push registration — never throws (push setup must not block app start). */
 export async function registerForPush(): Promise<void> {
     try {
@@ -32,7 +40,31 @@ export async function registerForPush(): Promise<void> {
             )
         ).data;
         await registerDevice(api, token, devicePlatform());
+        registered = token;
     } catch {
         // Best-effort: denied permission, Expo Go or a network error must never block app start.
     }
+}
+
+/** Stops pushes to this device on sign-out; best-effort, so signing out never waits on it. */
+export async function unregisterFromPush(): Promise<void> {
+    const token = registered;
+    registered = null;
+    if (token === null) return;
+    try {
+        await unregisterDevice(api, token);
+    } catch {
+        // The server prunes a device it has not seen in 60 days.
+    }
+}
+
+/** Opens the conversation when a message push is tapped, including the tap that launched the app. */
+export function usePushTaps(open: (threadId: string) => void): void {
+    const response = Notifications.useLastNotificationResponse();
+    useEffect(() => {
+        if (response?.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return;
+        Notifications.clearLastNotificationResponse();
+        const thread = pushThread(response.notification.request.content.data);
+        if (thread !== null) open(thread);
+    }, [response, open]);
 }

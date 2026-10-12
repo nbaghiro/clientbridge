@@ -549,6 +549,11 @@ function RecordSheet({
                         </Button>
                     </View>
                 ) : null}
+                {record.textsStopped !== null ? (
+                    <Notice tone="info" banner>
+                        {record.textsStopped}
+                    </Notice>
+                ) : null}
                 {cl.tags.length > 0 ? (
                     <View style={styles.tags}>
                         {cl.tags.map((tag) => (

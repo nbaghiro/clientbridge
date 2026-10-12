@@ -2,16 +2,18 @@ import logging
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from sqlalchemy import func, literal, select, tuple_, update
+from sqlalchemy import and_, func, literal, or_, select, tuple_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
-from clientbridge.core.errors import AppError, Conflict, NotFound
+from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for
+from clientbridge.core.phones import e164, same_phone
 from clientbridge.core.scoping import scoped
+from clientbridge.core.zones import zone
 from clientbridge.integrations.postmark import Email, EmailSender
 from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.business import Business, Staff
@@ -27,11 +29,13 @@ from clientbridge.schemas.messaging import (
     MessageSend,
     ThreadOut,
 )
+from clientbridge.services.business import after_quiet_hours, quiet_hours
 from clientbridge.services.consents import (
     allows_marketing,
     latest_consents,
     prefs_url,
     record_text_reply,
+    stopped_clients,
     texts_stopped,
 )
 from clientbridge.services.notifications import broadcast_text
@@ -83,6 +87,13 @@ async def open_thread(db: AsyncSession, business_id: str, client_id: str, channe
     return thread
 
 
+def contact_for(client: Client, channel: str) -> str | None:
+    """Where a message on the channel goes: the E.164 number for a text, else the email."""
+    if channel == "sms":
+        return e164(client.phone) if client.phone else None
+    return client.email
+
+
 async def dispatch_message(
     sms: SmsSender, email: EmailSender, channel: str, to: str, subject: str, body: str
 ) -> bool:
@@ -107,73 +118,183 @@ async def broadcast_recipients(
     if not audience.get("all") and isinstance(tags, list) and tags:
         query = query.where(Client.tags.overlap([str(tag) for tag in tags]))
     clients = (await db.execute(query.order_by(Client.id))).scalars().all()
-    consents = await latest_consents(db, business_id, [c.id for c in clients], channel)
+    ids = [c.id for c in clients]
+    consents = await latest_consents(db, business_id, ids, channel)
+    stopped = await stopped_clients(db, business_id, ids) if channel == "sms" else set()
     now = datetime.now(UTC)
     out: list[tuple[Client, str]] = []
     for client in clients:
-        to = client.phone if channel == "sms" else client.email
-        if to and allows_marketing(consents.get(client.id), now):
+        to = contact_for(client, channel)
+        if to and client.id not in stopped and allows_marketing(consents.get(client.id), now):
             out.append((client, to))
     return out[:_BROADCAST_CAP], len(clients) - len(out[:_BROADCAST_CAP])
 
 
-async def fan_out_broadcast(
-    db: AsyncSession,
-    broadcast: Broadcast,
-    recipients: Sequence[tuple[Client, str]],
-    sms: SmsSender,
-    email: EmailSender,
-) -> None:
-    """Send one message per recipient on the broadcast's channel, recording each in its thread."""
-    business = await db.get(Business, broadcast.business_id)
-    business_name = business.name if business is not None else ""
-    for client, to in recipients:
-        thread = await open_thread(db, broadcast.business_id, client.id, broadcast.channel)
-        message = Message(
-            id=new_id("message"),
-            business_id=broadcast.business_id,
-            thread_id=thread.id,
-            direction="out",
-            channel=broadcast.channel,
-            sent_by=broadcast.created_by,
-            body=broadcast.body,
-            status="queued",
-            broadcast_id=broadcast.id,
+def broadcast_identity(business: Business) -> tuple[str, str]:
+    """The mailing address and a way to reach the business that every broadcast carries (CASL)."""
+    brand = business.brand or {}
+
+    def text(key: str) -> str:
+        value = brand.get(key)
+        return value.strip() if isinstance(value, str) else ""
+
+    address = text("address")
+    if not address:
+        raise Unprocessable(
+            "add the business mailing address before sending a broadcast",
+            code="broadcast_address_missing",
         )
-        db.add(message)
-        await db.flush()
-        link = f"{prefs_url(client.id)}?unsubscribe=email"
-        text = broadcast_text(
-            locale_for(business=business, client=client),
-            business_name,
-            broadcast.channel,
-            broadcast.body or "",
-            link,
+    contact = text("email") or text("phone") or text("website") or (business.billing_email or "")
+    if not contact:
+        raise Unprocessable(
+            "add a business email, phone or website before sending a broadcast",
+            code="broadcast_contact_missing",
         )
-        ok = await dispatch_message(sms, email, broadcast.channel, to, broadcast.name, text)
-        message.status = "sent" if ok else "failed"  # best-effort per recipient
+    return address, contact
+
+
+async def _claim_broadcast(db: AsyncSession, broadcast_id: str) -> Broadcast | None:
+    """Lock a broadcast that still has work, skipping one another worker holds."""
+    return (
+        await db.execute(
+            select(Broadcast)
+            .where(Broadcast.id == broadcast_id, Broadcast.status.in_(("scheduled", "sending")))
+            .with_for_update(skip_locked=True)
+        )
+    ).scalar_one_or_none()
+
+
+async def _queue_recipient(
+    db: AsyncSession, broadcast: Broadcast, client_id: str
+) -> Message | None:
+    """Record the recipient's message before sending, so a retry never messages them twice."""
+    already = (
+        await db.execute(
+            scoped(Message, broadcast.business_id)
+            .with_only_columns(Message.id)
+            .join(Thread, Thread.id == Message.thread_id)
+            .where(Message.broadcast_id == broadcast.id, Thread.client_id == client_id)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if already is not None:
+        return None
+    thread = await open_thread(db, broadcast.business_id, client_id, broadcast.channel)
+    message = Message(
+        id=new_id("message"),
+        business_id=broadcast.business_id,
+        thread_id=thread.id,
+        direction="out",
+        channel=broadcast.channel,
+        sent_by=broadcast.created_by,
+        body=broadcast.body,
+        status="queued",
+        broadcast_id=broadcast.id,
+    )
+    db.add(message)
     await db.flush()
+    return message
+
+
+async def _send_broadcast(
+    db: AsyncSession, broadcast_id: str, sms: SmsSender, email: EmailSender, now: datetime
+) -> bool:
+    """Send a due broadcast one committed recipient at a time; True once every recipient is done."""
+    broadcast = await _claim_broadcast(db, broadcast_id)
+    business = await db.get(Business, broadcast.business_id) if broadcast is not None else None
+    if broadcast is None or business is None or quiet_hours(now, zone(business.timezone)):
+        await db.commit()
+        return False
+    try:
+        address, contact = broadcast_identity(business)
+    except Unprocessable:
+        _log.warning("broadcast %s waits for the business identity", broadcast.id)
+        await db.commit()
+        return False
+    recipients, excluded = await broadcast_recipients(
+        db, broadcast.business_id, broadcast.channel, broadcast.audience
+    )
+    broadcast.status = "sending"
+    broadcast.recipient_count = len(recipients)
+    broadcast.excluded_count = excluded
+    name, channel, subject, body = business.name, broadcast.channel, broadcast.name, broadcast.body
+    targets = [
+        (client.id, to, locale_for(business=business, client=client)) for client, to in recipients
+    ]
+    await db.commit()
+    for client_id, to, locale in targets:
+        claimed = await _claim_broadcast(db, broadcast_id)
+        if claimed is None:
+            await db.commit()
+            return False
+        message = await _queue_recipient(db, claimed, client_id)
+        await db.commit()
+        if message is None:
+            continue
+        link = f"{prefs_url(client_id)}?unsubscribe=email"
+        text = broadcast_text(locale, name, channel, body or "", link, address, contact)
+        ok = await dispatch_message(sms, email, channel, to, subject, text)
+        message.status = "sent" if ok else "failed"
+        await db.commit()
+    claimed = await _claim_broadcast(db, broadcast_id)
+    if claimed is None:
+        await db.commit()
+        return False
+    claimed.status = "sent"
+    await db.commit()
+    return True
+
+
+async def _last_text_at(db: AsyncSession, business_id: str, client_id: str) -> datetime | None:
+    sent = await db.execute(
+        scoped(Message, business_id)
+        .with_only_columns(func.max(Message.created_at))
+        .join(Thread, Thread.id == Message.thread_id)
+        .where(
+            Thread.client_id == client_id,
+            Message.direction == "out",
+            Message.channel == "sms",
+        )
+    )
+    return sent.scalar_one()
+
+
+async def route_inbound_sms(db: AsyncSession, number: str) -> Client | None:
+    """The client whose business most recently texted this number; None when no one did or a tie."""
+    candidates = (
+        await db.execute(
+            select(Client.business_id, Client.id).where(
+                same_phone(Client.phone, number), Client.deleted_at.is_(None)
+            )
+        )
+    ).all()
+    latest: list[tuple[datetime, str, str]] = []
+    for business_id, client_id in candidates:
+        at = await _last_text_at(db, business_id, client_id)
+        if at is not None:
+            latest.append((at, business_id, client_id))
+    latest.sort(reverse=True)
+    if not latest or (len(latest) > 1 and latest[0][0] == latest[1][0]):
+        return None
+    _, business_id, client_id = latest[0]
+    return (
+        await db.execute(scoped(Client, business_id).where(Client.id == client_id))
+    ).scalar_one()
 
 
 async def process_inbound_sms(
     db: AsyncSession, *, from_phone: str, body: str, message_sid: str
 ) -> str | None:
-    """Record an inbound SMS on the sender's thread; the phone number identifies the business."""
+    """Record an inbound SMS on the thread of the business that last texted the sender."""
     event_id = f"twilio_{message_sid}"
     seen = (await db.execute(select(Webhook.id).where(Webhook.id == event_id))).scalar_one_or_none()
     if seen is not None:
         return None
-    client = (
-        await db.execute(
-            select(Client)
-            .where(Client.phone == from_phone, Client.deleted_at.is_(None))
-            .order_by(Client.created_at, Client.id)
-            .limit(1)
-        )
-    ).scalar_one_or_none()
+    number = e164(from_phone)
+    client = await route_inbound_sms(db, number) if number is not None else None
+    keyword = body.strip().upper()
     message_id: str | None = None
     if client is not None:
-        keyword = body.strip().upper()
         if keyword in STOP_WORDS or keyword in START_WORDS:
             await record_text_reply(db, client, stop=keyword in STOP_WORDS)
         thread = await open_thread(db, client.business_id, client.id, "sms")
@@ -195,7 +316,12 @@ async def process_inbound_sms(
             id=event_id,
             provider="twilio",
             event="sms.inbound",
-            payload={"from": from_phone, "matched": client is not None},
+            payload={
+                "from": number or from_phone,
+                "matched": client is not None,
+                "business_id": client.business_id if client is not None else None,
+                "opt_out": keyword in STOP_WORDS,
+            },
             status="processed",
             processed_at=datetime.now(UTC),
         )
@@ -211,32 +337,32 @@ async def process_inbound_sms(
 async def run_due_broadcasts(
     db: AsyncSession, sms: SmsSender, email: EmailSender, now: datetime
 ) -> int:
-    """Send every scheduled broadcast that is due; returns how many were sent."""
-    broadcasts = (
+    """Send or resume each due broadcast outside quiet hours; returns how many finished."""
+    due = (
         (
             await db.execute(
-                select(Broadcast).where(
-                    Broadcast.status == "scheduled",
-                    Broadcast.scheduled_at.is_not(None),
-                    Broadcast.scheduled_at <= now,
+                select(Broadcast.id)
+                .where(
+                    or_(
+                        Broadcast.status == "sending",
+                        and_(
+                            Broadcast.status == "scheduled",
+                            Broadcast.scheduled_at.is_not(None),
+                            Broadcast.scheduled_at <= now,
+                        ),
+                    )
                 )
+                .order_by(func.coalesce(Broadcast.scheduled_at, Broadcast.created_at))
             )
         )
         .scalars()
         .all()
     )
-    for broadcast in broadcasts:
-        broadcast.status = "sending"
-        await db.flush()
-        recipients, excluded = await broadcast_recipients(
-            db, broadcast.business_id, broadcast.channel, broadcast.audience
-        )
-        await fan_out_broadcast(db, broadcast, recipients, sms, email)
-        broadcast.recipient_count = len(recipients)
-        broadcast.excluded_count = excluded
-        broadcast.status = "sent"
     await db.commit()
-    return len(broadcasts)
+    finished = 0
+    for broadcast_id in due:
+        finished += await _send_broadcast(db, broadcast_id, sms, email, now)
+    return finished
 
 
 class MessageService:
@@ -255,7 +381,7 @@ class MessageService:
         self, data: MessageSend, idempotency_key: str | None = None
     ) -> MessageOut:
         client = await self._client(data.client_id)
-        to = client.phone if data.channel == "sms" else client.email
+        to = contact_for(client, data.channel)
         if not to:
             raise AppError(f"client has no {data.channel} contact", status_code=422)
         if data.channel == "sms" and await texts_stopped(self.db, self.biz, client.id):
@@ -295,10 +421,17 @@ class MessageService:
     async def send_broadcast(
         self, data: BroadcastSend, idempotency_key: str | None = None
     ) -> BroadcastOut:
+        """Queue the broadcast for the job: now, at its time, or after quiet hours."""
         assert_role(
             self.principal, "owner", "admin", message="only an owner or admin can send broadcasts"
         )
-        scheduled = data.scheduled_at is not None and data.scheduled_at > datetime.now(UTC)
+        business = await self.db.get(Business, self.biz)
+        if business is None:
+            raise NotFound("business not found")
+        broadcast_identity(business)
+        now = datetime.now(UTC)
+        requested = data.scheduled_at if data.scheduled_at and data.scheduled_at > now else now
+        send_at = after_quiet_hours(requested, zone(business.timezone))
         recipients, excluded = await broadcast_recipients(
             self.db, self.biz, data.channel, data.audience
         )
@@ -312,16 +445,13 @@ class MessageService:
                 channel=data.channel,
                 body=data.body,
                 audience=data.audience,
-                status="scheduled" if scheduled else "sending",
-                scheduled_at=data.scheduled_at if scheduled else None,
+                status="scheduled" if send_at > now else "sending",
+                scheduled_at=send_at if send_at > now else None,
                 recipient_count=len(recipients),
                 excluded_count=excluded,
             )
             self.db.add(broadcast)
             await self.db.flush()
-            if not scheduled:
-                await fan_out_broadcast(self.db, broadcast, recipients, self.sms, self.email)
-                broadcast.status = "sent"
             cmd.record("broadcast.send", entity_type="broadcast", entity_id=broadcast.id)
             return _broadcast_out(broadcast)
 
@@ -461,4 +591,5 @@ def _broadcast_out(broadcast: Broadcast) -> BroadcastOut:
         status=broadcast.status,
         recipient_count=broadcast.recipient_count,
         excluded_count=broadcast.excluded_count,
+        scheduled_at=broadcast.scheduled_at,
     )

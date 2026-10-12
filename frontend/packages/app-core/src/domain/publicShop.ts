@@ -11,7 +11,7 @@ import {
     parseTimestamp,
     weekdayDay,
 } from "../datetime";
-import { BUSINESS_CURRENCY } from "../format";
+import { normalizePhone, BUSINESS_CURRENCY } from "../format";
 import type { DocTotalLine } from "../ui";
 import { zoneNote } from "./publicBooking";
 import {
@@ -270,6 +270,10 @@ function usePublicShop(
             setError(strings.publicShop.incomplete);
             return;
         }
+        if (phone.trim() !== "" && normalizePhone(phone) === null) {
+            setError(strings.publicShop.phoneInvalid);
+            return;
+        }
         const attempt = attemptKey(key, {
             name: name.trim(),
             email: email.trim(),
@@ -288,7 +292,7 @@ function usePublicShop(
                             client: {
                                 name: name.trim(),
                                 email: email.trim() || null,
-                                phone: phone.trim() || null,
+                                phone: normalizePhone(phone),
                             },
                             lines,
                             pickup_from: pickupFrom || null,

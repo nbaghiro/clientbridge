@@ -13,6 +13,7 @@ import {
     formatNumber,
     formatPercent,
     formatPhone,
+    normalizePhone,
     formatRate,
     formatRating,
     initials,
@@ -82,6 +83,17 @@ describe("phone numbers", () => {
         expect(formatPhone("+12505550201")).toBe("(250) 555-0201");
         expect(formatPhone("+44 20 7946 0958")).toBe("+44 20 7946 0958");
         expect(formatPhone(null)).toBe("");
+    });
+
+    it("stores numbers as E.164 by the server's rule", () => {
+        expect(normalizePhone("(250) 555-0101")).toBe("+12505550101");
+        expect(normalizePhone("1 250 555 0101")).toBe("+12505550101");
+        expect(normalizePhone("+1 250-555-0101")).toBe("+12505550101");
+        expect(normalizePhone("+44 20 7946 0958")).toBe("+442079460958");
+        expect(normalizePhone("555-0101")).toBeNull();
+        expect(normalizePhone("0250 555 0101")).toBeNull();
+        expect(normalizePhone("+0 123 4567")).toBeNull();
+        expect(normalizePhone("")).toBeNull();
     });
 });
 
