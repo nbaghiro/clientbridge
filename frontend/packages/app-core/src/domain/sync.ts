@@ -1,6 +1,6 @@
-import type { CommonPowerSyncDatabase } from "@powersync/common";
-import { usePowerSync, useQuery, useStatus } from "@powersync/react";
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import type { CommonPowerSyncDatabase, SyncStatus } from "@powersync/common";
+import { usePowerSync, useQuery } from "@powersync/react";
+import { useCallback, useEffect, useReducer, useRef, useState, useSyncExternalStore } from "react";
 
 import type { ApiLike } from "../api";
 import {
@@ -87,9 +87,19 @@ export function useDeviceList(key: string, max = 8): [string[], (next: string[])
     return [list, save];
 }
 
+/** The replica's sync status; unlike `useStatus` it cannot miss a change made before it subscribed. */
+export function useSyncStatus(): SyncStatus {
+    const db = usePowerSync();
+    const subscribe = useCallback(
+        (changed: () => void) => db.registerListener({ statusChanged: changed }),
+        [db],
+    );
+    return useSyncExternalStore(subscribe, () => db.currentStatus);
+}
+
 /** `useLoad` for replica reads: still loading until this device has finished its first sync. */
 export function useReplicaLoad(sources: LoadSource[], empty: boolean): Load {
-    const synced = useStatus().hasSynced ?? false;
+    const synced = useSyncStatus().hasSynced ?? false;
     return useLoad([...sources, { isLoading: !synced }], empty);
 }
 
@@ -251,7 +261,7 @@ export function syncProblem(
 export function useSyncState(pollMs = 3000): SyncState {
     const db = usePowerSync();
     const zone = useBusinessZone();
-    const status = useStatus();
+    const status = useSyncStatus();
     const [pending, setPending] = useState<PendingChange[]>([]);
     const [pendingCount, setPendingCount] = useState(0);
     const [queueKnown, setQueueKnown] = useState(false);

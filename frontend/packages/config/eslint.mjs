@@ -28,6 +28,19 @@ export default tseslint.config(
         },
         rules: {
             "no-console": "error",
+            "@typescript-eslint/no-restricted-imports": [
+                "error",
+                {
+                    paths: [
+                        {
+                            name: "@powersync/react",
+                            importNames: ["useStatus"],
+                            message:
+                                "Use useSyncStatus from app-core: useStatus misses a status change that lands before it subscribes.",
+                        },
+                    ],
+                },
+            ],
             // Ban `void`; ignoreVoid:false so a floating promise needs a real .catch/await, not void.
             "no-void": "error",
             "@typescript-eslint/no-floating-promises": ["error", { ignoreVoid: false }],
