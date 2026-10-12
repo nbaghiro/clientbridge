@@ -6,6 +6,7 @@ import {
     formatTime,
     formatWeekday,
     formatZoneName,
+    setDeviceZone,
     zonedDate,
 } from "../datetime";
 import { strings } from "../strings";
@@ -169,10 +170,16 @@ describe("icsFor", () => {
 
 describe("the business zone on public pages", () => {
     it("names the zone only for a visitor whose clock reads another one", () => {
-        const here = deviceZone();
-        const away = formatZoneName(here) === formatZoneName(ZONE) ? "Asia/Tokyo" : ZONE;
-        expect(zoneNote(here)).toBeNull();
-        expect(zoneNote(away)).toBe(s.timesIn(formatZoneName(away)));
+        const machine = deviceZone();
+        try {
+            setDeviceZone(ZONE);
+            expect(zoneNote(ZONE)).toBeNull();
+            expect(zoneNote("Asia/Tokyo")).toBe(s.timesIn(formatZoneName("Asia/Tokyo")));
+            setDeviceZone("Asia/Tokyo");
+            expect(zoneNote(ZONE)).toBe(s.timesIn(formatZoneName(ZONE)));
+        } finally {
+            setDeviceZone(machine);
+        }
     });
 
     it("starts a line with a capitalised day", () => {

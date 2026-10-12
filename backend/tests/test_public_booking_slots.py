@@ -27,7 +27,21 @@ from tests.conftest import BIZ, FakePaymentGateway
 SLUG = "birchbark"
 ST_OWNER = "st_owner"
 NAILS = "it_nails"
-TRANSITIONS = (date(2026, 11, 1), date(2027, 3, 14))
+
+
+def _nth_sunday(year: int, month: int, nth: int) -> date:
+    first = date(year, month, 1)
+    return first + timedelta(days=(6 - first.weekday()) % 7 + 7 * (nth - 1))
+
+
+def _upcoming(month: int, nth: int) -> date:
+    soon = datetime.now(UTC).date() + timedelta(days=2)
+    this_year = _nth_sunday(soon.year, month, nth)
+    return this_year if this_year >= soon else _nth_sunday(soon.year + 1, month, nth)
+
+
+# the next fall-back and spring-forward Sundays in Toronto and Halifax, still bookable from now
+TRANSITIONS = (_upcoming(11, 1), _upcoming(3, 2))
 WINDOWS = ((time(0, 0), time(5, 0)), (time(21, 0), time(23, 59)))
 
 

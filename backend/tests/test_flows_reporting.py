@@ -1,6 +1,6 @@
 """Reports and the dashboard move by exactly what a paid visit adds."""
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 import httpx
 from sqlalchemy import update
@@ -10,13 +10,13 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import PaymentMethod
 from tests.conftest import BIZ
-from tests.helpers import card_pay, earnings, enable_payments, key, ok, settle
+from tests.helpers import business_today, card_pay, earnings, enable_payments, key, ok, settle
 
 OWNER_BOOKING = "bk_016"  # seeded upcoming visit for st_owner (a payee)
 
 
-async def _reports(api: httpx.AsyncClient) -> dict[str, object]:
-    end = date.today() + timedelta(days=1)
+async def _reports(api: httpx.AsyncClient, db: AsyncSession) -> dict[str, object]:
+    end = await business_today(db) + timedelta(days=1)
     summary = ok(await api.get(f"/v1/reports/summary?start=2000-01-01&end={end}")).json()
     return {
         "income": summary["income"],
@@ -34,7 +34,7 @@ async def test_report_totals_follow_a_paid_visit(
 ) -> None:
     api = as_owner
     await enable_payments(db)
-    before = await _reports(api)
+    before = await _reports(api, db)
 
     inv = ok(await api.post(f"/v1/invoices/from-booking/{OWNER_BOOKING}", headers=key()), 201)
     invoice = ok(await api.post(f"/v1/invoices/{inv.json()['id']}/send")).json()
@@ -45,7 +45,7 @@ async def test_report_totals_follow_a_paid_visit(
     paid = ok(await api.post("/v1/earnings/pay", json={"ids": [journal]})).json()
     earned = paid["earnings"][0]["amount_cents"]
 
-    after = await _reports(api)
+    after = await _reports(api, db)
     income_before, income_after = before["income"], after["income"]
     assert isinstance(income_before, dict) and isinstance(income_after, dict)
     assert (

@@ -1,6 +1,6 @@
 """Filing a sales-tax return moves the period's tax payable to the bank, once per period."""
 
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
 import httpx
 from sqlalchemy import func, select
@@ -16,6 +16,7 @@ from clientbridge.services import ledger
 from clientbridge.services.remittances import RemittanceService
 from clientbridge.services.tax import TaxResult
 from tests.conftest import BIZ, Factory, book_invoice
+from tests.helpers import business_today
 from tests.helpers import client_id as seeded_client
 
 Q1 = {"period_start": "2021-01-01", "period_end": "2021-03-31"}
@@ -158,8 +159,10 @@ async def test_other_business_tax_is_not_filed(
     assert await _remittances(db, other.id) == 0
 
 
-async def test_period_that_has_not_ended_is_422(as_owner: httpx.AsyncClient) -> None:
-    today = date.today().isoformat()
+async def test_period_that_has_not_ended_is_422(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    today = (await business_today(db)).isoformat()
     res = await as_owner.post(
         "/v1/payments/remittances", json={"period_start": "2021-01-01", "period_end": today}
     )

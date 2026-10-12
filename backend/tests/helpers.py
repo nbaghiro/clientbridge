@@ -3,7 +3,7 @@
 import json
 import uuid
 from collections.abc import Mapping
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 from sqlalchemy import select, text, update
@@ -27,6 +27,7 @@ from clientbridge.schemas.orders import OrderOut
 from clientbridge.services import ledger
 from clientbridge.services.billing import _invoice_out
 from clientbridge.services.bookings import _booking_out
+from clientbridge.services.business import local_today
 from clientbridge.services.earnings import load_earning
 from clientbridge.services.lines import fetch_lines
 from clientbridge.services.messaging import open_thread, unread_count
@@ -96,6 +97,25 @@ async def local_hour(db: AsyncSession, hour: int, business_id: str = BIZ) -> dat
     await db.execute(update(Business).where(Business.id == business_id).values(timezone=zone))
     await db.flush()
     return now
+
+
+async def business_today(db: AsyncSession) -> date:
+    """Today in the demo business's zone, the date its reports and returns go by."""
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    return local_today(business)
+
+
+def weeks_ahead(first: date, lead: timedelta = timedelta(days=35)) -> timedelta:
+    """Whole weeks that put `first` at least `lead` after today, past the seeded visits."""
+    return timedelta(weeks=max(0, -((first - datetime.now(UTC).date() - lead).days // 7)))
+
+
+def shifted(when: str, by: timedelta) -> str:
+    """An ISO date, or a UTC time ending in Z, moved by `by` and written the same way."""
+    if "T" not in when:
+        return (date.fromisoformat(when) + by).isoformat()
+    return (datetime.fromisoformat(when) + by).isoformat().replace("+00:00", "Z")
 
 
 def key() -> dict[str, str]:

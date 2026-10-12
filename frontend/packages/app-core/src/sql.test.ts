@@ -1,6 +1,6 @@
 import { AppSchema, businessQuery } from "@clientbridge/sync";
 import initSqlJs, { type Database, type SqlValue } from "sql.js";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { clientValueSql, collectedSql, ownedLiabilitySql, subjectNetSql } from "./domain/ledger";
 import * as core from "./index";
@@ -801,7 +801,157 @@ function seed(): void {
     });
 }
 
-beforeAll(async () => {
+function scheduleRows(): void {
+    db.run("DELETE FROM subjects WHERE id IN ('sj_rex', 'sj_gone')");
+    db.run("DELETE FROM notes WHERE id IN ('nt_1', 'nt_2', 'nt_3')");
+    db.run("DELETE FROM bookings WHERE id = 'bk_future'");
+    db.run("DELETE FROM slots WHERE id = 'ss_future'");
+    scoped("staff", [{ id: "st_cara", role: "staff", status: "active", name: "Cara" }]);
+    scoped("subjects", [
+        {
+            id: "sj_rex",
+            client_id: "cl_ann",
+            kind: "pet",
+            name: "Rex",
+            attributes: '{"breed":"Lab"}',
+        },
+    ]);
+    scoped("resources", [
+        { id: "rs_tub", name: "Tub", category: "station", capacity: 1, active: 1 },
+        { id: "rs_room", name: "Room", category: "room", capacity: 6, active: 1 },
+    ]);
+    scoped("recurrences", [
+        {
+            id: "sch_1",
+            item_id: "it_cut",
+            staff_id: "st_cara",
+            client_id: "cl_ann",
+            frequency: "week",
+            interval: 2,
+            count: 3,
+            status: "active",
+        },
+    ]);
+    scoped("slots", [
+        {
+            id: "ss_c1",
+            item_id: "it_cut",
+            staff_id: "st_cara",
+            resource_id: "rs_tub",
+            recurrence_id: "sch_1",
+            starts_at: "2027-01-05T17:00:00Z",
+            ends_at: "2027-01-05T18:00:00Z",
+            capacity: 1,
+            status: "scheduled",
+        },
+        {
+            id: "ss_c2",
+            item_id: "it_cut",
+            staff_id: "st_cara",
+            recurrence_id: "sch_1",
+            starts_at: "2027-01-19T17:00:00Z",
+            ends_at: "2027-01-19T18:00:00Z",
+            capacity: 1,
+            status: "scheduled",
+        },
+        {
+            id: "ss_k",
+            item_id: "it_cut",
+            staff_id: "st_cara",
+            resource_id: "rs_room",
+            starts_at: "2027-01-06T17:00:00Z",
+            ends_at: "2027-01-06T18:00:00Z",
+            capacity: 2,
+            status: "scheduled",
+        },
+    ]);
+    scoped("bookings", [
+        {
+            id: "bk_c1",
+            slot_id: "ss_c1",
+            staff_id: "st_cara",
+            client_id: "cl_ann",
+            subject_id: "sj_rex",
+            status: "confirmed",
+            source: "online",
+            deposit_amount_cents: 0,
+            deposit_status: "none",
+            reminded_at: "2027-01-04T17:00:00Z",
+        },
+        {
+            id: "bk_c2",
+            slot_id: "ss_c2",
+            staff_id: "st_cara",
+            client_id: "cl_ann",
+            status: "completed",
+            source: "manual",
+            deposit_status: "none",
+        },
+        {
+            id: "bk_k1",
+            slot_id: "ss_k",
+            staff_id: "st_cara",
+            client_id: "cl_ann",
+            subject_id: "sj_rex",
+            status: "confirmed",
+            source: "manual",
+            deposit_status: "pending",
+        },
+        {
+            id: "bk_k2",
+            slot_id: "ss_k",
+            staff_id: "st_cara",
+            client_id: "cl_ben",
+            status: "waitlisted",
+            source: "manual",
+            deposit_status: "none",
+        },
+    ]);
+    scoped("notes", [
+        { id: "nt_b", parent_type: "booking", parent_id: "bk_c1", body: "Nervous" },
+        { id: "nt_c", parent_type: "client", parent_id: "cl_ann", body: "Likes mornings" },
+    ]);
+    scoped("hours", [
+        {
+            id: "av_c1",
+            staff_id: "st_cara",
+            basis: "recurring",
+            weekday: 1,
+            start_time: "09:00:00",
+            end_time: "12:00:00",
+            available: 1,
+        },
+        {
+            id: "av_c2",
+            staff_id: "st_cara",
+            basis: "recurring",
+            weekday: 1,
+            start_time: "13:00:00",
+            end_time: "17:00:00",
+            available: 1,
+        },
+        {
+            id: "av_off",
+            staff_id: "st_cara",
+            basis: "exception",
+            starts_at: "2027-01-12T08:00:00Z",
+            ends_at: "2027-01-13T08:00:00Z",
+            reason: "Vet",
+            available: 0,
+        },
+        {
+            id: "av_shut",
+            staff_id: null,
+            basis: "exception",
+            starts_at: "2027-01-01T08:00:00Z",
+            ends_at: "2027-01-02T08:00:00Z",
+            reason: "New Year",
+            available: 0,
+        },
+    ]);
+}
+
+beforeEach(async () => {
     const SQL = await initSqlJs();
     db = new SQL.Database();
     for (const table of AppSchema.tables) {
@@ -812,6 +962,14 @@ beforeAll(async () => {
 });
 
 const SQL_COVERED = new Set<string>();
+
+// eslint-disable-next-line no-empty-pattern -- vitest passes the file to a hook that destructures its context
+afterAll(({}, file) => {
+    const tests = file.tasks.flatMap((task) => (task.type === "suite" ? task.tasks : [task]));
+    if (tests.some((test) => test.mode !== "run")) return; // a filtered run skips the check
+    const exported = Object.keys(core).filter((k) => k.endsWith("_SQL"));
+    expect(exported.filter((k) => !SQL_COVERED.has(k))).toEqual([]);
+});
 
 function run(name: keyof typeof core, params: SqlValue[] = []): Row[] {
     const sql = core[name];
@@ -1691,153 +1849,7 @@ describe("app-core SQL against the replica schema", () => {
     });
 
     it("reads the schedule's people, pets, hours, time off and series", () => {
-        db.run("DELETE FROM subjects WHERE id IN ('sj_rex', 'sj_gone')");
-        db.run("DELETE FROM notes WHERE id IN ('nt_1', 'nt_2', 'nt_3')");
-        db.run("DELETE FROM bookings WHERE id = 'bk_future'");
-        db.run("DELETE FROM slots WHERE id = 'ss_future'");
-        scoped("staff", [{ id: "st_cara", role: "staff", status: "active", name: "Cara" }]);
-        scoped("subjects", [
-            {
-                id: "sj_rex",
-                client_id: "cl_ann",
-                kind: "pet",
-                name: "Rex",
-                attributes: '{"breed":"Lab"}',
-            },
-        ]);
-        scoped("resources", [
-            { id: "rs_tub", name: "Tub", category: "station", capacity: 1, active: 1 },
-            { id: "rs_room", name: "Room", category: "room", capacity: 6, active: 1 },
-        ]);
-        scoped("recurrences", [
-            {
-                id: "sch_1",
-                item_id: "it_cut",
-                staff_id: "st_cara",
-                client_id: "cl_ann",
-                frequency: "week",
-                interval: 2,
-                count: 3,
-                status: "active",
-            },
-        ]);
-        scoped("slots", [
-            {
-                id: "ss_c1",
-                item_id: "it_cut",
-                staff_id: "st_cara",
-                resource_id: "rs_tub",
-                recurrence_id: "sch_1",
-                starts_at: "2027-01-05T17:00:00Z",
-                ends_at: "2027-01-05T18:00:00Z",
-                capacity: 1,
-                status: "scheduled",
-            },
-            {
-                id: "ss_c2",
-                item_id: "it_cut",
-                staff_id: "st_cara",
-                recurrence_id: "sch_1",
-                starts_at: "2027-01-19T17:00:00Z",
-                ends_at: "2027-01-19T18:00:00Z",
-                capacity: 1,
-                status: "scheduled",
-            },
-            {
-                id: "ss_k",
-                item_id: "it_cut",
-                staff_id: "st_cara",
-                resource_id: "rs_room",
-                starts_at: "2027-01-06T17:00:00Z",
-                ends_at: "2027-01-06T18:00:00Z",
-                capacity: 2,
-                status: "scheduled",
-            },
-        ]);
-        scoped("bookings", [
-            {
-                id: "bk_c1",
-                slot_id: "ss_c1",
-                staff_id: "st_cara",
-                client_id: "cl_ann",
-                subject_id: "sj_rex",
-                status: "confirmed",
-                source: "online",
-                deposit_amount_cents: 0,
-                deposit_status: "none",
-                reminded_at: "2027-01-04T17:00:00Z",
-            },
-            {
-                id: "bk_c2",
-                slot_id: "ss_c2",
-                staff_id: "st_cara",
-                client_id: "cl_ann",
-                status: "completed",
-                source: "manual",
-                deposit_status: "none",
-            },
-            {
-                id: "bk_k1",
-                slot_id: "ss_k",
-                staff_id: "st_cara",
-                client_id: "cl_ann",
-                subject_id: "sj_rex",
-                status: "confirmed",
-                source: "manual",
-                deposit_status: "pending",
-            },
-            {
-                id: "bk_k2",
-                slot_id: "ss_k",
-                staff_id: "st_cara",
-                client_id: "cl_ben",
-                status: "waitlisted",
-                source: "manual",
-                deposit_status: "none",
-            },
-        ]);
-        scoped("notes", [
-            { id: "nt_b", parent_type: "booking", parent_id: "bk_c1", body: "Nervous" },
-            { id: "nt_c", parent_type: "client", parent_id: "cl_ann", body: "Likes mornings" },
-        ]);
-        scoped("hours", [
-            {
-                id: "av_c1",
-                staff_id: "st_cara",
-                basis: "recurring",
-                weekday: 1,
-                start_time: "09:00:00",
-                end_time: "12:00:00",
-                available: 1,
-            },
-            {
-                id: "av_c2",
-                staff_id: "st_cara",
-                basis: "recurring",
-                weekday: 1,
-                start_time: "13:00:00",
-                end_time: "17:00:00",
-                available: 1,
-            },
-            {
-                id: "av_off",
-                staff_id: "st_cara",
-                basis: "exception",
-                starts_at: "2027-01-12T08:00:00Z",
-                ends_at: "2027-01-13T08:00:00Z",
-                reason: "Vet",
-                available: 0,
-            },
-            {
-                id: "av_shut",
-                staff_id: null,
-                basis: "exception",
-                starts_at: "2027-01-01T08:00:00Z",
-                ends_at: "2027-01-02T08:00:00Z",
-                reason: "New Year",
-                available: 0,
-            },
-        ]);
+        scheduleRows();
         const range = ["2027-01-07T00:00:00.000Z", "2027-01-05T00:00:00.000Z"];
         expect(
             pick(
@@ -1943,6 +1955,7 @@ describe("app-core SQL against the replica schema", () => {
     });
 
     it("reads class rosters, stations, reminders and add-on offers", () => {
+        scheduleRows();
         expect(
             pick(
                 run("CLASS_SESSIONS_SQL", ["2027-01-01T00:00:00.000Z", "2027-02-01T00:00:00.000Z"]),
@@ -2230,10 +2243,5 @@ describe("app-core SQL against the replica schema", () => {
             },
         ]);
         expect(run("STRANDED_SQL", ["[]"])).toEqual([]);
-    });
-
-    it("covers every exported SQL constant", () => {
-        const exported = Object.keys(core).filter((k) => k.endsWith("_SQL"));
-        expect(exported.filter((k) => !SQL_COVERED.has(k))).toEqual([]);
     });
 });
