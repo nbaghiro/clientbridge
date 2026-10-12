@@ -10,6 +10,7 @@ from clientbridge.models.platform import Audit
 from tests.conftest import Factory, FakeEmailSender, access_token
 
 BIZ = "bz_birchbark"
+_CANCEL = {"future": "cancel"}
 
 
 async def _actions(db: AsyncSession, entity_id: str) -> list[str]:
@@ -256,12 +257,12 @@ async def test_change_role_and_remove_member(as_owner: httpx.AsyncClient, db: As
     res = await as_owner.patch("/v1/staff/st_priya", json={"role": "admin"})
     assert res.status_code == 204
     assert await db.scalar(text("SELECT role FROM staff WHERE id = 'st_priya'")) == "admin"
-    assert (await as_owner.delete("/v1/staff/st_priya")).status_code == 204
+    assert (await as_owner.post("/v1/staff/st_priya/remove", json=_CANCEL)).status_code == 200
     assert await db.scalar(text("SELECT status FROM staff WHERE id = 'st_priya'")) == "removed"
     revoked = await db.scalar(text("SELECT revoked_at FROM sessions WHERE id = 'ase_priya'"))
     assert revoked is not None
     assert set(await _actions(db, "st_priya")) >= {"staff.role", "staff.remove"}
-    assert (await as_owner.delete("/v1/staff/st_priya")).status_code == 404
+    assert (await as_owner.post("/v1/staff/st_priya/remove", json=_CANCEL)).status_code == 404
 
 
 async def test_role_changes_are_guarded(as_owner: httpx.AsyncClient) -> None:
@@ -272,7 +273,7 @@ async def test_role_changes_are_guarded(as_owner: httpx.AsyncClient) -> None:
 
 async def test_staff_cannot_manage_the_team_403(as_staff: httpx.AsyncClient) -> None:
     assert (await as_staff.patch("/v1/staff/st_priya", json={"role": "staff"})).status_code == 403
-    assert (await as_staff.delete("/v1/staff/st_priya")).status_code == 403
+    assert (await as_staff.post("/v1/staff/st_priya/remove", json=_CANCEL)).status_code == 403
     assert (await as_staff.post("/v1/staff/invites/st_invite/revoke")).status_code == 403
     assert (await as_staff.post("/v1/staff/invites/st_invite/resend")).status_code == 403
 
@@ -287,12 +288,12 @@ async def test_team_endpoints_scope_by_business(
     await db.flush()
     res = await as_owner.patch(f"/v1/staff/{member.id}", json={"role": "admin"})
     assert res.status_code == 404
-    assert (await as_owner.delete(f"/v1/staff/{member.id}")).status_code == 404
     assert (await as_owner.post(f"/v1/staff/invites/{invite.id}/resend")).status_code == 404
     assert (await as_owner.post(f"/v1/staff/invites/{invite.id}/revoke")).status_code == 404
     assert await db.scalar(text("SELECT status FROM staff WHERE id = :i"), {"i": invite.id}) == (
         "invited"
     )
+    assert (await as_owner.post(f"/v1/staff/{member.id}/remove", json=_CANCEL)).status_code == 404
 
 
 async def test_owner_sets_staff_pay(as_owner: httpx.AsyncClient) -> None:
@@ -336,7 +337,7 @@ async def test_an_admin_cannot_change_or_remove_the_owner_403(
 ) -> None:
     await _as_admin(api, db, factory)
     assert (await api.patch("/v1/staff/st_owner", json={"role": "staff"})).status_code == 403
-    assert (await api.delete("/v1/staff/st_owner")).status_code == 403
+    assert (await api.post("/v1/staff/st_owner/remove", json=_CANCEL)).status_code == 403
     assert await db.scalar(text("SELECT role FROM staff WHERE id = 'st_owner'")) == "owner"
     assert await db.scalar(text("SELECT status FROM staff WHERE id = 'st_owner'")) == "active"
 
@@ -349,7 +350,7 @@ async def test_an_admin_manages_other_members(
 
 
 async def test_nobody_removes_themselves_403(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    assert (await as_owner.delete("/v1/staff/st_owner")).status_code == 403
+    assert (await as_owner.post("/v1/staff/st_owner/remove", json=_CANCEL)).status_code == 403
     assert await db.scalar(text("SELECT status FROM staff WHERE id = 'st_owner'")) == "active"
 
 
@@ -365,7 +366,7 @@ async def test_resending_to_an_active_member_404(as_owner: httpx.AsyncClient) ->
         ("POST", "/v1/staff/invites/st_invite/resend"),
         ("POST", "/v1/staff/invites/st_invite/revoke"),
         ("PATCH", "/v1/staff/st_priya"),
-        ("DELETE", "/v1/staff/st_priya"),
+        ("POST", "/v1/staff/st_priya/remove"),
     ],
 )
 async def test_unauth_401(unauth: httpx.AsyncClient, method: str, path: str) -> None:

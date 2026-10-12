@@ -3,6 +3,7 @@ import {
     RATE_TYPES,
     type InviteTeammatesForm,
     type MemberRole,
+    type RemovalChoice,
     type StaffPayRow,
     type TeamInvite,
     type TeamMember,
@@ -14,6 +15,7 @@ import {
     strings,
     useInviteTeammatesForm,
     useStaffPay,
+    useRemoveMember,
     useStaffPayForm,
     useTeam,
 } from "@clientbridge/app-core";
@@ -33,6 +35,7 @@ import {
     LoadFailed,
     Modal,
     Notice,
+    OccurrenceList,
     Panel,
     Select,
     Skeleton,
@@ -190,6 +193,99 @@ function PaySection({ row }: { row: StaffPayRow }) {
     );
 }
 
+function RemoveDialog({
+    member,
+    team,
+    onClose,
+    onRemoved,
+}: {
+    member: TeamMember;
+    team: TeamView;
+    onClose: () => void;
+    onRemoved: () => void;
+}) {
+    const removal = useRemoveMember(api, member, team.members, () => {
+        team.refresh();
+        onRemoved();
+    });
+    if (removal.left !== null) {
+        return (
+            <Modal onClose={onRemoved} size="lg">
+                <div className="space-y-4">
+                    <div>
+                        <h2 className="font-display text-xl font-bold text-ink">
+                            {t.removeLeftTitle(member.name)}
+                        </h2>
+                        <p className="mt-1 text-sm text-muted">
+                            {t.removeLeftBody(removal.left.length)}
+                        </p>
+                    </div>
+                    <OccurrenceList rows={removal.left} label={t.removeFuture} />
+                    <div className="flex justify-end">
+                        <Button onPress={onRemoved}>{strings.common.done}</Button>
+                    </div>
+                </div>
+            </Modal>
+        );
+    }
+    return (
+        <Modal onClose={onClose} size="lg">
+            <div className="space-y-4">
+                <div>
+                    <h2 className="font-display text-xl font-bold text-ink">
+                        {t.removeTitle(member.name)}
+                    </h2>
+                    <p className="mt-1 text-sm text-muted">
+                        {strings.common.twoSentences(t.removeBody, removal.summary)}
+                    </p>
+                </div>
+                {removal.hasWork ? (
+                    <>
+                        <Choice<RemovalChoice>
+                            layout="cards"
+                            label={t.removeFuture}
+                            value={removal.choice}
+                            onChange={removal.setChoice}
+                            options={[
+                                {
+                                    key: "reassign",
+                                    label: t.removeReassign,
+                                    hint: t.removeReassignHint,
+                                },
+                                { key: "cancel", label: t.removeCancel, hint: t.removeCancelHint },
+                            ]}
+                        />
+                        {removal.choice === "reassign" ? (
+                            <Select
+                                label={t.removeTaker}
+                                value={removal.taker}
+                                options={removal.takers}
+                                onChange={removal.setTaker}
+                            />
+                        ) : null}
+                        {removal.visits.length > 0 ? (
+                            <OccurrenceList rows={removal.visits} label={t.removeFuture} />
+                        ) : null}
+                    </>
+                ) : null}
+                {removal.error !== null ? (
+                    <Notice tone="danger" banner>
+                        {removal.error}
+                    </Notice>
+                ) : null}
+                <div className="flex justify-end gap-2">
+                    <Button variant="outline" onPress={onClose}>
+                        {strings.common.cancel}
+                    </Button>
+                    <Button variant="danger" onPress={removal.submit} busy={removal.busy}>
+                        {t.removeConfirm}
+                    </Button>
+                </div>
+            </div>
+        </Modal>
+    );
+}
+
 function MemberDetail({
     member,
     team,
@@ -202,25 +298,11 @@ function MemberDetail({
     onClose: () => void;
 }) {
     const [role, setRole] = useState<MemberRole>(member.role);
+    const [removing, setRemoving] = useState(false);
     const owner = member.role === "owner";
     const editable = team.canManage && !owner && !member.isYou;
     const busy = team.busyId === member.id;
     const access = strings.common.titleAndBody(roleLabel(member.role), t.roleAccess[member.role]);
-    const remove = (): void => {
-        confirm({
-            title: t.removeTitle(member.name),
-            message: t.removeBody,
-            confirmLabel: t.removeConfirm,
-            destructive: true,
-        })
-            .then((ok) => {
-                if (ok) {
-                    team.remove(member.id);
-                    onClose();
-                }
-            })
-            .catch(() => undefined);
-    };
     return (
         <DetailView
             open
@@ -274,12 +356,28 @@ function MemberDetail({
             {team.canManage && pay !== undefined ? <PaySection row={pay} /> : null}
             {editable ? (
                 <DetailSection>
-                    <Button variant="danger" onPress={remove} icon="trash">
+                    <Button
+                        variant="danger"
+                        onPress={() => {
+                            setRemoving(true);
+                        }}
+                        icon="trash"
+                    >
                         {t.remove}
                     </Button>
                 </DetailSection>
             ) : null}
             {team.error !== null ? <Notice tone="danger">{team.error}</Notice> : null}
+            {removing ? (
+                <RemoveDialog
+                    member={member}
+                    team={team}
+                    onClose={() => {
+                        setRemoving(false);
+                    }}
+                    onRemoved={onClose}
+                />
+            ) : null}
         </DetailView>
     );
 }

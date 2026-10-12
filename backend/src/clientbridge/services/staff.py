@@ -1,9 +1,11 @@
 """Staff invites and pay settings."""
 
 import secrets
+from collections import Counter
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
@@ -17,25 +19,45 @@ from clientbridge.core.errors import (
 )
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for
-from clientbridge.core.scoping import scoped
+from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.core.security import hash_token, verify_password
 from clientbridge.integrations.postmark import Email, EmailSender
+from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.auth import AuthSession
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.platform import Audit
+from clientbridge.models.scheduling import Addon, Booking, Recurrence, Slot
+from clientbridge.schemas.bookings import BookingCheck
 from clientbridge.schemas.staff import (
+    FutureVisit,
+    FutureWork,
     InviteOut,
+    LeftVisit,
     MemberRole,
     RoleUpdate,
     StaffPayOut,
     StaffPayUpdate,
+    StaffRemove,
+    StaffRemoveOut,
     TeamMember,
     TeamOut,
 )
 from clientbridge.services.auth import build_user
+from clientbridge.services.bookings import (
+    clash,
+    lock_bookings,
+    lock_staff,
+    release_slot,
+    slot_problem,
+)
+from clientbridge.services.business import load_staff
+from clientbridge.services.catalog import load_item
 from clientbridge.services.notifications import staff_invite
+from clientbridge.services.payments import cancel_open_deposits, refund_deposit
 
 INVITE_TTL = timedelta(days=7)
+_ANY = "any"
+_OPEN = ("pending", "confirmed", "waitlisted")
 
 
 def _fit_rate_unit(staff: Staff, data: StaffPayUpdate) -> None:
@@ -298,34 +320,231 @@ class StaffService:
         )
         await self.db.commit()
 
-    async def remove(self, principal: Principal, staff_id: str) -> None:
-        """The member loses access here and is signed out of every device; their history stays."""
-        member = await self._member(principal, staff_id)
-        member.status = "removed"
-        if member.user_id is not None:
-            await self.db.execute(
-                update(AuthSession)
-                .where(AuthSession.user_id == member.user_id, AuthSession.revoked_at.is_(None))
-                .values(revoked_at=datetime.now(UTC))
+    async def remove(
+        self,
+        principal: Principal,
+        staff_id: str,
+        data: StaffRemove,
+        *,
+        gateway: PaymentGateway,
+        idempotency_key: str | None = None,
+    ) -> tuple[StaffRemoveOut, bool]:
+        """Sign the member out and settle their future work; True when this call did the work."""
+        assert_role(principal, "owner", "admin", message="only an owner or admin can change roles")
+        biz = principal.business_id
+        ran: list[bool] = []
+
+        async def run(cmd: Command) -> StaffRemoveOut:
+            member = await self._member(principal, staff_id)
+            candidates = await self._takers(biz, member.id, data)
+            await lock_staff(self.db, biz, member.id, *(c.id for c in candidates))
+            visits = await self._future_visits(biz, member.id)
+            series = list(
+                await self.db.scalars(
+                    scoped(Recurrence, biz)
+                    .where(Recurrence.staff_id == member.id, Recurrence.status == "active")
+                    .order_by(Recurrence.id)
+                )
             )
-        self.db.add(
-            Audit(
-                id=new_id("audit"),
-                business_id=principal.business_id,
-                performed_by=principal.user_id,
-                action="staff.remove",
+            if data.future is None and (visits or series):
+                work = FutureWork(
+                    visits=[
+                        FutureVisit(
+                            booking_id=b.id,
+                            starts_at=s.starts_at,
+                            client_id=b.client_id,
+                            recurrence_id=s.recurrence_id,
+                        )
+                        for b, s in visits
+                    ],
+                    series=[r.id for r in series],
+                )
+                raise Conflict(
+                    "move or cancel this member's future visits first",
+                    code="staff_has_future_work",
+                    detail=work.model_dump(mode="json"),
+                )
+            out = StaffRemoveOut(moved=[], canceled=[], left=[], series_moved=[], series_ended=[])
+            live = {b.id for b in await lock_bookings(self.db, biz, [b.id for b, _ in visits])}
+            slots: dict[str, tuple[Slot, list[Booking]]] = {}
+            for booking, slot in visits:
+                if booking.id in live and booking.status in _OPEN:
+                    slots.setdefault(slot.id, (slot, []))[1].append(booking)
+            taken: dict[str, list[str]] = {}
+            for slot, bookings in slots.values():
+                await self.db.refresh(slot, with_for_update=True)
+                if data.future == "cancel":
+                    for booking in bookings:
+                        await self._cancel(cmd, gateway, booking)
+                        out.canceled.append(booking.id)
+                    await release_slot(self.db, slot)
+                    continue
+                taker, problem = await self._reassign(biz, slot, bookings, candidates)
+                if taker is None:
+                    out.left.extend(
+                        LeftVisit(
+                            booking_id=b.id,
+                            starts_at=slot.starts_at,
+                            problem=problem.problem if problem else None,
+                            message=problem.message if problem else None,
+                        )
+                        for b in bookings
+                    )
+                    continue
+                for booking in bookings:
+                    cmd.record(
+                        "booking.reassign",
+                        entity_type="booking",
+                        entity_id=booking.id,
+                        changes={"from": member.id, "to": taker},
+                    )
+                    out.moved.append(booking.id)
+                if slot.recurrence_id is not None:
+                    taken.setdefault(slot.recurrence_id, []).append(taker)
+            await self._settle_series(biz, series, data, taken, out)
+            member.status = "removed"
+            if member.user_id is not None:
+                await self.db.execute(
+                    update(AuthSession)
+                    .where(AuthSession.user_id == member.user_id, AuthSession.revoked_at.is_(None))
+                    .values(revoked_at=datetime.now(UTC))
+                )
+            await self.db.flush()
+            cmd.record(
+                "staff.remove",
                 entity_type="staff",
                 entity_id=member.id,
+                changes={
+                    "future": data.future,
+                    "moved": len(out.moved),
+                    "canceled": len(out.canceled),
+                    "left": len(out.left),
+                },
             )
+            ran.append(True)
+            return out
+
+        result = await run_command(
+            self.db,
+            principal,
+            action="staff.remove",
+            run=run,
+            response_model=StaffRemoveOut,
+            idempotency_key=idempotency_key,
+            request={"staff_id": staff_id, **data.model_dump(mode="json")},
         )
-        await self.db.commit()
+        return result, bool(ran)
 
+    async def _takers(self, biz: str, member_id: str, data: StaffRemove) -> list[Staff]:
+        """The members who may take the visits, in the order they are offered them."""
+        if data.future is None and data.reassign_to is not None:
+            raise Unprocessable("choose reassign to name who takes the visits")
+        if data.future == "cancel" and data.reassign_to is not None:
+            raise Unprocessable("canceled visits are not reassigned")
+        if data.future != "reassign":
+            return []
+        if data.reassign_to is None:
+            raise Unprocessable('name the member who takes the visits, or "any"')
+        if data.reassign_to == member_id:
+            raise Unprocessable("choose a different member to take the visits")
+        if data.reassign_to != _ANY:
+            return [await load_staff(self.db, biz, data.reassign_to)]
+        rows = await self.db.scalars(
+            scoped(Staff, biz)
+            .where(Staff.status == "active", Staff.id != member_id)
+            .order_by(Staff.created_at, Staff.id)
+        )
+        return list(rows)
 
-async def load_staff(db: AsyncSession, biz: str, staff_id: str) -> Staff:
-    """Load an active staff member by id, else NotFound."""
-    row = (
-        await db.execute(scoped(Staff, biz).where(Staff.id == staff_id, Staff.status == "active"))
-    ).scalar_one_or_none()
-    if row is None:
-        raise NotFound("staff not found")
-    return row
+    async def _future_visits(self, biz: str, member_id: str) -> list[tuple[Booking, Slot]]:
+        rows = await self.db.execute(
+            scoped(Booking, biz, soft_delete=True)
+            .add_columns(Slot)
+            .join(Slot, Slot.id == Booking.slot_id)
+            .where(
+                Slot.staff_id == member_id,
+                Slot.status == "scheduled",
+                Slot.starts_at >= datetime.now(UTC),
+                Booking.status.in_(_OPEN),
+            )
+            .order_by(Slot.starts_at, Booking.id)
+        )
+        return [(row[0], row[1]) for row in rows.all()]
+
+    async def _reassign(
+        self, biz: str, slot: Slot, bookings: list[Booking], candidates: list[Staff]
+    ) -> tuple[str | None, BookingCheck | None]:
+        """Give the slot to the first candidate free then; the first refusal when nobody is."""
+        item = await load_item(self.db, biz, slot.item_id, require_active=False)
+        first: BookingCheck | None = None
+        for candidate in candidates:
+            problem = await slot_problem(
+                self.db,
+                biz,
+                item,
+                candidate.id,
+                slot.starts_at,
+                slot.ends_at,
+                exclude=slot.id,
+                resource_id=slot.resource_id,
+            )
+            if problem is None:
+                try:
+                    async with self.db.begin_nested():
+                        slot.staff_id = candidate.id
+                        for booking in bookings:
+                            booking.staff_id = candidate.id
+                        await self.db.execute(
+                            scoped_update(Addon, biz)
+                            .where(Addon.booking_id.in_([b.id for b in bookings]))
+                            .values(staff_id=candidate.id)
+                        )
+                        await self.db.flush()
+                except IntegrityError as exc:
+                    await self.db.refresh(slot)
+                    for booking in bookings:
+                        await self.db.refresh(booking)
+                    problem = BookingCheck(ok=False, problem="overlap", message=clash(exc).message)
+                else:
+                    return candidate.id, None
+            first = first or problem
+        return None, first
+
+    async def _cancel(self, cmd: Command, gateway: PaymentGateway, booking: Booking) -> None:
+        if booking.deposit_status == "collected":
+            await refund_deposit(self.db, gateway, booking)
+        elif booking.deposit_status == "pending":
+            await cancel_open_deposits(self.db, gateway, booking)
+            booking.deposit_status = "none"
+        booking.status = "canceled"
+        booking.canceled_at = datetime.now(UTC)
+        cmd.record("booking.canceled", entity_type="booking", entity_id=booking.id)
+
+    async def _settle_series(
+        self,
+        biz: str,
+        series: list[Recurrence],
+        data: StaffRemove,
+        taken: dict[str, list[str]],
+        out: StaffRemoveOut,
+    ) -> None:
+        """A series follows its moved visits to their new member; otherwise it stops."""
+        for recurrence in series:
+            takers = taken.get(recurrence.id)
+            if data.future == "reassign" and takers:
+                recurrence.staff_id = Counter(takers).most_common(1)[0][0]
+                out.series_moved.append(recurrence.id)
+                continue
+            ahead = await self.db.scalar(
+                scoped(Booking, biz, soft_delete=True)
+                .with_only_columns(Booking.id)
+                .join(Slot, Slot.id == Booking.slot_id)
+                .where(
+                    Slot.recurrence_id == recurrence.id,
+                    Slot.starts_at >= datetime.now(UTC),
+                    Booking.status.in_(_OPEN),
+                )
+                .limit(1)
+            )
+            recurrence.status = "ended" if ahead is not None else "canceled"
+            out.series_ended.append(recurrence.id)

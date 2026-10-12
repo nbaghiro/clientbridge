@@ -1,6 +1,7 @@
 import calendar
 import secrets
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
@@ -79,7 +80,7 @@ from clientbridge.schemas.bookings import (
     VisitPage,
 )
 from clientbridge.services import ledger
-from clientbridge.services.business import business_tz
+from clientbridge.services.business import business_tz, load_staff
 from clientbridge.services.catalog import deposit_cents, load_item
 from clientbridge.services.clients import load_client
 from clientbridge.services.messaging import dispatch_message, open_thread
@@ -91,7 +92,6 @@ from clientbridge.services.payments import (
     refund_deposit,
     resolve_saved_method_ref,
 )
-from clientbridge.services.staff import load_staff
 
 _OVERLAP = "that staff member is already booked at that time"
 _RESOURCE_BUSY = "that resource is already booked at that time"
@@ -1026,70 +1026,160 @@ async def open_slots(
     exclude: str | None = None,
 ) -> list[datetime]:
     """Bookable start times for the item and staff on a date, in UTC; none until hours are set."""
-    duration = item.duration_min
-    if duration is None or duration <= 0:
-        return []
-    windows = await open_windows(db, staff_id, business_id, on_date)
-    if not windows:
-        return []
     tz = await business_tz(db, business_id)
-    away = await exceptions_between(db, business_id, staff_id, *local_day(on_date, tz))
-    step = step_min or duration + item.buffer_before_min + item.buffer_after_min
-    slots: list[datetime] = []
-    for window_start, window_end in windows:
-        # window times are local wall-clock; anchor them in the business tz, then work in UTC
-        start = datetime.combine(on_date, window_start, tzinfo=tz).astimezone(UTC)
-        limit = datetime.combine(on_date, window_end, tzinfo=tz).astimezone(UTC)
-        while start + timedelta(minutes=duration) <= limit:
-            end = start + timedelta(minutes=duration)
-            blocked = any(a.starts_at < end and a.ends_at > start for a in away)
-            if not blocked and not await conflicting_slot(
-                db, business_id, item, staff_id, start, end, exclude
-            ):
-                slots.append(start)
-            start += timedelta(minutes=step)
-    return slots
+    found = await load_availability(db, business_id, [staff_id], on_date, on_date, tz, [item])
+    return found.open_starts(item, staff_id, on_date, step_min, exclude=exclude)
+
+
+@dataclass(frozen=True)
+class Away:
+    starts_at: datetime
+    ends_at: datetime
+    reason: str | None
+
+
+@dataclass(frozen=True)
+class Busy:
+    id: str
+    item_id: str
+    starts_at: datetime
+    ends_at: datetime
+    before: timedelta
+    after: timedelta
+    full: bool
+
+
+@dataclass(frozen=True)
+class Availability:
+    """Members' hours, closures, time off and live slots over a span, read once per request."""
+
+    tz: ZoneInfo
+    closures: list[Away]
+    hours: dict[str, list[Hours]]
+    time_off: dict[str, list[Away]]
+    busy: dict[str, list[Busy]]
+
+    def open_starts(
+        self,
+        item: Item,
+        staff_id: str,
+        on_date: date,
+        step_min: int | None = None,
+        *,
+        exclude: str | None = None,
+    ) -> list[datetime]:
+        """The starts `slot_problem` would accept on the date's step grid, in UTC."""
+        duration = item.duration_min
+        if duration is None or duration <= 0:
+            return []
+        windows = windows_on(self.hours.get(staff_id, []), on_date)
+        if not windows:
+            return []
+        away = self.closures + self.time_off.get(staff_id, [])
+        busy = [b for b in self.busy.get(staff_id, []) if b.id != exclude]
+        before = timedelta(minutes=item.buffer_before_min)
+        after = timedelta(minutes=item.buffer_after_min)
+        length = timedelta(minutes=duration)
+        step = timedelta(minutes=step_min) if step_min else length + before + after
+        slots: list[datetime] = []
+        for window_start, window_end in windows:
+            # window times are local wall-clock; anchor them in the business tz, then work in UTC
+            start = datetime.combine(on_date, window_start, tzinfo=self.tz).astimezone(UTC)
+            limit = datetime.combine(on_date, window_end, tzinfo=self.tz).astimezone(UTC)
+            while start + length <= limit:
+                end = start + length
+                if not any(a.starts_at < end and a.ends_at > start for a in away) and not any(
+                    b.starts_at - b.before < end + after
+                    and b.ends_at + b.after > start - before
+                    and (b.full or b.item_id != item.id or b.starts_at != start or b.ends_at != end)
+                    for b in busy
+                ):
+                    slots.append(start)
+                start += step
+        return slots
+
+
+async def load_availability(
+    db: AsyncSession,
+    business_id: str,
+    staff_ids: Sequence[str],
+    first: date,
+    last: date,
+    tz: ZoneInfo,
+    items: Sequence[Item],
+) -> Availability:
+    """Three reads for any number of members and days: hours, closures and time off, slots."""
+    opens, closes = local_day(first, tz)[0], local_day(last, tz)[1]
+    hours: dict[str, list[Hours]] = {staff_id: [] for staff_id in staff_ids}
+    rows = await db.scalars(
+        scoped(Hours, business_id).where(Hours.staff_id.in_(staff_ids), Hours.basis != "exception")
+    )
+    for row in rows:
+        if row.staff_id is not None:
+            hours[row.staff_id].append(row)
+    closures: list[Away] = []
+    time_off: dict[str, list[Away]] = {}
+    exceptions = await db.scalars(
+        scoped(Hours, business_id).where(
+            Hours.basis == "exception",
+            or_(Hours.staff_id.is_(None), Hours.staff_id.in_(staff_ids)),
+            Hours.starts_at < closes,
+            Hours.ends_at > opens,
+        )
+    )
+    for row in exceptions:
+        if row.starts_at is None or row.ends_at is None:
+            continue
+        window = Away(row.starts_at, row.ends_at, row.reason)
+        if row.staff_id is None:
+            closures.append(window)
+        else:
+            time_off.setdefault(row.staff_id, []).append(window)
+    margin = timedelta(
+        minutes=max((max(i.buffer_before_min, i.buffer_after_min) for i in items), default=0)
+    )
+    before = func.make_interval(0, 0, 0, 0, 0, Item.buffer_before_min)
+    after = func.make_interval(0, 0, 0, 0, 0, Item.buffer_after_min)
+    slots = await db.execute(
+        scoped(Slot, business_id)
+        .join(Item, Item.id == Slot.item_id)
+        .with_only_columns(
+            Slot.id,
+            Slot.staff_id,
+            Slot.item_id,
+            Slot.starts_at,
+            Slot.ends_at,
+            Item.buffer_before_min,
+            Item.buffer_after_min,
+            booked_count_expr() >= Slot.capacity,
+        )
+        .where(
+            Slot.staff_id.in_(staff_ids),
+            Slot.status != "canceled",
+            Slot.starts_at - before < closes + margin,
+            Slot.ends_at + after > opens - margin,
+        )
+    )
+    busy: dict[str, list[Busy]] = {}
+    for slot_id, staff_id, item_id, starts_at, ends_at, buffer_before, buffer_after, full in slots:
+        busy.setdefault(staff_id, []).append(
+            Busy(
+                id=slot_id,
+                item_id=item_id,
+                starts_at=starts_at,
+                ends_at=ends_at,
+                before=timedelta(minutes=buffer_before),
+                after=timedelta(minutes=buffer_after),
+                full=bool(full),
+            )
+        )
+    return Availability(tz=tz, closures=closures, hours=hours, time_off=time_off, busy=busy)
 
 
 def local_day(on_date: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
     """A local date's span in UTC, midnight to midnight, so 23- and 25-hour days come out right."""
     opens = datetime.combine(on_date, time.min, tzinfo=tz).astimezone(UTC)
     return opens, datetime.combine(on_date + timedelta(days=1), time.min, tzinfo=tz).astimezone(UTC)
-
-
-class _Window:
-    def __init__(self, starts_at: datetime, ends_at: datetime, reason: str | None) -> None:
-        self.starts_at = starts_at
-        self.ends_at = ends_at
-        self.reason = reason
-
-
-async def exceptions_between(
-    db: AsyncSession, business_id: str, staff_id: str | None, start: datetime, end: datetime
-) -> list[_Window]:
-    """Closures, plus this member's time off when one is named, overlapping the range."""
-    who: ColumnElement[bool] = Hours.staff_id.is_(None)
-    if staff_id is not None:
-        who = or_(who, Hours.staff_id == staff_id)
-    rows = (
-        (
-            await db.execute(
-                scoped(Hours, business_id).where(
-                    Hours.basis == "exception",
-                    who,
-                    Hours.starts_at < end,
-                    Hours.ends_at > start,
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    return [
-        _Window(r.starts_at, r.ends_at, r.reason)
-        for r in rows
-        if r.starts_at is not None and r.ends_at is not None
-    ]
 
 
 _WEEKDAY_CODES: dict[Weekday, int] = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}

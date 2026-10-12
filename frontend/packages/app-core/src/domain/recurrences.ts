@@ -180,19 +180,26 @@ interface PatternInput {
     ignore?: (eventId: string) => boolean;
 }
 
-export function buildOccurrences(p: PatternInput, ctx: Ctx): SeriesOccurrence[] {
-    const zone = ctx.avail.zone;
-    const ignore = p.ignore ?? (() => false);
+function occurrenceStarts(p: PatternInput, zone: string): Date[] {
     const limit = p.end === "count" ? Math.min(p.count, MAX_VISITS) : MAX_VISITS;
-    const out: SeriesOccurrence[] = [];
+    const out: Date[] = [];
     for (let i = 0; i < limit; i++) {
         const start = stepDate(p.first, p.frequency, p.interval, i, zone);
         if (p.end === "until" && start >= addDays(p.until, 1, zone)) break;
+        out.push(start);
+    }
+    return out;
+}
+
+export function buildOccurrences(p: PatternInput, ctx: Ctx): SeriesOccurrence[] {
+    const zone = ctx.avail.zone;
+    const ignore = p.ignore ?? (() => false);
+    return occurrenceStarts(p, zone).map((start, i) => {
         const end = new Date(start.getTime() + p.durationMin * MIN);
         const past = start < ctx.now;
         const target = { item: p.item ?? null };
         const problem = past ? null : problemAt(ctx, p.staffId, start, end, ignore, target);
-        out.push({
+        return {
             key: dateKey(start, zone),
             index: i + 1,
             start,
@@ -204,9 +211,8 @@ export function buildOccurrences(p: PatternInput, ctx: Ctx): SeriesOccurrence[] 
                     ? suggest(ctx, p.staffId, start, p.durationMin, ignore, target)
                     : null,
             past,
-        });
-    }
-    return out;
+        };
+    });
 }
 
 export function patternLabel(
@@ -273,8 +279,12 @@ export interface SeriesComposer {
 
 const times = (): { key: string; label: string }[] => clockOptions(30, "07:00", "19:00");
 
-function useSeriesContext(from: Date, to: Date): Ctx & { sources: { isLoading: boolean }[] } {
+// A day either side of the visits covers buffers and the same-day times suggest tries.
+function useSeriesContext(first: Date, last: Date): Ctx & { sources: { isLoading: boolean }[] } {
     const now = useNow();
+    const zone = useBusinessZone();
+    const from = addDays(startOfDay(first, zone), -1, zone);
+    const to = addDays(startOfDay(last, zone), 2, zone);
     const { events, isLoading } = useScheduleEvents(from, to);
     const avail = useAvailability(from, to);
     const staff = useStaff();
@@ -309,27 +319,23 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
     const [done, setDone] = useState<SeriesComposer["done"]>(null);
     const { busy, error, setError, run } = useAsyncAction();
     const key = useRef<Attempt | null>(null);
-    const ctx = useSeriesContext(today, addDays(today, 730, zone));
-
     const item = services.find((i) => i.id === itemId);
     const start = combineDayAndTime(firstDay, time, zone);
     const ready = clientId !== "" && itemId !== "" && staffId !== "";
-    const raw = ready
-        ? buildOccurrences(
-              {
-                  first: start,
-                  frequency,
-                  interval: Math.max(1, interval),
-                  end,
-                  count: Math.max(1, count),
-                  until: combineDayAndTime(until, "00:00", zone),
-                  staffId,
-                  durationMin: item?.duration_min ?? 60,
-                  item: item ? slotItemOf(item) : null,
-              },
-              ctx,
-          )
-        : [];
+    const input: PatternInput = {
+        first: start,
+        frequency,
+        interval: Math.max(1, interval),
+        end,
+        count: Math.max(1, count),
+        until: combineDayAndTime(until, "00:00", zone),
+        staffId,
+        durationMin: item?.duration_min ?? 60,
+        item: item ? slotItemOf(item) : null,
+    };
+    const starts = ready ? occurrenceStarts(input, zone) : [];
+    const ctx = useSeriesContext(starts[0] ?? today, starts.at(-1) ?? today);
+    const raw = ready ? buildOccurrences(input, ctx) : [];
     const occurrences: OccurrenceView[] = raw.map((o) => {
         const choice =
             o.status === "conflict" ? (choices[o.key] ?? (o.suggestion ? "shift" : "skip")) : null;
@@ -630,8 +636,13 @@ function useSeriesData(): {
     const series = useQuery<SeriesRow>(SERIES_SQL);
     const visits = useQuery<SeriesVisitRow>(SERIES_VISITS_SQL);
     const zone = useBusinessZone();
-    const today = startOfDay(new Date(), zone);
-    const ctx = useSeriesContext(addDays(today, -1, zone), addDays(today, 730, zone));
+    const now = useNow();
+    const last = visits.data.reduce((at, v) => {
+        const start = parseTimestamp(v.starts_at);
+        return start > at ? start : at;
+    }, now);
+    // a change moves each visit up to six days within its week
+    const ctx = useSeriesContext(now, addDays(last, 6, zone));
     return {
         series: series.data,
         visits: visits.data,

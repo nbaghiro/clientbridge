@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+
 from fastapi import Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -10,9 +12,15 @@ class AppError(Exception):
     code = "app_error"
 
     def __init__(
-        self, message: str, *, code: str | None = None, status_code: int | None = None
+        self,
+        message: str,
+        *,
+        code: str | None = None,
+        status_code: int | None = None,
+        detail: Mapping[str, object] | None = None,
     ) -> None:
         self.message = message
+        self.detail = detail
         if code:
             self.code = code
         if status_code:
@@ -69,9 +77,10 @@ async def app_error_handler(_: Request, exc: Exception) -> JSONResponse:
     # Registered only for AppError; the signature matches Starlette's expected handler type.
     if not isinstance(exc, AppError):
         raise exc
-    return JSONResponse(
-        status_code=exc.status_code, content={"error": exc.code, "message": exc.message}
-    )
+    content: dict[str, object] = {"error": exc.code, "message": exc.message}
+    if exc.detail is not None:
+        content["detail"] = jsonable_encoder(exc.detail)
+    return JSONResponse(status_code=exc.status_code, content=content)
 
 
 async def validation_error_handler(_: Request, exc: Exception) -> JSONResponse:

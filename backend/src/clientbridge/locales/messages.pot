@@ -13,6 +13,12 @@ msgstr ""
 msgid "booking_confirmed.subject"
 msgstr ""
 
+msgid "booking_reassigned.body"
+msgstr ""
+
+msgid "booking_reassigned.subject"
+msgstr ""
+
 msgid "booking_released.body"
 msgstr ""
 
@@ -348,6 +354,9 @@ msgstr ""
 msgid "signed_copy.signed_by"
 msgstr ""
 
+msgid "staff.someone"
+msgstr ""
+
 msgid "staff_invite.body"
 msgstr ""
 
@@ -376,5 +385,11 @@ msgid "verify_email.body"
 msgstr ""
 
 msgid "verify_email.subject"
+msgstr ""
+
+msgid "visits_reassigned.body"
+msgstr ""
+
+msgid "visits_reassigned.subject"
 msgstr ""
 

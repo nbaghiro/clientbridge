@@ -128,7 +128,9 @@ class ManagedAddon(BaseModel):
     unit_cents: int
 
 
-ManageBlock = Literal["status", "by_phone", "cutoff", "class_session", "reschedule_limit"]
+ManageBlock = Literal[
+    "status", "by_phone", "cutoff", "class_session", "reschedule_limit", "member_unavailable"
+]
 
 
 class ManagedBooking(Mirror):

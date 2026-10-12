@@ -19,6 +19,12 @@ msgstr "You're booked with {business} on {when}. Change or cancel: {link}"
 msgid "booking_confirmed.subject"
 msgstr "Booking confirmed — {business}"
 
+msgid "booking_reassigned.body"
+msgstr "Your appointment with {business} on {when} is now with {member}."
+
+msgid "booking_reassigned.subject"
+msgstr "New provider for your appointment — {business}"
+
 msgid "booking_reminder.body"
 msgstr "Reminder: you have an appointment with {business} on {when}."
 
@@ -360,6 +366,9 @@ msgstr "Your visits were moved — {business}"
 msgid "signed_copy.signed_by"
 msgstr "— Signed by {name}"
 
+msgid "staff.someone"
+msgstr "another member of the team"
+
 msgid "staff_invite.body"
 msgstr "Invite code: {code}"
 
@@ -389,3 +398,9 @@ msgstr "Verify code: {code}"
 
 msgid "verify_email.subject"
 msgstr "Verify your email"
+
+msgid "visits_reassigned.body"
+msgstr "These visits with {business} are now with {member}: {whens}."
+
+msgid "visits_reassigned.subject"
+msgstr "New provider for your visits — {business}"

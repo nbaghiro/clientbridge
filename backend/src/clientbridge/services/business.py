@@ -23,6 +23,16 @@ async def business_tz(db: AsyncSession, business_id: str) -> ZoneInfo:
     return zone(tz) if tz is not None else zone("UTC")
 
 
+async def load_staff(db: AsyncSession, biz: str, staff_id: str) -> Staff:
+    """Load an active staff member by id, else NotFound."""
+    row = (
+        await db.execute(scoped(Staff, biz).where(Staff.id == staff_id, Staff.status == "active"))
+    ).scalar_one_or_none()
+    if row is None:
+        raise NotFound("staff not found")
+    return row
+
+
 def local_today(business: Business) -> date:
     return datetime.now(zone(business.timezone)).date()
 

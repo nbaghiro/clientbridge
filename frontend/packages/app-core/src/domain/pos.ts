@@ -36,7 +36,7 @@ import {
     docRates,
     priceDoc,
 } from "./billing";
-import { utcSql } from "../datetime";
+import { utcBeforeSql, utcFromSql, utcSql } from "../datetime";
 import { type ItemRow, ITEMS_SQL, sellableItems, stockState } from "./catalog";
 import { type Checkout, NEW_CARD, useCheckout } from "./checkout";
 import { orderStatusSql } from "./ledger";
@@ -1377,7 +1377,8 @@ FROM bookings b JOIN slots s ON s.id = b.slot_id
 LEFT JOIN clients c ON c.id = b.client_id LEFT JOIN items i ON i.id = s.item_id
 LEFT JOIN staff st ON st.id = b.staff_id
 WHERE b.deleted_at IS NULL AND b.status NOT IN ('canceled', 'no_show')
-  AND ${utcSql("s.starts_at")} >= datetime(?) AND ${utcSql("s.starts_at")} < datetime(?)
+  AND ${utcFromSql("s.starts_at", "?1")} AND ${utcBeforeSql("s.starts_at", "?2")}
+  AND ${utcSql("s.starts_at")} >= datetime(?1) AND ${utcSql("s.starts_at")} < datetime(?2)
 ORDER BY s.starts_at`;
 
 interface QueueRow {

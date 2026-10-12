@@ -1913,14 +1913,19 @@ describe("app-core SQL against the replica schema", () => {
         expect(
             run("CLASS_SESSIONS_SQL", ["2027-01-07T00:00:00.000Z", "2027-02-01T00:00:00.000Z"]),
         ).toEqual([]);
-        const roster = run("CLASS_ROSTER_SQL", ["2027-01-01T00:00:00.000Z"]);
+        const roster = run("CLASS_ROSTER_SQL", [
+            "2027-01-01T00:00:00.000Z",
+            "2027-02-01T00:00:00.000Z",
+        ]);
         expect(pick(roster, "booking_id", "slot_id", "status", "pet_name")).toEqual([
             { booking_id: "bk_k1", slot_id: "ss_k", status: "confirmed", pet_name: "Rex" },
             { booking_id: "bk_k2", slot_id: "ss_k", status: "waitlisted", pet_name: null },
         ]);
         expect(roster.filter((r) => r.status === "confirmed")).toHaveLength(1);
         expect(roster.filter((r) => r.status === "waitlisted")).toHaveLength(1);
-        expect(run("CLASS_ROSTER_SQL", ["2027-01-07T00:00:00.000Z"])).toEqual([]);
+        expect(
+            run("CLASS_ROSTER_SQL", ["2027-01-07T00:00:00.000Z", "2027-02-01T00:00:00.000Z"]),
+        ).toEqual([]);
         expect(pick(run("CLASS_CLIENTS_SQL"), "id", "pet_name")).toEqual([
             { id: "cl_ann", pet_name: "Rex" },
             { id: "cl_ben", pet_name: null },

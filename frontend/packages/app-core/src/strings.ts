@@ -65,6 +65,7 @@ interface Strings {
         readonly mixedCurrencies: string;
         readonly idempotencyKeyReused: string;
         readonly visitNotStarted: string;
+        readonly staffHasFutureWork: string;
         readonly broadcastAddressMissing: string;
         readonly broadcastContactMissing: string;
     } & Labels;
@@ -2315,6 +2316,21 @@ interface Strings {
             readonly removeTitle: (name: string) => string;
             readonly removeBody: string;
             readonly removeConfirm: string;
+            readonly removeNoWork: string;
+            readonly removeWork: (count: number) => string;
+            readonly removeSeries: (count: number) => string;
+            readonly removeFuture: string;
+            readonly removeReassign: string;
+            readonly removeReassignHint: string;
+            readonly removeCancel: string;
+            readonly removeCancelHint: string;
+            readonly removeTaker: string;
+            readonly removeAnyone: string;
+            readonly removeStateMove: string;
+            readonly removeStateCancel: string;
+            readonly removeLeftState: string;
+            readonly removeLeftTitle: (name: string) => string;
+            readonly removeLeftBody: (count: number) => string;
             readonly ownerNote: string;
             readonly selfNote: string;
             readonly noInvites: string;
@@ -3874,6 +3890,7 @@ interface Strings {
             readonly by_phone: string;
             readonly class_session: string;
             readonly reschedule_limit: string;
+            readonly member_unavailable: string;
             readonly cutoff: (hours: number) => string;
         };
         readonly error: string;

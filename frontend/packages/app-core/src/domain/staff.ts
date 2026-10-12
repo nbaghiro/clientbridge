@@ -1,16 +1,16 @@
 import { useBusinessQuery as useQuery } from "../hooks";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
-import { parseTimestamp } from "../datetime";
-import { formatMoney, formatNumber, parseNumber, BUSINESS_CURRENCY } from "../format";
+import { formatShortDay, formatTime, parseTimestamp, useBusinessZone, utcSql } from "../datetime";
+import { formatMoney, formatNumber, formatParts, parseNumber, BUSINESS_CURRENCY } from "../format";
 
 import { type Load, useAsyncAction, useRemote } from "../hooks";
-import type { Intent } from "../ui";
+import type { Intent, OccurrenceRow } from "../ui";
 import type { AuthTokens, Viewer } from "./auth";
 import { useReplicaLoad } from "./sync";
 import { strings } from "../strings";
-import type { ApiLike } from "../api";
+import { type ApiLike, type Attempt, failureMessage, sendAttempt } from "../api";
 
 export type MemberRole = "owner" | "admin" | "staff" | "contractor";
 
@@ -62,8 +62,8 @@ export interface TeamView {
     error: string | null;
     resend: (id: string) => void;
     revoke: (id: string) => void;
-    remove: (id: string) => void;
     changeRole: (id: string, role: MemberRole) => void;
+    refresh: () => void;
 }
 
 export const TEAM_SQL = `
@@ -198,11 +198,159 @@ export function useTeam(api: ApiLike, viewer: Viewer | null): TeamView {
         revoke: (id) => {
             act(id, () => api.post(`/v1/staff/invites/${id}/revoke`, {}));
         },
-        remove: (id) => {
-            act(id, () => api.delete(`/v1/staff/${id}`));
-        },
         changeRole: (id, role) => {
             act(id, () => api.patch(`/v1/staff/${id}`, { role }));
+        },
+        refresh: () => {
+            remote.refresh().catch(() => undefined);
+        },
+    };
+}
+
+export type RemovalChoice = "reassign" | "cancel";
+
+const ANY_MEMBER = "any";
+
+const MEMBER_FUTURE_SQL = `
+SELECT b.id, s.starts_at, c.name AS client_name, i.name AS item_name
+FROM slots s JOIN bookings b ON b.slot_id = s.id
+LEFT JOIN clients c ON c.id = b.client_id
+LEFT JOIN items i ON i.id = s.item_id
+WHERE s.staff_id = ?1 AND s.status = 'scheduled' AND b.deleted_at IS NULL
+  AND b.status IN ('pending', 'confirmed', 'waitlisted')
+  AND ${utcSql("s.starts_at")} >= ${utcSql("?2")}
+ORDER BY s.starts_at, b.id`;
+
+const MEMBER_SERIES_SQL = "SELECT id FROM recurrences WHERE staff_id = ? AND status = 'active'";
+
+interface FutureVisitRow {
+    id: string;
+    starts_at: string;
+    client_name: string | null;
+    item_name: string | null;
+}
+
+interface LeftVisit {
+    booking_id: string;
+    starts_at: string;
+    message: string | null;
+}
+
+interface RemovalResult {
+    moved: string[];
+    canceled: string[];
+    left: LeftVisit[];
+}
+
+interface RemoveMemberView {
+    hasWork: boolean;
+    visits: OccurrenceRow[];
+    summary: string;
+    choice: RemovalChoice;
+    setChoice: (choice: RemovalChoice) => void;
+    taker: string;
+    setTaker: (id: string) => void;
+    takers: { key: string; label: string }[];
+    busy: boolean;
+    error: string | null;
+    left: OccurrenceRow[] | null;
+    submit: () => void;
+}
+
+/** Removing a member: their upcoming visits move to another member (any by default) or cancel. */
+export function useRemoveMember(
+    api: ApiLike,
+    member: TeamMember,
+    members: readonly TeamMember[],
+    onRemoved: () => void,
+): RemoveMemberView {
+    const t = strings.staff.team;
+    const zone = useBusinessZone();
+    const [now] = useState(() => new Date().toISOString());
+    const rows = useQuery<FutureVisitRow>(MEMBER_FUTURE_SQL, [member.id, now]).data;
+    const series = useQuery<{ id: string }>(MEMBER_SERIES_SQL, [member.id]).data;
+    const [choice, setChoice] = useState<RemovalChoice>("reassign");
+    const [taker, setTaker] = useState(ANY_MEMBER);
+    const [left, setLeft] = useState<OccurrenceRow[] | null>(null);
+    const attempt = useRef<Attempt | null>(null);
+    const { busy, error, run } = useAsyncAction();
+    const names = new Map(rows.map((r) => [r.id, r]));
+    const row = (
+        id: string,
+        startsAt: string,
+        index: number,
+        state: string,
+        intent: Intent,
+        note: string | null,
+    ): OccurrenceRow => {
+        const at = parseTimestamp(startsAt);
+        const info = names.get(id);
+        return {
+            key: id,
+            index,
+            date: formatShortDay(at, zone),
+            time: formatTime(at, zone),
+            intent,
+            state,
+            note: note ?? (formatParts([info?.client_name, info?.item_name]) || null),
+        };
+    };
+    const state = choice === "cancel" ? t.removeStateCancel : t.removeStateMove;
+    return {
+        hasWork: rows.length > 0 || series.length > 0,
+        visits: rows.map((r, i) =>
+            row(r.id, r.starts_at, i + 1, state, choice === "cancel" ? "danger" : "accent", null),
+        ),
+        summary:
+            rows.length === 0 && series.length === 0
+                ? t.removeNoWork
+                : series.length === 0
+                  ? t.removeWork(rows.length)
+                  : strings.common.twoSentences(
+                        t.removeWork(rows.length),
+                        t.removeSeries(series.length),
+                    ),
+        choice,
+        setChoice,
+        taker,
+        setTaker,
+        takers: [
+            { key: ANY_MEMBER, label: t.removeAnyone },
+            ...members.filter((m) => m.id !== member.id).map((m) => ({ key: m.id, label: m.name })),
+        ],
+        busy,
+        error,
+        left,
+        submit: () => {
+            const body =
+                choice === "cancel"
+                    ? { future: "cancel" }
+                    : { future: "reassign", reassign_to: taker };
+            const path = `/v1/staff/${member.id}/remove`;
+            run(
+                async () => {
+                    const result = await sendAttempt(attempt, [path, body], (key) =>
+                        api.post<RemovalResult>(path, body, { idempotencyKey: key }),
+                    );
+                    if (result.left.length === 0) {
+                        onRemoved();
+                        return;
+                    }
+                    setLeft(
+                        result.left.map((v, i) =>
+                            row(
+                                v.booking_id,
+                                v.starts_at,
+                                i + 1,
+                                t.removeLeftState,
+                                "warning",
+                                v.message,
+                            ),
+                        ),
+                    );
+                },
+                { errorMessage: (e) => failureMessage(e, t.actionError) },
+            );
         },
     };
 }

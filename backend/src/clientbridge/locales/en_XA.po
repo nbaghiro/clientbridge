@@ -13,6 +13,12 @@ msgstr "[Ýöû'ŕé ƀööķéð ŵîţĥ {business} öñ {when}. Çĥåñĝé 
 msgid "booking_confirmed.subject"
 msgstr "[Ɓööķîñĝ çöñƒîŕɱéð — {business}~~~~~~~]"
 
+msgid "booking_reassigned.body"
+msgstr "[Ýöûŕ åþþöîñţɱéñţ ŵîţĥ {business} öñ {when} îš ñöŵ ŵîţĥ {member}.~~~~~~~~~~~~~~]"
+
+msgid "booking_reassigned.subject"
+msgstr "[Ñéŵ þŕöṽîðéŕ ƒöŕ ýöûŕ åþþöîñţɱéñţ — {business}~~~~~~~~~~~~~]"
+
 msgid "booking_released.body"
 msgstr "[Ýöûŕ åþþöîñţɱéñţ ŵîţĥ {business} öñ {when} ŵåš ŕéļéåšéð ƀéçåûšé îţš ðéþöšîţ ŵåšñ'ţ þåîð. Ýöû'ŕé ŵéļçöɱé ţö ƀööķ åĝåîñ.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
@@ -354,6 +360,9 @@ msgstr "[Ýöûŕ ṽîšîţš ŵéŕé ɱöṽéð — {business}~~~~~~~~~]"
 msgid "signed_copy.signed_by"
 msgstr "[— Šîĝñéð ƀý {name}~~~~~]"
 
+msgid "staff.someone"
+msgstr "[åñöţĥéŕ ɱéɱƀéŕ öƒ ţĥé ţéåɱ~~~~~~~~~~]"
+
 msgid "staff_invite.body"
 msgstr "[Îñṽîţé çöðé: {code}~~~~~]"
 
@@ -383,4 +392,10 @@ msgstr "[Ṽéŕîƒý çöðé: {code}~~~~~]"
 
 msgid "verify_email.subject"
 msgstr "[Ṽéŕîƒý ýöûŕ éɱåîļ~~~~~~]"
+
+msgid "visits_reassigned.body"
+msgstr "[Ţĥéšé ṽîšîţš ŵîţĥ {business} åŕé ñöŵ ŵîţĥ {member}: {whens}.~~~~~~~~~~~~~]"
+
+msgid "visits_reassigned.subject"
+msgstr "[Ñéŵ þŕöṽîðéŕ ƒöŕ ýöûŕ ṽîšîţš — {business}~~~~~~~~~~~]"
 

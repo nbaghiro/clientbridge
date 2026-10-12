@@ -475,3 +475,7 @@ Each task ends with the full gate for its side, `make gen-api` and `make gen-syn
 14. How far ahead should recurring series and class timetables be generated (we suggest 26 weeks), and should open-ended series be allowed?
 15. When the business changes its own time zone, should future visits keep their instants (and change local time) or keep their local time (and move)?
 16. Should a tzdata change move future visits automatically and notify clients, or only flag them for staff to review?
+
+## Decisions (2026-10-12)
+
+The user accepted every recommendation above: classes are booked only into scheduled sessions; a released seat is offered to a waitlisted client who owes a deposit with a payment deadline; the public page offers the waitlist, on by default and per business; members are an array on the service; "any" picks the least-booked free member; `resources.capacity` is dropped; removal defaults to reassigning to any available member; auto-completion is on by default; late cancels are block, keep deposit or refund deposit; windows may end at midnight with overnight shifts deferred; date overrides stay and get a writer; buffers must fit inside working hours; new businesses default to 30 minute starts; series are generated 26 weeks ahead and may be open-ended; visits keep their local time when a business changes zone; a tzdata change flags visits for staff review. Each schema change still needs its own approval before its task starts.

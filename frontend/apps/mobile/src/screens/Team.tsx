@@ -3,6 +3,7 @@ import {
     RATE_TYPES,
     type InviteTeammatesForm,
     type MemberRole,
+    type RemovalChoice,
     type StaffPayRow,
     type TeamInvite,
     type TeamMember,
@@ -14,6 +15,7 @@ import {
     strings,
     useInviteTeammatesForm,
     useStaffPay,
+    useRemoveMember,
     useStaffPayForm,
     useTeam,
     formatParts,
@@ -35,6 +37,7 @@ import {
     LoadFailed,
     Modal,
     Notice,
+    OccurrenceList,
     Select,
     Skeleton,
     TextField,
@@ -182,6 +185,99 @@ function PaySection({ row }: { row: StaffPayRow }) {
     );
 }
 
+function RemoveSheet({
+    member,
+    team,
+    onClose,
+    onRemoved,
+}: {
+    member: TeamMember;
+    team: TeamView;
+    onClose: () => void;
+    onRemoved: () => void;
+}) {
+    const removal = useRemoveMember(api, member, team.members, () => {
+        team.refresh();
+        onRemoved();
+    });
+    if (removal.left !== null) {
+        return (
+            <Modal open onClose={onRemoved} size="xl">
+                <Text style={styles.sheetTitle}>{t.removeLeftTitle(member.name)}</Text>
+                <Text style={styles.small}>{t.removeLeftBody(removal.left.length)}</Text>
+                <View style={styles.gap}>
+                    <OccurrenceList rows={removal.left} label={t.removeFuture} />
+                </View>
+                <View style={styles.gap}>
+                    <Button size="lg" full onPress={onRemoved}>
+                        {strings.common.done}
+                    </Button>
+                </View>
+            </Modal>
+        );
+    }
+    return (
+        <Modal open onClose={onClose} size="xl">
+            <Text style={styles.sheetTitle}>{t.removeTitle(member.name)}</Text>
+            <Text style={styles.small}>
+                {strings.common.twoSentences(t.removeBody, removal.summary)}
+            </Text>
+            {removal.hasWork ? (
+                <>
+                    <Text style={styles.label}>{t.removeFuture}</Text>
+                    <Choice<RemovalChoice>
+                        layout="cards"
+                        label={t.removeFuture}
+                        value={removal.choice}
+                        onChange={removal.setChoice}
+                        options={[
+                            {
+                                key: "reassign",
+                                label: t.removeReassign,
+                                hint: t.removeReassignHint,
+                            },
+                            { key: "cancel", label: t.removeCancel, hint: t.removeCancelHint },
+                        ]}
+                    />
+                    {removal.choice === "reassign" ? (
+                        <View style={styles.gapSm}>
+                            <Select
+                                label={t.removeTaker}
+                                value={removal.taker}
+                                options={removal.takers}
+                                onChange={removal.setTaker}
+                            />
+                        </View>
+                    ) : null}
+                    {removal.visits.length > 0 ? (
+                        <View style={styles.gap}>
+                            <OccurrenceList rows={removal.visits} label={t.removeFuture} />
+                        </View>
+                    ) : null}
+                </>
+            ) : null}
+            {removal.error !== null ? (
+                <View style={styles.gapSm}>
+                    <Notice tone="danger" banner>
+                        {removal.error}
+                    </Notice>
+                </View>
+            ) : null}
+            <View style={styles.gap}>
+                <Button
+                    size="lg"
+                    full
+                    variant="danger"
+                    busy={removal.busy}
+                    onPress={removal.submit}
+                >
+                    {t.removeConfirm}
+                </Button>
+            </View>
+        </Modal>
+    );
+}
+
 function MemberSheet({
     member,
     team,
@@ -194,23 +290,9 @@ function MemberSheet({
     onClose: () => void;
 }) {
     const [role, setRole] = useState<MemberRole>(member.role);
+    const [removing, setRemoving] = useState(false);
     const owner = member.role === "owner";
     const editable = team.canManage && !owner && !member.isYou;
-    const remove = (): void => {
-        confirm({
-            title: t.removeTitle(member.name),
-            message: t.removeBody,
-            confirmLabel: t.removeConfirm,
-            destructive: true,
-        })
-            .then((ok) => {
-                if (ok) {
-                    team.remove(member.id);
-                    onClose();
-                }
-            })
-            .catch(() => undefined);
-    };
     return (
         <DetailView
             open
@@ -261,12 +343,28 @@ function MemberSheet({
             {team.canManage && pay !== undefined ? <PaySection row={pay} /> : null}
             {editable ? (
                 <DetailSection>
-                    <Button variant="danger" full onPress={remove}>
+                    <Button
+                        variant="danger"
+                        full
+                        onPress={() => {
+                            setRemoving(true);
+                        }}
+                    >
                         {t.remove}
                     </Button>
                 </DetailSection>
             ) : null}
             {team.error !== null ? <Notice tone="danger">{team.error}</Notice> : null}
+            {removing ? (
+                <RemoveSheet
+                    member={member}
+                    team={team}
+                    onClose={() => {
+                        setRemoving(false);
+                    }}
+                    onRemoved={onClose}
+                />
+            ) : null}
         </DetailView>
     );
 }

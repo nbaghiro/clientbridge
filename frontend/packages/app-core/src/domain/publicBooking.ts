@@ -880,7 +880,8 @@ interface ManagedBooking {
     blocked_hours: number | null;
 }
 
-type ManageBlock = "status" | "by_phone" | "cutoff" | "class_session" | "reschedule_limit";
+type ManageBlock =
+    "status" | "by_phone" | "cutoff" | "class_session" | "reschedule_limit" | "member_unavailable";
 
 /** Why the client can't change the visit online, worded from its code. */
 function blockedReason(code: ManageBlock | null, hours: number | null): string | null {
@@ -898,6 +899,8 @@ function blockedReason(code: ManageBlock | null, hours: number | null): string |
             return b.class_session;
         case "reschedule_limit":
             return b.reschedule_limit;
+        case "member_unavailable":
+            return b.member_unavailable;
     }
 }
 

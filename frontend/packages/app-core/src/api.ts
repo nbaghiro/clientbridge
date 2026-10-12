@@ -59,6 +59,7 @@ const FAILURES: Record<string, () => string> = {
     recurrence_too_long: () => strings.api.recurrenceTooLong,
     idempotency_key_reused: () => strings.api.idempotencyKeyReused,
     visit_not_started: () => strings.api.visitNotStarted,
+    staff_has_future_work: () => strings.api.staffHasFutureWork,
     broadcast_address_missing: () => strings.api.broadcastAddressMissing,
     broadcast_contact_missing: () => strings.api.broadcastContactMissing,
 };

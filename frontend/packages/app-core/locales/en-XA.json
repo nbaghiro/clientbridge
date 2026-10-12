@@ -149,6 +149,9 @@
     "api.visitNotStarted": {
         "message": "[Ţĥîš ṽîšîţ ĥåšñ'ţ šţåŕţéð ýéţ. Çöɱþļéţé îţ öŕ ɱåŕķ å ñö-šĥöŵ öñçé îţ šţåŕţš. one two three four five]"
     },
+    "api.staffHasFutureWork": {
+        "message": "[Ţĥîš ɱéɱƀéŕ šţîļļ ĥåš ûþçöɱîñĝ ṽîšîţš. Çĥööšé ŵĥéţĥéŕ ţö ɱöṽé öŕ çåñçéļ ţĥéɱ. one two three four five]"
+    },
     "api.broadcastAddressMissing": {
         "message": "[Åðð ýöûŕ ƀûšîñéšš ɱåîļîñĝ åððŕéšš îñ Ɓûšîñéšš šéţţîñĝš ƀéƒöŕé šéñðîñĝ å ƀŕöåðçåšţ. Çåñåðå'š åñţî-šþåɱ ļåŵ ŕéǫûîŕéš îţ îñ éṽéŕý ƀŕöåðçåšţ. one two three four five six seven eight nine]"
     },
@@ -6518,6 +6521,51 @@
     "staff.team.removeConfirm": {
         "message": "[Ŕéɱöṽé one]"
     },
+    "staff.team.removeNoWork": {
+        "message": "[Ţĥéý ĥåṽé ñö ûþçöɱîñĝ ṽîšîţš. one two three]"
+    },
+    "staff.team.removeWork": {
+        "message": "[{count,plural,one{Ţĥéý ĥåṽé # ûþçöɱîñĝ ṽîšîţ.} other{Ţĥéý ĥåṽé # ûþçöɱîñĝ ṽîšîţš.}} one two three four]"
+    },
+    "staff.team.removeSeries": {
+        "message": "[{count,plural,one{Ţĥéîŕ ŕéþéåţîñĝ šéŕîéš ĝöéš ŵîţĥ ţĥé ṽîšîţš.} other{Ţĥéîŕ # ŕéþéåţîñĝ šéŕîéš ĝö ŵîţĥ ţĥé ṽîšîţš.}} one two three four five six]"
+    },
+    "staff.team.removeFuture": {
+        "message": "[Ûþçöɱîñĝ ṽîšîţš one two]"
+    },
+    "staff.team.removeReassign": {
+        "message": "[Ṁöṽé ţö åñöţĥéŕ ɱéɱƀéŕ one two]"
+    },
+    "staff.team.removeReassignHint": {
+        "message": "[Çļîéñţš åŕé ţöļð ŵĥö ţĥéý'ļļ šéé. Å ṽîšîţ ñöƀöðý îš ƒŕéé ƒöŕ šţåýš öñ ţĥé çåļéñðåŕ åñð îš ļîšţéð. one two three four five six]"
+    },
+    "staff.team.removeCancel": {
+        "message": "[Çåñçéļ ţĥéɱ one two]"
+    },
+    "staff.team.removeCancelHint": {
+        "message": "[Çļîéñţš åŕé ţöļð, åñð þåîð ðéþöšîţš åŕé ŕéƒûñðéð. one two three four]"
+    },
+    "staff.team.removeTaker": {
+        "message": "[Ṁöṽé ṽîšîţš ţö one two]"
+    },
+    "staff.team.removeAnyone": {
+        "message": "[Åñý åṽåîļåƀļé ɱéɱƀéŕ one two]"
+    },
+    "staff.team.removeStateMove": {
+        "message": "[Ṁöṽéš one]"
+    },
+    "staff.team.removeStateCancel": {
+        "message": "[Çåñçéļš one]"
+    },
+    "staff.team.removeLeftState": {
+        "message": "[Ñöţ ɱöṽéð one]"
+    },
+    "staff.team.removeLeftTitle": {
+        "message": "[{name} ŵåš ŕéɱöṽéð one two]"
+    },
+    "staff.team.removeLeftBody": {
+        "message": "[{count,plural,one{# ṽîšîţ ĥåð ñö ƒŕéé ɱéɱƀéŕ, šö îţ šţåýš öñ ţĥé çåļéñðåŕ. Ṁöṽé îţ ƒŕöɱ ţĥé šçĥéðûļé.} other{# ṽîšîţš ĥåð ñö ƒŕéé ɱéɱƀéŕ, šö ţĥéý šţåý öñ ţĥé çåļéñðåŕ. Ṁöṽé ţĥéɱ ƒŕöɱ ţĥé šçĥéðûļé.}} one two three four five six seven eight nine ten]"
+    },
     "staff.team.ownerNote": {
         "message": "[Ţĥé öŵñéŕ'š ŕöļé çåñ'ţ ƀé çĥåñĝéð ĥéŕé. one two three]"
     },
@@ -10807,6 +10855,9 @@
     },
     "publicManage.blocked.reschedule_limit": {
         "message": "[Ţĥîš ṽîšîţ ĥåš ƀééñ ɱöṽéð åš ɱåñý ţîɱéš åš ţĥé þöļîçý åļļöŵš. one two three four]"
+    },
+    "publicManage.blocked.member_unavailable": {
+        "message": "[Ţĥé ţéåɱ ɱéɱƀéŕ ƒöŕ ţĥîš ṽîšîţ îš ñö ļöñĝéŕ åṽåîļåƀļé. Ýöû çåñ çåñçéļ îţ, öŕ ɱéššåĝé ţĥé šţûðîö ţö ƒîñð å ñéŵ ţîɱé. one two three four five six seven]"
     },
     "publicManage.blocked.cutoff": {
         "message": "[{hours,plural,one{Îţ'š ļéšš ţĥåñ # ĥöûŕ åŵåý.} other{Îţ'š ļéšš ţĥåñ # ĥöûŕš åŵåý.}} Þļéåšé çåļļ ţĥé šţûðîö. one two three four five]"

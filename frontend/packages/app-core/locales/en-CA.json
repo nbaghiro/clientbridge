@@ -173,6 +173,9 @@
     "api.visitNotStarted": {
         "message": "This visit hasn't started yet. Complete it or mark a no-show once it starts."
     },
+    "api.staffHasFutureWork": {
+        "message": "This member still has upcoming visits. Choose whether to move or cancel them."
+    },
     "api.broadcastAddressMissing": {
         "message": "Add your business mailing address in Business settings before sending a broadcast. Canada's anti-spam law requires it in every broadcast."
     },
@@ -6955,6 +6958,55 @@
     "staff.team.removeConfirm": {
         "message": "Remove"
     },
+    "staff.team.removeNoWork": {
+        "message": "They have no upcoming visits."
+    },
+    "staff.team.removeWork": {
+        "message": "{count, plural, one {They have # upcoming visit.} other {They have # upcoming visits.}}",
+        "args": ["count"]
+    },
+    "staff.team.removeSeries": {
+        "message": "{count, plural, one {Their repeating series goes with the visits.} other {Their # repeating series go with the visits.}}",
+        "args": ["count"]
+    },
+    "staff.team.removeFuture": {
+        "message": "Upcoming visits"
+    },
+    "staff.team.removeReassign": {
+        "message": "Move to another member"
+    },
+    "staff.team.removeReassignHint": {
+        "message": "Clients are told who they'll see. A visit nobody is free for stays on the calendar and is listed."
+    },
+    "staff.team.removeCancel": {
+        "message": "Cancel them"
+    },
+    "staff.team.removeCancelHint": {
+        "message": "Clients are told, and paid deposits are refunded."
+    },
+    "staff.team.removeTaker": {
+        "message": "Move visits to"
+    },
+    "staff.team.removeAnyone": {
+        "message": "Any available member"
+    },
+    "staff.team.removeStateMove": {
+        "message": "Moves"
+    },
+    "staff.team.removeStateCancel": {
+        "message": "Cancels"
+    },
+    "staff.team.removeLeftState": {
+        "message": "Not moved"
+    },
+    "staff.team.removeLeftTitle": {
+        "message": "{name} was removed",
+        "args": ["name"]
+    },
+    "staff.team.removeLeftBody": {
+        "message": "{count, plural, one {# visit had no free member, so it stays on the calendar. Move it from the schedule.} other {# visits had no free member, so they stay on the calendar. Move them from the schedule.}}",
+        "args": ["count"]
+    },
     "staff.team.ownerNote": {
         "message": "The owner's role can't be changed here."
     },
@@ -11499,6 +11551,9 @@
     },
     "publicManage.blocked.reschedule_limit": {
         "message": "This visit has been moved as many times as the policy allows."
+    },
+    "publicManage.blocked.member_unavailable": {
+        "message": "The team member for this visit is no longer available. You can cancel it, or message the studio to find a new time."
     },
     "publicManage.blocked.cutoff": {
         "message": "{hours, plural, one {It's less than # hour away.} other {It's less than # hours away.}} Please call the studio.",
