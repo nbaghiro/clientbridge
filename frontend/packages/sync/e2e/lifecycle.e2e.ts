@@ -94,3 +94,35 @@ test("initialization opens only the account-scoped replica", async ({ page }) =>
     expect(names).toHaveLength(1);
     expect(names[0]).toMatch(/^clientbridge-[a-f0-9]+-[a-f0-9]+\.db$/);
 });
+
+test("tabs opening the same fresh replica at once both claim it", async ({ context }) => {
+    const tabs = [await context.newPage(), await context.newPage()];
+    for (const tab of tabs) await tab.goto("/");
+    const userId = `tabs-${String(Date.now())}`;
+    const results = await Promise.all(
+        tabs.map((tab) =>
+            tab.evaluate(async (user) => {
+                const { ReplicaController, replicaDatabase } = await import("./database");
+                const manager = new ReplicaController(replicaDatabase);
+                try {
+                    await manager.activate(
+                        {
+                            userId: user,
+                            apiUrl: "https://api.test",
+                            powersyncUrl: "https://sync.test",
+                        },
+                        {
+                            fetchCredentials: () => Promise.resolve(null),
+                            uploadData: () => Promise.resolve(),
+                        },
+                    );
+                    await manager.pause();
+                    return "claimed";
+                } catch (e) {
+                    return String(e);
+                }
+            }, userId),
+        ),
+    );
+    expect(results).toEqual(["claimed", "claimed"]);
+});

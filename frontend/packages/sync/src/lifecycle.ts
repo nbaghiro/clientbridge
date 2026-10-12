@@ -62,20 +62,23 @@ export class ReplicaController {
                 const db = this.open(filename(key));
                 try {
                     await db.init();
-                    const owner = await db.getOptional<{ value: string }>(
-                        "SELECT value FROM device_prefs WHERE id = 'sync.identity'",
-                    );
-                    if (owner && owner.value !== key) throw new Error("replica ownership mismatch");
-                    if (!owner) {
-                        const rows = await db.getAll("SELECT id FROM businesses LIMIT 1");
-                        const proposals = await db.getAll("SELECT id FROM hours_outbox LIMIT 1");
+                    // Other tabs open the same replica, so the claim is one write transaction.
+                    const owner = await db.writeTransaction(async (tx) => {
+                        const claimed = await tx.getOptional<{ value: string }>(
+                            "SELECT value FROM device_prefs WHERE id = 'sync.identity'",
+                        );
+                        if (claimed) return claimed.value;
+                        const rows = await tx.getAll("SELECT id FROM businesses LIMIT 1");
+                        const proposals = await tx.getAll("SELECT id FROM hours_outbox LIMIT 1");
                         if (rows.length || proposals.length)
                             throw new Error("unassigned replica requires recovery");
-                        await db.execute(
+                        await tx.execute(
                             "INSERT INTO device_prefs (id, value) VALUES ('sync.identity', ?)",
                             [key],
                         );
-                    }
+                        return key;
+                    });
+                    if (owner !== key) throw new Error("replica ownership mismatch");
                     this.active = { db, identity: key };
                 } catch (error) {
                     await db.close();
