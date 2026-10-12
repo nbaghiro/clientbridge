@@ -437,7 +437,7 @@ jobs:
           path: app-release.apk
           retention-days: 3
 
-  mobile:
+  mobile-shard:
     # The Maestro walkthroughs on Android 14 emulators, split into shards of about equal length.
     needs: [changes, mobile-build]
     name: mobile (${{ matrix.shard.name }})
@@ -514,3 +514,13 @@ jobs:
           retention-days: 7
       - if: failure()
         run: cat /tmp/api.log
+
+  mobile:
+    # The required check: passes when every shard passed or the change cannot affect the app.
+    needs: [changes, mobile-build, mobile-shard]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<< "$NEEDS"
