@@ -1,0 +1,148 @@
+{
+  "title": "Ledger production readiness task queue",
+  "status": "proposed",
+  "generated_on": "2026-10-12",
+  "plan": "plan.md",
+  "findings": [
+    "../../reviews/ledger/2026-10-12-ledger-audit.md",
+    "plan.md"
+  ],
+  "execution_order": [
+    "L1",
+    "L2",
+    "L3",
+    "L4",
+    "L5",
+    "L6",
+    "L7",
+    "L8",
+    "L9",
+    "L10",
+    "L11",
+    "L12"
+  ],
+  "tasks": [
+    {
+      "id": "L1",
+      "side": "backend",
+      "title": "Reverse a refund that fails after it succeeded",
+      "covers": ["A1"],
+      "depends_on": [],
+      "schema_change": false,
+      "tests": ["tests/test_ledger_drift.py", "tests/test_payments_refunds.py"],
+      "status": "pending"
+    },
+    {
+      "id": "L2",
+      "side": "backend",
+      "title": "Build a missing payment from the intent's metadata in the webhook",
+      "covers": ["N1"],
+      "depends_on": [],
+      "schema_change": false,
+      "tests": ["tests/test_payments.py"],
+      "status": "pending"
+    },
+    {
+      "id": "L3",
+      "side": "backend",
+      "title": "Close disputes from Stripe's reinstatement transactions",
+      "covers": ["A2", "A6"],
+      "depends_on": [],
+      "schema_change": false,
+      "blocked_on": "lost dispute decision (plan.md, open questions)",
+      "tests": ["tests/test_ledger_drift.py"],
+      "status": "pending"
+    },
+    {
+      "id": "L4",
+      "side": "backend",
+      "title": "Post payouts at creation and reverse on failed or canceled",
+      "covers": ["A3"],
+      "depends_on": [],
+      "schema_change": false,
+      "tests": ["tests/test_ledger_drift.py"],
+      "status": "pending"
+    },
+    {
+      "id": "L5",
+      "side": "backend",
+      "title": "Fetch fees before the first write and retry when unreadable",
+      "covers": ["A4", "N4"],
+      "depends_on": [],
+      "schema_change": false,
+      "tests": ["tests/test_ledger_drift.py", "tests/test_payments.py"],
+      "status": "pending"
+    },
+    {
+      "id": "L6",
+      "side": "backend",
+      "title": "Record under-paid e-Transfers and dedupe Interac on the delivery",
+      "covers": ["N2"],
+      "depends_on": [],
+      "schema_change": false,
+      "blocked_on": "partial e-Transfer decision (plan.md, open questions)",
+      "tests": ["tests/test_payments_interac.py"],
+      "status": "pending"
+    },
+    {
+      "id": "L7",
+      "side": "backend",
+      "title": "Maintain the cached balance by trigger and assert it nightly",
+      "covers": ["A5"],
+      "depends_on": [],
+      "schema_change": true,
+      "tests": ["tests/test_ledger_drift.py", "tests/test_ledger.py", "tests/test_ledger_jobs.py"],
+      "status": "pending"
+    },
+    {
+      "id": "L8",
+      "side": "backend",
+      "title": "Replay or conflict on a lost unique race and retry once on deadlock",
+      "covers": ["A7", "N6"],
+      "depends_on": [],
+      "schema_change": false,
+      "tests": ["tests/test_command.py", "tests/test_webhooks.py"],
+      "status": "pending"
+    },
+    {
+      "id": "L9",
+      "side": "backend",
+      "title": "Stamp journals with the charge's time from the payload",
+      "covers": ["N5"],
+      "depends_on": ["L2"],
+      "schema_change": false,
+      "tests": ["tests/test_payments.py", "tests/test_payments_refunds.py"],
+      "status": "pending"
+    },
+    {
+      "id": "L10",
+      "side": "backend",
+      "title": "Record failed webhook deliveries and raise drift audits as errors",
+      "covers": ["N3"],
+      "depends_on": ["L8"],
+      "schema_change": "if an error column is added",
+      "tests": ["tests/test_webhooks.py", "tests/test_ledger_jobs.py"],
+      "status": "pending"
+    },
+    {
+      "id": "L11",
+      "side": "backend",
+      "title": "Refuse a non-CAD journal, payment or payout until multi-currency exists",
+      "covers": ["N7"],
+      "depends_on": ["L4"],
+      "schema_change": false,
+      "tests": ["tests/test_ledger.py", "tests/test_payments.py"],
+      "status": "pending"
+    },
+    {
+      "id": "L12",
+      "side": "backend",
+      "title": "Race tests for posts, redemptions, consumes and cash versus webhook",
+      "covers": ["N8"],
+      "depends_on": ["L7", "L8"],
+      "schema_change": false,
+      "tests": ["tests/test_ledger_races.py"],
+      "status": "pending"
+    }
+  ]
+}
