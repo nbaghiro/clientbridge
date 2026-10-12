@@ -4,13 +4,17 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "test": "node --test --test-reporter=dot"
+        "test": "node --test --test-reporter=dot",
+        "typecheck": "tsc --noEmit"
     },
     "exports": {
         "./eslint": "./eslint.mjs",
-        "./prettier": "./prettier.config.json"
+        "./prettier": "./prettier.config.json",
+        "./e2e/accessibility": "./e2e/accessibility.ts",
+        "./e2e/pseudo": "./e2e/pseudo.ts"
     },
     "dependencies": {
+        "@axe-core/playwright": "^4.13.0",
         "@eslint/js": "^10.0.1",
         "@formatjs/icu-messageformat-parser": "3.5.20",
         "eslint": "^10.12.0",
@@ -18,5 +22,9 @@
     },
     "peerDependencies": {
         "typescript": "^6.0.3"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.63.0",
+        "@types/node": "^24.0.0"
     }
 }

@@ -34,7 +34,7 @@ export function Stars({ value, onSelect, size = "md", className }: WebProps<Star
                         onSelect(n);
                     }}
                     className={`leading-none transition ${SIZE[size]} ${
-                        n <= value ? "text-accent" : "text-line hover:text-accent-line"
+                        n <= value ? "text-accent" : "text-line hover:text-accent"
                     }`}
                 >
                     ★

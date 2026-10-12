@@ -1,6 +1,6 @@
+import { clippedText, englishCopy } from "@clientbridge/config/e2e/pseudo";
 import { expect, test } from "@playwright/test";
 
-import { clippedText, englishCopy } from "../../playground/e2e/pseudo";
 import { links, ownAddress } from "./links";
 
 test.beforeEach(async ({ context }, info) => {

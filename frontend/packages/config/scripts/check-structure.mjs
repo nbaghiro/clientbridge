@@ -180,22 +180,6 @@ for (const name of mobileUi) {
     }
 }
 
-const stories = new Set(stems("apps/playground/src/stories/", ".tsx"));
-for (const name of new Set([...webUi, ...mobileUi])) {
-    if (!stories.has(name)) {
-        problems.push(
-            `packages/ui component ${name} has no apps/playground/src/stories/${name}.tsx story`,
-        );
-    }
-}
-for (const name of stories) {
-    if (!webUi.has(name) && !mobileUi.has(name)) {
-        problems.push(
-            `apps/playground/src/stories/${name}.tsx matches no packages/ui component file`,
-        );
-    }
-}
-
 // knip treats everything behind app-core's `export *` index as public API, so this catches what it can't.
 const sources = new Map(files.map((f) => [f, readFileSync(join(root, f), "utf8")]));
 const PACKAGE_ENTRIES = new Set(["index.ts", "public.ts"]);

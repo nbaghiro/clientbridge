@@ -84,15 +84,14 @@ clientbridge/
 │   │   ├── web/        React + Vite · provider/admin · :8700
 │   │   ├── mobile/     Expo RN · provider/admin · :8707
 │   │   ├── connect/    public customer app · PowerSync-free · :8709
-│   │   ├── site/       marketing site · static prerender · :8710
-│   │   └── playground/ shared component playground · web + phones · :8712 (not deployed)
+│   │   └── site/       marketing site · static prerender · :8710
 │   └── packages/
 │       ├── app-core/   shared view-model hooks + strings + icons + UI prop contracts (ui.ts)
 │       ├── ui/         shared components: src/web (DOM, web + Connect) · src/mobile (React Native)
 │       ├── sync/       PowerSync AppSchema + backend connector
 │       ├── api-client/ generated OpenAPI types + session (cookie/token) + Kratos flow client
 │       ├── tokens/     Pewter design system → Tailwind theme + RN theme
-│       └── config/     shared eslint/prettier + the no-inline-ui-string rule
+│       └── config/     shared eslint/prettier, the copy lint rules and the e2e helpers (axe, focus, hover, en-XA)
 ├── infra/powersync/    powersync.yaml (service config) · sync-rules.yaml (read authz)
 ├── infra/kratos/       kratos.yml · identity schema · Google mapper · courier body
 └── .docs/              architecture · engineering · launch-readiness · design/
@@ -642,10 +641,13 @@ only `app-core/public`) and `@clientbridge/ui/src/mobile/` (React Native), with 
 same component. Every app imports `@clientbridge/ui`; the package's `react-native` export condition resolves
 mobile (Metro and the mobile tsconfig's `customConditions`) to the native entry, and everything else to the web
 entry. ESLint keeps React Native out of `src/web` and the DOM out of `src/mobile`, and the structure check
-requires a twin on the other platform and a playground story for every component file. It also fails on a
+requires a twin on the other platform for every component file. It also fails on a
 hand-styled control in app code (a raw `<button>`, `<input>`, `<select>` or `<textarea>` with a `className`, or a
 `Pressable` or `TextInput` with local styles) outside a short allowlist of layout-specific files. Each platform
 still renders idiomatically, so this is two implementations in one place, not a cross-platform UI framework.
+The web and Connect e2e suites check the components as the apps compose them: axe, a visible focus indicator
+at every keyboard stop, readable text on hover and the `en-XA` pass, with the shared helpers in
+`packages/config/e2e`.
 Component copy lives in `strings.ui`, glyphs in `app-core/icons.ts` (`Icon` draws them on both platforms), and
 colours only in `@clientbridge/tokens` (`INTENT_COLORS`, `tint`/`tintHex` for data colours, `ON_DATA` and
 `SHADOW`).
@@ -700,19 +702,6 @@ Props follow one vocabulary, so a caller can guess a prop without opening the fi
 | `Notice` | a danger, success or info line, or a filled box |
 | `PageHeader`, `Panel`, `Tabs` | a page title with actions and tabs; a card with a title; an underline or pill tab row |
 | `SwatchPicker`, `WeeklyHoursEditor` | a colour picker; one person's regular week with open days and times |
-
-### The playground
-`apps/playground` (`make dev-playground`, http://localhost:8712) renders every shared component from the real
-package: the web component directly, and the mobile component through react-native-web inside an iPhone and an
-Android frame side by side. There is one page per component file, built from
-`apps/playground/src/stories/<Name>.tsx`; a story is typed against the component's contract and builds slot
-content from a small kit, so web and mobile show the same examples. Each page has a live props panel for the
-main props, a copyable import and example, a theme picker over the real themes (phone frames reload with the
-theme's native tokens), and links of the form `#/<Name>/<example>?platform=web|mobile&device=iphone|android&theme=<key>`.
-`#/frame/<Name>?device=iphone` is what a phone frame loads, useful for debugging one screen. The playground is a
-development tool: it is built by `make build` and tested by `make test-playground` (every page on web and both
-phones, failing on any console error) but never deployed. Native-only behaviour (gestures, haptics, keyboard
-avoidance, Stripe's native card field, the system alert) is not previewed.
 
 `DocEditor` (the invoice and estimate editor) lives in each app because it reads the replica. Connect has
 `PublicFrame`, `PublicStatus` and `PublicDone` in `apps/connect/src/components` for its page chrome.

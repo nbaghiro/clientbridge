@@ -23,14 +23,6 @@
         },
         "packages/config": {
             "entry": ["scripts/*.mjs", "*.test.mjs"]
-        },
-        "apps/playground": {
-            "entry": [
-                "src/stories/*.tsx",
-                "src/mobile/Frame.tsx",
-                "src/mobile/Inline.tsx",
-                "src/mobile/StripeStub.tsx"
-            ]
         }
     },
     "ignore": ["packages/api-client/src/generated.ts"]

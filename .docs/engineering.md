@@ -34,7 +34,7 @@ type safety.**
   styles, markup and test ids are exempt), `no-raw-format` (`toLocale*`, `Intl`, `toFixed` and locale
   literals outside the formatter), `no-hand-plural` (`count === 1`, or `count > 1` between two literals, choosing between texts),
   `no-module-scope-copy` (typed: catalog text read while a module loads) and `no-error-message-copy` (a
-  caught error's `message` reaching the UI). Debug panels, tests, e2e suites and the playground are exempt
+  caught error's `message` reaching the UI). Debug panels, tests and e2e suites are exempt
   where the rule is about product copy. The **lean-bundle boundary** (`no-restricted-imports` bans
   `@powersync/*` + `@clientbridge/sync` from `apps/connect` and `app-core/public`) is enforced here too.
 - **tsconfig** (`tsconfig.base.json`) — `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`
@@ -58,8 +58,8 @@ The pre-commit hook (`.githooks/pre-commit`, installed once via `make hooks`) ap
 changes to a temporary worktree at `HEAD`, installs dependencies there from the local caches and runs
 `make precommit`, so unstaged edits never decide a commit. It includes the backend and frontend tests, so
 the local Postgres from `make up` must be running. The browser,
-device and real-service suites (`test-web`, `test-connect`, `test-mobile`, `test-sync`, `test-site`,
-`test-playground`) run in CI. The hook sets a writable `UV_CACHE_DIR=/tmp/uv-cache` to work around a
+device and real-service suites (`test-web`, `test-connect`, `test-mobile`, `test-sync`, `test-site`)
+run in CI. The hook sets a writable `UV_CACHE_DIR=/tmp/uv-cache` to work around a
 root-owned `~/.cache/uv`.
 
 ---
@@ -73,10 +73,9 @@ Runs on every push to `main` + all PRs; concurrency-cancels stale runs.
 | **backend** | Postgres 16 service · Python 3.14 · `uv sync` → `make format-check-backend lint-backend` (ruff, mypy, structure check) → `make migrate seed` → `make test-backend` (pytest, 90% branch coverage) |
 | **frontend** | Node from `.nvmrc` · pnpm 9 · `pnpm install --frozen-lockfile` → `make format-check-frontend lint-frontend test-frontend` (prettier, eslint + `check-structure.mjs` + knip, tsc, the site copy rules, the lint rule tests, vitest for app-core and site, then app-core again under `TZ=America/Vancouver`, `America/Halifax` and `Asia/Tokyo`; the formatter tests assert `en-CA` and `en-XA` output) → **`make build`** (a broken bundle must fail CI, beyond `tsc --noEmit`) |
 | **site** | Node from `.nvmrc` · `make test-site`: a fresh build, then Playwright e2e on it (the copy rules and content tests run in the frontend job): every page returns 200 with its content in the HTML, no console errors, no broken images or internal links, no sideways scroll at 390 and 1440px, axe with no serious or critical issues, 404 page served with a 404 |
-| **connect** | Postgres 16 service · `make migrate seed` · the API on :8701 · `make test-connect`: Connect's Playwright walk (book a visit, cancel it from its manage link, shop, invoice, estimate, receipt, review, form, contract, preferences, not found), failing on any console error, then the `en-XA` pass over the business, booking, shop, invoice, estimate and receipt pages |
-| **playground** | `make test-playground`: every story on web and both phone frames, then the `en-XA` pass over every story on a pseudo-locale dev server |
+| **connect** | Postgres 16 service · `make migrate seed` · the API on :8701 · `make test-connect`: Connect's Playwright walk (book a visit, cancel it from its manage link, shop, invoice, estimate, receipt, review, form, contract, preferences, not found), failing on any console error; every client page through axe (no serious or critical issues), a keyboard walk that fails on a focus stop without a visible indicator, and a hover check on every button (AA text contrast, also over a business cover photo); then the `en-XA` pass over the business, booking, shop, invoice, estimate and receipt pages |
 | **sync** | `make test-sync`: disposable Postgres and PowerSync, per-role replica rows and columns, revocation, hours uploads, the signing-key rotation drill and the replication health check |
-| **web** | `make up migrate seed` · the API on :8701 · `make test-web`: sign-in, every page and dialog, record flows, history older than the device window, no console errors, and the `en-XA` pass over Today, Schedule, Clients, a client record, Setup's business page, Invoices and an invoice |
+| **web** | `make up migrate seed` · the API on :8701 · `make test-web`: sign-in, every page and dialog, record flows, history older than the device window, no console errors, axe, keyboard focus and hover contrast on the key pages, the booking composer and the client and invoice records, and the `en-XA` pass over Today, Schedule, Clients, a client record, Setup's business page, Invoices and an invoice |
 | **mobile-build** | an x86_64 release APK (bundle embedded, no Metro), cached under the app's Expo native fingerprint and the lockfile hash: on a hit `scripts/rebundle-apk.sh` only rebuilds the Hermes bundle and re-signs the cached APK, on a miss `expo prebuild` and Gradle build it. Runs on main and on PRs that touch the app, `frontend/packages`, the backend or the stack |
 | **mobile-shard** | three shards, each with `make up migrate seed` and the API started in the background, the APK from `mobile-build` and its share of the Maestro walkthroughs on an Android 14 emulator booted from a cached snapshot, with `adb reverse` for 8701 and 8704. The shards are listed in `e2e/shards.json`, and the `changes` job fails when a walkthrough is in none or two |
 | **mobile** | the required check: passes when every shard passed, or when `changes` skipped mobile because the change cannot affect the app |
@@ -191,11 +190,10 @@ Read local, write via command/sync — the server is the source of truth; client
   `select` and word order and never format a value themselves.
 - `activeLocale()` in `app-core/src/locale.ts` is the one place the frontend reads its locale, and it
   returns `en-CA`. `setPseudoLocale(true)` switches to `en-XA` for development and tests:
-  `VITE_PSEUDO_LOCALE=1` on a web, Connect or playground dev server and `EXPO_PUBLIC_PSEUDO_LOCALE=1` in a
-  mobile development build. Web, Connect and the playground set `<html lang>` from the active locale at
-  startup.
-- `make test-playground`, `test-web` and `test-connect` each end with an `en-XA` pass
-  (`pseudo.e2e.ts`, sharing `apps/playground/e2e/pseudo.ts`). It fails on visible text or copy attributes
+  `VITE_PSEUDO_LOCALE=1` on a web or Connect dev server and `EXPO_PUBLIC_PSEUDO_LOCALE=1` in a
+  mobile development build. Web and Connect set `<html lang>` from the active locale at startup.
+- `make test-web` and `make test-connect` each end with an `en-XA` pass
+  (`pseudo.e2e.ts`, sharing `packages/config/e2e/pseudo.ts`). It fails on visible text or copy attributes
   that still read as an English catalog message, which is what a module-scope read, a cached English value
   or a duplicated inline string looks like, and on text cut off by a box that hides its overflow without an
   ellipsis. Names, notes and other data are not translated, so the pass does not flag them; inline copy is
@@ -251,7 +249,6 @@ in the block. Container-internal ports stay conventional; only host mappings use
 | **8708** | stripe-mock (contract tests only) | 12111 | docker-compose `profiles:[test]` |
 | **8709** | Connect (Vite) — customer app | — | `apps/connect` vite (strictPort) |
 | **8710** | Marketing site (Vite, static build) | — | `apps/site` vite (strictPort) · `make dev-site` |
-| **8712** | Component playground (Vite) | — | `apps/playground` vite (strictPort) · `make dev-playground` |
 | **8713 / 8714** | Ory Kratos: public / admin API (admin bound to 127.0.0.1) | 4433 / 4434 | docker-compose · `AUTH_PUBLIC_URL` / `AUTH_ADMIN_URL` |
 | **8715 / 8716** | Mailpit: web UI and API / SMTP (the API's mail under `make dev-api`; 127.0.0.1 only) | 8025 / 1025 | docker-compose |
 
@@ -272,8 +269,6 @@ make test-web              # web smoke test: sign in, every page and dialog, no 
 make test-connect          # Connect e2e: book to the deposit step, manage link, shop and every client page (needs the API + seed)
 make test-mobile           # Maestro native walkthroughs (development build + local stack + seed)
 make lighthouse-site       # Lighthouse budget (desktop >= 95 in every category) against the :8710 preview
-make dev-playground        # every shared component on web, iPhone and Android on :8712 (no backend needed)
-make test-playground       # build + Playwright pass over every story page and phone frame, no console errors
 make test-sync             # disposable Postgres + PowerSync: per-role replica rows and columns, revocation,
                            # hours uploads, the signing-key rotation drill, then the replication health check
 make replication-health    # local PowerSync readiness, slot, retained WAL (1 GiB) and replay lag (60 s)

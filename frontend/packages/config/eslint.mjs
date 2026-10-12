@@ -54,7 +54,7 @@ export default tseslint.config(
             "**/packages/ui/src/**/*.{ts,tsx}",
             "**/packages/app-core/src/**/*.{ts,tsx}",
         ],
-        ignores: ["**/*.test.{ts,tsx}", "**/apps/playground/**", "**/Debug*.tsx"],
+        ignores: ["**/*.test.{ts,tsx}", "**/Debug*.tsx"],
         rules: { "local/no-inline-ui-string": ["error", { literals: true }] },
     },
     {
@@ -96,8 +96,8 @@ export default tseslint.config(
         },
     },
     {
-        // Tests, e2e suites and the playground (fixture data, dev chrome) are not product copy.
-        files: ["**/*.test.{ts,tsx}", "**/e2e/**/*.ts", "**/apps/playground/**/*.{ts,tsx}"],
+        // Tests and e2e suites (fixture data) are not product copy.
+        files: ["**/*.test.{ts,tsx}", "**/e2e/**/*.ts"],
         rules: {
             "local/no-composed-copy": "off",
             "local/no-error-message-copy": "off",
@@ -105,10 +105,6 @@ export default tseslint.config(
             "local/no-module-scope-copy": "off",
             "local/no-raw-format": "off",
         },
-    },
-    {
-        files: ["**/apps/playground/**/*.{ts,tsx}"],
-        rules: { "local/no-inline-ui-string": "off" },
     },
     {
         // Connect and app-core/public must never pull the PowerSync replica stack into the customer bundle.
