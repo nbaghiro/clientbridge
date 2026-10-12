@@ -50,6 +50,12 @@ ACCOUNT_EVENTS = (
     "v2.core.account[configuration.merchant].capability_status_updated",
     "v2.core.account.closed",
 )
+# plan subscriptions live on the platform account, so these come from the platform endpoint
+PLAN_EVENTS = (
+    "customer.subscription.created",
+    "customer.subscription.deleted",
+    "customer.subscription.updated",
+)
 
 
 def _missing(exc: stripe.InvalidRequestError) -> bool:

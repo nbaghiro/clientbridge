@@ -192,6 +192,15 @@ msgstr "[Þåýɱéñţ ƒåîļéð — {business}~~~~~~]"
 msgid "pickup.body"
 msgstr "[Çöļļéçţ ýöûŕ öŕðéŕ åţ {business}. Ŵé'ļļ ļéţ ýöû ķñöŵ ŵĥéñ îţ'š ŕéåðý.~~~~~~~~~~~~~~~~~~~~~]"
 
+msgid "plans.premium"
+msgstr "[Çļîéñţƀŕîðĝé Þŕéɱîûɱ~~~~~~~]"
+
+msgid "plans.seat"
+msgstr "[Çļîéñţƀŕîðĝé šţåƒƒ šéåţ~~~~~~~~~]"
+
+msgid "plans.team"
+msgstr "[Çļîéñţƀŕîðĝé Ţéåɱ~~~~~~]"
+
 msgid "receipt.body"
 msgstr "[Ţĥåñķ ýöû! Ýöûŕ þåýɱéñţ öƒ {amount} ţö {business} ŵåš ŕéçéîṽéð.~~~~~~~~~~~~~~~~]"
 

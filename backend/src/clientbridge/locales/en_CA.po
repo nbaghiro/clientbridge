@@ -198,6 +198,15 @@ msgstr "Payment failed — {business}"
 msgid "pickup.body"
 msgstr "Collect your order at {business}. We'll let you know when it's ready."
 
+msgid "plans.premium"
+msgstr "Clientbridge Premium"
+
+msgid "plans.seat"
+msgstr "Clientbridge staff seat"
+
+msgid "plans.team"
+msgstr "Clientbridge Team"
+
 msgid "receipt.body"
 msgstr "Thank you! Your payment of {amount} to {business} was received."
 

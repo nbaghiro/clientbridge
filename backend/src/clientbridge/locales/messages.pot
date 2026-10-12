@@ -186,6 +186,15 @@ msgstr ""
 msgid "pickup.body"
 msgstr ""
 
+msgid "plans.premium"
+msgstr ""
+
+msgid "plans.seat"
+msgstr ""
+
+msgid "plans.team"
+msgstr ""
+
 msgid "receipt.body"
 msgstr ""
 

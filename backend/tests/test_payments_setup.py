@@ -17,16 +17,26 @@ from scripts.stripe_setup import (
     plan_account,
     plan_destination,
     plan_location,
+    plan_platform_webhook,
+    plan_portal,
+    plan_price,
+    plan_product,
     plan_webhook,
     safety_problems,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.scoping import scoped
-from clientbridge.integrations.stripe import ACCOUNT_EVENTS, STRIPE_API_VERSION, PostalAddress
+from clientbridge.integrations.stripe import (
+    ACCOUNT_EVENTS,
+    PLAN_EVENTS,
+    STRIPE_API_VERSION,
+    PostalAddress,
+)
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import PaymentMethod
+from clientbridge.services.plans import PLAN_PRICES, PlanPrice
 
 URL = "https://api.example.com/webhooks/stripe"
 CONFIG = {"test_mode_api_key": "sk_test_x", "account_id": "acct_p", "display_name": "Clientbridge"}
@@ -330,6 +340,12 @@ def test_dry_run_reads_only(capsys: pytest.CaptureFixture[str]) -> None:
     assert "whsec_test_secret" not in out and "STRIPE_THIN_WEBHOOK_SECRET=whsec_...cret" in out
     assert "--forward-connect-to 127.0.0.1:8701/webhooks/stripe" in out
     assert "v2.core.account[requirements].updated" in out
+    assert "[create ] platform webhook endpoint" in out
+    assert "[create ] price premium_year: 49990 cad per year" in out
+    assert "[create ] billing portal configuration" in out
+    assert "STRIPE_PLATFORM_WEBHOOK_SECRET=whsec_...cret" in out
+    assert "STRIPE_PORTAL_CONFIGURATION=<created by --apply>" in out
+    assert "none needed" not in out
 
 
 def test_unnamed_sandbox_is_refused_without_account(capsys: pytest.CaptureFixture[str]) -> None:
@@ -416,5 +432,137 @@ def test_snapshot_and_thin_events_listen_separately_to_one_route() -> None:
     assert snapshot[snapshot.index("--forward-connect-to") + 1] == route
     assert thin[thin.index("--forward-to") + 1] == route
     assert "--forward-connect-to" not in thin
-    assert set(snapshot[snapshot.index("--events") + 1].split(",")) == set(WEBHOOK_EVENTS)
+    snapshot_events = set(snapshot[snapshot.index("--events") + 1].split(","))
+    assert snapshot_events == set(WEBHOOK_EVENTS) | set(PLAN_EVENTS)
+    assert snapshot[snapshot.index("--forward-to") + 1] == route
     assert set(thin[thin.index("--events") + 1].split(",")) == set(ACCOUNT_EVENTS)
+
+
+def test_platform_endpoint_is_a_separate_non_connect_endpoint_for_plan_events() -> None:
+    connect = {
+        "id": "we_connect",
+        "url": URL,
+        "connect": True,
+        "api_version": STRIPE_API_VERSION,
+        "status": "enabled",
+        "enabled_events": list(WEBHOOK_EVENTS),
+        "metadata": {"clientbridge": "connect_webhook"},
+    }
+    step = plan_platform_webhook([connect], URL)
+    params = _params(step.params)
+    assert (step.action, step.path) == ("create", "/v1/webhook_endpoints")
+    assert params["connect"] == "false" and params["api_version"] == STRIPE_API_VERSION
+    assert params["metadata[clientbridge]"] == "platform_webhook"
+    assert [p for p in step.params if p.startswith("enabled_events")] == [
+        f"enabled_events[]={event}" for event in PLAN_EVENTS
+    ]
+    platform = {
+        **connect,
+        "id": "we_platform",
+        "connect": False,
+        "enabled_events": list(PLAN_EVENTS),
+        "metadata": {"clientbridge": "platform_webhook"},
+    }
+    assert plan_platform_webhook([connect, platform], URL).action == "keep"
+    assert plan_webhook([connect, platform], URL).action == "keep"
+    wrong_scope = {**platform, "connect": True}
+    assert plan_platform_webhook([wrong_scope], URL).action == "blocked"
+    assert plan_platform_webhook([], None).action == "keep"
+
+
+def test_plan_prices_give_two_months_free_on_a_year() -> None:
+    assert {key: (p.amount_cents, p.interval) for key, p in PLAN_PRICES.items()} == {
+        "premium_month": (4999, "month"),
+        "premium_year": (49990, "year"),
+        "team_month": (9999, "month"),
+        "team_year": (99990, "year"),
+        "seat_month": (1000, "month"),
+    }
+
+
+def test_products_have_fixed_ids_and_the_saas_tax_code() -> None:
+    created = plan_product("clientbridge_team", "Clientbridge Team", None)
+    params = _params(created.params)
+    assert (created.action, created.path) == ("create", "/v1/products")
+    assert params["id"] == "clientbridge_team" and params["tax_code"] == "txcd_10103001"
+    current = {"id": "clientbridge_team", "name": "Clientbridge Team", "active": True}
+    kept = plan_product(
+        "clientbridge_team", "Clientbridge Team", {**current, "tax_code": {"id": "txcd_10103001"}}
+    )
+    assert kept.action == "keep"
+    renamed = plan_product(
+        "clientbridge_team",
+        "Clientbridge Team",
+        {**current, "name": "Old", "tax_code": "txcd_10103001"},
+    )
+    assert (renamed.action, renamed.path) == ("update", "/v1/products/clientbridge_team")
+    assert renamed.detail == "set name"
+
+
+PREMIUM_YEAR = PlanPrice("clientbridge_premium", 49990, "year")
+
+
+def _price(**changes: object) -> dict[str, object]:
+    price: dict[str, object] = {
+        "id": "price_1",
+        "lookup_key": "premium_year",
+        "active": True,
+        "product": "clientbridge_premium",
+        "unit_amount": 49990,
+        "currency": "cad",
+        "recurring": {"interval": "year"},
+        "tax_behavior": "exclusive",
+    }
+    return {**price, **changes}
+
+
+def test_prices_are_found_by_lookup_key_and_replaced_when_their_terms_change() -> None:
+    created = plan_price("premium_year", PREMIUM_YEAR, [])
+    params = _params(created.params)
+    assert (created.action, created.path) == ("create", "/v1/prices")
+    assert params["lookup_key"] == "premium_year" and params["unit_amount"] == "49990"
+    assert params["recurring[interval]"] == "year" and params["tax_behavior"] == "exclusive"
+    assert "transfer_lookup_key" not in params
+    assert plan_price("premium_year", PREMIUM_YEAR, [_price()]).action == "keep"
+    moved = plan_price("premium_year", PREMIUM_YEAR, [_price(unit_amount=60000)])
+    assert moved.action == "create" and "replacing price_1" in moved.detail
+    assert _params(moved.params)["transfer_lookup_key"] == "true"
+    inactive = plan_price("premium_year", PREMIUM_YEAR, [_price(active=False)])
+    assert _params(inactive.params)["transfer_lookup_key"] == "true"
+
+
+RETURN_URL = "http://localhost:8700/setup/plan"
+
+
+def test_portal_configuration_allows_no_plan_switching() -> None:
+    created = plan_portal([], RETURN_URL)
+    params = _params(created.params)
+    assert (created.action, created.path) == ("create", "/v1/billing_portal/configurations")
+    assert params["features[subscription_update][enabled]"] == "false"
+    assert params["features[subscription_cancel][mode]"] == "at_period_end"
+    assert params["features[payment_method_update][enabled]"] == "true"
+    assert params["metadata[clientbridge]"] == "portal"
+    assert params["default_return_url"] == RETURN_URL
+    features: dict[str, object] = {
+        "customer_update": {"enabled": True, "allowed_updates": ["email", "address"]},
+        "invoice_history": {"enabled": True},
+        "payment_method_update": {"enabled": True},
+        "subscription_cancel": {"enabled": True, "mode": "at_period_end"},
+        "subscription_update": {"enabled": False},
+    }
+    current: dict[str, object] = {
+        "id": "bpc_1",
+        "active": True,
+        "default_return_url": RETURN_URL,
+        "metadata": {"clientbridge": "portal"},
+        "features": features,
+    }
+    assert plan_portal([current], RETURN_URL).action == "keep"
+    switching = {
+        **current,
+        "features": {**features, "subscription_update": {"enabled": True}},
+    }
+    updated = plan_portal([switching], RETURN_URL)
+    assert (updated.action, updated.path) == ("update", "/v1/billing_portal/configurations/bpc_1")
+    assert updated.detail == "bpc_1: subscription_update"
+    assert plan_portal([current, {**current, "id": "bpc_2"}], RETURN_URL).action == "blocked"

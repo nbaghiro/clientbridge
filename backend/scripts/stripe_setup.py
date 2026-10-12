@@ -17,9 +17,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal, engine
 from clientbridge.core.errors import Unprocessable
+from clientbridge.core.locale import SOURCE_LOCALE
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import (
     ACCOUNT_EVENTS,
+    PLAN_EVENTS,
     RESPONSIBILITIES,
     STRIPE_API_VERSION,
     PostalAddress,
@@ -31,9 +33,26 @@ from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import PaymentMethod
 from clientbridge.services.business import apply_account_status, postal_address
+from clientbridge.services.plans import (
+    PLAN_CURRENCY,
+    PLAN_PRICES,
+    PLAN_TAX_CODE,
+    PlanPrice,
+    product_names,
+)
 
 TAG = "clientbridge"
 WEBHOOK_KEY = "connect_webhook"
+PLATFORM_WEBHOOK_KEY = "platform_webhook"
+PORTAL_KEY = "portal"
+PORTAL_FEATURES: dict[str, object] = {
+    "customer_update": {"enabled": True, "allowed_updates": ["email", "address"]},
+    "invoice_history": {"enabled": True},
+    "payment_method_update": {"enabled": True},
+    "subscription_cancel": {"enabled": True, "mode": "at_period_end"},
+    # the portal cannot manage the seat item, so plan changes go through the app
+    "subscription_update": {"enabled": False},
+}
 DESTINATION_KEY = "account_events"
 DEMO_TAG = "clientbridge_demo"
 WEBHOOK_EVENTS = (
@@ -90,6 +109,12 @@ DASHBOARD_STEPS = (
     "the sandbox default API version, which `stripe listen` uses for snapshot payloads unless "
     f"--latest; handlers parse {STRIPE_API_VERSION} (thin account events are unversioned)",
     "Connect email settings: which payment and payout emails Stripe sends to connected accounts",
+    "Billing customer emails for plan subscriptions: receipts, failed payments and upcoming "
+    "renewals (Settings > Billing > Subscriptions and emails)",
+    "Smart Retries for failed plan payments, cancelling the subscription after the last retry "
+    "(Settings > Billing > Revenue recovery)",
+    "Stripe Tax for plan subscriptions: the platform's head office address and its GST/HST and "
+    "QST registrations (Settings > Tax); plan Checkout enables automatic tax",
 )
 
 type Runner = Callable[[Sequence[str]], str]
@@ -247,37 +272,50 @@ def webhook_url_problem(url: str) -> str | None:
     return None
 
 
-def plan_webhook(endpoints: Sequence[Mapping[str, object]], url: str | None) -> Step:
-    target = "connect webhook endpoint"
-    ours = [e for e in endpoints if _map(e.get("metadata")).get(TAG) == WEBHOOK_KEY]
+def _plan_endpoint(
+    endpoints: Sequence[Mapping[str, object]],
+    url: str | None,
+    *,
+    key: str,
+    connect: bool,
+    events: Sequence[str],
+    target: str,
+    description: str,
+) -> Step:
+    ours = [e for e in endpoints if _map(e.get("metadata")).get(TAG) == key]
     if url is None:
         detail = "no --webhook-url; forward locally with `stripe listen` (printed below)"
         return Step("keep", target, f"{len(ours)} registered; {detail}")
     problem = webhook_url_problem(url)
     if problem is not None:
         return Step("blocked", target, problem)
-    found = ours or [e for e in endpoints if e.get("url") == url and e.get("connect") is True]
+    found = ours or [
+        e for e in endpoints if e.get("url") == url and (e.get("connect") is True) == connect
+    ]
     if len(found) > 1:
         ids = ", ".join(str(e.get("id")) for e in found)
         return Step("blocked", target, f"several endpoints match ({ids}); delete the extras")
     params = {
         "url": url,
-        "enabled_events": list(WEBHOOK_EVENTS),
-        "description": "Clientbridge Connect events",
-        "metadata": {TAG: WEBHOOK_KEY},
+        "enabled_events": list(events),
+        "description": description,
+        "metadata": {TAG: key},
     }
     if not found:
+        scope = "Connect" if connect else "platform"
         return Step(
             "create",
             target,
-            f"{url} for {len(WEBHOOK_EVENTS)} Connect events at {STRIPE_API_VERSION}",
+            f"{url} for {len(events)} {scope} events at {STRIPE_API_VERSION}",
             "post",
             "/v1/webhook_endpoints",
-            tuple(form({**params, "connect": True, "api_version": STRIPE_API_VERSION})),
+            tuple(form({**params, "connect": connect, "api_version": STRIPE_API_VERSION})),
         )
     endpoint = found[0]
     endpoint_id = str(endpoint.get("id"))
-    if endpoint.get("connect") is not True or endpoint.get("api_version") != STRIPE_API_VERSION:
+    if (endpoint.get("connect") is True) != connect or (
+        endpoint.get("api_version") != STRIPE_API_VERSION
+    ):
         return Step(
             "blocked",
             target,
@@ -288,11 +326,11 @@ def plan_webhook(endpoints: Sequence[Mapping[str, object]], url: str | None) -> 
     changes: list[str] = []
     if endpoint.get("url") != url:
         changes.append("url")
-    if set(_strings(endpoint.get("enabled_events"))) != set(WEBHOOK_EVENTS):
+    if set(_strings(endpoint.get("enabled_events"))) != set(events):
         changes.append("events")
     if endpoint.get("status") != "enabled":
         changes.append("enable")
-    if _map(endpoint.get("metadata")).get(TAG) != WEBHOOK_KEY:
+    if _map(endpoint.get("metadata")).get(TAG) != key:
         changes.append("metadata")
     if not changes:
         return Step("keep", target, f"{endpoint_id} is current")
@@ -304,6 +342,168 @@ def plan_webhook(endpoints: Sequence[Mapping[str, object]], url: str | None) -> 
         f"/v1/webhook_endpoints/{endpoint_id}",
         tuple(form({**params, "disabled": False})),
     )
+
+
+def plan_webhook(endpoints: Sequence[Mapping[str, object]], url: str | None) -> Step:
+    return _plan_endpoint(
+        endpoints,
+        url,
+        key=WEBHOOK_KEY,
+        connect=True,
+        events=WEBHOOK_EVENTS,
+        target="connect webhook endpoint",
+        description="Clientbridge Connect events",
+    )
+
+
+def plan_platform_webhook(endpoints: Sequence[Mapping[str, object]], url: str | None) -> Step:
+    return _plan_endpoint(
+        endpoints,
+        url,
+        key=PLATFORM_WEBHOOK_KEY,
+        connect=False,
+        events=PLAN_EVENTS,
+        target="platform webhook endpoint",
+        description="Clientbridge plan subscriptions",
+    )
+
+
+def plan_product(product_id: str, name: str, existing: Mapping[str, object] | None) -> Step:
+    target = f"product {product_id}"
+    params = {"name": name, "tax_code": PLAN_TAX_CODE, "active": True}
+    if existing is None:
+        return Step(
+            "create",
+            target,
+            name,
+            "post",
+            "/v1/products",
+            tuple(form({"id": product_id, **params})),
+            idempotency=f"clientbridge-product-{product_id}",
+        )
+    changes = [
+        field
+        for field in ("name", "tax_code", "active")
+        if existing.get(field) != params[field]
+        and not (field == "tax_code" and _map(existing.get("tax_code")).get("id") == PLAN_TAX_CODE)
+    ]
+    if not changes:
+        return Step("keep", target, name)
+    return Step(
+        "update",
+        target,
+        f"set {', '.join(changes)}",
+        "post",
+        f"/v1/products/{product_id}",
+        tuple(form(params)),
+    )
+
+
+def plan_price(key: str, price: PlanPrice, found: Sequence[Mapping[str, object]]) -> Step:
+    target = f"price {key}"
+    terms = f"{price.amount_cents} {PLAN_CURRENCY} per {price.interval} on {price.product}"
+    params: dict[str, object] = {
+        "product": price.product,
+        "unit_amount": price.amount_cents,
+        "currency": PLAN_CURRENCY,
+        "recurring": {"interval": price.interval},
+        "tax_behavior": "exclusive",
+        "lookup_key": key,
+    }
+    current = next((p for p in found if p.get("lookup_key") == key), None)
+    if current is None:
+        return Step(
+            "create",
+            target,
+            terms,
+            "post",
+            "/v1/prices",
+            tuple(form(params)),
+            idempotency=f"clientbridge-price-{key}",
+        )
+    matches = (
+        current.get("active") is True
+        and current.get("product") == price.product
+        and current.get("unit_amount") == price.amount_cents
+        and current.get("currency") == PLAN_CURRENCY
+        and _map(current.get("recurring")).get("interval") == price.interval
+        and current.get("tax_behavior") == "exclusive"
+    )
+    if matches:
+        return Step("keep", target, f"{current.get('id')}: {terms}")
+    # a price's terms are fixed, so a new price takes the key and subscriptions keep the old one
+    return Step(
+        "create",
+        target,
+        f"{terms}, replacing {current.get('id')} (transfer_lookup_key)",
+        "post",
+        "/v1/prices",
+        tuple(form({**params, "transfer_lookup_key": True})),
+        idempotency=f"clientbridge-price-{key}",
+    )
+
+
+def plan_portal(configurations: Sequence[Mapping[str, object]], return_url: str) -> Step:
+    target = "billing portal configuration"
+    ours = ours_portal(configurations)
+    if len(ours) > 1:
+        ids = ", ".join(str(c.get("id")) for c in ours)
+        return Step("blocked", target, f"several configurations match ({ids}); deactivate extras")
+    params: dict[str, object] = {
+        "features": PORTAL_FEATURES,
+        "default_return_url": return_url,
+        "metadata": {TAG: PORTAL_KEY},
+    }
+    if not ours:
+        return Step(
+            "create",
+            target,
+            "payment method, invoices, email and address, cancel at period end, no plan switching",
+            "post",
+            "/v1/billing_portal/configurations",
+            tuple(form(params)),
+        )
+    config = ours[0]
+    config_id = str(config.get("id"))
+    features = _map(config.get("features"))
+    changes = [
+        name
+        for name, wanted in PORTAL_FEATURES.items()
+        if any(_map(features.get(name)).get(k) != v for k, v in _map(wanted).items())
+    ]
+    if config.get("default_return_url") != return_url:
+        changes.append("default_return_url")
+    if config.get("active") is not True:
+        changes.append("active")
+    if not changes:
+        return Step("keep", target, f"{config_id} is current")
+    return Step(
+        "update",
+        target,
+        f"{config_id}: {', '.join(changes)}",
+        "post",
+        f"/v1/billing_portal/configurations/{config_id}",
+        tuple(form({**params, "active": True})),
+    )
+
+
+def ours_portal(configurations: Sequence[Mapping[str, object]]) -> list[Mapping[str, object]]:
+    return [c for c in configurations if _map(c.get("metadata")).get(TAG) == PORTAL_KEY]
+
+
+def plan_billing(
+    stripe: "Stripe", portals: Sequence[Mapping[str, object]], return_url: str
+) -> list[Step]:
+    names = product_names(SOURCE_LOCALE)
+    steps = [
+        plan_product(product_id, name, stripe.get_optional(f"/v1/products/{product_id}"))
+        for product_id, name in names.items()
+    ]
+    keys = [f"lookup_keys[]={key}" for key in PLAN_PRICES]
+    found = cast(list[Json], stripe.call("get", "/v1/prices", keys).get("data") or [])
+    steps += [plan_price(key, price, found) for key, price in PLAN_PRICES.items()]
+    steps.append(plan_portal(portals, return_url))
+    return steps
 
 
 def plan_destination(destinations: Sequence[Mapping[str, object]], url: str | None) -> Step:
@@ -555,6 +755,13 @@ class Stripe:
             return False
         return isinstance(body, dict) and "error" not in body and not body.get("deleted")
 
+    def get_optional(self, path: str) -> Json | None:
+        args = ["get", path, "--stripe-version", STRIPE_API_VERSION]
+        body = json.loads(self.text(*args) or "{}")
+        if not isinstance(body, dict) or "error" in body or "id" not in body:
+            return None
+        return cast(Json, body)
+
     def listen_secret(self) -> str:
         return self.text("listen", "--print-secret").strip()
 
@@ -616,10 +823,11 @@ def cli_runner(args: Sequence[str]) -> str:
 
 
 def listen_args(api_base: str) -> list[list[str]]:
-    # The CLI forwards snapshot and thin events from separate listeners; both reach one route.
+    # Snapshot and thin events need separate listeners; Connect and platform events share one.
     host = urlparse(api_base).netloc or "127.0.0.1:8701"
     target = f"{host}/webhooks/stripe"
-    snapshot = ["listen", "--forward-connect-to", target, "--events", ",".join(WEBHOOK_EVENTS)]
+    events = ",".join(dict.fromkeys([*WEBHOOK_EVENTS, *PLAN_EVENTS]))
+    snapshot = ["listen", "--forward-connect-to", target, "--events", events]
     snapshot[1:1] = ["--forward-to", target]
     thin = ["listen", "--forward-to", target, "--events", ",".join(ACCOUNT_EVENTS)]
     return [snapshot, thin]
@@ -879,9 +1087,12 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
     endpoints = stripe.list_all("/v1/webhook_endpoints")
     destinations = stripe.list_v2("/v2/core/event_destinations")
     accounts = stripe.list_v2("/v2/core/accounts")
+    portals = stripe.list_all("/v1/billing_portal/configurations")
     steps = [
         plan_webhook(endpoints, args.webhook_url),
+        plan_platform_webhook(endpoints, args.webhook_url),
         plan_destination(destinations, args.webhook_url),
+        *plan_billing(stripe, portals, f"{settings.web_base_url}/setup/plan"),
     ]
     matched = {
         biz.id: [stripe.account(str(a["id"])) for a in find_account(accounts, biz)]
@@ -891,12 +1102,11 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
     print("plan:")
     for step in steps:
         show(step)
-    print(
-        "  [keep   ] platform products and prices: none needed; each subscription item gets its "
-        "Price on the connected account at first use"
-    )
 
     endpoint_secret: str | None = None
+    platform_secret: str | None = None
+    existing_portals = ours_portal(portals)
+    portal_id = str(existing_portals[0]["id"]) if len(existing_portals) == 1 else None
     destination_secret: str | None = None
     resolved: dict[str, Json | None] = {
         biz.id: matched[biz.id][0] if len(matched[biz.id]) == 1 else None for biz in DEMO_BUSINESSES
@@ -908,7 +1118,13 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
             result = stripe.run(step)
             print(f"  done: {step.action} {step.target} -> {result.get('id')}")
             if step.path == "/v1/webhook_endpoints":
-                endpoint_secret = str(result.get("secret") or "") or None
+                secret_value = str(result.get("secret") or "") or None
+                if step.target == "connect webhook endpoint":
+                    endpoint_secret = secret_value
+                else:
+                    platform_secret = secret_value
+            if step.path.startswith("/v1/billing_portal/configurations"):
+                portal_id = str(result.get("id"))
             if step.path == "/v2/core/event_destinations":
                 webhook = _map(result.get("webhook_endpoint"))
                 destination_secret = str(webhook.get("signing_secret") or "") or None
@@ -929,6 +1145,8 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
     listen_secret = stripe.listen_secret()
     print(f"  STRIPE_WEBHOOK_SECRET={secret(endpoint_secret or listen_secret)}")
     print(f"  STRIPE_THIN_WEBHOOK_SECRET={secret(destination_secret or listen_secret)}")
+    print(f"  STRIPE_PLATFORM_WEBHOOK_SECRET={secret(platform_secret or listen_secret)}")
+    print(f"  STRIPE_PORTAL_CONFIGURATION={portal_id or '<created by --apply>'}")
     default_version = stripe.default_api_version()
     if default_version is not None and default_version != STRIPE_API_VERSION:
         print(
