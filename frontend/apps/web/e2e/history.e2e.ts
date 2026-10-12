@@ -1,6 +1,8 @@
 import { strings } from "@clientbridge/app-core/public";
 import { type Page, expect, test } from "@playwright/test";
 
+import { offsiteLoadFailure } from "./errors";
+
 const m = strings.messaging;
 
 // a client-side route change, so the session and replica stay as they are
@@ -16,7 +18,7 @@ test("history older than the device window is read from the API", async ({ page 
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (msg) => {
-        if (msg.type() === "error") errors.push(msg.text());
+        if (msg.type() === "error" && !offsiteLoadFailure(msg)) errors.push(msg.text());
     });
     await page.goto("/");
     await page

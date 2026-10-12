@@ -3,6 +3,7 @@ from collections import defaultdict, deque
 
 from fastapi import Request
 
+from clientbridge.core.config import get_settings
 from clientbridge.core.errors import TooManyRequests
 
 
@@ -32,13 +33,14 @@ class RateLimiter:
             del self._hits[key]
 
 
-_public_pay_limiter = RateLimiter(limit=30, window_s=60.0)
-_public_review_limiter = RateLimiter(limit=30, window_s=60.0)
-_public_form_limiter = RateLimiter(limit=30, window_s=60.0)
-_public_contract_limiter = RateLimiter(limit=30, window_s=60.0)
-_public_booking_limiter = RateLimiter(limit=30, window_s=60.0)
-_public_prefs_limiter = RateLimiter(limit=30, window_s=60.0)
-_public_invite_limiter = RateLimiter(limit=30, window_s=60.0)
+_PER_MINUTE = get_settings().public_rate_limit_per_minute
+_public_pay_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
+_public_review_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
+_public_form_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
+_public_contract_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
+_public_booking_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
+_public_prefs_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
+_public_invite_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 
 
 def _client_ip(request: Request) -> str:

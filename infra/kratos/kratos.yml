@@ -29,7 +29,8 @@ selfservice:
     password:
       enabled: true
       config:
-        haveibeenpwned_enabled: true
+        # the breach lookup calls an outside API with a 1 s budget and fails sign-ups when it is slow
+        haveibeenpwned_enabled: false
         ignore_network_errors: true
         min_password_length: 8
         identifier_similarity_check_enabled: true

@@ -59,6 +59,8 @@ class Settings(BaseSettings):
     # Every invoice pay link uses this one host (production: https://pay.clientbridge.ca).
     pay_base_url: str = "http://localhost:8709"
     cors_allow_origins: str = ""
+    # requests per minute from one IP on each unauthenticated endpoint group
+    public_rate_limit_per_minute: int = 30
     platform_fee_bps: int = 200  # application fee per direct charge (basis points; 200 = 2%)
     auth_email_hook_secret: str = _DEV_COURIER_SECRET  # matches docker-compose.yml's kratos
 

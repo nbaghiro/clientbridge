@@ -79,6 +79,7 @@ To do:
 - Set `WEB_BASE_URL` to the staff app's origin: it is the only origin that gets credentialed CORS and may send the session cookie; `CORS_ALLOW_ORIGINS` lists Connect and Pay, served without credentials.
 - Google OAuth client with the Kratos callback (`https://auth.clientbridge.ca/self-service/methods/oidc/callback/google`) and consent screen; set `GOOGLE_OAUTH_CLIENT_ID`/`SECRET`.
 - Rate limits on `/self-service/*` at the proxy: Kratos OSS has no login lockout.
+- Turn the breached-password check on in production (`SELFSERVICE_METHODS_PASSWORD_CONFIG_HAVEIBEENPWNED_ENABLED=true`); the dev config leaves it off because its outside lookup made local and CI sign-ups fail when it was slow.
 - Security keys on mobile (native passkeys need associated domains); mobile has authenticator apps and backup codes, and tells a key-only account to add one of those on the web.
 
 QA:
