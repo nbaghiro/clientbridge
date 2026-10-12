@@ -1,0 +1,23 @@
+[
+    {
+        "id": "a",
+        "name": "auth, workday, sync",
+        "flows": ["06-staff-and-auth.yaml", "01-workday.yaml", "07-sync-startup.yaml"]
+    },
+    {
+        "id": "b",
+        "name": "setup, payments, recovery",
+        "flows": [
+            "02-setup.yaml",
+            "03-payments.yaml",
+            "09-staff-pay-labels.yaml",
+            "08-estimate-shortcut.yaml",
+            "11-recovery.yaml"
+        ]
+    },
+    {
+        "id": "c",
+        "name": "inbox, clients",
+        "flows": ["10-inbox-navigation.yaml", "04-inbox.yaml", "05-client-record.yaml"]
+    }
+]
