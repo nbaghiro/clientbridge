@@ -4,10 +4,10 @@ on:
     branches: [main]
   pull_request:
 
-# One run per ref; a new push cancels the previous in-flight run.
+# One run per ref; a new push cancels a PR's in-flight run, while every main commit finishes.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.sha || 'latest' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   backend:
@@ -337,15 +337,48 @@ jobs:
           cat /tmp/api.log
           docker compose logs --no-color powersync | tail -200
 
-  mobile:
-    # The Maestro walkthroughs on an Android 14 emulator, using a release build so the bundle is embedded.
+  changes:
+    # Mobile runs on main and on PRs that touch the app, its packages, the API or the stack it runs against.
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    outputs:
+      mobile: ${{ github.ref == 'refs/heads/main' || steps.filter.outputs.mobile == 'true' }}
+      shards: ${{ steps.shards.outputs.shards }}
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - name: check every walkthrough is in exactly one shard
+        id: shards
+        working-directory: frontend/apps/mobile/e2e
+        run: |
+          listed=$(jq -r '.[].flows[]' shards.json | sort)
+          present=$(ls *.yaml | sort)
+          if [ "$listed" != "$present" ] || [ -n "$(echo "$listed" | uniq -d)" ]; then
+            diff <(echo "$listed") <(echo "$present"); echo "update e2e/shards.json"; exit 1
+          fi
+          echo "shards=$(jq -c . shards.json)" >> "$GITHUB_OUTPUT"
+      - uses: dorny/paths-filter@v3
+        id: filter
         with:
-          python-version: "3.14"
+          filters: |
+            mobile:
+              - 'frontend/apps/mobile/**'
+              - 'frontend/packages/**'
+              - 'frontend/package.json'
+              - 'frontend/pnpm-lock.yaml'
+              - 'backend/**'
+              - 'infra/**'
+              - 'docker-compose.yml'
+              - 'Makefile'
+              - '.nvmrc'
+              - '.github/workflows/ci.yml'
+
+  mobile-build:
+    # An x86_64 release APK for the emulator; when the native fingerprint is cached only the JS bundle is rebuilt.
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with:
           version: 9
@@ -354,34 +387,91 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - name: key the native build
+        id: native
+        working-directory: frontend/apps/mobile
+        env:
+          E2E_CLEARTEXT: "1"
+        run: |
+          hash=$(node ../../node_modules/@expo/fingerprint/bin/cli.js fingerprint:generate --platform android \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).hash))')
+          echo "key=apk-x86_64-$hash-${{ hashFiles('frontend/pnpm-lock.yaml') }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v4
+        id: cached
+        with:
+          path: native-apk
+          key: ${{ steps.native.outputs.key }}
+      - name: rebundle the cached build
+        id: rebundle
+        if: steps.cached.outputs.cache-hit == 'true'
+        continue-on-error: true
+        run: frontend/apps/mobile/scripts/rebundle-apk.sh native-apk/app-release.apk app-release.apk
       - uses: actions/setup-java@v4
+        if: steps.rebundle.outcome != 'success'
         with:
           distribution: temurin
           java-version: "17"
-      # caches Gradle's dependencies and build cache, so native modules don't recompile on every run
       - uses: gradle/actions/setup-gradle@v4
-      - name: enable KVM for the emulator
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      - run: uv sync
-        working-directory: backend
-      - run: pnpm install --frozen-lockfile
-        working-directory: frontend
+        if: steps.rebundle.outcome != 'success'
       - name: build the release APK
+        if: steps.rebundle.outcome != 'success'
         working-directory: frontend/apps/mobile
         env:
           E2E_CLEARTEXT: "1"
         run: |
           pnpm exec expo prebuild --platform android --no-install
-          cd android && ./gradlew assembleRelease --build-cache
-      - run: make up migrate seed
-      - run: uv run uvicorn clientbridge.main:app --host 127.0.0.1 --port 8701 > /tmp/api.log 2>&1 &
+          cd android && ./gradlew assembleRelease --build-cache -PreactNativeArchitectures=x86_64
+          mkdir -p "$GITHUB_WORKSPACE/native-apk"
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/native-apk/"
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/app-release.apk"
+      - uses: actions/cache/save@v4
+        if: steps.cached.outputs.cache-hit != 'true'
+        with:
+          path: native-apk
+          key: ${{ steps.native.outputs.key }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobile-apk
+          path: app-release.apk
+          retention-days: 3
+
+  mobile:
+    # The Maestro walkthroughs on Android 14 emulators, split into shards of about equal length.
+    needs: [changes, mobile-build]
+    name: mobile (${{ matrix.shard.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.changes.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14"
+      - run: uv sync
         working-directory: backend
-      - run: until curl -sf 127.0.0.1:8701/health; do sleep 1; done
-        timeout-minutes: 2
+      - name: start the stack and the API
+        run: |
+          ( make up migrate seed && cd backend \
+            && exec uv run uvicorn clientbridge.main:app --host 127.0.0.1 --port 8701 ) > /tmp/api.log 2>&1 &
+      - name: enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
       - run: curl -fsSL "https://get.maestro.mobile.dev" | bash
+      - uses: actions/download-artifact@v4
+        with:
+          name: mobile-apk
+      - name: pick the shard's flows
+        working-directory: frontend/apps/mobile
+        run: |
+          mkdir -p shard && cp -r e2e/helpers shard/
+          for flow in ${{ join(matrix.shard.flows, ' ') }}; do cp "e2e/$flow" shard/; done
       - uses: actions/cache@v4
         id: avd
         with:
@@ -400,6 +490,9 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: false
           script: echo "snapshot saved"
+      - name: wait for the API
+        run: until curl -sf 127.0.0.1:8701/health; do sleep 2; done
+        timeout-minutes: 5
       - uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -411,12 +504,12 @@ jobs:
           script: |
             adb reverse tcp:8701 tcp:8701
             adb reverse tcp:8704 tcp:8704
-            adb install frontend/apps/mobile/android/app/build/outputs/apk/release/app-release.apk
-            cd frontend/apps/mobile && timeout 40m "$HOME/.maestro/bin/maestro" test e2e --test-output-dir test-results
+            adb install app-release.apk
+            cd frontend/apps/mobile && timeout 20m "$HOME/.maestro/bin/maestro" test shard --test-output-dir test-results
       - uses: actions/upload-artifact@v4
         if: failure() || cancelled()
         with:
-          name: mobile-walkthroughs
+          name: mobile-walkthroughs-${{ matrix.shard.id }}
           path: frontend/apps/mobile/test-results
           retention-days: 7
       - if: failure()
