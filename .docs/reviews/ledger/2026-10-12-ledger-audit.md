@@ -91,9 +91,9 @@ should be deliberate: either keep it as a receivable to chase, or write it off (
 Everything money-related is flushed earlier (so a real conflict surfaces as a 500 and Stripe retries), but the
 catch should check for the `webhooks` primary key specifically so a future late-flushed row cannot be lost.
 
-### Not a finding — Interac over-payment is truncated by design
-`match_interac` books the requested amount and ignores the excess. `test_overpaid_etransfer_matches_at_requested_amount`
-pins this as intended, so it is listed here only so the next reader does not re-raise it.
+### Not a finding — Interac over-payment was truncated by design
+`match_interac` booked the requested amount and ignored the excess. Interac requests and matching were removed
+from `main` on 2026-10-12, so this note stays only to date the observation.
 
 ## Proof
 
@@ -115,6 +115,17 @@ The shared local database is on the `kratos-auth` schema, so this worktree uses 
 `clientbridge_test_ledger`, then with `ADMIN_DATABASE_URL`, `MIGRATION_DATABASE_URL` and `DATABASE_URL` pointed
 at it run `scripts.db_access roles`, `alembic upgrade head`, `scripts.db_access grants`, `scripts.seed_demo` and
 `pytest tests/test_ledger_drift.py`.
+
+## Status (2026-10-12)
+
+Fixed on `ledger-audit`: refund failure reversal (`ledger.reverse_refund`, posted with the `refund`/`tip`
+events so cash and tip sums net out), won-dispute fee return from the reinstating balance transaction,
+lost-dispute write-off (`ledger.lose_dispute`, the sale unwound like a refund), payouts booked on
+`payout.created` and reversed on `payout.canceled`, and a 503 retry when the charge's balance transaction is not
+readable (`get_payment_fees` returns `None`), and migration cb0005: `accounts.balance_cents` is now maintained
+by an `AFTER INSERT` trigger on `entries` and a `BEFORE UPDATE` trigger on `accounts` rejects every other write
+to it, so the Python increment in `ledger.post` is gone. All seven tests pass.
+The second-pass findings (N1 to N8) are closed by the same branch; see `.docs/executions/ledger/plan.md`.
 
 ## Suggested order
 1. Refund failure reversal (High) with a webhook test: `refund.updated` failed after succeeded.

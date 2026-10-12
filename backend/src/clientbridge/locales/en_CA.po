@@ -242,6 +242,12 @@ msgstr "A refund of {amount} from {business} was issued. Credit note {credit_not
 msgid "refund.subject"
 msgstr "Refund from {business}"
 
+msgid "refund_failed.body"
+msgstr "Your bank could not complete the refund of {amount} from {business}. {business} will arrange it another way."
+
+msgid "refund_failed.subject"
+msgstr "Refund not completed — {business}"
+
 msgid "registration_code.body"
 msgid_plural "registration_code.body"
 msgstr[0] "Your Clientbridge sign-up code is {code}. It expires in {count} minute. If you did not create a Clientbridge account, you can ignore this email."

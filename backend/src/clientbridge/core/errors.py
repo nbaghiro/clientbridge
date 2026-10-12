@@ -63,6 +63,11 @@ class PaymentActionRequired(AppError):
     code = "payment_action_required"
 
 
+class UnsupportedCurrency(AppError):
+    status_code = 422
+    code = "unsupported_currency"
+
+
 class PaymentsNotConfigured(AppError):
     status_code = 503
     code = "payments_not_configured"

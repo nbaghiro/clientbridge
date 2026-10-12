@@ -152,10 +152,10 @@ async def test_charge_without_a_readable_balance_transaction_is_retried(
 ) -> None:
     """No balance transaction yet means no fee figures; booking the charge gross is wrong."""
     await enable_payments(db)
-    row = await _charge(db, "pi_nofee", status="pending")
+    pay_id = (await _charge(db, "pi_nofee", status="pending")).id
 
-    async def unreadable(account_id: str, *, payment_intent_id: str) -> ChargeFees:
-        return ChargeFees(0, 0, None)
+    async def unreadable(account_id: str, *, payment_intent_id: str) -> ChargeFees | None:
+        return None
 
     monkeypatch.setattr(gateway, "get_payment_fees", unreadable)
     await db.commit()
@@ -169,7 +169,7 @@ async def test_charge_without_a_readable_balance_transaction_is_retried(
     res = await api.post("/webhooks/stripe", content=body, headers=STRIPE)
     await db.rollback()
     assert res.status_code == 503
-    assert (await payment(db, row.id)).status == "pending"
+    assert (await payment(db, pay_id)).status == "pending"
 
 
 async def test_account_balance_cannot_leave_its_entries(db: AsyncSession) -> None:

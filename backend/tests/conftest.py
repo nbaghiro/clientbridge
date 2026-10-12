@@ -476,7 +476,9 @@ class FakePaymentGateway:
         self.charges[pid] = (amount_cents, application_fee_cents)
         return result
 
-    async def get_payment_fees(self, account_id: str, *, payment_intent_id: str) -> ChargeFees:
+    async def get_payment_fees(
+        self, account_id: str, *, payment_intent_id: str
+    ) -> ChargeFees | None:
         amount, app_fee = self.charges.get(payment_intent_id, (0, 0))
         processing = round(amount * 0.029) + 30 if amount else 0
         return ChargeFees(processing, app_fee, None)

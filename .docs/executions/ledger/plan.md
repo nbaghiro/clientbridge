@@ -1,6 +1,6 @@
 # Ledger production readiness plan
 
-Status: proposed, not started. This plan closes the findings of the [ledger audit of 2026-10-12](../../reviews/ledger/2026-10-12-ledger-audit.md) and a second pass over the same code on the same day that covered the command paths, the Interac webhook, timestamps, concurrency and operability. The ledger stays in Postgres; the storage decision is recorded below so it is not reopened. The [task queue](tasks.json) lists each task's scope, the findings it covers and its acceptance test.
+Status: implemented on `ledger-audit` (2026-10-12); every task is done and its test passes. This plan closes the findings of the [ledger audit of 2026-10-12](../../reviews/ledger/2026-10-12-ledger-audit.md) and a second pass over the same code on the same day that covered the command paths, the Interac webhook, timestamps, concurrency and operability. The ledger stays in Postgres; the storage decision is recorded below so it is not reopened. The [task queue](tasks.json) lists each task's scope, the findings it covers and its acceptance test.
 
 The audit's failing tests are in `backend/tests/test_ledger_drift.py` on this branch, one per audit finding. Each task turns its finding into a test in the concept's test file before the fix, so the test fails first and passes after. Tasks L7 and L10 touch the schema (a trigger, possibly a column) and stop for explicit approval of the exact migration before any model or migration file is edited, following the schema rule in `CLAUDE.md`; every other task makes no schema change.
 
@@ -24,7 +24,7 @@ Severities follow the audit. A1 to A7 are the audit's findings; N1 to N8 were fo
 | A6 | Low | A lost dispute leaves the client's receivable open and the sale's revenue and tax booked; undecided | `payments._close_dispute` |
 | A7 | Low | Any unique violation at webhook commit is treated as a duplicate delivery and acknowledged | `payments.process_stripe_event` |
 | N1 | Medium | A saved-card charge confirms inside the Stripe call before its pending row is committed; a crash after the call leaves a real charge whose webhook is refused with retry-later until Stripe stops retrying after three days | `payments.open_card_payment`, `payments._assert_not_ours` |
-| N2 | Medium | An under-paid e-Transfer is recorded nowhere but the webhook payload and burns its reference code, so the client's second transfer is dropped as a duplicate | `payments.process_interac_event`, `payments.match_interac` |
+| N2 | Medium | An under-paid e-Transfer is recorded nowhere but the webhook payload and burns its reference code, so the client's second transfer is dropped as a duplicate | removed with Interac on `main` (2026-10-12) |
 | N3 | Medium | Failures on the money path are invisible: a raising handler rolls back its own webhook row, drift audits are written and never read, and no error tracker is initialised in the backend | `payments.process_stripe_event`, `ledger.run_reconcile_ledger` |
 | N4 | Low | Settlement holds the payment row lock and a pool connection across up to three Stripe round trips for fees | `payments._settle_payment`, `payments._fees` |
 | N5 | Low | Journals are stamped with the webhook's arrival time, not the charge's time, so a delayed or retried delivery moves revenue and tax to the wrong business day | `payments._settle_payment`, `payments._reconcile_refund` |
@@ -32,7 +32,7 @@ Severities follow the audit. A1 to A7 are the audit's findings; N1 to N8 were fo
 | N7 | Low | Redemption, forfeit and the reconcile job assume CAD while recurring payments take the currency from Stripe's payload | `ledger.post_redemption`, `ledger.post_forfeit`, `ledger.run_reconcile_ledger` |
 | N8 | Low | No test races the ledger: two posts on one ref, two redemptions of one card, two consumes of one package, a cash payment against a settling webhook | `backend/tests/` |
 
-Recorded so they are not re-raised: an over-paid e-Transfer books the requested amount (the audit's note), and the platform keeps its application fee on a refund, which matches what `stripe.refund` asks Stripe for.
+Recorded so it is not re-raised: the platform keeps its application fee on a refund, which matches what `stripe.refund` asks Stripe for.
 
 ## Tasks
 
@@ -43,7 +43,7 @@ In order. A task depends on the ones above it only where stated.
 - L3. Disputes from Stripe's transactions. On `charge.dispute.closed`, post what the dispute's balance transactions reinstated instead of negating our own journal, so a won case returns the amount and whatever fee Stripe returned. Handle `charge.dispute.funds_reinstated` the same way when it arrives first. For a lost case apply the decision in the open questions below. Covers A2 and A6. Test: the audit's won and lost tests.
 - L4. Payouts at creation. Post the payout journal on `payout.created` or `payout.pending`, treat `payout.paid` as an idempotent repeat, and reverse on `payout.failed` and `payout.canceled`. Covers A3. Test: the audit's two payout tests.
 - L5. Fees before locks, retried when unreadable. Fetch the charge's fees before the first write in `_settle_payment` and in the recurring path; when the balance transaction is not readable, refuse the event with the retry-later status instead of booking gross. Covers A4 and N4. Test: the audit's fee test; a fee lookup that raises leaves the payment pending with no lock held.
-- L6. Interac under-payment. Dedupe the Interac webhook on the delivery (the provider's event id, or code plus amount plus received time when the provider gives none) instead of the code alone; record an unmatched transfer as a failed webhook row with its amount and notify the owner so it can be matched by hand. Covers N2. Test: a short transfer followed by the balance settles the payment; a repeated delivery of one transfer is a no-op.
+- L6. Interac under-payment. Dropped: Interac requests and matching were removed from `main` on 2026-10-12, which closes N2 with no code.
 - L7. Balance by trigger. Needs schema approval. Maintain `accounts.balance_cents` from an `AFTER INSERT` trigger on `entries` and refuse any other update of the column; remove the Python increment from `ledger.post`; add the equality query from `demo_validate.py` to the nightly reconcile job, writing an audit when it fails. Covers A5. Test: the audit's balance test, with every existing ledger test unchanged.
 - L8. Command hardening. In `run_command`, map a unique violation on the idempotency table to a replay of the stored response, map one on `entries` or `inventory` to a conflict, and retry the command once on a deadlock. Narrow the webhook catch from A7 to the `webhooks` primary key. Covers A7 and N6. Test: two concurrent commands with one key return the same response; a forced deadlock completes on the retry.
 - L9. Charge time on journals. Take `paid_at` from the charge's created time in the intent payload and the refund's created time in the refund payload, falling back to now when absent. Covers N5. Test: an event replayed a day late books to the charge's day.
@@ -53,6 +53,6 @@ In order. A task depends on the ones above it only where stated.
 
 ## Open questions
 
-- Lost dispute: keep the receivable on the client to chase, or write the sale off by reversing its revenue and tax into a dispute loss. L3 is blocked on this for the lost case only.
-- Partial e-Transfers: supported, so a short transfer is held and the balance completes it, or refused, so a short transfer is returned by hand. L6 assumes supported.
+- Lost dispute: decided as a write-off. `ledger.lose_dispute` clears the receivable and unwinds the sale pro rata, like a refund.
+- The failed webhook row carries no error text (that would be a new column, not approved); the error goes to the log at error level with the event id.
 - Refunding the application fee: the platform keeps it today. If that changes, the refund journal gains a platform leg and `stripe.refund` passes the flag.

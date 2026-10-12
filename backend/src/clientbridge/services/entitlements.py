@@ -278,6 +278,16 @@ async def void_purchased_gift_card(db: AsyncSession, payment_id: str) -> None:
         await db.flush()
 
 
+async def restore_purchased_gift_card(db: AsyncSession, payment_id: str) -> None:
+    """Reactivate the gift card voided by a refund that Stripe then failed (void → active)."""
+    card = (
+        await db.execute(select(GiftCard).where(GiftCard.payment_id == payment_id))
+    ).scalar_one_or_none()
+    if card is not None and card.status == "void":
+        card.status = "active"
+        await db.flush()
+
+
 class PackageService:
     def __init__(self, db: AsyncSession, principal: Principal, gateway: PaymentGateway) -> None:
         self.db = db
@@ -456,6 +466,16 @@ async def void_purchased_package(db: AsyncSession, payment_id: str) -> None:
     ).scalar_one_or_none()
     if package is not None and package.status in ("pending", "active"):
         package.status = "canceled"
+        await db.flush()
+
+
+async def restore_purchased_package(db: AsyncSession, payment_id: str) -> None:
+    """Reactivate the package canceled by a refund that Stripe then failed (canceled → active)."""
+    package = (
+        await db.execute(select(Package).where(Package.payment_id == payment_id))
+    ).scalar_one_or_none()
+    if package is not None and package.status == "canceled":
+        package.status = "active"
         await db.flush()
 
 

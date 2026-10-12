@@ -2,20 +2,33 @@ import json
 from datetime import UTC, datetime
 
 import httpx
+import pytest
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
+from clientbridge.integrations.stripe import ChargeFees
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment, PaymentMethod
+from clientbridge.models.platform import Audit
 from clientbridge.services import ledger
-from tests.conftest import Factory, book_invoice
-from tests.helpers import card_pay, enable_payments, sent_invoice
+from tests.conftest import Factory, FakePaymentGateway, book_invoice
+from tests.helpers import (
+    business_balance,
+    card_pay,
+    enable_payments,
+    payment,
+    payment_by_ref,
+    provider_ref,
+    sent_invoice,
+    stripe_event,
+)
 
 BIZ = "bz_birchbark"
+STRIPE = {"Stripe-Signature": "good"}
 
 
 def _pi_event(
@@ -376,3 +389,101 @@ async def test_refund_foreign_payment_404_by_scoping(
     assert refund is None
     still = await db.get(Payment, foreign_pay.id)
     assert still is not None and still.status == "succeeded"
+
+
+def _succeeded_intent(event_id: str, pi: str, **obj: object) -> str:
+    return json.dumps(
+        {
+            "id": event_id,
+            "type": "payment_intent.succeeded",
+            "data": {"object": {"id": pi, **obj}},
+        }
+    )
+
+
+async def test_webhook_settles_an_intent_whose_command_never_committed(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    """A saved-card charge confirms inside the Stripe call; its row cannot wait for our commit."""
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9100, total=5000)
+    body = _succeeded_intent(
+        "evt_orphan",
+        "pi_orphan",
+        amount=5000,
+        currency="cad",
+        metadata={"business_id": BIZ, "invoice_id": inv_id, "tip_cents": "0"},
+    )
+    assert (await api.post("/webhooks/stripe", content=body, headers=STRIPE)).status_code == 200
+    rebuilt = await payment_by_ref(db, "pi_orphan")
+    assert rebuilt.status == "succeeded" and rebuilt.invoice_id == inv_id
+    invoice = await db.get(Invoice, inv_id)
+    assert invoice is not None and (await ledger.invoice_state(db, invoice))[0] == "paid"
+    again = _succeeded_intent("evt_orphan_2", "pi_orphan", amount=5000, currency="cad")
+    assert (await api.post("/webhooks/stripe", content=again, headers=STRIPE)).status_code == 200
+    journals = await db.execute(
+        select(func.count(func.distinct(Entry.journal_id))).where(
+            Entry.source_id == rebuilt.id, Entry.event == "payment"
+        )
+    )
+    assert journals.scalar_one() == 1
+
+
+async def test_a_fee_lookup_that_raises_leaves_the_payment_pending(
+    api: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9100, total=5000)
+    pay_id = await card_pay(api, db, inv_id)
+    ref = await provider_ref(db, pay_id)
+
+    async def boom(account_id: str, *, payment_intent_id: str) -> ChargeFees | None:
+        raise RuntimeError("stripe is down")
+
+    monkeypatch.setattr(gateway, "get_payment_fees", boom)
+    await db.commit()
+    with pytest.raises(RuntimeError):
+        await api.post(
+            "/webhooks/stripe", content=_succeeded_intent("evt_boom", ref), headers=STRIPE
+        )
+    await db.rollback()
+    assert (await payment(db, pay_id)).status == "pending"
+    assert await ledger.journal_for(db, BIZ, f"payment:{pay_id}") is None
+
+
+async def test_a_late_delivery_books_to_the_charge_day(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9100, total=5000)
+    pay_id = await card_pay(api, db, inv_id)
+    ref = await provider_ref(db, pay_id)
+    charged = datetime(2026, 10, 10, 15, 30, tzinfo=UTC)
+    body = _succeeded_intent("evt_late", ref, created=int(charged.timestamp()))
+    assert (await api.post("/webhooks/stripe", content=body, headers=STRIPE)).status_code == 200
+    assert (await payment(db, pay_id)).paid_at == charged
+    booked = await db.execute(
+        select(Entry.occurred_at).where(Entry.ref == f"payment:{pay_id}").limit(1)
+    )
+    assert booked.scalar_one() == charged
+
+
+async def test_a_foreign_currency_payout_is_refused_and_audited(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    before = await business_balance(db, "stripe")
+    await stripe_event(
+        api,
+        "payout.created",
+        {"id": "po_usd", "amount": 5000, "currency": "usd", "status": "pending"},
+    )
+    assert await business_balance(db, "stripe") == before
+    assert await ledger.journal_for(db, BIZ, "payout:po_usd") is None
+    refused = await db.execute(
+        select(Audit).where(Audit.business_id == BIZ, Audit.action == "payout.refused")
+    )
+    assert refused.scalar_one().changes == {"id": "po_usd", "currency": "USD", "amount_cents": 5000}

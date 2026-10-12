@@ -5,6 +5,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.errors import UnsupportedCurrency
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.services import ledger
 from clientbridge.services.ledger import Leg, UnbalancedJournal
@@ -135,15 +136,14 @@ async def test_subject_balance_sums_one_kind_per_entity(db: AsyncSession) -> Non
     assert (receivable, line_tax) == (1150, -150)
 
 
-async def test_currencies_keep_separate_accounts(db: AsyncSession) -> None:
+async def test_a_foreign_currency_journal_is_refused(db: AsyncSession) -> None:
+    """The books take one currency until multi-currency is a feature; a USD leg never lands."""
     await ledger.post(db, BIZ, event="invoice", ref="t:cad", legs=_sale(100))
-    await ledger.post(db, BIZ, event="invoice", ref="t:usd", legs=_sale(300), currency="USD")
-
+    with pytest.raises(UnsupportedCurrency) as refused:
+        await ledger.post(db, BIZ, event="invoice", ref="t:usd", legs=_sale(300), currency="USD")
+    assert refused.value.code == "unsupported_currency"
     assert await _receivable(db) == 100
-    usd = await ledger.balance(
-        db, BIZ, owner_type="client", owner_id="cl_x", category="receivable", currency="USD"
-    )
-    assert usd == 300
+    assert await ledger.journal_for(db, BIZ, "t:usd") is None
 
 
 async def test_balances_and_journals_are_tenant_scoped(db: AsyncSession) -> None:

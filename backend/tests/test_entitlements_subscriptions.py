@@ -592,10 +592,8 @@ async def test_paid_invoice_without_a_visible_intent_is_retried(
     )
     assert res.status_code == 503
     await db.rollback()  # the request's session closes uncommitted
-    seen = (
-        await db.execute(select(Webhook.id).where(Webhook.id == "evt_late"))
-    ).scalar_one_or_none()
-    assert seen is None
+    seen = (await db.execute(select(Webhook.status).where(Webhook.id == "evt_late"))).scalar_one()
+    assert seen == "failed"  # on record for the retry, never acknowledged
     gateway.invoice_intents["in_late"] = "pi_late"
     again = await api.post(
         "/webhooks/stripe",
@@ -605,6 +603,8 @@ async def test_paid_invoice_without_a_visible_intent_is_retried(
     assert again.status_code == 200
     pay = (await db.execute(select(Payment).where(Payment.provider_ref == "pi_late"))).scalar_one()
     assert pay.amount_cents == 5600
+    seen = (await db.execute(select(Webhook.status).where(Webhook.id == "evt_late"))).scalar_one()
+    assert seen == "processed"
 
 
 async def test_zero_amount_invoice_records_nothing(

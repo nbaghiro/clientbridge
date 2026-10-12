@@ -3,17 +3,19 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
+import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.integrations.stripe import ChargeFees
 from clientbridge.models.business import Business
 from clientbridge.models.ledger import Entry
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import Device, Webhook
 from clientbridge.services import ledger
 from clientbridge.services.business import kyc_status
-from tests.conftest import FakePushSender
-from tests.helpers import client_id, column
+from tests.conftest import FakePaymentGateway, FakePushSender
+from tests.helpers import client_id, column, enable_payments
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -317,14 +319,13 @@ async def test_our_unrecorded_intent_is_retried_not_acknowledged(
     res = await api.post("/webhooks/stripe", content=body, headers=GOOD)
     assert res.status_code == 503
     await db.rollback()  # the request's session closes uncommitted
-    seen = (
-        await db.execute(select(Webhook.id).where(Webhook.id == "evt_early"))
-    ).scalar_one_or_none()
-    assert seen is None
+    failed = (await db.execute(select(Webhook).where(Webhook.id == "evt_early"))).scalar_one()
+    assert failed.status == "failed"  # the refused delivery is on record, not silently gone
     pay_id = await _pending_payment(db, "pi_early")
     assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
     status = (await db.execute(select(Payment.status).where(Payment.id == pay_id))).scalar_one()
     assert status == "succeeded"
+    assert await column(db, "webhooks", "evt_early", "status") == "processed"
 
 
 async def test_foreign_intent_is_acknowledged(api: httpx.AsyncClient) -> None:
@@ -422,3 +423,32 @@ async def test_update_for_an_unknown_dispute_changes_nothing(
     assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
     await db.refresh(payment)
     assert payment.dispute_status is None
+
+
+async def test_a_raising_handler_leaves_a_failed_row_the_retry_then_processes(
+    api: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await enable_payments(db)
+    pay_id = await _pending_payment(db, "pi_flaky")
+    fees = gateway.get_payment_fees
+
+    async def boom(account_id: str, *, payment_intent_id: str) -> ChargeFees | None:
+        raise RuntimeError("stripe is down")
+
+    monkeypatch.setattr(gateway, "get_payment_fees", boom)
+    await db.commit()
+    body = _intent_event("evt_flaky", "payment_intent.succeeded", "pi_flaky")
+    with pytest.raises(RuntimeError):
+        await api.post("/webhooks/stripe", content=body, headers=GOOD)
+    await db.rollback()
+    assert await column(db, "webhooks", "evt_flaky", "status") == "failed"
+    status = (await db.execute(select(Payment.status).where(Payment.id == pay_id))).scalar_one()
+    assert status == "pending"
+    monkeypatch.setattr(gateway, "get_payment_fees", fees)
+    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+    assert await column(db, "webhooks", "evt_flaky", "status") == "processed"
+    status = (await db.execute(select(Payment.status).where(Payment.id == pay_id))).scalar_one()
+    assert status == "succeeded"

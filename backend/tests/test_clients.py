@@ -262,7 +262,10 @@ async def test_merge_refuses_self_money_and_saved_methods_409(
     res = await as_owner.post(f"/v1/clients/{kept}/merge", json={"from_client_id": kept})
     assert res.status_code == 409
     paid = await db.scalar(
-        text("SELECT owner_id FROM accounts WHERE owner_type = 'client' LIMIT 1")
+        text(
+            "SELECT owner_id FROM accounts WHERE owner_type = 'client' AND business_id = :b LIMIT 1"
+        ),
+        {"b": BIZ},
     )
     res = await as_owner.post(f"/v1/clients/{kept}/merge", json={"from_client_id": paid})
     assert res.status_code == 409

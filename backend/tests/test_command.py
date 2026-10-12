@@ -4,7 +4,7 @@ from collections.abc import Awaitable, Callable
 
 import pytest
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
@@ -302,3 +302,108 @@ async def test_a_key_never_replays_in_another_business(db: AsyncSession, factory
     )
     assert a.id != b.id
     assert [c.id for c in await _clients(db, second.business_id)] == [b.id]
+
+
+async def test_two_requests_with_one_key_get_one_response(db: AsyncSession) -> None:
+    """The loser of the key race replays the winner's stored response instead of failing."""
+    import asyncio
+    import uuid
+
+    from sqlalchemy import delete
+
+    from clientbridge.core.db import SessionLocal
+    from tests.conftest import BIZ, OWNER_USER
+
+    principal = Principal(user_id=OWNER_USER, business_id=BIZ, staff_id="st_owner", role="owner")
+    key = f"race-{uuid.uuid4().hex}"
+    name = f"Raced {key}"
+    inserted = asyncio.Event()
+    calls: list[int] = []
+
+    async def attempt(first: bool) -> _Out:
+        async with SessionLocal() as session:
+
+            async def run(cmd: Command) -> _Out:
+                calls.append(1)
+                client = Client(
+                    id=new_id("client"),
+                    business_id=BIZ,
+                    name=name,
+                    tags=[],
+                    custom_fields={},
+                )
+                cmd.db.add(client)
+                await cmd.db.flush()
+                if first:
+                    inserted.set()
+                    await asyncio.sleep(0.5)
+                return _Out(id=client.id, name=client.name)
+
+            if not first:
+                await inserted.wait()
+            return await run_command(
+                session,
+                principal,
+                action="client.create",
+                run=run,
+                response_model=_Out,
+                idempotency_key=key,
+                request={"name": name},
+            )
+
+    try:
+        winner, loser = await asyncio.gather(attempt(True), attempt(False))
+        assert winner.id == loser.id
+        assert len(calls) == 2  # both ran; only the winner's write survived
+        async with SessionLocal() as check:
+            rows = (await check.execute(select(Client).where(Client.name == name))).scalars().all()
+            assert [row.id for row in rows] == [winner.id]
+    finally:
+        async with SessionLocal() as cleanup:
+            await cleanup.execute(delete(Client).where(Client.name == name))
+            await cleanup.execute(delete(IdempotencyKey).where(IdempotencyKey.key == key))
+            await cleanup.commit()
+
+
+async def test_a_deadlocked_command_completes_on_the_retry(db: AsyncSession) -> None:
+    import asyncio
+
+    from clientbridge.core.db import SessionLocal
+    from tests.conftest import BIZ, OWNER_USER
+
+    principal = Principal(user_id=OWNER_USER, business_id=BIZ, staff_id="st_owner", role="owner")
+    first, second = "cl_amelie", "cl_marcus"
+    other_holds_second = asyncio.Event()
+    command_holds_first = asyncio.Event()
+    calls: list[int] = []
+
+    def lock(client_id: str) -> Select[tuple[str]]:
+        return select(Client.id).where(Client.id == client_id).with_for_update()
+
+    async def other() -> None:
+        async with SessionLocal() as session:
+            await session.execute(lock(second))
+            other_holds_second.set()
+            await command_holds_first.wait()
+            await asyncio.sleep(0.2)
+            await session.execute(lock(first))
+            await session.commit()
+
+    async def command() -> _Out:
+        async with SessionLocal() as session:
+
+            async def run(cmd: Command) -> _Out:
+                calls.append(1)
+                await other_holds_second.wait()
+                await cmd.db.execute(lock(first))
+                command_holds_first.set()
+                await cmd.db.execute(lock(second))
+                return _Out(id="locked", name="both")
+
+            return await run_command(
+                session, principal, action="client.touch", run=run, response_model=_Out
+            )
+
+    result, _ = await asyncio.gather(command(), other())
+    assert result.id == "locked"
+    assert len(calls) == 2  # the first attempt was the deadlock victim

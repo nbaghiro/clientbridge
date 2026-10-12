@@ -8,15 +8,31 @@ from typing import overload
 
 from pydantic import BaseModel
 from pydantic_core import to_jsonable_python
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.deps import Principal
-from clientbridge.core.errors import Unprocessable
+from clientbridge.core.errors import Conflict, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.platform import Audit, IdempotencyKey
 
 type Request = BaseModel | Mapping[str, object]
+
+# a lost race on one of these is the other request's success, not a server error
+_RACED_UNIQUES = ("ux_entries_ref_leg", "ux_inventory_line_reason")
+
+
+def _lost_key_race(exc: IntegrityError) -> bool:
+    return "uq_idempotency_scope_key" in str(exc.orig)
+
+
+def _lost_write_race(exc: IntegrityError) -> bool:
+    return any(name in str(exc.orig) for name in _RACED_UNIQUES)
+
+
+def _deadlocked(exc: DBAPIError) -> bool:
+    return getattr(exc.orig, "pgcode", None) == "40P01" or "deadlock detected" in str(exc.orig)
 
 
 def request_hash(request: Request) -> str:
@@ -135,28 +151,50 @@ async def run_command[T: BaseModel](
     request: Request | None = None,
 ) -> T:
     """Run `run` once per idempotency key and request, committing mutation, audit and response."""
-    if idempotency_key is not None:
-        prior = await replay(
-            db, principal.business_id, action, idempotency_key, {} if request is None else request
-        )
-        if prior is not None:
-            return response_model.model_validate(prior)
+    body = {} if request is None else request
 
-    cmd = Command(db, principal)
-    try:
-        result = await run(cmd)
-        db.add_all(cmd.audits)
-        if idempotency_key is not None:
-            remember(
-                db,
-                principal.business_id,
-                action,
-                idempotency_key,
-                {} if request is None else request,
-                result.model_dump(mode="json"),
-            )
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        raise
-    return result
+    async def prior() -> T | None:
+        if idempotency_key is None:
+            return None
+        stored = await replay(db, principal.business_id, action, idempotency_key, body)
+        return None if stored is None else response_model.model_validate(stored)
+
+    replayed = await prior()
+    if replayed is not None:
+        return replayed
+    for attempt in (1, 2):
+        cmd = Command(db, principal)
+        try:
+            result = await run(cmd)
+            db.add_all(cmd.audits)
+            if idempotency_key is not None:
+                remember(
+                    db,
+                    principal.business_id,
+                    action,
+                    idempotency_key,
+                    body,
+                    result.model_dump(mode="json"),
+                )
+            await db.commit()
+            return result
+        except IntegrityError as exc:
+            await db.rollback()
+            if _lost_key_race(exc):
+                replayed = await prior()
+                if replayed is not None:
+                    return replayed
+            if _lost_write_race(exc):
+                raise Conflict(
+                    "another request just made this change", code="concurrent_change"
+                ) from exc
+            raise
+        except DBAPIError as exc:
+            await db.rollback()
+            if attempt == 1 and _deadlocked(exc):
+                continue
+            raise
+        except Exception:
+            await db.rollback()
+            raise
+    raise AssertionError("unreachable")

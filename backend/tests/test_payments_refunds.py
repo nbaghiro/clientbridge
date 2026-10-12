@@ -13,9 +13,18 @@ from clientbridge.models.catalog import GiftCard, Package
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking
 from clientbridge.services import ledger
+from clientbridge.services.payments import next_credit_note
 from clientbridge.services.tax import TaxResult
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
-from tests.helpers import card_pay, client_id, enable_payments
+from tests.helpers import (
+    card_pay,
+    client_id,
+    column,
+    enable_payments,
+    payment_by_ref,
+    sent_invoice,
+    stripe_event,
+)
 
 GOOD = {"Stripe-Signature": "good"}
 
@@ -514,3 +523,73 @@ async def test_pending_refund_retains_notification_opt_out(
     assert email.sent == []
     await db.refresh(refund)
     assert refund.status == "succeeded"
+
+
+async def _settled_charge(db: AsyncSession, pi: str, *, client: str) -> Payment:
+    row = Payment(
+        id=f"pay_{pi}",
+        business_id=BIZ,
+        client_id=client,
+        kind="payment",
+        amount_cents=8000,
+        currency="CAD",
+        method="card",
+        provider="stripe",
+        provider_ref=pi,
+        status="succeeded",
+        paid_at=datetime.now(UTC),
+    )
+    db.add(row)
+    await db.flush()
+    return row
+
+
+def _refund_object(pi: str, status: str) -> dict[str, object]:
+    return {"id": f"re_{pi}", "payment_intent": pi, "amount": 8000, "status": status}
+
+
+async def test_a_refund_that_fails_later_frees_its_credit_note_and_tells_the_client(
+    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    cid = await client_id(db, email="bounced@example.com")
+    inv_id = await sent_invoice(db, number=9100, total=8000)
+    payment = await _settled_charge(db, "pi_bounce", client=cid)
+    payment.invoice_id = inv_id
+    await db.flush()
+    await ledger.post_payment(db, payment)
+    await stripe_event(api, "refund.created", _refund_object("pi_bounce", "succeeded"))
+    refund = await payment_by_ref(db, "re_pi_bounce")
+    assert refund.credit_note == "CN-9100-1"
+    sent = len(email.sent)
+    await stripe_event(api, "refund.updated", _refund_object("pi_bounce", "failed"))
+    refund = await payment_by_ref(db, "re_pi_bounce")
+    assert refund.status == "failed" and refund.credit_note is None
+    invoice = await db.get(Invoice, inv_id)
+    assert invoice is not None and (await ledger.invoice_state(db, invoice))[0] == "paid"
+    assert len(email.sent) == sent + 1
+    assert "Refund not completed" in email.sent[-1].subject
+    assert await next_credit_note(db, payment) == "CN-9100-1"
+
+
+async def test_a_refund_that_fails_later_restores_the_gift_card_it_voided(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await client_id(db)
+    payment = await _settled_charge(db, "pi_gcfail", client=cid)
+    card = GiftCard(
+        id="gc_fail",
+        business_id=BIZ,
+        code="FAIL-0001",
+        initial_cents=8000,
+        status="active",
+        payment_id=payment.id,
+        purchaser_client_id=cid,
+    )
+    db.add(card)
+    await db.flush()
+    await ledger.post_payment(db, payment)
+    await stripe_event(api, "refund.created", _refund_object("pi_gcfail", "succeeded"))
+    assert await column(db, "gift_cards", "gc_fail", "status") == "void"
+    await stripe_event(api, "refund.updated", _refund_object("pi_gcfail", "failed"))
+    assert await column(db, "gift_cards", "gc_fail", "status") == "active"
+    assert await ledger.gift_card_balance(db, card) == 8000

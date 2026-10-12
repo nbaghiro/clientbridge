@@ -217,7 +217,9 @@ class PaymentGateway(Protocol):
     async def refund(
         self, account_id: str, *, payment_intent_id: str, amount_cents: int, idempotency_key: str
     ) -> RefundResult: ...
-    async def get_payment_fees(self, account_id: str, *, payment_intent_id: str) -> ChargeFees:
+    async def get_payment_fees(
+        self, account_id: str, *, payment_intent_id: str
+    ) -> ChargeFees | None:
         """Stripe's processing fee + our application fee off the charge's balance transaction."""
         ...
 
@@ -623,7 +625,7 @@ class StripeGateway:
     @_keyed
     async def get_payment_fees(  # pragma: no cover
         self, account_id: str, *, payment_intent_id: str
-    ) -> ChargeFees:
+    ) -> ChargeFees | None:
         intent = await stripe.PaymentIntent.retrieve_async(
             payment_intent_id,
             expand=["latest_charge.balance_transaction"],
@@ -637,8 +639,8 @@ class StripeGateway:
         txn = getattr(charge, "balance_transaction", None) if charge else None
         if isinstance(txn, str):
             txn = await stripe.BalanceTransaction.retrieve_async(txn, stripe_account=account_id)
-        if not txn:
-            return ChargeFees(0, 0, None)
+        if not txn:  # the balance transaction lands shortly after the charge; retry then
+            return None
         details = [(str(d.type), int(d.amount)) for d in txn.fee_details]
         return ChargeFees(
             processing_fee_cents=sum(a for t, a in details if t != "application_fee"),

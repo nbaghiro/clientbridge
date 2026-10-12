@@ -55,3 +55,26 @@ async def test_unconnected_business_is_skipped(
     gateway.balance_cents = 999
     await run_reconcile_ledger(db, gateway)
     assert await _drifts(db, other.id) == []
+
+
+async def test_cached_balances_match_their_entries(
+    db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await ledger.post(
+        db,
+        BIZ,
+        event="invoice",
+        ref="job:cache",
+        legs=[
+            ledger.Leg("client", "cl_x", "receivable", 700),
+            ledger.Leg("business", BIZ, "revenue", -700),
+        ],
+    )
+    assert await ledger.stale_accounts(db, BIZ) == []
+    await _connect(db, BIZ, "acct_cache")
+    gateway.balance_cents = await _ledger_stripe(db)
+    await run_reconcile_ledger(db, gateway)
+    rows = await db.execute(
+        select(Audit).where(Audit.business_id == BIZ, Audit.action == "ledger.cache_drift")
+    )
+    assert rows.scalars().all() == []
