@@ -1,236 +1,157 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createSession, type TokenPair } from "./session";
+import { ApiError, createSession, type SessionCredentials } from "./session";
 import { SessionEpoch } from "./epochs";
-import { sessionIdentity } from "./identity";
+import { createIdentityClient, parseFlow } from "./identity";
 
-function token(subject: string, suffix = ""): string {
-    return `header.${btoa(JSON.stringify({ sub: subject }))}.${suffix}`;
-}
-
-function setup() {
-    let saved: TokenPair | null = { access_token: token("first"), refresh_token: "old" };
+function setup(mode: "cookie" | "token" = "token") {
+    let saved: SessionCredentials | null = { userId: "us_first", sessionToken: "ory_st_first" };
     const epoch = new SessionEpoch();
     const signedOut = vi.fn();
+    const stepUp = vi.fn();
     const api = createSession({
         baseUrl: "https://api.test",
+        mode,
         epoch,
         store: {
             get: () => Promise.resolve(saved),
-            set: (tokens) => {
-                saved = tokens;
-                return Promise.resolve();
-            },
             clear: () => {
                 saved = null;
                 return Promise.resolve();
             },
         },
         onSignedOut: signedOut,
+        onStepUp: stepUp,
     });
     return {
         api,
         epoch,
         signedOut,
+        stepUp,
         get: () => saved,
-        replace: (tokens: TokenPair) => {
+        replace: (credentials: SessionCredentials) => {
             epoch.advance();
-            saved = tokens;
+            saved = credentials;
         },
     };
 }
 
+function requests(): { url: string; init: RequestInit }[] {
+    const seen: { url: string; init: RequestInit }[] = [];
+    vi.stubGlobal(
+        "fetch",
+        vi.fn((url: string, init: RequestInit = {}) => {
+            seen.push({ url, init });
+            return Promise.resolve(Response.json({ ok: true }));
+        }),
+    );
+    return seen;
+}
+
 afterEach(() => {
     vi.unstubAllGlobals();
-    vi.useRealTimers();
 });
 
-describe("session recovery", () => {
-    it("shares one refresh across simultaneous failures", async () => {
-        const state = setup();
-        let refreshes = 0;
-        vi.stubGlobal(
-            "fetch",
-            vi.fn((_url: string, init?: RequestInit) => {
-                if (_url.endsWith("/auth/refresh")) {
-                    refreshes++;
-                    return Promise.resolve(
-                        Response.json({
-                            access_token: token("first", "new"),
-                            refresh_token: "new",
-                        }),
-                    );
-                }
-                const auth = new Headers(init?.headers).get("Authorization");
-                return Promise.resolve(
-                    auth === `Bearer ${token("first", "new")}`
-                        ? Response.json({ ok: true })
-                        : new Response(null, { status: 401 }),
-                );
-            }),
-        );
-        const result = await Promise.all([state.api.get("/one"), state.api.get("/two")]);
-        expect(result).toEqual([{ ok: true }, { ok: true }]);
-        expect(refreshes).toBe(1);
+describe("credentials", () => {
+    it("sends the session token on mobile and nothing on the cookie", async () => {
+        const seen = requests();
+        await setup("token").api.get("/v1/me");
+        await setup("cookie").api.get("/v1/me");
+        const [token, cookie] = seen.map((s) => new Headers(s.init.headers));
+        expect(token?.get("X-Session-Token")).toBe("ory_st_first");
+        expect(seen[0]?.init.credentials).toBeUndefined();
+        expect(cookie?.get("X-Session-Token")).toBeNull();
+        expect(seen[1]?.init.credentials).toBe("include");
     });
 
-    it("cannot overwrite a replacement login with a late refresh", async () => {
-        const state = setup();
-        let release: (response: Response) => void = () => undefined;
-        let started: () => void = () => undefined;
-        const refreshing = new Promise<void>((resolve) => {
-            started = resolve;
-        });
-        vi.stubGlobal(
-            "fetch",
-            vi.fn((url: string) => {
-                if (url.endsWith("/auth/refresh")) {
-                    started();
-                    return new Promise<Response>((resolve) => {
-                        release = resolve;
-                    });
-                }
-                return Promise.resolve(new Response(null, { status: 401 }));
-            }),
-        );
-        const request = state.api.get("/one").catch((error: unknown) => error);
-        await refreshing;
-        const replacement = { access_token: token("second"), refresh_token: "second" };
-        state.replace(replacement);
-        release(Response.json({ access_token: token("first", "new"), refresh_token: "new" }));
-        expect(await request).toBeInstanceOf(Error);
-        expect(state.get()).toEqual(replacement);
-        expect(state.signedOut).not.toHaveBeenCalled();
+    it("binds a replica's requests to its user", async () => {
+        const seen = requests();
+        await setup().api.authFetchFor("us_first")("/sync/token");
+        expect(new Headers(seen[0]?.init.headers).get("X-Expected-User")).toBe("us_first");
     });
 
-    it("refuses to send a replica's request with a different actor's credentials", async () => {
+    it("refuses to send a replica's request after another user signed in", async () => {
         const state = setup();
         const transport = vi.fn();
         vi.stubGlobal("fetch", transport);
-        state.replace({ access_token: token("second"), refresh_token: "second" });
-        await expect(state.api.authFetchFor("first")("/v1/hours/st_first/week")).rejects.toThrow(
+        state.replace({ userId: "us_second", sessionToken: "ory_st_second" });
+        await expect(state.api.authFetchFor("us_first")("/v1/hours/st_first/week")).rejects.toThrow(
             "identity changed",
         );
         expect(transport).not.toHaveBeenCalled();
     });
 
-    it("pauses once on definitive refresh rejection", async () => {
+    it("keeps each command's business context", async () => {
+        const seen = requests();
+        const { api } = setup();
+        await api.forBusiness("bz_first").post("/v1/clients", { name: "First" });
+        await api.forBusiness("bz_second").post("/v1/clients", { name: "Second" });
+        expect(seen.map((s) => new Headers(s.init.headers).get("X-Business-Id"))).toEqual([
+            "bz_first",
+            "bz_second",
+        ]);
+    });
+});
+
+describe("session loss", () => {
+    it("signs out once when the API says the session is gone", async () => {
         const state = setup();
         vi.stubGlobal(
             "fetch",
-            vi.fn(() => Promise.resolve(new Response(null, { status: 401 }))),
+            vi.fn(() =>
+                Promise.resolve(Response.json({ error: "unauthenticated" }, { status: 401 })),
+            ),
         );
-        await expect(state.api.get("/one")).rejects.toThrow();
+        await expect(state.api.get("/one")).rejects.toThrow(ApiError);
         expect(state.get()).toBeNull();
         expect(state.signedOut).toHaveBeenCalledTimes(1);
     });
 
-    it("bounds a stalled refresh and preserves credentials", async () => {
-        vi.useFakeTimers();
+    it("asks for a second factor instead of signing out", async () => {
         const state = setup();
         vi.stubGlobal(
             "fetch",
-            vi.fn((url: string, init?: RequestInit) => {
-                if (!url.endsWith("/auth/refresh"))
-                    return Promise.resolve(new Response(null, { status: 401 }));
-                return new Promise<Response>((_resolve, reject) => {
-                    init?.signal?.addEventListener("abort", () => {
-                        reject(new Error("aborted"));
-                    });
-                });
-            }),
+            vi.fn(() =>
+                Promise.resolve(Response.json({ error: "aal2_required" }, { status: 401 })),
+            ),
         );
-        const request = state.api.get("/one").catch((error: unknown) => error);
-        await vi.advanceTimersByTimeAsync(15_001);
-        expect(await request).toBeInstanceOf(Error);
-        expect(state.get()?.refresh_token).toBe("old");
+        await expect(state.api.get("/one")).rejects.toThrow();
+        expect(state.stepUp).toHaveBeenCalledTimes(1);
+        expect(state.signedOut).not.toHaveBeenCalled();
+        expect(state.get()).not.toBeNull();
+    });
+
+    it("keeps the session through an identity outage", async () => {
+        const state = setup();
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(() =>
+                Promise.resolve(Response.json({ error: "identity_unavailable" }, { status: 503 })),
+            ),
+        );
+        const failure = await state.api.get("/one").catch((e: unknown) => e);
+        expect(failure).toBeInstanceOf(ApiError);
+        expect((failure as ApiError).code).toBe("identity_unavailable");
         expect(state.signedOut).not.toHaveBeenCalled();
     });
-});
 
-it("persists one refresh attempt across a lost response and a new session instance", async () => {
-    let saved: TokenPair | null = { access_token: token("first"), refresh_token: "old" };
-    const store = {
-        get: () => Promise.resolve(saved),
-        set: (tokens: TokenPair) => {
-            saved = tokens;
-            return Promise.resolve();
-        },
-        clear: () => {
-            saved = null;
-            return Promise.resolve();
-        },
-    };
-    const bodies: string[] = [];
-    vi.stubGlobal(
-        "fetch",
-        vi.fn((url: string, init?: RequestInit) => {
-            if (url.endsWith("/auth/refresh")) {
-                if (typeof init?.body !== "string") throw new Error("missing refresh body");
-                bodies.push(init.body);
-                if (bodies.length === 1) return Promise.reject(new Error("response lost"));
-                return Promise.resolve(
-                    Response.json({ access_token: token("first", "new"), refresh_token: "new" }),
-                );
-            }
-            return Promise.resolve(
-                saved?.refresh_token === "new"
-                    ? Response.json({ ok: true })
-                    : new Response(null, { status: 401 }),
-            );
-        }),
-    );
-    const first = createSession({
-        baseUrl: "https://api.test",
-        store,
-        onSignedOut: () => undefined,
-    });
-    await expect(first.get("/one")).rejects.toThrow();
-    expect((await store.get())?.refresh_attempt_id).toMatch(/^[a-f0-9-]{36}$/);
-    const reopened = createSession({
-        baseUrl: "https://api.test",
-        store,
-        onSignedOut: () => undefined,
-    });
-    expect(await reopened.get("/one")).toEqual({ ok: true });
-    expect(bodies).toHaveLength(2);
-    expect(bodies[0]).toBe(bodies[1]);
-    expect((await store.get())?.refresh_attempt_id).toBeUndefined();
-});
-
-it("keeps the command's business context across refresh and another selection", async () => {
-    const state = setup();
-    const first = state.api.forBusiness("bz_first");
-    const second = state.api.forBusiness("bz_second");
-    const seen: string[] = [];
-    vi.stubGlobal(
-        "fetch",
-        vi.fn((url: string, init?: RequestInit) => {
-            if (url.endsWith("/auth/refresh"))
-                return Promise.resolve(
-                    Response.json({ access_token: token("first", "new"), refresh_token: "new" }),
-                );
-            const headers = new Headers(init?.headers);
-            seen.push(headers.get("X-Business-Id") ?? "missing");
-            return Promise.resolve(
-                headers.get("Authorization") === `Bearer ${token("first", "new")}`
-                    ? Response.json({ ok: true })
-                    : new Response(null, { status: 401 }),
-            );
-        }),
-    );
-    await first.post("/v1/clients", { name: "First business" });
-    await second.post("/v1/clients", { name: "Second business" });
-    expect(seen).toEqual(["bz_first", "bz_first", "bz_second"]);
-});
-
-describe("session identity", () => {
-    it("requires a family and distinguishes a new login from token rotation", () => {
-        const make = (sid: string, suffix: string) =>
-            `header.${btoa(JSON.stringify({ sub: "user", sid }))}.${suffix}`;
-        expect(sessionIdentity(token("user"))).toBeNull();
-        expect(sessionIdentity(make("", "old"))).toBeNull();
-        expect(sessionIdentity(make("one", "old"))).toBe(sessionIdentity(make("one", "rotated")));
-        expect(sessionIdentity(make("one", "old"))).not.toBe(sessionIdentity(make("two", "new")));
+    it("ignores a late 401 from a session that was already replaced", async () => {
+        const state = setup();
+        let release: (response: Response) => void = () => undefined;
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(
+                () =>
+                    new Promise<Response>((resolve) => {
+                        release = resolve;
+                    }),
+            ),
+        );
+        const request = state.api.get("/one").catch((error: unknown) => error);
+        state.replace({ userId: "us_second", sessionToken: "ory_st_second" });
+        release(Response.json({ error: "unauthenticated" }, { status: 401 }));
+        expect(await request).toBeInstanceOf(Error);
+        expect(state.get()?.userId).toBe("us_second");
+        expect(state.signedOut).not.toHaveBeenCalled();
     });
 });
 
@@ -241,61 +162,144 @@ it("accepts a successful command with no response body", async () => {
     );
     const { api } = setup();
     await expect(api.delete<undefined>("/v1/resources/removed")).resolves.toBeUndefined();
-    await expect(
-        api.post<undefined>("/auth/logout", { refresh_token: "old" }),
-    ).resolves.toBeUndefined();
 });
 
-it("retries the same refresh attempt after the rotated tokens fail to save", async () => {
-    let saved: TokenPair | null = { access_token: token("first"), refresh_token: "old" };
-    let failNextSave = false;
-    const signedOut = vi.fn();
-    const api = createSession({
-        baseUrl: "https://api.test",
-        store: {
-            get: () => Promise.resolve(saved),
-            set: (tokens) => {
-                if (failNextSave && tokens.refresh_token === "new") {
-                    failNextSave = false;
-                    return Promise.reject(new Error("disk full"));
-                }
-                saved = tokens;
-                return Promise.resolve();
-            },
-            clear: () => {
-                saved = null;
-                return Promise.resolve();
-            },
+describe("identity client", () => {
+    const flow = parseFlow("login", {
+        id: "flow-1",
+        ui: {
+            nodes: [
+                {
+                    group: "default",
+                    type: "input",
+                    attributes: { name: "csrf_token", value: "csrf" },
+                },
+                {
+                    group: "totp",
+                    type: "img",
+                    attributes: { id: "totp_qr", src: "data:image/png;base64,AA" },
+                    meta: { label: { text: "QR" } },
+                },
+            ],
+            messages: [{ id: 4000006, type: "error", text: "invalid" }],
         },
-        onSignedOut: signedOut,
     });
-    const attempts: string[] = [];
-    vi.stubGlobal(
-        "fetch",
-        vi.fn((url: string, init?: RequestInit) => {
-            if (url.endsWith("/auth/refresh")) {
-                attempts.push(
-                    (JSON.parse(init?.body as string) as { attempt_id: string }).attempt_id,
-                );
+
+    it("parses nodes and messages", () => {
+        expect(flow.nodes[1]).toMatchObject({ name: "totp_qr", src: "data:image/png;base64,AA" });
+        expect(flow.messages[0]?.id).toBe(4000006);
+    });
+
+    it("adds the CSRF token on browser flows and returns the session", async () => {
+        const seen = requests();
+        vi.stubGlobal(
+            "fetch",
+            vi.fn((url: string, init: RequestInit = {}) => {
+                seen.push({ url, init });
+                return Promise.resolve(Response.json({ session: { id: "s" } }));
+            }),
+        );
+        const identity = createIdentityClient({ baseUrl: "https://auth.test/", mode: "browser" });
+        const step = await identity.submit(flow, { method: "password" });
+        expect(step).toEqual({ kind: "done" });
+        expect(seen[0]?.url).toBe("https://auth.test/self-service/login?flow=flow-1");
+        expect(seen[0]?.init.credentials).toBe("include");
+        expect(JSON.parse(seen[0]?.init.body as string)).toEqual({
+            method: "password",
+            csrf_token: "csrf",
+        });
+    });
+
+    it("hands native recovery over to settings with a token, never a cookie", async () => {
+        const seen: RequestInit[] = [];
+        vi.stubGlobal(
+            "fetch",
+            vi.fn((_url: string, init: RequestInit = {}) => {
+                seen.push(init);
                 return Promise.resolve(
-                    Response.json({ access_token: token("first", "new"), refresh_token: "new" }),
+                    Response.json({
+                        id: "rec",
+                        state: "passed_challenge",
+                        continue_with: [
+                            { action: "set_ory_session_token", ory_session_token: "ory_st_x" },
+                            { action: "show_settings_ui", flow: { id: "set-1" } },
+                        ],
+                    }),
                 );
-            }
-            const auth = new Headers(init?.headers).get("Authorization") ?? "";
-            return Promise.resolve(
-                auth.endsWith(".new")
-                    ? Response.json({ ok: true })
-                    : new Response(null, { status: 401 }),
+            }),
+        );
+        const identity = createIdentityClient({ baseUrl: "https://auth.test", mode: "native" });
+        const step = await identity.submit(parseFlow("recovery", { id: "rec" }), {
+            method: "code",
+        });
+        expect(step).toEqual({
+            kind: "done",
+            sessionToken: "ory_st_x",
+            next: { flow: "settings", id: "set-1" },
+        });
+        // Kratos refuses an API flow that carries a cookie (React Native's fetch sends its jar).
+        expect(seen[0]?.credentials).toBe("omit");
+    });
+
+    it("maps redirects, privileged actions and expired flows", async () => {
+        const identity = createIdentityClient({ baseUrl: "https://auth.test", mode: "browser" });
+        const answer = (body: unknown, status: number) => {
+            vi.stubGlobal(
+                "fetch",
+                vi.fn(() => Promise.resolve(Response.json(body, { status }))),
             );
-        }),
-    );
-    failNextSave = true;
-    await expect(api.get("/one")).rejects.toThrow();
-    expect(saved).toMatchObject({ refresh_token: "old" });
-    await expect(api.get("/one")).resolves.toEqual({ ok: true });
-    expect(attempts).toHaveLength(2);
-    expect(attempts[0]).toBe(attempts[1]);
-    expect(signedOut).not.toHaveBeenCalled();
+        };
+        answer({ redirect_browser_to: "https://accounts.google.com" }, 422);
+        expect(await identity.submit(flow, {})).toEqual({
+            kind: "redirect",
+            url: "https://accounts.google.com",
+        });
+        answer({ error: { id: "session_refresh_required" } }, 403);
+        expect(await identity.submit(flow, {})).toEqual({ kind: "reauth" });
+        answer({ error: { id: "self_service_flow_expired" } }, 410);
+        expect(await identity.submit(flow, {})).toEqual({ kind: "restart" });
+        answer({ id: "flow-1", ui: { nodes: [], messages: [] } }, 400);
+        expect((await identity.submit(flow, {})).kind).toBe("flow");
+    });
+
+    it("tells a missing session from one that needs a second factor", async () => {
+        const identity = createIdentityClient({ baseUrl: "https://auth.test", mode: "native" });
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(() =>
+                Promise.resolve(
+                    Response.json({ error: { id: "session_aal2_required" } }, { status: 403 }),
+                ),
+            ),
+        );
+        expect(await identity.session("tok")).toBe("aal2");
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(() => Promise.resolve(Response.json({}, { status: 401 }))),
+        );
+        expect(await identity.session("tok")).toBe("none");
+    });
+
+    it("names the identity behind a session, and nobody without one", async () => {
+        const identity = createIdentityClient({ baseUrl: "https://auth.test", mode: "native" });
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(() =>
+                Promise.resolve(
+                    Response.json({
+                        id: "s",
+                        identity: { id: "id-1", traits: { email: "pat@test.ca" } },
+                    }),
+                ),
+            ),
+        );
+        expect(await identity.whoami("tok")).toEqual({ id: "id-1", email: "pat@test.ca" });
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(() => Promise.resolve(Response.json({}, { status: 401 }))),
+        );
+        expect(await identity.whoami("tok")).toBeNull();
+    });
 });
 
 describe("refused requests", () => {

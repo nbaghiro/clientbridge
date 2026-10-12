@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 from scripts.demo_validate import validate_database, validate_graph
 from scripts.seed_demo import build_demo
@@ -46,7 +47,12 @@ async def test_seed_reset_preserves_unrelated_accounts(owner_db: AsyncSession) -
     from clientbridge.models.business import Business, User
 
     outsider = Business(id="bz_unrelated_seed", name="Unrelated", slug="unrelated-seed")
-    user = User(id="us_unrelated_seed", email="unrelated@example.test", name="Unrelated")
+    user = User(
+        id="us_unrelated_seed",
+        identity_id=str(uuid4()),
+        email="unrelated@example.test",
+        name="Unrelated",
+    )
     db.add_all([outsider, user])
     await db.flush()
     await replace_demo_rows(db, build_demo())

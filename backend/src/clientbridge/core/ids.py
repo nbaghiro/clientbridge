@@ -45,8 +45,6 @@ PREFIXES: dict[str, str] = {
     "device": "dvt",
     "webhook": "wh",
     "idempotency_key": "idk",
-    "auth_session": "ase",
-    "auth_token": "atk",
     "returning_challenge": "rtc",
     "sync_receipt": "sur",
 }

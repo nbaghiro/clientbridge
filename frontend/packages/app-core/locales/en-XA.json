@@ -5945,6 +5945,12 @@
     "business.onboarding.createError": {
         "message": "[Çöûļðñ’ţ çŕéåţé ýöûŕ ƀûšîñéšš — ţĥåţ ŵéƀ åððŕéšš ɱåý ƀé ţåķéñ. one two three four]"
     },
+    "business.onboarding.verifyFirst": {
+        "message": "[Çöñƒîŕɱ ýöûŕ éɱåîļ åððŕéšš ƀéƒöŕé çŕéåţîñĝ ýöûŕ ƀûšîñéšš. one two three four]"
+    },
+    "business.onboarding.verifyEmail": {
+        "message": "[Çöñƒîŕɱ ɱý éɱåîļ one two]"
+    },
     "hours.title": {
         "message": "[Ĥöûŕš åñð ţîɱé öƒƒ one two]"
     },
@@ -6230,14 +6236,53 @@
     "hours.partialAway": {
         "message": "{time} {reason}"
     },
-    "staff.inviteMissingCode": {
-        "message": "[Ţĥîš îñṽîţé ļîñķ îš ɱîššîñĝ îţš çöðé. one two three]"
-    },
-    "staff.passwordTooShort": {
-        "message": "[Çĥööšé å þåššŵöŕð öƒ åţ ļéåšţ 8 çĥåŕåçţéŕš. one two three]"
-    },
     "staff.acceptInviteError": {
-        "message": "[Çöûļðñ’ţ åççéþţ ţĥîš îñṽîţé — îţ ɱåý ƀé îñṽåļîð öŕ éẋþîŕéð. one two three four]"
+        "message": "[Çöûļðñ’ţ åççéþţ ţĥîš îñṽîţé. Çĥéçķ ýöûŕ çöññéçţîöñ åñð ţŕý åĝåîñ. one two three four five]"
+    },
+    "staff.inviteTitle": {
+        "message": "[Ĵöîñ ýöûŕ ţéåɱ one two]"
+    },
+    "staff.inviteFrom": {
+        "message": "[{business} îñṽîţéð ýöû ţö Çļîéñţƀŕîðĝé. one two three]"
+    },
+    "staff.inviteFor": {
+        "message": "[Ţĥîš îñṽîţé îš ƒöŕ {email}. one two]"
+    },
+    "staff.inviteSignUp": {
+        "message": "[Çŕéåţé åñ åççöûñţ one two]"
+    },
+    "staff.inviteSignIn": {
+        "message": "[Î åļŕéåðý ĥåṽé åñ åççöûñţ one two three]"
+    },
+    "staff.inviteJoin": {
+        "message": "[Ĵöîñ ţéåɱ one]"
+    },
+    "staff.inviteJoining": {
+        "message": "[Ĵöîñîñĝ… one]"
+    },
+    "staff.inviteProblem.invalid": {
+        "message": "[Ţĥîš îñṽîţé ļîñķ îšñ'ţ ṽåļîð. Åšķ ƒöŕ å ñéŵ îñṽîţé. one two three four]"
+    },
+    "staff.inviteProblem.expired": {
+        "message": "[Ţĥîš îñṽîţé ĥåš éẋþîŕéð. Åšķ ƒöŕ å ñéŵ öñé. one two three]"
+    },
+    "staff.inviteProblem.accepted": {
+        "message": "[Ţĥîš îñṽîţé ŵåš åļŕéåðý ûšéð. one two three]"
+    },
+    "staff.inviteProblem.mismatch": {
+        "message": "[Ýöû'ŕé šîĝñéð îñ ŵîţĥ å ðîƒƒéŕéñţ éɱåîļ ţĥåñ ţĥé öñé îñṽîţéð. Šîĝñ îñ ŵîţĥ ţĥé îñṽîţéð éɱåîļ, öŕ åšķ ƒöŕ å ñéŵ îñṽîţé. one two three four five six seven]"
+    },
+    "staff.inviteProblem.unverified": {
+        "message": "[Çöñƒîŕɱ ýöûŕ éɱåîļ åððŕéšš ƒîŕšţ, ţĥéñ ţŕý åĝåîñ. one two three four]"
+    },
+    "staff.inviteProblem.member": {
+        "message": "[Ýöû'ŕé åļŕéåðý öñ ţĥîš ţéåɱ. one two three]"
+    },
+    "staff.inviteVerify": {
+        "message": "[Çöñƒîŕɱ ɱý éɱåîļ one two]"
+    },
+    "staff.inviteSignOut": {
+        "message": "[Šîĝñ îñ ŵîţĥ åñöţĥéŕ åççöûñţ one two three]"
     },
     "staff.noMembers": {
         "message": "[Ñö ţéåɱ ɱéɱƀéŕš ýéţ. one two]"
@@ -6516,7 +6561,7 @@
         "message": "[Ŕéɱöṽé {name}? one]"
     },
     "staff.team.removeBody": {
-        "message": "[Ţĥéý åŕé šîĝñéð öûţ öñ éṽéŕý ðéṽîçé. Ţĥéîŕ þåšţ ƀööķîñĝš, šåļéš åñð þåý ŕéçöŕðš šţåý. one two three four five six]"
+        "message": "[Ţĥéý ļöšé åççéšš ţö ţĥîš ƀûšîñéšš ŕîĝĥţ åŵåý. Ţĥéîŕ þåšţ ƀööķîñĝš, šåļéš åñð þåý ŕéçöŕðš šţåý. one two three four five six]"
     },
     "staff.team.removeConfirm": {
         "message": "[Ŕéɱöṽé one]"
@@ -9209,9 +9254,6 @@
     "auth.invalidCredentials": {
         "message": "[Ţĥåţ éɱåîļ åñð þåššŵöŕð ðöñ'ţ ɱåţçĥ. Ţŕý åĝåîñ öŕ ŕéšéţ ýöûŕ þåššŵöŕð. one two three four five]"
     },
-    "auth.createAccountError": {
-        "message": "[Çöûļðñ'ţ çŕéåţé ţĥåţ åççöûñţ. Ţŕý åñöţĥéŕ éɱåîļ. one two three four]"
-    },
     "auth.heroHeadlineLine1": {
         "message": "[Ţĥé ƀŕîðĝé ƀéţŵééñ ýöû one two]"
     },
@@ -9290,27 +9332,6 @@
     "auth.createAnAccount": {
         "message": "[Çŕéåţé åñ åççöûñţ one two]"
     },
-    "auth.inviteTitle": {
-        "message": "[Åççéþţ ýöûŕ îñṽîţé one two]"
-    },
-    "auth.inviteSubtitle": {
-        "message": "[Šéţ å þåššŵöŕð ţö ĵöîñ ýöûŕ ţéåɱ åñð šţåŕţ çöļļåƀöŕåţîñĝ. one two three four]"
-    },
-    "auth.inviteMissingCode": {
-        "message": "[Ţĥîš îñṽîţé ļîñķ îš ɱîššîñĝ îţš çöðé. Þļéåšé ûšé ţĥé ļîñķ ƒŕöɱ ýöûŕ éɱåîļ. one two three four five]"
-    },
-    "auth.inviteName": {
-        "message": "[Ýöûŕ ñåɱé one]"
-    },
-    "auth.joining": {
-        "message": "[Ĵöîñîñĝ… one]"
-    },
-    "auth.joinTeam": {
-        "message": "[Ĵöîñ ţéåɱ one]"
-    },
-    "auth.googleNotConfigured": {
-        "message": "[Ĝööĝļé šîĝñ-îñ îšñ'ţ šéţ ûþ ýéţ. Ûšé ýöûŕ éɱåîļ åñð þåššŵöŕð. one two three four]"
-    },
     "auth.newPassword": {
         "message": "[Çŕéåţé å þåššŵöŕð one two]"
     },
@@ -9327,40 +9348,109 @@
         "message": "[Ŕéšéţ ýöûŕ þåššŵöŕð one two]"
     },
     "auth.resetSubtitle": {
-        "message": "[Éñţéŕ ţĥé éɱåîļ ýöû šîĝñ îñ ŵîţĥ åñð ŵé ŵîļļ šéñð ýöû å ļîñķ ţö çĥööšé å ñéŵ þåššŵöŕð. one two three four five six]"
+        "message": "[Éñţéŕ ţĥé éɱåîļ ýöû šîĝñ îñ ŵîţĥ åñð ŵé'ļļ šéñð ýöû å çöðé. one two three four]"
     },
-    "auth.sentTitle": {
+    "auth.resetCodeTitle": {
         "message": "[Çĥéçķ ýöûŕ éɱåîļ one two]"
     },
-    "auth.sentBody": {
-        "message": "[Îƒ åñ åççöûñţ éẋîšţš ƒöŕ {email}, å ŕéšéţ ļîñķ îš öñ îţš ŵåý. Îţ ŵöŕķš ƒöŕ öñé ĥöûŕ. one two three four five]"
+    "auth.resetCodeBody": {
+        "message": "[Îƒ åñ åççöûñţ éẋîšţš ƒöŕ {email}, ŵé šéñţ å çöðé. Îţ ŵöŕķš ƒöŕ 15 ɱîñûţéš. one two three four]"
     },
-    "auth.sendLink": {
-        "message": "[Šéñð ŕéšéţ ļîñķ one two]"
+    "auth.resetPasswordTitle": {
+        "message": "[Çĥööšé å ñéŵ þåššŵöŕð one two]"
+    },
+    "auth.resetPasswordSubtitle": {
+        "message": "[Ýöû'ŕé šîĝñéð îñ. Þîçķ å þåššŵöŕð ƒöŕ ñéẋţ ţîɱé. one two three]"
+    },
+    "auth.sendCode": {
+        "message": "[Šéñð çöðé one]"
     },
     "auth.sending": {
         "message": "[Šéñðîñĝ… one]"
     },
-    "auth.resend": {
-        "message": "[Ŕéšéñð éɱåîļ one two]"
+    "auth.checkCode": {
+        "message": "[Çöñţîñûé one]"
+    },
+    "auth.savePassword": {
+        "message": "[Šåṽé þåššŵöŕð one two]"
+    },
+    "auth.code": {
+        "message": "[Çöðé one]"
+    },
+    "auth.codePlaceholder": {
+        "message": "123456"
+    },
+    "auth.resendCode": {
+        "message": "[Šéñð å ñéŵ çöðé one two]"
     },
     "auth.resendIn": {
-        "message": "[Ŕéšéñð îñ {s, number}š one two]"
+        "message": "[Šéñð åĝåîñ îñ {s, number}š one two]"
     },
     "auth.backToSignIn": {
         "message": "[Ɓåçķ ţö šîĝñ îñ one two]"
     },
-    "auth.openMail": {
-        "message": "[Öþéñ éɱåîļ åþþ one two]"
-    },
     "auth.resetError": {
-        "message": "[Çöûļðñ'ţ šéñð ţĥé ŕéšéţ éɱåîļ. Çĥéçķ ýöûŕ çöññéçţîöñ åñð ţŕý åĝåîñ. one two three four five]"
+        "message": "[Çöûļðñ'ţ ŕéšéţ ýöûŕ þåššŵöŕð. Çĥéçķ ţĥé çöðé åñð ţŕý åĝåîñ. one two three four]"
     },
-    "auth.locked": {
-        "message": "[Ţöö ɱåñý åţţéɱþţš. Ţŕý åĝåîñ îñ 15 ɱîñûţéš, öŕ ŕéšéţ ýöûŕ þåššŵöŕð. one two three four]"
+    "auth.resendFailed": {
+        "message": "[Çöûļðñ'ţ šéñð å ñéŵ çöðé. Çĥéçķ ýöûŕ çöññéçţîöñ åñð ţŕý åĝåîñ. one two three four]"
     },
-    "auth.attemptsLeft": {
-        "message": "[{n,plural,one{# åţţéɱþţ} other{# åţţéɱþţš}} ļéƒţ ƀéƒöŕé å 15 ɱîñûţé þåûšé. one two three]"
+    "auth.verifyTitle": {
+        "message": "[Çöñƒîŕɱ ýöûŕ éɱåîļ one two]"
+    },
+    "auth.verifyBody": {
+        "message": "[Ŵé šéñţ å çöðé ţö {email}. one two]"
+    },
+    "auth.verifyBodyAnyEmail": {
+        "message": "[Ŵé šéñţ å çöðé ţö ýöûŕ éɱåîļ. one two three]"
+    },
+    "auth.verifyToContinue": {
+        "message": "[Ţĥîš éɱåîļ åļŕéåðý ĥåš åñ åççöûñţ. Çöñƒîŕɱ îţ'š ýöûŕš ţö ķééþ ĝöîñĝ, öŕ šîĝñ öûţ. one two three four five]"
+    },
+    "auth.verifyDone": {
+        "message": "[Ýöûŕ éɱåîļ îš çöñƒîŕɱéð. one two]"
+    },
+    "auth.verify": {
+        "message": "[Çöñƒîŕɱ éɱåîļ one two]"
+    },
+    "auth.skipForNow": {
+        "message": "[Šķîþ ƒöŕ ñöŵ one two]"
+    },
+    "auth.continue": {
+        "message": "[Çöñţîñûé one]"
+    },
+    "auth.mfaTitle": {
+        "message": "[Ţŵö-šţéþ ṽéŕîƒîçåţîöñ one two]"
+    },
+    "auth.mfaSubtitle": {
+        "message": "[Çöñƒîŕɱ îţ'š ýöû ţö ƒîñîšĥ šîĝñîñĝ îñ. one two three]"
+    },
+    "auth.mfaTotp": {
+        "message": "[Çöðé ƒŕöɱ ýöûŕ åûţĥéñţîçåţöŕ åþþ one two three]"
+    },
+    "auth.mfaLookup": {
+        "message": "[Ɓåçķûþ çöðé one two]"
+    },
+    "auth.mfaWebauthn": {
+        "message": "[Ûšé ýöûŕ šéçûŕîţý ķéý one two]"
+    },
+    "auth.mfaKeyOnly": {
+        "message": "[Ţĥîš åççöûñţ'š šéçöñð šţéþ îš å šéçûŕîţý ķéý, ŵĥîçĥ ŵöŕķš öñļý îñ ţĥé ŵéƀ åþþ. Šîĝñ îñ ţĥéŕé åñð åðð åñ åûţĥéñţîçåţöŕ åþþ öŕ ƀåçķûþ çöðéš ţö ûšé ţĥîš åþþ. one two three four five six seven eight nine]"
+    },
+    "auth.mfaUse.totp": {
+        "message": "[Ûšé åûţĥéñţîçåţöŕ åþþ one two]"
+    },
+    "auth.mfaUse.lookup_secret": {
+        "message": "[Ûšé å ƀåçķûþ çöðé one two]"
+    },
+    "auth.mfaUse.webauthn": {
+        "message": "[Ûšé å šéçûŕîţý ķéý one two]"
+    },
+    "auth.confirm": {
+        "message": "[Çöñƒîŕɱ one]"
+    },
+    "auth.notYou": {
+        "message": "[Šîĝñ îñ åš šöɱéöñé éļšé one two]"
     },
     "auth.emailRequired": {
         "message": "[Éñţéŕ ýöûŕ éɱåîļ åððŕéšš. one two three]"
@@ -9377,8 +9467,176 @@
     "auth.nameRequired": {
         "message": "[Éñţéŕ ýöûŕ ñåɱé. one two]"
     },
+    "auth.codeRequired": {
+        "message": "[Éñţéŕ ţĥé çöðé. one two]"
+    },
+    "auth.flowExpired": {
+        "message": "[Ţĥåţ ţööķ å ļîţţļé ţöö ļöñĝ. Þļéåšé ţŕý åĝåîñ. one two three]"
+    },
+    "auth.unavailable": {
+        "message": "[Šîĝñ-îñ îš ûñåṽåîļåƀļé ŕîĝĥţ ñöŵ. Çĥéçķ ýöûŕ çöññéçţîöñ åñð ţŕý åĝåîñ. one two three four five]"
+    },
+    "auth.googleFailed": {
+        "message": "[Çöûļðñ'ţ çöñţîñûé ŵîţĥ Ĝööĝļé. Ţŕý åĝåîñ öŕ ûšé ýöûŕ éɱåîļ. one two three four]"
+    },
+    "auth.reauthDifferentAccount": {
+        "message": "[Ţĥåţ'š å ðîƒƒéŕéñţ Ĝööĝļé åççöûñţ. Çöñƒîŕɱ îţ'š ýöû ŵîţĥ ţĥé åççöûñţ ýöû'ŕé šîĝñéð îñ ŵîţĥ. one two three four five six]"
+    },
+    "auth.errorTitle": {
+        "message": "[Ŵé çöûļðñ'ţ ƒîñîšĥ šîĝñîñĝ ýöû îñ one two three]"
+    },
+    "auth.errorBody": {
+        "message": "[Ţĥé ļîñķ ɱåý ĥåṽé éẋþîŕéð öŕ ƀééñ öþéñéð ţŵîçé. Ĝö ƀåçķ åñð ţŕý åĝåîñ. one two three four five]"
+    },
     "auth.terms": {
         "message": "[Ɓý çŕéåţîñĝ åñ åççöûñţ ýöû åĝŕéé ţö ţĥé Ţéŕɱš åñð Þŕîṽåçý Þöļîçý. one two three four five]"
+    },
+    "auth.securityTitle": {
+        "message": "[Šîĝñ-îñ & šéçûŕîţý one two]"
+    },
+    "auth.securityAccount": {
+        "message": "[Åççöûñţ one]"
+    },
+    "auth.securitySaveProfile": {
+        "message": "[Šåṽé åççöûñţ one two]"
+    },
+    "auth.securityEmailHint": {
+        "message": "[Çĥåñĝîñĝ ýöûŕ éɱåîļ šéñðš å çöðé ţö ţĥé ñéŵ åððŕéšš. one two three four]"
+    },
+    "auth.securityPassword": {
+        "message": "[Þåššŵöŕð one]"
+    },
+    "auth.securityNewPassword": {
+        "message": "[Ñéŵ þåššŵöŕð one two]"
+    },
+    "auth.securityChangePassword": {
+        "message": "[Çĥåñĝé þåššŵöŕð one two]"
+    },
+    "auth.securityTotp": {
+        "message": "[Åûţĥéñţîçåţöŕ åþþ one two]"
+    },
+    "auth.securityTotpOn": {
+        "message": "[Öñ. Ýöû'ļļ éñţéŕ å çöðé ƒŕöɱ ýöûŕ åþþ ŵĥéñ ýöû šîĝñ îñ. one two three four]"
+    },
+    "auth.securityTotpSetup": {
+        "message": "[Šçåñ ţĥîš ŵîţĥ åñ åûţĥéñţîçåţöŕ åþþ, ţĥéñ éñţéŕ ţĥé çöðé îţ šĥöŵš. one two three four five]"
+    },
+    "auth.securityTotpSecret": {
+        "message": "[Öŕ éñţéŕ ţĥîš ķéý: {secret} one two]"
+    },
+    "auth.securityTotpQr": {
+        "message": "[Åûţĥéñţîçåţöŕ åþþ ǪŔ çöðé one two three]"
+    },
+    "auth.securityTurnOn": {
+        "message": "[Ţûŕñ öñ one]"
+    },
+    "auth.securityTurnOff": {
+        "message": "[Ţûŕñ öƒƒ one]"
+    },
+    "auth.securityBackupCodes": {
+        "message": "[Ɓåçķûþ çöðéš one two]"
+    },
+    "auth.securityBackupCodesHint": {
+        "message": "[Éåçĥ çöðé ŵöŕķš öñçé, îƒ ýöû ļöšé ýöûŕ þĥöñé öŕ šéçûŕîţý ķéý. Ķééþ ţĥéɱ šöɱéŵĥéŕé šåƒé. one two three four five six]"
+    },
+    "auth.securityShowCodes": {
+        "message": "[Šĥöŵ çöðéš one two]"
+    },
+    "auth.securityNewCodes": {
+        "message": "[Ṁåķé ñéŵ çöðéš one two]"
+    },
+    "auth.securityConfirmCodes": {
+        "message": "[Î šåṽéð ţĥéšé çöðéš one two]"
+    },
+    "auth.securityKeys": {
+        "message": "[Šéçûŕîţý ķéýš åñð þåššķéýš one two three]"
+    },
+    "auth.securityKeysHint": {
+        "message": "[Å šéçöñð šţéþ ţĥåţ ŵöŕķš ŵîţĥ ýöûŕ ƒîñĝéŕþŕîñţ, ƒåçé öŕ å ĥåŕðŵåŕé ķéý. one two three four five]"
+    },
+    "auth.securityKeyName": {
+        "message": "[Ķéý ñåɱé one]"
+    },
+    "auth.securityKeyNamePlaceholder": {
+        "message": "[Ŵöŕķ ļåþţöþ one two]"
+    },
+    "auth.securityAddKey": {
+        "message": "[Åðð šéçûŕîţý ķéý one two]"
+    },
+    "auth.securityRemoveKey": {
+        "message": "[Ŕéɱöṽé {name} one]"
+    },
+    "auth.securityKey": {
+        "message": "[Šéçûŕîţý ķéý one two]"
+    },
+    "auth.securityNoKeys": {
+        "message": "[Ñö šéçûŕîţý ķéýš ýéţ. one two]"
+    },
+    "auth.securityReauthTitle": {
+        "message": "[Çöñƒîŕɱ îţ'š ýöû one two]"
+    },
+    "auth.securityReauthBody": {
+        "message": "[Éñţéŕ ýöûŕ þåššŵöŕð ţö çĥåñĝé šîĝñ-îñ šéţţîñĝš. one two three four]"
+    },
+    "auth.securityReauthOnWeb": {
+        "message": "[Çöñƒîŕɱ îţ'š ýöû îñ ţĥé ŵéƀ åþþ ţö çĥåñĝé šîĝñ-îñ šéţţîñĝš. one two three four]"
+    },
+    "auth.providerError": {
+        "message": "[Šöɱéţĥîñĝ ŵéñţ ŵŕöñĝ. Þļéåšé ţŕý åĝåîñ. one two three]"
+    },
+    "auth.flowMessages.1010003": {
+        "message": "[Çöñƒîŕɱ îţ'š ýöû ţö çöñţîñûé. one two three]"
+    },
+    "auth.flowMessages.1010016": {
+        "message": "[Ýöû åļŕéåðý ĥåṽé åñ åççöûñţ ŵîţĥ ţĥîš éɱåîļ. Šîĝñ îñ ŵîţĥ ýöûŕ þåššŵöŕð ţö ļîñķ Ĝööĝļé. one two three four five six]"
+    },
+    "auth.flowMessages.1050001": {
+        "message": "[Šåṽéð. one]"
+    },
+    "auth.flowMessages.1060003": {
+        "message": "[Îƒ åñ åççöûñţ éẋîšţš ƒöŕ ţĥåţ éɱåîļ, ŵé šéñţ å çöðé. one two three four]"
+    },
+    "auth.flowMessages.1080002": {
+        "message": "[Ýöûŕ éɱåîļ îš çöñƒîŕɱéð. one two]"
+    },
+    "auth.flowMessages.1080003": {
+        "message": "[Ŵé šéñţ å çöðé ţö ýöûŕ éɱåîļ. one two three]"
+    },
+    "auth.flowMessages.4000002": {
+        "message": "[Ţĥîš ƒîéļð îš ŕéǫûîŕéð. one two]"
+    },
+    "auth.flowMessages.4000003": {
+        "message": "[Ûšé åţ ļéåšţ 8 çĥåŕåçţéŕš. one two]"
+    },
+    "auth.flowMessages.4000005": {
+        "message": "[Çĥööšé å šţŕöñĝéŕ þåššŵöŕð. one two three]"
+    },
+    "auth.flowMessages.4000031": {
+        "message": "[Çĥööšé å þåššŵöŕð ţĥåţ îšñ'ţ šîɱîļåŕ ţö ýöûŕ éɱåîļ. one two three four]"
+    },
+    "auth.flowMessages.4000032": {
+        "message": "[Ûšé åţ ļéåšţ 8 çĥåŕåçţéŕš. one two]"
+    },
+    "auth.flowMessages.4000033": {
+        "message": "[Ţĥåţ þåššŵöŕð îš ţöö ļöñĝ. one two three]"
+    },
+    "auth.flowMessages.4000006": {
+        "message": "[Ţĥåţ éɱåîļ åñð þåššŵöŕð ðöñ'ţ ɱåţçĥ. Ţŕý åĝåîñ öŕ ŕéšéţ ýöûŕ þåššŵöŕð. one two three four five]"
+    },
+    "auth.flowMessages.4000007": {
+        "message": "[Åñ åççöûñţ ŵîţĥ ţĥîš éɱåîļ åļŕéåðý éẋîšţš. Šîĝñ îñ îñšţéåð. one two three four]"
+    },
+    "auth.flowMessages.4000008": {
+        "message": "[Ţĥåţ çöðé îšñ'ţ ŕîĝĥţ. Çĥéçķ îţ åñð ţŕý åĝåîñ. one two three]"
+    },
+    "auth.flowMessages.4000034": {
+        "message": "[Ţĥåţ þåššŵöŕð ĥåš åþþéåŕéð îñ å ðåţå ƀŕéåçĥ. Çĥööšé å ðîƒƒéŕéñţ öñé. one two three four five]"
+    },
+    "auth.flowMessages.4060006": {
+        "message": "[Ţĥåţ çöðé îšñ'ţ ŕîĝĥţ öŕ ĥåš éẋþîŕéð. Ŕéǫûéšţ å ñéŵ öñé. one two three four]"
+    },
+    "auth.flowMessages.4070006": {
+        "message": "[Ţĥåţ çöðé îšñ'ţ ŕîĝĥţ öŕ ĥåš éẋþîŕéð. Ŕéǫûéšţ å ñéŵ öñé. one two three four]"
     },
     "publicReceipt.notFoundTitle": {
         "message": "[Ţĥîš ŕéçéîþţ îšñ'ţ åṽåîļåƀļé one two three]"
@@ -11020,6 +11278,9 @@
     },
     "navigation.setupSections.reminders": {
         "message": "[Ŕéɱîñðéŕš one two]"
+    },
+    "navigation.setupSections.security": {
+        "message": "[Šîĝñ-îñ & šéçûŕîţý one two]"
     },
     "navigation.inboxSegments.messages": {
         "message": "[Ṁéššåĝéš one]"

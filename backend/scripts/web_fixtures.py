@@ -23,7 +23,7 @@ from clientbridge.models.scheduling import Recurrence, Slot
 
 BIZ = "bz_birchbark"
 OWNER = {"email": "hannah@birchbarkpets.ca", "password": "demo1234"}
-API = os.environ.get("API_URL", "http://127.0.0.1:8701")
+API = os.environ.get("API_URL", "http://localhost:8701")
 # a near-duplicate with no money or saved cards, so the merge flow is not blocked
 DUPLICATE = "Robin Test"
 
@@ -171,6 +171,20 @@ def _stripe_signature(payload: bytes) -> str:
     return f"t={stamp},v1={digest}"
 
 
+async def sign_in(http: httpx.AsyncClient, *, email: str, password: str) -> str:
+    """A native Kratos password login, as the mobile app does it."""
+    kratos = get_settings().auth_public_url
+    flow = await http.get(f"{kratos}/self-service/login/api")
+    flow.raise_for_status()
+    login = await http.post(
+        f"{kratos}/self-service/login",
+        params={"flow": flow.json()["id"]},
+        json={"method": "password", "identifier": email, "password": password},
+    )
+    login.raise_for_status()
+    return str(login.json()["session_token"])
+
+
 async def main() -> None:
     async with SessionLocal() as db:
         need_series = not await _has_series(db)
@@ -183,9 +197,7 @@ async def main() -> None:
 
     added: list[str] = []
     async with httpx.AsyncClient(base_url=API, timeout=30) as http:
-        login = await http.post("/auth/login", json=OWNER)
-        login.raise_for_status()
-        http.headers["Authorization"] = f"Bearer {login.json()['access_token']}"
+        http.headers["X-Session-Token"] = await sign_in(http, **OWNER)
         http.headers["X-Business-Id"] = BIZ
         stamp = date.today().isoformat()
         if series is not None:

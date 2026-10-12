@@ -1,7 +1,7 @@
-import { type Session, sessionSubject } from "@clientbridge/api-client";
+import type { Session } from "@clientbridge/api-client";
 import { AppSchema, createConnector, ReplicaController } from "@clientbridge/sync";
 import { PowerSyncDatabase } from "@powersync/web";
-import { beforeSessionReplace, getTokens } from "./auth";
+import { beforeSessionReplace, getUserId } from "./auth";
 import { config } from "../config";
 
 const { apiUrl, powersyncUrl } = config;
@@ -17,7 +17,7 @@ export const replica = new ReplicaController(
 beforeSessionReplace(() => replica.pause());
 
 export async function connectPowerSync(api: Session) {
-    const userId = sessionSubject(getTokens()?.access_token);
+    const userId = getUserId();
     if (!userId) throw new Error("a valid account identity is required");
     // without persistence the browser may evict the replica, and unsent hours edits with it
     if ("storage" in navigator) navigator.storage.persist().catch(() => undefined);

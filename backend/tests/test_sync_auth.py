@@ -1,17 +1,16 @@
-"""Sync identity + JWKS — /sync/token from session, RS256 public key + roundtrip, prod auth gate."""
+"""Sync identity + JWKS — /sync/token from a Kratos session, RS256 public key + roundtrip."""
 
 import json
 import time
 
 import httpx
 import jwt
-import pytest
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from jwt.algorithms import RSAAlgorithm
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.security import sign_rs256
-from tests.conftest import Factory, access_token
+from tests.conftest import Factory, FakeIdentityProvider, identity_for, session_token
 
 
 async def test_jwks_endpoint_serves_rsa_public_key(api: httpx.AsyncClient) -> None:
@@ -37,11 +36,13 @@ async def test_rs256_token_verifies_against_jwks(api: httpx.AsyncClient) -> None
     assert claims["sub"] == "us_test"
 
 
-async def test_sync_token_minted_from_session(api: httpx.AsyncClient, factory: Factory) -> None:
+async def test_sync_token_minted_from_session(
+    api: httpx.AsyncClient, factory: Factory, identities: FakeIdentityProvider
+) -> None:
     user = await factory.user()
     res = await api.get(
         "/sync/token",
-        headers={"Authorization": f"Bearer {await access_token(factory.db, user.id)}"},
+        headers={"X-Session-Token": await session_token(identities, factory.db, user.id)},
     )
     assert res.status_code == 200
     ps = res.json()["token"]
@@ -50,70 +51,36 @@ async def test_sync_token_minted_from_session(api: httpx.AsyncClient, factory: F
     assert claims["sub"] == user.id
 
 
-async def test_sync_token_rejects_empty_bearer(api: httpx.AsyncClient) -> None:
-    # the browser sends "Bearer " with an empty token, which the HTTP layer trims to "Bearer"
-    for header in ("Bearer", "Bearer ", "bearer "):
-        res = await api.get("/sync/token", headers={"Authorization": header})
-        assert res.status_code == 401, header
+async def test_sync_token_requires_a_session(api: httpx.AsyncClient) -> None:
+    for headers in ({}, {"X-Session-Token": "unknown"}, {"Authorization": "Bearer anything"}):
+        res = await api.get("/sync/token", headers=headers)
+        assert res.status_code == 401, headers
         assert "token" not in res.json()
 
 
-async def test_sync_token_prod_requires_a_real_bearer(
-    api: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+async def test_sync_token_for_a_new_identity_provisions_the_user(
+    api: httpx.AsyncClient, factory: Factory, identities: FakeIdentityProvider
 ) -> None:
-    # the empty-bearer dev-user mint is dev-only — outside dev, a missing token must 401
-    monkeypatch.setattr(get_settings(), "env", "prod")
-    res = await api.get("/sync/token", headers={"Authorization": "Bearer "})
-    assert res.status_code == 401
+    template = await factory.user()
+    await factory.db.delete(template)
+    await factory.db.flush()
+    token = identities.issue(identity_for(template, email="fresh-sync@test.ca"))
+    res = await api.get("/sync/token", headers={"X-Session-Token": token})
+    assert res.status_code == 200
+    me = (await api.get("/v1/me", headers={"X-Session-Token": token})).json()
+    s = get_settings()
+    claims = jwt.decode(
+        res.json()["token"], s.jwt_secret, algorithms=["HS256"], audience=s.powersync_audience
+    )
+    assert claims["sub"] == me["user_id"] and me["email"] == "fresh-sync@test.ca"
 
 
-async def test_sync_token_rejects_malformed_token(api: httpx.AsyncClient) -> None:
-    res = await api.get("/sync/token", headers={"Authorization": "Bearer not-a-jwt"})
-    assert res.status_code == 401
-
-
-async def test_sync_token_rejects_wrong_type_and_unknown_user(api: httpx.AsyncClient) -> None:
-    settings = get_settings()
-    now = int(time.time())
-    for subject, kind in (("us_dev", "reset"), ("us_missing_sync", "access")):
-        token = jwt.encode(
-            {"sub": subject, "type": kind, "iss": settings.jwt_issuer, "iat": now, "exp": now + 60},
-            settings.jwt_secret,
-            algorithm="HS256",
-        )
-        res = await api.get("/sync/token", headers={"Authorization": f"Bearer {token}"})
-        assert res.status_code == 401, res.text
-
-
-async def test_revoked_family_cannot_exchange_or_call_api(
-    api: httpx.AsyncClient, factory: Factory
+async def test_revoked_sessions_cannot_exchange_or_call_api(
+    api: httpx.AsyncClient, factory: Factory, identities: FakeIdentityProvider
 ) -> None:
-    from clientbridge.services.auth import AuthService
-
     user = await factory.user()
-    pair = await AuthService(factory.db).issue_session(user.id)
-    headers = {"Authorization": f"Bearer {pair.access_token}"}
+    headers = {"X-Session-Token": await session_token(identities, factory.db, user.id)}
     assert (await api.get("/sync/token", headers=headers)).status_code == 200
-    assert (
-        await api.post("/auth/logout", json={"refresh_token": pair.refresh_token})
-    ).status_code == 204
+    identities.end_sessions(user.identity_id)
     assert (await api.get("/sync/token", headers=headers)).status_code == 401
     assert (await api.get("/v1/staff/team", headers=headers)).status_code == 401
-
-
-async def test_access_requires_a_session_family(api: httpx.AsyncClient) -> None:
-    settings = get_settings()
-    now = int(time.time())
-    token = jwt.encode(
-        {
-            "sub": "us_dev",
-            "type": "access",
-            "iss": settings.jwt_issuer,
-            "iat": now,
-            "exp": now + 60,
-        },
-        settings.jwt_secret,
-        algorithm="HS256",
-    )
-    response = await api.get("/sync/token", headers={"Authorization": f"Bearer {token}"})
-    assert response.status_code == 401, response.text

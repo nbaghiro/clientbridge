@@ -51,7 +51,6 @@ TABLE_POLICIES: Mapping[str, TablePolicy] = MappingProxyType(
         "responses": TablePolicy("tenant", "business_id", "documents"),
         "returning_challenges": TablePolicy("tenant", "business_id", "returning"),
         "reviews": TablePolicy("tenant", "business_id", "reviews"),
-        "sessions": TablePolicy("identity", None, "auth"),
         "signatures": TablePolicy("tenant", "business_id", "documents"),
         "slots": TablePolicy("tenant", "business_id", "scheduling"),
         "staff": TablePolicy("tenant", "business_id", "business"),
@@ -59,7 +58,6 @@ TABLE_POLICIES: Mapping[str, TablePolicy] = MappingProxyType(
         "subscriptions": TablePolicy("tenant", "business_id", "catalog"),
         "sync_receipts": TablePolicy("tenant", "business_id", "platform"),
         "threads": TablePolicy("tenant", "business_id", "messaging"),
-        "tokens": TablePolicy("identity", None, "auth"),
         "users": TablePolicy("identity", None, "business"),
         "webhooks": TablePolicy("routing", None, "platform"),
     }
@@ -83,7 +81,7 @@ def table_policy_errors(
             errors.append(f"{name}: expected tenant key {tenant_key!r}")
         if (policy.scope == "tenant") != (tenant_key is not None):
             errors.append(f"{name}: scope disagrees with tenant columns")
-        if name in {"users", "sessions", "tokens"} and policy.scope != "identity":
+        if name == "users" and policy.scope != "identity":
             errors.append(f"{name}: identity scope required")
         if name == "webhooks" and policy.scope != "routing":
             errors.append(f"{name}: routing scope required")

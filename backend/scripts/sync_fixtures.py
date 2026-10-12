@@ -1,5 +1,6 @@
 import asyncio
 from datetime import UTC, datetime, time, timedelta
+from uuid import NAMESPACE_URL, uuid5
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +12,10 @@ from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Hours, Slot
+
+
+def sync_identity(role: str) -> str:
+    return str(uuid5(NAMESPACE_URL, f"clientbridge-sync:{role}"))
 
 
 async def seed() -> None:
@@ -27,7 +32,14 @@ async def seed() -> None:
                 )
             )
         for role in ("owner", "admin", "staff", "contractor", "multi", "foreign"):
-            db.add(User(id=f"us_{role}", email=f"{role}@sync.test", name=role))
+            db.add(
+                User(
+                    id=f"us_{role}",
+                    identity_id=sync_identity(role),
+                    email=f"{role}@sync.test",
+                    name=role,
+                )
+            )
         await db.flush()
         for name in ("first", "second", "foreign"):
             db.add(

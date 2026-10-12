@@ -1,3 +1,5 @@
+from uuid import NAMESPACE_URL, uuid5
+
 from clientbridge.core.security import hash_password
 from clientbridge.models.base import TimestampMixin
 from clientbridge.models.billing import Estimate, Invoice
@@ -8,18 +10,21 @@ from clientbridge.models.platform import Audit, Webhook
 from scripts.demo_context import DemoContext
 
 
+def placeholder_identity(email: str) -> str:
+    """Stable until the seed links the real Kratos identity, so the demo graph builds offline."""
+    return str(uuid5(NAMESPACE_URL, f"clientbridge-demo:{email}"))
+
+
 def build_identity(ctx: DemoContext) -> None:
     for user in ctx.all(User):
-        user.email_verified_at = ctx.at(-450)
         user.pin_hash = hash_password("2468")
     ctx.add(
         User(
             id="us_admin",
+            identity_id=placeholder_identity("admin@birchbarkpets.ca"),
             email="admin@birchbarkpets.ca",
             name="Alex Chen",
-            password_hash=hash_password("demo1234"),
             pin_hash=hash_password("2468"),
-            email_verified_at=ctx.at(-450),
         ),
         Staff(
             id="st_admin",
@@ -42,11 +47,10 @@ def build_identity(ctx: DemoContext) -> None:
         ),
         User(
             id="us_second_owner",
+            identity_id=placeholder_identity("owner@cedarcoast.example.test"),
             email="owner@cedarcoast.example.test",
             name="Rowan Ellis",
-            password_hash=hash_password("demo1234"),
             pin_hash=hash_password("2468"),
-            email_verified_at=ctx.at(-450),
         ),
         Staff(
             id="st_owner_second",

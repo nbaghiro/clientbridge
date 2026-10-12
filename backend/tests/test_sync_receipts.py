@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.models.business import Staff
 from clientbridge.models.platform import SyncReceipt
 from clientbridge.services.receipts import run_prune_receipts
-from tests.conftest import access_token
+from tests.conftest import FakeIdentityProvider, session_token
 from tests.test_hours import week_body
 
 URL = "/v1/hours/st_diego/week"
@@ -35,11 +35,13 @@ async def test_receipt_rechecks_membership(as_owner: httpx.AsyncClient, db: Asyn
     assert response.status_code == 403
 
 
-async def test_receipt_is_actor_bound(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_receipt_is_actor_bound(
+    as_owner: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
+) -> None:
     body = week_body()
     assert (await as_owner.post(URL, json=body)).status_code == 200
-    token = await access_token(db, "us_diego")
-    response = await as_owner.post(URL, json=body, headers={"Authorization": f"Bearer {token}"})
+    token = await session_token(identities, db, "us_diego")
+    response = await as_owner.post(URL, json=body, headers={"X-Session-Token": token})
     assert response.status_code == 409
     assert len((await db.scalars(select(SyncReceipt))).all()) == 1
 

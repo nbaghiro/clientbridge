@@ -1,25 +1,29 @@
 import { createSession } from "@clientbridge/api-client";
 import {
-    clearSavedTokens,
-    getTokens,
-    saveTokens,
-    sessionEpoch,
-    withSessionLock,
+    clearUser,
+    forgetUser,
+    getUserId,
     onSessionChanged,
-    setTokens,
-    clearTokens,
+    rememberUser,
+    sessionEpoch,
 } from "../../../apps/web/src/lib/auth";
 
-export { getTokens, setTokens, clearTokens };
+export { getUserId, rememberUser, clearUser };
 export const events = { changed: 0, signedOut: 0 };
 onSessionChanged(() => {
     events.changed++;
 });
 export const api = createSession({
     baseUrl: "/auth-test",
+    mode: "cookie",
     epoch: sessionEpoch,
-    lock: withSessionLock,
-    store: { get: () => Promise.resolve(getTokens()), set: saveTokens, clear: clearSavedTokens },
+    store: {
+        get: () => {
+            const userId = getUserId();
+            return Promise.resolve(userId ? { userId } : null);
+        },
+        clear: forgetUser,
+    },
     onSignedOut: () => {
         events.signedOut++;
     },

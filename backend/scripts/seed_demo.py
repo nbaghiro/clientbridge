@@ -19,7 +19,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base, SessionLocal, engine
-from clientbridge.core.security import hash_password, hash_token
+from clientbridge.core.errors import AppError
+from clientbridge.core.security import hash_token
+from clientbridge.integrations.kratos import get_kratos
 from clientbridge.integrations.s3 import get_file_storage
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
@@ -44,7 +46,7 @@ from scripts.demo_chronology import align_chronology, chronology_errors
 from scripts.demo_context import DEMO_VERSION, DemoContext
 from scripts.demo_engagement import build_engagement
 from scripts.demo_finance import add_finance_scenarios, prepare_finance, seed_finance
-from scripts.demo_identity import build_identity
+from scripts.demo_identity import build_identity, placeholder_identity
 from scripts.demo_scenarios import add_scenarios
 from scripts.demo_validate import validate_database, validate_graph
 
@@ -146,31 +148,28 @@ def seed_identity() -> tuple[str, str]:
     rows.append(
         User(
             id=owner_id,
+            identity_id=placeholder_identity("hannah@birchbarkpets.ca"),
             email="hannah@birchbarkpets.ca",
             name="Hannah Wong",
             phone="+12505550110",
-            password_hash=hash_password(DEMO_PASSWORD),
-            oauth={},
         )
     )
     rows.append(
         User(
             id="us_diego",
+            identity_id=placeholder_identity("diego@birchbarkpets.ca"),
             email="diego@birchbarkpets.ca",
             name="Diego Ramirez",
             phone="+12505550111",
-            password_hash=hash_password(DEMO_PASSWORD),
-            oauth={},
         )
     )
     rows.append(
         User(
             id="us_priya",
+            identity_id=placeholder_identity("priya@birchbarkpets.ca"),
             email="priya@birchbarkpets.ca",
             name="Priya Patel",
             phone="+12505550112",
-            password_hash=hash_password(DEMO_PASSWORD),
-            oauth={},
         )
     )
     rows.append(
@@ -2244,17 +2243,28 @@ async def replace_demo_rows(session: AsyncSession, ctx: DemoContext) -> None:
             condition = table.c.id.in_(business_ids)
         elif table.name == "users":
             condition = table.c.id.in_(user_ids)
-        elif table.name in {"sessions", "tokens"}:
-            condition = table.c.user_id.in_(user_ids)
         else:
             continue
         await session.execute(delete(table).where(condition))
     await session.execute(text("ALTER TABLE entries ENABLE TRIGGER entries_append_only"))
 
 
+async def link_identities(ctx: DemoContext) -> None:
+    """Every demo user signs in through Kratos with the demo password and a verified email."""
+    kratos = get_kratos()
+    try:
+        for user in ctx.all(User):
+            user.identity_id = await kratos.find_identity(
+                user.email
+            ) or await kratos.create_identity(user.email, user.name or "", DEMO_PASSWORD)
+    except AppError as exc:
+        raise SystemExit(f"Kratos is not reachable at {get_settings().auth_admin_url}") from exc
+
+
 async def main(*, reset_demo: bool = False, as_of: datetime | None = None) -> None:
     validate_seed_target(reset_demo)
     ctx = build_demo(as_of)
+    await link_identities(ctx)
     upload_demo_assets()
     # replacing demo rows pauses the ledger's append-only trigger, which only the owner may do
     owner = create_async_engine(get_settings().migration_database_url)

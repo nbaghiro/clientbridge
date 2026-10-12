@@ -172,6 +172,14 @@ msgstr "Invoice #{number} for {amount} from {business} — pay at {link}"
 msgid "invoice_sent.subject"
 msgstr "Invoice #{number} from {business}"
 
+msgid "login_code.body"
+msgid_plural "login_code.body"
+msgstr[0] "Your Clientbridge sign-in code is {code}. It expires in {count} minute. If you did not try to sign in, you can ignore this email."
+msgstr[1] "Your Clientbridge sign-in code is {code}. It expires in {count} minutes. If you did not try to sign in, you can ignore this email."
+
+msgid "login_code.subject"
+msgstr "Your Clientbridge sign-in code"
+
 msgid "online_order.body"
 msgstr "A client paid {amount} for an online order. It is waiting under Payments, Sales."
 
@@ -189,12 +197,6 @@ msgstr "Your order is ready to collect from {business}. Please contact the studi
 
 msgid "order_reminder.subject"
 msgstr "Your order is waiting at {business}"
-
-msgid "password_reset.body"
-msgstr "Reset code: {code}"
-
-msgid "password_reset.subject"
-msgstr "Reset your password"
 
 msgid "payment_failed.body"
 msgstr "Your payment of {amount} to {business} failed. Please try again."
@@ -226,6 +228,20 @@ msgstr "{tax}  {amount}"
 msgid "receipt.total"
 msgstr "Total  {amount}"
 
+msgid "recovery_code.body"
+msgid_plural "recovery_code.body"
+msgstr[0] "Your Clientbridge password reset code is {code}. It expires in {count} minute. If you did not ask to reset your password, you can ignore this email."
+msgstr[1] "Your Clientbridge password reset code is {code}. It expires in {count} minutes. If you did not ask to reset your password, you can ignore this email."
+
+msgid "recovery_code.subject"
+msgstr "Your Clientbridge password reset code"
+
+msgid "recovery_unknown.body"
+msgstr "Someone asked to reset a Clientbridge password for this address, but it is not linked to an account. If this was not you, you can ignore this email."
+
+msgid "recovery_unknown.subject"
+msgstr "Clientbridge password reset request"
+
 msgid "refund.body"
 msgstr "A refund of {amount} from {business} was issued."
 
@@ -234,6 +250,14 @@ msgstr "A refund of {amount} from {business} was issued. Credit note {credit_not
 
 msgid "refund.subject"
 msgstr "Refund from {business}"
+
+msgid "registration_code.body"
+msgid_plural "registration_code.body"
+msgstr[0] "Your Clientbridge sign-up code is {code}. It expires in {count} minute. If you did not create a Clientbridge account, you can ignore this email."
+msgstr[1] "Your Clientbridge sign-up code is {code}. It expires in {count} minutes. If you did not create a Clientbridge account, you can ignore this email."
+
+msgid "registration_code.subject"
+msgstr "Your Clientbridge sign-up code"
 
 msgid "report.unnamed_payee"
 msgstr "Unnamed payee"
@@ -370,7 +394,7 @@ msgid "staff.someone"
 msgstr "another member of the team"
 
 msgid "staff_invite.body"
-msgstr "Invite code: {code}"
+msgstr "You've been invited to join a team on Clientbridge. Accept here: {link}"
 
 msgid "staff_invite.subject"
 msgstr "You're invited to Clientbridge"
@@ -393,11 +417,22 @@ msgstr "Your subscription payment to {business} failed. Please update your payme
 msgid "subscription_past_due.subject"
 msgstr "Payment past due — {business}"
 
-msgid "verify_email.body"
-msgstr "Verify code: {code}"
+msgid "verification_code.body"
+msgid_plural "verification_code.body"
+msgstr[0] "Your Clientbridge verification code is {code}. It expires in {count} minute. If you did not create a Clientbridge account, you can ignore this email."
+msgstr[1] "Your Clientbridge verification code is {code}. It expires in {count} minutes. If you did not create a Clientbridge account, you can ignore this email."
 
-msgid "verify_email.subject"
-msgstr "Verify your email"
+msgid "verification_code.link"
+msgstr "You can also open this link: {link}"
+
+msgid "verification_code.subject"
+msgstr "Your Clientbridge verification code"
+
+msgid "verification_unknown.body"
+msgstr "Someone asked to verify this address on Clientbridge, but it is not linked to an account. If this was not you, you can ignore this email."
+
+msgid "verification_unknown.subject"
+msgstr "Clientbridge verification request"
 
 msgid "visits_reassigned.body"
 msgstr "These visits with {business} are now with {member}: {whens}."

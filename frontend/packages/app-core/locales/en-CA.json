@@ -6350,6 +6350,12 @@
     "business.onboarding.createError": {
         "message": "Couldn’t create your business — that web address may be taken."
     },
+    "business.onboarding.verifyFirst": {
+        "message": "Confirm your email address before creating your business."
+    },
+    "business.onboarding.verifyEmail": {
+        "message": "Confirm my email"
+    },
     "hours.title": {
         "message": "Hours and time off"
     },
@@ -6651,14 +6657,55 @@
         "args": ["time", "reason"],
         "description": "A shift cell noting part-day time off: the time it starts and the reason."
     },
-    "staff.inviteMissingCode": {
-        "message": "This invite link is missing its code."
-    },
-    "staff.passwordTooShort": {
-        "message": "Choose a password of at least 8 characters."
-    },
     "staff.acceptInviteError": {
-        "message": "Couldn’t accept this invite — it may be invalid or expired."
+        "message": "Couldn’t accept this invite. Check your connection and try again."
+    },
+    "staff.inviteTitle": {
+        "message": "Join your team"
+    },
+    "staff.inviteFrom": {
+        "message": "{business} invited you to Clientbridge.",
+        "args": ["business"]
+    },
+    "staff.inviteFor": {
+        "message": "This invite is for {email}.",
+        "args": ["email"]
+    },
+    "staff.inviteSignUp": {
+        "message": "Create an account"
+    },
+    "staff.inviteSignIn": {
+        "message": "I already have an account"
+    },
+    "staff.inviteJoin": {
+        "message": "Join team"
+    },
+    "staff.inviteJoining": {
+        "message": "Joining…"
+    },
+    "staff.inviteProblem.invalid": {
+        "message": "This invite link isn't valid. Ask for a new invite."
+    },
+    "staff.inviteProblem.expired": {
+        "message": "This invite has expired. Ask for a new one."
+    },
+    "staff.inviteProblem.accepted": {
+        "message": "This invite was already used."
+    },
+    "staff.inviteProblem.mismatch": {
+        "message": "You're signed in with a different email than the one invited. Sign in with the invited email, or ask for a new invite."
+    },
+    "staff.inviteProblem.unverified": {
+        "message": "Confirm your email address first, then try again."
+    },
+    "staff.inviteProblem.member": {
+        "message": "You're already on this team."
+    },
+    "staff.inviteVerify": {
+        "message": "Confirm my email"
+    },
+    "staff.inviteSignOut": {
+        "message": "Sign in with another account"
     },
     "staff.noMembers": {
         "message": "No team members yet."
@@ -6953,7 +7000,7 @@
         "args": ["name"]
     },
     "staff.team.removeBody": {
-        "message": "They are signed out on every device. Their past bookings, sales and pay records stay."
+        "message": "They lose access to this business right away. Their past bookings, sales and pay records stay."
     },
     "staff.team.removeConfirm": {
         "message": "Remove"
@@ -9815,9 +9862,6 @@
     "auth.invalidCredentials": {
         "message": "That email and password don't match. Try again or reset your password."
     },
-    "auth.createAccountError": {
-        "message": "Couldn't create that account. Try another email."
-    },
     "auth.heroHeadlineLine1": {
         "message": "The bridge between you"
     },
@@ -9896,27 +9940,6 @@
     "auth.createAnAccount": {
         "message": "Create an account"
     },
-    "auth.inviteTitle": {
-        "message": "Accept your invite"
-    },
-    "auth.inviteSubtitle": {
-        "message": "Set a password to join your team and start collaborating."
-    },
-    "auth.inviteMissingCode": {
-        "message": "This invite link is missing its code. Please use the link from your email."
-    },
-    "auth.inviteName": {
-        "message": "Your name"
-    },
-    "auth.joining": {
-        "message": "Joining…"
-    },
-    "auth.joinTeam": {
-        "message": "Join team"
-    },
-    "auth.googleNotConfigured": {
-        "message": "Google sign-in isn't set up yet. Use your email and password."
-    },
     "auth.newPassword": {
         "message": "Create a password"
     },
@@ -9933,43 +9956,113 @@
         "message": "Reset your password"
     },
     "auth.resetSubtitle": {
-        "message": "Enter the email you sign in with and we will send you a link to choose a new password."
+        "message": "Enter the email you sign in with and we'll send you a code."
     },
-    "auth.sentTitle": {
+    "auth.resetCodeTitle": {
         "message": "Check your email"
     },
-    "auth.sentBody": {
-        "message": "If an account exists for {email}, a reset link is on its way. It works for one hour.",
+    "auth.resetCodeBody": {
+        "message": "If an account exists for {email}, we sent a code. It works for 15 minutes.",
         "args": ["email"]
     },
-    "auth.sendLink": {
-        "message": "Send reset link"
+    "auth.resetPasswordTitle": {
+        "message": "Choose a new password"
+    },
+    "auth.resetPasswordSubtitle": {
+        "message": "You're signed in. Pick a password for next time."
+    },
+    "auth.sendCode": {
+        "message": "Send code"
     },
     "auth.sending": {
         "message": "Sending…"
     },
-    "auth.resend": {
-        "message": "Resend email"
+    "auth.checkCode": {
+        "message": "Continue"
+    },
+    "auth.savePassword": {
+        "message": "Save password"
+    },
+    "auth.code": {
+        "message": "Code"
+    },
+    "auth.codePlaceholder": {
+        "message": "123456"
+    },
+    "auth.resendCode": {
+        "message": "Send a new code"
     },
     "auth.resendIn": {
-        "message": "Resend in {s, number}s",
+        "message": "Send again in {s, number}s",
         "args": ["s"]
     },
     "auth.backToSignIn": {
         "message": "Back to sign in"
     },
-    "auth.openMail": {
-        "message": "Open email app"
-    },
     "auth.resetError": {
-        "message": "Couldn't send the reset email. Check your connection and try again."
+        "message": "Couldn't reset your password. Check the code and try again."
     },
-    "auth.locked": {
-        "message": "Too many attempts. Try again in 15 minutes, or reset your password."
+    "auth.resendFailed": {
+        "message": "Couldn't send a new code. Check your connection and try again."
     },
-    "auth.attemptsLeft": {
-        "message": "{n, plural, one {# attempt} other {# attempts}} left before a 15 minute pause.",
-        "args": ["n"]
+    "auth.verifyTitle": {
+        "message": "Confirm your email"
+    },
+    "auth.verifyBody": {
+        "message": "We sent a code to {email}.",
+        "args": ["email"]
+    },
+    "auth.verifyBodyAnyEmail": {
+        "message": "We sent a code to your email."
+    },
+    "auth.verifyToContinue": {
+        "message": "This email already has an account. Confirm it's yours to keep going, or sign out.",
+        "description": "The confirm-email screen when the API refuses the session until the address is verified"
+    },
+    "auth.verifyDone": {
+        "message": "Your email is confirmed."
+    },
+    "auth.verify": {
+        "message": "Confirm email"
+    },
+    "auth.skipForNow": {
+        "message": "Skip for now"
+    },
+    "auth.continue": {
+        "message": "Continue"
+    },
+    "auth.mfaTitle": {
+        "message": "Two-step verification"
+    },
+    "auth.mfaSubtitle": {
+        "message": "Confirm it's you to finish signing in."
+    },
+    "auth.mfaTotp": {
+        "message": "Code from your authenticator app"
+    },
+    "auth.mfaLookup": {
+        "message": "Backup code"
+    },
+    "auth.mfaWebauthn": {
+        "message": "Use your security key"
+    },
+    "auth.mfaKeyOnly": {
+        "message": "This account's second step is a security key, which works only in the web app. Sign in there and add an authenticator app or backup codes to use this app."
+    },
+    "auth.mfaUse.totp": {
+        "message": "Use authenticator app"
+    },
+    "auth.mfaUse.lookup_secret": {
+        "message": "Use a backup code"
+    },
+    "auth.mfaUse.webauthn": {
+        "message": "Use a security key"
+    },
+    "auth.confirm": {
+        "message": "Confirm"
+    },
+    "auth.notYou": {
+        "message": "Sign in as someone else"
     },
     "auth.emailRequired": {
         "message": "Enter your email address."
@@ -9986,8 +10079,179 @@
     "auth.nameRequired": {
         "message": "Enter your name."
     },
+    "auth.codeRequired": {
+        "message": "Enter the code."
+    },
+    "auth.flowExpired": {
+        "message": "That took a little too long. Please try again."
+    },
+    "auth.unavailable": {
+        "message": "Sign-in is unavailable right now. Check your connection and try again."
+    },
+    "auth.googleFailed": {
+        "message": "Couldn't continue with Google. Try again or use your email."
+    },
+    "auth.reauthDifferentAccount": {
+        "message": "That's a different Google account. Confirm it's you with the account you're signed in with.",
+        "description": "Re-authenticating with Google returned a session for another account"
+    },
+    "auth.errorTitle": {
+        "message": "We couldn't finish signing you in"
+    },
+    "auth.errorBody": {
+        "message": "The link may have expired or been opened twice. Go back and try again."
+    },
     "auth.terms": {
         "message": "By creating an account you agree to the Terms and Privacy Policy."
+    },
+    "auth.securityTitle": {
+        "message": "Sign-in & security"
+    },
+    "auth.securityAccount": {
+        "message": "Account"
+    },
+    "auth.securitySaveProfile": {
+        "message": "Save account"
+    },
+    "auth.securityEmailHint": {
+        "message": "Changing your email sends a code to the new address."
+    },
+    "auth.securityPassword": {
+        "message": "Password"
+    },
+    "auth.securityNewPassword": {
+        "message": "New password"
+    },
+    "auth.securityChangePassword": {
+        "message": "Change password"
+    },
+    "auth.securityTotp": {
+        "message": "Authenticator app"
+    },
+    "auth.securityTotpOn": {
+        "message": "On. You'll enter a code from your app when you sign in."
+    },
+    "auth.securityTotpSetup": {
+        "message": "Scan this with an authenticator app, then enter the code it shows."
+    },
+    "auth.securityTotpSecret": {
+        "message": "Or enter this key: {secret}",
+        "args": ["secret"]
+    },
+    "auth.securityTotpQr": {
+        "message": "Authenticator app QR code"
+    },
+    "auth.securityTurnOn": {
+        "message": "Turn on"
+    },
+    "auth.securityTurnOff": {
+        "message": "Turn off"
+    },
+    "auth.securityBackupCodes": {
+        "message": "Backup codes"
+    },
+    "auth.securityBackupCodesHint": {
+        "message": "Each code works once, if you lose your phone or security key. Keep them somewhere safe."
+    },
+    "auth.securityShowCodes": {
+        "message": "Show codes"
+    },
+    "auth.securityNewCodes": {
+        "message": "Make new codes"
+    },
+    "auth.securityConfirmCodes": {
+        "message": "I saved these codes"
+    },
+    "auth.securityKeys": {
+        "message": "Security keys and passkeys"
+    },
+    "auth.securityKeysHint": {
+        "message": "A second step that works with your fingerprint, face or a hardware key."
+    },
+    "auth.securityKeyName": {
+        "message": "Key name"
+    },
+    "auth.securityKeyNamePlaceholder": {
+        "message": "Work laptop"
+    },
+    "auth.securityAddKey": {
+        "message": "Add security key"
+    },
+    "auth.securityRemoveKey": {
+        "message": "Remove {name}",
+        "args": ["name"]
+    },
+    "auth.securityKey": {
+        "message": "Security key"
+    },
+    "auth.securityNoKeys": {
+        "message": "No security keys yet."
+    },
+    "auth.securityReauthTitle": {
+        "message": "Confirm it's you"
+    },
+    "auth.securityReauthBody": {
+        "message": "Enter your password to change sign-in settings."
+    },
+    "auth.securityReauthOnWeb": {
+        "message": "Confirm it's you in the web app to change sign-in settings."
+    },
+    "auth.providerError": {
+        "message": "Something went wrong. Please try again."
+    },
+    "auth.flowMessages.1010003": {
+        "message": "Confirm it's you to continue."
+    },
+    "auth.flowMessages.1010016": {
+        "message": "You already have an account with this email. Sign in with your password to link Google."
+    },
+    "auth.flowMessages.1050001": {
+        "message": "Saved."
+    },
+    "auth.flowMessages.1060003": {
+        "message": "If an account exists for that email, we sent a code."
+    },
+    "auth.flowMessages.1080002": {
+        "message": "Your email is confirmed."
+    },
+    "auth.flowMessages.1080003": {
+        "message": "We sent a code to your email."
+    },
+    "auth.flowMessages.4000002": {
+        "message": "This field is required."
+    },
+    "auth.flowMessages.4000003": {
+        "message": "Use at least 8 characters."
+    },
+    "auth.flowMessages.4000005": {
+        "message": "Choose a stronger password."
+    },
+    "auth.flowMessages.4000031": {
+        "message": "Choose a password that isn't similar to your email."
+    },
+    "auth.flowMessages.4000032": {
+        "message": "Use at least 8 characters."
+    },
+    "auth.flowMessages.4000033": {
+        "message": "That password is too long."
+    },
+    "auth.flowMessages.4000006": {
+        "message": "That email and password don't match. Try again or reset your password."
+    },
+    "auth.flowMessages.4000007": {
+        "message": "An account with this email already exists. Sign in instead."
+    },
+    "auth.flowMessages.4000008": {
+        "message": "That code isn't right. Check it and try again."
+    },
+    "auth.flowMessages.4000034": {
+        "message": "That password has appeared in a data breach. Choose a different one."
+    },
+    "auth.flowMessages.4060006": {
+        "message": "That code isn't right or has expired. Request a new one."
+    },
+    "auth.flowMessages.4070006": {
+        "message": "That code isn't right or has expired. Request a new one."
     },
     "publicReceipt.notFoundTitle": {
         "message": "This receipt isn't available"
@@ -11720,6 +11984,9 @@
     },
     "navigation.setupSections.reminders": {
         "message": "Reminders"
+    },
+    "navigation.setupSections.security": {
+        "message": "Sign-in & security"
     },
     "navigation.inboxSegments.messages": {
         "message": "Messages"

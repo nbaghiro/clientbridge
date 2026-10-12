@@ -1,18 +1,24 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Depends, Header
 
 from clientbridge.core.deps import (
     CurrentPrincipal,
+    CurrentUser,
     DbSession,
     EmailDep,
+    FreshIdentity,
     GatewayDep,
     PushDep,
     SmsDep,
 )
+from clientbridge.core.ratelimit import public_invite_rate_limit
 from clientbridge.schemas.staff import (
+    AcceptInviteOut,
     InviteBody,
     InviteOut,
+    InvitePreviewOut,
+    InviteTokenBody,
     RoleUpdate,
     StaffPayOut,
     StaffPayUpdate,
@@ -41,6 +47,22 @@ async def create_invite(
         role=body.role,
         idempotency_key=idempotency_key,
     )
+
+
+@router.post(
+    "/invites/preview",
+    response_model=InvitePreviewOut,
+    dependencies=[Depends(public_invite_rate_limit)],
+)
+async def preview_invite(body: InviteTokenBody, db: DbSession) -> InvitePreviewOut:
+    return await StaffService(db).preview_invite(body.token)
+
+
+@router.post("/invites/accept", response_model=AcceptInviteOut)
+async def accept_invite(
+    body: InviteTokenBody, user: CurrentUser, identity: FreshIdentity, db: DbSession
+) -> AcceptInviteOut:
+    return await StaffService(db).accept_invite(user, identity, body.token)
 
 
 @router.patch("/{staff_id}/pay", response_model=StaffPayOut)

@@ -4,7 +4,6 @@ import time
 import httpx
 import jwt
 import pytest
-from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
@@ -29,7 +28,6 @@ def test_production_signing_requires_durable_configuration(field: str) -> None:
         Settings(
             env="prod",
             jwt_secret="private-test-secret",
-            refresh_replay_key=Fernet.generate_key().decode(),
             stripe_webhook_secret="test-webhook",
             powersync_use_rs256=field != "powersync_use_rs256",
             powersync_private_key_pem="" if field == "powersync_private_key_pem" else pem,

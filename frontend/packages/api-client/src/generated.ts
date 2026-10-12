@@ -21,159 +21,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/register": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Register */
-        post: operations["register_auth_register_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Login */
-        post: operations["login_auth_login_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/refresh": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Refresh */
-        post: operations["refresh_auth_refresh_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Logout */
-        post: operations["logout_auth_logout_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/accept-invite": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Accept Invite */
-        post: operations["accept_invite_auth_accept_invite_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/forgot-password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Forgot Password */
-        post: operations["forgot_password_auth_forgot_password_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/reset-password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Reset Password */
-        post: operations["reset_password_auth_reset_password_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/verify-email": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Verify Email */
-        post: operations["verify_email_auth_verify_email_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/oauth/google": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Oauth Google */
-        post: operations["oauth_google_auth_oauth_google_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/sync/token": {
         parameters: {
             query?: never;
@@ -256,6 +103,23 @@ export interface paths {
         put?: never;
         /** Sms Webhook */
         post: operations["sms_webhook_webhooks_sms_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks/auth-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Auth Email Webhook */
+        post: operations["auth_email_webhook_webhooks_auth_email_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -922,6 +786,23 @@ export interface paths {
         put?: never;
         /** Public Unsubscribe */
         post: operations["public_unsubscribe_prefs__token__unsubscribe_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Me */
+        get: operations["me_v1_me_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2326,6 +2207,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/staff/invites/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Invite */
+        post: operations["preview_invite_v1_staff_invites_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/staff/invites/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept Invite */
+        post: operations["accept_invite_v1_staff_invites_accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/staff/{staff_id}/pay": {
         parameters: {
             query?: never;
@@ -2997,14 +2912,12 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** AcceptInviteBody */
-        AcceptInviteBody: {
-            /** Token */
-            token: string;
-            /** Name */
-            name?: string | null;
-            /** Password */
-            password: string;
+        /** AcceptInviteOut */
+        AcceptInviteOut: {
+            /** Business Id */
+            business_id: string;
+            /** Staff Id */
+            staff_id: string;
         };
         /** AddonOffer */
         AddonOffer: {
@@ -3024,6 +2937,25 @@ export interface components {
         AddonOffersPatch: {
             /** Offers */
             offers: components["schemas"]["AddonOffer"][];
+        };
+        /**
+         * AuthEmailIn
+         * @description One message from the Kratos courier, shaped by infra/kratos/courier.jsonnet.
+         */
+        AuthEmailIn: {
+            /**
+             * Template Type
+             * @enum {string}
+             */
+            template_type: "verification_code_valid" | "verification_code_invalid" | "recovery_code_valid" | "recovery_code_invalid" | "login_code_valid" | "registration_code_valid";
+            /** To */
+            to: string;
+            /** Code */
+            code?: string | null;
+            /** Expires In Minutes */
+            expires_in_minutes?: number | null;
+            /** Link */
+            link?: string | null;
         };
         /**
          * BookingCheck
@@ -4037,11 +3969,6 @@ export interface components {
             name: string;
             attributes?: components["schemas"]["SubjectAttributes"];
         };
-        /** ForgotPasswordBody */
-        ForgotPasswordBody: {
-            /** Email */
-            email: string;
-        };
         /** FormFieldIn */
         FormFieldIn: {
             /**
@@ -4359,6 +4286,31 @@ export interface components {
              * @description Raw invite token, returned once and also emailed
              */
             invite_token: string;
+        };
+        /** InvitePreviewOut */
+        InvitePreviewOut: {
+            /** Business Name */
+            business_name: string;
+            /** Email */
+            email: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "owner" | "admin" | "staff" | "contractor";
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+        };
+        /**
+         * InviteTokenBody
+         * @description The invite token travels in a body, never a URL that logs or referrers could keep.
+         */
+        InviteTokenBody: {
+            /** Token */
+            token: string;
         };
         /** InvoiceCreate */
         InvoiceCreate: {
@@ -4904,18 +4856,6 @@ export interface components {
              */
             sale_discount_cents: number;
         };
-        /** LoginBody */
-        LoginBody: {
-            /** Email */
-            email: string;
-            /** Password */
-            password: string;
-        };
-        /** LogoutBody */
-        LogoutBody: {
-            /** Refresh Token */
-            refresh_token: string;
-        };
         /** ManageCancelResult */
         ManageCancelResult: {
             /**
@@ -5024,6 +4964,19 @@ export interface components {
              */
             blocked_hours?: number | null;
         };
+        /** MeOut */
+        MeOut: {
+            /** User Id */
+            user_id: string;
+            /** Email */
+            email: string;
+            /** Name */
+            name: string | null;
+            /** Email Verified */
+            email_verified: boolean;
+            /** Aal */
+            aal: string;
+        };
         /** MessageOut */
         MessageOut: {
             /** Id */
@@ -5126,11 +5079,6 @@ export interface components {
             body?: string | null;
             /** Pinned */
             pinned?: boolean | null;
-        };
-        /** OAuthGoogleBody */
-        OAuthGoogleBody: {
-            /** Id Token */
-            id_token: string;
         };
         /** OnboardBody */
         OnboardBody: {
@@ -6869,16 +6817,6 @@ export interface components {
             /** Occurrences */
             occurrences: components["schemas"]["RecurrenceOccurrence"][];
         };
-        /** RefreshBody */
-        RefreshBody: {
-            /** Refresh Token */
-            refresh_token: string;
-            /**
-             * Attempt Id
-             * Format: uuid
-             */
-            attempt_id: string;
-        };
         /** RefundIn */
         RefundIn: {
             /**
@@ -6958,15 +6896,6 @@ export interface components {
             next_credit_note: string;
             /** Parts */
             parts: components["schemas"]["RefundPart"][];
-        };
-        /** RegisterBody */
-        RegisterBody: {
-            /** Email */
-            email: string;
-            /** Password */
-            password: string;
-            /** Name */
-            name?: string | null;
         };
         /**
          * ReminderPreview
@@ -7105,13 +7034,6 @@ export interface components {
             payouts: components["schemas"]["PayoutRow"][];
             /** Rates */
             rates: components["schemas"]["ReportRate"][];
-        };
-        /** ResetPasswordBody */
-        ResetPasswordBody: {
-            /** Token */
-            token: string;
-            /** New Password */
-            new_password: string;
         };
         /** RestockIn */
         RestockIn: {
@@ -7644,7 +7566,7 @@ export interface components {
             status: "active" | "invited" | "removed";
             /**
              * Last Active At
-             * @description When the member last signed in or refreshed a session
+             * @description When the member was last seen using the app (to within five minutes)
              */
             last_active_at: string | null;
             /** Invited At */
@@ -7729,18 +7651,6 @@ export interface components {
             /** Cents */
             cents: number;
         };
-        /** TokenPair */
-        TokenPair: {
-            /** Access Token */
-            access_token: string;
-            /** Refresh Token */
-            refresh_token: string;
-            /**
-             * Token Type
-             * @default bearer
-             */
-            token_type: string;
-        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -7753,11 +7663,6 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
-        };
-        /** VerifyEmailBody */
-        VerifyEmailBody: {
-            /** Token */
-            token: string;
         };
         /** VisitOut */
         VisitOut: {
@@ -7867,304 +7772,12 @@ export interface operations {
             };
         };
     };
-    register_auth_register_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RegisterBody"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TokenPair"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    login_auth_login_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LoginBody"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TokenPair"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    refresh_auth_refresh_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RefreshBody"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TokenPair"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    logout_auth_logout_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LogoutBody"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    accept_invite_auth_accept_invite_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AcceptInviteBody"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TokenPair"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    forgot_password_auth_forgot_password_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ForgotPasswordBody"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    reset_password_auth_reset_password_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ResetPasswordBody"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    verify_email_auth_verify_email_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VerifyEmailBody"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    oauth_google_auth_oauth_google_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OAuthGoogleBody"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TokenPair"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     sync_token_sync_token_get: {
         parameters: {
             query?: never;
             header?: {
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -8293,6 +7906,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    auth_email_webhook_webhooks_auth_email_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Webhook-Secret"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthEmailIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -9707,12 +9355,45 @@ export interface operations {
             };
         };
     };
+    me_v1_me_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_client_v1_clients_post: {
         parameters: {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -9749,7 +9430,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -9786,7 +9468,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -9822,7 +9505,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 client_id: string;
@@ -9861,7 +9545,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 client_id: string;
@@ -9896,7 +9581,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 client_id: string;
@@ -9931,7 +9617,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 client_id: string;
@@ -9969,7 +9656,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -10005,7 +9693,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 subject_id: string;
@@ -10037,7 +9726,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 subject_id: string;
@@ -10075,7 +9765,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -10111,7 +9802,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 note_id: string;
@@ -10143,7 +9835,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 note_id: string;
@@ -10181,7 +9874,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -10213,7 +9907,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -10249,7 +9944,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -10286,7 +9982,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -10322,7 +10019,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 item_id: string;
@@ -10361,7 +10059,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 item_id: string;
@@ -10400,7 +10099,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -10436,7 +10136,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 booking_id: string;
@@ -10474,7 +10175,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 booking_id: string;
@@ -10517,7 +10219,8 @@ export interface operations {
             };
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -10549,7 +10252,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 booking_id: string;
@@ -10583,7 +10287,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 booking_id: string;
@@ -10620,7 +10325,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 booking_id: string;
@@ -10654,7 +10360,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 booking_id: string;
@@ -10690,7 +10397,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -10726,7 +10434,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 recurrence_id: string;
@@ -10764,7 +10473,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 recurrence_id: string;
@@ -10803,7 +10513,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -10839,7 +10550,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 hours_id: string;
@@ -10873,7 +10585,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 slot_id: string;
@@ -10911,7 +10624,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 slot_id: string;
@@ -10950,7 +10664,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 slot_id: string;
@@ -10988,7 +10703,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -11020,7 +10736,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -11056,7 +10773,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -11093,7 +10811,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -11130,7 +10849,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 booking_id: string;
@@ -11164,7 +10884,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 invoice_id: string;
@@ -11202,7 +10923,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 invoice_id: string;
@@ -11236,7 +10958,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 invoice_id: string;
@@ -11271,7 +10994,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 invoice_id: string;
@@ -11310,7 +11034,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 invoice_id: string;
@@ -11349,7 +11074,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -11386,7 +11112,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -11423,7 +11150,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -11459,7 +11187,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 estimate_id: string;
@@ -11497,7 +11226,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 estimate_id: string;
@@ -11531,7 +11261,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 estimate_id: string;
@@ -11565,7 +11296,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 estimate_id: string;
@@ -11604,7 +11336,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 estimate_id: string;
@@ -11639,7 +11372,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -11671,7 +11405,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -11707,7 +11442,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -11740,7 +11476,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 client_id: string;
@@ -11775,7 +11512,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 client_id: string;
@@ -11809,7 +11547,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 client_id: string;
@@ -11843,7 +11582,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 link_id: string;
@@ -11875,7 +11615,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 payment_method_id: string;
@@ -11909,7 +11650,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 payment_method_id: string;
@@ -11944,7 +11686,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 payment_id: string;
@@ -11984,7 +11727,8 @@ export interface operations {
             };
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 payment_id: string;
@@ -12018,7 +11762,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -12051,7 +11796,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -12087,7 +11833,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -12120,7 +11867,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -12156,7 +11904,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 order_id: string;
@@ -12195,7 +11944,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 order_id: string;
@@ -12234,7 +11984,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 order_id: string;
@@ -12272,7 +12023,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 order_id: string;
@@ -12310,7 +12062,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -12345,7 +12098,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 order_id: string;
@@ -12383,7 +12137,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 order_id: string;
@@ -12417,7 +12172,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 order_id: string;
@@ -12455,7 +12211,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -12488,7 +12245,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -12525,7 +12283,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -12562,7 +12321,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -12599,7 +12359,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 package_id: string;
@@ -12634,7 +12395,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -12671,7 +12433,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 subscription_id: string;
@@ -12705,7 +12468,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -12736,7 +12500,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -12773,7 +12538,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -12804,12 +12570,82 @@ export interface operations {
             };
         };
     };
+    preview_invite_v1_staff_invites_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteTokenBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitePreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_invite_v1_staff_invites_accept_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteTokenBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptInviteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_pay_v1_staff__staff_id__pay_patch: {
         parameters: {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 staff_id: string;
@@ -12847,7 +12683,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -12879,7 +12716,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 invite_id: string;
@@ -12913,7 +12751,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 invite_id: string;
@@ -12945,7 +12784,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 staff_id: string;
@@ -12982,7 +12822,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 staff_id: string;
@@ -13020,7 +12861,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 staff_id: string;
@@ -13054,7 +12896,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 staff_id: string;
@@ -13092,7 +12935,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -13124,7 +12968,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -13160,7 +13005,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -13199,7 +13045,8 @@ export interface operations {
             };
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -13234,7 +13081,8 @@ export interface operations {
             };
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -13269,7 +13117,8 @@ export interface operations {
             };
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -13303,7 +13152,8 @@ export interface operations {
             };
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -13338,7 +13188,8 @@ export interface operations {
             };
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -13373,7 +13224,8 @@ export interface operations {
             };
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -13408,7 +13260,8 @@ export interface operations {
             };
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -13443,7 +13296,8 @@ export interface operations {
             };
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -13475,7 +13329,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -13512,7 +13367,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -13548,7 +13404,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 review_id: string;
@@ -13586,7 +13443,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 review_id: string;
@@ -13620,7 +13478,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 review_id: string;
@@ -13654,7 +13513,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 review_id: string;
@@ -13689,7 +13549,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -13726,7 +13587,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -13762,7 +13624,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 broadcast_id: string;
@@ -13796,7 +13659,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 thread_id: string;
@@ -13834,7 +13698,8 @@ export interface operations {
             };
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 thread_id: string;
@@ -13869,7 +13734,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -13906,7 +13772,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -13942,7 +13809,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 form_id: string;
@@ -13981,7 +13849,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -14018,7 +13887,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -14055,7 +13925,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 contract_id: string;
@@ -14094,7 +13965,8 @@ export interface operations {
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 signature_id: string;
@@ -14128,7 +14000,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path?: never;
             cookie?: never;
@@ -14164,7 +14037,8 @@ export interface operations {
             query?: never;
             header?: {
                 "x-business-id"?: string;
-                authorization?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
             };
             path: {
                 file_id: string;

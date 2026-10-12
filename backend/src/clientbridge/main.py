@@ -1,8 +1,6 @@
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
 
-from clientbridge.api import auth as auth_api
 from clientbridge.api.public import (
     booking_router,
     contract_router,
@@ -21,6 +19,7 @@ from clientbridge.api.returning import router as returning_router
 from clientbridge.api.router import api_router
 from clientbridge.api.webhooks import router as webhooks_router
 from clientbridge.core.config import get_settings
+from clientbridge.core.cors import SplitCors
 from clientbridge.core.errors import (
     AppError,
     UnhandledErrors,
@@ -40,21 +39,12 @@ def create_app() -> FastAPI:
 
     app.add_middleware(UploadSizeLimit)
 
-    # Dev allows any localhost origin; prod allows the configured ones, including Connect.
-    extra_origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=extra_origins,
-        allow_origin_regex=r"http://localhost:\d+" if settings.env == "dev" else None,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    app.add_middleware(SplitCors, settings=settings)
 
     @app.get("/health")
     async def health() -> dict[str, object]:
         return {"status": "ok", "env": settings.env}
 
-    app.include_router(auth_api.router)
     app.include_router(sync_router)
     # Public surfaces: unauthenticated, checked by signature, token or slug instead.
     app.include_router(webhooks_router)

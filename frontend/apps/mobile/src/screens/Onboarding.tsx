@@ -1,4 +1,10 @@
-import { PROVINCES, strings, taxSummary, useOnboardingForm } from "@clientbridge/app-core";
+import {
+    PROVINCES,
+    strings,
+    taxSummary,
+    useOnboardingForm,
+    useVerificationForm,
+} from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
@@ -6,9 +12,35 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } fr
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button, Choice, Field, Lockup, Logo, Notice, TextField } from "@clientbridge/ui";
 
-import { api } from "../lib/api";
+import { api, identity } from "../lib/api";
 
 const c = theme.colors;
+const a = strings.auth;
+
+/** Onboarding needs a confirmed email; this sends a code to the account's address. */
+function VerifyEmail() {
+    const v = useVerificationForm(identity, {});
+    if (v.verified) return <Notice tone="success">{a.verifyDone}</Notice>;
+    return (
+        <View style={styles.verify}>
+            <TextField
+                label={a.code}
+                value={v.code}
+                onChange={v.setCode}
+                onSubmit={v.submit}
+                placeholder={a.codePlaceholder}
+                autoComplete="one-time-code"
+            />
+            {v.error !== null ? <Notice tone="danger">{v.error}</Notice> : null}
+            <Button variant="outline" full onPress={v.submit} busy={v.busy}>
+                {a.verify}
+            </Button>
+            <Button variant="link" onPress={v.resend} disabled={v.cooldown > 0}>
+                {v.cooldown > 0 ? a.resendIn(v.cooldown) : a.resendCode}
+            </Button>
+        </View>
+    );
+}
 
 export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
     const [submitted, setSubmitted] = useState(false);
@@ -87,6 +119,7 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                     </View>
 
                     {form.error ? <Notice tone="danger">{form.error}</Notice> : null}
+                    {form.needsVerification ? <VerifyEmail /> : null}
 
                     <View style={styles.submitGap}>
                         <Button size="lg" full onPress={form.submit} busy={form.busy}>
@@ -106,6 +139,7 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
 }
 
 const styles = StyleSheet.create({
+    verify: { gap: 10, marginTop: 12 },
     screen: { flex: 1, backgroundColor: c.bg },
     fill: { flex: 1 },
     center: { alignItems: "center", justifyContent: "center", gap: 14 },

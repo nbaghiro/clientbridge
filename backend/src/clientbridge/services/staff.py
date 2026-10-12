@@ -4,34 +4,37 @@ import secrets
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select, update
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role, is_manager
+from clientbridge.core.emails import normalize_email
 from clientbridge.core.errors import (
+    AppError,
     Conflict,
     Forbidden,
     NotFound,
-    Unauthorized,
     Unprocessable,
 )
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for
 from clientbridge.core.scoping import scoped, scoped_update
-from clientbridge.core.security import hash_token, verify_password
+from clientbridge.core.security import hash_token
+from clientbridge.integrations.kratos import Identity
 from clientbridge.integrations.postmark import Email, EmailSender
 from clientbridge.integrations.stripe import PaymentGateway
-from clientbridge.models.auth import AuthSession
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Addon, Booking, Recurrence, Slot
 from clientbridge.schemas.bookings import BookingCheck
 from clientbridge.schemas.staff import (
+    AcceptInviteOut,
     FutureVisit,
     FutureWork,
     InviteOut,
+    InvitePreviewOut,
     LeftVisit,
     MemberRole,
     RoleUpdate,
@@ -42,7 +45,6 @@ from clientbridge.schemas.staff import (
     TeamMember,
     TeamOut,
 )
-from clientbridge.services.auth import build_user
 from clientbridge.services.bookings import (
     clash,
     lock_bookings,
@@ -52,7 +54,7 @@ from clientbridge.services.bookings import (
 )
 from clientbridge.services.business import load_staff
 from clientbridge.services.catalog import load_item
-from clientbridge.services.notifications import staff_invite
+from clientbridge.services.notifications import invite_link, staff_invite
 from clientbridge.services.payments import cancel_open_deposits, refund_deposit
 
 INVITE_TTL = timedelta(days=7)
@@ -147,45 +149,63 @@ class StaffService:
             request={"email": email, "role": role},
         )
 
-    async def accept_invite(self, *, token: str, name: str | None, password: str) -> User:
+    async def _pending(self, token: str) -> Staff:
         staff = (
             await self.db.execute(select(Staff).where(Staff.invite_token == hash_token(token)))
         ).scalar_one_or_none()
         if staff is None:
-            raise Unauthorized("invalid invite")
+            raise NotFound("this invite link isn't valid", code="invite_invalid")
         if staff.status != "invited":
-            raise Conflict("invite already accepted")
+            raise Conflict("invite already accepted", code="invite_accepted")
         if (staff.invited_at or staff.created_at) + INVITE_TTL < datetime.now(UTC):
-            raise Unauthorized("invite expired")
+            raise AppError("this invite has expired", code="invite_expired", status_code=410)
+        return staff
 
-        user = None
-        if staff.invite_email:
-            user = (
-                await self.db.execute(select(User).where(User.email == staff.invite_email))
-            ).scalar_one_or_none()
-        if user is None:
-            user = build_user(email=staff.invite_email or "", password=password, name=name)
-            self.db.add(user)
-            await self.db.flush()
-        elif user.password_hash is None or not verify_password(password, user.password_hash):
-            # The token alone must not sign in an existing account; the inviter can see it.
-            raise Unauthorized("enter your existing account password to accept this invite")
-        staff.user_id = user.id
-        staff.name = user.name
-        staff.status = "active"
+    async def preview_invite(self, token: str) -> InvitePreviewOut:
+        staff = await self._pending(token)
+        business = await self.db.get(Business, staff.business_id)
+        return InvitePreviewOut(
+            business_name=business.name if business else "",
+            email=staff.invite_email or "",
+            role=staff.role,
+            expires_at=(staff.invited_at or staff.created_at) + INVITE_TTL,
+        )
+
+    async def accept_invite(self, user: User, identity: Identity, token: str) -> AcceptInviteOut:
+        """The signed-in user joins the team, if the invited address is one they have verified."""
+        staff = await self._pending(token)
+        invited = normalize_email(staff.invite_email or "")
+        if invited not in identity.verified_emails:
+            if invited == normalize_email(identity.email):
+                raise Forbidden("verify your email address first", code="email_unverified")
+            raise Forbidden(
+                "this invite was sent to a different email address", code="invite_email_mismatch"
+            )
+        member = (
+            await self.db.execute(scoped(Staff, staff.business_id).where(Staff.user_id == user.id))
+        ).scalar_one_or_none()
+        if member is not None and member.status == "active":
+            raise Conflict("you're already on this team", code="already_member")
+        if member is not None:
+            member.role, member.status = staff.role, "active"
+            await self.db.delete(staff)
+        else:
+            staff.user_id, staff.status = user.id, "active"
+            member = staff
+        member.name = member.name or user.name
         # principal-less surface — the invitee becomes one only here, so record the audit directly.
         self.db.add(
             Audit(
                 id=new_id("audit"),
-                business_id=staff.business_id,
+                business_id=member.business_id,
                 performed_by=user.id,
                 action="staff.accept",
                 entity_type="staff",
-                entity_id=staff.id,
+                entity_id=member.id,
             )
         )
         await self.db.commit()
-        return user
+        return AcceptInviteOut(business_id=member.business_id, staff_id=member.id)
 
     async def team(self, principal: Principal) -> TeamOut:
         """Everyone on the team with their sign-in email and last activity, then pending invites."""
@@ -204,12 +224,6 @@ class StaffService:
             u.id: u
             for u in (await self.db.execute(select(User).where(User.id.in_(user_ids)))).scalars()
         }
-        sessions = await self.db.execute(
-            select(AuthSession.user_id, func.max(AuthSession.created_at))
-            .where(AuthSession.user_id.in_(user_ids))
-            .group_by(AuthSession.user_id)
-        )
-        last = {user_id: at for user_id, at in sessions.all()}
         managers = is_manager(principal.role)
 
         def out(s: Staff) -> TeamMember:
@@ -222,7 +236,7 @@ class StaffService:
                 email=(user.email if user else s.invite_email) if managers else None,
                 role=s.role,
                 status=s.status,
-                last_active_at=last.get(s.user_id or "") if managers else None,
+                last_active_at=user.last_seen_at if user and managers else None,
                 invited_at=sent if s.status == "invited" else None,
                 invited_by_name=inviter.name if inviter else None,
                 expires_at=sent + INVITE_TTL if s.status == "invited" else None,
@@ -235,7 +249,7 @@ class StaffService:
 
     async def _invite_email(self, principal: Principal, code: str) -> tuple[str, str]:
         business = await self.db.get(Business, principal.business_id)
-        return staff_invite(locale_for(business=business), code)
+        return staff_invite(locale_for(business=business), invite_link(code))
 
     async def _invite(self, principal: Principal, invite_id: str) -> Staff:
         row = (
@@ -329,7 +343,7 @@ class StaffService:
         gateway: PaymentGateway,
         idempotency_key: str | None = None,
     ) -> tuple[StaffRemoveOut, bool]:
-        """Sign the member out and settle their future work; True when this call did the work."""
+        """Settle the member's future work, keeping their session; True if this call did it."""
         assert_role(principal, "owner", "admin", message="only an owner or admin can change roles")
         biz = principal.business_id
         ran: list[bool] = []
@@ -403,12 +417,6 @@ class StaffService:
                     taken.setdefault(slot.recurrence_id, []).append(taker)
             await self._settle_series(biz, series, data, taken, out)
             member.status = "removed"
-            if member.user_id is not None:
-                await self.db.execute(
-                    update(AuthSession)
-                    .where(AuthSession.user_id == member.user_id, AuthSession.revoked_at.is_(None))
-                    .values(revoked_at=datetime.now(UTC))
-                )
             await self.db.flush()
             cmd.record(
                 "staff.remove",

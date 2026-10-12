@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.deps import Principal, assert_role
-from clientbridge.core.errors import Conflict, NotFound, Unprocessable
+from clientbridge.core.errors import Conflict, Forbidden, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.core.zones import SUPPORTED_ZONES, zone
@@ -225,7 +225,9 @@ class OnboardingService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def onboard(self, user_id: str, data: OnboardBody) -> Business:
+    async def onboard(self, user_id: str, data: OnboardBody, *, email_verified: bool) -> Business:
+        if not email_verified:
+            raise Forbidden("verify your email address first", code="email_unverified")
         existing = (
             await self.db.execute(select(Business).where(Business.slug == data.slug))
         ).scalar_one_or_none()

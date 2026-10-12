@@ -3,6 +3,7 @@
 import json
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
+from uuid import uuid4
 
 import httpx
 import pytest
@@ -10,20 +11,30 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import engine, get_session
-from clientbridge.core.deps import get_interac_secret, get_twilio_auth_token
+from clientbridge.core.deps import (
+    get_auth_email_secret,
+    get_interac_secret,
+    get_twilio_auth_token,
+)
+from clientbridge.core.emails import normalize_email
 from clientbridge.core.errors import CardDeclined, Conflict, PaymentActionRequired, Unauthorized
 from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import (
     public_booking_rate_limit,
     public_contract_rate_limit,
     public_form_rate_limit,
+    public_invite_rate_limit,
     public_pay_rate_limit,
     public_prefs_rate_limit,
     public_review_rate_limit,
 )
-from clientbridge.core.security import hash_password
 from clientbridge.integrations.expo import Push, get_push_sender
-from clientbridge.integrations.google import OAuthProfile, get_oauth_verifier
+from clientbridge.integrations.kratos import (
+    Credential,
+    Identity,
+    get_identity_provider,
+    unavailable,
+)
 from clientbridge.integrations.postmark import Email, EmailSender, get_email_sender
 from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.integrations.stripe import (
@@ -166,16 +177,70 @@ def storage() -> FakeFileStorage:
     return FakeFileStorage()
 
 
-class FakeOAuthVerifier:
-    async def verify_google(self, id_token: str) -> OAuthProfile:
-        if id_token == "invalid":
-            raise Unauthorized("invalid google token")
-        return OAuthProfile(
-            email=id_token,
-            email_verified="unverified" not in id_token,
-            name="OAuth User",
-            sub=f"google-{id_token}",
-        )
+class FakeIdentityProvider:
+    """Kratos at the boundary: sessions are opaque strings mapped to identities."""
+
+    def __init__(self) -> None:
+        self.sessions: dict[str, Identity] = {}
+        # What a cached (non-fresh) read still returns for a session, as Kratos's old answer.
+        self.cached: dict[str, Identity] = {}
+        self.step_up: set[str] = set()
+        self.deleted: set[str] = set()
+        self.fresh_reads = 0
+        self.down = False
+
+    def issue(self, identity: Identity) -> str:
+        credential = f"test-{uuid4().hex}"
+        self.sessions[credential] = identity
+        return credential
+
+    async def whoami(self, credential: Credential, *, fresh: bool = False) -> Identity:
+        if self.down:
+            raise unavailable()
+        self.fresh_reads += fresh
+        key = credential.session_token or credential.cookie
+        if key in self.step_up:
+            raise Unauthorized("second factor required", code="aal2_required")
+        identity = self.sessions.get(key) if fresh else self.cached.get(key, self.sessions.get(key))
+        if identity is None:
+            raise Unauthorized("session expired", code="unauthenticated")
+        return identity
+
+    async def identity_exists(self, identity_id: str) -> bool:
+        if self.down:
+            raise unavailable()
+        return identity_id not in self.deleted
+
+    def end_sessions(self, identity_id: str) -> None:
+        """What Kratos does after a password reset: every session of the identity stops working."""
+        self.sessions = {k: v for k, v in self.sessions.items() if v.id != identity_id}
+
+
+@pytest.fixture
+def identities() -> FakeIdentityProvider:
+    return FakeIdentityProvider()
+
+
+def identity_for(
+    user: User, *, email: str | None = None, verified: bool = True, aal: str = "aal1"
+) -> Identity:
+    address = email or user.email
+    return Identity(
+        id=user.identity_id,
+        email=address,
+        verified_emails=frozenset({normalize_email(address)}) if verified else frozenset(),
+        name=user.name,
+        session_id=f"ses-{uuid4().hex}",
+        aal=aal,
+    )
+
+
+async def session_token(
+    identities: FakeIdentityProvider, db: AsyncSession, user_id: str, *, verified: bool = True
+) -> str:
+    user = await db.get(User, user_id)
+    assert user is not None
+    return identities.issue(identity_for(user, verified=verified))
 
 
 class FakePaymentGateway:
@@ -437,6 +502,7 @@ async def api(
     sms: FakeSmsSender,
     push: FakePushSender,
     storage: FakeFileStorage,
+    identities: FakeIdentityProvider,
 ) -> AsyncIterator[httpx.AsyncClient]:
     async def _session() -> AsyncIterator[AsyncSession]:
         yield db
@@ -452,42 +518,42 @@ async def api(
 
     app.dependency_overrides[get_session] = _session
     app.dependency_overrides[get_email_sender] = _email
-    app.dependency_overrides[get_oauth_verifier] = FakeOAuthVerifier
+    app.dependency_overrides[get_identity_provider] = lambda: identities
     app.dependency_overrides[get_payment_gateway] = _gateway
     app.dependency_overrides[get_sms_sender] = lambda: sms
     app.dependency_overrides[get_push_sender] = lambda: push
     app.dependency_overrides[get_file_storage] = _storage
     app.dependency_overrides[get_interac_secret] = lambda: "testsecret"
     app.dependency_overrides[get_twilio_auth_token] = lambda: "testtoken"
+    app.dependency_overrides[get_auth_email_secret] = lambda: "testsecret"
     app.dependency_overrides[public_pay_rate_limit] = lambda: None  # no throttling under test
     app.dependency_overrides[public_review_rate_limit] = lambda: None
     app.dependency_overrides[public_form_rate_limit] = lambda: None
     app.dependency_overrides[public_contract_rate_limit] = lambda: None
     app.dependency_overrides[public_booking_rate_limit] = lambda: None
     app.dependency_overrides[public_prefs_rate_limit] = lambda: None
+    app.dependency_overrides[public_invite_rate_limit] = lambda: None
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
     app.dependency_overrides.clear()
 
 
-async def access_token(db: AsyncSession, user_id: str) -> str:
-    from clientbridge.services.auth import AuthService
-
-    return (await AuthService(db).issue_session(user_id)).access_token
-
-
 @pytest.fixture
-async def as_owner(api: httpx.AsyncClient, db: AsyncSession) -> httpx.AsyncClient:
-    token = await access_token(db, OWNER_USER)
-    api.headers.update({"Authorization": f"Bearer {token}", "X-Business-Id": BIZ})
+async def as_owner(
+    api: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
+) -> httpx.AsyncClient:
+    token = await session_token(identities, db, OWNER_USER)
+    api.headers.update({"X-Session-Token": token, "X-Business-Id": BIZ})
     return api
 
 
 @pytest.fixture
-async def as_staff(api: httpx.AsyncClient, db: AsyncSession) -> httpx.AsyncClient:
-    token = await access_token(db, STAFF_USER)
-    api.headers.update({"Authorization": f"Bearer {token}"})
+async def as_staff(
+    api: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
+) -> httpx.AsyncClient:
+    token = await session_token(identities, db, STAFF_USER)
+    api.headers.update({"X-Session-Token": token})
     return api
 
 
@@ -512,13 +578,12 @@ class Factory:
         await self.db.flush()
         return biz
 
-    async def user(self, *, email: str | None = None, password: str | None = None) -> User:
+    async def user(self, *, email: str | None = None) -> User:
         user = User(
             id=new_id("user"),
+            identity_id=str(uuid4()),
             email=email or f"u-{new_id('user')[3:13].lower()}@test.ca",
             name="Test User",
-            password_hash=hash_password(password) if password else None,
-            oauth={},
         )
         self.db.add(user)
         await self.db.flush()

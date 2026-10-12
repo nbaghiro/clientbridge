@@ -335,7 +335,8 @@ export function useSyncState(pollMs = 3000): SyncState {
 }
 
 interface ReplicaSessionOptions {
-    restore: () => Promise<CommonPowerSyncDatabase | null>;
+    /** `stale()` turns true once a newer action replaced this one; it must then touch nothing. */
+    restore: (stale: () => boolean) => Promise<CommonPowerSyncDatabase | "unverified" | null>;
     pause: () => Promise<void>;
     discard: () => Promise<void>;
     clearCredentials: () => Promise<void>;
@@ -360,6 +361,8 @@ export function useReplicaSession(options: ReplicaSessionOptions) {
     const [db, setDb] = useState<CommonPowerSyncDatabase | null>(null);
     const [loading, setLoading] = useState(true);
     const [failed, setFailed] = useState<"load" | "discard" | "reauthenticate" | null>(null);
+    // The API refuses the live session until its email is verified; sign-in must not probe it.
+    const [unverified, setUnverified] = useState(false);
     const generation = useRef(0);
     const run = useCallback(
         async (action: "load" | "discard" | "reauthenticate"): Promise<void> => {
@@ -367,16 +370,18 @@ export function useReplicaSession(options: ReplicaSessionOptions) {
             setDb(null);
             setLoading(true);
             setFailed(null);
+            setUnverified(false);
             try {
                 const next =
                     action === "load"
-                        ? await bounded(options.restore())
+                        ? await bounded(options.restore(() => current !== generation.current))
                         : await bounded(
                               action === "discard" ? options.discard() : options.clearCredentials(),
                           ).then(() => null);
                 if (current === generation.current) {
-                    setDb(next);
-                    if (next) options.onReady?.();
+                    setDb(next === "unverified" ? null : next);
+                    setUnverified(next === "unverified");
+                    if (next && next !== "unverified") options.onReady?.();
                 }
             } catch {
                 if (current === generation.current) {
@@ -410,6 +415,7 @@ export function useReplicaSession(options: ReplicaSessionOptions) {
             setDb(null);
             setLoading(true);
             setFailed(null);
+            setUnverified(false);
             bounded(options.pause())
                 .catch(() => {
                     if (current === generation.current) setFailed("load");
@@ -431,6 +437,7 @@ export function useReplicaSession(options: ReplicaSessionOptions) {
         db,
         loading,
         failed,
+        unverified,
         restore,
         discard,
         reauthenticate,

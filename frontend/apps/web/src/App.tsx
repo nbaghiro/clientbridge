@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
     BusinessZoneContext,
+    checkSession,
     strings,
     useBusinessLoad,
     useBusinessSelection,
@@ -12,10 +13,10 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { DebugPanel } from "./components/DebugPanel";
 import { config } from "./config";
-import { Login } from "./pages/Login";
+import { AuthError, Login, VerifyEmail } from "./pages/Login";
 import { Button, ConfirmHost, LoadFailed, Loading, Logo, Select } from "@clientbridge/ui";
-import { api, onSignedOut, selectBusiness } from "./lib/api";
-import { clearTokens, isAuthenticated, onSessionChanged } from "./lib/auth";
+import { api, identity, onSignedOut, selectBusiness } from "./lib/api";
+import { clearUser, getUserId, onSessionChanged, rememberUser, sessionExpected } from "./lib/auth";
 import { connectPowerSync, replica, signOut } from "./lib/powersync";
 import { AcceptInvite } from "./pages/AcceptInvite";
 import { Schedule } from "./pages/Schedule";
@@ -28,29 +29,58 @@ import { Payments } from "./pages/Payments";
 import { Setup } from "./pages/Setup";
 import { Today } from "./pages/Today";
 
+async function endSession(): Promise<void> {
+    await clearUser();
+    await identity.signOut().catch(() => undefined);
+}
+
 const lifecycle = {
-    restore: async () => {
-        if (isAuthenticated()) return connectPowerSync(api);
-        await replica.pause();
-        return null;
+    restore: async (stale: () => boolean) => {
+        const session = sessionExpected()
+            ? await checkSession(api.forBusiness(null), getUserId())
+            : { state: "none" as const };
+        // A replaced restore (development runs effects twice) must not touch the replica.
+        if (stale()) return null;
+        if (session.state !== "user") {
+            await replica.pause();
+            return session.state === "unverified" ? "unverified" : null;
+        }
+        await rememberUser(session.userId);
+        return connectPowerSync(api);
     },
     pause: () => replica.pause(),
     discard: async () => {
-        await clearTokens();
+        await endSession();
         await signOut();
     },
     subscribe: onSignedOut,
-    clearCredentials: clearTokens,
+    clearCredentials: endSession,
     subscribeChanged: onSessionChanged,
 };
 
 export function App() {
-    const { db, loading, failed, restore, discard, retry, reauthenticate } =
+    const { db, loading, failed, unverified, restore, discard, retry, reauthenticate } =
         useReplicaSession(lifecycle);
     return (
         <BrowserRouter>
             {loading ? (
                 <Splash />
+            ) : unverified ? (
+                <Routes>
+                    <Route
+                        path="/verify"
+                        element={
+                            <VerifyEmail
+                                unverified
+                                onContinue={restore}
+                                onSignOut={() => {
+                                    discard();
+                                }}
+                            />
+                        }
+                    />
+                    <Route path="*" element={<Navigate to="/verify" replace />} />
+                </Routes>
             ) : failed ? (
                 <>
                     <LoadFailed
@@ -96,6 +126,8 @@ export function App() {
                             />
                         }
                     />
+                    <Route path="/verify" element={<VerifyEmail />} />
+                    <Route path="/auth-error" element={<AuthError />} />
                     <Route
                         path="*"
                         element={
@@ -127,7 +159,12 @@ function AppRoutes({
     return (
         <BusinessZoneContext.Provider value={business.zone}>
             <Routes>
-                <Route path="/accept-invite" element={<AcceptInvite onAuthed={onAuthed} />} />
+                <Route
+                    path="/accept-invite"
+                    element={<AcceptInvite onAuthed={onAuthed} onSignOut={onSignOut} />}
+                />
+                <Route path="/verify" element={<VerifyEmail />} />
+                <Route path="/auth-error" element={<AuthError />} />
                 {authed ? (
                     !business.ready ? (
                         <Route

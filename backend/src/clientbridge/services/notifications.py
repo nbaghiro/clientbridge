@@ -34,6 +34,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Device, DevicePlatform
 from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Booking, Slot
+from clientbridge.schemas.auth import AuthEmailIn
 from clientbridge.services import ledger
 from clientbridge.services.consents import texts_stopped
 from clientbridge.services.lines import LineParent, fetch_lines
@@ -52,25 +53,57 @@ def returning_code(locale: str, business_name: str, code: str, minutes: int) -> 
     )
 
 
-def password_reset(locale: str, code: str) -> tuple[str, str]:
-    return (
-        message(locale, "password_reset.subject"),
-        message(locale, "password_reset.body", code=code),
-    )
-
-
-def email_verification(locale: str, code: str) -> tuple[str, str]:
-    return (
-        message(locale, "verify_email.subject"),
-        message(locale, "verify_email.body", code=code),
-    )
-
-
-def staff_invite(locale: str, code: str) -> tuple[str, str]:
+def staff_invite(locale: str, link: str) -> tuple[str, str]:
     return (
         message(locale, "staff_invite.subject"),
-        message(locale, "staff_invite.body", code=code),
+        message(locale, "staff_invite.body", link=link),
     )
+
+
+def _auth_email(locale: str, email: AuthEmailIn) -> tuple[str, str]:
+    code, minutes = email.code or "", email.expires_in_minutes or 0
+    match email.template_type:
+        case "verification_code_valid":
+            body = plural(locale, "verification_code.body", minutes, code=code)
+            if email.link:
+                body += "\n\n" + message(locale, "verification_code.link", link=email.link)
+            return message(locale, "verification_code.subject"), body
+        case "verification_code_invalid":
+            return (
+                message(locale, "verification_unknown.subject"),
+                message(locale, "verification_unknown.body"),
+            )
+        case "recovery_code_valid":
+            return (
+                message(locale, "recovery_code.subject"),
+                plural(locale, "recovery_code.body", minutes, code=code),
+            )
+        case "recovery_code_invalid":
+            return (
+                message(locale, "recovery_unknown.subject"),
+                message(locale, "recovery_unknown.body"),
+            )
+        case "login_code_valid":
+            return (
+                message(locale, "login_code.subject"),
+                plural(locale, "login_code.body", minutes, code=code),
+            )
+        case "registration_code_valid":
+            return (
+                message(locale, "registration_code.subject"),
+                plural(locale, "registration_code.body", minutes, code=code),
+            )
+
+
+async def send_auth_email(email_sender: EmailSender, email: AuthEmailIn) -> None:
+    """Words and sends an email the Kratos courier handed over; a failure lets Kratos retry."""
+    subject, body = _auth_email(locale_for(), email)
+    await email_sender.send(Email(to=email.to, subject=subject, body=body))
+
+
+def invite_link(token: str) -> str:
+    """Where an invitee signs up or in, then joins the team."""
+    return f"{get_settings().web_base_url}/accept-invite?token={token}"
 
 
 def pay_link(token: str) -> str:

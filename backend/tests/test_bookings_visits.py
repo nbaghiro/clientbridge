@@ -107,5 +107,5 @@ async def test_visits_require_auth_and_a_bounded_page(
         await as_owner.get("/v1/bookings/visits", params={**params, "limit": 0})
     ).status_code == 422
     assert (await as_owner.get("/v1/bookings/visits", params={"client_id": cid})).status_code == 422
-    unauth.headers.pop("Authorization", None)
+    unauth.headers.pop("X-Session-Token", None)
     assert (await unauth.get("/v1/bookings/visits", params=params)).status_code == 401

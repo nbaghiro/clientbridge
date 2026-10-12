@@ -1,7 +1,11 @@
-"""Email: the Postmark sender, and a console no-op until it is configured."""
+"""Email: the Postmark sender, an SMTP sender for Mailpit in dev, and a console no-op."""
 
+import asyncio
+import smtplib
 from dataclasses import dataclass
+from email.message import EmailMessage
 from typing import Protocol
+from urllib.parse import urlsplit
 
 from clientbridge.core.config import get_settings
 
@@ -47,8 +51,28 @@ class PostmarkEmailSender:
             response.raise_for_status()
 
 
+class SmtpEmailSender:
+    def __init__(self, url: str, from_address: str) -> None:
+        parts = urlsplit(url)
+        self._host = parts.hostname or "localhost"
+        self._port = parts.port or 25
+        self._from = from_address
+
+    async def send(self, email: Email) -> None:
+        message = EmailMessage()
+        message["From"], message["To"], message["Subject"] = self._from, email.to, email.subject
+        message.set_content(email.body)
+        await asyncio.to_thread(self._deliver, message)
+
+    def _deliver(self, message: EmailMessage) -> None:
+        with smtplib.SMTP(self._host, self._port, timeout=10) as smtp:
+            smtp.send_message(message)
+
+
 def get_email_sender() -> EmailSender:
     s = get_settings()
     if s.postmark_server_token and s.email_from:
         return PostmarkEmailSender(s.postmark_server_token, s.email_from)
+    if s.smtp_url:
+        return SmtpEmailSender(s.smtp_url, s.email_from or "no-reply@clientbridge.ca")
     return ConsoleEmailSender()

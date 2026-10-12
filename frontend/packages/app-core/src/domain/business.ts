@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type Load, useAsyncAction, useLoad } from "../hooks";
 import { BUSINESS_CURRENCY, formatList, formatMoney, formatParts, formatRating } from "../format";
 import { strings } from "../strings";
-import { type ApiLike, failureMessage } from "../api";
+import { type ApiLike, failedCode, failureMessage } from "../api";
 import type { ChoiceOption, Fact, SelectOption } from "../ui";
 import { mediaUrl } from "./files";
 import { durationLabel } from "./publicBooking";
@@ -432,6 +432,7 @@ interface OnboardingForm {
     setProvince: (v: ProvinceCode) => void;
     busy: boolean;
     error: string | null;
+    needsVerification: boolean;
     submit: () => void;
 }
 
@@ -443,6 +444,8 @@ export function useOnboardingForm(
     const [slug, setSlugState] = useState("");
     const [slugEdited, setSlugEdited] = useState(false);
     const [province, setProvince] = useState<ProvinceCode>("ON");
+    // Stays true across retries so the verify step keeps one code instead of mailing a new one.
+    const [needsVerification, setNeedsVerification] = useState(false);
     const { busy, error, setError, run } = useAsyncAction();
 
     const setName = (v: string): void => {
@@ -468,11 +471,29 @@ export function useOnboardingForm(
             async () => {
                 onCreated(await onboard(api, { name, slug, province }));
             },
-            { errorMessage: strings.business.onboarding.createError },
+            {
+                errorMessage: (e) => {
+                    if (failedCode(e) !== "email_unverified")
+                        return strings.business.onboarding.createError;
+                    setNeedsVerification(true);
+                    return strings.business.onboarding.verifyFirst;
+                },
+            },
         );
     };
 
-    return { name, setName, slug, setSlug, province, setProvince, busy, error, submit };
+    return {
+        name,
+        setName,
+        slug,
+        setSlug,
+        province,
+        setProvince,
+        busy,
+        error,
+        needsVerification,
+        submit,
+    };
 }
 
 export const SETUP_PROGRESS_SQL = `

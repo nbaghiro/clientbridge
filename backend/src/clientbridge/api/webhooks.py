@@ -8,6 +8,7 @@ from fastapi import APIRouter, Header, Request, Response
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import (
+    AuthEmailSecretDep,
     DbSession,
     EmailDep,
     GatewayDep,
@@ -18,9 +19,10 @@ from clientbridge.core.deps import (
 )
 from clientbridge.integrations.stripe import WebhookVerificationError
 from clientbridge.integrations.twilio import valid_twilio_signature
+from clientbridge.schemas.auth import AuthEmailIn
 from clientbridge.schemas.payments import InteracWebhookBody
 from clientbridge.services.messaging import process_inbound_sms
-from clientbridge.services.notifications import Notifier
+from clientbridge.services.notifications import Notifier, send_auth_email
 from clientbridge.services.payments import process_interac_event, process_stripe_event
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
@@ -102,4 +104,17 @@ async def sms_webhook(
     )
     if message_id is not None:
         await Notifier(email, sms, push).on_inbound_message(db, message_id)
+    return Response(status_code=200)
+
+
+@router.post("/auth-email")
+async def auth_email_webhook(
+    body: AuthEmailIn,
+    secret: AuthEmailSecretDep,
+    email: EmailDep,
+    x_webhook_secret: Annotated[str, Header(alias="X-Webhook-Secret")] = "",
+) -> Response:
+    if not secret or not secrets.compare_digest(x_webhook_secret, secret):
+        return Response(status_code=401)
+    await send_auth_email(email, body)
     return Response(status_code=200)

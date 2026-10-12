@@ -1,6 +1,7 @@
 import { StatusBar } from "expo-status-bar";
 import { type ReactNode, useCallback } from "react";
 import {
+    checkSession,
     strings,
     BusinessZoneContext,
     useBusinessLoad,
@@ -20,8 +21,8 @@ import { Button, ConfirmHost, configureStripe, LoadFailed, Select } from "@clien
 import { StripeAppProvider } from "./src/components/Stripe";
 import { Splash, revealApp } from "./src/components/Splash";
 import { TabBar } from "./src/components/TabBar";
-import { api, onSignedOut, selectBusiness } from "./src/lib/api";
-import { clearTokens, getTokens } from "./src/lib/auth";
+import { api, identity, onSignedOut, selectBusiness } from "./src/lib/api";
+import { clearSession, getSession, rememberUser, signIn } from "./src/lib/auth";
 import { stripePublishableKey } from "./src/lib/config";
 import { connectPowerSync, replica, signOut } from "./src/lib/powersync";
 import { registerForPush, unregisterFromPush, usePushTaps } from "./src/lib/push";
@@ -41,7 +42,7 @@ import {
 import { InboxScreen } from "./src/screens/Inbox";
 import { NotificationsScreen } from "./src/screens/Notifications";
 import { SearchScreen } from "./src/screens/Search";
-import { LoginScreen } from "./src/screens/Login";
+import { ConfirmEmailScreen, LoginScreen } from "./src/screens/Login";
 import { OnboardingScreen } from "./src/screens/Onboarding";
 import { PaymentsScreen } from "./src/screens/Payments";
 import { GettingPaidScreen } from "./src/screens/GettingPaid";
@@ -51,6 +52,7 @@ import { ClassesScreen } from "./src/screens/Classes";
 import { OnlineBookingScreen } from "./src/screens/OnlineBooking";
 import { RecurrencesScreen } from "./src/screens/Recurrences";
 import { RemindersScreen } from "./src/screens/Reminders";
+import { SecurityScreen } from "./src/screens/Security";
 
 configureStripe(stripePublishableKey);
 // transport failures already show in the shell's sync banner; the dev overlay only repeats them
@@ -98,27 +100,43 @@ export function App() {
     );
 }
 
+async function endSession(): Promise<void> {
+    const token = (await getSession())?.session_token;
+    await clearSession();
+    if (token) await identity.signOut(token).catch(() => undefined);
+}
+
 const lifecycle = {
-    restore: async () => {
-        if (await getTokens()) return connectPowerSync(api);
-        await replica.pause();
-        return null;
+    restore: async (stale: () => boolean) => {
+        const stored = await getSession();
+        const session =
+            stored === null
+                ? { state: "none" as const }
+                : await checkSession(api.forBusiness(null), stored.user_id);
+        // A replaced restore (development runs effects twice) must not touch the replica.
+        if (stale()) return null;
+        if (session.state !== "user") {
+            await replica.pause();
+            return session.state === "unverified" ? "unverified" : null;
+        }
+        await rememberUser(session.userId);
+        return connectPowerSync(api);
     },
     pause: () => replica.pause(),
     discard: async () => {
         await unregisterFromPush();
-        await clearTokens();
+        await endSession();
         await signOut();
     },
     subscribe: onSignedOut,
-    clearCredentials: clearTokens,
+    clearCredentials: endSession,
     onReady: () => {
         registerForPush().catch(() => undefined);
     },
 };
 
 function Root() {
-    const { db, loading, failed, restore, discard, retry, reauthenticate } =
+    const { db, loading, failed, unverified, restore, discard, retry, reauthenticate } =
         useReplicaSession(lifecycle);
     if (loading || failed) {
         return (
@@ -144,11 +162,21 @@ function Root() {
             </View>
         );
     }
+    if (unverified)
+        return (
+            <ConfirmEmailScreen
+                onContinue={restore}
+                onSignOut={() => {
+                    discard();
+                }}
+            />
+        );
     if (!db)
         return (
             <LoginScreen
-                onSuccess={() => {
-                    restore();
+                onSuccess={(sessionToken) => {
+                    const stored = sessionToken ? signIn(sessionToken) : Promise.resolve();
+                    stored.then(restore).catch(() => undefined);
                 }}
             />
         );
@@ -278,6 +306,11 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                                     name="Reminders"
                                     component={RemindersScreen}
                                     options={{ title: strings.navigation.setupSections.reminders }}
+                                />
+                                <RootStack.Screen
+                                    name="Security"
+                                    component={SecurityScreen}
+                                    options={{ title: strings.navigation.setupSections.security }}
                                 />
                                 <RootStack.Screen
                                     name="Classes"

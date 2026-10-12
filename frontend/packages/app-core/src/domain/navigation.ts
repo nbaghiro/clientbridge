@@ -169,7 +169,8 @@ export type SetupSectionKey =
     | "gettingPaid"
     | "taxes"
     | "onlineBooking"
-    | "reminders";
+    | "reminders"
+    | "security";
 
 const SETUP_SECTIONS: {
     key: SetupSectionKey;
@@ -240,6 +241,14 @@ const SETUP_SECTIONS: {
         },
         webOnly: false,
         managersOnly: true,
+    },
+    {
+        key: "security",
+        get label() {
+            return strings.navigation.setupSections.security;
+        },
+        webOnly: false,
+        managersOnly: false,
     },
 ];
 

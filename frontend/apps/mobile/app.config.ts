@@ -59,6 +59,7 @@ const config: ExpoConfig = {
     extra: {
         apiUrl: process.env.API_URL ?? "http://127.0.0.1:8701",
         powersyncUrl: process.env.POWERSYNC_URL ?? "http://127.0.0.1:8704",
+        authUrl: process.env.AUTH_URL ?? "http://127.0.0.1:8713",
         publicWebUrl: process.env.PUBLIC_WEB_URL ?? "https://app.clientbridge.ca",
         payUrl: process.env.PAY_URL ?? "https://pay.clientbridge.ca",
         bookUrl: process.env.BOOK_URL ?? "https://book.clientbridge.ca",

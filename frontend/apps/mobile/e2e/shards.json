@@ -6,12 +6,13 @@
     },
     {
         "id": "b",
-        "name": "setup, payments",
+        "name": "setup, payments, recovery",
         "flows": [
             "02-setup.yaml",
             "03-payments.yaml",
             "09-staff-pay-labels.yaml",
-            "08-estimate-shortcut.yaml"
+            "08-estimate-shortcut.yaml",
+            "11-recovery.yaml"
         ]
     },
     {

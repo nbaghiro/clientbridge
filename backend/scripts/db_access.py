@@ -16,10 +16,12 @@ ADMIN_URL = os.environ.get(
     "postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge",
 )
 STORAGE_DB = "powersync_storage"
+KRATOS_DB = "kratos"
 MIGRATOR = "clientbridge_migrator"
 API = "clientbridge_api"
 SOURCE = "powersync_source"
 STORAGE = "powersync_storage_owner"
+KRATOS = "kratos"
 
 
 def quote(identifier: str) -> str:
@@ -37,6 +39,7 @@ def passwords() -> dict[str, str]:
         API: make_url(settings.database_url).password or API,
         SOURCE: os.environ.get("POWERSYNC_SOURCE_PASSWORD", SOURCE),
         STORAGE: os.environ.get("POWERSYNC_STORAGE_PASSWORD", STORAGE),
+        KRATOS: os.environ.get("KRATOS_DB_PASSWORD", KRATOS),
     }
 
 
@@ -56,7 +59,7 @@ async def ensure_role(
 
 async def roles(conn: AsyncConnection, database: str) -> None:
     secrets = passwords()
-    for role in (MIGRATOR, API, STORAGE):
+    for role in (MIGRATOR, API, STORAGE, KRATOS):
         await ensure_role(conn, role, secrets[role], replication=False)
     await ensure_role(conn, SOURCE, secrets[SOURCE], replication=True)
     db = quote(database)
@@ -73,12 +76,15 @@ async def roles(conn: AsyncConnection, database: str) -> None:
         )
     if not await conn.scalar(text("SELECT 1 FROM pg_publication WHERE pubname = 'powersync'")):
         await conn.execute(text("CREATE PUBLICATION powersync"))
-    if not await conn.scalar(
-        text("SELECT 1 FROM pg_database WHERE datname = :d"), {"d": STORAGE_DB}
-    ):
-        await conn.execute(text(f"CREATE DATABASE {quote(STORAGE_DB)} OWNER {STORAGE}"))
+    for name, owner in ((STORAGE_DB, STORAGE), (KRATOS_DB, KRATOS)):
+        await owned_database(conn, name, owner)
+
+
+async def owned_database(conn: AsyncConnection, name: str, owner: str) -> None:
+    if not await conn.scalar(text("SELECT 1 FROM pg_database WHERE datname = :d"), {"d": name}):
+        await conn.execute(text(f"CREATE DATABASE {quote(name)} OWNER {quote(owner)}"))
     else:
-        await conn.execute(text(f"ALTER DATABASE {quote(STORAGE_DB)} OWNER TO {STORAGE}"))
+        await conn.execute(text(f"ALTER DATABASE {quote(name)} OWNER TO {quote(owner)}"))
 
 
 async def ownership(conn: AsyncConnection) -> None:
