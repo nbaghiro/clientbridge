@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { strings } from "../strings";
-import { requirementCopy } from "./gettingPaid";
+import { noticesNeedAttention, requirementCopy } from "./gettingPaid";
 
 const g = strings.gettingPaid;
 
@@ -43,5 +43,20 @@ describe("requirementCopy", () => {
     it("falls back to the generic message", () => {
         expect(requirementCopy("inquiry.risk_review")).toEqual({ label: g.reqOther, why: "" });
         expect(requirementCopy("external_accounts_extra").label).toBe(g.reqOther);
+    });
+});
+
+describe("noticesNeedAttention", () => {
+    it("prompts a review when Stripe holds or restricts the account", () => {
+        expect(noticesNeedAttention("restricted", 0)).toBe(true);
+        expect(noticesNeedAttention("disabled", 0)).toBe(true);
+        expect(noticesNeedAttention("enabled", 1)).toBe(true);
+    });
+
+    it("stays quiet during first setup, review and a clear account", () => {
+        expect(noticesNeedAttention("in_progress", 3)).toBe(false);
+        expect(noticesNeedAttention("not_connected", 0)).toBe(false);
+        expect(noticesNeedAttention("pending", 1)).toBe(false);
+        expect(noticesNeedAttention("enabled", 0)).toBe(false);
     });
 });

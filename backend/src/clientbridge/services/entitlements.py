@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
-from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
@@ -104,7 +103,6 @@ class GiftCardService:
             )
         client = await self._client(data.purchaser_client_id)
         account_id = _charge_account(await self._business(), data)
-        fee_bps = get_settings().platform_fee_bps
         pm_ref = await resolve_saved_method_ref(
             self.db, self.biz, data.payment_method_id, data.purchaser_client_id
         )
@@ -123,7 +121,6 @@ class GiftCardService:
                     client=client,
                     amount=face,  # a gift certificate is not taxed at sale (taxed on redemption)
                     currency="CAD",
-                    fee_bps=fee_bps,
                     entitlement_kind="gift_card",
                     entitlement_id=card_id,
                     payment_method=pm_ref,
@@ -313,7 +310,6 @@ class PackageService:
         amount = (
             await tax_for_amount(self.db, self.biz, item.price_cents, tax_class=item.tax_class)
         ).total_cents
-        fee_bps = get_settings().platform_fee_bps
         pm_ref = await resolve_saved_method_ref(
             self.db, self.biz, data.payment_method_id, data.client_id
         )
@@ -332,7 +328,6 @@ class PackageService:
                     client=client,
                     amount=amount,
                     currency=item.currency,
-                    fee_bps=fee_bps,
                     entitlement_kind="package",
                     entitlement_id=package_id,
                     payment_method=pm_ref,

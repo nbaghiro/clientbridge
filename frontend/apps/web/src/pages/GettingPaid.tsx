@@ -15,6 +15,7 @@ import {
     LoadFailed,
     Money,
     Panel,
+    PaymentNotices,
     Skeleton,
     StatusPill,
 } from "@clientbridge/ui";
@@ -79,6 +80,9 @@ function Body({ paid }: { paid: GettingPaidView }) {
     const deadline = paid.deadline === null ? "" : formatDate(paid.deadline, zone);
     return (
         <div className="space-y-6">
+            {paid.notices !== null ? (
+                <PaymentNotices {...paid.notices} onReview={paid.refresh} />
+            ) : null}
             <Hero paid={paid} />
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
                 <div className="self-start">

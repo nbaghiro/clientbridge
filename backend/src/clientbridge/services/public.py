@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.command import Command, PublicPrincipal, remember, replay, run_command
-from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base
 from clientbridge.core.errors import Conflict, NotFound, Unauthorized, Unprocessable
 from clientbridge.core.ids import new_id
@@ -397,7 +396,6 @@ class PublicBookingService:
             booking=booking,
             client=client,
             amount=booking.deposit_amount_cents,
-            fee_bps=get_settings().platform_fee_bps,
         )
         return client_secret
 
@@ -1231,7 +1229,6 @@ class PublicPayService:
             invoice=invoice,
             client=client,
             amount=amount + tip.cents,
-            fee_bps=get_settings().platform_fee_bps,
             tip=tip,
             supersede=True,
         )
@@ -1877,7 +1874,6 @@ class PublicShopService:
             order=order,
             client=client,
             amount=order.total_cents,
-            fee_bps=get_settings().platform_fee_bps,
             idempotency_key=idempotency_key,
         )
         result = PublicShopOrderResult(

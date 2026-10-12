@@ -11,7 +11,7 @@ from clientbridge.schemas.public import PublicBrand
 class ConnectSessionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    component: Literal["onboarding", "account", "payments", "payouts"]
+    component: Literal["onboarding", "account", "notices", "payments", "payouts"]
 
 
 class ConnectSessionOut(BaseModel):

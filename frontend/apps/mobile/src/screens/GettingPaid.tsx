@@ -19,6 +19,7 @@ import {
     KeyValueList,
     LoadFailed,
     Notice,
+    PaymentNotices,
     Skeleton,
     StatusPill,
 } from "@clientbridge/ui";
@@ -33,14 +34,14 @@ export function GettingPaidScreen() {
     const zone = useBusinessZone();
     const paid = useGettingPaid(api);
     const web = useAsyncAction();
-    const manageOnWeb = (): void => {
+    const openOnWeb = (query: string): void => {
         web.run(
-            () =>
-                Linking.openURL(
-                    `${publicWebUrl.replace(/\/$/, "")}/setup/getting-paid?manage=account`,
-                ),
+            () => Linking.openURL(`${publicWebUrl.replace(/\/$/, "")}/setup/getting-paid${query}`),
             { errorMessage: strings.paymentAccount.webError },
         );
+    };
+    const manageOnWeb = (): void => {
+        openOnWeb("?manage=account");
     };
     const { refresh } = paid;
     useFocusEffect(
@@ -99,6 +100,15 @@ export function GettingPaidScreen() {
     return (
         <View style={styles.screen}>
             <ScrollView contentContainerStyle={styles.content}>
+                {paid.notices !== null ? (
+                    <PaymentNotices
+                        {...paid.notices}
+                        reviewing={web.busy}
+                        onReview={() => {
+                            openOnWeb("");
+                        }}
+                    />
+                ) : null}
                 <View style={[styles.hero, warn ? styles.heroWarn : styles.heroOk]}>
                     <Icon
                         name={warn ? "alert" : "checkCircle"}

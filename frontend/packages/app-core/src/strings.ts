@@ -2876,6 +2876,9 @@ interface Strings {
         readonly manageDisputes: string;
         readonly disputeHelp: string;
         readonly expired: string;
+        readonly notices: string;
+        readonly noticesAttention: string;
+        readonly reviewNotices: string;
     } & Labels;
     readonly gettingPaid: {
         readonly reqExternalAccount: string;

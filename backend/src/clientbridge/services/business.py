@@ -148,17 +148,17 @@ async def business_tax_registered(db: AsyncSession, business_id: str) -> bool:
 
 
 def derive_kyc_status(status: ConnectAccount) -> str:
-    """The provider-facing KYC state, derived from the Stripe account (the source of truth)."""
+    """The KYC phase from the card_payments capability, per Stripe's v2 verification guide."""
     if status.disabled_reason is not None:
         return "disabled"  # closed, unsupported, or only Stripe support can lift it
-    if status.charges_enabled and not status.currently_due and not status.past_due:
+    if status.charges_enabled:
         return "enabled"
     if not status.details_submitted:
-        return "not_started"  # account created, the provider hasn't finished the hosted flow
-    if status.currently_due or status.past_due:
-        return "restricted"  # Stripe needs more from the provider
-    if status.pending_verification:
-        return "pending"  # Stripe is reviewing
+        return "not_started"
+    if status.card_status == "pending":
+        return "pending"
+    if status.card_status == "restricted" or status.currently_due or status.past_due:
+        return "restricted"
     return "pending"
 
 
@@ -182,6 +182,7 @@ def kyc_status(business: Business) -> str:
             eventually_due=_due("eventually_due"),
             past_due=_due("past_due"),
             pending_verification=_due("pending_verification"),
+            card_status=card if isinstance(card := req.get("card_status"), str) else None,
         )
     )
 
@@ -197,6 +198,7 @@ def apply_account_status(business: Business, status: ConnectAccount) -> None:
         "past_due": status.past_due,
         "pending_verification": status.pending_verification,
         "disabled_reason": status.disabled_reason,
+        "card_status": status.card_status,
         "current_deadline": status.current_deadline,
     }
 

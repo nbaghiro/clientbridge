@@ -30,7 +30,8 @@ import { utcSql } from "../datetime";
 import { useCatalogItems } from "./catalog";
 import { useEarnings } from "./earnings";
 import { useThreads } from "./messaging";
-import { canManagePayments, isRefundRow } from "./payments";
+import { usePaymentNotices } from "./gettingPaid";
+import { canManagePayments, isRefundRow, useStripeAccountId } from "./payments";
 import { useReviews } from "./reviews";
 import { staffName, useStaff } from "./staff";
 import { useReplicaLoad } from "./sync";
@@ -477,6 +478,7 @@ export interface OwnerToday {
     money: TodayMoney;
     // The server figures load on their own, so a failed call leaves the schedule usable.
     moneyLoad: Load;
+    notices: ReturnType<typeof usePaymentNotices>;
 }
 
 function useTodayNow(): Date {
@@ -566,9 +568,11 @@ export function useOwnerToday(api: ApiLike, viewer: Viewer | null): OwnerToday {
     });
     const load = useReplicaLoad([result], agenda.length === 0 && attention.length === 0);
     const moneyLoad = useReplicaLoad([summary], false);
+    const notices = usePaymentNotices(api, useStripeAccountId() !== null, false);
     return {
         load,
         moneyLoad,
+        notices,
         view: { ...base, attention },
         money: {
             collectedCents: s?.today_revenue_cents ?? 0,

@@ -1,4 +1,5 @@
 export { PaymentAccount } from "./PaymentAccount";
+export { PaymentNotices } from "./PaymentNotices";
 export { CardForm } from "./CardForm";
 export { ChargeSheet } from "./ChargeSheet";
 export { ItemImage } from "./ItemImage";

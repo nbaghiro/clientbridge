@@ -36,7 +36,13 @@ export const pricingPage = {
     fees: {
         title: s.pricingPage.fees.title,
         lede: s.pricingPage.fees.lede,
-        rows: [s.pricingPage.fees.rows[0], s.pricingPage.fees.rows[1], s.pricingPage.fees.rows[2]],
+        rows: [
+            s.pricingPage.fees.rows[0],
+            s.pricingPage.fees.rows[1],
+            s.pricingPage.fees.rows[2],
+            s.pricingPage.fees.rows[3],
+            s.pricingPage.fees.rows[4],
+        ],
     },
     faqTitle: s.pricingPage.faqTitle,
     faq: [

@@ -393,6 +393,16 @@ export interface PaymentAccountProps {
     preview?: boolean;
 }
 
+export interface PaymentNoticesProps {
+    scope: string;
+    fetchClientSecret: () => Promise<string>;
+    // The mobile SDK has no notification banner, so mobile prompts a review on the web instead.
+    attention: boolean;
+    onReview: () => void;
+    reviewing?: boolean | undefined;
+    preview?: boolean;
+}
+
 export interface CardFormProps {
     returnUrl?: string | undefined;
     clientSecret: string;

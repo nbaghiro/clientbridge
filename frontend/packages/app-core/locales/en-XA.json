@@ -8054,6 +8054,15 @@
     "paymentAccount.expired": {
         "message": "[Ţĥîš þåýɱéñţ åççöûñţ šéššîöñ ĥåš çļöšéð. Öþéñ îţ åĝåîñ ţö çöñţîñûé. one two three four five]"
     },
+    "paymentAccount.notices": {
+        "message": "[Þåýɱéñţ åççöûñţ ñöţîçéš one two three]"
+    },
+    "paymentAccount.noticesAttention": {
+        "message": "[Ýöûŕ þåýɱéñţ åççöûñţ ĥåš ñöţîçéš ţĥåţ ñééð å ŕéšþöñšé. Ŕéṽîéŵ ţĥéɱ îñ ţĥé ŵéƀ åþþ ţö ķééþ ţåķîñĝ þåýɱéñţš åñð ŕéçéîṽîñĝ þåýöûţš. one two three four five six seven eight]"
+    },
+    "paymentAccount.reviewNotices": {
+        "message": "[Ŕéṽîéŵ ñöţîçéš öñ ŵéƀ one two]"
+    },
     "gettingPaid.reqExternalAccount": {
         "message": "[Ɓåñķ åççöûñţ ƒöŕ þåýöûţš one two three]"
     },

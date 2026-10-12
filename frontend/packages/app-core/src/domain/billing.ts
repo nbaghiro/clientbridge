@@ -628,7 +628,7 @@ export function issuedTaxes(
             const computed = pricing.taxes.find((x) => x.code === t.code);
             return {
                 code: t.code,
-                label: computed?.label ?? t.code,
+                label: computed?.label ?? taxName(t.code),
                 baseCents: computed?.baseCents ?? 0,
                 cents: t.cents,
             };

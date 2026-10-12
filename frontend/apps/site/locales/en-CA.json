@@ -477,21 +477,33 @@
         "message": "Fees on payments are separate from the plan price and are shown on every payout."
     },
     "pages.pricingPage.fees.rows.0.label": {
-        "message": "Card online and Tap to Pay"
+        "message": "Card online"
     },
     "pages.pricingPage.fees.rows.0.value": {
-        "message": "A card processing fee, taken from each payment. Clientbridge platform fee: to be confirmed."
+        "message": "3.2% + $0.30 per payment, card processing and the Clientbridge fee together. Cards issued outside Canada add 0.8%."
     },
     "pages.pricingPage.fees.rows.1.label": {
-        "message": "Cash and cheques"
+        "message": "Tap to Pay and in person"
     },
     "pages.pricingPage.fees.rows.1.value": {
-        "message": "No fee. Payments you receive outside the app are recorded on the invoice by hand."
+        "message": "3.2% + $0.05 per payment, card processing and the Clientbridge fee together. Cards issued outside Canada add 0.8%."
     },
     "pages.pricingPage.fees.rows.2.label": {
-        "message": "Setup"
+        "message": "Pre-authorized debit"
     },
     "pages.pricingPage.fees.rows.2.value": {
+        "message": "3% + $0.40 per payment, with the processing part capped at $5."
+    },
+    "pages.pricingPage.fees.rows.3.label": {
+        "message": "Cash and cheques"
+    },
+    "pages.pricingPage.fees.rows.3.value": {
+        "message": "No fee. Payments you receive outside the app are recorded on the invoice by hand."
+    },
+    "pages.pricingPage.fees.rows.4.label": {
+        "message": "Setup"
+    },
+    "pages.pricingPage.fees.rows.4.value": {
         "message": "No setup fee. Start setting up card payments in the app."
     },
     "pages.pricingPage.faqTitle": {

@@ -115,25 +115,21 @@ def test_parses_a_v2_account() -> None:
     status = account_status_from("acct_1NG8Du2eZvKYlo2C", _account())
     assert status.charges_enabled is False and status.payouts_enabled is False
     assert status.details_submitted is True
+    assert status.card_status == "restricted"
     assert status.past_due == ["external_account"]
     assert status.currently_due == ["identity.individual.id_numbers"]
     assert status.eventually_due == ["defaults.profile.product_description"]
-    assert status.pending_verification == ["identity.individual.documents.primary_verification"]
+    assert status.pending_verification == []
     assert status.disabled_reason is None
     assert status.current_deadline == 1_793_491_200
-
-
-def test_derives_restricted_when_stripe_still_needs_things() -> None:
-    status = account_status_from("acct_x", _account())
-    assert derive_kyc_status(status) == "restricted"
 
 
 def _with(data: dict[str, object], **changes: object) -> dict[str, object]:
     return {**data, **changes}
 
 
-def _cards(status: str, code: str, resolution: str) -> dict[str, object]:
-    details = [{"code": code, "resolution": resolution}]
+def _cards(status: str, code: str = "", resolution: str = "") -> dict[str, object]:
+    details = [{"code": code, "resolution": resolution}] if code else []
     return {
         "merchant": {
             "capabilities": {
@@ -142,6 +138,46 @@ def _cards(status: str, code: str, resolution: str) -> dict[str, object]:
             }
         }
     }
+
+
+def test_restricted_cards_needing_info_are_restricted_with_the_business_entries() -> None:
+    status = account_status_from("acct_x", _account())
+    assert derive_kyc_status(status) == "restricted"
+    assert status.currently_due and status.past_due and status.pending_verification == []
+
+
+@pytest.mark.parametrize(
+    ("code", "resolution"),
+    [
+        ("requirements_pending_verification", "provide_info"),
+        ("requirements_pending_verification", "no_resolution"),
+        ("determining_status", "no_resolution"),
+    ],
+)
+def test_pending_cards_are_a_review_with_the_entries_stripe_checks(
+    code: str, resolution: str
+) -> None:
+    data = _with(_account(), configuration=_cards("pending", code, resolution))
+    status = account_status_from("acct_x", data)
+    assert status.disabled_reason is None
+    assert status.pending_verification == ["identity.individual.documents.primary_verification"]
+    assert derive_kyc_status(status) == "pending"
+
+
+def test_pending_cards_with_nothing_due_are_pending() -> None:
+    data = _with(_account(), configuration=_cards("pending"), requirements=None)
+    assert derive_kyc_status(account_status_from("acct_x", data)) == "pending"
+
+
+def test_restricted_cards_with_nothing_listed_are_still_restricted() -> None:
+    data = _with(
+        _account(),
+        configuration=_cards("restricted", "restricted_other", "provide_info"),
+        requirements=None,
+    )
+    status = account_status_from("acct_x", data)
+    assert status.disabled_reason is None
+    assert derive_kyc_status(status) == "restricted"
 
 
 def test_open_terms_mean_onboarding_was_not_submitted() -> None:
@@ -156,9 +192,17 @@ def test_open_terms_mean_onboarding_was_not_submitted() -> None:
 
 
 def test_an_active_account_is_enabled() -> None:
-    data = _with(_account(), configuration=_cards("active", "", ""), requirements=None)
+    data = _with(_account(), configuration=_cards("active"), requirements=None)
     status = account_status_from("acct_x", data)
     assert status.charges_enabled and status.payouts_enabled
+    assert derive_kyc_status(status) == "enabled"
+
+
+def test_active_cards_with_an_upcoming_requirement_stay_enabled() -> None:
+    data = _with(_account(), configuration=_cards("active"))
+    status = account_status_from("acct_x", data)
+    assert status.currently_due == ["identity.individual.id_numbers"]
+    assert status.pending_verification == []
     assert derive_kyc_status(status) == "enabled"
 
 
@@ -174,6 +218,11 @@ def test_an_active_account_is_enabled() -> None:
             {"configuration": _cards("restricted", "restricted_other", "contact_stripe")},
             "restricted_other",
         ),
+        (
+            {"configuration": _cards("restricted", "restricted_other", "no_resolution")},
+            "restricted_other",
+        ),
+        ({"configuration": _cards("rejected", "rejected_fraud", "")}, "rejected_fraud"),
     ],
 )
 def test_a_state_the_business_cannot_fix_is_disabled(
@@ -189,6 +238,26 @@ def test_missing_requirements_parse_as_nothing_due() -> None:
     status = account_status_from("acct_x", data)
     assert status.currently_due == [] and status.pending_verification == []
     assert status.charges_enabled is False and status.disabled_reason is None
+    assert status.card_status is None
+
+
+@pytest.mark.parametrize(
+    ("card_status", "expected"), [("pending", "pending"), ("restricted", "restricted")]
+)
+async def test_status_reads_the_mirrored_card_status(
+    as_owner: httpx.AsyncClient, db: AsyncSession, card_status: str, expected: str
+) -> None:
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(
+            stripe_account_id="acct_mirror",
+            stripe_details_submitted=True,
+            stripe_requirements={"card_status": card_status, "currently_due": []},
+        )
+    )
+    body = (await as_owner.get("/v1/connect/status")).json()
+    assert body["kyc_status"] == expected
 
 
 async def test_status_shows_deadline_and_available_balance(
@@ -263,7 +332,7 @@ async def test_embedded_management_requires_an_account(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     await _reset_account(db)
-    for component in ("account", "payments", "payouts"):
+    for component in ("account", "notices", "payments", "payouts"):
         response = await as_owner.post("/v1/connect/session", json={"component": component})
         assert response.status_code == 409
     assert gateway.account_sessions == []
@@ -272,7 +341,7 @@ async def test_embedded_management_requires_an_account(
 async def test_embedded_sessions_authorize_each_request(
     as_staff: httpx.AsyncClient, gateway: FakePaymentGateway
 ) -> None:
-    for component in ("onboarding", "account", "payments", "payouts"):
+    for component in ("onboarding", "account", "notices", "payments", "payouts"):
         response = await as_staff.post("/v1/connect/session", json={"component": component})
         assert response.status_code == 403
     assert gateway.account_sessions == []
@@ -287,13 +356,16 @@ async def test_embedded_sessions_derive_account_from_membership(
     response = await as_owner.post("/v1/connect/session", json={"component": "payments"})
     assert response.status_code == 200
     assert gateway.account_sessions == [(own_account, "payments")]
+    notices = await as_owner.post("/v1/connect/session", json={"component": "notices"})
+    assert notices.status_code == 200
+    assert gateway.account_sessions[-1] == (own_account, "notices")
     denied = await as_owner.post(
         "/v1/connect/session",
         json={"component": "account"},
         headers={"X-Business-Id": "bz_not_yours"},
     )
     assert denied.status_code == 403
-    assert len(gateway.account_sessions) == 1
+    assert len(gateway.account_sessions) == 2
 
 
 async def test_embedded_sessions_require_authentication(unauth: httpx.AsyncClient) -> None:

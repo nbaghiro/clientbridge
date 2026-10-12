@@ -477,21 +477,33 @@
         "message": "[Ƒééš öñ þåýɱéñţš åŕé šéþåŕåţé ƒŕöɱ ţĥé þļåñ þŕîçé åñð åŕé šĥöŵñ öñ éṽéŕý þåýöûţ. one two three four five]"
     },
     "pages.pricingPage.fees.rows.0.label": {
-        "message": "[Çåŕð öñļîñé åñð Ţåþ ţö Þåý one two three]"
+        "message": "[Çåŕð öñļîñé one two]"
     },
     "pages.pricingPage.fees.rows.0.value": {
-        "message": "[Å çåŕð þŕöçéššîñĝ ƒéé, ţåķéñ ƒŕöɱ éåçĥ þåýɱéñţ. Çļîéñţƀŕîðĝé þļåţƒöŕɱ ƒéé: ţö ƀé çöñƒîŕɱéð. one two three four five six]"
+        "message": "[3.2% + $0.30 þéŕ þåýɱéñţ, çåŕð þŕöçéššîñĝ åñð ţĥé Çļîéñţƀŕîðĝé ƒéé ţöĝéţĥéŕ. Çåŕðš îššûéð öûţšîðé Çåñåðå åðð 0.8%. one two three four five six seven]"
     },
     "pages.pricingPage.fees.rows.1.label": {
-        "message": "[Çåšĥ åñð çĥéǫûéš one two]"
+        "message": "[Ţåþ ţö Þåý åñð îñ þéŕšöñ one two]"
     },
     "pages.pricingPage.fees.rows.1.value": {
-        "message": "[Ñö ƒéé. Þåýɱéñţš ýöû ŕéçéîṽé öûţšîðé ţĥé åþþ åŕé ŕéçöŕðéð öñ ţĥé îñṽöîçé ƀý ĥåñð. one two three four five]"
+        "message": "[3.2% + $0.05 þéŕ þåýɱéñţ, çåŕð þŕöçéššîñĝ åñð ţĥé Çļîéñţƀŕîðĝé ƒéé ţöĝéţĥéŕ. Çåŕðš îššûéð öûţšîðé Çåñåðå åðð 0.8%. one two three four five six seven]"
     },
     "pages.pricingPage.fees.rows.2.label": {
-        "message": "[Šéţûþ one]"
+        "message": "[Þŕé-åûţĥöŕîžéð ðéƀîţ one two]"
     },
     "pages.pricingPage.fees.rows.2.value": {
+        "message": "[3% + $0.40 þéŕ þåýɱéñţ, ŵîţĥ ţĥé þŕöçéššîñĝ þåŕţ çåþþéð åţ $5. one two three four]"
+    },
+    "pages.pricingPage.fees.rows.3.label": {
+        "message": "[Çåšĥ åñð çĥéǫûéš one two]"
+    },
+    "pages.pricingPage.fees.rows.3.value": {
+        "message": "[Ñö ƒéé. Þåýɱéñţš ýöû ŕéçéîṽé öûţšîðé ţĥé åþþ åŕé ŕéçöŕðéð öñ ţĥé îñṽöîçé ƀý ĥåñð. one two three four five]"
+    },
+    "pages.pricingPage.fees.rows.4.label": {
+        "message": "[Šéţûþ one]"
+    },
+    "pages.pricingPage.fees.rows.4.value": {
         "message": "[Ñö šéţûþ ƒéé. Šţåŕţ šéţţîñĝ ûþ çåŕð þåýɱéñţš îñ ţĥé åþþ. one two three four]"
     },
     "pages.pricingPage.faqTitle": {

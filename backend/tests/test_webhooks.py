@@ -7,7 +7,6 @@ import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.config import get_settings
 from clientbridge.integrations.stripe import ChargeFees, ConnectAccount, GatewayEvent
 from clientbridge.models.business import Business
 from clientbridge.models.ledger import Entry
@@ -58,6 +57,7 @@ def _status(account_id: str, *, charges: bool, due: list[str]) -> ConnectAccount
         eventually_due=[],
         past_due=[],
         pending_verification=[],
+        card_status="active" if charges else "restricted",
     )
 
 
@@ -661,18 +661,7 @@ async def test_event_at_another_api_version_is_rejected(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     body = json.loads(_snapshot_event("evt_old"))
-    body["api_version"] = "2025-03-31.basil"
+    body["api_version"] = "2026-05-27.dahlia"
     res = await api.post("/webhooks/stripe", content=json.dumps(body), headers=GOOD)
     assert res.status_code == 400
     assert await db.get(Webhook, "evt_old") is None
-
-
-async def test_configured_extra_api_version_is_accepted(
-    api: httpx.AsyncClient, db: AsyncSession, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(get_settings(), "stripe_webhook_api_versions", ["2026-09-30.endive"])
-    body = json.loads(_snapshot_event("evt_new"))
-    body["api_version"] = "2026-09-30.endive"
-    res = await api.post("/webhooks/stripe", content=json.dumps(body), headers=GOOD)
-    assert res.status_code == 200
-    assert await db.get(Webhook, "evt_new") is not None

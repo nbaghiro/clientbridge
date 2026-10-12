@@ -458,6 +458,17 @@ file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it
 ### Payments — Stripe Connect custody
 - **Stripe Connect** (Accounts v2 merchants, direct charges + application fee, Stripe's automatic payouts) for
   cards, Link, Tap-to-Pay/Terminal, saved cards, deposits, refunds, subscriptions, and the KYC mirror.
+- **Application fee.** `services/payments.application_fee_cents` sizes our fee per method so Stripe's
+  percentage plus ours stays at or under `PLATFORM_FEE_CEILING_BPS` (3.2%), and never above
+  `PLATFORM_FEE_MAX_BPS` (2%). Stripe's Canadian rates are settings: card online 2.9% (our fee 0.3%),
+  card present 2.7% (0.5%), pre-authorized debit 1% (2%), plus 0.8% for a card issued outside Canada and
+  2% for a charge in a currency other than CAD. The business pays 3.2% + $0.30 online, 3.2% + $0.05 in
+  person and 3% + $0.40 by debit. A saved card's issuing country is read from Stripe before the charge,
+  so an international saved card carries no fee of ours. A new card online, Tap to Pay and Link are
+  priced at the domestic card rate because the card is only known after the intent exists, so a card
+  issued abroad there costs the business 4% (online) or 3.7% (in person) in total; a debit through the
+  card form is priced as a card and pays less than its own rate. Subscriptions charge no application
+  fee today.
 - **Connected accounts** are created with `POST /v2/core/accounts`: `dashboard=none` (businesses manage
   everything through embedded components), `fees_collector=stripe` (Stripe takes its processing fee from
   the business, so the application fee is our fee alone) and `losses_collector=stripe` (Stripe owns negative
@@ -484,14 +495,18 @@ file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it
 - **PAD/EFT**: pre-authorized debit for recurring.
 - **No platform-held funds.** Stripe Connect custodies each provider's balance and pays it out to their
   linked bank on Stripe's schedule; the platform never transmits funds (avoids money-transmitter licensing).
+- Owners see Stripe's embedded notification banner on Getting paid and Today (web), and manage the
+  account through the embedded account management component, as Stripe requires for accounts with no
+  Stripe dashboard where Stripe carries losses. The React Native SDK has neither component and Stripe
+  does not support Connect.js inside a WebView, so mobile links to the web page for both.
   `payments` records each attempt and Stripe object; the ledger records what each one did to the money.
 - The Stripe API version is pinned (`STRIPE_API_VERSION` in `integrations/stripe.py`), and the Connect
   webhook endpoint (snapshot events) must be created with that same version, because the handlers parse
   its payload shapes. Thin events are unversioned and signed with the event destination's own secret
   (`STRIPE_THIN_WEBHOOK_SECRET`); both arrive at `/webhooks/stripe`.
   Dashboard refunds arrive as `refund.created`/`refund.updated`, and a recurring invoice's PaymentIntent
-  is looked up through its invoice payments. The webhook rejects (400) an event rendered at any other
-  version unless `STRIPE_WEBHOOK_API_VERSIONS` lists it, for a sandbox whose default version differs.
+  is looked up through its invoice payments. The webhook rejects (400) a snapshot event rendered at any
+  other version.
   `setup_intent.setup_failed` records a
   failed bank (PAD) setup on its link.
 - Retry-safe `open_*` builders (card/booking-deposit/entitlement/terminal) are Stripe-idempotency-

@@ -318,6 +318,7 @@ class FakePaymentGateway:
         self.account_status: ConnectAccount | None = None  # override get_account() in a test
         self.charges: dict[str, tuple[int, int]] = {}  # intent id -> (amount, application fee)
         self.balance_cents = 0  # get_balance_cents() result
+        self.card_countries: dict[str, str] = {}  # saved card -> issuing country; default CA
         self.invoice_intents: dict[str, str] = {}  # Stripe invoice id -> the intent that paid it
         self.canceled_intents: list[str] = []
         self.confirmed: set[str] = set()  # intents the payer already confirmed, so uncancelable
@@ -362,6 +363,7 @@ class FakePaymentGateway:
                 eventually_due=[],
                 past_due=[],
                 pending_verification=[],
+                card_status="restricted",
             )
         )
 
@@ -523,6 +525,9 @@ class FakePaymentGateway:
 
     async def detach_payment_method(self, account_id: str, *, payment_method_id: str) -> None:
         self.detached.append(payment_method_id)
+
+    async def get_card_country(self, account_id: str, *, payment_method_id: str) -> str | None:
+        return self.card_countries.get(payment_method_id, "CA")
 
     async def create_connection_token(self, account_id: str) -> str:
         self._seq += 1

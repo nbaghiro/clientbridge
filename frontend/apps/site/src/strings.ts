@@ -198,6 +198,8 @@ interface Strings {
                     { readonly label: string; readonly value: string } & Labels,
                     { readonly label: string; readonly value: string } & Labels,
                     { readonly label: string; readonly value: string } & Labels,
+                    { readonly label: string; readonly value: string } & Labels,
+                    { readonly label: string; readonly value: string } & Labels,
                 ];
             };
             readonly faqTitle: string;

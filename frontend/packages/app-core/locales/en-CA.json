@@ -8579,6 +8579,15 @@
     "paymentAccount.expired": {
         "message": "This payment account session has closed. Open it again to continue."
     },
+    "paymentAccount.notices": {
+        "message": "Payment account notices"
+    },
+    "paymentAccount.noticesAttention": {
+        "message": "Your payment account has notices that need a response. Review them in the web app to keep taking payments and receiving payouts."
+    },
+    "paymentAccount.reviewNotices": {
+        "message": "Review notices on web"
+    },
     "gettingPaid.reqExternalAccount": {
         "message": "Bank account for payouts"
     },

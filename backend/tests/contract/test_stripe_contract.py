@@ -26,16 +26,6 @@ async def test_create_setup_intent(contract_gateway: StripeGateway) -> None:
     assert result.id.startswith("seti_") and result.client_secret
 
 
-async def test_create_pad_setup_intent(contract_gateway: StripeGateway) -> None:
-    result = await contract_gateway.create_pad_setup_intent(
-        ACCT,
-        customer_id=CUS,
-        idempotency_key="contract-pad-1",
-        interval_description="When an invoice or a scheduled membership payment is due",
-    )
-    assert result.id.startswith("seti_") and result.client_secret
-
-
 async def test_create_price(contract_gateway: StripeGateway) -> None:
     price = await contract_gateway.create_price(
         ACCT,
@@ -104,18 +94,6 @@ async def test_detach_payment_method(contract_gateway: StripeGateway) -> None:
     await contract_gateway.detach_payment_method(ACCT, payment_method_id="pm_contract")
 
 
-async def test_create_terminal_payment_intent(contract_gateway: StripeGateway) -> None:
-    result = await contract_gateway.create_terminal_payment_intent(
-        ACCT,
-        amount_cents=3000,
-        currency="cad",
-        application_fee_cents=75,
-        metadata={"order_id": "ord_1"},
-        idempotency_key="contract-term-1",
-    )
-    assert result.id.startswith("pi_") and result.client_secret
-
-
 async def test_get_payment_fees(contract_gateway: StripeGateway) -> None:
     fees = await contract_gateway.get_payment_fees(ACCT, payment_intent_id="pi_contract")
     if fees is None:  # stripe-mock never expands the charge's balance transaction
@@ -128,7 +106,7 @@ async def test_get_balance_cents(contract_gateway: StripeGateway) -> None:
     assert isinstance(await contract_gateway.get_balance_cents(ACCT, currency="CAD"), int)
 
 
-@pytest.mark.parametrize("component", ["onboarding", "account", "payments", "payouts"])
+@pytest.mark.parametrize("component", ["onboarding", "account", "notices", "payments", "payouts"])
 async def test_create_account_session(
     contract_gateway: StripeGateway, component: ConnectComponent
 ) -> None:

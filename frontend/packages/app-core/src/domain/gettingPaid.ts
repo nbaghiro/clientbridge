@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { formatDate, parseTimestamp, useBusinessZone } from "../datetime";
-import type { PaymentAccountComponent, PaymentAccountProps } from "../ui";
+import type { PaymentAccountComponent, PaymentAccountProps, PaymentNoticesProps } from "../ui";
 import { useBusinessId } from "./business";
 import { strings } from "../strings";
 import type { ApiLike } from "../api";
@@ -128,6 +128,7 @@ export interface GettingPaidView {
     refreshing: boolean;
     finish: () => void;
     account: ReturnType<typeof usePaymentAccount>;
+    notices: PaymentNotices | null;
     refresh: () => void;
 }
 
@@ -180,6 +181,11 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
             : parseTimestamp(s.current_deadline);
     const past = new Set(s?.past_due ?? []);
     const keys = [...new Set([...(s?.past_due ?? []), ...(s?.currently_due ?? [])])];
+    const notices = usePaymentNotices(
+        api,
+        s?.connected ?? false,
+        noticesNeedAttention(phase, keys.length),
+    );
     const message =
         phase === "not_connected"
             ? g.phaseNotConnected
@@ -213,8 +219,34 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
             account.open("onboarding");
         },
         account,
+        notices,
         refresh,
     };
+}
+
+/** Stripe's banner lists requirements due after onboarding and risk reviews, never the first setup. */
+export function noticesNeedAttention(phase: ConnectPhase, due: number): boolean {
+    return phase === "restricted" || phase === "disabled" || (phase === "enabled" && due > 0);
+}
+
+type PaymentNotices = Omit<PaymentNoticesProps, "onReview" | "reviewing">;
+
+/** The account notices banner Stripe requires where owners see payments, once an account exists. */
+export function usePaymentNotices(
+    api: ApiLike,
+    connected: boolean,
+    attention: boolean,
+): PaymentNotices | null {
+    const businessId = useBusinessId();
+    const fetchClientSecret = useCallback(async (): Promise<string> => {
+        const { client_secret: secret } = await api.post<{ client_secret: string }>(
+            "/v1/connect/session",
+            { component: "notices" },
+        );
+        return secret;
+    }, [api]);
+    if (!connected || businessId === null) return null;
+    return { scope: `${businessId}:notices`, fetchClientSecret, attention };
 }
 
 export function usePaymentAccount(api: ApiLike, onClose?: () => void) {

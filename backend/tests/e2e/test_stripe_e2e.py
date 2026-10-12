@@ -6,7 +6,12 @@ import pytest
 import stripe
 
 from clientbridge.core.errors import CardDeclined, Conflict
-from clientbridge.integrations.stripe import TERMS_REQUIREMENT, StripeGateway
+from clientbridge.integrations.stripe import (
+    STRIPE_API_VERSION,
+    TERMS_REQUIREMENT,
+    StripeGateway,
+    merchant_capability,
+)
 
 pytestmark = [pytest.mark.e2e, pytest.mark.wall_clock]
 
@@ -28,8 +33,48 @@ async def test_fresh_v2_account_reports_kyc_requirements(live_gateway: StripeGat
         account_id, refresh_url="https://x.test/refresh", return_url="https://x.test/return"
     )
     assert url.startswith("https://")
-    with pytest.raises(Conflict):
-        await live_gateway.ensure_pad_capability(account_id)
+
+
+async def test_pad_capability_request_is_accepted(
+    live_gateway: StripeGateway, connected_account_id: str
+) -> None:
+    """Stripe accepts the acss_debit_payments request and reviews or enables it."""
+    try:
+        await live_gateway.ensure_pad_capability(connected_account_id)
+    except Conflict as exc:
+        assert "requirements" in exc.message  # pending review, not a rejected request
+    client = stripe.StripeClient(str(stripe.api_key), stripe_version=STRIPE_API_VERSION)
+    account = await client.v2.core.accounts.retrieve_async(
+        connected_account_id, {"include": ["configuration.merchant"]}
+    )
+    pad = merchant_capability(account.to_dict(), "acss_debit_payments")
+    assert pad.get("status") in {"pending", "active"}
+    if pad.get("status") == "active":
+        customer_id = await live_gateway.create_customer(
+            connected_account_id, name="PAD Tester", email="pad@x.test"
+        )
+        result = await live_gateway.create_pad_setup_intent(
+            connected_account_id,
+            customer_id=customer_id,
+            idempotency_key=f"e2e-pad-{uuid4()}",
+            interval_description="When an invoice or a scheduled membership payment is due",
+        )
+        assert result.id.startswith("seti_") and result.client_secret
+
+
+async def test_terminal_intent_allows_card_present(
+    live_gateway: StripeGateway, connected_account_id: str
+) -> None:
+    """endive takes allowed_payment_method_types and keeps card_present for the reader."""
+    result = await live_gateway.create_terminal_payment_intent(
+        connected_account_id,
+        amount_cents=3000,
+        currency="cad",
+        application_fee_cents=75,
+        metadata={"e2e": "terminal"},
+        idempotency_key=f"e2e-terminal-{uuid4()}",
+    )
+    assert result.id.startswith("pi_") and result.client_secret
 
 
 async def test_declined_test_card_maps_to_card_declined(

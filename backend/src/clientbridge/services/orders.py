@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
-from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role, is_manager
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
@@ -177,7 +176,6 @@ class OrderService:
                 business_id=self.biz,
                 order=order,
                 amount=due + tip.cents,
-                fee_bps=get_settings().platform_fee_bps,
                 idempotency_key=idempotency_key,
                 tip=tip,
                 due=due,
@@ -222,7 +220,6 @@ class OrderService:
                 order=order,
                 client=client,
                 amount=due + tip.cents,
-                fee_bps=get_settings().platform_fee_bps,
                 payment_method=method,
                 idempotency_key=idempotency_key,
                 tip=tip,

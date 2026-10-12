@@ -3475,7 +3475,7 @@ export interface components {
              * Component
              * @enum {string}
              */
-            component: "onboarding" | "account" | "payments" | "payouts";
+            component: "onboarding" | "account" | "notices" | "payments" | "payouts";
         };
         /** ConnectSessionOut */
         ConnectSessionOut: {

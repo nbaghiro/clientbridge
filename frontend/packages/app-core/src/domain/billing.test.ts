@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { setPseudoLocale } from "../locale";
 import { strings } from "../strings";
 import {
     type InvoiceRow,
@@ -187,6 +188,21 @@ describe("draft documents", () => {
             { code: "GST", label: "GST 5%", baseCents: 10000, cents: 501 },
             { code: "HST", label: "HST", baseCents: 0, cents: 1300 },
         ]);
+    });
+
+    it("names a booked tax the rates did not price from the catalog, not its raw code", async () => {
+        const pricing = priceDoc(
+            [{ amountCents: 10000, taxClass: "standard", included: true }],
+            BC,
+        );
+        await setPseudoLocale(true);
+        try {
+            const [hst] = issuedTaxes(pricing, [{ code: "HST", cents: 1300 }]);
+            expect(hst?.label).toBe(strings.taxes.names.HST);
+            expect(hst?.label).not.toBe("HST");
+        } finally {
+            await setPseudoLocale(false);
+        }
     });
 });
 

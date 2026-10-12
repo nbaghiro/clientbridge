@@ -54,8 +54,6 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""  # the Connect endpoint's (snapshot events) signing secret
     stripe_thin_webhook_secret: str = ""  # the account event destination's (thin events) secret
-    # snapshot payload versions accepted besides STRIPE_API_VERSION (a sandbox with a newer default)
-    stripe_webhook_api_versions: list[str] = Field(default_factory=list)
     stripe_connect_country: str = "CA"
     api_base_url: str = "http://127.0.0.1:8701"  # the public API origin, which Twilio signs
     web_base_url: str = "http://localhost:8700"
@@ -63,7 +61,15 @@ class Settings(BaseSettings):
     # Every invoice pay link uses this one host (production: https://pay.clientbridge.ca).
     pay_base_url: str = "http://localhost:8709"
     cors_allow_origins: str = ""
-    platform_fee_bps: int = 200  # application fee per direct charge (basis points; 200 = 2%)
+    # our application fee keeps Stripe's percentage plus ours at or under the ceiling, capped at max
+    platform_fee_ceiling_bps: int = 320
+    platform_fee_max_bps: int = 200
+    # Stripe's Canadian percentage rates (stripe.com/en-ca/pricing); fixed amounts come on top
+    stripe_card_bps: int = 290
+    stripe_card_present_bps: int = 270
+    stripe_acss_debit_bps: int = 100
+    stripe_international_card_bps: int = 80
+    stripe_conversion_bps: int = 200
     auth_email_hook_secret: str = _DEV_COURIER_SECRET  # matches docker-compose.yml's kratos
 
     # Outreach channels; empty credentials select the no-op console senders.

@@ -915,11 +915,9 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
     print(f"  STRIPE_THIN_WEBHOOK_SECRET={secret(destination_secret or listen_secret)}")
     default_version = stripe.default_api_version()
     if default_version is not None and default_version != STRIPE_API_VERSION:
-        print(f'  STRIPE_WEBHOOK_API_VERSIONS=["{default_version}"]')
         print(
-            f"    the sandbox renders snapshot events at {default_version} and `stripe listen` "
-            f"cannot pin {STRIPE_API_VERSION}; accept it only after checking its changes against "
-            "the handlers"
+            f"  note: the sandbox renders snapshot events at {default_version}, which the webhook "
+            f"rejects under `stripe listen`; the handlers parse only {STRIPE_API_VERSION}"
         )
     publishable = config.get("test_mode_pub_key", "<pk_test_...>")
     print(f"  VITE_STRIPE_PUBLISHABLE_KEY={publishable}  (frontend/apps/web and apps/connect)")

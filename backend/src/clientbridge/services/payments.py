@@ -23,6 +23,7 @@ from clientbridge.core.security import hash_token
 from clientbridge.core.zones import zone
 from clientbridge.integrations.stripe import (
     ACCOUNT_EVENTS,
+    SETTLEMENT_CURRENCY,
     STRIPE_API_VERSION,
     ChargeFees,
     ConnectComponent,
@@ -323,7 +324,6 @@ class PaymentService:
                 invoice=invoice,
                 client=client,
                 amount=data.amount_cents,
-                fee_bps=get_settings().platform_fee_bps,
                 payment_method=pm_ref,
                 idempotency_key=idempotency_key,
             )
@@ -995,6 +995,54 @@ async def ensure_subscription_price(
     return price_id
 
 
+type FeeMethod = Literal["card", "card_present", "acss_debit"]
+
+
+def application_fee_cents(
+    amount: int, method: FeeMethod, *, international: bool, converted: bool
+) -> int:
+    """Our fee, sized so Stripe's percentage plus ours stays within the ceiling."""
+    settings = get_settings()
+    stripe_bps = {
+        "card": settings.stripe_card_bps,
+        "card_present": settings.stripe_card_present_bps,
+        "acss_debit": settings.stripe_acss_debit_bps,
+    }[method]
+    if international:
+        stripe_bps += settings.stripe_international_card_bps
+    if converted:
+        stripe_bps += settings.stripe_conversion_bps
+    room = settings.platform_fee_ceiling_bps - stripe_bps
+    return amount * max(0, min(room, settings.platform_fee_max_bps)) // 10000
+
+
+async def charge_fee_cents(
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    account_id: str,
+    business_id: str,
+    amount: int,
+    currency: str,
+    payment_method: str | None,
+) -> int:
+    """The application fee for an online charge; a new card is priced as a domestic card."""
+    converted = currency.lower() != SETTLEMENT_CURRENCY
+    if payment_method is None:
+        return application_fee_cents(amount, "card", international=False, converted=converted)
+    saved = (
+        await db.execute(
+            scoped(PaymentMethod, business_id)
+            .with_only_columns(PaymentMethod.method)
+            .where(PaymentMethod.provider_ref == payment_method)
+        )
+    ).scalar_one_or_none()
+    if saved == "bank_eft":
+        return application_fee_cents(amount, "acss_debit", international=False, converted=converted)
+    country = await gateway.get_card_country(account_id, payment_method_id=payment_method)
+    international = country is not None and country != get_settings().stripe_connect_country
+    return application_fee_cents(amount, "card", international=international, converted=converted)
+
+
 async def open_card_payment(
     db: AsyncSession,
     gateway: PaymentGateway,
@@ -1004,7 +1052,6 @@ async def open_card_payment(
     invoice: Invoice,
     client: Client,
     amount: int,
-    fee_bps: int,
     payment_method: str | None = None,
     idempotency_key: str | None = None,
     tip: TipTerms | None = None,
@@ -1018,12 +1065,15 @@ async def open_card_payment(
         await _assert_room(db, invoice, amount - tip.cents)
     closed = await _closed_card_attempts(db, business_id, invoice.id, amount, tip.cents)
     attempt = idempotency_key or f"{amount}_{tip.cents}_{closed}"
+    fee = await charge_fee_cents(
+        db, gateway, account_id, business_id, amount, invoice.currency, payment_method
+    )
     intent = await gateway.create_payment_intent(
         account_id,
         amount_cents=amount,
         currency=invoice.currency,
         customer_id=customer_id,
-        application_fee_cents=amount * fee_bps // 10000,
+        application_fee_cents=fee,
         metadata={"invoice_id": invoice.id, "business_id": business_id, **_tip_metadata(tip)},
         # A failed or canceled attempt bumps the key, so only a live attempt is ever replayed.
         idempotency_key=f"payment_{invoice.id}_{attempt}",
@@ -1110,18 +1160,20 @@ async def open_booking_deposit(
     booking: Booking,
     client: Client,
     amount: int,
-    fee_bps: int,
     payment_method: str | None = None,
     idempotency_key: str | None = None,
 ) -> tuple[Payment, str]:
     """Open a deposit PaymentIntent and pending Payment for a booking; the caller commits."""
     customer_id = await ensure_customer(db, gateway, account_id, client)
+    fee = await charge_fee_cents(
+        db, gateway, account_id, business_id, amount, "CAD", payment_method
+    )
     intent = await gateway.create_payment_intent(
         account_id,
         amount_cents=amount,
         currency="CAD",
         customer_id=customer_id,
-        application_fee_cents=amount * fee_bps // 10000,
+        application_fee_cents=fee,
         metadata={"booking_id": booking.id, "business_id": business_id},
         idempotency_key=f"deposit_{booking.id}_{idempotency_key or amount}",
         payment_method=payment_method,
@@ -1161,7 +1213,6 @@ async def open_entitlement_payment(
     client: Client,
     amount: int,
     currency: str,
-    fee_bps: int,
     entitlement_kind: str,
     entitlement_id: str,
     payment_method: str | None = None,
@@ -1169,12 +1220,15 @@ async def open_entitlement_payment(
 ) -> tuple[Payment, str]:
     """Open a PaymentIntent and pending Payment for a package or gift card; the caller commits."""
     customer_id = await ensure_customer(db, gateway, account_id, client)
+    fee = await charge_fee_cents(
+        db, gateway, account_id, business_id, amount, currency, payment_method
+    )
     intent = await gateway.create_payment_intent(
         account_id,
         amount_cents=amount,
         currency=currency,
         customer_id=customer_id,
-        application_fee_cents=amount * fee_bps // 10000,
+        application_fee_cents=fee,
         metadata={f"{entitlement_kind}_id": entitlement_id, "business_id": business_id},
         # The entitlement id is new per request, so dedupe on the client's Idempotency-Key.
         idempotency_key=f"{entitlement_kind}_{idempotency_key or entitlement_id}",
@@ -1214,7 +1268,6 @@ async def open_order_card_payment(
     order: Order,
     client: Client | None,
     amount: int,
-    fee_bps: int,
     payment_method: str | None = None,
     idempotency_key: str | None = None,
     tip: TipTerms | None = None,
@@ -1225,12 +1278,15 @@ async def open_order_card_payment(
     customer_id = await ensure_customer(db, gateway, account_id, client) if client else None
     if payment_method is not None:
         await _assert_order_room(db, order, amount - tip.cents, due)
+    fee = await charge_fee_cents(
+        db, gateway, account_id, business_id, amount, order.currency, payment_method
+    )
     intent = await gateway.create_payment_intent(
         account_id,
         amount_cents=amount,
         currency=order.currency,
         customer_id=customer_id,
-        application_fee_cents=amount * fee_bps // 10000,
+        application_fee_cents=fee,
         metadata={"order_id": order.id, "business_id": business_id, **_tip_metadata(tip)},
         idempotency_key=f"order_card_{order.id}_{idempotency_key or amount}",
         payment_method=payment_method,
@@ -1273,18 +1329,24 @@ async def open_terminal_payment(
     business_id: str,
     order: Order,
     amount: int,
-    fee_bps: int,
     idempotency_key: str | None = None,
     tip: TipTerms | None = None,
     due: int | None = None,
 ) -> tuple[Payment, str]:
     """Open a Terminal PaymentIntent and pending Payment for a sale; the caller commits."""
     tip = tip or NO_TIP
+    # the card is read at the reader after the intent exists, so the domestic rate applies
+    fee = application_fee_cents(
+        amount,
+        "card_present",
+        international=False,
+        converted=order.currency.lower() != SETTLEMENT_CURRENCY,
+    )
     intent = await gateway.create_terminal_payment_intent(
         account_id,
         amount_cents=amount,
         currency=order.currency,
-        application_fee_cents=amount * fee_bps // 10000,
+        application_fee_cents=fee,
         metadata={"order_id": order.id, "business_id": business_id, **_tip_metadata(tip)},
         # A re-checkout after an edit gets a new intent, which _assert_order_room then rejects.
         idempotency_key=f"order_{order.id}_{idempotency_key or amount}",
@@ -1358,16 +1420,12 @@ async def next_credit_note(db: AsyncSession, payment: Payment) -> str:
     return credit_note_number(await _credit_document(db, payment), int(issued) + 1)
 
 
-def accepted_api_versions() -> set[str]:
-    return {STRIPE_API_VERSION, *get_settings().stripe_webhook_api_versions}
-
-
 async def process_stripe_event(
     db: AsyncSession, gateway: PaymentGateway, payload: bytes, signature: str
 ) -> WebhookOutcome | None:
     """Verify, dedupe and apply a Stripe webhook; returns the notification to send after commit."""
     event = gateway.verify_webhook(payload, signature)
-    if not event.thin and event.api_version not in accepted_api_versions():
+    if not event.thin and event.api_version != STRIPE_API_VERSION:
         _log.warning(
             "rejected Stripe event %s (%s) rendered at API version %s; handlers parse %s",
             event.id,
