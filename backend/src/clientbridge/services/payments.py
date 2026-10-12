@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
+from clientbridge.core.db import transaction
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
@@ -1333,21 +1334,21 @@ async def process_stripe_event(
     else:
         record.status = "pending"
     try:
-        outcome = await _dispatch(db, gateway, event)
-        record.status = "processed"
-        record.processed_at = datetime.now(UTC)
-        await db.commit()
-    except IntegrityError as exc:
-        await db.rollback()
-        if "webhooks_pkey" in str(exc.orig):  # a concurrent delivery won the race on the event
+        async with transaction(db):
+            outcome = await _dispatch(db, gateway, event)
+            record.status = "processed"
+            record.processed_at = datetime.now(UTC)
+    except Exception as exc:
+        if _lost_event_race(exc):
             return None
         await _record_failed_delivery(db, event, exc)
         raise
-    except Exception as exc:
-        await db.rollback()
-        await _record_failed_delivery(db, event, exc)
-        raise
     return outcome
+
+
+def _lost_event_race(exc: Exception) -> bool:
+    """A concurrent delivery of the same event won the race on the webhooks primary key."""
+    return isinstance(exc, IntegrityError) and "webhooks_pkey" in str(exc.orig)
 
 
 async def _record_failed_delivery(db: AsyncSession, event: GatewayEvent, exc: Exception) -> None:

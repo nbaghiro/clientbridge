@@ -11,6 +11,7 @@ from pydantic_core import to_jsonable_python
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.db import transaction
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import Conflict, Unprocessable
 from clientbridge.core.ids import new_id
@@ -165,21 +166,20 @@ async def run_command[T: BaseModel](
     for attempt in (1, 2):
         cmd = Command(db, principal)
         try:
-            result = await run(cmd)
-            db.add_all(cmd.audits)
-            if idempotency_key is not None:
-                remember(
-                    db,
-                    principal.business_id,
-                    action,
-                    idempotency_key,
-                    body,
-                    result.model_dump(mode="json"),
-                )
-            await db.commit()
+            async with transaction(db):
+                result = await run(cmd)
+                db.add_all(cmd.audits)
+                if idempotency_key is not None:
+                    remember(
+                        db,
+                        principal.business_id,
+                        action,
+                        idempotency_key,
+                        body,
+                        result.model_dump(mode="json"),
+                    )
             return result
         except IntegrityError as exc:
-            await db.rollback()
             if _lost_key_race(exc):
                 replayed = await prior()
                 if replayed is not None:
@@ -190,11 +190,7 @@ async def run_command[T: BaseModel](
                 ) from exc
             raise
         except DBAPIError as exc:
-            await db.rollback()
             if attempt == 1 and _deadlocked(exc):
                 continue
-            raise
-        except Exception:
-            await db.rollback()
             raise
     raise AssertionError("unreachable")
