@@ -131,7 +131,7 @@ class ReportService:
         sales = await self.db.execute(
             self._legs(
                 Account.category.in_(("revenue", "deferred")),
-                Entry.event.in_(("invoice", "payment", "refund", "forfeit", "reversal")),
+                Entry.event.in_(("invoice", "payment", "refund", "dispute", "forfeit", "reversal")),
                 lo,
                 hi,
             ).with_only_columns(func.coalesce(func.sum(Entry.amount_cents), 0))

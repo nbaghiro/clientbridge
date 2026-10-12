@@ -5,32 +5,42 @@ from datetime import UTC, datetime
 
 import httpx
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.deps import Principal
+from clientbridge.core.ids import new_id
 from clientbridge.integrations.stripe import ChargeFees
+from clientbridge.models.ledger import Entry
 from clientbridge.models.payments import Payment
+from clientbridge.schemas.reports import IncomeReport
 from clientbridge.services import ledger
-from tests.conftest import BIZ, FakePaymentGateway
+from clientbridge.services.reports import ReportService
+from tests.conftest import BIZ, OWNER_USER, FakePaymentGateway
 from tests.helpers import (
     business_balance,
     client_id,
     enable_payments,
+    invoice,
     owner_balance,
     payment,
     payment_by_ref,
+    sent_invoice,
     stripe_event,
 )
 
 STRIPE = {"Stripe-Signature": "good"}
 
 
-async def _charge(db: AsyncSession, pi: str, *, status: str = "succeeded") -> Payment:
+async def _charge(
+    db: AsyncSession, pi: str, *, status: str = "succeeded", invoice_id: str | None = None
+) -> Payment:
     row = Payment(
         id=f"pay_{pi}",
         business_id=BIZ,
         client_id=await client_id(db),
+        invoice_id=invoice_id,
         kind="payment",
         amount_cents=8000,
         currency="CAD",
@@ -67,8 +77,10 @@ async def test_refund_that_fails_after_succeeding_returns_the_money(
     """Stripe can fail a card refund up to 30 days after it succeeded; the balance gets it back."""
     await _charge(db, "pi_rf")
     before = await business_balance(db, "stripe")
+    income = await _income(db)
     await stripe_event(api, "refund.created", _refund("pi_rf", "succeeded"))
     assert await business_balance(db, "stripe") == before - 8000
+    assert (await _income(db)).refunds_cents == income.refunds_cents + 8000
     await stripe_event(
         api,
         "refund.updated",
@@ -82,29 +94,46 @@ async def test_refund_that_fails_after_succeeding_returns_the_money(
     refund = await payment_by_ref(db, "re_pi_rf")
     assert refund.status == "failed"
     assert await business_balance(db, "stripe") == before
+    assert (
+        await _income(db) == income
+    )  # the reversal carries the refund's source, so reports net it
+
+
+async def _income(db: AsyncSession) -> IncomeReport:
+    owner = Principal(user_id=OWNER_USER, business_id=BIZ, staff_id="st_owner", role="owner")
+    lo, hi = datetime(2026, 1, 1, tzinfo=UTC), datetime(2027, 1, 1, tzinfo=UTC)
+    return await ReportService(db, owner).income_summary_between(lo, hi)
 
 
 async def test_won_dispute_reinstates_what_stripe_reinstated(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     """A win returns the amount and the countered fee; the ledger follows Stripe's transactions."""
-    await _charge(db, "pi_won")
+    inv_id = await sent_invoice(db, number=9500, total=8000)
+    await _charge(db, "pi_won", invoice_id=inv_id)
+    assert (await invoice(db, inv_id)).status == "paid"
     before = await business_balance(db, "stripe")
     pulled = {"id": "txn_dp_out", "amount": -8000, "fee": 1500, "net": -9500}
     await stripe_event(
         api, "charge.dispute.created", _dispute("pi_won", "needs_response", [pulled])
     )
     assert await business_balance(db, "stripe") == before - 9500
+    assert (await invoice(db, inv_id)).status == "sent"  # the money is out, the client owes again
     back = {"id": "txn_dp_in", "amount": 8000, "fee": -1500, "net": 9500}
     await stripe_event(api, "charge.dispute.closed", _dispute("pi_won", "won", [pulled, back]))
     assert await business_balance(db, "stripe") == before
+    assert (await invoice(db, inv_id)).status == "paid"
 
 
-async def test_lost_dispute_writes_the_sale_off(api: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_lost_dispute_writes_the_sale_off(
+    api: httpx.AsyncClient, as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
     """A lost chargeback is uncollectable: no receivable on the client, no revenue from the sale."""
-    row = await _charge(db, "pi_lost")
+    inv_id = await sent_invoice(db, number=9501, total=8000)
+    row = await _charge(db, "pi_lost", invoice_id=inv_id)
     assert row.client_id is not None
     revenue = await business_balance(db, "revenue")
+    taxable = await _taxable_sales(as_owner)
     pulled = {"id": "txn_lost_out", "amount": -8000, "fee": 1500, "net": -9500}
     await stripe_event(
         api, "charge.dispute.created", _dispute("pi_lost", "needs_response", [pulled])
@@ -112,16 +141,27 @@ async def test_lost_dispute_writes_the_sale_off(api: httpx.AsyncClient, db: Asyn
     await stripe_event(api, "charge.dispute.closed", _dispute("pi_lost", "lost", [pulled]))
     assert await owner_balance(db, "client", row.client_id, "receivable") == 0
     assert await business_balance(db, "revenue") == revenue + 8000
+    assert (await invoice(db, inv_id)).status == "refunded"
+    assert await _taxable_sales(as_owner) == taxable - 8000  # off GST line 101 with the revenue
+
+
+async def _taxable_sales(as_owner: httpx.AsyncClient) -> int:
+    res = await as_owner.get("/v1/reports/gst-hst?start=2026-01-01&end=2026-12-31")
+    return int(res.json()["taxable_sales_cents"])
+
+
+PAYOUT_CREATED = datetime(2026, 10, 12, 9, 0, tzinfo=UTC)
+PAYOUT_ARRIVES = datetime(2026, 10, 14, tzinfo=UTC)
 
 
 def _payout(payout_id: str, status: str) -> dict[str, object]:
-    arrival = int(datetime(2026, 10, 14, tzinfo=UTC).timestamp())
     return {
         "id": payout_id,
         "amount": 5000,
         "currency": "cad",
         "status": status,
-        "arrival_date": arrival,
+        "created": int(PAYOUT_CREATED.timestamp()),
+        "arrival_date": int(PAYOUT_ARRIVES.timestamp()),
     }
 
 
@@ -133,6 +173,10 @@ async def test_payout_leaves_the_stripe_balance_when_created(
     before = await business_balance(db, "stripe")
     await stripe_event(api, "payout.created", _payout("po_new", "pending"))
     assert await business_balance(db, "stripe") == before - 5000
+    booked = await db.execute(
+        select(Entry.occurred_at, Entry.available_at).where(Entry.ref == "payout:po_new").limit(1)
+    )
+    assert booked.one() == (PAYOUT_CREATED, PAYOUT_ARRIVES)  # dated now, available on arrival
 
 
 async def test_canceled_payout_comes_back(api: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -183,4 +227,16 @@ async def test_account_balance_cannot_leave_its_entries(db: AsyncSession) -> Non
                 " AND owner_id = :biz AND category = 'stripe'"
             ),
             {"biz": BIZ},
+        )
+
+
+async def test_an_account_cannot_be_born_with_a_balance(db: AsyncSession) -> None:
+    with pytest.raises(DBAPIError, match="only through ledger entries"):
+        await db.execute(
+            text(
+                "INSERT INTO accounts (id, business_id, owner_type, owner_id, category, code,"
+                " currency, balance_cents, created_at, updated_at)"
+                " VALUES (:id, :biz, 'business', :biz, 'cash', 'born', 'CAD', 1, now(), now())"
+            ),
+            {"id": new_id("account"), "biz": BIZ},
         )

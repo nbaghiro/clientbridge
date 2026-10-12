@@ -658,6 +658,7 @@ async def _payouts(db: AsyncSession, ctx: DemoContext) -> None:
             amount=amount,
             currency="CAD",
             arrival_at=arrival,
+            occurred_at=arrival - timedelta(days=2),
         )
         if day == -28:
             await ledger.fail_payout(

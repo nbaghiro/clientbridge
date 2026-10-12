@@ -170,6 +170,10 @@
         "message": "These details changed after the last attempt was sent. Check them and try again.",
         "description": "A retried request carried different details from the attempt the server already saved."
     },
+    "api.concurrentChange": {
+        "message": "Someone else just changed this. Refresh and try again.",
+        "description": "Two requests changed the same money or stock row at once and this one lost."
+    },
     "api.visitNotStarted": {
         "message": "This visit hasn't started yet. Complete it or mark a no-show once it starts."
     },

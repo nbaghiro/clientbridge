@@ -1,19 +1,22 @@
 """The command() helper: atomic, audited, idempotent mutations."""
 
+import asyncio
+import uuid
 from collections.abc import Awaitable, Callable
 
 import pytest
 from pydantic import BaseModel
-from sqlalchemy import Select, select
+from sqlalchemy import Select, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
+from clientbridge.core.db import SessionLocal
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import Conflict, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.models.clients import Client
 from clientbridge.models.platform import Audit, IdempotencyKey
-from tests.conftest import Factory
+from tests.conftest import BIZ, OWNER_USER, Factory
 
 
 class _Out(BaseModel):
@@ -306,14 +309,6 @@ async def test_a_key_never_replays_in_another_business(db: AsyncSession, factory
 
 async def test_two_requests_with_one_key_get_one_response(db: AsyncSession) -> None:
     """The loser of the key race replays the winner's stored response instead of failing."""
-    import asyncio
-    import uuid
-
-    from sqlalchemy import delete
-
-    from clientbridge.core.db import SessionLocal
-    from tests.conftest import BIZ, OWNER_USER
-
     principal = Principal(user_id=OWNER_USER, business_id=BIZ, staff_id="st_owner", role="owner")
     key = f"race-{uuid.uuid4().hex}"
     name = f"Raced {key}"
@@ -365,12 +360,8 @@ async def test_two_requests_with_one_key_get_one_response(db: AsyncSession) -> N
             await cleanup.commit()
 
 
-async def test_a_deadlocked_command_completes_on_the_retry(db: AsyncSession) -> None:
-    import asyncio
-
-    from clientbridge.core.db import SessionLocal
-    from tests.conftest import BIZ, OWNER_USER
-
+async def test_a_deadlocked_command_is_a_conflict_not_a_rerun(db: AsyncSession) -> None:
+    """Callers lock their row before the command, so a rerun would run without that lock."""
     principal = Principal(user_id=OWNER_USER, business_id=BIZ, staff_id="st_owner", role="owner")
     first, second = "cl_amelie", "cl_marcus"
     other_holds_second = asyncio.Event()
@@ -389,7 +380,7 @@ async def test_a_deadlocked_command_completes_on_the_retry(db: AsyncSession) -> 
             await session.execute(lock(first))
             await session.commit()
 
-    async def command() -> _Out:
+    async def command() -> Conflict:
         async with SessionLocal() as session:
 
             async def run(cmd: Command) -> _Out:
@@ -400,10 +391,12 @@ async def test_a_deadlocked_command_completes_on_the_retry(db: AsyncSession) -> 
                 await cmd.db.execute(lock(second))
                 return _Out(id="locked", name="both")
 
-            return await run_command(
-                session, principal, action="client.touch", run=run, response_model=_Out
-            )
+            with pytest.raises(Conflict) as refused:
+                await run_command(
+                    session, principal, action="client.touch", run=run, response_model=_Out
+                )
+            return refused.value
 
-    result, _ = await asyncio.gather(command(), other())
-    assert result.id == "locked"
-    assert len(calls) == 2  # the first attempt was the deadlock victim
+    refused, _ = await asyncio.gather(command(), other())
+    assert refused.code == "concurrent_change"
+    assert len(calls) == 1  # the deadlock victim is reported, never rerun

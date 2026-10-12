@@ -841,6 +841,41 @@ describe("app-core SQL against the replica schema", () => {
         expect(value(ownedLiabilitySql("gift_card", "gift_card", "'gc_none'"))).toBe(0);
     });
 
+    it("follows a dispute: withdrawn funds unsettle the sale and a loss reads refunded", () => {
+        const onInv3: Row = {
+            subject_type: "invoice",
+            subject_id: "inv_3",
+            source_type: "payment",
+            source_id: "pay_3",
+        };
+        journal(
+            "j_dp3",
+            "dispute",
+            "dispute:dp_3",
+            [
+                ["a_stripe", -2000],
+                ["a_recv_ben", 2000],
+            ],
+            onInv3,
+        );
+        expect(value(collectedSql("invoice", "'inv_3'"))).toBe(0);
+        expect(value(clientValueSql("'cl_ben'"))).toBe(4800);
+        expect(run("INVOICE_SQL", ["inv_3"])[0]?.status).toBe("sent");
+        journal(
+            "j_dp3_lost",
+            "dispute",
+            "dispute:dp_3:lost",
+            [
+                ["a_recv_ben", -2000],
+                ["a_rev", 2000],
+            ],
+            onInv3,
+        );
+        expect(run("INVOICE_SQL", ["inv_3"])[0]?.status).toBe("refunded");
+        db.run("DELETE FROM entries WHERE journal_id IN ('j_dp3', 'j_dp3_lost')");
+        expect(run("INVOICE_SQL", ["inv_3"])[0]?.status).toBe("paid");
+    });
+
     it("lists estimates, document lines and per-code tax", () => {
         expect(pick(run("ESTIMATES_SQL"), "id", "client_name", "status")).toEqual([
             { id: "est_1", client_name: "ben", status: "accepted" },

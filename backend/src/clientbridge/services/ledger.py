@@ -31,6 +31,8 @@ PLATFORM = "clientbridge"
 BUSINESS_CURRENCY = "CAD"  # every tenant books in CAD until multi-currency is a feature
 _CASH = {"stripe": "stripe", "manual": "cash"}
 _CASH_CATEGORIES = ("stripe", "cash", "bank")
+# cash legs that settle or unsettle a document: a dispute withdraws like a refund, a win restores
+_MONEY_BACK_EVENTS = ("payment", "refund", "dispute")
 # recorded by hand: cash sits in the till, a cheque or an e-Transfer already reached the bank
 _BANKED_BY_HAND = ("cheque", "etransfer", "bank_eft")
 # the credit-side kinds a refund unwinds pro rata (never the receivable: a refund is a credit note)
@@ -123,6 +125,7 @@ async def reverse(
     event: str = "reversal",
     meta: dict[str, object] | None = None,
     occurred_at: datetime | None = None,
+    source: tuple[str, str] | None = None,
 ) -> str | None:
     """Post the exact negation of a journal (the only way to correct the ledger)."""
     rows = await _rows(db, business_id, Entry.journal_id == journal_id)
@@ -149,7 +152,7 @@ async def reverse(
         ref=ref,
         legs=legs,
         currency=first.currency,
-        source=("journal", journal_id),
+        source=source or ("journal", journal_id),
         meta=meta,
         occurred_at=occurred_at,
     )
@@ -346,7 +349,7 @@ def _collected_expr(subject_type: str, subject_id: _Id) -> ColumnElement[int]:
         .where(
             _subject_legs(subject_type, subject_id),
             Account.category.in_(_CASH_CATEGORIES),
-            Entry.event.in_(("payment", "refund")),
+            Entry.event.in_(_MONEY_BACK_EVENTS),
         )
         .scalar_subquery()
     )
@@ -359,7 +362,7 @@ def _refunded_expr(subject_type: str, subject_id: _Id) -> ColumnElement[bool]:
         .where(
             _subject_legs(subject_type, subject_id),
             Account.category.in_(_CASH_CATEGORIES),
-            Entry.event == "refund",
+            Entry.event.in_(("refund", "dispute")),
         )
         .exists()
     )
@@ -766,13 +769,18 @@ async def post_refund(
 async def reverse_refund(db: AsyncSession, refund: Payment, original: Payment) -> None:
     """Stripe failed a refund it had marked succeeded: the money is back, so undo its journals."""
     biz = original.business_id
+    source = ("payment", refund.id)  # reports join payments on the source, so keep the refund's
     journal = await journal_for(db, biz, f"refund:{refund.id}")
     if journal is not None:
-        await reverse(db, biz, journal, ref=f"refund:{refund.id}:failed", event="refund")
+        await reverse(
+            db, biz, journal, ref=f"refund:{refund.id}:failed", event="refund", source=source
+        )
     for staff_id, _ in tip_shares(original):
         tip = await journal_for(db, biz, f"tip:{refund.id}:{staff_id}")
         if tip is not None:
-            await reverse(db, biz, tip, ref=f"tip:{refund.id}:{staff_id}:failed", event="tip")
+            await reverse(
+                db, biz, tip, ref=f"tip:{refund.id}:{staff_id}:failed", event="tip", source=source
+            )
 
 
 async def post_dispute(
@@ -823,7 +831,7 @@ async def close_dispute(
     """A won dispute: Stripe reinstates the amount and returns whatever part of the fee it does."""
     journal = await journal_for(db, business_id, f"dispute:{dispute_id}")
     if journal is not None:
-        await reverse(db, business_id, journal, ref=f"dispute:{dispute_id}:won")
+        await reverse(db, business_id, journal, ref=f"dispute:{dispute_id}:won", event="dispute")
     fee_rows = await _rows(db, business_id, Entry.ref == f"dispute_fee:{dispute_id}")
     if returned_fee <= 0 or not fee_rows:
         return
@@ -894,7 +902,9 @@ async def post_payout(
     amount: int,
     currency: str,
     arrival_at: datetime | None,
+    occurred_at: datetime | None,
 ) -> None:
+    """Dated when Stripe created the payout; the money reaches the bank on arrival_at."""
     await post(
         db,
         business_id,
@@ -906,7 +916,7 @@ async def post_payout(
         ],
         currency=currency,
         source=("stripe_payout", payout_id),
-        occurred_at=arrival_at,
+        occurred_at=occurred_at,
         available_at=arrival_at,
     )
 
@@ -1156,7 +1166,8 @@ async def reverse_forfeit(db: AsyncSession, booking: Booking) -> None:
 async def stale_accounts(db: AsyncSession, business_id: str) -> list[str]:
     """Accounts whose cached balance is not the sum of their entries."""
     totals = (
-        select(Entry.account_id, func.sum(Entry.amount_cents).label("total"))
+        scoped(Entry, business_id)
+        .with_only_columns(Entry.account_id, func.sum(Entry.amount_cents).label("total"))
         .group_by(Entry.account_id)
         .subquery()
     )

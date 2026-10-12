@@ -78,6 +78,7 @@ class GatewayEvent:
     type: str
     data: dict[str, object]
     account: str | None = None  # the connected account a Connect event came from
+    created: datetime | None = None  # when Stripe raised it: the success time of a succeeded event
 
 
 @dataclass(frozen=True)
@@ -725,11 +726,13 @@ class StripeGateway:
         event = json.loads(payload)
         obj = event["data"]["object"]
         account = event.get("account")
+        created = event.get("created")
         return GatewayEvent(
             id=str(event["id"]),
             type=str(event["type"]),
             data={str(k): v for k, v in obj.items()},
             account=str(account) if account else None,
+            created=datetime.fromtimestamp(created, tz=UTC) if isinstance(created, int) else None,
         )
 
 

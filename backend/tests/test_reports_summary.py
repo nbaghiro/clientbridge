@@ -102,6 +102,7 @@ async def _sale(db: AsyncSession, business_id: str = BIZ, client: str | None = N
         amount=5000,
         currency="CAD",
         arrival_at=MARCH,
+        occurred_at=MARCH,
     )
     await db.commit()
 

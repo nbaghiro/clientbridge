@@ -831,6 +831,23 @@ class TipTerms:
 NO_TIP = TipTerms()
 
 
+def _tip_metadata(tip: TipTerms) -> dict[str, str]:
+    """The tip on the intent, so a rebuilt row can post the same staff payables."""
+    meta = {"tip_cents": str(tip.cents)}
+    if tip.split:
+        meta["tip_split"] = ",".join(f"{staff_id}:{cents}" for staff_id, cents in tip.split)
+    return meta
+
+
+def _tip_from_metadata(metadata: dict[str, object]) -> TipTerms:
+    cents, split = metadata.get("tip_cents"), metadata.get("tip_split")
+    parts = [part.split(":", 1) for part in split.split(",")] if isinstance(split, str) else []
+    return TipTerms(
+        cents=int(cents) if isinstance(cents, str) and cents.isdigit() else 0,
+        split=tuple((staff_id, int(n)) for staff_id, n in parts if n.isdigit()),
+    )
+
+
 async def resolve_tip(
     db: AsyncSession,
     business_id: str,
@@ -980,11 +997,7 @@ async def open_card_payment(
         currency=invoice.currency,
         customer_id=customer_id,
         application_fee_cents=amount * fee_bps // 10000,
-        metadata={
-            "invoice_id": invoice.id,
-            "business_id": business_id,
-            "tip_cents": str(tip.cents),
-        },
+        metadata={"invoice_id": invoice.id, "business_id": business_id, **_tip_metadata(tip)},
         # A failed or canceled attempt bumps the key, so only a live attempt is ever replayed.
         idempotency_key=f"payment_{invoice.id}_{attempt}",
         payment_method=payment_method,
@@ -1191,7 +1204,7 @@ async def open_order_card_payment(
         currency=order.currency,
         customer_id=customer_id,
         application_fee_cents=amount * fee_bps // 10000,
-        metadata={"order_id": order.id, "business_id": business_id, "tip_cents": str(tip.cents)},
+        metadata={"order_id": order.id, "business_id": business_id, **_tip_metadata(tip)},
         idempotency_key=f"order_card_{order.id}_{idempotency_key or amount}",
         payment_method=payment_method,
     )
@@ -1245,7 +1258,7 @@ async def open_terminal_payment(
         amount_cents=amount,
         currency=order.currency,
         application_fee_cents=amount * fee_bps // 10000,
-        metadata={"order_id": order.id, "business_id": business_id},
+        metadata={"order_id": order.id, "business_id": business_id, **_tip_metadata(tip)},
         # A re-checkout after an edit gets a new intent, which _assert_order_room then rejects.
         idempotency_key=f"order_{order.id}_{idempotency_key or amount}",
     )
@@ -1341,6 +1354,9 @@ async def process_stripe_event(
     except Exception as exc:
         if _lost_event_race(exc):
             return None
+        if isinstance(exc, AppError) and exc.code == "retry_later":
+            _log.info("stripe webhook %s (%s) deferred: %s", event.id, event.type, exc)
+            raise
         await _record_failed_delivery(db, event, exc)
         raise
     return outcome
@@ -1366,7 +1382,9 @@ async def _record_failed_delivery(db: AsyncSession, event: GatewayEvent, exc: Ex
             processed_at=now,
         )
         .on_conflict_do_update(
-            index_elements=["id"], set_={"status": "failed", "processed_at": now}
+            index_elements=["id"],
+            set_={"status": "failed", "processed_at": now},
+            where=(Webhook.status != "processed"),
         )
     )
     await db.commit()
@@ -1472,9 +1490,8 @@ async def _reconcile_refund(db: AsyncSession, data: dict[str, object]) -> Webhoo
 
 async def _record_dispute(db: AsyncSession, data: dict[str, object]) -> str | None:
     """A chargeback was opened — book the pulled funds + fee and return the disputed payment."""
-    status = data.get("status")
-    if isinstance(status, str) and status.startswith("warning_"):
-        return None  # an inquiry: no funds are withdrawn unless it escalates to a dispute
+    if _inquiry(data):
+        return None  # no funds are withdrawn unless it escalates to a dispute
     payment = await _disputed_payment(db, data)
     if payment is None:
         return None
@@ -1514,9 +1531,19 @@ def _track_dispute(payment: Payment, data: dict[str, object]) -> None:
 
 async def _update_dispute(db: AsyncSession, data: dict[str, object]) -> None:
     payment = await _disputed_payment(db, data)
-    if payment is not None and payment.dispute_status is not None:
-        _track_dispute(payment, data)
-        await db.flush()
+    if payment is None:
+        return
+    if payment.dispute_status is None:
+        if not _inquiry(data):  # an inquiry escalated to a chargeback: the funds leave now
+            await _record_dispute(db, data)
+        return
+    _track_dispute(payment, data)
+    await db.flush()
+
+
+def _inquiry(data: dict[str, object]) -> bool:
+    status = data.get("status")
+    return isinstance(status, str) and status.startswith("warning_")
 
 
 async def _close_dispute(db: AsyncSession, data: dict[str, object]) -> None:
@@ -1578,7 +1605,9 @@ async def _dispatch(
                 apply_account_status(business, account_status_from(account_id, event.data))
                 await db.flush()
     elif event.type == "payment_intent.succeeded":
-        settled = await _settle_payment(db, gateway, event.data)
+        settled = await _settle_payment(
+            db, gateway, event.data, account=event.account, occurred_at=event.created
+        )
         if settled is None:
             return None
         if settled.gift_card_id is not None:
@@ -1606,7 +1635,7 @@ async def _dispatch(
     elif event.type == "charge.dispute.created":
         disputed = await _record_dispute(db, event.data)
         return WebhookOutcome("payment_disputed", disputed) if disputed is not None else None
-    elif event.type == "charge.dispute.updated":
+    elif event.type in ("charge.dispute.updated", "charge.dispute.funds_withdrawn"):
         await _update_dispute(db, event.data)
     elif event.type in ("charge.dispute.closed", "charge.dispute.funds_reinstated"):
         await _close_dispute(db, event.data)
@@ -1625,7 +1654,12 @@ async def _dispatch(
 
 
 async def _settle_payment(
-    db: AsyncSession, gateway: PaymentGateway, intent: dict[str, object]
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    intent: dict[str, object],
+    *,
+    account: str | None = None,
+    occurred_at: datetime | None = None,
 ) -> _Settled | None:
     intent_id = str(intent.get("id"))
     payment = (
@@ -1634,15 +1668,24 @@ async def _settle_payment(
         )
     ).scalar_one_or_none()
     if payment is None:
+        biz = _metadata_business(intent)
+        if biz is None:
+            return None
+        if not await _owns_account(db, biz, account):
+            _log.error("intent %s claims business %s from account %s", intent_id, biz, account)
+            return None
         payment = await _payment_from_intent(db, intent)
-    if payment is None:
-        _assert_not_ours(intent)
-        return None
+        if payment is None:
+            if _entitlement_purchase(intent):
+                await _refund_orphan(db, gateway, intent, biz)
+                return None
+            _assert_not_ours(intent)
+            return None
     if payment.status not in ("pending", "failed"):
         return None
     fees = await _fees(db, gateway, payment.business_id, intent_id)
     payment.status = "succeeded"
-    payment.paid_at = _stamp(intent, "created") or datetime.now(UTC)
+    payment.paid_at = occurred_at or datetime.now(UTC)
     await db.flush()
     await ledger.post_payment(db, payment, available_at=fees.available_at)
     await ledger.post_fees(db, payment, fees)
@@ -1818,7 +1861,7 @@ async def _payment_from_intent(db: AsyncSession, intent: dict[str, object]) -> P
     )
     if not isinstance(biz, str) or not isinstance(amount, int) or amount <= 0:
         return None
-    tip = metadata.get("tip_cents")
+    tip = _tip_from_metadata(metadata)
     kind: PaymentKind = "payment"
     client_id: str | None
     target: dict[str, str | None] = {"invoice_id": None, "order_id": None, "booking_id": None}
@@ -1851,7 +1894,8 @@ async def _payment_from_intent(db: AsyncSession, intent: dict[str, object]) -> P
         client_id=client_id,
         kind=kind,
         amount_cents=amount,
-        tip_cents=int(tip) if isinstance(tip, str) and tip.isdigit() else 0,
+        tip_cents=tip.cents,
+        tip_split=tip.stored(),
         currency=currency.upper() if isinstance(currency, str) else BUSINESS_CURRENCY,
         method="card",
         provider="stripe",
@@ -1866,9 +1910,67 @@ async def _payment_from_intent(db: AsyncSession, intent: dict[str, object]) -> P
 
 def _assert_not_ours(intent: dict[str, object]) -> None:
     """An intent whose command hasn't committed yet must be retried by Stripe."""
-    metadata = intent.get("metadata")
-    if isinstance(metadata, dict) and metadata.get("business_id"):
+    if _metadata_business(intent) is not None:
         raise AppError("payment not recorded yet", status_code=503, code="retry_later")
+
+
+def _metadata_business(intent: dict[str, object]) -> str | None:
+    metadata = intent.get("metadata")
+    biz = metadata.get("business_id") if isinstance(metadata, dict) else None
+    return biz if isinstance(biz, str) and biz else None
+
+
+def _entitlement_purchase(intent: dict[str, object]) -> bool:
+    metadata = intent.get("metadata")
+    return isinstance(metadata, dict) and any(
+        isinstance(metadata.get(key), str) for key in ("gift_card_id", "package_id")
+    )
+
+
+async def _owns_account(db: AsyncSession, business_id: str, account: str | None) -> bool:
+    if account is None:
+        return True
+    owned = (
+        await db.execute(select(Business.stripe_account_id).where(Business.id == business_id))
+    ).scalar_one_or_none()
+    return owned == account
+
+
+async def _refund_orphan(
+    db: AsyncSession, gateway: PaymentGateway, intent: dict[str, object], business_id: str
+) -> None:
+    """An off-session purchase whose command never committed: nothing to activate, so refund."""
+    intent_id, amount = str(intent.get("id")), intent.get("amount")
+    account_id = (
+        await db.execute(select(Business.stripe_account_id).where(Business.id == business_id))
+    ).scalar_one_or_none()
+    if account_id is None or not isinstance(amount, int) or amount <= 0:
+        return
+    refunded = await db.execute(
+        select(Audit.id).where(
+            Audit.action == "payment.orphan_refunded", Audit.entity_id == intent_id
+        )
+    )
+    if refunded.scalar_one_or_none() is not None:
+        return
+    await gateway.refund(
+        account_id,
+        payment_intent_id=intent_id,
+        amount_cents=amount,
+        idempotency_key=f"orphan_{intent_id}",
+    )
+    _log.error("payment.orphan_refunded business=%s %s %s", business_id, intent_id, amount)
+    db.add(
+        Audit(
+            id=new_id("audit"),
+            business_id=business_id,
+            action="payment.orphan_refunded",
+            entity_type="payment_intent",
+            entity_id=intent_id,
+            changes={"amount_cents": amount, "metadata": intent.get("metadata")},
+        )
+    )
+    await db.flush()
 
 
 async def _fail_payment(
@@ -1917,6 +2019,7 @@ async def _record_payout(db: AsyncSession, account_id: str | None, data: dict[st
         amount=amount,
         currency=cur,
         arrival_at=_stamp(data, "arrival_date"),
+        occurred_at=_stamp(data, "created") or datetime.now(UTC),
     )
 
 

@@ -246,6 +246,7 @@ class FakePaymentGateway:
         self.account_sessions: list[tuple[str, ConnectComponent]] = []
         self.created_accounts: list[str] = []
         self.detached: list[str] = []
+        self.refunds: list[tuple[str, int]] = []
         self.created_prices: list[str] = []
         self.created_price_amounts: list[int] = []  # unit_amount per created Price
         self.created_subscriptions: list[str] = []
@@ -307,11 +308,13 @@ class FakePaymentGateway:
             raise WebhookVerificationError("bad signature")
         body = json.loads(payload)
         account = body.get("account")
+        created = body.get("created")
         return GatewayEvent(
             id=str(body["id"]),
             type=str(body["type"]),
             data=dict(body["data"]["object"]),
             account=str(account) if account is not None else None,
+            created=datetime.fromtimestamp(created, tz=UTC) if isinstance(created, int) else None,
         )
 
     async def create_customer(self, account_id: str, *, name: str, email: str | None) -> str:
@@ -440,6 +443,7 @@ class FakePaymentGateway:
         self, account_id: str, *, payment_intent_id: str, amount_cents: int, idempotency_key: str
     ) -> RefundResult:
         self._seq += 1
+        self.refunds.append((payment_intent_id, amount_cents))
         return RefundResult(id=f"re_fake{self._seq}", status=self.refund_status)
 
     async def detach_payment_method(self, account_id: str, *, payment_method_id: str) -> None:

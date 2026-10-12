@@ -9,20 +9,20 @@ export function subjectNetSql(category: string, subjectType: string, idExpr: str
         WHERE la.category = '${category}' AND le.subject_type = '${subjectType}' AND le.subject_id = ${idExpr})`;
 }
 
-/** Cash collected for an entity, net of refunds. */
+/** Cash collected for an entity, net of refunds and of disputes Stripe has withdrawn. */
 export function collectedSql(subjectType: string, idExpr: string): string {
     return `COALESCE((SELECT SUM(le.amount_cents) FROM entries le
         JOIN accounts la ON la.id = le.account_id
-        WHERE la.category IN ${CASH_CATEGORIES} AND le.event IN ('payment', 'refund')
+        WHERE la.category IN ${CASH_CATEGORIES} AND le.event IN ('payment', 'refund', 'dispute')
           AND le.subject_type = '${subjectType}' AND le.subject_id = ${idExpr}), 0)`;
 }
 
-/** A client's lifetime value: cash collected on payments they made, net of refunds. */
+/** A client's lifetime value: cash collected on payments they made, net of refunds and disputes. */
 export function clientValueSql(clientIdExpr: string): string {
     return `(SELECT SUM(le.amount_cents) FROM entries le
         JOIN accounts la ON la.id = le.account_id
         JOIN payments lp ON lp.id = le.source_id
-        WHERE la.category IN ${CASH_CATEGORIES} AND le.event IN ('payment', 'refund')
+        WHERE la.category IN ${CASH_CATEGORIES} AND le.event IN ('payment', 'refund', 'dispute')
           AND lp.client_id = ${clientIdExpr})`;
 }
 
@@ -69,6 +69,6 @@ export function sessionsUsedSql(idExpr: string): string {
 
 function refundedSql(subjectType: string, idExpr: string): string {
     return `EXISTS (SELECT 1 FROM entries le JOIN accounts la ON la.id = le.account_id
-        WHERE la.category IN ${CASH_CATEGORIES} AND le.event = 'refund'
+        WHERE la.category IN ${CASH_CATEGORIES} AND le.event IN ('refund', 'dispute')
           AND le.subject_type = '${subjectType}' AND le.subject_id = ${idExpr})`;
 }

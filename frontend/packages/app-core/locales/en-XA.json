@@ -146,6 +146,9 @@
     "api.idempotencyKeyReused": {
         "message": "[Ţĥéšé ðéţåîļš çĥåñĝéð åƒţéŕ ţĥé ļåšţ åţţéɱþţ ŵåš šéñţ. Çĥéçķ ţĥéɱ åñð ţŕý åĝåîñ. one two three four five]"
     },
+    "api.concurrentChange": {
+        "message": "[Šöɱéöñé éļšé ĵûšţ çĥåñĝéð ţĥîš. Ŕéƒŕéšĥ åñð ţŕý åĝåîñ. one two three four]"
+    },
     "api.visitNotStarted": {
         "message": "[Ţĥîš ṽîšîţ ĥåšñ'ţ šţåŕţéð ýéţ. Çöɱþļéţé îţ öŕ ɱåŕķ å ñö-šĥöŵ öñçé îţ šţåŕţš. one two three four five]"
     },

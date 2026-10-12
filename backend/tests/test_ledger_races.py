@@ -3,12 +3,15 @@
 import asyncio
 import json
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 
+import pytest
+from scripts.seed_demo import purge_businesses
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import Conflict
@@ -28,20 +31,34 @@ from clientbridge.services.ledger import Leg
 from clientbridge.services.payments import PaymentService, process_stripe_event
 from tests.conftest import Factory, FakePaymentGateway, book_invoice
 
+type Throwaway = Callable[[], Awaitable[tuple[Business, Client, Principal]]]
 
-async def _throwaway() -> tuple[Business, Client, Principal]:
-    """A business, client and owner of their own, so nothing here touches the seed's rows."""
-    async with SessionLocal() as session:
-        factory = Factory(session)
-        business = await factory.business(name="Race Studio")
-        client = await factory.client(business=business)
-        user = await factory.user()
-        staff = await factory.staff(business=business, user=user, role="owner")
+
+@pytest.fixture
+async def throwaway(db: AsyncSession) -> AsyncIterator[Throwaway]:
+    """A business, client and owner of their own, purged afterwards like the demo seed's rows."""
+    made: list[tuple[str, str]] = []
+
+    async def make() -> tuple[Business, Client, Principal]:
+        async with SessionLocal() as session:
+            factory = Factory(session)
+            business = await factory.business(name="Race Studio")
+            client = await factory.client(business=business)
+            user = await factory.user()
+            staff = await factory.staff(business=business, user=user, role="owner")
+            await session.commit()
+            made.append((business.id, user.id))
+            principal = Principal(
+                user_id=user.id, business_id=business.id, staff_id=staff.id, role="owner"
+            )
+            return business, client, principal
+
+    yield make
+    owner = create_async_engine(get_settings().migration_database_url)
+    async with AsyncSession(owner) as session:
+        await purge_businesses(session, [b for b, _ in made], [u for _, u in made])
         await session.commit()
-        principal = Principal(
-            user_id=user.id, business_id=business.id, staff_id=staff.id, role="owner"
-        )
-        return business, client, principal
+    await owner.dispose()
 
 
 async def _journals(session: AsyncSession, ref: str) -> int:
@@ -59,8 +76,10 @@ async def _second_after[T](
     return await asyncio.gather(first(), late())
 
 
-async def test_two_posts_on_one_ref_write_one_journal(db: AsyncSession) -> None:
-    business, client, _ = await _throwaway()
+async def test_two_posts_on_one_ref_write_one_journal(
+    db: AsyncSession, throwaway: Throwaway
+) -> None:
+    business, client, _ = await throwaway()
     ref = f"race:{uuid.uuid4().hex}"
     legs = [
         Leg("client", client.id, "receivable", 100),
@@ -92,8 +111,10 @@ async def test_two_posts_on_one_ref_write_one_journal(db: AsyncSession) -> None:
         )
 
 
-async def test_two_redemptions_of_one_card_cannot_overspend_it(db: AsyncSession) -> None:
-    business, client, principal = await _throwaway()
+async def test_two_redemptions_of_one_card_cannot_overspend_it(
+    db: AsyncSession, throwaway: Throwaway
+) -> None:
+    business, client, principal = await throwaway()
     code = f"RACE-{uuid.uuid4().hex[:8].upper()}"
     async with SessionLocal() as session:
         card = GiftCard(
@@ -144,8 +165,10 @@ async def test_two_redemptions_of_one_card_cannot_overspend_it(db: AsyncSession)
         assert settled is not None and await ledger.gift_card_balance(check, settled) == 300
 
 
-async def test_two_consumes_of_a_one_session_package_use_it_once(db: AsyncSession) -> None:
-    business, client, principal = await _throwaway()
+async def test_two_consumes_of_a_one_session_package_use_it_once(
+    db: AsyncSession, throwaway: Throwaway
+) -> None:
+    business, client, principal = await throwaway()
     async with SessionLocal() as session:
         item = Item(
             id=new_id("item"),
@@ -217,8 +240,10 @@ class _SlowFees(FakePaymentGateway):
         return ChargeFees(0, 0, None)
 
 
-async def test_cash_cannot_land_while_a_card_charge_is_settling(db: AsyncSession) -> None:
-    business, client, principal = await _throwaway()
+async def test_cash_cannot_land_while_a_card_charge_is_settling(
+    db: AsyncSession, throwaway: Throwaway
+) -> None:
+    business, client, principal = await throwaway()
     pi = f"pi_race_{uuid.uuid4().hex[:10]}"
     async with SessionLocal() as session:
         business.stripe_account_id = f"acct_race_{uuid.uuid4().hex[:10]}"

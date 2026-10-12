@@ -58,6 +58,7 @@ const FAILURES: Record<string, () => string> = {
     class_move: () => strings.api.classMove,
     recurrence_too_long: () => strings.api.recurrenceTooLong,
     idempotency_key_reused: () => strings.api.idempotencyKeyReused,
+    concurrent_change: () => strings.api.concurrentChange,
     visit_not_started: () => strings.api.visitNotStarted,
     staff_has_future_work: () => strings.api.staffHasFutureWork,
     broadcast_address_missing: () => strings.api.broadcastAddressMissing,

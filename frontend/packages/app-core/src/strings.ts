@@ -64,6 +64,7 @@ interface Strings {
         readonly recurrenceTooLong: string;
         readonly mixedCurrencies: string;
         readonly idempotencyKeyReused: string;
+        readonly concurrentChange: string;
         readonly visitNotStarted: string;
         readonly staffHasFutureWork: string;
         readonly broadcastAddressMissing: string;

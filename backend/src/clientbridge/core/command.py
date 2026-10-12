@@ -36,6 +36,10 @@ def _deadlocked(exc: DBAPIError) -> bool:
     return getattr(exc.orig, "pgcode", None) == "40P01" or "deadlock detected" in str(exc.orig)
 
 
+def _concurrent_change(exc: DBAPIError) -> Conflict:
+    return Conflict("another request just made this change", code="concurrent_change")
+
+
 def request_hash(request: Request) -> str:
     """SHA-256 of the canonical JSON of a request: sorted keys, no whitespace."""
     canonical = json.dumps(to_jsonable_python(request), sort_keys=True, separators=(",", ":"))
@@ -163,34 +167,30 @@ async def run_command[T: BaseModel](
     replayed = await prior()
     if replayed is not None:
         return replayed
-    for attempt in (1, 2):
-        cmd = Command(db, principal)
-        try:
-            async with transaction(db):
-                result = await run(cmd)
-                db.add_all(cmd.audits)
-                if idempotency_key is not None:
-                    remember(
-                        db,
-                        principal.business_id,
-                        action,
-                        idempotency_key,
-                        body,
-                        result.model_dump(mode="json"),
-                    )
-            return result
-        except IntegrityError as exc:
-            if _lost_key_race(exc):
-                replayed = await prior()
-                if replayed is not None:
-                    return replayed
-            if _lost_write_race(exc):
-                raise Conflict(
-                    "another request just made this change", code="concurrent_change"
-                ) from exc
-            raise
-        except DBAPIError as exc:
-            if attempt == 1 and _deadlocked(exc):
-                continue
-            raise
-    raise AssertionError("unreachable")
+    cmd = Command(db, principal)
+    try:
+        async with transaction(db):
+            result = await run(cmd)
+            db.add_all(cmd.audits)
+            if idempotency_key is not None:
+                remember(
+                    db,
+                    principal.business_id,
+                    action,
+                    idempotency_key,
+                    body,
+                    result.model_dump(mode="json"),
+                )
+        return result
+    except IntegrityError as exc:
+        if _lost_key_race(exc):
+            replayed = await prior()
+            if replayed is not None:
+                return replayed
+        if _lost_write_race(exc):
+            raise _concurrent_change(exc) from exc
+        raise
+    except DBAPIError as exc:
+        if _deadlocked(exc):  # callers lock before the command, so a rerun would be unguarded
+            raise _concurrent_change(exc) from exc
+        raise

@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -391,14 +391,15 @@ async def test_refund_foreign_payment_404_by_scoping(
     assert still is not None and still.status == "succeeded"
 
 
-def _succeeded_intent(event_id: str, pi: str, **obj: object) -> str:
-    return json.dumps(
-        {
-            "id": event_id,
-            "type": "payment_intent.succeeded",
-            "data": {"object": {"id": pi, **obj}},
-        }
-    )
+def _succeeded_intent(event_id: str, pi: str, *, at: int | None = None, **obj: object) -> str:
+    event: dict[str, object] = {
+        "id": event_id,
+        "type": "payment_intent.succeeded",
+        "data": {"object": {"id": pi, **obj}},
+    }
+    if at is not None:
+        event["created"] = at
+    return json.dumps(event)
 
 
 async def test_webhook_settles_an_intent_whose_command_never_committed(
@@ -462,7 +463,10 @@ async def test_a_late_delivery_books_to_the_charge_day(
     pay_id = await card_pay(api, db, inv_id)
     ref = await provider_ref(db, pay_id)
     charged = datetime(2026, 10, 10, 15, 30, tzinfo=UTC)
-    body = _succeeded_intent("evt_late", ref, created=int(charged.timestamp()))
+    opened = charged - timedelta(days=1)  # the intent's own created is when checkout opened
+    body = _succeeded_intent(
+        "evt_late", ref, at=int(charged.timestamp()), created=int(opened.timestamp())
+    )
     assert (await api.post("/webhooks/stripe", content=body, headers=STRIPE)).status_code == 200
     assert (await payment(db, pay_id)).paid_at == charged
     booked = await db.execute(
