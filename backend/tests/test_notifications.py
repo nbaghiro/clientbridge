@@ -10,9 +10,10 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.business import Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
+from clientbridge.models.messaging import Message
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Device
-from clientbridge.services.notifications import run_prune_devices
+from clientbridge.services.notifications import business_email, client_email, run_prune_devices
 from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
 from tests.helpers import begin, card_pay, enable_payments, sent_invoice
 
@@ -463,3 +464,23 @@ async def test_sign_out_unregisters_only_the_callers_device(
 async def test_unregister_needs_a_session(unauth: httpx.AsyncClient) -> None:
     res = await unauth.post("/v1/devices/unregister", json={"token": "ExpoMine"})
     assert res.status_code == 401
+
+
+async def test_tenant_email_builders_apply_the_conventions(db: AsyncSession) -> None:
+    business = await Factory(db).business()
+    business.billing_email = "owner@test.ca"
+    note = Message(
+        id="msg_builder",
+        business_id=business.id,
+        thread_id="th_x",
+        direction="out",
+        channel="email",
+        status="queued",
+    )
+    mail = client_email(business, "pat@test.ca", "Hi", "Body", message=note)
+    assert mail.reply_to == "owner@test.ca" and mail.idempotency_key == "msg_builder"
+    assert mail.tags == {"business": business.id, "message": "msg_builder"}
+    plain = client_email(business, "pat@test.ca", "Hi", "Body")
+    assert plain.idempotency_key is None and plain.tags == {"business": business.id}
+    alert = business_email(business.id, "owner@test.ca", "Hi", "Body")
+    assert alert.reply_to is None and alert.tags == {"business": business.id}

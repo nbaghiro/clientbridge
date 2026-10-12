@@ -47,6 +47,28 @@ _PREVIEW_CHARS = 120
 SeriesNotice = Literal["booked", "moved", "canceled"]
 
 
+def client_email(
+    business: Business, to: str, subject: str, body: str, *, message: Message | None = None
+) -> Email:
+    """Mail to a client for a business: replies go to the business and tags carry the tenant."""
+    tags = {"business": business.id}
+    if message is not None:
+        tags["message"] = message.id
+    return Email(
+        to=to,
+        subject=subject,
+        body=body,
+        reply_to=reply_address(business),
+        idempotency_key=message.id if message is not None else None,
+        tags=tags,
+    )
+
+
+def business_email(business_id: str, to: str, subject: str, body: str) -> Email:
+    """Mail to a business's own people (alerts, invites): tagged with the tenant, no reply-to."""
+    return Email(to=to, subject=subject, body=body, tags={"business": business_id})
+
+
 def returning_code(locale: str, business_name: str, code: str, minutes: int) -> tuple[str, str]:
     return (
         message(locale, "returning_code.subject", business=business_name),
@@ -627,7 +649,7 @@ class Notifier:
             return
         subject, body = _estimate_accepted(locale_for(business=business), estimate.number)
         await self._safe(
-            self.email.send(Email(to=business.billing_email, subject=subject, body=body))
+            self.email.send(business_email(business.id, business.billing_email, subject, body))
         )
 
     async def on_estimate_declined(self, db: AsyncSession, estimate_id: str) -> None:
@@ -642,7 +664,7 @@ class Notifier:
             locale_for(business=business), estimate.number, estimate.decline_reason
         )
         await self._safe(
-            self.email.send(Email(to=business.billing_email, subject=subject, body=body))
+            self.email.send(business_email(business.id, business.billing_email, subject, body))
         )
 
     async def on_estimate_answered(self, db: AsyncSession, view_token: str) -> None:
@@ -759,17 +781,7 @@ class Notifier:
         amount = format_money(locale, card.initial_cents, payment.currency)
         subject, body = _gift_card_issued(locale, business.name, amount, card.code)
         if "@" in card.recipient:
-            await self._safe(
-                self.email.send(
-                    Email(
-                        to=card.recipient,
-                        subject=subject,
-                        body=body,
-                        reply_to=reply_address(business),
-                        tags={"business": business.id},
-                    )
-                )
-            )
+            await self._safe(self.email.send(client_email(business, card.recipient, subject, body)))
         else:
             await self._safe(self.sms.send(Sms(to=card.recipient, body=body)))
 
@@ -952,17 +964,7 @@ class Notifier:
         self, email: str | None, phone: str | None, subject: str, body: str, *, business: Business
     ) -> None:
         if email:
-            await self._safe(
-                self.email.send(
-                    Email(
-                        to=email,
-                        subject=subject,
-                        body=body,
-                        reply_to=reply_address(business),
-                        tags={"business": business.id},
-                    )
-                )
-            )
+            await self._safe(self.email.send(client_email(business, email, subject, body)))
         number = e164(phone) if phone else None
         if number:
             await self._safe(self.sms.send(Sms(to=number, body=body)))
@@ -984,17 +986,10 @@ class Notifier:
             return
         if client.email and channel != "sms":
             business = await db.get(Business, client.business_id)
-            await self._safe(
-                self.email.send(
-                    Email(
-                        to=client.email,
-                        subject=subject,
-                        body=body,
-                        reply_to=reply_address(business) if business is not None else None,
-                        tags={"business": client.business_id},
-                    )
+            if business is not None:
+                await self._safe(
+                    self.email.send(client_email(business, client.email, subject, body))
                 )
-            )
         number = e164(client.phone) if client.phone else None
         if (
             number

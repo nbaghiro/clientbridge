@@ -80,7 +80,7 @@ from clientbridge.schemas.bookings import (
     VisitPage,
 )
 from clientbridge.services import ledger
-from clientbridge.services.business import business_tz, load_staff, reply_address
+from clientbridge.services.business import business_tz, load_staff
 from clientbridge.services.catalog import deposit_cents, load_item
 from clientbridge.services.clients import load_client
 from clientbridge.services.messaging import dispatch_message, open_thread
@@ -1719,8 +1719,9 @@ class ClassService:
         slot = await self._session(slot_id)
         assert_can_act_as(self.principal, slot.staff_id)
         business = await self.db.get(Business, self.biz)
-        subject = business.name if business is not None else ""
-        reply_to = reply_address(business) if business is not None else None
+        if business is None:
+            raise NotFound("business not found")
+        subject = business.name
         clients = (
             (
                 await self.db.execute(
@@ -1754,7 +1755,7 @@ class ClassService:
                 self.db.add(note)
                 await self.db.flush()
                 await dispatch_message(
-                    sms, email, channel, to, subject, data.body, message=note, reply_to=reply_to
+                    sms, email, channel, to, subject, data.body, message=note, business=business
                 )
                 sent += 1
             await self.db.flush()

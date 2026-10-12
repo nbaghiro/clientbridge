@@ -15,7 +15,7 @@ from clientbridge.core.locale import locale_for
 from clientbridge.core.phones import e164, same_phone
 from clientbridge.core.scoping import scoped
 from clientbridge.core.zones import zone
-from clientbridge.integrations.resend import Email, EmailSender
+from clientbridge.integrations.resend import EmailSender
 from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.clients import Channel, Client
@@ -32,7 +32,7 @@ from clientbridge.schemas.messaging import (
     MessageSend,
     ThreadOut,
 )
-from clientbridge.services.business import after_quiet_hours, quiet_hours, reply_address
+from clientbridge.services.business import after_quiet_hours, quiet_hours
 from clientbridge.services.consents import (
     allows_marketing,
     latest_consents,
@@ -42,7 +42,7 @@ from clientbridge.services.consents import (
     stopped_clients,
     texts_stopped,
 )
-from clientbridge.services.notifications import broadcast_text
+from clientbridge.services.notifications import broadcast_text, client_email
 
 _log = logging.getLogger(__name__)
 _BROADCAST_CAP = 500
@@ -107,7 +107,7 @@ async def dispatch_message(
     body: str,
     *,
     message: Message,
-    reply_to: str | None,
+    business: Business,
 ) -> None:
     """Hand the message to its channel adapter and record the outcome on the row, never raising."""
     try:
@@ -115,14 +115,7 @@ async def dispatch_message(
             await sms.send(Sms(to=to, body=body))
         else:
             message.provider_ref = await email.send(
-                Email(
-                    to=to,
-                    subject=subject,
-                    body=body,
-                    reply_to=reply_to,
-                    idempotency_key=message.id,
-                    tags={"business": message.business_id, "message": message.id},
-                )
+                client_email(business, to, subject, body, message=message)
             )
     except Exception:
         _log.exception("message channel send failed")
@@ -240,7 +233,6 @@ async def _send_broadcast(
     broadcast.recipient_count = len(recipients)
     broadcast.excluded_count = excluded
     name, channel, subject, body = business.name, broadcast.channel, broadcast.name, broadcast.body
-    reply_to = reply_address(business)
     targets = [
         (client.id, to, locale_for(business=business, client=client)) for client, to in recipients
     ]
@@ -257,7 +249,7 @@ async def _send_broadcast(
         link = f"{prefs_url(client_id)}?unsubscribe=email"
         text = broadcast_text(locale, name, channel, body or "", link, address, contact)
         await dispatch_message(
-            sms, email, channel, to, subject, text, message=message, reply_to=reply_to
+            sms, email, channel, to, subject, text, message=message, business=business
         )
         await db.commit()
     claimed = await _claim_broadcast(db, broadcast_id)
@@ -413,8 +405,9 @@ class MessageService:
         if data.channel == "sms" and await texts_stopped(self.db, self.biz, client.id):
             raise Conflict("this client replied STOP, so texts to them are blocked")
         business = await self.db.get(Business, self.biz)
-        subject = business.name if business is not None else ""
-        reply_to = reply_address(business) if business is not None else None
+        if business is None:
+            raise NotFound("business not found")
+        subject = business.name
 
         async def run(cmd: Command) -> MessageOut:
             thread = await open_thread(self.db, self.biz, client.id, data.channel)
@@ -438,7 +431,7 @@ class MessageService:
                 subject,
                 data.body,
                 message=message,
-                reply_to=reply_to,
+                business=business,
             )
             await self.db.flush()
             cmd.record("message.send", entity_type="message", entity_id=message.id)
