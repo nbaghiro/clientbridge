@@ -341,6 +341,10 @@ test("an invitee who verifies from the emailed link in a new tab lands back on t
             await route.fulfill({ status: 303, headers: { location: target.href } });
         });
         await tab.goto(await mailedVerificationLink(request, account.email));
+        await expect(tab).toHaveURL(/\/verify\?flow=/, { timeout: 15_000 });
+        await expect(tab.getByRole("button", { name: a.continue, exact: true })).toBeVisible({
+            timeout: 30_000,
+        });
         await tab.getByRole("button", { name: a.continue, exact: true }).click();
         await expect(tab).toHaveURL(/\/accept-invite$/);
         await tab.getByRole("button", { name: s.inviteJoin, exact: true }).click();

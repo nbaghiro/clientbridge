@@ -339,6 +339,12 @@ jobs:
       - run: until curl -sf 127.0.0.1:8701/health; do sleep 1; done
         timeout-minutes: 2
       - run: make test-web
+      - uses: actions/upload-artifact@v4
+        if: failure() || cancelled()
+        with:
+          name: web-e2e
+          path: frontend/apps/web/test-results
+          retention-days: 7
       - if: failure()
         run: |
           cat /tmp/api.log
