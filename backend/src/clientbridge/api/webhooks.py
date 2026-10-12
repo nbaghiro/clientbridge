@@ -7,11 +7,11 @@ from urllib.parse import parse_qs
 from fastapi import APIRouter, Header, Request, Response
 
 from clientbridge.core.deps import (
+    AuthEmailSecretDep,
     DbSession,
     EmailDep,
     GatewayDep,
     InteracSecretDep,
-    KratosCourierSecretDep,
     PushDep,
     SmsDep,
     SmsWebhookSecretDep,
@@ -100,14 +100,14 @@ async def sms_webhook(
     return Response(status_code=200)
 
 
-@router.post("/kratos-courier")
-async def kratos_courier_webhook(
+@router.post("/auth-email")
+async def auth_email_webhook(
     body: AuthEmailIn,
-    secret: KratosCourierSecretDep,
+    secret: AuthEmailSecretDep,
     email: EmailDep,
-    x_kratos_secret: Annotated[str, Header(alias="X-Kratos-Secret")] = "",
+    x_webhook_secret: Annotated[str, Header(alias="X-Webhook-Secret")] = "",
 ) -> Response:
-    if not secret or not secrets.compare_digest(x_kratos_secret, secret):
+    if not secret or not secrets.compare_digest(x_webhook_secret, secret):
         return Response(status_code=401)
     await send_auth_email(email, body)
     return Response(status_code=200)

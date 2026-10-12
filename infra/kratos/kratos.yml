@@ -133,13 +133,13 @@ courier:
   delivery_strategy: http
   http:
     request_config:
-      url: http://host.docker.internal:8701/webhooks/kratos-courier
+      url: http://host.docker.internal:8701/webhooks/auth-email
       method: POST
       body: file:///etc/config/kratos/courier.jsonnet
       auth:
         type: api_key
         config:
-          name: X-Kratos-Secret
+          name: X-Webhook-Secret
           value: unset
           in: header
 

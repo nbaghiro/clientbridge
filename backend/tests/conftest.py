@@ -12,10 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import engine, get_session
 from clientbridge.core.deps import (
+    get_auth_email_hook_secret,
     get_interac_secret,
-    get_kratos_courier_secret,
     get_sms_webhook_secret,
 )
+from clientbridge.core.emails import normalize_email
 from clientbridge.core.errors import CardDeclined, Conflict, PaymentActionRequired, Unauthorized
 from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import (
@@ -32,7 +33,6 @@ from clientbridge.integrations.kratos import (
     Credential,
     Identity,
     get_identity_provider,
-    normalize_email,
     unavailable,
 )
 from clientbridge.integrations.postmark import Email, EmailSender, get_email_sender
@@ -224,7 +224,7 @@ def identity_for(
 ) -> Identity:
     address = email or user.email
     return Identity(
-        id=user.kratos_identity_id,
+        id=user.identity_id,
         email=address,
         verified_emails=frozenset({normalize_email(address)}) if verified else frozenset(),
         name=user.name,
@@ -523,7 +523,7 @@ async def api(
     app.dependency_overrides[get_file_storage] = _storage
     app.dependency_overrides[get_interac_secret] = lambda: "testsecret"
     app.dependency_overrides[get_sms_webhook_secret] = lambda: "testsecret"
-    app.dependency_overrides[get_kratos_courier_secret] = lambda: "testsecret"
+    app.dependency_overrides[get_auth_email_hook_secret] = lambda: "testsecret"
     app.dependency_overrides[public_pay_rate_limit] = lambda: None  # no throttling under test
     app.dependency_overrides[public_review_rate_limit] = lambda: None
     app.dependency_overrides[public_form_rate_limit] = lambda: None
@@ -579,7 +579,7 @@ class Factory:
     async def user(self, *, email: str | None = None) -> User:
         user = User(
             id=new_id("user"),
-            kratos_identity_id=str(uuid4()),
+            identity_id=str(uuid4()),
             email=email or f"u-{new_id('user')[3:13].lower()}@test.ca",
             name="Test User",
         )

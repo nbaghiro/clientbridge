@@ -18,9 +18,9 @@ def upgrade() -> None:
     op.drop_index("ix_sessions_user", table_name="sessions")
     op.drop_index("ix_sessions_family", table_name="sessions")
     op.drop_table("sessions")
-    op.add_column("users", sa.Column("kratos_identity_id", sa.Uuid(as_uuid=False), nullable=False))
+    op.add_column("users", sa.Column("identity_id", sa.Uuid(as_uuid=False), nullable=False))
     op.add_column("users", sa.Column("last_seen_at", sa.DateTime(timezone=True), nullable=True))
-    op.create_unique_constraint("users_kratos_identity_id_key", "users", ["kratos_identity_id"])
+    op.create_unique_constraint("users_identity_id_key", "users", ["identity_id"])
     op.drop_column("users", "password_hash")
     op.drop_column("users", "oauth")
     op.drop_column("users", "email_verified_at")
@@ -41,9 +41,9 @@ def downgrade() -> None:
     )
     op.alter_column("users", "oauth", server_default=None)
     op.add_column("users", sa.Column("password_hash", sa.String(), nullable=True))
-    op.drop_constraint("users_kratos_identity_id_key", "users", type_="unique")
+    op.drop_constraint("users_identity_id_key", "users", type_="unique")
     op.drop_column("users", "last_seen_at")
-    op.drop_column("users", "kratos_identity_id")
+    op.drop_column("users", "identity_id")
     op.create_table(
         "sessions",
         sa.Column("user_id", sa.String(), nullable=False),

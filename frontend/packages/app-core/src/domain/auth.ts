@@ -22,21 +22,21 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RESEND_SECONDS = 30;
 
 /** Catalog text for a Kratos message; Kratos's own English is never shown. */
-function kratosMessage(message: FlowMessage): string | null {
-    const known = (strings.auth.kratos as Readonly<Record<string, string | undefined>>)[
+function flowMessage(message: FlowMessage): string | null {
+    const known = (strings.auth.flowMessages as Readonly<Record<string, string | undefined>>)[
         String(message.id)
     ];
-    return known ?? (message.type === "error" ? strings.auth.kratosError : null);
+    return known ?? (message.type === "error" ? strings.auth.providerError : null);
 }
 
 function flowErrors(flow: Flow): { form: string | null; fields: Record<string, string> } {
     const fields: Record<string, string> = {};
     for (const node of flow.nodes) {
         const error = node.messages.find((m) => m.type === "error");
-        if (error) fields[node.name] = kratosMessage(error) ?? strings.auth.kratosError;
+        if (error) fields[node.name] = flowMessage(error) ?? strings.auth.providerError;
     }
     const form = flow.messages.find((m) => m.type === "error");
-    return { form: form ? kratosMessage(form) : null, fields };
+    return { form: form ? flowMessage(form) : null, fields };
 }
 
 // React Native's URL has no searchParams, so query values are read by hand.
@@ -149,7 +149,7 @@ export function useAuthForm(
             });
             setError(errs.form);
             const info = next.messages.find((m) => m.type !== "error");
-            setNotice(info ? kratosMessage(info) : null);
+            setNotice(info ? flowMessage(info) : null);
         },
         [setError],
     );
@@ -434,7 +434,7 @@ export function useRecoveryForm(
         });
         setError(errs.form);
         const info = next.messages.find((m) => m.type !== "error");
-        setNotice(info ? kratosMessage(info) : null);
+        setNotice(info ? flowMessage(info) : null);
     };
 
     useEffect(() => {
@@ -565,7 +565,7 @@ export function useVerificationForm(
             setFlow(next);
             setError(flowErrors(next).form ?? Object.values(flowErrors(next).fields)[0] ?? null);
             const info = next.messages.find((m) => m.type !== "error");
-            setNotice(info ? kratosMessage(info) : null);
+            setNotice(info ? flowMessage(info) : null);
         },
         [setError],
     );
@@ -581,22 +581,44 @@ export function useVerificationForm(
         [identity, setCooldown, show],
     );
 
+    const confirm = useCallback(
+        async (current: Flow, value: string): Promise<void> => {
+            const step = await identity.submit(current, { method: "code", code: value });
+            if (step.kind === "flow") show(step.flow);
+            else if (step.kind === "restart") setError(a.flowExpired);
+        },
+        [identity, show, setError],
+    );
+
     useEffect(() => {
+        // A replaced run (development runs effects twice) must not send a second code.
+        let live = true;
         const begin = async (): Promise<void> => {
             if (opts.flowId) {
-                show(await identity.resume("verification", opts.flowId));
+                const resumed = await identity.resume("verification", opts.flowId);
+                if (!live) return;
+                // The emailed link only fills the code in; Kratos waits for it to be submitted.
+                const linked = nodeValue(resumed, "code");
+                if (resumed.state === "sent_email" && linked) {
+                    setCode(linked);
+                    await confirm(resumed, linked);
+                } else show(resumed);
                 return;
             }
             // Signed in without a flow (onboarding, an invite): send a code to the account's email.
             const email =
                 opts.email ?? (await opts.api?.get<{ email: string }>("/v1/me"))?.email ?? "";
             const current = await identity.start("verification");
+            if (!live) return;
             if (email) await send(current, email);
             else show(current);
         };
         begin().catch(() => {
-            setError(a.unavailable);
+            if (live) setError(a.unavailable);
         });
+        return () => {
+            live = false;
+        };
     }, []);
 
     return {
@@ -613,17 +635,7 @@ export function useVerificationForm(
                 setError(a.codeRequired);
                 return;
             }
-            run(
-                async () => {
-                    const step = await identity.submit(flow, {
-                        method: "code",
-                        code: code.trim(),
-                    });
-                    if (step.kind === "flow") show(step.flow);
-                    else if (step.kind === "restart") setError(a.flowExpired);
-                },
-                { errorMessage: a.unavailable },
-            );
+            run(() => confirm(flow, code.trim()), { errorMessage: a.unavailable });
         },
         resend: () => {
             const address = sentTo.current || nodeValue(flow, "email");
@@ -717,9 +729,11 @@ export function useSecuritySettings(
     opts?: {
         webauthn?: WebAuthnLike;
         sessionToken?: () => Promise<string | undefined>;
-        /** Where Google re-authentication lands, and how to open it (web only). */
+        /** Where Google re-authentication lands, and how to open it. */
         returnTo?: string;
         openUrl?: (url: string) => Promise<string | null>;
+        /** Mobile keeps the session token a Google re-authentication hands back. */
+        onSessionToken?: (sessionToken: string) => Promise<void>;
     },
 ): SecuritySettings {
     const a = strings.auth;
@@ -748,7 +762,7 @@ export function useSecuritySettings(
             const errs = flowErrors(next);
             setError(errs.form ?? Object.values(errs.fields)[0] ?? null);
             const info = next.messages.find((m) => m.type !== "error");
-            setNotice(info ? kratosMessage(info) : null);
+            setNotice(info ? flowMessage(info) : null);
         },
         [setError],
     );
@@ -947,7 +961,18 @@ export function useSecuritySettings(
                         { method: "oidc", provider: "google" },
                         await token(),
                     );
-                    if (step.kind === "redirect") await options.current?.openUrl?.(step.url);
+                    if (step.kind !== "redirect") return;
+                    // The web leaves for Google and comes back; mobile gets a callback URL instead.
+                    const callback = await options.current?.openUrl?.(step.url);
+                    const returned = callback ? queryParam(callback, "code") : null;
+                    if (!returned) return;
+                    await options.current?.onSessionToken?.(
+                        await identity.exchange(reauthFlow, returned),
+                    );
+                    setReauthFlow(null);
+                    await load();
+                    await retry.current?.();
+                    retry.current = null;
                 },
                 { errorMessage: a.googleFailed },
             );

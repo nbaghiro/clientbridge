@@ -25,13 +25,13 @@ async def test_auth_tables_are_gone_and_users_link_to_identities(db: AsyncSessio
             )
         ).scalars()
     )
-    assert "kratos_identity_id" in columns and "last_seen_at" in columns
+    assert "identity_id" in columns and "last_seen_at" in columns
     assert columns.isdisjoint({"password_hash", "oauth", "email_verified_at"})
     unique = (
         await db.execute(
             text(
                 "SELECT count(*) FROM pg_indexes WHERE tablename = 'users' "
-                "AND indexdef LIKE 'CREATE UNIQUE INDEX%(kratos_identity_id)'"
+                "AND indexdef LIKE 'CREATE UNIQUE INDEX%(identity_id)'"
             )
         )
     ).scalar()

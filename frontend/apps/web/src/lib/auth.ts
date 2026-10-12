@@ -38,12 +38,13 @@ export function sessionExpected(): boolean {
     return expected;
 }
 
-// An invite token waits here, never in a URL, while its invitee signs up, verifies or uses Google.
+// An invite token waits here (never in a URL); a new tab from an emailed link finds it too.
 const INVITE = "cb_invite";
+const INVITE_HOLD_MS = 60 * 60 * 1000;
 
 export function holdInvite(token: string): void {
     try {
-        sessionStorage.setItem(INVITE, token);
+        localStorage.setItem(INVITE, JSON.stringify({ token, until: Date.now() + INVITE_HOLD_MS }));
     } catch {
         return;
     }
@@ -51,7 +52,15 @@ export function holdInvite(token: string): void {
 
 export function heldInvite(): string | null {
     try {
-        return sessionStorage.getItem(INVITE);
+        const held = JSON.parse(localStorage.getItem(INVITE) ?? "null") as {
+            token?: unknown;
+            until?: unknown;
+        } | null;
+        if (typeof held?.token === "string" && typeof held.until === "number") {
+            if (held.until > Date.now()) return held.token;
+        }
+        localStorage.removeItem(INVITE);
+        return null;
     } catch {
         return null;
     }
@@ -59,7 +68,7 @@ export function heldInvite(): string | null {
 
 export function releaseInvite(): void {
     try {
-        sessionStorage.removeItem(INVITE);
+        localStorage.removeItem(INVITE);
     } catch {
         return;
     }

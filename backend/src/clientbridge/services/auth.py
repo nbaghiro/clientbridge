@@ -28,11 +28,11 @@ class AuthService:
                     insert(User)
                     .values(
                         id=new_id("user"),
-                        kratos_identity_id=identity.id,
+                        identity_id=identity.id,
                         email=identity.email,
                         name=identity.name,
                     )
-                    .on_conflict_do_nothing(index_elements=[User.kratos_identity_id])
+                    .on_conflict_do_nothing(index_elements=[User.identity_id])
                 )
             except Conflict:
                 user = await self._relink(identity, identities)
@@ -56,9 +56,9 @@ class AuthService:
         user = (
             await self.db.execute(select(User).where(User.email == identity.email))
         ).scalar_one_or_none()
-        if user is None or await identities.identity_exists(user.kratos_identity_id):
+        if user is None or await identities.identity_exists(user.identity_id):
             return None
-        user.kratos_identity_id = identity.id
+        user.identity_id = identity.id
         await self._commit()
         return user
 
@@ -72,5 +72,5 @@ class AuthService:
             raise Conflict("email already belongs to another user", code="email_in_use") from exc
 
     async def _by_identity(self, identity_id: str) -> User | None:
-        result = await self.db.execute(select(User).where(User.kratos_identity_id == identity_id))
+        result = await self.db.execute(select(User).where(User.identity_id == identity_id))
         return result.scalar_one_or_none()

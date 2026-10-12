@@ -3,6 +3,7 @@ import { type APIRequestContext, type Page, expect, test } from "@playwright/tes
 
 import {
     mailedCode,
+    mailedVerificationLink,
     nativeSession,
     newAccount,
     ownerInvite,
@@ -191,7 +192,7 @@ test("changing the password signs out every other device", async ({ page, reques
     await page.goto("/setup/security");
     await page.getByLabel(a.securityNewPassword, { exact: true }).fill(`${account.password}-new`);
     await page.getByRole("button", { name: a.securityChangePassword, exact: true }).click();
-    await expect(page.getByText(a.kratos[1050001], { exact: true })).toBeVisible();
+    await expect(page.getByText(a.flowMessages[1050001], { exact: true })).toBeVisible();
 
     expect(await sessionActive(request, otherDevice)).toBe(false);
     await page.reload();
@@ -311,6 +312,40 @@ test("an invitee who skipped confirming the email verifies, then joins", async (
         await page.getByRole("button", { name: s.inviteJoin, exact: true }).click();
         await expect(
             page
+                .locator("aside")
+                .getByRole("link", { name: strings.navigation.businessMenu, exact: true }),
+        ).toBeVisible({ timeout: 60_000 });
+    } finally {
+        await cleanup();
+    }
+});
+
+test("an invitee who verifies from the emailed link in a new tab lands back on the invite", async ({
+    page,
+    request,
+    baseURL,
+}) => {
+    const s = strings.staff;
+    const account = newAccount("newtab");
+    const { token, cleanup } = await ownerInvite(request, account.email);
+    try {
+        await page.goto(`/accept-invite?token=${token}`);
+        await page.getByRole("button", { name: s.inviteSignUp, exact: true }).click();
+        await startSignUp(page, account);
+        const tab = await page.context().newPage();
+        // Kratos redirects to its configured web origin (:8700); the e2e app runs on its own port.
+        await tab.route(/\/self-service\/verification\?code=/, async (route) => {
+            const kratos = await route.fetch({ maxRedirects: 0 });
+            const target = new URL(kratos.headers().location ?? "/");
+            target.port = new URL(baseURL ?? "").port;
+            await route.fulfill({ status: 303, headers: { location: target.href } });
+        });
+        await tab.goto(await mailedVerificationLink(request, account.email));
+        await tab.getByRole("button", { name: a.continue, exact: true }).click();
+        await expect(tab).toHaveURL(/\/accept-invite$/);
+        await tab.getByRole("button", { name: s.inviteJoin, exact: true }).click();
+        await expect(
+            tab
                 .locator("aside")
                 .getByRole("link", { name: strings.navigation.businessMenu, exact: true }),
         ).toBeVisible({ timeout: 60_000 });

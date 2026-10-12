@@ -33,7 +33,7 @@ const session = createSession({
 
 export let api: Session = session;
 
-export const identity = createIdentityClient({ kratosUrl: config.kratosUrl, mode: "browser" });
+export const identity = createIdentityClient({ baseUrl: config.authUrl, mode: "browser" });
 
 export function selectBusiness(businessId: string | null): void {
     api = session.forBusiness(businessId);

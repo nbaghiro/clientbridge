@@ -1,7 +1,8 @@
 import { type Session, createIdentityClient, createSession } from "@clientbridge/api-client";
+import * as WebBrowser from "expo-web-browser";
 
 import { forgetSession, getSession, sessionEpoch } from "./auth";
-import { apiUrl, kratosUrl } from "./config";
+import { apiUrl, authUrl } from "./config";
 
 export const apiBaseUrl = apiUrl;
 
@@ -35,12 +36,20 @@ const session = createSession({
 
 export let api: Session = session;
 
+const AUTH_CALLBACK = "clientbridge://auth/callback";
+
 export const identity = createIdentityClient({
-    kratosUrl,
+    baseUrl: authUrl,
     mode: "native",
     sessionToken: async () => (await getSession())?.session_token ?? null,
-    nativeReturnTo: "clientbridge://auth/callback",
+    nativeReturnTo: AUTH_CALLBACK,
 });
+
+/** Google sign-in and re-authentication: the browser returns to the app with an exchange code. */
+export async function openAuthSession(url: string): Promise<string | null> {
+    const result = await WebBrowser.openAuthSessionAsync(url, AUTH_CALLBACK);
+    return result.type === "success" ? result.url : null;
+}
 
 export function selectBusiness(businessId: string | null): void {
     api = session.forBusiness(businessId);

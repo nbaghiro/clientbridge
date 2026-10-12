@@ -9,8 +9,9 @@ import httpx
 import pytest
 
 from clientbridge.core.config import get_settings
+from clientbridge.core.emails import normalize_email
 from clientbridge.core.errors import AppError, Unauthorized
-from clientbridge.integrations.kratos import Credential, KratosIdentityProvider, normalize_email
+from clientbridge.integrations.kratos import Credential, KratosIdentityProvider
 
 Handler = Callable[[httpx.Request], httpx.Response]
 
@@ -124,13 +125,32 @@ async def test_whoami_is_cached_unless_fresh() -> None:
     assert seen.count("GET /sessions/whoami") == 2
 
 
-async def test_a_session_older_than_the_maximum_age_is_refused() -> None:
-    kratos, _ = provider(
+async def test_a_session_older_than_the_maximum_age_is_refused_and_ended() -> None:
+    kratos, seen = provider(
         lambda r: httpx.Response(200, json=session(signed_in_ago=timedelta(days=91)))
     )
     with pytest.raises(Unauthorized) as raised:
         await kratos.whoami(Credential(session_token="tok"))
     assert raised.value.code == "unauthenticated"
+    assert "DELETE /admin/sessions/ses-1" in seen
+    assert "PATCH /admin/sessions/ses-1/extend" not in seen
+
+
+async def test_a_failed_revoke_still_refuses_the_old_session() -> None:
+    def refused(request: httpx.Request) -> httpx.Response:
+        if request.method == "DELETE":
+            return httpx.Response(500)
+        return httpx.Response(200, json=session(signed_in_ago=timedelta(days=91)))
+
+    def unreachable(request: httpx.Request) -> httpx.Response:
+        if request.method == "DELETE":
+            raise httpx.ConnectError("admin down", request=request)
+        return httpx.Response(200, json=session(signed_in_ago=timedelta(days=91)))
+
+    for handler in (refused, unreachable):
+        kratos, _ = provider(handler)
+        with pytest.raises(Unauthorized):
+            await kratos.whoami(Credential(session_token="tok"))
 
 
 def test_emails_compare_ascii_lowercased_only() -> None:
@@ -212,14 +232,14 @@ async def test_admin_identity_helpers() -> None:
 async def test_contract_against_local_kratos() -> None:
     settings = get_settings()
     kratos = KratosIdentityProvider(
-        settings.kratos_public_url, settings.kratos_admin_url, settings.kratos_session_cookie, 0
+        settings.auth_public_url, settings.auth_admin_url, settings.auth_session_cookie, 0
     )
     email, password = f"contract-{uuid4().hex[:10]}@example.com", f"Pw-{uuid4().hex}"
     try:
         identity_id = await kratos.create_identity(email, "Contract", password)
     except AppError:
         pytest.skip("Kratos is not running (make up)")
-    async with httpx.AsyncClient(base_url=settings.kratos_public_url) as http:
+    async with httpx.AsyncClient(base_url=settings.auth_public_url) as http:
         flow = (await http.get("/self-service/login/api")).json()["id"]
         login = await http.post(
             "/self-service/login",
@@ -230,7 +250,31 @@ async def test_contract_against_local_kratos() -> None:
         identity = await kratos.whoami(Credential(session_token=token))
         assert identity.id == identity_id and identity.email_verified
         assert await kratos.identity_exists(identity_id)
-        await http.delete(f"{settings.kratos_admin_url}/admin/identities/{identity_id}")
+        await _past_the_age_cap(kratos, http, email, password)
+        await http.delete(f"{settings.auth_admin_url}/admin/identities/{identity_id}")
         assert not await kratos.identity_exists(identity_id)
         with pytest.raises(Unauthorized):
             await kratos.whoami(Credential(session_token=token))
+
+
+async def _past_the_age_cap(
+    kratos: KratosIdentityProvider, http: httpx.AsyncClient, email: str, password: str
+) -> None:
+    """A session past the cap is ended in Kratos too, so signing in again starts fresh."""
+    flow = (await http.get("/self-service/login/api")).json()["id"]
+    login = await http.post(
+        "/self-service/login",
+        params={"flow": flow},
+        json={"method": "password", "identifier": email, "password": password},
+    )
+    token = login.json()["session_token"]
+    settings = get_settings()
+    cap = settings.session_max_age_days
+    settings.session_max_age_days = -1
+    try:
+        with pytest.raises(Unauthorized):
+            await kratos.whoami(Credential(session_token=token))
+    finally:
+        settings.session_max_age_days = cap
+    with pytest.raises(Unauthorized):
+        await kratos.whoami(Credential(session_token=token))

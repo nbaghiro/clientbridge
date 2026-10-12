@@ -3407,8 +3407,8 @@ interface Strings {
         readonly securityReauthTitle: string;
         readonly securityReauthBody: string;
         readonly securityReauthOnWeb: string;
-        readonly kratosError: string;
-        readonly kratos: {
+        readonly providerError: string;
+        readonly flowMessages: {
             readonly "1010003": string;
             readonly "1010016": string;
             readonly "1050001": string;

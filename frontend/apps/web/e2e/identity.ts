@@ -2,7 +2,7 @@ import { createHmac, randomUUID } from "node:crypto";
 import type { APIRequestContext } from "@playwright/test";
 
 const API = process.env.VITE_API_URL ?? "http://localhost:8701";
-const KRATOS = process.env.VITE_KRATOS_URL ?? "http://localhost:8713";
+const AUTH = process.env.VITE_AUTH_URL ?? "http://localhost:8713";
 const MAILPIT = process.env.MAILPIT_URL ?? "http://localhost:8715";
 
 export function newAccount(prefix: string): { email: string; password: string; name: string } {
@@ -21,6 +21,26 @@ export async function mailedCode(
     subject: string,
     previous?: string,
 ): Promise<string> {
+    return mailed(request, email, subject, (text) => {
+        const code = /\b(\d{6})\b/.exec(text)?.[1];
+        return code !== previous ? code : undefined;
+    });
+}
+
+/** The verification link in the newest verification email to `email`. */
+export async function mailedVerificationLink(
+    request: APIRequestContext,
+    email: string,
+): Promise<string> {
+    return mailed(request, email, "verification", (text) => /https?:\/\/\S+/.exec(text)?.[0]);
+}
+
+async function mailed(
+    request: APIRequestContext,
+    email: string,
+    subject: string,
+    pick: (text: string) => string | undefined,
+): Promise<string> {
     for (let attempt = 0; attempt < 40; attempt++) {
         const search = await request.get(`${MAILPIT}/api/v1/search`, {
             params: { query: `to:"${email}" subject:"${subject}"` },
@@ -33,12 +53,12 @@ export async function mailedCode(
             ).json()) as {
                 Text: string;
             };
-            const code = /\b(\d{6})\b/.exec(message.Text)?.[1];
-            if (code && code !== previous) return code;
+            const value = pick(message.Text);
+            if (value) return value;
         }
         await new Promise((resolve) => setTimeout(resolve, 250));
     }
-    throw new Error(`no code mailed to ${email}`);
+    throw new Error(`nothing mailed to ${email}`);
 }
 
 /** RFC 6238, as an authenticator app computes it from the base32 secret. */
@@ -62,11 +82,11 @@ export async function nativeSession(
     email: string,
     password: string,
 ): Promise<string> {
-    const flow = (await (await request.get(`${KRATOS}/self-service/login/api`)).json()) as {
+    const flow = (await (await request.get(`${AUTH}/self-service/login/api`)).json()) as {
         id: string;
     };
     const login = (await (
-        await request.post(`${KRATOS}/self-service/login?flow=${flow.id}`, {
+        await request.post(`${AUTH}/self-service/login?flow=${flow.id}`, {
             data: { method: "password", identifier: email, password },
         })
     ).json()) as { session_token: string };
@@ -74,7 +94,7 @@ export async function nativeSession(
 }
 
 export async function sessionActive(request: APIRequestContext, token: string): Promise<boolean> {
-    const res = await request.get(`${KRATOS}/sessions/whoami`, {
+    const res = await request.get(`${AUTH}/sessions/whoami`, {
         headers: { "X-Session-Token": token },
     });
     return res.ok();

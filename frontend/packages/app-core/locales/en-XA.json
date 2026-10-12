@@ -9512,61 +9512,61 @@
     "auth.securityReauthOnWeb": {
         "message": "[Çöñƒîŕɱ îţ'š ýöû îñ ţĥé ŵéƀ åþþ ţö çĥåñĝé šîĝñ-îñ šéţţîñĝš. one two three four]"
     },
-    "auth.kratosError": {
+    "auth.providerError": {
         "message": "[Šöɱéţĥîñĝ ŵéñţ ŵŕöñĝ. Þļéåšé ţŕý åĝåîñ. one two three]"
     },
-    "auth.kratos.1010003": {
+    "auth.flowMessages.1010003": {
         "message": "[Çöñƒîŕɱ îţ'š ýöû ţö çöñţîñûé. one two three]"
     },
-    "auth.kratos.1010016": {
+    "auth.flowMessages.1010016": {
         "message": "[Ýöû åļŕéåðý ĥåṽé åñ åççöûñţ ŵîţĥ ţĥîš éɱåîļ. Šîĝñ îñ ŵîţĥ ýöûŕ þåššŵöŕð ţö ļîñķ Ĝööĝļé. one two three four five six]"
     },
-    "auth.kratos.1050001": {
+    "auth.flowMessages.1050001": {
         "message": "[Šåṽéð. one]"
     },
-    "auth.kratos.1060003": {
+    "auth.flowMessages.1060003": {
         "message": "[Îƒ åñ åççöûñţ éẋîšţš ƒöŕ ţĥåţ éɱåîļ, ŵé šéñţ å çöðé. one two three four]"
     },
-    "auth.kratos.1080002": {
+    "auth.flowMessages.1080002": {
         "message": "[Ýöûŕ éɱåîļ îš çöñƒîŕɱéð. one two]"
     },
-    "auth.kratos.1080003": {
+    "auth.flowMessages.1080003": {
         "message": "[Ŵé šéñţ å çöðé ţö ýöûŕ éɱåîļ. one two three]"
     },
-    "auth.kratos.4000002": {
+    "auth.flowMessages.4000002": {
         "message": "[Ţĥîš ƒîéļð îš ŕéǫûîŕéð. one two]"
     },
-    "auth.kratos.4000003": {
+    "auth.flowMessages.4000003": {
         "message": "[Ûšé åţ ļéåšţ 8 çĥåŕåçţéŕš. one two]"
     },
-    "auth.kratos.4000005": {
+    "auth.flowMessages.4000005": {
         "message": "[Çĥööšé å šţŕöñĝéŕ þåššŵöŕð. one two three]"
     },
-    "auth.kratos.4000031": {
+    "auth.flowMessages.4000031": {
         "message": "[Çĥööšé å þåššŵöŕð ţĥåţ îšñ'ţ šîɱîļåŕ ţö ýöûŕ éɱåîļ. one two three four]"
     },
-    "auth.kratos.4000032": {
+    "auth.flowMessages.4000032": {
         "message": "[Ûšé åţ ļéåšţ 8 çĥåŕåçţéŕš. one two]"
     },
-    "auth.kratos.4000033": {
+    "auth.flowMessages.4000033": {
         "message": "[Ţĥåţ þåššŵöŕð îš ţöö ļöñĝ. one two three]"
     },
-    "auth.kratos.4000006": {
+    "auth.flowMessages.4000006": {
         "message": "[Ţĥåţ éɱåîļ åñð þåššŵöŕð ðöñ'ţ ɱåţçĥ. Ţŕý åĝåîñ öŕ ŕéšéţ ýöûŕ þåššŵöŕð. one two three four five]"
     },
-    "auth.kratos.4000007": {
+    "auth.flowMessages.4000007": {
         "message": "[Åñ åççöûñţ ŵîţĥ ţĥîš éɱåîļ åļŕéåðý éẋîšţš. Šîĝñ îñ îñšţéåð. one two three four]"
     },
-    "auth.kratos.4000008": {
+    "auth.flowMessages.4000008": {
         "message": "[Ţĥåţ çöðé îšñ'ţ ŕîĝĥţ. Çĥéçķ îţ åñð ţŕý åĝåîñ. one two three]"
     },
-    "auth.kratos.4000034": {
+    "auth.flowMessages.4000034": {
         "message": "[Ţĥåţ þåššŵöŕð ĥåš åþþéåŕéð îñ å ðåţå ƀŕéåçĥ. Çĥööšé å ðîƒƒéŕéñţ öñé. one two three four five]"
     },
-    "auth.kratos.4060006": {
+    "auth.flowMessages.4060006": {
         "message": "[Ţĥåţ çöðé îšñ'ţ ŕîĝĥţ öŕ ĥåš éẋþîŕéð. Ŕéǫûéšţ å ñéŵ öñé. one two three four]"
     },
-    "auth.kratos.4070006": {
+    "auth.flowMessages.4070006": {
         "message": "[Ţĥåţ çöðé îšñ'ţ ŕîĝĥţ öŕ ĥåš éẋþîŕéð. Ŕéǫûéšţ å ñéŵ öñé. one two three four]"
     },
     "publicReceipt.notFoundTitle": {

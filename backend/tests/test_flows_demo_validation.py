@@ -49,7 +49,7 @@ async def test_seed_reset_preserves_unrelated_accounts(owner_db: AsyncSession) -
     outsider = Business(id="bz_unrelated_seed", name="Unrelated", slug="unrelated-seed")
     user = User(
         id="us_unrelated_seed",
-        kratos_identity_id=str(uuid4()),
+        identity_id=str(uuid4()),
         email="unrelated@example.test",
         name="Unrelated",
     )

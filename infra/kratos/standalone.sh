@@ -14,8 +14,8 @@ docker run -d --name kratos --network host \
     -e SERVE_PUBLIC_PORT=8713 \
     -e SERVE_ADMIN_PORT=8714 \
     -e SERVE_ADMIN_BASE_URL=http://localhost:8714/ \
-    -e COURIER_HTTP_REQUEST_CONFIG_URL=http://localhost:8701/webhooks/kratos-courier \
-    -e COURIER_HTTP_REQUEST_CONFIG_AUTH_CONFIG_VALUE="${KRATOS_COURIER_SECRET:-clientbridge-dev-courier-secret-do-not-use-in-prod}" \
+    -e COURIER_HTTP_REQUEST_CONFIG_URL=http://localhost:8701/webhooks/auth-email \
+    -e COURIER_HTTP_REQUEST_CONFIG_AUTH_CONFIG_VALUE="${AUTH_EMAIL_HOOK_SECRET:-clientbridge-dev-courier-secret-do-not-use-in-prod}" \
     -e SECRETS_COOKIE="${KRATOS_COOKIE_SECRET:-clientbridge-dev-cookie-secret-do-not-use-in-prod}" \
     -e SECRETS_CIPHER="${KRATOS_CIPHER_SECRET:-clientbridge-dev-cipher-key-0032}" \
     "$image" serve -c /etc/config/kratos/kratos.yml --dev

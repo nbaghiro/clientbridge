@@ -1,7 +1,6 @@
 import { strings, useAuthForm, useRecoveryForm } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StatusBar } from "expo-status-bar";
-import * as WebBrowser from "expo-web-browser";
 import { type ReactNode, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -16,19 +15,13 @@ import {
     TextField,
 } from "@clientbridge/ui";
 
-import { identity } from "../lib/api";
+import { identity, openAuthSession } from "../lib/api";
 
 const c = theme.colors;
 const a = strings.auth;
-const CALLBACK = "clientbridge://auth/callback";
 
 type Auth = ReturnType<typeof useAuthForm>;
 type Recovery = ReturnType<typeof useRecoveryForm>;
-
-async function openAuthSession(url: string): Promise<string | null> {
-    const result = await WebBrowser.openAuthSessionAsync(url, CALLBACK);
-    return result.type === "success" ? result.url : null;
-}
 
 function Messages({ error, notice }: { error: string | null; notice: string | null }) {
     return (

@@ -15,7 +15,7 @@ from clientbridge.models.business import User
 from clientbridge.services.auth import AuthService
 from tests.conftest import OWNER_USER, Factory, FakeIdentityProvider, identity_for, session_token
 
-COOKIE = get_settings().kratos_session_cookie
+COOKIE = get_settings().auth_session_cookie
 
 
 def fresh(email: str = "fresh@test.ca", *, name: str | None = "Fresh") -> Identity:
@@ -53,7 +53,7 @@ async def test_first_request_provisions_the_user_once(
     first = (await api.get("/v1/me", headers=headers)).json()
     second = (await api.get("/v1/me", headers=headers)).json()
     assert first["user_id"] == second["user_id"] and first["user_id"].startswith("us_")
-    users = (await db.execute(select(User).where(User.kratos_identity_id == identity.id))).scalars()
+    users = (await db.execute(select(User).where(User.identity_id == identity.id))).scalars()
     assert [u.email for u in users] == ["fresh@test.ca"]
 
 
@@ -90,7 +90,7 @@ async def test_a_deleted_identity_is_relinked_when_the_email_is_verified(
 ) -> None:
     owner = await db.get(User, OWNER_USER)
     assert owner is not None
-    identities.deleted.add(owner.kratos_identity_id)
+    identities.deleted.add(owner.identity_id)
     again = fresh("hannah@birchbarkpets.ca")
     unverified = Identity(**{**again.__dict__, "verified_emails": frozenset()})
     refused = await api.get("/v1/me", headers={"X-Session-Token": identities.issue(unverified)})
@@ -98,7 +98,7 @@ async def test_a_deleted_identity_is_relinked_when_the_email_is_verified(
     res = await api.get("/v1/me", headers={"X-Session-Token": identities.issue(again)})
     assert res.status_code == 200 and res.json()["user_id"] == OWNER_USER
     await db.refresh(owner)
-    assert str(owner.kratos_identity_id) == again.id
+    assert str(owner.identity_id) == again.id
 
 
 async def test_last_seen_is_throttled(

@@ -16,7 +16,11 @@
     "devDependencies": {
         "@clientbridge/sync": "workspace:*",
         "@powersync/common": "^2.3.1",
+        "@testing-library/react": "^16.3.3",
         "@types/sql.js": "^1.4.11",
+        "happy-dom": "^21.0.1",
+        "react": "19.2.3",
+        "react-dom": "19.2.3",
         "sql.js": "^1.14.2",
         "vitest": "^5.0.3"
     },

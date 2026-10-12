@@ -25,9 +25,9 @@ class Settings(BaseSettings):
     jwt_secret: str = _DEV_JWT_SECRET  # matches infra/powersync jwks
     jwt_ttl_seconds: int = 300  # the PowerSync token
 
-    kratos_public_url: str = "http://localhost:8713"
-    kratos_admin_url: str = "http://localhost:8714"
-    kratos_session_cookie: str = "ory_kratos_session"
+    auth_public_url: str = "http://localhost:8713"
+    auth_admin_url: str = "http://localhost:8714"
+    auth_session_cookie: str = "ory_kratos_session"
     identity_cache_ttl_seconds: float = 30
     # A session dies this long after its sign-in, however often it was extended.
     session_max_age_days: int = 90
@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     platform_fee_bps: int = 200  # application fee per direct charge (basis points; 200 = 2%)
     interac_webhook_secret: str = ""
     sms_webhook_secret: str = ""
-    kratos_courier_secret: str = _DEV_COURIER_SECRET  # matches docker-compose.yml's kratos
+    auth_email_hook_secret: str = _DEV_COURIER_SECRET  # matches docker-compose.yml's kratos
 
     # Outreach channels; empty credentials select the no-op console senders.
     postmark_server_token: str = ""
@@ -79,15 +79,15 @@ class Settings(BaseSettings):
             missing = []
             if self.jwt_secret == _DEV_JWT_SECRET:
                 missing.append("JWT_SECRET")
-            kratos = urlsplit(self.kratos_public_url)
+            kratos = urlsplit(self.auth_public_url)
             if kratos.scheme != "https" or kratos.hostname in ("localhost", "127.0.0.1"):
-                missing.append("KRATOS_PUBLIC_URL (https, not localhost)")
-            if not self.kratos_admin_url or self.kratos_admin_url == self.kratos_public_url:
-                missing.append("KRATOS_ADMIN_URL (private, distinct from the public URL)")
+                missing.append("AUTH_PUBLIC_URL (https, not localhost)")
+            if not self.auth_admin_url or self.auth_admin_url == self.auth_public_url:
+                missing.append("AUTH_ADMIN_URL (private, distinct from the public URL)")
             if not self.stripe_webhook_secret:
                 missing.append("STRIPE_WEBHOOK_SECRET")
-            if self.kratos_courier_secret in ("", _DEV_COURIER_SECRET):
-                missing.append("KRATOS_COURIER_SECRET")
+            if self.auth_email_hook_secret in ("", _DEV_COURIER_SECRET):
+                missing.append("AUTH_EMAIL_HOOK_SECRET")
             if not self.powersync_use_rs256:
                 missing.append("POWERSYNC_USE_RS256=true")
             if not self.powersync_private_key_pem:

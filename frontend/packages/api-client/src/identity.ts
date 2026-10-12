@@ -58,7 +58,7 @@ export interface IdentityClient {
 }
 
 interface IdentityOptions {
-    kratosUrl: string;
+    baseUrl: string;
     mode: "browser" | "native";
     sessionToken?: () => Promise<string | null>;
     nativeReturnTo?: string;
@@ -153,7 +153,7 @@ function errorId(body: Json): string {
 
 /** Drives Kratos self-service flows: browser flows ride the session cookie, native flows a token. */
 export function createIdentityClient(opts: IdentityOptions): IdentityClient {
-    const base = opts.kratosUrl.replace(/\/+$/, "");
+    const base = opts.baseUrl.replace(/\/+$/, "");
     const browser = opts.mode === "browser";
 
     const request = async (
@@ -167,10 +167,11 @@ export function createIdentityClient(opts: IdentityOptions): IdentityClient {
             const token = sessionToken ?? (await opts.sessionToken?.());
             if (token) headers.set("X-Session-Token", token);
         }
+        // Kratos refuses a native flow that carries a cookie, and React Native's fetch sends its jar.
         return fetch(`${base}${path}`, {
             ...init,
             headers,
-            ...(browser ? { credentials: "include" as const } : {}),
+            credentials: browser ? "include" : "omit",
         });
     };
 

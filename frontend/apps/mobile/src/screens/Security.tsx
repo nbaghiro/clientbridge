@@ -1,16 +1,18 @@
 import { strings, useSecuritySettings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { Button, Loading, Notice, Panel, TextField } from "@clientbridge/ui";
+import { Button, GoogleIcon, Loading, Notice, Panel, TextField } from "@clientbridge/ui";
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { identity } from "../lib/api";
-import { getSession } from "../lib/auth";
+import { identity, openAuthSession } from "../lib/api";
+import { getSession, keepSessionToken } from "../lib/auth";
 
 const c = theme.colors;
 const a = strings.auth;
 
 const settingsOptions = {
     sessionToken: async () => (await getSession())?.session_token,
+    openUrl: openAuthSession,
+    onSessionToken: keepSessionToken,
 };
 
 /** Account, password, authenticator app and backup codes; security keys stay on the web. */
@@ -49,9 +51,20 @@ export function SecurityScreen() {
                                     {a.confirm}
                                 </Button>
                             </>
-                        ) : (
+                        ) : null}
+                        {s.reauth.google ? (
+                            <Button
+                                variant="outline"
+                                busy={s.busy}
+                                onPress={s.reauthWithGoogle}
+                                icon={<GoogleIcon size={20} />}
+                            >
+                                {a.continueWithGoogle}
+                            </Button>
+                        ) : null}
+                        {!s.reauth.password && !s.reauth.google ? (
                             <Text style={styles.soft}>{a.securityReauthOnWeb}</Text>
-                        )}
+                        ) : null}
                     </View>
                 </Panel>
             ) : null}

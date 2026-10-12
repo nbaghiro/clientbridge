@@ -206,7 +206,7 @@ shown after it.
 ### Tables by domain
 
 **business (3)** — `businesses` (all Stripe-Connect/KYC mirror fields + Canadian tax fields + `slug` + brand
-JSONB), `users` (one per Kratos identity via unique `kratos_identity_id`; `email` copied from Kratos, `last_seen_at`, desk `pin_hash`), `staff` (user↔business, `role`
+JSONB), `users` (one per Kratos identity via unique `identity_id`; `email` copied from Kratos, `last_seen_at`, desk `pin_hash`), `staff` (user↔business, `role`
 owner/admin/staff/contractor, payout config `payee`/`rate_type` with the rate in `rate_bps` (percent) or
 `rate_cents` (fixed or hourly), one membership per user per business, pending invites via
 `status=invited` + hashed `invite_token`).
@@ -356,14 +356,14 @@ settings flow. The apps drive its self-service flows directly with their own scr
 `useAuthForm`, `useRecoveryForm`, `useVerificationForm`, `useSecuritySettings`): web uses browser
 flows and an HttpOnly session cookie on the shared parent domain; mobile uses native flows and keeps
 the session token in SecureStore. Kratos makes and checks every emailed code, but its courier hands each
-message to `POST /webhooks/kratos-courier` (shared `KRATOS_COURIER_SECRET`, shaped by
+message to `POST /webhooks/auth-email` (shared `AUTH_EMAIL_HOOK_SECRET`, shaped by
 `infra/kratos/courier.jsonnet`), which words it in `notifications.py` and sends it through `EmailSender`;
 a non-2xx reply makes Kratos retry.
 
 - **API edge** — `current_identity` sends the session to `/sessions/whoami` (30 s in-process cache;
   `/v1/me`, onboarding and invite accept read it fresh, so a just-verified email or a step-up counts at
   once). It extends sessions nearing expiry, best effort, and refuses any session signed in more than
-  `SESSION_MAX_AGE_DAYS` (90) ago. No session is 401 `unauthenticated`; a missing second factor is
+  `SESSION_MAX_AGE_DAYS` (90) ago, ending it in Kratos too so the next sign-in starts fresh. No session is 401 `unauthenticated`; a missing second factor is
   401 `aal2_required` (the apps step up instead of signing out); Kratos unreachable is 503, never a
   sign-out.
 - **Origins** — only the staff web app (`WEB_BASE_URL`) gets credentialed CORS, and cookie-authenticated

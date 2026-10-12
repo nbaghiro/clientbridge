@@ -199,7 +199,7 @@ describe("identity client", () => {
                 return Promise.resolve(Response.json({ session: { id: "s" } }));
             }),
         );
-        const identity = createIdentityClient({ kratosUrl: "https://auth.test/", mode: "browser" });
+        const identity = createIdentityClient({ baseUrl: "https://auth.test/", mode: "browser" });
         const step = await identity.submit(flow, { method: "password" });
         expect(step).toEqual({ kind: "done" });
         expect(seen[0]?.url).toBe("https://auth.test/self-service/login?flow=flow-1");
@@ -210,11 +210,13 @@ describe("identity client", () => {
         });
     });
 
-    it("hands native recovery over to settings with a token", async () => {
+    it("hands native recovery over to settings with a token, never a cookie", async () => {
+        const seen: RequestInit[] = [];
         vi.stubGlobal(
             "fetch",
-            vi.fn(() =>
-                Promise.resolve(
+            vi.fn((_url: string, init: RequestInit = {}) => {
+                seen.push(init);
+                return Promise.resolve(
                     Response.json({
                         id: "rec",
                         state: "passed_challenge",
@@ -223,10 +225,10 @@ describe("identity client", () => {
                             { action: "show_settings_ui", flow: { id: "set-1" } },
                         ],
                     }),
-                ),
-            ),
+                );
+            }),
         );
-        const identity = createIdentityClient({ kratosUrl: "https://auth.test", mode: "native" });
+        const identity = createIdentityClient({ baseUrl: "https://auth.test", mode: "native" });
         const step = await identity.submit(parseFlow("recovery", { id: "rec" }), {
             method: "code",
         });
@@ -235,10 +237,12 @@ describe("identity client", () => {
             sessionToken: "ory_st_x",
             next: { flow: "settings", id: "set-1" },
         });
+        // Kratos refuses an API flow that carries a cookie (React Native's fetch sends its jar).
+        expect(seen[0]?.credentials).toBe("omit");
     });
 
     it("maps redirects, privileged actions and expired flows", async () => {
-        const identity = createIdentityClient({ kratosUrl: "https://auth.test", mode: "browser" });
+        const identity = createIdentityClient({ baseUrl: "https://auth.test", mode: "browser" });
         const answer = (body: unknown, status: number) => {
             vi.stubGlobal(
                 "fetch",
@@ -259,7 +263,7 @@ describe("identity client", () => {
     });
 
     it("tells a missing session from one that needs a second factor", async () => {
-        const identity = createIdentityClient({ kratosUrl: "https://auth.test", mode: "native" });
+        const identity = createIdentityClient({ baseUrl: "https://auth.test", mode: "native" });
         vi.stubGlobal(
             "fetch",
             vi.fn(() =>

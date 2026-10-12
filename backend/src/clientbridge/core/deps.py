@@ -45,11 +45,11 @@ def get_sms_webhook_secret() -> str:
 SmsWebhookSecretDep = Annotated[str, Depends(get_sms_webhook_secret)]
 
 
-def get_kratos_courier_secret() -> str:
-    return get_settings().kratos_courier_secret
+def get_auth_email_hook_secret() -> str:
+    return get_settings().auth_email_hook_secret
 
 
-KratosCourierSecretDep = Annotated[str, Depends(get_kratos_courier_secret)]
+AuthEmailSecretDep = Annotated[str, Depends(get_auth_email_hook_secret)]
 
 
 _SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
@@ -60,7 +60,7 @@ def _credential(request: Request, session_token: str) -> Credential:
     if session_token:
         return Credential(session_token=session_token)
     settings = get_settings()
-    cookie = request.cookies.get(settings.kratos_session_cookie, "")
+    cookie = request.cookies.get(settings.auth_session_cookie, "")
     if not cookie:
         raise Unauthorized("sign in required", code="unauthenticated")
     # The cookie also rides along from Connect and Pay, so cookie writes must come from the app.

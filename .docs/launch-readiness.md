@@ -75,7 +75,7 @@ Built: Ory Kratos (self-hosted) for email and password, email verification and r
 
 To do:
 - Deploy Kratos at `auth.clientbridge.ca` with its own database, the session cookie on `.clientbridge.ca`, WebAuthn for `clientbridge.ca`, and the admin API on the private network only.
-- Production secrets: `SECRETS_COOKIE`, `SECRETS_CIPHER` (32 characters; Kratos refuses to start without them, since `kratos.yml` holds none) and `KRATOS_COURIER_SECRET` (set on both Kratos and the API), with `COURIER_HTTP_REQUEST_CONFIG_URL` pointing at the API over the private network and Kratos running its courier (`--watch-courier` or `kratos courier watch`); Postmark needs a verified sender signature.
+- Production secrets: `SECRETS_COOKIE`, `SECRETS_CIPHER` (32 characters; Kratos refuses to start without them, since `kratos.yml` holds none) and `AUTH_EMAIL_HOOK_SECRET` (set on both Kratos and the API), with `COURIER_HTTP_REQUEST_CONFIG_URL` pointing at the API over the private network and Kratos running its courier (`--watch-courier` or `kratos courier watch`); Postmark needs a verified sender signature.
 - Set `WEB_BASE_URL` to the staff app's origin: it is the only origin that gets credentialed CORS and may send the session cookie; `CORS_ALLOW_ORIGINS` lists Connect and Pay, served without credentials.
 - Google OAuth client with the Kratos callback (`https://auth.clientbridge.ca/self-service/methods/oidc/callback/google`) and consent screen; set `GOOGLE_OAUTH_CLIENT_ID`/`SECRET`.
 - Rate limits on `/self-service/*` at the proxy: Kratos OSS has no login lockout.

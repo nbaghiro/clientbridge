@@ -2,7 +2,6 @@
 
 import hashlib
 import logging
-import string
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -12,17 +11,12 @@ from typing import Protocol
 import httpx
 
 from clientbridge.core.config import get_settings
+from clientbridge.core.emails import normalize_email
 from clientbridge.core.errors import AppError, Unauthorized
 
 _EXTEND_WITHIN = timedelta(hours=24)
 _CACHE_LIMIT = 10_000
-_ASCII_LOWER = str.maketrans(string.ascii_uppercase, string.ascii_lowercase)
 log = logging.getLogger(__name__)
-
-
-def normalize_email(address: str) -> str:
-    """ASCII lowercasing only: Unicode folding would match `straße@` with `strasse@`."""
-    return address.strip().translate(_ASCII_LOWER)
 
 
 @dataclass(frozen=True)
@@ -67,7 +61,8 @@ def _str(value: object) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
-def parse_session(payload: object) -> tuple[Identity, datetime | None]:
+def parse_session(payload: object) -> tuple[Identity, datetime | None, datetime | None]:
+    """The identity, then when the session expires and when its owner last signed in."""
     session = _dict(payload)
     identity = _dict(session.get("identity"))
     traits = _dict(identity.get("traits"))
@@ -85,9 +80,6 @@ def parse_session(payload: object) -> tuple[Identity, datetime | None]:
         if _dict(address).get("verified") is True and (value := _str(_dict(address).get("value")))
     )
     signed_in = _str(session.get("authenticated_at"))
-    max_age = timedelta(days=get_settings().session_max_age_days)
-    if signed_in and datetime.now(UTC) - datetime.fromisoformat(signed_in) > max_age:
-        raise Unauthorized("session too old", code="unauthenticated")
     expires = _str(session.get("expires_at"))
     return (
         Identity(
@@ -99,6 +91,7 @@ def parse_session(payload: object) -> tuple[Identity, datetime | None]:
             aal=_str(session.get("authenticator_assurance_level")) or "aal1",
         ),
         datetime.fromisoformat(expires) if expires else None,
+        datetime.fromisoformat(signed_in) if signed_in else None,
     )
 
 
@@ -135,7 +128,12 @@ class KratosIdentityProvider:
             raise Unauthorized("session expired", code="unauthenticated")
         if response.status_code != 200:
             raise unavailable()
-        identity, expires = parse_session(response.json())
+        identity, expires, signed_in = parse_session(response.json())
+        max_age = timedelta(days=get_settings().session_max_age_days)
+        if signed_in and datetime.now(UTC) - signed_in > max_age:
+            # Kratos would keep it alive, and the login screen would take it as signed in again.
+            await self._revoke(identity.session_id)
+            raise Unauthorized("session too old", code="unauthenticated")
         if expires and expires - datetime.now(UTC) < _EXTEND_WITHIN:
             await self._extend(identity.session_id)
         self._remember(key, identity)
@@ -156,6 +154,15 @@ class KratosIdentityProvider:
             return
         if response.status_code >= 400:
             log.warning("kratos session extend refused: %s", response.status_code)
+
+    async def _revoke(self, session_id: str) -> None:
+        try:
+            response = await self._http.delete(f"{self._admin}/admin/sessions/{session_id}")
+        except httpx.HTTPError:
+            log.warning("kratos session revoke failed", exc_info=True)
+            return
+        if response.status_code >= 400 and response.status_code != 404:
+            log.warning("kratos session revoke refused: %s", response.status_code)
 
     async def find_identity(self, email: str) -> str | None:
         response = await self._call(
@@ -211,9 +218,9 @@ class KratosIdentityProvider:
 def get_kratos() -> KratosIdentityProvider:
     settings = get_settings()
     return KratosIdentityProvider(
-        settings.kratos_public_url,
-        settings.kratos_admin_url,
-        settings.kratos_session_cookie,
+        settings.auth_public_url,
+        settings.auth_admin_url,
+        settings.auth_session_cookie,
         settings.identity_cache_ttl_seconds,
     )
 

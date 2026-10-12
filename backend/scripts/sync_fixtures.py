@@ -35,7 +35,7 @@ async def seed() -> None:
             db.add(
                 User(
                     id=f"us_{role}",
-                    kratos_identity_id=sync_identity(role),
+                    identity_id=sync_identity(role),
                     email=f"{role}@sync.test",
                     name=role,
                 )

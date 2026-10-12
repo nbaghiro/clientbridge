@@ -109,7 +109,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/webhooks/kratos-courier": {
+    "/webhooks/auth-email": {
         parameters: {
             query?: never;
             header?: never;
@@ -118,8 +118,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Kratos Courier Webhook */
-        post: operations["kratos_courier_webhook_webhooks_kratos_courier_post"];
+        /** Auth Email Webhook */
+        post: operations["auth_email_webhook_webhooks_auth_email_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7841,11 +7841,11 @@ export interface operations {
             };
         };
     };
-    kratos_courier_webhook_webhooks_kratos_courier_post: {
+    auth_email_webhook_webhooks_auth_email_post: {
         parameters: {
             query?: never;
             header?: {
-                "X-Kratos-Secret"?: string;
+                "X-Webhook-Secret"?: string;
             };
             path?: never;
             cookie?: never;

@@ -2,7 +2,7 @@ const env = import.meta.env;
 
 export const config = {
     apiUrl: env.VITE_API_URL ?? "http://localhost:8701",
-    kratosUrl: env.VITE_KRATOS_URL ?? "http://localhost:8713",
+    authUrl: env.VITE_AUTH_URL ?? "http://localhost:8713",
     powersyncUrl: env.VITE_POWERSYNC_URL ?? "http://localhost:8704",
     payUrl: env.VITE_PAY_URL ?? "http://localhost:8709",
     bookUrl: env.VITE_BOOK_URL ?? "http://localhost:8709",

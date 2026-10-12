@@ -250,7 +250,7 @@ in the block. Container-internal ports stay conventional; only host mappings use
 | **8709** | Connect (Vite) — customer app | — | `apps/connect` vite (strictPort) |
 | **8710** | Marketing site (Vite, static build) | — | `apps/site` vite (strictPort) · `make dev-site` |
 | **8712** | Component playground (Vite) | — | `apps/playground` vite (strictPort) · `make dev-playground` |
-| **8713 / 8714** | Ory Kratos: public / admin API (admin bound to 127.0.0.1) | 4433 / 4434 | docker-compose · `KRATOS_PUBLIC_URL` / `KRATOS_ADMIN_URL` |
+| **8713 / 8714** | Ory Kratos: public / admin API (admin bound to 127.0.0.1) | 4433 / 4434 | docker-compose · `AUTH_PUBLIC_URL` / `AUTH_ADMIN_URL` |
 | **8715 / 8716** | Mailpit: web UI and API / SMTP (the API's mail under `make dev-api`; 127.0.0.1 only) | 8025 / 1025 | docker-compose |
 
 ### Bring-up

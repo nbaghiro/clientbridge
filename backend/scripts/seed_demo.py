@@ -148,7 +148,7 @@ def seed_identity() -> tuple[str, str]:
     rows.append(
         User(
             id=owner_id,
-            kratos_identity_id=placeholder_identity("hannah@birchbarkpets.ca"),
+            identity_id=placeholder_identity("hannah@birchbarkpets.ca"),
             email="hannah@birchbarkpets.ca",
             name="Hannah Wong",
             phone="+12505550110",
@@ -157,7 +157,7 @@ def seed_identity() -> tuple[str, str]:
     rows.append(
         User(
             id="us_diego",
-            kratos_identity_id=placeholder_identity("diego@birchbarkpets.ca"),
+            identity_id=placeholder_identity("diego@birchbarkpets.ca"),
             email="diego@birchbarkpets.ca",
             name="Diego Ramirez",
             phone="+12505550111",
@@ -166,7 +166,7 @@ def seed_identity() -> tuple[str, str]:
     rows.append(
         User(
             id="us_priya",
-            kratos_identity_id=placeholder_identity("priya@birchbarkpets.ca"),
+            identity_id=placeholder_identity("priya@birchbarkpets.ca"),
             email="priya@birchbarkpets.ca",
             name="Priya Patel",
             phone="+12505550112",
@@ -2254,11 +2254,11 @@ async def link_identities(ctx: DemoContext) -> None:
     kratos = get_kratos()
     try:
         for user in ctx.all(User):
-            user.kratos_identity_id = await kratos.find_identity(
+            user.identity_id = await kratos.find_identity(
                 user.email
             ) or await kratos.create_identity(user.email, user.name or "", DEMO_PASSWORD)
     except AppError as exc:
-        raise SystemExit(f"Kratos is not reachable at {get_settings().kratos_admin_url}") from exc
+        raise SystemExit(f"Kratos is not reachable at {get_settings().auth_admin_url}") from exc
 
 
 async def main(*, reset_demo: bool = False, as_of: datetime | None = None) -> None:

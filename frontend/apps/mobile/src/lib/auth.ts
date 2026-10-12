@@ -47,6 +47,18 @@ export async function signIn(sessionToken: string): Promise<void> {
     sessionEpoch.advance();
 }
 
+/** The same person's refreshed session (Google re-authentication); the replica stays open. */
+export async function keepSessionToken(sessionToken: string): Promise<void> {
+    await serialized(async () => {
+        const session = await getSession();
+        if (session === null || session.session_token === sessionToken) return;
+        await SecureStore.setItemAsync(
+            KEY,
+            JSON.stringify({ ...session, session_token: sessionToken }),
+        );
+    });
+}
+
 export async function rememberUser(userId: string): Promise<void> {
     await serialized(async () => {
         const session = await getSession();

@@ -21,7 +21,7 @@ def build_identity(ctx: DemoContext) -> None:
     ctx.add(
         User(
             id="us_admin",
-            kratos_identity_id=placeholder_identity("admin@birchbarkpets.ca"),
+            identity_id=placeholder_identity("admin@birchbarkpets.ca"),
             email="admin@birchbarkpets.ca",
             name="Alex Chen",
             pin_hash=hash_password("2468"),
@@ -47,7 +47,7 @@ def build_identity(ctx: DemoContext) -> None:
         ),
         User(
             id="us_second_owner",
-            kratos_identity_id=placeholder_identity("owner@cedarcoast.example.test"),
+            identity_id=placeholder_identity("owner@cedarcoast.example.test"),
             email="owner@cedarcoast.example.test",
             name="Rowan Ellis",
             pin_hash=hash_password("2468"),

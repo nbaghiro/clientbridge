@@ -2,13 +2,13 @@ import httpx
 import pytest
 
 from clientbridge.core.config import get_settings
-from clientbridge.core.deps import get_kratos_courier_secret
+from clientbridge.core.deps import get_auth_email_hook_secret
 from clientbridge.integrations.postmark import Email, get_email_sender
 from clientbridge.main import app
 from tests.conftest import FakeEmailSender
 
-URL = "/webhooks/kratos-courier"
-GOOD = {"X-Kratos-Secret": "testsecret"}
+URL = "/webhooks/auth-email"
+GOOD = {"X-Webhook-Secret": "testsecret"}
 
 
 def _courier(template_type: str, **extra: object) -> dict[str, object]:
@@ -64,7 +64,7 @@ async def test_unknown_address_gets_a_notice_without_a_code(
     assert sent.subject == subject and "not linked to an account" in sent.body
 
 
-@pytest.mark.parametrize("headers", [{"X-Kratos-Secret": "wrong"}, {}])
+@pytest.mark.parametrize("headers", [{"X-Webhook-Secret": "wrong"}, {}])
 async def test_bad_secret_401_sends_nothing(
     api: httpx.AsyncClient, email: FakeEmailSender, headers: dict[str, str]
 ) -> None:
@@ -74,9 +74,9 @@ async def test_bad_secret_401_sends_nothing(
 
 
 async def test_unset_server_secret_401(api: httpx.AsyncClient, email: FakeEmailSender) -> None:
-    app.dependency_overrides[get_kratos_courier_secret] = lambda: ""
+    app.dependency_overrides[get_auth_email_hook_secret] = lambda: ""
     body = _courier("recovery_code_valid", code="482913", expires_in_minutes=15)
-    assert (await api.post(URL, json=body, headers={"X-Kratos-Secret": ""})).status_code == 401
+    assert (await api.post(URL, json=body, headers={"X-Webhook-Secret": ""})).status_code == 401
     assert email.sent == []
 
 

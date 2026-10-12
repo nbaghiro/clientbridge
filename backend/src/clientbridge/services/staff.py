@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role, is_manager
+from clientbridge.core.emails import normalize_email
 from clientbridge.core.errors import (
     AppError,
     Conflict,
@@ -20,7 +21,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for
 from clientbridge.core.scoping import scoped
 from clientbridge.core.security import hash_token
-from clientbridge.integrations.kratos import Identity, normalize_email
+from clientbridge.integrations.kratos import Identity
 from clientbridge.integrations.postmark import Email, EmailSender
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.platform import Audit
