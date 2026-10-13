@@ -321,6 +321,11 @@ class PlanService:
             business.stripe_account_id = account_id
             apply_account_status(business, await self.gateway.get_account(account_id))
             cmd.record("connect.account_created", entity_type="business", entity_id=business.id)
+            # kept even if a later Stripe call fails, so the retry reuses this account
+            self.db.add_all(cmd.audits)
+            await self.db.commit()
+            cmd = Command(self.db, self.principal)
+            business = await self._business(lock=True)
         else:
             await self.gateway.add_customer_configuration(account_id, address=address)
         attempt = _key(idempotency_key)

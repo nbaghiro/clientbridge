@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.api.plans import LAPSED_WRITES
 from clientbridge.core import clock
+from clientbridge.core.errors import Unprocessable
 from clientbridge.integrations.stripe import PlanItem, PlanSubscription
 from clientbridge.main import app
 from clientbridge.models.business import Business, Staff
@@ -198,6 +199,32 @@ async def test_checkout_bills_a_new_customer_account_and_carries_the_trial(
     assert business.stripe_requirements["card_status"] is None
     status = ok(await as_owner.get("/v1/connect/status")).json()
     assert (status["connected"], status["kyc_status"]) == (False, "not_started")
+
+
+async def test_a_failed_checkout_keeps_the_new_account_for_the_retry(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _trial(db, timedelta(days=10), stripe_account_id=None)
+
+    async def unplaceable(account_id: str, **params: object) -> str:
+        raise Unprocessable("Stripe Tax cannot place this address")
+
+    choice = {"plan": "team", "interval": "month"}
+    with monkeypatch.context() as patch:
+        patch.setattr(gateway, "create_plan_checkout", unplaceable)
+        failed = await as_owner.post("/v1/plan/checkout", json=choice)
+    assert failed.status_code == 422
+    (account,) = gateway.created_accounts
+    assert (await _business(db)).stripe_account_id == account
+    actions = (await db.execute(select(Audit.action).where(Audit.entity_id == BIZ))).scalars()
+    assert "connect.account_created" in set(actions)
+    ok(await as_owner.post("/v1/plan/checkout", json=choice))
+    assert gateway.created_accounts == [account]
+    assert [added[0] for added in gateway.customer_added] == [account]
+    assert gateway.checkouts[0].account_id == account
 
 
 async def test_checkout_on_premium_bills_each_seat(
