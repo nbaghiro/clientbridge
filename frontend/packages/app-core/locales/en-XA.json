@@ -6098,6 +6098,9 @@
     "hours.refused": {
         "message": "[Ţĥé šéŕṽéŕ ŕéƒûšéð ţĥéšé ĥöûŕš. Çĥåñĝé ţĥéɱ åñð åþþļý ţĥéɱ åĝåîñ, öŕ ðîšçåŕð ţĥéɱ. one two three four five six]"
     },
+    "hours.pausedRefused": {
+        "message": "[Ţĥéšé ĥöûŕš ŵéŕéñ'ţ šåṽéð ƀéçåûšé ţĥé ƀûšîñéšš îš þåûšéð. Çĥööšé å þļåñ åñð åþþļý ţĥéɱ åĝåîñ, öŕ ðîšçåŕð ţĥéɱ. one two three four five six seven]"
+    },
     "hours.applyChanges": {
         "message": "[Åþþļý ɱý çĥåñĝéš one two]"
     },

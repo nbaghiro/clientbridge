@@ -174,6 +174,8 @@ export function refusalMessage(code: string | null): string {
             return s.splitRefused;
         case "hours_revision_conflict":
             return s.conflict;
+        case "plan_required":
+            return s.pausedRefused;
         default:
             return s.refused;
     }

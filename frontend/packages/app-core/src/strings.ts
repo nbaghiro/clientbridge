@@ -2177,6 +2177,7 @@ interface Strings {
         readonly splitWeek: (days: string, count: number) => string;
         readonly splitRefused: string;
         readonly refused: string;
+        readonly pausedRefused: string;
         readonly applyChanges: string;
         readonly discardChanges: string;
         readonly saveError: string;

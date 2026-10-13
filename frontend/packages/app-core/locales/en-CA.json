@@ -6508,6 +6508,9 @@
     "hours.refused": {
         "message": "The server refused these hours. Change them and apply them again, or discard them."
     },
+    "hours.pausedRefused": {
+        "message": "These hours weren't saved because the business is paused. Choose a plan and apply them again, or discard them."
+    },
     "hours.applyChanges": {
         "message": "Apply my changes"
     },
