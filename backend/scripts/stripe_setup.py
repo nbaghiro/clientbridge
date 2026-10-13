@@ -1164,11 +1164,26 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
 
     print("\nenv (backend/.env unless noted):")
     print(f"  STRIPE_CONNECT_COUNTRY={settings.stripe_connect_country}")
-    print(f"  STRIPE_SECRET_KEY={secret(config.get('test_mode_api_key', ''))}  (the CLI's key)")
-    listen_secret = stripe.listen_secret()
-    print(f"  STRIPE_WEBHOOK_SECRET={secret(endpoint_secret or listen_secret)}")
-    print(f"  STRIPE_THIN_WEBHOOK_SECRET={secret(destination_secret or listen_secret)}")
-    print(f"  STRIPE_PLATFORM_WEBHOOK_SECRET={secret(platform_secret or listen_secret)}")
+    api_key = config.get("test_mode_api_key", "")
+    key_note = (
+        "the CLI's restricted key, which expires; use a secret key for anything lasting"
+        if api_key.startswith("rk_")
+        else "the CLI's key"
+    )
+    print(f"  STRIPE_SECRET_KEY={secret(api_key)}  ({key_note})")
+    # a deployed endpoint has its own secret, which Stripe shows only when it is created
+    listen_secret = stripe.listen_secret() if args.webhook_url is None else None
+
+    def signing(created: str | None) -> str:
+        if created is not None:
+            return secret(created)
+        if listen_secret is not None:
+            return secret(listen_secret)
+        return "<shown only when the endpoint is created; reveal it in the Dashboard>"
+
+    print(f"  STRIPE_WEBHOOK_SECRET={signing(endpoint_secret)}")
+    print(f"  STRIPE_THIN_WEBHOOK_SECRET={signing(destination_secret)}")
+    print(f"  STRIPE_PLATFORM_WEBHOOK_SECRET={signing(platform_secret)}")
     print(f"  STRIPE_PORTAL_CONFIGURATION={portal_id or '<created by --apply>'}")
     default_version = stripe.default_api_version()
     if default_version is not None and default_version != STRIPE_API_VERSION:

@@ -304,11 +304,12 @@ class FakeCli:
         self.calls: list[list[str]] = []
         self.display_name = display_name
         self.created = 0
+        self.api_key = "sk_test_x"
 
     def __call__(self, args: Sequence[str]) -> str:
         self.calls.append(list(args))
         if args[0] == "config":
-            lines = ("[p]", "test_mode_api_key=sk_test_x", "account_id=acct_p")
+            lines = ("[p]", f"test_mode_api_key={self.api_key}", "account_id=acct_p")
             return "\n".join([*lines, f"display_name={self.display_name}"])
         if args[0] == "listen":
             return "whsec_test_secret\n"
@@ -331,19 +332,17 @@ class FakeCli:
 def test_dry_run_reads_only(capsys: pytest.CaptureFixture[str]) -> None:
     cli = FakeCli()
     assert main(["--webhook-url", URL], runner=cli) == 0
-    assert {call[0] for call in cli.calls} == {"config", "get", "listen"}
-    assert ["listen", "--print-secret"] in cli.calls
+    assert {call[0] for call in cli.calls} == {"config", "get"}
     out = capsys.readouterr().out
     assert "[create ] connect webhook endpoint" in out
     assert "[create ] account event destination" in out
     assert "[create ] connected account for bz_birchbark" in out
-    assert "whsec_test_secret" not in out and "STRIPE_THIN_WEBHOOK_SECRET=whsec_...cret" in out
+    assert "whsec_" not in out
     assert "--forward-connect-to 127.0.0.1:8701/webhooks/stripe" in out
     assert "v2.core.account[requirements].updated" in out
     assert "[create ] platform webhook endpoint" in out
     assert "[create ] price premium_year: 49990 cad per year" in out
     assert "[create ] billing portal configuration" in out
-    assert "STRIPE_PLATFORM_WEBHOOK_SECRET=whsec_...cret" in out
     assert "STRIPE_PORTAL_CONFIGURATION=<created by --apply>" in out
     assert "none needed" not in out
 
@@ -591,3 +590,30 @@ def test_an_account_closed_earlier_gets_a_fresh_create_key() -> None:
     again = plan_account(BIRCHBARK, [], [closed])
     assert again.action == "create" and again.idempotency != fresh.idempotency
     assert plan_account(BIRCHBARK, [], [closed]).idempotency == again.idempotency
+
+
+def test_a_deployed_endpoint_never_shows_the_listen_secret(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(["--webhook-url", URL, "--show-secrets"], runner=FakeCli()) == 0
+    out = capsys.readouterr().out
+    assert "whsec_test_secret" not in out
+    for name in (
+        "STRIPE_WEBHOOK_SECRET",
+        "STRIPE_THIN_WEBHOOK_SECRET",
+        "STRIPE_PLATFORM_WEBHOOK_SECRET",
+    ):
+        assert f"{name}=<shown only when the endpoint is created" in out
+
+
+def test_local_runs_take_the_listen_secret_and_flag_an_expiring_cli_key(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    cli = FakeCli()
+    cli.api_key = "rk_test_x"
+    assert main([], runner=cli) == 0
+    out = capsys.readouterr().out
+    assert ["listen", "--print-secret"] in cli.calls
+    assert "STRIPE_WEBHOOK_SECRET=whsec_...cret" in out
+    assert "STRIPE_PLATFORM_WEBHOOK_SECRET=whsec_...cret" in out
+    assert "expires" in out
