@@ -225,7 +225,5 @@ def get_kratos() -> KratosIdentityProvider:
     )
 
 
-def get_identity_provider() -> (
-    IdentityProvider
-):  # pragma: no cover — overridden by the fake in tests
+def get_identity_provider() -> IdentityProvider:
     return get_kratos()

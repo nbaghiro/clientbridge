@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.security import issue_powersync_token
-from clientbridge.integrations.kratos import Identity
+from clientbridge.integrations.kratos import Identity, KratosIdentityProvider, get_identity_provider
 from clientbridge.models.business import User
 from clientbridge.services.auth import AuthService
 from tests.conftest import OWNER_USER, Factory, FakeIdentityProvider, identity_for, session_token
@@ -309,3 +309,7 @@ async def test_verification_sensitive_checks_skip_the_session_cache(
     assert identities.fresh_reads == 3
     await api.get("/sync/token", headers=headers)
     assert identities.fresh_reads == 3
+
+
+def test_identity_provider_dependency_builds_the_kratos_provider() -> None:
+    assert isinstance(get_identity_provider(), KratosIdentityProvider)

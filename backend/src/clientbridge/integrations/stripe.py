@@ -295,7 +295,7 @@ class StripeGateway:
         self._country = country
 
     @_keyed
-    async def create_connected_account(  # pragma: no cover - real Stripe, faked in tests
+    async def create_connected_account(
         self,
         *,
         business_name: str,
@@ -333,7 +333,7 @@ class StripeGateway:
         return str(account.id)
 
     @_keyed
-    async def create_account_link(  # pragma: no cover
+    async def create_account_link(
         self, account_id: str, *, refresh_url: str, return_url: str
     ) -> str:
         link = await stripe.AccountLink.create_async(
@@ -345,9 +345,7 @@ class StripeGateway:
         return str(link.url)
 
     @_keyed
-    async def create_account_session(
-        self, account_id: str, component: ConnectComponent
-    ) -> str:  # pragma: no cover
+    async def create_account_session(self, account_id: str, component: ConnectComponent) -> str:
         components: AccountSessionCreateParamsComponents = {}
         if component == "onboarding":
             components["account_onboarding"] = {
@@ -397,7 +395,7 @@ class StripeGateway:
         return str(session.client_secret)
 
     @_keyed
-    async def get_account(self, account_id: str) -> ConnectAccount:  # pragma: no cover
+    async def get_account(self, account_id: str) -> ConnectAccount:
         account = await stripe.Account.retrieve_async(account_id)
         req = account.requirements
         return ConnectAccount(
@@ -414,9 +412,7 @@ class StripeGateway:
         )
 
     @_keyed
-    async def create_customer(  # pragma: no cover
-        self, account_id: str, *, name: str, email: str | None
-    ) -> str:
+    async def create_customer(self, account_id: str, *, name: str, email: str | None) -> str:
         params: CustomerCreateParams = {"name": name, "stripe_account": account_id}
         if email is not None:
             params["email"] = email
@@ -424,16 +420,14 @@ class StripeGateway:
         return str(customer.id)
 
     @_keyed
-    async def create_setup_intent(  # pragma: no cover
-        self, account_id: str, *, customer_id: str
-    ) -> SetupIntentResult:
+    async def create_setup_intent(self, account_id: str, *, customer_id: str) -> SetupIntentResult:
         intent = await stripe.SetupIntent.create_async(
             customer=customer_id, usage="off_session", stripe_account=account_id
         )
         return SetupIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
 
     @_keyed
-    async def create_pad_setup_intent(  # pragma: no cover
+    async def create_pad_setup_intent(
         self,
         account_id: str,
         *,
@@ -465,7 +459,7 @@ class StripeGateway:
         return SetupIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
 
     @_keyed
-    async def ensure_pad_capability(self, account_id: str) -> None:  # pragma: no cover
+    async def ensure_pad_capability(self, account_id: str) -> None:
         try:
             capability = await stripe.Account.modify_capability_async(
                 account_id, "acss_debit_payments", requested=True
@@ -481,9 +475,7 @@ class StripeGateway:
             )
 
     @_keyed
-    async def get_setup_intent(
-        self, account_id: str, setup_intent_id: str
-    ) -> SetupIntentState:  # pragma: no cover
+    async def get_setup_intent(self, account_id: str, setup_intent_id: str) -> SetupIntentState:
         intent = await stripe.SetupIntent.retrieve_async(
             setup_intent_id, expand=["payment_method"], stripe_account=account_id
         )
@@ -515,9 +507,7 @@ class StripeGateway:
         )
 
     @_keyed
-    async def get_mandate(
-        self, account_id: str, mandate_id: str
-    ) -> MandateState:  # pragma: no cover
+    async def get_mandate(self, account_id: str, mandate_id: str) -> MandateState:
         mandate = await stripe.Mandate.retrieve_async(mandate_id, stripe_account=account_id)
         return MandateState(
             id=str(mandate.id),
@@ -526,7 +516,7 @@ class StripeGateway:
         )
 
     @_keyed
-    async def create_price(  # pragma: no cover
+    async def create_price(
         self,
         account_id: str,
         *,
@@ -546,7 +536,7 @@ class StripeGateway:
         return str(price.id)
 
     @_keyed
-    async def create_subscription(  # pragma: no cover
+    async def create_subscription(
         self,
         account_id: str,
         *,
@@ -570,13 +560,11 @@ class StripeGateway:
         )
 
     @_keyed
-    async def cancel_subscription(  # pragma: no cover
-        self, account_id: str, *, subscription_id: str
-    ) -> None:
+    async def cancel_subscription(self, account_id: str, *, subscription_id: str) -> None:
         await stripe.Subscription.cancel_async(subscription_id, stripe_account=account_id)
 
     @_keyed
-    async def create_payment_intent(  # pragma: no cover
+    async def create_payment_intent(
         self,
         account_id: str,
         *,
@@ -610,16 +598,14 @@ class StripeGateway:
         return PaymentIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
 
     @_keyed
-    async def cancel_payment_intent(  # pragma: no cover
-        self, account_id: str, *, payment_intent_id: str
-    ) -> None:
+    async def cancel_payment_intent(self, account_id: str, *, payment_intent_id: str) -> None:
         try:
             await stripe.PaymentIntent.cancel_async(payment_intent_id, stripe_account=account_id)
         except stripe.InvalidRequestError as exc:  # processing or succeeded: it can't be undone
             raise Conflict("this invoice already has a payment in progress") from exc
 
     @_keyed
-    async def refund(  # pragma: no cover
+    async def refund(
         self,
         account_id: str,
         *,
@@ -638,13 +624,11 @@ class StripeGateway:
         return RefundResult(id=str(refund.id), status=str(refund.status))
 
     @_keyed
-    async def detach_payment_method(  # pragma: no cover
-        self, account_id: str, *, payment_method_id: str
-    ) -> None:
+    async def detach_payment_method(self, account_id: str, *, payment_method_id: str) -> None:
         await stripe.PaymentMethod.detach_async(payment_method_id, stripe_account=account_id)
 
     @_keyed
-    async def get_payment_fees(  # pragma: no cover
+    async def get_payment_fees(
         self, account_id: str, *, payment_intent_id: str
     ) -> ChargeFees | None:
         intent = await stripe.PaymentIntent.retrieve_async(
@@ -670,9 +654,7 @@ class StripeGateway:
         )
 
     @_keyed
-    async def get_invoice_payment_intent(  # pragma: no cover
-        self, account_id: str, *, invoice_id: str
-    ) -> str | None:
+    async def get_invoice_payment_intent(self, account_id: str, *, invoice_id: str) -> str | None:
         payments = await stripe.InvoicePayment.list_async(
             invoice=invoice_id, stripe_account=account_id
         )
@@ -683,20 +665,18 @@ class StripeGateway:
         return None
 
     @_keyed
-    async def get_balance_cents(  # pragma: no cover
-        self, account_id: str, *, currency: str
-    ) -> int:
+    async def get_balance_cents(self, account_id: str, *, currency: str) -> int:
         balance = await stripe.Balance.retrieve_async(stripe_account=account_id)
         funds = [*balance["available"], *balance["pending"]]
         return sum(int(f["amount"]) for f in funds if str(f["currency"]) == currency.lower())
 
     @_keyed
-    async def create_connection_token(self, account_id: str) -> str:  # pragma: no cover
+    async def create_connection_token(self, account_id: str) -> str:
         token = await stripe.terminal.ConnectionToken.create_async(stripe_account=account_id)
         return str(token.secret)
 
     @_keyed
-    async def create_terminal_location(  # pragma: no cover
+    async def create_terminal_location(
         self, account_id: str, *, display_name: str, country: str, state: str | None
     ) -> str:
         address: LocationCreateParamsAddress = {
@@ -714,7 +694,7 @@ class StripeGateway:
         return str(location.id)
 
     @_keyed
-    async def create_terminal_payment_intent(  # pragma: no cover
+    async def create_terminal_payment_intent(
         self,
         account_id: str,
         *,
@@ -763,7 +743,7 @@ def period_timestamp(sub: dict[str, object], edge: str) -> int | None:
     return ts if isinstance(ts, int) else None
 
 
-def _period_of(sub: stripe.Subscription, edge: str) -> int:  # pragma: no cover
+def _period_of(sub: stripe.Subscription, edge: str) -> int:
     ts = period_timestamp(sub.to_dict(), edge)
     if ts is None:
         raise ValueError(f"subscription {sub.id} has no current_period_{edge}")
