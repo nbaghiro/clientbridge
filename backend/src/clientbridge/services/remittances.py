@@ -314,7 +314,7 @@ class RemittanceService:
             .join_from(Entry, Account, Account.id == Entry.account_id)
             .where(Account.category == "tax")
         )
-        at = first.scalar_one()
+        at = first.scalar()
         return at.astimezone(tz).date() if at is not None else None
 
     async def _overlaps(self, start: date, end: date, family: str | None) -> bool:

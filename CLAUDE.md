@@ -116,7 +116,9 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 - CI gate: `pytest --cov=clientbridge --cov-branch --cov-fail-under=90`.
 
 ## Tooling — run the gate before "done"
-- Backend: **ruff** (4-space · double quotes · line 100 · ANN bans `Any`) + **mypy strict** (no `Any`).
+- Backend: **ruff** (4-space · double quotes · line 100 · ANN bans `Any`) + **pyright strict**
+  (`pyrightconfig.json`, pinned 1.1.408; no `Any`, and no `# noqa`, `# type: ignore` or `# pyright:`
+  comments: the structure check rejects them and ruff runs with `--ignore-noqa`).
   Frontend: eslint strictTypeChecked + tsc strict + prettier (4-space · double · 100).
 - Gate: `make check` (lint + codegen-check + test). CI's jobs call the same make targets
   (`lint-backend`, `test-backend`, `lint-frontend`, `test-frontend`, `build`, `test-site`, `codegen-check`), so

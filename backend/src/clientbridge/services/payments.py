@@ -30,7 +30,14 @@ from clientbridge.integrations.stripe import (
 )
 from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business, Staff
-from clientbridge.models.catalog import GiftCard, Item, Package, Subscription, SubscriptionStatus
+from clientbridge.models.catalog import (
+    Frequency,
+    GiftCard,
+    Item,
+    Package,
+    Subscription,
+    SubscriptionStatus,
+)
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import (
@@ -77,12 +84,23 @@ _log = logging.getLogger(__name__)
 _ORPHAN_GRACE = timedelta(hours=1)
 
 
+type WebhookNotice = Literal[
+    "payment",
+    "payment_failed",
+    "refund",
+    "refund_failed",
+    "payment_disputed",
+    "gift_card_issued",
+    "subscription_past_due",
+    "subscription_canceled",
+]
+
+
 @dataclass(frozen=True)
 class WebhookOutcome:
     """A post-commit client notification the webhook route fires (mirrors the receipt path)."""
 
-    notify: str  # payment | payment_failed | refund | refund_failed | payment_disputed |
-    # gift_card_issued | subscription_{past_due,canceled}
+    notify: WebhookNotice
     target_id: str
 
 
@@ -146,15 +164,14 @@ class PaymentService:
         if business.stripe_account_id is None:
             if component != "onboarding":
                 raise Conflict("set up payments before managing your payment account")
-            business.stripe_account_id = await self.gateway.create_connected_account(
+            created = await self.gateway.create_connected_account(
                 business_name=business.name,
                 email=business.billing_email,
                 url=f"{get_settings().connect_base_url}/b/{business.slug}",
                 idempotency_key=f"connect-account:{business.id}",
             )
-            apply_account_status(
-                business, await self.gateway.get_account(business.stripe_account_id)
-            )
+            business.stripe_account_id = created
+            apply_account_status(business, await self.gateway.get_account(created))
             cmd = Command(self.db, self.principal)
             cmd.record("connect.account_created", entity_type="business", entity_id=business.id)
             self.db.add_all(cmd.audits)
@@ -953,7 +970,7 @@ async def ensure_subscription_price(
     item: Item,
     *,
     interval_count: int,
-    frequency: str,
+    frequency: Frequency,
 ) -> str:
     """The item's Stripe recurring Price (tax included), created and cached on first use."""
     if item.stripe_price_id is not None:
@@ -1361,7 +1378,7 @@ async def process_stripe_event(
         if isinstance(exc, AppError) and exc.code == "retry_later":
             _log.info("stripe webhook %s (%s) deferred: %s", event.id, event.type, exc)
             raise
-        await _record_failed_delivery(db, event, exc)
+        await record_failed_delivery(db, event, exc)
         raise
     return outcome
 
@@ -1371,7 +1388,7 @@ def _lost_event_race(exc: Exception) -> bool:
     return isinstance(exc, IntegrityError) and "webhooks_pkey" in str(exc.orig)
 
 
-async def _record_failed_delivery(db: AsyncSession, event: GatewayEvent, exc: Exception) -> None:
+async def record_failed_delivery(db: AsyncSession, event: GatewayEvent, exc: Exception) -> None:
     """A delivery that raised keeps a failed row of its own, so dead events are visible."""
     _log.error("stripe webhook %s (%s) failed: %s", event.id, event.type, exc)
     now = datetime.now(UTC)
@@ -1423,9 +1440,10 @@ async def _update_payment_method(
 
 def refund_status(status: object) -> PaymentStatus:
     match status:
-        case "succeeded" | "failed" | "canceled":
-            return status
-    return "pending"
+        case str("succeeded" | "failed" | "canceled" as terminal):
+            return terminal
+        case _:
+            return "pending"
 
 
 async def _reconcile_refund(db: AsyncSession, data: dict[str, object]) -> WebhookOutcome | None:
@@ -1529,10 +1547,11 @@ def _track_dispute(payment: Payment, data: dict[str, object]) -> None:
     """Mirror Stripe's dispute status on the charge so the app can show the case."""
     status = data.get("status")
     match status:
-        case "won" | "lost" | "under_review":
-            payment.dispute_status = status
-        case _ if status == "needs_response" or payment.dispute_status is None:
-            payment.dispute_status = "needs_response"
+        case str("won" | "lost" | "under_review" as settled):
+            payment.dispute_status = settled
+        case _:
+            if status == "needs_response" or payment.dispute_status is None:
+                payment.dispute_status = "needs_response"
 
 
 async def _update_dispute(db: AsyncSession, data: dict[str, object]) -> str | None:

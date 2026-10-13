@@ -42,14 +42,6 @@ def _pi_event(
     return json.dumps(body)
 
 
-async def _provider_ref(db: AsyncSession, payment_id: str) -> str:
-    ref = (
-        await db.execute(select(Payment.provider_ref).where(Payment.id == payment_id))
-    ).scalar_one()
-    assert ref
-    return ref
-
-
 async def _charge_saved_card(
     api: httpx.AsyncClient, db: AsyncSession, invoice_id: str, amount: int, idem: str = "card"
 ) -> httpx.Response:
@@ -95,7 +87,7 @@ async def test_succeeded_webhook_marks_invoice_paid(
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=11200)
     pay = {"payment_id": await card_pay(as_owner, db, inv_id)}
-    pi_id = await _provider_ref(db, pay["payment_id"])
+    pi_id = await provider_ref(db, pay["payment_id"])
     res = await as_owner.post(
         "/webhooks/stripe", content=_pi_event("evt_p1", pi_id), headers={"Stripe-Signature": "good"}
     )
@@ -113,7 +105,7 @@ async def test_settlement_books_stripe_and_platform_fees(
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=11200)
     pay = {"payment_id": await card_pay(as_owner, db, inv_id)}
-    pi_id = await _provider_ref(db, pay["payment_id"])
+    pi_id = await provider_ref(db, pay["payment_id"])
     res = await as_owner.post(
         "/webhooks/stripe",
         content=_pi_event("evt_fee", pi_id, fee=250),
@@ -143,7 +135,7 @@ async def test_partial_payment_marks_invoice_partial(
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=10000)
     pay = (await _charge_saved_card(as_owner, db, inv_id, 4000)).json()
-    pi_id = await _provider_ref(db, pay["payment_id"])
+    pi_id = await provider_ref(db, pay["payment_id"])
     await as_owner.post(
         "/webhooks/stripe", content=_pi_event("evt_pp", pi_id), headers={"Stripe-Signature": "good"}
     )
@@ -157,7 +149,7 @@ async def test_refund_credits_the_invoice(as_owner: httpx.AsyncClient, db: Async
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=11200)
     pay = {"payment_id": await card_pay(as_owner, db, inv_id)}
-    pi_id = await _provider_ref(db, pay["payment_id"])
+    pi_id = await provider_ref(db, pay["payment_id"])
     await as_owner.post(
         "/webhooks/stripe", content=_pi_event("evt_r1", pi_id), headers={"Stripe-Signature": "good"}
     )
@@ -179,7 +171,7 @@ async def test_double_refund_rejected(as_owner: httpx.AsyncClient, db: AsyncSess
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=11200)
     pay = {"payment_id": await card_pay(as_owner, db, inv_id)}
-    pi_id = await _provider_ref(db, pay["payment_id"])
+    pi_id = await provider_ref(db, pay["payment_id"])
     await as_owner.post(
         "/webhooks/stripe", content=_pi_event("evt_dr", pi_id), headers={"Stripe-Signature": "good"}
     )
@@ -197,7 +189,7 @@ async def test_refund_same_idempotency_key_replays(
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=11200)
     pay = {"payment_id": await card_pay(as_owner, db, inv_id)}
-    pi_id = await _provider_ref(db, pay["payment_id"])
+    pi_id = await provider_ref(db, pay["payment_id"])
     await as_owner.post(
         "/webhooks/stripe", content=_pi_event("evt_ri", pi_id), headers={"Stripe-Signature": "good"}
     )
@@ -239,7 +231,7 @@ async def test_failed_webhook_marks_payment_failed(
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=11200)
     pay = {"payment_id": await card_pay(as_owner, db, inv_id)}
-    pi_id = await _provider_ref(db, pay["payment_id"])
+    pi_id = await provider_ref(db, pay["payment_id"])
     await as_owner.post(
         "/webhooks/stripe",
         content=_pi_event("evt_f1", pi_id, kind="payment_intent.payment_failed"),
@@ -255,7 +247,7 @@ async def test_canceled_intent_frees_room(as_owner: httpx.AsyncClient, db: Async
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=11200)
     pay = {"payment_id": await card_pay(as_owner, db, inv_id)}
-    pi_id = await _provider_ref(db, pay["payment_id"])
+    pi_id = await provider_ref(db, pay["payment_id"])
     await as_owner.post(
         "/webhooks/stripe",
         content=_pi_event("evt_c1", pi_id, kind="payment_intent.canceled"),
@@ -306,8 +298,8 @@ async def test_distinct_partials_same_amount_not_deduped(
     r2 = await _charge_saved_card(as_owner, db, inv_id, 4000, "k2")
     assert r1.status_code == 201 and r2.status_code == 201, (r1.text, r2.text)
     assert r1.json()["payment_id"] != r2.json()["payment_id"]
-    ref1 = await _provider_ref(db, r1.json()["payment_id"])
-    ref2 = await _provider_ref(db, r2.json()["payment_id"])
+    ref1 = await provider_ref(db, r1.json()["payment_id"])
+    ref2 = await provider_ref(db, r2.json()["payment_id"])
     assert ref1 != ref2  # two distinct Stripe intents, no silent under-collection
 
 

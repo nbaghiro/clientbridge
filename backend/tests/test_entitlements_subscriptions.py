@@ -448,7 +448,7 @@ async def test_a_recurring_charge_in_another_currency_is_refused(
     refused = await db.execute(
         select(Audit.changes).where(Audit.action == "payment.refused", Audit.business_id == BIZ)
     )
-    assert {"id": "pi_sub_usd", "currency": "USD", "amount_cents": 5600} in refused.scalars()
+    assert {"id": "pi_sub_usd", "currency": "USD", "amount_cents": 5600} in refused.scalars().all()
 
 
 async def test_recurring_charge_taxed_and_in_gst_report(

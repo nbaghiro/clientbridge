@@ -1,5 +1,6 @@
 """Kratos sessions at the API edge: provisioning, /v1/me, cookie vs token, origin guard, outages."""
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -92,7 +93,7 @@ async def test_a_deleted_identity_is_relinked_when_the_email_is_verified(
     assert owner is not None
     identities.deleted.add(owner.identity_id)
     again = fresh("hannah@birchbarkpets.ca")
-    unverified = Identity(**{**again.__dict__, "verified_emails": frozenset()})
+    unverified = replace(again, verified_emails=frozenset())
     refused = await api.get("/v1/me", headers={"X-Session-Token": identities.issue(unverified)})
     assert refused.status_code == 409
     res = await api.get("/v1/me", headers={"X-Session-Token": identities.issue(again)})
@@ -109,7 +110,7 @@ async def test_me_relinks_from_the_fresh_identity_right_after_verification(
     identities.deleted.add(owner.identity_id)
     again = fresh("hannah@birchbarkpets.ca")
     token = identities.issue(again)
-    identities.cached[token] = Identity(**{**again.__dict__, "verified_emails": frozenset()})
+    identities.cached[token] = replace(again, verified_emails=frozenset())
     res = await api.get("/v1/me", headers={"X-Session-Token": token})
     assert res.status_code == 200 and res.json()["user_id"] == OWNER_USER
     assert res.json()["email_verified"] is True
@@ -131,7 +132,8 @@ async def test_last_seen_is_throttled(
     await factory.db.flush()
     await api.get("/v1/me", headers=headers)
     await factory.db.refresh(user)
-    assert user.last_seen_at is not None and user.last_seen_at > seen
+    later = user.last_seen_at
+    assert later is not None and later > seen
 
 
 async def test_missing_or_unknown_credentials_401(api: httpx.AsyncClient) -> None:

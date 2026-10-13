@@ -16,7 +16,7 @@ from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.business import BrandInput
 from clientbridge.services.consents import allows_marketing
 from clientbridge.services.contracts import signed_copy
-from clientbridge.services.public import _validate
+from clientbridge.services.public import validate_answers
 
 
 @pytest.fixture
@@ -151,7 +151,7 @@ def test_submitted_intakes_pass_live_validator_and_have_owned_local_attachments(
     for response in engagement.all(FormResponse):
         if response.status != "submitted" or response.form_id != "frm_intake":
             continue
-        _validate(fields, response.answers)
+        validate_answers(fields, response.answers)
         assert response.answers["vaccinated"] is True
         consent_id = response.answers["matting_consent"]
         assert isinstance(consent_id, str)
@@ -170,7 +170,7 @@ def test_submitted_intakes_pass_live_validator_and_have_owned_local_attachments(
         asset = ASSETS / photo.s3_key.rsplit("/", 1)[1]
         assert asset.stat().st_size == photo.size
     satisfaction = engagement.get(FormResponse, "fr_satisfaction_0")
-    _validate(
+    validate_answers(
         [f for f in engagement.all(FormField) if f.form_id == satisfaction.form_id],
         satisfaction.answers,
     )

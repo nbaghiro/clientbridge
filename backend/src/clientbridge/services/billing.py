@@ -83,7 +83,7 @@ class BillingService:
                 if not lines:
                     raise Unprocessable("add a line before sending the invoice")
                 await self._issue_invoice(invoice, cmd)
-            return await _invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
+            return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
             self.db,
@@ -116,7 +116,7 @@ class BillingService:
             await self._apply_totals(invoice, lines)
             await self.db.flush()
             cmd.record("invoice.update", entity_type="invoice", entity_id=invoice.id)
-            return await _invoice_out(self.db, invoice, lines)
+            return await invoice_out(self.db, invoice, lines)
 
         return await run_command(
             self.db, self.principal, action="invoice.update", run=run, response_model=InvoiceOut
@@ -133,7 +133,7 @@ class BillingService:
                 await self._issue_invoice(invoice, cmd)
             else:
                 cmd.record("invoice.resend", entity_type="invoice", entity_id=invoice.id)
-            return await _invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
+            return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
             self.db, self.principal, action="invoice.send", run=run, response_model=InvoiceOut
@@ -182,7 +182,7 @@ class BillingService:
             for booking in await self._bookings(invoice):
                 await unapply_deposit(self.db, booking, invoice.id)
             cmd.record("invoice.void", entity_type="invoice", entity_id=invoice.id)
-            return await _invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
+            return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
             self.db, self.principal, action="invoice.void", run=run, response_model=InvoiceOut
@@ -350,7 +350,7 @@ class BillingService:
             await self.db.flush()
             cmd.record("estimate.convert", entity_type="estimate", entity_id=estimate.id)
             cmd.record("invoice.create", entity_type="invoice", entity_id=invoice.id)
-            return await _invoice_out(self.db, invoice, lines)
+            return await invoice_out(self.db, invoice, lines)
 
         return await run_command(
             self.db,
@@ -455,7 +455,7 @@ class BillingService:
             booking.invoice_id = invoice.id
             await self.db.flush()
             cmd.record("invoice.create", entity_type="invoice", entity_id=invoice.id)
-            return await _invoice_out(self.db, invoice, lines)
+            return await invoice_out(self.db, invoice, lines)
 
         return await run_command(
             self.db,
@@ -546,7 +546,7 @@ def estimate_status(estimate: Estimate, today: date) -> str:
     return estimate.status
 
 
-async def _invoice_out(db: AsyncSession, invoice: Invoice, lines: list[Line]) -> InvoiceOut:
+async def invoice_out(db: AsyncSession, invoice: Invoice, lines: list[Line]) -> InvoiceOut:
     paid, _ = await ledger.collected(db, invoice.business_id, "invoice", invoice.id)
     status, paid_at = await ledger.invoice_state(db, invoice)
     return InvoiceOut(

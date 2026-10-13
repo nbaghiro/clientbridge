@@ -1,6 +1,7 @@
 """Ways the books can drift from Stripe's balance; each test states the correct outcome."""
 
 import json
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 
 import httpx
@@ -70,7 +71,7 @@ def _refund(pi: str, status: str, **extra: object) -> dict[str, object]:
 
 
 def _dispute(
-    pi: str, status: str, txns: list[dict[str, object]], *, amount: int = 8000
+    pi: str, status: str, txns: Sequence[Mapping[str, object]], *, amount: int = 8000
 ) -> dict[str, object]:
     return {
         "id": f"dp_{pi}",

@@ -7,7 +7,11 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
+import httpx
+
 from clientbridge.core.config import get_settings
+
+_TWILIO_API = "https://api.twilio.com/2010-04-01"
 
 
 @dataclass(frozen=True)
@@ -27,19 +31,21 @@ class ConsoleSmsSender:
         return None
 
 
-class TwilioSmsSender:  # pragma: no cover - real Twilio, faked in tests
+class TwilioSmsSender:
     def __init__(self, account_sid: str, auth_token: str, from_number: str) -> None:
         self._sid = account_sid
         self._auth = auth_token
         self._from = from_number
 
     async def send(self, sms: Sms) -> str | None:
-        from twilio.rest import Client  # type: ignore[import-not-found]  # optional, prod-only dep
-
-        created = Client(self._sid, self._auth).messages.create(
-            to=sms.to, from_=self._from, body=sms.body
-        )
-        return str(created.sid) if created.sid else None
+        url = f"{_TWILIO_API}/Accounts/{self._sid}/Messages.json"
+        form = {"To": sms.to, "From": self._from, "Body": sms.body}
+        async with httpx.AsyncClient(timeout=10.0, auth=(self._sid, self._auth)) as client:
+            response = await client.post(url, data=form)
+            response.raise_for_status()
+            body = response.json()
+            sid = body.get("sid") if isinstance(body, dict) else None
+            return str(sid) if sid else None
 
 
 def get_sms_sender() -> SmsSender:

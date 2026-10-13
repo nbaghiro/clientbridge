@@ -91,7 +91,7 @@ def staff_invite(locale: str, link: str) -> tuple[str, str]:
     )
 
 
-def _auth_email(locale: str, email: AuthEmailIn) -> tuple[str, str]:
+def auth_email(locale: str, email: AuthEmailIn) -> tuple[str, str]:
     code, minutes = email.code or "", email.expires_in_minutes or 0
     match email.template_type:
         case "verification_code_valid":
@@ -128,7 +128,7 @@ def _auth_email(locale: str, email: AuthEmailIn) -> tuple[str, str]:
 
 async def send_auth_email(email_sender: EmailSender, email: AuthEmailIn) -> None:
     """Words and sends an email the Kratos courier handed over; a failure lets Kratos retry."""
-    subject, body = _auth_email(locale_for(), email)
+    subject, body = auth_email(locale_for(), email)
     await email_sender.send(Email(to=email.to, subject=subject, body=body))
 
 
@@ -152,7 +152,7 @@ def receipt_link(token: str) -> str:
     return f"{get_settings().pay_base_url}/r/{token}"
 
 
-def _receipt(
+def receipt(
     locale: str, business_name: str, amount: str, details: list[str]
 ) -> tuple[str, str, str]:
     """(subject, body, push) for a payment receipt with its itemised details."""
@@ -166,11 +166,11 @@ def _receipt(
     )
 
 
-def _pickup_line(locale: str, business_name: str) -> str:
+def pickup_line(locale: str, business_name: str) -> str:
     return message(locale, "pickup.body", business=business_name)
 
 
-def _online_order_alert(locale: str, amount: str) -> tuple[str, str]:
+def online_order_alert(locale: str, amount: str) -> tuple[str, str]:
     """(owner email subject + push body, email body) for a paid online order."""
     return (
         message(locale, "online_order.subject", amount=amount),
@@ -178,9 +178,7 @@ def _online_order_alert(locale: str, amount: str) -> tuple[str, str]:
     )
 
 
-def _sale_receipt(
-    locale: str, business_name: str, number: int | None, link: str
-) -> tuple[str, str]:
+def sale_receipt(locale: str, business_name: str, number: int | None, link: str) -> tuple[str, str]:
     subject = message(locale, "sale_receipt.subject", business=business_name)
     if number is None:
         return subject, message(locale, "sale_receipt.body", business=business_name, link=link)
@@ -190,21 +188,21 @@ def _sale_receipt(
     return subject, body
 
 
-def _order_ready(locale: str, business_name: str) -> tuple[str, str]:
+def order_ready(locale: str, business_name: str) -> tuple[str, str]:
     return (
         message(locale, "order_ready.subject", business=business_name),
         message(locale, "order_ready.body", business=business_name),
     )
 
 
-def _order_reminder(locale: str, business_name: str) -> tuple[str, str]:
+def order_reminder(locale: str, business_name: str) -> tuple[str, str]:
     return (
         message(locale, "order_reminder.subject", business=business_name),
         message(locale, "order_reminder.body", business=business_name),
     )
 
 
-def _receipt_details(
+def receipt_details(
     locale: str,
     lines: list[tuple[str, str, str]],
     subtotal: str,
@@ -221,16 +219,16 @@ def _receipt_details(
     return rows
 
 
-def _inbound_message_alert(locale: str, client_name: str, body: str) -> str:
+def inbound_message_alert(locale: str, client_name: str, body: str) -> str:
     return message(locale, "inbound_message.push", client=client_name, body=body)
 
 
-def _dispute_alert(locale: str, amount: str) -> str:
+def dispute_alert(locale: str, amount: str) -> str:
     """Staff push body when a charge is disputed: the owner must respond in Stripe."""
     return message(locale, "dispute.push", amount=amount)
 
 
-def _invoice_sent(
+def invoice_sent(
     locale: str, number: int | None, amount: str, business_name: str, link: str
 ) -> tuple[str, str]:
     values = {"number": str(number), "amount": amount, "business": business_name}
@@ -242,7 +240,7 @@ def _invoice_sent(
     return message(locale, "invoice_sent.subject", **values), body
 
 
-def _invoice_overdue(
+def invoice_overdue(
     locale: str, number: int | None, amount: str, business_name: str, link: str
 ) -> tuple[str, str]:
     values = {"number": str(number), "amount": amount, "business": business_name}
@@ -254,7 +252,7 @@ def _invoice_overdue(
     return message(locale, "invoice_overdue.subject", **values), body
 
 
-def _estimate_sent(
+def estimate_sent(
     locale: str, number: int | None, amount: str, business_name: str, link: str
 ) -> tuple[str, str]:
     values = {"number": str(number), "amount": amount, "business": business_name}
@@ -266,14 +264,14 @@ def _estimate_sent(
     return message(locale, "estimate_sent.subject", **values), body
 
 
-def _estimate_accepted(locale: str, number: int | None) -> tuple[str, str]:
+def estimate_accepted(locale: str, number: int | None) -> tuple[str, str]:
     return (
         message(locale, "estimate_accepted.subject", number=str(number)),
         message(locale, "estimate_accepted.body", number=str(number)),
     )
 
 
-def _estimate_declined(locale: str, number: int | None, reason: str | None) -> tuple[str, str]:
+def estimate_declined(locale: str, number: int | None, reason: str | None) -> tuple[str, str]:
     body = (
         message(locale, "estimate_declined.body_reason", number=str(number), reason=reason)
         if reason
@@ -282,14 +280,14 @@ def _estimate_declined(locale: str, number: int | None, reason: str | None) -> t
     return message(locale, "estimate_declined.subject", number=str(number)), body
 
 
-def _payment_failed(locale: str, amount: str, business_name: str) -> tuple[str, str]:
+def payment_failed(locale: str, amount: str, business_name: str) -> tuple[str, str]:
     return (
         message(locale, "payment_failed.subject", business=business_name),
         message(locale, "payment_failed.body", amount=amount, business=business_name),
     )
 
 
-def _refund(
+def refund(
     locale: str, amount: str, business_name: str, credit_note: str | None
 ) -> tuple[str, str]:
     body = (
@@ -306,35 +304,35 @@ def _refund(
     return message(locale, "refund.subject", business=business_name), body
 
 
-def _refund_failed(locale: str, amount: str, business_name: str) -> tuple[str, str]:
+def refund_failed(locale: str, amount: str, business_name: str) -> tuple[str, str]:
     return (
         message(locale, "refund_failed.subject", business=business_name),
         message(locale, "refund_failed.body", amount=amount, business=business_name),
     )
 
 
-def _subscription_past_due(locale: str, business_name: str) -> tuple[str, str]:
+def subscription_past_due(locale: str, business_name: str) -> tuple[str, str]:
     return (
         message(locale, "subscription_past_due.subject", business=business_name),
         message(locale, "subscription_past_due.body", business=business_name),
     )
 
 
-def _subscription_canceled(locale: str, business_name: str) -> tuple[str, str]:
+def subscription_canceled(locale: str, business_name: str) -> tuple[str, str]:
     return (
         message(locale, "subscription_canceled.subject", business=business_name),
         message(locale, "subscription_canceled.body", business=business_name),
     )
 
 
-def _gift_card_issued(locale: str, business_name: str, amount: str, code: str) -> tuple[str, str]:
+def gift_card_issued(locale: str, business_name: str, amount: str, code: str) -> tuple[str, str]:
     return (
         message(locale, "gift_card_issued.subject", business=business_name),
         message(locale, "gift_card_issued.body", amount=amount, business=business_name, code=code),
     )
 
 
-def _booking_reminder(
+def booking_reminder(
     locale: str, business_name: str, when: str, link: str | None
 ) -> tuple[str, str]:
     body = (
@@ -345,7 +343,7 @@ def _booking_reminder(
     return message(locale, "booking_reminder.subject", business=business_name), body
 
 
-def _booking_confirmed(
+def booking_confirmed(
     locale: str, business_name: str, when: str, link: str | None
 ) -> tuple[str, str]:
     body = (
@@ -356,21 +354,21 @@ def _booking_confirmed(
     return message(locale, "booking_confirmed.subject", business=business_name), body
 
 
-def _booking_rescheduled(locale: str, business_name: str, when: str) -> tuple[str, str]:
+def booking_rescheduled(locale: str, business_name: str, when: str) -> tuple[str, str]:
     return (
         message(locale, "booking_rescheduled.subject", business=business_name),
         message(locale, "booking_rescheduled.body", business=business_name, when=when),
     )
 
 
-def _booking_canceled(locale: str, business_name: str, when: str) -> tuple[str, str]:
+def booking_canceled(locale: str, business_name: str, when: str) -> tuple[str, str]:
     return (
         message(locale, "booking_canceled.subject", business=business_name),
         message(locale, "booking_canceled.body", business=business_name, when=when),
     )
 
 
-def _booking_reassigned(
+def booking_reassigned(
     locale: str, business_name: str, whens: list[str], member: str
 ) -> tuple[str, str]:
     if len(whens) == 1:
@@ -396,49 +394,49 @@ def _booking_reassigned(
     )
 
 
-def _booking_requested(locale: str, business_name: str, when: str) -> tuple[str, str]:
+def booking_requested(locale: str, business_name: str, when: str) -> tuple[str, str]:
     return (
         message(locale, "booking_requested.subject", business=business_name),
         message(locale, "booking_requested.body", business=business_name, when=when),
     )
 
 
-def _booking_released(locale: str, business_name: str, when: str) -> tuple[str, str]:
+def booking_released(locale: str, business_name: str, when: str) -> tuple[str, str]:
     return (
         message(locale, "booking_released.subject", business=business_name),
         message(locale, "booking_released.body", business=business_name, when=when),
     )
 
 
-def _series_booked(locale: str, business_name: str, whens: str) -> tuple[str, str]:
+def series_booked(locale: str, business_name: str, whens: str) -> tuple[str, str]:
     return (
         message(locale, "series_booked.subject", business=business_name),
         message(locale, "series_booked.body", business=business_name, whens=whens),
     )
 
 
-def _series_moved(locale: str, business_name: str, whens: str) -> tuple[str, str]:
+def series_moved(locale: str, business_name: str, whens: str) -> tuple[str, str]:
     return (
         message(locale, "series_moved.subject", business=business_name),
         message(locale, "series_moved.body", business=business_name, whens=whens),
     )
 
 
-def _series_canceled(locale: str, business_name: str, whens: str) -> tuple[str, str]:
+def series_canceled(locale: str, business_name: str, whens: str) -> tuple[str, str]:
     return (
         message(locale, "series_canceled.subject", business=business_name),
         message(locale, "series_canceled.body", business=business_name, whens=whens),
     )
 
 
-def _form_sent(locale: str, business_name: str, form_name: str, link: str) -> tuple[str, str]:
+def form_sent(locale: str, business_name: str, form_name: str, link: str) -> tuple[str, str]:
     return (
         message(locale, "form_sent.subject", business=business_name, form=form_name),
         message(locale, "form_sent.body", business=business_name, form=form_name, link=link),
     )
 
 
-def _contract_sent(
+def contract_sent(
     locale: str, business_name: str, contract_name: str, link: str
 ) -> tuple[str, str]:
     values = {"business": business_name, "contract": contract_name}
@@ -448,7 +446,7 @@ def _contract_sent(
     )
 
 
-def _review_requested(locale: str, business_name: str, link: str) -> tuple[str, str]:
+def review_requested(locale: str, business_name: str, link: str) -> tuple[str, str]:
     return (
         message(locale, "review_requested.subject", business=business_name),
         message(locale, "review_requested.body", business=business_name, link=link),
@@ -490,7 +488,7 @@ async def reminder_message(db: AsyncSession, booking: Booking) -> tuple[str, str
         return None
     locale = locale_for(business=business)
     when = _when(locale, business, slot)
-    return _booking_reminder(locale, business.name, when, _manage_link(business, booking))
+    return booking_reminder(locale, business.name, when, _manage_link(business, booking))
 
 
 def _manage_link(business: Business, booking: Booking) -> str | None:
@@ -541,12 +539,12 @@ class Notifier:
         order = await db.get(Order, payment.order_id) if payment.order_id else None
         online = order is not None and order.source == "online"
         if online:
-            details.append(_pickup_line(locale, business.name))
+            details.append(pickup_line(locale, business.name))
             if order is not None and order.status_token:
                 details.append(f"{get_settings().pay_base_url}/order/{order.status_token}")
-        subject, body, push_body = _receipt(locale, business.name, amount, details)
+        subject, body, push_body = receipt(locale, business.name, amount, details)
         if online:
-            push_body, owner_body = _online_order_alert(locale, amount)
+            push_body, owner_body = online_order_alert(locale, amount)
             if business.billing_email:
                 await self._safe(
                     self.email.send(
@@ -570,7 +568,7 @@ class Notifier:
         business = await db.get(Business, order.business_id)
         if business is None:
             return
-        subject, body = _order_ready(locale_for(business=business), business.name)
+        subject, body = order_ready(locale_for(business=business), business.name)
         if order.status_token:
             body += f"\n{get_settings().pay_base_url}/order/{order.status_token}"
         await self._to_client(
@@ -584,7 +582,7 @@ class Notifier:
         business = await db.get(Business, order.business_id)
         if business is None:
             return
-        subject, body = _order_reminder(locale_for(business=business), business.name)
+        subject, body = order_reminder(locale_for(business=business), business.name)
         if order.status_token:
             body += f"\n{get_settings().pay_base_url}/order/{order.status_token}"
         await self._to_client(
@@ -599,7 +597,7 @@ class Notifier:
         business = await db.get(Business, order.business_id)
         if business is None:
             return
-        subject, body = _sale_receipt(
+        subject, body = sale_receipt(
             locale_for(business=business),
             business.name,
             order.number,
@@ -620,7 +618,7 @@ class Notifier:
         locale = locale_for(business=business)
         amount = format_money(locale, invoice.total_cents, invoice.currency)
         link = pay_link(invoice.pay_token) if invoice.pay_token else ""
-        subject, body = _invoice_sent(locale, invoice.number, amount, business.name, link)
+        subject, body = invoice_sent(locale, invoice.number, amount, business.name, link)
         await self._to_client(db, invoice.client_id, subject, body)
 
     async def on_invoice_overdue(self, db: AsyncSession, invoice_id: str) -> None:
@@ -633,7 +631,7 @@ class Notifier:
         locale = locale_for(business=business)
         amount = format_money(locale, await ledger.invoice_balance(db, invoice), invoice.currency)
         link = pay_link(invoice.pay_token) if invoice.pay_token else ""
-        subject, body = _invoice_overdue(locale, invoice.number, amount, business.name, link)
+        subject, body = invoice_overdue(locale, invoice.number, amount, business.name, link)
         await self._to_client(db, invoice.client_id, subject, body)
 
     async def on_estimate_sent(self, db: AsyncSession, estimate_id: str) -> None:
@@ -646,7 +644,7 @@ class Notifier:
         locale = locale_for(business=business)
         amount = format_money(locale, estimate.total_cents, currency_for(business))
         link = estimate_link(estimate.view_token) if estimate.view_token else ""
-        subject, body = _estimate_sent(locale, estimate.number, amount, business.name, link)
+        subject, body = estimate_sent(locale, estimate.number, amount, business.name, link)
         await self._to_client(db, estimate.client_id, subject, body)
 
     async def on_estimate_accepted(self, db: AsyncSession, estimate_id: str) -> None:
@@ -657,7 +655,7 @@ class Notifier:
         business = await db.get(Business, estimate.business_id)
         if business is None or not business.billing_email:
             return
-        subject, body = _estimate_accepted(locale_for(business=business), estimate.number)
+        subject, body = estimate_accepted(locale_for(business=business), estimate.number)
         await self._safe(
             self.email.send(business_email(business.id, business.billing_email, subject, body))
         )
@@ -670,7 +668,7 @@ class Notifier:
         business = await db.get(Business, estimate.business_id)
         if business is None or not business.billing_email:
             return
-        subject, body = _estimate_declined(
+        subject, body = estimate_declined(
             locale_for(business=business), estimate.number, estimate.decline_reason
         )
         await self._safe(
@@ -698,7 +696,7 @@ class Notifier:
             return
         locale = locale_for(business=business)
         amount = format_money(locale, payment.amount_cents, payment.currency)
-        subject, body = _refund(locale, amount, business.name, payment.credit_note)
+        subject, body = refund(locale, amount, business.name, payment.credit_note)
         await self._to_client(db, payment.client_id, subject, body)
 
     async def on_refund_failed(self, db: AsyncSession, refund_payment_id: str) -> None:
@@ -711,7 +709,7 @@ class Notifier:
             return
         locale = locale_for(business=business)
         amount = format_money(locale, payment.amount_cents, payment.currency)
-        subject, body = _refund_failed(locale, amount, business.name)
+        subject, body = refund_failed(locale, amount, business.name)
         await self._to_client(db, payment.client_id, subject, body)
 
     async def on_payment_failed(self, db: AsyncSession, payment_id: str) -> None:
@@ -724,7 +722,7 @@ class Notifier:
             return
         locale = locale_for(business=business)
         amount = format_money(locale, payment.amount_cents, payment.currency)
-        subject, body = _payment_failed(locale, amount, business.name)
+        subject, body = payment_failed(locale, amount, business.name)
         await self._to_client(db, payment.client_id, subject, body)
 
     async def on_payment_disputed(self, db: AsyncSession, payment_id: str) -> None:
@@ -737,7 +735,7 @@ class Notifier:
             return
         locale = locale_for(business=business)
         amount = format_money(locale, payment.amount_cents, payment.currency)
-        await self._alert_staff(db, business, _dispute_alert(locale, amount), {"type": "dispute"})
+        await self._alert_staff(db, business, dispute_alert(locale, amount), {"type": "dispute"})
 
     async def on_inbound_message(self, db: AsyncSession, message_id: str) -> None:
         """Alert the business's staff devices to a client's text or Connect message."""
@@ -752,7 +750,7 @@ class Notifier:
         preview = " ".join((received.body or "").split())
         if len(preview) > _PREVIEW_CHARS:
             preview = preview[: _PREVIEW_CHARS - 1].rstrip() + "…"
-        body = _inbound_message_alert(
+        body = inbound_message_alert(
             locale_for(business=business), client.name if client is not None else "", preview
         )
         data = {"type": "message", "thread_id": thread.id, "client_id": thread.client_id}
@@ -765,7 +763,7 @@ class Notifier:
         business = await db.get(Business, sub.business_id)
         if business is None:
             return
-        subject, body = _subscription_past_due(locale_for(business=business), business.name)
+        subject, body = subscription_past_due(locale_for(business=business), business.name)
         await self._to_client(db, sub.client_id, subject, body)
 
     async def on_subscription_canceled(self, db: AsyncSession, subscription_id: str) -> None:
@@ -775,7 +773,7 @@ class Notifier:
         business = await db.get(Business, sub.business_id)
         if business is None:
             return
-        subject, body = _subscription_canceled(locale_for(business=business), business.name)
+        subject, body = subscription_canceled(locale_for(business=business), business.name)
         await self._to_client(db, sub.client_id, subject, body)
 
     async def on_gift_card_issued(self, db: AsyncSession, gift_card_id: str) -> None:
@@ -789,7 +787,7 @@ class Notifier:
             return
         locale = locale_for(business=business)
         amount = format_money(locale, card.initial_cents, payment.currency)
-        subject, body = _gift_card_issued(locale, business.name, amount, card.code)
+        subject, body = gift_card_issued(locale, business.name, amount, card.code)
         if "@" in card.recipient:
             await self._safe(self.email.send(client_email(business, card.recipient, subject, body)))
         else:
@@ -813,22 +811,22 @@ class Notifier:
             return
         locale = locale_for(business=business)
         when = _when(locale, business, slot)
-        subject, body = _booking_confirmed(
+        subject, body = booking_confirmed(
             locale, business.name, when, _manage_link(business, booking)
         )
         await self._to_client(db, booking.client_id, subject, body)
 
     async def on_booking_rescheduled(self, db: AsyncSession, booking_id: str) -> None:
-        await self._visit_notice(db, booking_id, _booking_rescheduled)
+        await self._visit_notice(db, booking_id, booking_rescheduled)
 
     async def on_booking_canceled(self, db: AsyncSession, booking_id: str) -> None:
-        await self._visit_notice(db, booking_id, _booking_canceled)
+        await self._visit_notice(db, booking_id, booking_canceled)
 
     async def on_booking_requested(self, db: AsyncSession, booking_id: str) -> None:
-        await self._visit_notice(db, booking_id, _booking_requested)
+        await self._visit_notice(db, booking_id, booking_requested)
 
     async def on_booking_released(self, db: AsyncSession, booking_id: str) -> None:
-        await self._visit_notice(db, booking_id, _booking_released)
+        await self._visit_notice(db, booking_id, booking_released)
 
     async def _visit_notice(
         self, db: AsyncSession, booking_id: str, build: Callable[[str, str, str], tuple[str, str]]
@@ -869,9 +867,9 @@ class Notifier:
             _when(locale, business, slot) for _, slot in rows
         )
         build = {
-            "booked": _series_booked,
-            "moved": _series_moved,
-            "canceled": _series_canceled,
+            "booked": series_booked,
+            "moved": series_moved,
+            "canceled": series_canceled,
         }[kind]
         subject, body = build(locale, business.name, whens)
         await self._to_client(db, first.client_id, subject, body)
@@ -884,7 +882,7 @@ class Notifier:
             if business is None or member is None:
                 continue
             locale = locale_for(business=business)
-            subject, body = _booking_reassigned(
+            subject, body = booking_reassigned(
                 locale,
                 business.name,
                 [_when(locale, business, slot) for _, slot in rows],
@@ -908,7 +906,7 @@ class Notifier:
         if business is None:
             return
         link = f"{get_settings().connect_base_url}/review/{review.token}"
-        subject, body = _review_requested(locale_for(business=business), business.name, link)
+        subject, body = review_requested(locale_for(business=business), business.name, link)
         await self._to_client(db, review.client_id, subject, body)
 
     async def on_form_sent(self, db: AsyncSession, form_response_id: str) -> None:
@@ -920,7 +918,7 @@ class Notifier:
         if form is None or business is None:
             return
         link = f"{get_settings().connect_base_url}/form/{response.token}"
-        subject, body = _form_sent(locale_for(business=business), business.name, form.name, link)
+        subject, body = form_sent(locale_for(business=business), business.name, form.name, link)
         await self._to_client(db, response.client_id, subject, body)
 
     async def on_contract_sent(self, db: AsyncSession, signature_id: str) -> None:
@@ -932,7 +930,7 @@ class Notifier:
         if contract is None or business is None:
             return
         link = f"{get_settings().connect_base_url}/contract/{signature.token}"
-        subject, body = _contract_sent(
+        subject, body = contract_sent(
             locale_for(business=business), business.name, contract.name, link
         )
         await self._to_client(db, signature.client_id, subject, body)
@@ -952,7 +950,7 @@ class Notifier:
             return []
         tax = await tax_breakdown(db, payment.business_id, lines)
         cur = payment.currency
-        return _receipt_details(
+        return receipt_details(
             locale,
             [
                 (

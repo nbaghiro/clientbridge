@@ -9,6 +9,7 @@ BACKEND = pathlib.Path(__file__).resolve().parents[1]
 PACKAGE = BACKEND / "src" / "clientbridge"
 TESTS = BACKEND / "tests"
 SCRIPTS = BACKEND / "scripts"
+MIGRATIONS = BACKEND / "migrations"
 CROSS_CUTTING_TESTS = {
     "command",
     "db",
@@ -23,7 +24,8 @@ CROSS_CUTTING_TESTS = {
 CROSS_CUTTING_PREFIXES = ("flows_", "sync_")
 BANNER_MARKS = ("# ─", "# ━", "# ===", "# ---", "# ###")
 BANNED_SUFFIXES = ("_service", "_jobs")
-DIRECTIVES = ("# noqa", "# type:", "# pragma")
+DIRECTIVES = ("# pragma",)
+SUPPRESSION = re.compile(r"#\s*(noqa\b|type:\s*ignore|pyright:|mypy:|ruff:\s*noqa)", re.IGNORECASE)
 NOTIFICATIONS = PACKAGE / "services" / "notifications.py"
 ZONES = PACKAGE / "core" / "zones.py"
 ZONE_READERS = ("ZoneInfo", "available_timezones", "reset_tzpath")
@@ -75,6 +77,14 @@ def comment_block_problems(path: pathlib.Path, source: str) -> list[str]:
     if run_length >= 2:
         problems.append(f"{path}:{run_start}: comment block longer than one line")
     return problems
+
+
+def suppression_problems(path: pathlib.Path, source: str) -> list[str]:
+    return [
+        f"{path}:{token.start[0]}: suppression comment; fix the cause instead"
+        for token in tokenize.generate_tokens(io.StringIO(source).readline)
+        if token.type == tokenize.COMMENT and SUPPRESSION.search(token.string)
+    ]
 
 
 def banner_problems(path: pathlib.Path, source: str) -> list[str]:
@@ -295,6 +305,7 @@ def comment_problems(path: pathlib.Path) -> list[str]:
         docstring_problems(path, ast.parse(source))
         + comment_block_problems(path, source)
         + banner_problems(path, source)
+        + suppression_problems(path, source)
     )
 
 
@@ -309,6 +320,8 @@ def main() -> int:
         )
     for path in sorted([*TESTS.rglob("*.py"), *SCRIPTS.rglob("*.py")]):
         problems += comment_problems(path)
+    for path in sorted(MIGRATIONS.rglob("*.py")):
+        problems += suppression_problems(path, path.read_text())
     known = concepts()
     for path in sorted(TESTS.glob("test_*.py")):
         problems += naming_problems(path, known)

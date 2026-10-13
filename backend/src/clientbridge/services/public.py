@@ -1109,7 +1109,7 @@ class PublicFormService:
         if response.status == "submitted":
             raise Conflict("this form was already submitted")
         fields = await self._fields(form.id)
-        _validate(fields, data.answers)
+        validate_answers(fields, data.answers)
         await self._assert_uploaded(response, fields, data.answers)
         response.status = "submitted"
         response.answers = data.answers
@@ -1125,7 +1125,7 @@ class PublicFormService:
         )
 
 
-def _validate(fields: list[FormField], answers: dict[str, object]) -> None:
+def validate_answers(fields: list[FormField], answers: dict[str, object]) -> None:
     for field in fields:
         if not field.required:
             continue

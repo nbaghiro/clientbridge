@@ -9,10 +9,11 @@ from typing import NoReturn
 
 import httpx
 import pytest
+from pydantic_settings import SettingsConfigDict
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.config import get_settings
+from clientbridge.core.config import Settings, get_settings
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.resend import resend_signature
 from clientbridge.integrations.twilio import twilio_signature
@@ -28,8 +29,8 @@ from clientbridge.schemas.billing import InvoiceOut
 from clientbridge.schemas.bookings import BookingOut
 from clientbridge.schemas.orders import OrderOut
 from clientbridge.services import ledger
-from clientbridge.services.billing import _invoice_out
-from clientbridge.services.bookings import _booking_out
+from clientbridge.services.billing import invoice_out
+from clientbridge.services.bookings import booking_out
 from clientbridge.services.business import local_today
 from clientbridge.services.earnings import load_earning
 from clientbridge.services.lines import fetch_lines
@@ -41,6 +42,12 @@ SLUG = "birchbark"
 STRIPE = {"Stripe-Signature": "good"}
 TWILIO_TOKEN = "testtoken"
 WIDE = "start=2000-01-01&end=2100-01-01"
+
+
+class EnvSettings(Settings):
+    """Settings from arguments and the environment only; a developer's .env is not read."""
+
+    model_config = SettingsConfigDict(env_file=None, extra="ignore")
 
 
 async def text_in(api: httpx.AsyncClient, data: dict[str, str]) -> httpx.Response:
@@ -249,7 +256,7 @@ async def settle(
     ok(await api.post("/webhooks/stripe", content=event, headers=STRIPE))
 
 
-async def stripe_event(api: httpx.AsyncClient, event_type: str, obj: dict[str, object]) -> None:
+async def stripe_event(api: httpx.AsyncClient, event_type: str, obj: Mapping[str, object]) -> None:
     body = json.dumps(
         {
             "id": f"evt_{uuid.uuid4().hex}",
@@ -301,7 +308,7 @@ async def deposit_payment(db: AsyncSession, booking_id: str) -> str:
 async def invoice(db: AsyncSession, invoice_id: str) -> InvoiceOut:
     row = await db.get(Invoice, invoice_id, populate_existing=True)
     assert row is not None
-    return await _invoice_out(db, row, await fetch_lines(db, BIZ, "invoice", invoice_id))
+    return await invoice_out(db, row, await fetch_lines(db, BIZ, "invoice", invoice_id))
 
 
 async def order(db: AsyncSession, order_id: str) -> OrderOut:
@@ -315,7 +322,7 @@ async def booking(db: AsyncSession, booking_id: str) -> BookingOut:
     assert row is not None
     slot = await db.get(Slot, row.slot_id, populate_existing=True)
     assert slot is not None
-    return await _booking_out(db, row, slot)
+    return await booking_out(db, row, slot)
 
 
 async def deposit_held(db: AsyncSession, booking_id: str) -> int:

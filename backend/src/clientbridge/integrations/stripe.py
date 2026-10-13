@@ -6,10 +6,18 @@ import unicodedata
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from types import CoroutineType
 from typing import Concatenate, Literal, Protocol
 
 import stripe
-from stripe.params import AccountSessionCreateParamsComponents
+from stripe.params import (
+    AccountCreateParams,
+    AccountCreateParamsBusinessProfile,
+    AccountSessionCreateParamsComponents,
+    CustomerCreateParams,
+    PaymentIntentCreateParams,
+)
+from stripe.params.terminal import LocationCreateParamsAddress
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import (
@@ -18,6 +26,7 @@ from clientbridge.core.errors import (
     PaymentActionRequired,
     PaymentsNotConfigured,
 )
+from clientbridge.models.catalog import Frequency
 
 # webhook payloads are parsed for this version; the Connect webhook endpoint must use it too
 STRIPE_API_VERSION = "2026-05-27.dahlia"
@@ -182,7 +191,7 @@ class PaymentGateway(Protocol):
         amount_cents: int,
         currency: str,
         interval_count: int,
-        frequency: str,
+        frequency: Frequency,
         product_name: str,
     ) -> str:
         """A recurring Price for a subscription item; returns the price id."""
@@ -268,7 +277,7 @@ class PaymentGateway(Protocol):
 
 def _keyed[**P, R](
     method: Callable[Concatenate["StripeGateway", P], Coroutine[object, object, R]],
-) -> Callable[Concatenate["StripeGateway", P], Coroutine[object, object, R]]:
+) -> Callable[Concatenate["StripeGateway", P], CoroutineType[object, object, R]]:
     async def call(self: "StripeGateway", /, *args: P.args, **kwargs: P.kwargs) -> R:
         if not self.configured:
             raise PaymentsNotConfigured("card payments are not set up on this server")
@@ -295,7 +304,7 @@ class StripeGateway:
         idempotency_key: str | None = None,
     ) -> str:
         # Pre-fill everything we already have so Stripe's hosted KYC has less to collect.
-        profile: dict[str, str] = {"name": business_name}
+        profile: AccountCreateParamsBusinessProfile = {"name": business_name}
         if email is not None:
             profile["support_email"] = email
         if url is not None:
@@ -307,18 +316,20 @@ class StripeGateway:
             prefix = descriptor[:10].rstrip()
             if re.search("[A-Z]", prefix):
                 settings["card_payments"] = {"statement_descriptor_prefix": prefix}
-        account = await stripe.Account.create_async(
-            settings=settings,
-            type="custom",
-            idempotency_key=idempotency_key,
-            country=self._country,
-            email=email,  # type: ignore[arg-type]  # Stripe email is optional; stub types it str
-            business_profile=profile,  # type: ignore[arg-type]  # plain dict; stub types a TypedDict
-            capabilities={
+        params: AccountCreateParams = {
+            "settings": settings,
+            "type": "custom",
+            "idempotency_key": idempotency_key,
+            "country": self._country,
+            "business_profile": profile,
+            "capabilities": {
                 "card_payments": {"requested": True},
                 "transfers": {"requested": True},
             },
-        )
+        }
+        if email is not None:
+            params["email"] = email
+        account = await stripe.Account.create_async(**params)
         return str(account.id)
 
     @_keyed
@@ -406,11 +417,10 @@ class StripeGateway:
     async def create_customer(  # pragma: no cover
         self, account_id: str, *, name: str, email: str | None
     ) -> str:
-        customer = await stripe.Customer.create_async(
-            name=name,
-            email=email,  # type: ignore[arg-type]  # optional at Stripe; stub types it str
-            stripe_account=account_id,
-        )
+        params: CustomerCreateParams = {"name": name, "stripe_account": account_id}
+        if email is not None:
+            params["email"] = email
+        customer = await stripe.Customer.create_async(**params)
         return str(customer.id)
 
     @_keyed
@@ -523,13 +533,13 @@ class StripeGateway:
         amount_cents: int,
         currency: str,
         interval_count: int,
-        frequency: str,
+        frequency: Frequency,
         product_name: str,
     ) -> str:
         price = await stripe.Price.create_async(
             unit_amount=amount_cents,
             currency=currency.lower(),
-            recurring={"interval": frequency, "interval_count": interval_count},  # type: ignore[typeddict-item]
+            recurring={"interval": frequency, "interval_count": interval_count},
             product_data={"name": product_name},
             stripe_account=account_id,
         )
@@ -579,23 +589,20 @@ class StripeGateway:
         payment_method: str | None = None,
     ) -> PaymentIntentResult:
         # a saved payment_method → charge it off-session now; else return a client_secret to confirm
-        extra: dict[str, object] = (
-            {"payment_method": payment_method, "confirm": True, "off_session": True}
-            if payment_method
-            else {}
-        )
+        params: PaymentIntentCreateParams = {
+            "amount": amount_cents,
+            "currency": currency.lower(),
+            "application_fee_amount": application_fee_cents,
+            "metadata": metadata,
+            "stripe_account": account_id,
+            "idempotency_key": idempotency_key,
+        }
+        if payment_method:
+            params.update(payment_method=payment_method, confirm=True, off_session=True)
         if customer_id is not None:  # a walk-in sale has no Customer
-            extra["customer"] = customer_id
+            params["customer"] = customer_id
         try:
-            intent = await stripe.PaymentIntent.create_async(
-                amount=amount_cents,
-                currency=currency.lower(),
-                application_fee_amount=application_fee_cents,
-                metadata=metadata,
-                stripe_account=account_id,
-                idempotency_key=idempotency_key,
-                **extra,  # type: ignore[arg-type]  # Stripe kwargs are loosely typed
-            )
+            intent = await stripe.PaymentIntent.create_async(**params)
         except stripe.CardError as exc:  # off-session decline / 3DS → a 402 the client can act on
             if exc.code == "authentication_required":
                 raise PaymentActionRequired("this card requires authentication") from exc
@@ -692,7 +699,7 @@ class StripeGateway:
     async def create_terminal_location(  # pragma: no cover
         self, account_id: str, *, display_name: str, country: str, state: str | None
     ) -> str:
-        address: dict[str, str] = {
+        address: LocationCreateParamsAddress = {
             "line1": display_name,
             "city": state or country,
             "country": country,
@@ -701,7 +708,7 @@ class StripeGateway:
             address["state"] = state
         location = await stripe.terminal.Location.create_async(
             display_name=display_name,
-            address=address,  # type: ignore[arg-type]  # plain dict; Stripe stub types a TypedDict
+            address=address,
             stripe_account=account_id,
         )
         return str(location.id)
@@ -730,9 +737,7 @@ class StripeGateway:
 
     def verify_webhook(self, payload: bytes, signature: str) -> GatewayEvent:
         try:
-            stripe.Webhook.construct_event(  # type: ignore[no-untyped-call]
-                payload, signature, self._webhook_secret
-            )
+            stripe.Webhook.construct_event(payload, signature, self._webhook_secret)
         except Exception as exc:
             raise WebhookVerificationError(str(exc)) from exc
         # The SDK's StripeObject is not a dict, so read the verified bytes as plain JSON.

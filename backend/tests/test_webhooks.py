@@ -14,7 +14,7 @@ from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import Audit, Device, Webhook
 from clientbridge.services import ledger
 from clientbridge.services.business import kyc_status
-from clientbridge.services.payments import _record_failed_delivery
+from clientbridge.services.payments import record_failed_delivery
 from tests.conftest import FakePaymentGateway, FakePushSender
 from tests.helpers import client_id, column, enable_payments, sent_invoice
 
@@ -622,5 +622,5 @@ async def test_a_failed_delivery_never_overwrites_a_processed_row(db: AsyncSessi
     )
     await db.flush()
     event = GatewayEvent(id="evt_done", type="payout.paid", data={})
-    await _record_failed_delivery(db, event, RuntimeError("the loser of a race"))
+    await record_failed_delivery(db, event, RuntimeError("the loser of a race"))
     assert await column(db, "webhooks", "evt_done", "status") == "processed"

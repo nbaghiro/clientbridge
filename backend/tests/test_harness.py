@@ -5,13 +5,13 @@ from pydantic import ValidationError
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.config import Settings
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.resend import Email
 from clientbridge.integrations.stripe import get_payment_gateway
 from clientbridge.main import app
 from clientbridge.models.clients import Client
 from tests.conftest import Factory, FakeEmailSender
+from tests.helpers import EnvSettings
 
 MARKER = "cl_isolation_marker"
 
@@ -75,7 +75,7 @@ client = TestClient(app)
 def test_prod_requires_real_secrets() -> None:
     # Fail closed: a non-dev env with the public dev jwt secret / empty stripe secret must refuse.
     with pytest.raises(ValidationError) as caught:
-        Settings(env="prod", _env_file=None)  # a developer's .env must not satisfy prod
+        EnvSettings(env="prod")  # a developer's .env must not satisfy prod
     for name in (
         "TWILIO_AUTH_TOKEN",
         "AUTH_EMAIL_HOOK_SECRET",
@@ -84,7 +84,7 @@ def test_prod_requires_real_secrets() -> None:
         "RESEND_WEBHOOK_SECRET",
     ):
         assert name in str(caught.value)
-    assert Settings(env="dev", _env_file=None).env == "dev"  # dev keeps the convenient defaults
+    assert EnvSettings(env="dev").env == "dev"  # dev keeps the convenient defaults
 
 
 def test_health() -> None:

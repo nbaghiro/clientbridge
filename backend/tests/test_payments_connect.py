@@ -162,12 +162,15 @@ async def test_status_shows_deadline_and_available_balance(
 
 
 async def test_status_without_the_balance_when_stripe_fails(
-    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async def broken(account_id: str, *, currency: str) -> int:
         raise RuntimeError("stripe down")
 
-    gateway.get_balance_cents = broken  # type: ignore[method-assign]
+    monkeypatch.setattr(gateway, "get_balance_cents", broken)
     await db.execute(update(Business).where(Business.id == BIZ).values(stripe_charges_enabled=True))
     body = (await as_owner.get("/v1/connect/status")).json()
     assert body["available_cents"] is None

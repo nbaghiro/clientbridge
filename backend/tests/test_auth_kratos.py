@@ -103,7 +103,10 @@ async def test_outages_are_503() -> None:
     def broken(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("down", request=request)
 
-    for handler in (lambda r: httpx.Response(502), broken):
+    def bad_gateway(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(502)
+
+    for handler in (bad_gateway, broken):
         kratos, _ = provider(handler)
         with pytest.raises(AppError) as raised:
             await kratos.whoami(Credential(session_token="tok"))

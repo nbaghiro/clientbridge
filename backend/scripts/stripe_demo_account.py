@@ -5,6 +5,7 @@ import time
 
 import stripe
 from sqlalchemy.ext.asyncio import AsyncSession
+from stripe.params import AccountCreateParams
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal, engine
@@ -15,7 +16,7 @@ from clientbridge.services.business import apply_account_status
 BIZ = "bz_birchbark"
 DEMO_TAG = {"clientbridge_demo": BIZ}
 
-_ACCOUNT: dict[str, object] = {
+_ACCOUNT: AccountCreateParams = {
     "type": "custom",
     "country": "CA",
     "email": "hello@birchbarkpets.ca",
@@ -58,8 +59,11 @@ def demo_account_id() -> str:
         metadata = account.to_dict().get("metadata") or {}
         if isinstance(metadata, dict) and metadata.get("clientbridge_demo") == BIZ:
             return str(account.id)
-    params = {**_ACCOUNT, "tos_acceptance": {"date": int(time.time()), "ip": "127.0.0.1"}}
-    return str(stripe.Account.create(**params).id)  # type: ignore[arg-type]  # loose Stripe kwargs
+    params: AccountCreateParams = {
+        **_ACCOUNT,
+        "tos_acceptance": {"date": int(time.time()), "ip": "127.0.0.1"},
+    }
+    return str(stripe.Account.create(**params).id)
 
 
 async def connect_demo_business(session: AsyncSession) -> str | None:

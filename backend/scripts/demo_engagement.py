@@ -122,8 +122,7 @@ def _consents(ctx: DemoContext) -> None:
                 continue
             implied = client.id == "cl_sophie"
             when = ctx.now - timedelta(days=30 if implied else 90)
-            if client.created_at is not None:
-                when = max(when, client.created_at)
+            when = max(when, client.created_at)
             ctx.add(
                 Consent(
                     id=f"cns_{client.id}_{channel}",

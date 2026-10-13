@@ -90,8 +90,8 @@ Host ports use the **87xx** block; see
 ## Development
 
 ```sh
-make check          # full local gate: ruff/mypy · eslint/tsc/prettier · pytest (90% branch) · web tests
-make lint           # ruff + mypy (backend) · eslint + tsc (frontend)
+make check          # full local gate: ruff/pyright · eslint/tsc/prettier · pytest (90% branch) · web tests
+make lint           # ruff + pyright (backend) · eslint + tsc (frontend)
 make format         # ruff format · prettier --write
 make gen-api        # regenerate the api-client from the backend OpenAPI (drift-gated)
 make gen-sync-schema# regenerate the PowerSync client schema from the models (drift-gated)

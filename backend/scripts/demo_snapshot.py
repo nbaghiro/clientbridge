@@ -59,7 +59,7 @@ async def calendar_snapshot(
             if day is not None
         }
     )
-    dates = [monday + timedelta(days=day) for day in weekdays if day is not None]
+    dates = [monday + timedelta(days=day) for day in weekdays]
     if len(dates) != 5:
         raise ValueError("The marketing calendar expects five actual working weekdays")
     days = [

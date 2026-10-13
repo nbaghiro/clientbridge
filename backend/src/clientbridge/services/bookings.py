@@ -111,7 +111,7 @@ _CLOSED_OR_WAITING = ("completed", "canceled", "no_show", "waitlisted")
 BookingNotice = Literal["confirmed", "canceled", "rescheduled"]
 
 
-async def _booking_out(db: AsyncSession, booking: Booking, slot: Slot) -> BookingOut:
+async def booking_out(db: AsyncSession, booking: Booking, slot: Slot) -> BookingOut:
     return BookingOut(
         id=booking.id,
         business_id=booking.business_id,
@@ -585,7 +585,7 @@ class BookingService:
                 )
                 await self.db.flush()
             cmd.record("booking.create", entity_type="booking", entity_id=booking.id)
-            return await _booking_out(self.db, booking, slot)
+            return await booking_out(self.db, booking, slot)
 
         return await run_command(
             self.db,
@@ -673,10 +673,10 @@ class BookingService:
                     booking.completed_at = datetime.now(UTC)
                     await _complete_when_done(self.db, slot)
                 elif data.status == "no_show":
-                    await self._forfeit_deposit(cmd, booking)
+                    await self.forfeit_deposit(cmd, booking)
                 cmd.record(f"booking.{data.status}", entity_type="booking", entity_id=booking.id)
             await self.db.flush()
-            return await _booking_out(self.db, booking, slot)
+            return await booking_out(self.db, booking, slot)
 
         out = await run_command(
             self.db,
@@ -838,7 +838,7 @@ class BookingService:
                 booking.checked_in_at = datetime.now(UTC)
                 await self.db.flush()
                 cmd.record("booking.check_in", entity_type="booking", entity_id=booking.id)
-            return await _booking_out(self.db, booking, slot)
+            return await booking_out(self.db, booking, slot)
 
         return await run_command(
             self.db,
@@ -895,7 +895,7 @@ class BookingService:
             request={"booking_id": booking_id, "payment_method_id": payment_method_id},
         )
 
-    async def _forfeit_deposit(self, cmd: Command, booking: Booking) -> None:
+    async def forfeit_deposit(self, cmd: Command, booking: Booking) -> None:
         """Keep a collected deposit, or charge the default card for one; never charges twice."""
         if booking.deposit_status in ("none", "applied", "forfeited", "refunded"):
             return
@@ -974,7 +974,7 @@ class BookingService:
             await self.db.delete(addon)
             await self.db.flush()
             cmd.record("booking.addon_remove", entity_type="booking", entity_id=booking.id)
-            return await _booking_out(self.db, booking, slot)
+            return await booking_out(self.db, booking, slot)
 
         return await run_command(
             self.db,
@@ -1183,7 +1183,7 @@ def local_day(on_date: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
 
 
 _WEEKDAY_CODES: dict[Weekday, int] = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
-_WEEKDAY_NAMES = {v: k for k, v in _WEEKDAY_CODES.items()}
+_WEEKDAY_NAMES: dict[int, Weekday] = {v: k for k, v in _WEEKDAY_CODES.items()}
 _SKIPPED = "left out when the series was booked"
 _MAX_OCCURRENCES = 60  # a full year of weekly + headroom; caps runaway/unbounded rules
 _TOO_LONG = f"a series can hold at most {_MAX_OCCURRENCES} visits; end it sooner"
@@ -1693,7 +1693,7 @@ class ClassService:
                     raise Conflict(f"a {booking.status} booking can't be marked a no-show")
                 booking.status = "no_show"
                 booking.checked_in_at = None
-                await BookingService(self.db, self.principal, self.gateway)._forfeit_deposit(
+                await BookingService(self.db, self.principal, self.gateway).forfeit_deposit(
                     cmd, booking
                 )
             else:

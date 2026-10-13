@@ -36,8 +36,9 @@ async def _open_invoice(db: AsyncSession) -> str:
     sent = select(Invoice).where(Invoice.business_id == BIZ, Invoice.status == "sent")
     for invoice in (await db.execute(sent.order_by(Invoice.id))).scalars():
         if await ledger.invoice_balance(db, invoice) > 0:
-            invoice.pay_token = invoice.pay_token or secrets.token_urlsafe(16)
-            return invoice.pay_token
+            token = invoice.pay_token or secrets.token_urlsafe(16)
+            invoice.pay_token = token
+            return token
     raise SystemExit("no seeded invoice with a balance")
 
 

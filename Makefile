@@ -41,9 +41,9 @@ help:
 	@echo "test-e2e         Stripe and Resend test-mode flows (needs STRIPE_TEST_SECRET_KEY, RESEND_TEST_API_KEY and RESEND_TEST_FROM)"
 	@echo "stripe-mock      start the stripe-mock contract-test service on :8708"
 	@echo "lint             lint-backend + lint-frontend"
-	@echo "lint-backend     ruff, mypy and the structure check"
+	@echo "lint-backend     ruff, pyright and the structure check"
 	@echo "lint-frontend    eslint, the structure check, tsc and the site copy rules"
-	@echo "typecheck        mypy (backend) and tsc (frontend)"
+	@echo "typecheck        pyright (backend) and tsc (frontend)"
 	@echo "format           ruff format and prettier --write"
 	@echo "format-check     ruff format --check and prettier --check"
 	@echo "precommit        format-check + lint + codegen-check + test (the pre-commit hook; e2e runs in CI)"
@@ -188,14 +188,17 @@ test-e2e:
 
 lint: lint-backend lint-frontend
 
+# One config at the repo root (pyrightconfig.json), shared with the editor.
+PYRIGHT := PYRIGHT_PYTHON_IGNORE_WARNINGS=1 uv run pyright -p ../pyrightconfig.json
+
 lint-backend:
-	cd backend && uv run ruff check . && uv run mypy src scripts tests && uv run python -m scripts.check_structure
+	cd backend && uv run ruff check --ignore-noqa . && $(PYRIGHT) && uv run python -m scripts.check_structure
 
 lint-frontend:
 	cd frontend && pnpm lint && pnpm typecheck && pnpm --filter site lint:content
 
 typecheck:
-	cd backend && uv run mypy src scripts tests
+	cd backend && $(PYRIGHT)
 	cd frontend && pnpm typecheck
 
 format:

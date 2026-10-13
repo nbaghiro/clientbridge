@@ -6,10 +6,9 @@ import pytest
 from sqlalchemy import Column, MetaData, String, Table
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge import models  # noqa: F401
-from clientbridge.core.db import Base
 from clientbridge.core.policies import TABLE_POLICIES, TablePolicy, table_policy_errors
 from clientbridge.core.scoping import scoped, scoped_delete, scoped_update
+from clientbridge.models import Base
 from clientbridge.models.billing import Line
 from clientbridge.models.clients import Client
 from tests.conftest import Factory

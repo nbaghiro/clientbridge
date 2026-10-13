@@ -83,11 +83,6 @@ async def _refunds(db: AsyncSession, payment_id: str) -> int:
     ).scalar_one()
 
 
-async def _order_status(db: AsyncSession, order_id: str) -> str:
-    query = select(ledger.order_status_expr()).where(Order.id == order_id)
-    return str((await db.execute(query)).scalar_one())
-
-
 async def test_partial_refunds_unwind_revenue_and_tax_pro_rata(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

@@ -26,8 +26,8 @@ Canadian tax built in. All user-facing copy is centralized in one place. The cus
 | Payments | **Stripe Connect** (Custom accounts, direct charges) + PAD/EFT |
 | Repo | **Polyglot monorepo** — backend (uv) + frontend (pnpm + turbo), one root Makefile |
 
-The toolchain pins Python **3.14** (via `.python-version`) while ruff/mypy target 3.12 for
-type/lint-compatibility. The `pyproject` floor is `>=3.12`.
+The toolchain pins Python **3.14** (via `.python-version`) while ruff targets 3.12 for
+lint-compatibility and pyright checks against 3.14. The `pyproject` floor is `>=3.12`.
 
 ---
 

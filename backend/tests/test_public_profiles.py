@@ -131,7 +131,7 @@ async def test_next_openings_match_live_availability_and_validate_input(
             assert datetime.fromisoformat(slot["starts_at"]) > datetime.now(UTC)
     assert (await api.get("/book/birchbark/next-openings")).status_code == 422
     assert (
-        await api.get("/book/birchbark/next-openings", params=[("item_ids", "it_groom_sm")] * 13)
+        await api.get("/book/birchbark/next-openings", params={"item_ids": ["it_groom_sm"] * 13})
     ).status_code == 422
     assert (
         await api.get("/book/birchbark/next-openings", params={"item_ids": "missing"})
