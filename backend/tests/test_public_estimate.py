@@ -137,3 +137,26 @@ async def test_reason_is_capped(as_owner: httpx.AsyncClient, db: AsyncSession) -
     est = await _sent_estimate(as_owner, db)
     res = await as_owner.post(f"/estimate/{est['view_token']}/decline", json={"reason": "x" * 501})
     assert res.status_code == 422
+
+
+async def test_estimate_tax_is_labelled_at_the_rates_its_amounts_use(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.execute(update(Business).where(Business.id == BIZ).values(province="NS"))
+    cid = await client_id(db, email="ns@example.ca")
+    line = {"description": "Groom", "quantity": 1, "unit_amount_cents": 10_000}
+    res = await as_owner.post(
+        "/v1/estimates", json={"client_id": cid, "lines": [line], "send": True}
+    )
+    est = ok(res, 201).json()
+    # drafted before Nova Scotia's HST fell from 15% to 14% on April 1, 2025
+    await db.execute(
+        update(Estimate)
+        .where(Estimate.id == est["id"])
+        .values(created_at=datetime(2025, 3, 15, tzinfo=UTC))
+    )
+    hst = [{"code": "HST", "rate_bps": 1400, "base_cents": 10_000, "cents": 1400}]
+    page = ok(await as_owner.get(f"/estimate/{est['view_token']}")).json()
+    assert (page["taxes"], page["total_cents"]) == (hst, 11_400)
+    accepted = ok(await as_owner.post(f"/estimate/{est['view_token']}/accept", json={})).json()
+    assert (accepted["taxes"], accepted["total_cents"]) == (hst, 11_400)

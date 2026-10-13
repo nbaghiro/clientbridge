@@ -127,7 +127,14 @@ from clientbridge.services.payments import (
 )
 from clientbridge.services.plans import assert_serving
 from clientbridge.services.returning import ReturningService
-from clientbridge.services.tax import LineTax, issued_tax, rates_for_business, tax_for_lines
+from clientbridge.services.tax import (
+    LineTax,
+    TaxResult,
+    issued_tax,
+    rates_for_business,
+    tax_breakdown,
+    tax_for_lines,
+)
 
 
 def _account(business: Business) -> str | None:
@@ -1274,12 +1281,29 @@ async def _tip_names(db: AsyncSession, business_id: str, lines: list[Line]) -> l
     return [name.split()[0] for sid in ids if (name := names.get(sid))]
 
 
+async def estimate_tax(
+    db: AsyncSession, estimate: Estimate, lines: list[Line]
+) -> tuple[datetime, TaxResult]:
+    """An open estimate is quoted at today's rates; an accepted one keeps its acceptance rates."""
+    if estimate.accepted_at is None:
+        now = datetime.now(UTC)
+        return now, await tax_breakdown(db, estimate.business_id, lines, now)
+    return estimate.accepted_at, await issued_tax(
+        db, estimate.business_id, lines, estimate.accepted_at
+    )
+
+
 async def public_doc_lines(
-    db: AsyncSession, document: Invoice | Estimate | Order, lines: list[Line]
+    db: AsyncSession,
+    document: Invoice | Estimate | Order,
+    lines: list[Line],
+    priced: tuple[datetime, TaxResult] | None = None,
 ) -> tuple[list[tuple[PublicDocLine, LineTax]], list[PublicDocTax]]:
-    """A document's lines with the tax fixed on them, and its tax per code over included lines."""
-    at = issued_at(document)
-    result = await issued_tax(db, document.business_id, lines, at)
+    """A document's lines with their tax, labelled with the rates that tax was computed at."""
+    at, result = priced or (
+        issued_at(document),
+        await issued_tax(db, document.business_id, lines, issued_at(document)),
+    )
     rates = {
         r.jurisdiction: r.rate_bps for r in await rates_for_business(db, document.business_id, at)
     }
@@ -1366,7 +1390,9 @@ class PublicEstimateService:
     async def _context(self, estimate: Estimate, business: Business) -> PublicEstimate:
         client = await self.db.get(Client, estimate.client_id)
         lines = await fetch_lines(self.db, estimate.business_id, "estimate", estimate.id)
-        doc_lines, taxes = await public_doc_lines(self.db, estimate, lines)
+        priced = await estimate_tax(self.db, estimate, lines)
+        doc_lines, taxes = await public_doc_lines(self.db, estimate, lines, priced)
+        totals = included_totals(lines, priced[1])
         return PublicEstimate(
             number=estimate.number,
             business_name=business.name,
@@ -1378,9 +1404,9 @@ class PublicEstimateService:
             status=estimate_status(estimate, local_today(business)),
             currency=currency_for(business),
             timezone=business.timezone,
-            subtotal_cents=estimate.subtotal_cents,
-            tax_total_cents=estimate.tax_total_cents,
-            total_cents=estimate.total_cents,
+            subtotal_cents=totals.subtotal_cents,
+            tax_total_cents=totals.tax_total_cents,
+            total_cents=totals.total_cents,
             issued_at=estimate.created_at,
             valid_until=estimate.valid_until,
             notes=estimate.notes,
