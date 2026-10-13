@@ -7,6 +7,9 @@ IMAGE="system-images;android-34;google_apis;x86_64"
 AVD=ci
 sdk="$ANDROID_HOME"
 tools="$sdk/cmdline-tools/latest/bin"
+# avdmanager and the emulator otherwise look in different places
+export ANDROID_AVD_HOME="$HOME/.android/avd"
+mkdir -p "$ANDROID_AVD_HOME"
 
 boot() {
     "$sdk/emulator/emulator" -avd "$AVD" -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim \
