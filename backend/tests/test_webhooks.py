@@ -180,7 +180,15 @@ async def test_payment_method_auto_updated_refreshes_card(
             "type": "payment_method.automatically_updated",
             "account": "acct_pm",
             "data": {
-                "object": {"id": "pm_stripe_1", "card": {"brand": "mastercard", "last4": "5555"}}
+                "object": {
+                    "id": "pm_stripe_1",
+                    "card": {
+                        "brand": "mastercard",
+                        "last4": "5555",
+                        "exp_month": 9,
+                        "exp_year": 2031,
+                    },
+                }
             },
         }
     )
@@ -188,6 +196,7 @@ async def test_payment_method_auto_updated_refreshes_card(
     assert res.status_code == 200
     pm = (await db.execute(select(PaymentMethod).where(PaymentMethod.id == "pm_row"))).scalar_one()
     assert pm.brand == "mastercard" and pm.last4 == "5555"
+    assert (pm.exp_month, pm.exp_year) == (9, 2031)
 
 
 async def test_refund_created_records_a_dashboard_refund(

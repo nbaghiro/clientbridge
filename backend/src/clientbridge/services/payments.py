@@ -1501,7 +1501,7 @@ async def record_failed_delivery(db: AsyncSession, event: GatewayEvent, exc: Exc
 async def _update_payment_method(
     db: AsyncSession, account_id: str | None, data: dict[str, object]
 ) -> None:
-    """Stripe auto-updated a saved card (reissue / new expiry) — refresh our brand + last4."""
+    """Stripe auto-updated a saved card (a reissue or a new expiry); refresh what we show of it."""
     if account_id is None:
         return
     biz = (
@@ -1522,6 +1522,10 @@ async def _update_payment_method(
         pm.brand = card["brand"]
     if isinstance(card.get("last4"), str):
         pm.last4 = card["last4"]
+    if isinstance(card.get("exp_month"), int):
+        pm.exp_month = card["exp_month"]
+    if isinstance(card.get("exp_year"), int):
+        pm.exp_year = card["exp_year"]
     await db.flush()
 
 
