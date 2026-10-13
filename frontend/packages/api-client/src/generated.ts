@@ -5548,8 +5548,11 @@ export interface components {
              * @description Billed seats now: active staff and unexpired invites
              */
             seats: number;
-            /** Seat Cap */
-            seat_cap: number;
+            /**
+             * Seat Cap
+             * @description Most members besides the owner; none on Premium
+             */
+            seat_cap: number | null;
             /** Current Period End */
             current_period_end?: string | null;
             /**

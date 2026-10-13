@@ -26,7 +26,7 @@ interface PlanState {
     managed: boolean;
     interval: PlanInterval | null;
     seats: number;
-    seat_cap: number;
+    seat_cap: number | null;
     current_period_end: string | null;
     cancel_at_period_end: boolean;
     currency: string;

@@ -30,7 +30,7 @@ class PlanOut(BaseModel):
     managed: bool = Field(description="Whether a Stripe subscription bills this business")
     interval: PlanInterval | None = None
     seats: int = Field(description="Billed seats now: active staff and unexpired invites")
-    seat_cap: int
+    seat_cap: int | None = Field(description="Most members besides the owner; none on Premium")
     current_period_end: datetime | None = None
     cancel_at_period_end: bool = False
     currency: str

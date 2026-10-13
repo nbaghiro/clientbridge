@@ -704,3 +704,12 @@ async def test_team_is_refused_while_the_business_has_more_members_than_it_allow
     checkout = await as_owner.post("/v1/plan/checkout", json={"plan": "team", "interval": "year"})
     assert checkout.status_code == 409 and checkout.json()["error"] == "seat_limit"
     assert gateway.checkouts == [] and gateway.plan_item_keys == []
+
+
+async def test_premium_reports_no_seat_cap(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _subscribed(db, gateway, PlanItem("premium_month"))
+    assert ok(await as_owner.get("/v1/plan")).json()["seat_cap"] is None
+    await _trial(db, timedelta(days=3))
+    assert ok(await as_owner.get("/v1/plan")).json()["seat_cap"] == plans.PLAN_SEAT_CAP

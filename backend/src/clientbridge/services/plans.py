@@ -241,7 +241,7 @@ def _out(
         managed=business.stripe_subscription_id is not None and business.plan_status in _LIVE,
         interval=interval,
         seats=seats,
-        seat_cap=PLAN_SEAT_CAP,
+        seat_cap=seat_cap(business, now),
         current_period_end=item.current_period_end if item is not None else None,
         cancel_at_period_end=sub.cancel_at_period_end if sub is not None else False,
         currency=PLAN_CURRENCY.upper(),
