@@ -7,8 +7,10 @@ EMULATOR_SHA256=b08fc43d8608d2955f607f1b287beb525041e730086bdca3af152accac3af9c1
 IMAGE="system-images;android-34;google_apis;x86_64"
 IMAGE_REVISION=14
 AVD=ci
+# bump when the settings saved into the quick-boot snapshot change
+SNAPSHOT=2
 if [ "$1" = key ]; then
-    echo "android-34-google_apis-x86_64-r$IMAGE_REVISION-emulator-$EMULATOR_BUILD"
+    echo "android-34-google_apis-x86_64-r$IMAGE_REVISION-emulator-$EMULATOR_BUILD-snapshot-$SNAPSHOT"
     exit 0
 fi
 sdk="$ANDROID_HOME"
@@ -30,6 +32,8 @@ boot() {
         sleep 2
         waited=$((waited + 2))
     done
+    # a launcher that stops responding after a snapshot resume is killed instead of covering the app with a dialog
+    adb shell settings put global hide_error_dialogs 1
 }
 
 case "$1" in

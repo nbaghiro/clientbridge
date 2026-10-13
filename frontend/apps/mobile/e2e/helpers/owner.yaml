@@ -6,12 +6,6 @@ appId: ca.clientbridge.app
       # the default "all" pulls the whole APK over adb to read its manifest, which can stall for minutes
       permissions:
           notifications: allow
-# a slow emulator can raise a system "isn't responding" dialog over the app
-- runFlow:
-      when:
-          visible: ".*isn't responding"
-      commands:
-          - tapOn: "Wait"
 - extendedWaitUntil:
       visible: "Today|Sign in"
       timeout: 60000
