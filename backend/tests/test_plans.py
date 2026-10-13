@@ -463,8 +463,9 @@ async def test_a_lapsed_business_can_still_choose_a_plan_and_export(
     await _trial(db, -timedelta(days=1))
     ok(await as_owner.post("/v1/plan/checkout", json={"plan": "team", "interval": "month"}))
     assert gateway.checkouts[0].trial_end is None
-    export = await as_owner.post("/v1/reports/export", json={})
-    assert export.status_code != 402
+    period = {"kinds": ["income"], "start": "2000-01-01", "end": "2100-01-01"}
+    ok(await as_owner.post("/v1/reports/export", json=period))
+    ok(await as_owner.post("/v1/consents/export"))
 
 
 async def test_a_trial_and_a_past_due_plan_keep_full_access(
