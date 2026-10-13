@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiLike, Flow, FlowNode, FlowStep, IdentityLike } from "../api";
 import { strings } from "../strings";
@@ -14,6 +14,9 @@ import {
     useSecuritySettings,
     useVerificationForm,
 } from "./auth";
+
+// unmount each hook, so a ticking timer cannot render after the file's DOM is torn down
+afterEach(cleanup);
 
 const node = (group: string, name: string, value: unknown = ""): FlowNode => ({
     group,

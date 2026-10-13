@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import type { CommonPowerSyncDatabase } from "@powersync/common";
 import { PowerSyncContext } from "@powersync/react";
-import { renderHook } from "@testing-library/react";
+import { cleanup, renderHook } from "@testing-library/react";
 import { type ReactNode, createElement } from "react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
     UPLOAD_NOTICE_AFTER_MS,
@@ -13,6 +13,9 @@ import {
     syncProblem,
     useSyncStatus,
 } from "./sync";
+
+// unmount each hook, so a ticking timer cannot render after the file's DOM is torn down
+afterEach(cleanup);
 
 describe("sync health", () => {
     it("reports failed uploads even while downloads are healthy", () => {
