@@ -76,21 +76,18 @@ Runs on every push to `main` + all PRs; concurrency-cancels stale runs.
 | **connect** | Postgres 16 service · `make migrate seed` · the API on :8701 · `make test-connect`: Connect's Playwright walk (book a visit, cancel it from its manage link, shop, invoice, estimate, receipt, review, form, contract, preferences, not found), failing on any console error; every client page through axe (no serious or critical issues), a keyboard walk that fails on a focus stop without a visible indicator, and a hover check on every button (AA text contrast, also over a business cover photo); then the `en-XA` pass over the business, booking, shop, invoice, estimate and receipt pages |
 | **sync** | `make test-sync`: disposable Postgres and PowerSync, per-role replica rows and columns, revocation, hours uploads, the signing-key rotation drill and the replication health check |
 | **web** | `make up migrate seed` · the API on :8701 · `make test-web`: sign-in, every page and dialog, record flows, history older than the device window, no console errors, axe, keyboard focus and hover contrast on the key pages, the booking composer and the client and invoice records, and the `en-XA` pass over Today, Schedule, Clients, a client record, Setup's business page, Invoices and an invoice |
-| **mobile-build** | an x86_64 release APK (bundle embedded, no Metro), cached under the app's Expo native fingerprint and the lockfile hash: on a hit `scripts/rebundle-apk.sh` only rebuilds the Hermes bundle and re-signs the cached APK, on a miss `expo prebuild` and Gradle build it. Runs on main and on PRs that touch the app, `frontend/packages`, the backend or the stack |
-| **mobile-shard** | three shards, each with `make up migrate seed` and the API started in the background, the APK from `mobile-build` and its share of the Maestro walkthroughs on an Android 14 emulator booted from a cached snapshot. The APK reaches the API, PowerSync and Kratos at `10.0.2.2`, the emulator's address for the host, rather than through `adb reverse`, whose mappings vanish when the emulator's adb connection drops. The shards are listed in `e2e/shards.json`, and the `changes` job fails when a walkthrough is in none or two |
-| **mobile** | the required check: passes when every shard passed, or when `changes` skipped mobile because the change cannot affect the app |
+| **mobile-build** | an x86_64 release APK (bundle embedded, no Metro), cached under the app's Expo native fingerprint and the lockfile hash: on a hit `scripts/rebundle-apk.sh` only rebuilds the Hermes bundle and re-signs the cached APK, on a miss `expo prebuild` and Gradle build it. Runs on every push and pull request |
+| **mobile-shard** | three shards, each with `make up migrate seed` and the API started in the background, the APK from `mobile-build` and its share of the Maestro walkthroughs on an Android 14 emulator booted from a cached snapshot. The APK reaches the API, PowerSync and Kratos at `10.0.2.2`, the emulator's address for the host, rather than through `adb reverse`, whose mappings vanish when the emulator's adb connection drops. The shards are listed in `e2e/shards.json`, and the `shards` job fails when a walkthrough is in none or two |
+| **mobile** | the required check: passes when the build and every shard passed |
 | **contract** | stripe-mock service · real `StripeGateway` validated against Stripe's OpenAPI mock |
 | **codegen-drift** | `make codegen-check`: `make gen-api`, `gen-sync-schema`, `gen-themes`, `gen-messages`, `gen-strings` (which also fail on invalid or unused catalog messages) and `gen-zones`, then a diff check on the generated files (the api-client, sync schema, themes, `messages.pot`, `en_XA.po`, both `strings.ts` accessors and `en-XA.json` files, Connect's `embed.js`, and app-core `zones.ts` and `zones.cases.json`), so the committed generated code cannot drift from its source |
 
 Net effect: no unformatted/untyped/uncovered code, no broken bundle, no drift between backend models and the
 generated frontend contracts/themes.
 
-On pull requests the backend, frontend, site, connect and web jobs then run `make rerun-<job>`: the test
-files the pull request added or changed run again, the backend ones five times in a shuffled order on a
-fresh database, the frontend unit tests five times shuffled in each of the three time zones, and the e2e
-files three more times each. A test that passes only in one order, on one day or on a first run fails
-there. The browser-driven jobs start the API with `PUBLIC_RATE_LIMIT_PER_MINUTE=1000`, since one browser
-plays every visitor and would otherwise trip the per-IP limits on public pages.
+Every job runs its full suite on every pull request and on every push to `main`; no job is skipped by
+the paths a change touches. With `ENV=dev` the API allows 1000 requests a minute from one address on
+the public endpoints (30 otherwise), since one browser plays every visitor in the e2e suites.
 
 ---
 

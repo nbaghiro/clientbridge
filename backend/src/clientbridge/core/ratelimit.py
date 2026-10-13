@@ -33,7 +33,7 @@ class RateLimiter:
             del self._hits[key]
 
 
-_PER_MINUTE = get_settings().public_rate_limit_per_minute
+_PER_MINUTE = get_settings().public_rate_limit()
 _public_pay_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 _public_review_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 _public_form_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
