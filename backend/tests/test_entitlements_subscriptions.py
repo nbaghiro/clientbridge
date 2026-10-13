@@ -14,13 +14,14 @@ from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item, Subscription
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment, PaymentMethod
-from clientbridge.models.platform import Webhook
+from clientbridge.models.platform import Audit, Webhook
 from clientbridge.services import ledger
 from tests.conftest import Factory, FakeEmailSender, FakePaymentGateway
 from tests.helpers import client_id, enable_payments, key
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
+PAID_AT = datetime(2026, 9, 30, 23, 15, tzinfo=UTC)
 
 
 async def _sub_item(
@@ -397,6 +398,7 @@ async def test_invoice_payment_succeeded_records_payment(
         "parent": {"subscription_details": {"subscription": "sub_inv1"}},
         "amount_paid": 5600,
         "currency": "cad",
+        "status_transitions": {"paid_at": int(PAID_AT.timestamp())},
     }
     res = await api.post(
         "/webhooks/stripe",
@@ -409,6 +411,7 @@ async def test_invoice_payment_succeeded_records_payment(
     assert pay.amount_cents == 5600 and pay.currency == "CAD"
     assert pay.client_id == sub.client_id and pay.kind == "payment"
     assert pay.invoice_id is not None  # the recurring charge minted a paid invoice
+    assert pay.paid_at == PAID_AT  # when Stripe took the money, not when the webhook arrived
     # re-delivery (different event id, same charge) must not double-record
     res2 = await api.post(
         "/webhooks/stripe",
@@ -420,6 +423,32 @@ async def test_invoice_payment_succeeded_records_payment(
         (await db.execute(select(Payment).where(Payment.provider_ref == "pi_sub1"))).scalars().all()
     )
     assert len(rows) == 1
+
+
+async def test_a_recurring_charge_in_another_currency_is_refused(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    gateway.invoice_intents["in_usd"] = "pi_sub_usd"
+    await _seed_sub(db, ref="sub_usd")
+    obj: dict[str, object] = {
+        "id": "in_usd",
+        "parent": {"subscription_details": {"subscription": "sub_usd"}},
+        "amount_paid": 5600,
+        "currency": "usd",
+    }
+    res = await api.post(
+        "/webhooks/stripe",
+        content=_sub_event("evt_usd", "invoice.payment_succeeded", obj),
+        headers=GOOD,
+    )
+    assert res.status_code == 200
+    booked = await db.execute(select(Payment.id).where(Payment.provider_ref == "pi_sub_usd"))
+    assert booked.scalar_one_or_none() is None
+    refused = await db.execute(
+        select(Audit.changes).where(Audit.action == "payment.refused", Audit.business_id == BIZ)
+    )
+    assert {"id": "pi_sub_usd", "currency": "USD", "amount_cents": 5600} in refused.scalars()
 
 
 async def test_recurring_charge_taxed_and_in_gst_report(
@@ -592,10 +621,8 @@ async def test_paid_invoice_without_a_visible_intent_is_retried(
     )
     assert res.status_code == 503
     await db.rollback()  # the request's session closes uncommitted
-    seen = (
-        await db.execute(select(Webhook.id).where(Webhook.id == "evt_late"))
-    ).scalar_one_or_none()
-    assert seen is None
+    deferred = await db.execute(select(Webhook.status).where(Webhook.id == "evt_late"))
+    assert deferred.scalar_one_or_none() is None  # a deliberate retry leaves no failed row
     gateway.invoice_intents["in_late"] = "pi_late"
     again = await api.post(
         "/webhooks/stripe",
@@ -605,6 +632,8 @@ async def test_paid_invoice_without_a_visible_intent_is_retried(
     assert again.status_code == 200
     pay = (await db.execute(select(Payment).where(Payment.provider_ref == "pi_late"))).scalar_one()
     assert pay.amount_cents == 5600
+    seen = (await db.execute(select(Webhook.status).where(Webhook.id == "evt_late"))).scalar_one()
+    assert seen == "processed"
 
 
 async def test_zero_amount_invoice_records_nothing(

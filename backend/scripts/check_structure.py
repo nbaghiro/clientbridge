@@ -11,6 +11,7 @@ TESTS = BACKEND / "tests"
 SCRIPTS = BACKEND / "scripts"
 CROSS_CUTTING_TESTS = {
     "command",
+    "db",
     "derived",
     "harness",
     "integrity",

@@ -236,6 +236,12 @@ msgstr "[Å ŕéƒûñð öƒ {amount} ƒŕöɱ {business} ŵåš îššûéð. 
 msgid "refund.subject"
 msgstr "[Ŕéƒûñð ƒŕöɱ {business}~~~~~]"
 
+msgid "refund_failed.body"
+msgstr "[Ýöûŕ ƀåñķ çöûļð ñöţ çöɱþļéţé ţĥé ŕéƒûñð öƒ {amount} ƒŕöɱ {business}. {business} ŵîļļ åŕŕåñĝé îţ åñöţĥéŕ ŵåý.~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "refund_failed.subject"
+msgstr "[Ŕéƒûñð ñöţ çöɱþļéţéð — {business}~~~~~~~~~]"
+
 msgid "registration_code.body"
 msgid_plural "registration_code.body"
 msgstr[0] "[Ýöûŕ Çļîéñţƀŕîðĝé šîĝñ-ûþ çöðé îš {code}. Îţ éẋþîŕéš îñ {count} ɱîñûţé. Îƒ ýöû ðîð ñöţ çŕéåţé å Çļîéñţƀŕîðĝé åççöûñţ, ýöû çåñ îĝñöŕé ţĥîš éɱåîļ.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"

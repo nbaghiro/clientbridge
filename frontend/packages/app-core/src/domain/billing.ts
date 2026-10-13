@@ -34,7 +34,7 @@ import type {
     PrintedDocTax,
     TimelineEntry,
 } from "../ui";
-import { invoiceStatusSql, subjectNetSql } from "./ledger";
+import { invoiceStatusSql, settledSql, subjectNetSql } from "./ledger";
 import { taxOptions } from "./catalog";
 import { mediaUrl } from "./files";
 import { type PaymentRow, invoiceBalanceKey, payLinkUrl, useInvoicePayments } from "./payments";
@@ -129,7 +129,7 @@ SELECT i.id, i.client_id, c.name AS client_name, c.email AS client_email, c.phon
        END AS paid_cents,
        (SELECT MAX(pe.occurred_at) FROM entries pe JOIN accounts pa ON pa.id = pe.account_id
         WHERE pa.category = 'receivable' AND pe.subject_type = 'invoice' AND pe.subject_id = i.id
-          AND pe.amount_cents < 0) AS paid_at,
+          AND pe.amount_cents < 0 AND ${settledSql("pe")}) AS paid_at,
        i.currency, i.issued_at, i.due_at, i.voided_at, i.pay_token, i.notes, i.created_at
 FROM invoices i
 LEFT JOIN clients c ON c.id = i.client_id`;

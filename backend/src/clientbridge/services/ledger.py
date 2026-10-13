@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -7,6 +8,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
+from clientbridge.core.errors import UnsupportedCurrency
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import ChargeFees, PaymentGateway
@@ -23,9 +25,14 @@ from clientbridge.services.tax import TaxResult, tax_for_amount, tax_for_lines
 type AccountKey = tuple[str, str, str, str]
 type _Id = InstrumentedAttribute[str] | str
 
+_log = logging.getLogger(__name__)
+
 PLATFORM = "clientbridge"
+BUSINESS_CURRENCY = "CAD"  # every tenant books in CAD until multi-currency is a feature
 _CASH = {"stripe": "stripe", "manual": "cash"}
 _CASH_CATEGORIES = ("stripe", "cash", "bank")
+# cash legs that settle or unsettle a document: a dispute withdraws like a refund, a win restores
+_MONEY_BACK_EVENTS = ("payment", "refund", "dispute")
 # recorded by hand: cash sits in the till, a cheque or an e-Transfer already reached the bank
 _BANKED_BY_HAND = ("cheque", "etransfer", "bank_eft")
 # the credit-side kinds a refund unwinds pro rata (never the receivable: a refund is a credit note)
@@ -66,6 +73,9 @@ async def post(
     keep_zero: bool = False,
 ) -> str | None:
     """Write one balanced journal; a repeated `ref` returns the original id."""
+    currency = currency.upper()
+    if currency != BUSINESS_CURRENCY:
+        raise UnsupportedCurrency(f"{currency} journals are not supported")
     existing = await journal_for(db, business_id, ref)
     if existing is not None:
         return existing
@@ -79,7 +89,6 @@ async def post(
     at = occurred_at or datetime.now(UTC)
     for index, leg in enumerate(legs):
         account = accounts[leg.key]
-        account.balance_cents += leg.amount_cents
         on = leg.subject or subject
         db.add(
             Entry(
@@ -116,6 +125,7 @@ async def reverse(
     event: str = "reversal",
     meta: dict[str, object] | None = None,
     occurred_at: datetime | None = None,
+    source: tuple[str, str] | None = None,
 ) -> str | None:
     """Post the exact negation of a journal (the only way to correct the ledger)."""
     rows = await _rows(db, business_id, Entry.journal_id == journal_id)
@@ -142,7 +152,7 @@ async def reverse(
         ref=ref,
         legs=legs,
         currency=first.currency,
-        source=("journal", journal_id),
+        source=source or ("journal", journal_id),
         meta=meta,
         occurred_at=occurred_at,
     )
@@ -196,6 +206,7 @@ async def subject_balance(
                 Entry.subject_type == subject_type,
                 Entry.subject_id == subject_id,
                 Account.category == category,
+                _settled(),
             )
         )
     ).scalar_one()
@@ -329,7 +340,13 @@ async def invoice_balance(db: AsyncSession, invoice: Invoice) -> int:
 
 
 def _subject_legs(subject_type: str, subject_id: _Id) -> ColumnElement[bool]:
-    return and_(Entry.subject_type == subject_type, Entry.subject_id == subject_id)
+    return and_(Entry.subject_type == subject_type, Entry.subject_id == subject_id, _settled())
+
+
+def _settled() -> ColumnElement[bool]:
+    """Dispute legs count against a document only once the dispute is lost."""
+    lost = select(Payment.id).where(Payment.id == Entry.source_id, Payment.dispute_status == "lost")
+    return or_(Entry.event != "dispute", lost.exists())
 
 
 def _collected_expr(subject_type: str, subject_id: _Id) -> ColumnElement[int]:
@@ -339,7 +356,7 @@ def _collected_expr(subject_type: str, subject_id: _Id) -> ColumnElement[int]:
         .where(
             _subject_legs(subject_type, subject_id),
             Account.category.in_(_CASH_CATEGORIES),
-            Entry.event.in_(("payment", "refund")),
+            Entry.event.in_(_MONEY_BACK_EVENTS),
         )
         .scalar_subquery()
     )
@@ -352,7 +369,7 @@ def _refunded_expr(subject_type: str, subject_id: _Id) -> ColumnElement[bool]:
         .where(
             _subject_legs(subject_type, subject_id),
             Account.category.in_(_CASH_CATEGORIES),
-            Entry.event == "refund",
+            Entry.event.in_(("refund", "dispute")),
         )
         .exists()
     )
@@ -467,12 +484,10 @@ async def collected(
     rows = await _rows(
         db,
         business_id,
-        (Entry.subject_type == subject_type)
-        & (Entry.subject_id == subject_id)
-        & Entry.event.in_(("payment", "refund")),
+        _subject_legs(subject_type, subject_id) & Entry.event.in_(_MONEY_BACK_EVENTS),
     )
     cash = [(e, a) for e, a in rows if a.category in _CASH_CATEGORIES]
-    return sum(e.amount_cents for e, _ in cash), any(e.event == "refund" for e, _ in cash)
+    return sum(e.amount_cents for e, _ in cash), any(e.event != "payment" for e, _ in cash)
 
 
 def cash_category(payment: Payment) -> str:
@@ -656,10 +671,18 @@ async def _unwind(
     """Each credit leg's share still to unwind, so the final refund clears every leg exactly."""
     refunds = scoped(Payment, original.business_id).where(
         Payment.kind == "refund",
+        Payment.status == "succeeded",
         Payment.id != refund_id,
         Payment.invoice_id == original.invoice_id
         if original.invoice_id
         else Payment.parent_payment_id == original.id,
+    )
+    disputed = scoped(Payment, original.business_id).where(
+        Payment.kind != "refund",
+        Payment.dispute_status == "lost",
+        Payment.invoice_id == original.invoice_id
+        if original.invoice_id
+        else Payment.id == original.id,
     )
     owed: dict[str, tuple[Account, int]] = {}
     for entry, account in credits:
@@ -667,9 +690,13 @@ async def _unwind(
     prior_rows = await _rows(
         db,
         original.business_id,
-        (Entry.event == "refund")
-        & Entry.account_id.in_(owed)
-        & Entry.source_id.in_(refunds.with_only_columns(Payment.id).scalar_subquery()),
+        Entry.account_id.in_(owed)
+        & or_(
+            (Entry.event == "refund")
+            & Entry.source_id.in_(refunds.with_only_columns(Payment.id).scalar_subquery()),
+            (Entry.event == "dispute")
+            & Entry.source_id.in_(disputed.with_only_columns(Payment.id).scalar_subquery()),
+        ),
     )
     prior: dict[str, int] = {}
     for entry, _ in prior_rows:
@@ -755,6 +782,23 @@ async def post_refund(
         )
 
 
+async def reverse_refund(db: AsyncSession, refund: Payment, original: Payment) -> None:
+    """Stripe failed a refund it had marked succeeded: the money is back, so undo its journals."""
+    biz = original.business_id
+    source = ("payment", refund.id)  # reports join payments on the source, so keep the refund's
+    journal = await journal_for(db, biz, f"refund:{refund.id}")
+    if journal is not None:
+        await reverse(
+            db, biz, journal, ref=f"refund:{refund.id}:failed", event="refund", source=source
+        )
+    for staff_id, _ in tip_shares(original):
+        tip = await journal_for(db, biz, f"tip:{refund.id}:{staff_id}")
+        if tip is not None:
+            await reverse(
+                db, biz, tip, ref=f"tip:{refund.id}:{staff_id}:failed", event="tip", source=source
+            )
+
+
 async def post_dispute(
     db: AsyncSession,
     payment: Payment,
@@ -797,10 +841,81 @@ async def post_dispute(
     )
 
 
-async def close_dispute(db: AsyncSession, business_id: str, dispute_id: str) -> None:
+async def close_dispute(
+    db: AsyncSession, payment: Payment, dispute_id: str, *, returned_fee: int = 0
+) -> None:
+    """A won dispute: Stripe reinstates the amount and returns whatever part of the fee it does."""
+    business_id = payment.business_id
     journal = await journal_for(db, business_id, f"dispute:{dispute_id}")
     if journal is not None:
-        await reverse(db, business_id, journal, ref=f"dispute:{dispute_id}:won")
+        await reverse(
+            db,
+            business_id,
+            journal,
+            ref=f"dispute:{dispute_id}:won",
+            event="dispute",
+            source=("payment", payment.id),
+        )
+    fee_rows = await _rows(db, business_id, Entry.ref == f"dispute_fee:{dispute_id}")
+    if returned_fee <= 0 or not fee_rows:
+        return
+    entry = fee_rows[0][0]
+    await post(
+        db,
+        business_id,
+        event="fee",
+        ref=f"dispute_fee:{dispute_id}:won",
+        legs=[
+            Leg("business", business_id, "processing_fee", -returned_fee),
+            Leg("business", business_id, "stripe", returned_fee),
+        ],
+        currency=entry.currency,
+        source=(entry.source_type, entry.source_id)
+        if entry.source_type and entry.source_id
+        else None,
+        subject=(entry.subject_type, entry.subject_id)
+        if entry.subject_type and entry.subject_id
+        else None,
+    )
+
+
+async def lose_dispute(
+    db: AsyncSession,
+    payment: Payment,
+    *,
+    dispute_id: str,
+    amount: int,
+    occurred_at: datetime | None = None,
+) -> None:
+    """A lost dispute: the receivable is uncollectable, so unwind the sale like a refund."""
+    biz = payment.business_id
+    if await journal_for(db, biz, f"dispute:{dispute_id}") is None:
+        return
+    legs = await refund_legs(db, payment, amount)
+    subject, _ = await _settlement(db, payment)
+    tip = sum(leg.amount_cents for leg in legs if leg.category == "staff_cost")
+    await post(
+        db,
+        biz,
+        event="dispute",
+        ref=f"dispute:{dispute_id}:lost",
+        legs=[Leg(*_payer(biz, payment.client_id), "receivable", -amount), *legs],
+        currency=payment.currency,
+        source=("payment", payment.id),
+        subject=subject,
+        occurred_at=occurred_at,
+    )
+    if tip > 0:
+        split = tip_shares(payment)
+        back = allocate(tip, [cents for _, cents in split])
+        await post_tips(
+            db,
+            payment,
+            [(staff_id, cents) for (staff_id, _), cents in zip(split, back, strict=True)],
+            ref=f"tip:dispute:{dispute_id}",
+            sign=-1,
+            occurred_at=occurred_at,
+        )
 
 
 async def post_payout(
@@ -811,7 +926,9 @@ async def post_payout(
     amount: int,
     currency: str,
     arrival_at: datetime | None,
+    occurred_at: datetime | None,
 ) -> None:
+    """Dated when Stripe created the payout; the money reaches the bank on arrival_at."""
     await post(
         db,
         business_id,
@@ -823,7 +940,7 @@ async def post_payout(
         ],
         currency=currency,
         source=("stripe_payout", payout_id),
-        occurred_at=arrival_at,
+        occurred_at=occurred_at,
         available_at=arrival_at,
     )
 
@@ -860,6 +977,9 @@ async def post_redemption(db: AsyncSession, card: GiftCard, amount: int) -> None
             Leg("gift_card", card.id, "gift_card", amount),
             Leg("business", card.business_id, "revenue", -amount),
         ],
+        currency=await _subject_currency(
+            db, card.business_id, category="gift_card", subject_type="gift_card", subject_id=card.id
+        ),
         subject=("gift_card", card.id),
     )
 
@@ -868,16 +988,18 @@ async def _owned(
     db: AsyncSession, business_id: str, owner_type: str, owner_id: str, category: str
 ) -> tuple[int, str]:
     """What an entity's own liability account still holds, in the currency it was bought in."""
-    account = (
+    row = (
         await db.execute(
-            scoped(Account, business_id).where(
+            scoped(Account, business_id)
+            .with_only_columns(Account.balance_cents, Account.currency)
+            .where(
                 Account.owner_type == owner_type,
                 Account.owner_id == owner_id,
                 Account.category == category,
             )
         )
-    ).scalar_one_or_none()
-    return (0, "CAD") if account is None else (-account.balance_cents, account.currency)
+    ).one_or_none()
+    return (0, "CAD") if row is None else (-int(row[0]), str(row[1]))
 
 
 async def post_breakage(
@@ -965,6 +1087,24 @@ async def deposit_held(db: AsyncSession, booking: Booking) -> int:
     )
 
 
+async def _subject_currency(
+    db: AsyncSession, business_id: str, *, category: str, subject_type: str, subject_id: str
+) -> str:
+    """The currency an entity's legs were booked in (its deposit, its card balance)."""
+    row = await db.execute(
+        scoped(Entry, business_id)
+        .with_only_columns(Entry.currency)
+        .join(Account, Account.id == Entry.account_id)
+        .where(
+            Entry.subject_type == subject_type,
+            Entry.subject_id == subject_id,
+            Account.category == category,
+        )
+        .limit(1)
+    )
+    return row.scalar_one_or_none() or BUSINESS_CURRENCY
+
+
 async def post_forfeit(db: AsyncSession, booking: Booking) -> None:
     held = await deposit_held(db, booking)
     await post(
@@ -976,6 +1116,13 @@ async def post_forfeit(db: AsyncSession, booking: Booking) -> None:
             Leg("business", booking.business_id, "deposit", held),
             Leg("business", booking.business_id, "revenue", -held),
         ],
+        currency=await _subject_currency(
+            db,
+            booking.business_id,
+            category="deposit",
+            subject_type="booking",
+            subject_id=booking.id,
+        ),
         subject=("booking", booking.id),
     )
 
@@ -1040,31 +1187,57 @@ async def reverse_forfeit(db: AsyncSession, booking: Booking) -> None:
         await reverse(db, booking.business_id, journal, ref=f"forfeit:{booking.id}:refund")
 
 
-async def run_reconcile_ledger(db: AsyncSession, gateway: PaymentGateway) -> int:
-    """Compare every connected account's Stripe balance with the ledger's; audit each drift."""
-    businesses = (
-        (await db.execute(select(Business).where(Business.stripe_account_id.is_not(None))))
-        .scalars()
-        .all()
+async def stale_accounts(db: AsyncSession, business_id: str) -> list[str]:
+    """Accounts whose cached balance is not the sum of their entries."""
+    totals = (
+        scoped(Entry, business_id)
+        .with_only_columns(Entry.account_id, func.sum(Entry.amount_cents).label("total"))
+        .group_by(Entry.account_id)
+        .subquery()
     )
+    rows = await db.execute(
+        scoped(Account, business_id)
+        .with_only_columns(Account.id)
+        .join(totals, totals.c.account_id == Account.id, isouter=True)
+        .where(Account.balance_cents != func.coalesce(totals.c.total, 0))
+        .order_by(Account.id)
+    )
+    return list(rows.scalars().all())
+
+
+def _drift(business_id: str, action: str, changes: dict[str, object]) -> Audit:
+    _log.error("ledger drift %s business=%s %s", action, business_id, changes)
+    return Audit(
+        id=new_id("audit"),
+        business_id=business_id,
+        action=action,
+        entity_type="business",
+        entity_id=business_id,
+        changes=changes,
+    )
+
+
+async def run_reconcile_ledger(db: AsyncSession, gateway: PaymentGateway) -> int:
+    """Check every cached balance against its entries and every connected account against Stripe."""
+    businesses = (await db.execute(select(Business))).scalars().all()
     drifted = 0
     for business in businesses:
-        assert business.stripe_account_id is not None
+        stale = await stale_accounts(db, business.id)
+        if stale:
+            drifted += 1
+            db.add(_drift(business.id, "ledger.cache_drift", {"account_ids": stale}))
+        if business.stripe_account_id is None:
+            continue
         ours = await balance(
             db, business.id, owner_type="business", owner_id=business.id, category="stripe"
         )
-        theirs = await gateway.get_balance_cents(business.stripe_account_id, currency="CAD")
+        theirs = await gateway.get_balance_cents(
+            business.stripe_account_id, currency=BUSINESS_CURRENCY
+        )
         if ours != theirs:
             drifted += 1
             db.add(
-                Audit(
-                    id=new_id("audit"),
-                    business_id=business.id,
-                    action="ledger.drift",
-                    entity_type="business",
-                    entity_id=business.id,
-                    changes={"ledger_cents": ours, "stripe_cents": theirs},
-                )
+                _drift(business.id, "ledger.drift", {"ledger_cents": ours, "stripe_cents": theirs})
             )
     await db.commit()
     return drifted

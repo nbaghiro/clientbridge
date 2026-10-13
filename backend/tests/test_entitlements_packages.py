@@ -11,7 +11,7 @@ from clientbridge.models.catalog import Item, Package
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from tests.conftest import BIZ, Factory, FakePaymentGateway
-from tests.helpers import client_id, enable_payments, key, settle
+from tests.helpers import client_id, enable_payments, key, provider_ref, settle, stripe_event
 
 PKG_ITEM = "it_pkg5"  # seeded package item: price $200, session_count = 5, GST+PST taxable
 PKG_TAXED = 21000  # $200 + GST 5%; animal services are PST exempt
@@ -281,6 +281,53 @@ async def test_refund_cancels_settled_package(
     assert refunded.status_code == 200, refunded.text
     pkg = (await db.execute(select(Package).where(Package.id == body["package_id"]))).scalar_one()
     assert pkg.status == "canceled"
+
+
+async def _settled_package(as_owner: httpx.AsyncClient, db: AsyncSession, event: str) -> Package:
+    body = (
+        await as_owner.post(
+            "/v1/packages",
+            json={"client_id": CARD_CLIENT, "item_id": PKG_ITEM, "payment_method_id": "default"},
+        )
+    ).json()
+    await settle(as_owner, db, body["payment_id"], event)
+    return (await db.execute(select(Package).where(Package.id == body["package_id"]))).scalar_one()
+
+
+async def test_a_lost_chargeback_cancels_the_package(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    """Otherwise consume_session keeps granting sessions the business was never paid for."""
+    await enable_payments(db)
+    pkg = await _settled_package(as_owner, db, "evt_pkg_dispute")
+    assert pkg.payment_id is not None
+    pi = await provider_ref(db, pkg.payment_id)
+    dispute = {"id": "dp_pkg", "payment_intent": pi, "amount": PKG_TAXED}
+    await stripe_event(as_owner, "charge.dispute.created", {**dispute, "status": "needs_response"})
+    assert await _package_status(db, pkg.id) == "active"  # the case is open; it may still be won
+    await stripe_event(as_owner, "charge.dispute.closed", {**dispute, "status": "lost"})
+    assert await _package_status(db, pkg.id) == "canceled"
+    refused = await as_owner.post(f"/v1/packages/{pkg.id}/consume", headers=key())
+    assert refused.status_code == 409
+
+
+async def test_a_refund_that_fails_restores_the_package(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    pkg = await _settled_package(as_owner, db, "evt_pkg_refund_fails")
+    assert pkg.payment_id is not None
+    pi = await provider_ref(db, pkg.payment_id)
+    refund = {"id": "re_pkg", "payment_intent": pi, "amount": PKG_TAXED}
+    await stripe_event(as_owner, "refund.created", {**refund, "status": "succeeded"})
+    assert await _package_status(db, pkg.id) == "canceled"
+    await stripe_event(as_owner, "refund.updated", {**refund, "status": "failed"})
+    assert await _package_status(db, pkg.id) == "active"
+
+
+async def _package_status(db: AsyncSession, package_id: str) -> str:
+    query = select(Package.status).where(Package.id == package_id)
+    return str((await db.execute(query.execution_options(populate_existing=True))).scalar_one())
 
 
 async def test_consume_replays_on_the_same_key(

@@ -101,6 +101,7 @@ def _builders() -> dict[str, Render]:
             n._estimate_declined(c, 7, "Too far") + n._estimate_declined(c, 7, None)
         ),
         "_payment_failed": lambda c: n._payment_failed(c, amount(c), NAME),
+        "_refund_failed": lambda c: n._refund_failed(c, amount(c), NAME),
         "_refund": lambda c: (
             n._refund(c, amount(c), NAME, "CN-1") + n._refund(c, amount(c), NAME, None)
         ),

@@ -2219,6 +2219,13 @@ async def replace_demo_rows(session: AsyncSession, ctx: DemoContext) -> None:
     )
     if shared_users is not None:
         raise ValueError("Seeded users belong to another business; refusing to replace them")
+    await purge_businesses(session, business_ids, user_ids)
+
+
+async def purge_businesses(
+    session: AsyncSession, business_ids: list[str], user_ids: list[str]
+) -> None:
+    """Delete these businesses' rows and users; pausing the append-only trigger needs the owner."""
     await session.execute(
         update(Payment).where(Payment.business_id.in_(business_ids)).values(booking_id=None)
     )

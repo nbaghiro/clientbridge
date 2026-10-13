@@ -78,6 +78,7 @@ class GatewayEvent:
     type: str
     data: dict[str, object]
     account: str | None = None  # the connected account a Connect event came from
+    created: datetime | None = None  # when Stripe raised it: the success time of a succeeded event
 
 
 @dataclass(frozen=True)
@@ -215,9 +216,17 @@ class PaymentGateway(Protocol):
         ...
 
     async def refund(
-        self, account_id: str, *, payment_intent_id: str, amount_cents: int, idempotency_key: str
+        self,
+        account_id: str,
+        *,
+        payment_intent_id: str,
+        amount_cents: int,
+        idempotency_key: str,
+        refund_application_fee: bool = False,
     ) -> RefundResult: ...
-    async def get_payment_fees(self, account_id: str, *, payment_intent_id: str) -> ChargeFees:
+    async def get_payment_fees(
+        self, account_id: str, *, payment_intent_id: str
+    ) -> ChargeFees | None:
         """Stripe's processing fee + our application fee off the charge's balance transaction."""
         ...
 
@@ -604,11 +613,18 @@ class StripeGateway:
 
     @_keyed
     async def refund(  # pragma: no cover
-        self, account_id: str, *, payment_intent_id: str, amount_cents: int, idempotency_key: str
+        self,
+        account_id: str,
+        *,
+        payment_intent_id: str,
+        amount_cents: int,
+        idempotency_key: str,
+        refund_application_fee: bool = False,
     ) -> RefundResult:
         refund = await stripe.Refund.create_async(
             payment_intent=payment_intent_id,
             amount=amount_cents,
+            refund_application_fee=refund_application_fee,
             stripe_account=account_id,
             idempotency_key=idempotency_key,
         )
@@ -623,7 +639,7 @@ class StripeGateway:
     @_keyed
     async def get_payment_fees(  # pragma: no cover
         self, account_id: str, *, payment_intent_id: str
-    ) -> ChargeFees:
+    ) -> ChargeFees | None:
         intent = await stripe.PaymentIntent.retrieve_async(
             payment_intent_id,
             expand=["latest_charge.balance_transaction"],
@@ -637,8 +653,8 @@ class StripeGateway:
         txn = getattr(charge, "balance_transaction", None) if charge else None
         if isinstance(txn, str):
             txn = await stripe.BalanceTransaction.retrieve_async(txn, stripe_account=account_id)
-        if not txn:
-            return ChargeFees(0, 0, None)
+        if not txn:  # the balance transaction lands shortly after the charge; retry then
+            return None
         details = [(str(d.type), int(d.amount)) for d in txn.fee_details]
         return ChargeFees(
             processing_fee_cents=sum(a for t, a in details if t != "application_fee"),
@@ -723,11 +739,13 @@ class StripeGateway:
         event = json.loads(payload)
         obj = event["data"]["object"]
         account = event.get("account")
+        created = event.get("created")
         return GatewayEvent(
             id=str(event["id"]),
             type=str(event["type"]),
             data={str(k): v for k, v in obj.items()},
             account=str(account) if account else None,
+            created=datetime.fromtimestamp(created, tz=UTC) if isinstance(created, int) else None,
         )
 
 

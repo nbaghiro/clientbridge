@@ -230,6 +230,12 @@ msgstr ""
 msgid "refund.subject"
 msgstr ""
 
+msgid "refund_failed.body"
+msgstr ""
+
+msgid "refund_failed.subject"
+msgstr ""
+
 msgid "registration_code.body"
 msgid_plural "registration_code.body"
 msgstr[0] ""

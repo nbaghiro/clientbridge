@@ -275,6 +275,13 @@ def _refund(
     return message(locale, "refund.subject", business=business_name), body
 
 
+def _refund_failed(locale: str, amount: str, business_name: str) -> tuple[str, str]:
+    return (
+        message(locale, "refund_failed.subject", business=business_name),
+        message(locale, "refund_failed.body", amount=amount, business=business_name),
+    )
+
+
 def _subscription_past_due(locale: str, business_name: str) -> tuple[str, str]:
     return (
         message(locale, "subscription_past_due.subject", business=business_name),
@@ -655,6 +662,19 @@ class Notifier:
         locale = locale_for(business=business)
         amount = format_money(locale, payment.amount_cents, payment.currency)
         subject, body = _refund(locale, amount, business.name, payment.credit_note)
+        await self._to_client(db, payment.client_id, subject, body)
+
+    async def on_refund_failed(self, db: AsyncSession, refund_payment_id: str) -> None:
+        """Tell the client a refund they were told about bounced at their bank."""
+        payment = await db.get(Payment, refund_payment_id)
+        if payment is None or not payment.refund_notify or payment.status == "succeeded":
+            return
+        business = await db.get(Business, payment.business_id)
+        if business is None:
+            return
+        locale = locale_for(business=business)
+        amount = format_money(locale, payment.amount_cents, payment.currency)
+        subject, body = _refund_failed(locale, amount, business.name)
         await self._to_client(db, payment.client_id, subject, body)
 
     async def on_payment_failed(self, db: AsyncSession, payment_id: str) -> None:

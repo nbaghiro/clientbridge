@@ -21,7 +21,7 @@ from clientbridge.integrations.twilio import valid_twilio_signature
 from clientbridge.schemas.auth import AuthEmailIn
 from clientbridge.services.messaging import process_inbound_sms
 from clientbridge.services.notifications import Notifier, send_auth_email
-from clientbridge.services.payments import process_stripe_event
+from clientbridge.services.payments import WebhookOutcome, process_stripe_event
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
@@ -42,22 +42,28 @@ async def stripe_webhook(
     except WebhookVerificationError:
         return Response(status_code=400)
     if outcome is not None:  # post-commit so a notify failure can't roll back the settlement
-        notifier = Notifier(email, sms, push)
-        if outcome.notify == "payment":
-            await notifier.on_payment_succeeded(db, outcome.target_id)
-        elif outcome.notify == "gift_card_issued":
-            await notifier.on_gift_card_issued(db, outcome.target_id)
-        elif outcome.notify == "payment_failed":
-            await notifier.on_payment_failed(db, outcome.target_id)
-        elif outcome.notify == "refund":
-            await notifier.on_refund(db, outcome.target_id)
-        elif outcome.notify == "payment_disputed":
-            await notifier.on_payment_disputed(db, outcome.target_id)
-        elif outcome.notify == "subscription_past_due":
-            await notifier.on_subscription_past_due(db, outcome.target_id)
-        elif outcome.notify == "subscription_canceled":
-            await notifier.on_subscription_canceled(db, outcome.target_id)
+        await _notify(Notifier(email, sms, push), db, outcome)
     return Response(status_code=200)
+
+
+async def _notify(notifier: Notifier, db: DbSession, outcome: WebhookOutcome) -> None:
+    match outcome.notify:
+        case "payment":
+            await notifier.on_payment_succeeded(db, outcome.target_id)
+        case "gift_card_issued":
+            await notifier.on_gift_card_issued(db, outcome.target_id)
+        case "payment_failed":
+            await notifier.on_payment_failed(db, outcome.target_id)
+        case "refund":
+            await notifier.on_refund(db, outcome.target_id)
+        case "refund_failed":
+            await notifier.on_refund_failed(db, outcome.target_id)
+        case "payment_disputed":
+            await notifier.on_payment_disputed(db, outcome.target_id)
+        case "subscription_past_due":
+            await notifier.on_subscription_past_due(db, outcome.target_id)
+        case "subscription_canceled":
+            await notifier.on_subscription_canceled(db, outcome.target_id)
 
 
 @router.post("/sms")

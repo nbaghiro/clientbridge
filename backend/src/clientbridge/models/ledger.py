@@ -71,6 +71,7 @@ class Account(PKMixin, BusinessScoped, TimestampMixin, Base):
     category: Mapped[AccountCategory] = mapped_column(String, nullable=False)
     code: Mapped[str] = mapped_column(String, default="", nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="CAD", nullable=False)
+    # maintained by the entries trigger alone; any other write is rejected (migration cb0005)
     balance_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
 
 

@@ -1,19 +1,22 @@
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
+import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.integrations.stripe import ChargeFees, GatewayEvent
 from clientbridge.models.business import Business
 from clientbridge.models.ledger import Entry
 from clientbridge.models.payments import Payment, PaymentMethod
-from clientbridge.models.platform import Device, Webhook
+from clientbridge.models.platform import Audit, Device, Webhook
 from clientbridge.services import ledger
 from clientbridge.services.business import kyc_status
-from tests.conftest import FakePushSender
-from tests.helpers import client_id, column
+from clientbridge.services.payments import _record_failed_delivery
+from tests.conftest import FakePaymentGateway, FakePushSender
+from tests.helpers import client_id, column, enable_payments, sent_invoice
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -317,14 +320,13 @@ async def test_our_unrecorded_intent_is_retried_not_acknowledged(
     res = await api.post("/webhooks/stripe", content=body, headers=GOOD)
     assert res.status_code == 503
     await db.rollback()  # the request's session closes uncommitted
-    seen = (
-        await db.execute(select(Webhook.id).where(Webhook.id == "evt_early"))
-    ).scalar_one_or_none()
-    assert seen is None
+    deferred = await db.execute(select(Webhook).where(Webhook.id == "evt_early"))
+    assert deferred.scalar_one_or_none() is None  # a deliberate retry is not a failure
     pay_id = await _pending_payment(db, "pi_early")
     assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
     status = (await db.execute(select(Payment.status).where(Payment.id == pay_id))).scalar_one()
     assert status == "succeeded"
+    assert await column(db, "webhooks", "evt_early", "status") == "processed"
 
 
 async def test_foreign_intent_is_acknowledged(api: httpx.AsyncClient) -> None:
@@ -414,11 +416,211 @@ async def test_dispute_state_follows_the_case(api: httpx.AsyncClient, db: AsyncS
     assert await column(db, "payments", payment.id, "dispute_status") == "won"
 
 
-async def test_update_for_an_unknown_dispute_changes_nothing(
+async def test_an_update_for_an_unseen_dispute_books_it(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
+    """A missed or inquiry-stage `created` must not leave the withdrawn funds unbooked."""
     payment = await _succeeded_payment(db, "pi_quiet")
+    before = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")
     body = _dispute_event("evt_quiet", "charge.dispute.updated", "pi_quiet", "under_review")
     assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
     await db.refresh(payment)
-    assert payment.dispute_status is None
+    assert payment.dispute_status == "under_review"
+    after = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")
+    assert before - after == 8000
+
+
+async def test_a_raising_handler_leaves_a_failed_row_the_retry_then_processes(
+    api: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await enable_payments(db)
+    pay_id = await _pending_payment(db, "pi_flaky")
+    fees = gateway.get_payment_fees
+
+    async def boom(account_id: str, *, payment_intent_id: str) -> ChargeFees | None:
+        raise RuntimeError("stripe is down")
+
+    monkeypatch.setattr(gateway, "get_payment_fees", boom)
+    await db.commit()
+    body = _intent_event("evt_flaky", "payment_intent.succeeded", "pi_flaky")
+    with pytest.raises(RuntimeError):
+        await api.post("/webhooks/stripe", content=body, headers=GOOD)
+    await db.rollback()
+    assert await column(db, "webhooks", "evt_flaky", "status") == "failed"
+    status = (await db.execute(select(Payment.status).where(Payment.id == pay_id))).scalar_one()
+    assert status == "pending"
+    monkeypatch.setattr(gateway, "get_payment_fees", fees)
+    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+    assert await column(db, "webhooks", "evt_flaky", "status") == "processed"
+    status = (await db.execute(select(Payment.status).where(Payment.id == pay_id))).scalar_one()
+    assert status == "succeeded"
+
+
+async def test_an_inquiry_that_escalates_books_the_dispute(
+    api: httpx.AsyncClient, db: AsyncSession, push: FakePushSender
+) -> None:
+    """Stripe withdraws the funds when an inquiry becomes a chargeback, not when it opened."""
+    payment = await _succeeded_payment(db, "pi_esc")
+    db.add(Device(id="dvt_esc", business_id=BIZ, user_id="us_dev", token="ExpoTok", platform="ios"))
+    await db.flush()
+    before = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")
+    opened = _dispute_event("evt_esc", "charge.dispute.created", "pi_esc", "warning_needs_response")
+    assert (await api.post("/webhooks/stripe", content=opened, headers=GOOD)).status_code == 200
+    assert await _dispute_entries(db, payment.id) == 0
+    assert push.sent == []
+    for event_id, event_type in (
+        ("evt_esc_2", "charge.dispute.updated"),
+        ("evt_esc_3", "charge.dispute.funds_withdrawn"),
+    ):
+        body = _dispute_event(event_id, event_type, "pi_esc", "needs_response")
+        assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+        after = await ledger.balance(
+            db, BIZ, owner_type="business", owner_id=BIZ, category="stripe"
+        )
+        assert before - after == 8000  # booked once, on the escalation
+        assert sum("disput" in p.body.lower() for p in push.sent) == 1
+    await db.refresh(payment)
+    assert payment.dispute_status == "needs_response"
+    lost = _dispute_event("evt_esc_4", "charge.dispute.closed", "pi_esc", "lost")
+    assert (await api.post("/webhooks/stripe", content=lost, headers=GOOD)).status_code == 200
+    assert payment.client_id is not None
+    owed = await ledger.balance(
+        db, BIZ, owner_type="client", owner_id=payment.client_id, category="receivable"
+    )
+    assert owed == 0
+
+
+async def test_an_intent_from_another_account_is_not_booked(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9400, total=5000)
+    body = json.dumps(
+        {
+            "id": "evt_acct",
+            "type": "payment_intent.succeeded",
+            "account": "acct_other",
+            "data": {
+                "object": {
+                    "id": "pi_acct",
+                    "amount": 5000,
+                    "currency": "cad",
+                    "metadata": {"business_id": BIZ, "invoice_id": inv_id},
+                }
+            },
+        }
+    )
+    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+    rows = await db.execute(select(Payment.id).where(Payment.provider_ref == "pi_acct"))
+    assert rows.scalar_one_or_none() is None
+
+
+async def test_an_orphaned_purchase_is_refunded_once(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    """A purchase charged off-session whose command never committed has nothing to activate."""
+    await enable_payments(db)
+    obj = {
+        "id": "pi_orphan",
+        "amount": 3000,
+        "currency": "cad",
+        "created": int((datetime.now(UTC) - timedelta(hours=2)).timestamp()),
+        "metadata": {"business_id": BIZ, "gift_card_id": "gc_never"},
+    }
+    for event_id in ("evt_orphan_1", "evt_orphan_2"):
+        body = json.dumps(
+            {
+                "id": event_id,
+                "type": "payment_intent.succeeded",
+                "account": "acct_test",
+                "data": {"object": obj},
+            }
+        )
+        assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+    assert gateway.refunds == [("pi_orphan", 3000, True)]
+    audits = await db.execute(
+        select(Audit).where(
+            Audit.action == "payment.orphan_refunded", Audit.entity_id == "pi_orphan"
+        )
+    )
+    assert [a.changes["amount_cents"] for a in audits.scalars()] == [3000]
+
+
+async def test_a_fresh_purchase_without_its_row_is_retried_not_refunded(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    """Its command may still be committing: the card was charged inside the Stripe call."""
+    await enable_payments(db)
+    await db.commit()
+    body = _intent_event(
+        "evt_fresh",
+        "payment_intent.succeeded",
+        "pi_fresh",
+        amount=3000,
+        created=int(datetime.now(UTC).timestamp()),
+        metadata={"business_id": BIZ, "package_id": "pkg_committing"},
+    )
+    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 503
+    assert gateway.refunds == []
+
+
+async def test_a_refund_of_a_charge_still_settling_is_retried(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    """Card refunds send no later update, so dropping this one would lose it for good."""
+    pay_id = await _pending_payment(db, "pi_unsettled")
+    await db.commit()
+    refund = {"id": "re_early", "payment_intent": "pi_unsettled", "amount": 4000}
+    body = json.dumps({"id": "evt_re_early", "type": "refund.created", "data": {"object": refund}})
+    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 503
+    await db.rollback()
+    settled = _intent_event("evt_unsettled_ok", "payment_intent.succeeded", "pi_unsettled")
+    assert (await api.post("/webhooks/stripe", content=settled, headers=GOOD)).status_code == 200
+    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+    rows = await db.execute(
+        select(Payment.amount_cents).where(
+            Payment.parent_payment_id == pay_id, Payment.kind == "refund"
+        )
+    )
+    assert rows.scalars().all() == [4000]
+
+
+async def test_a_dispute_closed_before_it_was_booked_is_written_off(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    payment = await _succeeded_payment(db, "pi_unseen_lost")
+    assert payment.client_id is not None
+    before = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")
+    lost = _dispute_event("evt_unseen_lost", "charge.dispute.closed", "pi_unseen_lost", "lost")
+    assert (await api.post("/webhooks/stripe", content=lost, headers=GOOD)).status_code == 200
+    after = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")
+    assert before - after == 8000
+    owed = await ledger.balance(
+        db, BIZ, owner_type="client", owner_id=payment.client_id, category="receivable"
+    )
+    assert owed == 0
+    assert await column(db, "payments", payment.id, "dispute_status") == "lost"
+    written_off = await db.execute(
+        select(Entry.id).where(Entry.ref == "dispute:dp_pi_unseen_lost:lost")
+    )
+    assert written_off.scalars().first() is not None
+
+
+async def test_a_failed_delivery_never_overwrites_a_processed_row(db: AsyncSession) -> None:
+    db.add(
+        Webhook(
+            id="evt_done",
+            provider="stripe",
+            event="payout.paid",
+            payload={},
+            status="processed",
+            processed_at=datetime.now(UTC),
+        )
+    )
+    await db.flush()
+    event = GatewayEvent(id="evt_done", type="payout.paid", data={})
+    await _record_failed_delivery(db, event, RuntimeError("the loser of a race"))
+    assert await column(db, "webhooks", "evt_done", "status") == "processed"
