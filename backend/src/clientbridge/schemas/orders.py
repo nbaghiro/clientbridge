@@ -124,7 +124,7 @@ class PublicReceiptPayment(Mirror):
     mirrors = Payment
 
     kind: PaymentKind
-    method: PayMethod
+    method: PayMethod | None
     amount_cents: int
     tip_cents: int = 0
     at: datetime | None

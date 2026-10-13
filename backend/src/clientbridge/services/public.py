@@ -671,16 +671,15 @@ class PublicManageService:
             raise NotFound("client not found")
 
         async def run(cmd: Command) -> ManageMessageResult:
-            thread = await open_thread(
-                self.db, business.id, client.id, "sms" if client.phone else "email"
-            )
+            channel: Channel = "sms" if client.phone else "email"
+            thread = await open_thread(self.db, business.id, client.id, channel)
             thread.status = "open"
             message = Message(
                 id=new_id("message"),
                 business_id=business.id,
                 thread_id=thread.id,
                 direction="in",
-                channel=thread.channel,
+                channel=channel,
                 body=data.body,
                 status="delivered",
             )
@@ -1458,9 +1457,7 @@ class PublicReceiptService:
         if applied > 0:
             rows.insert(
                 0,
-                PublicReceiptPayment(
-                    kind="deposit", method="deposit", amount_cents=applied, at=None
-                ),
+                PublicReceiptPayment(kind="deposit", method=None, amount_cents=applied, at=None),
             )
         return PublicReceipt(
             number=order.number,

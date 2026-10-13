@@ -30,7 +30,7 @@ from clientbridge.integrations.twilio import SmsSender
 from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
-from clientbridge.models.clients import Client, Note, Subject
+from clientbridge.models.clients import Channel, Client, Note, Subject
 from clientbridge.models.messaging import Message
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
@@ -1738,7 +1738,8 @@ class ClassService:
         async def run(cmd: Command) -> ClassMessageOut:
             sent = 0
             for client in clients:
-                channel, to = ("sms", client.phone) if client.phone else ("email", client.email)
+                channel: Channel = "sms" if client.phone else "email"
+                to = client.phone or client.email
                 if not to:
                     continue
                 thread = await open_thread(self.db, self.biz, client.id, channel)

@@ -112,6 +112,32 @@ async def test_a_visit_on_the_sale_carries_its_deposit_and_reads_charged(
     assert await ledger.deposit_held(db, charged) == 0
 
 
+async def test_the_receipt_lists_the_applied_deposit_without_a_method(
+    as_owner: httpx.AsyncClient, unauth: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    booking = (
+        await db.execute(select(Booking).where(Booking.deposit_status == "collected").limit(1))
+    ).scalar_one()
+    held = await ledger.deposit_held(db, booking)
+    line = {"description": "Visit", "unit_amount_cents": 5000, "booking_id": booking.id}
+    sale = ok(
+        await as_owner.post("/v1/orders", json={"client_id": booking.client_id, "lines": [line]}),
+        201,
+    ).json()
+    await _cash(as_owner, sale["id"], sale["due_cents"])
+    ok(
+        await as_owner.post(
+            f"/v1/orders/{sale['id']}/receipt", json={"channel": "email", "to": "pat@example.ca"}
+        )
+    )
+    order = await db.get(Order, sale["id"], populate_existing=True)
+    assert order is not None and order.receipt_token is not None
+    page = ok(await unauth.get(f"/receipt/{order.receipt_token}")).json()
+    deposit, paid = page["payments"]
+    assert (deposit["kind"], deposit["method"], deposit["amount_cents"]) == ("deposit", None, held)
+    assert (paid["kind"], paid["method"]) == ("payment", "cash")
+
+
 async def test_voiding_a_sale_frees_its_visit(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

@@ -37,6 +37,7 @@ from clientbridge.models.payments import (
     Payment,
     PaymentKind,
     PaymentMethod,
+    PaymentProvider,
     PaymentSetupLink,
     PaymentStatus,
 )
@@ -548,7 +549,9 @@ class PaymentService:
                 raise Conflict("invalid refund amount")
             if whole_only and (refunded > 0 or amount != payment.amount_cents):
                 raise Conflict(whole_only)
-            status, provider, ref = "succeeded", "manual", None
+            status: PaymentStatus = "succeeded"
+            provider: PaymentProvider = "manual"
+            ref: str | None = None
             if not by_hand:
                 assert account_id is not None and provider_ref is not None
                 attempt_key = hash_token(idempotency_key) if idempotency_key else str(attempts)
