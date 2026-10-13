@@ -17,7 +17,7 @@ boot() {
 
 case "$1" in
 install)
-    yes | "$tools/sdkmanager" --licenses > /dev/null
+    (yes || true) | "$tools/sdkmanager" --licenses > /dev/null
     "$tools/sdkmanager" --install "$IMAGE" > /dev/null
     # after the image, whose install pulls in the latest emulator as a dependency
     rm -rf "$sdk/emulator"
