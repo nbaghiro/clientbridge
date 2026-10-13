@@ -178,7 +178,11 @@ Built: the Stripe adapter for plan Checkout (customer account, flexible billing 
 To do:
 - The plan columns on `businesses`, the plan endpoints, the subscription webhook handler, seat billing, the trial reminder job and the read-only gate (the schema change needs approval first).
 - The web plan page, the shell notices and the read-only plan section on mobile.
-- Live mode: run the setup against the live account to create the products, prices, portal configuration and platform endpoint, and set `STRIPE_PLATFORM_WEBHOOK_SECRET` and `STRIPE_PORTAL_CONFIGURATION` in production.
+- Live mode: `scripts.stripe_setup` refuses live mode, so create the objects in the live Dashboard with the same ids and metadata the script uses, so a later sandbox comparison and the backend find them:
+  - Products `clientbridge_premium`, `clientbridge_team` and `clientbridge_seat` with tax code `txcd_10103001`.
+  - CAD recurring prices, tax behaviour exclusive, with lookup keys `premium_month` (49.99), `premium_year` (499.90), `team_month` (99.99), `team_year` (999.90) and `seat_month` (10.00).
+  - A Billing Portal configuration with `metadata.clientbridge=portal`: payment method update, invoice history, email and address updates, cancellation at period end, no subscription update, return URL `https://<web host>/setup/plan`. Its id goes in `STRIPE_PORTAL_CONFIGURATION`.
+  - Webhook endpoints at the pinned API version: the Connect endpoint (`connect=true`, `metadata.clientbridge=connect_webhook`) and the platform endpoint (`connect=false`, `metadata.clientbridge=platform_webhook`) for `customer.subscription.created`, `.updated` and `.deleted`, whose signing secret goes in `STRIPE_PLATFORM_WEBHOOK_SECRET`; and the thin event destination (`metadata.clientbridge=account_events`). Production refuses to start without `STRIPE_PLATFORM_WEBHOOK_SECRET` and `STRIPE_PORTAL_CONFIGURATION`.
 - Dashboard: Stripe Tax with the head office address and our GST/HST and QST registrations, Billing customer emails, and Smart Retries that cancel the subscription after the last retry.
 
 QA:
