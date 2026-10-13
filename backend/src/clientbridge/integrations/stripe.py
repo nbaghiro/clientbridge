@@ -276,8 +276,27 @@ class SubscriptionResult:
 
 @dataclass(frozen=True)
 class PlanItem:
+    """An item a plan should have: the price that currently holds this lookup key."""
+
     lookup_key: str
     quantity: int = 1
+
+
+@dataclass(frozen=True)
+class PlanPriceRef:
+    id: str
+    product: str
+    interval: str
+
+
+@dataclass(frozen=True)
+class SubscribedItem:
+    """An item on a subscription, named by its fixed product id and billing interval."""
+
+    product: str
+    interval: str
+    quantity: int
+    current_period_end: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -286,7 +305,7 @@ class PlanSubscription:
     status: str
     customer_account: str | None
     business_id: str | None  # the metadata Checkout copied onto the subscription
-    items: tuple[PlanItem, ...]
+    items: tuple[SubscribedItem, ...]
     current_period_end: datetime | None
     cancel_at_period_end: bool
     trial_end: datetime | None
@@ -296,14 +315,31 @@ def _moment(value: object) -> datetime | None:
     return datetime.fromtimestamp(value, tz=UTC) if isinstance(value, int) else None
 
 
+def _identity(row: dict[str, object]) -> tuple[str, str] | None:
+    # a price keeps its product and interval for life, while a lookup key can move to a new price
+    price = _dict(row.get("price"))
+    product = price.get("product")
+    product_id = product if isinstance(product, str) else _dict(product).get("id")
+    interval = _dict(price.get("recurring")).get("interval")
+    if isinstance(product_id, str) and isinstance(interval, str):
+        return product_id, interval
+    return None
+
+
 def plan_subscription_from(data: dict[str, object]) -> PlanSubscription:
-    """A platform subscription (snapshot or fetched) with its items named by price lookup key."""
-    items: list[PlanItem] = []
+    """A platform subscription (snapshot or fetched) with its items named by product."""
+    items: list[SubscribedItem] = []
     for row in _rows(_dict(data.get("items")).get("data")):
-        key = _dict(row.get("price")).get("lookup_key")
+        identity = _identity(row)
         quantity = row.get("quantity")
-        if isinstance(key, str):
-            items.append(PlanItem(key, quantity if isinstance(quantity, int) else 1))
+        if identity is not None:
+            items.append(
+                SubscribedItem(
+                    *identity,
+                    quantity=quantity if isinstance(quantity, int) else 1,
+                    current_period_end=_moment(row.get("current_period_end")),
+                )
+            )
     customer_account = data.get("customer_account")
     business_id = _dict(data.get("metadata")).get("business_id")
     return PlanSubscription(
@@ -319,18 +355,26 @@ def plan_subscription_from(data: dict[str, object]) -> PlanSubscription:
 
 
 def plan_item_changes(
-    subscription: dict[str, object], items: Sequence[PlanItem], price_ids: Mapping[str, str]
+    subscription: dict[str, object],
+    items: Sequence[PlanItem],
+    prices: Mapping[str, PlanPriceRef],
 ) -> list[dict[str, object]]:
-    """The subscription item updates that leave exactly these items, keeping matching ones."""
-    wanted = {item.lookup_key: item.quantity for item in items}
+    """The item updates that leave exactly these items, keeping each matching item's own price."""
+    # matching by product and interval keeps a subscriber on a price later replaced for new ones
+    wanted = {
+        (prices[item.lookup_key].product, prices[item.lookup_key].interval): item for item in items
+    }
     changes: list[dict[str, object]] = []
     for row in _rows(_dict(subscription.get("items")).get("data")):
-        key = _dict(row.get("price")).get("lookup_key")
-        if isinstance(key, str) and key in wanted:
-            changes.append({"id": row.get("id"), "quantity": wanted.pop(key)})
-        else:
+        identity = _identity(row)
+        match = wanted.pop(identity, None) if identity is not None else None
+        if match is None:
             changes.append({"id": row.get("id"), "deleted": True})
-    changes += [{"price": price_ids[key], "quantity": qty} for key, qty in wanted.items()]
+        elif row.get("quantity") != match.quantity:
+            changes.append({"id": row.get("id"), "quantity": match.quantity})
+    changes += [
+        {"price": prices[item.lookup_key].id, "quantity": item.quantity} for item in wanted.values()
+    ]
     return changes
 
 
@@ -358,8 +402,8 @@ def has_identity_address(account: dict[str, object]) -> bool:
 CUSTOMER_CONFIGURATION: dict[str, object] = {
     "capabilities": {"automatic_indirect_tax": {"requested": True}}
 }
-# lookup key -> price id; a key moves to a new price only through stripe_setup and a restart
-_PLAN_PRICE_IDS: dict[str, str] = {}
+# a key moves to a new price only through stripe_setup, and the API restarts after it
+_PLAN_PRICES: dict[str, PlanPriceRef] = {}
 
 
 class WebhookVerificationError(Exception):
@@ -667,20 +711,23 @@ class StripeGateway:
             account_id, cast(AccountUpdateParams, body)
         )
 
-    async def _price_ids(self, keys: Sequence[str]) -> dict[str, str]:
-        missing = [key for key in keys if key not in _PLAN_PRICE_IDS]
+    async def _prices(self, keys: Sequence[str]) -> dict[str, PlanPriceRef]:
+        missing = [key for key in keys if key not in _PLAN_PRICES]
         if missing:
             prices = await stripe.Price.list_async(lookup_keys=missing, active=True)
             for price in prices.data:
-                if price.lookup_key is not None:
-                    _PLAN_PRICE_IDS[price.lookup_key] = price.id
-        unknown = [key for key in keys if key not in _PLAN_PRICE_IDS]
+                product = price.product if isinstance(price.product, str) else price.product.id
+                if price.lookup_key is not None and price.recurring is not None:
+                    _PLAN_PRICES[price.lookup_key] = PlanPriceRef(
+                        price.id, product, price.recurring.interval
+                    )
+        unknown = [key for key in keys if key not in _PLAN_PRICES]
         if unknown:
             raise PaymentsNotConfigured(
                 f"no active Stripe price has the lookup key {', '.join(unknown)}; "
                 "run scripts.stripe_setup"
             )
-        return {key: _PLAN_PRICE_IDS[key] for key in keys}
+        return {key: _PLAN_PRICES[key] for key in keys}
 
     @_keyed
     async def create_plan_checkout(
@@ -694,7 +741,7 @@ class StripeGateway:
         cancel_url: str,
         idempotency_key: str,
     ) -> str:
-        prices = await self._price_ids([item.lookup_key for item in items])
+        prices = await self._prices([item.lookup_key for item in items])
         subscription: SessionCreateParamsSubscriptionData = {
             # flexible billing lets a yearly plan carry a monthly seat item
             "billing_mode": {"type": "flexible"},
@@ -706,7 +753,7 @@ class StripeGateway:
             mode="subscription",
             customer_account=account_id,
             line_items=[
-                {"price": prices[item.lookup_key], "quantity": item.quantity} for item in items
+                {"price": prices[item.lookup_key].id, "quantity": item.quantity} for item in items
             ],
             subscription_data=subscription,
             automatic_tax={"enabled": True},
@@ -741,7 +788,7 @@ class StripeGateway:
         self, subscription_id: str, *, items: Sequence[PlanItem], idempotency_key: str
     ) -> PlanSubscription:
         sub = await stripe.Subscription.retrieve_async(subscription_id)
-        prices = await self._price_ids([item.lookup_key for item in items])
+        prices = await self._prices([item.lookup_key for item in items])
         changes = plan_item_changes(sub.to_dict(), items, prices)
         updated = await stripe.Subscription.modify_async(
             subscription_id,

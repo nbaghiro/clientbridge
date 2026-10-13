@@ -19,6 +19,7 @@ from clientbridge.integrations.stripe import (
     PlanItem,
     PlanSubscription,
     PostalAddress,
+    SubscribedItem,
 )
 from clientbridge.models.business import Business, Plan, PlanStatus, Staff
 from clientbridge.schemas.plans import (
@@ -68,6 +69,11 @@ _REMINDER_HOUR = 9
 _REMINDER_LEAD = timedelta(days=3)
 _LIVE: tuple[PlanStatus, ...] = ("active", "past_due")
 _TIERS: dict[str, Plan] = {"premium": "premium", "team": "team"}
+_PRODUCT_TIERS: dict[str, Plan] = {
+    price.product: tier
+    for key, price in PLAN_PRICES.items()
+    if (tier := _TIERS.get(key.partition("_")[0])) is not None
+}
 _INTERVALS: dict[str, PlanInterval] = {"month": "month", "year": "year"}
 _STRIPE_STATUS: dict[str, PlanStatus] = {
     "active": "active",
@@ -172,18 +178,20 @@ def plan_items(plan: Plan, interval: PlanInterval, seats: int) -> list[PlanItem]
     return items
 
 
-def _plan_item(sub: PlanSubscription) -> PlanItem | None:
-    return next((item for item in sub.items if item.lookup_key != SEAT_KEY), None)
+def _plan_item(sub: PlanSubscription) -> SubscribedItem | None:
+    return next((item for item in sub.items if item.product in _PRODUCT_TIERS), None)
 
 
 def _seats_of(sub: PlanSubscription) -> int:
-    return next((item.quantity for item in sub.items if item.lookup_key == SEAT_KEY), 0)
+    seat = PLAN_PRICES[SEAT_KEY].product
+    return next((item.quantity for item in sub.items if item.product == seat), 0)
 
 
 def _tier_of(sub: PlanSubscription) -> tuple[Plan | None, PlanInterval | None]:
     item = _plan_item(sub)
-    tier, _, interval = (item.lookup_key if item else "").partition("_")
-    return _TIERS.get(tier), _INTERVALS.get(interval)
+    if item is None:
+        return None, None
+    return _PRODUCT_TIERS.get(item.product), _INTERVALS.get(item.interval)
 
 
 async def sync_seats(gateway: PaymentGateway, business: Business, seats: int) -> None:
@@ -193,12 +201,12 @@ async def sync_seats(gateway: PaymentGateway, business: Business, seats: int) ->
     if business.plan_status not in _LIVE:
         return
     sub = await gateway.get_plan_subscription(business.stripe_subscription_id)
-    item = _plan_item(sub)
-    if item is None or _seats_of(sub) == seats:
+    tier, interval = _tier_of(sub)
+    if tier is None or interval is None or _seats_of(sub) == seats:
         return
     await gateway.set_plan_items(
         sub.id,
-        items=[item, *([PlanItem(SEAT_KEY, seats)] if seats else [])],
+        items=plan_items(tier, interval, seats),
         idempotency_key=f"plan-seats:{business.id}:{secrets.token_hex(8)}",
     )
 

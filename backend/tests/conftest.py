@@ -58,6 +58,7 @@ from clientbridge.integrations.stripe import (
     RefundResult,
     SetupIntentResult,
     SetupIntentState,
+    SubscribedItem,
     SubscriptionResult,
     WebhookVerificationError,
     event_from,
@@ -70,6 +71,7 @@ from clientbridge.models.business import Business, PlanStatus, Staff, User
 from clientbridge.models.clients import Client
 from clientbridge.models.platform import Audit
 from clientbridge.services import ledger
+from clientbridge.services.plans import PLAN_PRICES
 from clientbridge.services.tax import TaxResult
 from tests.clock import FROZEN
 
@@ -295,6 +297,16 @@ async def session_token(
     return identities.issue(identity_for(user, verified=verified))
 
 
+def subscribed(*items: PlanItem | str) -> tuple[SubscribedItem, ...]:
+    """Subscription items for these prices, named by lookup key as the plan code asks for them."""
+    rows: list[SubscribedItem] = []
+    for item in items:
+        wanted = PlanItem(item) if isinstance(item, str) else item
+        price = PLAN_PRICES[wanted.lookup_key]
+        rows.append(SubscribedItem(price.product, price.interval, wanted.quantity))
+    return tuple(rows)
+
+
 @dataclass(frozen=True)
 class PlanCheckout:
     account_id: str
@@ -399,7 +411,7 @@ class FakePaymentGateway:
     ) -> PlanSubscription:
         self.plan_item_keys.append(idempotency_key)
         current = self.plan_subscriptions[subscription_id]
-        updated = replace(current, items=tuple(items))
+        updated = replace(current, items=subscribed(*items))
         self.plan_subscriptions[subscription_id] = updated
         return updated
 

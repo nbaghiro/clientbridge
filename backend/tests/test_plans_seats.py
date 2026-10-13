@@ -12,7 +12,7 @@ from clientbridge.integrations.stripe import PlanItem, PlanSubscription
 from clientbridge.models.business import Business, Staff
 from clientbridge.services import plans
 from clientbridge.services.plans import run_sync_seats
-from tests.conftest import FakeIdentityProvider, FakePaymentGateway
+from tests.conftest import FakeIdentityProvider, FakePaymentGateway, subscribed
 from tests.helpers import ok
 
 BIZ = "bz_birchbark"
@@ -36,7 +36,7 @@ async def _premium(db: AsyncSession, gateway: FakePaymentGateway, seats: int) ->
         status="active",
         customer_account="acct_paying",
         business_id=BIZ,
-        items=(PlanItem("premium_month"), PlanItem("seat_month", seats)),
+        items=subscribed("premium_month", PlanItem("seat_month", seats)),
         current_period_end=None,
         cancel_at_period_end=False,
         trial_end=None,
@@ -45,7 +45,7 @@ async def _premium(db: AsyncSession, gateway: FakePaymentGateway, seats: int) ->
 
 def _billed(gateway: FakePaymentGateway) -> int:
     items = gateway.plan_subscriptions[SUB].items
-    return next((item.quantity for item in items if item.lookup_key == "seat_month"), 0)
+    return next((item.quantity for item in items if item.product == "clientbridge_seat"), 0)
 
 
 async def _seats(db: AsyncSession) -> int:

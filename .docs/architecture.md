@@ -527,7 +527,8 @@ every account we create carries ours whichever configuration it starts with.
 
 - Prices: Premium and Team, monthly or yearly (a year costs ten months), plus a monthly seat item on
   Premium, all CAD and tax-exclusive, defined in `services/plans.py` `PLAN_PRICES` and found in Stripe by
-  lookup key. Subscriptions use flexible billing mode so a yearly plan can carry the monthly seat item.
+  lookup key. A changed amount moves the key to a new price, so subscription items are named by their
+  fixed product id and interval instead, and an unchanged item stays on the price it was bought at. Subscriptions use flexible billing mode so a yearly plan can carry the monthly seat item.
 - Tax: plan Checkout enables Stripe automatic tax, which locates the account by its identity address. When
   the customer configuration is added to an account that has no identity address yet, the business
   address is set as its `business_details.address`; a verified address is never overwritten. The

@@ -23,6 +23,7 @@ from tests.conftest import (
     FakePushSender,
     FakeSmsSender,
     session_token,
+    subscribed,
 )
 from tests.helpers import STRIPE, key, local_hour, ok
 
@@ -76,7 +77,7 @@ def _sub(
         status=status,
         customer_account=account,
         business_id=BIZ,
-        items=items or (PlanItem("premium_month"),),
+        items=subscribed(*items) if items else subscribed("premium_month"),
         current_period_end=datetime(2030, 2, 1, tzinfo=UTC),
         cancel_at_period_end=False,
         trial_end=None,
@@ -266,7 +267,7 @@ async def test_change_to_team_drops_the_seat_item_and_replays(
     again = ok(await as_owner.post("/v1/plan/change", json=choice, headers=headers)).json()
     assert body == again and len(gateway.plan_item_keys) == 1
     assert (body["plan"], body["interval"]) == ("team", "year")
-    assert gateway.plan_subscriptions[SUB].items == (PlanItem("team_year"),)
+    assert gateway.plan_subscriptions[SUB].items == subscribed("team_year")
     assert (await _business(db)).plan == "team"
 
 
@@ -276,9 +277,8 @@ async def test_change_to_premium_bills_the_current_team(
     await _subscribed(db, gateway, PlanItem("team_month"))
     ok(await as_owner.post("/v1/plan/change", json={"plan": "premium", "interval": "month"}))
     seats = await plans.billed_seats(db, BIZ, datetime.now(UTC))
-    assert gateway.plan_subscriptions[SUB].items == (
-        PlanItem("premium_month"),
-        PlanItem("seat_month", seats),
+    assert gateway.plan_subscriptions[SUB].items == subscribed(
+        "premium_month", PlanItem("seat_month", seats)
     )
     assert (await _business(db)).plan == "premium"
 
@@ -313,7 +313,7 @@ async def test_a_new_subscription_is_adopted_and_its_seats_reconciled(
     assert (business.plan, business.plan_status) == ("premium", "active")
     assert business.stripe_subscription_id == SUB
     seats = await plans.billed_seats(db, BIZ, datetime.now(UTC))
-    assert gateway.plan_subscriptions[SUB].items[1] == PlanItem("seat_month", seats)
+    assert gateway.plan_subscriptions[SUB].items[1] == subscribed(PlanItem("seat_month", seats))[0]
 
 
 @pytest.mark.parametrize(

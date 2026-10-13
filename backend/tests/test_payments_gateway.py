@@ -8,6 +8,7 @@ from clientbridge.core.errors import Conflict, PaymentsNotConfigured
 from clientbridge.integrations import stripe as stripe_module
 from clientbridge.integrations.stripe import (
     PlanItem,
+    PlanPriceRef,
     PostalAddress,
     StripeGateway,
     plan_item_changes,
@@ -80,6 +81,26 @@ async def test_other_invalid_requests_still_raise(
         await gateway.refund("acct_x", payment_intent_id="pi", amount_cents=1, idempotency_key="k")
 
 
+PRODUCTS = {
+    "premium_month": ("clientbridge_premium", "month"),
+    "premium_year": ("clientbridge_premium", "year"),
+    "team_month": ("clientbridge_team", "month"),
+    "team_year": ("clientbridge_team", "year"),
+    "seat_month": ("clientbridge_seat", "month"),
+}
+
+
+def _price(key: str, *, keyed: bool = True) -> dict[str, object]:
+    product, interval = PRODUCTS[key]
+    return {
+        "id": f"price_{key}",
+        "object": "price",
+        "lookup_key": key if keyed else None,
+        "product": product,
+        "recurring": {"interval": interval},
+    }
+
+
 def _subscription(*items: tuple[str, str, int]) -> dict[str, object]:
     return {
         "id": "sub_plan",
@@ -97,7 +118,7 @@ def _subscription(*items: tuple[str, str, int]) -> dict[str, object]:
                     "object": "subscription_item",
                     "quantity": quantity,
                     "current_period_end": 1_900_000_000,
-                    "price": {"id": f"price_{key}", "object": "price", "lookup_key": key},
+                    "price": _price(key.removesuffix("~"), keyed=not key.endswith("~")),
                 }
                 for item_id, key, quantity in items
             ],
@@ -107,14 +128,13 @@ def _subscription(*items: tuple[str, str, int]) -> dict[str, object]:
 
 @pytest.fixture
 def prices(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[str]]:
-    monkeypatch.setattr(stripe_module, "_PLAN_PRICE_IDS", {})
+    monkeypatch.setattr(stripe_module, "_PLAN_PRICES", {})
     asked: dict[str, list[str]] = {"keys": []}
 
     async def list_prices(**params: object) -> stripe.ListObject[stripe.Price]:
         keys = cast(list[str], params["lookup_keys"])
         asked["keys"] += keys
-        rows = [{"id": f"price_{k}", "object": "price", "lookup_key": k} for k in keys]
-        known = [row for row in rows if row["lookup_key"] != "gone_month"]
+        known = [_price(k) for k in keys if k in PRODUCTS]
         return stripe.ListObject.construct_from({"object": "list", "data": known}, "sk")
 
     monkeypatch.setattr(stripe.Price, "list_async", list_prices)
@@ -230,21 +250,21 @@ async def test_plan_change_swaps_the_price_and_drops_the_seat_item(
     ]
     assert captured["proration_behavior"] == "create_prorations"
     assert captured["idempotency_key"] == "plan-change-1"
-    assert result.items == (PlanItem("team_month"),)
+    assert [(i.product, i.interval) for i in result.items] == [("clientbridge_team", "month")]
     fetched = await gateway.get_plan_subscription("sub_plan")
-    assert fetched.items == (PlanItem("premium_month"), PlanItem("seat_month", 3))
+    assert [(i.product, i.quantity) for i in fetched.items] == [
+        ("clientbridge_premium", 1),
+        ("clientbridge_seat", 3),
+    ]
 
 
 def test_seat_changes_keep_the_items_that_stay() -> None:
     current = _subscription(("si_plan", "premium_month", 1), ("si_seat", "seat_month", 3))
-    ids = {"seat_month": "price_seat_month"}
+    refs = {key: PlanPriceRef(f"price_{key}", *PRODUCTS[key]) for key in PRODUCTS}
     keep = [PlanItem("premium_month"), PlanItem("seat_month", 4)]
-    assert plan_item_changes(current, keep, ids) == [
-        {"id": "si_plan", "quantity": 1},
-        {"id": "si_seat", "quantity": 4},
-    ]
-    first_seat = plan_item_changes(_subscription(("si_plan", "premium_month", 1)), keep, ids)
-    assert first_seat[1] == {"price": "price_seat_month", "quantity": 4}
+    assert plan_item_changes(current, keep, refs) == [{"id": "si_seat", "quantity": 4}]
+    first_seat = plan_item_changes(_subscription(("si_plan", "premium_month", 1)), keep, refs)
+    assert first_seat == [{"price": "price_seat_month", "quantity": 4}]
 
 
 def test_a_platform_subscription_parses_with_its_business_and_items() -> None:
@@ -252,7 +272,10 @@ def test_a_platform_subscription_parses_with_its_business_and_items() -> None:
         _subscription(("si_plan", "premium_year", 1), ("si_seat", "seat_month", 2))
     )
     assert sub.customer_account == "acct_paying" and sub.business_id == "bz_birchbark"
-    assert sub.items == (PlanItem("premium_year"), PlanItem("seat_month", 2))
+    assert [(i.product, i.interval, i.quantity) for i in sub.items] == [
+        ("clientbridge_premium", "year", 1),
+        ("clientbridge_seat", "month", 2),
+    ]
     assert sub.current_period_end == datetime.fromtimestamp(1_900_000_000, tz=UTC)
     assert sub.trial_end == sub.current_period_end and sub.cancel_at_period_end is False
 
@@ -302,3 +325,22 @@ async def test_customer_configuration_keeps_a_verified_address(
         }
     }
     assert body.get("identity") == (expected if sets_address else None)
+
+
+def test_a_subscriber_keeps_their_plan_item_after_its_lookup_key_moves() -> None:
+    # "~" marks an old price whose lookup key moved to a new price with transfer_lookup_key
+    current = _subscription(("si_plan", "premium_month~", 1), ("si_seat", "seat_month", 3))
+    sub = plan_subscription_from(current)
+    assert [(i.product, i.interval, i.quantity) for i in sub.items] == [
+        ("clientbridge_premium", "month", 1),
+        ("clientbridge_seat", "month", 3),
+    ]
+    refs = {key: PlanPriceRef(f"price_new_{key}", *PRODUCTS[key]) for key in PRODUCTS}
+    wanted = [PlanItem("premium_month"), PlanItem("seat_month", 4)]
+    assert plan_item_changes(current, wanted, refs) == [{"id": "si_seat", "quantity": 4}]
+    yearly = plan_item_changes(current, [PlanItem("premium_year")], refs)
+    assert yearly == [
+        {"id": "si_plan", "deleted": True},
+        {"id": "si_seat", "deleted": True},
+        {"price": "price_new_premium_year", "quantity": 1},
+    ]
