@@ -1,4 +1,6 @@
 import json
+import pathlib
+import re
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
@@ -531,3 +533,25 @@ async def test_the_renewal_date_comes_from_the_plan_item_not_the_seat_item(
     )
     body = ok(await as_owner.get("/v1/plan")).json()
     assert body["current_period_end"].startswith("2030-12-01")
+
+
+def test_the_site_shows_the_prices_stripe_bills() -> None:
+    site = (
+        pathlib.Path(__file__).parents[2] / "frontend/apps/site/src/content/plans.ts"
+    ).read_text()
+
+    def cents(path: str) -> int:
+        tier, _, interval = path.partition(".")
+        block = re.search(rf"{tier}: \{{([^}}]*)\}}", site) if interval else None
+        source = block.group(1) if block else site
+        found = re.search(rf"{interval or tier}: (\d+)", source)
+        assert found is not None, path
+        return int(found.group(1))
+
+    assert {key: price.amount_cents for key, price in plans.PLAN_PRICES.items()} == {
+        "premium_month": cents("premium.month"),
+        "premium_year": cents("premium.year"),
+        "team_month": cents("team.month"),
+        "team_year": cents("team.year"),
+        "seat_month": cents("seat"),
+    }
