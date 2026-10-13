@@ -443,6 +443,13 @@ def plan_price(key: str, price: PlanPrice, found: Sequence[Mapping[str, object]]
     )
 
 
+def _same(current: object, wanted: object) -> bool:
+    # Stripe may list a setting's values in another order than we sent them
+    if isinstance(current, list) and isinstance(wanted, list):
+        return set(_strings(current)) == set(_strings(wanted))
+    return current == wanted
+
+
 def plan_portal(configurations: Sequence[Mapping[str, object]], return_url: str) -> Step:
     target = "billing portal configuration"
     ours = ours_portal(configurations)
@@ -469,7 +476,7 @@ def plan_portal(configurations: Sequence[Mapping[str, object]], return_url: str)
     changes = [
         name
         for name, wanted in PORTAL_FEATURES.items()
-        if any(_map(features.get(name)).get(k) != v for k, v in _map(wanted).items())
+        if any(not _same(_map(features.get(name)).get(k), v) for k, v in _map(wanted).items())
     ]
     if config.get("default_return_url") != return_url:
         changes.append("default_return_url")

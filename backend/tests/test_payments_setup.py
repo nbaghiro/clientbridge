@@ -566,3 +566,20 @@ def test_portal_configuration_allows_no_plan_switching() -> None:
     assert (updated.action, updated.path) == ("update", "/v1/billing_portal/configurations/bpc_1")
     assert updated.detail == "bpc_1: subscription_update"
     assert plan_portal([current, {**current, "id": "bpc_2"}], RETURN_URL).action == "blocked"
+
+
+def test_portal_ignores_the_order_stripe_lists_allowed_updates_in() -> None:
+    config = {
+        "id": "bpc_1",
+        "active": True,
+        "default_return_url": RETURN_URL,
+        "metadata": {"clientbridge": "portal"},
+        "features": {
+            "customer_update": {"enabled": True, "allowed_updates": ["address", "email"]},
+            "invoice_history": {"enabled": True},
+            "payment_method_update": {"enabled": True},
+            "subscription_cancel": {"enabled": True, "mode": "at_period_end"},
+            "subscription_update": {"enabled": False},
+        },
+    }
+    assert plan_portal([config], RETURN_URL).action == "keep"
