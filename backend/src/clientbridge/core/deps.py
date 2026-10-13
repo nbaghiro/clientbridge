@@ -15,7 +15,7 @@ from clientbridge.integrations.kratos import (
     IdentityProvider,
     get_identity_provider,
 )
-from clientbridge.integrations.postmark import EmailSender, get_email_sender
+from clientbridge.integrations.resend import EmailSender, get_email_sender
 from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.integrations.stripe import PaymentGateway, get_payment_gateway
 from clientbridge.integrations.twilio import SmsSender, get_sms_sender
@@ -40,6 +40,13 @@ TwilioAuthTokenDep = Annotated[str, Depends(get_twilio_auth_token)]
 
 def get_auth_email_secret() -> str:
     return get_settings().auth_email_hook_secret
+
+
+def get_resend_webhook_secret() -> str:
+    return get_settings().resend_webhook_secret
+
+
+ResendWebhookSecretDep = Annotated[str, Depends(get_resend_webhook_secret)]
 
 
 AuthEmailSecretDep = Annotated[str, Depends(get_auth_email_secret)]

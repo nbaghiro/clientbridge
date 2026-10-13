@@ -1,12 +1,14 @@
 import logging
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
+from pydantic import ValidationError
 from sqlalchemy import and_, func, literal, or_, select, tuple_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
+from clientbridge.core.db import is_duplicate
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
@@ -14,17 +16,19 @@ from clientbridge.core.locale import locale_for
 from clientbridge.core.phones import e164, same_phone
 from clientbridge.core.scoping import scoped
 from clientbridge.core.zones import zone
-from clientbridge.integrations.postmark import Email, EmailSender
+from clientbridge.integrations.resend import EmailSender
 from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.clients import Channel, Client
 from clientbridge.models.messaging import Broadcast, Message, Thread
-from clientbridge.models.platform import Webhook
+from clientbridge.models.platform import Webhook, WebhookStatus
 from clientbridge.schemas.messaging import (
     BroadcastOut,
     BroadcastSend,
     ConversationMessage,
     ConversationPage,
+    EmailEventBody,
+    EmailEventData,
     MessageOut,
     MessageSend,
     ThreadOut,
@@ -34,11 +38,12 @@ from clientbridge.services.consents import (
     allows_marketing,
     latest_consents,
     prefs_url,
+    record_complaint,
     record_text_reply,
     stopped_clients,
     texts_stopped,
 )
-from clientbridge.services.notifications import broadcast_text
+from clientbridge.services.notifications import broadcast_text, client_email
 
 _log = logging.getLogger(__name__)
 _BROADCAST_CAP = 500
@@ -95,18 +100,29 @@ def contact_for(client: Client, channel: str) -> str | None:
 
 
 async def dispatch_message(
-    sms: SmsSender, email: EmailSender, channel: str, to: str, subject: str, body: str
-) -> bool:
-    """Hand the message to the channel adapter; a failure is recorded, never raised."""
+    sms: SmsSender,
+    email: EmailSender,
+    channel: str,
+    to: str,
+    subject: str,
+    body: str,
+    *,
+    message: Message,
+    business: Business,
+) -> None:
+    """Hand the message to its channel adapter and record the outcome on the row, never raising."""
     try:
         if channel == "sms":
-            await sms.send(Sms(to=to, body=body))
+            message.provider_ref = await sms.send(Sms(to=to, body=body))
         else:
-            await email.send(Email(to=to, subject=subject, body=body))
+            message.provider_ref = await email.send(
+                client_email(business, to, subject, body, message=message)
+            )
     except Exception:
         _log.exception("message channel send failed")
-        return False
-    return True
+        message.status = "failed"
+        return
+    message.status = "sent"
 
 
 async def broadcast_recipients(
@@ -233,8 +249,9 @@ async def _send_broadcast(
             continue
         link = f"{prefs_url(client_id)}?unsubscribe=email"
         text = broadcast_text(locale, name, channel, body or "", link, address, contact)
-        ok = await dispatch_message(sms, email, channel, to, subject, text)
-        message.status = "sent" if ok else "failed"
+        await dispatch_message(
+            sms, email, channel, to, subject, text, message=message, business=business
+        )
         await db.commit()
     claimed = await _claim_broadcast(db, broadcast_id)
     if claimed is None:
@@ -328,8 +345,10 @@ async def process_inbound_sms(
     )
     try:
         await db.commit()
-    except IntegrityError:  # a concurrent redelivery won the race on the event id
+    except IntegrityError as exc:
         await db.rollback()
+        if not is_duplicate(exc):  # only a redelivery race may be dropped; anything else must retry
+            raise
         return None
     return message_id
 
@@ -386,7 +405,10 @@ class MessageService:
             raise AppError(f"client has no {data.channel} contact", status_code=422)
         if data.channel == "sms" and await texts_stopped(self.db, self.biz, client.id):
             raise Conflict("this client replied STOP, so texts to them are blocked")
-        subject = await self._business_name()
+        business = await self.db.get(Business, self.biz)
+        if business is None:
+            raise NotFound("business not found")
+        subject = business.name
 
         async def run(cmd: Command) -> MessageOut:
             thread = await open_thread(self.db, self.biz, client.id, data.channel)
@@ -402,8 +424,16 @@ class MessageService:
             )
             self.db.add(message)
             await self.db.flush()
-            ok = await dispatch_message(self.sms, self.email, data.channel, to, subject, data.body)
-            message.status = "sent" if ok else "failed"
+            await dispatch_message(
+                self.sms,
+                self.email,
+                data.channel,
+                to,
+                subject,
+                data.body,
+                message=message,
+                business=business,
+            )
             await self.db.flush()
             cmd.record("message.send", entity_type="message", entity_id=message.id)
             return _message_out(message)
@@ -549,10 +579,6 @@ class MessageService:
             more=len(rows) > limit,
         )
 
-    async def _business_name(self) -> str:
-        business = await self.db.get(Business, self.biz)
-        return business.name if business is not None else ""
-
     async def _client(self, client_id: str) -> Client:
         row = (
             await self.db.execute(
@@ -593,3 +619,154 @@ def _broadcast_out(broadcast: Broadcast) -> BroadcastOut:
         excluded_count=broadcast.excluded_count,
         scheduled_at=broadcast.scheduled_at,
     )
+
+
+_EMAIL_FAILURES = frozenset({"email.bounced", "email.failed", "email.suppressed"})
+_EVENT_GRACE = timedelta(minutes=10)
+
+
+class EmailEventPending(Exception):
+    """Resend reported on a send whose transaction has not committed yet; Svix must retry."""
+
+
+async def _email_message(db: AsyncSession, email_id: str) -> Message | None:
+    # the provider id is unique across tenants; the row it finds names the business
+    query = select(Message).where(Message.provider_ref == email_id, Message.channel == "email")
+    return (await db.execute(query)).scalars().first()
+
+
+async def _flagged_client(
+    db: AsyncSession, message: Message | None, *, business_id: str | None, client_id: str | None
+) -> Client | None:
+    """The client the mail went to: through the message's thread, else by the client tag."""
+    if message is not None:
+        threads = scoped(Thread, message.business_id).where(Thread.id == message.thread_id)
+        thread = (await db.execute(threads)).scalar_one_or_none()
+        if thread is None:
+            return None
+        business_id, client_id = message.business_id, thread.client_id
+    if not business_id or not client_id:
+        return None
+    clients = scoped(Client, business_id, soft_delete=True).where(Client.id == client_id)
+    return (await db.execute(clients)).scalar_one_or_none()
+
+
+async def _complaining_clients(
+    db: AsyncSession, message: Message | None, *, business_id: str | None, client_id: str | None
+) -> list[Client]:
+    """Everyone a complaint covers: the flagged client and any record sharing its mailbox."""
+    flagged = await _flagged_client(db, message, business_id=business_id, client_id=client_id)
+    if flagged is None:
+        return []
+    if not flagged.email:
+        return [flagged]
+    query = scoped(Client, flagged.business_id, soft_delete=True).where(
+        func.lower(Client.email) == flagged.email.lower()
+    )
+    return list((await db.execute(query)).scalars().all())
+
+
+def _is_recent(created_at: datetime | None) -> bool:
+    if created_at is None:
+        return False
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=UTC)
+    return datetime.now(UTC) - created_at < _EVENT_GRACE
+
+
+async def _record_event(
+    db: AsyncSession,
+    event_id: str,
+    *,
+    event: str,
+    payload: dict[str, object],
+    status: WebhookStatus,
+) -> bool:
+    """Commit the event row with whatever it changed; False when a twin delivery got there first."""
+    db.add(
+        Webhook(
+            id=event_id,
+            provider="resend",
+            event=event,
+            payload=payload,
+            status=status,
+            processed_at=datetime.now(UTC),
+        )
+    )
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        if not is_duplicate(exc):  # only a redelivery race may be dropped; anything else must retry
+            raise
+        return False
+    return True
+
+
+async def process_email_event(db: AsyncSession, *, svix_id: str, payload: bytes) -> bool:
+    """Record a Resend event on its message; True when it changed something."""
+    event_id = f"resend_{svix_id}"
+    seen = (await db.execute(select(Webhook.id).where(Webhook.id == event_id))).scalar_one_or_none()
+    if seen is not None:
+        return False
+    try:
+        event = EmailEventBody.model_validate_json(payload)
+    except ValidationError as exc:
+        _log.warning("unparseable resend event %s: %s", svix_id, exc)
+        failure: dict[str, object] = {"error": str(exc)[:500]}
+        await _record_event(db, event_id, event="unparsed", payload=failure, status="failed")
+        return False
+    data = event.data or EmailEventData()
+    recipients = [data.to] if isinstance(data.to, str) else list(data.to or [])
+    tags = data.tags or {}
+    address = recipients[0] if recipients else None
+    email_id = data.email_id or ""
+    message_id, business_tag = tags.get("message"), tags.get("business")
+    message: Message | None = None
+    if message_id and business_tag:
+        tagged = scoped(Message, business_tag).where(Message.id == message_id)
+        message = (await db.execute(tagged)).scalar_one_or_none()
+    if message is None and email_id:
+        message = await _email_message(db, email_id)
+    if message is None and message_id and _is_recent(event.created_at):
+        raise EmailEventPending(message_id)
+    clients: list[Client] = []
+    changed = False
+    if message is not None:
+        heard_before = message.provider_ref is not None
+        if not heard_before and email_id:  # the send timed out after Resend had accepted it
+            message.provider_ref = email_id
+            changed = True
+        if event.type == "email.delivered":
+            if message.status in ("queued", "sent") or not heard_before:
+                message.status = "delivered"
+                changed = True
+        elif event.type in _EMAIL_FAILURES and message.status != "failed":
+            message.status = "failed"
+            changed = True
+    if event.type == "email.complained":
+        clients = await _complaining_clients(
+            db, message, business_id=tags.get("business"), client_id=tags.get("client")
+        )
+        for client in clients:
+            changed = await record_complaint(db, client) or changed
+    business_id = tags.get("business")
+    if message is not None:
+        business_id = message.business_id
+    elif clients:
+        business_id = clients[0].business_id
+    detail = ""
+    if data.bounce is not None:
+        detail = data.bounce.sub_type
+    elif data.failed is not None:
+        detail = data.failed.reason
+    summary: dict[str, object] = {
+        "email_id": email_id or None,
+        "to": address,
+        "detail": detail,
+        "matched": message is not None or bool(clients),
+        "business_id": business_id,
+    }
+    if not await _record_event(db, event_id, event=event.type, payload=summary, status="processed"):
+        return False
+    return changed

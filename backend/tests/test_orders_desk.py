@@ -182,6 +182,7 @@ async def test_receipt_by_email_or_text_after_payment(
     ).json()
     assert (sent["receipt_channel"], sent["receipt_email"]) == ("email", "pat@example.ca")
     mail = next(e for e in email.sent if e.to == "pat@example.ca")
+    assert mail.reply_to == "hello@birchbark.example" and mail.tags == {"business": BIZ}
     token = mail.body.rsplit("/r/", 1)[1].strip()
     ok(
         await as_owner.post(

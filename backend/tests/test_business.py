@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.zones import SUPPORTED_ZONES
 from clientbridge.models.business import Business
-from clientbridge.services.business import after_quiet_hours, quiet_hours
+from clientbridge.services.business import after_quiet_hours, quiet_hours, reply_address
 
 BIZ = "bz_birchbark"
 
@@ -174,3 +174,23 @@ def test_quiet_hours_run_from_nine_at_night_to_nine_in_the_morning() -> None:
     assert after_quiet_hours(evening, zone) == nine
     assert after_quiet_hours(early, zone) == nine
     assert after_quiet_hours(noon, zone) == noon
+
+
+def test_replies_go_to_the_brand_email_and_fall_back_to_billing() -> None:
+    business = Business(
+        brand={"email": " hi@birchbark.example "}, billing_email="bill@birchbark.example"
+    )
+    assert reply_address(business) == "hi@birchbark.example"
+    business.brand = {"email": ""}
+    assert reply_address(business) == "bill@birchbark.example"
+    business.billing_email = None
+    assert reply_address(business) is None
+    business.billing_email = "not an address"
+    assert reply_address(business) is None
+
+
+async def test_a_junk_billing_email_is_refused(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.patch("/v1/business", json={"billing_email": "not an address"})
+    assert res.status_code == 422
+    res = await as_owner.patch("/v1/business", json={"billing_email": " owner@birchbark.example "})
+    assert res.status_code == 200, res.text

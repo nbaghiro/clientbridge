@@ -9,7 +9,7 @@ from arq.connections import RedisSettings
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal
 from clientbridge.integrations.expo import get_push_sender
-from clientbridge.integrations.postmark import get_email_sender
+from clientbridge.integrations.resend import get_email_sender
 from clientbridge.integrations.s3 import get_file_storage
 from clientbridge.integrations.stripe import get_payment_gateway
 from clientbridge.integrations.twilio import get_sms_sender

@@ -257,6 +257,8 @@ async def test_a_broadcast_email_names_the_business_address_and_contact(
     await run_due_broadcasts(db, FakeSmsSender(), email, now)
     body = next(m.body for m in email.sent if m.to == "agreed@example.ca")
     assert "12 Main St, Victoria, BC" in body and "hi@birchbark.example" in body
+    sent = next(m for m in email.sent if m.to == "agreed@example.ca")
+    assert sent.reply_to == "hi@birchbark.example" and sent.idempotency_key is not None
 
 
 async def test_a_broadcast_without_a_mailing_address_is_refused(

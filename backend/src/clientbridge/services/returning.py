@@ -13,7 +13,7 @@ from clientbridge.core.locale import locale_for
 from clientbridge.core.phones import e164, same_phone
 from clientbridge.core.scoping import scoped
 from clientbridge.core.security import hash_token
-from clientbridge.integrations.postmark import Email, EmailSender
+from clientbridge.integrations.resend import EmailSender
 from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client, Subject
@@ -28,7 +28,7 @@ from clientbridge.schemas.returning import (
     ReturningVerify,
     ReturningVisit,
 )
-from clientbridge.services.notifications import returning_code
+from clientbridge.services.notifications import client_email, returning_code
 
 _CODE_MINUTES = 10
 
@@ -112,7 +112,7 @@ class ReturningService:
             locale_for(business=business), business.name, code, _CODE_MINUTES
         )
         if channel == "email":
-            await sender.send(Email(to=address, subject=subject, body=body))
+            await sender.send(client_email(business, address, subject, body))
         else:
             await sms.send(Sms(to=address, body=body))
         return ReturningChallengeOut(challenge_id=challenge_id)

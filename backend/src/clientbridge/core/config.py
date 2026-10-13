@@ -1,3 +1,4 @@
+import base64
 from functools import lru_cache
 from urllib.parse import urlsplit
 
@@ -62,9 +63,10 @@ class Settings(BaseSettings):
     auth_email_hook_secret: str = _DEV_COURIER_SECRET  # matches docker-compose.yml's kratos
 
     # Outreach channels; empty credentials select the no-op console senders.
-    postmark_server_token: str = ""
+    resend_api_key: str = ""
+    resend_webhook_secret: str = ""  # signs /webhooks/email (Svix)
     email_from: str = ""
-    smtp_url: str = ""  # dev: smtp://localhost:8716 delivers to Mailpit when Postmark is unset
+    smtp_url: str = ""  # dev transport (Mailpit on 8716); when set it takes precedence over Resend
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_sms_from: str = ""
@@ -72,8 +74,12 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _require_prod_secrets(self) -> "Settings":
-        """Refuse to boot outside dev without real webhook secrets and a private auth admin API."""
+        """Refuse to boot outside dev without real secrets and a private auth admin API."""
         if self.env != "dev":
+            if self.smtp_url:
+                raise ValueError(
+                    "SMTP_URL is a development transport; unset it when ENV is not 'dev'"
+                )
             missing = []
             if self.jwt_secret == _DEV_JWT_SECRET:
                 missing.append("JWT_SECRET")
@@ -88,6 +94,12 @@ class Settings(BaseSettings):
                 missing.append("TWILIO_AUTH_TOKEN")
             if self.auth_email_hook_secret in ("", _DEV_COURIER_SECRET):
                 missing.append("AUTH_EMAIL_HOOK_SECRET")
+            if not self.resend_api_key:
+                missing.append("RESEND_API_KEY")
+            if not self.email_from:
+                missing.append("EMAIL_FROM")
+            if not self.resend_webhook_secret:
+                missing.append("RESEND_WEBHOOK_SECRET")
             if not self.powersync_use_rs256:
                 missing.append("POWERSYNC_USE_RS256=true")
             if not self.powersync_private_key_pem:
@@ -112,6 +124,13 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "Previous PowerSync keys must be RSA public keys with at least 2048 bits"
                 )
+        if self.resend_webhook_secret:
+            try:
+                base64.b64decode(self.resend_webhook_secret.removeprefix("whsec_"), validate=True)
+            except ValueError as error:
+                raise ValueError(
+                    "RESEND_WEBHOOK_SECRET must be whsec_ followed by base64"
+                ) from error
         return self
 
     def allowed_origins(self) -> list[str]:

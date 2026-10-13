@@ -3,7 +3,7 @@ import pytest
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import get_auth_email_secret
-from clientbridge.integrations.postmark import Email, get_email_sender
+from clientbridge.integrations.resend import Email, get_email_sender
 from clientbridge.main import app
 from tests.conftest import FakeEmailSender
 

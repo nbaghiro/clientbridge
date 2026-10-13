@@ -14,7 +14,14 @@ SubjectKind = Literal["pet", "vehicle", "child", "property"]
 NoteParent = Literal["client", "subject", "booking"]
 ConsentStatus = Literal["granted", "implied", "withdrawn"]
 ConsentSource = Literal[
-    "in_person", "form", "online_booking", "reply", "unsubscribe", "import", "preferences"
+    "in_person",
+    "form",
+    "online_booking",
+    "reply",
+    "unsubscribe",
+    "import",
+    "preferences",
+    "complaint",
 ]
 
 
