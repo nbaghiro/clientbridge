@@ -6,5 +6,6 @@ Each execution that is planned or in progress owns its plan and progress so unre
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | Scheduling      | [Plan](scheduling/plan.md), [design gaps](scheduling/design.md), [task queue](scheduling/tasks.json), [progress](scheduling/progress.md). |
 | Codebase review | [Plan](codebase-review/plan.md), [task queue](codebase-review/tasks.json), [progress](codebase-review/progress.md).                       |
+| Deploy          | [Plan](deploy/plan.md), [task queue](deploy/tasks.json), [progress](deploy/progress.md).                                                  |
 
 Use a new folder for a separate execution. Record tested behavior, remaining work and snapshot-specific evidence in its progress document; keep reusable system decisions in the main docs.

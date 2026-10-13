@@ -1,0 +1,259 @@
+{
+  "title": "Deploy task queue",
+  "status": "planned",
+  "generated_on": "2026-10-13",
+  "plan": "plan.md",
+  "worker": {
+    "model": "inherit",
+    "max_active_workers": 1,
+    "auto_commit": false,
+    "auto_push": false,
+    "auto_deploy": false
+  },
+  "execution_order": [
+    "D00",
+    "D01",
+    "D02",
+    "D03",
+    "D04",
+    "D05",
+    "D06",
+    "D07",
+    "D08",
+    "D09",
+    "D10",
+    "D11",
+    "D12",
+    "D13",
+    "D14",
+    "D15"
+  ],
+  "tasks": [
+    {
+      "id": "D00",
+      "phase": "Accounts and domain",
+      "title": "Create the project, budget, Pulumi stack and DNS delegation",
+      "status": "pending",
+      "depends_on": [],
+      "stories": ["CLI-50"],
+      "scope": ["infra/pulumi"],
+      "implementation": "Create the GCP project and billing account with a $150 monthly budget alert, enable the APIs, create the Pulumi Cloud project and stack, create the Cloud DNS zone for clientbridge.ca with the staging records under it, and delegate the registrar's nameservers to it.",
+      "acceptance": "pulumi preview runs; dig shows the Cloud DNS nameservers for clientbridge.ca.",
+      "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
+    },
+    {
+      "id": "D01",
+      "phase": "Make the code deployable",
+      "title": "Build the backend and web images",
+      "status": "pending",
+      "depends_on": ["D00"],
+      "stories": ["CLI-50"],
+      "scope": [
+        "backend/Dockerfile",
+        "frontend/Dockerfile",
+        "Makefile",
+        ".github/workflows/ci.yml"
+      ],
+      "implementation": "Write a backend Dockerfile (API, worker and migrate entry points, sync-rules.yaml included, non-root user) and a web Dockerfile (web, Connect and site builds served by Caddy), plus the production server command; CI builds both on every push.",
+      "acceptance": "Both images build in CI; the backend image starts the API, the worker and the migrate step by command; the web image serves every host's build.",
+      "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
+    },
+    {
+      "id": "D02",
+      "phase": "Make the code deployable",
+      "title": "Derive every URL from one base domain",
+      "status": "pending",
+      "depends_on": ["D01"],
+      "stories": ["CLI-50"],
+      "scope": [
+        "backend/src/clientbridge/core/config.py",
+        "frontend/packages/app-core/src",
+        "frontend/apps/web",
+        "frontend/apps/connect",
+        "frontend/apps/site",
+        "frontend/packages/app-core/locales/en-CA.json"
+      ],
+      "implementation": "Add BASE_DOMAIN and derive WEB_BASE_URL, CORS_ALLOW_ORIGINS, the Connect, Pay and Shop hosts, the Kratos and PowerSync URLs, the OAuth callback and the RP ID; serve a runtime config.js from the web image; pass the slug host into the catalog message; robots.txt allows indexing only in production; extend the production startup check to every required setting and to agreement with BASE_DOMAIN.",
+      "acceptance": "Booting with only BASE_DOMAIN and secrets yields the full set of URLs for both environments; a mismatched URL or missing setting refuses to start; tests cover both environments.",
+      "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
+    },
+    {
+      "id": "D03",
+      "phase": "Make the code deployable",
+      "title": "Readiness, logging and the client address",
+      "status": "pending",
+      "depends_on": ["D01"],
+      "stories": ["CLI-50", "CLI-51"],
+      "scope": [
+        "backend/src/clientbridge/main.py",
+        "backend/src/clientbridge/core/ratelimit.py",
+        "backend/src/clientbridge/api/public.py",
+        "backend/src/clientbridge/tasks/worker.py"
+      ],
+      "implementation": "Add a readiness endpoint that checks the database and Redis, a JSON logging config for the API and worker, the worker pinned to UTC, and a trusted-hop setting for X-Forwarded-For used by the rate limiter and the contract signer IP.",
+      "acceptance": "Readiness fails when the database or Redis is down; a spoofed X-Forwarded-For does not change the limiter key or signer IP; logs are one JSON object per line.",
+      "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
+    },
+    {
+      "id": "D04",
+      "phase": "Make the code deployable",
+      "title": "Production Kratos and PowerSync configs",
+      "status": "pending",
+      "depends_on": ["D02"],
+      "stories": ["CLI-50"],
+      "scope": [
+        "infra/kratos",
+        "infra/powersync",
+        "frontend/apps/web/src/lib/auth.ts",
+        "frontend/apps/mobile"
+      ],
+      "implementation": "Template the Kratos config from the base domain (no --dev, public URL under api.D, a __Host- session cookie, RP ID app.D, courier over the cluster network, Google OIDC callback) and the PowerSync config (RS256, jwks_uri to /sync/keys, Postgres bucket storage); verify web and mobile sign-in, recovery, Google sign-in and passkeys against the new cookie.",
+      "acceptance": "A local stack with production-shaped configs passes the auth e2e on web and mobile and the sync e2e.",
+      "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
+    },
+    {
+      "id": "D05",
+      "phase": "Build the foundation",
+      "title": "Network, cluster and identity in Pulumi",
+      "status": "pending",
+      "depends_on": ["D00"],
+      "stories": ["CLI-50"],
+      "scope": ["infra/pulumi"],
+      "implementation": "Pulumi creates the VPC with private service access and Cloud NAT, the regional Autopilot cluster (regular channel, private nodes, DNS control plane endpoint, Workload Identity, Managed Prometheus off), the prod and staging namespaces with their service accounts and NetworkPolicies, Artifact Registry with a cleanup policy keeping 10 digests, and the GitHub OIDC pool restricted to this repository.",
+      "acceptance": "pulumi up from an empty project creates everything; a second run shows no changes; CI can push an image and reach the cluster without a stored key.",
+      "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
+    },
+    {
+      "id": "D06",
+      "phase": "Build the foundation",
+      "title": "Database, buckets and secrets in Pulumi",
+      "status": "pending",
+      "depends_on": ["D05"],
+      "stories": ["CLI-50", "CLI-51"],
+      "scope": ["infra/pulumi", "backend/scripts/db_access.py"],
+      "implementation": "Pulumi creates the db-g1-small Cloud SQL instance (zonal, private IP, TLS, backups 7 days, PITR, logical decoding) with the six databases, one versioned private bucket per environment with HMAC keys, and the Secret Manager secrets with the GKE Secret Manager add-on; db_access.py is made to work with Cloud SQL's non-superuser postgres and the publication is created as the migrator.",
+      "acceptance": "db_access roles and grants and alembic upgrade head succeed on the new instance; the powersync publication lists only synced tables; protect is set on the instance, the cluster and the zone.",
+      "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
+    },
+    {
+      "id": "D07",
+      "phase": "Build the foundation",
+      "title": "Workloads, Gateway and certificates",
+      "status": "pending",
+      "depends_on": ["D03", "D04", "D06"],
+      "stories": ["CLI-50"],
+      "scope": ["infra/pulumi"],
+      "implementation": "Pulumi deploys the workloads from the plan's table into both namespaces (requests, Spot for the worker and all of staging, Auth Proxy sidecars, surge-one rolling updates, the migrate Job), one Gateway on a static IP with an HTTPRoute per host, Certificate Manager wildcard and apex certificates by DNS authorization, the HTTP to HTTPS redirect, raw passthrough for /webhooks/* and a one-hour backend timeout for sync.",
+      "acceptance": "Every host in both environments answers over HTTPS; a deploy of a new digest has no failed requests; a webhook signature verifies through the Gateway.",
+      "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
+    },
+    {
+      "id": "D08",
+      "phase": "Run staging",
+      "title": "Deploy pipeline",
+      "status": "pending",
+      "depends_on": ["D07"],
+      "stories": ["CLI-50"],
+      "scope": [".github/workflows/deploy.yml", "infra/pulumi"],
+      "implementation": "A workflow pushes images by digest and runs pulumi up for staging on every push to main (migrate Job first, stop on failure, wait for rollout, smoke test api., sync. and app.), and for production with the same digests behind a manual approval; rollback redeploys the previous digests.",
+      "acceptance": "A push to main reaches staging without manual steps; a failing migration leaves the old version running; a rollback restores the previous digests.",
+      "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
+    },
+    {
+      "id": "D09",
+      "phase": "Run staging",
+      "title": "Providers in test mode and mobile builds",
+      "status": "pending",
+      "depends_on": ["D08"],
+      "stories": ["CLI-50", "CLI-52"],
+      "scope": [
+        "infra/pulumi",
+        "backend/scripts/stripe_setup.py",
+        "frontend/apps/mobile/eas.json",
+        "frontend/apps/mobile/app.config.ts"
+      ],
+      "implementation": "Stripe sandbox endpoints, webhook secrets, portal and payment method domains for book., pay. and shop.; a Twilio test number and webhook; a Resend domain and webhook; a Google OAuth client; PowerSync signing keys; EAS profiles for staging and production with expo-updates, the EAS project id, STRIPE_TERMINAL_SIMULATED=false in store builds and no hard-coded production fallbacks.",
+      "acceptance": "Every provider's webhook reaches staging and verifies; a test payment, SMS and email go through end to end; a staging build on iPhone and Android signs in, syncs and receives a push.",
+      "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
+    },
+    {
+      "id": "D10",
+      "phase": "Run staging",
+      "title": "Logs, alerts and budget",
+      "status": "pending",
+      "depends_on": ["D08"],
+      "stories": ["CLI-51"],
+      "scope": ["infra/pulumi"],
+      "implementation": "Uptime checks on api. and app.; alerts on database CPU and disk, replication slot lag, failed job runs and webhook failures; Error Reporting from the container logs; the $150 budget alert.",
+      "acceptance": "Stopping staging's PowerSync raises the slot lag alert; scaling the API to zero raises the uptime alert; Error Reporting shows a forced exception.",
+      "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
+    },
+    {
+      "id": "D11",
+      "phase": "Prove recovery and the product",
+      "title": "Restore drill",
+      "status": "pending",
+      "depends_on": ["D06", "D10"],
+      "stories": ["CLI-51"],
+      "scope": [".docs/operations.md"],
+      "implementation": "Write the restore runbook: point-in-time restore into a new instance, repoint the environment, drop and recreate the PowerSync slot and storage, and verify; run it on staging.",
+      "acceptance": "Staging is restored to a chosen minute from the runbook alone, PowerSync re-snapshots, and clients resync.",
+      "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
+    },
+    {
+      "id": "D12",
+      "phase": "Prove recovery and the product",
+      "title": "Full QA on staging",
+      "status": "pending",
+      "depends_on": ["D09"],
+      "stories": ["CLI-50", "CLI-54"],
+      "scope": [".docs/launch-readiness.md"],
+      "implementation": "Run every stage's QA pass from launch-readiness.md on staging, on web, iPhone and Android, and log each failure as a Linear issue against its story.",
+      "acceptance": "Every stage's QA pass is clean on staging, or each failure has a Linear issue.",
+      "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
+    },
+    {
+      "id": "D13",
+      "phase": "Go live",
+      "title": "Production providers and cutover",
+      "status": "pending",
+      "depends_on": ["D11", "D12"],
+      "stories": ["CLI-50"],
+      "scope": ["infra/pulumi"],
+      "implementation": "Live Stripe keys, webhooks at the pinned API version and payment method domains; the production Twilio number, Resend domain and OAuth client; production secrets; first production deploy behind approval.",
+      "acceptance": "The $1 live payment and refund from CLI-50 pass; every production host answers over HTTPS.",
+      "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
+    },
+    {
+      "id": "D14",
+      "phase": "Go live",
+      "title": "Check the bill and commit",
+      "status": "pending",
+      "depends_on": ["D13"],
+      "stories": ["CLI-50"],
+      "scope": ["infra/pulumi", ".docs/executions/deploy/plan.md"],
+      "implementation": "After a month, compare the bill with the plan's estimate and correct the plan; if the sizes held, buy one-year committed-use discounts for Autopilot and Cloud SQL.",
+      "acceptance": "The plan's cost table matches the real bill within 15%; the discounts show on the next invoice.",
+      "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
+    },
+    {
+      "id": "D15",
+      "phase": "Go live",
+      "title": "Write operations.md and fold this plan in",
+      "status": "pending",
+      "depends_on": ["D13"],
+      "stories": ["CLI-50", "CLI-51"],
+      "scope": [
+        ".docs/operations.md",
+        ".docs/engineering.md",
+        ".docs/architecture.md",
+        ".docs/launch-readiness.md",
+        ".docs/executions/deploy"
+      ],
+      "implementation": "Write .docs/operations.md (environments and hosts, settings and secrets per provider, provider setup, jobs, rotations, health checks, backups and restore, and the scaled configurations with their triggers), move the production parts of engineering.md into it, update CLI-50, CLI-51 and CLI-52 in launch-readiness.md and Linear, and delete this folder.",
+      "acceptance": "operations.md describes production completely; no durable content remains only in this folder.",
+      "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
+    }
+  ],
+  "schema_version": 1
+}

@@ -1318,6 +1318,7 @@ Size: L · Area: Platform and launch
 
 **To do:**
 
+- Follow the deploy plan in `.docs/executions/deploy/plan.md` (tasks D00 to D15).
 - Production hosting for the API, worker, web, Connect and the site on their subdomains.
 - Deploys from CI to staging and production.
 - A production CORS allow-list and security headers (HSTS, CSP, frame and host protection).
@@ -1345,6 +1346,7 @@ Size: M · Area: Platform and launch
 
 **To do:**
 
+- Logs, alerts and the restore drill follow the deploy plan in `.docs/executions/deploy/plan.md` (tasks D10 and D11).
 - Daily backups and point-in-time recovery for the database and the sync store.
 - One timed restore drill, written down.
 - Error tracking with alerts on every surface.
@@ -1370,6 +1372,7 @@ Size: M · Area: Platform and launch
 
 **To do:**
 
+- Mobile build profiles against staging and production follow the deploy plan in `.docs/executions/deploy/plan.md` (task D09).
 - Signing, store listings and production builds pointed at production.
 - Push certificates for production.
 
