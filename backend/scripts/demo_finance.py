@@ -125,7 +125,7 @@ def _new_invoice(
     return invoice
 
 
-def estimates(ctx: DemoContext) -> None:
+def prepare_estimates(ctx: DemoContext) -> None:
     for estimate in ctx.all(Estimate):
         lines = [line for line in ctx.all(Line) if line.estimate_id == estimate.id]
         if not lines and estimate.converted_invoice_id:
@@ -241,7 +241,7 @@ def _entitlements(ctx: DemoContext) -> None:
         card.updated_at = invoice.issued_at or card.created_at
 
 
-def headers(ctx: DemoContext) -> None:
+def price_documents(ctx: DemoContext) -> None:
     items = {item.id: item for item in ctx.all(Item)}
     for line in ctx.all(Line):
         if line.item_id:
@@ -483,11 +483,11 @@ def _journeys(ctx: DemoContext) -> None:
 def prepare_finance(ctx: DemoContext) -> None:
     previous = {row.id: row.total_cents for row in ctx.all(Invoice)}
     previous.update({row.id: row.total_cents for row in ctx.all(Order)})
-    estimates(ctx)
+    prepare_estimates(ctx)
     _membership(ctx)
     _entitlements(ctx)
     _journeys(ctx)
-    headers(ctx)
+    price_documents(ctx)
     _payments(ctx, previous)
     tipped = ctx.get(Payment, "pay_ord1")
     tipped.amount_cents = ctx.get(Order, "ord_1").total_cents + tipped.tip_cents
@@ -629,7 +629,7 @@ async def _earnings(db: AsyncSession, ctx: DemoContext) -> None:
             )
 
 
-async def payouts(db: AsyncSession, ctx: DemoContext) -> None:
+async def seed_payouts(db: AsyncSession, ctx: DemoContext) -> None:
     for index, day in enumerate(range(-112, -6, 7)):
         arrival = ctx.at(day, 10)
         amount = int(
@@ -720,4 +720,4 @@ async def seed_finance(db: AsyncSession, ctx: DemoContext) -> None:
                 booking_id=booking.id,
             )
     await _earnings(db, ctx)
-    await payouts(db, ctx)
+    await seed_payouts(db, ctx)

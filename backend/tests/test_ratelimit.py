@@ -1,6 +1,6 @@
 from starlette.requests import Request
 
-from clientbridge.core.ratelimit import RateLimiter, client_ip
+from clientbridge.core.ratelimit import RateLimiter, requester_ip
 
 
 def _request(headers: dict[str, str], client: tuple[str, int] | None) -> Request:
@@ -14,12 +14,12 @@ def _request(headers: dict[str, str], client: tuple[str, int] | None) -> Request
 
 def test_client_ip_prefers_forwarded_for() -> None:
     req = _request({"x-forwarded-for": "1.2.3.4, 5.6.7.8"}, ("10.0.0.1", 0))
-    assert client_ip(req) == "1.2.3.4"
+    assert requester_ip(req) == "1.2.3.4"
 
 
 def test_client_ip_falls_back_to_peer() -> None:
-    assert client_ip(_request({}, ("10.0.0.1", 0))) == "10.0.0.1"
-    assert client_ip(_request({}, None)) == "unknown"
+    assert requester_ip(_request({}, ("10.0.0.1", 0))) == "10.0.0.1"
+    assert requester_ip(_request({}, None)) == "unknown"
 
 
 def test_sweep_prunes_aged_buckets() -> None:

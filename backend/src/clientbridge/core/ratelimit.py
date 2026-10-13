@@ -46,7 +46,7 @@ _public_prefs_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 _public_invite_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 
 
-def client_ip(request: Request) -> str:
+def requester_ip(request: Request) -> str:
     # behind a proxy/LB the socket peer is the proxy; the forwarded chain's first hop is the client
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
@@ -56,41 +56,41 @@ def client_ip(request: Request) -> str:
 
 def public_pay_rate_limit(request: Request) -> None:
     """Cap how fast one IP hits the unauthenticated pay endpoints (they mint Stripe objects)."""
-    if not _public_pay_limiter.check(client_ip(request), time.monotonic()):
+    if not _public_pay_limiter.check(requester_ip(request), time.monotonic()):
         raise TooManyRequests("too many payment attempts — please wait a moment")
 
 
 def public_review_rate_limit(request: Request) -> None:
     """Cap how fast one IP hits the unauthenticated review endpoints (token probing + writes)."""
-    if not _public_review_limiter.check(client_ip(request), time.monotonic()):
+    if not _public_review_limiter.check(requester_ip(request), time.monotonic()):
         raise TooManyRequests("too many requests — please wait a moment")
 
 
 def public_form_rate_limit(request: Request) -> None:
     """Cap how fast one IP hits the unauthenticated form endpoints (token probing + submits)."""
-    if not _public_form_limiter.check(client_ip(request), time.monotonic()):
+    if not _public_form_limiter.check(requester_ip(request), time.monotonic()):
         raise TooManyRequests("too many requests — please wait a moment")
 
 
 def public_contract_rate_limit(request: Request) -> None:
     """Cap how fast one IP hits the unauthenticated contract endpoints (token probing + signs)."""
-    if not _public_contract_limiter.check(client_ip(request), time.monotonic()):
+    if not _public_contract_limiter.check(requester_ip(request), time.monotonic()):
         raise TooManyRequests("too many requests — please wait a moment")
 
 
 def public_booking_rate_limit(request: Request) -> None:
     """Cap how fast one IP hits the unauthenticated booking endpoints."""
-    if not _public_booking_limiter.check(client_ip(request), time.monotonic()):
+    if not _public_booking_limiter.check(requester_ip(request), time.monotonic()):
         raise TooManyRequests("too many requests — please wait a moment")
 
 
 def public_prefs_rate_limit(request: Request) -> None:
     """Cap how fast one IP hits the unauthenticated message preference endpoints."""
-    if not _public_prefs_limiter.check(client_ip(request), time.monotonic()):
+    if not _public_prefs_limiter.check(requester_ip(request), time.monotonic()):
         raise TooManyRequests("too many requests — please wait a moment")
 
 
 def public_invite_rate_limit(request: Request) -> None:
     """Cap how fast one IP probes invite tokens on the unauthenticated preview."""
-    if not _public_invite_limiter.check(client_ip(request), time.monotonic()):
+    if not _public_invite_limiter.check(requester_ip(request), time.monotonic()):
         raise TooManyRequests("too many requests — please wait a moment")

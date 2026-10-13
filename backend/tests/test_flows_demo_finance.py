@@ -3,7 +3,12 @@ from datetime import UTC, datetime, timedelta
 import httpx
 import pytest
 from scripts.demo_context import DemoContext
-from scripts.demo_finance import add_finance_scenarios, estimates, headers, payouts
+from scripts.demo_finance import (
+    add_finance_scenarios,
+    prepare_estimates,
+    price_documents,
+    seed_payouts,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.scoping import scoped
@@ -49,8 +54,8 @@ def test_demo_headers_tax_service_and_retail_separately_and_preserve_conversion(
         )
     )
     ctx.add(Estimate(id="est_demo", converted_invoice_id="inv_demo", accepted_at=ctx.at(-2)))
-    estimates(ctx)
-    headers(ctx)
+    prepare_estimates(ctx)
+    price_documents(ctx)
     invoice, estimate = ctx.get(Invoice, "inv_demo"), ctx.get(Estimate, "est_demo")
     assert (invoice.subtotal_cents, invoice.tax_total_cents, invoice.total_cents) == (
         13400,
@@ -93,7 +98,7 @@ async def test_weekly_payouts_sweep_actual_available_balance_once(db: AsyncSessi
             occurred_at=ctx.at(day),
             available_at=ctx.at(day + 2),
         )
-    await payouts(db, ctx)
+    await seed_payouts(db, ctx)
     assert (
         await ledger.balance(
             db, business.id, owner_type="business", owner_id=business.id, category="stripe"
@@ -194,8 +199,8 @@ def test_demo_optional_estimate_totals_exclude_unselected_addons_and_match_conve
                 position=position,
             )
         )
-    estimates(ctx)
-    headers(ctx)
+    prepare_estimates(ctx)
+    price_documents(ctx)
     assert (estimate.subtotal_cents, estimate.tax_total_cents, estimate.total_cents) == (
         10800,
         540,
@@ -233,8 +238,8 @@ def test_demo_optional_estimate_totals_exclude_unselected_addons_and_match_conve
         accepted_at=ctx.at(-1),
     )
     ctx.add(accepted)
-    estimates(ctx)
-    headers(ctx)
+    prepare_estimates(ctx)
+    price_documents(ctx)
     assert accepted.total_cents == invoice.total_cents == estimate.total_cents
     assert accepted.discount_kind == "percent" and accepted.discount_value == 10
     assert len([r for r in ctx.all(Line) if r.estimate_id == accepted.id]) == 2

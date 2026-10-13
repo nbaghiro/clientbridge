@@ -6,13 +6,13 @@ from fastapi.responses import RedirectResponse
 
 from clientbridge.core.deps import DbSession, EmailDep, GatewayDep, PushDep, SmsDep, StorageDep
 from clientbridge.core.ratelimit import (
-    client_ip,
     public_booking_rate_limit,
     public_contract_rate_limit,
     public_form_rate_limit,
     public_pay_rate_limit,
     public_prefs_rate_limit,
     public_review_rate_limit,
+    requester_ip,
 )
 from clientbridge.schemas.billing import (
     PublicEstimate,
@@ -215,7 +215,7 @@ async def public_contract_sign(
     db: DbSession,
     _: ContractRateLimited,
 ) -> PublicContractContext:
-    return await PublicContractService(db).sign(token, body, client_ip(request))
+    return await PublicContractService(db).sign(token, body, requester_ip(request))
 
 
 @contract_router.post("/{token}/decline", response_model=PublicContractContext)
