@@ -276,8 +276,8 @@ def test_a_platform_subscription_parses_with_its_business_and_items() -> None:
         ("clientbridge_premium", "year", 1),
         ("clientbridge_seat", "month", 2),
     ]
-    assert sub.current_period_end == datetime.fromtimestamp(1_900_000_000, tz=UTC)
-    assert sub.trial_end == sub.current_period_end and sub.cancel_at_period_end is False
+    assert sub.items[0].current_period_end == datetime.fromtimestamp(1_900_000_000, tz=UTC)
+    assert sub.trial_end == sub.items[0].current_period_end and not sub.cancel_at_period_end
 
 
 ADDRESS = PostalAddress("1207 Government Street", "Victoria", "BC", "V8W 1Y9")

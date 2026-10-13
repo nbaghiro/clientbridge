@@ -37,7 +37,6 @@ async def _premium(db: AsyncSession, gateway: FakePaymentGateway, seats: int) ->
         customer_account="acct_paying",
         business_id=BIZ,
         items=subscribed("premium_month", PlanItem("seat_month", seats)),
-        current_period_end=None,
         cancel_at_period_end=False,
         trial_end=None,
     )

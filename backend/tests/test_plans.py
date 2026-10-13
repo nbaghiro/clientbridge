@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -77,8 +78,10 @@ def _sub(
         status=status,
         customer_account=account,
         business_id=BIZ,
-        items=subscribed(*items) if items else subscribed("premium_month"),
-        current_period_end=datetime(2030, 2, 1, tzinfo=UTC),
+        items=tuple(
+            replace(row, current_period_end=datetime(2030, 2, 1, tzinfo=UTC))
+            for row in (subscribed(*items) if items else subscribed("premium_month"))
+        ),
         cancel_at_period_end=False,
         trial_end=None,
     )
@@ -504,3 +507,19 @@ async def test_trial_reminders_go_three_days_before_and_on_the_last_day(
     later = await local_hour(db, 10)
     await _trial(db, timedelta(hours=5))
     assert await run_trial_reminders(db, notifier, later) == 0
+
+
+async def test_the_renewal_date_comes_from_the_plan_item_not_the_seat_item(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _subscribed(db, gateway, PlanItem("premium_year"))
+    seat, plan = subscribed(PlanItem("seat_month", 2), "premium_year")
+    gateway.plan_subscriptions[SUB] = replace(
+        _sub(),
+        items=(
+            replace(seat, current_period_end=datetime(2030, 2, 1, tzinfo=UTC)),
+            replace(plan, current_period_end=datetime(2030, 12, 1, tzinfo=UTC)),
+        ),
+    )
+    body = ok(await as_owner.get("/v1/plan")).json()
+    assert body["current_period_end"].startswith("2030-12-01")

@@ -226,6 +226,7 @@ def _out(
     business: Business, seats: int, now: datetime, sub: PlanSubscription | None = None
 ) -> PlanOut:
     _, interval = _tier_of(sub) if sub is not None else (None, None)
+    item = _plan_item(sub) if sub is not None else None
     return PlanOut(
         access=plan_access(business, now),
         plan=business.plan,
@@ -235,7 +236,7 @@ def _out(
         interval=interval,
         seats=seats,
         seat_cap=PLAN_SEAT_CAP,
-        current_period_end=sub.current_period_end if sub is not None else None,
+        current_period_end=item.current_period_end if item is not None else None,
         cancel_at_period_end=sub.cancel_at_period_end if sub is not None else False,
         currency=PLAN_CURRENCY.upper(),
         prices=_prices(),

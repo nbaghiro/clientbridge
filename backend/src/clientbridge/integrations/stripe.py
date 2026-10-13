@@ -307,7 +307,6 @@ class PlanSubscription:
     customer_account: str | None
     business_id: str | None  # the metadata Checkout copied onto the subscription
     items: tuple[SubscribedItem, ...]
-    current_period_end: datetime | None
     cancel_at_period_end: bool
     trial_end: datetime | None
 
@@ -349,7 +348,6 @@ def plan_subscription_from(data: dict[str, object]) -> PlanSubscription:
         customer_account=customer_account if isinstance(customer_account, str) else None,
         business_id=business_id if isinstance(business_id, str) else None,
         items=tuple(items),
-        current_period_end=_moment(period_timestamp(data, "end")),
         cancel_at_period_end=data.get("cancel_at_period_end") is True,
         trial_end=_moment(data.get("trial_end")),
     )
