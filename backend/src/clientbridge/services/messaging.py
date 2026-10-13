@@ -721,8 +721,11 @@ async def process_email_event(db: AsyncSession, *, svix_id: str, payload: bytes)
     tags = data.tags or {}
     address = recipients[0] if recipients else None
     email_id = data.email_id or ""
-    message_id = tags.get("message")
-    message = await db.get(Message, message_id) if message_id else None
+    message_id, business_tag = tags.get("message"), tags.get("business")
+    message: Message | None = None
+    if message_id and business_tag:
+        tagged = scoped(Message, business_tag).where(Message.id == message_id)
+        message = (await db.execute(tagged)).scalar_one_or_none()
     if message is None and email_id:
         message = await _email_message(db, email_id)
     if message is None and message_id and _is_recent(event.created_at):

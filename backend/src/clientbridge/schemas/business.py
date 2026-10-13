@@ -133,7 +133,6 @@ class BusinessSettingsUpdate(Mirror):
     timezone: str | None = None
     billing_email: str | None = None
     gst_hst_number: str | None = None
-
     qst_number: str | None = None
     pst_number: str | None = None
     tax_registered: bool | None = None
