@@ -59,7 +59,7 @@ PACKAGE_USED = {"pkg_marcus": 2, "pkg_grace": 5, "pkg_sophie": 4}
 
 
 def at(days_offset: float, hour: int = 9, minute: int = 0) -> datetime:
-    """A local business-hour timestamp relative to now, stored as UTC, so demo times read sensibly."""
+    """A local business-hour timestamp relative to now, stored as UTC, so demo times read well."""
     return (
         (now + timedelta(days=days_offset))
         .replace(hour=hour, minute=minute, second=0, microsecond=0)
@@ -787,7 +787,7 @@ def seed_resources_hours() -> None:
         Resource(id="rs_station_b", business_id=BIZ, name="Grooming Station B", category="station")
     )
     rows.append(Resource(id="rs_bath", business_id=BIZ, name="Bath Bay", category="room"))
-    # recurring weekly hours Tue–Sat 9–17 for both groomers
+    # recurring weekly hours Tue-Sat 9-17 for both groomers
     for member in ("st_owner", "st_diego"):
         for weekday in (1, 2, 3, 4, 5):  # Tue..Sat
             rows.append(
@@ -1264,7 +1264,7 @@ def seed_estimates() -> None:
             id="ln_est_1",
             business_id=BIZ,
             estimate_id="est_1001",
-            description="Full Groom — Small Dog ×3",
+            description="Full Groom — Small Dog \N{MULTIPLICATION SIGN}3",
             item_id="it_groom_sm",
             quantity=3,
             unit_amount_cents=7500,
@@ -1278,7 +1278,7 @@ def seed_estimates() -> None:
             id="ln_est_2",
             business_id=BIZ,
             estimate_id="est_1001",
-            description="De-shedding add-on ×1",
+            description="De-shedding add-on \N{MULTIPLICATION SIGN}1",
             item_id="it_deshed",
             quantity=1,
             unit_amount_cents=6000,
@@ -1292,7 +1292,7 @@ def seed_estimates() -> None:
             id="ln_est_3",
             business_id=BIZ,
             estimate_id="est_1001",
-            description="Take-home Oatmeal Shampoo ×1",
+            description="Take-home Oatmeal Shampoo \N{MULTIPLICATION SIGN}1",
             item_id="it_shampoo",
             quantity=1,
             unit_amount_cents=2400,
@@ -1349,7 +1349,8 @@ REVIEWS = [
         "cl_amelie",
         "bk_000",
         5,
-        "Bella always comes home so soft and happy. Hannah is endlessly patient with her dryer anxiety.",
+        "Bella always comes home so soft and happy. "
+        "Hannah is endlessly patient with her dryer anxiety.",
         True,
     ),
     (
@@ -1438,7 +1439,7 @@ def seed_platform(owner: str) -> None:
 
 
 def seed_coverage() -> None:
-    """Fill the remaining gaps so the demo exercises every surface, apart from the verticals above."""
+    """Fill the remaining gaps so the demo exercises every surface beyond the verticals above."""
 
     rows.append(
         Order(
@@ -1777,7 +1778,7 @@ def seed_coverage() -> None:
             id="ln_est3",
             business_id=BIZ,
             estimate_id="est_1003",
-            description="Cat Groom ×2",
+            description="Cat Groom \N{MULTIPLICATION SIGN}2",
             item_id="it_cat",
             quantity=2,
             unit_amount_cents=4500,
