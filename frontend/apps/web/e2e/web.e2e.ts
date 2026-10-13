@@ -842,6 +842,10 @@ test("owner: setup sections and their dialogs", async ({ page }) => {
     await walk.step("getting paid, taxes and reminders", async () => {
         await navigate(page, "/setup/getting-paid");
         await expect(main.getByRole("button", { name: strings.gettingPaid.refresh })).toBeVisible();
+        // with no banner from Stripe there is no empty notices landmark
+        await expect(
+            main.getByRole("region", { name: strings.paymentAccount.notices }),
+        ).toHaveCount(0);
         await navigate(page, "/setup/taxes");
         await expect(main.getByRole("button", { name: strings.taxes.openReport })).toBeVisible();
         await navigate(page, "/setup/reminders");
