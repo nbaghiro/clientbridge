@@ -124,3 +124,16 @@ async def test_tap_to_pay_takes_the_card_present_fee(
     assert payment is not None and payment.provider_ref is not None
     amount, fee = gateway.charges[payment.provider_ref]
     assert fee == amount * 50 // 10_000
+
+
+async def test_a_saved_card_missing_from_stripe_is_a_conflict_before_any_charge(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    gateway.missing_methods.add("pm_gone")
+    method_id = await _saved(db, await client_id(db), "pm_gone", "card")
+    cid = await db.execute(select(PaymentMethod.client_id).where(PaymentMethod.id == method_id))
+    inv = await sent_invoice(db, client=cid.scalar_one(), total=10_000)
+    body = {"method": "card", "amount_cents": 10_000, "payment_method_id": method_id}
+    res = await as_owner.post(f"/v1/invoices/{inv}/payments", json=body)
+    assert res.status_code == 409 and gateway.charges == {}

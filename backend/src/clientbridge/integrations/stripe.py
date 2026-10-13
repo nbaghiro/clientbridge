@@ -1164,12 +1164,17 @@ class StripeGateway:
         return sum(int(f["amount"]) for f in funds if str(f["currency"]) == currency.lower())
 
     @_keyed
-    async def get_card_country(  # pragma: no cover
-        self, account_id: str, *, payment_method_id: str
-    ) -> str | None:
-        method = await stripe.PaymentMethod.retrieve_async(
-            payment_method_id, stripe_account=account_id
-        )
+    async def get_card_country(self, account_id: str, *, payment_method_id: str) -> str | None:
+        try:
+            method = await stripe.PaymentMethod.retrieve_async(
+                payment_method_id, stripe_account=account_id
+            )
+        except stripe.InvalidRequestError as exc:
+            if _missing(exc):
+                raise Conflict(
+                    "the saved payment method is not on the business's Stripe account"
+                ) from exc
+            raise
         return method.card.country if method.card is not None else None
 
     @_keyed
