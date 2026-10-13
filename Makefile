@@ -1,4 +1,4 @@
-.PHONY: help up down logs-sync logs-auth install stripe-listen dev-api worker dev-web dev-connect dev-site dev-playground dev-mobile build build-site test-site test-web test-connect test-playground test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones codegen-check test test-backend test-frontend test-contract test-kratos kratos-standalone test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
+.PHONY: help up down logs-sync logs-auth install stripe-listen dev-api worker dev-web dev-connect dev-site dev-mobile build build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones codegen-check test test-backend test-frontend test-contract test-kratos kratos-standalone test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
 .DEFAULT_GOAL := help
 
 help:
@@ -12,14 +12,12 @@ help:
 	@echo "dev-web          run web (Vite) on :8700"
 	@echo "dev-connect      run Connect, the client pages (Vite), on :8709"
 	@echo "dev-site         run the marketing site (Vite) on :8710"
-	@echo "dev-playground   run the component playground (Vite) on :8712"
 	@echo "dev-mobile       run mobile (Expo/Metro) on :8707"
 	@echo "build            build every frontend app and package"
 	@echo "build-site       build the marketing site to static HTML in frontend/apps/site/dist"
 	@echo "test-site        build the site, then the browser pass (links, images, phone width, a11y)"
 	@echo "test-web         web smoke test: every page and dialog (needs the local stack + seed)"
 	@echo "test-connect     Connect e2e: booking, manage link, shop and every client page (needs the API + seed)"
-	@echo "test-playground  build the playground, then open every story on web, iPhone and Android"
 	@echo "test-mobile      Maestro native walkthroughs (needs a development build, local stack + seed)"
 	@echo "test-sync        disposable Postgres + PowerSync: replica rows per role, revocation, key rotation"
 	@echo "replication-health  local PowerSync readiness, slot, retained WAL and replay lag"
@@ -90,9 +88,6 @@ dev-connect:
 dev-site:
 	cd frontend && pnpm --filter site dev
 
-dev-playground:
-	cd frontend && pnpm --filter playground dev
-
 build:
 	cd frontend && pnpm build
 
@@ -110,10 +105,6 @@ test-web:
 test-connect:
 	links="$$(cd backend && uv run python -m scripts.connect_links)" && \
 		cd frontend && CONNECT_LINKS="$$links" pnpm --filter connect e2e
-
-# Every story page and phone frame on a fresh build, failing on any console error.
-test-playground:
-	cd frontend && pnpm --filter playground build && pnpm --filter playground e2e
 
 # Lighthouse budget (desktop >= 95 per category); needs the built site served on :8710 (make dev-site
 # serves source, so run `cd frontend && pnpm --filter site preview` first).

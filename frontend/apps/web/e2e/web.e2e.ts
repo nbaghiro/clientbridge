@@ -1,4 +1,5 @@
 import { strings } from "@clientbridge/app-core/public";
+import { axeIssues, unmarkedFocus, unreadableHover } from "@clientbridge/config/e2e/accessibility";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
 const OWNER = "hannah@birchbarkpets.ca";
@@ -292,16 +293,33 @@ test("owner: schedule, booking panel, classes and repeat visits", async ({ page 
         const services = page.getByRole("listbox", { name: b.composerService });
         await expect(services.getByRole("option").first()).toBeVisible();
         await page.keyboard.press("ArrowDown");
+        await page.keyboard.press("End");
+        const last = (await services.getByRole("option").last().getAttribute("id")) ?? "";
+        expect(last).not.toBe("");
+        await expect(service).toHaveAttribute("aria-activedescendant", last);
         await page.keyboard.press("Enter");
         await expect(services).toBeHidden();
         await expect(service).toBeFocused();
         await expect(service).not.toHaveText(b.composerServicePlaceholder);
-        await composer.getByRole("button", { name: b.composerDate }).click();
+        const date = composer.getByRole("button", { name: b.composerDate });
+        const picked = (await date.textContent()) ?? "";
+        await date.click();
         const calendar = page.getByRole("dialog", { name: b.composerDate });
-        await expect(calendar.getByRole("grid")).toBeVisible();
+        const month = calendar.getByRole("grid");
+        await expect(month).toBeVisible();
+        const shown = (await month.getAttribute("aria-label")) ?? "";
         await page.keyboard.press("ArrowRight");
+        await page.keyboard.press("PageDown");
+        await expect(month).not.toHaveAttribute("aria-label", shown);
+        await page.keyboard.press("Enter");
+        await expect(calendar).toBeHidden();
+        await expect(date).toBeFocused();
+        await expect(date).not.toHaveText(picked);
+        await date.click();
+        await expect(calendar).toBeVisible();
         await page.keyboard.press("Escape");
         await expect(calendar).toBeHidden();
+        await expect(date).toBeFocused();
         await expect(composer).toBeVisible();
         await composer.getByRole("button", { name: strings.common.close }).click();
         await expect(composer).toBeHidden();
@@ -827,6 +845,71 @@ test("owner: setup sections and their dialogs", async ({ page }) => {
         ).toBeVisible();
     });
 
+    walk.expectNoErrors();
+});
+
+// The shared components as the app composes them: axe, a visible focus stop for every control and readable hover text.
+const ACCESSIBLE_PAGES = [
+    "/today",
+    "/schedule",
+    "/schedule/classes",
+    "/clients",
+    "/payments/invoices",
+    "/payments/reports",
+    "/inbox",
+    "/setup/business",
+    "/setup/services",
+];
+
+test("owner: key pages and records pass axe, show keyboard focus and keep hovered text readable", async ({
+    page,
+}) => {
+    test.setTimeout(300_000);
+    const walk = await signIn(page, OWNER);
+    const { main } = walk;
+    const found: Record<string, string[]> = {};
+    const record = async (where: string, scope: string): Promise<void> => {
+        const problems = [
+            ...(await axeIssues(page)),
+            ...(await unmarkedFocus(page, scope)).map((name) => `no focus indicator: ${name}`),
+            ...(await unreadableHover(page, scope)).map((name) => `hover contrast: ${name}`),
+        ];
+        if (problems.length > 0) found[where] = problems;
+    };
+
+    for (const path of ACCESSIBLE_PAGES) {
+        await walk.step(path, async () => {
+            await navigate(page, path);
+            await expect(main.getByRole("heading", { level: 1 }).first()).toBeVisible();
+            await main.getByRole("heading", { level: 1 }).first().click();
+            await record(path, "main");
+        });
+    }
+
+    await walk.step("new booking composer", async () => {
+        await navigate(page, "/schedule");
+        await main.getByRole("button", { name: strings.bookings.newBooking }).first().click();
+        await expect(page.getByRole("form", { name: strings.bookings.newBooking })).toBeVisible();
+        await record(
+            "new booking composer",
+            `form[aria-label="${strings.bookings.composerTitle}"]`,
+        );
+    });
+
+    for (const [path, name] of [
+        ["/clients", "client record"],
+        ["/payments/invoices", "invoice record"],
+    ] as const) {
+        await walk.step(name, async () => {
+            await navigate(page, path);
+            await main.locator("button.block").first().click();
+            await expect(page.getByRole("dialog")).toBeVisible();
+            await record(name, '[role="dialog"]');
+            await escapeDialog(page);
+        });
+    }
+
+    expect(found).toEqual({});
     walk.expectNoErrors();
 });
 

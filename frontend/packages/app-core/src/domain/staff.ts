@@ -466,7 +466,7 @@ export function canManageStaff(role: string | null): boolean {
 type StaffRole = "admin" | "staff" | "contractor";
 
 /** Matches the backend InviteOut; `invite_token` is the raw token, returned once to the inviter. */
-export interface Invite {
+interface Invite {
     id: string;
     email: string;
     role: string;

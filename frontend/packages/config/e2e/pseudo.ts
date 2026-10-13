@@ -2,11 +2,11 @@ import { readFileSync } from "node:fs";
 
 import type { Page } from "@playwright/test";
 
-// Shared by the playground, web and Connect pseudo-locale passes (VITE_PSEUDO_LOCALE=1).
+// Shared by the web and Connect pseudo-locale passes (VITE_PSEUDO_LOCALE=1).
 const ACCENTED = /[åƀçðéƒĝĥîĵķļɱñöþǫŕšţûṽŵẋýžÅƁÇĐÉƑĜĤÎĴĶĻṀÑÖÞǪŔŠŢÛṼŴẊÝŽ]/;
 
 const catalog = JSON.parse(
-    readFileSync(new URL("../../../packages/app-core/locales/en-CA.json", import.meta.url), "utf8"),
+    readFileSync(new URL("../../app-core/locales/en-CA.json", import.meta.url), "utf8"),
 ) as Record<string, { message: string }>;
 
 const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

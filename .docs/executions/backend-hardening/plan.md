@@ -299,7 +299,7 @@ Persist validated selected business; send X-Business-Id on commands; scope every
 
 **Depends on:** T12. **Covers:** N03, N04.
 
-**Source scope:** `frontend/packages/app-core/src/hooks.ts`; `frontend/packages/app-core/src/pagination.ts`; `frontend/packages/app-core/src/ui.ts`; `frontend/packages/ui/src/web/ListPage.tsx`; `frontend/packages/ui/src/mobile/ListPage.tsx`; `frontend/packages/app-core/src/strings.ts`; `frontend/apps/playground/src/stories/ListPage.tsx`.
+**Source scope:** `frontend/packages/app-core/src/hooks.ts`; `frontend/packages/app-core/src/pagination.ts`; `frontend/packages/app-core/src/ui.ts`; `frontend/packages/ui/src/web/ListPage.tsx`; `frontend/packages/ui/src/mobile/ListPage.tsx`; `frontend/packages/app-core/src/strings.ts`.
 
 Implement query identity, keyset/window state, bounded page cache, cancellation/reset, hasMore/loadingMore/error and retry; add native end-reached and web sentinel/manual loading; keep row identity and focus/scroll anchors.
 

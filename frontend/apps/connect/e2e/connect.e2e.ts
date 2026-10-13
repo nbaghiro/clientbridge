@@ -1,4 +1,5 @@
 import { strings } from "@clientbridge/app-core/public";
+import { axeIssues, unmarkedFocus, unreadableHover } from "@clientbridge/config/e2e/accessibility";
 import { expect, type Page, test } from "@playwright/test";
 
 import { links, ownAddress } from "./links";
@@ -275,6 +276,36 @@ for (const surface of PUBLIC_PAGES) {
         expect(errors).toEqual([]);
     });
 }
+
+for (const surface of PUBLIC_PAGES) {
+    test(`the ${surface.name} page passes axe, shows keyboard focus and keeps hovered text readable`, async ({
+        page,
+    }) => {
+        await page.goto(surface.path);
+        await expect(page.getByText(surface.landmark, { exact: true }).first()).toBeVisible();
+        await page.getByRole("heading", { level: 1 }).first().click();
+        expect(await axeIssues(page)).toEqual([]);
+        expect(await unmarkedFocus(page, "body")).toEqual([]);
+        expect(await unreadableHover(page, "body")).toEqual([]);
+    });
+}
+
+test("the business cover photo keeps its hovered actions readable", async ({ page }) => {
+    const cover = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="600"><rect width="1600" height="600" fill="#f4efe4"/></svg>`;
+    await page.route("**/e2e-cover.svg", (route) =>
+        route.fulfill({ contentType: "image/svg+xml", body: cover }),
+    );
+    await page.route(`**/book/${links.slug}/profile`, async (route) => {
+        const response = await route.fetch();
+        const profile = (await response.json()) as { brand: Record<string, unknown> };
+        profile.brand.cover_url = new URL("/e2e-cover.svg", page.url()).href;
+        await route.fulfill({ response, json: profile });
+    });
+    await page.goto(`/b/${links.slug}`);
+    const header = page.locator("header", { has: page.locator('img[src$="/e2e-cover.svg"]') });
+    await expect(header.getByRole("button", { name: strings.publicLanding.book })).toBeVisible();
+    expect(await unreadableHover(page, "header")).toEqual([]);
+});
 
 const MISSING_PAGES = [
     ["/b/missing-business", strings.publicLanding.notFoundTitle],

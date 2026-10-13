@@ -448,8 +448,7 @@
         "frontend/packages/app-core/src/ui.ts",
         "frontend/packages/ui/src/web/ListPage.tsx",
         "frontend/packages/ui/src/mobile/ListPage.tsx",
-        "frontend/packages/app-core/src/strings.ts",
-        "frontend/apps/playground/src/stories/ListPage.tsx"
+        "frontend/packages/app-core/src/strings.ts"
       ],
       "implementation": "Implement query identity, keyset/window state, bounded page cache, cancellation/reset, hasMore/loadingMore/error and retry; add native end-reached and web sentinel/manual loading; keep row identity and focus/scroll anchors.",
       "acceptance": "Stable data traverses 1001 rows with no duplicates or gaps; ties, deletion, changed sort keys, repeated load-more, filter/tenant reset and out-of-order results are covered; old rows survive next-page failure; keyboard/screen-reader/manual loading works.",
