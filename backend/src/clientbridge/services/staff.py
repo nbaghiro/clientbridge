@@ -141,8 +141,9 @@ class StaffService:
             )
             self.db.add(staff)
             await self.db.flush()
-            # billed before commit: a failed Stripe call fails the invite, so no seat goes unpaid
+            # billed before commit, so a failed Stripe call fails the invite before anyone joins
             await plans.sync_seats(gateway, business, seats)
+            billed.append(True)
             subject, body = await self._invite_email(principal, raw)
             await email_sender.send(business_email(principal.business_id, email, subject, body))
             cmd.record("staff.invite", entity_type="staff", entity_id=staff.id)
@@ -150,15 +151,22 @@ class StaffService:
                 id=staff.id, email=email, role=role, status=staff.status, invite_token=raw
             )
 
-        return await run_command(
-            self.db,
-            principal,
-            action="staff.invite",
-            run=run,
-            response_model=InviteOut,
-            idempotency_key=idempotency_key,
-            request={"email": email, "role": role},
-        )
+        billed: list[bool] = []
+        try:
+            return await run_command(
+                self.db,
+                principal,
+                action="staff.invite",
+                run=run,
+                response_model=InviteOut,
+                idempotency_key=idempotency_key,
+                request={"email": email, "role": role},
+            )
+        except Exception:
+            # the invite rolled back after its seat was billed, so bill the seats that remain
+            if billed:
+                await self.release_seat(principal.business_id, gateway)
+            raise
 
     async def _pending(self, token: str) -> Staff:
         staff = (

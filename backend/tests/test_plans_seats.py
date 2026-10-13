@@ -12,7 +12,12 @@ from clientbridge.integrations.stripe import PlanItem, PlanSubscription
 from clientbridge.models.business import Business, Staff
 from clientbridge.services import plans
 from clientbridge.services.plans import run_sync_seats
-from tests.conftest import FakeIdentityProvider, FakePaymentGateway, subscribed
+from tests.conftest import (
+    FakeEmailSender,
+    FakeIdentityProvider,
+    FakePaymentGateway,
+    subscribed,
+)
 from tests.helpers import ok
 
 BIZ = "bz_birchbark"
@@ -179,3 +184,22 @@ async def test_the_fake_replays_a_repeated_seat_key(
     again = [PlanItem("premium_month"), PlanItem("seat_month", 9)]
     assert await gateway.set_plan_items(SUB, items=again, idempotency_key="k") == first
     assert _billed(gateway) == 5
+
+
+async def test_an_invite_that_fails_after_billing_its_seat_gives_the_seat_back(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    email: FakeEmailSender,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seats = await _seats(db)
+    await _premium(db, gateway, seats)
+
+    async def down(message: object) -> None:
+        raise RuntimeError("mail is down")
+
+    monkeypatch.setattr(email, "send", down)
+    with pytest.raises(RuntimeError):
+        await _invite(as_owner, "lost@test.ca")
+    assert _billed(gateway) == seats
