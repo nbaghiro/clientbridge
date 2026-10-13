@@ -64,7 +64,7 @@ PLAN_PRICES: dict[str, PlanPrice] = {
 PLAN_SEAT_CAP = 50
 # an invite holds its seat until it expires, so it can't be used to get a free seat
 INVITE_TTL = timedelta(days=7)
-# Checkout refuses a trial_end closer than this
+# Checkout refuses a trial_end closer than this; app-core plans.ts TRIAL_CARRY_MS mirrors it
 _CHECKOUT_TRIAL_MIN = timedelta(hours=48)
 _REMINDER_HOUR = 9
 _REMINDER_LEAD = timedelta(days=3)

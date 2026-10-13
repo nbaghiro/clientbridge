@@ -36,6 +36,8 @@ interface PlanState {
 const DAY_MS = 86_400_000;
 // the shell warns the owner this many days before the trial ends
 const TRIAL_WARNING_DAYS = 3;
+// Checkout carries the trial only while this much of it is left (plans.py), and bills at once after
+const TRIAL_CARRY_MS = 48 * 3_600_000;
 const PLAN_TIERS: readonly PlanTier[] = ["premium", "team"];
 
 const p = strings.plans;
@@ -52,6 +54,14 @@ export function planAccess(status: string, trialEndsAt: Date, now: Date): PlanAc
     if (status === "trialing") return now < trialEndsAt ? "trial" : "lapsed";
     if (status === "active" || status === "past_due") return status;
     return "lapsed";
+}
+
+/** When billing starts if the owner chooses a plan now. */
+export function trialDetail(trialEndsAt: Date, now: Date, zone: string): string {
+    const date = formatDate(trialEndsAt, zone);
+    return trialEndsAt.getTime() - now.getTime() >= TRIAL_CARRY_MS
+        ? p.trialBody(date)
+        : p.trialBodyBillsNow(date);
 }
 
 /** Whole days left in the trial, counting a part day as one. */
@@ -180,7 +190,7 @@ function headline(
         case "trial":
             return {
                 title: p.trialTitle(trialDaysLeft(ends, now)),
-                detail: p.trialBody(formatDate(ends, zone)),
+                detail: trialDetail(ends, now, zone),
                 intent: "accent",
                 facts,
             };

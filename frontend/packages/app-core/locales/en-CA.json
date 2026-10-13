@@ -12763,6 +12763,10 @@
         "message": "Your trial ends {date}. Choose a plan now and billing starts when the trial ends.",
         "args": ["date"]
     },
+    "plans.trialBodyBillsNow": {
+        "message": "Your trial ends {date}. A plan you choose now is billed right away, since less than two days of the trial are left.",
+        "args": ["date"]
+    },
     "plans.lapsedTitle": {
         "message": "Your business is paused"
     },

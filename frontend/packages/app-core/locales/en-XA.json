@@ -12005,6 +12005,9 @@
     "plans.trialBody": {
         "message": "[Ýöûŕ ţŕîåļ éñðš {date}. Çĥööšé å þļåñ ñöŵ åñð ƀîļļîñĝ šţåŕţš ŵĥéñ ţĥé ţŕîåļ éñðš. one two three four five]"
     },
+    "plans.trialBodyBillsNow": {
+        "message": "[Ýöûŕ ţŕîåļ éñðš {date}. Å þļåñ ýöû çĥööšé ñöŵ îš ƀîļļéð ŕîĝĥţ åŵåý, šîñçé ļéšš ţĥåñ ţŵö ðåýš öƒ ţĥé ţŕîåļ åŕé ļéƒţ. one two three four five six seven]"
+    },
     "plans.lapsedTitle": {
         "message": "[Ýöûŕ ƀûšîñéšš îš þåûšéð one two]"
     },

@@ -4298,6 +4298,7 @@ interface Strings {
         readonly taxNote: string;
         readonly trialTitle: (days: number) => string;
         readonly trialBody: (date: string) => string;
+        readonly trialBodyBillsNow: (date: string) => string;
         readonly lapsedTitle: string;
         readonly lapsedBody: string;
         readonly pastDueTitle: string;

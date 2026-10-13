@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { formatDate } from "../datetime";
 import { strings } from "../strings";
-import { planAccess, planNotice, trialDaysLeft } from "./plans";
+import { planAccess, planNotice, trialDaysLeft, trialDetail } from "./plans";
 
 const p = strings.plans;
 const NOW = new Date("2026-10-12T12:00:00Z");
@@ -47,5 +48,16 @@ describe("planNotice", () => {
         expect(planNotice({ access: "trial", daysLeft: 1 }, "admin")).toBeNull();
         expect(planNotice({ access: "active", daysLeft: 0 }, "owner")).toBeNull();
         expect(planNotice(null, "owner")).toBeNull();
+    });
+});
+
+describe("trialDetail", () => {
+    const zone = "America/Vancouver";
+
+    it("defers billing to the trial's end only while Checkout can still carry it", () => {
+        const carried = new Date(NOW.getTime() + 48 * HOUR);
+        expect(trialDetail(carried, NOW, zone)).toBe(p.trialBody(formatDate(carried, zone)));
+        const close = new Date(NOW.getTime() + 48 * HOUR - 1);
+        expect(trialDetail(close, NOW, zone)).toBe(p.trialBodyBillsNow(formatDate(close, zone)));
     });
 });
