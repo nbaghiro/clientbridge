@@ -17,6 +17,7 @@ from clientbridge.models.platform import File
 from clientbridge.schemas.business import BusinessSettingsUpdate, OnboardBody, public_email
 
 _POSTAL_CODE = re.compile(r"\b([A-Z]\d[A-Z])\s?(\d[A-Z]\d)\b", re.IGNORECASE)
+_COUNTRY = ("canada", "ca")
 _PROVINCES: dict[str, ProvinceCode] = {
     "alberta": "AB",
     "british columbia": "BC",
@@ -49,8 +50,10 @@ def postal_address(business: Business) -> PostalAddress:
             code="business_address_incomplete",
         )
     postal = codes[-1]
-    rest = (text[: postal.start()] + text[postal.end() :]).strip(" ,")
-    parts = [p.strip() for p in rest.split(",") if p.strip()]
+    rest = f"{text[: postal.start()]},{text[postal.end() :]}"
+    parts = [p.strip() for p in re.split(r"[,\n]", rest) if p.strip()]
+    if parts and parts[-1].lower() in _COUNTRY:
+        parts.pop()
     if parts:
         named = parts[-1].rsplit(" ", 1)
         tail = named[-1].upper()
@@ -61,8 +64,12 @@ def postal_address(business: Business) -> PostalAddress:
                     "the business address is in a different province than the business",
                     code="business_address_incomplete",
                 )
-            parts[-1] = "" if whole is not None or len(named) == 1 else named[0].strip()
-            parts = [p for p in parts if p]
+            if whole is None:
+                parts[-1] = named[0].strip() if len(named) > 1 else ""
+                parts = [p for p in parts if p]
+            elif len(parts) > 2:
+                parts.pop()
+            # otherwise the full name is the only city part, as in Québec, QC
     if len(parts) < 2:
         raise Unprocessable(
             "add the business street address, city, province and postal code in Business "
@@ -291,6 +298,9 @@ class BusinessService:
                     merged.pop(key, None)
                 else:
                     merged[key] = value
+            if merged.get("address") != (business.brand or {}).get("address"):
+                # the Terminal location holds the old address; the next reader session mints one
+                business.stripe_terminal_location_id = None
             business.brand = merged
         await self.db.flush()
         await self.db.refresh(business)

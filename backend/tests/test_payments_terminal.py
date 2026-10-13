@@ -116,10 +116,28 @@ def _business(address: object, province: ProvinceCode | None = "BC") -> Business
             "88 Fort St, Victoria V8W 1Y9",
             PostalAddress("88 Fort St", "Victoria", "BC", "V8W 1Y9"),
         ),
+        (
+            "88 Fort St, Victoria, BC V8W 1Y9, Canada",
+            PostalAddress("88 Fort St", "Victoria", "BC", "V8W 1Y9"),
+        ),
+        (
+            "88 Fort St\nVictoria BC V8W 1Y9\nCA",
+            PostalAddress("88 Fort St", "Victoria", "BC", "V8W 1Y9"),
+        ),
     ],
 )
 def test_postal_address_reads_canadian_formats(address: str, expected: PostalAddress) -> None:
     assert postal_address(_business(address)) == expected
+
+
+@pytest.mark.parametrize(
+    "address",
+    ["1 Rue des Jardins, Québec G1R 4S9", "1 Rue des Jardins, Québec, QC G1R 4S9, Canada"],
+)
+def test_a_city_named_like_its_province_stays_the_city(address: str) -> None:
+    assert postal_address(_business(address, "QC")) == PostalAddress(
+        "1 Rue des Jardins", "Québec", "QC", "G1R 4S9"
+    )
 
 
 @pytest.mark.parametrize(
