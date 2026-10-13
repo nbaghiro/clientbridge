@@ -1,29 +1,108 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
+from fractions import Fraction
+from math import floor
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.models.billing import Line
-from clientbridge.services.business import business_province, business_tax_registered
+from clientbridge.services.business import business_province, business_tax_registered, business_tz
 
-_PRECISE: dict[str, Decimal] = {"QST": Decimal("0.09975")}
-_FEDERAL = frozenset({"GST", "HST"})
-
-
-def effective_rate(jurisdiction: str, rate_bps: int) -> Decimal:
-    """The exact decimal rate for a jurisdiction (QST is 9.975%, finer than a whole basis point)."""
-    return _PRECISE.get(jurisdiction, Decimal(rate_bps) / Decimal(10000))
+FEDERAL_CODES = ("GST", "HST")
 
 
-def _cents(value: Decimal) -> int:
-    return int(value.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+# the codes filed on the federal GST/HST return and on a provincial return
+FAMILY_CODES: dict[str, tuple[str, ...]] = {
+    "federal": ("GST", "HST"),
+    "provincial": ("PST", "QST", "RST"),
+}
+
+
+@dataclass(frozen=True)
+class Rate:
+    """A tax a province charges from `valid_from` until a later row for the same code."""
+
+    province: str
+    code: str
+    rate: Decimal
+    valid_from: date
+
+
+_GST_5 = date(2008, 1, 1)
+
+# A row with a zero rate ends a code (a province leaving the HST); clients name taxes by code.
+RATES: tuple[Rate, ...] = (
+    Rate("AB", "GST", Decimal("0.05"), _GST_5),
+    Rate("BC", "GST", Decimal("0.05"), _GST_5),
+    Rate("BC", "PST", Decimal("0.07"), date(2013, 4, 1)),
+    Rate("MB", "GST", Decimal("0.05"), _GST_5),
+    # Manitoba's provincial sales tax is the Retail Sales Tax
+    Rate("MB", "RST", Decimal("0.07"), date(2019, 7, 1)),
+    Rate("NB", "HST", Decimal("0.15"), date(2016, 7, 1)),
+    Rate("NL", "HST", Decimal("0.15"), date(2016, 7, 1)),
+    Rate("NS", "HST", Decimal("0.15"), date(2010, 7, 1)),
+    Rate("NS", "HST", Decimal("0.14"), date(2025, 4, 1)),
+    Rate("NT", "GST", Decimal("0.05"), _GST_5),
+    Rate("NU", "GST", Decimal("0.05"), _GST_5),
+    Rate("ON", "HST", Decimal("0.13"), date(2010, 7, 1)),
+    Rate("PE", "HST", Decimal("0.15"), date(2016, 10, 1)),
+    Rate("QC", "GST", Decimal("0.05"), _GST_5),
+    Rate("QC", "QST", Decimal("0.09975"), date(2013, 1, 1)),
+    Rate("SK", "GST", Decimal("0.05"), _GST_5),
+    Rate("SK", "PST", Decimal("0.06"), date(2017, 3, 23)),
+    Rate("YT", "GST", Decimal("0.05"), _GST_5),
+)
+
+
+def basis_points(rate: Decimal) -> int:
+    """A rate in whole basis points, half up (QST's 9.975% is 998)."""
+    return int((rate * 10000).quantize(Decimal(1), rounding=ROUND_HALF_UP))
 
 
 @dataclass(frozen=True)
 class TaxComponent:
     jurisdiction: str
-    rate_bps: int
+    rate: Decimal
+
+
+@dataclass(frozen=True)
+class ProvinceRate:
+    """One sales-tax component (e.g. BC PST 7%) — what the tax engine and `/v1/tax-rates` use."""
+
+    jurisdiction: str
+    province: str
+    rate: Decimal
+
+    @property
+    def id(self) -> str:
+        return f"{self.province}_{self.jurisdiction}"  # synthetic key for the API/UI list
+
+    @property
+    def rate_bps(self) -> int:
+        return basis_points(self.rate)
+
+
+def rates_on(province: str | None, on: date) -> list[ProvinceRate]:
+    """The sales-tax components a province charges on a date of supply (empty if unknown/unset)."""
+    current: dict[str, Rate] = {}
+    for row in RATES:
+        if row.province != province or row.valid_from > on:
+            continue
+        if row.code not in current or row.valid_from > current[row.code].valid_from:
+            current[row.code] = row
+    return [
+        ProvinceRate(jurisdiction=code, province=row.province, rate=row.rate)
+        for code, row in current.items()
+        if row.rate
+    ]
+
+
+def _cents(value: Fraction) -> int:
+    whole = floor(abs(value) + Fraction(1, 2))
+    return whole if value >= 0 else -whole
 
 
 @dataclass(frozen=True)
@@ -58,7 +137,10 @@ def compute_tax(
 ) -> TaxResult:
     """Compute per-line and invoice tax. `registered=False` (small supplier) collects no tax."""
     active = list(rates) if registered else []
-    results = [_line(line, active, prices_include_tax) for line in lines]
+    return _total([_line(line, active, prices_include_tax) for line in lines])
+
+
+def _total(results: list[LineTax]) -> TaxResult:
     subtotal = sum(r.base_cents for r in results)
     tax_total = sum(r.tax_cents for r in results)
     by_jur: dict[str, int] = {}
@@ -68,104 +150,137 @@ def compute_tax(
     return TaxResult(subtotal, tax_total, subtotal + tax_total, by_jur, results)
 
 
-def _line(line: TaxLine, all_rates: Sequence[TaxComponent], inclusive: bool) -> LineTax:
-    if line.tax_class == "federal_only":
-        rates: Sequence[TaxComponent] = [r for r in all_rates if r.jurisdiction in _FEDERAL]
-    else:
-        rates = all_rates
-    if not line.taxable or line.tax_class == "exempt" or not rates:
-        return LineTax(line.amount_cents, 0, {})
-
-    if inclusive:
-        total_rate = Decimal(0)
-        for r in rates:
-            total_rate += effective_rate(r.jurisdiction, r.rate_bps)
-        base = Decimal(line.amount_cents) / (Decimal(1) + total_rate)
-        by_jur = {
-            r.jurisdiction: _cents(base * effective_rate(r.jurisdiction, r.rate_bps)) for r in rates
-        }
-        tax = sum(by_jur.values())
-        return LineTax(line.amount_cents - tax, tax, by_jur)
-
-    by_jur = {
-        r.jurisdiction: _cents(
-            Decimal(line.amount_cents) * effective_rate(r.jurisdiction, r.rate_bps)
-        )
-        for r in rates
-    }
-    tax = sum(by_jur.values())
-    return LineTax(line.amount_cents, tax, by_jur)
-
-
-# province → [(jurisdiction, rate_bps)]; clients name each tax from its jurisdiction code.
-PROVINCE_TAX_RATES: dict[str, list[tuple[str, int]]] = {
-    "BC": [("GST", 500), ("PST", 700)],
-    "AB": [("GST", 500)],
-    "SK": [("GST", 500), ("PST", 600)],
-    "MB": [("GST", 500), ("PST", 700)],
-    "ON": [("HST", 1300)],
-    "QC": [("GST", 500), ("QST", 998)],
-    "NB": [("HST", 1500)],
-    "NS": [("HST", 1400)],
-    "NL": [("HST", 1500)],
-    "PE": [("HST", 1500)],
-    "YT": [("GST", 500)],
-    "NT": [("GST", 500)],
-    "NU": [("GST", 500)],
-}
-
-
-@dataclass(frozen=True)
-class ProvinceRate:
-    """One sales-tax component (e.g. BC PST 7%) — what the tax engine and `/v1/tax-rates` use."""
-
-    jurisdiction: str
-    province: str
-    rate_bps: int
-
-    @property
-    def id(self) -> str:
-        return f"{self.province}_{self.jurisdiction}"  # synthetic key for the API/UI list
-
-
-def rates_for_province(province: str | None) -> list[ProvinceRate]:
-    """The sales-tax components for a province (empty if unknown/unset)."""
-    if province is None:
+def _applied(tax_class: str, rates: Sequence[TaxComponent]) -> list[TaxComponent]:
+    if tax_class == "exempt":
         return []
+    if tax_class == "federal_only":
+        return [r for r in rates if r.jurisdiction in FEDERAL_CODES]
+    return list(rates)
+
+
+def _line(line: TaxLine, all_rates: Sequence[TaxComponent], inclusive: bool) -> LineTax:
+    rates = _applied(line.tax_class, all_rates)
+    if not line.taxable or not rates:
+        return LineTax(line.amount_cents, 0, {})
+    divisor = 1 + sum((Fraction(r.rate) for r in rates), Fraction(0)) if inclusive else 1
+    by_jur = {r.jurisdiction: _cents(line.amount_cents * Fraction(r.rate) / divisor) for r in rates}
+    tax = sum(by_jur.values())
+    return LineTax(line.amount_cents - tax if inclusive else line.amount_cents, tax, by_jur)
+
+
+def split_fixed(lines: Sequence[tuple[TaxLine, int]], rates: Sequence[TaxComponent]) -> TaxResult:
+    """Each line's tax as fixed at issue, split by code with the rates in force then."""
+    results: list[LineTax] = []
+    for line, fixed in lines:
+        applied = _applied(line.tax_class, rates)
+        if fixed == 0 or not applied:
+            results.append(LineTax(line.amount_cents, fixed, {}))
+            continue
+        worked = _line(line, applied, inclusive=False)
+        if worked.tax_cents != fixed:
+            whole = sum((Fraction(r.rate) for r in applied), Fraction(0))
+            parts = {r.jurisdiction: _cents(fixed * Fraction(r.rate) / whole) for r in applied}
+            last = applied[-1].jurisdiction
+            parts[last] += fixed - sum(parts.values())
+            worked = LineTax(line.amount_cents, fixed, parts)
+        results.append(worked)
+    return _total(results)
+
+
+async def supply_date(db: AsyncSession, business_id: str, at: datetime | None = None) -> date:
+    """The business's calendar date at `at` (now when omitted): the date a supply is taxed on."""
+    return (at or clock.now()).astimezone(await business_tz(db, business_id)).date()
+
+
+async def rates_for_business(
+    db: AsyncSession, business_id: str, at: datetime | None = None
+) -> list[ProvinceRate]:
+    """The rates a business collects on the date of `at` — derived from its province."""
+    province = await business_province(db, business_id)
+    return rates_on(province, await supply_date(db, business_id, at))
+
+
+async def _components(
+    db: AsyncSession, business_id: str, at: datetime | None
+) -> list[TaxComponent]:
     return [
-        ProvinceRate(jurisdiction=jurisdiction, province=province, rate_bps=rate_bps)
-        for jurisdiction, rate_bps in PROVINCE_TAX_RATES.get(province, [])
+        TaxComponent(r.jurisdiction, r.rate) for r in await rates_for_business(db, business_id, at)
     ]
 
 
-async def rates_for_business(db: AsyncSession, business_id: str) -> Sequence[ProvinceRate]:
-    """The rates a business collects — derived from its province."""
-    return rates_for_province(await business_province(db, business_id))
-
-
 async def tax_for_amount(
-    db: AsyncSession, business_id: str, amount_cents: int, *, tax_class: str = "standard"
+    db: AsyncSession,
+    business_id: str,
+    amount_cents: int,
+    *,
+    tax_class: str = "standard",
+    at: datetime | None = None,
+    registered: bool | None = None,
 ) -> TaxResult:
     """Tax for a single taxable amount, through the line engine."""
-    return await tax_for_lines(
-        db, business_id, [Line(amount_cents=amount_cents, tax_class=tax_class)]
-    )
-
-
-async def tax_breakdown(db: AsyncSession, business_id: str, lines: list[Line]) -> TaxResult:
-    """The tax engine's result for these lines, without writing anything back."""
-    rates = await rates_for_business(db, business_id)
-    registered = await business_tax_registered(db, business_id)
-    return compute_tax(
-        [TaxLine(amount_cents=ln.amount_cents, tax_class=ln.tax_class) for ln in lines],
-        [TaxComponent(jurisdiction=r.jurisdiction, rate_bps=r.rate_bps) for r in rates],
+    return await tax_breakdown(
+        db,
+        business_id,
+        [Line(amount_cents=amount_cents, tax_class=tax_class)],
+        at,
         registered=registered,
     )
 
 
+async def tax_within(
+    db: AsyncSession,
+    business_id: str,
+    total_cents: int,
+    *,
+    tax_class: str,
+    at: datetime,
+    registered: bool | None = None,
+) -> TaxResult:
+    """The tax contained in a tax-inclusive total charged at `at`."""
+    return compute_tax(
+        [TaxLine(amount_cents=total_cents, tax_class=tax_class)],
+        await _components(db, business_id, at),
+        registered=await business_tax_registered(db, business_id)
+        if registered is None
+        else registered,
+        prices_include_tax=True,
+    )
+
+
+async def tax_breakdown(
+    db: AsyncSession,
+    business_id: str,
+    lines: list[Line],
+    at: datetime | None = None,
+    *,
+    registered: bool | None = None,
+) -> TaxResult:
+    """The tax engine's result for these lines, without writing anything back."""
+    return compute_tax(
+        [TaxLine(amount_cents=ln.amount_cents, tax_class=ln.tax_class) for ln in lines],
+        await _components(db, business_id, at),
+        registered=await business_tax_registered(db, business_id)
+        if registered is None
+        else registered,
+    )
+
+
 async def tax_for_lines(db: AsyncSession, business_id: str, lines: list[Line]) -> TaxResult:
-    """Run the tax engine over a parent's lines, writing each line's tax."""
+    """Run the tax engine over a parent's lines at today's rates, writing each line's tax."""
     result = await tax_breakdown(db, business_id, lines)
     for ln, line_tax in zip(lines, result.lines, strict=True):
         ln.tax_amount_cents = line_tax.tax_cents
     return result
+
+
+async def issued_tax(
+    db: AsyncSession, business_id: str, lines: list[Line], issued_at: datetime
+) -> TaxResult:
+    """The tax fixed on a document's lines when it was issued; never recomputed from settings."""
+    return split_fixed(
+        [
+            (TaxLine(amount_cents=ln.amount_cents, tax_class=ln.tax_class), ln.tax_amount_cents)
+            for ln in lines
+        ],
+        await _components(db, business_id, issued_at),
+    )

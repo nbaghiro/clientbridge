@@ -298,3 +298,17 @@ async def test_started_link_survives_microdeposit_delay(
     assert link.expires_at > initial_expiry + timedelta(days=8)
     assert link.expires_at < clock.now() + timedelta(days=11)
     assert (await as_owner.get("/payment-method", headers=_header(token))).status_code == 200
+
+
+async def test_failed_bank_setup_records_the_setup_status(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    link, token = await _link(as_owner, db)
+    intent = await _start(as_owner, token)
+    gateway.pad_intents[intent] = replace(
+        gateway.pad_intents[intent], status="requires_payment_method"
+    )
+    await _event(as_owner, "setup_intent.setup_failed", {"id": intent}, event="evt_failed")
+    assert await column(db, "payment_setup_links", link.id, "setup_status") == (
+        "requires_payment_method"
+    )

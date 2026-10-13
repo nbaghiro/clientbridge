@@ -1,12 +1,15 @@
 """Golden tax cases — the pure engine, per province + edge cases. No DB."""
 
-from clientbridge.services.tax import TaxComponent, TaxLine, compute_tax, rates_for_province
+from datetime import date
+from decimal import Decimal
 
-BC = [TaxComponent("GST", 500), TaxComponent("PST", 700)]
-ON = [TaxComponent("HST", 1300)]
-QC = [TaxComponent("GST", 500), TaxComponent("QST", 998)]
-AB = [TaxComponent("GST", 500)]
-NS = [TaxComponent("HST", 1400)]
+from clientbridge.services.tax import TaxComponent, TaxLine, compute_tax, rates_on
+
+BC = [TaxComponent("GST", Decimal("0.05")), TaxComponent("PST", Decimal("0.07"))]
+ON = [TaxComponent("HST", Decimal("0.13"))]
+QC = [TaxComponent("GST", Decimal("0.05")), TaxComponent("QST", Decimal("0.09975"))]
+AB = [TaxComponent("GST", Decimal("0.05"))]
+NS = [TaxComponent("HST", Decimal("0.14"))]
 
 
 def test_bc_exclusive() -> None:
@@ -40,7 +43,9 @@ def test_ab_gst_only() -> None:
 
 
 def test_ns_hst_14() -> None:
-    assert [(r.jurisdiction, r.rate_bps) for r in rates_for_province("NS")] == [("HST", 1400)]
+    assert [(r.jurisdiction, r.rate_bps) for r in rates_on("NS", date(2026, 1, 1))] == [
+        ("HST", 1400)
+    ]
     assert compute_tax([TaxLine(10000)], NS).tax_total_cents == 1400
 
 

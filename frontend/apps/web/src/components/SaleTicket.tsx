@@ -36,8 +36,6 @@ import {
 } from "@clientbridge/ui";
 import { type ReactNode, useState } from "react";
 
-import { api } from "../lib/api";
-
 const d = strings.pos.desk;
 
 function Heading({ children }: { children: ReactNode }) {
@@ -391,7 +389,7 @@ function PreviewRow({
 
 /** Discounts B: scope, amount and reason with a before and after, and approval past the staff limit. */
 function DiscountSheet({ sale, onClose }: { sale: SaleTicket; onClose: () => void }) {
-    const sheet = useDiscountSheet(api, sale);
+    const sheet = useDiscountSheet(sale);
     const p = sheet.preview;
     const base =
         sheet.scope === "sale"

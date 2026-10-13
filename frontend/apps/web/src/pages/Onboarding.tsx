@@ -1,4 +1,4 @@
-import { PROVINCES, strings, taxSummary, useOnboardingForm } from "@clientbridge/app-core";
+import { PROVINCES, strings, useOnboardingForm } from "@clientbridge/app-core";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -71,7 +71,7 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                                 PROVINCES.find((p) => p.code === form.province)?.name ?? "",
                             )}
                             {": "}
-                            {taxSummary(form.province)}
+                            {form.taxSummary}
                         </p>
                         <p className="mt-0.5 text-xs text-muted">
                             {strings.business.onboarding.taxNone}

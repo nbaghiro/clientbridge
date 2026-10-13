@@ -22,11 +22,16 @@ from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.core.security import hash_token
 from clientbridge.core.zones import zone
 from clientbridge.integrations.stripe import (
+    ACCOUNT_EVENTS,
+    PLAN_EVENTS,
+    SETTLEMENT_CURRENCY,
+    STRIPE_API_VERSION,
     ChargeFees,
     ConnectComponent,
     GatewayEvent,
     PaymentGateway,
-    account_status_from,
+    PriceTerms,
+    WebhookVersionError,
     period_timestamp,
 )
 from clientbridge.models.billing import Invoice, Line, Order
@@ -68,8 +73,14 @@ from clientbridge.schemas.payments import (
     SetupIntentOut,
     TipShareIn,
 )
-from clientbridge.services import ledger
-from clientbridge.services.business import apply_account_status, kyc_status
+from clientbridge.services import ledger, plans
+from clientbridge.services.business import (
+    apply_account_status,
+    business_tax_registered,
+    has_merchant,
+    kyc_status,
+    merchant_account,
+)
 from clientbridge.services.earnings import (
     ensure_earnings,
     ensure_order_earning,
@@ -79,7 +90,7 @@ from clientbridge.services.earnings import (
 from clientbridge.services.inventory import sync_parent_stock
 from clientbridge.services.ledger import BUSINESS_CURRENCY
 from clientbridge.services.lines import allocate, apply_totals
-from clientbridge.services.tax import tax_for_amount, tax_for_lines
+from clientbridge.services.tax import tax_for_amount, tax_within
 
 _log = logging.getLogger(__name__)
 _ORPHAN_GRACE = timedelta(hours=1)
@@ -120,23 +131,12 @@ class PaymentService:
 
     async def start_onboarding(self, idempotency_key: str | None) -> OnboardingLink:
         self._assert_admin()
-        business = await self._business()
         settings = get_settings()
 
         async def run(cmd: Command) -> OnboardingLink:
-            account_id = business.stripe_account_id
-            if account_id is None:
-                account_id = await self.gateway.create_connected_account(
-                    business_name=business.name,
-                    email=business.billing_email,
-                    url=f"{settings.connect_base_url}/b/{business.slug}",
-                    idempotency_key=f"connect-account:{business.id}",
-                )
-                business.stripe_account_id = account_id
-                await self.db.flush()
-                cmd.record("connect.account_created", entity_type="business", entity_id=business.id)
-                # Seed the KYC state from Stripe right away (the webhook keeps it in sync after).
-                apply_account_status(business, await self.gateway.get_account(account_id))
+            # the lock makes a concurrent onboarding or plan Checkout reuse this account
+            business = await self._locked_business()
+            account_id = await self._ensure_merchant(business, cmd)
             url = await self.gateway.create_account_link(
                 account_id,
                 refresh_url=f"{settings.web_base_url}/setup/getting-paid?refresh=1",
@@ -157,28 +157,16 @@ class PaymentService:
 
     async def account_session(self, component: ConnectComponent) -> ConnectSessionOut:
         self._assert_admin()
-        business = (
-            await self.db.execute(select(Business).where(Business.id == self.biz).with_for_update())
-        ).scalar_one_or_none()
-        if business is None:
-            raise NotFound("business not found")
-        if business.stripe_account_id is None:
+        business = await self._locked_business()
+        if business.stripe_account_id is None or not has_merchant(business):
             if component != "onboarding":
                 raise Conflict("set up payments before managing your payment account")
-            created = await self.gateway.create_connected_account(
-                business_name=business.name,
-                email=business.billing_email,
-                url=f"{get_settings().connect_base_url}/b/{business.slug}",
-                idempotency_key=f"connect-account:{business.id}",
-            )
-            business.stripe_account_id = created
-            apply_account_status(business, await self.gateway.get_account(created))
             cmd = Command(self.db, self.principal)
-            cmd.record("connect.account_created", entity_type="business", entity_id=business.id)
+            await self._ensure_merchant(business, cmd)
             self.db.add_all(cmd.audits)
             await self.db.commit()
-        account_id = business.stripe_account_id
-        secret = await self.gateway.create_account_session(account_id, component)
+        assert business.stripe_account_id is not None
+        secret = await self.gateway.create_account_session(business.stripe_account_id, component)
         cmd = Command(self.db, self.principal)
         cmd.record(
             "connect.session",
@@ -190,6 +178,31 @@ class PaymentService:
         # Single-use credentials must never enter command response storage.
         await self.db.commit()
         return ConnectSessionOut(client_secret=secret)
+
+    async def _ensure_merchant(self, business: Business, cmd: Command) -> str:
+        """The business's account with the merchant configuration, reusing an account it has."""
+        account_id = business.stripe_account_id
+        if account_id is not None and has_merchant(business):
+            return account_id
+        if account_id is None:
+            account_id = await self.gateway.create_connected_account(
+                business_name=business.name,
+                email=business.billing_email,
+                url=f"{get_settings().connect_base_url}/b/{business.slug}",
+                configurations=("merchant",),
+                idempotency_key=f"connected-account:{business.id}",
+            )
+            business.stripe_account_id = account_id
+            cmd.record("connect.account_created", entity_type="business", entity_id=business.id)
+        else:
+            await self.gateway.add_merchant_configuration(
+                account_id, business_name=business.name, email=business.billing_email
+            )
+            cmd.record("connect.merchant_added", entity_type="business", entity_id=business.id)
+        await self.db.flush()
+        # seed the KYC state from Stripe right away; the webhook keeps it in sync after
+        apply_account_status(business, await self.gateway.get_account(account_id))
+        return account_id
 
     async def status(self) -> ConnectStatus:
         self._assert_admin()
@@ -211,15 +224,13 @@ class PaymentService:
             except Exception:
                 available = None
         return ConnectStatus(
-            connected=business.stripe_account_id is not None,
+            connected=merchant_account(business) is not None,
             charges_enabled=business.stripe_charges_enabled,
             payouts_enabled=business.stripe_payouts_enabled,
-            details_submitted=business.stripe_details_submitted,
             kyc_status=kyc_status(business),
             disabled_reason=str(reason) if isinstance(reason, str) else None,
             currently_due=_due("currently_due"),
             past_due=_due("past_due"),
-            pending_verification=_due("pending_verification"),
             current_deadline=datetime.fromtimestamp(deadline, UTC)
             if isinstance(deadline, int)
             else None,
@@ -320,7 +331,6 @@ class PaymentService:
                 invoice=invoice,
                 client=client,
                 amount=data.amount_cents,
-                fee_bps=get_settings().platform_fee_bps,
                 payment_method=pm_ref,
                 idempotency_key=idempotency_key,
             )
@@ -350,9 +360,9 @@ class PaymentService:
         """A SetupIntent to save a client's card for later off-session charges (no charge now)."""
         self._assert_admin()
         business = await self._business()
-        if business.stripe_account_id is None:
+        account_id = merchant_account(business)
+        if account_id is None:
             raise Conflict("set up card payments in Setup before saving cards")
-        account_id = business.stripe_account_id
         client = await self._client(client_id)
 
         async def run(cmd: Command) -> SetupIntentOut:
@@ -382,11 +392,11 @@ class PaymentService:
         self._assert_admin()
         business = await self._business()
         client = await self._client(client_id)
-        if business.stripe_account_id is None:
+        account_id = merchant_account(business)
+        if account_id is None:
             raise Conflict("set up payments before requesting bank authorization")
         if not client.email:
             raise Conflict("add the client's email so they can receive bank verification notices")
-        account_id = business.stripe_account_id
         await self.gateway.ensure_pad_capability(account_id)
 
         async def run(cmd: Command) -> PaymentSetupLinkOut:
@@ -480,7 +490,7 @@ class PaymentService:
         self._assert_admin()
         pm = await self._payment_method(payment_method_id)
 
-        if pm.status != "active" or (pm.method == "bank_eft" and pm.mandate_status != "active"):
+        if pm.method == "bank_eft" and pm.mandate_status != "active":
             raise Conflict(
                 "complete client bank authorization before making this method the default"
             )
@@ -500,7 +510,6 @@ class PaymentService:
                 brand=pm.brand,
                 last4=pm.last4,
                 preferred=pm.preferred,
-                status=pm.status,
             )
 
         return await run_command(
@@ -708,6 +717,14 @@ class PaymentService:
             self.principal, "owner", "admin", message="only an owner or admin can manage payments"
         )
 
+    async def _locked_business(self) -> Business:
+        row = (
+            await self.db.execute(select(Business).where(Business.id == self.biz).with_for_update())
+        ).scalar_one_or_none()
+        if row is None:
+            raise NotFound("business not found")
+        return row
+
     async def _business(self) -> Business:
         row = await self.db.get(Business, self.biz)
         if row is None:
@@ -790,7 +807,6 @@ async def default_method_ref(db: AsyncSession, business_id: str, client_id: str)
             .where(
                 PaymentMethod.client_id == client_id,
                 PaymentMethod.preferred.is_(True),
-                PaymentMethod.status == "active",
                 (PaymentMethod.method != "bank_eft") | (PaymentMethod.mandate_status == "active"),
             )
             .limit(1)
@@ -817,7 +833,7 @@ async def resolve_saved_method_ref(
             )
         )
     ).scalar_one_or_none()
-    if pm is None or pm.provider_ref is None or pm.status != "active":
+    if pm is None or pm.provider_ref is None:
         raise NotFound("saved card not found")
     if pm.method == "bank_eft" and pm.mandate_status != "active":
         raise Conflict(
@@ -973,13 +989,15 @@ async def ensure_subscription_price(
     interval_count: int,
     frequency: Frequency,
 ) -> str:
-    """The item's Stripe recurring Price (tax included), created and cached on first use."""
-    if item.stripe_price_id is not None:
-        return item.stripe_price_id
-    tax = await tax_for_amount(db, item.business_id, item.price_cents)
+    """The item's Stripe recurring Price (tax included), replaced whenever its terms change."""
+    tax = await tax_for_amount(db, item.business_id, item.price_cents, tax_class=item.tax_class)
+    terms = PriceTerms(tax.total_cents, item.currency.upper(), interval_count, frequency)
+    cached = item.stripe_price_id
+    if cached is not None and await gateway.get_price(account_id, cached) == terms:
+        return cached
     price_id = await gateway.create_price(
         account_id,
-        amount_cents=tax.total_cents,
+        amount_cents=terms.amount_cents,
         currency=item.currency,
         interval_count=interval_count,
         frequency=frequency,
@@ -988,6 +1006,48 @@ async def ensure_subscription_price(
     item.stripe_price_id = price_id
     await db.flush()
     return price_id
+
+
+type FeeMethod = Literal["card", "card_present", "acss_debit"]
+
+
+def application_fee_cents(amount: int, method: FeeMethod, *, converted: bool) -> int:
+    """Our fee, sized so Stripe's percentage plus ours stays within the ceiling."""
+    settings = get_settings()
+    stripe_bps = {
+        "card": settings.stripe_card_bps,
+        "card_present": settings.stripe_card_present_bps,
+        "acss_debit": settings.stripe_acss_debit_bps,
+    }[method]
+    if converted:
+        stripe_bps += settings.stripe_conversion_bps
+    room = settings.platform_fee_ceiling_bps - stripe_bps
+    return amount * max(0, min(room, settings.platform_fee_max_bps)) // 10000
+
+
+async def charge_fee_cents(
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    account_id: str,
+    business_id: str,
+    amount: int,
+    currency: str,
+    payment_method: str | None,
+) -> int:
+    """The application fee for an online charge; every card is priced as a domestic card."""
+    converted = currency.lower() != SETTLEMENT_CURRENCY
+    if payment_method is None:
+        return application_fee_cents(amount, "card", converted=converted)
+    saved = (
+        await db.execute(
+            scoped(PaymentMethod, business_id)
+            .with_only_columns(PaymentMethod.method)
+            .where(PaymentMethod.provider_ref == payment_method)
+        )
+    ).scalar_one_or_none()
+    if saved == "bank_eft":
+        return application_fee_cents(amount, "acss_debit", converted=converted)
+    return application_fee_cents(amount, "card", converted=converted)
 
 
 async def open_card_payment(
@@ -999,7 +1059,6 @@ async def open_card_payment(
     invoice: Invoice,
     client: Client,
     amount: int,
-    fee_bps: int,
     payment_method: str | None = None,
     idempotency_key: str | None = None,
     tip: TipTerms | None = None,
@@ -1013,12 +1072,15 @@ async def open_card_payment(
         await _assert_room(db, invoice, amount - tip.cents)
     closed = await _closed_card_attempts(db, business_id, invoice.id, amount, tip.cents)
     attempt = idempotency_key or f"{amount}_{tip.cents}_{closed}"
+    fee = await charge_fee_cents(
+        db, gateway, account_id, business_id, amount, invoice.currency, payment_method
+    )
     intent = await gateway.create_payment_intent(
         account_id,
         amount_cents=amount,
         currency=invoice.currency,
         customer_id=customer_id,
-        application_fee_cents=amount * fee_bps // 10000,
+        application_fee_cents=fee,
         metadata={"invoice_id": invoice.id, "business_id": business_id, **_tip_metadata(tip)},
         # A failed or canceled attempt bumps the key, so only a live attempt is ever replayed.
         idempotency_key=f"payment_{invoice.id}_{attempt}",
@@ -1105,18 +1167,20 @@ async def open_booking_deposit(
     booking: Booking,
     client: Client,
     amount: int,
-    fee_bps: int,
     payment_method: str | None = None,
     idempotency_key: str | None = None,
 ) -> tuple[Payment, str]:
     """Open a deposit PaymentIntent and pending Payment for a booking; the caller commits."""
     customer_id = await ensure_customer(db, gateway, account_id, client)
+    fee = await charge_fee_cents(
+        db, gateway, account_id, business_id, amount, "CAD", payment_method
+    )
     intent = await gateway.create_payment_intent(
         account_id,
         amount_cents=amount,
         currency="CAD",
         customer_id=customer_id,
-        application_fee_cents=amount * fee_bps // 10000,
+        application_fee_cents=fee,
         metadata={"booking_id": booking.id, "business_id": business_id},
         idempotency_key=f"deposit_{booking.id}_{idempotency_key or amount}",
         payment_method=payment_method,
@@ -1156,7 +1220,6 @@ async def open_entitlement_payment(
     client: Client,
     amount: int,
     currency: str,
-    fee_bps: int,
     entitlement_kind: str,
     entitlement_id: str,
     payment_method: str | None = None,
@@ -1164,12 +1227,15 @@ async def open_entitlement_payment(
 ) -> tuple[Payment, str]:
     """Open a PaymentIntent and pending Payment for a package or gift card; the caller commits."""
     customer_id = await ensure_customer(db, gateway, account_id, client)
+    fee = await charge_fee_cents(
+        db, gateway, account_id, business_id, amount, currency, payment_method
+    )
     intent = await gateway.create_payment_intent(
         account_id,
         amount_cents=amount,
         currency=currency,
         customer_id=customer_id,
-        application_fee_cents=amount * fee_bps // 10000,
+        application_fee_cents=fee,
         metadata={f"{entitlement_kind}_id": entitlement_id, "business_id": business_id},
         # The entitlement id is new per request, so dedupe on the client's Idempotency-Key.
         idempotency_key=f"{entitlement_kind}_{idempotency_key or entitlement_id}",
@@ -1209,7 +1275,6 @@ async def open_order_card_payment(
     order: Order,
     client: Client | None,
     amount: int,
-    fee_bps: int,
     payment_method: str | None = None,
     idempotency_key: str | None = None,
     tip: TipTerms | None = None,
@@ -1220,12 +1285,15 @@ async def open_order_card_payment(
     customer_id = await ensure_customer(db, gateway, account_id, client) if client else None
     if payment_method is not None:
         await _assert_order_room(db, order, amount - tip.cents, due)
+    fee = await charge_fee_cents(
+        db, gateway, account_id, business_id, amount, order.currency, payment_method
+    )
     intent = await gateway.create_payment_intent(
         account_id,
         amount_cents=amount,
         currency=order.currency,
         customer_id=customer_id,
-        application_fee_cents=amount * fee_bps // 10000,
+        application_fee_cents=fee,
         metadata={"order_id": order.id, "business_id": business_id, **_tip_metadata(tip)},
         idempotency_key=f"order_card_{order.id}_{idempotency_key or amount}",
         payment_method=payment_method,
@@ -1268,18 +1336,23 @@ async def open_terminal_payment(
     business_id: str,
     order: Order,
     amount: int,
-    fee_bps: int,
     idempotency_key: str | None = None,
     tip: TipTerms | None = None,
     due: int | None = None,
 ) -> tuple[Payment, str]:
     """Open a Terminal PaymentIntent and pending Payment for a sale; the caller commits."""
     tip = tip or NO_TIP
+    # the card is read at the reader after the intent exists, so the domestic rate applies
+    fee = application_fee_cents(
+        amount,
+        "card_present",
+        converted=order.currency.lower() != SETTLEMENT_CURRENCY,
+    )
     intent = await gateway.create_terminal_payment_intent(
         account_id,
         amount_cents=amount,
         currency=order.currency,
-        application_fee_cents=amount * fee_bps // 10000,
+        application_fee_cents=fee,
         metadata={"order_id": order.id, "business_id": business_id, **_tip_metadata(tip)},
         # A re-checkout after an edit gets a new intent, which _assert_order_room then rejects.
         idempotency_key=f"order_{order.id}_{idempotency_key or amount}",
@@ -1358,6 +1431,15 @@ async def process_stripe_event(
 ) -> WebhookOutcome | None:
     """Verify, dedupe and apply a Stripe webhook; returns the notification to send after commit."""
     event = gateway.verify_webhook(payload, signature)
+    if not event.thin and event.api_version != STRIPE_API_VERSION:
+        _log.warning(
+            "rejected Stripe event %s (%s) rendered at API version %s; handlers parse %s",
+            event.id,
+            event.type,
+            event.api_version,
+            STRIPE_API_VERSION,
+        )
+        raise WebhookVersionError(str(event.api_version))
     record = await db.get(Webhook, event.id)
     if record is not None and record.status != "failed":
         return None
@@ -1373,6 +1455,7 @@ async def process_stripe_event(
             outcome = await _dispatch(db, gateway, event)
             record.status = "processed"
             record.processed_at = clock.now()
+            record.payload = None
     except Exception as exc:
         if _lost_event_race(exc):
             return None
@@ -1415,7 +1498,7 @@ async def record_failed_delivery(db: AsyncSession, event: GatewayEvent, exc: Exc
 async def _update_payment_method(
     db: AsyncSession, account_id: str | None, data: dict[str, object]
 ) -> None:
-    """Stripe auto-updated a saved card (reissue / new expiry) — refresh our brand + last4."""
+    """Stripe auto-updated a saved card (a reissue or a new expiry); refresh what we show of it."""
     if account_id is None:
         return
     biz = (
@@ -1436,6 +1519,10 @@ async def _update_payment_method(
         pm.brand = card["brand"]
     if isinstance(card.get("last4"), str):
         pm.last4 = card["last4"]
+    if isinstance(card.get("exp_month"), int):
+        pm.exp_month = card["exp_month"]
+    if isinstance(card.get("exp_year"), int):
+        pm.exp_year = card["exp_year"]
     await db.flush()
 
 
@@ -1606,6 +1693,20 @@ def _returned_fee(data: dict[str, object]) -> int:
     )
 
 
+async def _refresh_account(
+    db: AsyncSession, gateway: PaymentGateway, account_id: str | None
+) -> None:
+    """Mirror a connected account's current state after Stripe reports a change to it."""
+    if account_id is None:
+        return
+    business = (
+        await db.execute(select(Business).where(Business.stripe_account_id == account_id))
+    ).scalar_one_or_none()
+    if business is not None:
+        apply_account_status(business, await gateway.get_account(account_id))
+        await db.flush()
+
+
 async def _disputed_payment(db: AsyncSession, data: dict[str, object]) -> Payment | None:
     intent = data.get("payment_intent")
     if not isinstance(intent, str):
@@ -1620,15 +1721,11 @@ async def _disputed_payment(db: AsyncSession, data: dict[str, object]) -> Paymen
 async def _dispatch(
     db: AsyncSession, gateway: PaymentGateway, event: GatewayEvent
 ) -> WebhookOutcome | None:
-    if event.type == "account.updated":
-        account_id = event.data.get("id")
-        if isinstance(account_id, str):
-            business = (
-                await db.execute(select(Business).where(Business.stripe_account_id == account_id))
-            ).scalar_one_or_none()
-            if business is not None:
-                apply_account_status(business, account_status_from(account_id, event.data))
-                await db.flush()
+    if event.type in ACCOUNT_EVENTS:
+        await _refresh_account(db, gateway, event.account)
+    elif event.account is None and event.type in PLAN_EVENTS:
+        # a platform subscription bills the business itself; it is never a client membership
+        await plans.apply_subscription_event(db, gateway, event)
     elif event.type == "payment_intent.succeeded":
         settled = await _settle_payment(
             db, gateway, event.data, account=event.account, occurred_at=event.created
@@ -1647,7 +1744,7 @@ async def _dispatch(
         await _record_payout(db, event.account, event.data)
     elif event.type in ("payout.failed", "payout.canceled"):
         await _fail_payout(db, event.account, event.data)
-    elif event.type == "setup_intent.succeeded":
+    elif event.type in ("setup_intent.succeeded", "setup_intent.setup_failed"):
         await _reconcile_pad_setup(db, gateway, event.account, str(event.data.get("id")))
     elif event.type == "mandate.updated":
         await _reconcile_pad_mandate(db, gateway, event.account, str(event.data.get("id")))
@@ -2119,9 +2216,7 @@ async def _record_payment_method(
         return
     has_card = (
         await db.execute(
-            scoped(PaymentMethod, biz)
-            .where(PaymentMethod.client_id == client.id, PaymentMethod.status == "active")
-            .limit(1)
+            scoped(PaymentMethod, biz).where(PaymentMethod.client_id == client.id).limit(1)
         )
     ).scalar_one_or_none()
     pm_type = data.get("type")
@@ -2146,11 +2241,9 @@ async def _record_payment_method(
             method=kind,
             brand=brand if isinstance(brand, str) else None,
             last4=last4 if isinstance(last4, str) else None,
-            provider="stripe",
             provider_ref=pm_id,
             preferred=has_card is None,  # first method on file becomes the default
             mandate_status=mandate,
-            status="active",
             exp_month=exp_month if isinstance(exp_month, int) else None,
             exp_year=exp_year if isinstance(exp_year, int) else None,
             holder_name=holder if isinstance(holder, str) else None,
@@ -2217,10 +2310,7 @@ async def _update_subscription(db: AsyncSession, data: dict[str, object]) -> Non
     status = data.get("status")
     if isinstance(status, str):
         sub.status = map_subscription_status(status)
-    start = _period(data, "start")
     end = _period(data, "end")
-    if start is not None:
-        sub.current_period_start = start
     if end is not None:
         sub.current_period_end = end
     await db.flush()
@@ -2294,7 +2384,7 @@ async def _record_recurring_payment(
             db, sub.business_id, "payment.refused", ref, cur, paid if isinstance(paid, int) else 0
         )
         return None
-    invoice_id = await _recurring_invoice(db, sub, cur)
+    invoice_id = await _recurring_invoice(db, sub, cur, data, paid if isinstance(paid, int) else 0)
     payment = Payment(
         id=new_id("payment"),
         business_id=sub.business_id,
@@ -2318,19 +2408,50 @@ async def _record_recurring_payment(
     return payment.id
 
 
-async def _recurring_invoice(db: AsyncSession, sub: Subscription, currency: str) -> str | None:
-    """An invoice for one subscription period, booked to the ledger like any other."""
+async def subscription_tax_terms(db: AsyncSession, item: Item) -> dict[str, str]:
+    """How the subscription's tax-inclusive price was taxed, kept on Stripe for its renewals."""
+    registered = await business_tax_registered(db, item.business_id)
+    return {"tax_class": item.tax_class, "tax_registered": "true" if registered else "false"}
+
+
+def _period_start(invoice: dict[str, object]) -> datetime | None:
+    lines = invoice.get("lines")
+    rows = lines.get("data") if isinstance(lines, dict) else None
+    first = rows[0] if isinstance(rows, list) and rows and isinstance(rows[0], dict) else {}
+    period = first.get("period")
+    return _stamp(period, "start") if isinstance(period, dict) else None
+
+
+async def _recurring_invoice(
+    db: AsyncSession, sub: Subscription, currency: str, data: dict[str, object], paid: int
+) -> str | None:
+    """An invoice for one subscription period, split from what Stripe charged, not today's price."""
     item = await db.get(Item, sub.item_id)
     if item is None:
         return None
-    now = clock.now()
+    parent = data.get("parent")
+    details = parent.get("subscription_details") if isinstance(parent, dict) else None
+    terms = details.get("metadata") if isinstance(details, dict) else None
+    terms = terms if isinstance(terms, dict) else {}
+    tax_class = terms.get("tax_class")
+    registered = terms.get("tax_registered")
+    at = _period_start(data) or _paid_at(data)
+    result = await tax_within(
+        db,
+        sub.business_id,
+        paid,
+        tax_class=tax_class if isinstance(tax_class, str) else item.tax_class,
+        at=at,
+        registered=registered == "true" if isinstance(registered, str) else None,
+    )
+    base = paid - result.tax_total_cents
     invoice = Invoice(
         id=new_id("invoice"),
         business_id=sub.business_id,
         client_id=sub.client_id,
         status="sent",
         currency=currency,
-        issued_at=now,
+        issued_at=at,
     )
     db.add(invoice)
     await db.flush()
@@ -2341,12 +2462,13 @@ async def _recurring_invoice(db: AsyncSession, sub: Subscription, currency: str)
         description=item.name,
         item_id=item.id,
         quantity=1,
-        unit_amount_cents=item.price_cents,
-        amount_cents=item.price_cents,
+        unit_amount_cents=base,
+        amount_cents=base,
+        tax_class=tax_class if isinstance(tax_class, str) else item.tax_class,
+        tax_amount_cents=result.tax_total_cents,
         position=0,
     )
     db.add(line)
-    result = await tax_for_lines(db, sub.business_id, [line])
     apply_totals(invoice, result)
     await db.flush()
     await ledger.post_invoice(db, invoice, result)

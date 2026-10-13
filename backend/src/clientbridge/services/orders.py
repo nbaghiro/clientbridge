@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
-from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role, is_manager
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
@@ -40,7 +39,12 @@ from clientbridge.schemas.orders import (
 from clientbridge.schemas.public import PublicPickupWindow
 from clientbridge.services import ledger
 from clientbridge.services.bookings import blocking_exception, open_windows
-from clientbridge.services.business import business_tz, businesses_at_hour
+from clientbridge.services.business import (
+    business_tz,
+    businesses_at_hour,
+    merchant_account,
+    postal_address,
+)
 from clientbridge.services.lines import (
     apply_totals,
     discount_of,
@@ -177,7 +181,6 @@ class OrderService:
                 business_id=self.biz,
                 order=order,
                 amount=due + tip.cents,
-                fee_bps=get_settings().platform_fee_bps,
                 idempotency_key=idempotency_key,
                 tip=tip,
                 due=due,
@@ -222,7 +225,6 @@ class OrderService:
                 order=order,
                 client=client,
                 amount=due + tip.cents,
-                fee_bps=get_settings().platform_fee_bps,
                 payment_method=method,
                 idempotency_key=idempotency_key,
                 tip=tip,
@@ -407,18 +409,18 @@ class OrderService:
         business = (
             await self.db.execute(select(Business).where(Business.id == self.biz).with_for_update())
         ).scalar_one_or_none()
-        if business is None or business.stripe_account_id is None:
+        account_id = merchant_account(business) if business is not None else None
+        if business is None or account_id is None:
             raise Conflict("set up card payments in Setup first")
         # The row lock serializes the first Terminal Location mint.
         if business.stripe_terminal_location_id is None:
             business.stripe_terminal_location_id = await self.gateway.create_terminal_location(
-                business.stripe_account_id,
+                account_id,
                 display_name=business.name,
-                country="CA",
-                state=business.province,
+                address=postal_address(business),
             )
             await self.db.commit()
-        secret = await self.gateway.create_connection_token(business.stripe_account_id)
+        secret = await self.gateway.create_connection_token(account_id)
         return ConnectionTokenOut(secret=secret, location_id=business.stripe_terminal_location_id)
 
     def _assert_admin(self) -> None:

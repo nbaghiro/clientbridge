@@ -63,6 +63,12 @@ const FAILURES: Record<string, () => string> = {
     staff_has_future_work: () => strings.api.staffHasFutureWork,
     broadcast_address_missing: () => strings.api.broadcastAddressMissing,
     broadcast_contact_missing: () => strings.api.broadcastContactMissing,
+    business_address_incomplete: () => strings.api.businessAddressIncomplete,
+    plan_required: () => strings.api.planRequired,
+    seat_limit: () => strings.api.seatLimit,
+    plan_active: () => strings.api.planActive,
+    plan_not_managed: () => strings.api.planNotManaged,
+    business_unavailable: () => strings.api.businessUnavailable,
 };
 
 /** The catalog message for a failure the server named, else the action's own message. */

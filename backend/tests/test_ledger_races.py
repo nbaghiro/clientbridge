@@ -67,7 +67,8 @@ async def throwaway(db: AsyncSession) -> AsyncIterator[Throwaway]:
 async def _queued() -> None:
     """Hold on until another session waits on a lock this test holds, instead of a fixed sleep."""
     async with SessionLocal() as probe:
-        for _ in range(500):
+        # a loaded machine can take seconds to start the second session, so allow up to 30
+        for _ in range(3000):
             waiting = await probe.execute(
                 text(
                     "SELECT count(*) FROM pg_stat_activity"

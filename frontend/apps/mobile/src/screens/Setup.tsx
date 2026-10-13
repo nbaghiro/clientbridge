@@ -29,6 +29,7 @@ const SECTION_SCREEN: Partial<
         | "Services"
         | "Team"
         | "GettingPaid"
+        | "Plans"
         | "Taxes"
         | "OnlineBooking"
         | "Reminders"
@@ -40,6 +41,7 @@ const SECTION_SCREEN: Partial<
     services: "Services",
     team: "Team",
     gettingPaid: "GettingPaid",
+    plan: "Plans",
     taxes: "Taxes",
     onlineBooking: "OnlineBooking",
     reminders: "Reminders",

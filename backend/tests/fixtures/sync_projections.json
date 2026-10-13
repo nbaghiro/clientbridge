@@ -136,7 +136,6 @@
       "client_id",
       "item_id",
       "status",
-      "current_period_start",
       "current_period_end",
       "payment_method_id",
       "id",
@@ -224,11 +223,12 @@
       "province",
       "brand",
       "stripe_account_id",
-      "stripe_terminal_location_id",
       "stripe_charges_enabled",
       "tax_registered",
       "setup_dismissed_at",
-      "staff_discount_limit_bps"
+      "staff_discount_limit_bps",
+      "plan_status",
+      "trial_ends_at"
     ],
     "staff": [
       "id",
@@ -370,11 +370,13 @@
       "google_review_url",
       "brand",
       "stripe_account_id",
-      "stripe_terminal_location_id",
       "stripe_charges_enabled",
       "tax_registered",
       "setup_dismissed_at",
-      "staff_discount_limit_bps"
+      "staff_discount_limit_bps",
+      "plan",
+      "plan_status",
+      "trial_ends_at"
     ],
     "staff": [
       "id",
@@ -572,7 +574,6 @@
       "tendered_cents",
       "status",
       "paid_at",
-      "refund_notify",
       "reason",
       "credit_note",
       "dispute_status",
@@ -590,10 +591,8 @@
       "method",
       "brand",
       "last4",
-      "provider",
       "preferred",
       "mandate_status",
-      "status",
       "exp_month",
       "exp_year",
       "holder_name",

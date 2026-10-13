@@ -313,13 +313,13 @@ function InvoicePanel({
     onClose: () => void;
     onEdit: (id: string) => void;
 }) {
-    const rec = useInvoiceRecord(api, id, config.payUrl);
+    const rec = useInvoiceRecord(id, config.payUrl);
     const act = useInvoiceActions(api);
     const role = useRole();
     const letterhead = useLetterhead(apiBaseUrl);
     const estimates = useEstimates();
     const estimateId = estimates.find((e) => e.converted_invoice_id === id)?.id ?? null;
-    const estimate = useEstimateRecord(api, estimateId, config.payUrl);
+    const estimate = useEstimateRecord(estimateId, config.payUrl);
     const [recording, setRecording] = useState(false);
     const [previewing, setPreviewing] = useState(false);
     if (rec === null) return null;
@@ -715,7 +715,7 @@ function EstimatePanel({
     onEdit: (id: string) => void;
     openInvoice: (id: string) => void;
 }) {
-    const rec = useEstimateRecord(api, id, config.payUrl);
+    const rec = useEstimateRecord(id, config.payUrl);
     const act = useEstimateActions(api);
     const letterhead = useLetterhead(apiBaseUrl);
     const [previewing, setPreviewing] = useState(false);

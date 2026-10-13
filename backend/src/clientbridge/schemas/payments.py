@@ -11,7 +11,7 @@ from clientbridge.schemas.public import PublicBrand
 class ConnectSessionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    component: Literal["onboarding", "account", "payments", "payouts"]
+    component: Literal["onboarding", "account", "notices", "payments", "payouts"]
 
 
 class ConnectSessionOut(BaseModel):
@@ -27,7 +27,6 @@ class ConnectStatus(BaseModel):
     connected: bool
     charges_enabled: bool
     payouts_enabled: bool = False
-    details_submitted: bool = False
     kyc_status: str = Field(
         default="not_started",
         description="not_started, pending, restricted, enabled or disabled",
@@ -37,9 +36,6 @@ class ConnectStatus(BaseModel):
         default_factory=list, description="What the business must still submit to Stripe"
     )
     past_due: list[str] = Field(default_factory=list)
-    pending_verification: list[str] = Field(
-        default_factory=list, description="What Stripe is still reviewing"
-    )
     current_deadline: datetime | None = Field(
         default=None, description="When Stripe pauses payouts if what is due isn't sent"
     )
@@ -100,7 +96,6 @@ class PaymentMethodOut(Mirror):
     brand: str | None
     last4: str | None
     preferred: bool
-    status: str
 
 
 class DetachResult(BaseModel):

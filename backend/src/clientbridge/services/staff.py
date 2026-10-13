@@ -1,8 +1,8 @@
 """Staff invites and pay settings."""
 
+import logging
 import secrets
 from collections import Counter
-from datetime import timedelta
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -46,6 +46,7 @@ from clientbridge.schemas.staff import (
     TeamMember,
     TeamOut,
 )
+from clientbridge.services import plans
 from clientbridge.services.bookings import (
     clash,
     lock_bookings,
@@ -57,8 +58,8 @@ from clientbridge.services.business import load_staff
 from clientbridge.services.catalog import load_item
 from clientbridge.services.notifications import business_email, invite_link, staff_invite
 from clientbridge.services.payments import cancel_open_deposits, refund_deposit
+from clientbridge.services.plans import INVITE_TTL
 
-INVITE_TTL = timedelta(days=7)
 _ANY = "any"
 _OPEN = ("pending", "confirmed", "waitlisted")
 
@@ -75,6 +76,9 @@ def _fit_rate_unit(staff: Staff, data: StaffPayUpdate) -> None:
     if unused in data.model_fields_set and getattr(data, unused) is not None:
         raise Unprocessable(f"{used} holds the rate for rate_type {staff.rate_type}")
     setattr(staff, unused, None)
+
+
+_log = logging.getLogger(__name__)
 
 
 class StaffService:
@@ -113,6 +117,7 @@ class StaffService:
         principal: Principal,
         *,
         email_sender: EmailSender,
+        gateway: PaymentGateway,
         email: str,
         role: MemberRole,
         idempotency_key: str | None = None,
@@ -120,6 +125,8 @@ class StaffService:
         assert_role(principal, "owner", "admin", message="only an owner or admin can invite")
 
         async def run(cmd: Command) -> InviteOut:
+            business = await self._locked_business(principal.business_id)
+            seats = await plans.assert_seat_free(self.db, business, clock.now())
             raw = secrets.token_urlsafe(24)
             staff = Staff(
                 id=new_id("staff"),
@@ -133,6 +140,9 @@ class StaffService:
             )
             self.db.add(staff)
             await self.db.flush()
+            # billed before commit, so a failed Stripe call fails the invite before anyone joins
+            await plans.sync_seats(gateway, business, seats)
+            billed.append(True)
             subject, body = await self._invite_email(principal, raw)
             await email_sender.send(business_email(principal.business_id, email, subject, body))
             cmd.record("staff.invite", entity_type="staff", entity_id=staff.id)
@@ -140,15 +150,22 @@ class StaffService:
                 id=staff.id, email=email, role=role, status=staff.status, invite_token=raw
             )
 
-        return await run_command(
-            self.db,
-            principal,
-            action="staff.invite",
-            run=run,
-            response_model=InviteOut,
-            idempotency_key=idempotency_key,
-            request={"email": email, "role": role},
-        )
+        billed: list[bool] = []
+        try:
+            return await run_command(
+                self.db,
+                principal,
+                action="staff.invite",
+                run=run,
+                response_model=InviteOut,
+                idempotency_key=idempotency_key,
+                request={"email": email, "role": role},
+            )
+        except Exception:
+            # the invite rolled back after its seat was billed, so bill the seats that remain
+            if billed:
+                await self.release_seat(principal.business_id, gateway)
+            raise
 
     async def _pending(self, token: str) -> Staff:
         staff = (
@@ -187,6 +204,9 @@ class StaffService:
         ).scalar_one_or_none()
         if member is not None and member.status == "active":
             raise Conflict("you're already on this team", code="already_member")
+        # the plan may have changed since the invite went out
+        business = await self._locked_business(staff.business_id)
+        await plans.assert_seat_free(self.db, business, clock.now(), member=staff.id)
         if member is not None:
             member.role, member.status = staff.role, "active"
             await self.db.delete(staff)
@@ -265,7 +285,12 @@ class StaffService:
         return row
 
     async def resend_invite(
-        self, principal: Principal, invite_id: str, *, email_sender: EmailSender
+        self,
+        principal: Principal,
+        invite_id: str,
+        *,
+        email_sender: EmailSender,
+        gateway: PaymentGateway,
     ) -> InviteOut:
         """A new link with a fresh seven days; the old link stops working."""
         assert_role(principal, "owner", "admin", message="only an owner or admin can invite")
@@ -273,9 +298,13 @@ class StaffService:
 
         async def run(cmd: Command) -> InviteOut:
             assert staff.role != "owner", "an invite is never for the owner"
+            business = await self._locked_business(principal.business_id)
+            now = clock.now()
+            seats = await plans.assert_seat_free(self.db, business, now, member=staff.id)
+            await plans.sync_seats(gateway, business, seats)
             raw = secrets.token_urlsafe(24)
             staff.invite_token = hash_token(raw)
-            staff.invited_at = clock.now()
+            staff.invited_at = now
             staff.invited_by = principal.user_id
             await self.db.flush()
             subject, body = await self._invite_email(principal, raw)
@@ -295,7 +324,9 @@ class StaffService:
             self.db, principal, action="staff.invite_resend", run=run, response_model=InviteOut
         )
 
-    async def revoke_invite(self, principal: Principal, invite_id: str) -> None:
+    async def revoke_invite(
+        self, principal: Principal, invite_id: str, *, gateway: PaymentGateway
+    ) -> None:
         assert_role(principal, "owner", "admin", message="only an owner or admin can revoke")
         staff = await self._invite(principal, invite_id)
         self.db.add(
@@ -311,6 +342,28 @@ class StaffService:
         )
         await self.db.delete(staff)
         await self.db.commit()
+        await self.release_seat(principal.business_id, gateway)
+
+    async def release_seat(self, business_id: str, gateway: PaymentGateway) -> None:
+        """Lower a Premium seat count after a member leaves; run_sync_seats retries a failure."""
+        business = await self.db.get(Business, business_id)
+        if business is None:
+            return
+        try:
+            seats = await plans.billed_seats(self.db, business_id, clock.now())
+            await plans.sync_seats(gateway, business, seats)
+        except Exception:
+            _log.exception("seat release failed for %s", business_id)
+
+    async def _locked_business(self, business_id: str) -> Business:
+        business = (
+            await self.db.execute(
+                select(Business).where(Business.id == business_id).with_for_update()
+            )
+        ).scalar_one_or_none()
+        if business is None:
+            raise NotFound("business not found")
+        return business
 
     async def _member(self, principal: Principal, staff_id: str) -> Staff:
         assert_role(principal, "owner", "admin", message="only an owner or admin can change roles")
@@ -445,6 +498,8 @@ class StaffService:
             idempotency_key=idempotency_key,
             request={"staff_id": staff_id, **data.model_dump(mode="json")},
         )
+        if ran:
+            await self.release_seat(biz, gateway)
         return result, bool(ran)
 
     async def _takers(self, biz: str, member_id: str, data: StaffRemove) -> list[Staff]:

@@ -15,7 +15,14 @@ from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import earnings, ledger
 from clientbridge.services.lines import fetch_lines, included_totals, price_lines
-from clientbridge.services.tax import TaxComponent, TaxLine, TaxResult, compute_tax, tax_for_lines
+from clientbridge.services.tax import (
+    TaxComponent,
+    TaxLine,
+    TaxResult,
+    compute_tax,
+    rates_on,
+    tax_for_lines,
+)
 from scripts.demo_context import DemoContext
 
 PACKAGE_VISITS = (
@@ -67,7 +74,7 @@ def _tax(ctx: DemoContext, lines: list[Line]) -> TaxResult:
     business = ctx.get(Business, ctx.business_id)
     result = compute_tax(
         [TaxLine(line.amount_cents, tax_class=line.tax_class) for line in lines],
-        [TaxComponent("GST", 500), TaxComponent("PST", 700)],
+        [TaxComponent(r.jurisdiction, r.rate) for r in rates_on("BC", ctx.now.date())],
         registered=business.tax_registered,
     )
     for line, part in zip(lines, result.lines, strict=True):
@@ -174,7 +181,7 @@ def _membership(ctx: DemoContext) -> None:
     item = ctx.get(Item, subscription.item_id)
     method = ctx.get(PaymentMethod, "pm_david")
     subscription.payment_method_id = method.id
-    when = subscription.current_period_start or ctx.at(-6)
+    when = ctx.at(-6, 0)
     invoice = _new_invoice(
         ctx,
         "inv_subscription_david",

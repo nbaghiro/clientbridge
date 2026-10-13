@@ -315,6 +315,8 @@ test("the business cover photo keeps its hovered actions readable", async ({ pag
     const header = page.locator("header", { has: page.locator('img[src$="/e2e-cover.svg"]') });
     await expect(header.getByRole("button", { name: strings.publicLanding.book })).toBeVisible();
     expect(await unreadableHover(page, "header")).toEqual([]);
+    // a profile refetch still in flight at teardown would read a disposed response
+    await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
 const MISSING_PAGES = [

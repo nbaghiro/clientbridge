@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
-from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_can_act_as, assert_role, is_manager
 from clientbridge.core.errors import (
     AppError,
@@ -93,6 +92,7 @@ from clientbridge.services.payments import (
     refund_deposit,
     resolve_saved_method_ref,
 )
+from clientbridge.services.plans import serving
 
 _OVERLAP = "that staff member is already booked at that time"
 _RESOURCE_BUSY = "that resource is already booked at that time"
@@ -862,7 +862,6 @@ class BookingService:
         account_id = business.stripe_account_id
         client = await self._client(booking.client_id)
         amount = booking.deposit_amount_cents
-        fee_bps = get_settings().platform_fee_bps
         pm_ref = await resolve_saved_method_ref(
             self.db, self.biz, payment_method_id, booking.client_id
         )
@@ -877,7 +876,6 @@ class BookingService:
                 booking=booking,
                 client=client,
                 amount=amount,
-                fee_bps=fee_bps,
                 payment_method=pm_ref,
                 idempotency_key=idempotency_key,
             )
@@ -924,7 +922,6 @@ class BookingService:
                 booking=booking,
                 client=client,
                 amount=booking.deposit_amount_cents,
-                fee_bps=get_settings().platform_fee_bps,
                 payment_method=pm_ref,
                 idempotency_key="no_show",
             )
@@ -2249,6 +2246,7 @@ async def run_reminders(db: AsyncSession, notifier: Notifier, now: datetime) -> 
                     Booking.status == "confirmed",
                     Slot.starts_at > now,
                     Slot.starts_at <= now + _REMINDER_WINDOW,
+                    Booking.business_id.in_(select(Business.id).where(serving(now))),
                 )
             )
         )

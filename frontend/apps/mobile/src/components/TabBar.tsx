@@ -3,6 +3,7 @@ import {
     type DestinationKey,
     type IconName,
     strings,
+    usePlanNotice,
     useShellNav,
     useSyncState,
 } from "@clientbridge/app-core";
@@ -11,7 +12,7 @@ import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ActionMenu, Icon, SyncBanner } from "@clientbridge/ui";
+import { ActionMenu, Icon, Notice, SyncBanner } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
@@ -43,6 +44,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
     const openLink = useOpenLink();
     const [menu, setMenu] = useState(false);
     const { notice } = useSyncState();
+    const plan = usePlanNotice(useViewer()?.role ?? null);
     const close = (): void => {
         setMenu(false);
     };
@@ -65,6 +67,11 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                             : undefined
                     }
                 />
+            ) : null}
+            {plan !== null ? (
+                <Notice tone={plan.tone} banner>
+                    {plan.message}
+                </Notice>
             ) : null}
             <View
                 style={[styles.bar, { paddingBottom: insets.bottom + 6 }]}

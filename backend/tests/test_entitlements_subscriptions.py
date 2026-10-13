@@ -18,7 +18,7 @@ from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import Audit, Webhook
 from clientbridge.services import ledger
 from tests.conftest import Factory, FakeEmailSender, FakePaymentGateway
-from tests.helpers import client_id, enable_payments, key
+from tests.helpers import client_id, enable_payments, invoice, key, payment_by_ref, stripe_event
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -71,9 +71,7 @@ async def _saved_method(
         business_id=business_id,
         client_id=cid,
         method=method,
-        provider="stripe",
         provider_ref=ref,
-        status="active",
     )
     db.add(pm)
     await db.flush()
@@ -100,7 +98,6 @@ async def test_create_subscription_happy(
     assert row.provider_ref is not None and row.provider_ref.startswith("sub_fake")
     assert row.provider_ref in gateway.created_subscriptions
     assert row.payment_method_id == pm.id
-    assert row.current_period_start == datetime(2030, 1, 1, tzinfo=UTC)
     assert row.current_period_end == datetime(2030, 2, 1, tzinfo=UTC)
     cached = (await db.execute(select(Item.stripe_price_id).where(Item.id == item.id))).scalar_one()
     assert cached is not None and cached.startswith("price_fake")
@@ -134,6 +131,62 @@ async def test_subscription_price_is_tax_inclusive(
     assert res.status_code == 201, res.text
     # BC + tax-registered: GST 5% + PST 7% on 5000 → 600 tax → a 5600 tax-inclusive Price
     assert gateway.created_price_amounts == [5600]
+
+
+async def test_subscription_price_and_renewal_follow_the_item_tax_class(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    item = await _sub_item(db, price=5000)
+    item.tax_class = "federal_only"
+    await db.flush()
+    pm = await _saved_method(db, cid)
+    ok = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    assert ok.status_code == 201, ok.text
+    assert gateway.created_price_amounts == [5250]
+    gateway.invoice_intents["in_class"] = "pi_class_sub"
+    charge: dict[str, object] = {
+        "id": "in_class",
+        "parent": {"subscription_details": {"subscription": gateway.created_subscriptions[-1]}},
+        "amount_paid": 5250,
+        "currency": "cad",
+    }
+    await stripe_event(as_owner, "invoice.payment_succeeded", charge)
+    paid = await payment_by_ref(db, "pi_class_sub")
+    assert paid.invoice_id is not None
+    minted = await invoice(db, paid.invoice_id)
+    assert (minted.tax_total_cents, minted.total_cents, minted.balance_cents) == (250, 5250, 0)
+
+
+async def test_cached_price_is_replaced_when_the_taxed_amount_changes(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    item = await _sub_item(db, price=5000)
+    clients = [await _new_client(db, name=f"Client {n}") for n in range(4)]
+    methods = [await _saved_method(db, c, ref=f"pm_{n}") for n, c in enumerate(clients)]
+
+    async def subscribe(n: int) -> None:
+        res = await as_owner.post(
+            "/v1/subscriptions", json=_body(clients[n], item.id, methods[n].id)
+        )
+        assert res.status_code == 201, res.text
+
+    await subscribe(0)
+    first = item.stripe_price_id
+    await db.execute(update(Business).where(Business.id == BIZ).values(tax_registered=False))
+    await db.flush()
+    await subscribe(1)
+    item.tax_class = "federal_only"
+    await db.execute(update(Business).where(Business.id == BIZ).values(tax_registered=True))
+    await db.flush()
+    await subscribe(2)
+    await subscribe(3)
+    assert gateway.created_price_amounts == [5600, 5000, 5250]
+    assert item.stripe_price_id == gateway.created_prices[-1] != first
+    rows = (await db.execute(select(Subscription).where(Subscription.item_id == item.id))).scalars()
+    assert len({row.provider_ref for row in rows}) == 4
 
 
 async def test_same_idempotency_key_creates_one_subscription(
@@ -384,7 +437,6 @@ async def test_subscription_updated_flips_status(api: httpx.AsyncClient, db: Asy
     row = (await db.execute(select(Subscription).where(Subscription.id == sub.id))).scalar_one()
     assert row.status == "past_due"
     # the epoch timestamps parsed into the exact period, not just "something non-null"
-    assert row.current_period_start == datetime(2025, 1, 1, tzinfo=UTC)
     assert row.current_period_end == datetime(2025, 2, 1, tzinfo=UTC)
 
 
@@ -714,3 +766,75 @@ async def test_staff_cannot_cancel_subscription(
 async def test_writes_need_a_session_401(unauth: httpx.AsyncClient, path: str) -> None:
     body = {"client_id": "cl_x", "item_id": "it_x", "payment_method_id": "pm_x"}
     assert (await unauth.post(path, json=body)).status_code == 401
+
+
+async def test_a_cached_price_gone_from_stripe_is_replaced(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    item = await _sub_item(db)
+    item.stripe_price_id = "price_deleted"
+    await db.flush()
+    pm = await _saved_method(db, cid)
+    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    assert res.status_code == 201, res.text
+    await db.refresh(item)
+    assert item.stripe_price_id == gateway.created_prices[-1] != "price_deleted"
+
+
+async def test_a_renewal_books_what_was_charged_when_price_tax_class_or_registration_changed(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    item = await _sub_item(db, price=5000)
+    pm = await _saved_method(db, cid)
+    ok = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    assert ok.status_code == 201, ok.text
+    assert gateway.created_price_amounts == [5600]
+    sub_ref = gateway.created_subscriptions[-1]
+    item.price_cents = 7000
+    item.tax_class = "federal_only"
+    await db.execute(update(Business).where(Business.id == BIZ).values(tax_registered=False))
+    await db.flush()
+    gateway.invoice_intents["in_renew"] = "pi_renew"
+    details = {"subscription": sub_ref, "metadata": gateway.subscription_metadata[sub_ref]}
+    charge: dict[str, object] = {
+        "id": "in_renew",
+        "parent": {"subscription_details": details},
+        "amount_paid": 5600,
+        "currency": "cad",
+    }
+    await stripe_event(as_owner, "invoice.payment_succeeded", charge)
+    paid = await payment_by_ref(db, "pi_renew")
+    assert paid.invoice_id is not None
+    renewed = await invoice(db, paid.invoice_id)
+    assert (renewed.tax_total_cents, renewed.total_cents, renewed.balance_cents) == (600, 5600, 0)
+
+
+async def test_a_renewal_is_issued_and_taxed_at_the_period_stripe_billed(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    gateway.invoice_intents["in_period"] = "pi_period"
+    await _seed_sub(db, ref="sub_period")
+    start = datetime(2026, 9, 1, tzinfo=UTC)
+    obj: dict[str, object] = {
+        "id": "in_period",
+        "parent": {"subscription_details": {"subscription": "sub_period"}},
+        "amount_paid": 5600,
+        "currency": "cad",
+        "status_transitions": {"paid_at": int(PAID_AT.timestamp())},
+        "lines": {"data": [{"period": {"start": int(start.timestamp())}}]},
+    }
+    res = await api.post(
+        "/webhooks/stripe",
+        content=_sub_event("evt_period", "invoice.payment_succeeded", obj),
+        headers=GOOD,
+    )
+    assert res.status_code == 200
+    paid = await payment_by_ref(db, "pi_period")
+    assert paid.invoice_id is not None
+    renewed = await invoice(db, paid.invoice_id)
+    assert renewed.issued_at == start and paid.paid_at == PAID_AT

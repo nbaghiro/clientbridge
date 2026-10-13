@@ -2,6 +2,7 @@ import { formatLongDate, formatMonthDay, readDate } from "../datetime";
 import { formatRate, initials } from "../format";
 import english from "../../locales/en-CA.json" with { type: "json" };
 import { strings } from "../strings";
+import { TAX_RATES } from "../taxRates";
 import type {
     DocTotalLine,
     PrintedDoc,
@@ -192,8 +193,8 @@ export function taxRateLabel(code: string, rateBps: number): string {
     return strings.taxes.rate(taxName(code), ratePct(code, rateBps));
 }
 
-/** The rate a tax code is printed with ("5%", "9.975%"). */
+/** The rate a tax code is printed with ("5%", "9.975%"); the API rounds rates to whole basis points. */
 export function ratePct(code: string, rateBps: number): string {
-    // Quebec's 9.975% does not fit in whole basis points.
-    return formatRate(code === "QST" ? 997.5 : rateBps);
+    const exact = TAX_RATES.find((r) => r.code === code && Math.round(r.ppm / 100) === rateBps);
+    return formatRate(exact === undefined ? rateBps : exact.ppm / 100);
 }

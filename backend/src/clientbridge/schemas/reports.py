@@ -87,7 +87,7 @@ class PayoutRow(BaseModel):
 
 class ReportRate(BaseModel):
     code: str
-    rate_bps: int
+    rate_bps: int | None = Field(description="Null when the rate changed within the period")
 
 
 class ReportSummary(BaseModel):

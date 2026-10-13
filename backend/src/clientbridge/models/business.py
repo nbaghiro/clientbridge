@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal
 
 from sqlalchemy import (
@@ -17,6 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from clientbridge.core import clock
 from clientbridge.core.db import Base
 from clientbridge.models.base import PKMixin, TimestampMixin, enum_check
 
@@ -26,6 +27,14 @@ ProvinceCode = Literal["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE
 StaffRole = Literal["owner", "admin", "staff", "contractor"]
 StaffStatus = Literal["active", "invited", "removed"]
 RateType = Literal["percent", "fixed", "hourly"]
+Plan = Literal["premium", "team"]
+PlanStatus = Literal["trialing", "active", "past_due", "lapsed"]
+
+TRIAL_DAYS = 14
+
+
+def trial_end() -> datetime:
+    return clock.now() + timedelta(days=TRIAL_DAYS)
 
 
 class Business(PKMixin, TimestampMixin, Base):
@@ -35,6 +44,8 @@ class Business(PKMixin, TimestampMixin, Base):
         Index("ix_businesses_stripe_account", "stripe_account_id", unique=True),
         enum_check("businesses", "status", BusinessStatus),
         enum_check("businesses", "filing_frequency", FilingFrequency),
+        enum_check("businesses", "plan", Plan, nullable=True),
+        enum_check("businesses", "plan_status", PlanStatus),
         CheckConstraint("review_hold_at BETWEEN 0 AND 5", name="ck_businesses_review_hold_at"),
     )
 
@@ -59,9 +70,8 @@ class Business(PKMixin, TimestampMixin, Base):
         String
     )  # minted on first POS use
     stripe_charges_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    # KYC mirrored from the Stripe connected account (source of truth), synced via account.updated.
+    # KYC mirrored from the Stripe connected account (source of truth) on its account events.
     stripe_payouts_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    stripe_details_submitted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     stripe_requirements: Mapped[dict[str, object]] = mapped_column(
         JSONB, default=dict, nullable=False
     )
@@ -77,6 +87,15 @@ class Business(PKMixin, TimestampMixin, Base):
     filing_frequency: Mapped[FilingFrequency] = mapped_column(
         String, default="quarterly", server_default="quarterly", nullable=False
     )
+    plan: Mapped[Plan | None] = mapped_column(String)
+    # trial expiry is read against trial_ends_at, so no job has to flip a trialing business
+    plan_status: Mapped[PlanStatus] = mapped_column(
+        String, default="trialing", server_default="trialing", nullable=False
+    )
+    trial_ends_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=trial_end, nullable=False
+    )
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String)
 
 
 class User(PKMixin, TimestampMixin, Base):

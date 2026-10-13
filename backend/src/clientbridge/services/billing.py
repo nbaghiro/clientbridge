@@ -375,6 +375,8 @@ class BillingService:
         async def run(cmd: Command) -> EstimateOut:
             estimate.status = status
             if status == "accepted":
+                # accepted at today's prices and rates, as the client's own acceptance is
+                await self._apply_totals(estimate, await self._repriced("estimate", estimate))
                 estimate.accepted_at = clock.now()
             elif status == "declined":
                 estimate.declined_at = clock.now()

@@ -26,6 +26,7 @@ from clientbridge.services.ledger import run_reconcile_ledger
 from clientbridge.services.messaging import run_due_broadcasts
 from clientbridge.services.notifications import Notifier, run_prune_devices
 from clientbridge.services.orders import run_pickup_reminders, run_reap_unpaid_orders
+from clientbridge.services.plans import run_sync_seats, run_trial_reminders
 from clientbridge.services.receipts import run_prune_receipts
 from clientbridge.services.reviews import run_review_requests
 
@@ -106,6 +107,16 @@ async def prune_pending_files(ctx: Context) -> int:
         return await run_prune_pending_files(db, get_file_storage(), clock.now())
 
 
+async def sync_plan_seats(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_sync_seats(db, get_payment_gateway(), clock.now())
+
+
+async def send_trial_reminders(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_trial_reminders(db, _notifier(), clock.now())
+
+
 class WorkerSettings:
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)
     functions: ClassVar[list[object]] = []
@@ -124,4 +135,6 @@ class WorkerSettings:
         cron(send_pickup_reminders, minute=0),
         cron(reap_unpaid_orders, minute={5, 20, 35, 50}),
         cron(send_intake_forms, minute={10, 25, 40, 55}),
+        cron(sync_plan_seats, hour=5, minute=0),
+        cron(send_trial_reminders, minute=0),
     ]

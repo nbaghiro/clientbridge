@@ -275,9 +275,7 @@ class ClientService:
             raise Conflict("the other record has payment history, so it can't be merged yet")
         methods = await self.db.scalar(
             select(func.count()).select_from(
-                scoped(PaymentMethod, self.biz)
-                .where(PaymentMethod.client_id == gone.id, PaymentMethod.status == "active")
-                .subquery()
+                scoped(PaymentMethod, self.biz).where(PaymentMethod.client_id == gone.id).subquery()
             )
         )
         if methods:

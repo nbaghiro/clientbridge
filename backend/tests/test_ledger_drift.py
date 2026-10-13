@@ -170,6 +170,22 @@ async def test_lost_dispute_writes_the_sale_off(
     assert after.by_method["card"] == income.by_method["card"] - 8000
 
 
+async def test_a_lost_dispute_stays_written_off_when_a_late_update_arrives(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    """The lost journal settles the case; the mirrored dispute status is display only."""
+    inv_id = await sent_invoice(db, number=9503, total=8000)
+    await _charge(db, "pi_late", invoice_id=inv_id)
+    pulled = {"id": "txn_late_out", "amount": -8000, "fee": 1500, "net": -9500}
+    await stripe_event(
+        api, "charge.dispute.created", _dispute("pi_late", "needs_response", [pulled])
+    )
+    await stripe_event(api, "charge.dispute.closed", _dispute("pi_late", "lost", [pulled]))
+    late = _dispute("pi_late", "under_review", [pulled])
+    await stripe_event(api, "charge.dispute.updated", late)
+    assert await _paid(db, inv_id) == ("refunded", 0, 0)
+
+
 async def test_a_lost_dispute_and_a_refund_on_one_invoice_unwind_it_exactly(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
@@ -194,6 +210,7 @@ async def test_a_lost_dispute_and_a_refund_on_one_invoice_unwind_it_exactly(
     lost = _dispute("pi_half_a", "lost", [pulled], amount=4000)
     await stripe_event(api, "charge.dispute.created", {**lost, "status": "needs_response"})
     await stripe_event(api, "charge.dispute.closed", lost)
+    await stripe_event(api, "charge.dispute.updated", {**lost, "status": "under_review"})
     await stripe_event(api, "refund.created", {**_refund("pi_half_b", "succeeded"), "amount": 4000})
     for category in ("revenue", "tax"):
         left = await ledger.subject_balance(

@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.command import Command, PublicPrincipal, remember, replay, run_command
-from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base
 from clientbridge.core.errors import Conflict, NotFound, Unauthorized, Unprocessable
 from clientbridge.core.ids import new_id
@@ -108,6 +107,7 @@ from clientbridge.services.lines import (
     fetch_lines,
     included,
     included_totals,
+    issued_at,
     price_lines,
     replace_lines,
 )
@@ -125,8 +125,16 @@ from clientbridge.services.payments import (
     refund_deposit,
     resolve_tip,
 )
+from clientbridge.services.plans import assert_serving
 from clientbridge.services.returning import ReturningService
-from clientbridge.services.tax import LineTax, rates_for_business, tax_breakdown, tax_for_lines
+from clientbridge.services.tax import (
+    LineTax,
+    TaxResult,
+    issued_tax,
+    rates_for_business,
+    tax_breakdown,
+    tax_for_lines,
+)
 
 
 def _account(business: Business) -> str | None:
@@ -269,6 +277,7 @@ class PublicBookingService:
             prior = await replay(self.db, business.id, _BOOK_SCOPE, idempotency_key, data)
             if prior is not None:
                 return PublicBookingResult.model_validate(prior)
+        assert_serving(business, clock.now())
         item = await self._bookable_item(business.id, data.item_id)
         if item.duration_min is None or item.duration_min <= 0:
             raise Unprocessable("that service has no duration and can't be booked")
@@ -396,7 +405,6 @@ class PublicBookingService:
             booking=booking,
             client=client,
             amount=booking.deposit_amount_cents,
-            fee_bps=get_settings().platform_fee_bps,
         )
         return client_secret
 
@@ -621,6 +629,7 @@ class PublicManageService:
             self.db, business.id, _MOVE_SCOPE, idempotency_key, request
         ):
             return await self._view(booking, slot, business)
+        assert_serving(business, clock.now())
         item, staff = await self._movable(booking, slot, business)
         policy = policy_of(business)
         _assert_bookable_window(policy, data.starts_at)
@@ -1165,7 +1174,7 @@ class PublicPayService:
         invoice, business = await self._resolve(token)
         client = await self.db.get(Client, invoice.client_id)
         lines = await fetch_lines(self.db, invoice.business_id, "invoice", invoice.id)
-        doc_lines, taxes = await public_doc_lines(self.db, invoice.business_id, lines)
+        doc_lines, taxes = await public_doc_lines(self.db, invoice, lines)
         contact = BrandInput.model_validate(business.brand or {})
         return PublicInvoice(
             tip_base_cents=sum(
@@ -1230,7 +1239,6 @@ class PublicPayService:
             invoice=invoice,
             client=client,
             amount=amount + tip.cents,
-            fee_bps=get_settings().platform_fee_bps,
             tip=tip,
             supersede=True,
         )
@@ -1274,12 +1282,32 @@ async def _tip_names(db: AsyncSession, business_id: str, lines: list[Line]) -> l
     return [name.split()[0] for sid in ids if (name := names.get(sid))]
 
 
+async def estimate_tax(
+    db: AsyncSession, estimate: Estimate, lines: list[Line]
+) -> tuple[datetime, TaxResult]:
+    """An open estimate is quoted at today's rates; an accepted one keeps its acceptance rates."""
+    if estimate.accepted_at is None:
+        now = clock.now()
+        return now, await tax_breakdown(db, estimate.business_id, lines, now)
+    return estimate.accepted_at, await issued_tax(
+        db, estimate.business_id, lines, estimate.accepted_at
+    )
+
+
 async def public_doc_lines(
-    db: AsyncSession, business_id: str, lines: list[Line]
+    db: AsyncSession,
+    document: Invoice | Estimate | Order,
+    lines: list[Line],
+    priced: tuple[datetime, TaxResult] | None = None,
 ) -> tuple[list[tuple[PublicDocLine, LineTax]], list[PublicDocTax]]:
-    """A document's lines with their tax codes, and its tax per code over included lines."""
-    result = await tax_breakdown(db, business_id, lines)
-    rates = {r.jurisdiction: r.rate_bps for r in await rates_for_business(db, business_id)}
+    """A document's lines with their tax, labelled with the rates that tax was computed at."""
+    at, result = priced or (
+        issued_at(document),
+        await issued_tax(db, document.business_id, lines, issued_at(document)),
+    )
+    rates = {
+        r.jurisdiction: r.rate_bps for r in await rates_for_business(db, document.business_id, at)
+    }
     taxes: dict[str, PublicDocTax] = {}
     for line, line_tax in zip(lines, result.lines, strict=True):
         if not included(line):
@@ -1330,6 +1358,7 @@ class PublicEstimateService:
     async def accept(self, token: str, data: PublicEstimateAccept) -> PublicEstimate:
         estimate, business = await self._resolve(token, lock=True)
         self._assert_open(estimate, business)
+        assert_serving(business, clock.now())
         lines = await fetch_lines(self.db, estimate.business_id, "estimate", estimate.id)
         offered = {ln.id for ln in lines if ln.optional}
         if not set(data.line_ids) <= offered:
@@ -1362,7 +1391,9 @@ class PublicEstimateService:
     async def _context(self, estimate: Estimate, business: Business) -> PublicEstimate:
         client = await self.db.get(Client, estimate.client_id)
         lines = await fetch_lines(self.db, estimate.business_id, "estimate", estimate.id)
-        doc_lines, taxes = await public_doc_lines(self.db, estimate.business_id, lines)
+        priced = await estimate_tax(self.db, estimate, lines)
+        doc_lines, taxes = await public_doc_lines(self.db, estimate, lines, priced)
+        totals = included_totals(lines, priced[1])
         return PublicEstimate(
             number=estimate.number,
             business_name=business.name,
@@ -1374,9 +1405,9 @@ class PublicEstimateService:
             status=estimate_status(estimate, local_today(business)),
             currency=currency_for(business),
             timezone=business.timezone,
-            subtotal_cents=estimate.subtotal_cents,
-            tax_total_cents=estimate.tax_total_cents,
-            total_cents=estimate.total_cents,
+            subtotal_cents=totals.subtotal_cents,
+            tax_total_cents=totals.tax_total_cents,
+            total_cents=totals.total_cents,
             issued_at=estimate.created_at,
             valid_until=estimate.valid_until,
             notes=estimate.notes,
@@ -1423,7 +1454,7 @@ class PublicReceiptService:
         order = await resolve_by_token(self.db, Order, Order.receipt_token == token, msg)
         business = await business_or_404(self.db, order.business_id, msg)
         lines = await fetch_lines(self.db, order.business_id, "order", order.id)
-        doc_lines, taxes = await public_doc_lines(self.db, order.business_id, lines)
+        doc_lines, taxes = await public_doc_lines(self.db, order, lines)
         client = await self.db.get(Client, order.client_id) if order.client_id else None
         staff_ids = list(dict.fromkeys(ln.staff_id for ln in lines if ln.staff_id))
         names = (
@@ -1798,6 +1829,7 @@ class PublicShopService:
         prior = await replay(self.db, business.id, _SCOPE, idempotency_key, data)
         if prior is not None:
             return PublicShopOrderResult.model_validate(prior)
+        assert_serving(business, clock.now())
         if data.pickup_from is not None:
             await self.db.execute(
                 text("SELECT pg_advisory_xact_lock(hashtext(:scope))"),
@@ -1873,7 +1905,6 @@ class PublicShopService:
             order=order,
             client=client,
             amount=order.total_cents,
-            fee_bps=get_settings().platform_fee_bps,
             idempotency_key=idempotency_key,
         )
         result = PublicShopOrderResult(

@@ -233,7 +233,7 @@ function SalePanel({
 }) {
     const zone = useBusinessZone();
     const role = useRole();
-    const { detail } = useSaleDetail(api, id, role);
+    const { detail } = useSaleDetail(id, role);
     const actions = useSaleActions(api, confirm, onResume);
     if (id === null) return null;
     return (

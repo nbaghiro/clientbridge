@@ -30,12 +30,8 @@ from clientbridge.services.reports import (
     period_bounds,
     period_of,
 )
-from clientbridge.services.tax import rates_for_province
+from clientbridge.services.tax import FAMILY_CODES, rates_on
 
-FAMILY_CODES: dict[str, tuple[str, ...]] = {
-    "federal": ("GST", "HST"),
-    "provincial": ("PST", "QST"),
-}
 _HISTORY_YEARS = 2
 
 
@@ -187,7 +183,7 @@ class RemittanceService:
         tz = zone(business.timezone)
         today = clock.today(tz)
         frequency = business.filing_frequency
-        rates = rates_for_province(business.province)
+        rates = rates_on(business.province, today)
         federal = next((r for r in rates if r.jurisdiction in FAMILY_CODES["federal"]), None)
         provincial = next((r for r in rates if r.jurisdiction in FAMILY_CODES["provincial"]), None)
         filed = await self.filed_returns()

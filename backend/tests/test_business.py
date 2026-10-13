@@ -194,3 +194,20 @@ async def test_a_junk_billing_email_is_refused(as_owner: httpx.AsyncClient) -> N
     assert res.status_code == 422
     res = await as_owner.patch("/v1/business", json={"billing_email": " owner@birchbark.example "})
     assert res.status_code == 200, res.text
+
+
+async def test_a_new_address_drops_the_terminal_location_made_for_the_old_one(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.stripe_terminal_location_id = "tml_old"
+    await db.flush()
+    same = {"brand": {"address": business.brand["address"]}}
+    assert (await as_owner.patch("/v1/business", json=same)).status_code == 200
+    await db.refresh(business)
+    assert business.stripe_terminal_location_id == "tml_old"
+    moved = {"brand": {"address": "88 Fort St, Victoria, BC V8W 1Y4"}}
+    assert (await as_owner.patch("/v1/business", json=moved)).status_code == 200
+    await db.refresh(business)
+    assert business.stripe_terminal_location_id is None

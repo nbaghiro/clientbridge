@@ -93,7 +93,6 @@ function seed(): void {
             qst_number: null,
             brand: "{}",
             stripe_account_id: "acct_1",
-            stripe_terminal_location_id: "tml_1",
             tax_registered: 1,
         },
     ]);
@@ -453,7 +452,6 @@ function seed(): void {
             last4: "4242",
             preferred: 0,
             mandate_status: "none",
-            status: "active",
         },
         {
             id: "pm_main",
@@ -463,16 +461,7 @@ function seed(): void {
             last4: "1111",
             preferred: 1,
             mandate_status: "none",
-            status: "active",
             created_at: "2026-06-27T00:00:00Z",
-        },
-        {
-            id: "pm_gone",
-            client_id: "cl_ann",
-            method: "card",
-            preferred: 0,
-            mandate_status: "none",
-            status: "detached",
         },
     ]);
     scoped("packages", [
@@ -507,7 +496,6 @@ function seed(): void {
             client_id: "cl_ann",
             item_id: "it_plan",
             status: "active",
-            current_period_start: "2026-06-01T00:00:00Z",
             current_period_end: "2026-07-01T00:00:00Z",
             payment_method_id: "pm_main",
         },
@@ -991,7 +979,7 @@ describe("app-core SQL against the replica schema", () => {
         expect(value(ownedLiabilitySql("gift_card", "gift_card", "'gc_none'"))).toBe(0);
     });
 
-    it("follows a dispute: an open or won case leaves the sale paid and a loss reads refunded", () => {
+    it("follows a dispute from the ledger: only the lost journal reads the sale as refunded", () => {
         const onInv3: Row = {
             subject_type: "invoice",
             subject_id: "inv_3",
@@ -1016,7 +1004,7 @@ describe("app-core SQL against the replica schema", () => {
         expect(inv3()).toEqual({ status: "paid", balance_cents: 0 });
         expect(value(collectedSql("invoice", "'inv_3'"))).toBe(2000);
         expect(value(clientValueSql("'cl_ben'"))).toBe(6800);
-        disputed("won");
+        disputed("lost");
         expect(inv3()).toEqual({ status: "paid", balance_cents: 0 });
         journal(
             "j_dp3_lost",
@@ -1028,7 +1016,7 @@ describe("app-core SQL against the replica schema", () => {
             ],
             onInv3,
         );
-        disputed("lost");
+        disputed("under_review");
         expect(inv3()).toEqual({ status: "refunded", balance_cents: 0 });
         expect(value(collectedSql("invoice", "'inv_3'"))).toBe(0);
         expect(value(clientValueSql("'cl_ben'"))).toBe(4800);
@@ -1183,6 +1171,10 @@ describe("app-core SQL against the replica schema", () => {
             client_name: "Ann",
         });
         expect(charges.map((c) => c.id)).not.toContain("pay_3");
+        db.run("UPDATE payments SET status = 'failed' WHERE id = 'pay_1'");
+        const unread = run("CARD_CHARGES_SQL", ["2026-06-20T00:00:00.000Z"]).map((c) => c.id);
+        db.run("UPDATE payments SET status = 'succeeded' WHERE id = 'pay_1'");
+        expect(unread).not.toContain("pay_1");
     });
 
     it("lists threads with unread counts and their messages", () => {
@@ -1365,7 +1357,6 @@ describe("app-core SQL against the replica schema", () => {
             { id: BIZ, name: "Birch Studio", billing_email: "billing@birch.test" },
         ]);
         expect(run("STRIPE_ACCOUNT_SQL")).toEqual([{ stripe_account_id: "acct_1" }]);
-        expect(run("TERMINAL_LOCATION_SQL")).toEqual([{ stripe_terminal_location_id: "tml_1" }]);
     });
 
     it("lists the catalog with each item's newest image", () => {
@@ -1547,7 +1538,7 @@ describe("app-core SQL against the replica schema", () => {
             { id: "stk_2", item_name: "Soap", order_source: "online", by_name: "Owner" },
             { id: "stk_1", item_name: "Soap", order_source: null, by_name: "Groomer" },
         ]);
-        expect(run("TAX_REGISTERED_SQL")).toEqual([{ tax_registered: 1 }]);
+        expect(run("TAX_SETUP_SQL")).toEqual([{ province: null, tax_registered: 1 }]);
     });
 
     it("reads a client's record: pets, visits, notes, methods, plans and history", () => {
@@ -1669,6 +1660,10 @@ describe("app-core SQL against the replica schema", () => {
                 .map((r) => r.id)
                 .sort(),
         ).toEqual(["pay_3", "pay_web"]);
+        db.run("UPDATE payments SET status = 'failed' WHERE id = 'pay_dep'");
+        const listed = run("CLIENT_PAYMENTS_SQL", ["cl_ann"]).map((r) => r.id);
+        db.run("UPDATE payments SET status = 'succeeded' WHERE id = 'pay_dep'");
+        expect(listed).not.toContain("pay_dep");
         expect(run("CLIENT_MESSAGES_SQL", ["cl_ann"]).every((r) => r.direction !== null)).toBe(
             true,
         );

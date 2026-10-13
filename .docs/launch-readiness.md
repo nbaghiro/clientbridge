@@ -13,6 +13,7 @@ Priority: P0 before the first paying customer, P1 within the first month, P2 aft
 | 1. Accounts and settings | Team invites and roles | ENG-4 | P0 | S |
 | 1. Accounts and settings | Stripe connect and payout status | ENG-5 | P0 | S |
 | 1. Accounts and settings | Tax registration and per-item tax classes | ENG-6 | P0 | M |
+| 1. Accounts and settings | Plan subscription, trial and billing | not filed | P0 | L |
 | 2. Clients | Client records: add, edit, archive, search | ENG-8 | P0 | S |
 | 2. Clients | Pets and other subjects on clients | ENG-9 | P0 | M |
 | 2. Clients | Notes and client history timeline | ENG-10 | P1 | M |
@@ -166,6 +167,32 @@ QA:
 Done when: Every taxed figure matches a hand calculation for the province.
 
 Depends on: Onboarding, business profile and branding (ENG-3).
+
+### Plan subscription, trial and billing (not filed)
+Priority: P0 · Size: L · Backend, web, iPhone and Android
+
+Flow: A new business gets a 14-day trial without a card, the owner picks Premium or Team, monthly or yearly, in Stripe Checkout, and later manages the payment method, invoices and cancellation in the Stripe Billing Portal. When the trial ends without a plan, or Stripe ends the subscription, the business becomes read-only and keeps its data. The plan is in `.docs/executions/platform-billing/plan.md`.
+
+Built: the Stripe adapter for plan Checkout (customer account, flexible billing mode, trial carry-over, automatic tax), the Billing Portal and plan item changes; onboarding that reuses an account created for billing; `scripts.stripe_setup` planning the products, the five lookup-key prices, the portal configuration and the platform webhook endpoint; the two plans on the marketing site's pricing page.
+
+To do:
+- The plan columns on `businesses`, the plan endpoints, the subscription webhook handler, seat billing, the trial reminder job and the read-only gate (the schema change needs approval first).
+- The web plan page, the shell notices and the read-only plan section on mobile.
+- Live mode: `scripts.stripe_setup` refuses live mode, so create the objects in the live Dashboard with the same ids and metadata the script uses, so a later sandbox comparison and the backend find them:
+  - Products `clientbridge_premium`, `clientbridge_team` and `clientbridge_seat` with tax code `txcd_10103001`.
+  - CAD recurring prices, tax behaviour exclusive, with lookup keys `premium_month` (49.99), `premium_year` (499.90), `team_month` (99.99), `team_year` (999.90) and `seat_month` (10.00).
+  - A Billing Portal configuration with `metadata.clientbridge=portal`: payment method update, invoice history, email and address updates, cancellation at period end, no subscription update, return URL `https://<web host>/setup/plan`. Its id goes in `STRIPE_PORTAL_CONFIGURATION`.
+  - Webhook endpoints at the pinned API version: the Connect endpoint (`connect=true`, `metadata.clientbridge=connect_webhook`) and the platform endpoint (`connect=false`, `metadata.clientbridge=platform_webhook`) for `customer.subscription.created`, `.updated` and `.deleted`, whose signing secret goes in `STRIPE_PLATFORM_WEBHOOK_SECRET`; and the thin event destination (`metadata.clientbridge=account_events`). Production refuses to start without `STRIPE_PLATFORM_WEBHOOK_SECRET` and `STRIPE_PORTAL_CONFIGURATION`.
+- Dashboard: Stripe Tax with the head office address and our GST/HST and QST registrations, Billing customer emails, and Smart Retries that cancel the subscription after the last retry.
+
+QA:
+1. Sign up: the trial shows 14 days and no card is asked for.
+2. Subscribe to Premium yearly during the trial: Checkout shows the remaining trial and the tax line, and the plan page shows the yearly price after returning.
+3. Invite a staff member on Premium: the seat quantity in Stripe goes up by one.
+4. Let a test clock run past a failed renewal: the business shows past due, then read-only after cancellation.
+Done when: Every business is either trialing, paying through Stripe, or read-only, and the owner can see which and why.
+
+Depends on: Onboarding, business profile and branding (ENG-3), Team invites and roles (ENG-4).
 
 ## 2. Clients (ENG-7)
 
@@ -1053,6 +1080,11 @@ Not tracked in Jira yet. These are pulled in by demand once the launch stories a
 
 - **Growth and commerce:** multiple locations per business (needs a location model), loyalty and rewards,
   waitlists with auto-promote, online gift card purchase and balance check.
+- **Buy now, pay later:** Affirm, Afterpay and Klarna as Stripe payment methods on each connected
+  account, offered in the same Payment Element as cards and Link on our direct-charge PaymentIntents,
+  once a business turns them on and Stripe activates the capabilities. Confirm current Canadian
+  availability and fees in the Stripe docs first; provider fees are higher than card fees, so the
+  platform fee for these methods needs a decision.
 - **Platform and scale:** a public developer API with keys and outbound webhooks (`webhooks` is inbound
   only), a platform admin role and support console, custom permissions (`contractor` has staff permissions
   today), suspending or offboarding a business through `businesses.status`.

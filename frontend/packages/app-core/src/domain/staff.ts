@@ -420,7 +420,7 @@ export function useInviteTeammatesForm(
                     setSent(made);
                     setEmails("");
                 },
-                { errorMessage: t.inviteError },
+                { errorMessage: (e) => failureMessage(e, t.inviteError) },
             );
         },
         reset: () => {

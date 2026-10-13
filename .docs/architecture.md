@@ -23,7 +23,7 @@ Canadian tax built in. All user-facing copy is centralized in one place. The cus
 | Mobile | **React Native (Expo)** (provider/admin app) |
 | Customer | **React + Vite** (Connect — public, PowerSync-free, embeddable) |
 | Offline sync | **PowerSync** — on-device SQLite (web WASM on IndexedDB · Expo op-sqlite), WAL server-push, per-business Sync Streams; writes through FastAPI |
-| Payments | **Stripe Connect** (Custom accounts, direct charges) + PAD/EFT |
+| Payments | **Stripe Connect** (Accounts v2 merchants, direct charges) + PAD/EFT |
 | Repo | **Polyglot monorepo** — backend (uv) + frontend (pnpm + turbo), one root Makefile |
 
 The toolchain pins Python **3.14** (via `.python-version`) while ruff targets 3.12 for
@@ -275,10 +275,11 @@ waits as `submitted` until the owner publishes or hides it.
 
 **platform (5)** — `files` (S3 key, `purpose` logo/image/photo/signature/attachment), `audits` (append-only
 activity feed; server-only), `webhooks` (inbound provider events, `event` = the provider's event name;
-**not** business-scoped — routed during processing; server-only), `devices` (Expo push tokens), `commands`
+**not** business-scoped — routed during processing; a Stripe event's `payload` is cleared once it is
+processed and kept on a failed row; server-only), `devices` (Expo push tokens), `commands`
 (unique per business+scope+key — backs `run_command` replay; server-only).
 
-> **Note on tax:** there is **no `tax_rates` table** (dropped). Rates are hardcoded per province in
+> **Note on tax:** there is **no `tax_rates` table** (dropped). Rates are effective-dated rows per province in
 > `services/tax.py` and derived from `businesses.province`; the tax engine (also `services/tax.py`)
 > is pure and golden-tested. See *Tax* below.
 
@@ -456,24 +457,116 @@ upload was completed are served. Every other
 file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it into the media URL.
 
 ### Payments — Stripe Connect custody
-- **Stripe Connect** (Custom accounts, direct charges + application fee, Stripe's automatic payouts) for
-  cards, Tap-to-Pay/Terminal, saved cards, deposits, refunds, subscriptions, and the KYC mirror via
-  `account.updated`.
+- **Stripe Connect** (Accounts v2 merchants, direct charges + application fee, Stripe's automatic payouts) for
+  cards, Link, Tap-to-Pay/Terminal, saved cards, deposits, refunds, subscriptions, and the KYC mirror.
+- **Application fee.** `services/payments.application_fee_cents` sizes our fee per method so Stripe's
+  percentage plus ours stays at or under `PLATFORM_FEE_CEILING_BPS` (3.2%), and never above
+  `PLATFORM_FEE_MAX_BPS` (2%). Stripe's Canadian rates are settings: card online 2.9% (our fee 0.3%),
+  card present 2.7% (0.5%), pre-authorized debit 1% (2%), and 2% more for a charge in a currency other
+  than CAD. The business pays 3.2% + $0.30 online, 3.2% + $0.05 in person and 3% + $0.40 by debit.
+  Every card, saved or new, is priced at the domestic card rate without asking Stripe where it was
+  issued, so a card issued outside Canada costs the business Stripe's 0.8% on top: 4% online or 3.7% in
+  person in total. A debit through the card form is priced as a card and pays less than its own rate. Subscriptions charge no application
+  fee today.
+- **Connected accounts** are created with `POST /v2/core/accounts`: `dashboard=none` (businesses manage
+  everything through embedded components), `fees_collector=stripe` (Stripe takes its processing fee from
+  the business, so the application fee is our fee alone) and `losses_collector=stripe` (Stripe owns negative
+  balances, as Stripe recommends for direct charges). Both responsibilities are fixed at creation. With those
+  values Stripe collects KYC itself (`requirements_collector=stripe`): onboarding is the embedded
+  `account_onboarding` component or a v2 account link, and the platform cannot accept the terms for the
+  business. The merchant configuration requests `card_payments` and `link_payments`; `acss_debit_payments`
+  is requested when a business first asks for a bank authorization. Every payment call (PaymentIntents,
+  refunds, customers, setup intents, mandates, prices, subscriptions, balance, Terminal) stays on `/v1`
+  with the `Stripe-Account` header, which Stripe supports for v2 accounts, and Account Sessions stay on
+  `/v1/account_sessions`.
+- **KYC mirror.** `account_status_from` reads the v2 account (merchant configuration and requirements):
+  charges and payouts are the `card_payments` and `stripe_balance.payouts` capability statuses, the due
+  lists are the requirement `description` codes awaiting the business grouped by
+  `minimum_deadline.status`, entries awaiting Stripe are pending verification, onboarding counts as
+  submitted once no `identity.attestations.terms_of_service` requirement is open, and a closed account
+  or a capability only Stripe support can lift marks it disabled. The app maps the codes to catalog copy
+  (`requirementCopy` in app-core) with a generic fallback. Thin `v2.core.account[requirements].updated`,
+  `v2.core.account[configuration.merchant].capability_status_updated` and `v2.core.account.closed` events
+  arrive through an event destination; the handler fetches the account and mirrors it.
 - **Recorded by hand**: cash, cheques and e-Transfers received outside the app (`provider` manual); cash
   lands in the till's `cash` account, a cheque or e-Transfer in `bank`. There is no e-Transfer request or
   matching.
 - **PAD/EFT**: pre-authorized debit for recurring.
 - **No platform-held funds.** Stripe Connect custodies each provider's balance and pays it out to their
   linked bank on Stripe's schedule; the platform never transmits funds (avoids money-transmitter licensing).
+- Owners see Stripe's embedded notification banner on Getting paid and Today (web), and manage the
+  account through the embedded account management component, as Stripe requires for accounts with no
+  Stripe dashboard where Stripe carries losses. The React Native SDK has neither component and Stripe
+  does not support Connect.js inside a WebView, so mobile links to the web page for both.
   `payments` records each attempt and Stripe object; the ledger records what each one did to the money.
 - The Stripe API version is pinned (`STRIPE_API_VERSION` in `integrations/stripe.py`), and the Connect
-  webhook endpoint must be created with that same version, because the handlers parse its payload shapes.
+  webhook endpoint (snapshot events) must be created with that same version, because the handlers parse
+  its payload shapes. Thin events are unversioned and signed with the event destination's own secret
+  (`STRIPE_THIN_WEBHOOK_SECRET`); both arrive at `/webhooks/stripe`, as do platform events (see Platform
+  billing below).
   Dashboard refunds arrive as `refund.created`/`refund.updated`, and a recurring invoice's PaymentIntent
-  is looked up through its invoice payments.
+  is looked up through its invoice payments. The webhook rejects (400) a snapshot event rendered at any
+  other version.
+  `setup_intent.setup_failed` records a
+  failed bank (PAD) setup on its link.
 - Retry-safe `open_*` builders (card/booking-deposit/entitlement/terminal) are Stripe-idempotency-
   keyed + `provider_ref`-deduped, shared by the authed services and the public surfaces. A payment can be
   refunded in part, more than once, up to what is left; a gift card or package purchase, and a forfeited
   deposit, are refunded only in full (and not once the card is partly redeemed or a session is used).
+
+### Platform billing
+
+Clientbridge charges each business for its plan through Stripe Billing on the platform account. The
+business's Accounts v2 account is the billing customer: it gets the `customer` configuration next to its
+`merchant` configuration, and the v1 Billing APIs take `customer_account=acct_...` in place of `customer`.
+A business that subscribes before setting up payments gets an account with only the `customer`
+configuration; onboarding later adds the `merchant` configuration to that same account, and until then the
+KYC status reads `not_started`. Responsibilities and `dashboard=none` are fixed at account creation, so
+every account we create carries ours whichever configuration it starts with.
+
+- Prices: Premium and Team, monthly or yearly (a year costs ten months), plus a monthly seat item on
+  Premium, all CAD and tax-exclusive, defined in `services/plans.py` `PLAN_PRICES` and found in Stripe by
+  lookup key. A changed amount moves the key to a new price, so subscription items are named by their
+  fixed product id and interval instead, and an unchanged item stays on the price it was bought at. Subscriptions use flexible billing mode so a yearly plan can carry the monthly seat item.
+- Tax: plan Checkout enables Stripe automatic tax, which locates the account by its identity address. When
+  the customer configuration is added to an account that has no identity address yet, the business
+  address is set as its `business_details.address`; a verified address is never overwritten. The
+  businesses' own sales tax engine (`services/tax.py`) is unrelated.
+- Plan subscriptions live on the platform account, so their events come from a separate platform webhook
+  endpoint (`connect=false`) signed with `STRIPE_PLATFORM_WEBHOOK_SECRET`. The webhook picks the secret by
+  shape: thin events, snapshot events with an `account`, and snapshot events without one.
+- Owners manage the payment method, invoices, billing address and cancellation in the Stripe Billing
+  Portal (`STRIPE_PORTAL_CONFIGURATION`); plan switching is off there because the portal cannot manage the
+  seat item.
+- State: `businesses.plan`, `plan_status`, `trial_ends_at` and the server-only `stripe_subscription_id`.
+  A new business is `trialing` for 14 days with no Stripe object and no card. `plans.plan_access` derives
+  `trial`, `active`, `past_due` or `lapsed` (a trial past its end is lapsed at read time, so no job flips
+  it); app-core `planAccess` mirrors it over the synced columns. A business that is `active` with no
+  subscription is complimentary, as the demo businesses are; Checkout refuses it with `plan_active`, and the
+  plan page offers it no plan to choose.
+- Owner-only endpoints in `api/plans.py`: `GET /v1/plan` reads the live subscription and serves the
+  prices, `POST /v1/plan/checkout` opens hosted Checkout (carrying the remaining trial when at least 48
+  hours are left), `POST /v1/plan/change` swaps the plan and seat items with proration through
+  `run_command`, and `POST /v1/plan/portal` opens the Billing Portal. Checkout and portal URLs are
+  credentials, so they are audited but never stored as command responses.
+- `customer.subscription.*` events without an `account` go to `plans.apply_subscription_event` before any
+  client-membership handler. It resolves the business by `customer_account`, checks
+  `metadata.business_id`, adopts a created subscription unless another live one exists, and mirrors the
+  subscription it fetches from Stripe, so out-of-order deliveries end at Stripe's current state. A second
+  subscription that has not ended yet has its paid invoices refunded and is then cancelled; its later
+  events, including its own `deleted`, find it ended and change nothing.
+- Lapsed: the business can sign in and read. `api/plans.writable` answers every other write with 402
+  `plan_required`, except sign-in, the plan endpoints, devices, onboarding, staff removal and data export;
+  public booking, the shop and estimate acceptance answer 409 `business_unavailable`, while invoice
+  payment and webhooks keep working. Booking reminders, broadcasts, review requests and intake forms skip
+  lapsed businesses (`plans.serving`).
+- Seats: a member besides the owner who is active, or invited with an unexpired invite. Trial and Team
+  allow `PLAN_SEAT_CAP` (50); Premium bills each seat. An invite sets the Stripe seat quantity before it
+  commits, so a failed Stripe call fails the invite; removal and revocation lower it afterwards, and
+  `run_sync_seats` (daily) corrects any drift and expired invites. `run_trial_reminders` emails the owner
+  at the last 9:00 local before the trial ends, while it still runs, and three days earlier.
+- Platform billing is not business money, so it posts nothing to the ledger. Stripe's invoices are the
+  record.
 
 ### Ledger: double-entry, append-only (`services/ledger.py`)
 Every money movement is a **journal**: two or more `entries` legs that sum to zero per currency. A
@@ -489,9 +582,9 @@ What posts, and where:
 | Invoice issued / voided | `billing.send_invoice` / `void_invoice` | client receivable + / revenue − / tax(code) − ; void reverses |
 | Payment settled | `payments._settle_payment` (Stripe webhook), `record_invoice_payment` (by hand), recurring `invoice.payment_succeeded` | cash + / what it paid for −: invoice receivable, order revenue + tax, booking deposit, package deferred + tax, gift card liability |
 | Fees | same, from the charge's balance transaction (`gateway.get_payment_fees`) | processing fee + / platform fee + / Stripe − ; platform Stripe + / fee revenue − |
-| Refund (full or partial) | `refund_payment`, `charge.refunded` (one refund row per Stripe refund) | cash − / the original credit legs unwound pro rata (a credit note; fees stay with Stripe and the platform) |
-| Dispute opened / won | `charge.dispute.created` / `.closed` | Stripe − / payer receivable + (+ dispute fee); won reverses |
-| Stripe payout paid / failed | `payout.paid` / `payout.failed` | bank + / Stripe − ; failed reverses |
+| Refund (full or partial) | `refund_payment`, `refund.created` / `refund.updated` (one refund row per Stripe refund) | cash − / the original credit legs unwound pro rata (a credit note; fees stay with Stripe and the platform) |
+| Dispute opened / won | `charge.dispute.created` or `.funds_withdrawn` (an escalated inquiry) / `.closed` won or `.funds_reinstated` | Stripe − / payer receivable + (+ dispute fee); won reverses |
+| Stripe payout paid / failed | `payout.paid` / `payout.failed` or `payout.canceled` | bank + / Stripe − ; failed reverses |
 | Gift card redeemed | `entitlements.redeem_gift_card` | gift card liability + / revenue − |
 | Package session used | `entitlements.consume_session` | deferred + / revenue − (the last session takes the remainder) |
 | Gift card or package expired | `entitlements.run_expiry_sweeps` (`ledger.post_breakage`) | gift card liability or deferred + / revenue − (breakage on the unused balance) |
@@ -511,8 +604,17 @@ and records any drift in `audits`.
 ### Tax
 GST/HST/PST/QST computed per **province** at the **line level** (QST at exact 9.975%, half-up rounding).
 The business stores registration numbers; small-supplier mode (`tax_registered=false`) collects nothing.
-The engine (`services/tax.py`) is pure and golden-tested; rates are hardcoded per province in the same
-file (no table). Each item carries a tax class (`standard` charges every component,
+The engine (`services/tax.py`) is pure and golden-tested; rates are rows of (province, code, rate,
+valid_from) in the same file (no table), and a supply is taxed at the rows in force on its date in the
+business time zone. Devices read the same rows from the generated `app-core/src/taxRates.ts` (`make
+gen-taxes`), so offline previews price tax without the network, and `taxes.cases.json` holds backend
+results that the device engine must reproduce. Once a document is issued its tax is fixed: settlement,
+receipts and the pay and receipt pages read each line's stored `tax_amount_cents` and split it by code at
+the rates in force on the issue date (`tax.issued_tax`), never from current settings; a package's tax is
+backed out of the amount paid when its price has changed since the sale. A subscription item's Stripe
+Price carries the item's tax class and is checked against the current tax-inclusive amount and interval
+each time a subscription starts; when they differ a new Price replaces the cached one for new
+subscriptions, and active subscriptions keep the Price they started on. Each item carries a tax class (`standard` charges every component,
 `federal_only` only the GST or HST, `exempt` nothing), copied onto each line when it is created, so a later
 change to the item does not alter issued documents. Which services carry PST in BC, Saskatchewan and
 Manitoba still needs an accountant's confirmation before defaults are set.

@@ -52,7 +52,10 @@ class Settings(BaseSettings):
 
     # Stripe Connect; an empty secret key answers every Stripe call with payments_not_configured.
     stripe_secret_key: str = ""
-    stripe_webhook_secret: str = ""
+    stripe_webhook_secret: str = ""  # the Connect endpoint's (snapshot events) signing secret
+    stripe_thin_webhook_secret: str = ""  # the account event destination's (thin events) secret
+    stripe_platform_webhook_secret: str = ""  # the platform endpoint's (plan subscriptions) secret
+    stripe_portal_configuration: str = ""  # the Billing Portal configuration owners manage plans in
     stripe_connect_country: str = "CA"
     api_base_url: str = "http://127.0.0.1:8701"  # the public API origin, which Twilio signs
     web_base_url: str = "http://localhost:8700"
@@ -60,7 +63,14 @@ class Settings(BaseSettings):
     # Every invoice pay link uses this one host (production: https://pay.clientbridge.ca).
     pay_base_url: str = "http://localhost:8709"
     cors_allow_origins: str = ""
-    platform_fee_bps: int = 200  # application fee per direct charge (basis points; 200 = 2%)
+    # our application fee keeps Stripe's percentage plus ours at or under the ceiling, capped at max
+    platform_fee_ceiling_bps: int = 320
+    platform_fee_max_bps: int = 200
+    # Stripe's Canadian percentage rates (stripe.com/en-ca/pricing); fixed amounts come on top
+    stripe_card_bps: int = 290
+    stripe_card_present_bps: int = 270
+    stripe_acss_debit_bps: int = 100
+    stripe_conversion_bps: int = 200
     auth_email_hook_secret: str = _DEV_COURIER_SECRET  # matches docker-compose.yml's kratos
 
     # Outreach channels; empty credentials select the no-op console senders.
@@ -94,6 +104,12 @@ class Settings(BaseSettings):
                 missing.append("AUTH_ADMIN_URL (private, distinct from the public URL)")
             if not self.stripe_webhook_secret:
                 missing.append("STRIPE_WEBHOOK_SECRET")
+            if not self.stripe_thin_webhook_secret:
+                missing.append("STRIPE_THIN_WEBHOOK_SECRET")
+            if not self.stripe_platform_webhook_secret:
+                missing.append("STRIPE_PLATFORM_WEBHOOK_SECRET")
+            if not self.stripe_portal_configuration:
+                missing.append("STRIPE_PORTAL_CONFIGURATION")
             if not self.twilio_auth_token:
                 missing.append("TWILIO_AUTH_TOKEN")
             if self.auth_email_hook_secret in ("", _DEV_COURIER_SECRET):

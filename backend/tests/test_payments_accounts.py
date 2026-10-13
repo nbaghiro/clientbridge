@@ -1,75 +1,91 @@
 from scripts.payment_accounts import audit_account, plan_account
+from stripe.params.v2.core import AccountUpdateParams
+
+
+def _account(merchant: dict[str, object], **top: object) -> dict[str, object]:
+    return {"configuration": {"merchant": merchant}, **top}
+
+
+def _descriptor(plan: AccountUpdateParams) -> object:
+    return plan.get("configuration", {}).get("merchant", {}).get("statement_descriptor")
 
 
 def test_missing_account_fields() -> None:
     plan = plan_account(
         {}, name="Birch & Bark", email="help@example.com", url="https://example.com"
     )
-    assert plan.get("business_profile") == {
-        "name": "Birch & Bark",
-        "support_email": "help@example.com",
-        "url": "https://example.com",
-    }
-    assert plan.get("settings") == {
-        "payments": {"statement_descriptor": "BIRCH & BARK"},
-        "card_payments": {"statement_descriptor_prefix": "BIRCH & BA"},
+    assert plan == {
+        "display_name": "Birch & Bark",
+        "defaults": {"profile": {"business_url": "https://example.com"}},
+        "configuration": {
+            "merchant": {
+                "support": {"email": "help@example.com"},
+                "statement_descriptor": {"descriptor": "BIRCH & BARK", "prefix": "BIRCH & BA"},
+            }
+        },
     }
 
 
 def test_custom_prefix_survives_missing_full_descriptor() -> None:
-    current = {"settings": {"card_payments": {"statement_descriptor_prefix": "MY SHOP"}}}
+    current = _account({"statement_descriptor": {"prefix": "MY SHOP"}})
     plan = plan_account(current, name="New Name", email=None, url="https://example.com")
-    assert plan.get("settings") == {
-        "card_payments": {"statement_descriptor_prefix": "MY SHOP"},
-        "payments": {"statement_descriptor": "NEW NAME"},
+    assert _descriptor(plan) == {
+        "descriptor": "NEW NAME",
+        "prefix": "MY SHOP",
     }
 
 
 def test_profile_changes_preserve_custom_descriptors() -> None:
-    current = {
-        "settings": {
-            "payments": {"statement_descriptor": "CUSTOM SHOP"},
-            "card_payments": {"statement_descriptor_prefix": "CUSTOM"},
-        }
-    }
+    descriptors = {"descriptor": "CUSTOM SHOP", "prefix": "CUSTOM"}
+    current = _account({"statement_descriptor": descriptors})
     plan = plan_account(current, name="Other Name", email=None, url="https://example.com")
-    assert plan.get("settings") == current["settings"]
+    assert _descriptor(plan) == descriptors
 
 
 def test_complete_account_is_noop_and_email_is_not_overwritten() -> None:
-    current = {
-        "business_profile": {"name": "Custom", "support_email": "old@example.com", "url": "old"},
-        "settings": {
-            "payments": {"statement_descriptor": "CUSTOM SHOP"},
-            "card_payments": {"statement_descriptor_prefix": "CUSTOM"},
+    current = _account(
+        {
+            "support": {"email": "old@example.com"},
+            "statement_descriptor": {"descriptor": "CUSTOM SHOP", "prefix": "CUSTOM"},
         },
-        "email": "account@example.com",
-    }
+        display_name="Custom",
+        defaults={"profile": {"business_url": "old"}},
+        contact_email="account@example.com",
+    )
     plan = plan_account(current, name="Other Name", email="new@example.com", url="new")
     assert plan == {}
     report = audit_account(current, plan)
     assert report["account_email_present"] is True
+    assert report["profile_present"] == {
+        "display_name": True,
+        "support_email": True,
+        "business_url": True,
+    }
     assert "account@example.com" not in str(report)
 
 
 def test_invalid_descriptor_is_not_sent() -> None:
     plan = plan_account({}, name="1234", email=None, url="https://example.com")
-    assert "settings" not in plan
+    assert "configuration" not in plan
 
 
 def test_missing_prefix_uses_existing_custom_descriptor() -> None:
-    current = {
-        "business_profile": {"name": "Custom", "support_email": "a@example.com", "url": "old"},
-        "settings": {"payments": {"statement_descriptor": "MY CUSTOM STORE"}},
-    }
+    current = _account(
+        {
+            "support": {"email": "a@example.com"},
+            "statement_descriptor": {"descriptor": "MY CUSTOM STORE"},
+        },
+        display_name="Custom",
+        defaults={"profile": {"business_url": "old"}},
+    )
     plan = plan_account(current, name="Different Name", email=None, url="new")
-    assert "business_profile" not in plan
-    assert plan.get("settings") == {
-        "payments": {"statement_descriptor": "MY CUSTOM STORE"},
-        "card_payments": {"statement_descriptor_prefix": "MY CUSTOM"},
+    assert set(plan) == {"configuration"}
+    assert _descriptor(plan) == {
+        "descriptor": "MY CUSTOM STORE",
+        "prefix": "MY CUSTOM",
     }
 
 
 def test_numeric_prefix_is_not_generated() -> None:
     plan = plan_account({}, name="12345678901 Shop", email=None, url="new")
-    assert "card_payments" not in plan.get("settings", {})
+    assert _descriptor(plan) == {"descriptor": "12345678901 SHOP"}

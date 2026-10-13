@@ -1,7 +1,8 @@
 """Shared fixtures: each test runs in a transaction rolled back at teardown, over the seeded DB."""
 
 import json
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterator, Sequence
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -40,6 +41,9 @@ from clientbridge.integrations.kratos import (
 from clientbridge.integrations.resend import Email, EmailSender, get_email_sender
 from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.integrations.stripe import (
+    STRIPE_API_VERSION,
+    THIN_EVENT,
+    AccountConfiguration,
     ChargeFees,
     ConnectAccount,
     ConnectComponent,
@@ -47,20 +51,27 @@ from clientbridge.integrations.stripe import (
     MandateState,
     PaymentGateway,
     PaymentIntentResult,
+    PlanItem,
+    PlanSubscription,
+    PostalAddress,
+    PriceTerms,
     RefundResult,
     SetupIntentResult,
     SetupIntentState,
+    SubscribedItem,
     SubscriptionResult,
     WebhookVerificationError,
+    event_from,
     get_payment_gateway,
 )
 from clientbridge.integrations.twilio import Sms, get_sms_sender
 from clientbridge.main import app
 from clientbridge.models.billing import Invoice
-from clientbridge.models.business import Business, Staff, User
+from clientbridge.models.business import Business, PlanStatus, Staff, User
 from clientbridge.models.clients import Client
 from clientbridge.models.platform import Audit
 from clientbridge.services import ledger
+from clientbridge.services.plans import PLAN_PRICES
 from clientbridge.services.tax import TaxResult
 from tests.clock import FROZEN
 
@@ -286,17 +297,51 @@ async def session_token(
     return identities.issue(identity_for(user, verified=verified))
 
 
+def subscribed(*items: PlanItem | str) -> tuple[SubscribedItem, ...]:
+    """Subscription items for these prices, named by lookup key as the plan code asks for them."""
+    rows: list[SubscribedItem] = []
+    for item in items:
+        wanted = PlanItem(item) if isinstance(item, str) else item
+        price = PLAN_PRICES[wanted.lookup_key]
+        rows.append(SubscribedItem(price.product, price.interval, wanted.quantity))
+    return tuple(rows)
+
+
+@dataclass(frozen=True)
+class PlanCheckout:
+    account_id: str
+    items: tuple[PlanItem, ...]
+    business_id: str
+    trial_end: datetime | None
+
+
 class FakePaymentGateway:
     refund_status: str = "succeeded"
 
     def __init__(self) -> None:
         self.account_sessions: list[tuple[str, ConnectComponent]] = []
         self.created_accounts: list[str] = []
+        self.configurations: dict[str, set[AccountConfiguration]] = {}
+        self.merchant_added: list[str] = []
+        self.customer_added: list[tuple[str, PostalAddress]] = []
+        self.checkouts: list[PlanCheckout] = []
+        self.checkout_keys: dict[str, str] = {}
+        self.portal_sessions: list[str] = []
+        self.open_checkouts: dict[str, list[str]] = {}
+        self.expired_checkouts: list[str] = []
+        self.paid_checkouts: set[str] = set()  # accounts whose completed Checkout already bills
+        self.canceled_plan_subscriptions: list[str] = []
+        self.refunded_plan_subscriptions: list[str] = []
+        self.plan_subscriptions: dict[str, PlanSubscription] = {}
+        self.plan_item_keys: list[str] = []
+        self._plan_changes: dict[str, PlanSubscription] = {}  # honor plan change idempotency keys
         self.detached: list[str] = []
         self.refunds: list[tuple[str, int, bool]] = []
         self.created_prices: list[str] = []
         self.created_price_amounts: list[int] = []  # unit_amount per created Price
+        self.prices: dict[str, PriceTerms] = {}
         self.created_subscriptions: list[str] = []
+        self.subscription_metadata: dict[str, dict[str, str]] = {}
         self.canceled_subscriptions: list[str] = []
         self.pad_enabled = True
         self.pad_intents: dict[str, SetupIntentState] = {}
@@ -307,6 +352,8 @@ class FakePaymentGateway:
         self._subs: dict[str, SubscriptionResult] = {}  # honor subscription idempotency keys
         self.charged_methods: list[str] = []  # off-session payment_methods passed to a charge
         self.created_locations: list[str] = []  # Terminal locations minted
+        self.location_addresses: list[PostalAddress] = []
+        self.accounts: dict[str, ConnectAccount] = {}  # per-account get_account() results
         self.account_status: ConnectAccount | None = None  # override get_account() in a test
         self.charges: dict[str, tuple[int, int]] = {}  # intent id -> (amount, application fee)
         self.balance_cents = 0  # get_balance_cents() result
@@ -320,12 +367,79 @@ class FakePaymentGateway:
         business_name: str,
         email: str | None,
         url: str | None = None,
+        configurations: tuple[AccountConfiguration, ...],
+        address: PostalAddress | None = None,
         idempotency_key: str | None = None,
     ) -> str:
         self._seq += 1
         acct = f"acct_fake{self._seq}"
         self.created_accounts.append(acct)
+        self.configurations[acct] = set(configurations)
         return acct
+
+    async def add_merchant_configuration(
+        self, account_id: str, *, business_name: str, email: str | None
+    ) -> None:
+        self.merchant_added.append(account_id)
+        self.configurations.setdefault(account_id, set()).add("merchant")
+
+    async def add_customer_configuration(self, account_id: str, *, address: PostalAddress) -> None:
+        self.customer_added.append((account_id, address))
+        self.configurations.setdefault(account_id, set()).add("customer")
+
+    async def create_plan_checkout(
+        self,
+        account_id: str,
+        *,
+        items: Sequence[PlanItem],
+        business_id: str,
+        trial_end: datetime | None,
+        success_url: str,
+        cancel_url: str,
+        attempt: str,
+    ) -> str:
+        if attempt not in self.checkout_keys:
+            self.checkouts.append(PlanCheckout(account_id, tuple(items), business_id, trial_end))
+            url = f"https://checkout.stripe.test/c/{len(self.checkouts)}"
+            self.checkout_keys[attempt] = url
+            self.open_checkouts.setdefault(account_id, []).append(url)
+        return self.checkout_keys[attempt]
+
+    async def close_plan_checkouts(self, account_id: str, *, keep: str) -> bool:
+        kept = self.checkout_keys.get(keep)
+        opened = self.open_checkouts.get(account_id, [])
+        self.expired_checkouts += [url for url in opened if url != kept]
+        self.open_checkouts[account_id] = [url for url in opened if url == kept]
+        return account_id in self.paid_checkouts
+
+    async def cancel_plan_subscription(self, subscription_id: str) -> None:
+        self.canceled_plan_subscriptions.append(subscription_id)
+        sub = self.plan_subscriptions.get(subscription_id)
+        if sub is not None:
+            self.plan_subscriptions[subscription_id] = replace(sub, status="canceled")
+
+    async def refund_plan_subscription(self, subscription_id: str) -> int:
+        self.refunded_plan_subscriptions.append(subscription_id)
+        return 0
+
+    async def create_portal_session(self, account_id: str, *, return_url: str) -> str:
+        self.portal_sessions.append(account_id)
+        return f"https://billing.stripe.test/p/{len(self.portal_sessions)}"
+
+    async def get_plan_subscription(self, subscription_id: str) -> PlanSubscription:
+        return self.plan_subscriptions[subscription_id]
+
+    async def set_plan_items(
+        self, subscription_id: str, *, items: Sequence[PlanItem], idempotency_key: str
+    ) -> PlanSubscription:
+        if idempotency_key in self._plan_changes:
+            return self._plan_changes[idempotency_key]
+        self.plan_item_keys.append(idempotency_key)
+        current = self.plan_subscriptions[subscription_id]
+        updated = replace(current, items=subscribed(*items))
+        self.plan_subscriptions[subscription_id] = updated
+        self._plan_changes[idempotency_key] = updated
+        return updated
 
     async def create_account_link(
         self, account_id: str, *, refresh_url: str, return_url: str
@@ -338,22 +452,32 @@ class FakePaymentGateway:
 
     async def get_account(self, account_id: str) -> ConnectAccount:
         # a freshly-created account: nothing submitted, Stripe wants the hosted KYC details
-        return self.account_status or ConnectAccount(
-            id=account_id,
-            charges_enabled=False,
-            payouts_enabled=False,
-            details_submitted=False,
-            disabled_reason=None,
-            currently_due=["business_profile.url", "external_account"],
-            eventually_due=[],
-            past_due=[],
-            pending_verification=[],
+        return (
+            self.accounts.get(account_id)
+            or self.account_status
+            or ConnectAccount(
+                id=account_id,
+                charges_enabled=False,
+                payouts_enabled=False,
+                disabled_reason=None,
+                currently_due=[
+                    "identity.attestations.terms_of_service.account",
+                    "external_account",
+                ],
+                eventually_due=[],
+                past_due=[],
+                card_status="restricted"
+                if "merchant" in self.configurations.get(account_id, {"merchant"})
+                else None,
+            )
         )
 
     def verify_webhook(self, payload: bytes, signature: str) -> GatewayEvent:
         if signature != "good":
             raise WebhookVerificationError("bad signature")
         body = json.loads(payload)
+        if body.get("object") == THIN_EVENT:
+            return event_from(body)
         account = body.get("account")
         created = body.get("created")
         return GatewayEvent(
@@ -362,6 +486,7 @@ class FakePaymentGateway:
             data=dict(body["data"]["object"]),
             account=str(account) if account is not None else None,
             created=datetime.fromtimestamp(created, tz=UTC) if isinstance(created, int) else None,
+            api_version=str(body.get("api_version", STRIPE_API_VERSION)),
         )
 
     async def create_customer(self, account_id: str, *, name: str, email: str | None) -> str:
@@ -422,7 +547,11 @@ class FakePaymentGateway:
         pid = f"price_fake{self._seq}"
         self.created_prices.append(pid)
         self.created_price_amounts.append(amount_cents)
+        self.prices[pid] = PriceTerms(amount_cents, currency.upper(), interval_count, frequency)
         return pid
+
+    async def get_price(self, account_id: str, price_id: str) -> PriceTerms | None:
+        return self.prices.get(price_id)
 
     async def create_subscription(
         self,
@@ -431,6 +560,7 @@ class FakePaymentGateway:
         customer_id: str,
         price_id: str,
         payment_method_id: str,
+        metadata: dict[str, str],
         idempotency_key: str | None = None,
     ) -> SubscriptionResult:
         if idempotency_key is not None and idempotency_key in self._subs:
@@ -438,10 +568,10 @@ class FakePaymentGateway:
         self._seq += 1
         sid = f"sub_fake{self._seq}"
         self.created_subscriptions.append(sid)
+        self.subscription_metadata[sid] = metadata
         result = SubscriptionResult(
             id=sid,
             status="active",
-            current_period_start=datetime(2030, 1, 1, tzinfo=UTC),
             current_period_end=datetime(2030, 2, 1, tzinfo=UTC),
         )
         if idempotency_key is not None:
@@ -507,11 +637,12 @@ class FakePaymentGateway:
         return f"pst_fake{self._seq}"
 
     async def create_terminal_location(
-        self, account_id: str, *, display_name: str, country: str, state: str | None
+        self, account_id: str, *, display_name: str, address: PostalAddress
     ) -> str:
         self._seq += 1
         loc = f"tml_fake{self._seq}"
         self.created_locations.append(loc)
+        self.location_addresses.append(address)
         return loc
 
     async def create_terminal_payment_intent(
@@ -621,13 +752,22 @@ class Factory:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def business(self, *, province: str = "BC", name: str = "Test Studio") -> Business:
+    async def business(
+        self,
+        *,
+        province: str = "BC",
+        name: str = "Test Studio",
+        plan_status: PlanStatus = "active",
+    ) -> Business:
+        # complimentary Team like the demo, so a test's fixed clock never finds it lapsed
         biz = Business(
             id=new_id("business"),
             name=name,
             slug=f"test-{new_id('business')[-12:].lower()}",
             province=province,
             timezone="America/Vancouver",
+            plan="team" if plan_status == "active" else None,
+            plan_status=plan_status,
         )
         self.db.add(biz)
         await self.db.flush()

@@ -291,12 +291,12 @@ function InvoicePanel({
     onClose: () => void;
     onEdit: (id: string) => void;
 }) {
-    const rec = useInvoiceRecord(api, id, payUrl);
+    const rec = useInvoiceRecord(id, payUrl);
     const act = useInvoiceActions(api);
     const letterhead = useLetterhead(apiBaseUrl);
     const estimates = useEstimates();
     const estimateId = estimates.find((e) => e.converted_invoice_id === id)?.id ?? null;
-    const estimate = useEstimateRecord(api, estimateId, payUrl);
+    const estimate = useEstimateRecord(estimateId, payUrl);
     const [overlay, setOverlay] = useState<Overlay>(null);
     const openLink = useOpenLink();
     const canRefund = canManagePayments(useRole());
@@ -609,7 +609,7 @@ function EstimatePanel({
     onEdit: (id: string) => void;
     openInvoice: (id: string) => void;
 }) {
-    const rec = useEstimateRecord(api, id, payUrl);
+    const rec = useEstimateRecord(id, payUrl);
     const act = useEstimateActions(api);
     const letterhead = useLetterhead(apiBaseUrl);
     const [overlay, setOverlay] = useState<"pdf" | "menu" | null>(null);

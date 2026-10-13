@@ -19,6 +19,7 @@ from clientbridge.api import (
     notifications,
     orders,
     payments,
+    plans,
     reports,
     reviews,
     staff,
@@ -26,8 +27,10 @@ from clientbridge.api import (
     tax,
     zones,
 )
+from clientbridge.api.plans import PlanWritable
 
-api_router = APIRouter(prefix="/v1")
+api_router = APIRouter(prefix="/v1", dependencies=[PlanWritable])
+api_router.include_router(plans.router)
 api_router.include_router(auth.router)
 api_router.include_router(clients.router)
 api_router.include_router(subjects.router)

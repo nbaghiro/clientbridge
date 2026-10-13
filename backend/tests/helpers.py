@@ -25,6 +25,7 @@ from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Entry
 from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.payments import Payment
+from clientbridge.models.platform import Webhook
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.billing import InvoiceOut
 from clientbridge.schemas.bookings import BookingOut
@@ -386,6 +387,11 @@ async def column(db: AsyncSession, table: str, row_id: str, name: str) -> object
     return (
         await db.execute(text(f"SELECT {name} FROM {table} WHERE id = :id"), {"id": row_id})
     ).scalar()
+
+
+def summary(row: Webhook) -> dict[str, object]:
+    assert row.payload is not None
+    return row.payload
 
 
 async def unread(db: AsyncSession, thread_id: str) -> int:

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { formatDate, parseTimestamp, useBusinessZone } from "../datetime";
-import type { PaymentAccountComponent, PaymentAccountProps } from "../ui";
+import type { PaymentAccountComponent, PaymentAccountProps, PaymentNoticesProps } from "../ui";
 import { useBusinessId } from "./business";
+import { canManagePayments } from "./payments";
 import { strings } from "../strings";
 import type { ApiLike } from "../api";
 
@@ -10,22 +11,25 @@ interface ConnectStatus {
     connected: boolean;
     charges_enabled: boolean;
     payouts_enabled: boolean;
-    details_submitted: boolean;
     kyc_status: string;
     disabled_reason: string | null;
     currently_due: string[];
     past_due: string[];
-    pending_verification: string[];
     current_deadline: string | null;
     available_cents: number | null;
 }
 
 /** `null` while loading, `"error"` if the fetch failed; bump `reloadKey` to refetch. */
-function useConnectStatus(api: ApiLike, reloadKey = 0): ConnectStatus | "error" | null {
+function useConnectStatus(
+    api: ApiLike,
+    reloadKey = 0,
+    enabled = true,
+): ConnectStatus | "error" | null {
     const [status, setStatus] = useState<ConnectStatus | "error" | null>(null);
     const businessId = useBusinessId();
     useEffect(() => {
         setStatus(null);
+        if (!enabled) return;
         let active = true;
         api.get<ConnectStatus>("/v1/connect/status")
             .then((value) => {
@@ -37,62 +41,65 @@ function useConnectStatus(api: ApiLike, reloadKey = 0): ConnectStatus | "error" 
         return () => {
             active = false;
         };
-    }, [api, reloadKey, businessId]);
+    }, [api, reloadKey, businessId, enabled]);
     return status;
 }
 
 const g = strings.gettingPaid;
 
-const REQUIREMENT_LABELS: Record<string, string> = {
-    get external_account() {
-        return g.reqExternalAccount;
-    },
-    get "business_profile.url"() {
-        return g.reqBusinessWebsite;
-    },
-    get "business_profile.mcc"() {
-        return g.reqBusinessCategory;
-    },
-    get "business_profile.product_description"() {
-        return g.reqProductDescription;
-    },
-    get "individual.id_number"() {
-        return g.reqIdNumber;
-    },
-    get "individual.verification.document"() {
-        return g.reqPhotoId;
-    },
-    get "individual.verification.additional_document"() {
-        return g.reqProofOfAddress;
-    },
-    get "individual.address.line1"() {
-        return g.reqHomeAddress;
-    },
-    get "company.tax_id"() {
-        return g.reqBusinessNumber;
-    },
-    get "tos_acceptance.date"() {
-        return g.reqTosAcceptance;
-    },
-};
+interface RequirementCopy {
+    label: () => string;
+    why?: () => string;
+}
 
-const FIELD_LABELS: Readonly<Record<string, () => string>> = {
-    first_name: () => g.reqFirstName,
-    last_name: () => g.reqLastName,
+const REQUIREMENTS: readonly (readonly [string, RequirementCopy])[] = [
+    ["external_account", { label: () => g.reqExternalAccount, why: () => g.reqWhy.bankAccount }],
+    ["defaults.profile.business_url", { label: () => g.reqBusinessWebsite }],
+    ["configuration.merchant.mcc", { label: () => g.reqBusinessCategory }],
+    ["defaults.profile.product_description", { label: () => g.reqProductDescription }],
+    [
+        "identity.attestations.terms_of_service",
+        { label: () => g.reqTosAcceptance, why: () => g.reqWhy.terms },
+    ],
+    [
+        "identity.individual.id_numbers",
+        { label: () => g.reqIdNumber, why: () => g.reqWhy.idNumber },
+    ],
+    [
+        "identity.individual.documents.primary_verification",
+        { label: () => g.reqPhotoId, why: () => g.reqWhy.photoId },
+    ],
+    [
+        "identity.individual.documents.secondary_verification",
+        { label: () => g.reqProofOfAddress, why: () => g.reqWhy.proofOfAddress },
+    ],
+    ["identity.business_details.id_numbers", { label: () => g.reqBusinessNumber }],
+    ["identity.business_details.registered_name", { label: () => g.reqBusinessName }],
+    ["identity.business_details.address", { label: () => g.reqBusinessAddress }],
+    ["identity.entity_type", { label: () => g.reqBusinessType }],
+];
+
+const FIELDS: Readonly<Record<string, () => string>> = {
+    date_of_birth: () => g.reqDateOfBirth,
+    address: () => g.reqHomeAddress,
+    given_name: () => g.reqFirstName,
+    surname: () => g.reqLastName,
     email: () => g.reqEmail,
     phone: () => g.reqPhone,
     title: () => g.reqJobTitle,
-    business_type: () => g.reqBusinessType,
 };
 
-function requirementLabel(key: string): string {
-    const known = REQUIREMENT_LABELS[key];
-    if (known !== undefined) return known;
-    if (key.startsWith("individual.dob") || key.startsWith("person.dob")) return g.reqDateOfBirth;
-    if (key === "company.name") return g.reqBusinessName;
-    if (key.startsWith("company.address")) return g.reqBusinessAddress;
-    if (key.includes(".address.")) return g.reqHomeAddress;
-    return FIELD_LABELS[key.split(".").pop() ?? key]?.() ?? g.reqOther;
+/** Stripe's Accounts v2 requirement codes, such as `identity.individual.date_of_birth.day`. */
+export function requirementCopy(key: string): { label: string; why: string } {
+    const match = REQUIREMENTS.find(
+        ([prefix]) => key === prefix || key.startsWith(`${prefix}.`),
+    )?.[1];
+    if (match !== undefined) return { label: match.label(), why: match.why?.() ?? "" };
+    const field = key
+        .split(".")
+        .map((segment) => FIELDS[segment])
+        .find((label) => label !== undefined);
+    return { label: field?.() ?? g.reqOther, why: "" };
 }
 
 type ConnectPhase =
@@ -125,6 +132,7 @@ export interface GettingPaidView {
     refreshing: boolean;
     finish: () => void;
     account: ReturnType<typeof usePaymentAccount>;
+    notices: PaymentNotices | null;
     refresh: () => void;
 }
 
@@ -177,6 +185,11 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
             : parseTimestamp(s.current_deadline);
     const past = new Set(s?.past_due ?? []);
     const keys = [...new Set([...(s?.past_due ?? []), ...(s?.currently_due ?? [])])];
+    const notices = usePaymentNotices(
+        api,
+        s?.connected ?? false,
+        noticesNeedAttention(phase, keys.length),
+    );
     const message =
         phase === "not_connected"
             ? g.phaseNotConnected
@@ -197,8 +210,7 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
         message,
         requirements: keys.map((key) => ({
             key,
-            label: requirementLabel(key),
-            why: g.reqWhy[key.replaceAll(".", "_")] ?? "",
+            ...requirementCopy(key),
             pastDue: past.has(key),
             icon: key === "external_account" ? "bank" : "user",
         })),
@@ -211,8 +223,42 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
             account.open("onboarding");
         },
         account,
+        notices,
         refresh,
     };
+}
+
+/** Stripe's banner lists requirements due after onboarding and risk reviews, never the first setup. */
+export function noticesNeedAttention(phase: ConnectPhase, due: number): boolean {
+    return phase === "restricted" || phase === "disabled" || (phase === "enabled" && due > 0);
+}
+
+type PaymentNotices = Omit<PaymentNoticesProps, "onReview" | "reviewing">;
+
+/** Stripe's banner outside Getting paid: managers of a business whose account takes payments. */
+export function useAccountNotices(api: ApiLike, role: string | null): PaymentNotices | null {
+    const manager = canManagePayments(role);
+    const status = useConnectStatus(api, 0, manager);
+    const connected = manager && status !== null && status !== "error" && status.connected;
+    return usePaymentNotices(api, connected, false);
+}
+
+/** The account notices banner Stripe requires where owners see payments, once an account exists. */
+export function usePaymentNotices(
+    api: ApiLike,
+    connected: boolean,
+    attention: boolean,
+): PaymentNotices | null {
+    const businessId = useBusinessId();
+    const fetchClientSecret = useCallback(async (): Promise<string> => {
+        const { client_secret: secret } = await api.post<{ client_secret: string }>(
+            "/v1/connect/session",
+            { component: "notices" },
+        );
+        return secret;
+    }, [api]);
+    if (!connected || businessId === null) return null;
+    return { scope: `${businessId}:notices`, fetchClientSecret, attention };
 }
 
 export function usePaymentAccount(api: ApiLike, onClose?: () => void) {

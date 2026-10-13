@@ -1,10 +1,4 @@
-import {
-    PROVINCES,
-    strings,
-    taxSummary,
-    useOnboardingForm,
-    useVerificationForm,
-} from "@clientbridge/app-core";
+import { PROVINCES, strings, useOnboardingForm, useVerificationForm } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
@@ -113,7 +107,7 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                                 PROVINCES.find((p) => p.code === form.province)?.name ?? "",
                             )}
                             {": "}
-                            {taxSummary(form.province)}
+                            {form.taxSummary}
                         </Text>
                         <Text style={styles.taxNote}>{strings.business.onboarding.taxNone}</Text>
                     </View>

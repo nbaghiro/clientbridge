@@ -1,0 +1,14 @@
+{
+  "id": "evt_test_65UIRNU7G1XbhCfOim416TgmEI4ASQ3jHxXt8RFwXoeVwO",
+  "object": "v2.core.event",
+  "type": "v2.core.account[requirements].updated",
+  "livemode": false,
+  "created": "2026-10-12T16:20:01.000Z",
+  "context": null,
+  "reason": null,
+  "related_object": {
+    "id": "acct_1NG8Du2eZvKYlo2C",
+    "type": "v2.core.account",
+    "url": "/v2/core/accounts/acct_1NG8Du2eZvKYlo2C"
+  }
+}

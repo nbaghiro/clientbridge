@@ -84,6 +84,7 @@ describe("the weekly hours editor", () => {
         expect(splitNote(seedDays([row(1, "09:00:00", "17:00:00")]))).toBeNull();
         expect(refusalMessage("hours_split_week")).toBe(s.splitRefused);
         expect(refusalMessage("hours_revision_conflict")).toBe(s.conflict);
+        expect(refusalMessage("plan_required")).toBe(s.pausedRefused);
         expect(refusalMessage("http_422")).toBe(s.refused);
     });
 

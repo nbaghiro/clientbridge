@@ -502,3 +502,17 @@ async def test_two_connections_rescheduling_at_the_limit_move_the_visit_once(
             await cleanup.execute(delete(Slot).where(Slot.id.in_(slots)))
             await cleanup.execute(delete(Client).where(Client.id.in_(clients)))
             await cleanup.commit()
+
+
+async def test_a_lapsed_business_takes_no_rescheduled_visits(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    token = await _book(api)
+    slots = (await api.get(f"/manage/{token}/slots", params={"date": "2026-12-02"})).json()
+    await db.execute(
+        update(Business).where(Business.id == BIZ).values(plan=None, plan_status="lapsed")
+    )
+    await db.flush()
+    target = slots["slots"][0]["starts_at"]
+    res = await api.post(f"/manage/{token}/reschedule", json={"starts_at": target}, headers=key())
+    assert res.status_code == 409 and res.json()["error"] == "business_unavailable"

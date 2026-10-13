@@ -1,4 +1,4 @@
-.PHONY: help up down logs-sync logs-auth install stripe-listen dev-api worker dev-web dev-connect dev-site dev-mobile build build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones codegen-check test test-backend test-frontend test-contract test-kratos kratos-standalone test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
+.PHONY: help up down logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-kratos kratos-standalone test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
 .DEFAULT_GOAL := help
 
 help:
@@ -6,7 +6,8 @@ help:
 	@echo "logs-sync        follow the PowerSync logs"
 	@echo "logs-auth        follow the Kratos logs (verification and recovery mail is on :8715)"
 	@echo "install          uv sync (backend) and pnpm install (frontend)"
-	@echo "stripe-listen    forward Stripe Connect webhooks to the local API"
+	@echo "stripe-listen    forward our Stripe webhook events to the local API (sandbox only)"
+	@echo "stripe-setup     plan the Stripe sandbox objects the demo needs (ARGS=--apply to create)"
 	@echo "dev-api          run FastAPI on :8701 (reload)"
 	@echo "worker           run the arq job worker"
 	@echo "dev-web          run web (Vite) on :8700"
@@ -31,6 +32,7 @@ help:
 	@echo "gen-messages     regenerate the backend messages.pot and en_XA.po from the code and en_CA.po"
 	@echo "gen-strings      regenerate the strings accessors, en-XA pseudo-locales and Connect's embed.js"
 	@echo "gen-zones        regenerate the frontend's zone table and parity cases from the backend tzdata"
+	@echo "gen-taxes        regenerate the frontend's tax rate table and engine parity cases from the backend"
 	@echo "codegen-check    regenerate client, sync schema, themes, messages and strings; fail if stale"
 	@echo "test             test-backend + test-frontend"
 	@echo "test-backend     pytest with the 90% branch-coverage gate, on a freshly seeded database of its own"
@@ -71,7 +73,10 @@ install:
 	cd frontend && pnpm install
 
 stripe-listen:
-	stripe listen --forward-connect-to localhost:8701/webhooks/stripe
+	cd backend && uv run python -m scripts.stripe_setup --listen
+
+stripe-setup:
+	cd backend && uv run python -m scripts.stripe_setup $(ARGS)
 
 dev-api:
 	cd backend && uv run uvicorn clientbridge.main:app --reload --port 8701
@@ -148,6 +153,11 @@ gen-zones:
 	cd frontend && pnpm exec prettier --write packages/app-core/src/zones.ts \
 		packages/app-core/src/zones.cases.json
 
+gen-taxes:
+	cd backend && uv run python -m scripts.gen_taxes
+	cd frontend && pnpm exec prettier --write packages/app-core/src/taxRates.ts \
+		packages/app-core/src/taxes.cases.json
+
 gen-strings:
 	node frontend/packages/config/scripts/gen-strings.mjs
 	cd frontend && pnpm exec prettier --write packages/app-core/src/strings.ts \
@@ -220,10 +230,11 @@ GENERATED := frontend/packages/api-client/src/generated.ts frontend/packages/syn
 	frontend/packages/app-core/src/strings.ts frontend/packages/app-core/locales/en-XA.json \
 	frontend/apps/site/src/strings.ts frontend/apps/site/locales/en-XA.json \
 	frontend/apps/connect/public/embed.js frontend/packages/app-core/src/zones.ts \
-	frontend/packages/app-core/src/zones.cases.json
+	frontend/packages/app-core/src/zones.cases.json frontend/packages/app-core/src/taxRates.ts \
+	frontend/packages/app-core/src/taxes.cases.json
 
-# Regenerates the client, sync schema, themes, messages, strings and zones; fails if any differ.
-codegen-check: gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones
+# Regenerates the client, sync schema, themes, messages, strings, zones and taxes; fails if any differ.
+codegen-check: gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes
 	@git diff --quiet -- $(GENERATED) || { git --no-pager diff --stat -- $(GENERATED); \
 		echo "generated files were stale and have been regenerated: review and stage them"; exit 1; }
 

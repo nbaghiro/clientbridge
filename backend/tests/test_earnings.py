@@ -344,3 +344,20 @@ async def test_payout_for_unknown_account_is_ignored(
     )
     assert res.status_code == 200
     assert await ledger.journal_for(db, BIZ, "payout:po_none") is None
+
+
+async def test_a_payout_canceled_before_it_was_recorded_nets_to_nothing(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id="acct_po"))
+    await db.flush()
+    bank, stripe = await _balances(db)
+    canceled = await api.post(
+        "/webhooks/stripe",
+        content=_payout_event("evt_po_cancel", "payout.canceled", "po_2", 20000),
+        headers=GOOD,
+    )
+    assert canceled.status_code == 200
+    assert await _balances(db) == (bank, stripe)
+    assert await ledger.journal_for(db, BIZ, "payout:po_2") is not None
+    assert await ledger.journal_for(db, BIZ, "payout:po_2:failed") is not None

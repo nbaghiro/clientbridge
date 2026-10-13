@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy import ColumnElement, and_, case, func, or_, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import InstrumentedAttribute
+from sqlalchemy.orm import InstrumentedAttribute, aliased
 
 from clientbridge.core import clock
 from clientbridge.core.errors import UnsupportedCurrency
@@ -20,8 +20,9 @@ from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking
+from clientbridge.services.business import merchant_account
 from clientbridge.services.lines import allocate, fetch_lines
-from clientbridge.services.tax import TaxResult, tax_for_amount, tax_for_lines
+from clientbridge.services.tax import TaxResult, issued_tax, tax_for_amount, tax_within
 
 type AccountKey = tuple[str, str, str, str]
 type _Id = InstrumentedAttribute[str] | str
@@ -346,8 +347,15 @@ def _subject_legs(subject_type: str, subject_id: _Id) -> ColumnElement[bool]:
 
 def _settled() -> ColumnElement[bool]:
     """Dispute legs count against a document only once the dispute is lost."""
-    lost = select(Payment.id).where(Payment.id == Entry.source_id, Payment.dispute_status == "lost")
-    return or_(Entry.event != "dispute", lost.exists())
+    lost = aliased(Entry)
+    booked = select(lost.id).where(lost.source_id == Entry.source_id, _lost_journal(lost))
+    return or_(Entry.event != "dispute", booked.exists())
+
+
+def _lost_journal(entry: type[Entry]) -> ColumnElement[bool]:
+    return and_(
+        entry.source_type == "payment", entry.event == "dispute", entry.ref.like("dispute:%:lost")
+    )
 
 
 def _collected_expr(subject_type: str, subject_id: _Id) -> ColumnElement[int]:
@@ -534,13 +542,7 @@ async def _settlement(db: AsyncSession, payment: Payment) -> tuple[tuple[str, st
         await db.execute(scoped(Package, biz).where(Package.payment_id == payment.id))
     ).scalar_one_or_none()
     if package is not None:
-        item = await db.get(Item, package.item_id)
-        tax = await tax_for_amount(
-            db,
-            biz,
-            item.price_cents if item is not None else amount,
-            tax_class=item.tax_class if item is not None else "standard",
-        )
+        tax = await _package_tax(db, payment, await db.get(Item, package.item_id))
         return ("package", package.id), [
             Leg("package", package.id, "deferred", -(amount - tax.tax_total_cents)),
             *_tax_legs(biz, tax),
@@ -551,6 +553,21 @@ async def _settlement(db: AsyncSession, payment: Payment) -> tuple[tuple[str, st
     if card is not None:
         return ("gift_card", card.id), [Leg("gift_card", card.id, "gift_card", -amount)]
     return ("payment", payment.id), [Leg("business", biz, "revenue", -amount)]
+
+
+async def _package_tax(db: AsyncSession, payment: Payment, item: Item | None) -> TaxResult:
+    """The tax charged in a package's price when it was sold, backed out of the paid total."""
+    biz, amount, sold = payment.business_id, payment.amount_cents, payment.created_at
+    tax_class = item.tax_class if item is not None else "standard"
+    if item is not None:
+        # registration may have changed since the sale, so match the price as either
+        for registered in (True, False):
+            priced = await tax_for_amount(
+                db, biz, item.price_cents, tax_class=tax_class, at=sold, registered=registered
+            )
+            if priced.total_cents == amount:
+                return priced
+    return await tax_within(db, biz, amount, tax_class=tax_class, at=sold)
 
 
 def _tip_contra(payment: Payment) -> list[Leg]:
@@ -565,8 +582,9 @@ async def _order_sale(db: AsyncSession, payment: Payment) -> list[Leg]:
     biz = payment.business_id
     assert payment.order_id is not None
     lines = await fetch_lines(db, biz, "order", payment.order_id)
-    tax = await tax_for_lines(db, biz, lines)
     order = await db.get(Order, payment.order_id)
+    sold = order.created_at if order is not None else payment.created_at
+    tax = await issued_tax(db, biz, lines, sold)
     paid = payment.amount_cents - payment.tip_cents
     want = (order.total_cents if order is not None else paid) - paid
     applied: list[Leg] = []
@@ -678,9 +696,10 @@ async def _unwind(
         if original.invoice_id
         else Payment.parent_payment_id == original.id,
     )
+    lost = scoped(Entry, original.business_id).where(_lost_journal(Entry))
     disputed = scoped(Payment, original.business_id).where(
         Payment.kind != "refund",
-        Payment.dispute_status == "lost",
+        Payment.id.in_(lost.with_only_columns(Entry.source_id).scalar_subquery()),
         Payment.invoice_id == original.invoice_id
         if original.invoice_id
         else Payment.id == original.id,
@@ -1227,14 +1246,13 @@ async def run_reconcile_ledger(db: AsyncSession, gateway: PaymentGateway) -> int
         if stale:
             drifted += 1
             db.add(_drift(business.id, "ledger.cache_drift", {"account_ids": stale}))
-        if business.stripe_account_id is None:
+        account_id = merchant_account(business)
+        if account_id is None:
             continue
         ours = await balance(
             db, business.id, owner_type="business", owner_id=business.id, category="stripe"
         )
-        theirs = await gateway.get_balance_cents(
-            business.stripe_account_id, currency=BUSINESS_CURRENCY
-        )
+        theirs = await gateway.get_balance_cents(account_id, currency=BUSINESS_CURRENCY)
         if ours != theirs:
             drifted += 1
             db.add(

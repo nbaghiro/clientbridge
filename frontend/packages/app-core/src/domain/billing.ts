@@ -49,7 +49,14 @@ import {
     taxRateLabel,
 } from "./printing";
 import { type Arrival, useArrival, useReplicaLoad } from "./sync";
-import { type TaxRate, useTaxSetup } from "./taxes";
+import {
+    asTaxClass,
+    type DocRate,
+    type ItemTaxClass,
+    lineTax,
+    ratesOn,
+    useTaxSetup,
+} from "./taxes";
 import type { Load } from "../hooks";
 
 const s = strings.billing;
@@ -233,41 +240,35 @@ export function useLetterhead(apiBaseUrl: string): Letterhead {
     };
 }
 
-// Tax on the device follows services/tax.py: per line, per code, half up.
-
-type TaxClass = "standard" | "federal_only" | "exempt";
-
-interface DocRate {
-    code: string;
-    rateBps: number;
+export function docRates(rates: readonly DocRate[], registered: boolean): DocRate[] {
+    return registered ? [...rates] : [];
 }
 
-const FEDERAL = new Set(["GST", "HST"]);
-
-export function docRates(rates: readonly TaxRate[] | null, registered: boolean): DocRate[] {
-    if (!registered || rates === null) return [];
-    return rates.map((r) => ({ code: r.jurisdiction, rateBps: r.rate_bps }));
+/** A draft's rates are today's; an issued document's are its issue day's, registered if any line was taxed. */
+export function documentRates(
+    tax: { province: string | null; rates: readonly DocRate[]; registered: boolean },
+    lines: readonly { tax_amount_cents: number | null }[],
+    issuedAt: Date | null,
+    zone: string,
+): DocRate[] {
+    if (issuedAt === null) return docRates(tax.rates, tax.registered);
+    const registered = lines.some((l) => (l.tax_amount_cents ?? 0) > 0);
+    return docRates(ratesOn(tax.province, dateKey(issuedAt, zone)), registered);
 }
-
-function asTaxClass(value: string | null | undefined): TaxClass {
-    return value === "federal_only" || value === "exempt" ? value : "standard";
-}
-
-function codesFor(taxClass: TaxClass, rates: readonly DocRate[]): DocRate[] {
-    if (taxClass === "exempt") return [];
-    return taxClass === "federal_only" ? rates.filter((r) => FEDERAL.has(r.code)) : [...rates];
-}
-
-const ppm = (r: DocRate): number => (r.code === "QST" ? 99_750 : r.rateBps * 100);
 
 interface PricedLine {
     amountCents: number;
-    taxClass: TaxClass;
+    taxClass: ItemTaxClass;
     included: boolean;
 }
 
 interface DocPricing {
-    lines: { taxByCode: Record<string, number>; taxCents: number; codes: string[] }[];
+    lines: {
+        taxByCode: Record<string, number>;
+        taxCents: number;
+        baseCents: number;
+        codes: string[];
+    }[];
     taxes: PrintedDocTax[];
     subtotalCents: number;
     taxCents: number;
@@ -311,13 +312,16 @@ export function discountCents(baseCents: number, discount: SaleDiscount | null):
 }
 
 /** Tax per line and per code over the included lines, as the server works it out. */
-export function priceDoc(lines: readonly PricedLine[], rates: readonly DocRate[]): DocPricing {
+export function priceDoc(
+    lines: readonly PricedLine[],
+    rates: readonly DocRate[],
+    inclusive = false,
+): DocPricing {
     const priced = lines.map((l) => {
-        const taxByCode: Record<string, number> = {};
-        for (const r of codesFor(l.taxClass, rates))
-            taxByCode[r.code] = Math.round((l.amountCents * ppm(r)) / 1_000_000);
+        const taxByCode = lineTax(l.amountCents, l.taxClass, rates, inclusive);
         const taxCents = Object.values(taxByCode).reduce((a, b) => a + b, 0);
-        return { taxByCode, taxCents, codes: Object.keys(taxByCode) };
+        const baseCents = inclusive ? l.amountCents - taxCents : l.amountCents;
+        return { taxByCode, taxCents, baseCents, codes: Object.keys(taxByCode) };
     });
     const kept = lines.map((l, i) => ({ l, t: priced[i] })).filter((x) => x.l.included);
     const taxes: PrintedDocTax[] = rates
@@ -325,13 +329,13 @@ export function priceDoc(lines: readonly PricedLine[], rates: readonly DocRate[]
             const on = kept.filter((x) => x.t !== undefined && r.code in x.t.taxByCode);
             return {
                 code: r.code,
-                label: taxRateLabel(r.code, r.rateBps),
-                baseCents: on.reduce((sum, x) => sum + x.l.amountCents, 0),
+                label: taxRateLabel(r.code, r.ppm / 100),
+                baseCents: on.reduce((sum, x) => sum + (x.t?.baseCents ?? 0), 0),
                 cents: on.reduce((sum, x) => sum + (x.t?.taxByCode[r.code] ?? 0), 0),
             };
         })
         .filter((t) => t.cents !== 0);
-    const subtotalCents = kept.reduce((sum, x) => sum + x.l.amountCents, 0);
+    const subtotalCents = kept.reduce((sum, x) => sum + (x.t?.baseCents ?? 0), 0);
     const taxCents = taxes.reduce((sum, t) => sum + t.cents, 0);
     return { lines: priced, taxes, subtotalCents, taxCents, totalCents: subtotalCents + taxCents };
 }
@@ -341,7 +345,7 @@ function rateNote(rates: readonly DocRate[]): string {
         ? s.noTaxNote
         : s.taxNote(
               formatList(
-                  rates.map((r) => taxRateLabel(r.code, r.rateBps)),
+                  rates.map((r) => taxRateLabel(r.code, r.ppm / 100)),
                   "unit",
               ),
           );
@@ -633,7 +637,7 @@ function lineDetail(line: PrintedDocLine, currency: string): string {
 }
 
 export function issuedTaxes(
-    pricing: DocPricing,
+    pricing: Pick<DocPricing, "taxes">,
     journal: readonly { code: string; cents: number }[],
 ): PrintedDocTax[] {
     if (journal.length === 0) return pricing.taxes;
@@ -643,18 +647,14 @@ export function issuedTaxes(
             const computed = pricing.taxes.find((x) => x.code === t.code);
             return {
                 code: t.code,
-                label: computed?.label ?? t.code,
+                label: computed?.label ?? taxName(t.code),
                 baseCents: computed?.baseCents ?? 0,
                 cents: t.cents,
             };
         });
 }
 
-export function useInvoiceRecord(
-    api: ApiLike,
-    id: string | null,
-    payBase: string,
-): InvoiceRecord | null {
+export function useInvoiceRecord(id: string | null, payBase: string): InvoiceRecord | null {
     const row = useQuery<InvoiceRow>(INVOICE_SQL, [id ?? ""]).data[0] ?? null;
     const lines = useQuery<LineRow>(LINES_SQL, [id ?? ""]).data;
     const journal = useQuery<{ code: string; cents: number }>(TAX_BY_CODE_SQL, [
@@ -662,7 +662,7 @@ export function useInvoiceRecord(
     ]).data;
     const credits = useQuery<CreditRow>(INVOICE_CREDITS_SQL, [id ?? ""]).data;
     const payments = useInvoicePayments(id ?? "");
-    const tax = useTaxSetup(api);
+    const tax = useTaxSetup();
     const zone = useBusinessZone();
     const settling = useArrival(
         id === null ? null : invoiceBalanceKey(id),
@@ -672,7 +672,9 @@ export function useInvoiceRecord(
     const now = new Date();
     const status = invoiceStatus(row, zone, now);
     const currency = row.currency;
-    const rates = docRates(tax.rates, tax.registered);
+    const issuedAt =
+        row.status === "draft" ? null : parseTimestamp(row.issued_at ?? row.created_at);
+    const rates = documentRates(tax, lines, issuedAt, zone);
     const pricing = priceDoc(
         lines.map((l) => ({
             amountCents: l.amount_cents,
@@ -1100,24 +1102,50 @@ export interface EstimateRecord {
     rateNote: string;
 }
 
+/** An open estimate is quoted at today's rates, so its totals come from that pricing. */
+export function estimateTotals(
+    row: Pick<EstimateRow, "accepted_at" | "subtotal_cents" | "total_cents">,
+    pricing: Pick<DocPricing, "taxes" | "subtotalCents" | "totalCents">,
+): DocTotalLine[] {
+    const open = row.accepted_at === null;
+    return [
+        {
+            key: "subtotal",
+            label: s.subtotal,
+            cents: open ? pricing.subtotalCents : (row.subtotal_cents ?? 0),
+            kind: "subtotal",
+        },
+        ...pricing.taxes.map((t): DocTotalLine => ({
+            key: t.code,
+            label: t.label,
+            cents: t.cents,
+            kind: "tax",
+        })),
+        {
+            key: "total",
+            label: s.total,
+            cents: open ? pricing.totalCents : (row.total_cents ?? 0),
+            kind: "total",
+        },
+    ];
+}
+
 function estimateLinkUrl(base: string, token: string): string {
     return `${base.replace(/\/+$/, "")}/e/${encodeURIComponent(token)}`;
 }
 
-export function useEstimateRecord(
-    api: ApiLike,
-    id: string | null,
-    payBase: string,
-): EstimateRecord | null {
+export function useEstimateRecord(id: string | null, payBase: string): EstimateRecord | null {
     const zone = useBusinessZone();
     const estimates = useQuery<EstimateRow>(ESTIMATES_SQL, [dateKey(new Date(), zone)]).data;
     const lines = useQuery<LineRow>(LINES_SQL, [id ?? ""]).data;
-    const tax = useTaxSetup(api);
+    const tax = useTaxSetup();
     const row = estimates.find((e) => e.id === id) ?? null;
     if (row === null) return null;
     const now = new Date();
     const view = estimateListRow(row, now, zone);
-    const rates = docRates(tax.rates, tax.registered);
+    // an open estimate is quoted at today's rates; an accepted one keeps its acceptance rates
+    const accepted = row.accepted_at === null ? null : parseTimestamp(row.accepted_at);
+    const rates = documentRates(tax, lines, accepted, zone);
     const included = (l: LineRow): boolean => l.optional !== 1 || l.selected === 1;
     const pricing = priceDoc(
         lines.map((l) => ({
@@ -1187,21 +1215,7 @@ export function useEstimateRecord(
         lineDetail: (line) => lineDetail(line, BUSINESS_CURRENCY),
         zone,
         taxes: pricing.taxes,
-        totals: [
-            {
-                key: "subtotal",
-                label: s.subtotal,
-                cents: row.subtotal_cents ?? 0,
-                kind: "subtotal",
-            },
-            ...pricing.taxes.map((t): DocTotalLine => ({
-                key: t.code,
-                label: t.label,
-                cents: t.cents,
-                kind: "tax",
-            })),
-            { key: "total", label: s.total, cents: row.total_cents ?? 0, kind: "total" },
-        ],
+        totals: estimateTotals(row, pricing),
         timeline,
         acceptUrl: row.view_token !== null ? estimateLinkUrl(payBase, row.view_token) : null,
         canEdit: view.status === "draft" || view.status === "sent",
@@ -1339,7 +1353,7 @@ interface DraftLine {
     quantity: string;
     unit: string;
     itemId: string | null;
-    taxClass: TaxClass;
+    taxClass: ItemTaxClass;
     optional: boolean;
     discount: SaleDiscount | null;
 }
@@ -1476,7 +1490,7 @@ export function useDocComposer(
     const save = useAsyncAction();
     const sendAction = useAsyncAction();
     const keyRef = useRef<Attempt | null>(null);
-    const tax = useTaxSetup(api);
+    const tax = useTaxSetup();
     const zone = useBusinessZone();
     const rates = docRates(tax.rates, tax.registered);
 

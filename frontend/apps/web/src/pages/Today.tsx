@@ -24,6 +24,7 @@ import {
     LoadFailed,
     Notice,
     Panel,
+    PaymentNotices,
     Skeleton,
     StatusPill,
 } from "@clientbridge/ui";
@@ -153,6 +154,16 @@ function OwnerTodayPage() {
                         {actions.error}
                     </Notice>
                 </div>
+            ) : null}
+
+            {today.notices !== null ? (
+                <PaymentNotices
+                    {...today.notices}
+                    className="mt-4"
+                    onReview={() => {
+                        openLink("gettingPaid");
+                    }}
+                />
             ) : null}
 
             {load.state === "error" ? (

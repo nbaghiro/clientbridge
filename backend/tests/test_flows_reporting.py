@@ -108,9 +108,7 @@ async def test_dashboard_figures_follow_an_invoice(
         business_id=BIZ,
         client_id="cl_amelie",
         method="card",
-        provider="stripe",
         provider_ref="pm_dash",
-        status="active",
     )
     db.add(card)
     await db.flush()

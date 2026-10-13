@@ -26,6 +26,7 @@ const SETUP_SECTIONS = [
     "services",
     "team",
     "getting-paid",
+    "plan",
     "taxes",
     "online-booking",
     "reminders",
@@ -44,6 +45,7 @@ const MANAGER_SETUP_SECTIONS = [
     strings.navigation.setupSections.business,
     strings.navigation.setupSections.services,
     strings.navigation.setupSections.gettingPaid,
+    strings.navigation.setupSections.plan,
     strings.navigation.setupSections.taxes,
     strings.navigation.setupSections.onlineBooking,
     strings.navigation.setupSections.reminders,
@@ -840,6 +842,10 @@ test("owner: setup sections and their dialogs", async ({ page }) => {
     await walk.step("getting paid, taxes and reminders", async () => {
         await navigate(page, "/setup/getting-paid");
         await expect(main.getByRole("button", { name: strings.gettingPaid.refresh })).toBeVisible();
+        // with no banner from Stripe there is no empty notices landmark
+        await expect(
+            main.getByRole("region", { name: strings.paymentAccount.notices }),
+        ).toHaveCount(0);
         await navigate(page, "/setup/taxes");
         await expect(main.getByRole("button", { name: strings.taxes.openReport })).toBeVisible();
         await navigate(page, "/setup/reminders");
@@ -862,6 +868,7 @@ const ACCESSIBLE_PAGES = [
     "/inbox",
     "/setup/business",
     "/setup/services",
+    "/setup/plan",
 ];
 
 test("owner: key pages and records pass axe, show keyboard focus and keep hovered text readable", async ({

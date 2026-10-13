@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { strings } from "../strings";
+import { ratesOn } from "./taxes";
 
 import {
     type ItemFormValues,
@@ -151,12 +152,9 @@ describe("catalog list", () => {
     });
 
     it("names the tax classes after the taxes the business charges", () => {
-        const bc = [
-            { id: "BC_GST", jurisdiction: "GST", province: "BC", rate_bps: 500, name: "GST 5%" },
-            { id: "BC_PST", jurisdiction: "PST", province: "BC", rate_bps: 700, name: "PST 7%" },
-        ];
+        const bc = ratesOn("BC", "2026-07-01");
         expect(taxOptions(bc).map((o) => o.label)).toEqual(["GST only", "GST and PST", "No tax"]);
-        expect(taxOptions(null)[1]?.label).toBe("All sales taxes");
+        expect(taxOptions([])[1]?.label).toBe("All sales taxes");
     });
 });
 

@@ -1,5 +1,6 @@
 import type { LineIconName } from "../art/LineIcon";
 import type { PageMeta } from "../routes";
+import { planPrices } from "./plans";
 import { solutionPath, TRADES } from "./trades";
 import { strings } from "../strings";
 
@@ -20,23 +21,45 @@ export const pricingPage = {
     eyebrow: s.pricingPage.eyebrow,
     title: s.pricingPage.title,
     lede: s.pricingPage.lede,
-    plan: {
-        name: s.pricingPage.plan.name,
-        price: s.pricingPage.plan.price,
-        per: s.pricingPage.plan.per,
-        note: s.pricingPage.plan.note,
-        seat: s.pricingPage.plan.seat,
-        cta: s.pricingPage.plan.cta,
+    plans: [
+        {
+            tier: s.pricingPage.plans.premium,
+            prices: planPrices.premium,
+            staff: s.pricingPage.plans.premium.staff(planPrices.seat),
+        },
+        {
+            tier: s.pricingPage.plans.team,
+            prices: planPrices.team,
+            staff: s.pricingPage.plans.team.staff,
+        },
+    ].map(({ tier, prices, staff }) => ({
+        name: tier.name,
+        summary: tier.summary,
+        price: s.pricingPage.plans.price(prices.month),
+        per: s.pricingPage.plans.per,
+        yearly: s.pricingPage.plans.yearly(prices.year),
+        staff,
+    })),
+    trial: s.pricingPage.plans.trial,
+    cta: s.pricingPage.plans.cta,
+    included: {
+        title: s.pricingPage.included.title,
         groups: [
-            s.pricingPage.plan.groups[0],
-            s.pricingPage.plan.groups[1],
-            s.pricingPage.plan.groups[2],
+            s.pricingPage.included.groups[0],
+            s.pricingPage.included.groups[1],
+            s.pricingPage.included.groups[2],
         ],
     },
     fees: {
         title: s.pricingPage.fees.title,
         lede: s.pricingPage.fees.lede,
-        rows: [s.pricingPage.fees.rows[0], s.pricingPage.fees.rows[1], s.pricingPage.fees.rows[2]],
+        rows: [
+            s.pricingPage.fees.rows[0],
+            s.pricingPage.fees.rows[1],
+            s.pricingPage.fees.rows[2],
+            s.pricingPage.fees.rows[3],
+            s.pricingPage.fees.rows[4],
+        ],
     },
     faqTitle: s.pricingPage.faqTitle,
     faq: [
@@ -47,6 +70,8 @@ export const pricingPage = {
         s.pricingPage.faq[4],
         s.pricingPage.faq[5],
         s.pricingPage.faq[6],
+        s.pricingPage.faq[7],
+        s.pricingPage.faq[8],
     ],
     closing: s.pricingPage.closing,
 };

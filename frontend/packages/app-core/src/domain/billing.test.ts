@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { setPseudoLocale } from "../locale";
 import { strings } from "../strings";
 import {
     type InvoiceRow,
@@ -12,16 +13,16 @@ import {
     lineDiscount,
     listRow,
     priceDoc,
+    documentRates,
+    estimateTotals,
 } from "./billing";
 import { type SavedCardRow, canBeDefault, checkoutMethods } from "./payments";
+import { ratesOn } from "./taxes";
 import { zonedDate } from "../datetime";
 
 const ZONE = "America/Vancouver";
 
-const BC = [
-    { code: "GST", rateBps: 500 },
-    { code: "PST", rateBps: 700 },
-];
+const BC = ratesOn("BC", "2026-07-01");
 
 describe("priceDoc", () => {
     it("taxes each line by its class and totals per code, half up", () => {
@@ -55,22 +56,13 @@ describe("priceDoc", () => {
     });
 
     it("prices QST at its exact rate and collects nothing for a small supplier", () => {
-        const qc = docRates(
-            [
-                { id: "QC_GST", jurisdiction: "GST", province: "QC", rate_bps: 500 },
-                { id: "QC_QST", jurisdiction: "QST", province: "QC", rate_bps: 998 },
-            ],
-            true,
-        );
+        const qc = docRates(ratesOn("QC", "2026-07-01"), true);
         const priced = priceDoc([{ amountCents: 10000, taxClass: "standard", included: true }], qc);
         expect(priced.taxes.map((t) => [t.label, t.cents])).toEqual([
             ["GST 5%", 500],
             ["QST 9.975%", 998],
         ]);
-        expect(docRates(null, true)).toEqual([]);
-        expect(
-            docRates([{ id: "x", jurisdiction: "GST", province: "AB", rate_bps: 500 }], false),
-        ).toEqual([]);
+        expect(docRates(ratesOn("AB", "2026-07-01"), false)).toEqual([]);
     });
 });
 
@@ -80,7 +72,6 @@ const method = {
     last4: null,
     preferred: 0,
     mandate_status: "none",
-    status: "active",
 };
 
 describe("chargeable saved methods", () => {
@@ -199,6 +190,21 @@ describe("draft documents", () => {
             { code: "HST", label: "HST", baseCents: 0, cents: 1300 },
         ]);
     });
+
+    it("names a booked tax the rates did not price from the catalog, not its raw code", async () => {
+        const pricing = priceDoc(
+            [{ amountCents: 10000, taxClass: "standard", included: true }],
+            BC,
+        );
+        await setPseudoLocale(true);
+        try {
+            const [hst] = issuedTaxes(pricing, [{ code: "HST", cents: 1300 }]);
+            expect(hst?.label).toBe(strings.taxes.names.HST);
+            expect(hst?.label).not.toBe("HST");
+        } finally {
+            await setPseudoLocale(false);
+        }
+    });
 });
 
 function invoice(extra: Partial<InvoiceRow> = {}): InvoiceRow {
@@ -297,5 +303,58 @@ describe("invoice status and stats", () => {
             draftCount: 1,
         });
         expect(invoiceStats([], ZONE, now).outstandingCents).toBe(0);
+    });
+});
+
+describe("documentRates", () => {
+    const setup = { province: "NS", rates: ratesOn("NS", "2026-10-13"), registered: true };
+    const taxed = [{ tax_amount_cents: 1500 }];
+
+    it("labels an issued document with the rates of the day it was issued", () => {
+        const issued = new Date("2025-03-31T20:00:00Z");
+        expect(documentRates(setup, taxed, issued, "America/Halifax")).toEqual([
+            { code: "HST", ppm: 150000 },
+        ]);
+    });
+
+    it("takes the issue date in the business's zone across the April 1, 2025 rate change", () => {
+        const lateMarch31 = new Date("2025-04-01T02:00:00Z");
+        expect(documentRates(setup, taxed, lateMarch31, "America/Halifax")).toEqual([
+            { code: "HST", ppm: 150000 },
+        ]);
+        const earlyApril1 = new Date("2025-04-01T04:00:00Z");
+        expect(documentRates(setup, taxed, earlyApril1, "America/Halifax")).toEqual([
+            { code: "HST", ppm: 140000 },
+        ]);
+    });
+
+    it("prices a draft at today's rates and an untaxed issued document at none", () => {
+        expect(documentRates(setup, taxed, null, "America/Halifax")).toEqual(setup.rates);
+        const untaxed = [{ tax_amount_cents: 0 }];
+        expect(documentRates(setup, untaxed, new Date(), "America/Halifax")).toEqual([]);
+    });
+});
+
+describe("estimateTotals", () => {
+    const ON = ratesOn("ON", "2026-10-13");
+    const pricing = priceDoc(
+        [{ amountCents: 10_000, taxClass: "standard", included: true }],
+        docRates(ON, true),
+    );
+    const cents = (row: Parameters<typeof estimateTotals>[0]): number[] =>
+        estimateTotals(row, pricing).map((t) => t.cents);
+
+    it("totals an open estimate from today's pricing, not the amounts stored when it was sent", () => {
+        const sent = { accepted_at: null, subtotal_cents: 10_000, total_cents: 10_000 };
+        expect(cents(sent)).toEqual([10_000, 1300, 11_300]);
+    });
+
+    it("keeps an accepted estimate's stored totals", () => {
+        const accepted = {
+            accepted_at: "2026-10-01T16:00:00Z",
+            subtotal_cents: 10_000,
+            total_cents: 11_300,
+        };
+        expect(cents(accepted)).toEqual([10_000, 1300, 11_300]);
     });
 });

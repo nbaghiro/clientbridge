@@ -60,9 +60,7 @@ async def _charge_saved_card(
             business_id=BIZ,
             client_id=inv.client_id,
             method="card",
-            provider="stripe",
             provider_ref="pm_pay",
-            status="active",
         )
         db.add(pm)
         await db.flush()
@@ -125,9 +123,9 @@ async def test_settlement_books_stripe_and_platform_fees(
     ).tuples()
     by_kind = {(owner, kind): int(cents) for owner, kind, cents in legs}
     assert by_kind[("business", "processing_fee")] == 355  # 2.9% + 30c
-    assert by_kind[("business", "platform_fee")] == 224  # the 2% application fee
-    assert by_kind[("business", "stripe")] == 11200 - 355 - 224
-    assert by_kind[("platform", "fee_revenue")] == -224
+    assert by_kind[("business", "platform_fee")] == 33  # 0.3%, so 2.9% + 0.3% stays at 3.2%
+    assert by_kind[("business", "stripe")] == 11200 - 355 - 33
+    assert by_kind[("platform", "fee_revenue")] == -33
 
 
 async def test_partial_payment_marks_invoice_partial(

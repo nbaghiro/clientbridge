@@ -64,7 +64,7 @@ LEFT JOIN clients c ON c.id = p.client_id
 LEFT JOIN invoices i ON i.id = p.invoice_id
 LEFT JOIN orders o ON o.id = p.order_id
 WHERE p.provider = 'stripe' AND p.kind IN ('payment', 'deposit')
-  AND p.status IN ('succeeded', 'refunded')
+  AND p.status = 'succeeded'
   AND ${utcSql("COALESCE(p.paid_at, p.created_at)")} >= datetime(?)
 ORDER BY COALESCE(p.paid_at, p.created_at) DESC LIMIT 50`;
 

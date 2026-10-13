@@ -1,4 +1,4 @@
-import { strings, useStripeTerminalLocation } from "@clientbridge/app-core";
+import { strings } from "@clientbridge/app-core";
 import { StripeTerminalProvider, useStripeTerminal } from "@stripe/stripe-terminal-react-native";
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
@@ -29,7 +29,7 @@ interface TerminalCheckout {
 }
 
 /** Tap to Pay: connect a reader, then collect and confirm the order's PaymentIntent. */
-export function useTerminalCheckout(): TerminalCheckout {
+export function useTerminalCheckout(locationId: string | null): TerminalCheckout {
     const {
         initialize,
         cancelDiscovering,
@@ -44,7 +44,6 @@ export function useTerminalCheckout(): TerminalCheckout {
 
     const [phase, setPhase] = useState<TerminalPhase>("connecting");
     const [error, setError] = useState<string | null>(null);
-    const locationId = useStripeTerminalLocation();
 
     const [attempt, setAttempt] = useState(0);
     const [canRetry, setCanRetry] = useState(true);

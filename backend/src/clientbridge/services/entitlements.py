@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
-from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
@@ -29,12 +28,14 @@ from clientbridge.schemas.entitlements import (
     SubscriptionOut,
 )
 from clientbridge.services import ledger
+from clientbridge.services.business import merchant_account
 from clientbridge.services.payments import (
     ensure_customer,
     ensure_subscription_price,
     map_subscription_status,
     open_entitlement_payment,
     resolve_saved_method_ref,
+    subscription_tax_terms,
 )
 from clientbridge.services.tax import tax_for_amount
 
@@ -104,7 +105,6 @@ class GiftCardService:
             )
         client = await self._client(data.purchaser_client_id)
         account_id = _charge_account(await self._business(), data)
-        fee_bps = get_settings().platform_fee_bps
         pm_ref = await resolve_saved_method_ref(
             self.db, self.biz, data.payment_method_id, data.purchaser_client_id
         )
@@ -123,7 +123,6 @@ class GiftCardService:
                     client=client,
                     amount=face,  # a gift certificate is not taxed at sale (taxed on redemption)
                     currency="CAD",
-                    fee_bps=fee_bps,
                     entitlement_kind="gift_card",
                     entitlement_id=card_id,
                     payment_method=pm_ref,
@@ -313,7 +312,6 @@ class PackageService:
         amount = (
             await tax_for_amount(self.db, self.biz, item.price_cents, tax_class=item.tax_class)
         ).total_cents
-        fee_bps = get_settings().platform_fee_bps
         pm_ref = await resolve_saved_method_ref(
             self.db, self.biz, data.payment_method_id, data.client_id
         )
@@ -332,7 +330,6 @@ class PackageService:
                     client=client,
                     amount=amount,
                     currency=item.currency,
-                    fee_bps=fee_bps,
                     entitlement_kind="package",
                     entitlement_id=package_id,
                     payment_method=pm_ref,
@@ -490,9 +487,9 @@ class SubscriptionService:
     ) -> SubscriptionOut:
         self._assert_admin()
         business = await self._business()
-        if business.stripe_account_id is None:
+        account_id = merchant_account(business)
+        if account_id is None:
             raise Conflict("set up card payments in Setup before creating subscriptions")
-        account_id = business.stripe_account_id
         client = await self._client(data.client_id)
         item = await self._item(data.item_id)
         if item.kind != "subscription":
@@ -524,6 +521,7 @@ class SubscriptionService:
                 customer_id=customer_id,
                 price_id=price_id,
                 payment_method_id=pm_ref,
+                metadata=await subscription_tax_terms(self.db, item),
                 idempotency_key=f"sub_{self.biz}_{data.client_id}_{item.id}",
             )
             row = Subscription(
@@ -532,7 +530,6 @@ class SubscriptionService:
                 client_id=data.client_id,
                 item_id=item.id,
                 status=map_subscription_status(result.status),
-                current_period_start=result.current_period_start,
                 current_period_end=result.current_period_end,
                 payment_method_id=pm.id,
                 provider_ref=result.id,
@@ -626,7 +623,7 @@ class SubscriptionService:
         ).scalar_one_or_none()
         if row is None:
             raise NotFound("payment method not found")
-        if row.status != "active" or (row.method == "bank_eft" and row.mandate_status != "active"):
+        if row.method == "bank_eft" and row.mandate_status != "active":
             raise Conflict(
                 "the client must complete bank authorization before this account can be charged"
             )
@@ -649,7 +646,6 @@ def _subscription_out(sub: Subscription) -> SubscriptionOut:
         client_id=sub.client_id,
         item_id=sub.item_id,
         status=sub.status,
-        current_period_start=sub.current_period_start,
         current_period_end=sub.current_period_end,
     )
 

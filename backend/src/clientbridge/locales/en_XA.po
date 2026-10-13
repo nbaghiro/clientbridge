@@ -192,6 +192,15 @@ msgstr "[Þåýɱéñţ ƒåîļéð — {business}~~~~~~]"
 msgid "pickup.body"
 msgstr "[Çöļļéçţ ýöûŕ öŕðéŕ åţ {business}. Ŵé'ļļ ļéţ ýöû ķñöŵ ŵĥéñ îţ'š ŕéåðý.~~~~~~~~~~~~~~~~~~~~~]"
 
+msgid "plans.premium"
+msgstr "[Çļîéñţƀŕîðĝé Þŕéɱîûɱ~~~~~~~]"
+
+msgid "plans.seat"
+msgstr "[Çļîéñţƀŕîðĝé šţåƒƒ šéåţ~~~~~~~~~]"
+
+msgid "plans.team"
+msgstr "[Çļîéñţƀŕîðĝé Ţéåɱ~~~~~~]"
+
 msgid "receipt.body"
 msgstr "[Ţĥåñķ ýöû! Ýöûŕ þåýɱéñţ öƒ {amount} ţö {business} ŵåš ŕéçéîṽéð.~~~~~~~~~~~~~~~~]"
 
@@ -407,6 +416,18 @@ msgstr "[Ýöûŕ šûƀšçŕîþţîöñ þåýɱéñţ ţö {business} ƒåî
 
 msgid "subscription_past_due.subject"
 msgstr "[Þåýɱéñţ þåšţ ðûé — {business}~~~~~~~]"
+
+msgid "trial_ending.body"
+msgstr "[Ţĥé ƒŕéé ţŕîåļ ƒöŕ {business} éñðš {when}. Çĥööšé Þŕéɱîûɱ öŕ Ţéåɱ ţö ķééþ åððîñĝ åñð çĥåñĝîñĝ ŕéçöŕðš: {link}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "trial_ending.subject"
+msgstr "[Ýöûŕ Çļîéñţƀŕîðĝé ţŕîåļ éñðš šööñ~~~~~~~~~~~~]"
+
+msgid "trial_last_day.body"
+msgstr "[Ţĥé ƒŕéé ţŕîåļ ƒöŕ {business} éñðš {when}. Åƒţéŕ ţĥåţ ţĥé ƀûšîñéšš ƀéçöɱéš ŕéåð-öñļý: ýöû çåñ šţîļļ šîĝñ îñ åñð šéé ýöûŕ ŕéçöŕðš, åñð îñṽöîçéš ýöû åļŕéåðý šéñţ çåñ šţîļļ ƀé þåîð. Çĥööšé å þļåñ ţö ķééþ ŵöŕķîñĝ: {link}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "trial_last_day.subject"
+msgstr "[Ýöûŕ Çļîéñţƀŕîðĝé ţŕîåļ îš åƀöûţ ţö éñð~~~~~~~~~~~~~~]"
 
 msgid "verification_code.body"
 msgid_plural "verification_code.body"

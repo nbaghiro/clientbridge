@@ -26,7 +26,7 @@ from clientbridge.integrations.expo import Push, PushSender
 from clientbridge.integrations.resend import Email, EmailSender
 from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.billing import Estimate, Invoice, Order
-from clientbridge.models.business import Business, Staff
+from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import GiftCard, Subscription
 from clientbridge.models.clients import Client
 from clientbridge.models.documents import Contract, Form, FormResponse, Signature
@@ -39,8 +39,8 @@ from clientbridge.schemas.auth import AuthEmailIn
 from clientbridge.services import ledger
 from clientbridge.services.business import reply_address
 from clientbridge.services.consents import texts_stopped
-from clientbridge.services.lines import LineParent, fetch_lines
-from clientbridge.services.tax import tax_breakdown
+from clientbridge.services.lines import LineParent, fetch_lines, issued_at
+from clientbridge.services.tax import issued_tax
 
 _log = logging.getLogger(__name__)
 _PREVIEW_CHARS = 120
@@ -136,6 +136,11 @@ async def send_auth_email(email_sender: EmailSender, email: AuthEmailIn) -> None
 def invite_link(token: str) -> str:
     """Where an invitee signs up or in, then joins the team."""
     return f"{get_settings().web_base_url}/accept-invite?token={token}"
+
+
+def plan_link() -> str:
+    """The owner's plan page in the web app."""
+    return f"{get_settings().web_base_url}/setup/plan"
 
 
 def pay_link(token: str) -> str:
@@ -328,6 +333,18 @@ def subscription_canceled_message(locale: str, business_name: str) -> tuple[str,
         message(locale, "subscription_canceled.subject", business=business_name),
         message(locale, "subscription_canceled.body", business=business_name),
     )
+
+
+def trial_ending_message(
+    locale: str, business_name: str, when: str, link: str, *, last_day: bool
+) -> tuple[str, str]:
+    values = {"business": business_name, "when": when, "link": link}
+    if last_day:
+        return (
+            message(locale, "trial_last_day.subject"),
+            message(locale, "trial_last_day.body", **values),
+        )
+    return message(locale, "trial_ending.subject"), message(locale, "trial_ending.body", **values)
 
 
 def gift_card_issued_message(
@@ -684,6 +701,31 @@ class Notifier:
             self.email.send(business_email(business.id, business.billing_email, subject, body))
         )
 
+    async def on_trial_ending(self, db: AsyncSession, business_id: str, *, last_day: bool) -> None:
+        """Remind the owner (their billing email, else their sign-in) that the trial is ending."""
+        business = await db.get(Business, business_id)
+        if business is None:
+            return
+        to = business.billing_email
+        if not to:
+            owner = await db.scalar(
+                scoped(Staff, business.id)
+                .with_only_columns(Staff.user_id)
+                .where(Staff.role == "owner", Staff.status == "active")
+                .order_by(Staff.created_at)
+                .limit(1)
+            )
+            user = await db.get(User, owner) if owner is not None else None
+            to = user.email if user is not None else None
+        if not to:
+            return
+        locale = locale_for(business=business)
+        when = format_day_and_time(locale, business.trial_ends_at, business.timezone)
+        subject, body = trial_ending_message(
+            locale, business.name, when, plan_link(), last_day=last_day
+        )
+        await self._safe(self.email.send(business_email(business.id, to, subject, body)))
+
     async def on_estimate_answered(self, db: AsyncSession, view_token: str) -> None:
         """Tell the provider a client accepted or declined an estimate from its public link."""
         estimate = (
@@ -959,9 +1001,14 @@ class Notifier:
         if parent is None:
             return []
         lines = await fetch_lines(db, payment.business_id, *parent)
-        if not lines:
+        document = (
+            await db.get(Order, parent[1])
+            if parent[0] == "order"
+            else await db.get(Invoice, parent[1])
+        )
+        if not lines or document is None:
             return []
-        tax = await tax_breakdown(db, payment.business_id, lines)
+        tax = await issued_tax(db, payment.business_id, lines, issued_at(document))
         cur = payment.currency
         return receipt_detail_lines(
             locale,

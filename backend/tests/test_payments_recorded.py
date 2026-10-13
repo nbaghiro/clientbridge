@@ -108,9 +108,7 @@ async def test_charge_saved_card_opens_an_intent(
         method="card",
         brand="amex",
         last4="0005",
-        provider="stripe",
         provider_ref="pm_rec",
-        status="active",
     )
     db.add(card)
     inv = await sent_invoice(db, client=cid, total=3000)

@@ -12,8 +12,9 @@ export function subjectNetSql(category: string, subjectType: string, idExpr: str
 
 /** Dispute legs count against a document only once the dispute is lost. */
 export function settledSql(alias: string): string {
-    return `(${alias}.event <> 'dispute' OR EXISTS (SELECT 1 FROM payments sp
-        WHERE sp.id = ${alias}.source_id AND sp.dispute_status = 'lost'))`;
+    return `(${alias}.event <> 'dispute' OR EXISTS (SELECT 1 FROM entries sl
+        WHERE sl.source_type = 'payment' AND sl.source_id = ${alias}.source_id
+          AND sl.event = 'dispute' AND sl.ref LIKE 'dispute:%:lost'))`;
 }
 
 /** Cash collected for an entity, net of refunds and of lost disputes. */

@@ -16,7 +16,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from clientbridge.services.business import business_tz
 from clientbridge.services.ledger import Leg
-from clientbridge.services.tax import TaxResult, rates_for_province
+from clientbridge.services.tax import TaxResult
 from tests.helpers import client_id, enable_payments, settle
 
 BIZ = "bz_birchbark"
@@ -111,6 +111,7 @@ async def _add_order(db: AsyncSession, *, subtotal: int) -> str:
             description="Retail",
             unit_amount_cents=subtotal,
             amount_cents=subtotal,
+            tax_amount_cents=subtotal * 12 // 100,
         )
     )
     await db.flush()
@@ -175,17 +176,6 @@ async def _new_payee(db: AsyncSession, *, name: str) -> str:
     db.add(staff)
     await db.flush()
     return staff.id
-
-
-def test_rates_for_province_derivation() -> None:
-    assert [(r.jurisdiction, r.rate_bps) for r in rates_for_province("BC")] == [
-        ("GST", 500),
-        ("PST", 700),
-    ]
-    assert [(r.jurisdiction, r.rate_bps) for r in rates_for_province("ON")] == [("HST", 1300)]
-    # a business with no province, or one outside the table, collects no tax (empty, not an error)
-    assert rates_for_province(None) == []
-    assert rates_for_province("ZZ") == []
 
 
 async def test_income_summary_nets_payments_and_refunds(

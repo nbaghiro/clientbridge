@@ -17,6 +17,7 @@ import {
     useStaffPay,
     useRemoveMember,
     useStaffPayForm,
+    useSeatCost,
     useTeam,
 } from "@clientbridge/app-core";
 import {
@@ -56,7 +57,15 @@ function roleOptions() {
     return INVITE_ROLES.map((r) => ({ key: r, label: roleLabel(r), hint: t.roleAccess[r] }));
 }
 
-function InviteDialog({ form, onClose }: { form: InviteTeammatesForm; onClose: () => void }) {
+function InviteDialog({
+    form,
+    seatCost,
+    onClose,
+}: {
+    form: InviteTeammatesForm;
+    seatCost: string;
+    onClose: () => void;
+}) {
     const first = form.sent[0];
     return (
         <Modal onClose={onClose} size="lg">
@@ -130,6 +139,7 @@ function InviteDialog({ form, onClose }: { form: InviteTeammatesForm; onClose: (
                             options={roleOptions()}
                         />
                     </div>
+                    {seatCost !== "" ? <Notice tone="info">{seatCost}</Notice> : null}
                     {form.error !== null ? (
                         <Notice tone="danger" banner>
                             {form.error}
@@ -487,6 +497,7 @@ export function Team() {
         api,
         team.members.map((m) => m.email ?? ""),
     );
+    const seatCost = useSeatCost(api, viewer?.role ?? null);
     const [inviting, setInviting] = useState(false);
     const [openId, setOpenId] = useState<string | null>(null);
     const open = team.members.find((m) => m.id === openId);
@@ -643,6 +654,7 @@ export function Team() {
             {inviting ? (
                 <InviteDialog
                     form={invite}
+                    seatCost={seatCost}
                     onClose={() => {
                         setInviting(false);
                         invite.reset();

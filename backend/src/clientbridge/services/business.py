@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -10,10 +11,80 @@ from clientbridge.core.errors import Conflict, Forbidden, NotFound, Unprocessabl
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.core.zones import SUPPORTED_ZONES, zone
-from clientbridge.integrations.stripe import ConnectAccount
-from clientbridge.models.business import Business, Staff, User
+from clientbridge.integrations.stripe import ConnectAccount, PostalAddress
+from clientbridge.models.business import Business, ProvinceCode, Staff, User
 from clientbridge.models.platform import File
 from clientbridge.schemas.business import BusinessSettingsUpdate, OnboardBody, public_email
+
+_POSTAL_CODE = re.compile(r"\b([A-Z]\d[A-Z])\s?(\d[A-Z]\d)\b", re.IGNORECASE)
+_COUNTRY = ("canada", "ca")
+# a unit or street line: a number, #, or a unit word, which a city name never starts with
+_UNIT = re.compile(r"(#|\d|(apt|apartment|app|appartement|unit|suite|bureau|ste)\b)", re.I)
+_PROVINCES: dict[str, ProvinceCode] = {
+    "alberta": "AB",
+    "british columbia": "BC",
+    "manitoba": "MB",
+    "new brunswick": "NB",
+    "newfoundland and labrador": "NL",
+    "nova scotia": "NS",
+    "northwest territories": "NT",
+    "nunavut": "NU",
+    "ontario": "ON",
+    "prince edward island": "PE",
+    "quebec": "QC",
+    "québec": "QC",
+    "saskatchewan": "SK",
+    "yukon": "YT",
+}
+
+
+def postal_address(business: Business) -> PostalAddress:
+    """The business's street address from its brand, or 422 naming what Terminal still needs."""
+    brand = business.brand or {}
+    raw = brand.get("address")
+    text = raw.strip() if isinstance(raw, str) else ""
+    codes = list(_POSTAL_CODE.finditer(text))
+    province = business.province
+    if not text or not codes or province is None:
+        raise Unprocessable(
+            "add the business street address, city, province and postal code in Business "
+            "settings before taking in-person card payments",
+            code="business_address_incomplete",
+        )
+    postal = codes[-1]
+    rest = f"{text[: postal.start()]},{text[postal.end() :]}"
+    parts = [p.strip() for p in re.split(r"[,\n]", rest) if p.strip()]
+    if parts and parts[-1].lower() in _COUNTRY:
+        parts.pop()
+    if parts:
+        named = parts[-1].rsplit(" ", 1)
+        tail = named[-1].upper()
+        whole = _PROVINCES.get(parts[-1].lower())
+        if whole is not None or tail in _PROVINCES.values():
+            if (whole or tail) != province:
+                raise Unprocessable(
+                    "the business address is in a different province than the business",
+                    code="business_address_incomplete",
+                )
+            if whole is None:
+                parts[-1] = named[0].strip() if len(named) > 1 else ""
+                parts = [p for p in parts if p]
+            elif len(parts) > 2 and not _UNIT.match(parts[-2]):
+                parts.pop()
+            # otherwise the full name is the city, as in "Apt 2, Québec" or "Rue X, Québec"
+    if len(parts) < 2:
+        raise Unprocessable(
+            "add the business street address, city, province and postal code in Business "
+            "settings before taking in-person card payments",
+            code="business_address_incomplete",
+        )
+    return PostalAddress(
+        line1=parts[0],
+        line2=", ".join(parts[1:-1]) or None,
+        city=parts[-1],
+        province=province,
+        postal_code=f"{postal.group(1)} {postal.group(2)}".upper(),
+    )
 
 
 async def business_tz(db: AsyncSession, business_id: str) -> ZoneInfo:
@@ -86,18 +157,29 @@ async def business_tax_registered(db: AsyncSession, business_id: str) -> bool:
 
 
 def derive_kyc_status(status: ConnectAccount) -> str:
-    """The provider-facing KYC state, derived from the Stripe account (the source of truth)."""
-    if status.disabled_reason is not None and status.disabled_reason.startswith("rejected"):
-        return "disabled"
-    if status.charges_enabled and not status.currently_due and not status.past_due:
+    """The KYC phase from the card_payments capability, per Stripe's v2 verification guide."""
+    if status.disabled_reason is not None:
+        return "disabled"  # closed, unsupported, or only Stripe support can lift it
+    if status.charges_enabled:
         return "enabled"
-    if not status.details_submitted:
-        return "not_started"  # account created, the provider hasn't finished the hosted flow
-    if status.currently_due or status.past_due:
-        return "restricted"  # Stripe needs more from the provider
-    if status.pending_verification:
-        return "pending"  # Stripe is reviewing
+    # an account that only pays for its plan has no card capability yet
+    if not status.details_submitted or status.card_status is None:
+        return "not_started"
+    if status.card_status == "pending":
+        return "pending"
+    if status.card_status == "restricted" or status.currently_due or status.past_due:
+        return "restricted"
     return "pending"
+
+
+def has_merchant(business: Business) -> bool:
+    """Whether the mirrored account can take payments, not only pay for its plan."""
+    return isinstance(business.stripe_requirements.get("card_status"), str)
+
+
+def merchant_account(business: Business) -> str | None:
+    """The account that takes the business's payments; None until it has the merchant config."""
+    return business.stripe_account_id if has_merchant(business) else None
 
 
 def kyc_status(business: Business) -> str:
@@ -114,12 +196,11 @@ def kyc_status(business: Business) -> str:
             id=business.stripe_account_id or "",
             charges_enabled=business.stripe_charges_enabled,
             payouts_enabled=business.stripe_payouts_enabled,
-            details_submitted=business.stripe_details_submitted,
             disabled_reason=reason if isinstance(reason, str) else None,
             currently_due=_due("currently_due"),
             eventually_due=_due("eventually_due"),
             past_due=_due("past_due"),
-            pending_verification=_due("pending_verification"),
+            card_status=card if isinstance(card := req.get("card_status"), str) else None,
         )
     )
 
@@ -128,13 +209,12 @@ def apply_account_status(business: Business, status: ConnectAccount) -> None:
     """Mirror the connected-account KYC state onto the business (Stripe = source of truth)."""
     business.stripe_charges_enabled = status.charges_enabled
     business.stripe_payouts_enabled = status.payouts_enabled
-    business.stripe_details_submitted = status.details_submitted
     business.stripe_requirements = {
         "currently_due": status.currently_due,
         "eventually_due": status.eventually_due,
         "past_due": status.past_due,
-        "pending_verification": status.pending_verification,
         "disabled_reason": status.disabled_reason,
+        "card_status": status.card_status,
         "current_deadline": status.current_deadline,
     }
 
@@ -215,6 +295,9 @@ class BusinessService:
                     merged.pop(key, None)
                 else:
                     merged[key] = value
+            if merged.get("address") != (business.brand or {}).get("address"):
+                # the Terminal location holds the old address; the next reader session mints one
+                business.stripe_terminal_location_id = None
             business.brand = merged
         await self.db.flush()
         await self.db.refresh(business)

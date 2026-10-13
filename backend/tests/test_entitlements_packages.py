@@ -346,3 +346,27 @@ async def test_consume_replays_on_the_same_key(
 async def test_writes_need_a_session_401(unauth: httpx.AsyncClient, path: str) -> None:
     body = {"client_id": CARD_CLIENT, "item_id": PKG_ITEM}
     assert (await unauth.post(path, json=body)).status_code == 401
+
+
+async def test_settlement_books_the_tax_charged_even_after_registration_changed(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    body = (
+        await as_owner.post(
+            "/v1/packages",
+            json={"client_id": CARD_CLIENT, "item_id": PKG_ITEM, "payment_method_id": "default"},
+        )
+    ).json()
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.tax_registered = False
+    await db.flush()
+    before = await ledger.balance(
+        db, BIZ, owner_type="business", owner_id=BIZ, category="tax", code="GST"
+    )
+    await settle(as_owner, db, body["payment_id"], "evt_pkg_unregistered")
+    after = await ledger.balance(
+        db, BIZ, owner_type="business", owner_id=BIZ, category="tax", code="GST"
+    )
+    assert abs(after - before) == PKG_TAXED - 20000

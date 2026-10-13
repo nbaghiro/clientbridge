@@ -110,6 +110,10 @@ def _builders() -> dict[str, Render]:
         ),
         "subscription_past_due_message": lambda c: n.subscription_past_due_message(c, NAME),
         "subscription_canceled_message": lambda c: n.subscription_canceled_message(c, NAME),
+        "trial_ending_message": lambda c: (
+            n.trial_ending_message(c, NAME, when(c), LINK, last_day=False)
+            + n.trial_ending_message(c, NAME, when(c), LINK, last_day=True)
+        ),
         "gift_card_issued_message": lambda c: n.gift_card_issued_message(
             c, NAME, amount(c), "GC-1"
         ),

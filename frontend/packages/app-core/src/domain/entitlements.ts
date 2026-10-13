@@ -30,7 +30,7 @@ import { useClients } from "./clients";
 import { ownedLiabilitySql, sessionsUsedSql } from "./ledger";
 import { checkoutMethods, useSavedCards } from "./payments";
 import { useReplicaLoad } from "./sync";
-import { useTaxSetup } from "./taxes";
+import { asTaxClass, useTaxSetup } from "./taxes";
 
 export interface PackageRow {
     id: string;
@@ -84,14 +84,13 @@ export interface SubscriptionRow {
     item_id: string;
     item_name: string | null;
     status: string;
-    current_period_start: string | null;
     current_period_end: string | null;
     payment_method_id: string | null;
 }
 
 export const CLIENT_SUBSCRIPTIONS_SQL = `
 SELECT s.id, s.client_id, s.item_id, i.name AS item_name, s.status,
-       s.current_period_start, s.current_period_end, s.payment_method_id
+       s.current_period_end, s.payment_method_id
 FROM subscriptions s LEFT JOIN items i ON i.id = s.item_id
 WHERE s.client_id = ? ORDER BY s.created_at DESC`;
 
@@ -629,7 +628,7 @@ export function useEntitlementSaleForm(
 ): EntitlementSaleForm {
     const catalog = useCatalogItems();
     const clients = useClients();
-    const tax = useTaxSetup(api);
+    const tax = useTaxSetup();
     const [kind, setKindState] = useState<WalletKind>(opts.kind ?? "package");
     const [itemId, setItemId] = useState("");
     const [amount, setAmount] = useState("50");
@@ -665,7 +664,7 @@ export function useEntitlementSaleForm(
     const priced = priceDoc(
         kind === "gift_card"
             ? []
-            : [{ amountCents: subtotal, taxClass: "standard", included: true }],
+            : [{ amountCents: subtotal, taxClass: asTaxClass(item?.tax_class), included: true }],
         docRates(tax.rates, tax.registered),
     );
     const total = subtotal + priced.taxCents;

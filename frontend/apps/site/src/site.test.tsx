@@ -129,3 +129,14 @@ describe("demo figures", () => {
         expect(tapToPay.tax).not.toContain("PST");
     });
 });
+
+describe("pricing", () => {
+    it("shows both plans with monthly, yearly and seat prices and the trial", () => {
+        const page = html.get("/pricing") ?? "";
+        for (const price of ["$49.99", "$499.90", "$99.99", "$999.90", "$10.00"])
+            expect(page).toContain(price);
+        expect(page).toContain("14-day free trial, no card needed");
+        expect(page).toContain("GST or HST, plus QST in Quebec");
+        expect(html.get("/") ?? "").toContain("$49.99");
+    });
+});

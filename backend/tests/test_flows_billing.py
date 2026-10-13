@@ -85,9 +85,7 @@ async def test_estimate_to_invoice_partial_pay_and_refund(
         business_id=BIZ,
         client_id=AMELIE,
         method="card",
-        provider="stripe",
         provider_ref="pm_flow",
-        status="active",
     )
     db.add(card)
     await db.flush()

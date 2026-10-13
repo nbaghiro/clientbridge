@@ -34,6 +34,7 @@ import {
     allocate,
     discountCents,
     docRates,
+    issuedTaxes,
     priceDoc,
 } from "./billing";
 import { utcBeforeSql, utcFromSql, utcSql } from "../datetime";
@@ -44,7 +45,7 @@ import { canManagePayments, creditNoteNumber, type SavedCardRow, savedCardLabel 
 import { discountReason, saleNumber } from "./printing";
 import { staffName } from "./staff";
 import { useReplicaLoad } from "./sync";
-import { type TaxRate, useTaxSetup } from "./taxes";
+import { asTaxClass, type DocRate, ratesOn, useTaxSetup } from "./taxes";
 
 interface CheckoutResult {
     order_id: string;
@@ -52,12 +53,28 @@ interface CheckoutResult {
     payment_id: string;
 }
 
-function requestConnectionToken(api: ApiLike): Promise<string> {
-    return api.post<{ secret: string }>("/v1/terminal/connection-token", {}).then((r) => r.secret);
+interface TerminalConnection {
+    tokenProvider: () => Promise<string>;
+    locationId: string | null;
 }
 
-export function useConnectionToken(api: ApiLike): () => Promise<string> {
-    return useCallback(() => requestConnectionToken(api), [api]);
+/** Null until the first connection token arrives with the business's Terminal location. */
+export function useTerminalConnection(api: ApiLike): TerminalConnection {
+    const [locationId, setLocationId] = useState<string | null>(null);
+    const tokenProvider = useCallback(
+        () =>
+            api
+                .post<{
+                    secret: string;
+                    location_id?: string | null;
+                }>("/v1/terminal/connection-token", {})
+                .then((r) => {
+                    if (r.location_id) setLocationId(r.location_id);
+                    return r.secret;
+                }),
+        [api],
+    );
+    return { tokenProvider, locationId };
 }
 
 // A paid online order moves unfulfilled -> ready -> picked_up; cancelling is a refund, not a status.
@@ -400,7 +417,7 @@ export function tipCentsFor(tip: TipChoice, subtotalCents: number): number {
 export function priceSale(
     lines: readonly SaleLine[],
     saleDiscount: SaleDiscount | null,
-    rates: readonly TaxRate[] | null,
+    rates: readonly DocRate[],
     registered: boolean,
     tip: TipChoice,
     depositCents = 0,
@@ -417,7 +434,7 @@ export function priceSale(
     const doc = priceDoc(
         lines.map((l, i) => ({
             amountCents: net[i] ?? 0,
-            taxClass: asSaleTaxClass(l.taxClass),
+            taxClass: asTaxClass(l.taxClass),
             included: true,
         })),
         docRates(rates, registered),
@@ -452,8 +469,43 @@ export function priceSale(
     };
 }
 
-function asSaleTaxClass(value: string): "standard" | "federal_only" | "exempt" {
-    return value === "federal_only" || value === "exempt" ? value : "standard";
+interface IssuedTotals {
+    subtotalCents: number;
+    taxCents: number;
+    totalCents: number;
+}
+
+/** A completed sale as issued: fixed line tax and journal tax by code, labelled at its own day's rates. */
+export function issuedSale(
+    lines: readonly (SaleLine & { taxAmountCents: number | null })[],
+    saleDiscount: SaleDiscount | null,
+    rates: readonly DocRate[],
+    tipCents: number,
+    journal: readonly { code: string; cents: number }[],
+    issued: IssuedTotals,
+): PricedSale {
+    const registered = lines.some((l) => (l.taxAmountCents ?? 0) > 0);
+    const priced = priceSale(lines, saleDiscount, rates, registered, {
+        kind: "custom",
+        cents: tipCents,
+    });
+    const taxes = issuedTaxes(priced.totals, journal);
+    const totalCents = issued.totalCents + tipCents;
+    return {
+        lines: priced.lines.map((l, i) => ({
+            ...l,
+            taxCents: lines[i]?.taxAmountCents ?? l.taxCents,
+        })),
+        totals: {
+            ...priced.totals,
+            subtotalCents: issued.subtotalCents,
+            taxes,
+            taxCents: issued.taxCents,
+            totalCents,
+            depositCents: 0,
+            dueCents: totalCents,
+        },
+    };
 }
 
 /** The DocTotals rows for a sale, top to bottom; discounts and the deposit print as credits. */
@@ -516,7 +568,7 @@ interface DiscountPreview {
 export function previewDiscount(
     lines: readonly SaleLine[],
     saleDiscount: SaleDiscount | null,
-    rates: readonly TaxRate[] | null,
+    rates: readonly DocRate[],
     registered: boolean,
     change: { scope: "sale" | "lines"; lineKeys: readonly string[]; discount: SaleDiscount | null },
     limitBps: number | null,
@@ -733,7 +785,7 @@ function saleBody(t: {
             unit_amount_cents: l.unitAmountCents,
             item_id: l.itemId,
             booking_id: l.bookingId,
-            tax_class: asSaleTaxClass(l.taxClass),
+            tax_class: asTaxClass(l.taxClass),
             staff_id: l.staffId,
             discount: l.discount,
         })),
@@ -789,7 +841,6 @@ export interface SaleTicket {
     savedCardLabel: string | null;
     totals: SaleTotals;
     totalLines: DocTotalLine[];
-    ratesReady: boolean;
     isEmpty: boolean;
     itemCount: number;
     clientId: string | null;
@@ -825,6 +876,8 @@ export interface SaleTicket {
     cashGiven: string;
     setCashGiven: (v: string) => void;
     changeCents: number | null;
+    // the tax rates have synced; until then the ticket can be built but not charged
+    ratesReady: boolean;
     canCharge: boolean;
     // Saves the ticket, then charges: cash at once, a card through `checkout`, Tap to Pay on a reader.
     charge: (m?: SalePayMethod) => void;
@@ -916,15 +969,15 @@ interface SaleClientRow {
 
 export const SALE_CLIENT_SQL = "SELECT id, name, email, phone FROM clients WHERE id = ?";
 export const SALE_CARDS_SQL = `
-SELECT id, client_id, method, brand, last4, preferred, mandate_status, status FROM payment_methods
-WHERE client_id = ? AND method = 'card' AND status = 'active' ORDER BY preferred DESC, created_at DESC`;
+SELECT id, client_id, method, brand, last4, preferred, mandate_status FROM payment_methods
+WHERE client_id = ? AND method = 'card' ORDER BY preferred DESC, created_at DESC`;
 
 /** The register: lines, discounts, tip, payment and receipt in one view-model for web and mobile. */
 export function useSale(
     api: ApiLike,
     opts: { role: string | null; viewerStaffId?: string | null; platform: "web" | "mobile" },
 ): SaleTicket {
-    const { rates, registered } = useTaxSetup(api);
+    const { rates, registered, ready: ratesReady } = useTaxSetup();
     const staffRows = useQuery<SaleStaffRow>(SALE_STAFF_SQL).data;
     const limitBps = useDiscountLimit(opts.role);
     const [lines, setLines] = useState<SaleLine[]>([]);
@@ -1097,7 +1150,6 @@ export function useSale(
         savedCardLabel: saved === null ? null : savedCardLabel(saved),
         totals: t,
         totalLines: saleTotalLines(t, { saleDiscountReason: saleDiscount?.reason ?? null }),
-        ratesReady: rates !== null,
         isEmpty: lines.length === 0,
         itemCount: lines.reduce((n, l) => n + l.quantity, 0),
         clientId,
@@ -1232,7 +1284,8 @@ export function useSale(
             setCashGivenState(v);
         },
         changeCents: cash === null ? null : cash - t.dueCents,
-        canCharge: lines.length > 0 && !overLimit && rates !== null,
+        ratesReady,
+        canCharge: lines.length > 0 && !overLimit && ratesReady,
         charge,
         checkout,
         terminal,
@@ -1854,7 +1907,7 @@ export function useSalesHistory(): SalesHistory {
 
 export const SALE_LINES_SQL = `
 SELECT l.id, l.item_id, l.description, l.quantity, l.unit_amount_cents, l.amount_cents, l.tax_class,
-       l.staff_id, l.booking_id, l.discount_kind, l.discount_value, l.discount_reason,
+       l.tax_amount_cents, l.staff_id, l.booking_id, l.discount_kind, l.discount_value, l.discount_reason,
        i.kind AS item_kind, i.color AS item_color,
        (SELECT f.id FROM files f WHERE f.parent_type = 'item' AND f.parent_id = l.item_id
           AND f.purpose = 'image' AND f.uploaded_at IS NOT NULL
@@ -1868,9 +1921,18 @@ SELECT p.id, p.kind, p.method, p.amount_cents, p.tip_cents, p.tip_split, p.statu
 FROM payments p WHERE p.order_id = ? AND p.status IN ('succeeded', 'pending')
 ORDER BY p.paid_at`;
 
+// a sale's tax is posted on the journal of each payment that settled it
+const SALE_TAX_BY_CODE_SQL = `
+SELECT a.code AS code, -SUM(e.amount_cents) AS cents
+FROM entries e JOIN accounts a ON a.id = e.account_id
+WHERE a.category = 'tax'
+  AND e.ref IN (SELECT 'payment:' || p.id FROM payments p WHERE p.order_id = ? AND p.kind = 'payment')
+GROUP BY a.code ORDER BY a.code`;
+
 export const SALE_RECORD_SQL = `
 SELECT o.id, o.number, o.client_id, c.name AS client_name, c.email AS client_email, c.phone AS client_phone,
-       o.source, o.pickup_status, o.created_at, o.total_cents, o.staff_id, o.note, o.approved_by,
+       o.source, o.pickup_status, o.created_at, o.subtotal_cents, o.tax_total_cents, o.total_cents,
+       o.staff_id, o.note, o.approved_by,
        o.discount_kind, o.discount_value, o.discount_reason, o.receipt_channel, o.receipt_email,
        o.receipt_phone, o.receipt_sent_at, ${orderStatusSql("o")} AS status
 FROM orders o LEFT JOIN clients c ON c.id = o.client_id WHERE o.id = ?`;
@@ -1885,6 +1947,8 @@ interface SaleRecordRow {
     source: string;
     pickup_status: string | null;
     created_at: string;
+    subtotal_cents: number | null;
+    tax_total_cents: number | null;
     total_cents: number;
     staff_id: string;
     note: string | null;
@@ -1907,6 +1971,7 @@ interface SaleLineRow {
     unit_amount_cents: number;
     amount_cents: number;
     tax_class: string;
+    tax_amount_cents: number | null;
     staff_id: string | null;
     booking_id: string | null;
     discount_kind: string | null;
@@ -1978,16 +2043,18 @@ interface SaleDetail {
 
 /** One sale with its maths, payments, tip shares and the actions its status allows. */
 export function useSaleDetail(
-    api: ApiLike,
     id: string | null,
     role: string | null,
 ): {
     load: Load;
     detail: SaleDetail | null;
 } {
-    const { rates, registered } = useTaxSetup(api);
+    const { province, rates, registered } = useTaxSetup();
     const zone = useBusinessZone();
     const staffRows = useQuery<SaleStaffRow>(SALE_STAFF_SQL).data;
+    const journal = useQuery<{ code: string; cents: number }>(SALE_TAX_BY_CODE_SQL, [
+        id ?? "",
+    ]).data;
     const record = useQuery<SaleRecordRow>(SALE_RECORD_SQL, [id ?? ""]);
     const lineRows = useQuery<SaleLineRow>(SALE_LINES_SQL, [id ?? ""]);
     const payRows = useQuery<SalePaymentRow>(SALE_PAYMENTS_SQL, [id ?? ""]);
@@ -2023,11 +2090,26 @@ export function useSaleDetail(
             row.discount_value,
             row.discount_reason,
         );
-        const priced = priceSale(lines, saleDiscount, rates, registered, {
-            kind: "custom",
-            cents: tip,
-        });
         const status = saleStatus({ status: row.status, refunded_cents: refunded });
+        const soldOn = dateKey(parseTimestamp(row.created_at), zone);
+        const priced =
+            status === "open"
+                ? priceSale(lines, saleDiscount, rates, registered, { kind: "custom", cents: tip })
+                : issuedSale(
+                      lines.map((l, i) => ({
+                          ...l,
+                          taxAmountCents: lineRows.data[i]?.tax_amount_cents ?? null,
+                      })),
+                      saleDiscount,
+                      ratesOn(province, soldOn),
+                      tip,
+                      journal,
+                      {
+                          subtotalCents: row.subtotal_cents ?? 0,
+                          taxCents: row.tax_total_cents ?? 0,
+                          totalCents: row.total_cents,
+                      },
+                  );
         const manager = role === "owner" || role === "admin";
         const lastPaid = [...pays].reverse().find((p) => p.kind === "payment") ?? null;
         const splits: { staff_id: string; cents: number }[] =
@@ -2113,7 +2195,18 @@ export function useSaleDetail(
                       ),
             actions,
         };
-    }, [row, lineRows.data, payRows.data, rates, registered, role, staffRows]);
+    }, [
+        row,
+        lineRows.data,
+        payRows.data,
+        rates,
+        registered,
+        province,
+        journal,
+        zone,
+        role,
+        staffRows,
+    ]);
     return { load: useReplicaLoad([record, lineRows, payRows], row === null), detail };
 }
 
@@ -2269,8 +2362,8 @@ export interface DiscountSheet {
 }
 
 /** Scope, amount and reason with a before and after preview; over the staff limit an owner's PIN is asked. */
-export function useDiscountSheet(api: ApiLike, sale: SaleTicket): DiscountSheet {
-    const { rates, registered } = useTaxSetup(api);
+export function useDiscountSheet(sale: SaleTicket): DiscountSheet {
+    const { rates, registered } = useTaxSetup();
     const [scope, setScopeState] = useState<"sale" | "lines">("sale");
     const [keys, setKeys] = useState<string[]>([]);
     const [pin, setPinState] = useState("");
