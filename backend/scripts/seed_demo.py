@@ -120,6 +120,11 @@ def seed_identity() -> tuple[str, str]:
             },
             billing_email="hello@birchbarkpets.ca",
             stripe_account_id="acct_demo_birchbark",
+            # the demo account is mid-onboarding: it can't charge yet, but it is a payments account
+            stripe_requirements={
+                "card_status": "restricted",
+                "currently_due": ["external_account"],
+            },
             status="active",
             plan="team",
             plan_status="active",

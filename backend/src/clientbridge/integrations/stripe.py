@@ -88,7 +88,6 @@ class ConnectAccount:
     pending_verification: list[str]
     card_status: str | None  # card_payments: active, pending, restricted, unsupported or rejected
     current_deadline: int | None = None  # unix time Stripe pauses payouts if currently_due stays
-    merchant: bool = True  # False for an account that so far only pays for its plan
 
 
 TERMS_REQUIREMENT = "identity.attestations.terms_of_service"
@@ -163,7 +162,6 @@ def account_status_from(account_id: str, data: dict[str, object]) -> ConnectAcco
         pending_verification=pending,
         card_status=card_status if isinstance(card_status, str) else None,
         current_deadline=_unix(deadline),
-        merchant=bool(_dict(data.get("configuration")).get("merchant")),
     )
 
 

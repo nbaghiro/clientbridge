@@ -105,7 +105,7 @@ async def _customer_only_account(db: AsyncSession, gateway: FakePaymentGateway) 
     await db.execute(
         update(Business)
         .where(Business.id == BIZ)
-        .values(stripe_account_id="acct_customer", stripe_requirements={"merchant": False})
+        .values(stripe_account_id="acct_customer", stripe_requirements={})
     )
     await db.flush()
 
@@ -120,7 +120,7 @@ async def test_onboard_adds_payments_to_an_account_that_only_pays_for_its_plan(
     assert gateway.created_accounts == [] and gateway.merchant_added == ["acct_customer"]
     biz = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
     assert biz.stripe_account_id == "acct_customer"
-    assert biz.stripe_requirements["merchant"] is True
+    assert biz.stripe_requirements["card_status"] == "restricted"
     audits = (await db.execute(select(Audit.action).where(Audit.entity_id == BIZ))).scalars()
     assert "connect.merchant_added" in set(audits)
     await as_owner.post("/v1/connect/onboard")
@@ -239,7 +239,7 @@ def test_open_terms_mean_onboarding_was_not_submitted() -> None:
 def test_an_account_without_the_merchant_configuration_has_not_started() -> None:
     data = _with(_account(), configuration={"customer": {"applied": True}}, requirements=None)
     status = account_status_from("acct_x", data)
-    assert status.merchant is False and status.details_submitted is True
+    assert status.card_status is None and status.details_submitted is True
     assert derive_kyc_status(status) == "not_started"
 
 
@@ -532,3 +532,20 @@ async def test_two_onboardings_at_once_create_one_account(db: AsyncSession) -> N
             await purge_businesses(session, [business.id], [user.id])
             await session.commit()
         await owner.dispose()
+
+
+async def test_an_account_never_mirrored_is_not_taken_for_a_payments_account(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(stripe_account_id="acct_unknown", stripe_requirements={})
+    )
+    body = (await as_owner.get("/v1/connect/status")).json()
+    assert (body["connected"], body["kyc_status"]) == (False, "not_started")
+    mirrored = {"card_status": "restricted", "currently_due": ["external_account"]}
+    await db.execute(
+        update(Business).where(Business.id == BIZ).values(stripe_requirements=mirrored)
+    )
+    assert (await as_owner.get("/v1/connect/status")).json()["connected"] is True

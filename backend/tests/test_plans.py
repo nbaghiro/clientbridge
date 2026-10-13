@@ -194,7 +194,7 @@ async def test_checkout_bills_a_new_customer_account_and_carries_the_trial(
     assert checkout.items[0] == PlanItem(f"{plan}_{interval}")
     assert all(item.lookup_key != "seat_month" for item in checkout.items) or plan == "premium"
     assert checkout.trial_end == business.trial_ends_at
-    assert business.stripe_requirements["merchant"] is False
+    assert business.stripe_requirements["card_status"] is None
     status = ok(await as_owner.get("/v1/connect/status")).json()
     assert (status["connected"], status["kyc_status"]) == (False, "not_started")
 

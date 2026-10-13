@@ -460,8 +460,9 @@ class FakePaymentGateway:
                 eventually_due=[],
                 past_due=[],
                 pending_verification=[],
-                card_status="restricted",
-                merchant="merchant" in self.configurations.get(account_id, {"merchant"}),
+                card_status="restricted"
+                if "merchant" in self.configurations.get(account_id, {"merchant"})
+                else None,
             )
         )
 
