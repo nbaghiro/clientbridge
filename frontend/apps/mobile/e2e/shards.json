@@ -2,18 +2,18 @@
     {
         "id": "a",
         "name": "auth, workday, sync",
-        "flows": ["06-staff-and-auth.yaml", "01-workday.yaml", "07-sync-startup.yaml"]
+        "flows": [
+            "06-staff-and-auth.yaml",
+            "01-workday.yaml",
+            "07-sync-startup.yaml",
+            "09-staff-pay-labels.yaml",
+            "08-estimate-shortcut.yaml"
+        ]
     },
     {
         "id": "b",
         "name": "setup, payments, recovery",
-        "flows": [
-            "02-setup.yaml",
-            "03-payments.yaml",
-            "09-staff-pay-labels.yaml",
-            "08-estimate-shortcut.yaml",
-            "11-recovery.yaml"
-        ]
+        "flows": ["02-setup.yaml", "03-payments.yaml", "11-recovery.yaml"]
     },
     {
         "id": "c",

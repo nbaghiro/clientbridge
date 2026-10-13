@@ -6,5 +6,6 @@ Reviews describe a particular source snapshot. Their findings and validation res
 |---|---|
 | Backend | [System review](backend/overview.md), [cross-cutting principles](backend/principles.md), [file inventory](backend/files.csv). |
 | Product surfaces | [Web and Connect](product/web-and-connect.md), [native mobile](product/mobile.md). |
+| CI | [Workflow, flakiness and timings, 2026-10-12](ci/2026-10-12-ci-review.md). |
 
 The backend findings are being addressed in the [backend hardening execution](../executions/backend-hardening/plan.md).

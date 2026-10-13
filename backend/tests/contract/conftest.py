@@ -1,4 +1,4 @@
-"""Contract tier: the real StripeGateway against stripe-mock; skipped unless it is running."""
+"""Contract tier: the real StripeGateway against stripe-mock; locally skipped when it is down."""
 
 import os
 import socket
@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 
 import pytest
 import stripe
+from tests.helpers import service_missing
 
 from clientbridge.integrations.stripe import StripeGateway
 
@@ -27,7 +28,7 @@ def _reachable(url: str) -> bool:
 @pytest.fixture
 def contract_gateway() -> Iterator[StripeGateway]:
     if not _reachable(_MOCK_URL):
-        pytest.skip(f"stripe-mock unreachable at {_MOCK_URL} — run `make stripe-mock`")
+        service_missing(f"stripe-mock unreachable at {_MOCK_URL}: run `make stripe-mock`")
     previous = stripe.api_base
     stripe.api_base = _MOCK_URL
     try:

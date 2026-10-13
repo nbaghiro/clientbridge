@@ -97,7 +97,7 @@ def _retry_after(header: str | None) -> float:
 
 
 class SmtpEmailSender:
-    """Dev transport: hands mail to the SMTP host in SMTP_URL (Mailpit under make dev-api)."""
+    """Dev transport: hands mail to the SMTP host in SMTP_URL (Mailpit by default when ENV=dev)."""
 
     def __init__(self, url: str, from_address: str) -> None:
         parts = urlsplit(url)

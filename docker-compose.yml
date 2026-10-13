@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54
+    image: postgres:16@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54
     command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=4"]
     environment:
       POSTGRES_USER: clientbridge
@@ -63,7 +63,7 @@ services:
       timeout: 3s
       retries: 20
 
-  # Catches the API's email in dev (SMTP_URL, set by `make dev-api`); the UI is on :8715.
+  # Catches the API's email in dev (the ENV=dev default for SMTP_URL); the UI is on :8715.
   mailpit:
     image: axllent/mailpit@sha256:b68349e3a014b90c5610bfb26b2ae36f3892d7b8cf25ee140c6c71c98d2fcf48
     ports: ["127.0.0.1:8715:8025", "127.0.0.1:8716:1025"]   # host 8715 → web UI and API, 8716 → SMTP
@@ -71,16 +71,16 @@ services:
   # Contract-test only (profile "test"): the official OpenAPI mock. `make stripe-mock` starts it;
   # the real StripeGateway runs against it to validate request/response shapes against the live spec.
   stripe-mock:
-    image: stripemock/stripe-mock:latest
+    image: stripemock/stripe-mock@sha256:a77358595cb30f2c7d48b42e8971f46456486e2cc04f6dc2465ca9057b48dd12
     profiles: ["test"]
     ports: ["8708:12111"]   # host 8708 → stripe-mock 12111 (http)
 
   redis:
-    image: redis:7
+    image: redis@sha256:4fa24486b8bcca8eec45ee0eb166edc674795e53a2b53d1a9ef263eecebaac85
     ports: ["8703:6379"]   # host 8703 → redis 6379
 
   s3:
-    image: rustfs/rustfs:latest   # S3-compatible; MinIO no longer publishes free images
+    image: rustfs/rustfs@sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c   # S3-compatible; MinIO no longer publishes free images
     environment:
       RUSTFS_ACCESS_KEY: rustfs
       RUSTFS_SECRET_KEY: rustfs-dev-secret

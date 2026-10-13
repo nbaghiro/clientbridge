@@ -4,6 +4,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 # One run per ref; a new push cancels a PR's in-flight run, while every main commit finishes.
 concurrency:
   group: ci-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.sha || 'latest' }}
@@ -12,9 +15,10 @@ concurrency:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
-        image: postgres:16
+        image: postgres:16@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54  # the docker-compose.yml pin
         env:
           POSTGRES_USER: clientbridge
           POSTGRES_PASSWORD: clientbridge
@@ -24,7 +28,7 @@ jobs:
           --health-cmd "pg_isready -U clientbridge" --health-interval 5s
           --health-timeout 3s --health-retries 15
       rustfs:
-        image: rustfs/rustfs:latest
+        image: rustfs/rustfs@sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c
         env:
           RUSTFS_ACCESS_KEY: rustfs
           RUSTFS_SECRET_KEY: rustfs-dev-secret
@@ -42,11 +46,10 @@ jobs:
       S3_ACCESS_KEY: rustfs
       S3_SECRET_KEY: rustfs-dev-secret
       S3_REGION: us-east-1
+      SMTP_URL: ""  # no Mailpit in this job, so mail goes to the console sender
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "3.14"
       - run: uv sync
         working-directory: backend
       - run: make format-check-backend lint-backend
@@ -87,9 +90,10 @@ jobs:
     # The Stripe contract tier: the real StripeGateway against the OpenAPI mock. Marker-gated out of
     # the default suite (they need the mock service), so they run as their own job here.
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     services:
       stripe-mock:
-        image: stripemock/stripe-mock:latest
+        image: stripemock/stripe-mock@sha256:a77358595cb30f2c7d48b42e8971f46456486e2cc04f6dc2465ca9057b48dd12
         ports: ["8708:12111"]
     defaults:
       run:
@@ -97,8 +101,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "3.14"
       - run: uv sync
       - name: wait for stripe-mock
         run: |
@@ -109,10 +111,11 @@ jobs:
             sleep 1
           done
           echo "stripe-mock did not become ready"; exit 1
-      - run: STRIPE_MOCK_URL=http://localhost:8708 uv run pytest -m contract -q
+      - run: uv run pytest -m contract -q
 
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -132,6 +135,7 @@ jobs:
     # The marketing site's browser pass over a fresh build: links, images, layout at phone width and
     # accessibility. Its copy rules and unit tests run in the frontend job.
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -151,9 +155,10 @@ jobs:
   connect:
     # Connect's client pages against the real API over a migrated, seeded Postgres.
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
-        image: postgres:16
+        image: postgres:16@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54  # the docker-compose.yml pin
         env:
           POSTGRES_USER: clientbridge
           POSTGRES_PASSWORD: clientbridge
@@ -163,7 +168,7 @@ jobs:
           --health-cmd "pg_isready -U clientbridge" --health-interval 5s
           --health-timeout 3s --health-retries 15
       rustfs:
-        image: rustfs/rustfs:latest
+        image: rustfs/rustfs@sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c
         env:
           RUSTFS_ACCESS_KEY: rustfs
           RUSTFS_SECRET_KEY: rustfs-dev-secret
@@ -181,11 +186,11 @@ jobs:
       S3_ACCESS_KEY: rustfs
       S3_SECRET_KEY: rustfs-dev-secret
       S3_REGION: us-east-1
+      SMTP_URL: ""  # no Mailpit in this job, so mail goes to the console sender
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.14"
           # the API still runs under uv run at the end, and the post step would wait on its cache lock
           enable-cache: false
       - run: uv sync
@@ -243,11 +248,10 @@ jobs:
     # The generated api-client + PowerSync client schema come from the backend — fail if either is
     # stale. (run `make gen-api` / `make gen-sync-schema` and commit the result.)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "3.14"
       - uses: pnpm/action-setup@v4
         with:
           version: 9
@@ -268,8 +272,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "3.14"
       - uses: pnpm/action-setup@v4
         with:
           version: 9
@@ -300,7 +302,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.14"
           # the API still runs under uv run at the end, and the post step would wait on its cache lock
           enable-cache: false
       - uses: pnpm/action-setup@v4
@@ -318,7 +319,7 @@ jobs:
       - run: pnpm --filter web exec playwright install --with-deps chromium
         working-directory: frontend
       - run: make up migrate seed
-      - run: SMTP_URL=smtp://localhost:8716 uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 > /tmp/api.log 2>&1 &  # 0.0.0.0: compose Kratos posts auth email here
+      - run: uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 > /tmp/api.log 2>&1 &  # 0.0.0.0: compose Kratos posts auth email here
         working-directory: backend
       - run: until curl -sf 127.0.0.1:8701/health; do sleep 1; done
         timeout-minutes: 2
@@ -338,6 +339,7 @@ jobs:
   shards:
     # Fails when a walkthrough is in no shard or in two, and hands the shard list to mobile-shard.
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       shards: ${{ steps.shards.outputs.shards }}
     steps:
@@ -381,7 +383,7 @@ jobs:
         run: |
           hash=$(node ../../node_modules/@expo/fingerprint/bin/cli.js fingerprint:generate --platform android \
             | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).hash))')
-          echo "key=apk-x86_64-$hash-${{ hashFiles('frontend/pnpm-lock.yaml') }}" >> "$GITHUB_OUTPUT"
+          echo "key=apk-x86_64-$hash" >> "$GITHUB_OUTPUT"
       - uses: actions/cache/restore@v4
         id: cached
         with:
@@ -399,6 +401,8 @@ jobs:
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
         if: steps.rebundle.outcome != 'success'
+        with:
+          cache-cleanup: on-success
       - name: build the release APK
         if: steps.rebundle.outcome != 'success'
         working-directory: frontend/apps/mobile
@@ -433,7 +437,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.14"
           # the API still runs under uv run at the end, and the post step would wait on its cache lock
           enable-cache: false
       - run: uv sync
@@ -441,13 +444,18 @@ jobs:
       - name: start the stack and the API
         run: |
           ( make up migrate seed && cd backend \
-            && SMTP_URL=smtp://localhost:8716 exec uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 ) > /tmp/api.log 2>&1 &  # 0.0.0.0: compose Kratos posts auth email here
+            && exec uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 ) > /tmp/api.log 2>&1 &  # 0.0.0.0: compose Kratos posts auth email here
       - name: enable KVM for the emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - run: curl -fsSL "https://get.maestro.mobile.dev" | bash
+      - name: install Maestro
+        env:
+          MAESTRO_VERSION: 2.11.0
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          "$HOME/.maestro/bin/maestro" --version
       - uses: actions/download-artifact@v4
         with:
           name: mobile-apk
@@ -456,46 +464,63 @@ jobs:
         run: |
           mkdir -p shard && cp -r e2e/helpers shard/
           for flow in ${{ join(matrix.shard.flows, ' ') }}; do cp "e2e/$flow" shard/; done
-      - uses: actions/cache@v4
-        id: avd
+      - name: clear the runner's own emulator
+        id: emulator
+        run: |
+          rm -rf /usr/local/lib/android/sdk/emulator
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo "key=$(frontend/apps/mobile/scripts/ci-emulator.sh key)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v4
+        id: android
+        with:
+          # the pinned emulator build, the system image and the AVD with its quick-boot snapshot
+          path: |
+            /usr/local/lib/android/sdk/emulator
+            /usr/local/lib/android/sdk/system-images/android-34/google_apis/x86_64
+            ~/.android/avd
+            ~/.android/adbkey*
+          key: ${{ steps.emulator.outputs.key }}
+      - name: install the emulator and save its snapshot
+        if: steps.android.outputs.cache-hit != 'true'
+        run: frontend/apps/mobile/scripts/ci-emulator.sh install
+      # saved before the walkthroughs, so it holds the clean snapshot; only main writes it, to keep within 10 GB
+      - uses: actions/cache/save@v4
+        if: steps.android.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
         with:
           path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: avd-34-x86_64-google_apis
-      - name: create the emulator snapshot
-        if: steps.avd.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          arch: x86_64
-          target: google_apis
-          force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          disable-animations: false
-          script: echo "snapshot saved"
-      - name: wait for the API
-        run: until curl -sf 127.0.0.1:8701/health; do sleep 2; done
-        timeout-minutes: 5
-      - uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          arch: x86_64
-          target: google_apis
-          force-avd-creation: false
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          disable-animations: true
-          script: |
-            adb install app-release.apk
-            cd frontend/apps/mobile && timeout 20m "$HOME/.maestro/bin/maestro" test shard --test-output-dir test-results
+            /usr/local/lib/android/sdk/emulator
+            /usr/local/lib/android/sdk/system-images/android-34/google_apis/x86_64
+            ~/.android/avd
+            ~/.android/adbkey*
+          key: ${{ steps.emulator.outputs.key }}
+      - name: run the walkthroughs
+        run: |
+          set -o pipefail
+          frontend/apps/mobile/scripts/ci-emulator.sh start
+          adb install app-release.apk
+          timeout 300 sh -c 'until curl -sf 127.0.0.1:8701/health; do sleep 2; done'
+          cd frontend/apps/mobile
+          timeout 20m "$HOME/.maestro/bin/maestro" test shard --test-output-dir test-results \
+            --debug-output test-results/debug | tee /tmp/maestro.log
+      - name: flag walkthroughs over three times their usual time
+        if: success() || failure()
+        run: frontend/apps/mobile/scripts/slow-flows.sh /tmp/maestro.log
+      - name: collect the logs
+        if: always()
+        run: |
+          mkdir -p frontend/apps/mobile/test-results
+          adb logcat -d -v threadtime > frontend/apps/mobile/test-results/logcat.txt || true
+          cp /tmp/emulator.log /tmp/api.log frontend/apps/mobile/test-results/ || true
       - uses: actions/upload-artifact@v4
-        if: failure() || cancelled()
+        if: always()
         with:
           name: mobile-walkthroughs-${{ matrix.shard.id }}
           path: frontend/apps/mobile/test-results
-          retention-days: 7
+          retention-days: 3
       - if: failure()
         run: |
+          tail -200 /tmp/emulator.log
+          tail -300 frontend/apps/mobile/test-results/logcat.txt
           cat /tmp/api.log
           docker compose logs --no-color kratos | tail -200
 
@@ -504,6 +529,7 @@ jobs:
     needs: [shards, mobile-build, mobile-shard]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - env:
           NEEDS: ${{ toJSON(needs) }}

@@ -31,7 +31,10 @@ export default defineConfig({
     ],
     webServer: [
         {
-            command: `pnpm exec vite --port ${String(port)} --strictPort`,
+            // CI tests the production bundle; locally the dev server keeps edits live
+            command: process.env.CI
+                ? `pnpm exec vite build && pnpm exec vite preview --port ${String(port)} --strictPort`
+                : `pnpm exec vite --port ${String(port)} --strictPort`,
             url: `http://localhost:${String(port)}/`,
             reuseExistingServer: !process.env.CI,
         },
