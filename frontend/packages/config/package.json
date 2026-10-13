@@ -11,7 +11,8 @@
         "./eslint": "./eslint.mjs",
         "./prettier": "./prettier.config.json",
         "./e2e/accessibility": "./e2e/accessibility.ts",
-        "./e2e/pseudo": "./e2e/pseudo.ts"
+        "./e2e/pseudo": "./e2e/pseudo.ts",
+        "./vitest/config": "./vitest/config.ts"
     },
     "dependencies": {
         "@axe-core/playwright": "^4.13.0",
@@ -25,6 +26,7 @@
     },
     "devDependencies": {
         "@playwright/test": "^1.63.0",
-        "@types/node": "^24.0.0"
+        "@types/node": "^24.0.0",
+        "vitest": "^5.0.3"
     }
 }

@@ -212,6 +212,21 @@ for (const file of tracked.filter((f) => /\.(ts|tsx|mjs|js|cjs)$/.test(f))) {
     }
 }
 
+// Browser and device suites run at real time against a seed built at real time, so dates stay relative.
+const E2E_FORMAT_FIXTURES = new Set(["packages/config/e2e/pseudo.ts"]);
+const DATE_LITERAL = /\b(19|20)\d{2}-\d{2}-\d{2}\b|new Date\((19|20)\d{2}|Date\.UTC\(/;
+for (const file of tracked.filter((f) => /(^|\/)e2e\/.*\.(ts|js|yaml)$/.test(f))) {
+    if (E2E_FORMAT_FIXTURES.has(file)) continue;
+    readFileSync(join(root, file), "utf8")
+        .split("\n")
+        .forEach((line, i) => {
+            if (DATE_LITERAL.test(line))
+                problems.push(
+                    `${file}:${String(i + 1)}: date literal in an e2e suite; derive it from today`,
+                );
+        });
+}
+
 const BASE = "tsconfig.base.json";
 const STRICT_FAMILY = [
     "alwaysStrict",

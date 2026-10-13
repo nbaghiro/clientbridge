@@ -44,6 +44,7 @@ import {
     savedCardLabel,
     setDefaultCard,
 } from "./payments";
+import { useNow } from "./bookings";
 import { useReplicaLoad } from "./sync";
 
 const s = strings.clients;
@@ -129,7 +130,7 @@ const fold = (v: string): string => v.normalize("NFD").replace(/[̀-ͯ]/g, "").t
 const nextVisitSql = (clientExpr: string): string => `(SELECT s.starts_at FROM bookings b
     JOIN slots s ON s.id = b.slot_id
     WHERE b.client_id = ${clientExpr} AND b.deleted_at IS NULL AND b.status IN ('pending', 'confirmed')
-      AND ${utcSql("s.ends_at")} > datetime('now')
+      AND ${utcSql("s.ends_at")} > datetime(?1)
     ORDER BY ${utcSql("s.starts_at")} LIMIT 1)`;
 
 const DIRECTORY_SELECT = `
@@ -144,7 +145,7 @@ FROM clients c`;
 
 export const CLIENT_DIRECTORY_SQL = `${DIRECTORY_SELECT} ORDER BY c.name COLLATE NOCASE`;
 
-export const CLIENT_SQL = `${DIRECTORY_SELECT} WHERE c.id = ?`;
+export const CLIENT_SQL = `${DIRECTORY_SELECT} WHERE c.id = ?2`;
 
 interface DirectoryRow {
     id: string;
@@ -229,7 +230,8 @@ interface ClientDirectory {
 
 /** The client list: Active and Archived, searched by name, phone, email, pet or tag. */
 export function useClientDirectory(): ClientDirectory {
-    const query = useQuery<DirectoryRow>(CLIENT_DIRECTORY_SQL);
+    const now = useNow().toISOString();
+    const query = useQuery<DirectoryRow>(CLIENT_DIRECTORY_SQL, [now]);
     const all = useMemo(() => query.data.map(toListRow), [query.data]);
     const load = useReplicaLoad([query], all.length === 0);
     const [segment, setSegment] = useState<ClientSegment>("active");
@@ -544,7 +546,8 @@ export function useClientRecord(
 ): { load: Load; record: ClientRecord | null } {
     const id = clientId ?? "";
     const earlier = useEarlierVisits(api, id);
-    const client = useQuery<DirectoryRow>(CLIENT_SQL, [id]);
+    const now = useNow().toISOString();
+    const client = useQuery<DirectoryRow>(CLIENT_SQL, [now, id]);
     const visits = useQuery<VisitRow>(CLIENT_VISITS_SQL, [id]);
     const subjects = useQuery<SubjectDbRow>(CLIENT_SUBJECTS_SQL, [id]);
     const notes = useQuery<NoteDbRow>(CLIENT_NOTES_SQL, [id, id]);

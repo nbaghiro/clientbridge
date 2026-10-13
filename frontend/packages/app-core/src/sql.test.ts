@@ -1556,8 +1556,8 @@ describe("app-core SQL against the replica schema", () => {
                 id: "ss_future",
                 item_id: "it_cut",
                 staff_id: "st_owner",
-                starts_at: "2099-01-05T09:00:00Z",
-                ends_at: "2099-01-05T10:00:00Z",
+                starts_at: "2026-11-05T17:00:00Z",
+                ends_at: "2026-11-05T18:00:00Z",
                 capacity: 1,
                 status: "scheduled",
             },
@@ -1611,18 +1611,23 @@ describe("app-core SQL against the replica schema", () => {
             '["vip","regular"]',
         ]);
 
-        const ann = run("CLIENT_SQL", ["cl_ann"])[0];
+        const ann = run("CLIENT_SQL", [new Date().toISOString(), "cl_ann"])[0];
         expect(
             pick([ann ?? {}], "pet_names", "next_visit_at", "tags", "preferred_channel"),
         ).toEqual([
             {
                 pet_names: "Rex",
-                next_visit_at: "2099-01-05T09:00:00Z",
+                next_visit_at: "2026-11-05T17:00:00Z",
                 tags: '["vip","regular"]',
                 preferred_channel: "email",
             },
         ]);
-        expect(run("CLIENT_DIRECTORY_SQL").map((r) => r.id)).toEqual(["cl_ann", "cl_ben"]);
+        const after = run("CLIENT_SQL", ["2026-11-05T18:00:01Z", "cl_ann"])[0];
+        expect(pick([after ?? {}], "next_visit_at")).toEqual([{ next_visit_at: null }]);
+        expect(run("CLIENT_DIRECTORY_SQL", [new Date().toISOString()]).map((r) => r.id)).toEqual([
+            "cl_ann",
+            "cl_ben",
+        ]);
         expect(run("CLIENT_VISITS_SQL", ["cl_ann"]).map((r) => r.id)).toEqual([
             "bk_future",
             "bk_1",
