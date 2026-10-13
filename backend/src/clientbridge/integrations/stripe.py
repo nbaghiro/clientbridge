@@ -1,5 +1,6 @@
 """Stripe Connect adapter: Accounts v2 merchants, direct charges with an application fee."""
 
+import hashlib
 import json
 import re
 import unicodedata
@@ -790,11 +791,15 @@ class StripeGateway:
         sub = await stripe.Subscription.retrieve_async(subscription_id)
         prices = await self._prices([item.lookup_key for item in items])
         changes = plan_item_changes(sub.to_dict(), items, prices)
+        if not changes:
+            return plan_subscription_from(sub.to_dict())
+        # the body comes from a fresh read, so a reused key must not replay a different change
+        digest = hashlib.sha256(json.dumps(changes, sort_keys=True).encode()).hexdigest()[:16]
         updated = await stripe.Subscription.modify_async(
             subscription_id,
             items=cast(list[SubscriptionModifyParamsItem], changes),
             proration_behavior="create_prorations",
-            idempotency_key=idempotency_key,
+            idempotency_key=f"{idempotency_key}:{digest}",
         )
         return plan_subscription_from(updated.to_dict())
 

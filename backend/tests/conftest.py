@@ -329,6 +329,7 @@ class FakePaymentGateway:
         self.portal_sessions: list[str] = []
         self.plan_subscriptions: dict[str, PlanSubscription] = {}
         self.plan_item_keys: list[str] = []
+        self._plan_changes: dict[str, PlanSubscription] = {}  # honor plan change idempotency keys
         self.detached: list[str] = []
         self.refunds: list[tuple[str, int, bool]] = []
         self.created_prices: list[str] = []
@@ -409,10 +410,13 @@ class FakePaymentGateway:
     async def set_plan_items(
         self, subscription_id: str, *, items: Sequence[PlanItem], idempotency_key: str
     ) -> PlanSubscription:
+        if idempotency_key in self._plan_changes:
+            return self._plan_changes[idempotency_key]
         self.plan_item_keys.append(idempotency_key)
         current = self.plan_subscriptions[subscription_id]
         updated = replace(current, items=subscribed(*items))
         self.plan_subscriptions[subscription_id] = updated
+        self._plan_changes[idempotency_key] = updated
         return updated
 
     async def create_account_link(

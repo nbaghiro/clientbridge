@@ -249,7 +249,7 @@ async def test_plan_change_swaps_the_price_and_drops_the_seat_item(
         {"price": "price_team_month", "quantity": 1},
     ]
     assert captured["proration_behavior"] == "create_prorations"
-    assert captured["idempotency_key"] == "plan-change-1"
+    assert str(captured["idempotency_key"]).startswith("plan-change-1:")
     assert [(i.product, i.interval) for i in result.items] == [("clientbridge_team", "month")]
     fetched = await gateway.get_plan_subscription("sub_plan")
     assert [(i.product, i.quantity) for i in fetched.items] == [
@@ -344,3 +344,28 @@ def test_a_subscriber_keeps_their_plan_item_after_its_lookup_key_moves() -> None
         {"id": "si_seat", "deleted": True},
         {"price": "price_new_premium_year", "quantity": 1},
     ]
+
+
+async def test_plan_items_already_in_place_send_nothing_and_changes_key_on_their_body(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch, prices: dict[str, list[str]]
+) -> None:
+    current = _subscription(("si_plan", "premium_month", 1), ("si_seat", "seat_month", 3))
+    sent: list[dict[str, object]] = []
+
+    async def retrieve(subscription_id: str, **params: object) -> stripe.Subscription:
+        return stripe.Subscription.construct_from(current, "sk")
+
+    async def modify(subscription_id: str, **params: object) -> stripe.Subscription:
+        sent.append(params)
+        return stripe.Subscription.construct_from(current, "sk")
+
+    monkeypatch.setattr(stripe.Subscription, "retrieve_async", retrieve)
+    monkeypatch.setattr(stripe.Subscription, "modify_async", modify)
+    same = [PlanItem("premium_month"), PlanItem("seat_month", 3)]
+    await gateway.set_plan_items("sub_plan", items=same, idempotency_key="seats")
+    assert sent == []
+    for seats in (4, 5):
+        more = [PlanItem("premium_month"), PlanItem("seat_month", seats)]
+        await gateway.set_plan_items("sub_plan", items=more, idempotency_key="seats")
+    first, second = (str(params["idempotency_key"]) for params in sent)
+    assert first.startswith("seats:") and second.startswith("seats:") and first != second

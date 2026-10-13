@@ -169,3 +169,14 @@ async def test_an_expired_invite_drops_out_at_the_daily_sync(
     keys = len(gateway.plan_item_keys)
     assert await run_sync_seats(db, gateway, datetime.now(UTC)) == 1
     assert len(gateway.plan_item_keys) == keys  # already at the count: nothing to change
+
+
+async def test_the_fake_replays_a_repeated_seat_key(
+    db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _premium(db, gateway, 2)
+    wanted = [PlanItem("premium_month"), PlanItem("seat_month", 5)]
+    first = await gateway.set_plan_items(SUB, items=wanted, idempotency_key="k")
+    again = [PlanItem("premium_month"), PlanItem("seat_month", 9)]
+    assert await gateway.set_plan_items(SUB, items=again, idempotency_key="k") == first
+    assert _billed(gateway) == 5
