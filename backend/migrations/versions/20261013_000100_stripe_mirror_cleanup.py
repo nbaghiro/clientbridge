@@ -45,7 +45,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    _refuse_if_rows("webhooks", "payload IS NULL")
+    op.execute("UPDATE webhooks SET payload = '{}'::jsonb WHERE payload IS NULL")
     op.alter_column(
         "webhooks", "payload", existing_type=postgresql.JSONB(astext_type=sa.Text()), nullable=False
     )
