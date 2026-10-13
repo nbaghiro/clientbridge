@@ -33,6 +33,42 @@ Each environment uses its base domain `D`: `clientbridge.ca` in production and `
 | `api.D`  | API, `/webhooks/*` and Kratos (`/self-service/*`, `/sessions/*`) | Kratos's admin API stays inside the cluster behind a NetworkPolicy.              |
 | `sync.D` | PowerSync                                                        | The Gateway backend policy keeps streaming connections open for an hour.         |
 
+## Layout
+
+`infra/` holds only the configs of the third-party services we run and the cloud program. Each config exists once and is used locally, in CI and in the cluster; only environment variables differ.
+
+```
+infra/
+├── kratos/                  kratos.yml, identity.schema.json, courier.jsonnet,
+│                            oidc.google.jsonnet, standalone.sh (backend Kratos tests)
+├── powersync/               powersync.yaml, sync-rules.yaml (also copied into the backend image),
+│                            verification/ (the stack make test-sync runs against)
+└── pulumi/
+    ├── Pulumi.yaml · Pulumi.main.yaml · pyproject.toml
+    ├── __main__.py          wires cloud/ and kubernetes/ together, nothing else
+    ├── environments.py      prod and staging: base domain, namespace, replicas, requests, Spot
+    ├── cloud/               network, cluster, identity, registry, database, storage,
+    │                        secrets, dns, certificates, observability
+    └── kubernetes/          namespace, settings (env vars for every backend container), sidecar
+                             (Cloud SQL Auth Proxy), api, worker, migrate, kratos, powersync,
+                             web, redis, gateway
+```
+
+Outside `infra/`: `backend/Dockerfile`, `frontend/Dockerfile` with `frontend/Caddyfile` (the web image's server config lives with the web image), `frontend/apps/mobile/eas.json`, `.github/workflows/deploy.yml`, and `docker-compose.yml`, whose digest pins for Kratos, PowerSync, Redis, the Auth Proxy and Postgres are also read by Pulumi, so local runs and the cluster run the same versions from one source.
+
+Kubernetes objects are defined in Python under `kubernetes/` and applied by Pulumi, not kept as YAML applied by another tool. Cloud values (service account emails, the database connection name, image digests, the base domain) pass straight into each object, `pulumi preview` shows the diff of every object before a deploy, and pyright checks them. This avoids the two problems flowmaestro has from applying kustomize with `kubectl` outside Pulumi: values fixed by hand that each apply resets, and deploys that do not wait for migrations or rollouts.
+
+### One Dockerfile for local runs and the cluster
+
+Each Dockerfile has stages: `base` installs dependencies, `dev` runs from mounted source with reload, and `prod` bakes in the source and runs as a non-root user. The worker and the migrate Job run the backend `prod` image with a different command, so there are two images in total. The web Dockerfile builds the web, Connect and site bundles in one stage and copies them into Caddy with `frontend/Caddyfile`.
+
+| Where                             | What runs                                                                                                  |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Daily development                 | Native processes with hot reload, as today (`make dev-api`, `dev-web`)                                     |
+| `docker compose --profile app up` | The `prod` images against the local Postgres, Kratos, PowerSync and storage, the way the cluster runs them |
+| CI e2e jobs                       | The images CI just built, so the tests exercise what gets deployed                                         |
+| Staging and production            | The same images by digest, promoted from staging to production unchanged                                   |
+
 ## Architecture and cost choices
 
 Each part lists what we run now and, after it, the scaled configuration and when we move to it.
@@ -48,16 +84,16 @@ One regional Autopilot cluster on the regular release channel, with Workload Ide
 
 Pods use Autopilot's small minimums and burst above their requests into spare capacity, so requests are set to steady use, not peaks. Production runs on regular pods; staging runs entirely on Spot pods.
 
-| Workload             | Production now                                                                                                                    | Staging now                            | Scaled                                                                                                                       |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `api`                | 1 replica, 0.5 vCPU and 1 GiB requested; rolling updates surge one new pod before the old one stops, so deploys have no downtime  | 1 replica, Spot, 0.25 vCPU and 0.5 GiB | 2 or more replicas with an HPA on CPU and a PodDisruptionBudget, once one pod is busy or a node move must not drop requests. |
-| `worker`             | 1 replica on Spot pods, 0.25 vCPU and 0.5 GiB; safe because each job commits after every send, so a preempted run resends nothing | Same, Spot                             | Regular pods if Spot preemptions delay jobs noticeably. The cron schedule keeps one worker replica.                          |
-| `migrate`            | A Job before each rollout: `db_access roles`, `alembic upgrade head`, `db_access grants`, `kratos migrate`                        | Same                                   | Unchanged.                                                                                                                   |
-| `kratos`             | 1 replica, 0.1 vCPU and 256 MiB                                                                                                   | 1 replica, Spot                        | 2 replicas with a PodDisruptionBudget.                                                                                       |
-| `powersync`          | 1 pod running replication and the sync API, 0.25 vCPU and 768 MiB                                                                 | 1 pod, Spot                            | Replication as one pod and the sync API as its own Deployment with an HPA, when many devices stream at once.                 |
-| `web`                | 1 Caddy pod serving the web, Connect and site builds, 0.1 vCPU and 256 MiB; a runtime `config.js` carries the base domain         | 1 pod, Spot                            | Static files in Cloud Storage behind Cloud CDN when site traffic grows.                                                      |
-| `redis`              | 1 pod, queue only, no persistence, 0.05 vCPU and 128 MiB                                                                          | 1 pod, Spot                            | Memorystore Basic when the queue must survive a pod restart, then Standard for failover.                                     |
-| Cloud SQL Auth Proxy | Native sidecar in each pod that reaches the database, 0.05 vCPU and 128 MiB                                                       | Same                                   | Unchanged.                                                                                                                   |
+| Workload             | Production now                                                                                                                            | Staging now                            | Scaled                                                                                                                       |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `api`                | 1 replica, 0.5 vCPU and 1 GiB requested; rolling updates surge one new pod before the old one stops, so deploys have no downtime          | 1 replica, Spot, 0.25 vCPU and 0.5 GiB | 2 or more replicas with an HPA on CPU and a PodDisruptionBudget, once one pod is busy or a node move must not drop requests. |
+| `worker`             | 1 replica on Spot pods, 0.25 vCPU and 0.5 GiB; safe because each job commits after every send, so a preempted run resends nothing         | Same, Spot                             | Regular pods if Spot preemptions delay jobs noticeably. The cron schedule keeps one worker replica.                          |
+| `migrate`            | A Job before each rollout: `db_access roles`, `alembic upgrade head`, `db_access grants`, `kratos migrate`                                | Same                                   | Unchanged.                                                                                                                   |
+| `kratos`             | 1 replica, 0.1 vCPU and 256 MiB                                                                                                           | 1 replica, Spot                        | 2 replicas with a PodDisruptionBudget.                                                                                       |
+| `powersync`          | 1 pod running replication and the sync API, 0.25 vCPU and 768 MiB                                                                         | 1 pod, Spot                            | Replication as one pod and the sync API as its own Deployment with an HPA, when many devices stream at once.                 |
+| `web`                | 1 Caddy pod (the web image) serving the web, Connect and site builds, 0.1 vCPU and 256 MiB; a runtime `config.js` carries the base domain | 1 pod, Spot                            | Static files in Cloud Storage behind Cloud CDN when site traffic grows.                                                      |
+| `redis`              | 1 pod, queue only, no persistence, 0.05 vCPU and 128 MiB                                                                                  | 1 pod, Spot                            | Memorystore Basic when the queue must survive a pod restart, then Standard for failover.                                     |
+| Cloud SQL Auth Proxy | Native sidecar in each pod that reaches the database, 0.05 vCPU and 128 MiB                                                               | Same                                   | Unchanged.                                                                                                                   |
 
 ### Database
 
@@ -120,12 +156,12 @@ One-year committed-use discounts on Autopilot and Cloud SQL, bought after a stea
 
 ## Code changes needed first
 
-1. Dockerfiles for the backend and web images, the production server command and `infra/powersync/sync-rules.yaml` copied into the backend image, since the grants step reads it.
+1. Staged Dockerfiles for the backend and web images (`base`, `dev`, `prod`), the production server command, `infra/powersync/sync-rules.yaml` copied into the backend image since the grants step reads it, and an `app` profile in `docker-compose.yml` that runs both images locally.
 2. A readiness endpoint that checks the database and Redis (`/health` in `main.py` checks nothing today), a JSON logging config, and the worker pinned to UTC.
 3. One `BASE_DOMAIN` setting that derives every URL (`WEB_BASE_URL`, `CORS_ALLOW_ORIGINS`, Connect, Pay, Shop, Kratos, PowerSync, the OAuth callback and the WebAuthn RP ID), a runtime `config.js` for the web image so the same image runs in both environments, and the catalog's `clientbridge.ca/` slug prefix passed in as an argument.
 4. The production startup check in `core/config.py` also requires `STRIPE_SECRET_KEY`, `S3_*`, `REDIS_URL`, `DATABASE_URL` and the derived URLs, and checks that they agree with `BASE_DOMAIN`.
 5. A trusted-hop setting for `X-Forwarded-For` in `core/ratelimit.py`, used by the rate limiter and the contract signer IP.
-6. Templated Kratos and PowerSync configs: Kratos without `--dev`, its public URL under `api.D`, a `__Host-` session cookie, the RP ID and the courier hook over the cluster network; PowerSync with RS256 and `jwks_uri` pointing at `/sync/keys`.
+6. Kratos and PowerSync production values set through environment variables over the existing `infra/kratos` and `infra/powersync` files, with no separate templates: Kratos without `--dev`, its public URL under `api.D`, a `__Host-` session cookie, the RP ID and the courier hook over the cluster network; PowerSync with RS256 and `jwks_uri` pointing at `/sync/keys`.
 7. `scripts/db_access.py` working on Cloud SQL, whose `postgres` user is not a superuser: grant the app roles to it before ownership changes, and create the publication as the migrator.
 8. Stripe payment method domains registered for `book.`, `pay.` and `shop.`.
 
