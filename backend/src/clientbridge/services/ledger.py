@@ -553,9 +553,13 @@ async def _package_tax(db: AsyncSession, payment: Payment, item: Item | None) ->
     biz, amount, sold = payment.business_id, payment.amount_cents, payment.created_at
     tax_class = item.tax_class if item is not None else "standard"
     if item is not None:
-        priced = await tax_for_amount(db, biz, item.price_cents, tax_class=tax_class, at=sold)
-        if priced.total_cents == amount:
-            return priced
+        # registration may have changed since the sale, so match the price as either
+        for registered in (True, False):
+            priced = await tax_for_amount(
+                db, biz, item.price_cents, tax_class=tax_class, at=sold, registered=registered
+            )
+            if priced.total_cents == amount:
+                return priced
     return await tax_within(db, biz, amount, tax_class=tax_class, at=sold)
 
 

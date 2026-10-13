@@ -206,10 +206,15 @@ async def tax_for_amount(
     *,
     tax_class: str = "standard",
     at: datetime | None = None,
+    registered: bool | None = None,
 ) -> TaxResult:
     """Tax for a single taxable amount, through the line engine."""
     return await tax_breakdown(
-        db, business_id, [Line(amount_cents=amount_cents, tax_class=tax_class)], at
+        db,
+        business_id,
+        [Line(amount_cents=amount_cents, tax_class=tax_class)],
+        at,
+        registered=registered,
     )
 
 
@@ -234,13 +239,20 @@ async def tax_within(
 
 
 async def tax_breakdown(
-    db: AsyncSession, business_id: str, lines: list[Line], at: datetime | None = None
+    db: AsyncSession,
+    business_id: str,
+    lines: list[Line],
+    at: datetime | None = None,
+    *,
+    registered: bool | None = None,
 ) -> TaxResult:
     """The tax engine's result for these lines, without writing anything back."""
     return compute_tax(
         [TaxLine(amount_cents=ln.amount_cents, tax_class=ln.tax_class) for ln in lines],
         await _components(db, business_id, at),
-        registered=await business_tax_registered(db, business_id),
+        registered=await business_tax_registered(db, business_id)
+        if registered is None
+        else registered,
     )
 
 
