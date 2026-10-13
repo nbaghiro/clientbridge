@@ -19,7 +19,7 @@ The provider apps share behavior through `@clientbridge/app-core` and render it 
 | Money               | [Ledger](../../../backend/src/clientbridge/services/ledger.py), [frontend derivations](../../../frontend/packages/app-core/src/domain/ledger.ts)                                  | Invoice balances, order status, liabilities, commissions, fees, and payouts derive from accounts and entries. Money uses integer cents.                                     |
 | Background work     | [Worker schedule](../../../backend/src/clientbridge/tasks/worker.py)                                                                                                        | Reminders, unpaid-booking expiry, broadcasts, overdue notices, entitlement expiry, device pruning, reconciliation, reviews, and intake forms run outside the UI.            |
 
-Only regular `hours` rows are currently writable through [sync upload](../../../backend/src/clientbridge/sync/upload.py). Exception hours are command-only. Form editors and contract publishing use HTTP commands; older architecture prose describing those as direct SQLite writes is stale. Local preferences such as notification read state are device-local.
+Only regular `hours` rows are currently writable through sync upload (`backend/src/clientbridge/sync/upload.py`, no longer in the repository). Exception hours are command-only. Form editors and contract publishing use HTTP commands; older architecture prose describing those as direct SQLite writes is stale. Local preferences such as notification read state are device-local.
 
 Offline reads and queued regular-hours edits are implemented. This does not imply offline booking creation, checkout, or other server commands. Loading/error/retry presentation is composed through `useLoad`, `useReplicaLoad`, `Loaded`, `Skeleton`, and `LoadFailed`.
 
@@ -241,7 +241,7 @@ The site's product mockups are purpose-built components under `src/mocks`, fed b
 
 ## Component playground
 
-[Playground stories](../../../frontend/apps/playground/src/stories) cover 65 component files. [Routes](../../../frontend/apps/playground/src/routes.ts) support a gallery, component/example links, web/native comparison, iPhone/Android frames and themes. Controls expose selected props; examples include import/code snippets. Native previews use React Native Web, including Stripe substitutes where a native API cannot run in a browser.
+Playground stories (`frontend/apps/playground/src/stories`, no longer in the repository) cover 65 component files. Routes (`frontend/apps/playground/src/routes.ts`, no longer in the repository) support a gallery, component/example links, web/native comparison, iPhone/Android frames and themes. Controls expose selected props; examples include import/code snippets. Native previews use React Native Web, including Stripe substitutes where a native API cannot run in a browser.
 
 The catalogue spans actions and form controls; navigation and layout; loading/empty/error/sync states; list/detail/data displays; calendar/time selection; messaging/reviews; and payment/document/signature components. Each story uses a shared kit to render equivalent examples through web and native implementations. Existing uncommitted component/playground work is part of the working tree inspected here.
 

@@ -2,20 +2,20 @@
 
 Keep the root for the main, maintained documentation. Reviews, explorations and execution records belong in the folders below.
 
-| Main document | Purpose |
-|---|---|
-| [Architecture](architecture.md) | System, data model, synchronization, authorization and client architecture. |
-| [Engineering](engineering.md) | Development conventions, testing, local setup and shipping workflow. |
-| [Launch readiness](launch-readiness.md) | Product scope, launch work and deferred capabilities. |
+| Main document                           | Purpose                                                                     |
+| --------------------------------------- | --------------------------------------------------------------------------- |
+| [Architecture](architecture.md)         | System, data model, synchronization, authorization and client architecture. |
+| [Engineering](engineering.md)           | Development conventions, testing, local setup and shipping workflow.        |
+| [Launch readiness](launch-readiness.md) | Product scope, launch work and deferred capabilities.                       |
 
 ## Supporting documentation
 
-| Folder | Contents |
-|---|---|
-| [Design](design/app-explorer.html) | Design system, information architecture and visual references. |
-| [Reviews](reviews/README.md) | Dated findings and implementation inventories; evidence of the system at the reviewed snapshot. |
-| [Explorations](explorations/README.md) | Investigations, experiments and proposals that are not yet the maintained architecture. |
-| [Executions](executions/README.md) | One folder per execution that is planned or in progress, with its plan, task state and progress. |
+| Folder                                 | Contents                                                                                         |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| [Design](design/app-explorer.html)     | Design system, information architecture and visual references.                                   |
+| [Reviews](reviews/README.md)           | Dated findings and implementation inventories; evidence of the system at the reviewed snapshot.  |
+| [Explorations](explorations/README.md) | Investigations, experiments and proposals that are not yet the maintained architecture.          |
+| [Executions](executions/README.md)     | One folder per execution that is planned or in progress, with its plan, task state and progress. |
 
 ## Placement rules
 
@@ -25,4 +25,4 @@ Keep the root for the main, maintained documentation. Reviews, explorations and 
 - Keep generated logs, temporary snapshots, downloaded references and local test artifacts in `.scratchpad/`. Link durable summaries to their evidence instead of copying every log into documentation.
 - Update relative links when moving files. When an execution is implemented, move what still matters into the main docs and delete its folder; do the same for a review once its findings are resolved.
 
-Current execution: [backend hardening](executions/backend-hardening/plan.md), [progress](executions/backend-hardening/progress.md).
+Current executions are listed in [executions/README.md](executions/README.md).

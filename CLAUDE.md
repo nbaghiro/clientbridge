@@ -48,7 +48,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   before its FK-dependent children**.
 - External services = an **adapter interface + `get_*` dependency** (e.g. `EmailSender`, `OAuthVerifier`);
   prod implements it, tests override with a recording fake.
-- Server-only tables (`sessions`, `tokens`, `commands`, `webhooks`, `audits`) are **not** in `sync-rules.yaml` → excluded from the client AppSchema.
+- Server-only tables (`users`, `commands`, `webhooks`, `audits`, `devices`, `sync_receipts`, `payment_setup_links`, `returning_challenges`) are **not** in `sync-rules.yaml` → excluded from the client AppSchema.
 - Sync config is edition 3 Sync Streams. Tables that grow with time (messages, slots, bookings) sync through
   the `history_*` streams for a window of months and need a timestamp column of their own; older rows come
   from keyset-paged `GET` reads. Money tables sync in full. Review `tests/fixtures/sync_projections.json`

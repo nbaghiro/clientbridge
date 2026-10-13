@@ -1,7 +1,7 @@
 # Clientbridge — Engineering
 
 **How we build it**: the quality gate, testing, the shipping method, and the day-to-day conventions. For
-*how it works* see [architecture.md](architecture.md); for *what's left* see [launch-readiness.md](launch-readiness.md).
+_how it works_ see [architecture.md](architecture.md); for _what's left_ see [launch-readiness.md](launch-readiness.md).
 
 ---
 
@@ -11,6 +11,7 @@ Both stacks enforce **4-space indent · double quotes · semicolons (JS) · stri
 type safety.**
 
 ### Backend (Python)
+
 - **ruff** (`backend/ruff.toml`) — format 4-space/double-quote/100-col; lint `E F I UP B SIM TID ANN RUF`.
   **`ANN401` bans explicit `Any`** in signatures; `ANN` requires full annotations, tests included. The one
   per-file ignore is `E501` in `migrations/`, for long SQL text in applied migrations, which are not
@@ -35,6 +36,7 @@ type safety.**
   such as the real Stripe gateway, shows as uncovered rather than excluded; the contract job runs it.
 
 ### Frontend (TypeScript)
+
 - **prettier** (`packages/config/prettier.config.json`) — `tabWidth:4`, `semi:true`, `singleQuote:false`,
   `printWidth:100`, trailing commas all.
 - **eslint** (`packages/config/eslint.mjs`) — `strictTypeChecked` + `stylisticTypeChecked`
@@ -67,13 +69,14 @@ type safety.**
   `packages/config/suppressions.test.mjs` checks each form. Assert a type error in a test with vitest's
   `expectTypeOf` instead.
 - **tsconfig** (`tsconfig.base.json`) — `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`
-  + `noUnusedLocals/Parameters` + `noImplicitReturns/Override` + `noFallthroughCasesInSwitch` +
-  `verbatimModuleSyntax`. `check-structure.mjs` fails if the base drops `strict` or one of those checks,
-  if any tracked tsconfig sets a strict-family flag (`noImplicitAny`, `strictNullChecks` and the rest) or
-  one of those checks to `false`, if a tsconfig does not extend `tsconfig.base.json`, or if one sets
-  `exclude`.
+  - `noUnusedLocals/Parameters` + `noImplicitReturns/Override` + `noFallthroughCasesInSwitch` +
+    `verbatimModuleSyntax`. `check-structure.mjs` fails if the base drops `strict` or one of those checks,
+    if any tracked tsconfig sets a strict-family flag (`noImplicitAny`, `strictNullChecks` and the rest) or
+    one of those checks to `false`, if a tsconfig does not extend `tsconfig.base.json`, or if one sets
+    `exclude`.
 
 ### Commands (root Makefile)
+
 ```
 make lint          # backend: ruff check + pyright strict + structure check |  frontend: eslint + structure check + knip + tsc
 make typecheck     # backend: pyright strict              |  frontend: tsc --noEmit
@@ -87,6 +90,7 @@ make codegen-check # regenerate api-client, sync schema, themes, strings, messag
 make precommit     # format-check + lint + codegen-check + test  (the pre-commit hook; e2e runs in CI)
 make check         # lint + codegen-check + test          (the full local gate)
 ```
+
 The pre-commit hook (`.githooks/pre-commit`, installed once via `make hooks`) applies only the staged
 changes to a temporary worktree at `HEAD`, installs dependencies there from the local caches and runs
 `make precommit`, so unstaged edits never decide a commit. It includes the backend and frontend tests, so
@@ -101,20 +105,21 @@ root-owned `~/.cache/uv`.
 
 Runs on every push to `main` + all PRs; concurrency-cancels stale runs. The workflow token is read-only, every job has a `timeout-minutes`, and every image is pinned by digest (the Postgres service uses the `docker-compose.yml` pin). setup-uv takes the Python version from `backend/.python-version`.
 
-| Job | Steps |
-|---|---|
-| **backend** | Postgres 16 service · `uv sync` → `make format-check-backend lint-backend` (ruff, pyright, structure check) → `make migrate` → `make test-backend` (pytest, 90% branch coverage, on a freshly migrated and seeded database of its own) → `make test-kratos`, which fails rather than skips when Kratos is unreachable in CI |
-| **frontend** | Node from `.nvmrc` · pnpm 9 · `pnpm install --frozen-lockfile` → `make format-check-frontend lint-frontend test-frontend` (prettier, eslint + `check-structure.mjs` + knip, tsc, the site copy rules, the lint rule tests, vitest for app-core and site, then app-core again under `TZ=America/Vancouver`, `America/Halifax` and `Asia/Tokyo`; the formatter tests assert `en-CA` and `en-XA` output) |
-| **build** | Node from `.nvmrc` · pnpm 9 · `pnpm install --frozen-lockfile` → `make build-apps` (`tsc -b` and the Vite builds for web and Connect; the site job builds the site, so it is left out here), so a broken bundle fails CI beyond `tsc --noEmit`; runs beside the frontend job rather than after it |
-| **site** | Node from `.nvmrc` · `make test-site`: a fresh build, then Playwright e2e on it (the copy rules and content tests run in the frontend job): every page returns 200 with its content in the HTML, no console errors, no broken images or internal links, no sideways scroll at 390 and 1440px, axe with no serious or critical issues, 404 page served with a 404 |
-| **connect** | Postgres 16 service · `make migrate seed` · the API on :8701 · `make test-connect` against `vite preview` of a production build (the `en-XA` pass uses the dev server, where the pseudo-locale lives): Connect's Playwright walk (book a visit, cancel it from its manage link, shop, invoice, estimate, receipt, review, form, contract, preferences, not found), failing on any console error; every client page through axe (no serious or critical issues), a keyboard walk that fails on a focus stop without a visible indicator, and a hover check on every button (AA text contrast, also over a business cover photo); then the `en-XA` pass over the business, booking, shop, invoice, estimate and receipt pages |
-| **sync** | `make test-sync`: disposable Postgres and PowerSync, per-role replica rows and columns, revocation, hours uploads, the signing-key rotation drill and the replication health check |
-| **web** | `make up migrate seed` · the API on :8701 · `make test-web` against `vite preview` of a production build (the `en-XA` pass uses the dev server): sign-in, every page and dialog, record flows, history older than the device window, no console errors, axe, keyboard focus and hover contrast on the key pages, the booking composer and the client and invoice records, and the `en-XA` pass over Today, Schedule, Clients, a client record, Setup's business page, Invoices and an invoice |
-| **mobile-build** | an x86_64 release APK (bundle embedded, no Metro), cached under the app's Expo native fingerprint, which changes with any native module version: on a hit `scripts/rebundle-apk.sh` only rebuilds the Hermes bundle and re-signs the cached APK, on a miss `expo prebuild` and Gradle build it, and setup-gradle restores the Gradle cache; only pushes to `main` write it back (the action's default), after removing unused entries, so a pull request's miss has no save step |
-| **mobile-shard** | three shards, each with `make up migrate seed` and the API started in the background, the APK from `mobile-build` and its share of the Maestro walkthroughs on an Android 14 emulator from `scripts/ci-emulator.sh`: a pinned emulator build (checked against its sha256), the system image at a pinned revision and the AVD with its quick-boot snapshot are cached together under a key named after those pins. Only pushes to `main` save that cache, so pull requests restore main's copy and download nothing from Google unless the pins changed; on a miss the script installs them, retrying the image download. The workflow step waits for the API only after booting and installing the APK. Maestro is installed at the version in `MAESTRO_VERSION` and prints it. Every shard uploads its Maestro results, debug output, logcat and the emulator and API logs (kept 3 days), prints the emulator log and logcat when it fails, and warns when a walkthrough takes over three times its usual time in `e2e/flow-seconds.json`. The APK reaches the API, PowerSync and Kratos at `10.0.2.2`, the emulator's address for the host, rather than through `adb reverse`, whose mappings vanish when the emulator's adb connection drops. The shards are listed in `e2e/shards.json`, and the `shards` job fails when a walkthrough is in none or two |
-| **mobile** | the required check: passes when the build and every shard passed |
-| **contract** | stripe-mock service · real `StripeGateway` validated against Stripe's OpenAPI mock; a missing mock fails the job in CI instead of skipping |
-| **codegen-drift** | `make codegen-check`: `make gen-api`, `gen-sync-schema`, `gen-themes`, `gen-messages`, `gen-strings` (which also fail on invalid or unused catalog messages), `gen-zones` and `gen-taxes`, then a diff check on the generated files (the api-client, sync schema, themes, `messages.pot`, `en_XA.po`, both `strings.ts` accessors and `en-XA.json` files, Connect's `embed.js`, app-core `zones.ts` and `zones.cases.json`, and app-core `taxRates.ts` and `taxes.cases.json`), so the committed generated code cannot drift from its source |
+| Job               | Steps                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **backend**       | Postgres 16 service · `uv sync` → `make format-check-backend lint-backend` (ruff, pyright, structure check) → `make migrate` → `make test-backend` (pytest, 90% branch coverage, on a freshly migrated and seeded database of its own) → `make test-kratos`, which fails rather than skips when Kratos is unreachable in CI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **frontend**      | Node from `.nvmrc` · pnpm 9 · `pnpm install --frozen-lockfile` → `make format-check-frontend lint-frontend test-frontend` (prettier, eslint + `check-structure.mjs` + knip, tsc, the site copy rules, the lint rule tests, vitest for app-core and site, then app-core again under `TZ=America/Vancouver`, `America/Halifax` and `Asia/Tokyo`; the formatter tests assert `en-CA` and `en-XA` output)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **build**         | Node from `.nvmrc` · pnpm 9 · `pnpm install --frozen-lockfile` → `make build-apps` (`tsc -b` and the Vite builds for web and Connect; the site job builds the site, so it is left out here), so a broken bundle fails CI beyond `tsc --noEmit`; runs beside the frontend job rather than after it                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **site**          | Node from `.nvmrc` · `make test-site`: a fresh build, then Playwright e2e on it (the copy rules and content tests run in the frontend job): every page returns 200 with its content in the HTML, no console errors, no broken images or internal links, no sideways scroll at 390 and 1440px, axe with no serious or critical issues, 404 page served with a 404                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **connect**       | Postgres 16 service · `make migrate seed` · the API on :8701 · `make test-connect` against `vite preview` of a production build (the `en-XA` pass uses the dev server, where the pseudo-locale lives): Connect's Playwright walk (book a visit, cancel it from its manage link, shop, invoice, estimate, receipt, review, form, contract, preferences, not found), failing on any console error; every client page through axe (no serious or critical issues), a keyboard walk that fails on a focus stop without a visible indicator, and a hover check on every button (AA text contrast, also over a business cover photo); then the `en-XA` pass over the business, booking, shop, invoice, estimate and receipt pages                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **sync**          | `make test-sync`: disposable Postgres and PowerSync, per-role replica rows and columns, revocation, hours uploads, the signing-key rotation drill and the replication health check                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **web**           | `make up migrate seed` · the API on :8701 · `make test-web` against `vite preview` of a production build (the `en-XA` pass uses the dev server): sign-in, every page and dialog, record flows, history older than the device window, no console errors, axe, keyboard focus and hover contrast on the key pages, the booking composer and the client and invoice records, and the `en-XA` pass over Today, Schedule, Clients, a client record, Setup's business page, Invoices and an invoice                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **shards**        | checks that every Maestro walkthrough is in exactly one shard of `e2e/shards.json` and hands the shard list to mobile-shard                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **mobile-build**  | an x86_64 release APK (bundle embedded, no Metro), cached under the app's Expo native fingerprint, which changes with any native module version: on a hit `scripts/rebundle-apk.sh` only rebuilds the Hermes bundle and re-signs the cached APK, on a miss `expo prebuild` and Gradle build it, and setup-gradle restores the Gradle cache; only pushes to `main` write it back (the action's default), after removing unused entries, so a pull request's miss has no save step                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **mobile-shard**  | three shards, each with `make up migrate seed` and the API started in the background, the APK from `mobile-build` and its share of the Maestro walkthroughs on an Android 14 emulator from `scripts/ci-emulator.sh`: a pinned emulator build (checked against its sha256), the system image at a pinned revision and the AVD with its quick-boot snapshot are cached together under a key named after those pins. Only pushes to `main` save that cache, so pull requests restore main's copy and download nothing from Google unless the pins changed; on a miss the script installs them, retrying the image download. The workflow step waits for the API only after booting and installing the APK. Maestro is installed at the version in `MAESTRO_VERSION` and prints it. Every shard uploads its Maestro results, debug output, logcat and the emulator and API logs (kept 3 days), prints the emulator log and logcat when it fails, and warns when a walkthrough takes over three times its usual time in `e2e/flow-seconds.json`. The APK reaches the API, PowerSync and Kratos at `10.0.2.2`, the emulator's address for the host, rather than through `adb reverse`, whose mappings vanish when the emulator's adb connection drops. The shards are listed in `e2e/shards.json`, and the `shards` job fails when a walkthrough is in none or two |
+| **mobile**        | the required check: passes when the build and every shard passed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| **contract**      | stripe-mock service · real `StripeGateway` validated against Stripe's OpenAPI mock; a missing mock fails the job in CI instead of skipping                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| **codegen-drift** | `make codegen-check`: `make gen-api`, `gen-sync-schema`, `gen-themes`, `gen-messages`, `gen-strings` (which also fail on invalid or unused catalog messages), `gen-zones` and `gen-taxes`, then a diff check on the generated files (the api-client, sync schema, themes, `messages.pot`, `en_XA.po`, both `strings.ts` accessors and `en-XA.json` files, Connect's `embed.js`, app-core `zones.ts` and `zones.cases.json`, and app-core `taxRates.ts` and `taxes.cases.json`), so the committed generated code cannot drift from its source                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 Net effect: no unformatted/untyped/uncovered code, no broken bundle, no drift between backend models and the
 generated frontend contracts/themes.
@@ -132,13 +137,15 @@ manual QA at intermediate backend steps. Optimize for **meaningful** coverage: t
 contracts, or security regress — not line-count theater.
 
 ### Shape: integration-first
+
 - **Integration tests dominate** — `httpx.AsyncClient` → the real FastAPI app → real migrated + seeded
   Postgres. One test file per concept (`test_<concept>[_<aspect>].py`). They cover the true HTTP contract + auth + DB constraints.
-- **Unit tests** only for pure logic with many cases (JWT, password hashing, tax math, RRULE expansion,
+- **Unit tests** only for pure logic with many cases (the PowerSync token, PIN hashing, tax math, RRULE expansion,
   the frontend `parseTimestamp`). No DB, no HTTP.
 - **We don't mock our own code.** The DB is real; our services run for real.
 
 ### Isolation: transactional rollback (`tests/conftest.py`)
+
 Every test runs inside a transaction that is rolled back at the end. A fixture opens a connection + outer
 transaction; an `AsyncSession(bind=conn, join_transaction_mode="create_savepoint")` is shared by the test
 **and** the app (via `app.dependency_overrides[get_session]`). The app's `commit()`s become savepoints; the
@@ -153,6 +160,7 @@ A plain `uv run pytest` still uses `DATABASE_URL`. Tests that commit from their 
 tests) delete what they wrote.
 
 ### Time: one clock, frozen in tests
+
 Code reads the current time only through `core/clock.py`: `clock.now()` for business time,
 `clock.today(zone)` for a local date, and `clock.wall()` for checks against a clock outside the app
 (Kratos session age, the PowerSync JWT `iat`/`exp`, Svix and Stripe signature tolerance, provider event
@@ -174,34 +182,39 @@ real time, since the API, PowerSync, Kratos and the device clock cannot be froze
 derive dates from today, and `check-structure.mjs` fails on a date literal in an `e2e` folder.
 
 ### External boundaries: adapters + recording fakes
+
 Third parties are never called. Each is an interface injected as a dependency, faked in tests:
 `FakeEmailSender`/`FakeSmsSender`/`FakePushSender` (record `.sent`), `FakeFileStorage`, `FakeIdentityProvider`
 (Kratos: `identities.issue(identity)` mints a session token; `session_token(identities, db, user_id)` signs in a
 seeded user; `.end_sessions()`, `.deleted`, `.step_up`, `.down` drive the edge cases and `.fresh_reads` counts uncached checks), and `FakePaymentGateway` (a substantial in-memory Stripe double that honors idempotency keys and maps magic
-payment methods to error paths). A test asserts on the fake — *"one reset email to alice@x with a token that
-then resets the password"* — exercising our logic up to the wire.
+payment methods to error paths). A test asserts on the fake — _"one reset email to alice@x with a token that
+then resets the password"_ — exercising our logic up to the wire.
 
 ### Auth clients & factories
+
 `as_owner` / `as_staff` / `unauth` — an `httpx` client pre-authenticated as that principal (`us_dev` owner /
 `us_diego` staff / none). `Factory.business()/user()/staff()/client()` build valid scoped rows for
-multi-tenant isolation tests (build a *second* business to prove cross-tenant leakage is blocked).
+multi-tenant isolation tests (build a _second_ business to prove cross-tenant leakage is blocked).
 
 ### Stripe: three tiers, layered by cost
-The fake covers our *logic*; it can't prove the real adapter maps correctly. Three tiers close that:
 
-| Tier | Run | Validates |
-|---|---|---|
-| **Fake** | default suite | our logic + idempotency + error mapping (fast, hermetic, in-memory) |
+The fake covers our _logic_; it can't prove the real adapter maps correctly. Three tiers close that:
+
+| Tier         | Run                  | Validates                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------ | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Fake**     | default suite        | our logic + idempotency + error mapping (fast, hermetic, in-memory)                                                                                                                                                                                                                                                                                                                                                                                 |
 | **Contract** | `make test-contract` | the real `StripeGateway` vs **stripe-mock** (`stripe/stripe-mock` v0.206.0, pinned by digest in `docker-compose.yml` and CI) — every v1 request shape + response parse, including plan Checkout, the Billing Portal and the plan subscription calls. Stateless; asserts shapes, not state. stripe-mock has no `/v2` routes, so the Accounts v2 calls (create, retrieve, account link, capability request) are covered by the fake and the e2e tier. |
-| **Contract** | `make test-kratos` | the real `KratosIdentityProvider` vs the local Kratos: admin-created identity, native login, whoami, revocation. |
-| **E2E** | `make test-e2e` | real test-mode Stripe (Accounts v2 creation and requirements, KYC transitions, declines/3DS, subscription periods at the current API version, via a Test Clock) — behavior the mock's pinned spec can't reproduce. Skipped without `STRIPE_TEST_SECRET_KEY`. One real Resend send to `delivered@resend.dev`, skipped without `RESEND_TEST_API_KEY` and `RESEND_TEST_FROM`. |
+| **Contract** | `make test-kratos`   | the real `KratosIdentityProvider` vs the local Kratos: admin-created identity, native login, whoami, revocation.                                                                                                                                                                                                                                                                                                                                    |
+| **E2E**      | `make test-e2e`      | real test-mode Stripe (Accounts v2 creation and requirements, KYC transitions, declines/3DS, subscription periods at the current API version, via a Test Clock) — behavior the mock's pinned spec can't reproduce. Skipped without `STRIPE_TEST_SECRET_KEY`. One real Resend send to `delivered@resend.dev`, skipped without `RESEND_TEST_API_KEY` and `RESEND_TEST_FROM`.                                                                          |
 
-`contract`/`e2e` are excluded from the default run (`-m "not contract and not e2e"`) and auto-skip when their
+`contract`, `e2e` and `kratos` are excluded from the default run (`-m 'not contract and not e2e and not kratos'`) and auto-skip when their
 backing service/keys are absent, so `make test` stays hermetic. Golden Stripe webhook fixtures live in
 `tests/fixtures/stripe/`.
 
 ### The 4-part matrix (the real bar)
+
 A feature isn't "done" until its tests clear all four:
+
 1. **Happy path** — intended outcome + response shape.
 2. **Every error path** — each 4xx with the right code/message.
 3. **Security invariants** — tenant isolation, role gates (403), token tamper/expiry, no enumeration leaks.
@@ -225,6 +238,7 @@ can't drift, and matches how the product was designed (by screen). The data-depe
 order (Clients → Catalog/Tax → Booking → Invoices → Payments).
 
 ### The within-slice rhythm
+
 1. **Backend** — model (if new) → migration → service/command → `api` router + DTOs → tests → `make gen-api`.
 2. **Sync** — add table(s) to a stream in `sync-rules.yaml` (a history stream if rows accumulate over time) → `make gen-sync-schema` → update `tests/fixtures/sync_projections.json` after reviewing the new columns.
 3. **Web** — page(s) under `apps/web/src/pages`; read via `useQuery`, write via the typed api-client. **Put
@@ -232,13 +246,14 @@ order (Clients → Catalog/Tax → Booking → Invoices → Payments).
 4. **Mobile** — screen(s) importing the same `@clientbridge/app-core`; only the markup differs.
 5. **Verify + commit** (lint/tsc/tests green).
 6. **Milestone audit at the slice/phase boundary** — before the next slice, review the changeset against the
-   principles (layering · the 5 surfaces · role gates vs `WRITE_POLICY` · the 4-part matrix · web↔mobile
-   duplication · stray comments) and fix High/Medium findings *then*. (A Catalog & Tax audit once caught an
+   principles (layering · the 5 surfaces · role gates in the services · the 4-part matrix · web↔mobile
+   duplication · stray comments) and fix High/Medium findings _then_. (A Catalog & Tax audit once caught an
    unguarded REST write + a router running raw queries — exactly the class this pass exists to catch.)
 
 Read local, write via command/sync — the server is the source of truth; clients are optimistic caches.
 
 ### Each release
+
 - Review the sales-tax rates in `services/tax.py` against the CRA and provincial pages cited in `tests/test_tax_rates.py`, and again whenever a federal or provincial budget changes a rate: add a dated row (never edit a past one), update the golden test, and run `make gen-taxes`.
 
 ---
@@ -282,14 +297,14 @@ Read local, write via command/sync — the server is the source of truth; client
 ## Conventions
 
 - **Commits:** single-line, concise, imperative subject. **No body, no trailer.** Commit or push only when asked.
-- **Comments:** sparing — the default is no comment. Add one only for a non-obvious *why* or an invariant,
-  one line. Never narrate *what* the code does, restate types, write multi-clause block/file-header comments,
+- **Comments:** sparing — the default is no comment. Add one only for a non-obvious _why_ or an invariant,
+  one line. Never narrate _what_ the code does, restate types, write multi-clause block/file-header comments,
   or add decorative divider banners.
 - **Migrations** live only in `backend/migrations/versions/` (timestamp-prefixed). The history was squashed
   into one baseline before launch (`20261010_000000_baseline.py`, built from the models plus the
   hand-written extension, exclusion constraints and ledger triggers); new changes are increments on it.
 - **Regenerate** `api-client` (`make gen-api`) whenever the API contract changes; `gen-sync-schema` after
-  model/sync-rule changes; `gen-themes` after editing `app-explorer.html`. `make codegen-check` (in the pre-commit hook, `make check` and CI) fails if any of the three is stale.
+  model/sync-rule changes; `gen-themes` after editing `app-explorer.html`; `gen-strings` and `gen-messages` after a catalog edit; `gen-zones` after a `tzdata` upgrade; `gen-taxes` after a rate change. `make codegen-check` (in the pre-commit hook, `make check` and CI) fails if any generated file is stale.
 - **No build-phase/iteration numbers** in code comments or docstrings (commit messages / plan docs are fine).
 - **Column names:** booleans carry no `is_` prefix (`payee`, `available`, `preferred`, `tax_registered`);
   a column naming the user who did something is `<past participle>_by` (`created_by`, `sent_by`,
@@ -302,26 +317,28 @@ Read local, write via command/sync — the server is the source of truth; client
 ## Local development
 
 ### Ports — the 87xx block
+
 Clientbridge owns the **8700–8799** block, so a new local service picks a free port inside it. The
 services below use 8700–8716, and test-only servers (web e2e, the sync verification page) use other ports
 in the block. Container-internal ports stay conventional; only host mappings use 87xx.
 
-| Port | Service | Container | Set in |
-|---|---|---|---|
-| **8700** | Web (Vite) — provider app | — | `apps/web` vite (strictPort) · `make dev-web` |
-| **8701** | Backend API (FastAPI/uvicorn) | — | `make dev-api` |
-| **8702** | Postgres (source + `powersync_storage`) | 5432 | docker-compose · `DATABASE_URL` (API role) · `MIGRATION_DATABASE_URL` (schema owner) · `ADMIN_DATABASE_URL` (role setup) |
-| **8703** | Redis | 6379 | docker-compose · `REDIS_URL` |
-| **8704** | PowerSync service | 8080 | docker-compose · `POWERSYNC_URL` |
-| **8705 / 8706** | S3 (RustFS): API / console | 9000 / 9001 | docker-compose · `S3_ENDPOINT` |
-| **8707** | Expo / Metro (mobile) | — | `make dev-mobile` |
-| **8708** | stripe-mock (contract tests only) | 12111 | docker-compose `profiles:[test]` |
-| **8709** | Connect (Vite) — customer app | — | `apps/connect` vite (strictPort) |
-| **8710** | Marketing site (Vite, static build) | — | `apps/site` vite (strictPort) · `make dev-site` |
-| **8713 / 8714** | Ory Kratos: public / admin API (admin bound to 127.0.0.1) | 4433 / 4434 | docker-compose · `AUTH_PUBLIC_URL` / `AUTH_ADMIN_URL` |
-| **8715 / 8716** | Mailpit: web UI and API / SMTP (the API's mail under `make dev-api`; 127.0.0.1 only) | 8025 / 1025 | docker-compose |
+| Port            | Service                                                                              | Container   | Set in                                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **8700**        | Web (Vite) — provider app                                                            | —           | `apps/web` vite (strictPort) · `make dev-web`                                                                            |
+| **8701**        | Backend API (FastAPI/uvicorn)                                                        | —           | `make dev-api`                                                                                                           |
+| **8702**        | Postgres (source + `powersync_storage`)                                              | 5432        | docker-compose · `DATABASE_URL` (API role) · `MIGRATION_DATABASE_URL` (schema owner) · `ADMIN_DATABASE_URL` (role setup) |
+| **8703**        | Redis                                                                                | 6379        | docker-compose · `REDIS_URL`                                                                                             |
+| **8704**        | PowerSync service                                                                    | 8080        | docker-compose · `POWERSYNC_URL`                                                                                         |
+| **8705 / 8706** | S3 (RustFS): API / console                                                           | 9000 / 9001 | docker-compose · `S3_ENDPOINT`                                                                                           |
+| **8707**        | Expo / Metro (mobile)                                                                | —           | `make dev-mobile`                                                                                                        |
+| **8708**        | stripe-mock (contract tests only)                                                    | 12111       | docker-compose `profiles:[test]`                                                                                         |
+| **8709**        | Connect (Vite) — customer app                                                        | —           | `apps/connect` vite (strictPort)                                                                                         |
+| **8710**        | Marketing site (Vite, static build)                                                  | —           | `apps/site` vite (strictPort) · `make dev-site`                                                                          |
+| **8713 / 8714** | Ory Kratos: public / admin API (admin bound to 127.0.0.1)                            | 4433 / 4434 | docker-compose · `AUTH_PUBLIC_URL` / `AUTH_ADMIN_URL`                                                                    |
+| **8715 / 8716** | Mailpit: web UI and API / SMTP (the API's mail under `make dev-api`; 127.0.0.1 only) | 8025 / 1025 | docker-compose                                                                                                           |
 
 ### Bring-up
+
 ```
 make hooks                 # once per clone — install the pre-commit gate
 make install               # uv sync + pnpm install (applies the two op-sqlite patches)
@@ -342,6 +359,7 @@ make test-sync             # disposable Postgres + PowerSync: per-role replica r
                            # hours uploads, the signing-key rotation drill, then the replication health check
 make replication-health    # local PowerSync readiness, slot, retained WAL (1 GiB) and replay lag (60 s)
 ```
+
 Devices sign in with Kratos (web: session cookie; mobile: session token), exchange that session at
 `/sync/token` for a PowerSync token, and stream their
 Sync Streams from powersync (:8704) into on-device SQLite. After changing `sync-rules.yaml`, restart the
@@ -349,6 +367,7 @@ powersync container so it loads the new streams. If a hard Docker shutdown corru
 replication slot (Postgres PANICs on next start), remove `pg_replslot/powersync_*` to recover.
 
 ### Infra services (`docker-compose.yml`)
+
 `postgres:16` (`wal_level=logical`, `max_replication_slots=4`), `journeyapps/powersync-service` (mounts
 `infra/powersync/`, replicates as `powersync_source` and stores buckets in a separate `powersync_storage`
 DB owned by `powersync_storage_owner`),
@@ -373,12 +392,12 @@ Setting up production: create the team, add `clientbridge.ca` as the sending dom
 
 Demo accounts are normal tenants in the main local `clientbridge` database, using the standard servers and provider integrations. `make seed` adds them when absent; `make demo-reset` refreshes only the seeded accounts and preserves unrelated tenants. `make demo-check` validates their scenario and ledger. There is no demo runtime mode or separate presentation database.
 
-| Login | Role |
-|---|---|
-| hannah@birchbarkpets.ca | Hannah, owner of Birchbark Pet Studio |
-| admin@birchbarkpets.ca | Alex, administrator |
-| diego@birchbarkpets.ca | Diego, commissioned staff |
-| priya@birchbarkpets.ca | Priya, employee |
+| Login                         | Role                                                 |
+| ----------------------------- | ---------------------------------------------------- |
+| hannah@birchbarkpets.ca       | Hannah, owner of Birchbark Pet Studio                |
+| admin@birchbarkpets.ca        | Alex, administrator                                  |
+| diego@birchbarkpets.ca        | Diego, commissioned staff                            |
+| priya@birchbarkpets.ca        | Priya, employee                                      |
 | owner@cedarcoast.example.test | Rowan, a separate business used for isolation checks |
 
 The password is `demo1234` and the approval PIN is `2468`. The scenario is anchored to the current Vancouver date: `seed_demo.build_demo(as_of)` builds the fixture graph, the seed modules enrich it, and it is validated before it is written. Assets in `backend/scripts/demo_assets/` upload to the configured bucket first. The seed creates (or finds) a Kratos identity for each demo user with that password and a verified email, so `make seed` needs Kratos running. A reset replaces only the seeded businesses and their rows (Kratos identities are kept and relinked), and refuses when a seeded user also belongs to another business; it pauses the ledger's append-only trigger inside the transaction. Historical provider references are fixture data, not usable Stripe objects, so new card payments, onboarding and message delivery need test-provider credentials as for any account; without them use cash or manual payments.

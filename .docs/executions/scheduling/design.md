@@ -8,18 +8,18 @@ File and line references are to the tree as of commit `4864b33`; the bug-fix wor
 
 ## Summary of recommendations
 
-| Gap | Recommendation | Schema change | Size |
-|---|---|---|---|
-| 1. Class schedules | Classes run from a schedule of sessions; clients book into existing sessions only; a released seat promotes the first waitlisted client | Yes (recurrences, shared with gap 8) | L |
-| 2. Staff, fairness, resources | Per-service member list, least-booked choice for "any", a resource pool per service, remove `resources.capacity` | Yes (items, resources) | L |
-| 3. Removing a member | Removal refuses while the member has future visits unless it carries a reassign or cancel choice; manage links refuse removed members | No | M |
-| 4. Completion and no-show | A job completes past visits after local midnight; no-show and complete refuse before the visit starts | No (policy JSON key) | S |
-| 5. Late cancel | A policy of block, keep deposit or refund deposit for cancels inside the cut-off | No (policy JSON key) | M |
-| 6. Hours model | Split days in the editor, windows that end at midnight, date overrides as an API, buffers inside hours, a 30 minute default step | Yes (hours CHECK) | L |
-| 7. Performance | One in-memory availability pass per request on the server; sargable range filters and shorter ranges on devices | No | M |
-| 8. Recurrence horizon | Rolling generation by a job from a stored local time, with occurrence identity and stored skipped dates | Yes (recurrences, slots) | L |
-| 9. Time zone rules | Store the local wall time of each slot, re-anchor future slots after a tzdata change, and send local times to Connect | Yes (slots) | M |
-| 10. Concurrency | Row locks for manage changes, request hashes on idempotency keys, staff locks for time off and hours | Yes (commands) | M |
+| Gap                           | Recommendation                                                                                                                          | Schema change                        | Size |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | ---- |
+| 1. Class schedules            | Classes run from a schedule of sessions; clients book into existing sessions only; a released seat promotes the first waitlisted client | Yes (recurrences, shared with gap 8) | L    |
+| 2. Staff, fairness, resources | Per-service member list, least-booked choice for "any", a resource pool per service, remove `resources.capacity`                        | Yes (items, resources)               | L    |
+| 3. Removing a member          | Removal refuses while the member has future visits unless it carries a reassign or cancel choice; manage links refuse removed members   | No                                   | M    |
+| 4. Completion and no-show     | A job completes past visits after local midnight; no-show and complete refuse before the visit starts                                   | No (policy JSON key)                 | S    |
+| 5. Late cancel                | A policy of block, keep deposit or refund deposit for cancels inside the cut-off                                                        | No (policy JSON key)                 | M    |
+| 6. Hours model                | Split days in the editor, windows that end at midnight, date overrides as an API, buffers inside hours, a 30 minute default step        | Yes (hours CHECK)                    | L    |
+| 7. Performance                | One in-memory availability pass per request on the server; sargable range filters and shorter ranges on devices                         | No                                   | M    |
+| 8. Recurrence horizon         | Rolling generation by a job from a stored local time, with occurrence identity and stored skipped dates                                 | Yes (recurrences, slots)             | L    |
+| 9. Time zone rules            | Store the local wall time of each slot, re-anchor future slots after a tzdata change, and send local times to Connect                   | Yes (slots)                          | M    |
+| 10. Concurrency               | Row locks for manage changes, request hashes on idempotency keys, staff locks for time off and hours                                    | Yes (commands)                       | M    |
 
 ## Gap 1: classes have no schedule
 
@@ -75,7 +75,7 @@ Size: L.
 
 ### Problem
 
-Every bookable-online member is offered for every service (`_online_staff` at `services/public.py:379-385`, used for all items in `page`, `slots` and `days`), so a groomer can be booked for a nail trim they do not do. "Any" takes the first free member ordered by `created_at` (`services/public.py:354-368`), so the owner, who is usually the oldest member, gets every "any" booking. Public bookings never reserve a room or station: `book` calls `create_booking_core` without a `resource_id` (`services/public.py:283-293`). `resources.capacity` exists with a CHECK (`models/scheduling.py:146,151`) but nothing reads it, and the resource exclusion constraint (`migrations/versions/20261010_000000_baseline.py:2255-2258`) allows exactly one live slot per resource at a time. There is also no API to manage rooms and stations, which ENG-22 lists as to do.
+Every bookable-online member is offered for every service (`_online_staff` at `services/public.py:379-385`, used for all items in `page`, `slots` and `days`), so a groomer can be booked for a nail trim they do not do. "Any" takes the first free member ordered by `created_at` (`services/public.py:354-368`), so the owner, who is usually the oldest member, gets every "any" booking. Public bookings never reserve a room or station: `book` calls `create_booking_core` without a `resource_id` (`services/public.py:283-293`). `resources.capacity` exists with a CHECK (`models/scheduling.py:146,151`) but nothing reads it, and the resource exclusion constraint (`migrations/versions/20261010_000000_baseline.py:2255-2258`) allows exactly one live slot per resource at a time. There is also no API to manage rooms and stations, which CLI-23 lists as to do.
 
 ### Options
 
@@ -153,7 +153,7 @@ Size: M.
 
 ### Problem
 
-Nothing completes a past visit: completion happens only in `BookingService.patch` (`services/bookings.py:593-595`) and the roster. Review requests read only completed bookings (`services/reviews.py:208-222`) and the returning-client flow reads the last completed visit (`services/returning.py:239-246`), so a business that never presses Complete sends no review requests and its returning clients look new. ENG-23 asks for visits left open to complete themselves the next morning. In the other direction, `patch` accepts `no_show` and `completed` for a visit that has not started (`services/bookings.py:586-598`), and `no_show` forfeits the deposit or charges the saved card (`services/bookings.py:808-842`), so a mistaken tap on next week's visit takes the client's money.
+Nothing completes a past visit: completion happens only in `BookingService.patch` (`services/bookings.py:593-595`) and the roster. Review requests read only completed bookings (`services/reviews.py:208-222`) and the returning-client flow reads the last completed visit (`services/returning.py:239-246`), so a business that never presses Complete sends no review requests and its returning clients look new. CLI-24 asks for visits left open to complete themselves the next morning. In the other direction, `patch` accepts `no_show` and `completed` for a visit that has not started (`services/bookings.py:586-598`), and `no_show` forfeits the deposit or charges the saved card (`services/bookings.py:808-842`), so a mistaken tap on next week's visit takes the client's money.
 
 ### Options
 

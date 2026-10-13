@@ -109,7 +109,7 @@ New booking opens BookingComposerSheet with client/pet, service, staff, date/tim
 
 [DocumentPreview](../../../frontend/apps/mobile/src/components/DocumentPreview.tsx) renders the shared letterhead/document primitives. Its share action sends the public document URL to the OS share sheet. It does not create a local PDF attachment.
 
-[RecordPayment](../../../frontend/apps/mobile/src/components/RecordPayment.tsx) supplies full/partial amount, available methods, cash tender/change, date/reference/note and receipt behavior. [InteracRequest](../../../frontend/apps/mobile/src/components/InteracRequest.tsx) adds amount, channel, expiry, instructions/history and sending. Neither opening these sheets nor confirming local form validity establishes real provider settlement.
+[RecordPayment](../../../frontend/apps/mobile/src/components/RecordPayment.tsx) supplies full/partial amount, available methods, cash tender/change, date/reference/note and receipt behavior. InteracRequest (`frontend/apps/mobile/src/components/InteracRequest.tsx`, no longer in the repository) adds amount, channel, expiry, instructions/history and sending. Neither opening these sheets nor confirming local form validity establishes real provider settlement.
 
 ### Sales / point of sale
 
@@ -227,11 +227,11 @@ Both an iPhone 17 Pro simulator (iOS 26.5) and a Shared Pixel emulator (Android 
 
 ### Device results and retained artifacts
 
-The iOS run completed **6/6 walkthroughs in 4m 10s**, recording **58 screenshots** across owner workday, setup, payments, Inbox, client records, authentication and staff-role boundaries. Each flow uses the actual installed native build and real API/PowerSync data. See the [iOS HTML report](../../../.scratchpad/mobile-review/ios-final.html) and [test instructions](../../../frontend/apps/mobile/e2e/README.md). Reports are local ignored artifacts; the flow definitions and this map are retained in source.
+The iOS run completed **6/6 walkthroughs in 4m 10s**, recording **58 screenshots** across owner workday, setup, payments, Inbox, client records, authentication and staff-role boundaries. Each flow uses the actual installed native build and real API/PowerSync data. See the iOS HTML report (`.scratchpad/mobile-review/ios-final.html`, no longer in the repository) and [test instructions](../../../frontend/apps/mobile/e2e/README.md). Reports are local ignored artifacts; the flow definitions and this map are retained in source.
 
-The Android 14 / API 34 emulator also completed **6/6 walkthroughs in 7m 28s**, with **58 screenshots**, using the same flow files. See the [Android HTML report](../../../.scratchpad/mobile-review/android-final.html). Across both devices, that is 12 passing walkthrough executions and 116 captured screen states; it is not 116 distinct features or exhaustive state coverage.
+The Android 14 / API 34 emulator also completed **6/6 walkthroughs in 7m 28s**, with **58 screenshots**, using the same flow files. See the Android HTML report (`.scratchpad/mobile-review/android-final.html`, no longer in the repository). Across both devices, that is 12 passing walkthrough executions and 116 captured screen states; it is not 116 distinct features or exhaustive state coverage.
 
-The focused iOS [regression report](../../../.scratchpad/mobile-review/ios-regressions.html) has **three deliberately failing assertions against correct intended behavior**:
+The focused iOS regression report (`.scratchpad/mobile-review/ios-regressions.html`, no longer in the repository) has **three deliberately failing assertions against correct intended behavior**:
 
 | Reproduction         | Observed result                                                                  | Implementation evidence                                                                                                                                |
 | -------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -239,7 +239,7 @@ The focused iOS [regression report](../../../.scratchpad/mobile-review/ios-regre
 | Client record → Edit | The record remains visible; Edit client never appears.                           | The record and editor are separate simultaneously mounted NativeModals. Presentation stacking is the leading explanation, not yet a proven root cause. |
 | Staff pay totals     | Amounts appear but To approve / Approved, to pay / Paid this year labels do not. | Horizontal summary groups compose row-oriented Stat controls whose label areas collapse. Payouts has the same visible symptom.                         |
 
-The [Android regression report](../../../.scratchpad/mobile-review/android-regressions.html) reproduces the Estimate and Staff pay label failures, while **Client record → Edit passes on Android**. The client editor problem is therefore confirmed on iOS and is not a universal absence of that implementation. Both platforms also show the missing summary labels in Payouts screenshots.
+The Android regression report (`.scratchpad/mobile-review/android-regressions.html`, no longer in the repository) reproduces the Estimate and Staff pay label failures, while **Client record → Edit passes on Android**. The client editor problem is therefore confirmed on iOS and is not a universal absence of that implementation. Both platforms also show the missing summary labels in Payouts screenshots.
 
 These regression flows live under `e2e/regressions/`, outside the passing top-level navigation suite. They remain runnable and should move into normal coverage when fixed. The overview and smoke checks do not declare those surfaces defect-free.
 

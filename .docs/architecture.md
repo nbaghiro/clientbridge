@@ -1,8 +1,8 @@
 # Clientbridge — Architecture
 
 The canonical description of **how the system is built**: stack, structure, the data model, sync, and
-authorization. For *how we build it* (the gate, testing, conventions) see [engineering.md](engineering.md);
-for *what's left* see the launch stories and the after-launch list in
+authorization. For _how we build it_ (the gate, testing, conventions) see [engineering.md](engineering.md);
+for _what's left_ see the launch stories and the after-launch list in
 [launch-readiness.md](launch-readiness.md); for design/IA see [design/](design/).
 
 Clientbridge is a **local-first, all-in-one business OS** for solo and small service providers —
@@ -14,17 +14,17 @@ Canadian tax built in. All user-facing copy is centralized in one place. The cus
 
 ## Stack
 
-| Layer | Choice |
-|---|---|
-| Backend | **Python 3.14** · uv · **FastAPI** · async **SQLAlchemy** · **Alembic** |
-| Database | **PostgreSQL 16** (logical WAL for sync) |
-| Jobs | **arq** on Redis |
-| Web | **React + Vite + Tailwind** (provider/admin app) |
-| Mobile | **React Native (Expo)** (provider/admin app) |
-| Customer | **React + Vite** (Connect — public, PowerSync-free, embeddable) |
+| Layer        | Choice                                                                                                                                        |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend      | **Python 3.14** · uv · **FastAPI** · async **SQLAlchemy** · **Alembic**                                                                       |
+| Database     | **PostgreSQL 16** (logical WAL for sync)                                                                                                      |
+| Jobs         | **arq** on Redis                                                                                                                              |
+| Web          | **React + Vite + Tailwind** (provider/admin app)                                                                                              |
+| Mobile       | **React Native (Expo)** (provider/admin app)                                                                                                  |
+| Customer     | **React + Vite** (Connect — public, PowerSync-free, embeddable)                                                                               |
 | Offline sync | **PowerSync** — on-device SQLite (web WASM on IndexedDB · Expo op-sqlite), WAL server-push, per-business Sync Streams; writes through FastAPI |
-| Payments | **Stripe Connect** (Accounts v2 merchants, direct charges) + PAD/EFT |
-| Repo | **Polyglot monorepo** — backend (uv) + frontend (pnpm + turbo), one root Makefile |
+| Payments     | **Stripe Connect** (Accounts v2 merchants, direct charges) + PAD/EFT                                                                          |
+| Repo         | **Polyglot monorepo** — backend (uv) + frontend (pnpm + turbo), one root Makefile                                                             |
 
 The toolchain pins Python **3.14** (via `.python-version`) while ruff targets 3.12 for
 lint-compatibility and pyright checks against 3.14. The `pyproject` floor is `>=3.12`.
@@ -37,21 +37,22 @@ lint-compatibility and pyright checks against 3.14. The `pyproject` floor is `>=
 feature.** The rule: a **server-only invariant** — uniqueness/numbering, capacity/conflict, money,
 secrets, cross-tenant — must be a **command**, never unvalidated replica CRUD.
 
-| # | Surface | What it is | Auth | Examples |
-|---|---|---|---|---|
-| 1 | **Sync-read** | PowerSync streams each device its authorized rows into local SQLite | Sync Streams | calendar, clients, invoices on-device |
-| 2 | **Offline command** | Local-only durable intent → typed `/v1` command → authoritative replication | Kratos session + service role/tenant checks + expected revision | edit working hours |
-| 3 | **Command / RPC** | FastAPI `POST/PATCH/DELETE` under `/v1/*`, wrapped in `run_command` (atomic + audited + idempotent) → writes Postgres → flows back via sync | Kratos session + role | book a slot, issue an invoice, take a payment |
-| 4 | **Webhook / public** | inbound provider callbacks + unauthenticated public pages | signature / token / slug | Stripe/SMS/email webhooks; book/pay/form/contract/review |
-| 5 | **Job** | arq background work on Redis | system | reminders, reap-unpaid, broadcasts, overdue sweep |
+| #   | Surface              | What it is                                                                                                                                  | Auth                                                            | Examples                                                 |
+| --- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------- |
+| 1   | **Sync-read**        | PowerSync streams each device its authorized rows into local SQLite                                                                         | Sync Streams                                                    | calendar, clients, invoices on-device                    |
+| 2   | **Offline command**  | Local-only durable intent → typed `/v1` command → authoritative replication                                                                 | Kratos session + service role/tenant checks + expected revision | edit working hours                                       |
+| 3   | **Command / RPC**    | FastAPI `POST/PATCH/DELETE` under `/v1/*`, wrapped in `run_command` (atomic + audited + idempotent) → writes Postgres → flows back via sync | Kratos session + role                                           | book a slot, issue an invoice, take a payment            |
+| 4   | **Webhook / public** | inbound provider callbacks + unauthenticated public pages                                                                                   | signature / token / slug                                        | Stripe/SMS/email webhooks; book/pay/form/contract/review |
+| 5   | **Job**              | arq background work on Redis                                                                                                                | system                                                          | reminders, reap-unpaid, broadcasts, overdue sweep        |
 
 **Decision rule** — where does a new operation go?
+
 - An edit must survive offline use → **offline command (2)** with explicit replay, conflict and recovery semantics.
 - Needs a server-only invariant (uniqueness/numbering, capacity/conflict, money, secrets, cross-tenant) → **command (3)**.
 - A third party initiates it → **webhook (4)**.
 - Time-based or async → **job (5)**.
 
-This is why *"create a booking" is a command (`POST /v1/bookings`), not an offline edit of the replica*: the
+This is why _"create a booking" is a command (`POST /v1/bookings`), not an offline edit of the replica_: the
 capacity/conflict check must be atomic and server-authoritative. The resulting row then syncs back to
 every device for free. The same logic makes invoice numbering, payments, and broadcasts commands.
 
@@ -59,7 +60,7 @@ every device for free. The same logic makes invoice numbering, payments, and bro
 
 ## Monorepo layout
 
-Clean Python↔TS boundary, crossed **only** by three generated bridges (see *The three bridges* below).
+Clean Python↔TS boundary, crossed **only** by generated bridges (see _The generated bridges_ below).
 Two toolchains (uv + pnpm), one root Makefile.
 
 ```
@@ -74,7 +75,7 @@ clientbridge/
 │       ├── core/               command · scoping · deps · config · security · db · errors · ids · ratelimit
 │       ├── models/             SQLAlchemy — one file per domain (+ base)
 │       ├── schemas/            Pydantic DTOs — one file per concept
-│       ├── services/           business logic — one file per concept (28)
+│       ├── services/           business logic — one file per concept (33)
 │       ├── api/                router.py (mounts /v1) · one router file per concept · public.py · webhooks.py
 │       ├── sync/               auth.py (token/JWKS)
 │       ├── integrations/       stripe · resend · twilio · expo · kratos · s3 (provider adapters)
@@ -102,8 +103,9 @@ clientbridge/
 ## Backend — layer-first, one file per concept
 
 Flow: **`api` (thin router, never queries) → `schemas` (DTOs) → `services` (logic, owns the transaction) →
-`models`.** `models/` is grouped by domain, because tables cluster that way (eleven domains: `business · clients ·
-catalog · scheduling · billing · payments · ledger · messaging · documents · reviews · platform`). Every other
+`models`.** `models/` is grouped by domain, because tables cluster that way (twelve domains: `business · clients ·
+catalog · scheduling · billing · payments · ledger · messaging · documents · reviews · platform ·
+returning`). Every other
 layer holds one file per concept, with the same plain plural name in each layer and no suffix:
 `api/bookings.py` → `schemas/bookings.py` → `services/bookings.py`, including its job bodies (`run_reminders`). A
 concept with no API or DTOs simply has no file in that layer (`services/lines.py`). Closely related
@@ -112,9 +114,11 @@ things sold through their own checkout and held as a liability), and `bookings` 
 open slots and recurring series. Their tables stay separate.
 
 ### The request flow
+
 ```
 HTTP → api/…  → schemas/ (DTO)  → services/ (logic + txn)  → core/scoping · command  → models/  → Postgres  → WAL  → PowerSync  → device
 ```
+
 Routers are thin: they resolve dependencies, construct a `Service(db, principal, …)`, call one method with
 the validated DTO (threading the `Idempotency-Key` header for mutations), and return a response schema.
 **All querying and the transaction live in the service.** A raised `AppError` renders as `{error, message}`
@@ -123,19 +127,21 @@ with the subclass's HTTP status, and a request that fails validation as `invalid
 `message` is English text for logs and developers and is never rendered.
 
 ### The cross-cutting core (`core/`)
-| File | Responsibility |
-|---|---|
-| `command.py` | **The command wrapper.** `run_command(db, principal, *, action, run, response_model, idempotency_key)` — replays a stored response for a repeated key, stages `Command.record(...)` audit rows, then commits mutation + audit + idempotency key as **one atomic unit** (rollback on any error). Money/uniqueness/cross-tenant mutations go through it. |
-| `scoping.py` | **The one place the tenant filter lives.** `scoped(Model, business_id, soft_delete=…)` + `scoped_update`/`scoped_delete`. Services **never** hand-write a `business_id` filter. |
-| `deps.py` | DI hub — DB session, adapter aliases (`EmailDep`, `GatewayDep`, `IdentityDep`…), the auth chain (`current_identity` asks Kratos who the session is, `current_user` links the local user, `current_principal` re-derives business/role from the DB every request, honoring `X-Business-Id`), and role gates (`assert_role`, `is_manager`). |
-| `config.py` | Pydantic-settings and the origin lists: `app_origins()` (only `WEB_BASE_URL`; credentialed CORS and the cookie Origin check) and `CORS_ALLOW_ORIGINS` (Connect and Pay, without credentials, through `core/cors.py`). **Fails closed in prod:** refuses to boot without real secrets (Stripe, Twilio, Resend and the auth email hook), an https Kratos public URL or a separate admin URL. |
-| `security.py` | Argon2 hashing for the desk discount PIN · SHA-256 opaque-token hashing (invites) · the PowerSync token (HS256 or RS256 + a JWKS endpoint for prod). |
-| `ids.py` | Prefixed-ULID PKs (`bz_…`, `bk_…`), time-sortable. |
-| `errors.py` | `AppError` taxonomy → HTTP status (`NotFound` 404, `Conflict` 409, `CardDeclined` 402, `TooManyRequests` 429…). |
-| `ratelimit.py` | In-process fixed-window limiter for the five public surfaces (30/60s each). |
-| `db.py` | Async engine + `SessionLocal` + the `Base` model metadata. |
+
+| File           | Responsibility                                                                                                                                                                                                                                                                                                                                                                             |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `command.py`   | **The command wrapper.** `run_command(db, principal, *, action, run, response_model, idempotency_key)` — replays a stored response for a repeated key, stages `Command.record(...)` audit rows, then commits mutation + audit + idempotency key as **one atomic unit** (rollback on any error). Money/uniqueness/cross-tenant mutations go through it.                                     |
+| `scoping.py`   | **The one place the tenant filter lives.** `scoped(Model, business_id, soft_delete=…)` + `scoped_update`/`scoped_delete`. Services **never** hand-write a `business_id` filter.                                                                                                                                                                                                            |
+| `deps.py`      | DI hub — DB session, adapter aliases (`EmailDep`, `GatewayDep`, `IdentityDep`…), the auth chain (`current_identity` asks Kratos who the session is, `current_user` links the local user, `current_principal` re-derives business/role from the DB every request, honoring `X-Business-Id`), and role gates (`assert_role`, `is_manager`).                                                  |
+| `config.py`    | Pydantic-settings and the origin lists: `app_origins()` (only `WEB_BASE_URL`; credentialed CORS and the cookie Origin check) and `CORS_ALLOW_ORIGINS` (Connect and Pay, without credentials, through `core/cors.py`). **Fails closed in prod:** refuses to boot without real secrets (Stripe, Twilio, Resend and the auth email hook), an https Kratos public URL or a separate admin URL. |
+| `security.py`  | Argon2 hashing for the desk discount PIN · SHA-256 opaque-token hashing (invites) · the PowerSync token (HS256 or RS256 + a JWKS endpoint for prod).                                                                                                                                                                                                                                       |
+| `ids.py`       | Prefixed-ULID PKs (`bz_…`, `bk_…`), time-sortable.                                                                                                                                                                                                                                                                                                                                         |
+| `errors.py`    | `AppError` taxonomy → HTTP status (`NotFound` 404, `Conflict` 409, `CardDeclined` 402, `TooManyRequests` 429…).                                                                                                                                                                                                                                                                            |
+| `ratelimit.py` | In-process sliding-window limiters, one per worker process, for the seven public groups (pay, review, form, contract, booking, which the shop and returning-client checks share, preferences and invite preview): 30 requests a minute from one address each, 1000 with `ENV=dev`. The desk discount PIN has its own limiter in `services/orders.py` (5 tries per 5 minutes).              |
+| `db.py`        | Async engine + `SessionLocal` + the `Base` model metadata.                                                                                                                                                                                                                                                                                                                                 |
 
 ### Role gates
+
 A gate lives in the service method that does the work, via `assert_role(self.principal, …)`, because the
 same services also run from jobs and public flows. Services whose every method is owner/admin (reports,
 the dashboard) gate once in their constructor; others gate per method (POS order-create is staff, void is
@@ -143,6 +149,7 @@ admin). `is_manager(role)` covers the one place that holds a bare role string (s
 hand-written role tuple check.
 
 ### External services
+
 Every external dependency is an **adapter interface (`typing.Protocol`) + a prod implementation + a `get_*()`
 dependency** that tests override with a recording fake — so the boundary is covered without the network.
 Six adapters in `integrations/`, one per provider so they read apart from our own services:
@@ -150,22 +157,27 @@ Six adapters in `integrations/`, one per provider so they read apart from our ow
 (Ory Kratos sessions and admin calls), `s3.py` (S3; RustFS locally).
 
 ### Jobs (`tasks/`)
+
 `tasks/worker.py` is the schedule only: one-line arq cron wrappers that open a session and call a `run_*`
-function in the concept's service. Reminders and due broadcasts every 15m, reap-unpaid every 15m,
-entitlement expiry and device pruning 03:30, ledger reconciliation 04:00, overdue sweep 07:00, review
-requests 08:00. Jobs aren't tenant-scoped: each row resolves its own business (and through it the time
+function in the concept's service. Every 15 minutes: booking reminders, reaping unpaid bookings and unpaid
+shop orders, completing past visits and sending intake forms. Every minute: due broadcasts (held during
+quiet hours). Every 30 minutes: pruning used sync receipts; hourly: pruning unfinished uploads. Hourly at
+:00, each acting only for businesses whose local time is the hour named: the overdue sweep (07:00), review
+requests (08:00), pickup reminders (09:00) and trial reminders (09:00). Daily (UTC): entitlement expiry and
+device pruning 03:30, ledger reconciliation 04:00 and plan seat sync 05:00. Jobs aren't tenant-scoped: each row resolves its own business (and through it the time
 zone and `locale_for(...)` its text renders in), and each is idempotent via a status or timestamp marker.
 
 ---
 
 ## The data model
 
-**39 tables** across the 11 domains; credentials and sessions live in Ory Kratos's own database. Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
+**43 tables** across the 12 domains; credentials and sessions live in Ory Kratos's own database. Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
 records every money movement and is the only place money balances are stored. The SQLAlchemy models in
 `backend/src/clientbridge/models/` are the exact-DDL source of truth; the migrations in
 `migrations/versions/` start from one baseline (squashed before launch) with increments after it.
 
 ### Conventions
+
 - **PKs:** prefixed-ULID strings, minted in-app (`core/ids.new_id`) — sortable, safe to expose, debuggable.
 - **Tenancy:** `business_id` (indexed) on every business-scoped row. `businesses` is the top entity
   (business/location **and** billing entity). `users` are global
@@ -181,7 +193,7 @@ records every money movement and is the only place money balances are stored. Th
   column's name (an invoice's `status`) are listed in `derived`.
 - **Timestamps:** `created_at`/`updated_at` (`timestamptz`, default `now()`); status + key lifecycle
   timestamps; `created_by` where used.
-- **Soft-delete:** `deleted_at` on **`clients`** and **`bookings`** only; everything else hard-deletes or
+- **Soft-delete:** `deleted_at` on **`clients`**, **`subjects`** and **`bookings`** only; everything else hard-deletes or
   status-lapses.
 - **No `relationship()`** on any model → the unit-of-work can't FK-order inserts, so services **flush the
   parent before its FK children** (the seed hand-orders inserts for the same reason). One FK cycle
@@ -190,17 +202,18 @@ records every money movement and is the only place money balances are stored. Th
   requirements); **never** for queried business data.
 - **Concurrency invariants live in SQL:** GiST exclusion constraints stop double-booking a staff member or
   a resource; partial-unique indexes enforce business rules (one active/paused subscription per client+item,
-  one open review request per booking, one refund per payment).
+  one open review request per booking).
 
 ### ID prefixes
+
 Prefixes predate the table renames and are kept so existing ids stay valid; the table each one lands in is
 shown after it.
-`bz_`businesses `us_`users `st_`staff · `cl_`clients `sj_`subjects `nt_`notes · `it_`items `pkg_`packages
+`bz_`businesses `us_`users `st_`staff · `cl_`clients `sj_`subjects `nt_`notes `cns_`consents · `it_`items `pkg_`packages
 `sub_`subscriptions `gc_`gift_cards `stk_`inventory · `ses_`slots `bk_`bookings `bka_`addons `av_`hours
 `rs_`resources `sch_`recurrences · `inv_`invoices `est_`estimates `ord_`orders `ln_`lines · `pay_`payments
-`pm_`payment_methods `acc_`accounts `ent_`entries `jrn_`journal · `th_`threads `msg_`messages `bro_`broadcasts
+`pm_`payment_methods `psl_`payment_setup_links `acc_`accounts `ent_`entries `jrn_`journal · `th_`threads `msg_`messages `bro_`broadcasts
 · `frm_`forms `ff_`fields `fr_`responses `con_`contracts `sig_`signatures · `rv_`reviews (requests merged in from the old `review_requests` keep `rvr_`)
-· `fl_`files `aud_`audits `wh_`webhooks `dvt_`devices `idk_`commands
+· `fl_`files `aud_`audits `wh_`webhooks `dvt_`devices `idk_`commands `sur_`sync_receipts · `rtc_`returning_challenges
 
 ### Tables by domain
 
@@ -210,8 +223,10 @@ owner/admin/staff/contractor, payout config `payee`/`rate_type` with the rate in
 `rate_cents` (fixed or hourly), one membership per user per business, pending invites via
 `status=invited` + hashed `invite_token`).
 
-**clients (3)** — `clients` *(soft-del)* (`tags[]`, `status`, `custom_fields`, `stripe_customer_id`), `subjects` (pet/vehicle/child/property, `attributes` JSONB), `notes` (polymorphic
-`parent_type`/`parent_id` over client/subject/booking, `created_by`).
+**clients (4)** — `clients` _(soft-del)_ (`tags[]`, `status`, `custom_fields`, `stripe_customer_id`), `subjects` _(soft-del)_ (pet/vehicle/child/property, `attributes` JSONB), `notes` (polymorphic
+`parent_type`/`parent_id` over client/subject/booking, `created_by`), `consents` (one row per change to a
+client's marketing consent on a channel, with its `source`; the newest row holds, and an SMS STOP from the
+client can only be lifted by the client's own START).
 
 **catalog (5)** — `items` (**one table drives the whole catalog** via `kind` service/class/product/package/
 subscription/gift — duration, capacity, deposit, recurrence, session_count, `stripe_price_id`), `packages`
@@ -222,7 +237,7 @@ left reads as redeemed), `inventory` (one signed stock movement per row, `reason
 by line and reason; `items.stock_on_hand` is the running total).
 
 **scheduling (6)** — `slots` (the calendar event: capacity-bearing block; appointment = capacity 1, class
-= capacity N; seats taken are counted from its live bookings; `recurrence_id`), `bookings` *(soft-del)* (client↔slot via `slot_id`; denormalized
+= capacity N; seats taken are counted from its live bookings; `recurrence_id`), `bookings` _(soft-del)_ (client↔slot via `slot_id`; denormalized
 `staff_id`; status pending→confirmed→completed/canceled/no_show, or waitlisted on a full class until a seat is given; `source`; deposit terms (the deposit's
 state is derived from the ledger, and a deposit is due when `deposit_amount_cents > 0`); `reminded_at`),
 `hours` (per-staff working hours: `basis` recurring weekday or one-off date, `available`; `basis`
@@ -243,17 +258,18 @@ receivable in the ledger, and partial/paid/refunded/overdue and the paid time ar
 `lines` (three nullable foreign keys `estimate_id`/`invoice_id`/`order_id` with a CHECK that exactly one
 is set; `item_id`/`booking_id`, `tax_amount_cents`).
 
-**payments (2)** — `payments` (payment attempts and Stripe objects: `kind` payment/deposit/refund; status;
-unique `provider_ref` = one row per Stripe object; one-refund-per-payment; a
-refund always has `parent_payment_id`, and a payment targets at most one invoice or one order),
+**payments (3)** — `payments` (payment attempts and Stripe objects: `kind` payment/deposit/refund; status;
+unique `provider_ref` = one row per Stripe object; a payment can have several refunds, one row per Stripe
+refund, each with `parent_payment_id`; a payment targets at most one invoice or one order),
 `payment_methods` (saved card/PAD, `method` card/bank_eft, the same spelling as `payments.method`;
-`preferred` marks the card charged off-session).
+`preferred` marks the card charged off-session), `payment_setup_links` (a hashed, expiring link a client
+opens on Connect `/payment-method` to authorize a bank account (PAD), with its SetupIntent and mandate).
 
 **ledger (2)** — `accounts` (one per owner × category × code × currency: owners are a business, client, staff
 member, the platform, a gift card or a package; categories are cash (`stripe`/`bank`/`cash`), `receivable`,
 liabilities (`tax` per GST/HST/PST/QST code, `gift_card`, `deposit`, `deferred`, `payable` per
 pending/approved stage), income (`revenue`, `fee_revenue`) and expenses (`processing_fee`, `platform_fee`,
-`staff_cost`); a cached `balance_cents`), `entries` (append-only legs grouped by `journal_id`; signed
+`staff_cost`); a cached `balance_cents` that only the trigger on `entries` writes), `entries` (append-only legs grouped by `journal_id`; signed
 `amount_cents`, debit positive; `event` = what happened; `source_*` = what caused it; `subject_*` = the entity it
 belongs to; `ref` + `leg` unique = idempotency; the account's owner is copied on for sync slicing).
 
@@ -273,17 +289,23 @@ the apps compute the published average from the synced rows). A review submitted
 published straight away unless its rating is at or below the business's `review_hold_at`, in which case it
 waits as `submitted` until the owner publishes or hides it.
 
-**platform (5)** — `files` (S3 key, `purpose` logo/image/photo/signature/attachment), `audits` (append-only
-activity feed; server-only), `webhooks` (inbound provider events, `event` = the provider's event name;
+**platform (6)** — `files` (S3 key, `purpose` logo/image/photo/signature/attachment), `audits` (activity
+feed, written only by the app; server-only), `webhooks` (inbound provider events, `event` = the provider's event name;
 **not** business-scoped — routed during processing; a Stripe event's `payload` is cleared once it is
 processed and kept on a failed row; server-only), `devices` (Expo push tokens), `commands`
-(unique per business+scope+key — backs `run_command` replay; server-only).
+(unique per business+scope+key — backs `run_command` replay; server-only), `sync_receipts` (one per
+user+device+operation for the hours outbox: payload hash and result, so a replayed upload returns the
+original answer; server-only).
+
+**returning (1)**: `returning_challenges` (a returning client's emailed code on the public pages: hashed
+destination, code and session, attempts and expiry; server-only).
 
 > **Note on tax:** there is **no `tax_rates` table** (dropped). Rates are effective-dated rows per province in
 > `services/tax.py` and derived from `businesses.province`; the tax engine (also `services/tax.py`)
-> is pure and golden-tested. See *Tax* below.
+> is pure and golden-tested. See _Tax_ below.
 
 ### Polymorphic patterns
+
 `lines` one FK per document (estimate/invoice/order, exactly one set) · `payments` nullable over invoice/booking/order + `kind`/
 `method` · `items.kind` = whole catalog · `slots` = every calendar block · `staff` = staff +
 invites · `entries.subject_type`/`source_type` = any money event on any entity · `notes`/`files`/`responses`/
@@ -303,7 +325,7 @@ invites · `entries.subject_type`/`source_type` = any money event on any entity 
 
 **Engine: PowerSync**, self-hosted next to Postgres. Topology = **PowerSync reads the Postgres WAL
 directly**; **writes always go through FastAPI** (server-authoritative). Chosen because it's the only engine
-that delivers, for this stack, *all of*: real offline SQLite on **both** web (WASM) and Expo RN
+that delivers, for this stack, _all of_: real offline SQLite on **both** web (WASM) and Expo RN
 (op-sqlite), WAL-driven server-initiated push, and per-business partial replication — with no Node and
 minimal bespoke code. (ElectricSQL rejected: no offline SQLite on RN today. DIY rejected for v1: months of
 build + permanent maintenance.)
@@ -316,32 +338,38 @@ build + permanent maintenance.)
        └── local-only hours outbox ─► FastAPI /v1/hours/{staff}/week─┘ writes
 ```
 
-- **Reads** are governed by **Sync Streams** + the PowerSync token's `sub`; FastAPI is *not* in the read loop. The on-device
-  SQLite already holds only the rows this user may see, so the client never filters for *security* — it just
+- **Reads** are governed by **Sync Streams** + the PowerSync token's `sub`; FastAPI is _not_ in the read loop. The on-device
+  SQLite already holds only the rows this user may see, so the client never filters for _security_ — it just
   queries its local DB. Reactive `useQuery(sql)` re-runs on any sync push or local write.
 - **Hours writes** persist proposals separately from canonical rows in a local-only outbox. The typed week command validates authorization, seven weekdays and the expected revision atomically with its replay receipt. Other writes use their existing online commands.
-- **Server-initiated push:** *any* write that hits Postgres — a Stripe webhook, a cron job, another
+- **Server-initiated push:** _any_ write that hits Postgres — a Stripe webhook, a cron job, another
   staff member's action — flows back out via the WAL automatically, sub-second, to the relevant devices.
 - **Hours conflicts** reject stale revisions and preserve the proposal for explicit review. The editor offers apply-again against a fresh revision or discard. Money creation remains backend/webhook-only.
 - **History window.** Messages, slots and bookings sync for the past 12 months and the next 24, by UTC month. The replica controller subscribes the three history streams with those months before it connects, so the first sync includes them. A month that leaves the window is unsubscribed and its rows leave the device when the 24-hour TTL ends. Older history is read from the API while online: `GET /v1/bookings/visits` (a client's older visits, plus the count and date of completed ones) and `GET /v1/threads/{id}/messages`. Money tables (invoices, payments, accounts, entries) sync in full, so balances and invoice status stay correct offline. Streams cannot use the current time, so each windowed row needs its own timestamp; bookings carry `starts_at`, a copy of the slot start that `move_slot` keeps in step.
 - **Device query planning.** PowerSync stores each table as JSON behind a view and indexes JSON expressions. Replica indexes are the model indexes without a leading `business_id`, because a device reads one business at a time. The controller runs `PRAGMA optimize=0x10002` after the first sync, because without statistics SQLite prefers the `business_id` index. SQLite ignores a replica index on the right side of a LEFT JOIN, so a one-to-many join goes through the parent's id (`slotBookingsJoin`).
 
 ### Database roles and replication
+
 `scripts/db_access.py` creates five roles (the fifth, `kratos`, owns the `kratos` database) and is run by `make up` and `make migrate`. `clientbridge_migrator` owns the schema and runs Alembic and the demo seed (`MIGRATION_DATABASE_URL`). `clientbridge_api` has data access without DDL (`DATABASE_URL`). `powersync_source` has `REPLICATION` and `SELECT` on synced tables only. `powersync_storage_owner` owns the `powersync_storage` database. The `powersync` publication lists exactly the synced tables, generated from the stream config, so users, receipts, commands, audits and webhooks never reach the replication service. Kratos has its own `kratos` database and role. `make replication-health` fails when PowerSync is not ready, its slot is inactive, retained WAL exceeds 1 GiB or replay lag exceeds 60 seconds.
 
 ### Attachments
+
 `POST /v1/files` creates a pending row and a presigned upload URL. After the upload, `POST /v1/files/{id}/complete` (or the public form's `/upload/{file_id}/complete`) checks the object's size in storage and sets `uploaded_at`. A missing object returns 409 `upload_missing`, and a different size returns 422. Readers ignore rows without `uploaded_at`: public media, item images, the logo, form answers and the replica queries. `prune_pending_files` removes pending rows older than 24 hours together with their objects. File metadata syncs, but bytes do not; an image that cannot load falls back to its initial.
 
 ### Device storage
+
 Replicas are named per API, PowerSync URL and user, and refuse a database that belongs to another account. When the API says the session is gone, the shell removes the replica from the screen and shows sign-in; the data and pending work stay on the device for the same account, and sign-out clears them. Web asks the browser to keep its storage persistent. A full device shows its own sync problem. Neither platform encrypts the database at the application level: browser storage does not protect against a script running on the same origin, mobile relies on the platform's file protection, the Kratos session token is in SecureStore on mobile, and on web the session is an HttpOnly cookie (`localStorage` keeps only the user id whose replica is open).
 
 ### `/sync/token` + JWKS (`sync/auth.py`)
+
 Exchanges a Kratos session (cookie or `X-Session-Token`) for a short-lived PowerSync token whose `sub` is `users.id`; serves the RS256 JWKS at `/sync/keys`. Development uses HS256. Production uses RS256 with `POWERSYNC_USE_RS256=true` and `powersync.yaml` `jwks_uri` pointing to `/sync/keys`.
 
 ### The hours write path
+
 `POST /v1/hours/{staff_id}/week` is the single recurring-week mutation. Owners/admins may edit any active member in their business; other members may edit only themselves. Each operation includes a device/operation identity, business, creation time, expected revision and all seven weekdays. The service serializes replacement, keeps row IDs stable, increments `staff.hours_revision`, and commits the replay receipt with the write. The same identity and payload replay the original result; changed payloads or stale revisions fail. Existing split-day schedules are rejected for explicit review, never flattened silently.
 
 ### The client (`packages/sync`)
+
 `schema.ts` is generated from explicit sync projections. The connector exchanges live session credentials at `/sync/token`; PowerSync downloads canonical data. `hours_outbox` and device preferences are local-only tables. The outbox coalesces unattempted changes, freezes attempted payloads, backs off transient failures, and blocks only successors of a rejected staff-week. Accepted proposals remain pending until their revision is observed in the replica. Pausing authentication cancels uploads without deleting intent; explicit discard clears the account-scoped replica.
 
 Direct writes to synchronized tables are programming errors. There is no generic CRUD endpoint or old-client fallback. Receipts, commands, webhooks and audits remain server-only.
@@ -387,38 +415,42 @@ a non-2xx reply makes Kratos retry.
 - **Password changes** — changing or resetting a password revokes every other session of that
   identity (Kratos `revoke_active_sessions` hook on settings and recovery).
 - **Not built in** — Kratos OSS has no login lockout; production rate-limits `/self-service/*` at
-  the proxy (launch-readiness ENG-2). The admin API must stay on the private network.
+  the proxy (CLI-5). The admin API must stay on the private network.
 
 ## Authorization & visibility
 
-Reads and writes are authorized by **different** mechanisms. The sync stream reads the WAL and *bypasses*
+Reads and writes are authorized by **different** mechanisms. The sync stream reads the WAL and _bypasses_
 Postgres RLS, so read policy lives in the **Sync Streams**, not the DB. Writes are authorized in FastAPI.
 
 ### User tiers & provider roles
-| Tier | Modeled as | Scope |
-|---|---|---|
-| **Provider team** | `staff.role` on a `users` row | their business(es), role-scoped |
-| **Client** | `clients.user_id` (optional, future portal) | only their own relationship with a business |
-| **Platform admin** | Clientbridge-internal | cross-tenant (out of this model) |
+
+| Tier               | Modeled as                                  | Scope                                       |
+| ------------------ | ------------------------------------------- | ------------------------------------------- |
+| **Provider team**  | `staff.role` on a `users` row               | their business(es), role-scoped             |
+| **Client**         | `clients.user_id` (optional, future portal) | only their own relationship with a business |
+| **Platform admin** | Clientbridge-internal                       | cross-tenant (out of this model)            |
 
 Provider roles (`staff.role`): **owner** (everything incl. billing/ownership) · **admin** (all except
 billing/ownership) · **staff** (own work only, no financials) · **contractor** (own work + own earnings;
 currently same perms as staff).
 
 ### Visibility — the employee model (default)
-| Data | owner / admin | staff |
-|---|---|---|
-| Own calendar (slots/bookings/hours) | ✅ all members | ✅ own only |
-| Shared client book (clients, catalog, forms, contracts, files) | ✅ | ✅ |
-| Own earnings (their own `payable` account + entries) | ✅ all | ✅ own |
-| Financials (invoices, payments, the ledger, others' pay) | ✅ | ❌ |
-| Inbox: one-to-one messages | ✅ | ✅ |
-| Broadcasts and reviews | ✅ | ❌ |
-| Settings / billing / staff management | owner (+ admin ops) | ❌ |
+
+| Data                                                           | owner / admin       | staff       |
+| -------------------------------------------------------------- | ------------------- | ----------- |
+| Own calendar (slots/bookings/hours)                            | ✅ all members      | ✅ own only |
+| Shared client book (clients, catalog, forms, contracts, files) | ✅                  | ✅          |
+| Own earnings (their own `payable` account + entries)           | ✅ all              | ✅ own      |
+| Financials (invoices, payments, the ledger, others' pay)       | ✅                  | ❌          |
+| Inbox: one-to-one messages                                     | ✅                  | ✅          |
+| Broadcasts and reviews                                         | ✅                  | ❌          |
+| Settings / billing / staff management                          | owner (+ admin ops) | ❌          |
 
 ### Enforcement — the sync streams (`infra/powersync/sync-rules.yaml`)
+
 Four auto-subscribed streams and three history streams implement the read model (owner-sees-workers'-activity is carried by
 `bookings.staff_id` and the ledger's `owner_type`/`owner_id`; the `audits` trail is server-only):
+
 - **`business_shared`** (every active member): the catalog and entitlements, the client book, forms,
   fields, contracts, files and threads.
 - **`staff_limited`** (staff and contractors): the business row without its tax numbers and billing
@@ -450,6 +482,7 @@ defense-in-depth for the API, not the sync filter.
 ## Domain models
 
 ### Public media
+
 Business logos and catalog item images are `files` rows (`parent_type` business/item, `purpose` logo/image)
 uploaded by an owner or admin. `GET /media/{file_id}` serves only those two kinds, by redirecting to a
 short-lived presigned S3 URL, so they have stable links for the public pages and the apps. Only files whose
@@ -457,6 +490,7 @@ upload was completed are served. Every other
 file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it into the media URL.
 
 ### Payments — Stripe Connect custody
+
 - **Stripe Connect** (Accounts v2 merchants, direct charges + application fee, Stripe's automatic payouts) for
   cards, Link, Tap-to-Pay/Terminal, saved cards, deposits, refunds, subscriptions, and the KYC mirror.
 - **Application fee.** `services/payments.application_fee_cents` sizes our fee per method so Stripe's
@@ -488,10 +522,14 @@ file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it
   (`requirementCopy` in app-core) with a generic fallback. Thin `v2.core.account[requirements].updated`,
   `v2.core.account[configuration.merchant].capability_status_updated` and `v2.core.account.closed` events
   arrive through an event destination; the handler fetches the account and mirrors it.
-- **Recorded by hand**: cash, cheques and e-Transfers received outside the app (`provider` manual); cash
-  lands in the till's `cash` account, a cheque or e-Transfer in `bank`. There is no e-Transfer request or
-  matching.
-- **PAD/EFT**: pre-authorized debit for recurring.
+- **Recorded by hand**: cash, cheques and e-Transfers received outside the app (`provider` manual, the
+  e-Transfer method stored as `etransfer`); cash lands in the till's `cash` account, a cheque or e-Transfer
+  in `bank`. There is no e-Transfer request or matching.
+- **PAD/EFT**: pre-authorized debit for recurring. Staff on web or mobile send the client a payment setup link,
+  and the client authorizes the bank account on Connect `/payment-method`.
+- **Clients stay v1 Customers** on the connected account. Using Accounts v2 as the customers of a connected
+  account is a Stripe preview; moving to it later would change `clients.stripe_customer_id` (a schema and
+  data change) and pass `customer_account` instead of `customer`.
 - **No platform-held funds.** Stripe Connect custodies each provider's balance and pays it out to their
   linked bank on Stripe's schedule; the platform never transmits funds (avoids money-transmitter licensing).
 - Owners see Stripe's embedded notification banner on Getting paid and Today (web), and manage the
@@ -513,6 +551,9 @@ file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it
   keyed + `provider_ref`-deduped, shared by the authed services and the public surfaces. A payment can be
   refunded in part, more than once, up to what is left; a gift card or package purchase, and a forfeited
   deposit, are refunded only in full (and not once the card is partly redeemed or a session is used).
+  A gift card or package charged off-session whose command never committed has no row to rebuild, so an
+  hour after its intent opened the webhook refunds the charge, platform fee included, and audits it
+  (`payment.orphan_refunded`); inside that hour it is retried, since the command may still be committing.
 
 ### Platform billing
 
@@ -565,33 +606,45 @@ every account we create carries ours whichever configuration it starts with.
   commits, so a failed Stripe call fails the invite; removal and revocation lower it afterwards, and
   `run_sync_seats` (daily) corrects any drift and expired invites. `run_trial_reminders` emails the owner
   at the last 9:00 local before the trial ends, while it still runs, and three days earlier.
+- Mobile shows the plan read-only, with no purchase button or link to buy on the web, to stay within App
+  Store guideline 3.1.3(f) for companion apps. A lapsed business keeps its data indefinitely.
 - Platform billing is not business money, so it posts nothing to the ledger. Stripe's invoices are the
   record.
 
 ### Ledger: double-entry, append-only (`services/ledger.py`)
+
 Every money movement is a **journal**: two or more `entries` legs that sum to zero per currency. A
 deferred constraint trigger rejects an unbalanced journal at commit and another trigger rejects any UPDATE
 or DELETE, so corrections are always reversing journals (`ledger.reverse`). `ledger.post` is the only
 writer: it is idempotent on `ref` (a Stripe object id or a natural key such as `invoice:{id}`), creates
-accounts on first use, locks the affected account rows in id order, and updates their cached balances.
+accounts on first use and locks the affected account rows in id order. An `AFTER INSERT` trigger on
+`entries` keeps each account's cached `balance_cents`, and a trigger on `accounts` rejects any other write
+to it.
+
+The ledger stays in Postgres rather than a dedicated ledger engine: the database already enforces balanced,
+append-only, idempotent journals, and the post shares one transaction with the payment status, the audit
+row, the idempotency row and the stock movement, which a separate engine could not join. Stripe custodies
+the funds, so the ledger is the book of record, not the authority on whether money moves.
 
 What posts, and where:
 
-| Event | Hook | Legs |
-|---|---|---|
-| Invoice issued / voided | `billing.send_invoice` / `void_invoice` | client receivable + / revenue − / tax(code) − ; void reverses |
-| Payment settled | `payments._settle_payment` (Stripe webhook), `record_invoice_payment` (by hand), recurring `invoice.payment_succeeded` | cash + / what it paid for −: invoice receivable, order revenue + tax, booking deposit, package deferred + tax, gift card liability |
-| Fees | same, from the charge's balance transaction (`gateway.get_payment_fees`) | processing fee + / platform fee + / Stripe − ; platform Stripe + / fee revenue − |
-| Refund (full or partial) | `refund_payment`, `refund.created` / `refund.updated` (one refund row per Stripe refund) | cash − / the original credit legs unwound pro rata (a credit note; fees stay with Stripe and the platform) |
-| Dispute opened / won | `charge.dispute.created` or `.funds_withdrawn` (an escalated inquiry) / `.closed` won or `.funds_reinstated` | Stripe − / payer receivable + (+ dispute fee); won reverses |
-| Stripe payout paid / failed | `payout.paid` / `payout.failed` or `payout.canceled` | bank + / Stripe − ; failed reverses |
-| Gift card redeemed | `entitlements.redeem_gift_card` | gift card liability + / revenue − |
-| Package session used | `entitlements.consume_session` | deferred + / revenue − (the last session takes the remainder) |
-| Gift card or package expired | `entitlements.run_expiry_sweeps` (`ledger.post_breakage`) | gift card liability or deferred + / revenue − (breakage on the unused balance) |
-| Tax return filed | `POST /v1/payments/remittances` (`remittances`) | tax(code) + per code owed for the period / bank − ; the period is in the journal's `meta` |
-| Deposit forfeited | no-show in `bookings` (or settlement after it) | deposit + / revenue − ; a refund un-forfeits first |
-| Deposit applied | invoice sent with the booking on a line, or the deposit settling after that (`bookings.apply_deposit`) | deposit + / client receivable − ; a void or a refund of the deposit reverses it |
-| Staff earning accrued / approved / paid | `earnings` (invoice fully paid, `/v1/earnings/approve`, `/v1/earnings/pay`) | staff cost + / payable(pending) − ; pending → approved ; approved → bank |
+| Event                                   | Hook                                                                                                                     | Legs                                                                                                                               |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Invoice issued / voided                 | `billing.send_invoice` / `void_invoice`                                                                                  | client receivable + / revenue − / tax(code) − ; void reverses                                                                      |
+| Payment settled                         | `payments._settle_payment` (Stripe webhook), `record_invoice_payment` (by hand), recurring `invoice.payment_succeeded`   | cash + / what it paid for −: invoice receivable, order revenue + tax, booking deposit, package deferred + tax, gift card liability |
+| Fees                                    | same, from the charge's balance transaction (`gateway.get_payment_fees`)                                                 | processing fee + / platform fee + / Stripe − ; platform Stripe + / fee revenue −                                                   |
+| Refund (full or partial)                | `refund_payment`, `refund.created` / `refund.updated` (one refund row per Stripe refund)                                 | cash − / the original credit legs unwound pro rata (a credit note; fees stay with Stripe and the platform)                         |
+| Refund failed after it succeeded        | `refund.updated` failed (`ledger.reverse_refund`)                                                                        | the refund journal reversed                                                                                                        |
+| Dispute opened / won                    | `charge.dispute.created`, `.updated` or `.funds_withdrawn` (an escalated inquiry) / `.closed` won or `.funds_reinstated` | Stripe − / payer receivable + (+ dispute fee); won reverses, with the fee returned from the reinstating balance transaction        |
+| Dispute lost                            | `charge.dispute.closed` lost (`ledger.lose_dispute`)                                                                     | receivable cleared and the sale unwound pro rata like a refund (a write-off); the document reads refunded                          |
+| Stripe payout                           | `payout.created` (or `.paid`, if created was missed) / `payout.failed` or `payout.canceled`                              | bank + / Stripe − ; failed or canceled reverses                                                                                    |
+| Gift card redeemed                      | `entitlements.redeem_gift_card`                                                                                          | gift card liability + / revenue −                                                                                                  |
+| Package session used                    | `entitlements.consume_session`                                                                                           | deferred + / revenue − (the last session takes the remainder)                                                                      |
+| Gift card or package expired            | `entitlements.run_expiry_sweeps` (`ledger.post_breakage`)                                                                | gift card liability or deferred + / revenue − (breakage on the unused balance)                                                     |
+| Tax return filed                        | `POST /v1/payments/remittances` (`remittances`)                                                                          | tax(code) + per code owed for the period / bank − ; the period is in the journal's `meta`                                          |
+| Deposit forfeited                       | no-show in `bookings` (or settlement after it)                                                                           | deposit + / revenue − ; a refund un-forfeits first                                                                                 |
+| Deposit applied                         | invoice sent with the booking on a line, or the deposit settling after that (`bookings.apply_deposit`)                   | deposit + / client receivable − ; a void or a refund of the deposit reverses it                                                    |
+| Staff earning accrued / approved / paid | `earnings` (invoice fully paid, `/v1/earnings/approve`, `/v1/earnings/pay`)                                              | staff cost + / payable(pending) − ; pending → approved ; approved → bank                                                           |
 
 Derived from the ledger rather than stored: an invoice's and order's balance and amount paid, gift card
 balances, package deferred revenue, client lifetime value, staff earnings and their status, tax payable per code, today's revenue, and Stripe
@@ -602,6 +655,7 @@ in the ledger. Reports (income, GST/HST/PST/QST, T4A) and the dashboard read ent
 and records any drift in `audits`.
 
 ### Tax
+
 GST/HST/PST/QST computed per **province** at the **line level** (QST at exact 9.975%, half-up rounding).
 The business stores registration numbers; small-supplier mode (`tax_registered=false`) collects nothing.
 The engine (`services/tax.py`) is pure and golden-tested; rates are rows of (province, code, rate,
@@ -620,11 +674,13 @@ change to the item does not alter issued documents. Which services carry PST in 
 Manitoba still needs an accountant's confirmation before defaults are set.
 
 ### Selling products
+
 Products are catalog items of kind `product` and sell through the same order, line, tax and ledger path as
 services: point-of-sale orders (Tap to Pay on mobile, card on web through `POST /v1/orders/{id}/pay`),
 invoice lines, the online shop and booking add-ons. Only services and classes can be booked online; gift
 cards, packages and subscriptions are refused as plain lines and sell through their own checkout so the
 entitlement and its liability are created.
+
 - **Stock** is optional per product (`track_stock`, `stock_on_hand`, `low_stock_at`). Every change is a row
   in `inventory` (sale, refund, restock) keyed by line and reason, so a repeated webhook can't move
   stock twice; `stock_on_hand` is the cached total. Selling below zero is allowed at the till; the online
@@ -641,6 +697,7 @@ entitlement and its liability are created.
   Sales by item is a report with a CSV like the others.
 
 ### Online booking and manage links
+
 The rules the public booking page follows (lead time, how far ahead, the start-time step, approval for new
 clients) and the cancellation policy live in `businesses.booking_policy`, read and written through
 `/v1/online-booking`; members are hidden from the page with `staff.bookable_online`. Every booking gets a
@@ -648,11 +705,27 @@ clients) and the cancellation policy live in `businesses.booking_policy`, read a
 or cancel within the cut-offs (`/manage/{token}`). The server enforces the cut-offs and the move limit and
 refunds a paid deposit on an allowed cancel.
 
+### Messaging
+
+All businesses share one platform SMS number today. An inbound text goes to the business that most
+recently texted that phone (`messaging.route_inbound_sms`, through `scoped()`); with no sender or a tie it
+is recorded as unmatched rather than guessed, and STOP or START applies only to the business it was routed
+to. A text number per business is launch work (CLI-45). The SMS webhook checks `X-Twilio-Signature`, and
+production refuses to boot without `TWILIO_AUTH_TOKEN`. Phones are stored as E.164 (`core/phones.py` and
+app-core `normalizePhone` share one rule). Only the client's own START lifts an SMS STOP. Broadcast email
+carries the business's mailing address and a contact method, and a broadcast without them is refused.
+Broadcasts are sent by the job one recipient at a time, claimed with `SKIP LOCKED` and saved before and after
+each send, so delivery is at most once, and they wait during quiet hours (21:00 to 09:00 local). An inbound
+text or Connect message pushes to the business's active staff devices.
+
 ### Auth
-Owners/staff: **email + password (Argon2) + Google OAuth**. Sessions are **JWT access + stateful refresh**
-(`sessions` families — rotation swaps the token hash; reuse of a rotated token revokes the whole
-family). Reset/verify use single-use, expiring `tokens`. Clients **book without an account** (name/
-phone/email on the public page); a future portal links a client to a login via `clients.user_id`.
+
+Owners and staff sign in through Ory Kratos (see _Identity_): email and password, Google, and second
+factors, with the session in an HttpOnly cookie on web and a session token in SecureStore on mobile. The
+API holds no passwords, sessions or reset tokens; the only token it signs is the short-lived PowerSync JWT.
+Clients **book without an account** (name, phone and email on the public page); a returning client proves
+the mailbox with an emailed code (`returning_challenges`), and a future portal would link a client to a login
+via `clients.user_id`.
 
 ---
 
@@ -661,16 +734,17 @@ phone/email on the public page); a future portal links a client to a login via `
 **All product logic lives in `@clientbridge/app-core`; each app is a thin rendering + platform-binding
 layer.** Only four things differ per platform:
 
-| Seam | web | mobile |
-|---|---|---|
-| **SQLite driver** | `@powersync/web` (wa-sqlite on IndexedDB; no cross-origin isolation, so Stripe.js loads) | `@powersync/op-sqlite` (native) |
-| **Token store** | localStorage (sync) + Web-Locks refresh | expo-secure-store (async), single-instance |
-| **Config source** | `import.meta.env` (Vite) | `Constants.expoConfig.extra` |
-| **Rendering** | DOM + Tailwind | RN + StyleSheet from the token theme |
+| Seam              | web                                                                                      | mobile                                    |
+| ----------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------- |
+| **SQLite driver** | `@powersync/web` (wa-sqlite on IndexedDB; no cross-origin isolation, so Stripe.js loads) | `@powersync/op-sqlite` (native)           |
+| **Session**       | Kratos HttpOnly cookie (`localStorage` keeps only the signed-in user id)                 | Kratos session token in expo-secure-store |
+| **Config source** | `import.meta.env` (Vite)                                                                 | `Constants.expoConfig.extra`              |
+| **Rendering**     | DOM + Tailwind                                                                           | RN + StyleSheet from the token theme      |
 
 Everything else — SQL, mutations, validation, status→`Intent` decisions, copy, icon geometry — is shared.
 
 ### `app-core` (the view-model layer, no JSX)
+
 - **Reads** = a `useX()` hook wrapping `useQuery` over a SQL constant against the local replica.
 - **Writes** = plain functions taking `(api: ApiLike, …)` (money/uniqueness attach an idempotency key). Hours proposals use the durable local-only outbox; form and contract edits use their typed online commands.
 - **Forms** = `useXForm` hooks on the `useAsyncAction` busy/error primitive.
@@ -678,7 +752,7 @@ Everything else — SQL, mutations, validation, status→`Intent` decisions, cop
 - **`strings.ts`** is the typed accessor generated from the catalog, `locales/en-CA.json` (ICU messages
   keyed by concept, a group per concept): the single home of UI copy. **`format.ts`** and **`datetime.ts`**
   are the one formatter for money, numbers, percentages, lists, dates, times and ranges; **`locale.ts`**
-  holds `activeLocale()` and the pseudo-locale switch (see *Locale and time zones*).
+  holds `activeLocale()` and the pseudo-locale switch (see _Locale and time zones_).
   **`icons.ts`** is icon geometry as data (rendered `<svg>` on web, `react-native-svg` on mobile).
 - **Layout:** one file per concept in `domain/` (`today`, `hours`, `earnings`, `gettingPaid`, `auth`…),
   named the same as its strings group, web page and mobile screen; the shared plumbing sits flat at the
@@ -693,9 +767,11 @@ Everything else — SQL, mutations, validation, status→`Intent` decisions, cop
 - **One checkout.** Every sale (deposit, gift card, package, subscription) runs through `useCheckout`
   (saved card or new card, one idempotency key per attempt), and saving a card through
   `useAddPaymentMethod`. Only chargeable saved methods are offered (`checkoutMethods`): cards, and bank
-  accounts with an active mandate. Bank (PAD) entry is web only for now.
+  accounts with an active mandate. Bank (PAD) entry happens in a browser: on the web app, or on Connect
+  `/payment-method` through a link that mobile sends.
 
 ### Locale and time zones
+
 - **One entry point per side.** The frontend reads its locale only through `activeLocale()` (app-core
   `locale.ts`) and the backend only through `locale_for(business=, client=, user=)` (`core/locale.py`). Both
   return `en-CA` (`en_CA`) today; choosing a locale per business, user, client or visitor later changes these
@@ -726,16 +802,19 @@ Everything else — SQL, mutations, validation, status→`Intent` decisions, cop
   (`failureMessage`, `failedCode`, `failedStatus` in app-core `api.ts`); the `message` text is never shown.
 
 ### Navigation
+
 Both apps show the same five destinations from `domain/navigation.ts`: Today, Schedule, Clients, Payments
 and Inbox, plus Setup. Web renders them as a sidebar and mobile as a tab bar with a create button, with
-Inbox and Setup as icons in the header. Payments is one page with tabs (Invoices, Sales, Gift cards, Staff
-pay, Reports); staff see only Sales, because every invoice, gift card, earning and report action is owner or
-admin on the backend. Inbox has Messages and Reviews (Reviews for owners and admins). Setup has Business,
-Services & products, Team & hours, Getting paid and Online booking (web only); staff see only Team & hours
-and can edit only their own hours. The visibility rules (`visiblePaymentsTabs`, `setupSectionsFor`,
+Inbox and Setup as icons in the header. Payments is one page with tabs (Invoices, Sales, Gift cards,
+Refunds, Staff pay, Tax returns, Payouts, Reports); staff see only Sales, because every other action is owner
+or admin on the backend. Inbox has Messages, Reviews, Broadcasts, Forms and Contracts; staff see only
+Messages. Setup has Get set up, Business, Services & products, Team & hours, Getting paid, Plan (owner only),
+Sales tax, Online booking, Reminders and Sign-in & security, on both platforms; staff see only Team & hours
+and Sign-in & security, and can edit only their own hours. The visibility rules (`visiblePaymentsTabs`, `setupSectionsFor`,
 `editableStaff`, `canVoidSale`) live in app-core so both apps gate the same way.
 
 ### Shared components
+
 A screen composes shared components and never re-implements a list, a detail view, a modal, a checkout or
 a card form. The prop contracts are types in `app-core/src/ui.ts`, and each platform implements them once,
 side by side in one package: `@clientbridge/ui/src/web/` (DOM and Tailwind, used by web and Connect, imports
@@ -756,62 +835,63 @@ colours only in `@clientbridge/tokens` (`INTENT_COLORS`, `tint`/`tintHex` for da
 
 Props follow one vocabulary, so a caller can guess a prop without opening the file:
 
-| Prop | Meaning |
-|---|---|
-| `variant` | the visual form of one component (`Button` primary or outline, `Empty` inline or card, `ItemTile` tile or card) |
-| `layout` | how a set of items is arranged (`Choice` chips, segmented, cards or tiles; `KeyValueList` inline or stack) |
-| `size`, `density` | physical scale (`sm` to `xl`), and spacing or how much is shown (`compact`, `regular`, `full`) |
-| `intent` | a status colour from `INTENT_COLORS` (`accent`, `success`, `warning`, `danger`, `neutral`) |
-| `tone` | the text colour of a figure or a message (`Money`, `Stat`, `Notice`) |
-| `label` | the accessible name; required when the component shows no text of its own |
-| `value`, `defaultValue`, `onChange` | controlled when `value` is passed, otherwise the component keeps its own state (`useControllable`) |
-| `onPress`, `selected`, `pressed`, `disabled`, `busy` | activation and state, the same words on both platforms |
-| `children`, `leading`, `trailing`, `actions`, `footer`, `icon` | slots for composition, used instead of boolean flags |
-| `className` (web), `style` (mobile) | an escape hatch for spacing and width, merged last |
-| `ref` | on focusable controls (`Button`, `IconButton`, `SearchField`, `Checkbox`, `ListRow`), as a React 19 prop |
+| Prop                                                           | Meaning                                                                                                         |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `variant`                                                      | the visual form of one component (`Button` primary or outline, `Empty` inline or card, `ItemTile` tile or card) |
+| `layout`                                                       | how a set of items is arranged (`Choice` chips, segmented, cards or tiles; `KeyValueList` inline or stack)      |
+| `size`, `density`                                              | physical scale (`sm` to `xl`), and spacing or how much is shown (`compact`, `regular`, `full`)                  |
+| `intent`                                                       | a status colour from `INTENT_COLORS` (`accent`, `success`, `warning`, `danger`, `neutral`)                      |
+| `tone`                                                         | the text colour of a figure or a message (`Money`, `Stat`, `Notice`)                                            |
+| `label`                                                        | the accessible name; required when the component shows no text of its own                                       |
+| `value`, `defaultValue`, `onChange`                            | controlled when `value` is passed, otherwise the component keeps its own state (`useControllable`)              |
+| `onPress`, `selected`, `pressed`, `disabled`, `busy`           | activation and state, the same words on both platforms                                                          |
+| `children`, `leading`, `trailing`, `actions`, `footer`, `icon` | slots for composition, used instead of boolean flags                                                            |
+| `className` (web), `style` (mobile)                            | an escape hatch for spacing and width, merged last                                                              |
+| `ref`                                                          | on focusable controls (`Button`, `IconButton`, `SearchField`, `Checkbox`, `ListRow`), as a React 19 prop        |
 
-| Component | What it is |
-|---|---|
-| `ActionMenu` | a menu of actions with glyphs: a popover with arrow-key focus on web, a bottom sheet on mobile |
-| `ActivityTimeline` | what happened to a record, newest last, with optional glyphs, quotes and amounts |
-| `Avatar` | a person's or pet's initials on the accent tint or their own colour |
-| `Badge`, `StatusPill` | a pill or a count, and a status pill, coloured from `INTENT_COLORS` |
-| `BarChart` | one series of bars over time, with partial and out-of-period bars |
-| `BrandMark` | the small mark beside a saved card or bank account |
-| `Button`, `IconButton` | primary, outline, quiet, danger and link buttons with a glyph and a busy state; an icon-only button with a count or dot |
-| `CalendarEventCard` | a visit on the calendar: status fill, service swatch, flags and drag states |
-| `ChargeSheet`, `CardForm`, `PaymentMethodForm` | the checkout and card or bank entry; the Stripe account comes from `setStripeAccount` |
-| `Checkbox`, `Checklist` | a checkbox with a mixed state; a list of steps with done, attention and an action |
-| `Choice` | chips, a segmented control, option cards or tiles, for one or several values |
-| `ContractDocument`, `SignaturePad` | a contract laid out as the printed page with its signature block; a pad that records strokes |
-| `ConversationRow`, `MessageBubble` | a conversation in the inbox list; one message or a system line in a thread |
-| `CopyField` | a link, snippet or reference to hand out, with a copy action that confirms in place |
-| `DateStrip`, `TimeSlotPicker` | a week of dates with busy dots and closed days; open times grouped by part of the day |
-| `DetailView`, `DetailSection` | a right-side panel on web, a bottom sheet on mobile, with sections and an action row |
-| `DocTotals`, `PrintedDocument`, `PayCode` | a document's money summary; an invoice, estimate or receipt as the client gets it; a scannable code for a pay link |
-| `DurationBar` | how a booking blocks time with its buffers |
-| `Empty`, `Loading`, `Skeleton`, `SyncBanner` | empty and failed states with next steps, loading text, placeholders while data loads, and offline or sync status |
-| `Field`, `TextField`, `Select`, `Toggle`, `SearchField`, `TagInput` | labelled controls with hint and error; search with a clear button and result keys; tags with suggestions |
-| `FormQuestion` | one form question, shared by the builder preview and the client's form |
-| `Icon`, `GoogleIcon`, `Logo`, `Lockup` | glyphs from `app-core/icons.ts`, Google's mark, and the logo with and without the wordmark |
-| `ImagePicker`, `ItemImage`, `ItemTile` | an item's photo with change and remove; its picture or initial; a tile or card to tap in a register or shop |
-| `KeyValueList` | labelled facts, inline or stacked in columns |
-| `LineItem` | one line of a sale with quantity, discount, tag and remove |
-| `ListPage`, `ListRow`, `OccurrenceList` | a list page with segments, search and rows; one row with a glyph or leading slot; the dates of a series with clashes |
-| `Meter`, `ProgressSteps`, `RatingDistribution` | how much of something is used; where a flow is; how ratings spread |
-| `Modal`, `confirm()` / `ConfirmHost` | a dialog (bottom sheet on mobile); a yes/no question, the system alert on mobile |
-| `Money`, `Stat`, `Stars`, `Stepper` | amounts, a labelled figure, a rating to show or pick, and a quantity control |
-| `Notice` | a danger, success or info line, or a filled box |
-| `PageHeader`, `Panel`, `Tabs` | a page title with actions and tabs; a card with a title; an underline or pill tab row |
-| `SwatchPicker`, `WeeklyHoursEditor` | a colour picker; one person's regular week with open days and times |
+| Component                                                           | What it is                                                                                                              |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `ActionMenu`                                                        | a menu of actions with glyphs: a popover with arrow-key focus on web, a bottom sheet on mobile                          |
+| `ActivityTimeline`                                                  | what happened to a record, newest last, with optional glyphs, quotes and amounts                                        |
+| `Avatar`                                                            | a person's or pet's initials on the accent tint or their own colour                                                     |
+| `Badge`, `StatusPill`                                               | a pill or a count, and a status pill, coloured from `INTENT_COLORS`                                                     |
+| `BarChart`                                                          | one series of bars over time, with partial and out-of-period bars                                                       |
+| `BrandMark`                                                         | the small mark beside a saved card or bank account                                                                      |
+| `Button`, `IconButton`                                              | primary, outline, quiet, danger and link buttons with a glyph and a busy state; an icon-only button with a count or dot |
+| `CalendarEventCard`                                                 | a visit on the calendar: status fill, service swatch, flags and drag states                                             |
+| `ChargeSheet`, `CardForm`, `PaymentMethodForm`                      | the checkout and card or bank entry; the Stripe account comes from `setStripeAccount`                                   |
+| `Checkbox`, `Checklist`                                             | a checkbox with a mixed state; a list of steps with done, attention and an action                                       |
+| `Choice`                                                            | chips, a segmented control, option cards or tiles, for one or several values                                            |
+| `ContractDocument`, `SignaturePad`                                  | a contract laid out as the printed page with its signature block; a pad that records strokes                            |
+| `ConversationRow`, `MessageBubble`                                  | a conversation in the inbox list; one message or a system line in a thread                                              |
+| `CopyField`                                                         | a link, snippet or reference to hand out, with a copy action that confirms in place                                     |
+| `DateStrip`, `TimeSlotPicker`                                       | a week of dates with busy dots and closed days; open times grouped by part of the day                                   |
+| `DetailView`, `DetailSection`                                       | a right-side panel on web, a bottom sheet on mobile, with sections and an action row                                    |
+| `DocTotals`, `PrintedDocument`, `PayCode`                           | a document's money summary; an invoice, estimate or receipt as the client gets it; a scannable code for a pay link      |
+| `DurationBar`                                                       | how a booking blocks time with its buffers                                                                              |
+| `Empty`, `Loading`, `Skeleton`, `SyncBanner`                        | empty and failed states with next steps, loading text, placeholders while data loads, and offline or sync status        |
+| `Field`, `TextField`, `Select`, `Toggle`, `SearchField`, `TagInput` | labelled controls with hint and error; search with a clear button and result keys; tags with suggestions                |
+| `FormQuestion`                                                      | one form question, shared by the builder preview and the client's form                                                  |
+| `Icon`, `GoogleIcon`, `Logo`, `Lockup`                              | glyphs from `app-core/icons.ts`, Google's mark, and the logo with and without the wordmark                              |
+| `ImagePicker`, `ItemImage`, `ItemTile`                              | an item's photo with change and remove; its picture or initial; a tile or card to tap in a register or shop             |
+| `KeyValueList`                                                      | labelled facts, inline or stacked in columns                                                                            |
+| `LineItem`                                                          | one line of a sale with quantity, discount, tag and remove                                                              |
+| `ListPage`, `ListRow`, `OccurrenceList`                             | a list page with segments, search and rows; one row with a glyph or leading slot; the dates of a series with clashes    |
+| `Meter`, `ProgressSteps`, `RatingDistribution`                      | how much of something is used; where a flow is; how ratings spread                                                      |
+| `Modal`, `confirm()` / `ConfirmHost`                                | a dialog (bottom sheet on mobile); a yes/no question, the system alert on mobile                                        |
+| `Money`, `Stat`, `Stars`, `Stepper`                                 | amounts, a labelled figure, a rating to show or pick, and a quantity control                                            |
+| `Notice`                                                            | a danger, success or info line, or a filled box                                                                         |
+| `PageHeader`, `Panel`, `Tabs`                                       | a page title with actions and tabs; a card with a title; an underline or pill tab row                                   |
+| `SwatchPicker`, `WeeklyHoursEditor`                                 | a colour picker; one person's regular week with open days and times                                                     |
 
 `DocEditor` (the invoice and estimate editor) lives in each app because it reads the replica. Connect has
 `PublicFrame`, `PublicStatus` and `PublicDone` in `apps/connect/src/components` for its page chrome.
 
 Item images and the business logo are `files` rows served through the public `/media/{file_id}` endpoint
-(see *Public media*). Each app builds the URL with `mediaUrl(apiBase, fileId)`.
+(see _Public media_). Each app builds the URL with `mediaUrl(apiBase, fileId)`.
 
 ### Connect — the customer app (PowerSync-free, embeddable)
+
 The public surfaces (book/pay/form/contract/review + a per-business landing) live in their own lean Vite app
 (`apps/connect`, :8709) that imports **only** `@clientbridge/app-core/public` — no PowerSync, no api-client.
 Each `public*` domain is a `createPublicXClient(baseUrl)` factory doing plain `fetch` against token/slug-
@@ -822,6 +902,7 @@ inlined, so the host page loads neither React nor the catalog. The lean-bundle b
 from Connect and `app-core/public`.
 
 ### Marketing site (`apps/site`)
+
 The public website is its own app in the same workspace, built with the same stack (Vite, React 19,
 Tailwind 4, TypeScript strict) and deployed apart from the web app, on its own subdomain. It is a static
 build: `scripts/prerender.ts` renders every route in `src/routes.tsx` to its own HTML file, so pages need no
@@ -843,18 +924,23 @@ apart visually.
   share image drawn per page at build time (satori and resvg); `sitemap.xml`, `robots.txt`, a web manifest,
   and Organization and SoftwareApplication structured data on the home page.
 
-## The three bridges (Python ↔ TS — generate, don't share)
+## The generated bridges (Python ↔ TS — generate, don't share)
 
 No source is shared between the ecosystems. Everything that must agree is **generated** from a single
 source, with a **CI drift gate** that fails if the committed output diverges.
 
-| Bridge | Source of truth | Generated into | Command |
-|---|---|---|---|
-| **Sync schema** | SQLAlchemy models + `sync-rules.yaml` | `packages/sync/src/schema.ts` | `make gen-sync-schema` |
-| **API client** | FastAPI OpenAPI | `packages/api-client/src/generated.ts` | `make gen-api` |
-| **Design tokens** | `.docs/design/app-explorer.html` | `packages/tokens/src/themes.{ts,css}` | `make gen-themes` |
+| Bridge            | Source of truth                       | Generated into                             | Command                |
+| ----------------- | ------------------------------------- | ------------------------------------------ | ---------------------- |
+| **Sync schema**   | SQLAlchemy models + `sync-rules.yaml` | `packages/sync/src/schema.ts`              | `make gen-sync-schema` |
+| **API client**    | FastAPI OpenAPI                       | `packages/api-client/src/generated.ts`     | `make gen-api`         |
+| **Design tokens** | `.docs/design/app-explorer.html`      | `packages/tokens/src/themes.{ts,css}`      | `make gen-themes`      |
+| **Zones**         | `tzdata` through `core/zones.py`      | app-core `zones.ts`, `zones.cases.json`    | `make gen-zones`       |
+| **Tax rates**     | `services/tax.py`                     | app-core `taxRates.ts`, `taxes.cases.json` | `make gen-taxes`       |
 
-`api-client`'s `session.ts` owns transparent token refresh (single-flight, retries once on 401, refreshes
-only on a definitive 401/403 so a network blip doesn't wipe the replica) and injects the token-store seam.
+The copy catalogs are generated the same way within each side (`make gen-strings`, `make gen-messages`), and `make codegen-check` covers all seven.
+
+`api-client`'s `session.ts` sends the Kratos cookie (web) or session token (mobile), signs out only when
+Kratos answers 401 so a network failure does not wipe the replica, asks for a step-up on `aal2_required`,
+and injects the session-store seam.
 `tokens` feeds both platforms from one source: web via CSS variables + a Tailwind v4 @theme (tailwind.css), mobile via
 materialized JS values (`@clientbridge/tokens/native`).
