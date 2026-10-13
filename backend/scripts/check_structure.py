@@ -1,5 +1,6 @@
 import ast
 import io
+import json
 import pathlib
 import re
 import sys
@@ -10,6 +11,15 @@ PACKAGE = BACKEND / "src" / "clientbridge"
 TESTS = BACKEND / "tests"
 SCRIPTS = BACKEND / "scripts"
 MIGRATIONS = BACKEND / "migrations"
+PYRIGHT_CONFIG = BACKEND.parent / "pyrightconfig.json"
+PYRIGHT_RELAXED = {
+    "reportMissingTypeStubs",
+    "reportUnknownArgumentType",
+    "reportUnknownMemberType",
+    "reportUnknownParameterType",
+    "reportUnknownVariableType",
+}
+PYRIGHT_INCLUDE = {"backend/src", "backend/tests", "backend/scripts", "backend/migrations"}
 CROSS_CUTTING_TESTS = {
     "command",
     "db",
@@ -85,6 +95,25 @@ def suppression_problems(path: pathlib.Path, source: str) -> list[str]:
         for token in tokenize.generate_tokens(io.StringIO(source).readline)
         if token.type == tokenize.COMMENT and SUPPRESSION.search(token.string)
     ]
+
+
+def pyright_problems() -> list[str]:
+    config: dict[str, object] = json.loads(PYRIGHT_CONFIG.read_text())
+    problems: list[str] = []
+    if config.get("typeCheckingMode") != "strict":
+        problems.append(f'{PYRIGHT_CONFIG}: typeCheckingMode must be "strict"')
+    problems += [
+        f"{PYRIGHT_CONFIG}: {key} is weaker than error; only {sorted(PYRIGHT_RELAXED)} may be"
+        for key, value in config.items()
+        if key.startswith("report") and key not in PYRIGHT_RELAXED and value not in (True, "error")
+    ]
+    if "ignore" in config:
+        problems.append(f"{PYRIGHT_CONFIG}: ignore hides diagnostics; fix them instead")
+    include = config.get("include")
+    covered = {str(path) for path in include} if isinstance(include, list) else set()
+    missing = sorted(PYRIGHT_INCLUDE - covered)
+    problems += [f"{PYRIGHT_CONFIG}: include must cover {path}" for path in missing]
+    return problems
 
 
 def banner_problems(path: pathlib.Path, source: str) -> list[str]:
@@ -322,6 +351,7 @@ def main() -> int:
         problems += comment_problems(path)
     for path in sorted(MIGRATIONS.rglob("*.py")):
         problems += suppression_problems(path, path.read_text())
+    problems += pyright_problems()
     known = concepts()
     for path in sorted(TESTS.glob("test_*.py")):
         problems += naming_problems(path, known)
