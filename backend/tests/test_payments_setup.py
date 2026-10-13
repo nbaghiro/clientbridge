@@ -583,3 +583,11 @@ def test_portal_ignores_the_order_stripe_lists_allowed_updates_in() -> None:
         },
     }
     assert plan_portal([config], RETURN_URL).action == "keep"
+
+
+def test_an_account_closed_earlier_gets_a_fresh_create_key() -> None:
+    fresh = plan_account(BIRCHBARK, [])
+    closed = {"id": "acct_closed", "closed": True, "metadata": {DEMO_TAG: "bz_birchbark"}}
+    again = plan_account(BIRCHBARK, [], [closed])
+    assert again.action == "create" and again.idempotency != fresh.idempotency
+    assert plan_account(BIRCHBARK, [], [closed]).idempotency == again.idempotency

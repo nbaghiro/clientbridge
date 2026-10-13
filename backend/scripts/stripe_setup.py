@@ -622,6 +622,15 @@ def account_body(biz: DemoBusiness) -> dict[str, object]:
     }
 
 
+def _account_key(biz: DemoBusiness, closed: Sequence[Mapping[str, object]]) -> str:
+    # Stripe replays a key for 30 days, so after a close the key must change to create anew
+    gone = sorted(str(a.get("id")) for a in find_account(closed, biz))
+    if not gone:
+        return f"clientbridge-demo-account-{biz.id}"
+    digest = hashlib.sha256(",".join(gone).encode()).hexdigest()[:12]
+    return f"clientbridge-demo-account-{biz.id}-after-{digest}"
+
+
 def find_account(accounts: Sequence[Mapping[str, object]], biz: DemoBusiness) -> list[Json]:
     return [dict(a) for a in accounts if _map(a.get("metadata")).get(DEMO_TAG) == biz.id]
 
@@ -642,7 +651,11 @@ def account_summary(account: Json) -> str:
     return summary
 
 
-def plan_account(biz: DemoBusiness, matches: Sequence[Mapping[str, object]]) -> Step:
+def plan_account(
+    biz: DemoBusiness,
+    matches: Sequence[Mapping[str, object]],
+    closed: Sequence[Mapping[str, object]] = (),
+) -> Step:
     target = f"connected account for {biz.id}"
     if len(matches) > 1:
         ids = ", ".join(str(a.get("id")) for a in matches)
@@ -656,7 +669,7 @@ def plan_account(biz: DemoBusiness, matches: Sequence[Mapping[str, object]]) -> 
             "post",
             "/v2/core/accounts",
             (json.dumps(account_body(biz)),),
-            idempotency=f"clientbridge-demo-account-{biz.id}",
+            idempotency=_account_key(biz, closed),
         )
     account = dict(matches[0])
     account_id = str(account.get("id"))
@@ -782,11 +795,13 @@ class Stripe:
         include = json.dumps({"include": ACCOUNT_INCLUDE})
         return self.call("get", f"/v2/core/accounts/{account_id}", [include])
 
-    def list_v2(self, path: str) -> list[Json]:
+    def list_v2(self, path: str, *, closed: bool = False) -> list[Json]:
         rows: list[Json] = []
         page: str | None = None
         while True:
-            query = {"limit": 20, **({"page": page} if page else {})}
+            query: dict[str, object] = {"limit": 20, **({"page": page} if page else {})}
+            if closed:
+                query["closed"] = True
             if path == "/v2/core/event_destinations":
                 query["include"] = ["webhook_endpoint.url"]
             body = self.call("get", path, [json.dumps(query)])
@@ -1105,7 +1120,8 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
         biz.id: [stripe.account(str(a["id"])) for a in find_account(accounts, biz)]
         for biz in DEMO_BUSINESSES
     }
-    steps += [plan_account(biz, matched[biz.id]) for biz in DEMO_BUSINESSES]
+    closed = stripe.list_v2("/v2/core/accounts", closed=True)
+    steps += [plan_account(biz, matched[biz.id], closed) for biz in DEMO_BUSINESSES]
     print("plan:")
     for step in steps:
         show(step)
