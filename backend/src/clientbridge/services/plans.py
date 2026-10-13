@@ -322,7 +322,10 @@ class PlanService:
         carry = plan_access(business, now) == "trial" and left >= _CHECKOUT_TRIAL_MIN
         url = await self.gateway.create_plan_checkout(
             account_id,
-            items=plan_items(choice.plan, choice.interval, seats),
+            # Checkout takes one interval, so a yearly plan gets its monthly seats once it exists
+            items=plan_items(
+                choice.plan, choice.interval, seats if choice.interval == "month" else 0
+            ),
             business_id=business.id,
             trial_end=business.trial_ends_at if carry else None,
             success_url=f"{_plan_page()}?checkout=done",

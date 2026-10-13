@@ -154,7 +154,7 @@ async def test_plan_checkout_bills_the_account_with_flexible_mode_tax_and_the_tr
     trial_end = datetime(2030, 1, 15, tzinfo=UTC)
     url = await gateway.create_plan_checkout(
         "acct_paying",
-        items=[PlanItem("premium_year"), PlanItem("seat_month", 2)],
+        items=[PlanItem("premium_month"), PlanItem("seat_month", 2)],
         business_id="bz_birchbark",
         trial_end=trial_end,
         success_url="https://app/setup/plan?done=1",
@@ -164,7 +164,7 @@ async def test_plan_checkout_bills_the_account_with_flexible_mode_tax_and_the_tr
     assert url == "https://c"
     assert captured["mode"] == "subscription" and captured["customer_account"] == "acct_paying"
     assert captured["line_items"] == [
-        {"price": "price_premium_year", "quantity": 1},
+        {"price": "price_premium_month", "quantity": 1},
         {"price": "price_seat_month", "quantity": 2},
     ]
     assert captured["subscription_data"] == {
@@ -183,7 +183,7 @@ async def test_plan_checkout_bills_the_account_with_flexible_mode_tax_and_the_tr
         cancel_url="https://app/setup/plan",
         idempotency_key="plan-checkout-2",
     )
-    assert prices["keys"] == ["premium_year", "seat_month"]  # read once per process
+    assert prices["keys"] == ["premium_month", "seat_month", "premium_year"]
     assert "trial_end" not in cast(dict[str, object], captured["subscription_data"])
 
 

@@ -196,10 +196,18 @@ async def test_checkout_on_premium_bills_each_seat(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     await _trial(db, timedelta(days=10))
-    ok(await as_owner.post("/v1/plan/checkout", json={"plan": "premium", "interval": "year"}))
+    ok(await as_owner.post("/v1/plan/checkout", json={"plan": "premium", "interval": "month"}))
     seats = await plans.billed_seats(db, BIZ, datetime.now(UTC))
     assert seats > 0
-    assert gateway.checkouts[0].items == (PlanItem("premium_year"), PlanItem("seat_month", seats))
+    assert gateway.checkouts[0].items == (PlanItem("premium_month"), PlanItem("seat_month", seats))
+
+
+async def test_a_yearly_checkout_leaves_the_monthly_seats_to_the_subscription(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _trial(db, timedelta(days=10))
+    ok(await as_owner.post("/v1/plan/checkout", json={"plan": "premium", "interval": "year"}))
+    assert gateway.checkouts[0].items == (PlanItem("premium_year"),)
 
 
 async def test_checkout_with_less_than_two_days_left_bills_now(
