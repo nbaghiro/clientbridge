@@ -1,7 +1,7 @@
 """Shared fixtures: each test runs in a transaction rolled back at teardown, over the seeded DB."""
 
 import json
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Iterator, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from uuid import uuid4

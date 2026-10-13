@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from uuid import uuid4
 
 import httpx
@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.errors import PaymentsNotConfigured
 from clientbridge.integrations.kratos import Identity
 from clientbridge.integrations.stripe import PlanItem, PlanSubscription
@@ -53,7 +54,7 @@ def _billed(gateway: FakePaymentGateway) -> int:
 
 
 async def _seats(db: AsyncSession) -> int:
-    return await plans.billed_seats(db, BIZ, datetime.now(UTC))
+    return await plans.billed_seats(db, BIZ, clock.now())
 
 
 async def _invite(as_owner: httpx.AsyncClient, address: str) -> httpx.Response:
@@ -112,7 +113,7 @@ async def test_a_trial_stops_at_the_seat_cap(
     await db.execute(
         update(Business)
         .where(Business.id == BIZ)
-        .values(plan=None, plan_status="trialing", trial_ends_at=datetime.now(UTC) + timedelta(1))
+        .values(plan=None, plan_status="trialing", trial_ends_at=clock.now() + timedelta(1))
     )
     monkeypatch.setattr(plans, "PLAN_SEAT_CAP", await _seats(db))
     res = await _invite(as_owner, "over@test.ca")
@@ -165,13 +166,13 @@ async def test_an_expired_invite_drops_out_at_the_daily_sync(
     await db.execute(
         update(Staff)
         .where(Staff.id == invite["id"])
-        .values(invited_at=datetime.now(UTC) - plans.INVITE_TTL - timedelta(minutes=1))
+        .values(invited_at=clock.now() - plans.INVITE_TTL - timedelta(minutes=1))
     )
     await db.flush()
-    assert await run_sync_seats(db, gateway, datetime.now(UTC)) == 1
+    assert await run_sync_seats(db, gateway, clock.now()) == 1
     assert _billed(gateway) == billed - 1
     keys = len(gateway.plan_item_keys)
-    assert await run_sync_seats(db, gateway, datetime.now(UTC)) == 1
+    assert await run_sync_seats(db, gateway, clock.now()) == 1
     assert len(gateway.plan_item_keys) == keys  # already at the count: nothing to change
 
 

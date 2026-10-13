@@ -109,12 +109,12 @@ async def prune_pending_files(ctx: Context) -> int:
 
 async def sync_plan_seats(ctx: Context) -> int:
     async with SessionLocal() as db:
-        return await run_sync_seats(db, get_payment_gateway(), datetime.now(UTC))
+        return await run_sync_seats(db, get_payment_gateway(), clock.now())
 
 
 async def send_trial_reminders(ctx: Context) -> int:
     async with SessionLocal() as db:
-        return await run_trial_reminders(db, _notifier(), datetime.now(UTC))
+        return await run_trial_reminders(db, _notifier(), clock.now())
 
 
 class WorkerSettings:

@@ -3,7 +3,6 @@
 import logging
 import secrets
 from collections import Counter
-from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -127,7 +126,7 @@ class StaffService:
 
         async def run(cmd: Command) -> InviteOut:
             business = await self._locked_business(principal.business_id)
-            seats = await plans.assert_seat_free(self.db, business, datetime.now(UTC))
+            seats = await plans.assert_seat_free(self.db, business, clock.now())
             raw = secrets.token_urlsafe(24)
             staff = Staff(
                 id=new_id("staff"),
@@ -207,7 +206,7 @@ class StaffService:
             raise Conflict("you're already on this team", code="already_member")
         # the plan may have changed since the invite went out
         business = await self._locked_business(staff.business_id)
-        await plans.assert_seat_free(self.db, business, datetime.now(UTC), member=staff.id)
+        await plans.assert_seat_free(self.db, business, clock.now(), member=staff.id)
         if member is not None:
             member.role, member.status = staff.role, "active"
             await self.db.delete(staff)
@@ -300,12 +299,12 @@ class StaffService:
         async def run(cmd: Command) -> InviteOut:
             assert staff.role != "owner", "an invite is never for the owner"
             business = await self._locked_business(principal.business_id)
-            now = datetime.now(UTC)
+            now = clock.now()
             seats = await plans.assert_seat_free(self.db, business, now, member=staff.id)
             await plans.sync_seats(gateway, business, seats)
             raw = secrets.token_urlsafe(24)
             staff.invite_token = hash_token(raw)
-            staff.invited_at = clock.now()
+            staff.invited_at = now
             staff.invited_by = principal.user_id
             await self.db.flush()
             subject, body = await self._invite_email(principal, raw)
@@ -351,7 +350,7 @@ class StaffService:
         if business is None:
             return
         try:
-            seats = await plans.billed_seats(self.db, business_id, datetime.now(UTC))
+            seats = await plans.billed_seats(self.db, business_id, clock.now())
             await plans.sync_seats(gateway, business, seats)
         except Exception:
             _log.exception("seat release failed for %s", business_id)

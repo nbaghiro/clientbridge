@@ -335,7 +335,7 @@ def subscription_canceled_message(locale: str, business_name: str) -> tuple[str,
     )
 
 
-def _trial_ending(
+def trial_ending_message(
     locale: str, business_name: str, when: str, link: str, *, last_day: bool
 ) -> tuple[str, str]:
     values = {"business": business_name, "when": when, "link": link}
@@ -347,7 +347,9 @@ def _trial_ending(
     return message(locale, "trial_ending.subject"), message(locale, "trial_ending.body", **values)
 
 
-def _gift_card_issued(locale: str, business_name: str, amount: str, code: str) -> tuple[str, str]:
+def gift_card_issued_message(
+    locale: str, business_name: str, amount: str, code: str
+) -> tuple[str, str]:
     return (
         message(locale, "gift_card_issued.subject", business=business_name),
         message(locale, "gift_card_issued.body", amount=amount, business=business_name, code=code),
@@ -719,7 +721,9 @@ class Notifier:
             return
         locale = locale_for(business=business)
         when = format_day_and_time(locale, business.trial_ends_at, business.timezone)
-        subject, body = _trial_ending(locale, business.name, when, plan_link(), last_day=last_day)
+        subject, body = trial_ending_message(
+            locale, business.name, when, plan_link(), last_day=last_day
+        )
         await self._safe(self.email.send(business_email(business.id, to, subject, body)))
 
     async def on_estimate_answered(self, db: AsyncSession, view_token: str) -> None:

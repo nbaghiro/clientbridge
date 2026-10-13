@@ -277,7 +277,7 @@ class PublicBookingService:
             prior = await replay(self.db, business.id, _BOOK_SCOPE, idempotency_key, data)
             if prior is not None:
                 return PublicBookingResult.model_validate(prior)
-        assert_serving(business, datetime.now(UTC))
+        assert_serving(business, clock.now())
         item = await self._bookable_item(business.id, data.item_id)
         if item.duration_min is None or item.duration_min <= 0:
             raise Unprocessable("that service has no duration and can't be booked")
@@ -629,7 +629,7 @@ class PublicManageService:
             self.db, business.id, _MOVE_SCOPE, idempotency_key, request
         ):
             return await self._view(booking, slot, business)
-        assert_serving(business, datetime.now(UTC))
+        assert_serving(business, clock.now())
         item, staff = await self._movable(booking, slot, business)
         policy = policy_of(business)
         _assert_bookable_window(policy, data.starts_at)
@@ -1287,7 +1287,7 @@ async def estimate_tax(
 ) -> tuple[datetime, TaxResult]:
     """An open estimate is quoted at today's rates; an accepted one keeps its acceptance rates."""
     if estimate.accepted_at is None:
-        now = datetime.now(UTC)
+        now = clock.now()
         return now, await tax_breakdown(db, estimate.business_id, lines, now)
     return estimate.accepted_at, await issued_tax(
         db, estimate.business_id, lines, estimate.accepted_at
@@ -1358,7 +1358,7 @@ class PublicEstimateService:
     async def accept(self, token: str, data: PublicEstimateAccept) -> PublicEstimate:
         estimate, business = await self._resolve(token, lock=True)
         self._assert_open(estimate, business)
-        assert_serving(business, datetime.now(UTC))
+        assert_serving(business, clock.now())
         lines = await fetch_lines(self.db, estimate.business_id, "estimate", estimate.id)
         offered = {ln.id for ln in lines if ln.optional}
         if not set(data.line_ids) <= offered:
@@ -1829,7 +1829,7 @@ class PublicShopService:
         prior = await replay(self.db, business.id, _SCOPE, idempotency_key, data)
         if prior is not None:
             return PublicShopOrderResult.model_validate(prior)
-        assert_serving(business, datetime.now(UTC))
+        assert_serving(business, clock.now())
         if data.pickup_from is not None:
             await self.db.execute(
                 text("SELECT pg_advisory_xact_lock(hashtext(:scope))"),

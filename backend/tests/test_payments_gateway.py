@@ -17,9 +17,7 @@ from clientbridge.integrations.stripe import (
 
 
 def _missing(param: str) -> stripe.InvalidRequestError:
-    return stripe.InvalidRequestError(  # type: ignore[no-untyped-call]
-        "No such object", param, code="resource_missing"
-    )
+    return stripe.InvalidRequestError("No such object", param, code="resource_missing")
 
 
 def _raises(exc: Exception) -> object:
@@ -73,9 +71,7 @@ async def test_charge_of_a_card_from_another_account_is_a_conflict(
 async def test_other_invalid_requests_still_raise(
     gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    invalid = stripe.InvalidRequestError(  # type: ignore[no-untyped-call]
-        "Amount too small", "amount", code="amount_too_small"
-    )
+    invalid = stripe.InvalidRequestError("Amount too small", "amount", code="amount_too_small")
     monkeypatch.setattr(stripe.Refund, "create_async", _raises(invalid))
     with pytest.raises(stripe.InvalidRequestError):
         await gateway.refund("acct_x", payment_intent_id="pi", amount_cents=1, idempotency_key="k")
@@ -297,7 +293,7 @@ async def test_customer_configuration_keeps_a_verified_address(
     identity: dict[str, object],
     sets_address: bool,
 ) -> None:
-    accounts = gateway._client.v2.core.accounts
+    accounts = gateway.client.v2.core.accounts
     updates: list[dict[str, object]] = []
 
     async def retrieve(account_id: str, params: object = None) -> stripe.StripeObject:
@@ -383,7 +379,7 @@ def test_gateways_share_one_stripe_client_per_key(monkeypatch: pytest.MonkeyPatc
     first = StripeGateway("sk_test_shared", "", "CA")
     second = StripeGateway("sk_test_shared", "", "CA")
     other = StripeGateway("sk_test_other", "", "CA")
-    assert first._client is second._client and first._client is not other._client
+    assert first.client is second.client and first.client is not other.client
 
 
 async def test_closing_plan_checkouts_expires_other_tabs_and_finds_a_paid_one(

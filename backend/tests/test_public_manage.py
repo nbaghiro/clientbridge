@@ -508,7 +508,7 @@ async def test_a_lapsed_business_takes_no_rescheduled_visits(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     token = await _book(api)
-    slots = (await api.get(f"/manage/{token}/slots", params={"date": at("2026-12-02")})).json()
+    slots = (await api.get(f"/manage/{token}/slots", params={"date": "2026-12-02"})).json()
     await db.execute(
         update(Business).where(Business.id == BIZ).values(plan=None, plan_status="lapsed")
     )

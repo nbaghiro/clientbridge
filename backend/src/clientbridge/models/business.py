@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Literal
 
 from sqlalchemy import (
@@ -17,6 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from clientbridge.core import clock
 from clientbridge.core.db import Base
 from clientbridge.models.base import PKMixin, TimestampMixin, enum_check
 
@@ -33,7 +34,7 @@ TRIAL_DAYS = 14
 
 
 def trial_end() -> datetime:
-    return datetime.now(UTC) + timedelta(days=TRIAL_DAYS)
+    return clock.now() + timedelta(days=TRIAL_DAYS)
 
 
 class Business(PKMixin, TimestampMixin, Base):

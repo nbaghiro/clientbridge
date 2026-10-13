@@ -820,8 +820,11 @@ class Stripe:
         while True:
             params = ["limit=100", *([f"starting_after={after}"] if after else [])]
             page = self.call("get", path, params, account=account)
-            data = [cast(Json, r) for r in cast(list[object], page.get("data") or [])]
-            rows += [r for r in data if isinstance(r, dict)]
+            rows += [
+                cast(Json, r)
+                for r in cast(list[object], page.get("data") or [])
+                if isinstance(r, dict)
+            ]
             if not page.get("has_more") or not rows:
                 return rows
             after = str(rows[-1].get("id"))

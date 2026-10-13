@@ -311,7 +311,7 @@ class ReportService:
         tz = zone(business.timezone)
         lo, hi = period_bounds(start, end, tz)
         # the period's own rates; a rate that changed within the period has no single value
-        rates = rates_on(business.province, min(end, datetime.now(tz).date()))
+        rates = rates_on(business.province, min(end, clock.today(tz)))
         opening = {r.jurisdiction: r.rate_bps for r in rates_on(business.province, start)}
         steady = {
             r.jurisdiction: r.rate_bps if opening.get(r.jurisdiction) == r.rate_bps else None

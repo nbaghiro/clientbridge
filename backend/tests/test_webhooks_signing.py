@@ -123,7 +123,9 @@ def test_rejects_a_signature_from_the_wrong_secret() -> None:
 
 def test_rejects_a_stale_timestamp() -> None:
     payload = _golden("payment_intent_succeeded.json")
-    header = _signed_header(payload, SECRET, timestamp=int(time.time()) - 1000)  # past tolerance
+    header = _signed_header(
+        payload, SECRET, timestamp=int(clock.wall().timestamp()) - 1000
+    )  # past tolerance
     with pytest.raises(WebhookVerificationError):
         _gateway().verify_webhook(payload, header)
 

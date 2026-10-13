@@ -1,9 +1,9 @@
-from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Request, Response
 from starlette.routing import compile_path
 
+from clientbridge.core import clock
 from clientbridge.core.deps import (
     CurrentPrincipal,
     DbSession,
@@ -55,7 +55,7 @@ async def writable(request: Request, db: DbSession, identities: IdentityDep) -> 
     identity = await current_identity(request, identities, headers.get("x-session-token", ""))
     user = await current_user(identity, identities, db, headers.get("x-expected-user", ""))
     principal = await current_principal(user.id, db, headers.get("x-business-id", ""))
-    await plans.assert_writable(db, principal.business_id, datetime.now(UTC))
+    await plans.assert_writable(db, principal.business_id, clock.now())
 
 
 PlanWritable = Depends(writable)

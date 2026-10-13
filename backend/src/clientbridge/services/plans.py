@@ -1,11 +1,12 @@
 import logging
 import secrets
 from dataclasses import dataclass
-from datetime import UTC, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 
 from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role
@@ -286,7 +287,7 @@ class PlanService:
 
     async def status(self) -> PlanOut:
         self._assert_owner()
-        now = datetime.now(UTC)
+        now = clock.now()
         business = await self._business()
         seats = await billed_seats(self.db, business.id, now)
         sub = (
@@ -298,7 +299,7 @@ class PlanService:
 
     async def checkout(self, choice: PlanChoice, idempotency_key: str | None) -> PlanLink:
         self._assert_owner()
-        now = datetime.now(UTC)
+        now = clock.now()
         business = await self._business(lock=True)
         if business.stripe_subscription_id is not None and business.plan_status in _LIVE:
             raise Conflict("the business already has a plan; change it instead", code="plan_active")
@@ -354,7 +355,7 @@ class PlanService:
         self._assert_owner()
 
         async def run(cmd: Command) -> PlanOut:
-            now = datetime.now(UTC)
+            now = clock.now()
             business = await self._business(lock=True)
             subscription_id = business.stripe_subscription_id
             if subscription_id is None or business.plan_status not in _LIVE:
@@ -434,7 +435,7 @@ async def apply_subscription_event(
     sub = await gateway.get_plan_subscription(subscription_id)
     business.stripe_subscription_id = subscription_id
     status = _STRIPE_STATUS.get(sub.status)
-    trialing = plan_access(business, datetime.now(UTC)) == "trial"
+    trialing = plan_access(business, clock.now()) == "trial"
     # incomplete: Checkout has not collected the first payment; an expired one leaves the trial
     if status is None or (sub.status == "incomplete_expired" and trialing):
         await db.flush()
@@ -443,7 +444,7 @@ async def apply_subscription_event(
     business.plan = _tier_of(sub)[0] if status != "lapsed" else None
     await db.flush()
     if event.type == "customer.subscription.created":
-        await sync_seats(gateway, business, await billed_seats(db, business.id, datetime.now(UTC)))
+        await sync_seats(gateway, business, await billed_seats(db, business.id, clock.now()))
 
 
 async def run_sync_seats(db: AsyncSession, gateway: PaymentGateway, now: datetime) -> int:

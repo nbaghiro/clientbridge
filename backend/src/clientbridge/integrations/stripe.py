@@ -8,15 +8,19 @@ from collections.abc import Callable, Coroutine, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cache
+from types import CoroutineType
 from typing import Concatenate, Literal, Protocol, cast
 
 import stripe
 from stripe.params import (
     AccountSessionCreateParamsComponents,
     AccountSessionCreateParamsComponentsAccountManagementFeatures,
+    CustomerCreateParams,
+    PaymentIntentCreateParams,
     SubscriptionModifyParamsItem,
 )
 from stripe.params.checkout import SessionCreateParamsSubscriptionData
+from stripe.params.terminal import LocationCreateParamsAddress
 from stripe.params.v2.core import (
     AccountCreateParams,
     AccountCreateParamsConfiguration,
@@ -365,9 +369,8 @@ def plan_item_changes(
             changes.append({"id": row.get("id"), "deleted": True})
         elif row.get("quantity") != match.quantity:
             changes.append({"id": row.get("id"), "quantity": match.quantity})
-    changes += [
-        {"price": prices[item.lookup_key].id, "quantity": item.quantity} for item in wanted.values()
-    ]
+    for item in wanted.values():
+        changes.append({"price": prices[item.lookup_key].id, "quantity": item.quantity})
     return changes
 
 
@@ -638,7 +641,7 @@ class StripeGateway:
         self.configured = bool(secret_key)
         stripe.api_key = secret_key
         stripe.api_version = STRIPE_API_VERSION
-        self._client = _stripe_client(secret_key, stripe.api_base)
+        self.client = _stripe_client(secret_key, stripe.api_base)
         self._webhook_secret = webhook_secret
         self._thin_webhook_secret = thin_webhook_secret
         self._platform_webhook_secret = platform_webhook_secret
@@ -685,13 +688,13 @@ class StripeGateway:
         }
         if email is not None:
             params["contact_email"] = email
-        account = await self._client.v2.core.accounts.create_async(
+        account = await self.client.v2.core.accounts.create_async(
             params, {"idempotency_key": idempotency_key} if idempotency_key else None
         )
         return str(account.id)
 
     @_keyed
-    async def add_merchant_configuration(  # pragma: no cover
+    async def add_merchant_configuration(
         self, account_id: str, *, business_name: str, email: str | None
     ) -> None:
         merchant = cast(
@@ -701,20 +704,18 @@ class StripeGateway:
             "configuration": {"merchant": merchant},
             "include": ["configuration.merchant"],
         }
-        await self._client.v2.core.accounts.update_async(account_id, params)
+        await self.client.v2.core.accounts.update_async(account_id, params)
 
     @_keyed
     async def add_customer_configuration(self, account_id: str, *, address: PostalAddress) -> None:
-        account = await self._client.v2.core.accounts.retrieve_async(
+        account = await self.client.v2.core.accounts.retrieve_async(
             account_id, {"include": ["identity"]}
         )
         body: dict[str, object] = {"configuration": {"customer": CUSTOMER_CONFIGURATION}}
         # an onboarded account already has the address its owner verified
         if not has_identity_address(account.to_dict()):
             body["identity"] = {"business_details": {"address": address_params(address)}}
-        await self._client.v2.core.accounts.update_async(
-            account_id, cast(AccountUpdateParams, body)
-        )
+        await self.client.v2.core.accounts.update_async(account_id, cast(AccountUpdateParams, body))
 
     async def _prices(self, keys: Sequence[str]) -> dict[str, PlanPriceRef]:
         missing = [key for key in keys if key not in _PLAN_PRICES]
@@ -834,10 +835,10 @@ class StripeGateway:
         return plan_subscription_from(updated.to_dict())
 
     @_keyed
-    async def create_account_link(  # pragma: no cover
+    async def create_account_link(
         self, account_id: str, *, refresh_url: str, return_url: str
     ) -> str:
-        link = await self._client.v2.core.account_links.create_async(
+        link = await self.client.v2.core.account_links.create_async(
             {
                 "account": account_id,
                 "use_case": {
@@ -891,8 +892,8 @@ class StripeGateway:
         return str(session.client_secret)
 
     @_keyed
-    async def get_account(self, account_id: str) -> ConnectAccount:  # pragma: no cover
-        account = await self._client.v2.core.accounts.retrieve_async(
+    async def get_account(self, account_id: str) -> ConnectAccount:
+        account = await self.client.v2.core.accounts.retrieve_async(
             account_id, {"include": ["configuration.merchant", "requirements"]}
         )
         return account_status_from(str(account.id), account.to_dict())
@@ -952,7 +953,7 @@ class StripeGateway:
     @_keyed
     async def ensure_pad_capability(self, account_id: str) -> None:
         try:
-            account = await self._client.v2.core.accounts.update_async(
+            account = await self.client.v2.core.accounts.update_async(
                 account_id,
                 {
                     "configuration": {
@@ -1075,9 +1076,7 @@ class StripeGateway:
         )
 
     @_keyed
-    async def cancel_subscription(  # pragma: no cover
-        self, account_id: str, *, subscription_id: str
-    ) -> None:
+    async def cancel_subscription(self, account_id: str, *, subscription_id: str) -> None:
         try:
             await stripe.Subscription.cancel_async(subscription_id, stripe_account=account_id)
         except stripe.InvalidRequestError as exc:
@@ -1204,15 +1203,15 @@ class StripeGateway:
         return sum(int(f["amount"]) for f in funds if str(f["currency"]) == currency.lower())
 
     @_keyed
-    async def create_connection_token(self, account_id: str) -> str:  # pragma: no cover
+    async def create_connection_token(self, account_id: str) -> str:
         token = await stripe.terminal.ConnectionToken.create_async(stripe_account=account_id)
         return str(token.secret)
 
     @_keyed
-    async def create_terminal_location(  # pragma: no cover
+    async def create_terminal_location(
         self, account_id: str, *, display_name: str, address: PostalAddress
     ) -> str:
-        fields: stripe.params.terminal.LocationCreateParamsAddress = {
+        fields: LocationCreateParamsAddress = {
             "line1": address.line1,
             "city": address.city,
             "state": address.province,

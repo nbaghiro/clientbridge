@@ -13,6 +13,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.api.plans import LAPSED_WRITES
+from clientbridge.core import clock
 from clientbridge.integrations.stripe import PlanItem, PlanSubscription
 from clientbridge.main import app
 from clientbridge.models.business import Business, Staff
@@ -58,7 +59,7 @@ async def _trial(db: AsyncSession, left: timedelta, **values: object) -> None:
         db,
         plan=None,
         plan_status="trialing",
-        trial_ends_at=datetime.now(UTC) + left,
+        trial_ends_at=clock.now() + left,
         stripe_subscription_id=None,
         **values,
     )
@@ -204,7 +205,7 @@ async def test_checkout_on_premium_bills_each_seat(
 ) -> None:
     await _trial(db, timedelta(days=10))
     ok(await as_owner.post("/v1/plan/checkout", json={"plan": "premium", "interval": "month"}))
-    seats = await plans.billed_seats(db, BIZ, datetime.now(UTC))
+    seats = await plans.billed_seats(db, BIZ, clock.now())
     assert seats > 0
     assert gateway.checkouts[0].items == (PlanItem("premium_month"), PlanItem("seat_month", seats))
 
@@ -294,7 +295,7 @@ async def test_change_to_premium_bills_the_current_team(
 ) -> None:
     await _subscribed(db, gateway, PlanItem("team_month"))
     ok(await as_owner.post("/v1/plan/change", json={"plan": "premium", "interval": "month"}))
-    seats = await plans.billed_seats(db, BIZ, datetime.now(UTC))
+    seats = await plans.billed_seats(db, BIZ, clock.now())
     assert gateway.plan_subscriptions[SUB].items == subscribed(
         "premium_month", PlanItem("seat_month", seats)
     )
@@ -330,7 +331,7 @@ async def test_a_new_subscription_is_adopted_and_its_seats_reconciled(
     business = await _business(db)
     assert (business.plan, business.plan_status) == ("premium", "active")
     assert business.stripe_subscription_id == SUB
-    seats = await plans.billed_seats(db, BIZ, datetime.now(UTC))
+    seats = await plans.billed_seats(db, BIZ, clock.now())
     assert gateway.plan_subscriptions[SUB].items[1] == subscribed(PlanItem("seat_month", seats))[0]
 
 
@@ -364,7 +365,7 @@ async def test_a_deleted_subscription_lapses_the_business(
     await _subscribed(db, gateway, PlanItem("team_month"), status="canceled")
     await _deliver(api, _event("customer.subscription.deleted"))
     business = await _business(db)
-    assert plans.plan_access(business, datetime.now(UTC)) == "lapsed"
+    assert plans.plan_access(business, clock.now()) == "lapsed"
 
 
 async def test_an_incomplete_subscription_changes_nothing(
@@ -594,7 +595,7 @@ async def test_an_expired_first_payment_leaves_the_trial_running(
     gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"), status="incomplete_expired")
     await _deliver(api, _event("customer.subscription.updated"))
     business = await _business(db)
-    assert plans.plan_access(business, datetime.now(UTC)) == "trial"
+    assert plans.plan_access(business, clock.now()) == "trial"
 
 
 def _write_routes() -> list[tuple[str, str, APIRoute]]:
@@ -695,9 +696,7 @@ async def test_team_is_refused_while_the_business_has_more_members_than_it_allow
     gateway: FakePaymentGateway,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        plans, "PLAN_SEAT_CAP", await plans.billed_seats(db, BIZ, datetime.now(UTC)) - 1
-    )
+    monkeypatch.setattr(plans, "PLAN_SEAT_CAP", await plans.billed_seats(db, BIZ, clock.now()) - 1)
     await _subscribed(db, gateway, PlanItem("premium_month"))
     change = await as_owner.post("/v1/plan/change", json={"plan": "team", "interval": "month"})
     assert change.status_code == 409 and change.json()["error"] == "seat_limit"

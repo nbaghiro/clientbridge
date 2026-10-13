@@ -1,12 +1,12 @@
 """Tax is fixed when a document is issued: later settings never change what was charged."""
 
-from datetime import UTC, datetime
 from decimal import Decimal
 
 import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Line
 from clientbridge.models.business import Business
@@ -109,7 +109,7 @@ async def test_package_settlement_keeps_the_sale_tax_when_nothing_changed(
         method="cash",
         provider="manual",
         status="succeeded",
-        paid_at=datetime.now(UTC),
+        paid_at=clock.now(),
     )
     db.add(payment)
     await db.flush()

@@ -1,12 +1,13 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from fractions import Fraction
 from math import floor
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.models.billing import Line
 from clientbridge.services.business import business_province, business_tax_registered, business_tz
 
@@ -188,7 +189,7 @@ def split_fixed(lines: Sequence[tuple[TaxLine, int]], rates: Sequence[TaxCompone
 
 async def supply_date(db: AsyncSession, business_id: str, at: datetime | None = None) -> date:
     """The business's calendar date at `at` (now when omitted): the date a supply is taxed on."""
-    return (at or datetime.now(UTC)).astimezone(await business_tz(db, business_id)).date()
+    return (at or clock.now()).astimezone(await business_tz(db, business_id)).date()
 
 
 async def rates_for_business(

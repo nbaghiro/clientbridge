@@ -1,11 +1,11 @@
 """Flows only the real Stripe API can prove: KYC shape, real declines, period parsing."""
 
-from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
 import stripe
 
+from clientbridge.core import clock
 from clientbridge.core.errors import CardDeclined, Conflict
 from clientbridge.integrations.stripe import (
     STRIPE_API_VERSION,
@@ -110,12 +110,12 @@ async def test_subscription_period_fields_match_current_api(
     live_gateway: StripeGateway, connected_account_id: str
 ) -> None:
     """A Test Clock proves `current_period_*` exist at the pinned API version."""
-    clock = await stripe.test_helpers.TestClock.create_async(
+    test_clock = await stripe.test_helpers.TestClock.create_async(
         frozen_time=1735689600,
         stripe_account=connected_account_id,  # 2025-01-01
     )
     customer = await stripe.Customer.create_async(
-        test_clock=clock.id, stripe_account=connected_account_id
+        test_clock=test_clock.id, stripe_account=connected_account_id
     )
     await stripe.PaymentMethod.attach_async(
         "pm_card_visa", customer=customer.id, stripe_account=connected_account_id
@@ -135,4 +135,4 @@ async def test_subscription_period_fields_match_current_api(
         payment_method_id="pm_card_visa",
         metadata={"tax_class": "standard", "tax_registered": "true"},
     )
-    assert result.current_period_end > datetime.now(UTC)
+    assert result.current_period_end > clock.wall()

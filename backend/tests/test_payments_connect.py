@@ -1,7 +1,7 @@
 import asyncio
 import json
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 
 import httpx
 import pytest
@@ -14,7 +14,9 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal
 from clientbridge.core.deps import Principal
 from clientbridge.integrations.stripe import (
+    AccountConfiguration,
     ConnectComponent,
+    PostalAddress,
     StripeGateway,
     account_status_from,
     payment_descriptor,
@@ -523,6 +525,34 @@ async def test_embedded_adapter_grants_only_requested_features(
         assert not any(features.values())
 
 
+class SlowCreateGateway(FakePaymentGateway):
+    def __init__(self) -> None:
+        super().__init__()
+        self.creating = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def create_connected_account(
+        self,
+        *,
+        business_name: str,
+        email: str | None,
+        url: str | None = None,
+        configurations: tuple[AccountConfiguration, ...],
+        address: PostalAddress | None = None,
+        idempotency_key: str | None = None,
+    ) -> str:
+        self.creating.set()
+        await self.release.wait()
+        return await super().create_connected_account(
+            business_name=business_name,
+            email=email,
+            url=url,
+            configurations=configurations,
+            address=address,
+            idempotency_key=idempotency_key,
+        )
+
+
 async def test_two_onboardings_at_once_create_one_account(db: AsyncSession) -> None:
     async with SessionLocal() as setup:
         factory = Factory(setup)
@@ -531,17 +561,7 @@ async def test_two_onboardings_at_once_create_one_account(db: AsyncSession) -> N
         staff = await factory.staff(business=business, user=user, role="owner")
         await setup.commit()
     principal = Principal(user_id=user.id, business_id=business.id, staff_id=staff.id, role="owner")
-    gateway = FakePaymentGateway()
-    creating = asyncio.Event()
-    release = asyncio.Event()
-    create = gateway.create_connected_account
-
-    async def slow_create(**kwargs: Any) -> str:
-        creating.set()
-        await release.wait()
-        return await create(**kwargs)
-
-    gateway.create_connected_account = slow_create  # type: ignore[method-assign]
+    gateway = SlowCreateGateway()
 
     async def onboard() -> None:
         async with SessionLocal() as session:
@@ -549,10 +569,10 @@ async def test_two_onboardings_at_once_create_one_account(db: AsyncSession) -> N
 
     try:
         first = asyncio.create_task(onboard())
-        await creating.wait()
+        await gateway.creating.wait()
         second = asyncio.create_task(onboard())
         await asyncio.sleep(0.3)
-        release.set()
+        gateway.release.set()
         await asyncio.gather(first, second)
         assert len(gateway.created_accounts) == 1
     finally:
