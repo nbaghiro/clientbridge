@@ -54,6 +54,8 @@ services:
       SECRETS_COOKIE: ${KRATOS_COOKIE_SECRET:-clientbridge-dev-cookie-secret-do-not-use-in-prod}
       SECRETS_CIPHER: ${KRATOS_CIPHER_SECRET:-clientbridge-dev-cipher-key-0032}
       COURIER_HTTP_REQUEST_CONFIG_AUTH_CONFIG_VALUE: ${AUTH_EMAIL_HOOK_SECRET:-clientbridge-dev-courier-secret-do-not-use-in-prod}
+      # the breach lookup calls an outside API with a one-second budget and fails sign-ups when it is slow
+      SELFSERVICE_METHODS_PASSWORD_CONFIG_HAVEIBEENPWNED_ENABLED: "false"
     command: ["serve", "-c", "/etc/config/kratos/kratos.yml", "--dev", "--watch-courier"]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4434/admin/health/ready || exit 1"]

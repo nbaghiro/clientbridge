@@ -13,6 +13,7 @@ from tests.helpers import (
     begin,
     booking,
     business_balance,
+    business_today,
     card_pay,
     deposit_held,
     deposit_payment,
@@ -108,7 +109,7 @@ async def test_online_booking_from_deposit_to_t4a(
     # the groomer's earning accrues once, then is approved and paid out
     [journal] = await earnings(db, "booking", bid)
     assert await earning_status(db, journal) == "pending"
-    year = datetime.now().year
+    year = (await business_today(db)).year
     before = await _t4a(api, year)
     approved = ok(await api.post("/v1/earnings/approve", json={"ids": [journal]})).json()[
         "earnings"

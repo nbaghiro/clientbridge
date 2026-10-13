@@ -78,7 +78,6 @@ jobs:
           PYTHON
       - run: make migrate
       - run: make kratos-standalone  # the seed creates the demo users' Kratos identities
-      - run: make seed  # tests act as the demo business's owner
       - run: make test-backend
       - run: make test-kratos  # KratosIdentityProvider against the real Kratos
       - if: failure()
@@ -187,6 +186,8 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.14"
+          # the API still runs under uv run at the end, and the post step would wait on its cache lock
+          enable-cache: false
       - run: uv sync
         working-directory: backend
       - name: wait for local object storage
@@ -300,6 +301,8 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.14"
+          # the API still runs under uv run at the end, and the post step would wait on its cache lock
+          enable-cache: false
       - uses: pnpm/action-setup@v4
         with:
           version: 9
@@ -332,11 +335,10 @@ jobs:
           docker compose logs --no-color powersync | tail -200
           docker compose logs --no-color kratos | tail -200
 
-  changes:
-    # Mobile runs on main and on PRs that touch the app, its packages, the API or the stack it runs against.
+  shards:
+    # Fails when a walkthrough is in no shard or in two, and hands the shard list to mobile-shard.
     runs-on: ubuntu-latest
     outputs:
-      mobile: ${{ github.ref == 'refs/heads/main' || steps.filter.outputs.mobile == 'true' }}
       shards: ${{ steps.shards.outputs.shards }}
     steps:
       - uses: actions/checkout@v4
@@ -350,28 +352,17 @@ jobs:
             diff <(echo "$listed") <(echo "$present"); echo "update e2e/shards.json"; exit 1
           fi
           echo "shards=$(jq -c . shards.json)" >> "$GITHUB_OUTPUT"
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            mobile:
-              - 'frontend/apps/mobile/**'
-              - 'frontend/packages/**'
-              - 'frontend/package.json'
-              - 'frontend/pnpm-lock.yaml'
-              - 'backend/**'
-              - 'infra/**'
-              - 'docker-compose.yml'
-              - 'Makefile'
-              - '.nvmrc'
-              - '.github/workflows/ci.yml'
 
   mobile-build:
     # An x86_64 release APK for the emulator; when the native fingerprint is cached only the JS bundle is rebuilt.
-    needs: changes
-    if: needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    env:
+      E2E_CLEARTEXT: "1"
+      # the emulator's own address for the host, so a dropped adb connection cannot cut the app off
+      API_URL: http://10.0.2.2:8701
+      POWERSYNC_URL: http://10.0.2.2:8704
+      AUTH_URL: http://10.0.2.2:8713
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -387,8 +378,6 @@ jobs:
       - name: key the native build
         id: native
         working-directory: frontend/apps/mobile
-        env:
-          E2E_CLEARTEXT: "1"
         run: |
           hash=$(node ../../node_modules/@expo/fingerprint/bin/cli.js fingerprint:generate --platform android \
             | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).hash))')
@@ -413,8 +402,6 @@ jobs:
       - name: build the release APK
         if: steps.rebundle.outcome != 'success'
         working-directory: frontend/apps/mobile
-        env:
-          E2E_CLEARTEXT: "1"
         run: |
           pnpm exec expo prebuild --platform android --no-install
           cd android && ./gradlew assembleRelease --build-cache -PreactNativeArchitectures=x86_64
@@ -434,19 +421,21 @@ jobs:
 
   mobile-shard:
     # The Maestro walkthroughs on Android 14 emulators, split into shards of about equal length.
-    needs: [changes, mobile-build]
+    needs: [shards, mobile-build]
     name: mobile (${{ matrix.shard.name }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(needs.changes.outputs.shards) }}
+        shard: ${{ fromJSON(needs.shards.outputs.shards) }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.14"
+          # the API still runs under uv run at the end, and the post step would wait on its cache lock
+          enable-cache: false
       - run: uv sync
         working-directory: backend
       - name: start the stack and the API
@@ -497,9 +486,6 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
-            adb reverse tcp:8701 tcp:8701
-            adb reverse tcp:8704 tcp:8704
-            adb reverse tcp:8713 tcp:8713
             adb install app-release.apk
             cd frontend/apps/mobile && timeout 20m "$HOME/.maestro/bin/maestro" test shard --test-output-dir test-results
       - uses: actions/upload-artifact@v4
@@ -509,14 +495,16 @@ jobs:
           path: frontend/apps/mobile/test-results
           retention-days: 7
       - if: failure()
-        run: cat /tmp/api.log
+        run: |
+          cat /tmp/api.log
+          docker compose logs --no-color kratos | tail -200
 
   mobile:
-    # The required check: passes when every shard passed or the change cannot affect the app.
-    needs: [changes, mobile-build, mobile-shard]
+    # The required check: passes when the build and every shard passed.
+    needs: [shards, mobile-build, mobile-shard]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - env:
           NEEDS: ${{ toJSON(needs) }}
-        run: jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<< "$NEEDS"
+        run: jq -e 'all(.[]; .result == "success")' <<< "$NEEDS"

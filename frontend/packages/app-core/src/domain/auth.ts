@@ -795,11 +795,14 @@ export function useSecuritySettings(
         show(fresh);
     }, [identity, show, token]);
 
+    // One settings flow per visit, even when React runs effects twice: a new flow mints a new secret.
+    const started = useRef(false);
     useEffect(() => {
+        if (started.current) return;
+        started.current = true;
         load().catch(() => {
             setError(a.unavailable);
         });
-        // One settings flow per visit: a new flow would mint a new authenticator secret.
     }, []);
 
     const apply = (body: () => Promise<Record<string, unknown>>, after?: () => void): void => {

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiLike, Flow, FlowNode, FlowStep, IdentityLike } from "../api";
 import { strings } from "../strings";
@@ -13,6 +14,9 @@ import {
     useSecuritySettings,
     useVerificationForm,
 } from "./auth";
+
+// unmount each hook, so a ticking timer cannot render after the file's DOM is torn down
+afterEach(cleanup);
 
 const node = (group: string, name: string, value: unknown = ""): FlowNode => ({
     group,
@@ -327,6 +331,23 @@ describe("useSecuritySettings", () => {
         const hook = renderHook(() => useSecuritySettings(identity, opts));
         return { identity, ...hook };
     }
+
+    it("starts one settings flow when React runs its effects twice, so the secret stays put", async () => {
+        const identity = fakeIdentity([]);
+        let minted = 0;
+        identity.start.mockImplementation((kind) => {
+            minted += 1;
+            const secret = node("totp", "totp_secret_key");
+            secret.text = `SECRET${String(minted)}`;
+            return Promise.resolve(flow([secret], "show_form", kind));
+        });
+        const { result } = renderHook(() => useSecuritySettings(identity), { wrapper: StrictMode });
+        await waitFor(() => {
+            expect(result.current.totp.secret).not.toBeNull();
+        });
+        expect(identity.start).toHaveBeenCalledTimes(1);
+        expect(result.current.totp.secret).toBe("SECRET1");
+    });
 
     async function askForReauth(result: { current: ReturnType<typeof useSecuritySettings> }) {
         await waitFor(() => {

@@ -139,6 +139,11 @@ class Settings(BaseSettings):
     def allowed_origin_regex(self) -> str | None:
         return r"http://localhost:\d+" if self.env == "dev" else None
 
+    def public_rate_limit(self) -> int:
+        """Requests per minute from one IP on each unauthenticated endpoint group."""
+        # in dev one browser plays every visitor of the e2e suites, all from one address
+        return 1000 if self.env == "dev" else 30
+
     def app_origins(self) -> list[str]:
         """The only origins that may send the Kratos cookie: the web app (and its e2e copy)."""
         return [self.web_base_url, *(_DEV_E2E_ORIGINS if self.env == "dev" else ())]

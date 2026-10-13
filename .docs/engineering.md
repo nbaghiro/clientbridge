@@ -70,20 +70,24 @@ Runs on every push to `main` + all PRs; concurrency-cancels stale runs.
 
 | Job | Steps |
 |---|---|
-| **backend** | Postgres 16 service · Python 3.14 · `uv sync` → `make format-check-backend lint-backend` (ruff, mypy, structure check) → `make migrate seed` → `make test-backend` (pytest, 90% branch coverage) |
+| **backend** | Postgres 16 service · Python 3.14 · `uv sync` → `make format-check-backend lint-backend` (ruff, mypy, structure check) → `make migrate` → `make test-backend` (pytest, 90% branch coverage, on a freshly migrated and seeded database of its own) |
 | **frontend** | Node from `.nvmrc` · pnpm 9 · `pnpm install --frozen-lockfile` → `make format-check-frontend lint-frontend test-frontend` (prettier, eslint + `check-structure.mjs` + knip, tsc, the site copy rules, the lint rule tests, vitest for app-core and site, then app-core again under `TZ=America/Vancouver`, `America/Halifax` and `Asia/Tokyo`; the formatter tests assert `en-CA` and `en-XA` output) → **`make build`** (a broken bundle must fail CI, beyond `tsc --noEmit`) |
 | **site** | Node from `.nvmrc` · `make test-site`: a fresh build, then Playwright e2e on it (the copy rules and content tests run in the frontend job): every page returns 200 with its content in the HTML, no console errors, no broken images or internal links, no sideways scroll at 390 and 1440px, axe with no serious or critical issues, 404 page served with a 404 |
 | **connect** | Postgres 16 service · `make migrate seed` · the API on :8701 · `make test-connect`: Connect's Playwright walk (book a visit, cancel it from its manage link, shop, invoice, estimate, receipt, review, form, contract, preferences, not found), failing on any console error; every client page through axe (no serious or critical issues), a keyboard walk that fails on a focus stop without a visible indicator, and a hover check on every button (AA text contrast, also over a business cover photo); then the `en-XA` pass over the business, booking, shop, invoice, estimate and receipt pages |
 | **sync** | `make test-sync`: disposable Postgres and PowerSync, per-role replica rows and columns, revocation, hours uploads, the signing-key rotation drill and the replication health check |
 | **web** | `make up migrate seed` · the API on :8701 · `make test-web`: sign-in, every page and dialog, record flows, history older than the device window, no console errors, axe, keyboard focus and hover contrast on the key pages, the booking composer and the client and invoice records, and the `en-XA` pass over Today, Schedule, Clients, a client record, Setup's business page, Invoices and an invoice |
-| **mobile-build** | an x86_64 release APK (bundle embedded, no Metro), cached under the app's Expo native fingerprint and the lockfile hash: on a hit `scripts/rebundle-apk.sh` only rebuilds the Hermes bundle and re-signs the cached APK, on a miss `expo prebuild` and Gradle build it. Runs on main and on PRs that touch the app, `frontend/packages`, the backend or the stack |
-| **mobile-shard** | three shards, each with `make up migrate seed` and the API started in the background, the APK from `mobile-build` and its share of the Maestro walkthroughs on an Android 14 emulator booted from a cached snapshot, with `adb reverse` for 8701 and 8704. The shards are listed in `e2e/shards.json`, and the `changes` job fails when a walkthrough is in none or two |
-| **mobile** | the required check: passes when every shard passed, or when `changes` skipped mobile because the change cannot affect the app |
+| **mobile-build** | an x86_64 release APK (bundle embedded, no Metro), cached under the app's Expo native fingerprint and the lockfile hash: on a hit `scripts/rebundle-apk.sh` only rebuilds the Hermes bundle and re-signs the cached APK, on a miss `expo prebuild` and Gradle build it. Runs on every push and pull request |
+| **mobile-shard** | three shards, each with `make up migrate seed` and the API started in the background, the APK from `mobile-build` and its share of the Maestro walkthroughs on an Android 14 emulator booted from a cached snapshot. The APK reaches the API, PowerSync and Kratos at `10.0.2.2`, the emulator's address for the host, rather than through `adb reverse`, whose mappings vanish when the emulator's adb connection drops. The shards are listed in `e2e/shards.json`, and the `shards` job fails when a walkthrough is in none or two |
+| **mobile** | the required check: passes when the build and every shard passed |
 | **contract** | stripe-mock service · real `StripeGateway` validated against Stripe's OpenAPI mock |
 | **codegen-drift** | `make codegen-check`: `make gen-api`, `gen-sync-schema`, `gen-themes`, `gen-messages`, `gen-strings` (which also fail on invalid or unused catalog messages) and `gen-zones`, then a diff check on the generated files (the api-client, sync schema, themes, `messages.pot`, `en_XA.po`, both `strings.ts` accessors and `en-XA.json` files, Connect's `embed.js`, and app-core `zones.ts` and `zones.cases.json`), so the committed generated code cannot drift from its source |
 
 Net effect: no unformatted/untyped/uncovered code, no broken bundle, no drift between backend models and the
 generated frontend contracts/themes.
+
+Every job runs its full suite on every pull request and on every push to `main`; no job is skipped by
+the paths a change touches. With `ENV=dev` the API allows 1000 requests a minute from one address on
+the public endpoints (30 otherwise), since one browser plays every visitor in the e2e suites.
 
 ---
 
@@ -106,6 +110,15 @@ transaction; an `AsyncSession(bind=conn, join_transaction_mode="create_savepoint
 **and** the app (via `app.dependency_overrides[get_session]`). The app's `commit()`s become savepoints; the
 final `rollback()` erases everything. Tests start from the **committed Birchbark seed baseline**, write
 freely, and leave **zero residue** — repeatable, parallel-safe.
+
+`make test-backend` runs the suite through `scripts/fresh_database.py`, which creates a
+`clientbridge_test_<random>` database, migrates and seeds it, runs pytest against it and drops it. Other
+suites, the dev API and e2e runs on the same machine share the `clientbridge` database and lock or change
+the seeded rows, which made tests fail with deadlocks and unexpected rows when they ran at the same time.
+A plain `uv run pytest` still uses `DATABASE_URL`. Tests that commit from their own connections (the race
+tests) delete what they wrote. Dates in tests come from the business's zone (`business_today`), and a
+test that needs a future day computes it (`weeks_ahead`, the next daylight saving Sunday) instead of
+naming one, so it keeps passing after that day.
 
 ### External boundaries: adapters + recording fakes
 Third parties are never called. Each is an interface injected as a dependency, faked in tests:

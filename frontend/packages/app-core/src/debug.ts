@@ -1,9 +1,12 @@
 import { type TableCount, countsQuery } from "@clientbridge/sync";
-import { usePowerSync, useStatus } from "@powersync/react";
+import type { SyncStatus } from "@powersync/common";
+import { usePowerSync } from "@powersync/react";
 import { useCallback, useEffect, useState } from "react";
 
+import { useSyncStatus } from "./domain/sync";
+
 interface ClientState {
-    status: ReturnType<typeof useStatus>;
+    status: SyncStatus;
     tables: TableCount[];
     totalRows: number;
     refresh: () => void;
@@ -11,7 +14,7 @@ interface ClientState {
 
 export function useClientState(pollMs = 1500): ClientState {
     const db = usePowerSync();
-    const status = useStatus();
+    const status = useSyncStatus();
     const [tables, setTables] = useState<TableCount[]>([]);
 
     const refresh = useCallback((): void => {

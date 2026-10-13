@@ -140,9 +140,17 @@ export async function ownerInvite(
     return {
         token: invite.invite_token,
         cleanup: async () => {
-            const removed = await request.delete(`${API}/v1/staff/${invite.id}`, { headers });
+            // a joined invitee is removed too, so later tests see only the seeded team
+            const revoked = await request.post(`${API}/v1/staff/invites/${invite.id}/revoke`, {
+                headers,
+            });
+            if (revoked.ok()) return;
+            const removed = await request.post(`${API}/v1/staff/${invite.id}/remove`, {
+                data: {},
+                headers,
+            });
             if (!removed.ok())
-                await request.post(`${API}/v1/staff/invites/${invite.id}/revoke`, { headers });
+                throw new Error(`could not remove ${email}: ${await removed.text()}`);
         },
     };
 }

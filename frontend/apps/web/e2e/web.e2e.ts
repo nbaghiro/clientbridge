@@ -2,6 +2,8 @@ import { strings } from "@clientbridge/app-core/public";
 import { axeIssues, unmarkedFocus, unreadableHover } from "@clientbridge/config/e2e/accessibility";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
+import { offsiteLoadFailure } from "./errors";
+
 const OWNER = "hannah@birchbarkpets.ca";
 const STAFF = "diego@birchbarkpets.ca";
 const PASSWORD = "demo1234";
@@ -64,7 +66,8 @@ class Walk {
             this.errors.push(`[${this.current}] pageerror: ${e.message}`);
         });
         page.on("console", (m) => {
-            if (m.type() === "error") this.errors.push(`[${this.current}] console: ${m.text()}`);
+            if (m.type() === "error" && !offsiteLoadFailure(m))
+                this.errors.push(`[${this.current}] console: ${m.text()}`);
         });
     }
 

@@ -1,4 +1,9 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment happy-dom
+import type { CommonPowerSyncDatabase } from "@powersync/common";
+import { PowerSyncContext } from "@powersync/react";
+import { cleanup, renderHook } from "@testing-library/react";
+import { type ReactNode, createElement } from "react";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
     UPLOAD_NOTICE_AFTER_MS,
@@ -6,7 +11,11 @@ import {
     isStorageFull,
     syncNotice,
     syncProblem,
+    useSyncStatus,
 } from "./sync";
+
+// unmount each hook, so a ticking timer cannot render after the file's DOM is torn down
+afterEach(cleanup);
 
 describe("sync health", () => {
     it("reports failed uploads even while downloads are healthy", () => {
@@ -88,5 +97,34 @@ describe("arrivalState", () => {
     });
     it("lets the replica speak for itself once the late notice has run its course", () => {
         expect(arrivalState(paid, 500, 120_000)).toBeNull();
+    });
+});
+
+describe("useSyncStatus", () => {
+    it("keeps a first sync that lands between the render and the subscription", () => {
+        const waiting = { hasSynced: false };
+        const synced = { hasSynced: true };
+        const listeners = new Set<{ statusChanged?: (status: unknown) => void }>();
+        let status: { hasSynced: boolean } = waiting;
+        let reads = 0;
+        const db = {
+            get currentStatus() {
+                const seen = status;
+                // the shared sync worker finishes the first sync right after this render read it
+                if (++reads === 1) {
+                    status = synced;
+                    for (const listener of listeners) listener.statusChanged?.(status);
+                }
+                return seen;
+            },
+            registerListener(listener: { statusChanged?: (status: unknown) => void }) {
+                listeners.add(listener);
+                return () => listeners.delete(listener);
+            },
+        } as unknown as CommonPowerSyncDatabase;
+        const wrapper = ({ children }: { children: ReactNode }) =>
+            createElement(PowerSyncContext.Provider, { value: db }, children);
+        const { result } = renderHook(() => useSyncStatus().hasSynced, { wrapper });
+        expect(result.current).toBe(true);
     });
 });

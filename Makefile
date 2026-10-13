@@ -33,7 +33,7 @@ help:
 	@echo "gen-zones        regenerate the frontend's zone table and parity cases from the backend tzdata"
 	@echo "codegen-check    regenerate client, sync schema, themes, messages and strings; fail if stale"
 	@echo "test             test-backend + test-frontend"
-	@echo "test-backend     pytest with the 90% branch-coverage gate"
+	@echo "test-backend     pytest with the 90% branch-coverage gate, on a freshly seeded database of its own"
 	@echo "test-frontend    the frontend unit tests, with app-core again in three time zones"
 	@echo "test-contract    real StripeGateway vs stripe-mock (starts it; auto-skips if down)"
 	@echo "test-kratos      KratosIdentityProvider vs the local Kratos (auto-skips if down)"
@@ -157,7 +157,8 @@ gen-strings:
 test: test-backend test-frontend
 
 test-backend:
-	cd backend && uv run pytest --cov=clientbridge --cov-branch --cov-fail-under=90 -q
+	cd backend && uv run python -m scripts.fresh_database \
+		pytest --cov=clientbridge --cov-branch --cov-fail-under=90 -q
 
 # App-core runs again in three time zones, since displays must follow the business zone, not the device's.
 test-frontend:

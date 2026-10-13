@@ -1,6 +1,6 @@
 import { selectReplicaBusiness } from "@clientbridge/sync";
 import { useBusinessQuery as useQuery } from "../hooks";
-import { usePowerSync, useStatus, useQuery as useGlobalQuery } from "@powersync/react";
+import { usePowerSync, useQuery as useGlobalQuery } from "@powersync/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { type Load, useAsyncAction, useLoad } from "../hooks";
@@ -12,7 +12,7 @@ import { mediaUrl } from "./files";
 import { durationLabel } from "./publicBooking";
 import type { ShellTarget } from "./navigation";
 import { useStaff, staffName } from "./staff";
-import { useReplicaLoad } from "./sync";
+import { useReplicaLoad, useSyncStatus } from "./sync";
 import { SUPPORTED_ZONES, type SupportedZone } from "../zones";
 
 interface BusinessRow {
@@ -253,7 +253,7 @@ export function useBusinessName(): string {
 export function useBusinessLoad(): Load & { zone: string | null } {
     const db = usePowerSync();
     const business = useQuery<{ id: string; timezone: string }>(BUSINESS_ZONE_SQL);
-    const synced = useStatus().hasSynced ?? false;
+    const synced = useSyncStatus().hasSynced ?? false;
     const empty = business.data.length === 0;
     const [confirmedEmpty, setConfirmedEmpty] = useState(false);
     const [error, setError] = useState<Error | null>(null);
@@ -899,7 +899,7 @@ export function useBusinessSelection(bindApi: (businessId: string | null) => voi
     );
     const selectedId =
         businesses.data.find((row) => row.id === selection.data[0]?.business_id)?.id ?? null;
-    const synced = useStatus().hasSynced ?? false;
+    const synced = useSyncStatus().hasSynced ?? false;
     const onlyId = businesses.data.length === 1 ? businesses.data[0]?.id : undefined;
     const [applied, setApplied] = useState<string | null | undefined>(undefined);
     const [error, setError] = useState<string | null>(null);

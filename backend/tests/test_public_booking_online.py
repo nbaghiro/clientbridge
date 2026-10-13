@@ -12,11 +12,18 @@ from clientbridge.models.scheduling import Addon, Booking, Hours
 from clientbridge.services.bookings import run_reminders
 from clientbridge.services.notifications import Notifier
 from tests.conftest import BIZ, FakeEmailSender, FakePushSender, FakeSmsSender
-from tests.helpers import key
+from tests.helpers import key, shifted, weeks_ahead
 
 SLUG = "birchbark"
-TUESDAY = "2026-12-01"
-OPENING = "2026-12-01T16:00:00Z"  # 9 a.m. in Vancouver (UTC-7), the first open time
+AHEAD = weeks_ahead(date(2026, 12, 1))
+
+
+def at(when: str) -> str:
+    return shifted(when, AHEAD)
+
+
+TUESDAY = at("2026-12-01")
+OPENING = at("2026-12-01T16:00:00Z")  # 9 a.m. in Vancouver (UTC-7), the first open time
 
 
 def _body(starts: str = OPENING, staff: str = "st_owner", **extra: object) -> dict[str, object]:
@@ -80,8 +87,8 @@ async def test_days_count_openings_and_name_closures(
             business_id=BIZ,
             staff_id=None,
             basis="exception",
-            starts_at=datetime(2026, 12, 2, 7, tzinfo=UTC),
-            ends_at=datetime(2026, 12, 3, 7, tzinfo=UTC),
+            starts_at=datetime(2026, 12, 2, 7, tzinfo=UTC) + AHEAD,
+            ends_at=datetime(2026, 12, 3, 7, tzinfo=UTC) + AHEAD,
             reason="Staff training",
             available=False,
         )
@@ -93,9 +100,14 @@ async def test_days_count_openings_and_name_closures(
     )
     assert res.status_code == 200, res.text
     days = res.json()["days"]
-    assert [d["date"] for d in days] == ["2026-12-01", "2026-12-02", "2026-12-03"]
+    assert [d["date"] for d in days] == [at("2026-12-01"), at("2026-12-02"), at("2026-12-03")]
     assert days[0]["count"] > 0 and not days[0]["closed"]
-    assert days[1] == {"date": "2026-12-02", "count": 0, "closed": True, "reason": "Staff training"}
+    assert days[1] == {
+        "date": at("2026-12-02"),
+        "count": 0,
+        "closed": True,
+        "reason": "Staff training",
+    }
 
 
 async def test_lead_time_and_horizon_bound_open_times_and_booking(

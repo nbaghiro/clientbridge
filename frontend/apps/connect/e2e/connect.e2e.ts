@@ -1,6 +1,6 @@
 import { strings } from "@clientbridge/app-core/public";
 import { axeIssues, unmarkedFocus, unreadableHover } from "@clientbridge/config/e2e/accessibility";
-import { expect, type Page, test } from "@playwright/test";
+import { type ConsoleMessage, expect, type Page, test } from "@playwright/test";
 
 import { links, ownAddress } from "./links";
 
@@ -12,11 +12,21 @@ test.beforeEach(async ({ context }, info) => {
 const prefixOf = (copy: (value: string) => string): RegExp =>
     new RegExp(`^${(copy("\0").split("\0")[0] ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
 
+// a third-party asset (fonts, Stripe) failing on the network is not an app error
+const offsiteLoadFailure = (m: ConsoleMessage): boolean => {
+    if (!m.text().startsWith("Failed to load resource")) return false;
+    try {
+        return !["localhost", "127.0.0.1"].includes(new URL(m.location().url).hostname);
+    } catch {
+        return false;
+    }
+};
+
 function watchErrors(page: Page): string[] {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
     page.on("console", (m) => {
-        if (m.type() === "error") errors.push(`console: ${m.text()}`);
+        if (m.type() === "error" && !offsiteLoadFailure(m)) errors.push(`console: ${m.text()}`);
     });
     return errors;
 }
