@@ -408,7 +408,7 @@ async def test_closing_plan_checkouts_expires_other_tabs_and_finds_a_paid_one(
         expired.append(session_id)
 
     async def retrieve(subscription_id: str, **params: object) -> stripe.Subscription:
-        status = "active" if subscription_id == "sub_done" else "canceled"
+        status = {"sub_done": "active", "sub_unpaid": "unpaid"}.get(subscription_id, "canceled")
         return stripe.Subscription.construct_from({"id": subscription_id, "status": status}, "sk")
 
     monkeypatch.setattr(stripe.checkout.Session, "list_async", list_sessions)
@@ -417,6 +417,9 @@ async def test_closing_plan_checkouts_expires_other_tabs_and_finds_a_paid_one(
     assert await gateway.close_plan_checkouts("acct_paying", keep="b") is True
     assert expired == ["cs_other"]
     listed["complete"] = [session("cs_old", "d", "sub_old")]
+    assert await gateway.close_plan_checkouts("acct_paying", keep="b") is False
+    # Stripe stops billing an unpaid subscription, so it does not block a new Checkout
+    listed["complete"] = [session("cs_unpaid", "e", "sub_unpaid")]
     assert await gateway.close_plan_checkouts("acct_paying", keep="b") is False
 
 

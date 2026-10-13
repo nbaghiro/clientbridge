@@ -399,7 +399,7 @@ CUSTOMER_CONFIGURATION: dict[str, object] = {
     "capabilities": {"automatic_indirect_tax": {"requested": True}}
 }
 # a subscription in these states bills or is about to, so a second one would bill twice
-_PAYING = ("active", "trialing", "past_due", "incomplete", "unpaid")
+_PAYING = ("active", "trialing", "past_due", "incomplete")
 # a key moves to a new price only through stripe_setup, and the API restarts after it
 _PLAN_PRICES: dict[str, PlanPriceRef] = {}
 
