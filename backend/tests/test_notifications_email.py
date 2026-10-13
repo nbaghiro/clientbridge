@@ -64,3 +64,8 @@ def test_a_malformed_webhook_secret_is_refused_at_startup() -> None:
     with pytest.raises(ValidationError, match="RESEND_WEBHOOK_SECRET"):
         Settings(env="dev", resend_webhook_secret="whsec_not-base64!")
     assert Settings(env="dev", resend_webhook_secret="whsec_dGVzdHNlY3JldA==").env == "dev"
+
+
+def test_the_smtp_transport_is_refused_outside_dev() -> None:
+    with pytest.raises(ValidationError, match="SMTP_URL"):
+        Settings(env="prod", smtp_url="smtp://localhost:8716", _env_file=None)

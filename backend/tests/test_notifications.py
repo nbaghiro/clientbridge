@@ -482,5 +482,10 @@ async def test_tenant_email_builders_apply_the_conventions(db: AsyncSession) -> 
     assert mail.tags == {"business": business.id, "message": "msg_builder"}
     plain = client_email(business, "pat@test.ca", "Hi", "Body")
     assert plain.idempotency_key is None and plain.tags == {"business": business.id}
+    pat = Client(id="cl_builder", business_id=business.id, name="Pat")
+    assert client_email(business, "pat@test.ca", "Hi", "Body", client=pat).tags == {
+        "business": business.id,
+        "client": "cl_builder",
+    }
     alert = business_email(business.id, "owner@test.ca", "Hi", "Body")
     assert alert.reply_to is None and alert.tags == {"business": business.id}

@@ -1,7 +1,8 @@
 import logging
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
+from pydantic import ValidationError
 from sqlalchemy import and_, func, literal, or_, select, tuple_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +21,7 @@ from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.clients import Channel, Client
 from clientbridge.models.messaging import Broadcast, Message, Thread
-from clientbridge.models.platform import Webhook
+from clientbridge.models.platform import Webhook, WebhookStatus
 from clientbridge.schemas.messaging import (
     BroadcastOut,
     BroadcastSend,
@@ -112,7 +113,7 @@ async def dispatch_message(
     """Hand the message to its channel adapter and record the outcome on the row, never raising."""
     try:
         if channel == "sms":
-            await sms.send(Sms(to=to, body=body))
+            message.provider_ref = await sms.send(Sms(to=to, body=body))
         else:
             message.provider_ref = await email.send(
                 client_email(business, to, subject, body, message=message)
@@ -621,6 +622,11 @@ def _broadcast_out(broadcast: Broadcast) -> BroadcastOut:
 
 
 _EMAIL_FAILURES = frozenset({"email.bounced", "email.failed", "email.suppressed"})
+_EVENT_GRACE = timedelta(minutes=10)
+
+
+class EmailEventPending(Exception):
+    """Resend reported on a send whose transaction has not committed yet; Svix must retry."""
 
 
 async def _email_message(db: AsyncSession, email_id: str) -> Message | None:
@@ -629,74 +635,61 @@ async def _email_message(db: AsyncSession, email_id: str) -> Message | None:
     return (await db.execute(query)).scalars().first()
 
 
-async def _complaining_client(
-    db: AsyncSession, message: Message | None, *, business_id: str | None, address: str | None
+async def _flagged_client(
+    db: AsyncSession, message: Message | None, *, business_id: str | None, client_id: str | None
 ) -> Client | None:
-    """The client who flagged the mail: through its thread, else by business tag and address."""
+    """The client the mail went to: through the message's thread, else by the client tag."""
     if message is not None:
-        thread = await db.get(Thread, message.thread_id)
+        threads = scoped(Thread, message.business_id).where(Thread.id == message.thread_id)
+        thread = (await db.execute(threads)).scalar_one_or_none()
         if thread is None:
             return None
-        query = scoped(Client, message.business_id, soft_delete=True).where(
-            Client.id == thread.client_id
-        )
-        return (await db.execute(query)).scalar_one_or_none()
-    if not business_id or not address:
+        business_id, client_id = message.business_id, thread.client_id
+    if not business_id or not client_id:
         return None
-    query = scoped(Client, business_id, soft_delete=True).where(Client.email == address)
-    return (await db.execute(query)).scalars().first()
+    clients = scoped(Client, business_id, soft_delete=True).where(Client.id == client_id)
+    return (await db.execute(clients)).scalar_one_or_none()
 
 
-async def process_email_event(db: AsyncSession, *, svix_id: str, event: EmailEventBody) -> bool:
-    """Record a Resend delivery event on its message; True when it changed something."""
-    event_id = f"resend_{svix_id}"
-    seen = (await db.execute(select(Webhook.id).where(Webhook.id == event_id))).scalar_one_or_none()
-    if seen is not None:
+async def _complaining_clients(
+    db: AsyncSession, message: Message | None, *, business_id: str | None, client_id: str | None
+) -> list[Client]:
+    """Everyone a complaint covers: the flagged client and any record sharing its mailbox."""
+    flagged = await _flagged_client(db, message, business_id=business_id, client_id=client_id)
+    if flagged is None:
+        return []
+    if not flagged.email:
+        return [flagged]
+    query = scoped(Client, flagged.business_id, soft_delete=True).where(
+        func.lower(Client.email) == flagged.email.lower()
+    )
+    return list((await db.execute(query)).scalars().all())
+
+
+def _is_recent(created_at: datetime | None) -> bool:
+    if created_at is None:
         return False
-    data = event.data or EmailEventData()
-    recipients = [data.to] if isinstance(data.to, str) else list(data.to or [])
-    tags = data.tags or {}
-    address = recipients[0] if recipients else None
-    message = await _email_message(db, data.email_id) if data.email_id else None
-    client: Client | None = None
-    changed = False
-    if message is not None and event.type == "email.delivered":
-        if message.status in ("queued", "sent"):
-            message.status = "delivered"
-            changed = True
-    elif message is not None and event.type in _EMAIL_FAILURES:
-        if message.status != "failed":
-            message.status = "failed"
-            changed = True
-    elif event.type == "email.complained":
-        client = await _complaining_client(
-            db, message, business_id=tags.get("business"), address=address
-        )
-        if client is not None:
-            changed = await record_complaint(db, client)
-    business_id = tags.get("business")
-    if message is not None:
-        business_id = message.business_id
-    elif client is not None:
-        business_id = client.business_id
-    detail = ""
-    if data.bounce is not None:
-        detail = data.bounce.sub_type
-    elif data.failed is not None:
-        detail = data.failed.reason
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=UTC)
+    return datetime.now(UTC) - created_at < _EVENT_GRACE
+
+
+async def _record_event(
+    db: AsyncSession,
+    event_id: str,
+    *,
+    event: str,
+    payload: dict[str, object],
+    status: WebhookStatus,
+) -> bool:
+    """Commit the event row with whatever it changed; False when a twin delivery got there first."""
     db.add(
         Webhook(
             id=event_id,
             provider="resend",
-            event=event.type,
-            payload={
-                "email_id": data.email_id or None,
-                "to": address,
-                "detail": detail,
-                "matched": message is not None or client is not None,
-                "business_id": business_id,
-            },
-            status="processed",
+            event=event,
+            payload=payload,
+            status=status,
             processed_at=datetime.now(UTC),
         )
     )
@@ -706,5 +699,71 @@ async def process_email_event(db: AsyncSession, *, svix_id: str, event: EmailEve
         await db.rollback()
         if not is_duplicate(exc):  # only a redelivery race may be dropped; anything else must retry
             raise
+        return False
+    return True
+
+
+async def process_email_event(db: AsyncSession, *, svix_id: str, payload: bytes) -> bool:
+    """Record a Resend event on its message; True when it changed something."""
+    event_id = f"resend_{svix_id}"
+    seen = (await db.execute(select(Webhook.id).where(Webhook.id == event_id))).scalar_one_or_none()
+    if seen is not None:
+        return False
+    try:
+        event = EmailEventBody.model_validate_json(payload)
+    except ValidationError as exc:
+        _log.warning("unparseable resend event %s: %s", svix_id, exc)
+        failure: dict[str, object] = {"error": str(exc)[:500]}
+        await _record_event(db, event_id, event="unparsed", payload=failure, status="failed")
+        return False
+    data = event.data or EmailEventData()
+    recipients = [data.to] if isinstance(data.to, str) else list(data.to or [])
+    tags = data.tags or {}
+    address = recipients[0] if recipients else None
+    email_id = data.email_id or ""
+    message_id = tags.get("message")
+    message = await db.get(Message, message_id) if message_id else None
+    if message is None and email_id:
+        message = await _email_message(db, email_id)
+    if message is None and message_id and _is_recent(event.created_at):
+        raise EmailEventPending(message_id)
+    clients: list[Client] = []
+    changed = False
+    if message is not None:
+        heard_before = message.provider_ref is not None
+        if not heard_before and email_id:  # the send timed out after Resend had accepted it
+            message.provider_ref = email_id
+            changed = True
+        if event.type == "email.delivered":
+            if message.status in ("queued", "sent") or not heard_before:
+                message.status = "delivered"
+                changed = True
+        elif event.type in _EMAIL_FAILURES and message.status != "failed":
+            message.status = "failed"
+            changed = True
+    if event.type == "email.complained":
+        clients = await _complaining_clients(
+            db, message, business_id=tags.get("business"), client_id=tags.get("client")
+        )
+        for client in clients:
+            changed = await record_complaint(db, client) or changed
+    business_id = tags.get("business")
+    if message is not None:
+        business_id = message.business_id
+    elif clients:
+        business_id = clients[0].business_id
+    detail = ""
+    if data.bounce is not None:
+        detail = data.bounce.sub_type
+    elif data.failed is not None:
+        detail = data.failed.reason
+    summary: dict[str, object] = {
+        "email_id": email_id or None,
+        "to": address,
+        "detail": detail,
+        "matched": message is not None or bool(clients),
+        "business_id": business_id,
+    }
+    if not await _record_event(db, event_id, event=event.type, payload=summary, status="processed"):
         return False
     return changed

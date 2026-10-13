@@ -18,8 +18,8 @@ from clientbridge.core.config import get_settings
 
 _RESEND_URL = "https://api.resend.com/emails"
 _SIGNATURE_WINDOW = timedelta(minutes=5)
-_SEND_ATTEMPTS = 3
-_RETRY_CAP_SECONDS = 10
+_SEND_ATTEMPTS = 2
+_RETRY_CAP_SECONDS = 2  # a send runs inside the caller's transaction, so waits stay short
 
 Sleep = Callable[[float], Awaitable[None]]
 
@@ -79,7 +79,7 @@ class ResendEmailSender:
     async def _post(
         self, client: httpx.AsyncClient, payload: dict[str, object], headers: dict[str, str]
     ) -> httpx.Response:
-        """Post once more after each 429, waiting for Resend's retry-after, then give up."""
+        """Post once more after a 429, waiting for Resend's retry-after, then give up."""
         for _ in range(_SEND_ATTEMPTS - 1):
             response = await client.post(_RESEND_URL, json=payload, headers=headers)
             if response.status_code != 429:

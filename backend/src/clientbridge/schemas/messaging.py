@@ -99,7 +99,7 @@ class EmailFailure(BaseModel):
 
 
 class EmailEventData(BaseModel):
-    email_id: str = ""
+    email_id: str | None = None
     to: list[str] | str | None = None
     tags: dict[str, str] | None = None
     bounce: EmailBounce | None = None
@@ -110,4 +110,5 @@ class EmailEventBody(BaseModel):
     """A Resend event, validated only after its Svix signature is checked."""
 
     type: str
+    created_at: datetime | None = None
     data: EmailEventData | None = None

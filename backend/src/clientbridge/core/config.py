@@ -76,6 +76,10 @@ class Settings(BaseSettings):
     def _require_prod_secrets(self) -> "Settings":
         """Refuse to boot outside dev without real secrets and a private auth admin API."""
         if self.env != "dev":
+            if self.smtp_url:
+                raise ValueError(
+                    "SMTP_URL is a development transport; unset it when ENV is not 'dev'"
+                )
             missing = []
             if self.jwt_secret == _DEV_JWT_SECRET:
                 missing.append("JWT_SECRET")

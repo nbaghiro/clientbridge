@@ -22,6 +22,13 @@ def public_email(value: str | None) -> str | None:
     return value
 
 
+def _optional_public_email(value: str | None, field: str) -> str | None:
+    value = (value or "").strip()
+    if value and public_email(value) is None:
+        raise ValueError(f"{field} must be a valid email address")
+    return value or None
+
+
 class OnboardBody(Mirror):
     mirrors = Business
 
@@ -99,10 +106,7 @@ class BrandInput(BaseModel):
     @field_validator("email")
     @classmethod
     def _check_public_email(cls, value: str | None) -> str | None:
-        value = (value or "").strip()
-        if value and public_email(value) is None:
-            raise ValueError("email must be a valid email address")
-        return value or None
+        return _optional_public_email(value, "email")
 
     @field_validator("primary")
     @classmethod
@@ -129,14 +133,6 @@ class BusinessSettingsUpdate(Mirror):
     timezone: str | None = None
     billing_email: str | None = None
     gst_hst_number: str | None = None
-
-    @field_validator("billing_email")
-    @classmethod
-    def _check_billing_email(cls, value: str | None) -> str | None:
-        value = (value or "").strip()
-        if value and public_email(value) is None:
-            raise ValueError("billing_email must be a valid email address")
-        return value or None
 
     qst_number: str | None = None
     pst_number: str | None = None
@@ -190,3 +186,8 @@ class BusinessSettingsUpdate(Mirror):
     @classmethod
     def _check_pst(cls, v: str | None) -> str | None:
         return cls._tax_number(v, PST_NUMBER, "PST-1234-5678")
+
+    @field_validator("billing_email")
+    @classmethod
+    def _check_billing_email(cls, value: str | None) -> str | None:
+        return _optional_public_email(value, "billing_email")

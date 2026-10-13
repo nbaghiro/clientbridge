@@ -58,8 +58,8 @@ async def test_delivery_checks_the_provider_http_status(
         result = await send
         assert result == ("email_1" if provider == "resend" else None)
     retried = provider == "resend" and status == 429
-    assert len(requests) == (3 if retried else 1)
-    assert sleeper.waits == ([2.0, 2.0] if retried else [])
+    assert len(requests) == (2 if retried else 1)
+    assert sleeper.waits == ([2.0] if retried else [])
     payload = json.loads(requests[0].content)
     if provider == "resend":
         assert str(requests[0].url) == "https://api.resend.com/emails"

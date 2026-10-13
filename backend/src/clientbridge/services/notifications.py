@@ -48,10 +48,18 @@ SeriesNotice = Literal["booked", "moved", "canceled"]
 
 
 def client_email(
-    business: Business, to: str, subject: str, body: str, *, message: Message | None = None
+    business: Business,
+    to: str,
+    subject: str,
+    body: str,
+    *,
+    client: Client | None = None,
+    message: Message | None = None,
 ) -> Email:
-    """Mail to a client for a business: replies go to the business and tags carry the tenant."""
+    """Mail to a client for a business: replies go to the business, tags name who it concerns."""
     tags = {"business": business.id}
+    if client is not None:
+        tags["client"] = client.id
     if message is not None:
         tags["message"] = message.id
     return Email(
@@ -540,8 +548,10 @@ class Notifier:
         if online:
             push_body, owner_body = _online_order_alert(locale, amount)
             if business.billing_email:
-                await self._to_contact(
-                    business.billing_email, None, push_body, owner_body, business=business
+                await self._safe(
+                    self.email.send(
+                        business_email(business.id, business.billing_email, push_body, owner_body)
+                    )
                 )
         if payment.client_id is not None:
             await self._to_client(db, payment.client_id, subject, body)
@@ -988,7 +998,9 @@ class Notifier:
             business = await db.get(Business, client.business_id)
             if business is not None:
                 await self._safe(
-                    self.email.send(client_email(business, client.email, subject, body))
+                    self.email.send(
+                        client_email(business, client.email, subject, body, client=client)
+                    )
                 )
         number = e164(client.phone) if client.phone else None
         if (

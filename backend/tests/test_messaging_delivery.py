@@ -9,11 +9,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.db import is_duplicate
+from clientbridge.core.ids import new_id
 from clientbridge.integrations.resend import resend_signature, valid_resend_signature
 from clientbridge.models.clients import Client, Consent
 from clientbridge.models.messaging import Message
 from clientbridge.models.platform import Webhook
 from clientbridge.services.consents import allows_marketing, latest_consents, record_consent
+from clientbridge.services.messaging import open_thread
 from tests.conftest import BIZ, RESEND_SECRET, Factory
 from tests.helpers import email_event, new_client, ok
 
@@ -138,11 +140,32 @@ async def test_a_complaint_on_transactional_mail_resolves_the_client_by_tag(
 ) -> None:
     cid = await new_client(db, email=EMAIL)
     await _granted(db, BIZ, cid)
-    body = _event("email.complained", "email_receipt", tags={"business": BIZ})
+    body = _event("email.complained", "email_receipt", tags={"business": BIZ, "client": cid})
     ok(await email_event(api, body, svix_id="evt_receipt"))
     assert not await _allows_email(db, BIZ, cid)
     row = await _webhook(db, "evt_receipt")
     assert row.payload["matched"] is True and row.payload["business_id"] == BIZ
+
+
+async def test_a_complaint_from_a_shared_mailbox_withdraws_every_client_on_it(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    first, second = await new_client(db, email=EMAIL), await new_client(db, email=EMAIL.upper())
+    await _granted(db, BIZ, first)
+    await _granted(db, BIZ, second)
+    body = _event("email.complained", "email_shared", tags={"business": BIZ, "client": first})
+    ok(await email_event(api, body, svix_id="evt_shared"))
+    assert not await _allows_email(db, BIZ, first)
+    assert not await _allows_email(db, BIZ, second)
+
+
+async def test_an_event_without_an_email_id_is_recorded_unmatched(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    body = {"type": "email.delivered", "data": {"email_id": None, "to": [EMAIL]}}
+    ok(await email_event(api, body, svix_id="evt_noid"))
+    row = await _webhook(db, "evt_noid")
+    assert row.payload["matched"] is False and row.payload["email_id"] is None
 
 
 async def test_a_complaint_tagged_with_another_business_leaves_ours_alone(
@@ -155,9 +178,17 @@ async def test_a_complaint_tagged_with_another_business_leaves_ours_alone(
     theirs.email = EMAIL
     await db.flush()
     await _granted(db, rival.id, theirs.id)
-    body = _event("email.complained", "email_rival", tags={"business": rival.id})
+    body = _event(
+        "email.complained", "email_rival", tags={"business": rival.id, "client": theirs.id}
+    )
     ok(await email_event(api, body, svix_id="evt_rival"))
     assert not await _allows_email(db, rival.id, theirs.id)
+    assert await _allows_email(db, BIZ, ours)
+    crossed = _event(
+        "email.complained", "email_crossed", tags={"business": BIZ, "client": theirs.id}
+    )
+    ok(await email_event(api, crossed, svix_id="evt_crossed"))
+    assert (await _webhook(db, "evt_crossed")).payload["matched"] is False
     assert await _allows_email(db, BIZ, ours)
 
 
@@ -204,11 +235,64 @@ async def test_a_wrong_or_stale_signature_is_refused(
     ).scalar_one_or_none() is None
 
 
-async def test_a_body_that_is_not_an_event_is_refused(api: httpx.AsyncClient) -> None:
-    res = await email_event(api, {}, svix_id="evt_raw", raw=b"not json")
-    assert res.status_code == 400
-    res = await email_event(api, {"data": {"email_id": "email_x"}}, svix_id="evt_untyped")
-    assert res.status_code == 400
+async def test_a_body_that_is_not_an_event_is_acknowledged_and_recorded_as_failed(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    ok(await email_event(api, {}, svix_id="evt_raw", raw=b"not json"))
+    row = await _webhook(db, "evt_raw")
+    assert row.event == "unparsed" and row.status == "failed"
+    ok(await email_event(api, {"data": {"email_id": "email_x"}}, svix_id="evt_untyped"))
+    assert (await _webhook(db, "evt_untyped")).status == "failed"
+
+
+async def test_an_event_for_an_uncommitted_send_is_retried_later(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    data = {"email_id": "email_soon", "to": [EMAIL], "tags": {"business": BIZ, "message": "msg_x"}}
+    fresh = {"type": "email.delivered", "created_at": datetime.now(UTC).isoformat(), "data": data}
+    assert (await email_event(api, fresh, svix_id="evt_soon")).status_code == 503
+    unrecorded = await db.execute(select(Webhook.id).where(Webhook.id == "resend_evt_soon"))
+    assert unrecorded.scalar_one_or_none() is None
+    old = {**fresh, "created_at": (datetime.now(UTC) - timedelta(minutes=15)).isoformat()}
+    ok(await email_event(api, old, svix_id="evt_soon"))
+    assert (await _webhook(db, "evt_soon")).payload["matched"] is False
+
+
+async def test_a_delivered_event_backfills_a_send_that_timed_out(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await new_client(db, email=EMAIL)
+    thread = await open_thread(db, BIZ, cid, "email")
+    note = Message(
+        id=new_id("message"),
+        business_id=BIZ,
+        thread_id=thread.id,
+        direction="out",
+        channel="email",
+        body="late",
+        status="failed",
+    )
+    db.add(note)
+    await db.flush()
+    body = _event("email.delivered", "email_late", tags={"business": BIZ, "message": note.id})
+    ok(await email_event(api, body, svix_id="evt_late"))
+    row = await _message(db, note.id)
+    assert row.status == "delivered" and row.provider_ref == "email_late"
+    ok(await email_event(api, _event("email.bounced", "email_late"), svix_id="evt_late_bounce"))
+    assert (await _message(db, note.id)).status == "failed"
+
+
+async def test_an_sms_send_records_the_provider_reference(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await new_client(db, email=None)
+    client = (await db.execute(select(Client).where(Client.id == cid))).scalar_one()
+    client.phone = "+16045550123"
+    await db.flush()
+    res = ok(
+        await as_owner.post("/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Hi"})
+    )
+    assert (await _message(db, res.json()["id"])).provider_ref == "sms_fake1"
 
 
 async def test_a_signed_event_of_another_kind_is_acknowledged_and_recorded(
@@ -240,7 +324,7 @@ async def test_a_complaint_without_prior_consent_is_recorded_once(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     cid = await new_client(db, email=EMAIL)
-    body = _event("email.complained", "email_first", tags={"business": BIZ})
+    body = _event("email.complained", "email_first", tags={"business": BIZ, "client": cid})
     ok(await email_event(api, body, svix_id="evt_first"))
     ok(await email_event(api, body, svix_id="evt_second"))
     rows = (
@@ -264,7 +348,7 @@ async def test_an_archived_clients_complaint_writes_no_consent(
             api, _event("email.complained", message.provider_ref or ""), svix_id="evt_t"
         )
     )
-    tagged = _event("email.complained", "email_other", tags={"business": BIZ})
+    tagged = _event("email.complained", "email_other", tags={"business": BIZ, "client": cid})
     ok(await email_event(api, tagged, svix_id="evt_g"))
     rows = (
         await db.execute(select(func.count()).select_from(Consent).where(Consent.client_id == cid))

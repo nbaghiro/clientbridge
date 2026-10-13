@@ -17,13 +17,13 @@ class Sms:
 
 
 class SmsSender(Protocol):
-    async def send(self, sms: Sms) -> None: ...
+    async def send(self, sms: Sms) -> str | None: ...
 
 
 class ConsoleSmsSender:
     """Default — no real delivery (used until Twilio creds are configured)."""
 
-    async def send(self, sms: Sms) -> None:
+    async def send(self, sms: Sms) -> str | None:
         return None
 
 
@@ -33,10 +33,13 @@ class TwilioSmsSender:  # pragma: no cover - real Twilio, faked in tests
         self._auth = auth_token
         self._from = from_number
 
-    async def send(self, sms: Sms) -> None:
+    async def send(self, sms: Sms) -> str | None:
         from twilio.rest import Client  # type: ignore[import-not-found]  # optional, prod-only dep
 
-        Client(self._sid, self._auth).messages.create(to=sms.to, from_=self._from, body=sms.body)
+        created = Client(self._sid, self._auth).messages.create(
+            to=sms.to, from_=self._from, body=sms.body
+        )
+        return str(created.sid) if created.sid else None
 
 
 def get_sms_sender() -> SmsSender:

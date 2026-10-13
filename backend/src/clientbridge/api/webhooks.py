@@ -6,7 +6,6 @@ from typing import Annotated
 from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, Header, Request, Response
-from pydantic import ValidationError
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import (
@@ -23,8 +22,11 @@ from clientbridge.integrations.resend import valid_resend_signature
 from clientbridge.integrations.stripe import WebhookVerificationError
 from clientbridge.integrations.twilio import valid_twilio_signature
 from clientbridge.schemas.auth import AuthEmailIn
-from clientbridge.schemas.messaging import EmailEventBody
-from clientbridge.services.messaging import process_email_event, process_inbound_sms
+from clientbridge.services.messaging import (
+    EmailEventPending,
+    process_email_event,
+    process_inbound_sms,
+)
 from clientbridge.services.notifications import Notifier, send_auth_email
 from clientbridge.services.payments import WebhookOutcome, process_stripe_event
 
@@ -127,8 +129,7 @@ async def email_webhook(
     ):
         return Response(status_code=401)
     try:
-        event = EmailEventBody.model_validate_json(payload)
-    except ValidationError:
-        return Response(status_code=400)
-    await process_email_event(db, svix_id=svix_id, event=event)
+        await process_email_event(db, svix_id=svix_id, payload=payload)
+    except EmailEventPending:
+        return Response(status_code=503)
     return Response(status_code=200)

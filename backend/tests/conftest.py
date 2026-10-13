@@ -131,8 +131,9 @@ class FakeSmsSender:
     def __init__(self) -> None:
         self.sent: list[Sms] = []
 
-    async def send(self, sms: Sms) -> None:
+    async def send(self, sms: Sms) -> str | None:
         self.sent.append(sms)
+        return f"sms_fake{len(self.sent)}"
 
 
 class FakePushSender:
