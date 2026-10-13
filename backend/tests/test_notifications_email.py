@@ -66,6 +66,12 @@ def test_a_malformed_webhook_secret_is_refused_at_startup() -> None:
     assert Settings(env="dev", resend_webhook_secret="whsec_dGVzdHNlY3JldA==").env == "dev"
 
 
+def test_dev_mail_goes_to_mailpit_unless_told_otherwise(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SMTP_URL", raising=False)
+    assert Settings(env="dev", _env_file=None).smtp_url == "smtp://localhost:8716"
+    assert Settings(env="dev", smtp_url="", _env_file=None).smtp_url == ""
+
+
 def test_the_smtp_transport_is_refused_outside_dev() -> None:
     with pytest.raises(ValidationError, match="SMTP_URL"):
         Settings(env="prod", smtp_url="smtp://localhost:8716", _env_file=None)

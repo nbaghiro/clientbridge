@@ -12,6 +12,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.emails import normalize_email
 from clientbridge.core.errors import AppError, Unauthorized
 from clientbridge.integrations.kratos import Credential, KratosIdentityProvider
+from tests.helpers import service_missing
 
 Handler = Callable[[httpx.Request], httpx.Response]
 
@@ -238,7 +239,7 @@ async def test_contract_against_local_kratos() -> None:
     try:
         identity_id = await kratos.create_identity(email, "Contract", password)
     except AppError:
-        pytest.skip("Kratos is not running (make up)")
+        service_missing("Kratos is not running (make up)")
     async with httpx.AsyncClient(base_url=settings.auth_public_url) as http:
         flow = (await http.get("/self-service/login/api")).json()["id"]
         login = await http.post(

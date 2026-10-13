@@ -10,6 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 _DEV_E2E_ORIGINS = ("http://localhost:8721", "http://localhost:8724")  # web e2e, en-CA and en-XA
 _DEV_JWT_SECRET = "clientbridge-dev-secret-do-not-use-in-prod"
 _DEV_COURIER_SECRET = "clientbridge-dev-courier-secret-do-not-use-in-prod"
+_DEV_SMTP_URL = "smtp://localhost:8716"  # Mailpit in docker-compose.yml
 
 
 class Settings(BaseSettings):
@@ -66,7 +67,8 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     resend_webhook_secret: str = ""  # signs /webhooks/email (Svix)
     email_from: str = ""
-    smtp_url: str = ""  # dev transport (Mailpit on 8716); when set it takes precedence over Resend
+    # dev transport (Mailpit unless set, "" turns it off); when set it takes precedence over Resend
+    smtp_url: str | None = None
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_sms_from: str = ""
@@ -75,6 +77,8 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _require_prod_secrets(self) -> "Settings":
         """Refuse to boot outside dev without real secrets and a private auth admin API."""
+        if self.smtp_url is None:
+            self.smtp_url = _DEV_SMTP_URL if self.env == "dev" else ""
         if self.env != "dev":
             if self.smtp_url:
                 raise ValueError(

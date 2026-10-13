@@ -74,7 +74,7 @@ stripe-listen:
 	stripe listen --forward-connect-to localhost:8701/webhooks/stripe
 
 dev-api:
-	cd backend && SMTP_URL=$${SMTP_URL-smtp://localhost:8716} uv run uvicorn clientbridge.main:app --reload --port 8701
+	cd backend && uv run uvicorn clientbridge.main:app --reload --port 8701
 
 worker:
 	cd backend && uv run arq clientbridge.tasks.worker.WorkerSettings
@@ -172,7 +172,7 @@ stripe-mock:
 
 # Contract tier: real StripeGateway vs the OpenAPI mock. Auto-skips if stripe-mock isn't reachable.
 test-contract: stripe-mock
-	cd backend && STRIPE_MOCK_URL=http://localhost:8708 uv run pytest -m contract -q
+	cd backend && uv run pytest -m contract -q
 
 # Contract tier: the real KratosIdentityProvider vs the local Kratos. Auto-skips if Kratos is down.
 test-kratos:

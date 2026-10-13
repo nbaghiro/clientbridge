@@ -1,11 +1,14 @@
 """Helpers shared by the test files: setup steps, Stripe events and direct database reads."""
 
 import json
+import os
 import uuid
 from collections.abc import Mapping
 from datetime import UTC, date, datetime, timedelta
+from typing import NoReturn
 
 import httpx
+import pytest
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -116,6 +119,13 @@ def shifted(when: str, by: timedelta) -> str:
     if "T" not in when:
         return (date.fromisoformat(when) + by).isoformat()
     return (datetime.fromisoformat(when) + by).isoformat().replace("+00:00", "Z")
+
+
+def service_missing(reason: str) -> NoReturn:
+    """Skip locally, but fail in CI, where the job started the service and its absence is a bug."""
+    if os.environ.get("CI"):
+        pytest.fail(reason)
+    pytest.skip(reason)
 
 
 def key() -> dict[str, str]:
