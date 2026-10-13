@@ -14,6 +14,12 @@ export default tseslint.config(
     ...tseslint.configs.strictTypeChecked,
     ...tseslint.configs.stylisticTypeChecked,
     {
+        // Inline eslint comments are ignored and reported, so a rule can only change here.
+        linterOptions: {
+            noInlineConfig: true,
+            reportUnusedDisableDirectives: "error",
+            reportUnusedInlineConfigs: "error",
+        },
         plugins: {
             local: {
                 rules: {
@@ -45,6 +51,15 @@ export default tseslint.config(
             "no-void": "error",
             "@typescript-eslint/no-floating-promises": ["error", { ignoreVoid: false }],
             "@typescript-eslint/no-explicit-any": "error",
+            "@typescript-eslint/ban-ts-comment": [
+                "error",
+                {
+                    "ts-expect-error": true,
+                    "ts-ignore": true,
+                    "ts-nocheck": true,
+                    "ts-check": false,
+                },
+            ],
             // Numbers in template strings are fine; objects and any are still banned.
             "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
             "local/no-composed-copy": "error",

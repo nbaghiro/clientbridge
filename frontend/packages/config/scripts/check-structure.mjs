@@ -1,4 +1,4 @@
-// Fails the gate on frontend structure drift: multi-line comments, file names and concept names.
+// Fails the gate on structure drift: comments, suppressions, tsconfig strictness and names.
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
@@ -44,7 +44,7 @@ for (const file of files) {
     lines.forEach((line, i) => {
         if (i < header) return;
         const t = line.trim();
-        if (t.startsWith("//") && !/^\/\/ (eslint-|@ts-|prettier-ignore)/.test(t)) {
+        if (t.startsWith("//") && !t.startsWith("// prettier-ignore")) {
             run += 1;
             if (run === 2)
                 problems.push(`${file}:${String(i)}: comment block longer than one line`);
@@ -194,6 +194,64 @@ for (const [file, src] of sources) {
         );
         if (!usedElsewhere)
             problems.push(`${file}: ${name} is exported but only used in its own file`);
+    }
+}
+
+const tracked = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], {
+    cwd: root,
+    encoding: "utf8",
+})
+    .split("\n")
+    .filter((f) => f !== "" && existsSync(join(root, f)));
+
+const SUPPRESSION =
+    /\/\/\s*(eslint-disable|eslint-enable|@ts-ignore|@ts-nocheck|@ts-expect-error)|\/\*\s*(eslint\b|globals?\s|@ts-)/;
+for (const file of tracked.filter((f) => /\.(ts|tsx|mjs|js|cjs)$/.test(f))) {
+    readFileSync(join(root, file), "utf8")
+        .split("\n")
+        .forEach((line, i) => {
+            if (SUPPRESSION.test(line))
+                problems.push(
+                    `${file}:${String(i + 1)}: suppression comment; fix the cause instead`,
+                );
+        });
+}
+
+const BASE = "tsconfig.base.json";
+const STRICT_FAMILY = [
+    "alwaysStrict",
+    "noImplicitAny",
+    "noImplicitThis",
+    "strictBindCallApply",
+    "strictBuiltinIteratorReturn",
+    "strictFunctionTypes",
+    "strictNullChecks",
+    "strictPropertyInitialization",
+    "useUnknownInCatchVariables",
+];
+const STRICT_EXTRAS = [
+    "strict",
+    "noUncheckedIndexedAccess",
+    "exactOptionalPropertyTypes",
+    "noImplicitOverride",
+    "noImplicitReturns",
+    "noFallthroughCasesInSwitch",
+    "noUnusedLocals",
+    "noUnusedParameters",
+];
+const readConfig = (file) => JSON.parse(readFileSync(join(root, file), "utf8"));
+const baseOptions = readConfig(BASE).compilerOptions ?? {};
+for (const key of STRICT_EXTRAS) {
+    if (baseOptions[key] !== true) problems.push(`${BASE}: ${key} must be true`);
+}
+for (const file of tracked.filter((f) => /(^|\/)tsconfig[^/]*\.json$/.test(f))) {
+    const config = readConfig(file);
+    const options = config.compilerOptions ?? {};
+    for (const key of [...STRICT_FAMILY, ...STRICT_EXTRAS]) {
+        if (options[key] === false) problems.push(`${file}: ${key} must not be turned off`);
+    }
+    if (file !== BASE && join(dirname(file), config.extends ?? "") !== BASE) {
+        problems.push(`${file}: extend ${BASE}`);
     }
 }
 
