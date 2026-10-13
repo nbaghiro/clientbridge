@@ -770,3 +770,18 @@ async def test_staff_cannot_cancel_subscription(
 async def test_writes_need_a_session_401(unauth: httpx.AsyncClient, path: str) -> None:
     body = {"client_id": "cl_x", "item_id": "it_x", "payment_method_id": "pm_x"}
     assert (await unauth.post(path, json=body)).status_code == 401
+
+
+async def test_a_cached_price_gone_from_stripe_is_replaced(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    item = await _sub_item(db)
+    item.stripe_price_id = "price_deleted"
+    await db.flush()
+    pm = await _saved_method(db, cid)
+    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    assert res.status_code == 201, res.text
+    await db.refresh(item)
+    assert item.stripe_price_id == gateway.created_prices[-1] != "price_deleted"

@@ -530,8 +530,8 @@ class FakePaymentGateway:
         self.prices[pid] = PriceTerms(amount_cents, currency.upper(), interval_count, frequency)
         return pid
 
-    async def get_price(self, account_id: str, price_id: str) -> PriceTerms:
-        return self.prices[price_id]
+    async def get_price(self, account_id: str, price_id: str) -> PriceTerms | None:
+        return self.prices.get(price_id)
 
     async def create_subscription(
         self,

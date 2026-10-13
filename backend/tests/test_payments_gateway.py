@@ -377,3 +377,10 @@ async def test_the_country_of_a_card_from_another_account_is_a_conflict(
     monkeypatch.setattr(stripe.PaymentMethod, "retrieve_async", _raises(_missing("id")))
     with pytest.raises(Conflict):
         await gateway.get_card_country("acct_x", payment_method_id="pm_old")
+
+
+async def test_a_price_gone_from_stripe_reads_as_none(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(stripe.Price, "retrieve_async", _raises(_missing("price")))
+    assert await gateway.get_price("acct_x", "price_deleted") is None

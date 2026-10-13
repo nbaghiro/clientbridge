@@ -40,7 +40,7 @@ async def test_create_price(contract_gateway: StripeGateway) -> None:
 
 async def test_get_price(contract_gateway: StripeGateway) -> None:
     terms = await contract_gateway.get_price(ACCT, "price_contract")
-    assert terms.amount_cents >= 0 and terms.currency
+    assert terms is not None and terms.amount_cents >= 0 and terms.currency
 
 
 async def test_create_payment_intent(contract_gateway: StripeGateway) -> None:

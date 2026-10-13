@@ -499,7 +499,9 @@ class PaymentGateway(Protocol):
         """A recurring Price for a subscription item; returns the price id."""
         ...
 
-    async def get_price(self, account_id: str, price_id: str) -> PriceTerms: ...
+    async def get_price(self, account_id: str, price_id: str) -> PriceTerms | None:
+        """The price's terms, or None when Stripe no longer has it."""
+        ...
 
     async def create_subscription(
         self,
@@ -1000,8 +1002,14 @@ class StripeGateway:
         )
         return str(price.id)
 
-    async def get_price(self, account_id: str, price_id: str) -> PriceTerms:  # pragma: no cover
-        price = await stripe.Price.retrieve_async(price_id, stripe_account=account_id)
+    @_keyed
+    async def get_price(self, account_id: str, price_id: str) -> PriceTerms | None:
+        try:
+            price = await stripe.Price.retrieve_async(price_id, stripe_account=account_id)
+        except stripe.InvalidRequestError as exc:
+            if _missing(exc):
+                return None
+            raise
         recurring = price.recurring
         return PriceTerms(
             amount_cents=price.unit_amount or 0,
