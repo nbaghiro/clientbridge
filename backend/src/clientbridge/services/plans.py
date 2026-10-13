@@ -171,6 +171,12 @@ async def assert_seat_free(
     return seats
 
 
+def _assert_fits(plan: Plan, seats: int) -> None:
+    """Team includes up to the cap; a business with more members stays on Premium."""
+    if plan == "team" and seats > PLAN_SEAT_CAP:
+        raise Conflict(f"Team allows {PLAN_SEAT_CAP} team members", code="seat_limit")
+
+
 def plan_items(plan: Plan, interval: PlanInterval, seats: int) -> list[PlanItem]:
     items = [PlanItem(f"{plan}_{interval}")]
     if plan == "premium" and seats > 0:
@@ -300,6 +306,8 @@ class PlanService:
         business = await self._business(lock=True)
         if business.stripe_subscription_id is not None and business.plan_status in _LIVE:
             raise Conflict("the business already has a plan; change it instead", code="plan_active")
+        seats = await billed_seats(self.db, business.id, now)
+        _assert_fits(choice.plan, seats)
         address = _address(business)
         cmd = Command(self.db, self.principal)
         account_id = business.stripe_account_id
@@ -321,7 +329,6 @@ class PlanService:
         # two tabs or a retry without a key would otherwise open two subscriptions
         if await self.gateway.close_plan_checkouts(account_id, keep=attempt):
             raise Conflict("the business already has a plan; change it instead", code="plan_active")
-        seats = await billed_seats(self.db, business.id, now)
         left = business.trial_ends_at - now
         carry = plan_access(business, now) == "trial" and left >= _CHECKOUT_TRIAL_MIN
         url = await self.gateway.create_plan_checkout(
@@ -357,6 +364,7 @@ class PlanService:
             if subscription_id is None or business.plan_status not in _LIVE:
                 raise Conflict("this business has no plan to change", code="plan_not_managed")
             seats = await billed_seats(self.db, business.id, now)
+            _assert_fits(choice.plan, seats)
             sub = await self.gateway.set_plan_items(
                 subscription_id,
                 items=plan_items(choice.plan, choice.interval, seats),

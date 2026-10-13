@@ -686,3 +686,21 @@ async def test_the_last_reminder_goes_at_the_last_9_am_before_the_trial_ends(
     assert await run_trial_reminders(db, notifier, now) == 1
     await _trial(db, timedelta(hours=26), billing_email="owner@birchbark.test")
     assert await run_trial_reminders(db, notifier, now) == 0
+
+
+async def test_team_is_refused_while_the_business_has_more_members_than_it_allows(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        plans, "PLAN_SEAT_CAP", await plans.billed_seats(db, BIZ, datetime.now(UTC)) - 1
+    )
+    await _subscribed(db, gateway, PlanItem("premium_month"))
+    change = await as_owner.post("/v1/plan/change", json={"plan": "team", "interval": "month"})
+    assert change.status_code == 409 and change.json()["error"] == "seat_limit"
+    await _trial(db, timedelta(days=5))
+    checkout = await as_owner.post("/v1/plan/checkout", json={"plan": "team", "interval": "year"})
+    assert checkout.status_code == 409 and checkout.json()["error"] == "seat_limit"
+    assert gateway.checkouts == [] and gateway.plan_item_keys == []
