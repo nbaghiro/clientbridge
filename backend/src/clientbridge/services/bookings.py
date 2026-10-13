@@ -84,7 +84,7 @@ from clientbridge.services.business import business_tz, load_staff
 from clientbridge.services.catalog import deposit_cents, load_item
 from clientbridge.services.clients import load_client
 from clientbridge.services.messaging import dispatch_message, open_thread
-from clientbridge.services.notifications import Notifier, reminder_message
+from clientbridge.services.notifications import Notifier, Outcome, reminder_message
 from clientbridge.services.payments import (
     cancel_open_deposits,
     default_method_ref,
@@ -2234,7 +2234,7 @@ async def _close_past_visits(
 
 
 async def run_reminders(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
-    """Remind each active booking starting in the next 24 hours, once."""
+    """Remind each active booking starting in the next 24 hours once, retrying a failed send."""
     bookings = (
         (
             await db.execute(
@@ -2253,8 +2253,12 @@ async def run_reminders(db: AsyncSession, notifier: Notifier, now: datetime) -> 
         .scalars()
         .all()
     )
+    reminded = 0
     for booking in bookings:
-        await notifier.on_booking_reminder(db, booking.id)
+        if await notifier.on_booking_reminder(db, booking.id) is Outcome.FAILED:
+            continue
         booking.reminded_at = now
-    await db.commit()
-    return len(bookings)
+        # commit each marker before the next send, so an interrupted run never repeats one
+        await db.commit()
+        reminded += 1
+    return reminded

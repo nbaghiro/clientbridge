@@ -12,7 +12,14 @@ from clientbridge.models.documents import Form, FormField, FormResponse
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services.forms import run_intake_forms
 from clientbridge.services.notifications import Notifier
-from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
+from tests.conftest import (
+    DownEmailSender,
+    DownSmsSender,
+    Factory,
+    FakeEmailSender,
+    FakePushSender,
+    FakeSmsSender,
+)
 from tests.helpers import key, new_client, ok
 
 BIZ = "bz_birchbark"
@@ -197,6 +204,29 @@ async def test_intake_goes_once_to_each_new_client(
     assert ours == [(newcomer, first_booking)]
     assert any(m.to == "newpup@example.ca" for m in email.sent)
     assert await run_intake_forms(db, notifier, now) == 0  # never twice
+
+
+async def test_a_failed_intake_send_leaves_the_client_eligible(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+) -> None:
+    form = ok(await as_owner.post("/v1/forms", json=INTAKE), 201).json()
+    now = clock.now()
+    newcomer = await new_client(db, name="Retry Pup", email="retrypup@example.ca")
+    await _book(db, newcomer, now - timedelta(hours=2))
+
+    await run_intake_forms(db, Notifier(DownEmailSender(), DownSmsSender(), push), now)
+    responses = select(FormResponse).where(
+        FormResponse.form_id == form["id"], FormResponse.client_id == newcomer
+    )
+    assert (await db.execute(responses)).scalars().all() == []
+
+    await run_intake_forms(db, Notifier(email, sms, push), now)
+    assert len((await db.execute(responses)).scalars().all()) == 1
+    assert any(m.to == "retrypup@example.ca" for m in email.sent)
 
 
 async def test_manual_forms_are_not_sent_by_the_job(

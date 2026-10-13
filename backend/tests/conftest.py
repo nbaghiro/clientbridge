@@ -185,6 +185,20 @@ class FakeSmsSender:
         return f"sms_fake{len(self.sent)}"
 
 
+class DownEmailSender(FakeEmailSender):
+    """Fails every send, the way a provider outage surfaces to the notifier."""
+
+    async def send(self, email: Email) -> str | None:
+        raise RuntimeError("email provider down")
+
+
+class DownSmsSender(FakeSmsSender):
+    """Fails every send, the way a provider outage surfaces to the notifier."""
+
+    async def send(self, sms: Sms) -> str | None:
+        raise RuntimeError("sms provider down")
+
+
 class FakePushSender:
     def __init__(self) -> None:
         self.sent: list[Push] = []

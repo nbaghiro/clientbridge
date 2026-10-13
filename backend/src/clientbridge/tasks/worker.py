@@ -119,6 +119,7 @@ async def send_trial_reminders(ctx: Context) -> int:
 
 class WorkerSettings:
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)
+    job_timeout = 900
     functions: ClassVar[list[object]] = []
     cron_jobs: ClassVar[list[object]] = [
         cron(send_booking_reminders, minute={0, 15, 30, 45}),

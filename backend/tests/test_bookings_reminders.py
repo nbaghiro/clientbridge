@@ -1,14 +1,25 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import httpx
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
+from clientbridge.integrations.resend import Email
 from clientbridge.models.catalog import Item
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services.bookings import run_reminders
 from clientbridge.services.notifications import Notifier
-from tests.conftest import BIZ, Factory, FakeEmailSender, FakePushSender, FakeSmsSender
+from tests.conftest import (
+    BIZ,
+    DownEmailSender,
+    DownSmsSender,
+    Factory,
+    FakeEmailSender,
+    FakePushSender,
+    FakeSmsSender,
+)
 
 
 async def _booking(
@@ -119,3 +130,51 @@ async def test_a_moved_visit_is_reminded_again_before_its_new_time(
     sent = len(email.sent)
     await run_reminders(db, notifier, first + timedelta(days=7) - timedelta(hours=20))
     assert len(email.sent) > sent
+
+
+async def test_a_failed_reminder_stays_due_and_goes_on_the_next_run(
+    db: AsyncSession, email: FakeEmailSender
+) -> None:
+    bid = await _booking(db, "st_owner")
+    at = datetime(2027, 8, 3, 17, tzinfo=UTC) - timedelta(hours=20)
+    down = Notifier(DownEmailSender(), DownSmsSender(), FakePushSender())
+    await run_reminders(db, down, at)
+    booking = await db.get(Booking, bid, populate_existing=True)
+    assert booking is not None and booking.reminded_at is None
+
+    await run_reminders(db, Notifier(email, FakeSmsSender(), FakePushSender()), at)
+    booking = await db.get(Booking, bid, populate_existing=True)
+    assert booking is not None and booking.reminded_at == at
+    assert len(email.sent) >= 1
+
+
+class _StopsAfterOne(FakeEmailSender):
+    """Sends one email, then the worker dies mid-run."""
+
+    async def send(self, email: Email) -> str | None:
+        if self.sent:
+            raise asyncio.CancelledError
+        return await super().send(email)
+
+
+async def test_an_interrupted_run_keeps_what_it_sent_and_never_repeats_it(
+    db: AsyncSession, email: FakeEmailSender
+) -> None:
+    first = await _booking(db, "st_owner")
+    second = await _booking(db, "st_diego")
+    at = datetime(2027, 8, 3, 17, tzinfo=UTC) - timedelta(hours=20)
+    dying = _StopsAfterOne()
+    with pytest.raises(asyncio.CancelledError):
+        await run_reminders(db, Notifier(dying, FakeSmsSender(), FakePushSender()), at)
+    marked = [
+        b.id
+        for b in [await db.get(Booking, bid, populate_existing=True) for bid in (first, second)]
+        if b is not None and b.reminded_at is not None
+    ]
+    assert len(marked) == 1
+
+    await run_reminders(db, Notifier(email, FakeSmsSender(), FakePushSender()), at)
+    assert len(email.sent) == 1  # only the visit the interrupted run never reached
+    for bid in (first, second):
+        booking = await db.get(Booking, bid, populate_existing=True)
+        assert booking is not None and booking.reminded_at is not None

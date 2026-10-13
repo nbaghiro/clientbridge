@@ -1,6 +1,7 @@
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
+from enum import Enum
 from typing import Literal
 
 from sqlalchemy import select
@@ -46,6 +47,14 @@ _log = logging.getLogger(__name__)
 _PREVIEW_CHARS = 120
 
 SeriesNotice = Literal["booked", "moved", "canceled"]
+
+
+class Outcome(Enum):
+    """Whether a notice reached the client; a job retries only a failed one."""
+
+    DELIVERED = "delivered"
+    FAILED = "failed"
+    SKIPPED = "skipped"
 
 
 def client_email(
@@ -647,18 +656,18 @@ class Notifier:
         subject, body = invoice_sent_message(locale, invoice.number, amount, business.name, link)
         await self._to_client(db, invoice.client_id, subject, body)
 
-    async def on_invoice_overdue(self, db: AsyncSession, invoice_id: str) -> None:
+    async def on_invoice_overdue(self, db: AsyncSession, invoice_id: str) -> Outcome:
         invoice = await db.get(Invoice, invoice_id)
         if invoice is None:
-            return
+            return Outcome.SKIPPED
         business = await db.get(Business, invoice.business_id)
         if business is None:
-            return
+            return Outcome.SKIPPED
         locale = locale_for(business=business)
         amount = format_money(locale, await ledger.invoice_balance(db, invoice), invoice.currency)
         link = pay_link(invoice.pay_token) if invoice.pay_token else ""
         subject, body = invoice_overdue_message(locale, invoice.number, amount, business.name, link)
-        await self._to_client(db, invoice.client_id, subject, body)
+        return await self._to_client(db, invoice.client_id, subject, body)
 
     async def on_estimate_sent(self, db: AsyncSession, estimate_id: str) -> None:
         estimate = await db.get(Estimate, estimate_id)
@@ -846,13 +855,14 @@ class Notifier:
         else:
             await self._safe(self.sms.send(Sms(to=card.recipient, body=body)))
 
-    async def on_booking_reminder(self, db: AsyncSession, booking_id: str) -> None:
+    async def on_booking_reminder(self, db: AsyncSession, booking_id: str) -> Outcome:
         booking = await db.get(Booking, booking_id)
         if booking is None:
-            return
+            return Outcome.SKIPPED
         message = await reminder_message(db, booking)
-        if message is not None:
-            await self._to_client(db, booking.client_id, *message)
+        if message is None:
+            return Outcome.SKIPPED
+        return await self._to_client(db, booking.client_id, *message)
 
     async def on_booking_confirmed(self, db: AsyncSession, booking_id: str) -> None:
         booking = await db.get(Booking, booking_id)
@@ -962,19 +972,19 @@ class Notifier:
         subject, body = review_requested_message(locale_for(business=business), business.name, link)
         await self._to_client(db, review.client_id, subject, body)
 
-    async def on_form_sent(self, db: AsyncSession, form_response_id: str) -> None:
+    async def on_form_sent(self, db: AsyncSession, form_response_id: str) -> Outcome:
         response = await db.get(FormResponse, form_response_id)
         if response is None:
-            return
+            return Outcome.SKIPPED
         form = await db.get(Form, response.form_id)
         business = await db.get(Business, response.business_id)
         if form is None or business is None:
-            return
+            return Outcome.SKIPPED
         link = f"{get_settings().connect_base_url}/form/{response.token}"
         subject, body = form_sent_message(
             locale_for(business=business), business.name, form.name, link
         )
-        await self._to_client(db, response.client_id, subject, body)
+        return await self._to_client(db, response.client_id, subject, body)
 
     async def on_contract_sent(self, db: AsyncSession, signature_id: str) -> None:
         signature = await db.get(Signature, signature_id)
@@ -1045,19 +1055,22 @@ class Notifier:
         body: str,
         *,
         channel: str | None = None,
-    ) -> None:
+    ) -> Outcome:
         """Email + SMS to a client (or only the channel asked for), each isolated from the other."""
         if client_id is None:
-            return
+            return Outcome.SKIPPED
         client = await db.get(Client, client_id)
         if client is None:
-            return
+            return Outcome.SKIPPED
+        sent: list[bool] = []
         if client.email and channel != "sms":
             business = await db.get(Business, client.business_id)
             if business is not None:
-                await self._safe(
-                    self.email.send(
-                        client_email(business, client.email, subject, body, client=client)
+                sent.append(
+                    await self._safe(
+                        self.email.send(
+                            client_email(business, client.email, subject, body, client=client)
+                        )
                     )
                 )
         number = e164(client.phone) if client.phone else None
@@ -1066,7 +1079,11 @@ class Notifier:
             and channel != "email"
             and not await texts_stopped(db, client.business_id, client.id)
         ):
-            await self._safe(self.sms.send(Sms(to=number, body=body)))
+            sent.append(await self._safe(self.sms.send(Sms(to=number, body=body))))
+        if not sent:
+            return Outcome.SKIPPED
+        # one channel reaching the client counts, so a retry never repeats the channel that worked
+        return Outcome.DELIVERED if any(sent) else Outcome.FAILED
 
     async def _alert_staff(
         self, db: AsyncSession, business: Business, body: str, data: dict[str, str]
@@ -1087,11 +1104,13 @@ class Notifier:
                 self.push.send(Push(tokens=list(tokens), title=business.name, body=body, data=data))
             )
 
-    async def _safe(self, awaitable: Awaitable[object]) -> None:
+    async def _safe(self, awaitable: Awaitable[object]) -> bool:
         try:
             await awaitable
         except Exception:
             _log.exception("outreach channel send failed")
+            return False
+        return True
 
 
 class DeviceService:

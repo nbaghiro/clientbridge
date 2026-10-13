@@ -23,7 +23,7 @@ from clientbridge.schemas.forms import (
     FormSend,
     PublicFormField,
 )
-from clientbridge.services.notifications import Notifier
+from clientbridge.services.notifications import Notifier, Outcome
 from clientbridge.services.plans import serving
 
 _CHOICE_INPUTS = ("select", "multiselect")
@@ -242,7 +242,7 @@ async def run_intake_forms(db: AsyncSession, notifier: Notifier, now: datetime) 
         .scalars()
         .all()
     )
-    sent: list[FormResponse] = []
+    sent = 0
     for form in forms:
         already = select(FormResponse.client_id).where(
             FormResponse.form_id == form.id, FormResponse.client_id.is_not(None)
@@ -276,12 +276,14 @@ async def run_intake_forms(db: AsyncSession, notifier: Notifier, now: datetime) 
                 token=secrets.token_urlsafe(16),
             )
             db.add(response)
-            sent.append(response)
-    await db.flush()
-    for response in sent:
-        await notifier.on_form_sent(db, response.id)
-    await db.commit()
-    return len(sent)
+            await db.flush()
+            if await notifier.on_form_sent(db, response.id) is Outcome.FAILED:
+                # without its response row the client stays eligible for the next run
+                await db.delete(response)
+            else:
+                sent += 1
+            await db.commit()
+    return sent
 
 
 def _response_out(response: FormResponse) -> FormResponseOut:

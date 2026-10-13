@@ -44,7 +44,7 @@ from clientbridge.services.lines import (
     replace_lines,
     set_discount,
 )
-from clientbridge.services.notifications import Notifier
+from clientbridge.services.notifications import Notifier, Outcome
 from clientbridge.services.payments import sync_invoice
 from clientbridge.services.tax import tax_for_lines
 
@@ -617,8 +617,9 @@ async def run_overdue_sweep(db: AsyncSession, notifier: Notifier, now: datetime)
             .all()
         )
         for invoice in invoices:
+            if await notifier.on_invoice_overdue(db, invoice.id) is Outcome.FAILED:
+                continue
             invoice.overdue_notified_at = now
-            await notifier.on_invoice_overdue(db, invoice.id)
-        swept += len(invoices)
-    await db.commit()
+            await db.commit()
+            swept += 1
     return swept

@@ -23,7 +23,14 @@ from clientbridge.services.ledger import Leg
 from clientbridge.services.notifications import Notifier, run_prune_devices
 from clientbridge.services.reviews import build_review_request, run_review_requests
 from clientbridge.tasks.worker import WorkerSettings
-from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
+from tests.conftest import (
+    DownEmailSender,
+    DownSmsSender,
+    Factory,
+    FakeEmailSender,
+    FakePushSender,
+    FakeSmsSender,
+)
 from tests.helpers import client_id, sent_invoice
 
 BIZ = "bz_birchbark"
@@ -82,6 +89,21 @@ async def test_overdue_sweep_is_idempotent(
     assert (
         await run_overdue_sweep(db, notifier, OVERDUE_AT) == 0
     )  # the transition is the dedup marker
+
+
+async def test_a_failed_overdue_notice_is_sent_on_a_later_morning(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    cid = await client_id(db, email="od@example.ca")
+    invoice_id = await sent_invoice(db, client=cid, due_at=NOW - timedelta(days=5))
+    down = Notifier(DownEmailSender(), DownSmsSender(), push)
+    assert await run_overdue_sweep(db, down, OVERDUE_AT) == 0
+    invoice = await db.get(Invoice, invoice_id, populate_existing=True)
+    assert invoice is not None and invoice.overdue_notified_at is None
+
+    next_morning = OVERDUE_AT + timedelta(days=1)
+    assert await run_overdue_sweep(db, _notifier(email, sms, push), next_morning) == 1
+    assert any(m.to == "od@example.ca" for m in email.sent)
 
 
 async def test_overdue_sweep_waits_for_each_business_morning(
