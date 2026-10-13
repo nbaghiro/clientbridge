@@ -121,6 +121,8 @@ def seed_identity() -> tuple[str, str]:
             billing_email="hello@birchbarkpets.ca",
             stripe_account_id="acct_demo_birchbark",
             status="active",
+            plan="team",
+            plan_status="active",
         )
     )
     rows.append(

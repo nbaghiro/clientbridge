@@ -356,6 +356,9 @@ const businesses = new Table(
         stripe_charges_enabled: column.integer,
         staff_discount_limit_bps: column.integer,
         filing_frequency: column.text,
+        plan: column.text,
+        plan_status: column.text,
+        trial_ends_at: column.text,
     },
     {
         indexes: {

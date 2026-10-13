@@ -38,7 +38,7 @@ streams:
     with:
       limited: SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND role != 'owner' AND role != 'admin'
     queries:
-      - SELECT id, name, slug, timezone, province, brand, stripe_account_id, stripe_terminal_location_id, stripe_charges_enabled, tax_registered, setup_dismissed_at, staff_discount_limit_bps FROM businesses WHERE id IN limited
+      - SELECT id, name, slug, timezone, province, brand, stripe_account_id, stripe_terminal_location_id, stripe_charges_enabled, tax_registered, setup_dismissed_at, staff_discount_limit_bps, plan_status, trial_ends_at FROM businesses WHERE id IN limited
       - SELECT id, hours_revision, business_id, user_id, role, name, title, color, status, invite_email, invited_at, created_at, updated_at FROM staff WHERE business_id IN limited
       # The pickup queue: paid online orders (pickup_status is set only once paid) and what to pack, without prices.
       - SELECT id, business_id, number, client_id, source, pickup_status, preparing_at, ready_at, picked_up_at, pickup_from, pickup_to, note, notify_sms, created_at, updated_at FROM orders WHERE business_id IN limited AND pickup_status IS NOT NULL
@@ -62,7 +62,7 @@ streams:
     with:
       managed: SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND role != 'staff' AND role != 'contractor'
     queries:
-      - SELECT id, name, slug, timezone, province, billing_email, gst_hst_number, qst_number, pst_number, filing_frequency, review_hold_at, google_review_url, brand, stripe_account_id, stripe_terminal_location_id, stripe_charges_enabled, tax_registered, setup_dismissed_at, staff_discount_limit_bps FROM businesses WHERE id IN managed
+      - SELECT id, name, slug, timezone, province, billing_email, gst_hst_number, qst_number, pst_number, filing_frequency, review_hold_at, google_review_url, brand, stripe_account_id, stripe_terminal_location_id, stripe_charges_enabled, tax_registered, setup_dismissed_at, staff_discount_limit_bps, plan, plan_status, trial_ends_at FROM businesses WHERE id IN managed
       - SELECT id, hours_revision, business_id, user_id, role, name, payee, rate_type, rate_bps, rate_cents, retail_rate_bps, title, color, status, invite_email, invited_at, created_at, updated_at FROM staff WHERE business_id IN managed
       - SELECT booking_id, staff_id, item_id, description, quantity, unit_amount_cents, id, business_id, created_at, updated_at FROM addons WHERE business_id IN managed
       - SELECT staff_id, basis, weekday, date, start_time, end_time, available, note, starts_at, ends_at, reason, id, business_id, created_at, updated_at FROM hours WHERE business_id IN managed

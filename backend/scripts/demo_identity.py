@@ -43,6 +43,8 @@ def build_identity(ctx: DemoContext) -> None:
             timezone="America/Vancouver",
             province="BC",
             status="active",
+            plan="team",
+            plan_status="active",
             brand={
                 "tagline": "A separate demo business for tenant isolation checks.",
                 "address": "455 Granville Street, Vancouver, BC V6C 1T1",
