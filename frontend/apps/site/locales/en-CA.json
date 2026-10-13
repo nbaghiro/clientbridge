@@ -587,7 +587,7 @@
         "message": "Is tax added to the plan price?"
     },
     "pages.pricingPage.faq.8.a": {
-        "message": "Plan prices are before tax. GST, HST or QST for your province is added at checkout and shown on each plan invoice."
+        "message": "Plan prices are before tax. GST or HST, plus QST in Quebec, is added at checkout and shown on each plan invoice."
     },
     "pages.pricingPage.closing.title": {
         "message": "See it with a business that is already set up."
