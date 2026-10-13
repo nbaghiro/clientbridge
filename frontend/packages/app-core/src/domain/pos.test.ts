@@ -1,5 +1,8 @@
+// @vitest-environment happy-dom
+import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import type { ApiLike } from "../api";
 import { allocate, discountCents } from "./billing";
 import { ratesOn } from "./taxes";
 import {
@@ -16,6 +19,7 @@ import {
     saleTotalLines,
     tipCentsFor,
     tipShares,
+    useTerminalConnection,
 } from "./pos";
 import { saleNumber } from "./printing";
 
@@ -298,5 +302,25 @@ describe("issuedSale", () => {
         });
         expect(sale.totals.taxes).toEqual([]);
         expect(sale.totals.totalCents).toBe(10000);
+    });
+});
+
+describe("useTerminalConnection", () => {
+    it("takes the reader's location from the connection token, not the replica", async () => {
+        const api: ApiLike = {
+            get: <T>() => Promise.resolve({} as T),
+            getText: () => Promise.resolve(""),
+            post: <T>() => Promise.resolve({ secret: "pst_1", location_id: "tml_1" } as T),
+            patch: <T>() => Promise.resolve({} as T),
+            delete: <T>() => Promise.resolve({} as T),
+        };
+        const { result } = renderHook(() => useTerminalConnection(api));
+        expect(result.current.locationId).toBeNull();
+        let secret = "";
+        await act(async () => {
+            secret = await result.current.tokenProvider();
+        });
+        expect(secret).toBe("pst_1");
+        expect(result.current.locationId).toBe("tml_1");
     });
 });

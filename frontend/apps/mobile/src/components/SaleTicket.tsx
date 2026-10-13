@@ -10,7 +10,7 @@ import {
     formatPhone,
     strings,
     useClients,
-    useConnectionToken,
+    useTerminalConnection,
     useDiscountEditor,
     useDiscountSheet,
     formatParts,
@@ -556,8 +556,8 @@ const METHOD_LABEL: Record<SalePayMethod, string> = {
 };
 
 /** Tap to Pay: connects the phone's reader, then collects the sale's PaymentIntent. */
-function Reader({ sale }: { sale: SaleTicket }) {
-    const terminal = useTerminalCheckout();
+function Reader({ sale, locationId }: { sale: SaleTicket; locationId: string | null }) {
+    const terminal = useTerminalCheckout(locationId);
     const secret = sale.terminal?.clientSecret ?? null;
     const { ready, charge, phase } = terminal;
     useEffect(() => {
@@ -630,9 +630,17 @@ function PaidSummary({
     );
 }
 
-function PayBody({ sale, onBack }: { sale: SaleTicket; onBack: () => void }) {
+function PayBody({
+    sale,
+    locationId,
+    onBack,
+}: {
+    sale: SaleTicket;
+    locationId: string | null;
+    onBack: () => void;
+}) {
     const due = sale.totals.dueCents;
-    if (sale.terminal !== null) return <Reader sale={sale} />;
+    if (sale.terminal !== null) return <Reader sale={sale} locationId={locationId} />;
     if (sale.checkout.clientSecret !== null)
         return (
             <ChargeSheet
@@ -712,7 +720,7 @@ export function TicketSheet({
 }) {
     const [step, setStep] = useState<SheetStep>("ticket");
     const [selected, setSelected] = useState<string | null>(null);
-    const tokenProvider = useConnectionToken(api);
+    const { tokenProvider, locationId } = useTerminalConnection(api);
     const close = (): void => {
         if (sale.busy) return;
         setStep("ticket");
@@ -738,6 +746,7 @@ export function TicketSheet({
         body = (
             <PayBody
                 sale={sale}
+                locationId={locationId}
                 onBack={() => {
                     setStep("ticket");
                 }}

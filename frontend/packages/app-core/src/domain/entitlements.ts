@@ -84,14 +84,13 @@ export interface SubscriptionRow {
     item_id: string;
     item_name: string | null;
     status: string;
-    current_period_start: string | null;
     current_period_end: string | null;
     payment_method_id: string | null;
 }
 
 export const CLIENT_SUBSCRIPTIONS_SQL = `
 SELECT s.id, s.client_id, s.item_id, i.name AS item_name, s.status,
-       s.current_period_start, s.current_period_end, s.payment_method_id
+       s.current_period_end, s.payment_method_id
 FROM subscriptions s LEFT JOIN items i ON i.id = s.item_id
 WHERE s.client_id = ? ORDER BY s.created_at DESC`;
 

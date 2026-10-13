@@ -53,12 +53,28 @@ interface CheckoutResult {
     payment_id: string;
 }
 
-function requestConnectionToken(api: ApiLike): Promise<string> {
-    return api.post<{ secret: string }>("/v1/terminal/connection-token", {}).then((r) => r.secret);
+interface TerminalConnection {
+    tokenProvider: () => Promise<string>;
+    locationId: string | null;
 }
 
-export function useConnectionToken(api: ApiLike): () => Promise<string> {
-    return useCallback(() => requestConnectionToken(api), [api]);
+/** Null until the first connection token arrives with the business's Terminal location. */
+export function useTerminalConnection(api: ApiLike): TerminalConnection {
+    const [locationId, setLocationId] = useState<string | null>(null);
+    const tokenProvider = useCallback(
+        () =>
+            api
+                .post<{
+                    secret: string;
+                    location_id?: string | null;
+                }>("/v1/terminal/connection-token", {})
+                .then((r) => {
+                    if (r.location_id) setLocationId(r.location_id);
+                    return r.secret;
+                }),
+        [api],
+    );
+    return { tokenProvider, locationId };
 }
 
 // A paid online order moves unfulfilled -> ready -> picked_up; cancelling is a refund, not a status.

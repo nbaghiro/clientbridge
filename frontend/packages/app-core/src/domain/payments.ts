@@ -131,21 +131,10 @@ export function mandateStatusIntent(status: string): Intent {
 export const STRIPE_ACCOUNT_SQL =
     "SELECT stripe_account_id FROM businesses WHERE stripe_account_id IS NOT NULL LIMIT 1";
 
-export const TERMINAL_LOCATION_SQL =
-    "SELECT stripe_terminal_location_id FROM businesses WHERE stripe_terminal_location_id IS NOT NULL LIMIT 1";
-
 /** Package and gift card purchases return only a client secret; the web confirm needs the account. */
 export function useStripeAccountId(): string | null {
     const rows = useQuery<{ stripe_account_id: string | null }>(STRIPE_ACCOUNT_SQL).data;
     return rows[0]?.stripe_account_id ?? null;
-}
-
-/** Null until the first connection-token call mints the location. */
-export function useStripeTerminalLocation(): string | null {
-    const rows = useQuery<{ stripe_terminal_location_id: string | null }>(
-        TERMINAL_LOCATION_SQL,
-    ).data;
-    return rows[0]?.stripe_terminal_location_id ?? null;
 }
 
 export function detachCard(api: ApiLike, id: string): Promise<{ detached: boolean }> {

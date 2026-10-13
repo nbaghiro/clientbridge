@@ -93,7 +93,6 @@ function seed(): void {
             qst_number: null,
             brand: "{}",
             stripe_account_id: "acct_1",
-            stripe_terminal_location_id: "tml_1",
             tax_registered: 1,
         },
     ]);
@@ -507,7 +506,6 @@ function seed(): void {
             client_id: "cl_ann",
             item_id: "it_plan",
             status: "active",
-            current_period_start: "2026-06-01T00:00:00Z",
             current_period_end: "2026-07-01T00:00:00Z",
             payment_method_id: "pm_main",
         },
@@ -1369,7 +1367,6 @@ describe("app-core SQL against the replica schema", () => {
             { id: BIZ, name: "Birch Studio", billing_email: "billing@birch.test" },
         ]);
         expect(run("STRIPE_ACCOUNT_SQL")).toEqual([{ stripe_account_id: "acct_1" }]);
-        expect(run("TERMINAL_LOCATION_SQL")).toEqual([{ stripe_terminal_location_id: "tml_1" }]);
     });
 
     it("lists the catalog with each item's newest image", () => {
