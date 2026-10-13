@@ -2,6 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header
 
+from clientbridge.api.plans import PlanWritable
 from clientbridge.core.deps import (
     CurrentPrincipal,
     CurrentUser,
@@ -38,11 +39,13 @@ async def create_invite(
     principal: CurrentPrincipal,
     db: DbSession,
     email: EmailDep,
+    gateway: GatewayDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> InviteOut:
     return await StaffService(db).create_invite(
         principal,
         email_sender=email,
+        gateway=gateway,
         email=body.email,
         role=body.role,
         idempotency_key=idempotency_key,
@@ -65,7 +68,7 @@ async def accept_invite(
     return await StaffService(db).accept_invite(user, identity, body.token)
 
 
-@router.patch("/{staff_id}/pay", response_model=StaffPayOut)
+@router.patch("/{staff_id}/pay", response_model=StaffPayOut, dependencies=[PlanWritable])
 async def update_pay(
     staff_id: str, body: StaffPayUpdate, principal: CurrentPrincipal, db: DbSession
 ) -> StaffPayOut:
@@ -79,17 +82,21 @@ async def team(principal: CurrentPrincipal, db: DbSession) -> TeamOut:
 
 @router.post("/invites/{invite_id}/resend", response_model=InviteOut)
 async def resend_invite(
-    invite_id: str, principal: CurrentPrincipal, db: DbSession, email: EmailDep
+    invite_id: str, principal: CurrentPrincipal, db: DbSession, email: EmailDep, gateway: GatewayDep
 ) -> InviteOut:
-    return await StaffService(db).resend_invite(principal, invite_id, email_sender=email)
+    return await StaffService(db).resend_invite(
+        principal, invite_id, email_sender=email, gateway=gateway
+    )
 
 
 @router.post("/invites/{invite_id}/revoke", status_code=204)
-async def revoke_invite(invite_id: str, principal: CurrentPrincipal, db: DbSession) -> None:
-    await StaffService(db).revoke_invite(principal, invite_id)
+async def revoke_invite(
+    invite_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> None:
+    await StaffService(db).revoke_invite(principal, invite_id, gateway=gateway)
 
 
-@router.patch("/{staff_id}", status_code=204)
+@router.patch("/{staff_id}", status_code=204, dependencies=[PlanWritable])
 async def change_role(
     staff_id: str, body: RoleUpdate, principal: CurrentPrincipal, db: DbSession
 ) -> None:

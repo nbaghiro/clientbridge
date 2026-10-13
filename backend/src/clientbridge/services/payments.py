@@ -23,6 +23,7 @@ from clientbridge.core.security import hash_token
 from clientbridge.core.zones import zone
 from clientbridge.integrations.stripe import (
     ACCOUNT_EVENTS,
+    PLAN_EVENTS,
     SETTLEMENT_CURRENCY,
     STRIPE_API_VERSION,
     ChargeFees,
@@ -72,8 +73,13 @@ from clientbridge.schemas.payments import (
     SetupIntentOut,
     TipShareIn,
 )
-from clientbridge.services import ledger
-from clientbridge.services.business import apply_account_status, has_merchant, kyc_status
+from clientbridge.services import ledger, plans
+from clientbridge.services.business import (
+    apply_account_status,
+    has_merchant,
+    kyc_status,
+    merchant_account,
+)
 from clientbridge.services.earnings import (
     ensure_earnings,
     ensure_order_earning,
@@ -220,7 +226,7 @@ class PaymentService:
             except Exception:
                 available = None
         return ConnectStatus(
-            connected=business.stripe_account_id is not None,
+            connected=merchant_account(business) is not None,
             charges_enabled=business.stripe_charges_enabled,
             payouts_enabled=business.stripe_payouts_enabled,
             details_submitted=business.stripe_details_submitted,
@@ -358,9 +364,9 @@ class PaymentService:
         """A SetupIntent to save a client's card for later off-session charges (no charge now)."""
         self._assert_admin()
         business = await self._business()
-        if business.stripe_account_id is None:
+        account_id = merchant_account(business)
+        if account_id is None:
             raise Conflict("set up card payments in Setup before saving cards")
-        account_id = business.stripe_account_id
         client = await self._client(client_id)
 
         async def run(cmd: Command) -> SetupIntentOut:
@@ -390,11 +396,11 @@ class PaymentService:
         self._assert_admin()
         business = await self._business()
         client = await self._client(client_id)
-        if business.stripe_account_id is None:
+        account_id = merchant_account(business)
+        if account_id is None:
             raise Conflict("set up payments before requesting bank authorization")
         if not client.email:
             raise Conflict("add the client's email so they can receive bank verification notices")
-        account_id = business.stripe_account_id
         await self.gateway.ensure_pad_capability(account_id)
 
         async def run(cmd: Command) -> PaymentSetupLinkOut:
@@ -1717,6 +1723,9 @@ async def _dispatch(
 ) -> WebhookOutcome | None:
     if event.type in ACCOUNT_EVENTS:
         await _refresh_account(db, gateway, event.account)
+    elif event.account is None and event.type in PLAN_EVENTS:
+        # a platform subscription bills the business itself; it is never a client membership
+        await plans.apply_subscription_event(db, gateway, event)
     elif event.type == "payment_intent.succeeded":
         settled = await _settle_payment(
             db, gateway, event.data, account=event.account, occurred_at=event.created

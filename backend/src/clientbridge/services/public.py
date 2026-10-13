@@ -125,6 +125,7 @@ from clientbridge.services.payments import (
     refund_deposit,
     resolve_tip,
 )
+from clientbridge.services.plans import assert_serving
 from clientbridge.services.returning import ReturningService
 from clientbridge.services.tax import LineTax, issued_tax, rates_for_business, tax_for_lines
 
@@ -269,6 +270,7 @@ class PublicBookingService:
             prior = await replay(self.db, business.id, _BOOK_SCOPE, idempotency_key, data)
             if prior is not None:
                 return PublicBookingResult.model_validate(prior)
+        assert_serving(business, datetime.now(UTC))
         item = await self._bookable_item(business.id, data.item_id)
         if item.duration_min is None or item.duration_min <= 0:
             raise Unprocessable("that service has no duration and can't be booked")
@@ -1331,6 +1333,7 @@ class PublicEstimateService:
     async def accept(self, token: str, data: PublicEstimateAccept) -> PublicEstimate:
         estimate, business = await self._resolve(token, lock=True)
         self._assert_open(estimate, business)
+        assert_serving(business, datetime.now(UTC))
         lines = await fetch_lines(self.db, estimate.business_id, "estimate", estimate.id)
         offered = {ln.id for ln in lines if ln.optional}
         if not set(data.line_ids) <= offered:
@@ -1799,6 +1802,7 @@ class PublicShopService:
         prior = await replay(self.db, business.id, _SCOPE, idempotency_key, data)
         if prior is not None:
             return PublicShopOrderResult.model_validate(prior)
+        assert_serving(business, datetime.now(UTC))
         if data.pickup_from is not None:
             await self.db.execute(
                 text("SELECT pg_advisory_xact_lock(hashtext(:scope))"),

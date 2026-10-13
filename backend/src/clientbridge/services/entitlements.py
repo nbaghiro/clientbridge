@@ -28,6 +28,7 @@ from clientbridge.schemas.entitlements import (
     SubscriptionOut,
 )
 from clientbridge.services import ledger
+from clientbridge.services.business import merchant_account
 from clientbridge.services.payments import (
     ensure_customer,
     ensure_subscription_price,
@@ -485,9 +486,9 @@ class SubscriptionService:
     ) -> SubscriptionOut:
         self._assert_admin()
         business = await self._business()
-        if business.stripe_account_id is None:
+        account_id = merchant_account(business)
+        if account_id is None:
             raise Conflict("set up card payments in Setup before creating subscriptions")
-        account_id = business.stripe_account_id
         client = await self._client(data.client_id)
         item = await self._item(data.item_id)
         if item.kind != "subscription":

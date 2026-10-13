@@ -26,7 +26,7 @@ from clientbridge.integrations.expo import Push, PushSender
 from clientbridge.integrations.resend import Email, EmailSender
 from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.billing import Estimate, Invoice, Order
-from clientbridge.models.business import Business, Staff
+from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import GiftCard, Subscription
 from clientbridge.models.clients import Client
 from clientbridge.models.documents import Contract, Form, FormResponse, Signature
@@ -136,6 +136,11 @@ async def send_auth_email(email_sender: EmailSender, email: AuthEmailIn) -> None
 def invite_link(token: str) -> str:
     """Where an invitee signs up or in, then joins the team."""
     return f"{get_settings().web_base_url}/accept-invite?token={token}"
+
+
+def plan_link() -> str:
+    """The owner's plan page in the web app."""
+    return f"{get_settings().web_base_url}/setup/plan"
 
 
 def pay_link(token: str) -> str:
@@ -330,9 +335,19 @@ def subscription_canceled_message(locale: str, business_name: str) -> tuple[str,
     )
 
 
-def gift_card_issued_message(
-    locale: str, business_name: str, amount: str, code: str
+def _trial_ending(
+    locale: str, business_name: str, when: str, link: str, *, last_day: bool
 ) -> tuple[str, str]:
+    values = {"business": business_name, "when": when, "link": link}
+    if last_day:
+        return (
+            message(locale, "trial_last_day.subject"),
+            message(locale, "trial_last_day.body", **values),
+        )
+    return message(locale, "trial_ending.subject"), message(locale, "trial_ending.body", **values)
+
+
+def _gift_card_issued(locale: str, business_name: str, amount: str, code: str) -> tuple[str, str]:
     return (
         message(locale, "gift_card_issued.subject", business=business_name),
         message(locale, "gift_card_issued.body", amount=amount, business=business_name, code=code),
@@ -683,6 +698,23 @@ class Notifier:
         await self._safe(
             self.email.send(business_email(business.id, business.billing_email, subject, body))
         )
+
+    async def on_trial_ending(self, db: AsyncSession, business_id: str, *, last_day: bool) -> None:
+        """Remind the owner (their billing email, else their sign-in) that the trial is ending."""
+        business = await db.get(Business, business_id)
+        if business is None:
+            return
+        to = business.billing_email or await db.scalar(
+            select(User.email)
+            .join(Staff, Staff.user_id == User.id)
+            .where(Staff.business_id == business.id, Staff.role == "owner")
+        )
+        if not to:
+            return
+        locale = locale_for(business=business)
+        when = format_day_and_time(locale, business.trial_ends_at, business.timezone)
+        subject, body = _trial_ending(locale, business.name, when, plan_link(), last_day=last_day)
+        await self._safe(self.email.send(business_email(business.id, to, subject, body)))
 
     async def on_estimate_answered(self, db: AsyncSession, view_token: str) -> None:
         """Tell the provider a client accepted or declined an estimate from its public link."""

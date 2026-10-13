@@ -108,10 +108,16 @@ def _builders() -> dict[str, Render]:
             n.refund_message(c, amount(c), NAME, "CN-1")
             + n.refund_message(c, amount(c), NAME, None)
         ),
-        "subscription_past_due_message": lambda c: n.subscription_past_due_message(c, NAME),
-        "subscription_canceled_message": lambda c: n.subscription_canceled_message(c, NAME),
-        "gift_card_issued_message": lambda c: n.gift_card_issued_message(
-            c, NAME, amount(c), "GC-1"
+        "_subscription_past_due": lambda c: n._subscription_past_due(c, NAME),
+        "_subscription_canceled": lambda c: n._subscription_canceled(c, NAME),
+        "_trial_ending": lambda c: (
+            n._trial_ending(c, NAME, when(c), LINK, last_day=False)
+            + n._trial_ending(c, NAME, when(c), LINK, last_day=True)
+        ),
+        "_gift_card_issued": lambda c: n._gift_card_issued(c, NAME, amount(c), "GC-1"),
+        "_booking_reminder": lambda c: (
+            n._booking_reminder(c, NAME, when(c), LINK)
+            + n._booking_reminder(c, NAME, when(c), None)
         ),
         "booking_reminder_message": lambda c: (
             n.booking_reminder_message(c, NAME, when(c), LINK)

@@ -45,6 +45,7 @@ from clientbridge.services.consents import (
     texts_stopped,
 )
 from clientbridge.services.notifications import broadcast_text, client_email
+from clientbridge.services.plans import serving
 
 _log = logging.getLogger(__name__)
 _BROADCAST_CAP = 500
@@ -365,6 +366,7 @@ async def run_due_broadcasts(
             await db.execute(
                 select(Broadcast.id)
                 .where(
+                    Broadcast.business_id.in_(select(Business.id).where(serving(now))),
                     or_(
                         Broadcast.status == "sending",
                         and_(
@@ -372,7 +374,7 @@ async def run_due_broadcasts(
                             Broadcast.scheduled_at.is_not(None),
                             Broadcast.scheduled_at <= now,
                         ),
-                    )
+                    ),
                 )
                 .order_by(func.coalesce(Broadcast.scheduled_at, Broadcast.created_at))
             )

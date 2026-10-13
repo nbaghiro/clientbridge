@@ -411,6 +411,18 @@ msgstr ""
 msgid "subscription_past_due.subject"
 msgstr ""
 
+msgid "trial_ending.body"
+msgstr ""
+
+msgid "trial_ending.subject"
+msgstr ""
+
+msgid "trial_last_day.body"
+msgstr ""
+
+msgid "trial_last_day.subject"
+msgstr ""
+
 msgid "verification_code.body"
 msgid_plural "verification_code.body"
 msgstr[0] ""

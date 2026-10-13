@@ -39,7 +39,12 @@ from clientbridge.schemas.orders import (
 from clientbridge.schemas.public import PublicPickupWindow
 from clientbridge.services import ledger
 from clientbridge.services.bookings import blocking_exception, open_windows
-from clientbridge.services.business import business_tz, businesses_at_hour, postal_address
+from clientbridge.services.business import (
+    business_tz,
+    businesses_at_hour,
+    merchant_account,
+    postal_address,
+)
 from clientbridge.services.lines import (
     apply_totals,
     discount_of,
@@ -404,17 +409,18 @@ class OrderService:
         business = (
             await self.db.execute(select(Business).where(Business.id == self.biz).with_for_update())
         ).scalar_one_or_none()
-        if business is None or business.stripe_account_id is None:
+        account_id = merchant_account(business) if business is not None else None
+        if business is None or account_id is None:
             raise Conflict("set up card payments in Setup first")
         # The row lock serializes the first Terminal Location mint.
         if business.stripe_terminal_location_id is None:
             business.stripe_terminal_location_id = await self.gateway.create_terminal_location(
-                business.stripe_account_id,
+                account_id,
                 display_name=business.name,
                 address=postal_address(business),
             )
             await self.db.commit()
-        secret = await self.gateway.create_connection_token(business.stripe_account_id)
+        secret = await self.gateway.create_connection_token(account_id)
         return ConnectionTokenOut(secret=secret, location_id=business.stripe_terminal_location_id)
 
     def _assert_admin(self) -> None:

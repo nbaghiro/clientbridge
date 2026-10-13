@@ -20,6 +20,7 @@ from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking
+from clientbridge.services.business import merchant_account
 from clientbridge.services.lines import allocate, fetch_lines
 from clientbridge.services.tax import TaxResult, issued_tax, tax_for_amount, tax_within
 
@@ -1233,14 +1234,13 @@ async def run_reconcile_ledger(db: AsyncSession, gateway: PaymentGateway) -> int
         if stale:
             drifted += 1
             db.add(_drift(business.id, "ledger.cache_drift", {"account_ids": stale}))
-        if business.stripe_account_id is None:
+        account_id = merchant_account(business)
+        if account_id is None:
             continue
         ours = await balance(
             db, business.id, owner_type="business", owner_id=business.id, category="stripe"
         )
-        theirs = await gateway.get_balance_cents(
-            business.stripe_account_id, currency=BUSINESS_CURRENCY
-        )
+        theirs = await gateway.get_balance_cents(account_id, currency=BUSINESS_CURRENCY)
         if ours != theirs:
             drifted += 1
             db.add(

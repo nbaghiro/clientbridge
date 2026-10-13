@@ -11,6 +11,7 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
+from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
 from clientbridge.models.documents import Form, FormField, FormResponse
 from clientbridge.models.scheduling import Booking
@@ -23,6 +24,7 @@ from clientbridge.schemas.forms import (
     PublicFormField,
 )
 from clientbridge.services.notifications import Notifier
+from clientbridge.services.plans import serving
 
 _CHOICE_INPUTS = ("select", "multiselect")
 
@@ -228,7 +230,15 @@ _INTAKE_WINDOW = timedelta(days=1)
 async def run_intake_forms(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
     """Send each "on booking" form once to every client whose first booking came in today."""
     forms = (
-        (await db.execute(select(Form).where(Form.active, Form.send_on == "booking")))
+        (
+            await db.execute(
+                select(Form).where(
+                    Form.active,
+                    Form.send_on == "booking",
+                    Form.business_id.in_(select(Business.id).where(serving(now))),
+                )
+            )
+        )
         .scalars()
         .all()
     )

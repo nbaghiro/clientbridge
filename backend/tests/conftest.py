@@ -66,7 +66,7 @@ from clientbridge.integrations.stripe import (
 from clientbridge.integrations.twilio import Sms, get_sms_sender
 from clientbridge.main import app
 from clientbridge.models.billing import Invoice
-from clientbridge.models.business import Business, Staff, User
+from clientbridge.models.business import Business, PlanStatus, Staff, User
 from clientbridge.models.clients import Client
 from clientbridge.models.platform import Audit
 from clientbridge.services import ledger
@@ -717,13 +717,22 @@ class Factory:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def business(self, *, province: str = "BC", name: str = "Test Studio") -> Business:
+    async def business(
+        self,
+        *,
+        province: str = "BC",
+        name: str = "Test Studio",
+        plan_status: PlanStatus = "active",
+    ) -> Business:
+        # complimentary Team like the demo, so a test's fixed clock never finds it lapsed
         biz = Business(
             id=new_id("business"),
             name=name,
             slug=f"test-{new_id('business')[-12:].lower()}",
             province=province,
             timezone="America/Vancouver",
+            plan="team" if plan_status == "active" else None,
+            plan_status=plan_status,
         )
         self.db.add(biz)
         await self.db.flush()

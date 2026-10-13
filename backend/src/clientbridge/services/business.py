@@ -167,6 +167,11 @@ def has_merchant(business: Business) -> bool:
     return business.stripe_requirements.get("merchant") is not False
 
 
+def merchant_account(business: Business) -> str | None:
+    """The account that takes the business's payments; None until it has the merchant config."""
+    return business.stripe_account_id if has_merchant(business) else None
+
+
 def kyc_status(business: Business) -> str:
     """The KYC state, read from the account fields mirrored off Stripe."""
     req = business.stripe_requirements

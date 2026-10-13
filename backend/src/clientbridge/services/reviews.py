@@ -23,6 +23,7 @@ from clientbridge.schemas.reviews import (
 )
 from clientbridge.services.business import businesses_at_hour
 from clientbridge.services.notifications import Notifier
+from clientbridge.services.plans import plan_access
 
 
 def build_review_request(
@@ -215,6 +216,7 @@ async def run_review_requests(db: AsyncSession, notifier: Notifier, now: datetim
     bookings = [
         booking
         for business in await businesses_at_hour(db, now, _REVIEW_HOUR)
+        if plan_access(business, now) != "lapsed"
         for booking in (
             await db.execute(
                 scoped(Booking, business.id, soft_delete=True).where(

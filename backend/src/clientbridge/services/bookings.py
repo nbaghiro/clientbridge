@@ -92,6 +92,7 @@ from clientbridge.services.payments import (
     refund_deposit,
     resolve_saved_method_ref,
 )
+from clientbridge.services.plans import serving
 
 _OVERLAP = "that staff member is already booked at that time"
 _RESOURCE_BUSY = "that resource is already booked at that time"
@@ -2245,6 +2246,7 @@ async def run_reminders(db: AsyncSession, notifier: Notifier, now: datetime) -> 
                     Booking.status == "confirmed",
                     Slot.starts_at > now,
                     Slot.starts_at <= now + _REMINDER_WINDOW,
+                    Booking.business_id.in_(select(Business.id).where(serving(now))),
                 )
             )
         )
