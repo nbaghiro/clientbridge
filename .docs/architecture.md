@@ -538,6 +538,30 @@ every account we create carries ours whichever configuration it starts with.
 - Owners manage the payment method, invoices, billing address and cancellation in the Stripe Billing
   Portal (`STRIPE_PORTAL_CONFIGURATION`); plan switching is off there because the portal cannot manage the
   seat item.
+- State: `businesses.plan`, `plan_status`, `trial_ends_at` and the server-only `stripe_subscription_id`.
+  A new business is `trialing` for 14 days with no Stripe object and no card. `plans.plan_access` derives
+  `trial`, `active`, `past_due` or `lapsed` (a trial past its end is lapsed at read time, so no job flips
+  it); app-core `planAccess` mirrors it over the synced columns. A business that is `active` with no
+  subscription is complimentary, as the demo businesses are.
+- Owner-only endpoints in `api/plans.py`: `GET /v1/plan` reads the live subscription and serves the
+  prices, `POST /v1/plan/checkout` opens hosted Checkout (carrying the remaining trial when at least 48
+  hours are left), `POST /v1/plan/change` swaps the plan and seat items with proration through
+  `run_command`, and `POST /v1/plan/portal` opens the Billing Portal. Checkout and portal URLs are
+  credentials, so they are audited but never stored as command responses.
+- `customer.subscription.*` events without an `account` go to `plans.apply_subscription_event` before any
+  client-membership handler. It resolves the business by `customer_account`, checks
+  `metadata.business_id`, adopts a created subscription unless another live one exists, and mirrors the
+  subscription it fetches from Stripe, so out-of-order deliveries end at Stripe's current state.
+- Lapsed: the business can sign in and read. `api/plans.writable` answers every other write with 402
+  `plan_required`, except sign-in, the plan endpoints, devices, onboarding, staff removal and data export;
+  public booking, the shop and estimate acceptance answer 409 `business_unavailable`, while invoice
+  payment and webhooks keep working. Booking reminders, broadcasts, review requests and intake forms skip
+  lapsed businesses (`plans.serving`).
+- Seats: a member besides the owner who is active, or invited with an unexpired invite. Trial and Team
+  allow `PLAN_SEAT_CAP` (50); Premium bills each seat. An invite sets the Stripe seat quantity before it
+  commits, so a failed Stripe call fails the invite; removal and revocation lower it afterwards, and
+  `run_sync_seats` (daily) corrects any drift and expired invites. `run_trial_reminders` emails the owner
+  three days before the trial ends and on its last day, at 9:00 local.
 - Platform billing is not business money, so it posts nothing to the ledger. Stripe's invoices are the
   record.
 

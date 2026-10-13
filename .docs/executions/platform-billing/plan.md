@@ -1,6 +1,6 @@
 # Platform billing plan
 
-Status: accepted with the decisions below; the schema change in section 1 still needs its own explicit approval. The non-schema parts (the KYC fix and account reuse, the platform billing adapter, `stripe_setup.py`, the site pricing page and the docs) are implemented. Nothing in `models/`, `migrations/` or the Stripe sandbox has changed. This plan covers Clientbridge charging businesses for the app: Premium ($49.99 a month or $499.90 a year, owner only, $10 a month per staff seat) and Team ($99.99 a month or $999.90 a year, unlimited staff up to an internal cap), with a 14-day trial that needs no card.
+Status: implemented, apart from the contract and e2e Stripe tiers in section 5. The schema change in section 1 was approved and applied as `cb0007`. This plan covers Clientbridge charging businesses for the app: Premium ($49.99 a month or $499.90 a year, owner only, $10 a month per staff seat) and Team ($99.99 a month or $999.90 a year, unlimited staff up to an internal cap), with a 14-day trial that needs no card.
 
 Sources (read with `stripe docs`, CLI 1.53.1): [charge SaaS fees to connected accounts](https://docs.stripe.com/connect/integrate-billing-connect), [SaaS platform billing with Accounts v2](https://docs.stripe.com/connect/accounts-v2/saas-platform-payments-billing), [customer_account in v1 APIs](https://docs.stripe.com/changelog/clover/2025-12-15/accounts-v2-v1-api-support), [mixed interval subscriptions](https://docs.stripe.com/changelog/basil/2025-07-30/support-mixed-intervals), and the API reference for `POST /v1/checkout/sessions`, `POST /v1/billing_portal/sessions` and `POST /v1/subscriptions`.
 
@@ -114,3 +114,10 @@ Accepted with the plan:
 - Clientbridge charges sales tax on its own plan fees through Stripe automatic tax, on plan Checkout only. The customer configuration requests `automatic_indirect_tax`, and the business address is set on the account as `identity.business_details.address` when the account has no identity address yet (a verified address is never overwritten). The businesses' own tax engine is unchanged.
 - Lapsed scope as written in section 3: the business becomes read-only, invoice payments and webhooks keep working, public booking closes, and data is kept indefinitely after a lapse.
 - Pending, unexpired invites count as billed Premium seats, so an invite cannot be used to get a free seat until acceptance.
+
+## 7. Implementation notes
+
+- `PLAN_SEAT_CAP` and `INVITE_TTL` are constants in `services/plans.py` rather than settings; `INVITE_TTL` moved there because an unexpired invite is a billed seat, and the staff service imports it.
+- The read-only gate is the `PlanWritable` router dependency in `api/plans.py`, attached in `api/router.py` to every router except auth, onboarding, notifications, zones and the plan router; the staff router gates its edit routes per route and the staff service gates invites itself.
+- `connected` on `GET /v1/connect/status` and the payment notices mean that the account has the merchant configuration (`services/business.merchant_account`), since plan Checkout creates customer-only accounts.
+
