@@ -9,6 +9,7 @@ import {
     overStaffLimit,
     pickupOrder,
     previewDiscount,
+    issuedSale,
     priceSale,
     type SaleLine,
     saleStatus,
@@ -268,5 +269,34 @@ describe("sale discounts, tips and status", () => {
         expect(saleStatus({ status: "void", refunded_cents: 0 })).toBe("void");
         expect(saleStatus({ status: "open", refunded_cents: 0 })).toBe("open");
         expect(saleStatus({ status: "unknown", refunded_cents: 0 })).toBe("open");
+    });
+});
+
+describe("issuedSale", () => {
+    it("shows a completed sale as issued, whatever today's rates are", () => {
+        // sold in Nova Scotia on March 31, 2025, at 15% HST; the rate is 14% now
+        const sold = ratesOn("NS", "2025-03-31");
+        const groom = { ...line("groom", 10000, "standard"), taxAmountCents: 1500 };
+        const sale = issuedSale([groom], null, sold, 200, [{ code: "HST", cents: 1500 }], {
+            subtotalCents: 10000,
+            taxCents: 1500,
+            totalCents: 11500,
+        });
+        expect(sale.lines.map((l) => l.taxCents)).toEqual([1500]);
+        expect(sale.totals.taxes.map((t) => [t.label, t.cents])).toEqual([["HST 15%", 1500]]);
+        expect(sale.totals.taxCents).toBe(1500);
+        expect(sale.totals.totalCents).toBe(11500 + 200);
+        expect(sale.totals.dueCents).toBe(sale.totals.totalCents);
+    });
+
+    it("reads a small supplier's untaxed sale as untaxed", () => {
+        const groom = { ...line("groom", 10000, "standard"), taxAmountCents: 0 };
+        const sale = issuedSale([groom], null, ratesOn("BC", "2026-10-13"), 0, [], {
+            subtotalCents: 10000,
+            taxCents: 0,
+            totalCents: 10000,
+        });
+        expect(sale.totals.taxes).toEqual([]);
+        expect(sale.totals.totalCents).toBe(10000);
     });
 });

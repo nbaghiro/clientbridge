@@ -618,7 +618,7 @@ function lineDetail(line: PrintedDocLine, currency: string): string {
 }
 
 export function issuedTaxes(
-    pricing: DocPricing,
+    pricing: Pick<DocPricing, "taxes">,
     journal: readonly { code: string; cents: number }[],
 ): PrintedDocTax[] {
     if (journal.length === 0) return pricing.taxes;

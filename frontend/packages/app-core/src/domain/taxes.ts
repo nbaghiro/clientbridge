@@ -387,6 +387,7 @@ export function taxableItemPriceLabel(item: TaxableItem): string {
 export const TAX_SETUP_SQL = "SELECT province, tax_registered FROM businesses LIMIT 1";
 
 interface TaxSetup {
+    province: string | null;
     rates: DocRate[];
     registered: boolean;
     // false until the business row syncs, so nothing is charged at rates not yet known
@@ -399,6 +400,7 @@ export function useTaxSetup(): TaxSetup {
         .data[0];
     const day = useBusinessDay();
     return {
+        province: row?.province ?? null,
         rates: ratesOn(row?.province ?? null, day),
         registered: row?.tax_registered !== 0,
         ready: row !== undefined,

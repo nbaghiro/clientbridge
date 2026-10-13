@@ -34,6 +34,7 @@ import {
     allocate,
     discountCents,
     docRates,
+    issuedTaxes,
     priceDoc,
 } from "./billing";
 import { utcBeforeSql, utcFromSql, utcSql } from "../datetime";
@@ -44,7 +45,7 @@ import { canManagePayments, creditNoteNumber, type SavedCardRow, savedCardLabel 
 import { discountReason, saleNumber } from "./printing";
 import { staffName } from "./staff";
 import { useReplicaLoad } from "./sync";
-import { asTaxClass, type DocRate, useTaxSetup } from "./taxes";
+import { asTaxClass, type DocRate, ratesOn, useTaxSetup } from "./taxes";
 
 interface CheckoutResult {
     order_id: string;
@@ -448,6 +449,45 @@ export function priceSale(
             totalCents,
             depositCents: deposit,
             dueCents: Math.max(0, totalCents - deposit),
+        },
+    };
+}
+
+interface IssuedTotals {
+    subtotalCents: number;
+    taxCents: number;
+    totalCents: number;
+}
+
+/** A completed sale as issued: fixed line tax and journal tax by code, labelled at its own day's rates. */
+export function issuedSale(
+    lines: readonly (SaleLine & { taxAmountCents: number | null })[],
+    saleDiscount: SaleDiscount | null,
+    rates: readonly DocRate[],
+    tipCents: number,
+    journal: readonly { code: string; cents: number }[],
+    issued: IssuedTotals,
+): PricedSale {
+    const registered = lines.some((l) => (l.taxAmountCents ?? 0) > 0);
+    const priced = priceSale(lines, saleDiscount, rates, registered, {
+        kind: "custom",
+        cents: tipCents,
+    });
+    const taxes = issuedTaxes(priced.totals, journal);
+    const totalCents = issued.totalCents + tipCents;
+    return {
+        lines: priced.lines.map((l, i) => ({
+            ...l,
+            taxCents: lines[i]?.taxAmountCents ?? l.taxCents,
+        })),
+        totals: {
+            ...priced.totals,
+            subtotalCents: issued.subtotalCents,
+            taxes,
+            taxCents: issued.taxCents,
+            totalCents,
+            depositCents: 0,
+            dueCents: totalCents,
         },
     };
 }
@@ -1851,7 +1891,7 @@ export function useSalesHistory(): SalesHistory {
 
 export const SALE_LINES_SQL = `
 SELECT l.id, l.item_id, l.description, l.quantity, l.unit_amount_cents, l.amount_cents, l.tax_class,
-       l.staff_id, l.booking_id, l.discount_kind, l.discount_value, l.discount_reason,
+       l.tax_amount_cents, l.staff_id, l.booking_id, l.discount_kind, l.discount_value, l.discount_reason,
        i.kind AS item_kind, i.color AS item_color,
        (SELECT f.id FROM files f WHERE f.parent_type = 'item' AND f.parent_id = l.item_id
           AND f.purpose = 'image' AND f.uploaded_at IS NOT NULL
@@ -1865,9 +1905,18 @@ SELECT p.id, p.kind, p.method, p.amount_cents, p.tip_cents, p.tip_split, p.statu
 FROM payments p WHERE p.order_id = ? AND p.status IN ('succeeded', 'pending')
 ORDER BY p.paid_at`;
 
+// a sale's tax is posted on the journal of each payment that settled it
+const SALE_TAX_BY_CODE_SQL = `
+SELECT a.code AS code, -SUM(e.amount_cents) AS cents
+FROM entries e JOIN accounts a ON a.id = e.account_id
+WHERE a.category = 'tax'
+  AND e.ref IN (SELECT 'payment:' || p.id FROM payments p WHERE p.order_id = ? AND p.kind = 'payment')
+GROUP BY a.code ORDER BY a.code`;
+
 export const SALE_RECORD_SQL = `
 SELECT o.id, o.number, o.client_id, c.name AS client_name, c.email AS client_email, c.phone AS client_phone,
-       o.source, o.pickup_status, o.created_at, o.total_cents, o.staff_id, o.note, o.approved_by,
+       o.source, o.pickup_status, o.created_at, o.subtotal_cents, o.tax_total_cents, o.total_cents,
+       o.staff_id, o.note, o.approved_by,
        o.discount_kind, o.discount_value, o.discount_reason, o.receipt_channel, o.receipt_email,
        o.receipt_phone, o.receipt_sent_at, ${orderStatusSql("o")} AS status
 FROM orders o LEFT JOIN clients c ON c.id = o.client_id WHERE o.id = ?`;
@@ -1882,6 +1931,8 @@ interface SaleRecordRow {
     source: string;
     pickup_status: string | null;
     created_at: string;
+    subtotal_cents: number | null;
+    tax_total_cents: number | null;
     total_cents: number;
     staff_id: string;
     note: string | null;
@@ -1904,6 +1955,7 @@ interface SaleLineRow {
     unit_amount_cents: number;
     amount_cents: number;
     tax_class: string;
+    tax_amount_cents: number | null;
     staff_id: string | null;
     booking_id: string | null;
     discount_kind: string | null;
@@ -1981,9 +2033,12 @@ export function useSaleDetail(
     load: Load;
     detail: SaleDetail | null;
 } {
-    const { rates, registered } = useTaxSetup();
+    const { province, rates, registered } = useTaxSetup();
     const zone = useBusinessZone();
     const staffRows = useQuery<SaleStaffRow>(SALE_STAFF_SQL).data;
+    const journal = useQuery<{ code: string; cents: number }>(SALE_TAX_BY_CODE_SQL, [
+        id ?? "",
+    ]).data;
     const record = useQuery<SaleRecordRow>(SALE_RECORD_SQL, [id ?? ""]);
     const lineRows = useQuery<SaleLineRow>(SALE_LINES_SQL, [id ?? ""]);
     const payRows = useQuery<SalePaymentRow>(SALE_PAYMENTS_SQL, [id ?? ""]);
@@ -2019,11 +2074,26 @@ export function useSaleDetail(
             row.discount_value,
             row.discount_reason,
         );
-        const priced = priceSale(lines, saleDiscount, rates, registered, {
-            kind: "custom",
-            cents: tip,
-        });
         const status = saleStatus({ status: row.status, refunded_cents: refunded });
+        const soldOn = dateKey(parseTimestamp(row.created_at), zone);
+        const priced =
+            status === "open"
+                ? priceSale(lines, saleDiscount, rates, registered, { kind: "custom", cents: tip })
+                : issuedSale(
+                      lines.map((l, i) => ({
+                          ...l,
+                          taxAmountCents: lineRows.data[i]?.tax_amount_cents ?? null,
+                      })),
+                      saleDiscount,
+                      ratesOn(province, soldOn),
+                      tip,
+                      journal,
+                      {
+                          subtotalCents: row.subtotal_cents ?? 0,
+                          taxCents: row.tax_total_cents ?? 0,
+                          totalCents: row.total_cents,
+                      },
+                  );
         const manager = role === "owner" || role === "admin";
         const lastPaid = [...pays].reverse().find((p) => p.kind === "payment") ?? null;
         const splits: { staff_id: string; cents: number }[] =
@@ -2109,7 +2179,18 @@ export function useSaleDetail(
                       ),
             actions,
         };
-    }, [row, lineRows.data, payRows.data, rates, registered, role, staffRows]);
+    }, [
+        row,
+        lineRows.data,
+        payRows.data,
+        rates,
+        registered,
+        province,
+        journal,
+        zone,
+        role,
+        staffRows,
+    ]);
     return { load: useReplicaLoad([record, lineRows, payRows], row === null), detail };
 }
 
