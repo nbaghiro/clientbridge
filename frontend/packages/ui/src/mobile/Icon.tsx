@@ -1,9 +1,23 @@
 import { ICON_SPECS, type IconPrimitive, type IconProps } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { View } from "react-native";
-import Svg, { Circle, Path, Rect } from "react-native-svg";
+import Svg, { Circle, Path } from "react-native-svg";
 
 import type { NativeProps } from "./props";
+
+type RectSpec = Extract<IconPrimitive, { kind: "rect" }>;
+
+// Drawn as a path: react-native-svg types Rect's x and y as the deprecated transform props.
+function roundedRect({ x, y, width: w, height: h, rx: r = 0 }: RectSpec): string {
+    const arc = `A${r} ${r} 0 0 1`;
+    return [
+        `M${x + r} ${y}H${x + w - r}`,
+        `${arc} ${x + w} ${y + r}V${y + h - r}`,
+        `${arc} ${x + w - r} ${y + h}H${x + r}`,
+        `${arc} ${x} ${y + h - r}V${y + r}`,
+        `${arc} ${x + r} ${y}Z`,
+    ].join("");
+}
 
 export function Icon({
     name,
@@ -26,16 +40,7 @@ export function Icon({
         >
             {ICON_SPECS[name].map((p: IconPrimitive, i) =>
                 p.kind === "rect" ? (
-                    <Rect
-                        key={i}
-                        // eslint-disable-next-line @typescript-eslint/no-deprecated -- rect coords, not the deprecated TransformProps x
-                        x={p.x}
-                        // eslint-disable-next-line @typescript-eslint/no-deprecated -- rect coords, not the deprecated TransformProps y
-                        y={p.y}
-                        width={p.width}
-                        height={p.height}
-                        {...(p.rx !== undefined ? { rx: p.rx } : {})}
-                    />
+                    <Path key={i} d={roundedRect(p)} />
                 ) : p.kind === "circle" ? (
                     <Circle key={i} cx={p.cx} cy={p.cy} r={p.r} />
                 ) : (

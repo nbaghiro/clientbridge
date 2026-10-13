@@ -1,6 +1,6 @@
 import { AppSchema, businessQuery } from "@clientbridge/sync";
 import initSqlJs, { type Database, type SqlValue } from "sql.js";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { clientValueSql, collectedSql, ownedLiabilitySql, subjectNetSql } from "./domain/ledger";
 import * as core from "./index";
@@ -962,14 +962,6 @@ beforeEach(async () => {
 });
 
 const SQL_COVERED = new Set<string>();
-
-// eslint-disable-next-line no-empty-pattern -- vitest passes the file to a hook that destructures its context
-afterAll(({}, file) => {
-    const tests = file.tasks.flatMap((task) => (task.type === "suite" ? task.tasks : [task]));
-    if (tests.some((test) => test.mode !== "run")) return; // a filtered run skips the check
-    const exported = Object.keys(core).filter((k) => k.endsWith("_SQL"));
-    expect(exported.filter((k) => !SQL_COVERED.has(k))).toEqual([]);
-});
 
 function run(name: keyof typeof core, params: SqlValue[] = []): Row[] {
     const sql = core[name];
@@ -2244,4 +2236,11 @@ describe("app-core SQL against the replica schema", () => {
         ]);
         expect(run("STRANDED_SQL", ["[]"])).toEqual([]);
     });
+});
+
+it("runs every exported query in this file", ({ task }) => {
+    const tests = task.file.tasks.flatMap((t) => (t.type === "suite" ? t.tasks : [t]));
+    if (tests.some((test) => test.mode !== "run")) return; // a filtered run skips the check
+    const exported = Object.keys(core).filter((k) => k.endsWith("_SQL"));
+    expect(exported.filter((k) => !SQL_COVERED.has(k))).toEqual([]);
 });

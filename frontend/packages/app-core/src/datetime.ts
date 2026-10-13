@@ -94,7 +94,7 @@ export function readDate(value: string, zone: string): Date {
 
 let device: string | null = null;
 
-/** Mobile records the device zone before its Intl polyfill, which carries no zone data, loads. */
+/** Mobile reads the device zone from the native settings, since its Intl polyfill carries no zone data. */
 export function setDeviceZone(zone: string): void {
     device = zone;
 }

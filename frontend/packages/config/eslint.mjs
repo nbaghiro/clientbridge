@@ -89,6 +89,11 @@ export default tseslint.config(
         rules: { "local/no-raw-format": "off", "local/no-composed-copy": "off" },
     },
     {
+        // Navigation param lists stay `type`s: an interface would need an index signature to satisfy ParamListBase.
+        files: ["**/apps/mobile/src/navigation.ts"],
+        rules: { "@typescript-eslint/consistent-type-definitions": "off" },
+    },
+    {
         // Signature strokes are SVG path coordinates, not displayed numbers.
         files: ["**/SignaturePad.tsx"],
         rules: { "local/no-raw-format": "off" },
