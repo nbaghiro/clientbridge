@@ -415,16 +415,20 @@ async def apply_subscription_event(
         return
     current = business.stripe_subscription_id
     if current != subscription_id:
-        if event.type != "customer.subscription.created":
+        # only a subscription our Checkout made for this business is adopted, whatever its event
+        if named != business.id:
             return
         if current is not None and business.plan_status in _LIVE:
             _log.warning("%s already has plan subscription %s", business.id, current)
             return
     sub = await gateway.get_plan_subscription(subscription_id)
-    status = _STRIPE_STATUS.get(sub.status)
-    if status is None:  # incomplete: Checkout has not collected the first payment yet
-        return
     business.stripe_subscription_id = subscription_id
+    status = _STRIPE_STATUS.get(sub.status)
+    trialing = plan_access(business, datetime.now(UTC)) == "trial"
+    # incomplete: Checkout has not collected the first payment; an expired one leaves the trial
+    if status is None or (sub.status == "incomplete_expired" and trialing):
+        await db.flush()
+        return
     business.plan_status = status
     business.plan = _tier_of(sub)[0] if status != "lapsed" else None
     await db.flush()

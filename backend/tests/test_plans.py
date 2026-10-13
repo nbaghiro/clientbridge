@@ -369,7 +369,7 @@ async def test_an_incomplete_subscription_changes_nothing(
     gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"), status="incomplete")
     await _deliver(api, _event("customer.subscription.created"))
     business = await _business(db)
-    assert (business.plan_status, business.stripe_subscription_id) == ("trialing", None)
+    assert (business.plan_status, business.stripe_subscription_id) == ("trialing", SUB)
 
 
 async def test_out_of_order_events_end_at_the_fetched_state(
@@ -555,3 +555,37 @@ def test_the_site_shows_the_prices_stripe_bills() -> None:
         "team_year": cents("team.year"),
         "seat_month": cents("seat"),
     }
+
+
+async def test_an_incomplete_subscription_is_recorded_and_its_activation_applies(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _trial(db, timedelta(days=5), stripe_account_id=ACCOUNT)
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"), status="incomplete")
+    await _deliver(api, _event("customer.subscription.created", event_id="evt_new"))
+    business = await _business(db)
+    assert (business.stripe_subscription_id, business.plan_status) == (SUB, "trialing")
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"), status="active")
+    await _deliver(api, _event("customer.subscription.updated", event_id="evt_paid"))
+    business = await _business(db)
+    assert (business.plan, business.plan_status) == ("team", "active")
+
+
+async def test_an_update_for_a_subscription_never_seen_is_adopted_by_its_metadata(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _trial(db, timedelta(days=5), stripe_account_id=ACCOUNT)
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("premium_month"), status="active")
+    await _deliver(api, _event("customer.subscription.updated"))
+    business = await _business(db)
+    assert (business.stripe_subscription_id, business.plan) == (SUB, "premium")
+
+
+async def test_an_expired_first_payment_leaves_the_trial_running(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _trial(db, timedelta(days=5), stripe_account_id=ACCOUNT)
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"), status="incomplete_expired")
+    await _deliver(api, _event("customer.subscription.updated"))
+    business = await _business(db)
+    assert plans.plan_access(business, datetime.now(UTC)) == "trial"
