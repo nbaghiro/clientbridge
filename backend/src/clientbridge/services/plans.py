@@ -35,7 +35,7 @@ from clientbridge.services.business import (
     businesses_at_hour,
     postal_address,
 )
-from clientbridge.services.notifications import Notifier
+from clientbridge.services.notifications import Notifier, plan_link
 
 _log = logging.getLogger(__name__)
 
@@ -253,10 +253,6 @@ def _key(idempotency_key: str | None) -> str:
     return idempotency_key or secrets.token_hex(8)
 
 
-def _plan_page() -> str:
-    return f"{get_settings().web_base_url}/setup/plan"
-
-
 def _address(business: Business) -> PostalAddress:
     try:
         return postal_address(business)
@@ -339,8 +335,8 @@ class PlanService:
             ),
             business_id=business.id,
             trial_end=business.trial_ends_at if carry else None,
-            success_url=f"{_plan_page()}?checkout=done",
-            cancel_url=_plan_page(),
+            success_url=f"{plan_link()}?checkout=done",
+            cancel_url=plan_link(),
             attempt=attempt,
         )
         cmd.record(
@@ -395,7 +391,7 @@ class PlanService:
         if business.stripe_subscription_id is None or business.stripe_account_id is None:
             raise Conflict("this business has no plan to manage", code="plan_not_managed")
         url = await self.gateway.create_portal_session(
-            business.stripe_account_id, return_url=_plan_page()
+            business.stripe_account_id, return_url=plan_link()
         )
         cmd = Command(self.db, self.principal)
         cmd.record("plan.portal", entity_type="business", entity_id=business.id)
