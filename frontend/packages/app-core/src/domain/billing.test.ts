@@ -317,6 +317,17 @@ describe("documentRates", () => {
         ]);
     });
 
+    it("takes the issue date in the business's zone across the April 1, 2025 rate change", () => {
+        const lateMarch31 = new Date("2025-04-01T02:00:00Z");
+        expect(documentRates(setup, taxed, lateMarch31, "America/Halifax")).toEqual([
+            { code: "HST", ppm: 150000 },
+        ]);
+        const earlyApril1 = new Date("2025-04-01T04:00:00Z");
+        expect(documentRates(setup, taxed, earlyApril1, "America/Halifax")).toEqual([
+            { code: "HST", ppm: 140000 },
+        ]);
+    });
+
     it("prices a draft at today's rates and an untaxed issued document at none", () => {
         expect(documentRates(setup, taxed, null, "America/Halifax")).toEqual(setup.rates);
         const untaxed = [{ tax_amount_cents: 0 }];
