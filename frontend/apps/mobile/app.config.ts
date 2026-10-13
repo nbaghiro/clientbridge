@@ -1,7 +1,10 @@
 import type { ExpoConfig } from "expo/config";
 
+// expo-modules-core widens ProcessEnv's values to any; config values are strings or unset.
+const env: Record<string, string | undefined> = process.env;
+
 // Apple Pay merchant id for the Stripe SDK (also the iOS in-app-payments entitlement the plugin adds).
-const STRIPE_MERCHANT_ID = process.env.STRIPE_MERCHANT_ID ?? "merchant.ca.clientbridge.app";
+const STRIPE_MERCHANT_ID = env.STRIPE_MERCHANT_ID ?? "merchant.ca.clientbridge.app";
 
 // Native modules (op-sqlite, Stripe) need an Expo dev build, not Expo Go; see .docs/engineering.md.
 const config: ExpoConfig = {
@@ -51,22 +54,22 @@ const config: ExpoConfig = {
             {
                 android: {
                     minSdkVersion: 26,
-                    ...(process.env.E2E_CLEARTEXT === "1" ? { usesCleartextTraffic: true } : {}),
+                    ...(env.E2E_CLEARTEXT === "1" ? { usesCleartextTraffic: true } : {}),
                 },
             },
         ],
     ],
     extra: {
-        apiUrl: process.env.API_URL ?? "http://127.0.0.1:8701",
-        powersyncUrl: process.env.POWERSYNC_URL ?? "http://127.0.0.1:8704",
-        authUrl: process.env.AUTH_URL ?? "http://127.0.0.1:8713",
-        publicWebUrl: process.env.PUBLIC_WEB_URL ?? "https://app.clientbridge.ca",
-        payUrl: process.env.PAY_URL ?? "https://pay.clientbridge.ca",
-        bookUrl: process.env.BOOK_URL ?? "https://book.clientbridge.ca",
+        apiUrl: env.API_URL ?? "http://127.0.0.1:8701",
+        powersyncUrl: env.POWERSYNC_URL ?? "http://127.0.0.1:8704",
+        authUrl: env.AUTH_URL ?? "http://127.0.0.1:8713",
+        publicWebUrl: env.PUBLIC_WEB_URL ?? "https://app.clientbridge.ca",
+        payUrl: env.PAY_URL ?? "https://pay.clientbridge.ca",
+        bookUrl: env.BOOK_URL ?? "https://book.clientbridge.ca",
         // Stripe publishable (platform) key — NOT a secret; left blank until configured per env.
-        stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY ?? "",
+        stripePublishableKey: env.STRIPE_PUBLISHABLE_KEY ?? "",
         stripeMerchantId: STRIPE_MERCHANT_ID,
-        terminalSimulated: (process.env.STRIPE_TERMINAL_SIMULATED ?? "true") === "true",
+        terminalSimulated: (env.STRIPE_TERMINAL_SIMULATED ?? "true") === "true",
     },
 };
 

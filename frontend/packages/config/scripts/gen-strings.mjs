@@ -182,12 +182,21 @@ for (const [key, entry] of Object.entries(sources.get("packages/app-core"))) {
 const READ_HERE = ["embed."];
 
 function sourceFiles() {
-    return execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "apps", "packages"], {
-        cwd: frontend,
-        encoding: "utf8",
-    })
+    return execFileSync(
+        "git",
+        ["ls-files", "--cached", "--others", "--exclude-standard", "apps", "packages"],
+        {
+            cwd: frontend,
+            encoding: "utf8",
+        },
+    )
         .split("\n")
-        .filter((f) => /\/src\/.*\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f) && !f.endsWith("/strings.ts"))
+        .filter(
+            (f) =>
+                /\/src\/.*\.tsx?$/.test(f) &&
+                !/\.test\.tsx?$/.test(f) &&
+                !f.endsWith("/strings.ts"),
+        )
         .map((f) => join(frontend, f))
         .filter((f) => existsSync(f));
 }
@@ -210,7 +219,9 @@ function usedKeys() {
         for (let n = decl; n; n = n.parent) {
             if (ts.isPropertySignature(n)) names.unshift(n.name.getText().replace(/^"|"$/g, ""));
         }
-        const dir = CATALOGS.find((c) => decl.getSourceFile().fileName === join(frontend, c.dir, "src/strings.ts"))?.dir;
+        const dir = CATALOGS.find(
+            (c) => decl.getSourceFile().fileName === join(frontend, c.dir, "src/strings.ts"),
+        )?.dir;
         return dir === undefined ? null : { dir, key: names.join(".") };
     };
     const mark = (decl, subtree) => {
@@ -240,7 +251,9 @@ function usedKeys() {
                 parent.expression === node &&
                 readsCatalog(parent);
             const aliased =
-                ts.isVariableDeclaration(parent) && parent.initializer === node && parent.type === undefined;
+                ts.isVariableDeclaration(parent) &&
+                parent.initializer === node &&
+                parent.type === undefined;
             if (aliased) aliases.set(checker.getSymbolAtLocation(parent.name), decl);
             mark(decl, ts.isElementAccessExpression(node) || (!chained && !aliased));
         } else if (ts.isIdentifier(node) && !ts.isVariableDeclaration(node.parent)) {
@@ -258,7 +271,9 @@ function usedKeys() {
     }
     for (const found of escapes) {
         const symbol =
-            found !== undefined && found.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(found) : found;
+            found !== undefined && found.flags & ts.SymbolFlags.Alias
+                ? checker.getAliasedSymbol(found)
+                : found;
         const decl = symbol === undefined ? undefined : aliases.get(symbol);
         if (decl !== undefined) mark(decl, true);
     }
@@ -281,7 +296,7 @@ if (problems.length === 0) {
 }
 
 if (problems.length > 0) {
-    console.error(problems.join("\n"));
+    process.stderr.write(`${problems.join("\n")}\n`);
     process.exit(1);
 }
 

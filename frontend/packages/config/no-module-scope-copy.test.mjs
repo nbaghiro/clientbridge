@@ -30,19 +30,37 @@ const filename = "src/strings.ts";
 tester.run("no-module-scope-copy", rule, {
     valid: [
         { code: `${catalog} const s = strings.billing;`, filename },
-        { code: `${catalog} export function label(): string { return strings.billing.paid; }`, filename },
-        { code: `${catalog} const labels = { get paid() { return strings.billing.paid; } };`, filename },
+        {
+            code: `${catalog} export function label(): string { return strings.billing.paid; }`,
+            filename,
+        },
+        {
+            code: `${catalog} const labels = { get paid() { return strings.billing.paid; } };`,
+            filename,
+        },
         { code: `${catalog} const due = strings.billing.due;`, filename },
         { code: `${catalog} const pick = (): string => strings.billing.due(2);`, filename },
     ],
     invalid: [
-        { code: `${catalog} const PAID = strings.billing.paid;`, filename, errors: [{ messageId: "read" }] },
+        {
+            code: `${catalog} const PAID = strings.billing.paid;`,
+            filename,
+            errors: [{ messageId: "read" }],
+        },
         {
             code: `${catalog} const s = strings.billing; export const OPTIONS = [{ label: s.paid }];`,
             filename,
             errors: [{ messageId: "read" }],
         },
-        { code: `${catalog} const DAYS = strings.billing.days;`, filename, errors: [{ messageId: "read" }] },
-        { code: `${catalog} const DUE = strings.billing.due(3);`, filename, errors: [{ messageId: "read" }] },
+        {
+            code: `${catalog} const DAYS = strings.billing.days;`,
+            filename,
+            errors: [{ messageId: "read" }],
+        },
+        {
+            code: `${catalog} const DUE = strings.billing.due(3);`,
+            filename,
+            errors: [{ messageId: "read" }],
+        },
     ],
 });

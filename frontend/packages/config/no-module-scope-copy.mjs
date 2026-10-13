@@ -22,6 +22,8 @@ export default {
     },
     create(context) {
         const services = context.sourceCode.parserServices;
+        // JavaScript files are linted without type information and hold no catalog text.
+        if (!services?.program) return {};
         const checker = services.program.getTypeChecker();
         const fromCatalog = (node) => {
             const ts = services.esTreeNodeToTSNodeMap.get(node);
@@ -32,7 +34,9 @@ export default {
         };
         const isText = (node) => {
             const type = checker.getTypeAtLocation(services.esTreeNodeToTSNodeMap.get(node));
-            return /^(string|readonly string\[\]|readonly \[string)/.test(checker.typeToString(type));
+            return /^(string|readonly string\[\]|readonly \[string)/.test(
+                checker.typeToString(type),
+            );
         };
         return {
             MemberExpression(node) {

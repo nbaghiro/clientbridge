@@ -96,4 +96,4 @@ ts += "} as const;\n\n";
 ts += 'export type ThemeTokens = (typeof themes)["pewter"];\n';
 fs.writeFileSync(`${SRC}/themes.ts`, ts);
 
-console.log("regenerated themes:", ORDER.filter((k) => raw[k]).join(", "));
+process.stdout.write(`regenerated themes: ${ORDER.filter((k) => raw[k]).join(", ")}\n`);

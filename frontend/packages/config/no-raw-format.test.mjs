@@ -9,11 +9,7 @@ RuleTester.describe = describe;
 RuleTester.it = it;
 
 new RuleTester({ languageOptions: { parser: tseslint.parser } }).run("no-raw-format", rule, {
-    valid: [
-        "formatMoney(cents, currency);",
-        "name.toLocaleLowerCase();",
-        'const key = "en_CA";',
-    ],
+    valid: ["formatMoney(cents, currency);", "name.toLocaleLowerCase();", 'const key = "en_CA";'],
     invalid: [
         { code: "date.toLocaleDateString();", errors: [{ messageId: "toLocale" }] },
         { code: "n.toLocaleString();", errors: [{ messageId: "toLocale" }] },

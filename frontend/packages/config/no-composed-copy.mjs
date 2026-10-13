@@ -2,8 +2,10 @@
 
 const WORD = /(^|[\s(])\p{L}{2,}|\p{L}{2,}([\s,.!?)]|$)/u;
 const SEPARATOR = /[·•–—…×*]|, |: |\. | \(|\) | \/ /;
-const SQL = /\b(SELECT|FROM|WHERE|JOIN|INSERT|UPDATE|DELETE|ORDER BY|GROUP BY|LIMIT|COALESCE|CASE\s+WHEN|WITH)\b|\b(datetime|strftime|julianday)\(/;
-const CSS_FUNCTION = /\b(color-mix|repeat|minmax|calc|var|rgba?|hsla?|translate\w*|scale|rotate)\(|\d(px|rem|em|vh|vw|deg|ms)\b|^\s*\d*(px|rem|%)?\s+(solid|dashed|dotted)\b/;
+const SQL =
+    /\b(SELECT|FROM|WHERE|JOIN|INSERT|UPDATE|DELETE|ORDER BY|GROUP BY|LIMIT|COALESCE|CASE\s+WHEN|WITH)\b|\b(datetime|strftime|julianday)\(/;
+const CSS_FUNCTION =
+    /\b(color-mix|repeat|minmax|calc|var|rgba?|hsla?|translate\w*|scale|rotate)\(|\d(px|rem|em|vh|vw|deg|ms)\b|^\s*\d*(px|rem|%)?\s+(solid|dashed|dotted)\b/;
 const CLASS_TOKEN = /^!?[a-z][\w:]*-[\w/[\].%:-]*$/;
 const MARKUP = /<\/?[a-z][\w:-]*[\s>/]|^[A-Z][A-Z-]*:/;
 const COPY_NAMES = new Set([
@@ -27,7 +29,8 @@ const COPY_NAMES = new Set([
     "text",
     "valueLabel",
 ]);
-const CODE_NAME = /(sql|url|uri|href|src|srcset|path|route|key|id|class(name)?|style|query|token|slug|channel|selector|pattern|file(name)?|download)s?$/i;
+const CODE_NAME =
+    /(sql|url|uri|href|src|srcset|path|route|key|id|class(name)?|style|query|token|slug|channel|selector|pattern|file(name)?|download)s?$/i;
 const CODE_CALLS = new Set([
     "fetch",
     "URL",
@@ -76,7 +79,8 @@ const PASS_THROUGH = new Set([
 ]);
 
 function staticText(node) {
-    if (node.type === "TemplateLiteral") return node.quasis.map((q) => q.value.cooked ?? "").join("");
+    if (node.type === "TemplateLiteral")
+        return node.quasis.map((q) => q.value.cooked ?? "").join("");
     if (node.type === "Literal" && typeof node.value === "string") return node.value;
     return null;
 }
@@ -103,18 +107,30 @@ function destination(node) {
         if (n.type === "CallExpression" || n.type === "NewExpression") {
             if (n.callee === child) return "code";
             const callee = nameOf(n.callee);
-            return callee !== null && (CODE_CALLS.has(callee) || CODE_NAME.test(callee)) ? "code" : null;
+            return callee !== null && (CODE_CALLS.has(callee) || CODE_NAME.test(callee))
+                ? "code"
+                : null;
         }
-        if (n.type === "VariableDeclarator") return CODE_NAME.test(nameOf(n.id) ?? "") ? "code" : null;
-        if (n.type === "AssignmentExpression") return CODE_NAME.test(nameOf(n.left) ?? "") ? "code" : null;
+        if (n.type === "VariableDeclarator")
+            return CODE_NAME.test(nameOf(n.id) ?? "") ? "code" : null;
+        if (n.type === "AssignmentExpression")
+            return CODE_NAME.test(nameOf(n.left) ?? "") ? "code" : null;
         if (n.type === "Property") {
             if (n.value !== child) return "code";
             const key = nameOf(n.key) ?? "";
-            if (key.startsWith("--") || n.parent.parent?.parent?.name?.name === "style") return "code";
+            if (key.startsWith("--") || n.parent.parent?.parent?.name?.name === "style")
+                return "code";
             if (COPY_NAMES.has(key)) return "copy";
             return CODE_NAME.test(key) ? "code" : null;
         }
-        if (["ThrowStatement", "MemberExpression", "SwitchCase", "TaggedTemplateExpression"].includes(n.type)) {
+        if (
+            [
+                "ThrowStatement",
+                "MemberExpression",
+                "SwitchCase",
+                "TaggedTemplateExpression",
+            ].includes(n.type)
+        ) {
             return "code";
         }
         return null;
@@ -138,7 +154,8 @@ export default {
         type: "problem",
         docs: { description: "Disallow composing UI text from parts in code." },
         messages: {
-            composed: "Text composed in code. Put the sentence in a catalog message with arguments, or use formatParts or formatList.",
+            composed:
+                "Text composed in code. Put the sentence in a catalog message with arguments, or use formatParts or formatList.",
             join: "List joined with {{sep}}. Use formatList or formatParts from app-core.",
         },
         schema: [],
@@ -179,7 +196,11 @@ export default {
                 if (sep?.type !== "Literal" || typeof sep.value !== "string") return;
                 if (!SEPARATOR.test(sep.value) && !/\p{L}/u.test(sep.value)) return;
                 if (destination(node) !== "code") {
-                    context.report({ node, messageId: "join", data: { sep: JSON.stringify(sep.value) } });
+                    context.report({
+                        node,
+                        messageId: "join",
+                        data: { sep: JSON.stringify(sep.value) },
+                    });
                 }
             },
         };

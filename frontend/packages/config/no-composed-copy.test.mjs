@@ -21,7 +21,7 @@ new RuleTester({
         "const cls = () => `rounded-md border px-3 py-2 ${tone}`;",
         "const a = <div style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }} />;",
         "const c = `color-mix(in srgb, ${primary} 82%, black)`;",
-        "const head = `<meta name=\"description\" content=\"${text}\" />`;",
+        'const head = `<meta name="description" content="${text}" />`;',
         "const ics = `SUMMARY:${title}`;",
         "throw new Error(`missing ${name}`);",
         "const a = <p>{`${label}`}</p>;",
@@ -32,13 +32,22 @@ new RuleTester({
     ],
     invalid: [
         { code: "const a = <p>{`${count} items`}</p>;", errors: [{ messageId: "composed" }] },
-        { code: "const o = { label: `${s.dueNow} ${deposit}` };", errors: [{ messageId: "composed" }] },
-        { code: "const a = <Field label={`${label} (${unit})`} />;", errors: [{ messageId: "composed" }] },
+        {
+            code: "const o = { label: `${s.dueNow} ${deposit}` };",
+            errors: [{ messageId: "composed" }],
+        },
+        {
+            code: "const a = <Field label={`${label} (${unit})`} />;",
+            errors: [{ messageId: "composed" }],
+        },
         { code: "const o = { label: `$${amount}` };", errors: [{ messageId: "composed" }] },
         { code: "const a = <p>{`• ${line}`}</p>;", errors: [{ messageId: "composed" }] },
         { code: "const detail = `${strip}. ${lastSynced}`;", errors: [{ messageId: "composed" }] },
         { code: "const text = title + ' · ' + time;", errors: [{ messageId: "composed" }] },
         { code: "const names = people.join(', ');", errors: [{ messageId: "join" }] },
-        { code: "const a = <p>{cart}{n ? ` (${n})` : ''}</p>;", errors: [{ messageId: "composed" }] },
+        {
+            code: "const a = <p>{cart}{n ? ` (${n})` : ''}</p>;",
+            errors: [{ messageId: "composed" }],
+        },
     ],
 });
