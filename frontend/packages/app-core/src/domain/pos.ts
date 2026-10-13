@@ -820,6 +820,8 @@ export interface SaleTicket {
     cashGiven: string;
     setCashGiven: (v: string) => void;
     changeCents: number | null;
+    // the tax rates have synced; until then the ticket can be built but not charged
+    ratesReady: boolean;
     canCharge: boolean;
     // Saves the ticket, then charges: cash at once, a card through `checkout`, Tap to Pay on a reader.
     charge: (m?: SalePayMethod) => void;
@@ -919,7 +921,7 @@ export function useSale(
     api: ApiLike,
     opts: { role: string | null; viewerStaffId?: string | null; platform: "web" | "mobile" },
 ): SaleTicket {
-    const { rates, registered } = useTaxSetup();
+    const { rates, registered, ready: ratesReady } = useTaxSetup();
     const staffRows = useQuery<SaleStaffRow>(SALE_STAFF_SQL).data;
     const limitBps = useDiscountLimit(opts.role);
     const [lines, setLines] = useState<SaleLine[]>([]);
@@ -1226,7 +1228,8 @@ export function useSale(
             setCashGivenState(v);
         },
         changeCents: cash === null ? null : cash - t.dueCents,
-        canCharge: lines.length > 0 && !overLimit,
+        ratesReady,
+        canCharge: lines.length > 0 && !overLimit && ratesReady,
         charge,
         checkout,
         terminal,

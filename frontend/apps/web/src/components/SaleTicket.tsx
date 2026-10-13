@@ -645,7 +645,12 @@ export function TicketPanel({ sale, onCharge }: { sale: SaleTicket; onCharge: ()
                 {sale.error !== null && sale.phase === "cart" ? (
                     <Notice tone="danger">{sale.error}</Notice>
                 ) : null}
-                <Button size="lg" full onPress={onCharge} disabled={sale.isEmpty || sale.overLimit}>
+                <Button
+                    size="lg"
+                    full
+                    onPress={onCharge}
+                    disabled={sale.isEmpty || !sale.ratesReady || sale.overLimit}
+                >
                     {sale.isEmpty
                         ? d.review
                         : d.charge(formatMoney(sale.totals.dueCents, BUSINESS_CURRENCY))}

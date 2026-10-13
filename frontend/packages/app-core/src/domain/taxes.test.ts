@@ -1,9 +1,19 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment happy-dom
+import { renderHook } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import parity from "../taxes.cases.json" with { type: "json" };
 import { docRates, priceDoc } from "./billing";
-import { asTaxClass, filingPeriod, ratesOn, taxExample, taxSummary } from "./taxes";
-import { dateKey, zonedDate } from "../datetime";
+import { asTaxClass, filingPeriod, ratesOn, taxExample, taxSummary, useTaxSetup } from "./taxes";
+import { type ReactNode, createElement } from "react";
+
+import { BusinessZoneContext, dateKey, zonedDate } from "../datetime";
+
+const replica = vi.hoisted(() => ({ rows: [] as unknown[] }));
+vi.mock("../hooks", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../hooks")>()),
+    useBusinessQuery: () => ({ data: replica.rows }),
+}));
 
 const ZONE = "America/Vancouver";
 const DAY = "2026-10-13";
@@ -141,5 +151,18 @@ describe("filingPeriod", () => {
             to: d(2026, 12, 31, 0),
             due: d(2027, 4, 30, 0),
         });
+    });
+});
+
+describe("useTaxSetup", () => {
+    it("is not ready to charge until the business row has synced", () => {
+        const wrapper = ({ children }: { children: ReactNode }) =>
+            createElement(BusinessZoneContext.Provider, { value: ZONE }, children);
+        replica.rows = [];
+        expect(renderHook(() => useTaxSetup(), { wrapper }).result.current.ready).toBe(false);
+        replica.rows = [{ province: "BC", tax_registered: 1 }];
+        const { result } = renderHook(() => useTaxSetup(), { wrapper });
+        expect(result.current.ready).toBe(true);
+        expect(result.current.rates.map((r) => r.code)).toEqual(["GST", "PST"]);
     });
 });

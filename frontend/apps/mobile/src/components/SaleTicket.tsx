@@ -847,7 +847,7 @@ export function TicketSheet({
                 <Button
                     size="lg"
                     full
-                    disabled={sale.isEmpty || sale.overLimit}
+                    disabled={sale.isEmpty || !sale.ratesReady || sale.overLimit}
                     onPress={() => {
                         setStep("pay");
                     }}

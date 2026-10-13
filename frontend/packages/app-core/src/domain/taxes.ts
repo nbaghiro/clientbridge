@@ -389,6 +389,8 @@ export const TAX_SETUP_SQL = "SELECT province, tax_registered FROM businesses LI
 interface TaxSetup {
     rates: DocRate[];
     registered: boolean;
+    // false until the business row syncs, so nothing is charged at rates not yet known
+    ready: boolean;
 }
 
 /** The rates this business charges today, and whether it collects tax at all (a small supplier doesn't). */
@@ -399,5 +401,6 @@ export function useTaxSetup(): TaxSetup {
     return {
         rates: ratesOn(row?.province ?? null, day),
         registered: row?.tax_registered !== 0,
+        ready: row !== undefined,
     };
 }
