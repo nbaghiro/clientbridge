@@ -14,6 +14,8 @@ import type { ShellTarget } from "./navigation";
 import { useStaff, staffName } from "./staff";
 import { useReplicaLoad, useSyncStatus } from "./sync";
 import { SUPPORTED_ZONES, type SupportedZone } from "../zones";
+import { dateKey } from "../datetime";
+import { taxSummary } from "./taxes";
 
 interface BusinessRow {
     id: string;
@@ -430,11 +432,16 @@ interface OnboardingForm {
     setSlug: (v: string) => void;
     province: ProvinceCode;
     setProvince: (v: ProvinceCode) => void;
+    // "GST 5% + PST 7%": the taxes the new business will charge in its province
+    taxSummary: string;
     busy: boolean;
     error: string | null;
     needsVerification: boolean;
     submit: () => void;
 }
+
+// the server gives a new business this zone, so its first tax day is read there
+const NEW_BUSINESS_ZONE = "America/Toronto";
 
 export function useOnboardingForm(
     api: ApiLike,
@@ -489,6 +496,7 @@ export function useOnboardingForm(
         setSlug,
         province,
         setProvince,
+        taxSummary: taxSummary(province, dateKey(new Date(), NEW_BUSINESS_ZONE)),
         busy,
         error,
         needsVerification,

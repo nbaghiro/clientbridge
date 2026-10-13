@@ -1,11 +1,4 @@
-import {
-    PROVINCES,
-    strings,
-    taxSummary,
-    useBusinessDay,
-    useOnboardingForm,
-    useVerificationForm,
-} from "@clientbridge/app-core";
+import { PROVINCES, strings, useOnboardingForm, useVerificationForm } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
@@ -45,7 +38,6 @@ function VerifyEmail() {
 
 export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
     const [submitted, setSubmitted] = useState(false);
-    const day = useBusinessDay();
     const form = useOnboardingForm(api, () => {
         setSubmitted(true);
     });
@@ -115,7 +107,7 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                                 PROVINCES.find((p) => p.code === form.province)?.name ?? "",
                             )}
                             {": "}
-                            {taxSummary(form.province, day)}
+                            {form.taxSummary}
                         </Text>
                         <Text style={styles.taxNote}>{strings.business.onboarding.taxNone}</Text>
                     </View>
