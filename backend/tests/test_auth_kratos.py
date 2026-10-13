@@ -2,12 +2,13 @@
 
 import json
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from uuid import uuid4
 
 import httpx
 import pytest
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.emails import normalize_email
 from clientbridge.core.errors import AppError, Unauthorized
@@ -28,8 +29,8 @@ def session(
         "id": "ses-1",
         "active": active,
         "authenticator_assurance_level": "aal2",
-        "authenticated_at": (datetime.now(UTC) - signed_in_ago).isoformat(),
-        "expires_at": (datetime.now(UTC) + expires_in).isoformat(),
+        "authenticated_at": (clock.wall() - signed_in_ago).isoformat(),
+        "expires_at": (clock.wall() + expires_in).isoformat(),
         "identity": {
             "id": "id-1",
             "traits": {"email": "Pat@Test.ca", "name": "Pat"},
@@ -233,6 +234,7 @@ async def test_admin_identity_helpers() -> None:
 
 
 @pytest.mark.kratos
+@pytest.mark.wall_clock
 async def test_contract_against_local_kratos() -> None:
     settings = get_settings()
     kratos = KratosIdentityProvider(

@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Broadcast, Message, Thread
@@ -356,7 +357,7 @@ async def test_schedule_broadcast_does_not_send_now(
     await db.execute(update(Client).where(Client.business_id == BIZ).values(phone=None))
     db.add(_active_client(name="Later", phone="+15145559003", tags=[]))
     await db.flush()
-    future = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    future = (clock.now() + timedelta(days=1)).isoformat()
     res = await as_owner.post(
         "/v1/broadcasts",
         json={"name": "Promo", "channel": "sms", "body": "Soon", "scheduled_at": future},

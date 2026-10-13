@@ -1,5 +1,4 @@
 import json
-import time
 
 import httpx
 import jwt
@@ -9,6 +8,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
 from pydantic import ValidationError
 
+from clientbridge.core import clock
 from clientbridge.core.config import Settings, get_settings
 from clientbridge.core.security import issue_powersync_token
 
@@ -91,6 +91,6 @@ async def test_rotation_serves_both_keys_and_only_signs_with_the_current_key(
             audience=settings.powersync_audience,
         )
         assert claims["sub"] == "us_rotation"
-        assert claims["exp"] <= int(time.time()) + settings.jwt_ttl_seconds
+        assert claims["exp"] <= int(clock.wall().timestamp()) + settings.jwt_ttl_seconds
     monkeypatch.setattr(settings, "powersync_previous_public_keys", {})
     assert len((await api.get("/sync/keys")).json()["keys"]) == 1

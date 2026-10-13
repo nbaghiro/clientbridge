@@ -1,11 +1,10 @@
 """Refunds as numbered credit notes: reason, notify, the split preview and refunds made by hand."""
 
-from datetime import UTC, datetime
-
 import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.payments import Payment
@@ -42,7 +41,7 @@ async def _taxed_card_payment(
         subtotal_cents=10000,
         tax_total_cents=700,
         total_cents=10700,
-        issued_at=datetime.now(UTC),
+        issued_at=clock.now(),
     )
     db.add(inv)
     await db.flush()

@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.db import SessionLocal
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import Conflict
@@ -31,7 +32,7 @@ def week_body(revision: int = 0, closed: tuple[int, ...] = (5, 6)) -> dict[str, 
             "device_id": str(uuid4()),
             "operation_id": str(uuid4()),
             "business_id": BIZ,
-            "created_at": datetime.now(UTC).isoformat(),
+            "created_at": clock.now().isoformat(),
         },
         "expected_revision": revision,
         "days": [
@@ -243,7 +244,7 @@ async def test_week_does_not_strand_visits_already_past(
     assert booking is not None
     slot = await db.get(Slot, booking.slot_id)
     assert slot is not None
-    past = datetime.now(UTC) - timedelta(days=7)
+    past = clock.now() - timedelta(days=7)
     slot.starts_at, slot.ends_at = past, past + timedelta(minutes=75)
     booking.starts_at = past
     await db.flush()

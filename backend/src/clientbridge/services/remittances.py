@@ -1,10 +1,11 @@
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from typing import Literal
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound
@@ -72,7 +73,7 @@ class RemittanceService:
             )
         business = await self._business()
         tz = zone(business.timezone)
-        today = datetime.now(tz).date()
+        today = clock.today(tz)
         if data.period_end >= today:
             raise AppError(
                 "a return can only cover days that have ended",
@@ -128,7 +129,7 @@ class RemittanceService:
                     "confirmation": data.confirmation,
                     "filed_on": filed_on.isoformat(),
                 },
-                occurred_at=datetime.now(UTC),
+                occurred_at=clock.now(),
             )
             cmd.record("tax.remit", entity_type="business", entity_id=self.biz)
             return RemittanceOut(
@@ -169,7 +170,7 @@ class RemittanceService:
         business = await self._business()
         if not business.tax_registered:
             return None
-        today = datetime.now(zone(business.timezone)).date()
+        today = clock.today(zone(business.timezone))
         filed = await self.filed_returns()
         ranges = await self._ranges(business, today)
         for start, end in ranges:
@@ -184,7 +185,7 @@ class RemittanceService:
     async def filings(self) -> TaxFilings:
         business = await self._business()
         tz = zone(business.timezone)
-        today = datetime.now(tz).date()
+        today = clock.today(tz)
         frequency = business.filing_frequency
         rates = rates_for_province(business.province)
         federal = next((r for r in rates if r.jurisdiction in FAMILY_CODES["federal"]), None)

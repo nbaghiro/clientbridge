@@ -17,6 +17,7 @@ from sqlalchemy import delete, select, text, update
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base, SessionLocal, engine
 from clientbridge.core.errors import AppError
@@ -50,7 +51,8 @@ from scripts.demo_identity import build_identity, placeholder_identity
 from scripts.demo_scenarios import add_scenarios
 from scripts.demo_validate import validate_database, validate_graph
 
-now = datetime.now(ZoneInfo("America/Vancouver"))
+VANCOUVER = ZoneInfo("America/Vancouver")
+now = clock.now().astimezone(VANCOUVER)
 BIZ = "bz_birchbark"
 DEMO_PASSWORD = "demo1234"  # every seeded user logs in with this
 rows: list[Base] = []
@@ -2147,7 +2149,8 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
     if as_of is not None:
         if as_of.tzinfo is None:
             raise ValueError("--as-of must include a timezone offset")
-        now = as_of.astimezone(ZoneInfo("America/Vancouver"))
+        clock.travel(as_of)
+    now = (clock.now() if as_of is None else as_of).astimezone(VANCOUVER)
     rows = []
     EARNING_STAGE.clear()
     INV_SEQ[0] = 1000
@@ -2341,7 +2344,7 @@ async def refresh_demo_avatar() -> None:
                     s3_key=key,
                     content_type="image/png",
                     size=path.stat().st_size,
-                    uploaded_at=datetime.now(UTC),
+                    uploaded_at=clock.now(),
                 )
             )
             await db.flush()

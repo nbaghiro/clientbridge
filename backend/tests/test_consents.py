@@ -1,13 +1,14 @@
 import csv
 import io
 import re
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import httpx
 import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ratelimit import RateLimiter, public_prefs_rate_limit
@@ -144,7 +145,7 @@ async def test_implied_consent_lapses(api: httpx.AsyncClient, db: AsyncSession) 
         status="implied",
         source="online_booking",
         recorded_by=None,
-        expires_at=datetime.now(UTC) - timedelta(days=1),
+        expires_at=clock.now() - timedelta(days=1),
     )
     assert ok(await api.get(f"/prefs/{prefs_token(cid)}")).json()["email"] is False
 
@@ -206,7 +207,7 @@ async def test_a_deleted_clients_link_is_not_found(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     cid = await _client(db)
-    await db.execute(update(Client).where(Client.id == cid).values(deleted_at=datetime.now(UTC)))
+    await db.execute(update(Client).where(Client.id == cid).values(deleted_at=clock.now()))
     await db.flush()
     assert (await api.get(f"/prefs/{prefs_token(cid)}")).status_code == 404
 

@@ -1,7 +1,7 @@
 """Kratos sessions at the API edge: provisioning, /v1/me, cookie vs token, origin guard, outages."""
 
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from uuid import uuid4
 
 import httpx
@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.security import issue_powersync_token
 from clientbridge.integrations.kratos import Identity, KratosIdentityProvider, get_identity_provider
@@ -128,7 +129,7 @@ async def test_last_seen_is_throttled(
     await api.get("/v1/me", headers=headers)
     await factory.db.refresh(user)
     assert user.last_seen_at == seen
-    user.last_seen_at = datetime.now(UTC) - timedelta(minutes=6)
+    user.last_seen_at = clock.now() - timedelta(minutes=6)
     await factory.db.flush()
     await api.get("/v1/me", headers=headers)
     await factory.db.refresh(user)

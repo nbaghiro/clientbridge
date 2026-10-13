@@ -5,6 +5,7 @@ from datetime import UTC, date, datetime, timedelta
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Estimate
 from clientbridge.models.catalog import GiftCard, Package
@@ -77,7 +78,7 @@ async def test_a_session_worth_nothing_still_counts_as_used(
         item_id="it_pkg5",
         sessions_total=2,
         status="active",
-        expires_at=datetime.now(UTC) + timedelta(days=30),
+        expires_at=clock.now() + timedelta(days=30),
     )
     db.add(pkg)
     await db.flush()

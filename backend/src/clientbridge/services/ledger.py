@@ -1,13 +1,14 @@
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 
 from sqlalchemy import ColumnElement, and_, case, func, or_, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
+from clientbridge.core import clock
 from clientbridge.core.errors import UnsupportedCurrency
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
@@ -86,7 +87,7 @@ async def post(
         raise UnbalancedJournal(ref)
     accounts = await _lock_accounts(db, business_id, currency, {leg.key for leg in legs})
     journal_id = new_id("journal")
-    at = occurred_at or datetime.now(UTC)
+    at = occurred_at or clock.now()
     for index, leg in enumerate(legs):
         account = accounts[leg.key]
         on = leg.subject or subject

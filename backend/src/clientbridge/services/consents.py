@@ -4,11 +4,12 @@ import hashlib
 import hmac
 import io
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import get_args
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.ids import new_id
@@ -70,7 +71,7 @@ def allows_marketing(consent: Consent | None, now: datetime | None = None) -> bo
     if consent is None or consent.status == "withdrawn":
         return False
     if consent.status == "implied" and consent.expires_at is not None:
-        return consent.expires_at > (now or datetime.now(UTC))
+        return consent.expires_at > (now or clock.now())
     return True
 
 
@@ -259,5 +260,5 @@ class ConsentService:
                     recorded_by or "",
                 ]
             )
-        day = datetime.now(UTC).date().isoformat()
+        day = clock.now().date().isoformat()
         return ConsentExport(filename=f"consent-log-{day}.csv", content=out.getvalue())

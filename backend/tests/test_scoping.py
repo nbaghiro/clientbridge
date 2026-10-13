@@ -1,11 +1,10 @@
 """The tenant scoping helpers all apply the same business and soft-delete guard."""
 
-from datetime import UTC, datetime
-
 import pytest
 from sqlalchemy import Column, MetaData, String, Table
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.policies import TABLE_POLICIES, TablePolicy, table_policy_errors
 from clientbridge.core.scoping import scoped, scoped_delete, scoped_update
 from clientbridge.models import Base
@@ -50,7 +49,7 @@ async def test_scoped_reads_isolate_business_and_soft_delete(db: AsyncSession) -
     biz2 = await f.business(name="Two")
     keep = await f.client(business=biz1, name="Keep")
     gone = await f.client(business=biz1, name="Gone")
-    gone.deleted_at = datetime.now(UTC)
+    gone.deleted_at = clock.now()
     await f.client(business=biz2, name="Other")
     await db.flush()
 

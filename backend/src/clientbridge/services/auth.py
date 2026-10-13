@@ -1,6 +1,6 @@
 """The local profile behind each Kratos identity, created on its first authenticated request."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Executable
 
+from clientbridge.core import clock
 from clientbridge.core.errors import Conflict
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.kratos import Identity, IdentityProvider
@@ -42,7 +43,7 @@ class AuthService:
             if user is None:
                 raise Conflict("identity could not be linked", code="email_in_use")
         name = identity.name or user.name
-        now = datetime.now(UTC)
+        now = clock.now()
         stale = user.last_seen_at is None or now - user.last_seen_at >= SEEN_EVERY
         if user.email != identity.email or user.name != name or stale:
             user.email, user.name, user.last_seen_at = identity.email, name, now

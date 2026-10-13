@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.db import SessionLocal
 from clientbridge.core.errors import Conflict
 from clientbridge.models.business import Business
@@ -19,17 +20,12 @@ from clientbridge.schemas.public import (
 )
 from clientbridge.services.public import PublicBookingService, PublicManageService
 from tests.conftest import BIZ, FakeEmailSender, FakePaymentGateway, FakePushSender
-from tests.helpers import deposit_payment, enable_payments, key, settle, shifted, weeks_ahead
+from tests.helpers import deposit_payment, enable_payments, key, settle
 
 SLUG = "birchbark"
-AHEAD = weeks_ahead(date(2026, 12, 1))
 
 
-def at(when: str) -> str:
-    return shifted(when, AHEAD)
-
-
-OPENING = at("2026-12-01T16:00:00Z")
+OPENING = "2026-12-01T16:00:00Z"
 
 
 async def test_one_class_attendee_cannot_move_the_shared_session(
@@ -51,7 +47,7 @@ async def test_one_class_attendee_cannot_move_the_shared_session(
     original_start = original.starts_at
     assert (await _slot(db, other_token)).id == original.id
     moved = await api.post(
-        f"/manage/{token}/reschedule", json={"starts_at": at("2026-12-02T17:00:00Z")}
+        f"/manage/{token}/reschedule", json={"starts_at": "2026-12-02T17:00:00Z"}
     )
     assert moved.status_code == 409, moved.text
     assert moved.json()["error"] == "change_blocked"
@@ -97,9 +93,9 @@ async def test_client_moves_their_visit(
     api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
     token = await _book(api)
-    slots = (await api.get(f"/manage/{token}/slots", params={"date": at("2026-12-02")})).json()
+    slots = (await api.get(f"/manage/{token}/slots", params={"date": "2026-12-02"})).json()
     target = slots["slots"][0]["starts_at"]
-    days = await api.get(f"/manage/{token}/days", params={"from": at("2026-12-01"), "days": 2})
+    days = await api.get(f"/manage/{token}/days", params={"from": "2026-12-01", "days": 2})
     assert days.status_code == 200 and len(days.json()["days"]) == 2
     sent = len(email.sent)
     res = await api.post(f"/manage/{token}/reschedule", json={"starts_at": target}, headers=key())
@@ -116,11 +112,11 @@ async def test_moves_stop_at_the_policy_limit(api: httpx.AsyncClient, db: AsyncS
     await db.flush()
     token = await _book(api)
     first = await api.post(
-        f"/manage/{token}/reschedule", json={"starts_at": at("2026-12-01T21:40:00Z")}
+        f"/manage/{token}/reschedule", json={"starts_at": "2026-12-01T21:40:00Z"}
     )
     assert first.status_code == 200, first.text
     again = await api.post(
-        f"/manage/{token}/reschedule", json={"starts_at": at("2026-12-01T18:50:00Z")}
+        f"/manage/{token}/reschedule", json={"starts_at": "2026-12-01T18:50:00Z"}
     )
     assert again.status_code == 409
     view = (await api.get(f"/manage/{token}")).json()
@@ -131,7 +127,7 @@ async def test_inside_the_cutoff_nothing_changes_online(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     token = await _book(api)
-    soon = datetime.now(UTC) + timedelta(hours=3)
+    soon = clock.now() + timedelta(hours=3)
     slot = await _slot(db, token)
     # the demo seed books the owner around now, so clear the window the visit moves into
     await db.execute(
@@ -164,7 +160,7 @@ async def test_blocked_reason_is_a_code_with_the_cutoff(
         .where(Business.id == BIZ)
         .values(booking_policy={"cancel_cutoff_hours": 1, "reschedule_cutoff_hours": 1})
     )
-    soon = datetime.now(UTC) + timedelta(minutes=30)
+    soon = clock.now() + timedelta(minutes=30)
     slot = await _slot(db, token)
     await db.execute(
         update(Slot)
@@ -184,10 +180,8 @@ async def test_blocked_reason_is_a_code_with_the_cutoff(
 
 async def test_moving_onto_a_taken_time_is_refused(api: httpx.AsyncClient) -> None:
     token = await _book(api)
-    await _book(api, at("2026-12-01T20:15:00Z"))
-    res = await api.post(
-        f"/manage/{token}/reschedule", json={"starts_at": at("2026-12-01T20:15:00Z")}
-    )
+    await _book(api, "2026-12-01T20:15:00Z")
+    res = await api.post(f"/manage/{token}/reschedule", json={"starts_at": "2026-12-01T20:15:00Z"})
     assert res.status_code == 409
 
 
@@ -240,12 +234,12 @@ async def test_unknown_token_404(api: httpx.AsyncClient) -> None:
     assert (await api.get("/manage/not-a-token")).status_code == 404
     assert (await api.post("/manage/not-a-token/cancel")).status_code == 404
     assert (
-        await api.get("/manage/not-a-token/slots", params={"date": at("2026-12-02")})
+        await api.get("/manage/not-a-token/slots", params={"date": "2026-12-02"})
     ).status_code == 404
 
 
 async def test_unknown_token_404_for_days_and_reschedule(api: httpx.AsyncClient) -> None:
-    days = await api.get("/manage/not-a-token/days", params={"from": at("2026-12-01")})
+    days = await api.get("/manage/not-a-token/days", params={"from": "2026-12-01"})
     assert days.status_code == 404
     moved = await api.post("/manage/not-a-token/reschedule", json={"starts_at": OPENING})
     assert moved.status_code == 404
@@ -256,7 +250,7 @@ async def test_reschedule_replays_on_the_same_key(
 ) -> None:
     token = await _book(api)
     headers = key()
-    target = at("2026-12-01T21:40:00Z")
+    target = "2026-12-01T21:40:00Z"
     first = await api.post(
         f"/manage/{token}/reschedule", json={"starts_at": target}, headers=headers
     )
@@ -277,14 +271,14 @@ async def test_reschedule_refuses_a_key_reused_for_another_time(
 ) -> None:
     token = await _book(api)
     headers = key()
-    target = at("2026-12-01T21:40:00Z")
+    target = "2026-12-01T21:40:00Z"
     first = await api.post(
         f"/manage/{token}/reschedule", json={"starts_at": target}, headers=headers
     )
     assert first.status_code == 200, first.text
     changed = await api.post(
         f"/manage/{token}/reschedule",
-        json={"starts_at": at("2026-12-02T17:00:00Z")},
+        json={"starts_at": "2026-12-02T17:00:00Z"},
         headers=headers,
     )
     assert changed.status_code == 422, changed.text
@@ -294,7 +288,7 @@ async def test_reschedule_refuses_a_key_reused_for_another_time(
 
 async def test_cancel_refuses_a_key_reused_for_another_visit(api: httpx.AsyncClient) -> None:
     first = await _book(api)
-    second = await _book(api, starts=at("2026-12-01T21:40:00Z"))
+    second = await _book(api, starts="2026-12-01T21:40:00Z")
     headers = key()
     done = await api.post(f"/manage/{first}/cancel", headers=headers)
     assert done.status_code == 200, done.text
@@ -316,11 +310,11 @@ async def test_reschedule_outside_lead_time_or_horizon_is_refused(
         .values(booking_policy={"lead_hours": 48, "horizon_days": 90})
     )
     await db.flush()
-    soon = (datetime.now(UTC) + timedelta(hours=2)).isoformat()
+    soon = (clock.now() + timedelta(hours=2)).isoformat()
     assert (
         await api.post(f"/manage/{token}/reschedule", json={"starts_at": soon})
     ).status_code == 409
-    far = (datetime.now(UTC) + timedelta(days=120)).isoformat()
+    far = (clock.now() + timedelta(days=120)).isoformat()
     assert (
         await api.post(f"/manage/{token}/reschedule", json={"starts_at": far})
     ).status_code == 409
@@ -330,9 +324,7 @@ async def test_reschedule_outside_lead_time_or_horizon_is_refused(
 async def test_a_canceled_booking_cannot_be_rescheduled(api: httpx.AsyncClient) -> None:
     token = await _book(api)
     assert (await api.post(f"/manage/{token}/cancel")).status_code == 200
-    res = await api.post(
-        f"/manage/{token}/reschedule", json={"starts_at": at("2026-12-01T21:40:00Z")}
-    )
+    res = await api.post(f"/manage/{token}/reschedule", json={"starts_at": "2026-12-01T21:40:00Z"})
     assert res.status_code == 409
 
 
@@ -341,7 +333,7 @@ async def test_a_deleted_bookings_token_is_not_found(
 ) -> None:
     token = await _book(api)
     await db.execute(
-        update(Booking).where(Booking.manage_token == token).values(deleted_at=datetime.now(UTC))
+        update(Booking).where(Booking.manage_token == token).values(deleted_at=clock.now())
     )
     await db.flush()
     assert (await api.get(f"/manage/{token}")).status_code == 404
@@ -426,7 +418,7 @@ async def test_reschedule_refuses_a_start_the_listing_does_not_offer(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     token = await _book(api)
-    for target in (at("2026-12-01T17:07:00Z"), at("2026-11-30T19:00:00Z")):
+    for target in ("2026-12-01T17:07:00Z", "2026-11-30T19:00:00Z"):
         res = await api.post(f"/manage/{token}/reschedule", json={"starts_at": target})
         assert res.status_code == 409, res.text
         assert res.json()["error"] == "slot_unavailable"
@@ -440,17 +432,17 @@ async def test_manage_times_include_moves_overlapping_the_visit_and_stop_at_the_
     await db.execute(
         update(Business).where(Business.id == BIZ).values(booking_policy={"step_min": 30})
     )
-    offered = (await api.get(f"/manage/{token}/slots", params={"date": at("2026-12-01")})).json()
+    offered = (await api.get(f"/manage/{token}/slots", params={"date": "2026-12-01"})).json()
     starts = [s["starts_at"] for s in offered["slots"]]
-    assert at("2026-12-01T16:30:00Z") in starts and at("2026-12-01T16:00:00Z") not in starts
+    assert "2026-12-01T16:30:00Z" in starts and "2026-12-01T16:00:00Z" not in starts
     moved = await api.post(
-        f"/manage/{token}/reschedule", json={"starts_at": at("2026-12-01T16:30:00Z")}
+        f"/manage/{token}/reschedule", json={"starts_at": "2026-12-01T16:30:00Z"}
     )
     assert moved.status_code == 200, moved.text
     await db.execute(
         update(Business).where(Business.id == BIZ).values(booking_policy={"horizon_days": 30})
     )
-    far = (datetime.now(UTC) + timedelta(days=60)).date().isoformat()
+    far = (clock.now() + timedelta(days=60)).date().isoformat()
     assert (await api.get(f"/manage/{token}/slots", params={"date": far})).json()["slots"] == []
 
 

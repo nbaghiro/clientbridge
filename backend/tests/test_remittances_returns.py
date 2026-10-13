@@ -7,6 +7,7 @@ import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
@@ -131,7 +132,7 @@ async def test_credits_on_a_provincial_return_422(as_owner: httpx.AsyncClient) -
 
 
 async def test_filed_in_the_future_422(as_owner: httpx.AsyncClient) -> None:
-    tomorrow = (date.today() + timedelta(days=2)).isoformat()
+    tomorrow = (clock.today(UTC) + timedelta(days=2)).isoformat()
     res = await as_owner.post(
         "/v1/payments/remittances", json={**Q1, "family": "federal", "filed_on": tomorrow}
     )
@@ -147,7 +148,7 @@ async def test_family_with_nothing_owed_409(as_owner: httpx.AsyncClient, db: Asy
 
 async def _last_period(db: AsyncSession) -> tuple[date, date]:
     tz = (await db.execute(select(Business.timezone).where(Business.id == BIZ))).scalar_one()
-    start, _ = period_of(datetime.now(ZoneInfo(tz)).date(), "quarterly")
+    start, _ = period_of(clock.today(ZoneInfo(tz)), "quarterly")
     return period_of(add_months(start, -1), "quarterly")
 
 
@@ -194,7 +195,7 @@ async def test_monthly_filers_get_monthly_periods(
     assert res.json()["filing_frequency"] == "monthly"
     kept = await as_owner.patch("/v1/business", json={"filing_frequency": None})
     assert kept.json()["filing_frequency"] == "monthly"
-    await _invoice(db, issued_at=datetime.now(UTC) - timedelta(days=40), tax={"GST": 100})
+    await _invoice(db, issued_at=clock.now() - timedelta(days=40), tax={"GST": 100})
     periods = (await as_owner.get("/v1/payments/remittances")).json()["periods"]
     first, second = periods[0], periods[1]
     assert first["start"][8:] == "01"

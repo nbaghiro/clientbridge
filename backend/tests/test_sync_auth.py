@@ -1,13 +1,13 @@
 """Sync identity + JWKS — /sync/token from a Kratos session, RS256 public key + roundtrip."""
 
 import json
-import time
 
 import httpx
 import jwt
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from jwt.algorithms import RSAAlgorithm
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.security import sign_rs256
 from tests.conftest import Factory, FakeIdentityProvider, identity_for, session_token
@@ -27,7 +27,7 @@ async def test_jwks_endpoint_serves_rsa_public_key(api: httpx.AsyncClient) -> No
 
 async def test_rs256_token_verifies_against_jwks(api: httpx.AsyncClient) -> None:
     # exactly what PowerSync does: fetch the JWK, verify an RS256 token's signature with it
-    now = int(time.time())
+    now = int(clock.wall().timestamp())
     token = sign_rs256({"sub": "us_test", "aud": "powersync", "iat": now, "exp": now + 60})
     jwk = (await api.get("/sync/keys")).json()["keys"][0]
     public_key = RSAAlgorithm.from_jwk(json.dumps(jwk))

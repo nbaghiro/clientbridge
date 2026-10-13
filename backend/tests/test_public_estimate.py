@@ -1,9 +1,10 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import httpx
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.models.billing import Estimate
 from clientbridge.models.business import Business
 from tests.conftest import BIZ, FakeEmailSender
@@ -96,7 +97,7 @@ async def test_expired_estimate_cannot_be_accepted(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     est = await _sent_estimate(as_owner, db)
-    past = (datetime.now(UTC) - timedelta(days=2)).date()
+    past = (clock.now() - timedelta(days=2)).date()
     await db.execute(update(Estimate).where(Estimate.id == est["id"]).values(valid_until=past))
     page = ok(await as_owner.get(f"/estimate/{est['view_token']}")).json()
     assert page["status"] == "expired"

@@ -1,14 +1,16 @@
 """Shared fixtures: each test runs in a transaction rolled back at teardown, over the seeded DB."""
 
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime
 from uuid import uuid4
 
 import httpx
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import engine, get_session
 from clientbridge.core.deps import (
@@ -57,8 +59,13 @@ from clientbridge.main import app
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.clients import Client
+from clientbridge.models.platform import Audit
 from clientbridge.services import ledger
 from clientbridge.services.tax import TaxResult
+from tests.clock import FROZEN
+
+# test modules are collected at FROZEN too, so a date they compute at import agrees with the tests
+clock.travel(FROZEN)
 
 # Seeded baseline (committed): the demo business + two of its users.
 BIZ = "bz_birchbark"
@@ -78,6 +85,35 @@ async def book_invoice(db: AsyncSession, invoice: Invoice) -> None:
     )
 
 
+@pytest.fixture(autouse=True)
+def frozen_clock(request: pytest.FixtureRequest) -> Iterator[None]:
+    """Start business time at FROZEN; tests marked wall_clock talk to a real external clock."""
+    if request.node.get_closest_marker("wall_clock") is not None:
+        clock.reset()
+        yield
+        return
+    clock.travel(FROZEN)
+    try:
+        yield
+    finally:
+        clock.reset()
+
+
+_seeded_at: dict[str, datetime | None] = {}
+
+
+async def check_seeded_at_frozen(session: AsyncSession) -> None:
+    if "as_of" not in _seeded_at:
+        changes = await session.scalar(select(Audit.changes).where(Audit.id == "aud_demo_seed"))
+        as_of = changes.get("as_of") if changes else None
+        _seeded_at["as_of"] = datetime.fromisoformat(as_of) if isinstance(as_of, str) else None
+    if _seeded_at["as_of"] != FROZEN:
+        pytest.fail(
+            f"the test database was seeded at {_seeded_at['as_of']}, not at {FROZEN.isoformat()}; "
+            "run the suite through make test-backend"
+        )
+
+
 @pytest.fixture
 async def owner_db() -> AsyncIterator[AsyncSession]:
     """A rolled-back session as the schema owner, for admin tools such as the demo reset."""
@@ -95,13 +131,15 @@ async def owner_db() -> AsyncIterator[AsyncSession]:
 
 
 @pytest.fixture
-async def db() -> AsyncIterator[AsyncSession]:
+async def db(request: pytest.FixtureRequest) -> AsyncIterator[AsyncSession]:
     conn = await engine.connect()
     trans = await conn.begin()
     session = AsyncSession(
         bind=conn, join_transaction_mode="create_savepoint", expire_on_commit=False
     )
     try:
+        if request.node.get_closest_marker("wall_clock") is None:
+            await check_seeded_at_frozen(session)
         yield session
     finally:
         await session.close()

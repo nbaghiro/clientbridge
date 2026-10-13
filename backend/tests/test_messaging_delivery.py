@@ -1,6 +1,6 @@
 """Resend delivery events move email messages along, and a spam complaint withdraws consent."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import httpx
 import pytest
@@ -8,6 +8,7 @@ from sqlalchemy import func, insert, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.db import is_duplicate
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.resend import resend_signature, valid_resend_signature
@@ -227,7 +228,7 @@ async def test_a_wrong_or_stale_signature_is_refused(
     body = _event("email.delivered", "email_x")
     res = await email_event(api, body, svix_id="evt_sig", signature="v1,AAAA")
     assert res.status_code == 401
-    stale = datetime.now(UTC) - timedelta(minutes=10)
+    stale = clock.wall() - timedelta(minutes=10)
     assert (await email_event(api, body, svix_id="evt_sig", at=stale)).status_code == 401
     assert (await api.post("/webhooks/email", content=b"{}")).status_code == 401
     assert (
@@ -249,11 +250,11 @@ async def test_an_event_for_an_uncommitted_send_is_retried_later(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     data = {"email_id": "email_soon", "to": [EMAIL], "tags": {"business": BIZ, "message": "msg_x"}}
-    fresh = {"type": "email.delivered", "created_at": datetime.now(UTC).isoformat(), "data": data}
+    fresh = {"type": "email.delivered", "created_at": clock.wall().isoformat(), "data": data}
     assert (await email_event(api, fresh, svix_id="evt_soon")).status_code == 503
     unrecorded = await db.execute(select(Webhook.id).where(Webhook.id == "resend_evt_soon"))
     assert unrecorded.scalar_one_or_none() is None
-    old = {**fresh, "created_at": (datetime.now(UTC) - timedelta(minutes=15)).isoformat()}
+    old = {**fresh, "created_at": (clock.wall() - timedelta(minutes=15)).isoformat()}
     ok(await email_event(api, old, svix_id="evt_soon"))
     assert (await _webhook(db, "evt_soon")).payload["matched"] is False
 
@@ -309,7 +310,7 @@ async def test_a_signed_event_of_another_kind_is_acknowledged_and_recorded(
 
 
 async def test_a_non_ascii_signature_header_is_refused(api: httpx.AsyncClient) -> None:
-    now = str(int(datetime.now(UTC).timestamp()))
+    now = str(int(clock.wall().timestamp()))
     headers = {
         b"svix-id": b"evt_latin",
         b"svix-timestamp": now.encode(),
@@ -341,7 +342,7 @@ async def test_an_archived_clients_complaint_writes_no_consent(
     cid = await new_client(db, email=EMAIL)
     message = await _sent_email(as_owner, db, cid)
     client = (await db.execute(select(Client).where(Client.id == cid))).scalar_one()
-    client.deleted_at = datetime.now(UTC)
+    client.deleted_at = clock.now()
     await db.flush()
     ok(
         await email_event(
@@ -358,7 +359,7 @@ async def test_an_archived_clients_complaint_writes_no_consent(
 
 
 def test_signature_verification_accepts_any_listed_v1_entry_and_rejects_the_rest() -> None:
-    now = datetime.now(UTC)
+    now = clock.now()
     ts = str(int(now.timestamp()))
     body = b'{"type":"email.delivered"}'
     good = resend_signature(RESEND_SECRET, "msg_1", ts, body)
@@ -380,7 +381,7 @@ async def test_only_a_duplicate_event_id_counts_as_a_replay(db: AsyncSession) ->
         "event": "email.delivered",
         "payload": {},
         "status": "processed",
-        "processed_at": datetime.now(UTC),
+        "processed_at": clock.now(),
     }
     await db.execute(insert(Webhook).values(**row))
     with pytest.raises(IntegrityError) as duplicate:

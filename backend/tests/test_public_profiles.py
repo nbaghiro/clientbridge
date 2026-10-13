@@ -1,8 +1,9 @@
-from datetime import UTC, datetime
+from datetime import datetime
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.reviews import Review
 from tests.conftest import BIZ, Factory
@@ -35,7 +36,7 @@ async def test_profile_publishes_opted_in_team_and_only_public_reviews(
                 status=status,
                 rating=5,
                 body=f"{status} review",
-                submitted_at=datetime.now(UTC),
+                submitted_at=clock.now(),
             )
         )
     await db.flush()
@@ -128,7 +129,7 @@ async def test_next_openings_match_live_availability_and_validate_input(
         assert len(service["slots"]) <= 3
         for slot in service["slots"]:
             assert slot["staff_id"]
-            assert datetime.fromisoformat(slot["starts_at"]) > datetime.now(UTC)
+            assert datetime.fromisoformat(slot["starts_at"]) > clock.now()
     assert (await api.get("/book/birchbark/next-openings")).status_code == 422
     assert (
         await api.get("/book/birchbark/next-openings", params={"item_ids": ["it_groom_sm"] * 13})

@@ -1,12 +1,12 @@
 """Connect the demo business to a verified Stripe test account, reused across runs."""
 
 import asyncio
-import time
 
 import stripe
 from sqlalchemy.ext.asyncio import AsyncSession
 from stripe.params import AccountCreateParams
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal, engine
 from clientbridge.integrations.stripe import get_payment_gateway
@@ -61,7 +61,7 @@ def demo_account_id() -> str:
             return str(account.id)
     params: AccountCreateParams = {
         **_ACCOUNT,
-        "tos_acceptance": {"date": int(time.time()), "ip": "127.0.0.1"},
+        "tos_acceptance": {"date": int(clock.wall().timestamp()), "ip": "127.0.0.1"},
     }
     return str(stripe.Account.create(**params).id)
 

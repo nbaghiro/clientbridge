@@ -3,11 +3,11 @@
 import asyncio
 import json
 import secrets
-from datetime import UTC, datetime
 
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.db import SessionLocal, engine
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Estimate, Invoice, Order
@@ -90,7 +90,7 @@ async def _pending_signature(db: AsyncSession, client_id: str) -> str:
 
 
 async def main() -> None:
-    now = datetime.now(UTC)
+    now = clock.now()
     async with SessionLocal() as db:
         client = (
             await db.execute(

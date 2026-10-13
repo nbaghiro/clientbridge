@@ -1,9 +1,10 @@
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, timedelta
 
 import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment, PaymentMethod
@@ -67,7 +68,7 @@ async def test_cheque_and_etransfer_land_in_the_bank(
 ) -> None:
     inv = await sent_invoice(db, total=10000)
     bank_before = await business_balance(db, "bank")
-    yesterday = (datetime.now(UTC) - timedelta(days=1)).date().isoformat()
+    yesterday = (clock.now() - timedelta(days=1)).date().isoformat()
     cheque = ok(
         await as_owner.post(
             f"/v1/invoices/{inv}/payments",
@@ -88,7 +89,7 @@ async def test_cheque_and_etransfer_land_in_the_bank(
     assert await business_balance(db, "bank") == bank_before + 10000
     row = (await db.execute(select(Payment).where(Payment.id == cheque["payment_id"]))).scalar_one()
     assert row.method == "cheque" and row.reference == "000123"
-    assert row.paid_at is not None and row.paid_at.date() < datetime.now(UTC).date() + timedelta(1)
+    assert row.paid_at is not None and row.paid_at.date() < clock.now().date() + timedelta(1)
     sent = await db.get(Payment, etransfer["payment_id"])
     assert sent is not None
     assert (sent.method, sent.provider, sent.reference) == ("etransfer", "manual", "CA1MRkB7")
@@ -180,7 +181,7 @@ async def test_tendered_must_cover_the_amount(
 
 async def test_future_date_is_refused(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     inv = await sent_invoice(db, total=3000)
-    later = (date.today() + timedelta(days=3)).isoformat()
+    later = (clock.today(UTC) + timedelta(days=3)).isoformat()
     res = await as_owner.post(
         f"/v1/invoices/{inv}/payments", json=_pay("etransfer", 3000, received_on=later)
     )

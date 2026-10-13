@@ -1,9 +1,10 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.models.platform import File
 from clientbridge.services.files import run_prune_pending_files
 from tests.conftest import Factory, FakeFileStorage
@@ -140,7 +141,7 @@ async def test_a_pending_image_is_neither_served_nor_usable_as_a_logo(
 async def test_stale_pending_uploads_are_pruned_with_their_bytes(
     db: AsyncSession, storage: FakeFileStorage
 ) -> None:
-    now = datetime.now(UTC)
+    now = clock.now()
     for name, created, uploaded in (
         ("fl_stale", now - timedelta(hours=25), None),
         ("fl_recent", now - timedelta(hours=1), None),

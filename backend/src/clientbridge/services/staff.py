@@ -2,12 +2,13 @@
 
 import secrets
 from collections import Counter
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role, is_manager
 from clientbridge.core.emails import normalize_email
@@ -127,7 +128,7 @@ class StaffService:
                 status="invited",
                 invite_email=email,
                 invite_token=hash_token(raw),
-                invited_at=datetime.now(UTC),
+                invited_at=clock.now(),
                 invited_by=principal.user_id,
             )
             self.db.add(staff)
@@ -157,7 +158,7 @@ class StaffService:
             raise NotFound("this invite link isn't valid", code="invite_invalid")
         if staff.status != "invited":
             raise Conflict("invite already accepted", code="invite_accepted")
-        if (staff.invited_at or staff.created_at) + INVITE_TTL < datetime.now(UTC):
+        if (staff.invited_at or staff.created_at) + INVITE_TTL < clock.now():
             raise AppError("this invite has expired", code="invite_expired", status_code=410)
         return staff
 
@@ -274,7 +275,7 @@ class StaffService:
             assert staff.role != "owner", "an invite is never for the owner"
             raw = secrets.token_urlsafe(24)
             staff.invite_token = hash_token(raw)
-            staff.invited_at = datetime.now(UTC)
+            staff.invited_at = clock.now()
             staff.invited_by = principal.user_id
             await self.db.flush()
             subject, body = await self._invite_email(principal, raw)
@@ -475,7 +476,7 @@ class StaffService:
             .where(
                 Slot.staff_id == member_id,
                 Slot.status == "scheduled",
-                Slot.starts_at >= datetime.now(UTC),
+                Slot.starts_at >= clock.now(),
                 Booking.status.in_(_OPEN),
             )
             .order_by(Slot.starts_at, Booking.id)
@@ -528,7 +529,7 @@ class StaffService:
             await cancel_open_deposits(self.db, gateway, booking)
             booking.deposit_status = "none"
         booking.status = "canceled"
-        booking.canceled_at = datetime.now(UTC)
+        booking.canceled_at = clock.now()
         cmd.record("booking.canceled", entity_type="booking", entity_id=booking.id)
 
     async def _settle_series(
@@ -552,7 +553,7 @@ class StaffService:
                 .join(Slot, Slot.id == Booking.slot_id)
                 .where(
                     Slot.recurrence_id == recurrence.id,
-                    Slot.starts_at >= datetime.now(UTC),
+                    Slot.starts_at >= clock.now(),
                     Booking.status.in_(_OPEN),
                 )
                 .limit(1)

@@ -5,6 +5,7 @@ import httpx
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
@@ -1013,9 +1014,7 @@ async def _unpaid_online(api: httpx.AsyncClient, db: AsyncSession) -> tuple[str,
     assert res.status_code == 200, res.text
     bid = res.json()["booking_id"]
     await db.execute(
-        update(Booking)
-        .where(Booking.id == bid)
-        .values(created_at=datetime.now(UTC) - timedelta(hours=1))
+        update(Booking).where(Booking.id == bid).values(created_at=clock.now() - timedelta(hours=1))
     )
     return bid, await provider_ref(db, await deposit_payment(db, bid))
 
@@ -1031,7 +1030,7 @@ async def test_reaper_cancels_the_open_intent_and_tells_the_client(
 ) -> None:
     bid, ref = await _unpaid_online(api, db)
     sent = len(email.sent)
-    assert await _reap(db, gateway, email, datetime.now(UTC)) >= 1
+    assert await _reap(db, gateway, email, clock.now()) >= 1
     assert await _fresh(db, bid) == "canceled"
     assert (await payment(db, await deposit_payment(db, bid))).status == "canceled"
     assert ref in gateway.canceled_intents
@@ -1045,7 +1044,7 @@ async def test_reaper_releases_a_booking_whose_card_failed(
     bid, ref = await _unpaid_online(api, db)
     await stripe_event(api, "payment_intent.payment_failed", {"id": ref})
     assert (await payment(db, await deposit_payment(db, bid))).status == "failed"
-    await _reap(db, gateway, now=datetime.now(UTC))
+    await _reap(db, gateway, now=clock.now())
     assert await _fresh(db, bid) == "canceled"
     assert ref in gateway.canceled_intents
 
@@ -1055,7 +1054,7 @@ async def test_reaper_keeps_a_booking_whose_payment_already_went_through(
 ) -> None:
     bid, ref = await _unpaid_online(api, db)
     gateway.confirmed.add(ref)
-    await _reap(db, gateway, now=datetime.now(UTC))
+    await _reap(db, gateway, now=clock.now())
     assert await _fresh(db, bid) == "confirmed"
     assert (await payment(db, await deposit_payment(db, bid))).status == "pending"
 

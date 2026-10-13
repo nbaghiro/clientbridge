@@ -1,10 +1,11 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from urllib.parse import urlencode
 
 import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.twilio import twilio_signature
@@ -75,7 +76,7 @@ async def test_a_shared_phone_routes_to_the_most_recent_sender(
     rival = await factory.business(name="Rival Texts")
     theirs = await factory.client(business=rival)
     theirs.phone = PHONE
-    now = datetime.now(UTC)
+    now = clock.now()
     await texted(db, ours, at=now - timedelta(days=2))
     await texted(db, theirs.id, business_id=rival.id, at=now - timedelta(hours=1))
     ok(await text_in(api, {"From": PHONE, "Body": "Yes please", "MessageSid": "SM_rival"}))
@@ -95,7 +96,7 @@ async def test_stop_applies_only_to_the_business_it_was_routed_to(
     rival = await factory.business(name="Rival Stop")
     theirs = await factory.client(business=rival)
     theirs.phone = PHONE
-    now = datetime.now(UTC)
+    now = clock.now()
     await texted(db, ours, at=now - timedelta(days=1))
     await texted(db, theirs.id, business_id=rival.id, at=now)
     ok(await text_in(api, {"From": PHONE, "Body": "STOP", "MessageSid": "SM_stop"}))
@@ -125,7 +126,7 @@ async def test_a_tie_between_businesses_is_not_guessed(
     rival = await factory.business(name="Rival Tie")
     theirs = await factory.client(business=rival)
     theirs.phone = PHONE
-    at = datetime.now(UTC)
+    at = clock.now()
     await texted(db, ours, at=at)
     await texted(db, theirs.id, business_id=rival.id, at=at)
     ok(await text_in(api, {"From": PHONE, "Body": "hi", "MessageSid": "SM_tie"}))
@@ -214,7 +215,7 @@ async def test_a_routed_reply_alerts_only_that_business_staff(
             ),
         ]
     )
-    await texted(db, ours, at=datetime.now(UTC) - timedelta(days=1))
+    await texted(db, ours, at=clock.now() - timedelta(days=1))
     await texted(db, theirs.id, business_id=rival.id)
     ok(await text_in(api, {"From": PHONE, "Body": "See you at 3", "MessageSid": "SM_push"}))
     [alert] = push.sent

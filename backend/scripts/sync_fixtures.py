@@ -1,9 +1,10 @@
 import asyncio
-from datetime import UTC, datetime, time, timedelta
+from datetime import time, timedelta
 from uuid import NAMESPACE_URL, uuid5
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.db import SessionLocal, engine
 from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
@@ -102,7 +103,7 @@ async def seed() -> None:
 
 async def financial(db: AsyncSession) -> None:
     """One row of each owner-only or self-only record type, so the replica check covers them."""
-    today = datetime.now(UTC).replace(hour=15, minute=0, second=0, microsecond=0)
+    today = clock.now().replace(hour=15, minute=0, second=0, microsecond=0)
     start = today + timedelta(days=7)
     db.add(Item(id="it_first", business_id="bz_first", kind="service", name="Groom"))
     db.add(Invoice(id="inv_first", business_id="bz_first", client_id="cl_first", status="sent"))

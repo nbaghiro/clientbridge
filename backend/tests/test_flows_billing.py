@@ -1,11 +1,12 @@
 """Billing flows: estimate to refund, disputes, payouts, remittance, and subscriptions."""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import httpx
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import PaymentMethod
@@ -167,7 +168,7 @@ async def test_remittance_files_the_tax_payable(
     owed = await _set_aside(api)
     assert owed - payable == 1200  # BC GST 5% + PST 7%
 
-    yesterday = datetime.now(await business_tz(db, BIZ)).date() - timedelta(days=1)
+    yesterday = clock.today(await business_tz(db, BIZ)) - timedelta(days=1)
     filed = ok(
         await api.post(
             "/v1/payments/remittances",

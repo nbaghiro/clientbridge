@@ -1,12 +1,13 @@
 import logging
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Literal
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal
 from clientbridge.core.ids import new_id
@@ -1049,7 +1050,7 @@ class DeviceService:
             existing.user_id = self.principal.user_id
             existing.business_id = self.principal.business_id
             existing.platform = platform
-            existing.updated_at = datetime.now(UTC)
+            existing.updated_at = clock.now()
         else:
             self.db.add(
                 Device(

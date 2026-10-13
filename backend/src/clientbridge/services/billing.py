@@ -1,10 +1,11 @@
 import secrets
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
@@ -141,7 +142,7 @@ class BillingService:
 
     async def _issue_invoice(self, invoice: Invoice, cmd: Command) -> None:
         """Number, date and post a draft invoice; its tax is fixed here and matches its journal."""
-        now = datetime.now(UTC)
+        now = clock.now()
         invoice.number = await self._next_number(Invoice)
         invoice.status = "sent"
         invoice.issued_at = now
@@ -176,7 +177,7 @@ class BillingService:
             if pending.scalar_one_or_none() is not None:
                 raise Conflict("this invoice has a payment in progress")
             invoice.status = "void"
-            invoice.voided_at = datetime.now(UTC)
+            invoice.voided_at = clock.now()
             await self.db.flush()
             await ledger.void_invoice(self.db, invoice)
             for booking in await self._bookings(invoice):
@@ -374,9 +375,9 @@ class BillingService:
         async def run(cmd: Command) -> EstimateOut:
             estimate.status = status
             if status == "accepted":
-                estimate.accepted_at = datetime.now(UTC)
+                estimate.accepted_at = clock.now()
             elif status == "declined":
-                estimate.declined_at = datetime.now(UTC)
+                estimate.declined_at = clock.now()
                 estimate.decline_reason = reason
             await self.db.flush()
             cmd.record(f"estimate.{status}", entity_type="estimate", entity_id=estimate.id)
@@ -496,7 +497,7 @@ class BillingService:
         return lines
 
     async def _today(self) -> date:
-        return datetime.now(await business_tz(self.db, self.biz)).date()
+        return clock.today(await business_tz(self.db, self.biz))
 
     async def _lines(self, parent: LineParent, parent_id: str) -> list[Line]:
         return await fetch_lines(self.db, self.biz, parent, parent_id)

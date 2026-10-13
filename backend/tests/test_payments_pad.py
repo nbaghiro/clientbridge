@@ -1,7 +1,7 @@
 import hashlib
 import json
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.errors import Conflict
 from clientbridge.integrations.stripe import MandateState
 from clientbridge.models.business import Business
@@ -111,7 +112,7 @@ async def test_pad_rejects_missing_invalid_expired_and_revoked_tokens(
     assert (await as_owner.get("/payment-method", headers=_header("bad"))).status_code == 422
     assert (await as_owner.get("/payment-method", headers=_header("a" * 43))).status_code == 404
     link, token = await _link(as_owner, db)
-    link.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+    link.expires_at = clock.now() - timedelta(seconds=1)
     await db.commit()
     assert (await as_owner.post("/payment-method/start", headers=_header(token))).status_code == 404
     second, token2 = await _link(as_owner, db)
@@ -295,5 +296,5 @@ async def test_started_link_survives_microdeposit_delay(
     initial_expiry = link.expires_at
     await _start(as_owner, token)
     assert link.expires_at > initial_expiry + timedelta(days=8)
-    assert link.expires_at < datetime.now(UTC) + timedelta(days=11)
+    assert link.expires_at < clock.now() + timedelta(days=11)
     assert (await as_owner.get("/payment-method", headers=_header(token))).status_code == 200

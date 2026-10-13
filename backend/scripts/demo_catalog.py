@@ -1,13 +1,13 @@
 """Catalog image fixtures and a targeted refresh that preserves the rest of the demo."""
 
 import asyncio
-from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 
 import httpx
 from sqlalchemy import select
 
+from clientbridge.core import clock
 from clientbridge.core.db import SessionLocal, engine
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.s3 import get_file_storage
@@ -81,7 +81,7 @@ async def refresh_catalog() -> None:
                     headers={"Content-Type": "image/jpeg"},
                 )
                 response.raise_for_status()
-                image.created_at = datetime.now(UTC)
+                image.created_at = clock.now()
                 image.updated_at = image.created_at
                 db.add(image)
         for item_id in ("it_shampoo_travel", "it_shampoo_unscented"):

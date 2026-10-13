@@ -6,7 +6,7 @@ import stripe
 from clientbridge.core.errors import CardDeclined
 from clientbridge.integrations.stripe import StripeGateway
 
-pytestmark = pytest.mark.e2e
+pytestmark = [pytest.mark.e2e, pytest.mark.wall_clock]
 
 
 async def test_fresh_account_reports_kyc_requirements(live_gateway: StripeGateway) -> None:

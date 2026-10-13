@@ -4,7 +4,7 @@ import json
 import os
 import uuid
 from collections.abc import Mapping
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import NoReturn
 
 import httpx
@@ -13,6 +13,7 @@ from pydantic_settings import SettingsConfigDict
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.config import Settings, get_settings
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.resend import resend_signature
@@ -68,7 +69,7 @@ async def email_event(
 ) -> httpx.Response:
     """Post a Resend delivery event signed the way Svix signs it."""
     payload = raw if raw is not None else json.dumps(body).encode()
-    timestamp = str(int((at or datetime.now(UTC)).timestamp()))
+    timestamp = str(int((at or clock.wall()).timestamp()))
     signed = signature or f"v1,{resend_signature(RESEND_SECRET, svix_id, timestamp, payload)}"
     headers = {
         "svix-id": svix_id,
@@ -93,7 +94,7 @@ async def texted(
             channel="sms",
             body="Hello",
             status="sent",
-            created_at=at or datetime.now(UTC),
+            created_at=at or clock.now(),
         )
     )
     await db.flush()
@@ -101,7 +102,7 @@ async def texted(
 
 async def local_hour(db: AsyncSession, hour: int, business_id: str = BIZ) -> datetime:
     """Move the business to the zone where the local hour is now `hour`; returns now."""
-    now = datetime.now(UTC)
+    now = clock.now()
     offset = (hour - now.hour + 11) % 24 - 11
     zone = "Etc/GMT" if offset == 0 else f"Etc/GMT{'-' if offset > 0 else '+'}{abs(offset)}"
     await db.execute(update(Business).where(Business.id == business_id).values(timezone=zone))
@@ -114,18 +115,6 @@ async def business_today(db: AsyncSession) -> date:
     business = await db.get(Business, BIZ)
     assert business is not None
     return local_today(business)
-
-
-def weeks_ahead(first: date, lead: timedelta = timedelta(days=35)) -> timedelta:
-    """Whole weeks that put `first` at least `lead` after today, past the seeded visits."""
-    return timedelta(weeks=max(0, -((first - datetime.now(UTC).date() - lead).days // 7)))
-
-
-def shifted(when: str, by: timedelta) -> str:
-    """An ISO date, or a UTC time ending in Z, moved by `by` and written the same way."""
-    if "T" not in when:
-        return (date.fromisoformat(when) + by).isoformat()
-    return (datetime.fromisoformat(when) + by).isoformat().replace("+00:00", "Z")
 
 
 def service_missing(reason: str) -> NoReturn:
@@ -375,7 +364,7 @@ async def gift_card(db: AsyncSession, gift_card_id: str) -> tuple[str, int]:
 
 async def lapse(db: AsyncSession, model: type[GiftCard] | type[Package], row_id: str) -> datetime:
     """Backdate an entitlement's expiry so the next sweep at the returned time lapses it."""
-    now = datetime.now(UTC)
+    now = clock.now()
     await db.execute(
         update(model).where(model.id == row_id).values(expires_at=now - timedelta(minutes=1))
     )

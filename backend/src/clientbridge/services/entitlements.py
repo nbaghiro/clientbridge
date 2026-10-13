@@ -1,10 +1,11 @@
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role
@@ -69,7 +70,7 @@ async def _record_cash(
         method="cash",
         provider="manual",
         status="succeeded",
-        paid_at=datetime.now(UTC),
+        paid_at=clock.now(),
     )
     db.add(payment)
     await db.flush()
@@ -346,9 +347,7 @@ class PackageService:
                 status="pending",
                 payment_id=payment.id,
                 expires_at=(
-                    datetime.now(UTC) + timedelta(days=item.validity_days)
-                    if item.validity_days
-                    else None
+                    clock.now() + timedelta(days=item.validity_days) if item.validity_days else None
                 ),
             )
             self.db.add(package)

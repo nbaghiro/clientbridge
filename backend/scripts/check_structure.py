@@ -43,6 +43,14 @@ SUPPRESSION = re.compile(
 NOTIFICATIONS = PACKAGE / "services" / "notifications.py"
 ZONES = PACKAGE / "core" / "zones.py"
 ZONE_READERS = ("ZoneInfo", "available_timezones", "reset_tzpath")
+CLOCK = PACKAGE / "core" / "clock.py"
+MODELS = PACKAGE / "models"
+CLOCK_READS = {
+    "datetime": ("now", "utcnow", "today"),
+    "date": ("today",),
+    "time": ("time", "time_ns"),
+}
+CLOCK_SETTERS = ("travel", "freeze", "reset")
 COPY_FIELDS = ("subject", "body", "title")
 SENDER_PARAMS = {
     "Email": ("to", "subject", "body"),
@@ -309,6 +317,26 @@ def zone_problems(path: pathlib.Path, tree: ast.Module) -> list[str]:
     ]
 
 
+def clock_problems(path: pathlib.Path, tree: ast.Module) -> list[str]:
+    """Every read of the current time goes through core.clock, so tests can start it anywhere."""
+    if path == CLOCK:
+        return []
+    problems: list[str] = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+            continue
+        owner = node.func.value
+        name = owner.attr if isinstance(owner, ast.Attribute) else getattr(owner, "id", "")
+        attr = node.func.attr
+        if attr in CLOCK_READS.get(name, ()) or (
+            name == "func" and attr == "now" and MODELS not in path.parents
+        ):
+            problems.append(f"{path}:{node.lineno}: read the time through core.clock")
+        if name == "clock" and attr in CLOCK_SETTERS and PACKAGE in path.parents:
+            problems.append(f"{path}:{node.lineno}: only tests and scripts move the clock")
+    return problems
+
+
 def concepts() -> set[str]:
     return {p.stem for layer in ("services", "api") for p in (PACKAGE / layer).glob("*.py")}
 
@@ -349,10 +377,13 @@ def main() -> int:
         problems += comment_problems(path)
         tree = ast.parse(path.read_text())
         problems += (
-            copy_problems(path, tree) + prose_problems(path, tree) + zone_problems(path, tree)
+            copy_problems(path, tree)
+            + prose_problems(path, tree)
+            + zone_problems(path, tree)
+            + clock_problems(path, tree)
         )
     for path in sorted([*TESTS.rglob("*.py"), *SCRIPTS.rglob("*.py")]):
-        problems += comment_problems(path)
+        problems += comment_problems(path) + clock_problems(path, ast.parse(path.read_text()))
     for path in sorted(MIGRATIONS.rglob("*.py")):
         problems += suppression_problems(path, path.read_text())
     problems += pyright_problems()

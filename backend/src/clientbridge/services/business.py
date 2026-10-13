@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, Forbidden, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
@@ -34,7 +35,7 @@ async def load_staff(db: AsyncSession, biz: str, staff_id: str) -> Staff:
 
 
 def local_today(business: Business) -> date:
-    return datetime.now(zone(business.timezone)).date()
+    return clock.today(zone(business.timezone))
 
 
 async def businesses_at_hour(db: AsyncSession, now: datetime, hour: int) -> list[Business]:
@@ -182,7 +183,7 @@ class BusinessService:
             )
             setattr(business, key, None if cleared else value)
         if data.setup_dismissed is not None:
-            business.setup_dismissed_at = datetime.now(UTC) if data.setup_dismissed else None
+            business.setup_dismissed_at = clock.now() if data.setup_dismissed else None
         if data.brand is not None:
             if data.brand.logo_file_id is not None:
                 await self._assert_logo(data.brand.logo_file_id)

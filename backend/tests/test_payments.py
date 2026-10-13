@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.stripe import ChargeFees
 from clientbridge.models.billing import Invoice
@@ -368,7 +369,7 @@ async def test_refund_foreign_payment_404_by_scoping(
         provider="stripe",
         provider_ref="pi_foreign",
         status="succeeded",
-        paid_at=datetime.now(UTC),
+        paid_at=clock.now(),
     )
     db.add(foreign_pay)
     await db.flush()

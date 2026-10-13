@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.integrations.stripe import ChargeFees, GatewayEvent
 from clientbridge.models.business import Business
 from clientbridge.models.ledger import Entry
@@ -151,7 +152,7 @@ async def test_refund_created_records_a_dashboard_refund(
             provider="stripe",
             provider_ref="pi_dash",
             status="succeeded",
-            paid_at=datetime.now(UTC),
+            paid_at=clock.now(),
         )
     )
     await db.flush()
@@ -197,7 +198,7 @@ async def test_charge_dispute_alerts_staff(
             provider="stripe",
             provider_ref="pi_disp",
             status="succeeded",
-            paid_at=datetime.now(UTC),
+            paid_at=clock.now(),
         )
     )
     db.add(
@@ -347,7 +348,7 @@ async def _succeeded_payment(db: AsyncSession, pi: str) -> Payment:
         provider="stripe",
         provider_ref=pi,
         status="succeeded",
-        paid_at=datetime.now(UTC),
+        paid_at=clock.now(),
     )
     db.add(payment)
     await db.flush()
@@ -527,7 +528,7 @@ async def test_an_orphaned_purchase_is_refunded_once(
         "id": "pi_orphan",
         "amount": 3000,
         "currency": "cad",
-        "created": int((datetime.now(UTC) - timedelta(hours=2)).timestamp()),
+        "created": int((clock.now() - timedelta(hours=2)).timestamp()),
         "metadata": {"business_id": BIZ, "gift_card_id": "gc_never"},
     }
     for event_id in ("evt_orphan_1", "evt_orphan_2"):
@@ -560,7 +561,7 @@ async def test_a_fresh_purchase_without_its_row_is_retried_not_refunded(
         "payment_intent.succeeded",
         "pi_fresh",
         amount=3000,
-        created=int(datetime.now(UTC).timestamp()),
+        created=int(clock.now().timestamp()),
         metadata={"business_id": BIZ, "package_id": "pkg_committing"},
     )
     assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 503
@@ -617,7 +618,7 @@ async def test_a_failed_delivery_never_overwrites_a_processed_row(db: AsyncSessi
             event="payout.paid",
             payload={},
             status="processed",
-            processed_at=datetime.now(UTC),
+            processed_at=clock.now(),
         )
     )
     await db.flush()

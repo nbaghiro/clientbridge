@@ -1,10 +1,11 @@
 import re
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.returning import ReturningChallenge
@@ -110,7 +111,7 @@ async def test_bad_codes_lock_after_five_and_expired_codes_fail(
     challenge, code = await _request(api, email)
     row = await db.get(ReturningChallenge, challenge)
     assert row is not None
-    row.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+    row.expires_at = clock.now() - timedelta(seconds=1)
     await db.flush()
     assert (await _verify(api, challenge, code)).status_code == 401
     assert (await _verify(api, "unknown", code)).status_code == 401
@@ -187,7 +188,7 @@ async def test_existing_pet_requires_proof_and_belongs_to_verified_client(
     ).status_code == 422
     row = await db.get(ReturningChallenge, challenge)
     assert row is not None
-    row.session_expires_at = datetime.now(UTC) - timedelta(seconds=1)
+    row.session_expires_at = clock.now() - timedelta(seconds=1)
     await db.flush()
     assert (await _book(api, returning_token=verified.json()["token"])).status_code == 401
 
@@ -203,7 +204,7 @@ async def test_changed_or_archived_identity_invalidates_proof(
     client.email = ADDRESS
     challenge, code = await _request(api, email)
     verified = await _verify(api, challenge, code)
-    client.deleted_at = datetime.now(UTC)
+    client.deleted_at = clock.now()
     await db.flush()
     assert (await _book(api, returning_token=verified.json()["token"])).status_code == 401
 
@@ -225,7 +226,7 @@ async def test_previous_completed_visit_is_available_only_after_proof(
         client_id=client.id,
         status="completed",
         source="manual",
-        completed_at=datetime.now(UTC),
+        completed_at=clock.now(),
     )
     db.add(booking)
     await db.flush()

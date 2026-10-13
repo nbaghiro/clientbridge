@@ -1,8 +1,7 @@
-from datetime import UTC, datetime
-
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, is_manager
 from clientbridge.core.errors import Conflict, Forbidden, NotFound
@@ -54,7 +53,7 @@ class HoursService:
             .where(
                 Slot.staff_id == staff_id,
                 Booking.status.in_(("pending", "confirmed")),
-                Slot.starts_at >= datetime.now(UTC),
+                Slot.starts_at >= clock.now(),
             )
             .order_by(Slot.starts_at, Booking.id)
         )

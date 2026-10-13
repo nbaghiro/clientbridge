@@ -1,9 +1,10 @@
 from collections.abc import Sequence
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role
@@ -118,7 +119,7 @@ def confirm_upload(file: File, storage: FileStorage) -> FileOut:
             raise Conflict("the file has not finished uploading", code="upload_missing")
         if file.size is not None and stored != file.size:
             raise Unprocessable("the uploaded file is not the size that was declared")
-        file.uploaded_at = datetime.now(UTC)
+        file.uploaded_at = clock.now()
     return _file_out(file)
 
 

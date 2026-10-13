@@ -1,9 +1,10 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 import httpx
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
@@ -69,7 +70,7 @@ async def test_summary_excludes_other_business(
             provider="stripe",
             provider_ref=f"pi_{new_id('payment')[3:14]}",
             status="succeeded",
-            paid_at=datetime.now(UTC),
+            paid_at=clock.now(),
         )
     )
     await db.flush()
@@ -83,7 +84,7 @@ async def test_today_revenue_counts_todays_succeeded_payment(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     before = (await as_owner.get("/v1/dashboard/summary")).json()["today_revenue_cents"]
-    await _add_payment(db, amount=5000, paid_at=datetime.now(UTC))
+    await _add_payment(db, amount=5000, paid_at=clock.now())
     after = (await as_owner.get("/v1/dashboard/summary")).json()["today_revenue_cents"]
     assert after - before == 5000
 
@@ -116,8 +117,8 @@ async def test_staff_cannot_see_dashboard(as_staff: httpx.AsyncClient) -> None:
 
 async def test_refund_today_reduces_revenue(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     before = (await as_owner.get("/v1/dashboard/summary")).json()["today_revenue_cents"]
-    paid = await _add_payment(db, amount=5000, paid_at=datetime.now(UTC))
-    await _add_payment(db, amount=1500, paid_at=datetime.now(UTC), refunds=paid)
+    paid = await _add_payment(db, amount=5000, paid_at=clock.now())
+    await _add_payment(db, amount=1500, paid_at=clock.now(), refunds=paid)
     after = (await as_owner.get("/v1/dashboard/summary")).json()["today_revenue_cents"]
     assert after - before == 3500  # 5000 received minus 1500 refunded
 
@@ -126,7 +127,7 @@ async def test_old_payment_excluded_from_today(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     before = (await as_owner.get("/v1/dashboard/summary")).json()["today_revenue_cents"]
-    await _add_payment(db, amount=9999, paid_at=datetime.now(UTC) - timedelta(days=2))
+    await _add_payment(db, amount=9999, paid_at=clock.now() - timedelta(days=2))
     after = (await as_owner.get("/v1/dashboard/summary")).json()["today_revenue_cents"]
     assert after == before  # paid before today's start → not counted
 

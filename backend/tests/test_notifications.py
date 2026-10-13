@@ -1,11 +1,12 @@
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import httpx
 import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.business import Staff
 from clientbridge.models.catalog import Item
@@ -29,11 +30,11 @@ async def test_reregistered_device_is_not_pruned(
     await db.execute(
         update(Device)
         .where(Device.token == body["token"])
-        .values(updated_at=datetime.now(UTC) - timedelta(days=61))
+        .values(updated_at=clock.now() - timedelta(days=61))
     )
     await db.flush()
     assert (await as_owner.post("/v1/devices/register", json=body)).status_code == 200
-    await run_prune_devices(db, datetime.now(UTC))
+    await run_prune_devices(db, clock.now())
     assert await db.scalar(select(Device.id).where(Device.token == body["token"])) is not None
 
 
