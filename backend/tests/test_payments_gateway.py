@@ -159,7 +159,7 @@ async def test_plan_checkout_bills_the_account_with_flexible_mode_tax_and_the_tr
         trial_end=trial_end,
         success_url="https://app/setup/plan?done=1",
         cancel_url="https://app/setup/plan",
-        idempotency_key="plan-checkout-1",
+        attempt="1",
     )
     assert url == "https://c"
     assert captured["mode"] == "subscription" and captured["customer_account"] == "acct_paying"
@@ -173,7 +173,7 @@ async def test_plan_checkout_bills_the_account_with_flexible_mode_tax_and_the_tr
         "trial_end": int(trial_end.timestamp()),
     }
     assert captured["automatic_tax"] == {"enabled": True}
-    assert captured["idempotency_key"] == "plan-checkout-1"
+    assert captured["idempotency_key"] == "plan-checkout:bz_birchbark:1"
     await gateway.create_plan_checkout(
         "acct_paying",
         items=[PlanItem("premium_year")],
@@ -181,7 +181,7 @@ async def test_plan_checkout_bills_the_account_with_flexible_mode_tax_and_the_tr
         trial_end=None,
         success_url="https://app/setup/plan?done=1",
         cancel_url="https://app/setup/plan",
-        idempotency_key="plan-checkout-2",
+        attempt="2",
     )
     assert prices["keys"] == ["premium_month", "seat_month", "premium_year"]
     assert "trial_end" not in cast(dict[str, object], captured["subscription_data"])
@@ -198,7 +198,7 @@ async def test_a_price_missing_from_stripe_means_billing_is_not_set_up(
             trial_end=None,
             success_url="https://app",
             cancel_url="https://app",
-            idempotency_key="k",
+            attempt="k",
         )
 
 
@@ -392,3 +392,41 @@ def test_gateways_share_one_stripe_client_per_key(monkeypatch: pytest.MonkeyPatc
     second = StripeGateway("sk_test_shared", "", "CA")
     other = StripeGateway("sk_test_other", "", "CA")
     assert first._client is second._client and first._client is not other._client
+
+
+async def test_closing_plan_checkouts_expires_other_tabs_and_finds_a_paid_one(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def session(sid: str, attempt: str, sub: str | None = None) -> dict[str, object]:
+        return {
+            "id": sid,
+            "object": "checkout.session",
+            "mode": "subscription",
+            "metadata": {"attempt": attempt},
+            "subscription": sub,
+        }
+
+    listed = {
+        "open": [session("cs_other", "a"), session("cs_mine", "b")],
+        "complete": [session("cs_done", "c", "sub_done")],
+    }
+    expired: list[str] = []
+
+    async def list_sessions(**params: object) -> stripe.ListObject[stripe.checkout.Session]:
+        rows = listed[str(params["status"])]
+        return stripe.ListObject.construct_from({"object": "list", "data": rows}, "sk")
+
+    async def expire(session_id: str, **params: object) -> None:
+        expired.append(session_id)
+
+    async def retrieve(subscription_id: str, **params: object) -> stripe.Subscription:
+        status = "active" if subscription_id == "sub_done" else "canceled"
+        return stripe.Subscription.construct_from({"id": subscription_id, "status": status}, "sk")
+
+    monkeypatch.setattr(stripe.checkout.Session, "list_async", list_sessions)
+    monkeypatch.setattr(stripe.checkout.Session, "expire_async", expire)
+    monkeypatch.setattr(stripe.Subscription, "retrieve_async", retrieve)
+    assert await gateway.close_plan_checkouts("acct_paying", keep="b") is True
+    assert expired == ["cs_other"]
+    listed["complete"] = [session("cs_old", "d", "sub_old")]
+    assert await gateway.close_plan_checkouts("acct_paying", keep="b") is False

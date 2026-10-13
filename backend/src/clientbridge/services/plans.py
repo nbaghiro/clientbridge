@@ -317,6 +317,10 @@ class PlanService:
             cmd.record("connect.account_created", entity_type="business", entity_id=business.id)
         else:
             await self.gateway.add_customer_configuration(account_id, address=address)
+        attempt = _key(idempotency_key)
+        # two tabs or a retry without a key would otherwise open two subscriptions
+        if await self.gateway.close_plan_checkouts(account_id, keep=attempt):
+            raise Conflict("the business already has a plan; change it instead", code="plan_active")
         seats = await billed_seats(self.db, business.id, now)
         left = business.trial_ends_at - now
         carry = plan_access(business, now) == "trial" and left >= _CHECKOUT_TRIAL_MIN
@@ -330,7 +334,7 @@ class PlanService:
             trial_end=business.trial_ends_at if carry else None,
             success_url=f"{_plan_page()}?checkout=done",
             cancel_url=_plan_page(),
-            idempotency_key=f"plan-checkout:{business.id}:{_key(idempotency_key)}",
+            attempt=attempt,
         )
         cmd.record(
             "plan.checkout",
@@ -419,7 +423,9 @@ async def apply_subscription_event(
         if named != business.id:
             return
         if current is not None and business.plan_status in _LIVE:
+            # the business already pays through another subscription; this one would bill twice
             _log.warning("%s already has plan subscription %s", business.id, current)
+            await gateway.cancel_plan_subscription(subscription_id)
             return
     sub = await gateway.get_plan_subscription(subscription_id)
     business.stripe_subscription_id = subscription_id

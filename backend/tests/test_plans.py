@@ -639,3 +639,37 @@ async def test_a_lapsed_business_can_complete_its_address_refund_and_manage_paym
     session = await as_owner.post("/v1/connect/session", json={"component": "payouts"})
     assert session.status_code != 402
     assert (await as_owner.post("/v1/clients", json={"name": "Blocked"})).status_code == 402
+
+
+async def test_a_second_checkout_expires_the_first_and_a_completed_one_blocks_it(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _trial(db, timedelta(days=5), stripe_account_id=ACCOUNT)
+    choice = {"plan": "team", "interval": "month"}
+    first = ok(await as_owner.post("/v1/plan/checkout", json=choice)).json()["url"]
+    second = ok(await as_owner.post("/v1/plan/checkout", json=choice)).json()["url"]
+    assert gateway.expired_checkouts == [first] and gateway.open_checkouts[ACCOUNT] == [second]
+    gateway.paid_checkouts.add(ACCOUNT)
+    res = await as_owner.post("/v1/plan/checkout", json=choice)
+    assert res.status_code == 409 and res.json()["error"] == "plan_active"
+    assert len(gateway.checkouts) == 2
+
+
+async def test_a_retried_checkout_keeps_its_own_session_open(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _trial(db, timedelta(days=5), stripe_account_id=ACCOUNT)
+    choice, headers = {"plan": "team", "interval": "month"}, key()
+    ok(await as_owner.post("/v1/plan/checkout", json=choice, headers=headers))
+    ok(await as_owner.post("/v1/plan/checkout", json=choice, headers=headers))
+    assert gateway.expired_checkouts == []
+
+
+async def test_a_second_live_subscription_is_cancelled(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _subscribed(db, gateway, PlanItem("team_month"))
+    gateway.plan_subscriptions["sub_other"] = _sub(PlanItem("premium_month"), sub_id="sub_other")
+    await _deliver(api, _event("customer.subscription.created", "sub_other"))
+    assert gateway.canceled_plan_subscriptions == ["sub_other"]
+    assert (await _business(db)).stripe_subscription_id == SUB

@@ -402,6 +402,8 @@ def has_identity_address(account: dict[str, object]) -> bool:
 CUSTOMER_CONFIGURATION: dict[str, object] = {
     "capabilities": {"automatic_indirect_tax": {"requested": True}}
 }
+# a subscription in these states bills or is about to, so a second one would bill twice
+_PAYING = ("active", "trialing", "past_due", "incomplete", "unpaid")
 # a key moves to a new price only through stripe_setup, and the API restarts after it
 _PLAN_PRICES: dict[str, PlanPriceRef] = {}
 
@@ -444,11 +446,16 @@ class PaymentGateway(Protocol):
         trial_end: datetime | None,
         success_url: str,
         cancel_url: str,
-        idempotency_key: str,
+        attempt: str,
     ) -> str:
         """A hosted Checkout Session that starts the plan subscription; returns its URL."""
         ...
 
+    async def close_plan_checkouts(self, account_id: str, *, keep: str) -> bool:
+        """Expire the account's open plan Checkouts but `keep`'s; True if one already paid."""
+        ...
+
+    async def cancel_plan_subscription(self, subscription_id: str) -> None: ...
     async def create_portal_session(self, account_id: str, *, return_url: str) -> str: ...
     async def get_plan_subscription(self, subscription_id: str) -> PlanSubscription: ...
     async def set_plan_items(
@@ -748,7 +755,7 @@ class StripeGateway:
         trial_end: datetime | None,
         success_url: str,
         cancel_url: str,
-        idempotency_key: str,
+        attempt: str,
     ) -> str:
         prices = await self._prices([item.lookup_key for item in items])
         subscription: SessionCreateParamsSubscriptionData = {
@@ -767,14 +774,40 @@ class StripeGateway:
             subscription_data=subscription,
             automatic_tax={"enabled": True},
             client_reference_id=business_id,
-            metadata={"business_id": business_id},
+            metadata={"business_id": business_id, "attempt": attempt},
             success_url=success_url,
             cancel_url=cancel_url,
-            idempotency_key=idempotency_key,
+            idempotency_key=f"plan-checkout:{business_id}:{attempt}",
         )
         if session.url is None:
             raise ValueError(f"checkout session {session.id} has no url")
         return session.url
+
+    @_keyed
+    async def close_plan_checkouts(self, account_id: str, *, keep: str) -> bool:
+        opened = await stripe.checkout.Session.list_async(
+            customer_account=account_id, status="open", limit=100
+        )
+        for session in opened.data:
+            attempt = _dict(session.to_dict().get("metadata")).get("attempt")
+            if session.mode == "subscription" and attempt != keep:
+                await stripe.checkout.Session.expire_async(session.id)
+        done = await stripe.checkout.Session.list_async(
+            customer_account=account_id, status="complete", limit=10
+        )
+        for session in done.data:
+            sub = session.subscription
+            sub_id = sub if isinstance(sub, str) else sub.id if sub is not None else None
+            if sub_id is None:
+                continue
+            current = await stripe.Subscription.retrieve_async(sub_id)
+            if current.status in _PAYING:
+                return True
+        return False
+
+    @_keyed
+    async def cancel_plan_subscription(self, subscription_id: str) -> None:
+        await stripe.Subscription.cancel_async(subscription_id)
 
     @_keyed
     async def create_portal_session(self, account_id: str, *, return_url: str) -> str:

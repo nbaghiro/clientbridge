@@ -327,6 +327,10 @@ class FakePaymentGateway:
         self.checkouts: list[PlanCheckout] = []
         self.checkout_keys: dict[str, str] = {}
         self.portal_sessions: list[str] = []
+        self.open_checkouts: dict[str, list[str]] = {}
+        self.expired_checkouts: list[str] = []
+        self.paid_checkouts: set[str] = set()  # accounts whose completed Checkout already bills
+        self.canceled_plan_subscriptions: list[str] = []
         self.plan_subscriptions: dict[str, PlanSubscription] = {}
         self.plan_item_keys: list[str] = []
         self._plan_changes: dict[str, PlanSubscription] = {}  # honor plan change idempotency keys
@@ -393,14 +397,24 @@ class FakePaymentGateway:
         trial_end: datetime | None,
         success_url: str,
         cancel_url: str,
-        idempotency_key: str,
+        attempt: str,
     ) -> str:
-        if idempotency_key not in self.checkout_keys:
+        if attempt not in self.checkout_keys:
             self.checkouts.append(PlanCheckout(account_id, tuple(items), business_id, trial_end))
-            self.checkout_keys[idempotency_key] = (
-                f"https://checkout.stripe.test/c/{len(self.checkouts)}"
-            )
-        return self.checkout_keys[idempotency_key]
+            url = f"https://checkout.stripe.test/c/{len(self.checkouts)}"
+            self.checkout_keys[attempt] = url
+            self.open_checkouts.setdefault(account_id, []).append(url)
+        return self.checkout_keys[attempt]
+
+    async def close_plan_checkouts(self, account_id: str, *, keep: str) -> bool:
+        kept = self.checkout_keys.get(keep)
+        opened = self.open_checkouts.get(account_id, [])
+        self.expired_checkouts += [url for url in opened if url != kept]
+        self.open_checkouts[account_id] = [url for url in opened if url == kept]
+        return account_id in self.paid_checkouts
+
+    async def cancel_plan_subscription(self, subscription_id: str) -> None:
+        self.canceled_plan_subscriptions.append(subscription_id)
 
     async def create_portal_session(self, account_id: str, *, return_url: str) -> str:
         self.portal_sessions.append(account_id)
