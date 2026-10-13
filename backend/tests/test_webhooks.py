@@ -486,11 +486,19 @@ async def test_a_raising_handler_leaves_a_failed_row_the_retry_then_processes(
         await api.post("/webhooks/stripe", content=body, headers=GOOD)
     await db.rollback()
     assert await column(db, "webhooks", "evt_flaky", "status") == "failed"
+    kept = await column(db, "webhooks", "evt_flaky", "payload")
+    assert isinstance(kept, dict) and kept["id"] == "pi_flaky"
     status = (await db.execute(select(Payment.status).where(Payment.id == pay_id))).scalar_one()
     assert status == "pending"
+    with pytest.raises(RuntimeError):
+        await api.post("/webhooks/stripe", content=body, headers=GOOD)
+    await db.rollback()
+    assert await column(db, "webhooks", "evt_flaky", "status") == "failed"
+    assert await column(db, "webhooks", "evt_flaky", "payload") == kept
     monkeypatch.setattr(gateway, "get_payment_fees", fees)
     assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
     assert await column(db, "webhooks", "evt_flaky", "status") == "processed"
+    assert await column(db, "webhooks", "evt_flaky", "payload") is None
     status = (await db.execute(select(Payment.status).where(Payment.id == pay_id))).scalar_one()
     assert status == "succeeded"
 

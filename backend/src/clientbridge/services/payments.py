@@ -1454,7 +1454,8 @@ async def process_stripe_event(
         async with transaction(db):
             outcome = await _dispatch(db, gateway, event)
             record.status = "processed"
-            record.processed_at = clock.now()
+            record.processed_at = datetime.now(UTC)
+            record.payload = None
     except Exception as exc:
         if _lost_event_race(exc):
             return None

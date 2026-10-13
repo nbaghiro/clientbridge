@@ -275,7 +275,8 @@ waits as `submitted` until the owner publishes or hides it.
 
 **platform (5)** — `files` (S3 key, `purpose` logo/image/photo/signature/attachment), `audits` (append-only
 activity feed; server-only), `webhooks` (inbound provider events, `event` = the provider's event name;
-**not** business-scoped — routed during processing; server-only), `devices` (Expo push tokens), `commands`
+**not** business-scoped — routed during processing; a Stripe event's `payload` is cleared once it is
+processed and kept on a failed row; server-only), `devices` (Expo push tokens), `commands`
 (unique per business+scope+key — backs `run_command` replay; server-only).
 
 > **Note on tax:** there is **no `tax_rates` table** (dropped). Rates are effective-dated rows per province in
