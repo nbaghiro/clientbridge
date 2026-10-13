@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.api.plans import LAPSED_WRITES
 from clientbridge.integrations.stripe import PlanItem, PlanSubscription
 from clientbridge.main import app
-from clientbridge.models.business import Business
+from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Subscription
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking
@@ -713,3 +713,19 @@ async def test_premium_reports_no_seat_cap(
     assert ok(await as_owner.get("/v1/plan")).json()["seat_cap"] is None
     await _trial(db, timedelta(days=3))
     assert ok(await as_owner.get("/v1/plan")).json()["seat_cap"] == plans.PLAN_SEAT_CAP
+
+
+async def test_a_trial_reminder_without_a_billing_email_goes_to_the_active_owner(
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+    factory: Factory,
+) -> None:
+    await _trial(db, timedelta(hours=5), billing_email=None)
+    business = await _business(db)
+    await db.execute(update(Staff).where(Staff.id == "st_owner").values(status="removed"))
+    heir = await factory.user(email="new-owner@test.ca")
+    await factory.staff(business=business, user=heir, role="owner")
+    await Notifier(email, sms, push).on_trial_ending(db, BIZ, last_day=True)
+    assert [m.to for m in email.sent] == ["new-owner@test.ca"]

@@ -704,11 +704,17 @@ class Notifier:
         business = await db.get(Business, business_id)
         if business is None:
             return
-        to = business.billing_email or await db.scalar(
-            select(User.email)
-            .join(Staff, Staff.user_id == User.id)
-            .where(Staff.business_id == business.id, Staff.role == "owner")
-        )
+        to = business.billing_email
+        if not to:
+            owner = await db.scalar(
+                scoped(Staff, business.id)
+                .with_only_columns(Staff.user_id)
+                .where(Staff.role == "owner", Staff.status == "active")
+                .order_by(Staff.created_at)
+                .limit(1)
+            )
+            user = await db.get(User, owner) if owner is not None else None
+            to = user.email if user is not None else None
         if not to:
             return
         locale = locale_for(business=business)
