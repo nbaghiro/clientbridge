@@ -30,8 +30,8 @@ import { utcSql } from "../datetime";
 import { useCatalogItems } from "./catalog";
 import { useEarnings } from "./earnings";
 import { useThreads } from "./messaging";
-import { usePaymentNotices } from "./gettingPaid";
-import { canManagePayments, isRefundRow, useStripeAccountId } from "./payments";
+import { type usePaymentNotices, useAccountNotices } from "./gettingPaid";
+import { canManagePayments, isRefundRow } from "./payments";
 import { useReviews } from "./reviews";
 import { staffName, useStaff } from "./staff";
 import { useReplicaLoad } from "./sync";
@@ -568,7 +568,7 @@ export function useOwnerToday(api: ApiLike, viewer: Viewer | null): OwnerToday {
     });
     const load = useReplicaLoad([result], agenda.length === 0 && attention.length === 0);
     const moneyLoad = useReplicaLoad([summary], false);
-    const notices = usePaymentNotices(api, useStripeAccountId() !== null, false);
+    const notices = useAccountNotices(api, viewer?.role ?? null);
     return {
         load,
         moneyLoad,

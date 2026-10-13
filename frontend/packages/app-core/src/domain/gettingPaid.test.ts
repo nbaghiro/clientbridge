@@ -1,7 +1,49 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment happy-dom
+import { renderHook, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
+import type { ApiLike } from "../api";
 import { strings } from "../strings";
-import { noticesNeedAttention, requirementCopy } from "./gettingPaid";
+import { noticesNeedAttention, requirementCopy, useAccountNotices } from "./gettingPaid";
+
+vi.mock("../hooks", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../hooks")>()),
+    useBusinessQuery: () => ({ data: [{ id: "bz_one" }] }),
+}));
+
+function statusApi(connected: boolean): ApiLike & { asked: string[] } {
+    const asked: string[] = [];
+    return {
+        asked,
+        get: <T>(path: string) => {
+            asked.push(path);
+            return Promise.resolve({ connected } as T);
+        },
+        getText: () => Promise.resolve(""),
+        post: <T>() => Promise.resolve({} as T),
+        patch: <T>() => Promise.resolve({} as T),
+        delete: <T>() => Promise.resolve({} as T),
+    };
+}
+
+describe("useAccountNotices", () => {
+    it("shows Stripe's notices only to a manager of a business that takes payments", async () => {
+        const merchant = statusApi(true);
+        const { result } = renderHook(() => useAccountNotices(merchant, "owner"));
+        await waitFor(() => {
+            expect(result.current).not.toBeNull();
+        });
+        const billingOnly = statusApi(false);
+        const quiet = renderHook(() => useAccountNotices(billingOnly, "owner"));
+        await waitFor(() => {
+            expect(billingOnly.asked).toEqual(["/v1/connect/status"]);
+        });
+        expect(quiet.result.current).toBeNull();
+        const staff = statusApi(true);
+        expect(renderHook(() => useAccountNotices(staff, "staff")).result.current).toBeNull();
+        expect(staff.asked).toEqual([]);
+    });
+});
 
 const g = strings.gettingPaid;
 

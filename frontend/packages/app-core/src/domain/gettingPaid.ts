@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatDate, parseTimestamp, useBusinessZone } from "../datetime";
 import type { PaymentAccountComponent, PaymentAccountProps, PaymentNoticesProps } from "../ui";
 import { useBusinessId } from "./business";
+import { canManagePayments } from "./payments";
 import { strings } from "../strings";
 import type { ApiLike } from "../api";
 
@@ -21,11 +22,16 @@ interface ConnectStatus {
 }
 
 /** `null` while loading, `"error"` if the fetch failed; bump `reloadKey` to refetch. */
-function useConnectStatus(api: ApiLike, reloadKey = 0): ConnectStatus | "error" | null {
+function useConnectStatus(
+    api: ApiLike,
+    reloadKey = 0,
+    enabled = true,
+): ConnectStatus | "error" | null {
     const [status, setStatus] = useState<ConnectStatus | "error" | null>(null);
     const businessId = useBusinessId();
     useEffect(() => {
         setStatus(null);
+        if (!enabled) return;
         let active = true;
         api.get<ConnectStatus>("/v1/connect/status")
             .then((value) => {
@@ -37,7 +43,7 @@ function useConnectStatus(api: ApiLike, reloadKey = 0): ConnectStatus | "error" 
         return () => {
             active = false;
         };
-    }, [api, reloadKey, businessId]);
+    }, [api, reloadKey, businessId, enabled]);
     return status;
 }
 
@@ -230,6 +236,14 @@ export function noticesNeedAttention(phase: ConnectPhase, due: number): boolean 
 }
 
 type PaymentNotices = Omit<PaymentNoticesProps, "onReview" | "reviewing">;
+
+/** Stripe's banner outside Getting paid: managers of a business whose account takes payments. */
+export function useAccountNotices(api: ApiLike, role: string | null): PaymentNotices | null {
+    const manager = canManagePayments(role);
+    const status = useConnectStatus(api, 0, manager);
+    const connected = manager && status !== null && status !== "error" && status.connected;
+    return usePaymentNotices(api, connected, false);
+}
 
 /** The account notices banner Stripe requires where owners see payments, once an account exists. */
 export function usePaymentNotices(
