@@ -323,7 +323,12 @@ class FakeCli:
         if method == "post":
             self.created += 1
             card = {"brand": "visa", "last4": "4242", "exp_month": 12, "exp_year": 2034}
-            return json.dumps({"id": f"obj_{self.created}", "card": card})
+            made: dict[str, object] = {"id": f"obj_{self.created}", "card": card}
+            if path == "/v1/webhook_endpoints":
+                made["secret"] = f"whsec_endpoint_{self.created}"
+            if path == "/v2/core/event_destinations":
+                made["webhook_endpoint"] = {"signing_secret": "whsec_destination"}
+            return json.dumps(made)
         if path.startswith(("/v1/payment_methods/", "/v1/customers/")):
             return json.dumps({"error": {"message": "No such object"}})
         return json.dumps({"data": [], "has_more": False})
@@ -617,3 +622,35 @@ def test_local_runs_take_the_listen_secret_and_flag_an_expiring_cli_key(
     assert "STRIPE_WEBHOOK_SECRET=whsec_...cret" in out
     assert "STRIPE_PLATFORM_WEBHOOK_SECRET=whsec_...cret" in out
     assert "expires" in out
+
+
+def _flag(call: Sequence[str], name: str) -> str | None:
+    return call[call.index(name) + 1] if name in call else None
+
+
+def test_apply_creates_in_order_with_keys_and_reports_each_new_secret(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    cli = FakeCli()
+    assert main(["--apply", "--webhook-url", URL, "--show-secrets"], runner=cli) == 0
+    posts = [call for call in cli.calls if call[0] == "post"]
+    assert [call[1] for call in posts] == [
+        "/v1/webhook_endpoints",
+        "/v1/webhook_endpoints",
+        "/v2/core/event_destinations",
+        *["/v1/products"] * 3,
+        *["/v1/prices"] * 5,
+        "/v1/billing_portal/configurations",
+        *["/v2/core/accounts"] * 2,
+    ]
+    keys = [_flag(call, "--idempotency") for call in posts]
+    assert keys[:3] == [None, None, None]
+    assert all(str(key).startswith("clientbridge-product-") for key in keys[3:6])
+    assert all(str(key).startswith("clientbridge-price-") for key in keys[6:11])
+    assert all(str(key).startswith("clientbridge-demo-account-") for key in keys[12:])
+    assert all(_flag(call, "--stripe-version") == STRIPE_API_VERSION for call in posts)
+    out = capsys.readouterr().out
+    assert "STRIPE_WEBHOOK_SECRET=whsec_endpoint_1" in out
+    assert "STRIPE_PLATFORM_WEBHOOK_SECRET=whsec_endpoint_2" in out
+    assert "STRIPE_THIN_WEBHOOK_SECRET=whsec_destination" in out
+    assert "STRIPE_PORTAL_CONFIGURATION=obj_12" in out
