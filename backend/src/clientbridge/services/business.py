@@ -18,6 +18,8 @@ from clientbridge.schemas.business import BusinessSettingsUpdate, OnboardBody, p
 
 _POSTAL_CODE = re.compile(r"\b([A-Z]\d[A-Z])\s?(\d[A-Z]\d)\b", re.IGNORECASE)
 _COUNTRY = ("canada", "ca")
+# a unit or street line: a number, #, or a unit word, which a city name never starts with
+_UNIT = re.compile(r"(#|\d|(apt|apartment|app|appartement|unit|suite|bureau|ste)\b)", re.I)
 _PROVINCES: dict[str, ProvinceCode] = {
     "alberta": "AB",
     "british columbia": "BC",
@@ -67,9 +69,9 @@ def postal_address(business: Business) -> PostalAddress:
             if whole is None:
                 parts[-1] = named[0].strip() if len(named) > 1 else ""
                 parts = [p for p in parts if p]
-            elif len(parts) > 2:
+            elif len(parts) > 2 and not _UNIT.match(parts[-2]):
                 parts.pop()
-            # otherwise the full name is the only city part, as in Québec, QC
+            # otherwise the full name is the city, as in "Apt 2, Québec" or "Rue X, Québec"
     if len(parts) < 2:
         raise Unprocessable(
             "add the business street address, city, province and postal code in Business "

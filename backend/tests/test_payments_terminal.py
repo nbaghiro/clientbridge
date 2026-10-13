@@ -140,6 +140,13 @@ def test_a_city_named_like_its_province_stays_the_city(address: str) -> None:
     )
 
 
+def test_a_unit_line_before_a_city_named_like_its_province_keeps_the_city() -> None:
+    address = "1 Rue Saint-Louis, Apt 2, Québec G1R 3Z2"
+    assert postal_address(_business(address, "QC")) == PostalAddress(
+        "1 Rue Saint-Louis", "Québec", "QC", "G1R 3Z2", line2="Apt 2"
+    )
+
+
 @pytest.mark.parametrize(
     ("address", "province"),
     [
