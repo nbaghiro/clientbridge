@@ -19,12 +19,12 @@ case "$1" in
 install)
     (yes || true) | "$tools/sdkmanager" --licenses > /dev/null
     "$tools/sdkmanager" --install "$IMAGE" > /dev/null
-    # after the image, whose install pulls in the latest emulator as a dependency
+    echo no | "$tools/avdmanager" create avd --force -n "$AVD" -k "$IMAGE"
+    # the image pulls in the latest emulator, which avdmanager needs; the pinned build replaces it
     rm -rf "$sdk/emulator"
     curl -fsSL --retry 5 --retry-all-errors -o /tmp/emulator.zip \
         "https://dl.google.com/android/repository/emulator-linux_x64-$EMULATOR_BUILD.zip"
     unzip -q /tmp/emulator.zip -d "$sdk"
-    echo no | "$tools/avdmanager" create avd --force -n "$AVD" -k "$IMAGE"
     # boot once and quit, so later runs resume from the saved quick-boot snapshot
     boot
     adb emu kill
