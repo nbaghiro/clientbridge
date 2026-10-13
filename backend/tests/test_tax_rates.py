@@ -19,7 +19,7 @@ PUBLISHED: dict[str, list[tuple[str, str]]] = {
     # https://www2.gov.bc.ca/gov/content/taxes/sales-taxes/pst
     "BC": [("GST", "0.05"), ("PST", "0.07")],
     # https://www.gov.mb.ca/finance/taxation/taxes/retail.html
-    "MB": [("GST", "0.05"), ("PST", "0.07")],
+    "MB": [("GST", "0.05"), ("RST", "0.07")],
     "NB": [("HST", "0.15")],
     "NL": [("HST", "0.15")],
     "NS": [("HST", "0.14")],

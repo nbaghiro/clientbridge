@@ -122,7 +122,7 @@ class ReportService:
         tax = await self._tax_by_code(lo, hi)
         return GstHstReport(
             tax_collected_cents=tax.get("GST", 0) + tax.get("HST", 0),
-            pst_cents=tax.get("PST", 0),
+            pst_cents=tax.get("PST", 0) + tax.get("RST", 0),
             qst_cents=tax.get("QST", 0),
             taxable_sales_cents=await self.taxable_sales(lo, hi),
             gst_hst_number=business.gst_hst_number,
@@ -311,7 +311,7 @@ class ReportService:
         tz = zone(business.timezone)
         lo, hi = period_bounds(start, end, tz)
         rates = rates_on(business.province, datetime.now(tz).date())
-        provincial = next((r for r in rates if r.jurisdiction in ("PST", "QST")), None)
+        provincial = next((r for r in rates if r.jurisdiction in ("PST", "QST", "RST")), None)
         tax = await self._tax_by_code(lo, hi)
         return ReportSummary(
             start=start,

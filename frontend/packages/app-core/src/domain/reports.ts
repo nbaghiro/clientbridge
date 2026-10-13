@@ -184,10 +184,12 @@ export interface ReportsView {
 const rateText = (code: string, bps: number | null | undefined): string =>
     bps === null || bps === undefined ? "" : ratePct(code, bps);
 
+const PROVINCIAL = ["PST", "QST", "RST"];
+
 function buildView(r: ReportSummary, span: ReportSpan, now: Date, zone: string): ReportsView {
     const rate = new Map(r.rates.map((x) => [x.code, x.rate_bps]));
     const taxLines = Object.entries(r.income.tax_by_code)
-        .sort(([a], [b]) => (a === "PST" || a === "QST" ? 1 : b === "PST" || b === "QST" ? -1 : 0))
+        .sort(([a], [b]) => (PROVINCIAL.includes(a) ? 1 : PROVINCIAL.includes(b) ? -1 : 0))
         .map(([code, cents]) => ({
             code,
             label: strings.reports.taxCollected(taxName(code)),

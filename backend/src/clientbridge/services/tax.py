@@ -31,7 +31,8 @@ RATES: tuple[Rate, ...] = (
     Rate("BC", "GST", Decimal("0.05"), _GST_5),
     Rate("BC", "PST", Decimal("0.07"), date(2013, 4, 1)),
     Rate("MB", "GST", Decimal("0.05"), _GST_5),
-    Rate("MB", "PST", Decimal("0.07"), date(2019, 7, 1)),
+    # Manitoba's provincial sales tax is the Retail Sales Tax
+    Rate("MB", "RST", Decimal("0.07"), date(2019, 7, 1)),
     Rate("NB", "HST", Decimal("0.15"), date(2016, 7, 1)),
     Rate("NL", "HST", Decimal("0.15"), date(2016, 7, 1)),
     Rate("NS", "HST", Decimal("0.15"), date(2010, 7, 1)),

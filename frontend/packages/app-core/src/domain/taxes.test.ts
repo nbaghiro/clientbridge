@@ -93,7 +93,7 @@ describe("taxExample", () => {
         expect(taxExample("standard", "QC", true, DAY, 100000).lines.map((l) => l.cents)).toEqual([
             5000, 9975,
         ]);
-        expect(taxSummary("MB", DAY)).toBe("GST 5% + PST 7%");
+        expect(taxSummary("MB", DAY)).toBe("GST 5% + RST 7%");
         expect(taxSummary("QC", DAY)).toBe("GST 5% + QST 9.975%");
     });
 

@@ -34,7 +34,7 @@ from clientbridge.services.tax import rates_on
 
 FAMILY_CODES: dict[str, tuple[str, ...]] = {
     "federal": ("GST", "HST"),
-    "provincial": ("PST", "QST"),
+    "provincial": ("PST", "QST", "RST"),
 }
 _HISTORY_YEARS = 2
 

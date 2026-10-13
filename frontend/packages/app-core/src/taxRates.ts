@@ -8,7 +8,7 @@ export const TAX_RATES: readonly RateRow[] = [
     { province: "BC", code: "GST", ppm: 50000, from: "2008-01-01" },
     { province: "BC", code: "PST", ppm: 70000, from: "2013-04-01" },
     { province: "MB", code: "GST", ppm: 50000, from: "2008-01-01" },
-    { province: "MB", code: "PST", ppm: 70000, from: "2019-07-01" },
+    { province: "MB", code: "RST", ppm: 70000, from: "2019-07-01" },
     { province: "NB", code: "HST", ppm: 150000, from: "2016-07-01" },
     { province: "NL", code: "HST", ppm: 150000, from: "2016-07-01" },
     { province: "NS", code: "HST", ppm: 150000, from: "2010-07-01" },

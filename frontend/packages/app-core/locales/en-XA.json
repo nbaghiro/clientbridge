@@ -7937,6 +7937,9 @@
     "taxes.names.QST": {
         "message": "[ǪŠŢ one]"
     },
+    "taxes.names.RST": {
+        "message": "[ŔŠŢ one]"
+    },
     "taxes.rate": {
         "message": "{name} {rate}"
     },

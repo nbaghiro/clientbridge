@@ -8456,6 +8456,10 @@
     "taxes.names.QST": {
         "message": "QST"
     },
+    "taxes.names.RST": {
+        "message": "RST",
+        "description": "Manitoba's Retail Sales Tax, its provincial sales tax."
+    },
     "taxes.rate": {
         "message": "{name} {rate}",
         "args": ["name", "rate"],

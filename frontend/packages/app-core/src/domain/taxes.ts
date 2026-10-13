@@ -260,7 +260,7 @@ export function useTaxSettingsForm(
             label: rateLabel(l),
             level: isFederal(l.code) ? "federal" : "provincial",
         })),
-        hasPst: lines.some((l) => l.code === "PST"),
+        hasPst: lines.some((l) => l.code === "PST" || l.code === "RST"),
         registration: draft.registration,
         setRegistration: (r) => {
             edit({ registration: r });

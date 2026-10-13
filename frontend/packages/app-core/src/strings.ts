@@ -2831,6 +2831,7 @@ interface Strings {
             readonly HST: string;
             readonly PST: string;
             readonly QST: string;
+            readonly RST: string;
         } & Labels;
         readonly rate: (name: string, rate: string) => string;
         readonly plus: (first: string, second: string) => string;
