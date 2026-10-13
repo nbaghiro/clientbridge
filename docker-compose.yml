@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54
+    image: postgres:16@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54
     command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=4"]
     environment:
       POSTGRES_USER: clientbridge

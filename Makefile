@@ -35,8 +35,8 @@ help:
 	@echo "test             test-backend + test-frontend"
 	@echo "test-backend     pytest with the 90% branch-coverage gate, on a freshly seeded database of its own"
 	@echo "test-frontend    the frontend unit tests, with app-core again in three time zones"
-	@echo "test-contract    real StripeGateway vs stripe-mock (starts it; auto-skips if down)"
-	@echo "test-kratos      KratosIdentityProvider vs the local Kratos (auto-skips if down)"
+	@echo "test-contract    real StripeGateway vs stripe-mock (starts it; skips locally and fails in CI if it is down)"
+	@echo "test-kratos      KratosIdentityProvider vs the local Kratos (skips locally and fails in CI if it is down)"
 	@echo "kratos-standalone Kratos on the host network for CI (Postgres as a service container)"
 	@echo "test-e2e         Stripe and Resend test-mode flows (needs STRIPE_TEST_SECRET_KEY, RESEND_TEST_API_KEY and RESEND_TEST_FROM)"
 	@echo "stripe-mock      start the stripe-mock contract-test service on :8708"
@@ -170,11 +170,11 @@ stripe-mock:
 	docker compose --profile test up -d stripe-mock
 	@echo "stripe-mock on http://localhost:8708"
 
-# Contract tier: real StripeGateway vs the OpenAPI mock. Auto-skips if stripe-mock isn't reachable.
+# Contract tier: real StripeGateway vs the OpenAPI mock; skips locally and fails in CI when it is down.
 test-contract: stripe-mock
 	cd backend && uv run pytest -m contract -q
 
-# Contract tier: the real KratosIdentityProvider vs the local Kratos. Auto-skips if Kratos is down.
+# Contract tier: the real KratosIdentityProvider vs the local Kratos; skips locally and fails in CI when it is down.
 test-kratos:
 	cd backend && uv run pytest -m kratos -q
 
