@@ -1,13 +1,18 @@
+import asyncio
 import json
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import httpx
 import pytest
 import stripe
+from scripts.seed_demo import purge_businesses
 from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from clientbridge.core.config import get_settings
+from clientbridge.core.db import SessionLocal
+from clientbridge.core.deps import Principal
 from clientbridge.integrations.stripe import (
     ConnectComponent,
     StripeGateway,
@@ -17,7 +22,8 @@ from clientbridge.integrations.stripe import (
 from clientbridge.models.business import Business
 from clientbridge.models.platform import Audit, IdempotencyKey
 from clientbridge.services.business import derive_kyc_status, kyc_status
-from tests.conftest import FakePaymentGateway
+from clientbridge.services.payments import PaymentService
+from tests.conftest import Factory, FakePaymentGateway
 
 BIZ = "bz_birchbark"
 
@@ -486,3 +492,43 @@ async def test_embedded_adapter_grants_only_requested_features(
         assert set(components) == {"payouts"}
         features = cast(dict[str, object], components["payouts"]["features"])
         assert not any(features.values())
+
+
+async def test_two_onboardings_at_once_create_one_account(db: AsyncSession) -> None:
+    async with SessionLocal() as setup:
+        factory = Factory(setup)
+        business = await factory.business(name="Race Onboarding")
+        user = await factory.user()
+        staff = await factory.staff(business=business, user=user, role="owner")
+        await setup.commit()
+    principal = Principal(user_id=user.id, business_id=business.id, staff_id=staff.id, role="owner")
+    gateway = FakePaymentGateway()
+    creating = asyncio.Event()
+    release = asyncio.Event()
+    create = gateway.create_connected_account
+
+    async def slow_create(**kwargs: Any) -> str:
+        creating.set()
+        await release.wait()
+        return await create(**kwargs)
+
+    gateway.create_connected_account = slow_create  # type: ignore[method-assign]
+
+    async def onboard() -> None:
+        async with SessionLocal() as session:
+            await PaymentService(session, principal, gateway).start_onboarding(None)
+
+    try:
+        first = asyncio.create_task(onboard())
+        await creating.wait()
+        second = asyncio.create_task(onboard())
+        await asyncio.sleep(0.3)
+        release.set()
+        await asyncio.gather(first, second)
+        assert len(gateway.created_accounts) == 1
+    finally:
+        owner = create_async_engine(get_settings().migration_database_url)
+        async with AsyncSession(owner) as session:
+            await purge_businesses(session, [business.id], [user.id])
+            await session.commit()
+        await owner.dispose()

@@ -131,10 +131,11 @@ class PaymentService:
 
     async def start_onboarding(self, idempotency_key: str | None) -> OnboardingLink:
         self._assert_admin()
-        business = await self._business()
         settings = get_settings()
 
         async def run(cmd: Command) -> OnboardingLink:
+            # the lock makes a concurrent onboarding or plan Checkout reuse this account
+            business = await self._locked_business()
             account_id = await self._ensure_merchant(business, cmd)
             url = await self.gateway.create_account_link(
                 account_id,
@@ -156,11 +157,7 @@ class PaymentService:
 
     async def account_session(self, component: ConnectComponent) -> ConnectSessionOut:
         self._assert_admin()
-        business = (
-            await self.db.execute(select(Business).where(Business.id == self.biz).with_for_update())
-        ).scalar_one_or_none()
-        if business is None:
-            raise NotFound("business not found")
+        business = await self._locked_business()
         if business.stripe_account_id is None or not has_merchant(business):
             if component != "onboarding":
                 raise Conflict("set up payments before managing your payment account")
@@ -722,6 +719,14 @@ class PaymentService:
         assert_role(
             self.principal, "owner", "admin", message="only an owner or admin can manage payments"
         )
+
+    async def _locked_business(self) -> Business:
+        row = (
+            await self.db.execute(select(Business).where(Business.id == self.biz).with_for_update())
+        ).scalar_one_or_none()
+        if row is None:
+            raise NotFound("business not found")
+        return row
 
     async def _business(self) -> Business:
         row = await self.db.get(Business, self.biz)
