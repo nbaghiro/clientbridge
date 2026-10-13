@@ -19,27 +19,16 @@ LATTE = {"description": "Latte", "quantity": 2, "unit_amount_cents": 500}
     [("card", 30), ("card_present", 50), ("acss_debit", 200)],
 )
 def test_each_method_keeps_the_total_within_the_ceiling(method: FeeMethod, fee: int) -> None:
-    assert application_fee_cents(10_000, method, international=False, converted=False) == fee
+    assert application_fee_cents(10_000, method, converted=False) == fee
 
 
-@pytest.mark.parametrize(
-    ("method", "international", "converted"),
-    [
-        ("card", True, False),
-        ("card_present", True, False),
-        ("card", False, True),
-        ("card_present", False, True),
-    ],
-)
-def test_an_international_or_converted_charge_carries_no_fee_of_ours(
-    method: FeeMethod, international: bool, converted: bool
-) -> None:
-    fee = application_fee_cents(10_000, method, international=international, converted=converted)
-    assert fee == 0
+@pytest.mark.parametrize("method", ["card", "card_present"])
+def test_a_converted_card_charge_carries_no_fee_of_ours(method: FeeMethod) -> None:
+    assert application_fee_cents(10_000, method, converted=True) == 0
 
 
 def test_a_converted_debit_keeps_what_is_left_under_the_ceiling() -> None:
-    assert application_fee_cents(10_000, "acss_debit", international=False, converted=True) == 20
+    assert application_fee_cents(10_000, "acss_debit", converted=True) == 20
 
 
 def test_the_fee_is_clamped_to_the_maximum_and_never_negative(
@@ -47,9 +36,9 @@ def test_the_fee_is_clamped_to_the_maximum_and_never_negative(
 ) -> None:
     settings = get_settings()
     monkeypatch.setattr(settings, "platform_fee_max_bps", 150)
-    assert application_fee_cents(10_000, "acss_debit", international=False, converted=False) == 150
+    assert application_fee_cents(10_000, "acss_debit", converted=False) == 150
     monkeypatch.setattr(settings, "platform_fee_ceiling_bps", 250)
-    assert application_fee_cents(10_000, "card", international=False, converted=False) == 0
+    assert application_fee_cents(10_000, "card", converted=False) == 0
 
 
 async def _saved(db: AsyncSession, cid: str, ref: str, method: str) -> str:
@@ -81,12 +70,7 @@ async def _charge_saved(
 
 
 @pytest.mark.parametrize(
-    ("ref", "method", "country", "fee"),
-    [
-        ("pm_domestic", "card", "CA", 30),
-        ("pm_abroad", "card", "US", 0),
-        ("pm_pad", "bank_eft", None, 200),
-    ],
+    ("ref", "method", "fee"), [("pm_saved", "card", 30), ("pm_pad", "bank_eft", 200)]
 )
 async def test_a_saved_method_is_charged_its_own_fee(
     as_owner: httpx.AsyncClient,
@@ -94,12 +78,9 @@ async def test_a_saved_method_is_charged_its_own_fee(
     gateway: FakePaymentGateway,
     ref: str,
     method: str,
-    country: str | None,
     fee: int,
 ) -> None:
     await enable_payments(db)
-    if country is not None:
-        gateway.card_countries[ref] = country
     method_id = await _saved(db, await client_id(db), ref, method)
     assert await _charge_saved(as_owner, db, gateway, method_id) == fee
 
@@ -126,14 +107,16 @@ async def test_tap_to_pay_takes_the_card_present_fee(
     assert fee == amount * 50 // 10_000
 
 
-async def test_a_saved_card_missing_from_stripe_is_a_conflict_before_any_charge(
-    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+async def test_every_saved_card_takes_the_domestic_card_fee_without_asking_stripe(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    async def abroad(*args: object, **kwargs: object) -> str:
+        return "US"
+
+    monkeypatch.setattr(gateway, "get_card_country", abroad, raising=False)
     await enable_payments(db)
-    gateway.missing_methods.add("pm_gone")
-    method_id = await _saved(db, await client_id(db), "pm_gone", "card")
-    cid = await db.execute(select(PaymentMethod.client_id).where(PaymentMethod.id == method_id))
-    inv = await sent_invoice(db, client=cid.scalar_one(), total=10_000)
-    body = {"method": "card", "amount_cents": 10_000, "payment_method_id": method_id}
-    res = await as_owner.post(f"/v1/invoices/{inv}/payments", json=body)
-    assert res.status_code == 409 and gateway.charges == {}
+    method_id = await _saved(db, await client_id(db), "pm_abroad", "card")
+    assert await _charge_saved(as_owner, db, gateway, method_id) == 30

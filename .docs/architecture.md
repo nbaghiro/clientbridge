@@ -461,13 +461,11 @@ file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it
 - **Application fee.** `services/payments.application_fee_cents` sizes our fee per method so Stripe's
   percentage plus ours stays at or under `PLATFORM_FEE_CEILING_BPS` (3.2%), and never above
   `PLATFORM_FEE_MAX_BPS` (2%). Stripe's Canadian rates are settings: card online 2.9% (our fee 0.3%),
-  card present 2.7% (0.5%), pre-authorized debit 1% (2%), plus 0.8% for a card issued outside Canada and
-  2% for a charge in a currency other than CAD. The business pays 3.2% + $0.30 online, 3.2% + $0.05 in
-  person and 3% + $0.40 by debit. A saved card's issuing country is read from Stripe before the charge,
-  so an international saved card carries no fee of ours. A new card online, Tap to Pay and Link are
-  priced at the domestic card rate because the card is only known after the intent exists, so a card
-  issued abroad there costs the business 4% (online) or 3.7% (in person) in total; a debit through the
-  card form is priced as a card and pays less than its own rate. Subscriptions charge no application
+  card present 2.7% (0.5%), pre-authorized debit 1% (2%), and 2% more for a charge in a currency other
+  than CAD. The business pays 3.2% + $0.30 online, 3.2% + $0.05 in person and 3% + $0.40 by debit.
+  Every card, saved or new, is priced at the domestic card rate without asking Stripe where it was
+  issued, so a card issued outside Canada costs the business Stripe's 0.8% on top: 4% online or 3.7% in
+  person in total. A debit through the card form is priced as a card and pays less than its own rate. Subscriptions charge no application
   fee today.
 - **Connected accounts** are created with `POST /v2/core/accounts`: `dashboard=none` (businesses manage
   everything through embedded components), `fees_collector=stripe` (Stripe takes its processing fee from

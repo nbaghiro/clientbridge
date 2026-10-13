@@ -70,7 +70,6 @@ class Settings(BaseSettings):
     stripe_card_bps: int = 290
     stripe_card_present_bps: int = 270
     stripe_acss_debit_bps: int = 100
-    stripe_international_card_bps: int = 80
     stripe_conversion_bps: int = 200
     auth_email_hook_secret: str = _DEV_COURIER_SECRET  # matches docker-compose.yml's kratos
 

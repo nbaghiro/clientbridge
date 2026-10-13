@@ -1015,9 +1015,7 @@ async def ensure_subscription_price(
 type FeeMethod = Literal["card", "card_present", "acss_debit"]
 
 
-def application_fee_cents(
-    amount: int, method: FeeMethod, *, international: bool, converted: bool
-) -> int:
+def application_fee_cents(amount: int, method: FeeMethod, *, converted: bool) -> int:
     """Our fee, sized so Stripe's percentage plus ours stays within the ceiling."""
     settings = get_settings()
     stripe_bps = {
@@ -1025,8 +1023,6 @@ def application_fee_cents(
         "card_present": settings.stripe_card_present_bps,
         "acss_debit": settings.stripe_acss_debit_bps,
     }[method]
-    if international:
-        stripe_bps += settings.stripe_international_card_bps
     if converted:
         stripe_bps += settings.stripe_conversion_bps
     room = settings.platform_fee_ceiling_bps - stripe_bps
@@ -1042,10 +1038,10 @@ async def charge_fee_cents(
     currency: str,
     payment_method: str | None,
 ) -> int:
-    """The application fee for an online charge; a new card is priced as a domestic card."""
+    """The application fee for an online charge; every card is priced as a domestic card."""
     converted = currency.lower() != SETTLEMENT_CURRENCY
     if payment_method is None:
-        return application_fee_cents(amount, "card", international=False, converted=converted)
+        return application_fee_cents(amount, "card", converted=converted)
     saved = (
         await db.execute(
             scoped(PaymentMethod, business_id)
@@ -1054,10 +1050,8 @@ async def charge_fee_cents(
         )
     ).scalar_one_or_none()
     if saved == "bank_eft":
-        return application_fee_cents(amount, "acss_debit", international=False, converted=converted)
-    country = await gateway.get_card_country(account_id, payment_method_id=payment_method)
-    international = country is not None and country != get_settings().stripe_connect_country
-    return application_fee_cents(amount, "card", international=international, converted=converted)
+        return application_fee_cents(amount, "acss_debit", converted=converted)
+    return application_fee_cents(amount, "card", converted=converted)
 
 
 async def open_card_payment(
@@ -1356,7 +1350,6 @@ async def open_terminal_payment(
     fee = application_fee_cents(
         amount,
         "card_present",
-        international=False,
         converted=order.currency.lower() != SETTLEMENT_CURRENCY,
     )
     intent = await gateway.create_terminal_payment_intent(

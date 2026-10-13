@@ -371,14 +371,6 @@ async def test_plan_items_already_in_place_send_nothing_and_changes_key_on_their
     assert first.startswith("seats:") and second.startswith("seats:") and first != second
 
 
-async def test_the_country_of_a_card_from_another_account_is_a_conflict(
-    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(stripe.PaymentMethod, "retrieve_async", _raises(_missing("id")))
-    with pytest.raises(Conflict):
-        await gateway.get_card_country("acct_x", payment_method_id="pm_old")
-
-
 async def test_a_price_gone_from_stripe_reads_as_none(
     gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
 ) -> None:
