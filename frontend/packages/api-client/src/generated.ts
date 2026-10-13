@@ -7065,8 +7065,11 @@ export interface components {
         ReportRate: {
             /** Code */
             code: string;
-            /** Rate Bps */
-            rate_bps: number;
+            /**
+             * Rate Bps
+             * @description Null when the rate changed within the period
+             */
+            rate_bps: number | null;
         };
         /** ReportSummary */
         ReportSummary: {

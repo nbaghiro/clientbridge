@@ -35,7 +35,7 @@ from clientbridge.schemas.reports import (
     T4ARow,
 )
 from clientbridge.services import ledger
-from clientbridge.services.tax import rates_on
+from clientbridge.services.tax import FAMILY_CODES, rates_on
 
 _CASH = ("stripe", "bank", "cash")
 _MONEY_BACK = ("payment", "refund", "dispute")
@@ -310,8 +310,14 @@ class ReportService:
         business = await self._business()
         tz = zone(business.timezone)
         lo, hi = period_bounds(start, end, tz)
-        rates = rates_on(business.province, datetime.now(tz).date())
-        provincial = next((r for r in rates if r.jurisdiction in ("PST", "QST", "RST")), None)
+        # the period's own rates; a rate that changed within the period has no single value
+        rates = rates_on(business.province, min(end, datetime.now(tz).date()))
+        opening = {r.jurisdiction: r.rate_bps for r in rates_on(business.province, start)}
+        steady = {
+            r.jurisdiction: r.rate_bps if opening.get(r.jurisdiction) == r.rate_bps else None
+            for r in rates
+        }
+        provincial = next((r for r in rates if r.jurisdiction in FAMILY_CODES["provincial"]), None)
         tax = await self._tax_by_code(lo, hi)
         return ReportSummary(
             start=start,
@@ -321,9 +327,9 @@ class ReportService:
             gst_hst=await self.gst_hst_return(start, end),
             provincial=ProvincialReport(
                 code=provincial.jurisdiction if provincial else None,
-                rate_bps=provincial.rate_bps if provincial else None,
+                rate_bps=steady[provincial.jurisdiction] if provincial else None,
                 taxable_cents=await self.provincial_base(lo, hi) if provincial else 0,
-                collected_cents=tax.get(provincial.jurisdiction, 0) if provincial else 0,
+                collected_cents=sum(tax.get(c, 0) for c in FAMILY_CODES["provincial"]),
                 number=business.qst_number
                 if provincial is not None and provincial.jurisdiction == "QST"
                 else None,
@@ -332,7 +338,7 @@ class ReportService:
             t4a=await self.t4a_payees(end.year),
             months=await self._months(end, tz),
             payouts=await self.payouts(lo, hi),
-            rates=[ReportRate(code=r.jurisdiction, rate_bps=r.rate_bps) for r in rates],
+            rates=[ReportRate(code=code, rate_bps=bps) for code, bps in steady.items()],
         )
 
     async def _tax_by_code(self, lo: datetime, hi: datetime) -> dict[str, int]:

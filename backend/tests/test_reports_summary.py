@@ -6,10 +6,12 @@ import zipfile
 from datetime import UTC, datetime
 
 import httpx
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice, Line
+from clientbridge.models.business import Business
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from clientbridge.services.ledger import Leg
@@ -17,8 +19,8 @@ from clientbridge.services.tax import TaxResult
 from tests.conftest import BIZ, Factory
 from tests.helpers import client_id
 
-YEAR = "start=1999-01-01&end=1999-12-31"
-MARCH = datetime(1999, 3, 10, 18, tzinfo=UTC)
+YEAR = "start=2015-01-01&end=2015-12-31"
+MARCH = datetime(2015, 3, 10, 18, tzinfo=UTC)
 
 
 async def _sale(db: AsyncSession, business_id: str = BIZ, client: str | None = None) -> None:
@@ -123,12 +125,12 @@ async def test_summary_reads_every_report(as_owner: httpx.AsyncClient, db: Async
     assert body["gst_hst"]["tax_collected_cents"] == 250
     assert body["provincial"]["collected_cents"] == 350
     assert body["provincial"]["taxable_cents"] == 10000
-    assert [m["month"] for m in body["months"]][:3] == ["1999-01", "1999-02", "1999-03"]
+    assert [m["month"] for m in body["months"]][:3] == ["2015-01", "2015-02", "2015-03"]
     assert len(body["months"]) == 12
     assert body["months"][2]["net_cents"] == 5000
     assert [p["amount_cents"] for p in body["payouts"]] == [5000]
     assert body["payouts"][0]["status"] == "paid"
-    assert body["t4a_year"] == 1999
+    assert body["t4a_year"] == 2015
     assert {r["code"] for r in body["rates"]} >= {"GST"}
 
 
@@ -140,8 +142,8 @@ async def test_export_zip_holds_one_csv_per_report(
         "/v1/reports/export",
         json={
             "kinds": ["income", "pst", "payouts", "pst"],
-            "start": "1999-01-01",
-            "end": "1999-12-31",
+            "start": "2015-01-01",
+            "end": "2015-12-31",
         },
     )
     assert res.status_code == 200, res.text
@@ -149,21 +151,21 @@ async def test_export_zip_holds_one_csv_per_report(
     with zipfile.ZipFile(io.BytesIO(res.content)) as zf:
         names = zf.namelist()
         assert names == [
-            "income-1999-01-01-to-1999-12-31.csv",
-            "pst-1999-01-01-to-1999-12-31.csv",
-            "payouts-1999-01-01-to-1999-12-31.csv",
+            "income-2015-01-01-to-2015-12-31.csv",
+            "pst-2015-01-01-to-2015-12-31.csv",
+            "payouts-2015-01-01-to-2015-12-31.csv",
         ]
         pst = list(csv.reader(io.StringIO(zf.read(names[1]).decode())))
         assert pst[1][2:4] == ["10000", "350"]
         payouts = list(csv.reader(io.StringIO(zf.read(names[2]).decode())))
-        assert payouts[1][1:] == ["1999-03-10", "5000", "paid"]
+        assert payouts[1][1:] == ["2015-03-10", "5000", "paid"]
 
 
 async def test_every_kind_exports(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await _sale(db)
     kinds = ["income", "sales-by-item", "gst-hst", "pst", "t4a", "payouts"]
     res = await as_owner.post(
-        "/v1/reports/export", json={"kinds": kinds, "start": "1999-01-01", "end": "1999-12-31"}
+        "/v1/reports/export", json={"kinds": kinds, "start": "2015-01-01", "end": "2015-12-31"}
     )
     with zipfile.ZipFile(io.BytesIO(res.content)) as zf:
         assert len(zf.namelist()) == 6
@@ -180,18 +182,18 @@ async def test_pst_and_payout_csvs(as_owner: httpx.AsyncClient, db: AsyncSession
 
 async def test_export_without_reports_422(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.post(
-        "/v1/reports/export", json={"kinds": [], "start": "1999-01-01", "end": "1999-12-31"}
+        "/v1/reports/export", json={"kinds": [], "start": "2015-01-01", "end": "2015-12-31"}
     )
     assert res.status_code == 422
     unknown = await as_owner.post(
-        "/v1/reports/export", json={"kinds": ["ledger"], "start": "1999-01-01", "end": "1999-12-31"}
+        "/v1/reports/export", json={"kinds": ["ledger"], "start": "2015-01-01", "end": "2015-12-31"}
     )
     assert unknown.status_code == 422
 
 
 async def test_staff_cannot_read_or_export_403(as_staff: httpx.AsyncClient) -> None:
     assert (await as_staff.get(f"/v1/reports/summary?{YEAR}")).status_code == 403
-    body = {"kinds": ["income"], "start": "1999-01-01", "end": "1999-12-31"}
+    body = {"kinds": ["income"], "start": "2015-01-01", "end": "2015-12-31"}
     assert (await as_staff.post("/v1/reports/export", json=body)).status_code == 403
 
 
@@ -219,3 +221,23 @@ async def test_period_with_nothing_reads_zeros(as_owner: httpx.AsyncClient) -> N
         {"month": "1998-02", "net_cents": 0},
     ]
     assert body["t4a"] == []
+
+
+async def test_report_rates_are_the_periods_not_todays(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.execute(update(Business).where(Business.id == BIZ).values(province="NS"))
+    await db.flush()
+    before = (await as_owner.get("/v1/reports/summary?start=2025-01-01&end=2025-03-31")).json()
+    assert {r["code"]: r["rate_bps"] for r in before["rates"]} == {"HST": 1500}
+    spanning = (await as_owner.get("/v1/reports/summary?start=2025-03-01&end=2025-04-30")).json()
+    assert {r["code"]: r["rate_bps"] for r in spanning["rates"]} == {"HST": None}
+
+
+async def test_the_provincial_report_names_the_period_province_tax(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.execute(update(Business).where(Business.id == BIZ).values(province="MB"))
+    await db.flush()
+    body = (await as_owner.get("/v1/reports/summary?start=2025-01-01&end=2025-03-31")).json()
+    assert (body["provincial"]["code"], body["provincial"]["rate_bps"]) == ("RST", 700)

@@ -13,6 +13,13 @@ from clientbridge.services.business import business_province, business_tax_regis
 FEDERAL_CODES = ("GST", "HST")
 
 
+# the codes filed on the federal GST/HST return and on a provincial return
+FAMILY_CODES: dict[str, tuple[str, ...]] = {
+    "federal": ("GST", "HST"),
+    "provincial": ("PST", "QST", "RST"),
+}
+
+
 @dataclass(frozen=True)
 class Rate:
     """A tax a province charges from `valid_from` until a later row for the same code."""

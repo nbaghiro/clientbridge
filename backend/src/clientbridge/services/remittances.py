@@ -30,12 +30,8 @@ from clientbridge.services.reports import (
     period_bounds,
     period_of,
 )
-from clientbridge.services.tax import rates_on
+from clientbridge.services.tax import FAMILY_CODES, rates_on
 
-FAMILY_CODES: dict[str, tuple[str, ...]] = {
-    "federal": ("GST", "HST"),
-    "provincial": ("PST", "QST", "RST"),
-}
 _HISTORY_YEARS = 2
 
 

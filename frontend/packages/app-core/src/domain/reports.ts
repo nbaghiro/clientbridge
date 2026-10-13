@@ -56,7 +56,7 @@ interface ReportSummary {
     t4a: { staff_id: string; name: string; payments: number; total_cents: number }[];
     months: { month: string; net_cents: number }[];
     payouts: { id: string }[];
-    rates: { code: string; rate_bps: number }[];
+    rates: { code: string; rate_bps: number | null }[];
 }
 
 export type ReportPeriodKey = "thisMonth" | "lastMonth" | "lastQuarter" | "ytd";
