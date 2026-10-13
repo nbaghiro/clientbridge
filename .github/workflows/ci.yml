@@ -451,7 +451,9 @@ jobs:
       - name: install Maestro
         env:
           MAESTRO_VERSION: 2.11.0
-        run: curl -fsSL "https://get.maestro.mobile.dev" | bash
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          "$HOME/.maestro/bin/maestro" --version
       - uses: actions/download-artifact@v4
         with:
           name: mobile-apk
@@ -491,18 +493,32 @@ jobs:
           key: ${{ steps.emulator.outputs.key }}
       - name: run the walkthroughs
         run: |
+          set -o pipefail
           frontend/apps/mobile/scripts/ci-emulator.sh start
           adb install app-release.apk
           timeout 300 sh -c 'until curl -sf 127.0.0.1:8701/health; do sleep 2; done'
-          cd frontend/apps/mobile && timeout 20m "$HOME/.maestro/bin/maestro" test shard --test-output-dir test-results
+          cd frontend/apps/mobile
+          timeout 20m "$HOME/.maestro/bin/maestro" test shard --test-output-dir test-results \
+            --debug-output test-results/debug | tee /tmp/maestro.log
+      - name: flag walkthroughs over three times their usual time
+        if: success() || failure()
+        run: frontend/apps/mobile/scripts/slow-flows.sh /tmp/maestro.log
+      - name: collect the logs
+        if: always()
+        run: |
+          mkdir -p frontend/apps/mobile/test-results
+          adb logcat -d -v threadtime > frontend/apps/mobile/test-results/logcat.txt || true
+          cp /tmp/emulator.log /tmp/api.log frontend/apps/mobile/test-results/ || true
       - uses: actions/upload-artifact@v4
-        if: failure() || cancelled()
+        if: always()
         with:
           name: mobile-walkthroughs-${{ matrix.shard.id }}
           path: frontend/apps/mobile/test-results
-          retention-days: 7
+          retention-days: 3
       - if: failure()
         run: |
+          tail -200 /tmp/emulator.log
+          tail -300 frontend/apps/mobile/test-results/logcat.txt
           cat /tmp/api.log
           docker compose logs --no-color kratos | tail -200
 
