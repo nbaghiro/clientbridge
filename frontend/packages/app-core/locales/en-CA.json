@@ -187,7 +187,22 @@
         "message": "Add a business email, phone number or website in Business settings before sending a broadcast."
     },
     "api.businessAddressIncomplete": {
-        "message": "Add the business street address, city, province and postal code in Business settings before taking in-person card payments."
+        "message": "Add the business street address, city, province and postal code in Business settings first."
+    },
+    "api.planRequired": {
+        "message": "This business is paused. Choose a plan to make changes."
+    },
+    "api.seatLimit": {
+        "message": "Your plan has reached its limit of team members."
+    },
+    "api.planActive": {
+        "message": "This business already has a plan. Change it on the plan page."
+    },
+    "api.planNotManaged": {
+        "message": "This business has no plan to change."
+    },
+    "api.businessUnavailable": {
+        "message": "This business isn't taking bookings or orders right now."
     },
     "common.amountWithCurrency": {
         "message": "{amount} {currency}",
@@ -11763,6 +11778,9 @@
     "navigation.setupSections.gettingPaid": {
         "message": "Getting paid"
     },
+    "navigation.setupSections.plan": {
+        "message": "Plan"
+    },
     "navigation.setupSections.taxes": {
         "message": "Sales tax"
     },
@@ -12680,5 +12698,153 @@
     },
     "embed.close": {
         "message": "Close"
+    },
+    "plans.premium": {
+        "message": "Premium"
+    },
+    "plans.team": {
+        "message": "Team"
+    },
+    "plans.premiumSummary": {
+        "message": "For an owner who works alone or with a few staff."
+    },
+    "plans.teamSummary": {
+        "message": "For a business with a larger staff."
+    },
+    "plans.premiumStaff": {
+        "message": "Each team member adds {price} a month.",
+        "args": ["price"]
+    },
+    "plans.teamStaff": {
+        "message": "Your whole team is included, with no charge per person."
+    },
+    "plans.perMonth": {
+        "message": "{price} / month",
+        "description": "A plan price; the amount is already formatted with its currency.",
+        "args": ["price"]
+    },
+    "plans.perYear": {
+        "message": "{price} / year, two months free",
+        "description": "A yearly plan price; the amount is already formatted with its currency.",
+        "args": ["price"]
+    },
+    "plans.monthly": {
+        "message": "Monthly"
+    },
+    "plans.yearly": {
+        "message": "Yearly"
+    },
+    "plans.choose": {
+        "message": "Choose {plan}",
+        "args": ["plan"]
+    },
+    "plans.switchTo": {
+        "message": "Switch to {plan}",
+        "args": ["plan"]
+    },
+    "plans.current": {
+        "message": "Current plan"
+    },
+    "plans.manage": {
+        "message": "Payment method and invoices"
+    },
+    "plans.taxNote": {
+        "message": "Prices are in Canadian dollars, before tax."
+    },
+    "plans.trialTitle": {
+        "message": "{days, plural, =0 {Your free trial ends today} one {# day left in your free trial} other {# days left in your free trial}}",
+        "args": ["days"]
+    },
+    "plans.trialBody": {
+        "message": "Your trial ends {date}. Choose a plan now and billing starts when the trial ends.",
+        "args": ["date"]
+    },
+    "plans.lapsedTitle": {
+        "message": "Your business is paused"
+    },
+    "plans.lapsedBody": {
+        "message": "Choose a plan to keep adding and changing records. You can still sign in and see everything, and clients can still pay invoices you already sent."
+    },
+    "plans.pastDueTitle": {
+        "message": "Your last plan payment didn't go through"
+    },
+    "plans.pastDueBody": {
+        "message": "Update your payment method to keep your plan. Everything keeps working while Stripe retries the payment."
+    },
+    "plans.activeTitle": {
+        "message": "{plan} plan",
+        "args": ["plan"]
+    },
+    "plans.activeBody": {
+        "message": "Billed through Stripe. Change your plan here, and update your payment method or see invoices on the billing page."
+    },
+    "plans.complimentary": {
+        "message": "Your plan is included at no charge."
+    },
+    "plans.seatsLabel": {
+        "message": "Team members"
+    },
+    "plans.seats": {
+        "message": "{count, plural, =0 {Just you} one {# besides you} other {# besides you}}",
+        "args": ["count"]
+    },
+    "plans.renewsLabel": {
+        "message": "Renews"
+    },
+    "plans.endsLabel": {
+        "message": "Ends"
+    },
+    "plans.loading": {
+        "message": "Loading your plan"
+    },
+    "plans.loadError": {
+        "message": "Your plan couldn't be loaded."
+    },
+    "plans.checkoutError": {
+        "message": "Checkout couldn't be opened. Try again."
+    },
+    "plans.changeError": {
+        "message": "Your plan couldn't be changed. Try again."
+    },
+    "plans.portalError": {
+        "message": "The billing page couldn't be opened. Try again."
+    },
+    "plans.subtitle": {
+        "message": "Your Clientbridge plan and its billing."
+    },
+    "plans.noticeTrial": {
+        "message": "{days, plural, =0 {Your free trial ends today.} one {# day left in your free trial.} other {# days left in your free trial.}}",
+        "args": ["days"]
+    },
+    "plans.noticeLapsed": {
+        "message": "This business is paused. Records can be viewed but not changed."
+    },
+    "plans.noticePastDue": {
+        "message": "The last plan payment didn't go through."
+    },
+    "plans.noticeChoose": {
+        "message": "Choose a plan"
+    },
+    "plans.noticeFix": {
+        "message": "Update payment"
+    },
+    "plans.seatCost": {
+        "message": "On Premium, each team member adds {price} a month to your plan.",
+        "args": ["price"]
+    },
+    "plans.interval": {
+        "message": "Billing period"
+    },
+    "plans.status.trial": {
+        "message": "Free trial"
+    },
+    "plans.status.active": {
+        "message": "Active"
+    },
+    "plans.status.past_due": {
+        "message": "Past due"
+    },
+    "plans.status.lapsed": {
+        "message": "Paused"
     }
 }

@@ -44,13 +44,17 @@ describe("what each role sees", () => {
             "services",
             "team",
             "gettingPaid",
+            "plan",
             "taxes",
             "onlineBooking",
             "reminders",
             "security",
         ];
         expect(setupSectionsFor("web", "owner").map((s) => s.key)).toEqual(all);
-        expect(setupSectionsFor("mobile", "admin").map((s) => s.key)).toEqual(all);
+        expect(setupSectionsFor("mobile", "owner").map((s) => s.key)).toEqual(all);
+        expect(setupSectionsFor("mobile", "admin").map((s) => s.key)).toEqual(
+            all.filter((key) => key !== "plan"),
+        );
         expect(setupSectionsFor("web", "staff")).toEqual([
             { key: "team", label: n.setupSections.team, webOnly: false, managersOnly: false },
             {

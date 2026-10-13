@@ -24,6 +24,7 @@ export * from "./domain/billing";
 export * from "./domain/payments";
 export * from "./domain/refunds";
 export * from "./domain/gettingPaid";
+export * from "./domain/plans";
 export * from "./domain/taxes";
 export * from "./domain/checkout";
 export * from "./domain/earnings";

@@ -167,6 +167,7 @@ export type SetupSectionKey =
     | "services"
     | "team"
     | "gettingPaid"
+    | "plan"
     | "taxes"
     | "onlineBooking"
     | "reminders"
@@ -177,6 +178,7 @@ const SETUP_SECTIONS: {
     label: string;
     webOnly: boolean;
     managersOnly: boolean;
+    ownerOnly?: boolean;
 }[] = [
     {
         key: "start",
@@ -219,6 +221,15 @@ const SETUP_SECTIONS: {
         managersOnly: true,
     },
     {
+        key: "plan",
+        get label() {
+            return strings.navigation.setupSections.plan;
+        },
+        webOnly: false,
+        managersOnly: true,
+        ownerOnly: true,
+    },
+    {
         key: "taxes",
         get label() {
             return strings.navigation.setupSections.taxes;
@@ -257,7 +268,10 @@ export function setupSectionsFor(
     role: string | null,
 ): typeof SETUP_SECTIONS {
     return SETUP_SECTIONS.filter(
-        (s) => (platform === "web" || !s.webOnly) && (!s.managersOnly || canManagePayments(role)),
+        (s) =>
+            (platform === "web" || !s.webOnly) &&
+            (!s.managersOnly || canManagePayments(role)) &&
+            (s.ownerOnly !== true || role === "owner"),
     );
 }
 

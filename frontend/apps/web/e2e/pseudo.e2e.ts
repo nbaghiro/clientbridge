@@ -7,6 +7,7 @@ const PAGES = [
     "/clients",
     "/clients/cl_amelie/history",
     "/setup/business",
+    "/setup/plan",
     "/payments/invoices",
 ];
 

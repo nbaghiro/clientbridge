@@ -162,7 +162,22 @@
         "message": "[Åðð å ƀûšîñéšš éɱåîļ, þĥöñé ñûɱƀéŕ öŕ ŵéƀšîţé îñ Ɓûšîñéšš šéţţîñĝš ƀéƒöŕé šéñðîñĝ å ƀŕöåðçåšţ. one two three four five six seven]"
     },
     "api.businessAddressIncomplete": {
-        "message": "[Åðð ţĥé ƀûšîñéšš šţŕééţ åððŕéšš, çîţý, þŕöṽîñçé åñð þöšţåļ çöðé îñ Ɓûšîñéšš šéţţîñĝš ƀéƒöŕé ţåķîñĝ îñ-þéŕšöñ çåŕð þåýɱéñţš. one two three four five six seven eight]"
+        "message": "[Åðð ţĥé ƀûšîñéšš šţŕééţ åððŕéšš, çîţý, þŕöṽîñçé åñð þöšţåļ çöðé îñ Ɓûšîñéšš šéţţîñĝš ƒîŕšţ. one two three four five six]"
+    },
+    "api.planRequired": {
+        "message": "[Ţĥîš ƀûšîñéšš îš þåûšéð. Çĥööšé å þļåñ ţö ɱåķé çĥåñĝéš. one two three four]"
+    },
+    "api.seatLimit": {
+        "message": "[Ýöûŕ þļåñ ĥåš ŕéåçĥéð îţš ļîɱîţ öƒ ţéåɱ ɱéɱƀéŕš. one two three four]"
+    },
+    "api.planActive": {
+        "message": "[Ţĥîš ƀûšîñéšš åļŕéåðý ĥåš å þļåñ. Çĥåñĝé îţ öñ ţĥé þļåñ þåĝé. one two three four]"
+    },
+    "api.planNotManaged": {
+        "message": "[Ţĥîš ƀûšîñéšš ĥåš ñö þļåñ ţö çĥåñĝé. one two three]"
+    },
+    "api.businessUnavailable": {
+        "message": "[Ţĥîš ƀûšîñéšš îšñ'ţ ţåķîñĝ ƀööķîñĝš öŕ öŕðéŕš ŕîĝĥţ ñöŵ. one two three four]"
     },
     "common.amountWithCurrency": {
         "message": "{amount} {currency}"
@@ -11075,6 +11090,9 @@
     "navigation.setupSections.gettingPaid": {
         "message": "[Ĝéţţîñĝ þåîð one two]"
     },
+    "navigation.setupSections.plan": {
+        "message": "[Þļåñ one]"
+    },
     "navigation.setupSections.taxes": {
         "message": "[Šåļéš ţåẋ one]"
     },
@@ -11932,5 +11950,140 @@
     },
     "embed.close": {
         "message": "[Çļöšé one]"
+    },
+    "plans.premium": {
+        "message": "[Þŕéɱîûɱ one]"
+    },
+    "plans.team": {
+        "message": "[Ţéåɱ one]"
+    },
+    "plans.premiumSummary": {
+        "message": "[Ƒöŕ åñ öŵñéŕ ŵĥö ŵöŕķš åļöñé öŕ ŵîţĥ å ƒéŵ šţåƒƒ. one two three four]"
+    },
+    "plans.teamSummary": {
+        "message": "[Ƒöŕ å ƀûšîñéšš ŵîţĥ å ļåŕĝéŕ šţåƒƒ. one two three]"
+    },
+    "plans.premiumStaff": {
+        "message": "[Éåçĥ ţéåɱ ɱéɱƀéŕ åððš {price} å ɱöñţĥ. one two three]"
+    },
+    "plans.teamStaff": {
+        "message": "[Ýöûŕ ŵĥöļé ţéåɱ îš îñçļûðéð, ŵîţĥ ñö çĥåŕĝé þéŕ þéŕšöñ. one two three four]"
+    },
+    "plans.perMonth": {
+        "message": "[{price} / ɱöñţĥ one]"
+    },
+    "plans.perYear": {
+        "message": "[{price} / ýéåŕ, ţŵö ɱöñţĥš ƒŕéé one two]"
+    },
+    "plans.monthly": {
+        "message": "[Ṁöñţĥļý one]"
+    },
+    "plans.yearly": {
+        "message": "[Ýéåŕļý one]"
+    },
+    "plans.choose": {
+        "message": "[Çĥööšé {plan} one]"
+    },
+    "plans.switchTo": {
+        "message": "[Šŵîţçĥ ţö {plan} one]"
+    },
+    "plans.current": {
+        "message": "[Çûŕŕéñţ þļåñ one two]"
+    },
+    "plans.manage": {
+        "message": "[Þåýɱéñţ ɱéţĥöð åñð îñṽöîçéš one two three]"
+    },
+    "plans.taxNote": {
+        "message": "[Þŕîçéš åŕé îñ Çåñåðîåñ ðöļļåŕš, ƀéƒöŕé ţåẋ. one two three]"
+    },
+    "plans.trialTitle": {
+        "message": "[{days,plural,one{# ðåý ļéƒţ îñ ýöûŕ ƒŕéé ţŕîåļ} other{# ðåýš ļéƒţ îñ ýöûŕ ƒŕéé ţŕîåļ} =0{Ýöûŕ ƒŕéé ţŕîåļ éñðš ţöðåý}} one two three four five six]"
+    },
+    "plans.trialBody": {
+        "message": "[Ýöûŕ ţŕîåļ éñðš {date}. Çĥööšé å þļåñ ñöŵ åñð ƀîļļîñĝ šţåŕţš ŵĥéñ ţĥé ţŕîåļ éñðš. one two three four five]"
+    },
+    "plans.lapsedTitle": {
+        "message": "[Ýöûŕ ƀûšîñéšš îš þåûšéð one two]"
+    },
+    "plans.lapsedBody": {
+        "message": "[Çĥööšé å þļåñ ţö ķééþ åððîñĝ åñð çĥåñĝîñĝ ŕéçöŕðš. Ýöû çåñ šţîļļ šîĝñ îñ åñð šéé éṽéŕýţĥîñĝ, åñð çļîéñţš çåñ šţîļļ þåý îñṽöîçéš ýöû åļŕéåðý šéñţ. one two three four five six seven eight nine]"
+    },
+    "plans.pastDueTitle": {
+        "message": "[Ýöûŕ ļåšţ þļåñ þåýɱéñţ ðîðñ'ţ ĝö ţĥŕöûĝĥ one two three]"
+    },
+    "plans.pastDueBody": {
+        "message": "[Ûþðåţé ýöûŕ þåýɱéñţ ɱéţĥöð ţö ķééþ ýöûŕ þļåñ. Éṽéŕýţĥîñĝ ķééþš ŵöŕķîñĝ ŵĥîļé Šţŕîþé ŕéţŕîéš ţĥé þåýɱéñţ. one two three four five six seven]"
+    },
+    "plans.activeTitle": {
+        "message": "[{plan} þļåñ one]"
+    },
+    "plans.activeBody": {
+        "message": "[Ɓîļļéð ţĥŕöûĝĥ Šţŕîþé. Çĥåñĝé ýöûŕ þļåñ ĥéŕé, åñð ûþðåţé ýöûŕ þåýɱéñţ ɱéţĥöð öŕ šéé îñṽöîçéš öñ ţĥé ƀîļļîñĝ þåĝé. one two three four five six seven]"
+    },
+    "plans.complimentary": {
+        "message": "[Ýöûŕ þļåñ îš îñçļûðéð åţ ñö çĥåŕĝé. one two three]"
+    },
+    "plans.seatsLabel": {
+        "message": "[Ţéåɱ ɱéɱƀéŕš one two]"
+    },
+    "plans.seats": {
+        "message": "[{count,plural,one{# ƀéšîðéš ýöû} other{# ƀéšîðéš ýöû} =0{Ĵûšţ ýöû}} one two three]"
+    },
+    "plans.renewsLabel": {
+        "message": "[Ŕéñéŵš one]"
+    },
+    "plans.endsLabel": {
+        "message": "[Éñðš one]"
+    },
+    "plans.loading": {
+        "message": "[Ļöåðîñĝ ýöûŕ þļåñ one two]"
+    },
+    "plans.loadError": {
+        "message": "[Ýöûŕ þļåñ çöûļðñ'ţ ƀé ļöåðéð. one two three]"
+    },
+    "plans.checkoutError": {
+        "message": "[Çĥéçķöûţ çöûļðñ'ţ ƀé öþéñéð. Ţŕý åĝåîñ. one two three]"
+    },
+    "plans.changeError": {
+        "message": "[Ýöûŕ þļåñ çöûļðñ'ţ ƀé çĥåñĝéð. Ţŕý åĝåîñ. one two three]"
+    },
+    "plans.portalError": {
+        "message": "[Ţĥé ƀîļļîñĝ þåĝé çöûļðñ'ţ ƀé öþéñéð. Ţŕý åĝåîñ. one two three]"
+    },
+    "plans.subtitle": {
+        "message": "[Ýöûŕ Çļîéñţƀŕîðĝé þļåñ åñð îţš ƀîļļîñĝ. one two three]"
+    },
+    "plans.noticeTrial": {
+        "message": "[{days,plural,one{# ðåý ļéƒţ îñ ýöûŕ ƒŕéé ţŕîåļ.} other{# ðåýš ļéƒţ îñ ýöûŕ ƒŕéé ţŕîåļ.} =0{Ýöûŕ ƒŕéé ţŕîåļ éñðš ţöðåý.}} one two three four five six]"
+    },
+    "plans.noticeLapsed": {
+        "message": "[Ţĥîš ƀûšîñéšš îš þåûšéð. Ŕéçöŕðš çåñ ƀé ṽîéŵéð ƀûţ ñöţ çĥåñĝéð. one two three four]"
+    },
+    "plans.noticePastDue": {
+        "message": "[Ţĥé ļåšţ þļåñ þåýɱéñţ ðîðñ'ţ ĝö ţĥŕöûĝĥ. one two three]"
+    },
+    "plans.noticeChoose": {
+        "message": "[Çĥööšé å þļåñ one two]"
+    },
+    "plans.noticeFix": {
+        "message": "[Ûþðåţé þåýɱéñţ one two]"
+    },
+    "plans.seatCost": {
+        "message": "[Öñ Þŕéɱîûɱ, éåçĥ ţéåɱ ɱéɱƀéŕ åððš {price} å ɱöñţĥ ţö ýöûŕ þļåñ. one two three four]"
+    },
+    "plans.interval": {
+        "message": "[Ɓîļļîñĝ þéŕîöð one two]"
+    },
+    "plans.status.trial": {
+        "message": "[Ƒŕéé ţŕîåļ one two]"
+    },
+    "plans.status.active": {
+        "message": "[Åçţîṽé one]"
+    },
+    "plans.status.past_due": {
+        "message": "[Þåšţ ðûé one]"
+    },
+    "plans.status.lapsed": {
+        "message": "[Þåûšéð one]"
     }
 }

@@ -70,6 +70,11 @@ interface Strings {
         readonly broadcastAddressMissing: string;
         readonly broadcastContactMissing: string;
         readonly businessAddressIncomplete: string;
+        readonly planRequired: string;
+        readonly seatLimit: string;
+        readonly planActive: string;
+        readonly planNotManaged: string;
+        readonly businessUnavailable: string;
     } & Labels;
     readonly ui: {
         readonly clearSearch: string;
@@ -3957,6 +3962,7 @@ interface Strings {
             readonly services: string;
             readonly team: string;
             readonly gettingPaid: string;
+            readonly plan: string;
             readonly taxes: string;
             readonly onlineBooking: string;
             readonly reminders: string;
@@ -4272,6 +4278,55 @@ interface Strings {
             readonly review: string;
         } & Labels;
         readonly close: string;
+    };
+    readonly plans: {
+        readonly premium: string;
+        readonly team: string;
+        readonly premiumSummary: string;
+        readonly teamSummary: string;
+        readonly premiumStaff: (price: string) => string;
+        readonly teamStaff: string;
+        readonly perMonth: (price: string) => string;
+        readonly perYear: (price: string) => string;
+        readonly monthly: string;
+        readonly yearly: string;
+        readonly choose: (plan: string) => string;
+        readonly switchTo: (plan: string) => string;
+        readonly current: string;
+        readonly manage: string;
+        readonly taxNote: string;
+        readonly trialTitle: (days: number) => string;
+        readonly trialBody: (date: string) => string;
+        readonly lapsedTitle: string;
+        readonly lapsedBody: string;
+        readonly pastDueTitle: string;
+        readonly pastDueBody: string;
+        readonly activeTitle: (plan: string) => string;
+        readonly activeBody: string;
+        readonly complimentary: string;
+        readonly seatsLabel: string;
+        readonly seats: (count: number) => string;
+        readonly renewsLabel: string;
+        readonly endsLabel: string;
+        readonly loading: string;
+        readonly loadError: string;
+        readonly checkoutError: string;
+        readonly changeError: string;
+        readonly portalError: string;
+        readonly subtitle: string;
+        readonly noticeTrial: (days: number) => string;
+        readonly noticeLapsed: string;
+        readonly noticePastDue: string;
+        readonly noticeChoose: string;
+        readonly noticeFix: string;
+        readonly seatCost: (price: string) => string;
+        readonly interval: string;
+        readonly status: {
+            readonly trial: string;
+            readonly active: string;
+            readonly past_due: string;
+            readonly lapsed: string;
+        } & Labels;
     };
 }
 

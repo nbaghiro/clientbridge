@@ -7,12 +7,13 @@ import {
     type SyncNotice,
     strings,
     useNotifications,
+    usePlanNotice,
     useShellNav,
     useStripeAccountId,
     useSyncState,
 } from "@clientbridge/app-core";
 import { useEffect, useMemo, useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
     ActionMenu,
     Avatar,
@@ -20,6 +21,7 @@ import {
     Button,
     Icon,
     IconButton,
+    Notice,
     SyncBanner,
     setStripeAccount,
 } from "@clientbridge/ui";
@@ -46,6 +48,33 @@ const linkClass = ({ isActive }: { isActive: boolean }): string =>
             ? "bg-accent-weak font-semibold text-accent"
             : "font-medium text-ink-soft hover:bg-bg"
     }`;
+
+function PlanBanner() {
+    const notice = usePlanNotice(useViewer()?.role ?? null);
+    const navigate = useNavigate();
+    if (notice === null) return null;
+    return (
+        <div className="px-8 pt-4">
+            <Notice tone={notice.tone} banner>
+                <span className="flex flex-wrap items-center justify-between gap-3">
+                    {notice.message}
+                    {notice.action !== null ? (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onPress={() => {
+                                const done = navigate("/setup/plan");
+                                if (done) done.catch(() => undefined);
+                            }}
+                        >
+                            {notice.action}
+                        </Button>
+                    ) : null}
+                </span>
+            </Notice>
+        </div>
+    );
+}
 
 export function AppShell({ onSignOut }: { onSignOut: () => void }) {
     const stripeAccount = useStripeAccountId();
@@ -344,6 +373,7 @@ function ShellBody({
                         />
                     </div>
                 ) : null}
+                <PlanBanner />
                 <Outlet />
             </main>
         </div>

@@ -46,6 +46,7 @@ import { ConfirmEmailScreen, LoginScreen } from "./src/screens/Login";
 import { OnboardingScreen } from "./src/screens/Onboarding";
 import { PaymentsScreen } from "./src/screens/Payments";
 import { GettingPaidScreen } from "./src/screens/GettingPaid";
+import { PlansScreen } from "./src/screens/Plans";
 import { BusinessScreen, SetupScreen, TeamHoursScreen } from "./src/screens/Setup";
 import { TodayScreen } from "./src/screens/Today";
 import { ClassesScreen } from "./src/screens/Classes";
@@ -279,6 +280,11 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                                     options={{
                                         title: strings.navigation.setupSections.gettingPaid,
                                     }}
+                                />
+                                <RootStack.Screen
+                                    name="Plans"
+                                    component={PlansScreen}
+                                    options={{ title: strings.navigation.setupSections.plan }}
                                 />
                                 <RootStack.Screen
                                     name="ClientHistory"
