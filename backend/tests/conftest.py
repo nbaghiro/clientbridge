@@ -331,6 +331,7 @@ class FakePaymentGateway:
         self.expired_checkouts: list[str] = []
         self.paid_checkouts: set[str] = set()  # accounts whose completed Checkout already bills
         self.canceled_plan_subscriptions: list[str] = []
+        self.refunded_plan_subscriptions: list[str] = []
         self.plan_subscriptions: dict[str, PlanSubscription] = {}
         self.plan_item_keys: list[str] = []
         self._plan_changes: dict[str, PlanSubscription] = {}  # honor plan change idempotency keys
@@ -413,6 +414,13 @@ class FakePaymentGateway:
 
     async def cancel_plan_subscription(self, subscription_id: str) -> None:
         self.canceled_plan_subscriptions.append(subscription_id)
+        sub = self.plan_subscriptions.get(subscription_id)
+        if sub is not None:
+            self.plan_subscriptions[subscription_id] = replace(sub, status="canceled")
+
+    async def refund_plan_subscription(self, subscription_id: str) -> int:
+        self.refunded_plan_subscriptions.append(subscription_id)
+        return 0
 
     async def create_portal_session(self, account_id: str, *, return_url: str) -> str:
         self.portal_sessions.append(account_id)

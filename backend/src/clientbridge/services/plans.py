@@ -69,6 +69,7 @@ _CHECKOUT_TRIAL_MIN = timedelta(hours=48)
 _REMINDER_HOUR = 9
 _REMINDER_LEAD = timedelta(days=3)
 _LIVE: tuple[PlanStatus, ...] = ("active", "past_due")
+_ENDED = ("canceled", "incomplete_expired")
 _TIERS: dict[str, Plan] = {"premium": "premium", "team": "team"}
 _PRODUCT_TIERS: dict[str, Plan] = {
     price.product: tier
@@ -428,9 +429,19 @@ async def apply_subscription_event(
         if named != business.id:
             return
         if current is not None and business.plan_status in _LIVE:
+            duplicate = await gateway.get_plan_subscription(subscription_id)
+            if duplicate.status in _ENDED:
+                return
             # the business already pays through another subscription; this one would bill twice
-            _log.warning("%s already has plan subscription %s", business.id, current)
+            refunded = await gateway.refund_plan_subscription(subscription_id)
             await gateway.cancel_plan_subscription(subscription_id)
+            _log.warning(
+                "%s already has plan subscription %s; cancelled %s and refunded %d cents",
+                business.id,
+                current,
+                subscription_id,
+                refunded,
+            )
             return
     sub = await gateway.get_plan_subscription(subscription_id)
     business.stripe_subscription_id = subscription_id

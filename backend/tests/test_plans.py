@@ -674,6 +674,11 @@ async def test_a_second_live_subscription_is_cancelled(
     gateway.plan_subscriptions["sub_other"] = _sub(PlanItem("premium_month"), sub_id="sub_other")
     await _deliver(api, _event("customer.subscription.created", "sub_other"))
     assert gateway.canceled_plan_subscriptions == ["sub_other"]
+    assert gateway.refunded_plan_subscriptions == ["sub_other"]
+    assert (await _business(db)).stripe_subscription_id == SUB
+    await _deliver(api, _event("customer.subscription.deleted", "sub_other"))
+    assert gateway.canceled_plan_subscriptions == ["sub_other"]
+    assert gateway.refunded_plan_subscriptions == ["sub_other"]
     assert (await _business(db)).stripe_subscription_id == SUB
 
 

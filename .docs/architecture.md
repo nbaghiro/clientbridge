@@ -551,7 +551,9 @@ every account we create carries ours whichever configuration it starts with.
 - `customer.subscription.*` events without an `account` go to `plans.apply_subscription_event` before any
   client-membership handler. It resolves the business by `customer_account`, checks
   `metadata.business_id`, adopts a created subscription unless another live one exists, and mirrors the
-  subscription it fetches from Stripe, so out-of-order deliveries end at Stripe's current state.
+  subscription it fetches from Stripe, so out-of-order deliveries end at Stripe's current state. A second
+  subscription that has not ended yet has its paid invoices refunded and is then cancelled; its later
+  events, including its own `deleted`, find it ended and change nothing.
 - Lapsed: the business can sign in and read. `api/plans.writable` answers every other write with 402
   `plan_required`, except sign-in, the plan endpoints, devices, onboarding, staff removal and data export;
   public booking, the shop and estimate acceptance answer 409 `business_unavailable`, while invoice

@@ -452,6 +452,7 @@ class PaymentGateway(Protocol):
         ...
 
     async def cancel_plan_subscription(self, subscription_id: str) -> None: ...
+    async def refund_plan_subscription(self, subscription_id: str) -> int: ...
     async def create_portal_session(self, account_id: str, *, return_url: str) -> str: ...
     async def get_plan_subscription(self, subscription_id: str) -> PlanSubscription: ...
     async def set_plan_items(
@@ -798,6 +799,29 @@ class StripeGateway:
     @_keyed
     async def cancel_plan_subscription(self, subscription_id: str) -> None:
         await stripe.Subscription.cancel_async(subscription_id)
+
+    @_keyed
+    async def refund_plan_subscription(self, subscription_id: str) -> int:
+        refunded = 0
+        invoices = await stripe.Invoice.list_async(
+            subscription=subscription_id, status="paid", limit=100
+        )
+        for invoice in invoices.data:
+            payments = await stripe.InvoicePayment.list_async(
+                invoice=invoice.id, status="paid", limit=100
+            )
+            for payment in payments.data:
+                if payment.payment.type != "payment_intent":
+                    continue
+                intent = payment.payment.payment_intent
+                if intent is None:
+                    continue
+                intent_id = intent if isinstance(intent, str) else intent.id
+                refund = await stripe.Refund.create_async(
+                    payment_intent=intent_id, idempotency_key=f"plan-duplicate:{intent_id}"
+                )
+                refunded += refund.amount
+        return refunded
 
     @_keyed
     async def create_portal_session(self, account_id: str, *, return_url: str) -> str:

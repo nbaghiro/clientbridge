@@ -418,3 +418,35 @@ async def test_closing_plan_checkouts_expires_other_tabs_and_finds_a_paid_one(
     assert expired == ["cs_other"]
     listed["complete"] = [session("cs_old", "d", "sub_old")]
     assert await gateway.close_plan_checkouts("acct_paying", keep="b") is False
+
+
+async def test_a_duplicate_plan_subscription_refunds_each_paid_invoice_payment(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    refunds: list[tuple[str, str]] = []
+
+    async def list_invoices(**params: object) -> stripe.ListObject[stripe.Invoice]:
+        assert params["subscription"] == "sub_dup" and params["status"] == "paid"
+        rows = [{"id": "in_first", "object": "invoice"}]
+        return stripe.ListObject.construct_from({"object": "list", "data": rows}, "sk")
+
+    async def list_payments(**params: object) -> stripe.ListObject[stripe.InvoicePayment]:
+        rows = [
+            {
+                "id": "inpay_1",
+                "object": "invoice_payment",
+                "payment": {"type": "payment_intent", "payment_intent": "pi_first"},
+            },
+            {"id": "inpay_2", "object": "invoice_payment", "payment": {"type": "charge"}},
+        ]
+        return stripe.ListObject.construct_from({"object": "list", "data": rows}, "sk")
+
+    async def refund(**params: object) -> stripe.Refund:
+        refunds.append((str(params["payment_intent"]), str(params["idempotency_key"])))
+        return stripe.Refund.construct_from({"id": "re_1", "amount": 5649}, "sk")
+
+    monkeypatch.setattr(stripe.Invoice, "list_async", list_invoices)
+    monkeypatch.setattr(stripe.InvoicePayment, "list_async", list_payments)
+    monkeypatch.setattr(stripe.Refund, "create_async", refund)
+    assert await gateway.refund_plan_subscription("sub_dup") == 5649
+    assert refunds == [("pi_first", "plan-duplicate:pi_first")]
