@@ -71,7 +71,7 @@ services:
   # Contract-test only (profile "test"): the official OpenAPI mock. `make stripe-mock` starts it;
   # the real StripeGateway runs against it to validate request/response shapes against the live spec.
   stripe-mock:
-    image: stripemock/stripe-mock@sha256:a77358595cb30f2c7d48b42e8971f46456486e2cc04f6dc2465ca9057b48dd12
+    image: stripe/stripe-mock@sha256:aeb96b83e87a893d2ac005e363ac01ffa6e59a5ad85b49c155dfc9129de02e78  # v0.206.0
     profiles: ["test"]
     ports: ["8708:12111"]   # host 8708 → stripe-mock 12111 (http)
 

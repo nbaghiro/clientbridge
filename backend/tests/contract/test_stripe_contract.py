@@ -1,11 +1,15 @@
 """Every v1 StripeGateway call against stripe-mock; it has no /v2 routes, so v2 calls are e2e."""
 
+from collections.abc import Sequence
+from datetime import UTC, datetime
+
 import pytest
-import stripe
 
 from clientbridge.integrations.stripe import (
     ChargeFees,
     ConnectComponent,
+    PlanItem,
+    PlanPriceRef,
     PostalAddress,
     StripeGateway,
 )
@@ -114,12 +118,54 @@ async def test_get_balance_cents(contract_gateway: StripeGateway) -> None:
 async def test_create_account_session(
     contract_gateway: StripeGateway, component: ConnectComponent
 ) -> None:
-    try:
-        secret = await contract_gateway.create_account_session(ACCT, component)
-    except stripe.InvalidRequestError as exc:
-        if "Unrecognized request URL (POST: /v1/account_sessions)" in str(exc):
-            pytest.skip(
-                "stripe-mock does not implement Account Sessions; test-mode verification required"
-            )
-        raise
+    secret = await contract_gateway.create_account_session(ACCT, component)
     assert isinstance(secret, str) and secret
+
+
+def _plan_prices(contract_gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch) -> None:
+    # stripe-mock's prices carry no lookup key, so the lookup is answered here
+    async def prices(keys: Sequence[str]) -> dict[str, PlanPriceRef]:
+        return {key: PlanPriceRef(f"price_{key}", f"prod_{key}", "month") for key in keys}
+
+    monkeypatch.setattr(contract_gateway, "_prices", prices)
+
+
+async def test_create_plan_checkout(
+    contract_gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _plan_prices(contract_gateway, monkeypatch)
+    url = await contract_gateway.create_plan_checkout(
+        ACCT,
+        items=[PlanItem("premium_month"), PlanItem("seat_month", 2)],
+        business_id="bz_contract",
+        trial_end=datetime(2030, 1, 1, tzinfo=UTC),
+        success_url="https://app.example/setup/plan?checkout=done",
+        cancel_url="https://app.example/setup/plan",
+        attempt="contract-attempt",
+    )
+    assert url.startswith("https://")
+
+
+async def test_close_plan_checkouts(contract_gateway: StripeGateway) -> None:
+    assert isinstance(await contract_gateway.close_plan_checkouts(ACCT, keep="kept"), bool)
+
+
+async def test_plan_subscription_calls(
+    contract_gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _plan_prices(contract_gateway, monkeypatch)
+    sub = await contract_gateway.get_plan_subscription("sub_contract")
+    assert sub.id.startswith("sub_") and sub.status
+    changed = await contract_gateway.set_plan_items(
+        "sub_contract", items=[PlanItem("team_month")], idempotency_key="contract-plan-1"
+    )
+    assert changed.id.startswith("sub_")
+    assert await contract_gateway.refund_plan_subscription("sub_contract") >= 0
+    await contract_gateway.cancel_plan_subscription("sub_contract")
+
+
+async def test_create_portal_session(contract_gateway: StripeGateway) -> None:
+    assert contract_gateway.configured
+    gateway = StripeGateway("sk_test_contract", "", "CA", portal_configuration="bpc_contract")
+    url = await gateway.create_portal_session(ACCT, return_url="https://app.example/setup/plan")
+    assert url.startswith("https://")

@@ -811,12 +811,11 @@ class StripeGateway:
                 invoice=invoice.id, status="paid", limit=100
             )
             for payment in payments.data:
-                if payment.payment.type != "payment_intent":
+                # present only on a payment_intent payment, and possibly expanded
+                intent = payment.payment.to_dict().get("payment_intent")
+                intent_id = intent if isinstance(intent, str) else _dict(intent).get("id")
+                if not isinstance(intent_id, str):
                     continue
-                intent = payment.payment.payment_intent
-                if intent is None:
-                    continue
-                intent_id = intent if isinstance(intent, str) else intent.id
                 refund = await stripe.Refund.create_async(
                     payment_intent=intent_id, idempotency_key=f"plan-duplicate:{intent_id}"
                 )
