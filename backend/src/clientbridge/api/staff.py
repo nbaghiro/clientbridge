@@ -2,7 +2,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header
 
-from clientbridge.api.plans import PlanWritable
 from clientbridge.core.deps import (
     CurrentPrincipal,
     CurrentUser,
@@ -68,7 +67,7 @@ async def accept_invite(
     return await StaffService(db).accept_invite(user, identity, body.token)
 
 
-@router.patch("/{staff_id}/pay", response_model=StaffPayOut, dependencies=[PlanWritable])
+@router.patch("/{staff_id}/pay", response_model=StaffPayOut)
 async def update_pay(
     staff_id: str, body: StaffPayUpdate, principal: CurrentPrincipal, db: DbSession
 ) -> StaffPayOut:
@@ -96,7 +95,7 @@ async def revoke_invite(
     await StaffService(db).revoke_invite(principal, invite_id, gateway=gateway)
 
 
-@router.patch("/{staff_id}", status_code=204, dependencies=[PlanWritable])
+@router.patch("/{staff_id}", status_code=204)
 async def change_role(
     staff_id: str, body: RoleUpdate, principal: CurrentPrincipal, db: DbSession
 ) -> None:

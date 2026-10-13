@@ -1,15 +1,20 @@
 import json
 import pathlib
 import re
+from collections.abc import Iterator
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
+from fastapi import APIRouter
+from fastapi.routing import APIRoute
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.api.plans import LAPSED_WRITES
 from clientbridge.integrations.stripe import PlanItem, PlanSubscription
+from clientbridge.main import app
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Subscription
 from clientbridge.models.platform import Audit
@@ -589,3 +594,48 @@ async def test_an_expired_first_payment_leaves_the_trial_running(
     await _deliver(api, _event("customer.subscription.updated"))
     business = await _business(db)
     assert plans.plan_access(business, datetime.now(UTC)) == "trial"
+
+
+def _write_routes() -> list[tuple[str, str, APIRoute]]:
+    def walk(router: APIRouter, prefix: str) -> Iterator[tuple[str, APIRoute]]:
+        for route in router.routes:
+            if isinstance(route, APIRoute):
+                yield prefix + route.path, route
+            else:
+                inner = getattr(route, "original_router", None)
+                context = getattr(getattr(route, "include_context", None), "prefix", "") or ""
+                if isinstance(inner, APIRouter):
+                    yield from walk(inner, prefix + str(context))
+
+    return [
+        (method, path, route)
+        for path, route in walk(app.router, "")
+        for method in sorted((route.methods or set()) - {"GET", "HEAD", "OPTIONS"})
+        if path.startswith("/v1/")
+    ]
+
+
+async def test_a_lapsed_business_is_refused_every_write_but_the_allowed_ones(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    routes = _write_routes()
+    assert set(LAPSED_WRITES) <= {(m, p) for m, p, _ in routes}
+    await _trial(db, -timedelta(days=1))
+    for method, path, _ in routes:
+        url = re.sub(r"\{[^}]+\}", "x_missing", path)
+        res = await as_owner.request(method, url, json={})
+        allowed = (method, path) in LAPSED_WRITES
+        assert (res.status_code == 402) != allowed, (method, path, res.status_code)
+
+
+async def test_a_lapsed_business_can_complete_its_address_refund_and_manage_payments(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _trial(db, -timedelta(days=1))
+    address = {"brand": {"address": "88 Fort St, Victoria, BC V8W 1Y4"}}
+    assert (await as_owner.patch("/v1/business", json=address)).status_code == 200
+    refund = await as_owner.post("/v1/payments/pay_missing/refund", json={})
+    assert refund.status_code != 402
+    session = await as_owner.post("/v1/connect/session", json={"component": "payouts"})
+    assert session.status_code != 402
+    assert (await as_owner.post("/v1/clients", json={"name": "Blocked"})).status_code == 402

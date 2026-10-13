@@ -629,6 +629,7 @@ class PublicManageService:
             self.db, business.id, _MOVE_SCOPE, idempotency_key, request
         ):
             return await self._view(booking, slot, business)
+        assert_serving(business, datetime.now(UTC))
         item, staff = await self._movable(booking, slot, business)
         policy = policy_of(business)
         _assert_bookable_window(policy, data.starts_at)
