@@ -439,7 +439,8 @@ def plan_price(key: str, price: PlanPrice, found: Sequence[Mapping[str, object]]
         "post",
         "/v1/prices",
         tuple(form({**params, "transfer_lookup_key": True})),
-        idempotency=f"clientbridge-price-{key}",
+        # keyed on the price it replaces, so swinging a price back within 24 hours never replays
+        idempotency=f"clientbridge-price-{key}-replacing-{current.get('id')}",
     )
 
 

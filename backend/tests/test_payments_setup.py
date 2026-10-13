@@ -654,3 +654,15 @@ def test_apply_creates_in_order_with_keys_and_reports_each_new_secret(
     assert "STRIPE_PLATFORM_WEBHOOK_SECRET=whsec_endpoint_2" in out
     assert "STRIPE_THIN_WEBHOOK_SECRET=whsec_destination" in out
     assert "STRIPE_PORTAL_CONFIGURATION=obj_12" in out
+
+
+def test_a_price_swung_back_and_forth_gets_a_fresh_key_each_time() -> None:
+    a = plan_price("premium_year", PREMIUM_YEAR, [_price(id="price_a", unit_amount=60000)])
+    b = plan_price(
+        "premium_year",
+        PlanPrice("clientbridge_premium", 60000, "year"),
+        [_price(id="price_b")],
+    )
+    again = plan_price("premium_year", PREMIUM_YEAR, [_price(id="price_c", unit_amount=60000)])
+    assert len({a.idempotency, b.idempotency, again.idempotency}) == 3
+    assert a.idempotency is not None and "price_a" in a.idempotency
