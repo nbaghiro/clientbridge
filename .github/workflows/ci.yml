@@ -12,9 +12,10 @@ concurrency:
   group: ci-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.sha || 'latest' }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+# Jobs pin ubuntu-24.04 so that ubuntu-latest moving to Ubuntu 26.04 (from 2026-10-19) is an explicit upgrade.
 jobs:
   backend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
       postgres:
@@ -48,8 +49,8 @@ jobs:
       S3_REGION: us-east-1
       SMTP_URL: ""  # no Mailpit in this job, so mail goes to the console sender
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
       - run: uv sync
         working-directory: backend
       - run: make format-check-backend lint-backend
@@ -89,7 +90,7 @@ jobs:
   contract:
     # The Stripe contract tier: the real StripeGateway against the OpenAPI mock. Marker-gated out of
     # the default suite (they need the mock service), so they run as their own job here.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     services:
       stripe-mock:
@@ -99,8 +100,8 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
       - run: uv sync
       - name: wait for stripe-mock
         run: |
@@ -114,14 +115,14 @@ jobs:
       - run: uv run pytest -m contract -q
 
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 9
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -132,14 +133,14 @@ jobs:
 
   build:
     # A broken Vite or tsc -b bundle must fail CI, not just tsc --noEmit; runs beside the frontend job.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 9
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -151,14 +152,14 @@ jobs:
   site:
     # The marketing site's browser pass over a fresh build: links, images, layout at phone width and
     # accessibility. Its copy rules and unit tests run in the frontend job.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 9
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -171,7 +172,7 @@ jobs:
 
   connect:
     # Connect's client pages against the real API over a migrated, seeded Postgres.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
       postgres:
@@ -205,8 +206,8 @@ jobs:
       S3_REGION: us-east-1
       SMTP_URL: ""  # no Mailpit in this job, so mail goes to the console sender
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
         with:
           # the API still runs under uv run at the end, and the post step would wait on its cache lock
           enable-cache: false
@@ -243,10 +244,10 @@ jobs:
       - run: make seed
       - run: uv run uvicorn clientbridge.main:app --port 8701 > /tmp/api.log 2>&1 &
         working-directory: backend
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 9
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -264,15 +265,15 @@ jobs:
   codegen-drift:
     # The generated api-client + PowerSync client schema come from the backend — fail if either is
     # stale. (run `make gen-api` / `make gen-sync-schema` and commit the result.)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: pnpm/action-setup@v6
         with:
           version: 9
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -284,15 +285,15 @@ jobs:
       - run: make codegen-check
 
   sync:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: pnpm/action-setup@v6
         with:
           version: 9
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -304,7 +305,7 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
         working-directory: frontend
       - run: make test-sync
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: sync-verification
@@ -313,18 +314,18 @@ jobs:
 
   web:
     # The web smoke suite against the full local stack: Postgres, PowerSync, Redis, S3, the API and the seed.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
         with:
           # the API still runs under uv run at the end, and the post step would wait on its cache lock
           enable-cache: false
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 9
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -341,7 +342,7 @@ jobs:
       - run: until curl -sf 127.0.0.1:8701/health; do sleep 1; done
         timeout-minutes: 2
       - run: make test-web
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure() || cancelled()
         with:
           name: web-e2e
@@ -355,12 +356,12 @@ jobs:
 
   shards:
     # Fails when a walkthrough is in no shard or in two, and hands the shard list to mobile-shard.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       shards: ${{ steps.shards.outputs.shards }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: check every walkthrough is in exactly one shard
         id: shards
         working-directory: frontend/apps/mobile/e2e
@@ -374,7 +375,7 @@ jobs:
 
   mobile-build:
     # An x86_64 release APK for the emulator; when the native fingerprint is cached only the JS bundle is rebuilt.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
       E2E_CLEARTEXT: "1"
@@ -383,11 +384,11 @@ jobs:
       POWERSYNC_URL: http://10.0.2.2:8704
       AUTH_URL: http://10.0.2.2:8713
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
         with:
           version: 9
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -401,7 +402,7 @@ jobs:
           hash=$(node ../../node_modules/@expo/fingerprint/bin/cli.js fingerprint:generate --platform android \
             | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).hash))')
           echo "key=apk-x86_64-$hash" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v6
         id: cached
         with:
           path: native-apk
@@ -411,12 +412,12 @@ jobs:
         if: steps.cached.outputs.cache-hit == 'true'
         continue-on-error: true
         run: frontend/apps/mobile/scripts/rebundle-apk.sh native-apk/app-release.apk app-release.apk
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         if: steps.rebundle.outcome != 'success'
         with:
           distribution: temurin
           java-version: "17"
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
         if: steps.rebundle.outcome != 'success'
         with:
           cache-cleanup: on-success
@@ -429,12 +430,12 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/native-apk"
           cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/native-apk/"
           cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/app-release.apk"
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@v6
         if: steps.cached.outputs.cache-hit != 'true'
         with:
           path: native-apk
           key: ${{ steps.native.outputs.key }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: mobile-apk
           path: app-release.apk
@@ -444,15 +445,15 @@ jobs:
     # The Maestro walkthroughs on Android 14 emulators, split into shards of about equal length.
     needs: [shards, mobile-build]
     name: mobile (${{ matrix.shard.name }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         shard: ${{ fromJSON(needs.shards.outputs.shards) }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0
         with:
           # the API still runs under uv run at the end, and the post step would wait on its cache lock
           enable-cache: false
@@ -473,7 +474,7 @@ jobs:
         run: |
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           "$HOME/.maestro/bin/maestro" --version
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: mobile-apk
       - name: pick the shard's flows
@@ -487,7 +488,7 @@ jobs:
           rm -rf /usr/local/lib/android/sdk/emulator
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
           echo "key=$(frontend/apps/mobile/scripts/ci-emulator.sh key)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v6
         id: android
         with:
           # the pinned emulator build, the system image and the AVD with its quick-boot snapshot
@@ -501,7 +502,7 @@ jobs:
         if: steps.android.outputs.cache-hit != 'true'
         run: frontend/apps/mobile/scripts/ci-emulator.sh install
       # saved before the walkthroughs, so it holds the clean snapshot; only main writes it, to keep within 10 GB
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@v6
         if: steps.android.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
         with:
           path: |
@@ -528,7 +529,7 @@ jobs:
           mkdir -p frontend/apps/mobile/test-results
           adb logcat -d -v threadtime > frontend/apps/mobile/test-results/logcat.txt || true
           cp /tmp/emulator.log /tmp/api.log frontend/apps/mobile/test-results/ || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: mobile-walkthroughs-${{ matrix.shard.id }}
@@ -545,7 +546,7 @@ jobs:
     # The required check: passes when the build and every shard passed.
     needs: [shards, mobile-build, mobile-shard]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - env:

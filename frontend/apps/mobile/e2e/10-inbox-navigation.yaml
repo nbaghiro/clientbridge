@@ -4,6 +4,9 @@ name: Inbox tabs and payment access
 - launchApp:
       arguments:
           RCT_jsLocation: '${typeof METRO_HOST === "undefined" ? "localhost:8707" : METRO_HOST}'
+      # the default "all" pulls the whole APK over adb to read its manifest, which can stall for minutes
+      permissions:
+          notifications: allow
 - extendedWaitUntil:
       visible: "Today|Sign in"
       timeout: 60000
