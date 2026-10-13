@@ -29,7 +29,10 @@ name: Owner setup surfaces
 - takeScreenshot: hours
 - tapOn: "Back|Go back|Navigate up"
 - tapOn: "Getting paid"
-- assertVisible: "Card payments"
+- assertVisible: "Bank account for payouts"
+- scrollUntilVisible:
+      element: "Card payments"
+      direction: DOWN
 - takeScreenshot: getting-paid
 - tapOn: "Back|Go back|Navigate up"
 - tapOn: "Sales tax"
