@@ -464,7 +464,7 @@ jobs:
         run: |
           rm -rf /usr/local/lib/android/sdk/emulator
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         id: android
         with:
           # the pinned emulator build, the system image and the AVD with its quick-boot snapshot
@@ -477,6 +477,16 @@ jobs:
       - name: install the emulator and save its snapshot
         if: steps.android.outputs.cache-hit != 'true'
         run: frontend/apps/mobile/scripts/ci-emulator.sh install
+      # saved before the walkthroughs, so the cache holds the clean snapshot and no running emulator
+      - uses: actions/cache/save@v4
+        if: steps.android.outputs.cache-hit != 'true'
+        with:
+          path: |
+            /usr/local/lib/android/sdk/emulator
+            /usr/local/lib/android/sdk/system-images/android-34/google_apis/x86_64
+            ~/.android/avd
+            ~/.android/adbkey*
+          key: android-34-google_apis-x86_64-${{ hashFiles('frontend/apps/mobile/scripts/ci-emulator.sh') }}
       - name: run the walkthroughs
         run: |
           frontend/apps/mobile/scripts/ci-emulator.sh start
