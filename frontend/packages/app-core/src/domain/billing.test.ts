@@ -14,6 +14,7 @@ import {
     listRow,
     priceDoc,
     documentRates,
+    estimateTotals,
 } from "./billing";
 import { type SavedCardRow, canBeDefault, checkoutMethods } from "./payments";
 import { ratesOn } from "./taxes";
@@ -320,5 +321,29 @@ describe("documentRates", () => {
         expect(documentRates(setup, taxed, null, "America/Halifax")).toEqual(setup.rates);
         const untaxed = [{ tax_amount_cents: 0 }];
         expect(documentRates(setup, untaxed, new Date(), "America/Halifax")).toEqual([]);
+    });
+});
+
+describe("estimateTotals", () => {
+    const ON = ratesOn("ON", "2026-10-13");
+    const pricing = priceDoc(
+        [{ amountCents: 10_000, taxClass: "standard", included: true }],
+        docRates(ON, true),
+    );
+    const cents = (row: Parameters<typeof estimateTotals>[0]): number[] =>
+        estimateTotals(row, pricing).map((t) => t.cents);
+
+    it("totals an open estimate from today's pricing, not the amounts stored when it was sent", () => {
+        const sent = { accepted_at: null, subtotal_cents: 10_000, total_cents: 10_000 };
+        expect(cents(sent)).toEqual([10_000, 1300, 11_300]);
+    });
+
+    it("keeps an accepted estimate's stored totals", () => {
+        const accepted = {
+            accepted_at: "2026-10-01T16:00:00Z",
+            subtotal_cents: 10_000,
+            total_cents: 11_300,
+        };
+        expect(cents(accepted)).toEqual([10_000, 1300, 11_300]);
     });
 });

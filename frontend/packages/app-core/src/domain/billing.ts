@@ -1102,6 +1102,34 @@ export interface EstimateRecord {
     rateNote: string;
 }
 
+/** An open estimate is quoted at today's rates, so its totals come from that pricing. */
+export function estimateTotals(
+    row: Pick<EstimateRow, "accepted_at" | "subtotal_cents" | "total_cents">,
+    pricing: Pick<DocPricing, "taxes" | "subtotalCents" | "totalCents">,
+): DocTotalLine[] {
+    const open = row.accepted_at === null;
+    return [
+        {
+            key: "subtotal",
+            label: s.subtotal,
+            cents: open ? pricing.subtotalCents : (row.subtotal_cents ?? 0),
+            kind: "subtotal",
+        },
+        ...pricing.taxes.map((t): DocTotalLine => ({
+            key: t.code,
+            label: t.label,
+            cents: t.cents,
+            kind: "tax",
+        })),
+        {
+            key: "total",
+            label: s.total,
+            cents: open ? pricing.totalCents : (row.total_cents ?? 0),
+            kind: "total",
+        },
+    ];
+}
+
 function estimateLinkUrl(base: string, token: string): string {
     return `${base.replace(/\/+$/, "")}/e/${encodeURIComponent(token)}`;
 }
@@ -1187,21 +1215,7 @@ export function useEstimateRecord(id: string | null, payBase: string): EstimateR
         lineDetail: (line) => lineDetail(line, BUSINESS_CURRENCY),
         zone,
         taxes: pricing.taxes,
-        totals: [
-            {
-                key: "subtotal",
-                label: s.subtotal,
-                cents: row.subtotal_cents ?? 0,
-                kind: "subtotal",
-            },
-            ...pricing.taxes.map((t): DocTotalLine => ({
-                key: t.code,
-                label: t.label,
-                cents: t.cents,
-                kind: "tax",
-            })),
-            { key: "total", label: s.total, cents: row.total_cents ?? 0, kind: "total" },
-        ],
+        totals: estimateTotals(row, pricing),
         timeline,
         acceptUrl: row.view_token !== null ? estimateLinkUrl(payBase, row.view_token) : null,
         canEdit: view.status === "draft" || view.status === "sent",

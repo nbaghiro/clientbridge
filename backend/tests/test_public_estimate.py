@@ -1,11 +1,11 @@
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
-from clientbridge.models.billing import Estimate
+from clientbridge.models.billing import Estimate, Line
 from clientbridge.models.business import Business
 from tests.conftest import BIZ, FakeEmailSender
 from tests.helpers import client_id, ok
@@ -160,3 +160,28 @@ async def test_estimate_tax_is_labelled_at_the_rates_its_amounts_use(
     assert (page["taxes"], page["total_cents"]) == (hst, 11_400)
     accepted = ok(await as_owner.post(f"/estimate/{est['view_token']}/accept", json={})).json()
     assert (accepted["taxes"], accepted["total_cents"]) == (hst, 11_400)
+
+
+async def test_staff_accept_quotes_tax_registered_after_the_estimate_was_sent(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.execute(
+        update(Business).where(Business.id == BIZ).values(province="ON", tax_registered=False)
+    )
+    cid = await client_id(db, email="on@example.ca")
+    line = {"description": "Groom", "quantity": 1, "unit_amount_cents": 10_000}
+    res = await as_owner.post(
+        "/v1/estimates", json={"client_id": cid, "lines": [line], "send": True}
+    )
+    est = ok(res, 201).json()
+    assert est["total_cents"] == 10_000
+    await db.execute(update(Business).where(Business.id == BIZ).values(tax_registered=True))
+    accepted = ok(await as_owner.post(f"/v1/estimates/{est['id']}/accept")).json()
+    assert accepted["total_cents"] == 11_300
+    hst = [{"code": "HST", "rate_bps": 1300, "base_cents": 10_000, "cents": 1300}]
+    page = ok(await as_owner.get(f"/estimate/{est['view_token']}")).json()
+    assert (page["taxes"], page["total_cents"]) == (hst, 11_300)
+    stored = (
+        await db.execute(select(Line.tax_amount_cents).where(Line.estimate_id == est["id"]))
+    ).scalar_one()
+    assert stored == 1300
