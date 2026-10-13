@@ -1,4 +1,4 @@
-"""Drop unread Stripe mirror columns and the refunded payment status; let payloads be cleared."""
+"""Drop unread Stripe mirror columns and the refunded payment status; clear handled payloads."""
 
 from collections.abc import Sequence
 
@@ -41,6 +41,10 @@ def upgrade() -> None:
     op.drop_column("subscriptions", "current_period_start")
     op.alter_column(
         "webhooks", "payload", existing_type=postgresql.JSONB(astext_type=sa.Text()), nullable=True
+    )
+    # handled Stripe events lose their bodies as new ones do; failed ones keep them for diagnosis
+    op.execute(
+        "UPDATE webhooks SET payload = NULL WHERE provider = 'stripe' AND status = 'processed'"
     )
 
 

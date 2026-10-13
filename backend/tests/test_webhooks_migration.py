@@ -1,4 +1,4 @@
-"""The cb0008 downgrade backfills the payloads cleared after it."""
+"""cb0008 clears handled Stripe payloads, and its downgrade backfills them."""
 
 import json
 import os
@@ -26,7 +26,7 @@ def _run(env: dict[str, str], *args: str) -> None:
     subprocess.run([sys.executable, "-m", *args], env=env, check=True, stdout=sys.stderr)
 
 
-async def test_the_cb0008_downgrade_backfills_cleared_payloads() -> None:
+async def test_cb0008_clears_handled_stripe_payloads_and_its_downgrade_backfills_them() -> None:
     settings = get_settings()
     database = f"clientbridge_migration_{secrets.token_hex(4)}"
     url = on(settings.migration_database_url, database)
@@ -39,7 +39,7 @@ async def test_the_cb0008_downgrade_backfills_cleared_payloads() -> None:
     engine = create_async_engine(url)
     try:
         _run(env, "scripts.db_access", "roles")
-        _run(env, "alembic", "upgrade", "cb0008")
+        _run(env, "alembic", "upgrade", "cb0007")
         async with engine.begin() as conn:
             for row_id, provider, status in ROWS:
                 await conn.execute(
@@ -50,7 +50,7 @@ async def test_the_cb0008_downgrade_backfills_cleared_payloads() -> None:
                     {
                         "id": row_id,
                         "provider": provider,
-                        "payload": None if row_id == "evt_done" else json.dumps({"id": row_id}),
+                        "payload": json.dumps({"id": row_id}),
                         "status": status,
                     },
                 )
@@ -60,7 +60,9 @@ async def test_the_cb0008_downgrade_backfills_cleared_payloads() -> None:
                 rows = await conn.execute(text("SELECT id, payload FROM webhooks"))
                 return {str(r.id): r.payload for r in rows}
 
+        _run(env, "alembic", "upgrade", "cb0008")
         kept = {row_id: {"id": row_id} for row_id, _, _ in ROWS}
+        assert await payloads() == kept | {"evt_done": None}
         _run(env, "alembic", "downgrade", "cb0007")
         assert await payloads() == kept | {"evt_done": {}}
     finally:
