@@ -7,6 +7,7 @@ import unicodedata
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import cache
 from typing import Concatenate, Literal, Protocol, cast
 
 import stripe
@@ -619,6 +620,14 @@ def _keyed[**P, R](
     return call
 
 
+@cache
+def _stripe_client(secret_key: str, api_base: str) -> stripe.StripeClient:
+    # one client per process: each holds an HTTP connection pool that is never closed
+    return stripe.StripeClient(
+        secret_key, stripe_version=STRIPE_API_VERSION, base_addresses={"api": api_base}
+    )
+
+
 class StripeGateway:
     def __init__(
         self,
@@ -632,9 +641,7 @@ class StripeGateway:
         self.configured = bool(secret_key)
         stripe.api_key = secret_key
         stripe.api_version = STRIPE_API_VERSION
-        self._client = stripe.StripeClient(
-            secret_key, stripe_version=STRIPE_API_VERSION, base_addresses={"api": stripe.api_base}
-        )
+        self._client = _stripe_client(secret_key, stripe.api_base)
         self._webhook_secret = webhook_secret
         self._thin_webhook_secret = thin_webhook_secret
         self._platform_webhook_secret = platform_webhook_secret

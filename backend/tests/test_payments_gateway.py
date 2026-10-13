@@ -384,3 +384,11 @@ async def test_a_price_gone_from_stripe_reads_as_none(
 ) -> None:
     monkeypatch.setattr(stripe.Price, "retrieve_async", _raises(_missing("price")))
     assert await gateway.get_price("acct_x", "price_deleted") is None
+
+
+def test_gateways_share_one_stripe_client_per_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(stripe, "api_key", stripe.api_key)
+    first = StripeGateway("sk_test_shared", "", "CA")
+    second = StripeGateway("sk_test_shared", "", "CA")
+    other = StripeGateway("sk_test_other", "", "CA")
+    assert first._client is second._client and first._client is not other._client
