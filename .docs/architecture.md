@@ -542,7 +542,8 @@ every account we create carries ours whichever configuration it starts with.
   A new business is `trialing` for 14 days with no Stripe object and no card. `plans.plan_access` derives
   `trial`, `active`, `past_due` or `lapsed` (a trial past its end is lapsed at read time, so no job flips
   it); app-core `planAccess` mirrors it over the synced columns. A business that is `active` with no
-  subscription is complimentary, as the demo businesses are.
+  subscription is complimentary, as the demo businesses are; Checkout refuses it with `plan_active`, and the
+  plan page offers it no plan to choose.
 - Owner-only endpoints in `api/plans.py`: `GET /v1/plan` reads the live subscription and serves the
   prices, `POST /v1/plan/checkout` opens hosted Checkout (carrying the remaining trial when at least 48
   hours are left), `POST /v1/plan/change` swaps the plan and seat items with proration through

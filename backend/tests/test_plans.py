@@ -227,6 +227,18 @@ async def test_a_failed_checkout_keeps_the_new_account_for_the_retry(
     assert gateway.checkouts[0].account_id == account
 
 
+async def test_a_complimentary_business_cannot_start_a_paid_plan(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    for status in ("active", "past_due"):
+        await _set(db, plan="team", plan_status=status, stripe_subscription_id=None)
+        res = await as_owner.post(
+            "/v1/plan/checkout", json={"plan": "premium", "interval": "month"}
+        )
+        assert res.status_code == 409 and res.json()["error"] == "plan_active"
+    assert gateway.created_accounts == [] and gateway.checkouts == []
+
+
 async def test_checkout_on_premium_bills_each_seat(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:

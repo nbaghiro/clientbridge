@@ -38,7 +38,7 @@ function Tiers({ plan }: { plan: PlanView }) {
                             <p className="text-sm text-muted">{tier.staff}</p>
                             {tier.current ? (
                                 <Badge label={p.current} intent="success" />
-                            ) : (
+                            ) : tier.action === null ? null : (
                                 <Button
                                     variant={tier.plan === "premium" ? "outline" : "primary"}
                                     busy={plan.busy}

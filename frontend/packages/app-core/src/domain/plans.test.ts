@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { formatDate } from "../datetime";
 import { strings } from "../strings";
-import { planAccess, planNotice, trialDaysLeft, trialDetail } from "./plans";
+import { planAccess, planNotice, planTiers, trialDaysLeft, trialDetail } from "./plans";
 
 const p = strings.plans;
 const NOW = new Date("2026-10-12T12:00:00Z");
@@ -59,5 +59,38 @@ describe("trialDetail", () => {
         expect(trialDetail(carried, NOW, zone)).toBe(p.trialBody(formatDate(carried, zone)));
         const close = new Date(NOW.getTime() + 48 * HOUR - 1);
         expect(trialDetail(close, NOW, zone)).toBe(p.trialBodyBillsNow(formatDate(close, zone)));
+    });
+});
+
+describe("planTiers", () => {
+    const state = {
+        access: "active" as const,
+        plan: "team" as const,
+        managed: false,
+        interval: null,
+        currency: "CAD",
+        prices: [
+            { plan: "premium" as const, interval: "month" as const, amount_cents: 4999 },
+            { plan: "team" as const, interval: "month" as const, amount_cents: 9999 },
+            { plan: null, interval: "month" as const, amount_cents: 1000 },
+        ],
+    };
+
+    it("offers nothing to choose on a complimentary plan and marks it current", () => {
+        const tiers = planTiers(state, "month");
+        expect(tiers.map((t) => [t.plan, t.current, t.action])).toEqual([
+            ["premium", false, null],
+            ["team", true, null],
+        ]);
+    });
+
+    it("offers Checkout during a trial and a switch on a paid plan", () => {
+        const trial = planTiers({ ...state, access: "trial", plan: null }, "month");
+        expect(trial.map((t) => t.action)).toEqual([p.choose(p.premium), p.choose(p.team)]);
+        const paid = planTiers({ ...state, managed: true, interval: "month" }, "month");
+        expect(paid.map((t) => [t.current, t.action])).toEqual([
+            [false, p.switchTo(p.premium)],
+            [true, p.switchTo(p.team)],
+        ]);
     });
 });

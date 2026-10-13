@@ -302,7 +302,8 @@ class PlanService:
         self._assert_owner()
         now = clock.now()
         business = await self._business(lock=True)
-        if business.stripe_subscription_id is not None and business.plan_status in _LIVE:
+        # a complimentary plan is live without a subscription, and Checkout would bill it
+        if plan_access(business, now) in _LIVE:
             raise Conflict("the business already has a plan; change it instead", code="plan_active")
         seats = await billed_seats(self.db, business.id, now)
         _assert_fits(choice.plan, seats)

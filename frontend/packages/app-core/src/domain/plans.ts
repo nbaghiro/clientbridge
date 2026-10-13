@@ -121,7 +121,8 @@ interface PlanTierView {
     price: string;
     staff: string;
     current: boolean;
-    action: string;
+    // null when the business has nothing to buy, as on a complimentary plan
+    action: string | null;
 }
 
 export interface PlanView {
@@ -146,13 +147,44 @@ export interface PlanView {
     error: string | null;
 }
 
-function priceOf(state: PlanState, plan: PlanTier | null, interval: PlanInterval): string {
+function priceOf(
+    state: Pick<PlanState, "prices" | "currency">,
+    plan: PlanTier | null,
+    interval: PlanInterval,
+): string {
     const row = state.prices.find((r) => r.plan === plan && r.interval === interval);
     return row === undefined ? "" : formatMoney(row.amount_cents, state.currency);
 }
 
 function tierName(plan: PlanTier): string {
     return plan === "premium" ? p.premium : p.team;
+}
+
+/** Both tiers at the chosen interval; a complimentary plan has nothing to buy or switch to. */
+export function planTiers(
+    state: Pick<PlanState, "access" | "plan" | "managed" | "interval" | "prices" | "currency">,
+    interval: PlanInterval,
+): PlanTierView[] {
+    const complimentary =
+        !state.managed && (state.access === "active" || state.access === "past_due");
+    return PLAN_TIERS.map((plan) => ({
+        plan,
+        name: tierName(plan),
+        summary: plan === "premium" ? p.premiumSummary : p.teamSummary,
+        price:
+            interval === "month"
+                ? p.perMonth(priceOf(state, plan, "month"))
+                : p.perYear(priceOf(state, plan, "year")),
+        staff: plan === "premium" ? p.premiumStaff(priceOf(state, null, "month")) : p.teamStaff,
+        current:
+            state.plan === plan &&
+            (complimentary || (state.managed && state.interval === interval)),
+        action: complimentary
+            ? null
+            : state.managed
+              ? p.switchTo(tierName(plan))
+              : p.choose(tierName(plan)),
+    }));
 }
 
 function headline(
@@ -266,27 +298,7 @@ export function usePlan(api: ApiLike, open: (url: string) => void = () => undefi
             { key: "month", label: p.monthly },
             { key: "year", label: p.yearly },
         ],
-        tiers:
-            state === null
-                ? []
-                : PLAN_TIERS.map((plan) => {
-                      const current = state.plan === plan && managed && state.interval === interval;
-                      return {
-                          plan,
-                          name: tierName(plan),
-                          summary: plan === "premium" ? p.premiumSummary : p.teamSummary,
-                          price:
-                              interval === "month"
-                                  ? p.perMonth(priceOf(state, plan, "month"))
-                                  : p.perYear(priceOf(state, plan, "year")),
-                          staff:
-                              plan === "premium"
-                                  ? p.premiumStaff(priceOf(state, null, "month"))
-                                  : p.teamStaff,
-                          current,
-                          action: managed ? p.switchTo(tierName(plan)) : p.choose(tierName(plan)),
-                      };
-                  }),
+        tiers: state === null ? [] : planTiers(state, interval),
         taxNote: p.taxNote,
         managed,
         choose,
