@@ -27,7 +27,7 @@ function receipt(extra: Partial<PublicReceipt> = {}): PublicReceipt {
         total_cents: 13041,
         tip_cents: 1500,
         payments: [
-            { kind: "deposit", method: "card", amount_cents: 2750, tip_cents: 0, at: null },
+            { kind: "deposit", method: null, amount_cents: 2750, tip_cents: 0, at: null },
             { kind: "payment", method: "card", amount_cents: 11791, tip_cents: 1500, at: null },
             { kind: "refund", method: "card", amount_cents: 2000, tip_cents: 0, at: null },
             { kind: "payment", method: "barter", amount_cents: 1, tip_cents: 0, at: null },

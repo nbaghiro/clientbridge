@@ -136,7 +136,7 @@ class StaffService:
             await email_sender.send(business_email(principal.business_id, email, subject, body))
             cmd.record("staff.invite", entity_type="staff", entity_id=staff.id)
             return InviteOut(
-                id=staff.id, email=email, role=staff.role, status=staff.status, invite_token=raw
+                id=staff.id, email=email, role=role, status=staff.status, invite_token=raw
             )
 
         return await run_command(
@@ -271,6 +271,7 @@ class StaffService:
         staff = await self._invite(principal, invite_id)
 
         async def run(cmd: Command) -> InviteOut:
+            assert staff.role != "owner", "an invite is never for the owner"
             raw = secrets.token_urlsafe(24)
             staff.invite_token = hash_token(raw)
             staff.invited_at = datetime.now(UTC)

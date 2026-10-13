@@ -45,7 +45,7 @@ class Message(PKMixin, BusinessScoped, TimestampMixin, Base):
 
     thread_id: Mapped[str] = mapped_column(ForeignKey("threads.id"), nullable=False)
     direction: Mapped[Direction] = mapped_column(String, nullable=False)
-    channel: Mapped[str] = mapped_column(String, nullable=False)
+    channel: Mapped[Channel] = mapped_column(String, nullable=False)
     sent_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     body: Mapped[str | None] = mapped_column(String)
     status: Mapped[MessageStatus] = mapped_column(String, default="queued", nullable=False)

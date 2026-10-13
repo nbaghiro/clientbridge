@@ -10177,9 +10177,6 @@
     "publicReceipt.method.cheque": {
         "message": "Cheque"
     },
-    "publicReceipt.method.deposit": {
-        "message": "Deposit"
-    },
     "publicReceipt.method.other": {
         "message": "Other"
     },

@@ -7,7 +7,7 @@ import { refusal } from "../api";
 
 interface PublicReceiptPayment {
     kind: "payment" | "deposit" | "refund";
-    method: string;
+    method: string | null;
     amount_cents: number;
     tip_cents: number;
     at: string | null;
@@ -92,7 +92,7 @@ export function publicReceiptTotals(receipt: PublicReceipt): DocTotalLine[] {
                     ? r.refund
                     : p.kind === "deposit"
                       ? r.deposit
-                      : (r.method[p.method] ?? r.method.other),
+                      : (r.method[p.method ?? "other"] ?? r.method.other),
             cents: p.kind === "refund" ? -p.amount_cents : p.amount_cents,
             kind: "credit",
         });

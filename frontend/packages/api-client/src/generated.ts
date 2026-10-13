@@ -6307,11 +6307,8 @@ export interface components {
              * @enum {string}
              */
             kind: "payment" | "deposit" | "refund";
-            /**
-             * Method
-             * @enum {string}
-             */
-            method: "card" | "etransfer" | "bank_eft" | "cash" | "cheque" | "other";
+            /** Method */
+            method: ("card" | "etransfer" | "bank_eft" | "cash" | "cheque" | "other") | null;
             /** Amount Cents */
             amount_cents: number;
             /**

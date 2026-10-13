@@ -9569,9 +9569,6 @@
     "publicReceipt.method.cheque": {
         "message": "[Çĥéǫûé one]"
     },
-    "publicReceipt.method.deposit": {
-        "message": "[Đéþöšîţ one]"
-    },
     "publicReceipt.method.other": {
         "message": "[Öţĥéŕ one]"
     },

@@ -67,3 +67,8 @@ exclude = ["migrations/"]
 [[tool.mypy.overrides]]
 module = ["argon2.*", "ulid.*", "arq.*", "boto3.*", "botocore.*"]
 ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_typed = true
+init_forbid_extra = true
+warn_required_dynamic_aliases = true

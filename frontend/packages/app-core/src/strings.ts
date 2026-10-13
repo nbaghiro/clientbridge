@@ -3418,7 +3418,6 @@ interface Strings {
             readonly cash: string;
             readonly etransfer: string;
             readonly cheque: string;
-            readonly deposit: string;
             readonly other: string;
         } & Labels;
         readonly gst: (n: string) => string;
