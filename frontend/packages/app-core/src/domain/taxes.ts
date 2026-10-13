@@ -69,9 +69,12 @@ export function lineTax(
     return Object.fromEntries(applied.map((r) => [r.code, halfUp(amountCents * r.ppm, den)]));
 }
 
-const today = (): string => new Date().toISOString().slice(0, 10);
+/** Today's date where the business is, the day its tax rates are read on. */
+export function useBusinessDay(): string {
+    return dateKey(new Date(), useBusinessZone());
+}
 
-function taxLinesFor(province: string | null, day = today()): DocRate[] {
+function taxLinesFor(province: string | null, day: string): DocRate[] {
     const rates = ratesOn(province, day);
     // A business without a province is shown the GST alone, as Alberta charges it.
     return rates.length > 0 ? rates : ratesOn("AB", day);
@@ -82,9 +85,10 @@ const rateLabel = (r: DocRate): string => taxRateLabel(r.code, r.ppm / 100);
 /** "GST 5% + PST 7%" for a province; federal_only keeps only the GST or HST. */
 export function taxSummary(
     province: string | null,
+    day: string,
     cls: "standard" | "federal_only" = "standard",
 ): string {
-    const labels = taxLinesFor(province)
+    const labels = taxLinesFor(province, day)
         .filter((l) => cls === "standard" || isFederal(l.code))
         .map(rateLabel);
     return taxList(labels);
@@ -101,9 +105,9 @@ const PST_FORMAT = /^(PST)?\d{8}$/;
 const compact = (v: string): string => v.replace(/[\s-]/g, "").toUpperCase();
 
 /** The class names for a province: "GST + PST" in BC, "HST" in Ontario. */
-export function taxClassLabel(cls: ItemTaxClass, province: string | null): string {
+export function taxClassLabel(cls: ItemTaxClass, province: string | null, day: string): string {
     if (cls === "exempt") return t.classes.exempt;
-    const lines = taxLinesFor(province);
+    const lines = taxLinesFor(province, day);
     const names = taxList(
         lines.filter((l) => cls === "standard" || isFederal(l.code)).map((l) => taxName(l.code)),
     );
@@ -111,9 +115,9 @@ export function taxClassLabel(cls: ItemTaxClass, province: string | null): strin
 }
 
 /** "Service, GST only" for the worked example; the no-tax card is just "No tax". */
-export function taxExampleTitle(cls: ItemTaxClass, province: string | null): string {
+export function taxExampleTitle(cls: ItemTaxClass, province: string | null, day: string): string {
     const kind = t.exampleFor[cls];
-    const label = taxClassLabel(cls, province);
+    const label = taxClassLabel(cls, province, day);
     return kind === undefined ? label : formatList([kind, label], "unit");
 }
 
@@ -140,10 +144,11 @@ export function taxExample(
     cls: ItemTaxClass,
     province: string | null,
     collect: boolean,
+    day: string,
     cents = EXAMPLE_SALE_CENTS,
 ): { lines: TaxExampleLine[]; totalCents: number } {
-    const byCode = collect ? lineTax(cents, cls, taxLinesFor(province)) : {};
-    const lines = taxLinesFor(province)
+    const byCode = collect ? lineTax(cents, cls, taxLinesFor(province, day)) : {};
+    const lines = taxLinesFor(province, day)
         .filter((r) => r.code in byCode)
         .map((r) => ({ label: rateLabel(r), cents: byCode[r.code] ?? 0 }));
     return { lines, totalCents: cents + lines.reduce((sum, l) => sum + l.cents, 0) };
@@ -390,7 +395,7 @@ interface TaxSetup {
 export function useTaxSetup(): TaxSetup {
     const row = useQuery<{ province: string | null; tax_registered: number | null }>(TAX_SETUP_SQL)
         .data[0];
-    const day = dateKey(new Date(), useBusinessZone());
+    const day = useBusinessDay();
     return {
         rates: ratesOn(row?.province ?? null, day),
         registered: row?.tax_registered !== 0,

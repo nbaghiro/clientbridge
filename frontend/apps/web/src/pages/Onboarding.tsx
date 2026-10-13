@@ -1,4 +1,10 @@
-import { PROVINCES, strings, taxSummary, useOnboardingForm } from "@clientbridge/app-core";
+import {
+    PROVINCES,
+    strings,
+    taxSummary,
+    useBusinessDay,
+    useOnboardingForm,
+} from "@clientbridge/app-core";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -8,6 +14,7 @@ import { api } from "../lib/api";
 export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
     const [submitted, setSubmitted] = useState(false);
     const navigate = useNavigate();
+    const day = useBusinessDay();
     const form = useOnboardingForm(api, () => {
         setSubmitted(true);
     });
@@ -71,7 +78,7 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                                 PROVINCES.find((p) => p.code === form.province)?.name ?? "",
                             )}
                             {": "}
-                            {taxSummary(form.province)}
+                            {taxSummary(form.province, day)}
                         </p>
                         <p className="mt-0.5 text-xs text-muted">
                             {strings.business.onboarding.taxNone}

@@ -13,6 +13,7 @@ import {
     smallSupplierLimit,
     taxExample,
     taxExampleTitle,
+    useBusinessDay,
     useItemTaxClasses,
     useTaxSettingsForm,
     BUSINESS_CURRENCY,
@@ -43,21 +44,22 @@ const provinceName = (code: string): string => PROVINCES.find((p) => p.code === 
 const grid =
     "grid grid-cols-[20px_minmax(0,2fr)_84px_150px] items-center gap-3 xl:grid-cols-[20px_minmax(0,2fr)_minmax(0,0.8fr)_84px_150px]";
 
-function classOptions(province: string | null) {
-    return TAX_CLASS_KEYS.map((k) => ({ key: k, label: taxClassLabel(k, province) }));
+function classOptions(province: string | null, day: string) {
+    return TAX_CLASS_KEYS.map((k) => ({ key: k, label: taxClassLabel(k, province, day) }));
 }
 
 function WorkedExample({ form }: { form: TaxSettingsForm }) {
     const collect = form.registration === "registered";
+    const day = useBusinessDay();
     return (
         <Panel title={s.exampleTitle(exampleSale())}>
             <div className="grid gap-3">
                 {TAX_CLASS_KEYS.map((cls) => {
-                    const ex = taxExample(cls, form.province, collect);
+                    const ex = taxExample(cls, form.province, collect, day);
                     return (
                         <div key={cls} className="rounded-md border border-line bg-bg p-3">
                             <p className="text-xs font-semibold text-ink-soft">
-                                {taxExampleTitle(cls, form.province)}
+                                {taxExampleTitle(cls, form.province, day)}
                             </p>
                             <dl className="mt-2 space-y-1 text-xs">
                                 <div className="flex justify-between text-muted">
@@ -145,7 +147,7 @@ function FilingCard({ form }: { form: TaxSettingsForm }) {
 function ItemClasses({ items, province }: { items: ItemTaxClasses; province: string | null }) {
     const open = useOpenLink();
     const n = items.selected.length;
-    const options = classOptions(province);
+    const options = classOptions(province, useBusinessDay());
     return (
         <Panel flush title={s.classesTitle} subtitle={s.classesBody}>
             {items.load.state === "loading" ? (

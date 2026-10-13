@@ -11,6 +11,7 @@ import {
     exampleSale,
     smallSupplierLimit,
     taxExample,
+    useBusinessDay,
     taxExampleTitle,
     useItemTaxClasses,
     useTaxSettingsForm,
@@ -49,7 +50,11 @@ export function TaxesScreen() {
     const items = useItemTaxClasses(api);
     const open = useOpenLink();
     const registered = form.registration === "registered";
-    const options = TAX_CLASS_KEYS.map((k) => ({ key: k, label: taxClassLabel(k, form.province) }));
+    const day = useBusinessDay();
+    const options = TAX_CLASS_KEYS.map((k) => ({
+        key: k,
+        label: taxClassLabel(k, form.province, day),
+    }));
     const n = items.selected.length;
 
     if (form.load.state === "error") {
@@ -190,12 +195,12 @@ export function TaxesScreen() {
                 <View style={styles.card}>
                     <Text style={styles.title}>{s.exampleTitle(exampleSale())}</Text>
                     {TAX_CLASS_KEYS.map((cls) => {
-                        const ex = taxExample(cls, form.province, registered);
+                        const ex = taxExample(cls, form.province, registered, day);
                         return (
                             <View key={cls} style={styles.exRow}>
                                 <View style={styles.flex}>
                                     <Text style={styles.exLabel}>
-                                        {taxExampleTitle(cls, form.province)}
+                                        {taxExampleTitle(cls, form.province, day)}
                                     </Text>
                                     <Text style={styles.small}>
                                         {ex.lines.length > 0
@@ -264,7 +269,7 @@ export function TaxesScreen() {
                                 </View>
                                 <Badge
                                     style={{ alignSelf: "center" }}
-                                    label={taxClassLabel(it.tax_class, form.province)}
+                                    label={taxClassLabel(it.tax_class, form.province, day)}
                                     intent={it.tax_class === "exempt" ? "neutral" : "accent"}
                                 />
                             </View>
