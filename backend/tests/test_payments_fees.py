@@ -47,9 +47,7 @@ async def _saved(db: AsyncSession, cid: str, ref: str, method: str) -> str:
         business_id=BIZ,
         client_id=cid,
         method=method,
-        provider="stripe",
         provider_ref=ref,
-        status="active",
         mandate_status="active" if method == "bank_eft" else "none",
     )
     db.add(pm)

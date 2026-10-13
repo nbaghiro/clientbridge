@@ -21,7 +21,7 @@ from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, en
 PaymentKind = Literal["payment", "deposit", "refund"]
 PayMethod = Literal["card", "etransfer", "bank_eft", "cash", "cheque", "other"]
 PaymentProvider = Literal["stripe", "manual"]
-PaymentStatus = Literal["pending", "succeeded", "failed", "refunded", "canceled"]
+PaymentStatus = Literal["pending", "succeeded", "failed", "canceled"]
 DisputeStatus = Literal["needs_response", "under_review", "won", "lost"]
 SavedMethod = Literal["card", "bank_eft"]
 MandateStatus = Literal["none", "pending", "active", "revoked"]
@@ -104,11 +104,9 @@ class PaymentMethod(PKMixin, BusinessScoped, TimestampMixin, Base):
     method: Mapped[SavedMethod] = mapped_column(String, nullable=False)
     brand: Mapped[str | None] = mapped_column(String)
     last4: Mapped[str | None] = mapped_column(String)
-    provider: Mapped[str | None] = mapped_column(String)
     provider_ref: Mapped[str | None] = mapped_column(String)
     preferred: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     mandate_status: Mapped[MandateStatus] = mapped_column(String, default="none", nullable=False)
-    status: Mapped[str] = mapped_column(String, default="active", nullable=False)
     exp_month: Mapped[int | None] = mapped_column(SmallInteger)
     exp_year: Mapped[int | None] = mapped_column(SmallInteger)
     holder_name: Mapped[str | None] = mapped_column(String)

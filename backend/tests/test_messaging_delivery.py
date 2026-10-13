@@ -18,7 +18,7 @@ from clientbridge.models.platform import Webhook
 from clientbridge.services.consents import allows_marketing, latest_consents, record_consent
 from clientbridge.services.messaging import open_thread
 from tests.conftest import BIZ, RESEND_SECRET, Factory
-from tests.helpers import email_event, new_client, ok
+from tests.helpers import email_event, new_client, ok, summary
 
 EMAIL = "pat@example.ca"
 
@@ -79,7 +79,7 @@ async def test_a_delivered_event_marks_the_message_delivered(
     assert (await _message(db, message.id)).status == "delivered"
     row = await _webhook(db, "evt_1")
     assert row.provider == "resend" and row.event == "email.delivered"
-    assert row.payload["matched"] is True and row.payload["business_id"] == BIZ
+    assert summary(row)["matched"] is True and summary(row)["business_id"] == BIZ
 
 
 @pytest.mark.parametrize(
@@ -106,7 +106,7 @@ async def test_a_failure_event_marks_the_message_failed(
         )
     )
     assert (await _message(db, message.id)).status == "failed"
-    assert (await _webhook(db, "evt_fail")).payload["detail"] == expected
+    assert summary(await _webhook(db, "evt_fail"))["detail"] == expected
 
 
 async def test_a_delivered_event_after_a_failure_does_not_revive_it(
@@ -145,7 +145,7 @@ async def test_a_complaint_on_transactional_mail_resolves_the_client_by_tag(
     ok(await email_event(api, body, svix_id="evt_receipt"))
     assert not await _allows_email(db, BIZ, cid)
     row = await _webhook(db, "evt_receipt")
-    assert row.payload["matched"] is True and row.payload["business_id"] == BIZ
+    assert summary(row)["matched"] is True and summary(row)["business_id"] == BIZ
 
 
 async def test_a_complaint_from_a_shared_mailbox_withdraws_every_client_on_it(
@@ -166,7 +166,7 @@ async def test_an_event_without_an_email_id_is_recorded_unmatched(
     body = {"type": "email.delivered", "data": {"email_id": None, "to": [EMAIL]}}
     ok(await email_event(api, body, svix_id="evt_noid"))
     row = await _webhook(db, "evt_noid")
-    assert row.payload["matched"] is False and row.payload["email_id"] is None
+    assert summary(row)["matched"] is False and summary(row)["email_id"] is None
 
 
 async def test_a_complaint_tagged_with_another_business_leaves_ours_alone(
@@ -189,7 +189,7 @@ async def test_a_complaint_tagged_with_another_business_leaves_ours_alone(
         "email.complained", "email_crossed", tags={"business": BIZ, "client": theirs.id}
     )
     ok(await email_event(api, crossed, svix_id="evt_crossed"))
-    assert (await _webhook(db, "evt_crossed")).payload["matched"] is False
+    assert summary(await _webhook(db, "evt_crossed"))["matched"] is False
     assert await _allows_email(db, BIZ, ours)
 
 
@@ -198,7 +198,7 @@ async def test_a_complaint_nobody_matches_is_recorded_unmatched(
 ) -> None:
     ok(await email_event(api, _event("email.complained", "email_ghost"), svix_id="evt_ghost"))
     row = await _webhook(db, "evt_ghost")
-    assert row.payload["matched"] is False and row.payload["business_id"] is None
+    assert summary(row)["matched"] is False and summary(row)["business_id"] is None
 
 
 async def test_an_unknown_event_type_is_recorded_and_changes_nothing(
@@ -256,7 +256,7 @@ async def test_an_event_for_an_uncommitted_send_is_retried_later(
     assert unrecorded.scalar_one_or_none() is None
     old = {**fresh, "created_at": (clock.wall() - timedelta(minutes=15)).isoformat()}
     ok(await email_event(api, old, svix_id="evt_soon"))
-    assert (await _webhook(db, "evt_soon")).payload["matched"] is False
+    assert summary(await _webhook(db, "evt_soon"))["matched"] is False
 
 
 async def test_a_delivered_event_backfills_a_send_that_timed_out(
@@ -302,7 +302,7 @@ async def test_a_signed_event_of_another_kind_is_acknowledged_and_recorded(
     contact = {"type": "contact.created", "data": {"id": "c_1", "tags": None}}
     ok(await email_event(api, contact, svix_id="evt_contact"))
     row = await _webhook(db, "evt_contact")
-    assert row.event == "contact.created" and row.payload["matched"] is False
+    assert row.event == "contact.created" and summary(row)["matched"] is False
     message = await _sent_email(as_owner, db, await new_client(db, email=EMAIL))
     bare = {"type": "email.delivered", "data": {"email_id": message.provider_ref, "tags": None}}
     ok(await email_event(api, bare, svix_id="evt_bare"))
@@ -355,7 +355,7 @@ async def test_an_archived_clients_complaint_writes_no_consent(
         await db.execute(select(func.count()).select_from(Consent).where(Consent.client_id == cid))
     ).scalar_one()
     assert rows == 0
-    assert (await _webhook(db, "evt_g")).payload["matched"] is False
+    assert summary(await _webhook(db, "evt_g"))["matched"] is False
 
 
 def test_signature_verification_accepts_any_listed_v1_entry_and_rejects_the_rest() -> None:

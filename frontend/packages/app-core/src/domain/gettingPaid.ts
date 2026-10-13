@@ -11,12 +11,10 @@ interface ConnectStatus {
     connected: boolean;
     charges_enabled: boolean;
     payouts_enabled: boolean;
-    details_submitted: boolean;
     kyc_status: string;
     disabled_reason: string | null;
     currently_due: string[];
     past_due: string[];
-    pending_verification: string[];
     current_deadline: string | null;
     available_cents: number | null;
 }

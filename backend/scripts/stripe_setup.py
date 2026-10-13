@@ -927,10 +927,6 @@ class Linker:
                 "stripe_terminal_location_id": (business.stripe_terminal_location_id, location),
                 "stripe_charges_enabled": (business.stripe_charges_enabled, status.charges_enabled),
                 "stripe_payouts_enabled": (business.stripe_payouts_enabled, status.payouts_enabled),
-                "stripe_details_submitted": (
-                    business.stripe_details_submitted,
-                    status.details_submitted,
-                ),
             },
         )
         if self.apply:
@@ -962,11 +958,7 @@ class Linker:
         methods = (
             (
                 await self.db.execute(
-                    scoped(PaymentMethod, business.id).where(
-                        PaymentMethod.provider == "stripe",
-                        PaymentMethod.method == "card",
-                        PaymentMethod.status == "active",
-                    )
+                    scoped(PaymentMethod, business.id).where(PaymentMethod.method == "card")
                 )
             )
             .scalars()

@@ -363,9 +363,7 @@ ACCOUNT = _v2_account()
 
 
 async def _cards(db: AsyncSession) -> list[PaymentMethod]:
-    query = scoped(PaymentMethod, "bz_birchbark").where(
-        PaymentMethod.method == "card", PaymentMethod.status == "active"
-    )
+    query = scoped(PaymentMethod, "bz_birchbark").where(PaymentMethod.method == "card")
     return list((await db.execute(query)).scalars().all())
 
 

@@ -1,5 +1,6 @@
 """Flows only the real Stripe API can prove: KYC shape, real declines, period parsing."""
 
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -134,4 +135,4 @@ async def test_subscription_period_fields_match_current_api(
         payment_method_id="pm_card_visa",
         metadata={"tax_class": "standard", "tax_registered": "true"},
     )
-    assert result.current_period_end > result.current_period_start
+    assert result.current_period_end > datetime.now(UTC)

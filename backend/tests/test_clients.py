@@ -273,8 +273,8 @@ async def test_merge_refuses_self_money_and_saved_methods_409(
     await db.execute(
         text(
             "INSERT INTO payment_methods"
-            " (id, business_id, client_id, method, status, preferred, mandate_status)"
-            " VALUES ('pm_merge_test', :b, :c, 'card', 'active', false, 'none')"
+            " (id, business_id, client_id, method, preferred, mandate_status)"
+            " VALUES ('pm_merge_test', :b, :c, 'card', false, 'none')"
         ),
         {"b": BIZ, "c": gone},
     )

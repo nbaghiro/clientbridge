@@ -451,7 +451,6 @@ class FakePaymentGateway:
                 id=account_id,
                 charges_enabled=False,
                 payouts_enabled=False,
-                details_submitted=False,
                 disabled_reason=None,
                 currently_due=[
                     "identity.attestations.terms_of_service.account",
@@ -459,7 +458,6 @@ class FakePaymentGateway:
                 ],
                 eventually_due=[],
                 past_due=[],
-                pending_verification=[],
                 card_status="restricted"
                 if "merchant" in self.configurations.get(account_id, {"merchant"})
                 else None,
@@ -566,7 +564,6 @@ class FakePaymentGateway:
         result = SubscriptionResult(
             id=sid,
             status="active",
-            current_period_start=datetime(2030, 1, 1, tzinfo=UTC),
             current_period_end=datetime(2030, 2, 1, tzinfo=UTC),
         )
         if idempotency_key is not None:

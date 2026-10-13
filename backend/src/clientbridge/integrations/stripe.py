@@ -80,14 +80,18 @@ class ConnectAccount:
     id: str
     charges_enabled: bool
     payouts_enabled: bool
-    details_submitted: bool
     disabled_reason: str | None
     currently_due: list[str]
     eventually_due: list[str]
     past_due: list[str]
-    pending_verification: list[str]
     card_status: str | None  # card_payments: active, pending, restricted, unsupported or rejected
     current_deadline: int | None = None  # unix time Stripe pauses payouts if currently_due stays
+
+    @property
+    def details_submitted(self) -> bool:
+        """v2 has no such field; accepting the service agreement is the last onboarding step."""
+        owed = [*self.currently_due, *self.eventually_due, *self.past_due]
+        return not any(code.startswith(TERMS_REQUIREMENT) for code in owed)
 
 
 TERMS_REQUIREMENT = "identity.attestations.terms_of_service"
@@ -135,31 +139,23 @@ def account_status_from(account_id: str, data: dict[str, object]) -> ConnectAcco
     card_status = merchant_capability(data, "card_payments").get("status")
     requirements = _dict(data.get("requirements"))
     due: dict[str, list[str]] = {"currently_due": [], "eventually_due": [], "past_due": []}
-    pending: list[str] = []
     for entry in _rows(requirements.get("entries")):
         code = entry.get("description")
-        if not isinstance(code, str):
-            continue
-        if entry.get("awaiting_action_from") == "stripe":
-            if card_status == "pending":
-                pending.append(code)
+        if not isinstance(code, str) or entry.get("awaiting_action_from") == "stripe":
             continue
         status = _dict(entry.get("minimum_deadline")).get("status")
         if isinstance(status, str) and status in due:
             due[status].append(code)
-    owed = [*due["currently_due"], *due["eventually_due"], *due["past_due"]]
     deadline = _dict(_dict(requirements.get("summary")).get("minimum_deadline")).get("time")
     return ConnectAccount(
         id=account_id,
         charges_enabled=card_status == "active",
         payouts_enabled=merchant_capability(data, "stripe_balance", "payouts").get("status")
         == "active",
-        details_submitted=not any(code.startswith(TERMS_REQUIREMENT) for code in owed),
         disabled_reason=_blocked_reason(data),
         currently_due=due["currently_due"],
         eventually_due=due["eventually_due"],
         past_due=due["past_due"],
-        pending_verification=pending,
         card_status=card_status if isinstance(card_status, str) else None,
         current_deadline=_unix(deadline),
     )
@@ -270,7 +266,6 @@ class PriceTerms:
 class SubscriptionResult:
     id: str
     status: str
-    current_period_start: datetime
     current_period_end: datetime
 
 
@@ -1076,7 +1071,6 @@ class StripeGateway:
         return SubscriptionResult(
             id=str(sub.id),
             status=str(sub.status),
-            current_period_start=datetime.fromtimestamp(_period_of(sub, "start"), tz=UTC),
             current_period_end=datetime.fromtimestamp(_period_of(sub, "end"), tz=UTC),
         )
 

@@ -87,5 +87,4 @@ class SubscriptionOut(Mirror):
     client_id: str
     item_id: str
     status: SubscriptionStatus
-    current_period_start: datetime | None
     current_period_end: datetime | None

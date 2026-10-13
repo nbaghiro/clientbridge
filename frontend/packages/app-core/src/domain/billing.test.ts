@@ -71,7 +71,6 @@ const method = {
     last4: null,
     preferred: 0,
     mandate_status: "none",
-    status: "active",
 };
 
 describe("chargeable saved methods", () => {

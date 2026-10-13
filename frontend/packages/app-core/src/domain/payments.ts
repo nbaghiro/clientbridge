@@ -73,13 +73,12 @@ export interface SavedCardRow {
     last4: string | null;
     preferred: number; // SQLite boolean → 0/1
     mandate_status: string;
-    status: string;
 }
 
 export const SAVED_CARDS_SQL = `
-SELECT id, client_id, method, brand, last4, preferred, mandate_status, status
+SELECT id, client_id, method, brand, last4, preferred, mandate_status
 FROM payment_methods
-WHERE client_id = ? AND status = 'active'
+WHERE client_id = ?
 ORDER BY preferred DESC, created_at`;
 
 /** A client's active saved payment methods (cards + bank/PAD mandates), default first. */

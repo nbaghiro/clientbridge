@@ -969,8 +969,8 @@ interface SaleClientRow {
 
 export const SALE_CLIENT_SQL = "SELECT id, name, email, phone FROM clients WHERE id = ?";
 export const SALE_CARDS_SQL = `
-SELECT id, client_id, method, brand, last4, preferred, mandate_status, status FROM payment_methods
-WHERE client_id = ? AND method = 'card' AND status = 'active' ORDER BY preferred DESC, created_at DESC`;
+SELECT id, client_id, method, brand, last4, preferred, mandate_status FROM payment_methods
+WHERE client_id = ? AND method = 'card' ORDER BY preferred DESC, created_at DESC`;
 
 /** The register: lines, discounts, tip, payment and receipt in one view-model for web and mobile. */
 export function useSale(

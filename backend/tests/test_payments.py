@@ -60,9 +60,7 @@ async def _charge_saved_card(
             business_id=BIZ,
             client_id=inv.client_id,
             method="card",
-            provider="stripe",
             provider_ref="pm_pay",
-            status="active",
         )
         db.add(pm)
         await db.flush()

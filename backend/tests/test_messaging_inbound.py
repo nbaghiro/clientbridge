@@ -15,7 +15,7 @@ from clientbridge.models.platform import Device, Webhook
 from clientbridge.services.consents import texts_stopped
 from clientbridge.services.messaging import unread_count
 from tests.conftest import BIZ, Factory, FakePushSender
-from tests.helpers import TWILIO_TOKEN, ok, text_in, texted
+from tests.helpers import TWILIO_TOKEN, ok, summary, text_in, texted
 
 PHONE = "+15145551111"
 
@@ -115,7 +115,7 @@ async def test_a_number_no_business_texted_is_recorded_unmatched(
     ok(await text_in(api, {"From": PHONE, "Body": "STOP", "MessageSid": "SM_nobody"}))
     assert await _inbound(db, "SM_nobody") is None
     row = await _webhook(db, "SM_nobody")
-    assert row.payload["matched"] is False and row.payload["opt_out"] is True
+    assert summary(row)["matched"] is False and summary(row)["opt_out"] is True
     assert not await texts_stopped(db, rival.id, theirs.id)
 
 
@@ -131,7 +131,7 @@ async def test_a_tie_between_businesses_is_not_guessed(
     await texted(db, theirs.id, business_id=rival.id, at=at)
     ok(await text_in(api, {"From": PHONE, "Body": "hi", "MessageSid": "SM_tie"}))
     assert await _inbound(db, "SM_tie") is None
-    assert (await _webhook(db, "SM_tie")).payload["matched"] is False
+    assert summary(await _webhook(db, "SM_tie"))["matched"] is False
 
 
 async def test_a_redelivery_is_recorded_once(api: httpx.AsyncClient, db: AsyncSession) -> None:

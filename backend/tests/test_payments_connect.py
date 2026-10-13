@@ -21,7 +21,7 @@ from clientbridge.integrations.stripe import (
 )
 from clientbridge.models.business import Business
 from clientbridge.models.platform import Audit, IdempotencyKey
-from clientbridge.services.business import derive_kyc_status, kyc_status
+from clientbridge.services.business import apply_account_status, derive_kyc_status, kyc_status
 from clientbridge.services.payments import PaymentService
 from tests.conftest import Factory, FakePaymentGateway
 
@@ -93,7 +93,7 @@ async def test_onboard_seeds_kyc_state(as_owner: httpx.AsyncClient, db: AsyncSes
     await as_owner.post("/v1/connect/onboard")
     biz = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
     # the fake get_account returns a freshly-created account → not_started + what Stripe still wants
-    assert kyc_status(biz) == "not_started" and biz.stripe_details_submitted is False
+    assert kyc_status(biz) == "not_started"
     due = biz.stripe_requirements["currently_due"]
     assert isinstance(due, list) and "external_account" in due
     body = (await as_owner.get("/v1/connect/status")).json()  # and status() surfaces it
@@ -164,7 +164,6 @@ def test_parses_a_v2_account() -> None:
     assert status.past_due == ["external_account"]
     assert status.currently_due == ["identity.individual.id_numbers"]
     assert status.eventually_due == ["defaults.profile.product_description"]
-    assert status.pending_verification == []
     assert status.disabled_reason is None
     assert status.current_deadline == 1_793_491_200
 
@@ -188,7 +187,7 @@ def _cards(status: str, code: str = "", resolution: str = "") -> dict[str, objec
 def test_restricted_cards_needing_info_are_restricted_with_the_business_entries() -> None:
     status = account_status_from("acct_x", _account())
     assert derive_kyc_status(status) == "restricted"
-    assert status.currently_due and status.past_due and status.pending_verification == []
+    assert status.currently_due and status.past_due
 
 
 @pytest.mark.parametrize(
@@ -205,7 +204,8 @@ def test_pending_cards_are_a_review_with_the_entries_stripe_checks(
     data = _with(_account(), configuration=_cards("pending", code, resolution))
     status = account_status_from("acct_x", data)
     assert status.disabled_reason is None
-    assert status.pending_verification == ["identity.individual.documents.primary_verification"]
+    stripe_reviews = "identity.individual.documents.primary_verification"
+    assert stripe_reviews not in [*status.currently_due, *status.past_due, *status.eventually_due]
     assert derive_kyc_status(status) == "pending"
 
 
@@ -236,6 +236,37 @@ def test_open_terms_mean_onboarding_was_not_submitted() -> None:
     assert derive_kyc_status(status) == "not_started"
 
 
+def _terms(deadline: str) -> dict[str, object]:
+    return {
+        "awaiting_action_from": "user",
+        "description": "identity.attestations.terms_of_service.account.date",
+        "minimum_deadline": {"status": deadline},
+    }
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        _account(),
+        _with(_account(), requirements={"entries": [_terms("currently_due")]}),
+        _with(_account(), requirements={"entries": [_terms("eventually_due")]}),
+        _with(_account(), requirements={"entries": [_terms("past_due")]}),
+        _with(_account(), configuration=_cards("pending", "determining_status", "no_resolution")),
+        _with(_account(), configuration=_cards("pending"), requirements=None),
+        _with(_account(), configuration=_cards("active")),
+        _with(_account(), configuration={"customer": {"applied": True}}, requirements=None),
+        _with(_account(), closed=True),
+    ],
+)
+def test_the_mirrored_kyc_status_matches_the_account_it_was_mirrored_from(
+    data: dict[str, object],
+) -> None:
+    status = account_status_from("acct_x", data)
+    business = Business(id=BIZ)
+    apply_account_status(business, status)
+    assert kyc_status(business) == derive_kyc_status(status)
+
+
 def test_an_account_without_the_merchant_configuration_has_not_started() -> None:
     data = _with(_account(), configuration={"customer": {"applied": True}}, requirements=None)
     status = account_status_from("acct_x", data)
@@ -254,7 +285,6 @@ def test_active_cards_with_an_upcoming_requirement_stay_enabled() -> None:
     data = _with(_account(), configuration=_cards("active"))
     status = account_status_from("acct_x", data)
     assert status.currently_due == ["identity.individual.id_numbers"]
-    assert status.pending_verification == []
     assert derive_kyc_status(status) == "enabled"
 
 
@@ -288,7 +318,7 @@ def test_a_state_the_business_cannot_fix_is_disabled(
 def test_missing_requirements_parse_as_nothing_due() -> None:
     data: dict[str, object] = {"requirements": {"entries": [{"awaiting_action_from": "user"}]}}
     status = account_status_from("acct_x", data)
-    assert status.currently_due == [] and status.pending_verification == []
+    assert status.currently_due == []
     assert status.charges_enabled is False and status.disabled_reason is None
     assert status.card_status is None
 
@@ -304,7 +334,6 @@ async def test_status_reads_the_mirrored_card_status(
         .where(Business.id == BIZ)
         .values(
             stripe_account_id="acct_mirror",
-            stripe_details_submitted=True,
             stripe_requirements={"card_status": card_status, "currently_due": []},
         )
     )

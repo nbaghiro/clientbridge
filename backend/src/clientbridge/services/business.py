@@ -196,12 +196,10 @@ def kyc_status(business: Business) -> str:
             id=business.stripe_account_id or "",
             charges_enabled=business.stripe_charges_enabled,
             payouts_enabled=business.stripe_payouts_enabled,
-            details_submitted=business.stripe_details_submitted,
             disabled_reason=reason if isinstance(reason, str) else None,
             currently_due=_due("currently_due"),
             eventually_due=_due("eventually_due"),
             past_due=_due("past_due"),
-            pending_verification=_due("pending_verification"),
             card_status=card if isinstance(card := req.get("card_status"), str) else None,
         )
     )
@@ -211,12 +209,10 @@ def apply_account_status(business: Business, status: ConnectAccount) -> None:
     """Mirror the connected-account KYC state onto the business (Stripe = source of truth)."""
     business.stripe_charges_enabled = status.charges_enabled
     business.stripe_payouts_enabled = status.payouts_enabled
-    business.stripe_details_submitted = status.details_submitted
     business.stripe_requirements = {
         "currently_due": status.currently_due,
         "eventually_due": status.eventually_due,
         "past_due": status.past_due,
-        "pending_verification": status.pending_verification,
         "disabled_reason": status.disabled_reason,
         "card_status": status.card_status,
         "current_deadline": status.current_deadline,

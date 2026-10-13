@@ -181,7 +181,7 @@ def _membership(ctx: DemoContext) -> None:
     item = ctx.get(Item, subscription.item_id)
     method = ctx.get(PaymentMethod, "pm_david")
     subscription.payment_method_id = method.id
-    when = subscription.current_period_start or ctx.at(-6)
+    when = ctx.at(-6, 0)
     invoice = _new_invoice(
         ctx,
         "inv_subscription_david",

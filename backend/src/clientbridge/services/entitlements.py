@@ -530,7 +530,6 @@ class SubscriptionService:
                 client_id=data.client_id,
                 item_id=item.id,
                 status=map_subscription_status(result.status),
-                current_period_start=result.current_period_start,
                 current_period_end=result.current_period_end,
                 payment_method_id=pm.id,
                 provider_ref=result.id,
@@ -624,7 +623,7 @@ class SubscriptionService:
         ).scalar_one_or_none()
         if row is None:
             raise NotFound("payment method not found")
-        if row.status != "active" or (row.method == "bank_eft" and row.mandate_status != "active"):
+        if row.method == "bank_eft" and row.mandate_status != "active":
             raise Conflict(
                 "the client must complete bank authorization before this account can be charged"
             )
@@ -647,7 +646,6 @@ def _subscription_out(sub: Subscription) -> SubscriptionOut:
         client_id=sub.client_id,
         item_id=sub.item_id,
         status=sub.status,
-        current_period_start=sub.current_period_start,
         current_period_end=sub.current_period_end,
     )
 

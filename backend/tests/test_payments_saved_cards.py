@@ -97,7 +97,7 @@ async def test_payment_method_attached_records_card(
         await db.execute(select(PaymentMethod).where(PaymentMethod.provider_ref == "pm_visa"))
     ).scalar_one()
     assert pm.client_id == cid
-    assert pm.brand == "visa" and pm.last4 == "4242" and pm.status == "active"
+    assert pm.brand == "visa" and pm.last4 == "4242"
 
 
 async def test_pay_with_saved_card(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -111,9 +111,7 @@ async def test_pay_with_saved_card(as_owner: httpx.AsyncClient, db: AsyncSession
         method="card",
         brand="visa",
         last4="4242",
-        provider="stripe",
         provider_ref="pm_saved",
-        status="active",
     )
     db.add(pm)
     inv = Invoice(
@@ -177,9 +175,7 @@ async def test_cannot_use_another_clients_saved_card(
         business_id=BIZ,
         client_id=other_client,
         method="card",
-        provider="stripe",
         provider_ref="pm_other",
-        status="active",
     )
     db.add(other_pm)
     inv = Invoice(
@@ -283,10 +279,8 @@ def _saved_card(cid: str, *, ref: str, default: bool = False) -> PaymentMethod:
         method="card",
         brand="visa",
         last4="4242",
-        provider="stripe",
         provider_ref=ref,
         preferred=default,
-        status="active",
     )
 
 
@@ -324,9 +318,7 @@ async def test_foreign_client_and_method_404_by_scoping(
         business_id=other_biz.id,
         client_id=other_client.id,
         method="card",
-        provider="stripe",
         provider_ref="pm_other_biz",
-        status="active",
     )
     db.add(pm)
     await db.flush()

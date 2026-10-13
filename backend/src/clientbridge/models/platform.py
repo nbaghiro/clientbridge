@@ -73,7 +73,7 @@ class Webhook(PKMixin, TimestampMixin, Base):
 
     provider: Mapped[WebhookProvider] = mapped_column(String, nullable=False)
     event: Mapped[str] = mapped_column(String, nullable=False)
-    payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    payload: Mapped[dict[str, object] | None] = mapped_column(JSONB)
     status: Mapped[WebhookStatus] = mapped_column(String, default="pending", nullable=False)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

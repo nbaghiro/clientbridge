@@ -227,12 +227,10 @@ class PaymentService:
             connected=merchant_account(business) is not None,
             charges_enabled=business.stripe_charges_enabled,
             payouts_enabled=business.stripe_payouts_enabled,
-            details_submitted=business.stripe_details_submitted,
             kyc_status=kyc_status(business),
             disabled_reason=str(reason) if isinstance(reason, str) else None,
             currently_due=_due("currently_due"),
             past_due=_due("past_due"),
-            pending_verification=_due("pending_verification"),
             current_deadline=datetime.fromtimestamp(deadline, UTC)
             if isinstance(deadline, int)
             else None,
@@ -492,7 +490,7 @@ class PaymentService:
         self._assert_admin()
         pm = await self._payment_method(payment_method_id)
 
-        if pm.status != "active" or (pm.method == "bank_eft" and pm.mandate_status != "active"):
+        if pm.method == "bank_eft" and pm.mandate_status != "active":
             raise Conflict(
                 "complete client bank authorization before making this method the default"
             )
@@ -512,7 +510,6 @@ class PaymentService:
                 brand=pm.brand,
                 last4=pm.last4,
                 preferred=pm.preferred,
-                status=pm.status,
             )
 
         return await run_command(
@@ -810,7 +807,6 @@ async def default_method_ref(db: AsyncSession, business_id: str, client_id: str)
             .where(
                 PaymentMethod.client_id == client_id,
                 PaymentMethod.preferred.is_(True),
-                PaymentMethod.status == "active",
                 (PaymentMethod.method != "bank_eft") | (PaymentMethod.mandate_status == "active"),
             )
             .limit(1)
@@ -837,7 +833,7 @@ async def resolve_saved_method_ref(
             )
         )
     ).scalar_one_or_none()
-    if pm is None or pm.provider_ref is None or pm.status != "active":
+    if pm is None or pm.provider_ref is None:
         raise NotFound("saved card not found")
     if pm.method == "bank_eft" and pm.mandate_status != "active":
         raise Conflict(
@@ -2219,9 +2215,7 @@ async def _record_payment_method(
         return
     has_card = (
         await db.execute(
-            scoped(PaymentMethod, biz)
-            .where(PaymentMethod.client_id == client.id, PaymentMethod.status == "active")
-            .limit(1)
+            scoped(PaymentMethod, biz).where(PaymentMethod.client_id == client.id).limit(1)
         )
     ).scalar_one_or_none()
     pm_type = data.get("type")
@@ -2246,11 +2240,9 @@ async def _record_payment_method(
             method=kind,
             brand=brand if isinstance(brand, str) else None,
             last4=last4 if isinstance(last4, str) else None,
-            provider="stripe",
             provider_ref=pm_id,
             preferred=has_card is None,  # first method on file becomes the default
             mandate_status=mandate,
-            status="active",
             exp_month=exp_month if isinstance(exp_month, int) else None,
             exp_year=exp_year if isinstance(exp_year, int) else None,
             holder_name=holder if isinstance(holder, str) else None,
@@ -2317,10 +2309,7 @@ async def _update_subscription(db: AsyncSession, data: dict[str, object]) -> Non
     status = data.get("status")
     if isinstance(status, str):
         sub.status = map_subscription_status(status)
-    start = _period(data, "start")
     end = _period(data, "end")
-    if start is not None:
-        sub.current_period_start = start
     if end is not None:
         sub.current_period_end = end
     await db.flush()

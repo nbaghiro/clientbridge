@@ -452,7 +452,6 @@ function seed(): void {
             last4: "4242",
             preferred: 0,
             mandate_status: "none",
-            status: "active",
         },
         {
             id: "pm_main",
@@ -462,16 +461,7 @@ function seed(): void {
             last4: "1111",
             preferred: 1,
             mandate_status: "none",
-            status: "active",
             created_at: "2026-06-27T00:00:00Z",
-        },
-        {
-            id: "pm_gone",
-            client_id: "cl_ann",
-            method: "card",
-            preferred: 0,
-            mandate_status: "none",
-            status: "detached",
         },
     ]);
     scoped("packages", [
@@ -1181,7 +1171,7 @@ describe("app-core SQL against the replica schema", () => {
             client_name: "Ann",
         });
         expect(charges.map((c) => c.id)).not.toContain("pay_3");
-        db.run("UPDATE payments SET status = 'refunded' WHERE id = 'pay_1'");
+        db.run("UPDATE payments SET status = 'failed' WHERE id = 'pay_1'");
         const unread = run("CARD_CHARGES_SQL", ["2026-06-20T00:00:00.000Z"]).map((c) => c.id);
         db.run("UPDATE payments SET status = 'succeeded' WHERE id = 'pay_1'");
         expect(unread).not.toContain("pay_1");
@@ -1670,7 +1660,7 @@ describe("app-core SQL against the replica schema", () => {
                 .map((r) => r.id)
                 .sort(),
         ).toEqual(["pay_3", "pay_web"]);
-        db.run("UPDATE payments SET status = 'refunded' WHERE id = 'pay_dep'");
+        db.run("UPDATE payments SET status = 'failed' WHERE id = 'pay_dep'");
         const listed = run("CLIENT_PAYMENTS_SQL", ["cl_ann"]).map((r) => r.id);
         db.run("UPDATE payments SET status = 'succeeded' WHERE id = 'pay_dep'");
         expect(listed).not.toContain("pay_dep");

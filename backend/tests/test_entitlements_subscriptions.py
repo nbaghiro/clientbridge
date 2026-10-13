@@ -71,9 +71,7 @@ async def _saved_method(
         business_id=business_id,
         client_id=cid,
         method=method,
-        provider="stripe",
         provider_ref=ref,
-        status="active",
     )
     db.add(pm)
     await db.flush()
@@ -100,7 +98,6 @@ async def test_create_subscription_happy(
     assert row.provider_ref is not None and row.provider_ref.startswith("sub_fake")
     assert row.provider_ref in gateway.created_subscriptions
     assert row.payment_method_id == pm.id
-    assert row.current_period_start == datetime(2030, 1, 1, tzinfo=UTC)
     assert row.current_period_end == datetime(2030, 2, 1, tzinfo=UTC)
     cached = (await db.execute(select(Item.stripe_price_id).where(Item.id == item.id))).scalar_one()
     assert cached is not None and cached.startswith("price_fake")
@@ -440,7 +437,6 @@ async def test_subscription_updated_flips_status(api: httpx.AsyncClient, db: Asy
     row = (await db.execute(select(Subscription).where(Subscription.id == sub.id))).scalar_one()
     assert row.status == "past_due"
     # the epoch timestamps parsed into the exact period, not just "something non-null"
-    assert row.current_period_start == datetime(2025, 1, 1, tzinfo=UTC)
     assert row.current_period_end == datetime(2025, 2, 1, tzinfo=UTC)
 
 
@@ -815,3 +811,30 @@ async def test_a_renewal_books_what_was_charged_when_price_tax_class_or_registra
     assert paid.invoice_id is not None
     renewed = await invoice(db, paid.invoice_id)
     assert (renewed.tax_total_cents, renewed.total_cents, renewed.balance_cents) == (600, 5600, 0)
+
+
+async def test_a_renewal_is_issued_and_taxed_at_the_period_stripe_billed(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    gateway.invoice_intents["in_period"] = "pi_period"
+    await _seed_sub(db, ref="sub_period")
+    start = datetime(2026, 9, 1, tzinfo=UTC)
+    obj: dict[str, object] = {
+        "id": "in_period",
+        "parent": {"subscription_details": {"subscription": "sub_period"}},
+        "amount_paid": 5600,
+        "currency": "cad",
+        "status_transitions": {"paid_at": int(PAID_AT.timestamp())},
+        "lines": {"data": [{"period": {"start": int(start.timestamp())}}]},
+    }
+    res = await api.post(
+        "/webhooks/stripe",
+        content=_sub_event("evt_period", "invoice.payment_succeeded", obj),
+        headers=GOOD,
+    )
+    assert res.status_code == 200
+    paid = await payment_by_ref(db, "pi_period")
+    assert paid.invoice_id is not None
+    renewed = await invoice(db, paid.invoice_id)
+    assert renewed.issued_at == start and paid.paid_at == PAID_AT

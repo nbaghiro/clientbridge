@@ -51,12 +51,10 @@ def _status(account_id: str, *, charges: bool, due: list[str]) -> ConnectAccount
         id=account_id,
         charges_enabled=charges,
         payouts_enabled=charges,
-        details_submitted=True,
         disabled_reason=None,
         currently_due=due,
         eventually_due=[],
         past_due=[],
-        pending_verification=[],
         card_status="active" if charges else "restricted",
     )
 
@@ -103,7 +101,7 @@ async def test_account_event_syncs_requirements(
     assert res.status_code == 200
     biz = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
     assert kyc_status(biz) == "restricted"
-    assert biz.stripe_details_submitted is True and biz.stripe_payouts_enabled is False
+    assert biz.stripe_payouts_enabled is False
     assert biz.stripe_requirements["currently_due"] == due
 
 
@@ -166,11 +164,9 @@ async def test_payment_method_auto_updated_refreshes_card(
             method="card",
             brand="visa",
             last4="4242",
-            provider="stripe",
             provider_ref="pm_stripe_1",
             preferred=True,
             mandate_status="none",
-            status="active",
         )
     )
     await db.flush()

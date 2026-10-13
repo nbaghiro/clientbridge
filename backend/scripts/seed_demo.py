@@ -1044,7 +1044,6 @@ def seed_catalog_instances() -> None:
             client_id="cl_david",
             item_id="it_daycare",
             status="active",
-            current_period_start=at(-6, 0),
             current_period_end=at(24, 0),
             payment_method_id="pm_david",
             provider_ref="sub_demo_david",
@@ -1057,7 +1056,6 @@ def seed_catalog_instances() -> None:
             client_id="cl_priscilla",
             item_id="it_daycare",
             status="paused",
-            current_period_start=at(-20, 0),
             current_period_end=at(10, 0),
             provider_ref="sub_demo_pris",
         )
@@ -1230,11 +1228,9 @@ def seed_payment_methods() -> None:
                 method="card",
                 brand=brand,
                 last4=last4,
-                provider="stripe",
                 provider_ref=f"pm_demo_{last4}",
                 preferred=True,
                 mandate_status="none",
-                status="active",
             )
         )
     rows.append(
@@ -1245,10 +1241,8 @@ def seed_payment_methods() -> None:
             method="bank_eft",
             brand="RBC",
             last4="6677",
-            provider="stripe",
             mandate_status="active",
             preferred=False,
-            status="active",
         )
     )
 
@@ -1850,7 +1844,6 @@ def seed_coverage() -> None:
             client_id="cl_grace",
             item_id="it_daycare",
             status="canceled",
-            current_period_start=at(-40, 0),
             current_period_end=at(-10, 0),
             provider_ref="sub_demo_grace",
         )
@@ -1862,7 +1855,6 @@ def seed_coverage() -> None:
             client_id="cl_ethan",
             item_id="it_daycare",
             status="past_due",
-            current_period_start=at(-8, 0),
             current_period_end=at(22, 0),
             provider_ref="sub_demo_ethan",
         )

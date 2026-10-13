@@ -440,11 +440,11 @@ function useTextsStopped(clientId: string): string | null {
 
 export const CLIENT_METHODS_SQL = `
 SELECT pm.id, pm.client_id, pm.method, pm.brand, pm.last4, pm.preferred, pm.mandate_status,
-       pm.status, pm.exp_month, pm.exp_year, pm.holder_name, pm.bank_name, pm.created_at,
+       pm.exp_month, pm.exp_year, pm.holder_name, pm.bank_name, pm.created_at,
        (SELECT group_concat(i.name, ', ') FROM subscriptions sb LEFT JOIN items i ON i.id = sb.item_id
           WHERE sb.payment_method_id = pm.id AND sb.status IN ('active', 'past_due', 'paused')) AS pays
 FROM payment_methods pm
-WHERE pm.client_id = ? AND pm.status = 'active'
+WHERE pm.client_id = ?
 ORDER BY pm.preferred DESC, pm.created_at`;
 
 interface MethodDbRow extends SavedCardRow {
@@ -1775,7 +1775,7 @@ SELECT c.id,
        (SELECT COUNT(*) FROM messages m JOIN threads t ON t.id = m.thread_id WHERE t.client_id = c.id) AS messages,
        (SELECT COUNT(*) FROM notes n WHERE n.parent_type = 'client' AND n.parent_id = c.id) AS notes,
        (SELECT COUNT(*) FROM accounts a WHERE a.owner_type = 'client' AND a.owner_id = c.id) AS money,
-       (SELECT COUNT(*) FROM payment_methods pm WHERE pm.client_id = c.id AND pm.status = 'active') AS methods
+       (SELECT COUNT(*) FROM payment_methods pm WHERE pm.client_id = c.id) AS methods
 FROM clients c WHERE c.id IN (?, ?)`;
 
 interface FootprintRow {

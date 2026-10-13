@@ -3562,11 +3562,6 @@ export interface components {
              */
             payouts_enabled: boolean;
             /**
-             * Details Submitted
-             * @default false
-             */
-            details_submitted: boolean;
-            /**
              * Kyc Status
              * @description not_started, pending, restricted, enabled or disabled
              * @default not_started
@@ -3581,11 +3576,6 @@ export interface components {
             currently_due?: string[];
             /** Past Due */
             past_due?: string[];
-            /**
-             * Pending Verification
-             * @description What Stripe is still reviewing
-             */
-            pending_verification?: string[];
             /**
              * Current Deadline
              * @description When Stripe pauses payouts if what is due isn't sent
@@ -4415,7 +4405,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "pending" | "succeeded" | "failed" | "refunded" | "canceled";
+            status: "pending" | "succeeded" | "failed" | "canceled";
             /** Amount Cents */
             amount_cents: number;
             /** Change Cents */
@@ -5464,8 +5454,6 @@ export interface components {
             last4: string | null;
             /** Preferred */
             preferred: boolean;
-            /** Status */
-            status: string;
         };
         /** PaymentSetupLinkOut */
         PaymentSetupLinkOut: {
@@ -6908,7 +6896,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "pending" | "succeeded" | "failed" | "refunded" | "canceled";
+            status: "pending" | "succeeded" | "failed" | "canceled";
             /** Credit Note */
             credit_note?: string | null;
         };
@@ -7531,8 +7519,6 @@ export interface components {
              * @enum {string}
              */
             status: "active" | "paused" | "canceled" | "past_due";
-            /** Current Period Start */
-            current_period_start: string | null;
             /** Current Period End */
             current_period_end: string | null;
         };

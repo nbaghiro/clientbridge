@@ -71,7 +71,6 @@ class Business(PKMixin, TimestampMixin, Base):
     stripe_charges_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # KYC mirrored from the Stripe connected account (source of truth) on its account events.
     stripe_payouts_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    stripe_details_submitted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     stripe_requirements: Mapped[dict[str, object]] = mapped_column(
         JSONB, default=dict, nullable=False
     )
