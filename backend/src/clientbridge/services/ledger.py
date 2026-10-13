@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy import ColumnElement, and_, case, func, or_, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import InstrumentedAttribute
+from sqlalchemy.orm import InstrumentedAttribute, aliased
 
 from clientbridge.core import clock
 from clientbridge.core.errors import UnsupportedCurrency
@@ -347,8 +347,15 @@ def _subject_legs(subject_type: str, subject_id: _Id) -> ColumnElement[bool]:
 
 def _settled() -> ColumnElement[bool]:
     """Dispute legs count against a document only once the dispute is lost."""
-    lost = select(Payment.id).where(Payment.id == Entry.source_id, Payment.dispute_status == "lost")
-    return or_(Entry.event != "dispute", lost.exists())
+    lost = aliased(Entry)
+    booked = select(lost.id).where(lost.source_id == Entry.source_id, _lost_journal(lost))
+    return or_(Entry.event != "dispute", booked.exists())
+
+
+def _lost_journal(entry: type[Entry]) -> ColumnElement[bool]:
+    return and_(
+        entry.source_type == "payment", entry.event == "dispute", entry.ref.like("dispute:%:lost")
+    )
 
 
 def _collected_expr(subject_type: str, subject_id: _Id) -> ColumnElement[int]:
@@ -689,9 +696,10 @@ async def _unwind(
         if original.invoice_id
         else Payment.parent_payment_id == original.id,
     )
+    lost = scoped(Entry, original.business_id).where(_lost_journal(Entry))
     disputed = scoped(Payment, original.business_id).where(
         Payment.kind != "refund",
-        Payment.dispute_status == "lost",
+        Payment.id.in_(lost.with_only_columns(Entry.source_id).scalar_subquery()),
         Payment.invoice_id == original.invoice_id
         if original.invoice_id
         else Payment.id == original.id,

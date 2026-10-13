@@ -991,7 +991,7 @@ describe("app-core SQL against the replica schema", () => {
         expect(value(ownedLiabilitySql("gift_card", "gift_card", "'gc_none'"))).toBe(0);
     });
 
-    it("follows a dispute: an open or won case leaves the sale paid and a loss reads refunded", () => {
+    it("follows a dispute from the ledger: only the lost journal reads the sale as refunded", () => {
         const onInv3: Row = {
             subject_type: "invoice",
             subject_id: "inv_3",
@@ -1016,7 +1016,7 @@ describe("app-core SQL against the replica schema", () => {
         expect(inv3()).toEqual({ status: "paid", balance_cents: 0 });
         expect(value(collectedSql("invoice", "'inv_3'"))).toBe(2000);
         expect(value(clientValueSql("'cl_ben'"))).toBe(6800);
-        disputed("won");
+        disputed("lost");
         expect(inv3()).toEqual({ status: "paid", balance_cents: 0 });
         journal(
             "j_dp3_lost",
@@ -1028,7 +1028,7 @@ describe("app-core SQL against the replica schema", () => {
             ],
             onInv3,
         );
-        disputed("lost");
+        disputed("under_review");
         expect(inv3()).toEqual({ status: "refunded", balance_cents: 0 });
         expect(value(collectedSql("invoice", "'inv_3'"))).toBe(0);
         expect(value(clientValueSql("'cl_ben'"))).toBe(4800);
