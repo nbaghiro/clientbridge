@@ -1156,7 +1156,7 @@ FROM invoices i WHERE i.client_id = ?`;
 
 export const CLIENT_PAYMENTS_SQL = `
 SELECT p.id, p.kind, p.amount_cents, COALESCE(p.paid_at, p.created_at) AS at
-FROM payments p WHERE p.client_id = ? AND p.status IN ('succeeded', 'refunded')`;
+FROM payments p WHERE p.client_id = ? AND p.status = 'succeeded'`;
 
 export const CLIENT_MESSAGES_SQL = `
 SELECT m.id, m.direction, m.channel, m.body, m.created_at AS at
