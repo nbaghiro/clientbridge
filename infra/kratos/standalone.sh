@@ -18,6 +18,7 @@ docker run -d --name kratos --network host \
     -e COURIER_HTTP_REQUEST_CONFIG_AUTH_CONFIG_VALUE="${AUTH_EMAIL_HOOK_SECRET:-clientbridge-dev-courier-secret-do-not-use-in-prod}" \
     -e SECRETS_COOKIE="${KRATOS_COOKIE_SECRET:-clientbridge-dev-cookie-secret-do-not-use-in-prod}" \
     -e SECRETS_CIPHER="${KRATOS_CIPHER_SECRET:-clientbridge-dev-cipher-key-0032}" \
+    -e SELFSERVICE_METHODS_PASSWORD_CONFIG_HAVEIBEENPWNED_ENABLED=false \
     "$image" serve -c /etc/config/kratos/kratos.yml --dev
 for _ in $(seq 1 60); do
     if curl -sf http://localhost:8714/admin/health/ready >/dev/null; then exit 0; fi

@@ -186,8 +186,8 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.14"
-          # the API still runs under uv run when the job ends, and pruning the cache would wait on its lock
-          prune-cache: false
+          # the API still runs under uv run at the end, and the post step would wait on its cache lock
+          enable-cache: false
       - run: uv sync
         working-directory: backend
       - name: wait for local object storage
@@ -301,8 +301,8 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.14"
-          # the API still runs under uv run when the job ends, and pruning the cache would wait on its lock
-          prune-cache: false
+          # the API still runs under uv run at the end, and the post step would wait on its cache lock
+          enable-cache: false
       - uses: pnpm/action-setup@v4
         with:
           version: 9
@@ -434,8 +434,8 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.14"
-          # the API still runs under uv run when the job ends, and pruning the cache would wait on its lock
-          prune-cache: false
+          # the API still runs under uv run at the end, and the post step would wait on its cache lock
+          enable-cache: false
       - run: uv sync
         working-directory: backend
       - name: start the stack and the API
