@@ -13,6 +13,7 @@ import {
     lineDiscount,
     listRow,
     priceDoc,
+    documentRates,
 } from "./billing";
 import { type SavedCardRow, canBeDefault, checkoutMethods } from "./payments";
 import { ratesOn } from "./taxes";
@@ -302,5 +303,23 @@ describe("invoice status and stats", () => {
             draftCount: 1,
         });
         expect(invoiceStats([], ZONE, now).outstandingCents).toBe(0);
+    });
+});
+
+describe("documentRates", () => {
+    const setup = { province: "NS", rates: ratesOn("NS", "2026-10-13"), registered: true };
+    const taxed = [{ tax_amount_cents: 1500 }];
+
+    it("labels an issued document with the rates of the day it was issued", () => {
+        const issued = new Date("2025-03-31T20:00:00Z");
+        expect(documentRates(setup, taxed, issued, "America/Halifax")).toEqual([
+            { code: "HST", ppm: 150000 },
+        ]);
+    });
+
+    it("prices a draft at today's rates and an untaxed issued document at none", () => {
+        expect(documentRates(setup, taxed, null, "America/Halifax")).toEqual(setup.rates);
+        const untaxed = [{ tax_amount_cents: 0 }];
+        expect(documentRates(setup, untaxed, new Date(), "America/Halifax")).toEqual([]);
     });
 });

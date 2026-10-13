@@ -49,7 +49,14 @@ import {
     taxRateLabel,
 } from "./printing";
 import { type Arrival, useArrival, useReplicaLoad } from "./sync";
-import { asTaxClass, type DocRate, type ItemTaxClass, lineTax, useTaxSetup } from "./taxes";
+import {
+    asTaxClass,
+    type DocRate,
+    type ItemTaxClass,
+    lineTax,
+    ratesOn,
+    useTaxSetup,
+} from "./taxes";
 import type { Load } from "../hooks";
 
 const s = strings.billing;
@@ -235,6 +242,18 @@ export function useLetterhead(apiBaseUrl: string): Letterhead {
 
 export function docRates(rates: readonly DocRate[], registered: boolean): DocRate[] {
     return registered ? [...rates] : [];
+}
+
+/** A draft's rates are today's; an issued document's are its issue day's, registered if any line was taxed. */
+export function documentRates(
+    tax: { province: string | null; rates: readonly DocRate[]; registered: boolean },
+    lines: readonly { tax_amount_cents: number | null }[],
+    issuedAt: Date | null,
+    zone: string,
+): DocRate[] {
+    if (issuedAt === null) return docRates(tax.rates, tax.registered);
+    const registered = lines.some((l) => (l.tax_amount_cents ?? 0) > 0);
+    return docRates(ratesOn(tax.province, dateKey(issuedAt, zone)), registered);
 }
 
 interface PricedLine {
@@ -653,7 +672,9 @@ export function useInvoiceRecord(id: string | null, payBase: string): InvoiceRec
     const now = new Date();
     const status = invoiceStatus(row, zone, now);
     const currency = row.currency;
-    const rates = docRates(tax.rates, tax.registered);
+    const issuedAt =
+        row.status === "draft" ? null : parseTimestamp(row.issued_at ?? row.created_at);
+    const rates = documentRates(tax, lines, issuedAt, zone);
     const pricing = priceDoc(
         lines.map((l) => ({
             amountCents: l.amount_cents,
@@ -1094,7 +1115,9 @@ export function useEstimateRecord(id: string | null, payBase: string): EstimateR
     if (row === null) return null;
     const now = new Date();
     const view = estimateListRow(row, now, zone);
-    const rates = docRates(tax.rates, tax.registered);
+    // an open estimate is quoted at today's rates; an accepted one keeps its acceptance rates
+    const accepted = row.accepted_at === null ? null : parseTimestamp(row.accepted_at);
+    const rates = documentRates(tax, lines, accepted, zone);
     const included = (l: LineRow): boolean => l.optional !== 1 || l.selected === 1;
     const pricing = priceDoc(
         lines.map((l) => ({
