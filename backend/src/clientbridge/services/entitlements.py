@@ -35,6 +35,7 @@ from clientbridge.services.payments import (
     map_subscription_status,
     open_entitlement_payment,
     resolve_saved_method_ref,
+    subscription_tax_terms,
 )
 from clientbridge.services.tax import tax_for_amount
 
@@ -520,6 +521,7 @@ class SubscriptionService:
                 customer_id=customer_id,
                 price_id=price_id,
                 payment_method_id=pm_ref,
+                metadata=await subscription_tax_terms(self.db, item),
                 idempotency_key=f"sub_{self.biz}_{data.client_id}_{item.id}",
             )
             row = Subscription(

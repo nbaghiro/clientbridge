@@ -785,3 +785,33 @@ async def test_a_cached_price_gone_from_stripe_is_replaced(
     assert res.status_code == 201, res.text
     await db.refresh(item)
     assert item.stripe_price_id == gateway.created_prices[-1] != "price_deleted"
+
+
+async def test_a_renewal_books_what_was_charged_when_price_tax_class_or_registration_changed(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    item = await _sub_item(db, price=5000)
+    pm = await _saved_method(db, cid)
+    ok = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    assert ok.status_code == 201, ok.text
+    assert gateway.created_price_amounts == [5600]
+    sub_ref = gateway.created_subscriptions[-1]
+    item.price_cents = 7000
+    item.tax_class = "federal_only"
+    await db.execute(update(Business).where(Business.id == BIZ).values(tax_registered=False))
+    await db.flush()
+    gateway.invoice_intents["in_renew"] = "pi_renew"
+    details = {"subscription": sub_ref, "metadata": gateway.subscription_metadata[sub_ref]}
+    charge: dict[str, object] = {
+        "id": "in_renew",
+        "parent": {"subscription_details": details},
+        "amount_paid": 5600,
+        "currency": "cad",
+    }
+    await stripe_event(as_owner, "invoice.payment_succeeded", charge)
+    paid = await payment_by_ref(db, "pi_renew")
+    assert paid.invoice_id is not None
+    renewed = await invoice(db, paid.invoice_id)
+    assert (renewed.tax_total_cents, renewed.total_cents, renewed.balance_cents) == (600, 5600, 0)

@@ -336,6 +336,7 @@ class FakePaymentGateway:
         self.created_price_amounts: list[int] = []  # unit_amount per created Price
         self.prices: dict[str, PriceTerms] = {}
         self.created_subscriptions: list[str] = []
+        self.subscription_metadata: dict[str, dict[str, str]] = {}
         self.canceled_subscriptions: list[str] = []
         self.pad_enabled = True
         self.pad_intents: dict[str, SetupIntentState] = {}
@@ -540,6 +541,7 @@ class FakePaymentGateway:
         customer_id: str,
         price_id: str,
         payment_method_id: str,
+        metadata: dict[str, str],
         idempotency_key: str | None = None,
     ) -> SubscriptionResult:
         if idempotency_key is not None and idempotency_key in self._subs:
@@ -547,6 +549,7 @@ class FakePaymentGateway:
         self._seq += 1
         sid = f"sub_fake{self._seq}"
         self.created_subscriptions.append(sid)
+        self.subscription_metadata[sid] = metadata
         result = SubscriptionResult(
             id=sid,
             status="active",

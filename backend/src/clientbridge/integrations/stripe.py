@@ -511,6 +511,7 @@ class PaymentGateway(Protocol):
         customer_id: str,
         price_id: str,
         payment_method_id: str,
+        metadata: dict[str, str],
         idempotency_key: str | None = None,
     ) -> SubscriptionResult: ...
     async def cancel_subscription(self, account_id: str, *, subscription_id: str) -> None: ...
@@ -1033,12 +1034,15 @@ class StripeGateway:
         customer_id: str,
         price_id: str,
         payment_method_id: str,
+        metadata: dict[str, str],
         idempotency_key: str | None = None,
     ) -> SubscriptionResult:
+        # Stripe copies this onto every invoice, so each renewal knows how its price was taxed
         sub = await stripe.Subscription.create_async(
             customer=customer_id,
             items=[{"price": price_id}],
             default_payment_method=payment_method_id,
+            metadata=metadata,
             stripe_account=account_id,
             idempotency_key=idempotency_key,
         )

@@ -81,7 +81,11 @@ async def test_create_terminal_location(contract_gateway: StripeGateway) -> None
 
 async def test_create_subscription(contract_gateway: StripeGateway) -> None:
     result = await contract_gateway.create_subscription(
-        ACCT, customer_id=CUS, price_id="price_contract", payment_method_id="pm_contract"
+        ACCT,
+        customer_id=CUS,
+        price_id="price_contract",
+        payment_method_id="pm_contract",
+        metadata={"tax_class": "standard", "tax_registered": "true"},
     )
     assert result.id.startswith("sub_") and result.status
 

@@ -132,5 +132,6 @@ async def test_subscription_period_fields_match_current_api(
         customer_id=customer.id,
         price_id=price_id,
         payment_method_id="pm_card_visa",
+        metadata={"tax_class": "standard", "tax_registered": "true"},
     )
     assert result.current_period_end > result.current_period_start

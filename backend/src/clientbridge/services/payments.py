@@ -76,6 +76,7 @@ from clientbridge.schemas.payments import (
 from clientbridge.services import ledger, plans
 from clientbridge.services.business import (
     apply_account_status,
+    business_tax_registered,
     has_merchant,
     kyc_status,
     merchant_account,
@@ -89,7 +90,7 @@ from clientbridge.services.earnings import (
 from clientbridge.services.inventory import sync_parent_stock
 from clientbridge.services.ledger import BUSINESS_CURRENCY
 from clientbridge.services.lines import allocate, apply_totals
-from clientbridge.services.tax import tax_for_amount, tax_for_lines
+from clientbridge.services.tax import tax_for_amount, tax_within
 
 _log = logging.getLogger(__name__)
 _ORPHAN_GRACE = timedelta(hours=1)
@@ -2391,7 +2392,7 @@ async def _record_recurring_payment(
             db, sub.business_id, "payment.refused", ref, cur, paid if isinstance(paid, int) else 0
         )
         return None
-    invoice_id = await _recurring_invoice(db, sub, cur)
+    invoice_id = await _recurring_invoice(db, sub, cur, data, paid if isinstance(paid, int) else 0)
     payment = Payment(
         id=new_id("payment"),
         business_id=sub.business_id,
@@ -2415,19 +2416,50 @@ async def _record_recurring_payment(
     return payment.id
 
 
-async def _recurring_invoice(db: AsyncSession, sub: Subscription, currency: str) -> str | None:
-    """An invoice for one subscription period, booked to the ledger like any other."""
+async def subscription_tax_terms(db: AsyncSession, item: Item) -> dict[str, str]:
+    """How the subscription's tax-inclusive price was taxed, kept on Stripe for its renewals."""
+    registered = await business_tax_registered(db, item.business_id)
+    return {"tax_class": item.tax_class, "tax_registered": "true" if registered else "false"}
+
+
+def _period_start(invoice: dict[str, object]) -> datetime | None:
+    lines = invoice.get("lines")
+    rows = lines.get("data") if isinstance(lines, dict) else None
+    first = rows[0] if isinstance(rows, list) and rows and isinstance(rows[0], dict) else {}
+    period = first.get("period")
+    return _stamp(period, "start") if isinstance(period, dict) else None
+
+
+async def _recurring_invoice(
+    db: AsyncSession, sub: Subscription, currency: str, data: dict[str, object], paid: int
+) -> str | None:
+    """An invoice for one subscription period, split from what Stripe charged, not today's price."""
     item = await db.get(Item, sub.item_id)
     if item is None:
         return None
-    now = clock.now()
+    parent = data.get("parent")
+    details = parent.get("subscription_details") if isinstance(parent, dict) else None
+    terms = details.get("metadata") if isinstance(details, dict) else None
+    terms = terms if isinstance(terms, dict) else {}
+    tax_class = terms.get("tax_class")
+    registered = terms.get("tax_registered")
+    at = _period_start(data) or _paid_at(data)
+    result = await tax_within(
+        db,
+        sub.business_id,
+        paid,
+        tax_class=tax_class if isinstance(tax_class, str) else item.tax_class,
+        at=at,
+        registered=registered == "true" if isinstance(registered, str) else None,
+    )
+    base = paid - result.tax_total_cents
     invoice = Invoice(
         id=new_id("invoice"),
         business_id=sub.business_id,
         client_id=sub.client_id,
         status="sent",
         currency=currency,
-        issued_at=now,
+        issued_at=at,
     )
     db.add(invoice)
     await db.flush()
@@ -2438,13 +2470,13 @@ async def _recurring_invoice(db: AsyncSession, sub: Subscription, currency: str)
         description=item.name,
         item_id=item.id,
         quantity=1,
-        unit_amount_cents=item.price_cents,
-        amount_cents=item.price_cents,
-        tax_class=item.tax_class,
+        unit_amount_cents=base,
+        amount_cents=base,
+        tax_class=tax_class if isinstance(tax_class, str) else item.tax_class,
+        tax_amount_cents=result.tax_total_cents,
         position=0,
     )
     db.add(line)
-    result = await tax_for_lines(db, sub.business_id, [line])
     apply_totals(invoice, result)
     await db.flush()
     await ledger.post_invoice(db, invoice, result)

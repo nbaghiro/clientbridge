@@ -214,13 +214,21 @@ async def tax_for_amount(
 
 
 async def tax_within(
-    db: AsyncSession, business_id: str, total_cents: int, *, tax_class: str, at: datetime
+    db: AsyncSession,
+    business_id: str,
+    total_cents: int,
+    *,
+    tax_class: str,
+    at: datetime,
+    registered: bool | None = None,
 ) -> TaxResult:
     """The tax contained in a tax-inclusive total charged at `at`."""
     return compute_tax(
         [TaxLine(amount_cents=total_cents, tax_class=tax_class)],
         await _components(db, business_id, at),
-        registered=await business_tax_registered(db, business_id),
+        registered=await business_tax_registered(db, business_id)
+        if registered is None
+        else registered,
         prices_include_tax=True,
     )
 
