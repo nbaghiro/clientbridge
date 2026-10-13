@@ -4,6 +4,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { suppressionLines } from "../suppressions.mjs";
+
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
 const GENERATED = new Set(["packages/api-client/src/generated.ts", "packages/sync/src/schema.ts"]);
@@ -44,7 +46,7 @@ for (const file of files) {
     lines.forEach((line, i) => {
         if (i < header) return;
         const t = line.trim();
-        if (t.startsWith("//") && !t.startsWith("// prettier-ignore")) {
+        if (t.startsWith("//")) {
             run += 1;
             if (run === 2)
                 problems.push(`${file}:${String(i)}: comment block longer than one line`);
@@ -204,17 +206,10 @@ const tracked = execFileSync("git", ["ls-files", "--cached", "--others", "--excl
     .split("\n")
     .filter((f) => f !== "" && existsSync(join(root, f)));
 
-const SUPPRESSION =
-    /\/\/\s*(eslint-disable|eslint-enable|@ts-ignore|@ts-nocheck|@ts-expect-error)|\/\*\s*(eslint\b|globals?\s|@ts-)/;
 for (const file of tracked.filter((f) => /\.(ts|tsx|mjs|js|cjs)$/.test(f))) {
-    readFileSync(join(root, file), "utf8")
-        .split("\n")
-        .forEach((line, i) => {
-            if (SUPPRESSION.test(line))
-                problems.push(
-                    `${file}:${String(i + 1)}: suppression comment; fix the cause instead`,
-                );
-        });
+    for (const line of suppressionLines(file, readFileSync(join(root, file), "utf8"))) {
+        problems.push(`${file}:${String(line)}: suppression comment; fix the cause instead`);
+    }
 }
 
 const BASE = "tsconfig.base.json";
@@ -250,14 +245,15 @@ for (const file of tracked.filter((f) => /(^|\/)tsconfig[^/]*\.json$/.test(f))) 
     for (const key of [...STRICT_FAMILY, ...STRICT_EXTRAS]) {
         if (options[key] === false) problems.push(`${file}: ${key} must not be turned off`);
     }
+    if (config.exclude !== undefined) problems.push(`${file}: exclude hides files from tsc`);
     if (file !== BASE && join(dirname(file), config.extends ?? "") !== BASE) {
         problems.push(`${file}: extend ${BASE}`);
     }
 }
 
 if (problems.length > 0) {
-    console.error(problems.join("\n"));
-    console.error(`\ncheck-structure: ${String(problems.length)} problem(s)`);
+    process.stderr.write(`${problems.join("\n")}\n`);
+    process.stderr.write(`\ncheck-structure: ${String(problems.length)} problem(s)\n`);
     process.exit(1);
 }
-console.log("check-structure: ok");
+process.stdout.write("check-structure: ok\n");

@@ -19,6 +19,7 @@ PYRIGHT_RELAXED = {
     "reportUnknownParameterType",
     "reportUnknownVariableType",
 }
+PYRIGHT_HIDING = ("ignore", "exclude", "executionEnvironments")
 PYRIGHT_INCLUDE = {"backend/src", "backend/tests", "backend/scripts", "backend/migrations"}
 CROSS_CUTTING_TESTS = {
     "command",
@@ -30,12 +31,15 @@ CROSS_CUTTING_TESTS = {
     "ratelimit",
     "scoping",
     "security",
+    "structure",
 }
 CROSS_CUTTING_PREFIXES = ("flows_", "sync_")
 BANNER_MARKS = ("# ─", "# ━", "# ===", "# ---", "# ###")
 BANNED_SUFFIXES = ("_service", "_jobs")
-DIRECTIVES = ("# pragma",)
-SUPPRESSION = re.compile(r"#\s*(noqa\b|type:\s*ignore|pyright:|mypy:|ruff:\s*noqa)", re.IGNORECASE)
+SUPPRESSION = re.compile(
+    r"#\s*(noqa\b|type:\s*ignore|pyright\s*:|mypy\s*:|ruff\s*:|fmt\s*:|pragma\b|isort\s*:|pylint\s*:)",
+    re.IGNORECASE,
+)
 NOTIFICATIONS = PACKAGE / "services" / "notifications.py"
 ZONES = PACKAGE / "core" / "zones.py"
 ZONE_READERS = ("ZoneInfo", "available_timezones", "reset_tzpath")
@@ -68,11 +72,7 @@ def comment_block_problems(path: pathlib.Path, source: str) -> list[str]:
     problems = []
     run_start, run_length = 0, 0
     for token in tokenize.generate_tokens(io.StringIO(source).readline):
-        is_comment_line = (
-            token.type == tokenize.COMMENT
-            and token.line.strip().startswith("#")
-            and not token.string.startswith(DIRECTIVES)
-        )
+        is_comment_line = token.type == tokenize.COMMENT and token.line.strip().startswith("#")
         if is_comment_line:
             if run_length and token.start[0] == run_start + run_length:
                 run_length += 1
@@ -97,22 +97,26 @@ def suppression_problems(path: pathlib.Path, source: str) -> list[str]:
     ]
 
 
-def pyright_problems() -> list[str]:
-    config: dict[str, object] = json.loads(PYRIGHT_CONFIG.read_text())
+def pyright_problems(path: pathlib.Path = PYRIGHT_CONFIG) -> list[str]:
+    config: dict[str, object] = json.loads(path.read_text())
     problems: list[str] = []
     if config.get("typeCheckingMode") != "strict":
-        problems.append(f'{PYRIGHT_CONFIG}: typeCheckingMode must be "strict"')
+        problems.append(f'{path}: typeCheckingMode must be "strict"')
     problems += [
-        f"{PYRIGHT_CONFIG}: {key} is weaker than error; only {sorted(PYRIGHT_RELAXED)} may be"
+        f"{path}: {key} is weaker than error; only {sorted(PYRIGHT_RELAXED)} may be"
         for key, value in config.items()
         if key.startswith("report") and key not in PYRIGHT_RELAXED and value not in (True, "error")
     ]
-    if "ignore" in config:
-        problems.append(f"{PYRIGHT_CONFIG}: ignore hides diagnostics; fix them instead")
+    problems += [
+        f"{path}: {key} hides files or diagnostics from the check; fix them instead"
+        for key in PYRIGHT_HIDING
+        if key in config
+    ]
     include = config.get("include")
-    covered = {str(path) for path in include} if isinstance(include, list) else set()
-    missing = sorted(PYRIGHT_INCLUDE - covered)
-    problems += [f"{PYRIGHT_CONFIG}: include must cover {path}" for path in missing]
+    covered = {str(entry) for entry in include} if isinstance(include, list) else set()
+    problems += [
+        f"{path}: include must cover {folder}" for folder in sorted(PYRIGHT_INCLUDE - covered)
+    ]
     return problems
 
 
