@@ -2,13 +2,14 @@
 
 Each execution that is planned or in progress owns its plan and progress so unrelated work does not accumulate in the documentation root. When an execution is implemented, move anything durable into the main docs and delete its folder.
 
-| Execution         | Plan and tracking                                                                                                                         |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Messaging         | [Plan](messaging/plan.md), [progress](messaging/progress.md).                                                                             |
-| Scheduling        | [Plan](scheduling/plan.md), [design gaps](scheduling/design.md), [task queue](scheduling/tasks.json), [progress](scheduling/progress.md). |
-| Backend hardening | [Plan](backend-hardening/plan.md), [task queue](backend-hardening/tasks.json), [progress](backend-hardening/progress.md).                 |
-| Ledger            | [Plan](ledger/plan.md), [task queue](ledger/tasks.json).                                                                                 |
-| Stripe Accounts v2 | [Plan](stripe-accounts-v2/plan.md).                                                                                                      |
-| Platform billing  | [Plan](platform-billing/plan.md).                                                                                                         |
+| Execution          | Plan and tracking                                                                                                                         |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Messaging          | [Plan](messaging/plan.md), [progress](messaging/progress.md).                                                                             |
+| Scheduling         | [Plan](scheduling/plan.md), [design gaps](scheduling/design.md), [task queue](scheduling/tasks.json), [progress](scheduling/progress.md). |
+| Backend hardening  | [Plan](backend-hardening/plan.md), [task queue](backend-hardening/tasks.json), [progress](backend-hardening/progress.md).                 |
+| Ledger             | [Plan](ledger/plan.md), [task queue](ledger/tasks.json).                                                                                  |
+| Stripe Accounts v2 | [Plan](stripe-accounts-v2/plan.md).                                                                                                       |
+| Platform billing   | [Plan](platform-billing/plan.md).                                                                                                         |
+| Codebase review    | [Plan](codebase-review/plan.md), [task queue](codebase-review/tasks.json), [progress](codebase-review/progress.md).                       |
 
 Use a new folder for a separate execution. Record tested behavior, remaining work and snapshot-specific evidence in its progress document; keep reusable system decisions in the main docs.
