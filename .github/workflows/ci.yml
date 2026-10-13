@@ -46,6 +46,7 @@ jobs:
       S3_ACCESS_KEY: rustfs
       S3_SECRET_KEY: rustfs-dev-secret
       S3_REGION: us-east-1
+      SMTP_URL: ""  # no Mailpit in this job, so mail goes to the console sender
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -185,6 +186,7 @@ jobs:
       S3_ACCESS_KEY: rustfs
       S3_SECRET_KEY: rustfs-dev-secret
       S3_REGION: us-east-1
+      SMTP_URL: ""  # no Mailpit in this job, so mail goes to the console sender
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
