@@ -1,7 +1,7 @@
 import logging
 import secrets
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 
 from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -464,16 +464,18 @@ async def run_sync_seats(db: AsyncSession, gateway: PaymentGateway, now: datetim
 
 
 async def run_trial_reminders(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
-    """Email the owner three days before the trial ends and on its last day, at 9 a.m. local."""
+    """Email the owner at the last 9 a.m. local before the trial ends, and three days earlier."""
     sent = 0
     for business in await businesses_at_hour(db, now, _REMINDER_HOUR):
-        if business.plan_status != "trialing":
+        if business.plan_status != "trialing" or now >= business.trial_ends_at:
             continue
-        today = now.astimezone(zone(business.timezone)).date()
-        ends = business.trial_ends_at.astimezone(zone(business.timezone)).date()
-        if ends == today:
+        tz = zone(business.timezone)
+        today = now.astimezone(tz).date()
+        ends = business.trial_ends_at.astimezone(tz)
+        last = ends.date() if ends.time() > time(_REMINDER_HOUR) else ends.date() - timedelta(1)
+        if today == last:
             last_day = True
-        elif ends == today + _REMINDER_LEAD:
+        elif today == last - _REMINDER_LEAD:
             last_day = False
         else:
             continue

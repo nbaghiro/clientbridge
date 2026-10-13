@@ -562,7 +562,7 @@ every account we create carries ours whichever configuration it starts with.
   allow `PLAN_SEAT_CAP` (50); Premium bills each seat. An invite sets the Stripe seat quantity before it
   commits, so a failed Stripe call fails the invite; removal and revocation lower it afterwards, and
   `run_sync_seats` (daily) corrects any drift and expired invites. `run_trial_reminders` emails the owner
-  three days before the trial ends and on its last day, at 9:00 local.
+  at the last 9:00 local before the trial ends, while it still runs, and three days earlier.
 - Platform billing is not business money, so it posts nothing to the ledger. Stripe's invoices are the
   record.
 

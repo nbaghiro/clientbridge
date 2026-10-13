@@ -673,3 +673,16 @@ async def test_a_second_live_subscription_is_cancelled(
     await _deliver(api, _event("customer.subscription.created", "sub_other"))
     assert gateway.canceled_plan_subscriptions == ["sub_other"]
     assert (await _business(db)).stripe_subscription_id == SUB
+
+
+async def test_the_last_reminder_goes_at_the_last_9_am_before_the_trial_ends(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    now = await local_hour(db, 9)
+    notifier = Notifier(email, sms, push)
+    await _trial(db, -timedelta(hours=1), billing_email="owner@birchbark.test")
+    assert await run_trial_reminders(db, notifier, now) == 0
+    await _trial(db, timedelta(hours=22), billing_email="owner@birchbark.test")
+    assert await run_trial_reminders(db, notifier, now) == 1
+    await _trial(db, timedelta(hours=26), billing_email="owner@birchbark.test")
+    assert await run_trial_reminders(db, notifier, now) == 0

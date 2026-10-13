@@ -433,7 +433,7 @@ msgid "trial_last_day.body"
 msgstr "The free trial for {business} ends {when}. After that the business becomes read-only: you can still sign in and see your records, and invoices you already sent can still be paid. Choose a plan to keep working: {link}"
 
 msgid "trial_last_day.subject"
-msgstr "Your Clientbridge trial ends today"
+msgstr "Your Clientbridge trial is about to end"
 
 msgid "verification_code.body"
 msgid_plural "verification_code.body"
