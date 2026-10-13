@@ -123,7 +123,7 @@ def accepted(sync_url: str, token: str) -> bool:
 def rotation_drill(
     sync_url: str, base: dict[str, str], port: int, first: tuple[str, str]
 ) -> dict[str, float]:
-    """Old and new keys overlap across a restart and a second worker; retirement is bounded."""
+    """Keys overlap across a restart and a second worker, and a JWKS refresh retires the old one."""
     second = rsa_pair()
     token_a = mint(signer(base, "rotation-a", first[0], {}))
     timings: dict[str, float] = {}
@@ -135,8 +135,18 @@ def rotation_drill(
             raise RuntimeError("a token signed by the previous key failed during the overlap")
         if not accepted(sync_url, mint(overlap)):
             raise RuntimeError("a token signed in another worker process was refused")
+    unpublished = mint(signer(base, "rotation-unpublished", rsa_pair()[0], {}))
+
+    def retired() -> bool:
+        # an unknown key ID makes PowerSync re-read the JWKS now rather than at its 5-minute refresh
+        if accepted(sync_url, unpublished):
+            raise RuntimeError("a token signed by an unpublished key was accepted")
+        return not accepted(sync_url, token_a)
+
     with api(signer(base, "rotation-b", second[0], {}), port):
-        timings["retired key refused"] = wait_for(lambda: not accepted(sync_url, token_a), 360)
+        if not accepted(sync_url, token_a):
+            raise RuntimeError("the previous key was refused before PowerSync re-read the keys")
+        timings["retired key refused"] = wait_for(retired, 90)
         if not accepted(sync_url, token_b):
             raise RuntimeError("the current key stopped working after the previous one retired")
     return timings

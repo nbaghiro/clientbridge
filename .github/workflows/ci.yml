@@ -133,6 +133,7 @@ jobs:
 
   build:
     # A broken Vite or tsc -b bundle must fail CI, not just tsc --noEmit; runs beside the frontend job.
+    # The site job builds the marketing site, so this job leaves it out.
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -147,7 +148,7 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile --ignore-scripts
         working-directory: frontend
-      - run: make build
+      - run: make build-apps
 
   site:
     # The marketing site's browser pass over a fresh build: links, images, layout at phone width and

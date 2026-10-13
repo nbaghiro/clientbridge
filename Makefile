@@ -1,4 +1,4 @@
-.PHONY: help up down logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-kratos kratos-standalone test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
+.PHONY: help up down logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-kratos kratos-standalone test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
 .DEFAULT_GOAL := help
 
 help:
@@ -15,6 +15,7 @@ help:
 	@echo "dev-site         run the marketing site (Vite) on :8710"
 	@echo "dev-mobile       run mobile (Expo/Metro) on :8707"
 	@echo "build            build every frontend app and package"
+	@echo "build-apps       build every frontend app but the marketing site (what CI's build job runs)"
 	@echo "build-site       build the marketing site to static HTML in frontend/apps/site/dist"
 	@echo "test-site        build the site, then the browser pass (links, images, phone width, a11y)"
 	@echo "test-web         web smoke test: every page and dialog (needs the local stack + seed)"
@@ -95,6 +96,9 @@ dev-site:
 
 build:
 	cd frontend && pnpm build
+
+build-apps:
+	cd frontend && pnpm exec turbo run build --filter='!site'
 
 build-site:
 	cd frontend && pnpm --filter site build
