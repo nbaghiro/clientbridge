@@ -10,6 +10,7 @@ from sqlalchemy import ColumnElement, Exists, func, literal, or_, select, text, 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_can_act_as, assert_role, is_manager
@@ -111,7 +112,7 @@ _CLOSED_OR_WAITING = ("completed", "canceled", "no_show", "waitlisted")
 BookingNotice = Literal["confirmed", "canceled", "rescheduled"]
 
 
-async def _booking_out(db: AsyncSession, booking: Booking, slot: Slot) -> BookingOut:
+async def booking_out(db: AsyncSession, booking: Booking, slot: Slot) -> BookingOut:
     return BookingOut(
         id=booking.id,
         business_id=booking.business_id,
@@ -361,7 +362,7 @@ async def create_booking_core(
         price_cents=item.price_cents,
         deposit_amount_cents=deposit_cents(item),
         deposit_status="pending" if deposit > 0 else "none",
-        confirmed_at=datetime.now(UTC),
+        confirmed_at=clock.now(),
         manage_token=secrets.token_urlsafe(18),
     )
     db.add(booking)
@@ -466,7 +467,7 @@ async def _complete_when_done(db: AsyncSession, slot: Slot) -> None:
 
 
 def _assert_started(starts_at: datetime) -> None:
-    if starts_at > datetime.now(UTC):
+    if starts_at > clock.now():
         raise Conflict(_NOT_STARTED, code="visit_not_started")
 
 
@@ -585,7 +586,7 @@ class BookingService:
                 )
                 await self.db.flush()
             cmd.record("booking.create", entity_type="booking", entity_id=booking.id)
-            return await _booking_out(self.db, booking, slot)
+            return await booking_out(self.db, booking, slot)
 
         return await run_command(
             self.db,
@@ -661,22 +662,22 @@ class BookingService:
             if data.status is not None and data.status != booking.status:
                 booking.status = data.status
                 if data.status == "confirmed":
-                    booking.confirmed_at = booking.confirmed_at or datetime.now(UTC)
+                    booking.confirmed_at = booking.confirmed_at or clock.now()
                 if data.status == "canceled" and booking.deposit_status == "pending":
                     await cancel_open_deposits(self.db, self.gateway, booking)
                 if data.status in ("canceled", "completed") and booking.deposit_status == "pending":
                     booking.deposit_status = "none"  # nothing was collected and none is due now
                 if data.status == "canceled":
-                    booking.canceled_at = datetime.now(UTC)
+                    booking.canceled_at = clock.now()
                     await release_slot(self.db, slot)  # a class keeps its slot for the rest
                 elif data.status == "completed":
-                    booking.completed_at = datetime.now(UTC)
+                    booking.completed_at = clock.now()
                     await _complete_when_done(self.db, slot)
                 elif data.status == "no_show":
-                    await self._forfeit_deposit(cmd, booking)
+                    await self.forfeit_deposit(cmd, booking)
                 cmd.record(f"booking.{data.status}", entity_type="booking", entity_id=booking.id)
             await self.db.flush()
-            return await _booking_out(self.db, booking, slot)
+            return await booking_out(self.db, booking, slot)
 
         out = await run_command(
             self.db,
@@ -744,7 +745,7 @@ class BookingService:
             raise Conflict(_CLASS_MOVE, code="class_move")
         if ends_at - starts_at < _MIN_VISIT:
             raise Unprocessable("a visit must end at least five minutes after it starts")
-        if starts_at != slot.starts_at and starts_at < datetime.now(UTC):
+        if starts_at != slot.starts_at and starts_at < clock.now():
             raise Conflict(_PAST)
         resource_id = (
             data.resource_id if "resource_id" in data.model_fields_set else slot.resource_id
@@ -835,10 +836,10 @@ class BookingService:
 
         async def run(cmd: Command) -> BookingOut:
             if booking.checked_in_at is None:
-                booking.checked_in_at = datetime.now(UTC)
+                booking.checked_in_at = clock.now()
                 await self.db.flush()
                 cmd.record("booking.check_in", entity_type="booking", entity_id=booking.id)
-            return await _booking_out(self.db, booking, slot)
+            return await booking_out(self.db, booking, slot)
 
         return await run_command(
             self.db,
@@ -895,7 +896,7 @@ class BookingService:
             request={"booking_id": booking_id, "payment_method_id": payment_method_id},
         )
 
-    async def _forfeit_deposit(self, cmd: Command, booking: Booking) -> None:
+    async def forfeit_deposit(self, cmd: Command, booking: Booking) -> None:
         """Keep a collected deposit, or charge the default card for one; never charges twice."""
         if booking.deposit_status in ("none", "applied", "forfeited", "refunded"):
             return
@@ -974,7 +975,7 @@ class BookingService:
             await self.db.delete(addon)
             await self.db.flush()
             cmd.record("booking.addon_remove", entity_type="booking", entity_id=booking.id)
-            return await _booking_out(self.db, booking, slot)
+            return await booking_out(self.db, booking, slot)
 
         return await run_command(
             self.db,
@@ -1183,7 +1184,7 @@ def local_day(on_date: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
 
 
 _WEEKDAY_CODES: dict[Weekday, int] = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
-_WEEKDAY_NAMES = {v: k for k, v in _WEEKDAY_CODES.items()}
+_WEEKDAY_NAMES: dict[int, Weekday] = {v: k for k, v in _WEEKDAY_CODES.items()}
 _SKIPPED = "left out when the series was booked"
 _MAX_OCCURRENCES = 60  # a full year of weekly + headroom; caps runaway/unbounded rules
 _TOO_LONG = f"a series can hold at most {_MAX_OCCURRENCES} visits; end it sooner"
@@ -1405,7 +1406,7 @@ class RecurrenceService:
                 item = await load_item(self.db, self.biz, slot.item_id, require_active=False)
                 problem = (
                     _verdict("past", _PAST)
-                    if starts_at < datetime.now(UTC)
+                    if starts_at < clock.now()
                     else await slot_problem(
                         self.db,
                         self.biz,
@@ -1466,7 +1467,7 @@ class RecurrenceService:
         async def run(cmd: Command) -> RecurrenceCancelOut:
             refunded = 0
             canceled: list[str] = []
-            now = datetime.now(UTC)
+            now = clock.now()
             for booking, slot in await self._lock_visits(visits):
                 if booking.deposit_status == "collected":
                     refunded += await refund_deposit(self.db, gateway, booking)
@@ -1541,7 +1542,7 @@ class RecurrenceService:
                 .where(
                     Slot.recurrence_id == recurrence_id,
                     Booking.status.in_(("pending", "confirmed")),
-                    Slot.starts_at >= datetime.now(UTC),
+                    Slot.starts_at >= clock.now(),
                 )
                 .order_by(Slot.starts_at)
             )
@@ -1629,7 +1630,7 @@ class ClassService:
         await load_client(self.db, self.biz, data.client_id)
         if data.subject_id is not None:
             await self._subject(data.subject_id, data.client_id)
-        if slot.starts_at < datetime.now(UTC) - timedelta(hours=12):
+        if slot.starts_at < clock.now() - timedelta(hours=12):
             raise Conflict("that class has already happened")
         item = await load_item(self.db, self.biz, slot.item_id, require_active=False)
 
@@ -1652,7 +1653,7 @@ class ClassService:
                 price_cents=item.price_cents,
                 deposit_amount_cents=deposit,
                 deposit_status="pending" if deposit > 0 else "none",
-                confirmed_at=None if full else datetime.now(UTC),
+                confirmed_at=None if full else clock.now(),
             )
             self.db.add(booking)
             await self.db.flush()
@@ -1685,7 +1686,7 @@ class ClassService:
             if data.action == "check_in":
                 if booking.status != "confirmed":
                     raise Conflict(f"a {booking.status} booking can't be checked in")
-                booking.checked_in_at = booking.checked_in_at or datetime.now(UTC)
+                booking.checked_in_at = booking.checked_in_at or clock.now()
             elif data.action == "undo":
                 await self._undo(booking)
             elif data.action == "no_show":
@@ -1693,7 +1694,7 @@ class ClassService:
                     raise Conflict(f"a {booking.status} booking can't be marked a no-show")
                 booking.status = "no_show"
                 booking.checked_in_at = None
-                await BookingService(self.db, self.principal, self.gateway)._forfeit_deposit(
+                await BookingService(self.db, self.principal, self.gateway).forfeit_deposit(
                     cmd, booking
                 )
             else:
@@ -1703,7 +1704,7 @@ class ClassService:
                 if await booked_count(self.db, slot.id) >= slot.capacity:
                     raise Conflict(_CLASS_FULL)
                 booking.status = "confirmed"
-                booking.confirmed_at = datetime.now(UTC)
+                booking.confirmed_at = clock.now()
             await self.db.flush()
             cmd.record(f"class.{data.action}", entity_type="booking", entity_id=booking.id)
             return await self._entry(booking)
@@ -1852,7 +1853,7 @@ class OnlineBookingService:
             .scalars()
             .all()
         )
-        since = datetime.now(UTC) - timedelta(days=30)
+        since = clock.now() - timedelta(days=30)
         online = (
             await self.db.execute(
                 scoped(Booking, self.biz, soft_delete=True)

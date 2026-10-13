@@ -1,9 +1,9 @@
 from collections.abc import Sequence
-from datetime import UTC, datetime
 
 from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.db import Base
 from clientbridge.core.deps import Principal, assert_role
@@ -131,7 +131,7 @@ class ClientService:
         async def run(cmd: Command) -> ClientOut:
             if (client.archived_at is not None) != archived:
                 client.status = "inactive" if archived else "active"
-                client.archived_at = datetime.now(UTC) if archived else None
+                client.archived_at = clock.now() if archived else None
                 await self.db.flush()
                 await self.db.refresh(client)
                 action = "client.archive" if archived else "client.restore"
@@ -167,7 +167,7 @@ class ClientService:
         clients = await self._many(data.client_ids)
 
         async def run(cmd: Command) -> BulkResult:
-            now = datetime.now(UTC)
+            now = clock.now()
             for client in clients:
                 if client.archived_at is None:
                     client.status = "inactive"
@@ -241,7 +241,7 @@ class ClientService:
                 .where(Note.parent_type == "client", Note.parent_id == gone.id)
                 .values(parent_id=kept.id)
             )
-            gone.deleted_at = datetime.now(UTC)
+            gone.deleted_at = clock.now()
             gone.custom_fields = {**gone.custom_fields, "merged_into": kept.id}
             await self.db.flush()
             await self.db.refresh(kept)

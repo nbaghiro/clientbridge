@@ -1,6 +1,5 @@
 import base64
 import hashlib
-import time
 from functools import lru_cache
 
 import jwt
@@ -9,6 +8,7 @@ from argon2.exceptions import VerifyMismatchError
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 
 _ph = PasswordHasher()
@@ -33,7 +33,7 @@ def hash_token(token: str) -> str:
 def issue_powersync_token(user_id: str) -> str:
     """Short-lived PowerSync token; `sub` is the user, the sync streams derive their businesses."""
     s = get_settings()
-    now = int(time.time())
+    now = int(clock.wall().timestamp())
     payload: dict[str, object] = {
         "sub": user_id,
         "aud": s.powersync_audience,

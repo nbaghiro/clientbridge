@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import english from "../locales/en-CA.json" with { type: "json" };
 import * as core from "./index";
@@ -45,8 +45,7 @@ describe("catalog", () => {
         expect(billing.overdueBy(1)).toBe("1 day overdue");
         expect(billing.overdueBy(21)).toBe("21 days overdue");
         expect(strings.recurrences.cancelSummary(2, "Jan 5", true)).toContain("refunded");
-        // @ts-expect-error a plural argument is a number
-        billing.overdueBy("3");
+        expectTypeOf(billing.overdueBy).parameter(0).toEqualTypeOf<number>();
     });
 
     it("switches every leaf, including aliases taken at import, to the pseudo-locale", async () => {

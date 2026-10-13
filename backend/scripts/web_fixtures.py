@@ -5,14 +5,14 @@ import hashlib
 import hmac
 import json
 import os
-import time
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal, engine
 from clientbridge.models.business import Business, Staff
@@ -36,7 +36,7 @@ async def _has_series(db: AsyncSession) -> bool:
             Recurrence.business_id == BIZ,
             Recurrence.client_id.is_not(None),
             Recurrence.status == "active",
-            Slot.starts_at > datetime.now(UTC),
+            Slot.starts_at > clock.now(),
         )
         .limit(1)
     )
@@ -108,7 +108,7 @@ async def _series_body(db: AsyncSession) -> dict[str, object]:
     business = await db.get(Business, BIZ)
     assert business is not None
     tz = ZoneInfo(business.timezone)
-    today = datetime.now(tz).date()
+    today = clock.today(tz)
     wednesday = today + timedelta(days=(2 - today.weekday()) % 7 + 7)
     starts_at = datetime.combine(wednesday, datetime.min.time(), tz).replace(hour=15)
     return {
@@ -142,7 +142,7 @@ async def _dispute_event(db: AsyncSession) -> bytes:
             .limit(1)
         )
     ).scalar_one()
-    due_by = int(time.time()) + 7 * 86400
+    due_by = int(clock.now().timestamp()) + 7 * 86400
     event = {
         "id": f"evt_web_{payment.id}",
         "object": "event",
@@ -165,7 +165,7 @@ async def _dispute_event(db: AsyncSession) -> bytes:
 
 
 def _stripe_signature(payload: bytes) -> str:
-    stamp = str(int(time.time()))
+    stamp = str(int(clock.wall().timestamp()))
     secret = get_settings().stripe_webhook_secret.encode()
     digest = hmac.new(secret, f"{stamp}.".encode() + payload, hashlib.sha256).hexdigest()
     return f"t={stamp},v1={digest}"
@@ -199,7 +199,7 @@ async def main() -> None:
     async with httpx.AsyncClient(base_url=API, timeout=30) as http:
         http.headers["X-Session-Token"] = await sign_in(http, **OWNER)
         http.headers["X-Business-Id"] = BIZ
-        stamp = date.today().isoformat()
+        stamp = clock.today(UTC).isoformat()
         if series is not None:
             booked = await http.post(
                 "/v1/recurrences",

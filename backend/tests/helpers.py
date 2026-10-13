@@ -4,15 +4,17 @@ import json
 import os
 import uuid
 from collections.abc import Mapping
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import NoReturn
 
 import httpx
 import pytest
+from pydantic_settings import SettingsConfigDict
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.config import get_settings
+from clientbridge.core import clock
+from clientbridge.core.config import Settings, get_settings
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.resend import resend_signature
 from clientbridge.integrations.twilio import twilio_signature
@@ -28,8 +30,8 @@ from clientbridge.schemas.billing import InvoiceOut
 from clientbridge.schemas.bookings import BookingOut
 from clientbridge.schemas.orders import OrderOut
 from clientbridge.services import ledger
-from clientbridge.services.billing import _invoice_out
-from clientbridge.services.bookings import _booking_out
+from clientbridge.services.billing import invoice_out
+from clientbridge.services.bookings import booking_out
 from clientbridge.services.business import local_today
 from clientbridge.services.earnings import load_earning
 from clientbridge.services.lines import fetch_lines
@@ -41,6 +43,12 @@ SLUG = "birchbark"
 STRIPE = {"Stripe-Signature": "good"}
 TWILIO_TOKEN = "testtoken"
 WIDE = "start=2000-01-01&end=2100-01-01"
+
+
+class EnvSettings(Settings):
+    """Settings from arguments and the environment only; a developer's .env is not read."""
+
+    model_config = SettingsConfigDict(env_file=None, extra="ignore")
 
 
 async def text_in(api: httpx.AsyncClient, data: dict[str, str]) -> httpx.Response:
@@ -61,7 +69,7 @@ async def email_event(
 ) -> httpx.Response:
     """Post a Resend delivery event signed the way Svix signs it."""
     payload = raw if raw is not None else json.dumps(body).encode()
-    timestamp = str(int((at or datetime.now(UTC)).timestamp()))
+    timestamp = str(int((at or clock.wall()).timestamp()))
     signed = signature or f"v1,{resend_signature(RESEND_SECRET, svix_id, timestamp, payload)}"
     headers = {
         "svix-id": svix_id,
@@ -86,7 +94,7 @@ async def texted(
             channel="sms",
             body="Hello",
             status="sent",
-            created_at=at or datetime.now(UTC),
+            created_at=at or clock.now(),
         )
     )
     await db.flush()
@@ -94,7 +102,7 @@ async def texted(
 
 async def local_hour(db: AsyncSession, hour: int, business_id: str = BIZ) -> datetime:
     """Move the business to the zone where the local hour is now `hour`; returns now."""
-    now = datetime.now(UTC)
+    now = clock.now()
     offset = (hour - now.hour + 11) % 24 - 11
     zone = "Etc/GMT" if offset == 0 else f"Etc/GMT{'-' if offset > 0 else '+'}{abs(offset)}"
     await db.execute(update(Business).where(Business.id == business_id).values(timezone=zone))
@@ -107,18 +115,6 @@ async def business_today(db: AsyncSession) -> date:
     business = await db.get(Business, BIZ)
     assert business is not None
     return local_today(business)
-
-
-def weeks_ahead(first: date, lead: timedelta = timedelta(days=35)) -> timedelta:
-    """Whole weeks that put `first` at least `lead` after today, past the seeded visits."""
-    return timedelta(weeks=max(0, -((first - datetime.now(UTC).date() - lead).days // 7)))
-
-
-def shifted(when: str, by: timedelta) -> str:
-    """An ISO date, or a UTC time ending in Z, moved by `by` and written the same way."""
-    if "T" not in when:
-        return (date.fromisoformat(when) + by).isoformat()
-    return (datetime.fromisoformat(when) + by).isoformat().replace("+00:00", "Z")
 
 
 def service_missing(reason: str) -> NoReturn:
@@ -249,7 +245,7 @@ async def settle(
     ok(await api.post("/webhooks/stripe", content=event, headers=STRIPE))
 
 
-async def stripe_event(api: httpx.AsyncClient, event_type: str, obj: dict[str, object]) -> None:
+async def stripe_event(api: httpx.AsyncClient, event_type: str, obj: Mapping[str, object]) -> None:
     body = json.dumps(
         {
             "id": f"evt_{uuid.uuid4().hex}",
@@ -301,7 +297,7 @@ async def deposit_payment(db: AsyncSession, booking_id: str) -> str:
 async def invoice(db: AsyncSession, invoice_id: str) -> InvoiceOut:
     row = await db.get(Invoice, invoice_id, populate_existing=True)
     assert row is not None
-    return await _invoice_out(db, row, await fetch_lines(db, BIZ, "invoice", invoice_id))
+    return await invoice_out(db, row, await fetch_lines(db, BIZ, "invoice", invoice_id))
 
 
 async def order(db: AsyncSession, order_id: str) -> OrderOut:
@@ -315,7 +311,7 @@ async def booking(db: AsyncSession, booking_id: str) -> BookingOut:
     assert row is not None
     slot = await db.get(Slot, row.slot_id, populate_existing=True)
     assert slot is not None
-    return await _booking_out(db, row, slot)
+    return await booking_out(db, row, slot)
 
 
 async def deposit_held(db: AsyncSession, booking_id: str) -> int:
@@ -368,7 +364,7 @@ async def gift_card(db: AsyncSession, gift_card_id: str) -> tuple[str, int]:
 
 async def lapse(db: AsyncSession, model: type[GiftCard] | type[Package], row_id: str) -> datetime:
     """Backdate an entitlement's expiry so the next sweep at the returned time lapses it."""
-    now = datetime.now(UTC)
+    now = clock.now()
     await db.execute(
         update(model).where(model.id == row_id).values(expires_at=now - timedelta(minutes=1))
     )

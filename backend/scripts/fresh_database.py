@@ -9,6 +9,7 @@ import sys
 from sqlalchemy import text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.ext.asyncio import create_async_engine
+from tests.clock import FROZEN
 
 from clientbridge.core.config import get_settings
 from scripts.db_access import ADMIN_URL, quote
@@ -44,7 +45,7 @@ def main(command: list[str]) -> int:
         run([*python, "scripts.db_access", "roles"], env)
         run([*python, "alembic", "upgrade", "head"], env)
         run([*python, "scripts.db_access", "grants"], env)
-        run([*python, "scripts.seed_demo"], env)
+        run([*python, "scripts.seed_demo", "--as-of", FROZEN.isoformat()], env)
         return subprocess.run(command, env=env, check=False).returncode
     finally:
         asyncio.run(admin(f"DROP DATABASE IF EXISTS {quote(database)} WITH (FORCE)"))

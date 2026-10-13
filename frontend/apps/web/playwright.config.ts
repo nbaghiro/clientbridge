@@ -19,12 +19,12 @@ export default defineConfig({
     },
     projects: [
         {
-            name: "en-CA",
+            name: "default",
             testIgnore: "pseudo.e2e.ts",
             use: { baseURL: `http://localhost:${String(port)}` },
         },
         {
-            name: "en-XA",
+            name: "pseudo",
             testMatch: "pseudo.e2e.ts",
             use: { baseURL: `http://localhost:${String(pseudoPort)}` },
         },

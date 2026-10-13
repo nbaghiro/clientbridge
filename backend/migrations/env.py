@@ -2,12 +2,12 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
+from sqlalchemy import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlalchemy.pool import NullPool
 
 from clientbridge.core.config import get_settings
-from clientbridge.core.db import Base
-from clientbridge import models  # noqa: F401  — import all models so metadata is populated
+from clientbridge.models import Base
 
 config = context.config
 if config.config_file_name:
@@ -19,7 +19,7 @@ config.set_main_option("sqlalchemy.url", get_settings().migration_database_url)
 target_metadata = Base.metadata
 
 
-def _run_migrations(connection) -> None:
+def _run_migrations(connection: Connection) -> None:
     context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
     with context.begin_transaction():
         context.run_migrations()

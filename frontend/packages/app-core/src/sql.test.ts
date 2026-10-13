@@ -1,6 +1,6 @@
 import { AppSchema, businessQuery } from "@clientbridge/sync";
 import initSqlJs, { type Database, type SqlValue } from "sql.js";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { clientValueSql, collectedSql, ownedLiabilitySql, subjectNetSql } from "./domain/ledger";
 import * as core from "./index";
@@ -963,14 +963,6 @@ beforeEach(async () => {
 
 const SQL_COVERED = new Set<string>();
 
-// eslint-disable-next-line no-empty-pattern -- vitest passes the file to a hook that destructures its context
-afterAll(({}, file) => {
-    const tests = file.tasks.flatMap((task) => (task.type === "suite" ? task.tasks : [task]));
-    if (tests.some((test) => test.mode !== "run")) return; // a filtered run skips the check
-    const exported = Object.keys(core).filter((k) => k.endsWith("_SQL"));
-    expect(exported.filter((k) => !SQL_COVERED.has(k))).toEqual([]);
-});
-
 function run(name: keyof typeof core, params: SqlValue[] = []): Row[] {
     const sql = core[name];
     expect(typeof sql).toBe("string");
@@ -1564,8 +1556,8 @@ describe("app-core SQL against the replica schema", () => {
                 id: "ss_future",
                 item_id: "it_cut",
                 staff_id: "st_owner",
-                starts_at: "2099-01-05T09:00:00Z",
-                ends_at: "2099-01-05T10:00:00Z",
+                starts_at: "2026-11-05T17:00:00Z",
+                ends_at: "2026-11-05T18:00:00Z",
                 capacity: 1,
                 status: "scheduled",
             },
@@ -1619,18 +1611,23 @@ describe("app-core SQL against the replica schema", () => {
             '["vip","regular"]',
         ]);
 
-        const ann = run("CLIENT_SQL", ["cl_ann"])[0];
+        const ann = run("CLIENT_SQL", [new Date().toISOString(), "cl_ann"])[0];
         expect(
             pick([ann ?? {}], "pet_names", "next_visit_at", "tags", "preferred_channel"),
         ).toEqual([
             {
                 pet_names: "Rex",
-                next_visit_at: "2099-01-05T09:00:00Z",
+                next_visit_at: "2026-11-05T17:00:00Z",
                 tags: '["vip","regular"]',
                 preferred_channel: "email",
             },
         ]);
-        expect(run("CLIENT_DIRECTORY_SQL").map((r) => r.id)).toEqual(["cl_ann", "cl_ben"]);
+        const after = run("CLIENT_SQL", ["2026-11-05T18:00:01Z", "cl_ann"])[0];
+        expect(pick([after ?? {}], "next_visit_at")).toEqual([{ next_visit_at: null }]);
+        expect(run("CLIENT_DIRECTORY_SQL", [new Date().toISOString()]).map((r) => r.id)).toEqual([
+            "cl_ann",
+            "cl_ben",
+        ]);
         expect(run("CLIENT_VISITS_SQL", ["cl_ann"]).map((r) => r.id)).toEqual([
             "bk_future",
             "bk_1",
@@ -2244,4 +2241,11 @@ describe("app-core SQL against the replica schema", () => {
         ]);
         expect(run("STRANDED_SQL", ["[]"])).toEqual([]);
     });
+});
+
+it("runs every exported query in this file", ({ task }) => {
+    const tests = task.file.tasks.flatMap((t) => (t.type === "suite" ? t.tasks : [t]));
+    if (tests.some((test) => test.mode !== "run")) return; // a filtered run skips the check
+    const exported = Object.keys(core).filter((k) => k.endsWith("_SQL"));
+    expect(exported.filter((k) => !SQL_COVERED.has(k))).toEqual([]);
 });

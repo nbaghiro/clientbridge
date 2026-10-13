@@ -125,7 +125,7 @@ def _new_invoice(
     return invoice
 
 
-def _estimates(ctx: DemoContext) -> None:
+def prepare_estimates(ctx: DemoContext) -> None:
     for estimate in ctx.all(Estimate):
         lines = [line for line in ctx.all(Line) if line.estimate_id == estimate.id]
         if not lines and estimate.converted_invoice_id:
@@ -165,8 +165,8 @@ def _estimates(ctx: DemoContext) -> None:
             estimate.updated_at = estimate.accepted_at
             if estimate.converted_invoice_id:
                 invoice = ctx.get(Invoice, estimate.converted_invoice_id)
-                invoice.issued_at = estimate.accepted_at + timedelta(minutes=5)
-                invoice.created_at = invoice.issued_at
+                issued = estimate.accepted_at + timedelta(minutes=5)
+                invoice.issued_at = invoice.created_at = issued
 
 
 def _membership(ctx: DemoContext) -> None:
@@ -187,9 +187,8 @@ def _membership(ctx: DemoContext) -> None:
     payment = ctx.get(Payment, "pay_sub_david")
     payment.invoice_id, payment.method = invoice.id, method.method
     payment.amount_cents = _tax(ctx, [ctx.get(Line, "ln_subscription_david")]).total_cents
-    payment.paid_at = when + timedelta(minutes=5)
+    payment.paid_at = payment.updated_at = when + timedelta(minutes=5)
     payment.created_at = when
-    payment.updated_at = payment.paid_at
     payment.note = f"Simulated recurring charge for {subscription.id}, method {method.id}."
     for note in ctx.all(Note):
         if note.parent_type == "client" and note.parent_id == "cl_david":
@@ -242,7 +241,7 @@ def _entitlements(ctx: DemoContext) -> None:
         card.updated_at = invoice.issued_at or card.created_at
 
 
-def _headers(ctx: DemoContext) -> None:
+def price_documents(ctx: DemoContext) -> None:
     items = {item.id: item for item in ctx.all(Item)}
     for line in ctx.all(Line):
         if line.item_id:
@@ -279,14 +278,13 @@ def _payments(ctx: DemoContext, previous_totals: dict[str, int]) -> None:
             end = max(ctx.get(Slot, booking.slot_id).ends_at for booking in visits)
             invoice.issued_at = end if end <= ctx.now else ctx.now - timedelta(days=1)
             invoice.created_at = min(b.created_at for b in visits)
-        invoice.issued_at = invoice.issued_at or ctx.at(-2)
-        invoice.created_at = min(invoice.created_at or invoice.issued_at, invoice.issued_at)
-        invoice.updated_at = invoice.issued_at
-        invoice.due_at = invoice.issued_at + timedelta(days=14)
+        issued = invoice.issued_at or ctx.at(-2)
+        due = issued + timedelta(days=14)
+        invoice.issued_at = invoice.updated_at = issued
+        invoice.created_at = min(invoice.created_at or issued, issued)
+        invoice.due_at = due
         invoice.overdue_notified_at = (
-            invoice.due_at + timedelta(days=1)
-            if invoice.due_at + timedelta(days=1) < ctx.now
-            else None
+            due + timedelta(days=1) if due + timedelta(days=1) < ctx.now else None
         )
     original_amounts = {p.id: p.amount_cents for p in ctx.all(Payment)}
     for payment in ctx.all(Payment):
@@ -308,9 +306,9 @@ def _payments(ctx: DemoContext, previous_totals: dict[str, int]) -> None:
                     else ctx.at(-1)
                 )
             else:
-                payment.paid_at = min(payment.paid_at or ctx.at(-1), ctx.now - timedelta(hours=1))
-                parent.created_at = payment.paid_at - timedelta(hours=1)
-                parent.updated_at = payment.paid_at
+                paid = min(payment.paid_at or ctx.at(-1), ctx.now - timedelta(hours=1))
+                payment.paid_at = parent.updated_at = paid
+                parent.created_at = paid - timedelta(hours=1)
         if payment.kind == "deposit" and payment.booking_id:
             payment.amount_cents = ctx.get(Booking, payment.booking_id).deposit_amount_cents
         payment.created_at = (
@@ -330,11 +328,11 @@ def _payments(ctx: DemoContext, previous_totals: dict[str, int]) -> None:
             * payment.amount_cents
             / max(original_amounts[original.id], 1)
         )
-        payment.paid_at = min(
+        paid = min(
             (original.paid_at or ctx.at(-3)) + timedelta(days=1), ctx.now - timedelta(hours=1)
         )
-        payment.created_at = payment.paid_at - timedelta(minutes=5)
-        payment.updated_at = payment.paid_at
+        payment.paid_at = payment.updated_at = paid
+        payment.created_at = paid - timedelta(minutes=5)
 
 
 def _inventory(ctx: DemoContext) -> None:
@@ -485,11 +483,11 @@ def _journeys(ctx: DemoContext) -> None:
 def prepare_finance(ctx: DemoContext) -> None:
     previous = {row.id: row.total_cents for row in ctx.all(Invoice)}
     previous.update({row.id: row.total_cents for row in ctx.all(Order)})
-    _estimates(ctx)
+    prepare_estimates(ctx)
     _membership(ctx)
     _entitlements(ctx)
     _journeys(ctx)
-    _headers(ctx)
+    price_documents(ctx)
     _payments(ctx, previous)
     tipped = ctx.get(Payment, "pay_ord1")
     tipped.amount_cents = ctx.get(Order, "ord_1").total_cents + tipped.tip_cents
@@ -501,8 +499,9 @@ def prepare_finance(ctx: DemoContext) -> None:
     original = ctx.get(Payment, "pay_ord2")
     refund.amount_cents = min(500, original.amount_cents)
     assert original.paid_at is not None
-    refund.paid_at = original.paid_at + timedelta(minutes=30)
-    refund.created_at = refund.updated_at = refund.paid_at
+    refund.paid_at = refund.created_at = refund.updated_at = original.paid_at + timedelta(
+        minutes=30
+    )
     _inventory(ctx)
 
 
@@ -630,7 +629,7 @@ async def _earnings(db: AsyncSession, ctx: DemoContext) -> None:
             )
 
 
-async def _payouts(db: AsyncSession, ctx: DemoContext) -> None:
+async def seed_payouts(db: AsyncSession, ctx: DemoContext) -> None:
     for index, day in enumerate(range(-112, -6, 7)):
         arrival = ctx.at(day, 10)
         amount = int(
@@ -721,4 +720,4 @@ async def seed_finance(db: AsyncSession, ctx: DemoContext) -> None:
                 booking_id=booking.id,
             )
     await _earnings(db, ctx)
-    await _payouts(db, ctx)
+    await seed_payouts(db, ctx)

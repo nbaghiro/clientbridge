@@ -8,6 +8,7 @@ from sqlalchemy import event, update
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.db import engine
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
@@ -140,7 +141,7 @@ async def _queries(api: httpx.AsyncClient, path: str) -> int:
 async def test_public_days_and_slots_read_a_fixed_number_of_times(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    start = date.today() + timedelta(days=1)
+    start = clock.today(UTC) + timedelta(days=1)
     base = f"/book/{SLUG}/days?item_id=it_nails&staff_id=any&from={start}"
     await _queries(api, f"{base}&days=1")
     one = await _queries(api, f"{base}&days=1")

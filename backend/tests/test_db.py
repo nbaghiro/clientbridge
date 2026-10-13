@@ -337,10 +337,12 @@ async def test_objects_added_in_a_rolled_back_inner_block_leave_the_session(
 ) -> None:
     async with transaction(session):
         kept = await _add(session, f"{tag} kept")
+        added: list[Client] = []
         with pytest.raises(Boom):
             async with transaction(session):
-                lost = await _add(session, f"{tag} lost")
+                added.append(await _add(session, f"{tag} lost"))
                 raise Boom
+        (lost,) = added
         assert lost not in session
         assert await session.get(Client, lost.id) is None
         assert kept in session

@@ -3,11 +3,11 @@
 import hashlib
 import hmac
 import json
-import time
 from pathlib import Path
 
 import pytest
 
+from clientbridge.core import clock
 from clientbridge.integrations.stripe import StripeGateway, WebhookVerificationError
 
 SECRET = "whsec_test_kQ7rZ8m2vP1nX4tL6yB0cD3eF5gH9jK"
@@ -19,7 +19,7 @@ def _gateway(secret: str = SECRET) -> StripeGateway:
 
 
 def _signed_header(payload: bytes, secret: str, *, timestamp: int | None = None) -> str:
-    ts = timestamp if timestamp is not None else int(time.time())
+    ts = timestamp if timestamp is not None else int(clock.wall().timestamp())
     signed = f"{ts}.".encode() + payload
     digest = hmac.new(secret.encode(), signed, hashlib.sha256).hexdigest()
     return f"t={ts},v1={digest}"
@@ -79,7 +79,9 @@ def test_rejects_a_signature_from_the_wrong_secret() -> None:
 
 def test_rejects_a_stale_timestamp() -> None:
     payload = _golden("account_updated.json")
-    header = _signed_header(payload, SECRET, timestamp=int(time.time()) - 1000)  # past tolerance
+    header = _signed_header(
+        payload, SECRET, timestamp=int(clock.wall().timestamp()) - 1000
+    )  # past tolerance
     with pytest.raises(WebhookVerificationError):
         _gateway().verify_webhook(payload, header)
 

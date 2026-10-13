@@ -1,6 +1,7 @@
 """Ways the books can drift from Stripe's balance; each test states the correct outcome."""
 
 import json
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 
 import httpx
@@ -9,6 +10,7 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import Conflict
 from clientbridge.core.ids import new_id
@@ -56,7 +58,7 @@ async def _charge(
         provider="stripe",
         provider_ref=pi,
         status=status,
-        paid_at=datetime.now(UTC) if status == "succeeded" else None,
+        paid_at=clock.now() if status == "succeeded" else None,
     )
     db.add(row)
     await db.flush()
@@ -70,7 +72,7 @@ def _refund(pi: str, status: str, **extra: object) -> dict[str, object]:
 
 
 def _dispute(
-    pi: str, status: str, txns: list[dict[str, object]], *, amount: int = 8000
+    pi: str, status: str, txns: Sequence[Mapping[str, object]], *, amount: int = 8000
 ) -> dict[str, object]:
     return {
         "id": f"dp_{pi}",

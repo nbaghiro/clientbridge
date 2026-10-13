@@ -35,7 +35,9 @@ function sinkOf(node) {
         if (n.type === "JSXExpressionContainer") return "JSX";
         if (n.type === "CallExpression" && n.arguments.includes(child)) {
             const callee = n.callee.type === "MemberExpression" ? n.callee.property : n.callee;
-            return callee.type === "Identifier" && SINK_CALL.test(callee.name) ? `${callee.name}()` : null;
+            return callee.type === "Identifier" && SINK_CALL.test(callee.name)
+                ? `${callee.name}()`
+                : null;
         }
         if (n.type === "Property" && n.value === child && n.key.type === "Identifier") {
             return SINK_PROPERTY.has(n.key.name) ? n.key.name : null;
@@ -51,7 +53,8 @@ export default {
         type: "problem",
         docs: { description: "Disallow rendering the message of a caught error." },
         messages: {
-            message: "A caught error's message reaches `{{sink}}`. Map it with failureMessage(e, fallback) from app-core.",
+            message:
+                "A caught error's message reaches `{{sink}}`. Map it with failureMessage(e, fallback) from app-core.",
         },
         schema: [],
     },

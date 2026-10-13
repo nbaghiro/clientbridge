@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from scripts.gen_sync_schema import SYNC_STREAMS, gen_table, stream_columns, synced_columns
-from sqlalchemy import Column, String
+from sqlalchemy import Column, MetaData, String
 
 from clientbridge.core.db import Base
 
@@ -31,16 +31,15 @@ def test_sensitive_server_fields_are_not_projected() -> None:
     assert {"sessions", "tokens", "sync_receipts", "commands"}.isdisjoint(projections)
 
 
-def test_new_model_column_is_excluded_by_default() -> None:
-    table = Base.metadata.tables["clients"]
-    column = Column("unreviewed_secret", String)
-    table.append_column(column)
-    try:
-        projection = synced_columns()["clients"]
-        assert "unreviewed_secret" not in projection
-        assert "unreviewed_secret" not in gen_table("clients", projection)
-    finally:
-        table._columns.remove(column)
+def test_new_model_column_is_excluded_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    metadata = MetaData()
+    for table in Base.metadata.tables.values():
+        table.to_metadata(metadata)
+    metadata.tables["clients"].append_column(Column("unreviewed_secret", String))
+    monkeypatch.setattr(Base, "metadata", metadata)
+    projection = synced_columns()["clients"]
+    assert "unreviewed_secret" not in projection
+    assert "unreviewed_secret" not in gen_table("clients", projection)
 
 
 @pytest.mark.parametrize("projection", ["*", "id, unknown_secret", "id, name AS label"])

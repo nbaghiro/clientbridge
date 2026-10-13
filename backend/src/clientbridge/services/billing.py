@@ -1,10 +1,11 @@
 import secrets
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
@@ -83,7 +84,7 @@ class BillingService:
                 if not lines:
                     raise Unprocessable("add a line before sending the invoice")
                 await self._issue_invoice(invoice, cmd)
-            return await _invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
+            return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
             self.db,
@@ -116,7 +117,7 @@ class BillingService:
             await self._apply_totals(invoice, lines)
             await self.db.flush()
             cmd.record("invoice.update", entity_type="invoice", entity_id=invoice.id)
-            return await _invoice_out(self.db, invoice, lines)
+            return await invoice_out(self.db, invoice, lines)
 
         return await run_command(
             self.db, self.principal, action="invoice.update", run=run, response_model=InvoiceOut
@@ -133,7 +134,7 @@ class BillingService:
                 await self._issue_invoice(invoice, cmd)
             else:
                 cmd.record("invoice.resend", entity_type="invoice", entity_id=invoice.id)
-            return await _invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
+            return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
             self.db, self.principal, action="invoice.send", run=run, response_model=InvoiceOut
@@ -141,7 +142,7 @@ class BillingService:
 
     async def _issue_invoice(self, invoice: Invoice, cmd: Command) -> None:
         """Number, date and post a draft invoice; its tax is fixed here and matches its journal."""
-        now = datetime.now(UTC)
+        now = clock.now()
         invoice.number = await self._next_number(Invoice)
         invoice.status = "sent"
         invoice.issued_at = now
@@ -176,13 +177,13 @@ class BillingService:
             if pending.scalar_one_or_none() is not None:
                 raise Conflict("this invoice has a payment in progress")
             invoice.status = "void"
-            invoice.voided_at = datetime.now(UTC)
+            invoice.voided_at = clock.now()
             await self.db.flush()
             await ledger.void_invoice(self.db, invoice)
             for booking in await self._bookings(invoice):
                 await unapply_deposit(self.db, booking, invoice.id)
             cmd.record("invoice.void", entity_type="invoice", entity_id=invoice.id)
-            return await _invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
+            return await invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
             self.db, self.principal, action="invoice.void", run=run, response_model=InvoiceOut
@@ -350,7 +351,7 @@ class BillingService:
             await self.db.flush()
             cmd.record("estimate.convert", entity_type="estimate", entity_id=estimate.id)
             cmd.record("invoice.create", entity_type="invoice", entity_id=invoice.id)
-            return await _invoice_out(self.db, invoice, lines)
+            return await invoice_out(self.db, invoice, lines)
 
         return await run_command(
             self.db,
@@ -374,9 +375,9 @@ class BillingService:
         async def run(cmd: Command) -> EstimateOut:
             estimate.status = status
             if status == "accepted":
-                estimate.accepted_at = datetime.now(UTC)
+                estimate.accepted_at = clock.now()
             elif status == "declined":
-                estimate.declined_at = datetime.now(UTC)
+                estimate.declined_at = clock.now()
                 estimate.decline_reason = reason
             await self.db.flush()
             cmd.record(f"estimate.{status}", entity_type="estimate", entity_id=estimate.id)
@@ -455,7 +456,7 @@ class BillingService:
             booking.invoice_id = invoice.id
             await self.db.flush()
             cmd.record("invoice.create", entity_type="invoice", entity_id=invoice.id)
-            return await _invoice_out(self.db, invoice, lines)
+            return await invoice_out(self.db, invoice, lines)
 
         return await run_command(
             self.db,
@@ -496,7 +497,7 @@ class BillingService:
         return lines
 
     async def _today(self) -> date:
-        return datetime.now(await business_tz(self.db, self.biz)).date()
+        return clock.today(await business_tz(self.db, self.biz))
 
     async def _lines(self, parent: LineParent, parent_id: str) -> list[Line]:
         return await fetch_lines(self.db, self.biz, parent, parent_id)
@@ -546,7 +547,7 @@ def estimate_status(estimate: Estimate, today: date) -> str:
     return estimate.status
 
 
-async def _invoice_out(db: AsyncSession, invoice: Invoice, lines: list[Line]) -> InvoiceOut:
+async def invoice_out(db: AsyncSession, invoice: Invoice, lines: list[Line]) -> InvoiceOut:
     paid, _ = await ledger.collected(db, invoice.business_id, "invoice", invoice.id)
     status, paid_at = await ledger.invoice_state(db, invoice)
     return InvoiceOut(

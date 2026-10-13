@@ -16,7 +16,7 @@ class FileStorage(Protocol):
 
 
 class S3Storage:
-    def __init__(  # pragma: no cover - real S3/MinIO, faked in tests
+    def __init__(
         self,
         *,
         endpoint: str,
@@ -36,7 +36,7 @@ class S3Storage:
             region_name=region,
         )
 
-    def presign_upload(self, key: str, content_type: str) -> str:  # pragma: no cover
+    def presign_upload(self, key: str, content_type: str) -> str:
         return str(
             self._client.generate_presigned_url(
                 "put_object",
@@ -45,7 +45,7 @@ class S3Storage:
             )
         )
 
-    def presign_download(self, key: str) -> str:  # pragma: no cover
+    def presign_download(self, key: str) -> str:
         return str(
             self._client.generate_presigned_url(
                 "get_object",
@@ -54,7 +54,7 @@ class S3Storage:
             )
         )
 
-    def head(self, key: str) -> int | None:  # pragma: no cover
+    def head(self, key: str) -> int | None:
         """The stored object's size in bytes, or None when nothing was uploaded under the key."""
         try:
             response = self._client.head_object(Bucket=self._bucket, Key=key)
@@ -64,11 +64,11 @@ class S3Storage:
             raise
         return int(response["ContentLength"])
 
-    def delete(self, key: str) -> None:  # pragma: no cover
+    def delete(self, key: str) -> None:
         self._client.delete_object(Bucket=self._bucket, Key=key)
 
 
-def get_file_storage() -> FileStorage:  # pragma: no cover - constructs the real client
+def get_file_storage() -> FileStorage:
     s = get_settings()
     return S3Storage(
         endpoint=s.s3_endpoint,

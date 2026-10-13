@@ -1,11 +1,12 @@
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.models.billing import Order
 from clientbridge.models.payments import Payment
 from clientbridge.services.notifications import Notifier
@@ -105,7 +106,7 @@ async def test_cancel_order_refunds_once_and_releases_stock(
 async def test_pickup_windows_validate_and_enforce_capacity(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    from datetime import UTC, datetime, timedelta
+    from datetime import timedelta
 
     from clientbridge.models.business import Business
     from tests.conftest import BIZ
@@ -136,8 +137,8 @@ async def test_pickup_windows_validate_and_enforce_capacity(
     assert second.status_code == 409
     row = await db.get(Order, first.json()["order_id"])
     assert row is not None and row.note == "Collecting after work" and row.notify_sms is False
-    payload["pickup_from"] = (datetime.now(UTC) - timedelta(days=1)).isoformat()
-    payload["pickup_to"] = (datetime.now(UTC) - timedelta(days=1) + timedelta(hours=1)).isoformat()
+    payload["pickup_from"] = (clock.now() - timedelta(days=1)).isoformat()
+    payload["pickup_to"] = (clock.now() - timedelta(days=1) + timedelta(hours=1)).isoformat()
     invalid = await api.post(
         "/book/birchbark/shop/orders", json=payload, headers={"Idempotency-Key": uuid.uuid4().hex}
     )
@@ -186,14 +187,14 @@ async def test_unpaid_order_expires_only_after_intent_cancellation(
     )
     order = await db.get(Order, response.json()["order_id"])
     assert order is not None
-    order.created_at = datetime.now(UTC) - timedelta(hours=1)
+    order.created_at = clock.now() - timedelta(hours=1)
     payment = (await db.execute(select(Payment).where(Payment.order_id == order.id))).scalar_one()
     assert payment.provider_ref is not None
     gateway.confirmed.add(payment.provider_ref)
-    assert await run_reap_unpaid_orders(db, gateway, datetime.now(UTC)) == 0
+    assert await run_reap_unpaid_orders(db, gateway, clock.now()) == 0
     assert order.status == "open"
     gateway.confirmed.clear()
-    assert await run_reap_unpaid_orders(db, gateway, datetime.now(UTC)) == 1
+    assert await run_reap_unpaid_orders(db, gateway, clock.now()) == 1
     assert await column(db, "orders", order.id, "status") == "void"
     assert await column(db, "payments", payment.id, "status") == "canceled"
     assert payment.provider_ref in gateway.canceled_intents
@@ -207,19 +208,19 @@ async def test_ready_order_reminder_sent_once_and_respects_alert_choice(
     push: FakePushSender,
 ) -> None:
     await db.execute(
-        update(Order).where(Order.pickup_status == "ready").values(ready_at=datetime.now(UTC))
+        update(Order).where(Order.pickup_status == "ready").values(ready_at=clock.now())
     )
     placed = await place(api, db)
     order = await db.get(Order, placed["order_id"])
     assert order is not None
     order.pickup_status = "ready"
-    order.ready_at = datetime.now(UTC) - timedelta(days=2)
+    order.ready_at = clock.now() - timedelta(days=2)
     order.notify_sms = False
     await db.flush()
     email.sent.clear()
     sms.sent.clear()
     notifier = Notifier(email, sms, push)
-    morning = datetime.now(ZoneInfo("America/Vancouver")).replace(hour=9, minute=0)
+    morning = clock.now().astimezone(ZoneInfo("America/Vancouver")).replace(hour=9, minute=0)
     assert await run_pickup_reminders(db, notifier, morning.replace(hour=10)) == 0
     assert await run_pickup_reminders(db, notifier, morning) == 1
     assert len(email.sent) == 1 and sms.sent == []

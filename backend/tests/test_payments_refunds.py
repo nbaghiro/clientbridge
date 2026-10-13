@@ -1,12 +1,12 @@
 """Partial and multiple refunds: credit notes on the ledger, guarded against over-refunding."""
 
 import json
-from datetime import UTC, datetime
 
 import httpx
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.catalog import GiftCard, Package
@@ -48,7 +48,7 @@ async def _paid_invoice(api: httpx.AsyncClient, db: AsyncSession) -> tuple[str, 
         subtotal_cents=10000,
         tax_total_cents=1200,
         total_cents=11200,
-        issued_at=datetime.now(UTC),
+        issued_at=clock.now(),
     )
     db.add(inv)
     await db.flush()
@@ -81,11 +81,6 @@ async def _refunds(db: AsyncSession, payment_id: str) -> int:
             .where(Payment.parent_payment_id == payment_id, Payment.kind == "refund")
         )
     ).scalar_one()
-
-
-async def _order_status(db: AsyncSession, order_id: str) -> str:
-    query = select(ledger.order_status_expr()).where(Order.id == order_id)
-    return str((await db.execute(query)).scalar_one())
 
 
 async def test_partial_refunds_unwind_revenue_and_tax_pro_rata(
@@ -237,7 +232,7 @@ async def _entitlement_payment(db: AsyncSession, amount: int) -> Payment:
         provider="stripe",
         provider_ref=f"pi_{new_id('payment')[4:16]}",
         status="succeeded",
-        paid_at=datetime.now(UTC),
+        paid_at=clock.now(),
     )
     db.add(payment)
     await db.flush()
@@ -537,7 +532,7 @@ async def _settled_charge(db: AsyncSession, pi: str, *, client: str) -> Payment:
         provider="stripe",
         provider_ref=pi,
         status="succeeded",
-        paid_at=datetime.now(UTC),
+        paid_at=clock.now(),
     )
     db.add(row)
     await db.flush()

@@ -129,7 +129,24 @@ jobs:
       - run: pnpm install --frozen-lockfile --ignore-scripts
         working-directory: frontend
       - run: make format-check-frontend lint-frontend test-frontend
-      - run: make build  # a broken Vite/tsc-b bundle must fail CI, not just tsc --noEmit
+
+  build:
+    # A broken Vite or tsc -b bundle must fail CI, not just tsc --noEmit; runs beside the frontend job.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: frontend
+      - run: make build
 
   site:
     # The marketing site's browser pass over a fresh build: links, images, layout at phone width and

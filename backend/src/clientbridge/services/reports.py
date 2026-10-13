@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import ColumnElement, Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import NotFound
 from clientbridge.core.locale import locale_for, message
@@ -549,7 +550,7 @@ class DashboardService:
         business = await self.db.get(Business, self.biz)
         if business is None:
             raise NotFound("business not found")
-        now = datetime.now(zone(business.timezone))
+        now = clock.now().astimezone(zone(business.timezone))
         day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         received = await self.db.execute(
             scoped(Entry, self.biz)

@@ -2,10 +2,10 @@
 
 import asyncio
 import sys
-from datetime import UTC, datetime
 
 from sqlalchemy import update
 
+from clientbridge.core import clock
 from clientbridge.core.db import SessionLocal, engine
 from clientbridge.models.business import Staff
 from clientbridge.models.clients import Client
@@ -29,7 +29,7 @@ async def mutate(action: str) -> None:
                 update(Client)
                 .where(Client.id == "cl_first")
                 .values(
-                    deleted_at=datetime.now(UTC) if action == "delete_client" else None,
+                    deleted_at=clock.now() if action == "delete_client" else None,
                 )
             )
         else:

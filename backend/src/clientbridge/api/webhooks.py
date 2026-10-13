@@ -1,12 +1,12 @@
 """Webhook surface (#4) — unauthenticated provider callbacks, authenticated by signature."""
 
 import secrets
-from datetime import UTC, datetime
 from typing import Annotated
 from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, Header, Request, Response
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import (
     AuthEmailSecretDep,
@@ -123,7 +123,7 @@ async def email_webhook(
     svix_signature: Annotated[str, Header(alias="svix-signature")] = "",
 ) -> Response:
     payload = await request.body()
-    now = datetime.now(UTC)
+    now = clock.wall()
     if not valid_resend_signature(
         secret, svix_id, svix_timestamp, payload, svix_signature, now=now
     ):

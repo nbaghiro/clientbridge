@@ -1,5 +1,5 @@
 import asyncio
-from datetime import UTC, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.twilio import Sms
 from clientbridge.models.business import Business
@@ -38,7 +39,7 @@ async def _audience(db: AsyncSession) -> dict[str, str]:
         db.add(client)
         ids[name] = client.id
     await db.flush()
-    later = datetime.now(UTC) + timedelta(days=30)
+    later = clock.now() + timedelta(days=30)
     for channel in ("sms", "email"):
         await record_consent(
             db,
@@ -148,7 +149,7 @@ async def _scheduled(db: AsyncSession, *, business_id: str = BIZ) -> str:
         body="Soon",
         audience={},
         status="scheduled",
-        scheduled_at=datetime.now(UTC) + timedelta(days=1),
+        scheduled_at=clock.now() + timedelta(days=1),
     )
     db.add(broadcast)
     await db.flush()
@@ -162,7 +163,7 @@ async def test_cancel_a_scheduled_broadcast(
     bid = await _scheduled(db)
     out = ok(await as_owner.post(f"/v1/broadcasts/{bid}/cancel")).json()
     assert out["status"] == "canceled"
-    later = datetime.now(UTC) + timedelta(days=2)
+    later = clock.now() + timedelta(days=2)
     await run_due_broadcasts(db, sms, email, later)
     assert sms.sent == []  # a canceled broadcast never goes out
     assert (await as_owner.post(f"/v1/broadcasts/{bid}/cancel")).status_code == 409
@@ -216,7 +217,7 @@ async def test_the_job_sends_a_due_broadcast_and_keeps_its_counts(
         update(Broadcast).where(Broadcast.id == bid).values(audience={"tags": ["promo"]})
     )
     await local_hour(db, 12)
-    later = datetime.now(UTC) + timedelta(days=2)
+    later = clock.now() + timedelta(days=2)
     assert await run_due_broadcasts(db, sms, email, later) >= 1
     row = (
         await db.execute(
@@ -316,7 +317,7 @@ async def test_a_time_picked_in_quiet_hours_moves_to_nine(
     business = await db.get(Business, BIZ)
     assert business is not None
     zone = ZoneInfo(business.timezone)
-    day = (datetime.now(zone) + timedelta(days=2)).date()
+    day = (clock.now().astimezone(zone) + timedelta(days=2)).date()
     late = datetime.combine(day, time(22, 30), tzinfo=zone)
     out = ok(await as_owner.post("/v1/broadcasts", json=_promo(scheduled_at=late.isoformat())))
     moved = datetime.fromisoformat(out.json()["scheduled_at"]).astimezone(zone)

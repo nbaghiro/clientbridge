@@ -1,9 +1,10 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.command import request_hash
 from clientbridge.core.errors import Conflict, Forbidden, Unprocessable
 from clientbridge.core.ids import new_id
@@ -20,7 +21,7 @@ async def reserve_receipt(
     user_id: str,
     db: AsyncSession,
 ) -> dict[str, int] | None:
-    now = datetime.now(UTC)
+    now = clock.now()
     if request.created_at < now - timedelta(days=90):
         raise Conflict("upload is outside the 90-day retry horizon", code="upload_expired")
     if request.created_at > now + timedelta(minutes=5):

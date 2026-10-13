@@ -1,8 +1,10 @@
-// Fails the gate on frontend structure drift: multi-line comments, file names and concept names.
+// Fails the gate on structure drift: comments, suppressions, tsconfig strictness and names.
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { suppressionLines } from "../suppressions.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
@@ -44,7 +46,7 @@ for (const file of files) {
     lines.forEach((line, i) => {
         if (i < header) return;
         const t = line.trim();
-        if (t.startsWith("//") && !/^\/\/ (eslint-|@ts-|prettier-ignore)/.test(t)) {
+        if (t.startsWith("//")) {
             run += 1;
             if (run === 2)
                 problems.push(`${file}:${String(i)}: comment block longer than one line`);
@@ -197,9 +199,76 @@ for (const [file, src] of sources) {
     }
 }
 
+const tracked = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], {
+    cwd: root,
+    encoding: "utf8",
+})
+    .split("\n")
+    .filter((f) => f !== "" && existsSync(join(root, f)));
+
+for (const file of tracked.filter((f) => /\.(ts|tsx|mjs|js|cjs)$/.test(f))) {
+    for (const line of suppressionLines(file, readFileSync(join(root, file), "utf8"))) {
+        problems.push(`${file}:${String(line)}: suppression comment; fix the cause instead`);
+    }
+}
+
+// Browser and device suites run at real time against a seed built at real time, so dates stay relative.
+const E2E_FORMAT_FIXTURES = new Set(["packages/config/e2e/pseudo.ts"]);
+const DATE_LITERAL = /\b(19|20)\d{2}-\d{2}-\d{2}\b|new Date\((19|20)\d{2}|Date\.UTC\(/;
+for (const file of tracked.filter((f) => /(^|\/)e2e\/.*\.(ts|js|yaml)$/.test(f))) {
+    if (E2E_FORMAT_FIXTURES.has(file)) continue;
+    readFileSync(join(root, file), "utf8")
+        .split("\n")
+        .forEach((line, i) => {
+            if (DATE_LITERAL.test(line))
+                problems.push(
+                    `${file}:${String(i + 1)}: date literal in an e2e suite; derive it from today`,
+                );
+        });
+}
+
+const BASE = "tsconfig.base.json";
+const STRICT_FAMILY = [
+    "alwaysStrict",
+    "noImplicitAny",
+    "noImplicitThis",
+    "strictBindCallApply",
+    "strictBuiltinIteratorReturn",
+    "strictFunctionTypes",
+    "strictNullChecks",
+    "strictPropertyInitialization",
+    "useUnknownInCatchVariables",
+];
+const STRICT_EXTRAS = [
+    "strict",
+    "noUncheckedIndexedAccess",
+    "exactOptionalPropertyTypes",
+    "noImplicitOverride",
+    "noImplicitReturns",
+    "noFallthroughCasesInSwitch",
+    "noUnusedLocals",
+    "noUnusedParameters",
+];
+const readConfig = (file) => JSON.parse(readFileSync(join(root, file), "utf8"));
+const baseOptions = readConfig(BASE).compilerOptions ?? {};
+for (const key of STRICT_EXTRAS) {
+    if (baseOptions[key] !== true) problems.push(`${BASE}: ${key} must be true`);
+}
+for (const file of tracked.filter((f) => /(^|\/)tsconfig[^/]*\.json$/.test(f))) {
+    const config = readConfig(file);
+    const options = config.compilerOptions ?? {};
+    for (const key of [...STRICT_FAMILY, ...STRICT_EXTRAS]) {
+        if (options[key] === false) problems.push(`${file}: ${key} must not be turned off`);
+    }
+    if (config.exclude !== undefined) problems.push(`${file}: exclude hides files from tsc`);
+    if (file !== BASE && join(dirname(file), config.extends ?? "") !== BASE) {
+        problems.push(`${file}: extend ${BASE}`);
+    }
+}
+
 if (problems.length > 0) {
-    console.error(problems.join("\n"));
-    console.error(`\ncheck-structure: ${String(problems.length)} problem(s)`);
+    process.stderr.write(`${problems.join("\n")}\n`);
+    process.stderr.write(`\ncheck-structure: ${String(problems.length)} problem(s)\n`);
     process.exit(1);
 }
-console.log("check-structure: ok");
+process.stdout.write("check-structure: ok\n");

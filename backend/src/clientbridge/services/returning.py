@@ -1,11 +1,12 @@
 import hashlib
 import hmac
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import NotFound, TooManyRequests, Unauthorized, Unprocessable
 from clientbridge.core.ids import new_id
@@ -58,7 +59,7 @@ class ReturningService:
             raise Unprocessable("enter a valid phone number with country code")
         channel = "email" if data.email is not None else "sms"
         destination = _digest(f"{channel}:{address}")
-        now = datetime.now(UTC)
+        now = clock.now()
         await self.db.execute(
             text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
             {"key": f"returning:{business.id}:{destination}"},
@@ -105,6 +106,7 @@ class ReturningService:
                 destination_hash=destination,
                 code_hash=_digest(f"{challenge_id}:{code}"),
                 expires_at=now + timedelta(minutes=_CODE_MINUTES),
+                created_at=now,
             )
         )
         await self.db.commit()
@@ -128,7 +130,7 @@ class ReturningService:
                 .with_for_update()
             )
         ).scalar_one_or_none()
-        now = datetime.now(UTC)
+        now = clock.now()
         if (
             challenge is None
             or challenge.verified_at is not None
@@ -181,7 +183,7 @@ class ReturningService:
             await self.db.execute(
                 scoped(ReturningChallenge, business_id).where(
                     ReturningChallenge.session_hash == hash_token(token),
-                    ReturningChallenge.session_expires_at > datetime.now(UTC),
+                    ReturningChallenge.session_expires_at > clock.now(),
                     ReturningChallenge.verified_at.is_not(None),
                 )
             )

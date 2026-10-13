@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import transaction
@@ -30,7 +31,14 @@ from clientbridge.integrations.stripe import (
 )
 from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business, Staff
-from clientbridge.models.catalog import GiftCard, Item, Package, Subscription, SubscriptionStatus
+from clientbridge.models.catalog import (
+    Frequency,
+    GiftCard,
+    Item,
+    Package,
+    Subscription,
+    SubscriptionStatus,
+)
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import (
@@ -77,12 +85,23 @@ _log = logging.getLogger(__name__)
 _ORPHAN_GRACE = timedelta(hours=1)
 
 
+type WebhookNotice = Literal[
+    "payment",
+    "payment_failed",
+    "refund",
+    "refund_failed",
+    "payment_disputed",
+    "gift_card_issued",
+    "subscription_past_due",
+    "subscription_canceled",
+]
+
+
 @dataclass(frozen=True)
 class WebhookOutcome:
     """A post-commit client notification the webhook route fires (mirrors the receipt path)."""
 
-    notify: str  # payment | payment_failed | refund | refund_failed | payment_disputed |
-    # gift_card_issued | subscription_{past_due,canceled}
+    notify: WebhookNotice
     target_id: str
 
 
@@ -146,15 +165,14 @@ class PaymentService:
         if business.stripe_account_id is None:
             if component != "onboarding":
                 raise Conflict("set up payments before managing your payment account")
-            business.stripe_account_id = await self.gateway.create_connected_account(
+            created = await self.gateway.create_connected_account(
                 business_name=business.name,
                 email=business.billing_email,
                 url=f"{get_settings().connect_base_url}/b/{business.slug}",
                 idempotency_key=f"connect-account:{business.id}",
             )
-            apply_account_status(
-                business, await self.gateway.get_account(business.stripe_account_id)
-            )
+            business.stripe_account_id = created
+            apply_account_status(business, await self.gateway.get_account(created))
             cmd = Command(self.db, self.principal)
             cmd.record("connect.account_created", entity_type="business", entity_id=business.id)
             self.db.add_all(cmd.audits)
@@ -227,12 +245,12 @@ class PaymentService:
         if data.payment_method_id is not None:
             raise Unprocessable("only a card payment takes a saved card")
         tz = zone(business.timezone)
-        today = datetime.now(tz).date()
+        today = clock.today(tz)
         received = data.received_on or today
         if received > today:
             raise Unprocessable("a payment can't be received in the future")
         paid_at = (
-            datetime.now(UTC)
+            clock.now()
             if received == today
             else datetime.combine(received, time(12), tzinfo=tz).astimezone(UTC)
         )
@@ -376,7 +394,7 @@ class PaymentService:
                 scoped(Client, self.biz).where(Client.id == client.id).with_for_update()
             )
             customer_id = await ensure_customer(self.db, self.gateway, account_id, client)
-            now = datetime.now(UTC)
+            now = clock.now()
             old = (
                 (
                     await self.db.execute(
@@ -425,7 +443,7 @@ class PaymentService:
         ).scalar_one_or_none()
         if link is None:
             raise NotFound("authorization link not found")
-        link.revoked_at = datetime.now(UTC)
+        link.revoked_at = clock.now()
         await self.db.commit()
 
     async def _saved_method_ref(self, payment_method_id: str | None, client_id: str) -> str | None:
@@ -577,7 +595,7 @@ class PaymentService:
                 provider=provider,
                 provider_ref=ref,
                 status=status,
-                paid_at=datetime.now(UTC) if status == "succeeded" else None,
+                paid_at=clock.now() if status == "succeeded" else None,
                 reason=reason,
                 refund_notify=notify,
                 credit_note=await next_credit_note(self.db, payment)
@@ -953,7 +971,7 @@ async def ensure_subscription_price(
     item: Item,
     *,
     interval_count: int,
-    frequency: str,
+    frequency: Frequency,
 ) -> str:
     """The item's Stripe recurring Price (tax included), created and cached on first use."""
     if item.stripe_price_id is not None:
@@ -1354,14 +1372,14 @@ async def process_stripe_event(
         async with transaction(db):
             outcome = await _dispatch(db, gateway, event)
             record.status = "processed"
-            record.processed_at = datetime.now(UTC)
+            record.processed_at = clock.now()
     except Exception as exc:
         if _lost_event_race(exc):
             return None
         if isinstance(exc, AppError) and exc.code == "retry_later":
             _log.info("stripe webhook %s (%s) deferred: %s", event.id, event.type, exc)
             raise
-        await _record_failed_delivery(db, event, exc)
+        await record_failed_delivery(db, event, exc)
         raise
     return outcome
 
@@ -1371,10 +1389,10 @@ def _lost_event_race(exc: Exception) -> bool:
     return isinstance(exc, IntegrityError) and "webhooks_pkey" in str(exc.orig)
 
 
-async def _record_failed_delivery(db: AsyncSession, event: GatewayEvent, exc: Exception) -> None:
+async def record_failed_delivery(db: AsyncSession, event: GatewayEvent, exc: Exception) -> None:
     """A delivery that raised keeps a failed row of its own, so dead events are visible."""
     _log.error("stripe webhook %s (%s) failed: %s", event.id, event.type, exc)
-    now = datetime.now(UTC)
+    now = clock.now()
     await db.execute(
         insert(Webhook)
         .values(
@@ -1423,9 +1441,10 @@ async def _update_payment_method(
 
 def refund_status(status: object) -> PaymentStatus:
     match status:
-        case "succeeded" | "failed" | "canceled":
-            return status
-    return "pending"
+        case str("succeeded" | "failed" | "canceled" as terminal):
+            return terminal
+        case _:
+            return "pending"
 
 
 async def _reconcile_refund(db: AsyncSession, data: dict[str, object]) -> WebhookOutcome | None:
@@ -1487,7 +1506,7 @@ async def _reconcile_refund(db: AsyncSession, data: dict[str, object]) -> Webhoo
     if status != "succeeded":
         await db.flush()
         return None
-    refund.paid_at = _stamp(data, "created") or datetime.now(UTC)
+    refund.paid_at = _stamp(data, "created") or clock.now()
     refund.credit_note = await next_credit_note(db, payment)
     await db.flush()
     await _apply_refund(db, refund, payment)
@@ -1529,10 +1548,11 @@ def _track_dispute(payment: Payment, data: dict[str, object]) -> None:
     """Mirror Stripe's dispute status on the charge so the app can show the case."""
     status = data.get("status")
     match status:
-        case "won" | "lost" | "under_review":
-            payment.dispute_status = status
-        case _ if status == "needs_response" or payment.dispute_status is None:
-            payment.dispute_status = "needs_response"
+        case str("won" | "lost" | "under_review" as settled):
+            payment.dispute_status = settled
+        case _:
+            if status == "needs_response" or payment.dispute_status is None:
+                payment.dispute_status = "needs_response"
 
 
 async def _update_dispute(db: AsyncSession, data: dict[str, object]) -> str | None:
@@ -1691,7 +1711,7 @@ async def _settle_payment(
         return None
     fees = await _fees(db, gateway, payment.business_id, intent_id)
     payment.status = "succeeded"
-    payment.paid_at = occurred_at or datetime.now(UTC)
+    payment.paid_at = occurred_at or clock.now()
     await db.flush()
     await ledger.post_payment(db, payment, available_at=fees.available_at)
     await ledger.post_fees(db, payment, fees)
@@ -1845,7 +1865,7 @@ async def _sync_visits(
     """Visits on a paid sale read as charged (staff devices have no ledger to tell them)."""
     rows = await db.execute(scoped(Booking, order.business_id).where(Booking.order_id == order.id))
     for booking in rows.scalars().all():
-        booking.charged_at = (paid_at or datetime.now(UTC)) if status == "paid" else None
+        booking.charged_at = (paid_at or clock.now()) if status == "paid" else None
         if (
             status == "paid"
             and booking.deposit_status == "collected"
@@ -1929,7 +1949,7 @@ def _metadata_business(intent: dict[str, object]) -> str | None:
 def _abandoned(intent: dict[str, object]) -> bool:
     """Past the grace window its purchase command would have committed in, if it ever will."""
     opened = _stamp(intent, "created")
-    return opened is not None and datetime.now(UTC) - opened > _ORPHAN_GRACE
+    return opened is not None and clock.now() - opened > _ORPHAN_GRACE
 
 
 def _entitlement_purchase(intent: dict[str, object]) -> bool:
@@ -2032,7 +2052,7 @@ async def _record_payout(db: AsyncSession, account_id: str | None, data: dict[st
         amount=amount,
         currency=cur,
         arrival_at=_stamp(data, "arrival_date"),
-        occurred_at=_stamp(data, "created") or datetime.now(UTC),
+        occurred_at=_stamp(data, "created") or clock.now(),
     )
 
 
@@ -2166,7 +2186,7 @@ def _paid_at(invoice: dict[str, object]) -> datetime:
     """When Stripe marked a subscription invoice paid, not when its webhook reached us."""
     transitions = invoice.get("status_transitions")
     paid = _stamp(transitions, "paid_at") if isinstance(transitions, dict) else None
-    return paid or datetime.now(UTC)
+    return paid or clock.now()
 
 
 def _stamp(data: dict[str, object], key: str) -> datetime | None:
@@ -2303,7 +2323,7 @@ async def _recurring_invoice(db: AsyncSession, sub: Subscription, currency: str)
     item = await db.get(Item, sub.item_id)
     if item is None:
         return None
-    now = datetime.now(UTC)
+    now = clock.now()
     invoice = Invoice(
         id=new_id("invoice"),
         business_id=sub.business_id,
@@ -2415,7 +2435,7 @@ async def refund_deposit(db: AsyncSession, gateway: PaymentGateway, booking: Boo
             provider="stripe",
             provider_ref=result.id,
             status=refund_status(result.status),
-            paid_at=datetime.now(UTC) if result.status == "succeeded" else None,
+            paid_at=clock.now() if result.status == "succeeded" else None,
         )
         db.add(refund)
         await db.flush()
@@ -2480,7 +2500,7 @@ async def refund_online_order(db: AsyncSession, gateway: PaymentGateway, order: 
             provider="stripe",
             provider_ref=result.id,
             status=refund_status(result.status),
-            paid_at=datetime.now(UTC) if result.status == "succeeded" else None,
+            paid_at=clock.now() if result.status == "succeeded" else None,
             credit_note=await next_credit_note(db, payment)
             if result.status == "succeeded"
             else None,
@@ -2523,7 +2543,7 @@ class PublicPaymentSetupService:
                 .execution_options(populate_existing=True)
             )
         ).scalar_one_or_none()
-        if link is None or link.revoked_at is not None or link.expires_at <= datetime.now(UTC):
+        if link is None or link.revoked_at is not None or link.expires_at <= clock.now():
             raise NotFound("authorization link expired or unavailable; request a new link")
         business = await self.db.get(Business, link.business_id)
         client = (
@@ -2558,7 +2578,7 @@ class PublicPaymentSetupService:
                 email=client.email,
             )
             link.setup_intent_id = intent.id
-            link.expires_at = datetime.now(UTC) + timedelta(days=10)
+            link.expires_at = clock.now() + timedelta(days=10)
             await self.db.flush()
         secret: str | None = None
         verify: str | None = None

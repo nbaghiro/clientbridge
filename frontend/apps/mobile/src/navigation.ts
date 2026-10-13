@@ -1,8 +1,6 @@
 import type { InboxSegmentKey, PaymentsTabKey } from "@clientbridge/app-core";
 import type { NavigatorScreenParams } from "@react-navigation/native";
 
-// Param lists stay `type`s: an interface would need an index signature to satisfy ParamListBase.
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 export type TabParamList = {
     Today: undefined;
     Schedule: { create?: number; open?: string } | undefined;
@@ -18,7 +16,6 @@ export type TabParamList = {
         | undefined;
 };
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 export type RootStackParamList = {
     Tabs: NavigatorScreenParams<TabParamList> | undefined;
     Payments:

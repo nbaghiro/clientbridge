@@ -4,12 +4,13 @@ import hashlib
 import logging
 import time
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from functools import lru_cache
 from typing import Protocol
 
 import httpx
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.emails import normalize_email
 from clientbridge.core.errors import AppError, Unauthorized
@@ -130,11 +131,11 @@ class KratosIdentityProvider:
             raise unavailable()
         identity, expires, signed_in = parse_session(response.json())
         max_age = timedelta(days=get_settings().session_max_age_days)
-        if signed_in and datetime.now(UTC) - signed_in > max_age:
+        if signed_in and clock.wall() - signed_in > max_age:
             # Kratos would keep it alive, and the login screen would take it as signed in again.
             await self._revoke(identity.session_id)
             raise Unauthorized("session too old", code="unauthenticated")
-        if expires and expires - datetime.now(UTC) < _EXTEND_WITHIN:
+        if expires and expires - clock.wall() < _EXTEND_WITHIN:
             await self._extend(identity.session_id)
         self._remember(key, identity)
         return identity
@@ -225,7 +226,5 @@ def get_kratos() -> KratosIdentityProvider:
     )
 
 
-def get_identity_provider() -> (
-    IdentityProvider
-):  # pragma: no cover — overridden by the fake in tests
+def get_identity_provider() -> IdentityProvider:
     return get_kratos()

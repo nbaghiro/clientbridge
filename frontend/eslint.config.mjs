@@ -1,10 +1,10 @@
-// Root flat config — runs `eslint .` over every app/package with type-aware rules.
-// projectService auto-resolves each package's tsconfig for the strictTypeChecked rules.
+// Root flat config: `eslint .` over every app and package; TypeScript files resolve their tsconfig.
 import config from "@clientbridge/config/eslint";
 
 export default [
     ...config,
     {
+        files: ["**/*.{ts,tsx}"],
         languageOptions: {
             parserOptions: {
                 projectService: true,

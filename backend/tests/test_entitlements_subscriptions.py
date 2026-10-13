@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
@@ -448,7 +449,7 @@ async def test_a_recurring_charge_in_another_currency_is_refused(
     refused = await db.execute(
         select(Audit.changes).where(Audit.action == "payment.refused", Audit.business_id == BIZ)
     )
-    assert {"id": "pi_sub_usd", "currency": "USD", "amount_cents": 5600} in refused.scalars()
+    assert {"id": "pi_sub_usd", "currency": "USD", "amount_cents": 5600} in refused.scalars().all()
 
 
 async def test_recurring_charge_taxed_and_in_gst_report(
@@ -469,7 +470,7 @@ async def test_recurring_charge_taxed_and_in_gst_report(
     db.add(sub)
     await db.flush()
     # ±1 day keeps the window stable across timezones; the before/after delta still isolates 600
-    day = datetime.now(UTC).date()
+    day = clock.now().date()
     start = (day - timedelta(days=1)).isoformat()
     end = (day + timedelta(days=1)).isoformat()
     before = (await as_owner.get(f"/v1/reports/gst-hst?start={start}&end={end}")).json()

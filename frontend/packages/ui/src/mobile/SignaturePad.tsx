@@ -13,9 +13,10 @@ import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
+const coordinate = (n: number): number => Math.round(n * 10) / 10;
 const path = (stroke: readonly (readonly [number, number])[], w: number, h: number): string =>
     stroke
-        .map(([x, y], i) => `${i === 0 ? "M" : "L"}${(x * w).toFixed(1)} ${(y * h).toFixed(1)}`)
+        .map(([x, y], i) => `${i === 0 ? "M" : "L"}${coordinate(x * w)} ${coordinate(y * h)}`)
         .join(" ");
 
 export function SignaturePad({

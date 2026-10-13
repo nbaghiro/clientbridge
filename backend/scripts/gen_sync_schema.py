@@ -8,8 +8,7 @@ from pathlib import Path
 from sqlalchemy import BigInteger, Boolean, Float, Integer, Numeric, SmallInteger
 from sqlalchemy.types import TypeEngine
 
-from clientbridge import models  # noqa: F401  -- imported for its side effect: populates metadata
-from clientbridge.core.db import Base
+from clientbridge.models import Base
 
 ROOT = Path(__file__).resolve().parents[2]  # backend/scripts/<file> → repo root
 SYNC_STREAMS = ROOT / "infra" / "powersync" / "sync-rules.yaml"

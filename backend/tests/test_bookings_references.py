@@ -1,11 +1,10 @@
 """Booking inputs keep pets and resources inside the selected business and client."""
 
-from datetime import UTC, datetime
-
 import httpx
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.clients import Subject
 from clientbridge.models.scheduling import Resource
@@ -31,7 +30,7 @@ async def test_booking_rejects_a_pet_outside_the_client_record(
         kind="pet",
         name="Private pet",
         attributes={},
-        deleted_at=datetime.now(UTC) if kind == "deleted" else None,
+        deleted_at=clock.now() if kind == "deleted" else None,
     )
     db.add(pet)
     await db.flush()

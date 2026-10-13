@@ -15,6 +15,7 @@ import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
+from clientbridge.core import clock
 from clientbridge.core.db import Base
 from scripts.gen_sync_schema import synced_tables
 
@@ -200,7 +201,7 @@ def main() -> None:
                 if time.monotonic() >= deadline:
                     raise RuntimeError("verification PowerSync did not become ready in 60 seconds")
                 time.sleep(0.5)
-            now = int(time.time())
+            now = int(clock.wall().timestamp())
             env["SYNC_TEST_TOKENS"] = json.dumps(
                 {
                     role: jwt.encode(

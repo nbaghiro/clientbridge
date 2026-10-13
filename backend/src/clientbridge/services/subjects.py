@@ -1,7 +1,6 @@
-from datetime import UTC, datetime
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import NotFound
 from clientbridge.core.ids import new_id
@@ -56,5 +55,5 @@ class SubjectService:
 
     async def delete(self, subject_id: str) -> None:
         subject = await self._get(subject_id)
-        subject.deleted_at = datetime.now(UTC)
+        subject.deleted_at = clock.now()
         await self.db.commit()

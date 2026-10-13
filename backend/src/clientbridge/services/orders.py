@@ -1,10 +1,11 @@
 import secrets
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role, is_manager
@@ -271,7 +272,7 @@ class OrderService:
                 tip_cents=tip.cents,
                 tip_split=tip.stored(),
                 status="succeeded",
-                paid_at=datetime.now(UTC),
+                paid_at=clock.now(),
             )
             self.db.add(payment)
             await self.db.flush()
@@ -328,7 +329,7 @@ class OrderService:
             else:
                 order.receipt_phone = to
             order.receipt_channel = data.channel
-            order.receipt_sent_at = datetime.now(UTC)
+            order.receipt_sent_at = clock.now()
             order.receipt_token = order.receipt_token or secrets.token_urlsafe(16)
             await self.db.flush()
             cmd.record("order.receipt", entity_type="order", entity_id=order.id)
@@ -375,7 +376,7 @@ class OrderService:
                 raise Conflict("the order is no longer eligible for this pickup step")
             if await has_pending_order_refund(self.db, order):
                 raise Conflict("wait for the pending refund before preparing this order")
-            now = datetime.now(UTC)
+            now = clock.now()
             order.pickup_status = data.status
             if data.status == "preparing":
                 order.preparing_at = now
@@ -671,7 +672,7 @@ def pickup_setting(business: Business, key: str, default: int) -> int:
 
 async def pickup_windows(db: AsyncSession, business: Business) -> list[PublicPickupWindow]:
     tz = await business_tz(db, business.id)
-    now = datetime.now(tz)
+    now = clock.now().astimezone(tz)
     earliest = now + timedelta(minutes=pickup_setting(business, "pickup_prep_minutes", 60))
     staff = (
         (await db.execute(scoped(Staff, business.id).where(Staff.status == "active")))

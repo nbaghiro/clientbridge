@@ -1,12 +1,15 @@
 """Real HTTP adapters must expose provider rejections to the delivery failure path."""
 
+import base64
 import json
+from urllib.parse import parse_qs
 
 import httpx
 import pytest
 
 from clientbridge.integrations.expo import ExpoPushSender, Push
 from clientbridge.integrations.resend import Email, ResendEmailSender
+from clientbridge.integrations.twilio import Sms, TwilioSmsSender
 
 
 def _capture(monkeypatch: pytest.MonkeyPatch, statuses: list[int]) -> list[httpx.Request]:
@@ -123,3 +126,38 @@ async def test_resend_carries_reply_to_tags_and_the_idempotency_key(
         {"name": "business", "value": "bz_01"},
         {"name": "message", "value": "msg_01"},
     ]
+
+
+@pytest.mark.parametrize("status", [201, 400, 500])
+async def test_twilio_posts_the_message_form_and_returns_its_sid(
+    monkeypatch: pytest.MonkeyPatch, status: int
+) -> None:
+    requests: list[httpx.Request] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(status, json={"sid": "SM_1"})
+
+    client_type = httpx.AsyncClient
+
+    def client(*, timeout: float, auth: tuple[str, str]) -> httpx.AsyncClient:
+        return client_type(transport=httpx.MockTransport(respond), timeout=timeout, auth=auth)
+
+    monkeypatch.setattr(httpx, "AsyncClient", client)
+    send = TwilioSmsSender("AC_1", "auth-token", "+15550000000").send(
+        Sms(to="+15551112222", body="Hello")
+    )
+    if status >= 400:
+        with pytest.raises(httpx.HTTPStatusError):
+            await send
+    else:
+        assert await send == "SM_1"
+    request = requests[0]
+    assert str(request.url) == "https://api.twilio.com/2010-04-01/Accounts/AC_1/Messages.json"
+    credentials = base64.b64encode(b"AC_1:auth-token").decode()
+    assert request.headers["Authorization"] == f"Basic {credentials}"
+    assert parse_qs(request.content.decode()) == {
+        "To": ["+15551112222"],
+        "From": ["+15550000000"],
+        "Body": ["Hello"],
+    }

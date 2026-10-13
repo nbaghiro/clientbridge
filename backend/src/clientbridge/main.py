@@ -41,9 +41,10 @@ def create_app() -> FastAPI:
 
     app.add_middleware(SplitCors, settings=settings)
 
-    @app.get("/health")
     async def health() -> dict[str, object]:
         return {"status": "ok", "env": settings.env}
+
+    app.add_api_route("/health", health, methods=["GET"])
 
     app.include_router(sync_router)
     # Public surfaces: unauthenticated, checked by signature, token or slug instead.

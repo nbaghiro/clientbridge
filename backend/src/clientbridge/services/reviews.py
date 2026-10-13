@@ -1,10 +1,11 @@
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound
@@ -56,9 +57,7 @@ class ReviewService:
             await self._assert_no_open_request(data.booking_id)
 
         async def run(cmd: Command) -> ReviewLinkOut:
-            request = build_review_request(
-                self.biz, data.client_id, data.booking_id, datetime.now(UTC)
-            )
+            request = build_review_request(self.biz, data.client_id, data.booking_id, clock.now())
             self.db.add(request)
             try:
                 await self.db.flush()  # the partial unique index backstops a concurrent request
@@ -85,7 +84,7 @@ class ReviewService:
 
         async def run(cmd: Command) -> ReviewOut:
             review.response = response
-            review.responded_at = datetime.now(UTC)
+            review.responded_at = clock.now()
             await self.db.flush()
             cmd.record("review.respond", entity_type="review", entity_id=review.id)
             return _review_out(review)

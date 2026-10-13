@@ -2,13 +2,14 @@ import argparse
 import asyncio
 import json
 from collections import Counter
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import get_args
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.db import Base, SessionLocal, engine
 from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.business import Business
@@ -187,7 +188,7 @@ SQL_CHECKS = {
 async def validate_database(
     db: AsyncSession, *, as_of: datetime | None = None
 ) -> dict[str, object]:
-    ctx = DemoContext(as_of or datetime.now(UTC), "bz_birchbark", "us_dev")
+    ctx = DemoContext(as_of or clock.now(), "bz_birchbark", "us_dev")
     for model in (
         Business,
         Item,

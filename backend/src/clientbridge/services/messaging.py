@@ -7,6 +7,7 @@ from sqlalchemy import and_, func, literal, or_, select, tuple_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.db import is_duplicate
 from clientbridge.core.deps import Principal, assert_role
@@ -139,7 +140,7 @@ async def broadcast_recipients(
     ids = [c.id for c in clients]
     consents = await latest_consents(db, business_id, ids, channel)
     stopped = await stopped_clients(db, business_id, ids) if channel == "sms" else set()
-    now = datetime.now(UTC)
+    now = clock.now()
     out: list[tuple[Client, str]] = []
     for client in clients:
         to = contact_for(client, channel)
@@ -342,7 +343,7 @@ async def process_inbound_sms(
                 "opt_out": keyword in STOP_WORDS,
             },
             status="processed",
-            processed_at=datetime.now(UTC),
+            processed_at=clock.now(),
         )
     )
     try:
@@ -461,7 +462,7 @@ class MessageService:
         if business is None:
             raise NotFound("business not found")
         broadcast_identity(business)
-        now = datetime.now(UTC)
+        now = clock.now()
         requested = data.scheduled_at if data.scheduled_at and data.scheduled_at > now else now
         send_at = after_quiet_hours(requested, zone(business.timezone))
         recipients, excluded = await broadcast_recipients(
@@ -673,7 +674,7 @@ def _is_recent(created_at: datetime | None) -> bool:
         return False
     if created_at.tzinfo is None:
         created_at = created_at.replace(tzinfo=UTC)
-    return datetime.now(UTC) - created_at < _EVENT_GRACE
+    return clock.wall() - created_at < _EVENT_GRACE
 
 
 async def _record_event(
@@ -692,7 +693,7 @@ async def _record_event(
             event=event,
             payload=payload,
             status=status,
-            processed_at=datetime.now(UTC),
+            processed_at=clock.now(),
         )
     )
     try:

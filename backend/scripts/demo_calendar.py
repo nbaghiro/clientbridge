@@ -1,8 +1,9 @@
 from datetime import timedelta
 
-from clientbridge.models.billing import Line
+from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Subject
+from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Hours, Resource, Slot
 from scripts.demo_context import BUSINESS_TIMEZONE, DemoContext
 
@@ -136,6 +137,8 @@ def build_calendar(ctx: DemoContext) -> None:
         (b for b in ctx.all(Booking) if b.id.startswith("bk_f") and b.id != "bk_refund"),
         key=lambda b: (slots[b.slot_id].starts_at, b.id),
     )
+    invoices = ctx.all(Invoice)
+    billed: list[Payment | Booking] = [*ctx.all(Payment), *ctx.all(Booking)]
     for index, booking in enumerate(filler):
         household = index % 80
         booking.client_id, booking.subject_id = (
@@ -151,11 +154,11 @@ def build_calendar(ctx: DemoContext) -> None:
         if slot.item_id == "it_cat":
             slot.staff_id = booking.staff_id = "st_owner"
         if booking.invoice_id:
-            for row in ctx.rows:
-                if (
-                    getattr(row, "invoice_id", None) == booking.invoice_id
-                    or getattr(row, "id", None) == booking.invoice_id
-                ) and hasattr(row, "client_id"):
+            for invoice in invoices:
+                if invoice.id == booking.invoice_id:
+                    invoice.client_id = booking.client_id
+            for row in billed:
+                if row.invoice_id == booking.invoice_id:
                     row.client_id = booking.client_id
     for booking in ctx.all(Booking):
         slot = slots[booking.slot_id]

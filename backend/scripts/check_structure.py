@@ -1,5 +1,6 @@
 import ast
 import io
+import json
 import pathlib
 import re
 import sys
@@ -9,6 +10,17 @@ BACKEND = pathlib.Path(__file__).resolve().parents[1]
 PACKAGE = BACKEND / "src" / "clientbridge"
 TESTS = BACKEND / "tests"
 SCRIPTS = BACKEND / "scripts"
+MIGRATIONS = BACKEND / "migrations"
+PYRIGHT_CONFIG = BACKEND.parent / "pyrightconfig.json"
+PYRIGHT_RELAXED = {
+    "reportMissingTypeStubs",
+    "reportUnknownArgumentType",
+    "reportUnknownMemberType",
+    "reportUnknownParameterType",
+    "reportUnknownVariableType",
+}
+PYRIGHT_HIDING = ("ignore", "exclude", "executionEnvironments")
+PYRIGHT_INCLUDE = {"backend/src", "backend/tests", "backend/scripts", "backend/migrations"}
 CROSS_CUTTING_TESTS = {
     "command",
     "db",
@@ -19,14 +31,26 @@ CROSS_CUTTING_TESTS = {
     "ratelimit",
     "scoping",
     "security",
+    "structure",
 }
 CROSS_CUTTING_PREFIXES = ("flows_", "sync_")
 BANNER_MARKS = ("# ─", "# ━", "# ===", "# ---", "# ###")
 BANNED_SUFFIXES = ("_service", "_jobs")
-DIRECTIVES = ("# noqa", "# type:", "# pragma")
+SUPPRESSION = re.compile(
+    r"#\s*(noqa\b|type:\s*ignore|pyright\s*:|mypy\s*:|ruff\s*:|fmt\s*:|pragma\b|isort\s*:|pylint\s*:)",
+    re.IGNORECASE,
+)
 NOTIFICATIONS = PACKAGE / "services" / "notifications.py"
 ZONES = PACKAGE / "core" / "zones.py"
 ZONE_READERS = ("ZoneInfo", "available_timezones", "reset_tzpath")
+CLOCK = PACKAGE / "core" / "clock.py"
+MODELS = PACKAGE / "models"
+CLOCK_READS = {
+    "datetime": ("now", "utcnow", "today"),
+    "date": ("today",),
+    "time": ("time", "time_ns"),
+}
+CLOCK_SETTERS = ("travel", "freeze", "reset")
 COPY_FIELDS = ("subject", "body", "title")
 SENDER_PARAMS = {
     "Email": ("to", "subject", "body"),
@@ -56,11 +80,7 @@ def comment_block_problems(path: pathlib.Path, source: str) -> list[str]:
     problems = []
     run_start, run_length = 0, 0
     for token in tokenize.generate_tokens(io.StringIO(source).readline):
-        is_comment_line = (
-            token.type == tokenize.COMMENT
-            and token.line.strip().startswith("#")
-            and not token.string.startswith(DIRECTIVES)
-        )
+        is_comment_line = token.type == tokenize.COMMENT and token.line.strip().startswith("#")
         if is_comment_line:
             if run_length and token.start[0] == run_start + run_length:
                 run_length += 1
@@ -74,6 +94,37 @@ def comment_block_problems(path: pathlib.Path, source: str) -> list[str]:
             run_length = 0
     if run_length >= 2:
         problems.append(f"{path}:{run_start}: comment block longer than one line")
+    return problems
+
+
+def suppression_problems(path: pathlib.Path, source: str) -> list[str]:
+    return [
+        f"{path}:{token.start[0]}: suppression comment; fix the cause instead"
+        for token in tokenize.generate_tokens(io.StringIO(source).readline)
+        if token.type == tokenize.COMMENT and SUPPRESSION.search(token.string)
+    ]
+
+
+def pyright_problems(path: pathlib.Path = PYRIGHT_CONFIG) -> list[str]:
+    config: dict[str, object] = json.loads(path.read_text())
+    problems: list[str] = []
+    if config.get("typeCheckingMode") != "strict":
+        problems.append(f'{path}: typeCheckingMode must be "strict"')
+    problems += [
+        f"{path}: {key} is weaker than error; only {sorted(PYRIGHT_RELAXED)} may be"
+        for key, value in config.items()
+        if key.startswith("report") and key not in PYRIGHT_RELAXED and value not in (True, "error")
+    ]
+    problems += [
+        f"{path}: {key} hides files or diagnostics from the check; fix them instead"
+        for key in PYRIGHT_HIDING
+        if key in config
+    ]
+    include = config.get("include")
+    covered = {str(entry) for entry in include} if isinstance(include, list) else set()
+    problems += [
+        f"{path}: include must cover {folder}" for folder in sorted(PYRIGHT_INCLUDE - covered)
+    ]
     return problems
 
 
@@ -266,6 +317,26 @@ def zone_problems(path: pathlib.Path, tree: ast.Module) -> list[str]:
     ]
 
 
+def clock_problems(path: pathlib.Path, tree: ast.Module) -> list[str]:
+    """Every read of the current time goes through core.clock, so tests can start it anywhere."""
+    if path == CLOCK:
+        return []
+    problems: list[str] = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+            continue
+        owner = node.func.value
+        name = owner.attr if isinstance(owner, ast.Attribute) else getattr(owner, "id", "")
+        attr = node.func.attr
+        if attr in CLOCK_READS.get(name, ()) or (
+            name == "func" and attr == "now" and MODELS not in path.parents
+        ):
+            problems.append(f"{path}:{node.lineno}: read the time through core.clock")
+        if name == "clock" and attr in CLOCK_SETTERS and PACKAGE in path.parents:
+            problems.append(f"{path}:{node.lineno}: only tests and scripts move the clock")
+    return problems
+
+
 def concepts() -> set[str]:
     return {p.stem for layer in ("services", "api") for p in (PACKAGE / layer).glob("*.py")}
 
@@ -295,6 +366,7 @@ def comment_problems(path: pathlib.Path) -> list[str]:
         docstring_problems(path, ast.parse(source))
         + comment_block_problems(path, source)
         + banner_problems(path, source)
+        + suppression_problems(path, source)
     )
 
 
@@ -305,10 +377,16 @@ def main() -> int:
         problems += comment_problems(path)
         tree = ast.parse(path.read_text())
         problems += (
-            copy_problems(path, tree) + prose_problems(path, tree) + zone_problems(path, tree)
+            copy_problems(path, tree)
+            + prose_problems(path, tree)
+            + zone_problems(path, tree)
+            + clock_problems(path, tree)
         )
     for path in sorted([*TESTS.rglob("*.py"), *SCRIPTS.rglob("*.py")]):
-        problems += comment_problems(path)
+        problems += comment_problems(path) + clock_problems(path, ast.parse(path.read_text()))
+    for path in sorted(MIGRATIONS.rglob("*.py")):
+        problems += suppression_problems(path, path.read_text())
+    problems += pyright_problems()
     known = concepts()
     for path in sorted(TESTS.glob("test_*.py")):
         problems += naming_problems(path, known)

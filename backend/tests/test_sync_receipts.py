@@ -1,9 +1,10 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.models.business import Staff
 from clientbridge.models.platform import SyncReceipt
 from clientbridge.services.receipts import run_prune_receipts
@@ -49,7 +50,7 @@ async def test_receipt_is_actor_bound(
 async def test_retention_and_retry_horizon(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     body = week_body()
     assert (await as_owner.post(URL, json=body)).status_code == 200
-    now = datetime.now(UTC)
+    now = clock.now()
     await db.execute(update(SyncReceipt).values(created_at=now - timedelta(days=91)))
     assert await run_prune_receipts(db, now) == 1
     request = body["request"]
@@ -65,7 +66,7 @@ async def test_future_operation_is_rejected(as_owner: httpx.AsyncClient, db: Asy
     body = week_body()
     request = body["request"]
     assert isinstance(request, dict)
-    request["created_at"] = (datetime.now(UTC) + timedelta(minutes=6)).isoformat()
+    request["created_at"] = (clock.now() + timedelta(minutes=6)).isoformat()
     response = await as_owner.post(URL, json=body)
     assert response.status_code == 422
     assert (await db.scalars(select(SyncReceipt))).first() is None

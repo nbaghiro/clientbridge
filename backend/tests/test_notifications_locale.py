@@ -37,8 +37,10 @@ NAME = "Birchbark"
 LINK = "https://pay.test/i/tok"
 ADDRESS = "12 Main St, Victoria, BC"
 CONTACT = "hi@birchbark.example"
-INPUTS = [LINK, NAME, "123456", "CODE", "Intake", "Waiver", "Too far", "REF-1", "pay@x.ca"]
-INPUTS += ["CN-1", "GC-1", "GST", "Shampoo", "Sale", "STOP", ADDRESS, CONTACT]
+INPUTS = [
+    *(LINK, NAME, "123456", "CODE", "Intake", "Waiver", "Too far", "REF-1", "pay@x.ca"),
+    *("CN-1", "GC-1", "GST", "Shampoo", "Sale", "STOP", ADDRESS, CONTACT),
+]
 MOMENT = datetime(2026, 10, 9, 21, 30, tzinfo=UTC)
 
 Render = Callable[[str], tuple[str, ...] | list[str] | str]
@@ -60,77 +62,80 @@ def _builders() -> dict[str, Render]:
         )
         if template_type == "verification_code_valid":
             email.link = LINK
-        return n._auth_email(locale, email)
+        return n.auth_email_message(locale, email)
 
     return {
         "returning_code": lambda c: n.returning_code(c, NAME, "123456", 10),
         "staff_invite": lambda c: n.staff_invite(c, LINK),
-        "_auth_email": lambda c: tuple(
+        "auth_email_message": lambda c: tuple(
             text for kind in get_args(AuthEmailType) for text in auth_email(c, kind)
         ),
-        "_receipt": lambda c: n._receipt(c, NAME, amount(c), ["Shampoo"]),
-        "_pickup_line": lambda c: n._pickup_line(c, NAME),
-        "_online_order_alert": lambda c: n._online_order_alert(c, amount(c)),
-        "_sale_receipt": lambda c: (
-            n._sale_receipt(c, NAME, 42, LINK) + n._sale_receipt(c, NAME, None, LINK)
+        "receipt_message": lambda c: n.receipt_message(c, NAME, amount(c), ["Shampoo"]),
+        "receipt_pickup_line": lambda c: n.receipt_pickup_line(c, NAME),
+        "online_order_alert_message": lambda c: n.online_order_alert_message(c, amount(c)),
+        "sale_receipt_message": lambda c: (
+            n.sale_receipt_message(c, NAME, 42, LINK) + n.sale_receipt_message(c, NAME, None, LINK)
         ),
-        "_order_ready": lambda c: n._order_ready(c, NAME),
-        "_order_reminder": lambda c: n._order_reminder(c, NAME),
-        "_receipt_details": lambda c: n._receipt_details(
+        "order_ready_message": lambda c: n.order_ready_message(c, NAME),
+        "order_reminder_message": lambda c: n.order_reminder_message(c, NAME),
+        "receipt_detail_lines": lambda c: n.receipt_detail_lines(
             c,
             [("Shampoo", format_number(c, 2), amount(c))],
             amount(c),
             [("GST", amount(c))],
             amount(c),
         ),
-        "_dispute_alert": lambda c: n._dispute_alert(c, amount(c)),
-        "_invoice_sent": lambda c: (
-            n._invoice_sent(c, 1001, amount(c), NAME, LINK)
-            + n._invoice_sent(c, 1001, amount(c), NAME, "")
+        "dispute_alert_text": lambda c: n.dispute_alert_text(c, amount(c)),
+        "invoice_sent_message": lambda c: (
+            n.invoice_sent_message(c, 1001, amount(c), NAME, LINK)
+            + n.invoice_sent_message(c, 1001, amount(c), NAME, "")
         ),
-        "_invoice_overdue": lambda c: (
-            n._invoice_overdue(c, 1001, amount(c), NAME, LINK)
-            + n._invoice_overdue(c, 1001, amount(c), NAME, "")
+        "invoice_overdue_message": lambda c: (
+            n.invoice_overdue_message(c, 1001, amount(c), NAME, LINK)
+            + n.invoice_overdue_message(c, 1001, amount(c), NAME, "")
         ),
-        "_estimate_sent": lambda c: (
-            n._estimate_sent(c, 7, amount(c), NAME, LINK)
-            + n._estimate_sent(c, 7, amount(c), NAME, "")
+        "estimate_sent_message": lambda c: (
+            n.estimate_sent_message(c, 7, amount(c), NAME, LINK)
+            + n.estimate_sent_message(c, 7, amount(c), NAME, "")
         ),
-        "_estimate_accepted": lambda c: n._estimate_accepted(c, 7),
-        "_estimate_declined": lambda c: (
-            n._estimate_declined(c, 7, "Too far") + n._estimate_declined(c, 7, None)
+        "estimate_accepted_message": lambda c: n.estimate_accepted_message(c, 7),
+        "estimate_declined_message": lambda c: (
+            n.estimate_declined_message(c, 7, "Too far") + n.estimate_declined_message(c, 7, None)
         ),
-        "_payment_failed": lambda c: n._payment_failed(c, amount(c), NAME),
-        "_refund_failed": lambda c: n._refund_failed(c, amount(c), NAME),
-        "_refund": lambda c: (
-            n._refund(c, amount(c), NAME, "CN-1") + n._refund(c, amount(c), NAME, None)
+        "payment_failed_message": lambda c: n.payment_failed_message(c, amount(c), NAME),
+        "refund_failed_message": lambda c: n.refund_failed_message(c, amount(c), NAME),
+        "refund_message": lambda c: (
+            n.refund_message(c, amount(c), NAME, "CN-1")
+            + n.refund_message(c, amount(c), NAME, None)
         ),
-        "_subscription_past_due": lambda c: n._subscription_past_due(c, NAME),
-        "_subscription_canceled": lambda c: n._subscription_canceled(c, NAME),
-        "_gift_card_issued": lambda c: n._gift_card_issued(c, NAME, amount(c), "GC-1"),
-        "_booking_reminder": lambda c: (
-            n._booking_reminder(c, NAME, when(c), LINK)
-            + n._booking_reminder(c, NAME, when(c), None)
+        "subscription_past_due_message": lambda c: n.subscription_past_due_message(c, NAME),
+        "subscription_canceled_message": lambda c: n.subscription_canceled_message(c, NAME),
+        "gift_card_issued_message": lambda c: n.gift_card_issued_message(
+            c, NAME, amount(c), "GC-1"
         ),
-        "_booking_confirmed": lambda c: (
-            n._booking_confirmed(c, NAME, when(c), LINK)
-            + n._booking_confirmed(c, NAME, when(c), None)
+        "booking_reminder_message": lambda c: (
+            n.booking_reminder_message(c, NAME, when(c), LINK)
+            + n.booking_reminder_message(c, NAME, when(c), None)
         ),
-        "_booking_rescheduled": lambda c: n._booking_rescheduled(c, NAME, when(c)),
-        "_booking_canceled": lambda c: n._booking_canceled(c, NAME, when(c)),
-        "_booking_reassigned": lambda c: (
-            n._booking_reassigned(c, NAME, [when(c)], NAME)
-            + n._booking_reassigned(c, NAME, [when(c), when(c)], NAME)
+        "booking_confirmed_message": lambda c: (
+            n.booking_confirmed_message(c, NAME, when(c), LINK)
+            + n.booking_confirmed_message(c, NAME, when(c), None)
         ),
-        "_booking_requested": lambda c: n._booking_requested(c, NAME, when(c)),
-        "_booking_released": lambda c: n._booking_released(c, NAME, when(c)),
-        "_series_booked": lambda c: n._series_booked(c, NAME, whens(c)),
-        "_series_moved": lambda c: n._series_moved(c, NAME, whens(c)),
-        "_series_canceled": lambda c: n._series_canceled(c, NAME, whens(c)),
-        "_form_sent": lambda c: n._form_sent(c, NAME, "Intake", LINK),
-        "_contract_sent": lambda c: n._contract_sent(c, NAME, "Waiver", LINK),
-        "_review_requested": lambda c: n._review_requested(c, NAME, LINK),
-        "_inbound_message_alert": lambda c: n._inbound_message_alert(c, NAME, "Sale"),
+        "booking_rescheduled_message": lambda c: n.booking_rescheduled_message(c, NAME, when(c)),
+        "booking_canceled_message": lambda c: n.booking_canceled_message(c, NAME, when(c)),
+        "booking_reassigned_message": lambda c: (
+            n.booking_reassigned_message(c, NAME, [when(c)], NAME)
+            + n.booking_reassigned_message(c, NAME, [when(c), when(c)], NAME)
+        ),
+        "booking_requested_message": lambda c: n.booking_requested_message(c, NAME, when(c)),
+        "booking_released_message": lambda c: n.booking_released_message(c, NAME, when(c)),
+        "series_booked_message": lambda c: n.series_booked_message(c, NAME, whens(c)),
+        "series_moved_message": lambda c: n.series_moved_message(c, NAME, whens(c)),
+        "series_canceled_message": lambda c: n.series_canceled_message(c, NAME, whens(c)),
+        "form_sent_message": lambda c: n.form_sent_message(c, NAME, "Intake", LINK),
+        "contract_sent_message": lambda c: n.contract_sent_message(c, NAME, "Waiver", LINK),
+        "review_requested_message": lambda c: n.review_requested_message(c, NAME, LINK),
+        "inbound_message_alert_text": lambda c: n.inbound_message_alert_text(c, NAME, "Sale"),
         "broadcast_text": lambda c: (
             n.broadcast_text(c, NAME, "sms", "Sale", LINK, ADDRESS, CONTACT),
             n.broadcast_text(c, NAME, "email", "Sale", LINK, ADDRESS, CONTACT),

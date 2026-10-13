@@ -5,6 +5,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
 from clientbridge.models.documents import Form, FormField, FormResponse
@@ -178,7 +179,7 @@ async def test_intake_goes_once_to_each_new_client(
     push: FakePushSender,
 ) -> None:
     form = ok(await as_owner.post("/v1/forms", json=INTAKE), 201).json()
-    now = datetime.now(UTC)
+    now = clock.now()
     newcomer = await new_client(db, name="New Pup", email="newpup@example.ca")
     regular = await new_client(db, name="Old Pal", email="oldpal@example.ca")
     first_booking = await _book(db, newcomer, now - timedelta(hours=2))
@@ -206,7 +207,7 @@ async def test_manual_forms_are_not_sent_by_the_job(
     push: FakePushSender,
 ) -> None:
     form = ok(await as_owner.post("/v1/forms", json={**INTAKE, "send_on": "manual"}), 201).json()
-    now = datetime.now(UTC)
+    now = clock.now()
     await _book(db, await new_client(db, name="Walk In"), now - timedelta(hours=1))
     await run_intake_forms(db, Notifier(email, sms, push), now)
     rows = await db.execute(select(FormResponse).where(FormResponse.form_id == form["id"]))
@@ -254,7 +255,7 @@ async def test_inactive_forms_are_not_sent_by_the_job(
     push: FakePushSender,
 ) -> None:
     form = ok(await as_owner.post("/v1/forms", json={**INTAKE, "active": False}), 201).json()
-    now = datetime.now(UTC)
+    now = clock.now()
     newcomer = await new_client(db, name="Quiet Pup", email="quietpup@example.ca")
     await _book(db, newcomer, now - timedelta(hours=1))
     await run_intake_forms(db, Notifier(email, sms, push), now)
@@ -270,7 +271,7 @@ async def test_canceled_or_deleted_first_bookings_get_no_intake(
     push: FakePushSender,
 ) -> None:
     form = ok(await as_owner.post("/v1/forms", json=INTAKE), 201).json()
-    now = datetime.now(UTC)
+    now = clock.now()
     control = await new_client(db, name="Booked Pup", email="bookedpup@example.ca")
     await _book(db, control, now - timedelta(hours=1))
     canceled = await new_client(db, name="Canceled Pup", email="canceledpup@example.ca")
@@ -297,7 +298,7 @@ async def test_another_business_form_never_reaches_our_client(
     theirs = Form(id=new_id("form"), business_id=other.id, name="Their intake", send_on="booking")
     db.add(theirs)
     await db.flush()
-    now = datetime.now(UTC)
+    now = clock.now()
     ours = await new_client(db, name="Loyal Pup", email="loyalpup@example.ca")
     await _book(db, ours, now - timedelta(hours=1))
     await run_intake_forms(db, Notifier(email, sms, push), now)

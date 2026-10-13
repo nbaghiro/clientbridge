@@ -8,8 +8,9 @@ import { type PointerEvent, useRef, useState } from "react";
 
 import { type WebProps, cx } from "./props";
 
+const coordinate = (n: number): number => Math.round(n * 1e4) / 1e4;
 const path = (stroke: readonly (readonly [number, number])[]): string =>
-    stroke.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(4)} ${y.toFixed(4)}`).join(" ");
+    stroke.map(([x, y], i) => `${i === 0 ? "M" : "L"}${coordinate(x)} ${coordinate(y)}`).join(" ");
 
 export function SignaturePad({
     strokes: strokesProp,

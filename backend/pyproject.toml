@@ -24,7 +24,16 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8", "pytest-asyncio>=0.23", "pytest-cov>=5", "pytest-randomly>=3.15", "ruff>=0.6", "mypy>=1.11", "asgi-lifespan>=2"]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5",
+    "pytest-randomly>=3.15",
+    "ruff>=0.6",
+    # pinned so make, the pre-commit hook and CI type-check with one version
+    "pyright==1.1.408",
+    "asgi-lifespan>=2",
+]
 
 [tool.coverage.run]
 branch = true
@@ -52,23 +61,5 @@ markers = [
     "kratos: real KratosIdentityProvider against the local Kratos (`make up`)",
     "contract: real StripeGateway against stripe-mock (start it with `make stripe-mock`)",
     "e2e: Stripe and Resend test-mode flows; skipped unless the provider's test key is set",
+    "wall_clock: runs at real time, for tests against a clock outside the app (Kratos, Stripe, Resend)",
 ]
-
-[tool.mypy]
-python_version = "3.12"
-plugins = ["pydantic.mypy"]
-strict = true                 # disallow_untyped_defs, disallow_any_generics, no_implicit_optional, warn_return_any, …
-warn_unreachable = true
-exclude = ["migrations/"]
-# "No Any" is enforced two ways: mypy strict bans *implicit* Any (untyped defs, bare generics,
-# returning Any); ruff ANN401 bans *explicit* `Any` in our signatures. Together = no Any in our code.
-
-# Third-party libs that ship no type stubs — don't fail on their imports (our code stays strict).
-[[tool.mypy.overrides]]
-module = ["argon2.*", "ulid.*", "arq.*", "boto3.*", "botocore.*"]
-ignore_missing_imports = true
-
-[tool.pydantic-mypy]
-init_typed = true
-init_forbid_extra = true
-warn_required_dynamic_aliases = true

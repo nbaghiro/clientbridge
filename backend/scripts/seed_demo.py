@@ -17,6 +17,7 @@ from sqlalchemy import delete, select, text, update
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base, SessionLocal, engine
 from clientbridge.core.errors import AppError
@@ -50,7 +51,8 @@ from scripts.demo_identity import build_identity, placeholder_identity
 from scripts.demo_scenarios import add_scenarios
 from scripts.demo_validate import validate_database, validate_graph
 
-NOW = datetime.now(ZoneInfo("America/Vancouver"))
+VANCOUVER = ZoneInfo("America/Vancouver")
+now = clock.now().astimezone(VANCOUVER)
 BIZ = "bz_birchbark"
 DEMO_PASSWORD = "demo1234"  # every seeded user logs in with this
 rows: list[Base] = []
@@ -59,9 +61,9 @@ PACKAGE_USED = {"pkg_marcus": 2, "pkg_grace": 5, "pkg_sophie": 4}
 
 
 def at(days_offset: float, hour: int = 9, minute: int = 0) -> datetime:
-    """A local business-hour timestamp relative to now, stored as UTC, so demo times read sensibly."""
+    """A local business-hour timestamp relative to now, stored as UTC, so demo times read well."""
     return (
-        (NOW + timedelta(days=days_offset))
+        (now + timedelta(days=days_offset))
         .replace(hour=hour, minute=minute, second=0, microsecond=0)
         .astimezone(UTC)
     )
@@ -787,7 +789,7 @@ def seed_resources_hours() -> None:
         Resource(id="rs_station_b", business_id=BIZ, name="Grooming Station B", category="station")
     )
     rows.append(Resource(id="rs_bath", business_id=BIZ, name="Bath Bay", category="room"))
-    # recurring weekly hours Tue–Sat 9–17 for both groomers
+    # recurring weekly hours Tue-Sat 9-17 for both groomers
     for member in ("st_owner", "st_diego"):
         for weekday in (1, 2, 3, 4, 5):  # Tue..Sat
             rows.append(
@@ -1264,7 +1266,7 @@ def seed_estimates() -> None:
             id="ln_est_1",
             business_id=BIZ,
             estimate_id="est_1001",
-            description="Full Groom — Small Dog ×3",
+            description="Full Groom — Small Dog \N{MULTIPLICATION SIGN}3",
             item_id="it_groom_sm",
             quantity=3,
             unit_amount_cents=7500,
@@ -1278,7 +1280,7 @@ def seed_estimates() -> None:
             id="ln_est_2",
             business_id=BIZ,
             estimate_id="est_1001",
-            description="De-shedding add-on ×1",
+            description="De-shedding add-on \N{MULTIPLICATION SIGN}1",
             item_id="it_deshed",
             quantity=1,
             unit_amount_cents=6000,
@@ -1292,7 +1294,7 @@ def seed_estimates() -> None:
             id="ln_est_3",
             business_id=BIZ,
             estimate_id="est_1001",
-            description="Take-home Oatmeal Shampoo ×1",
+            description="Take-home Oatmeal Shampoo \N{MULTIPLICATION SIGN}1",
             item_id="it_shampoo",
             quantity=1,
             unit_amount_cents=2400,
@@ -1349,7 +1351,8 @@ REVIEWS = [
         "cl_amelie",
         "bk_000",
         5,
-        "Bella always comes home so soft and happy. Hannah is endlessly patient with her dryer anxiety.",
+        "Bella always comes home so soft and happy. "
+        "Hannah is endlessly patient with her dryer anxiety.",
         True,
     ),
     (
@@ -1438,7 +1441,7 @@ def seed_platform(owner: str) -> None:
 
 
 def seed_coverage() -> None:
-    """Fill the remaining gaps so the demo exercises every surface, apart from the verticals above."""
+    """Fill the remaining gaps so the demo exercises every surface beyond the verticals above."""
 
     rows.append(
         Order(
@@ -1777,7 +1780,7 @@ def seed_coverage() -> None:
             id="ln_est3",
             business_id=BIZ,
             estimate_id="est_1003",
-            description="Cat Groom ×2",
+            description="Cat Groom \N{MULTIPLICATION SIGN}2",
             item_id="it_cat",
             quantity=2,
             unit_amount_cents=4500,
@@ -1995,7 +1998,7 @@ def seed_calendar_filler() -> None:
     n = 0
     for d in range(-120, 31):
         for member, resource in FILLER_STAFF.items():
-            hours = _working_hours(member, at(d).astimezone(NOW.tzinfo).date())
+            hours = _working_hours(member, at(d).astimezone(now.tzinfo).date())
             if hours is None:
                 continue
             for _ in range(rng.randint(1, 2)):
@@ -2029,7 +2032,7 @@ def seed_calendar_filler() -> None:
                 start, end = slot
                 busy.append((member, resource, start, end))
                 client, pet = rng.choice(pairs)
-                done = end < NOW
+                done = end < now
                 status = "completed" if done else "pending" if rng.random() < 0.2 else "confirmed"
                 ses, bk = f"ses_f{n:03d}", f"bk_f{n:03d}"
                 n += 1
@@ -2090,12 +2093,12 @@ def seed_client_series() -> None:
     )
     item = next(x for x in ITEMS if x[0] == "it_groom_sm")
     price, dur, tax = item[3], item[4] or 60, item[6]
-    first = next(d for d in range(-21, -14) if at(d).astimezone(NOW.tzinfo).weekday() == 2)
+    first = next(d for d in range(-21, -14) if at(d).astimezone(now.tzinfo).weekday() == 2)
     for n in range(SERIES_VISITS):
         d = first + 14 * n
         start = at(d, 15)
         end = start + timedelta(minutes=dur)
-        done = end < NOW
+        done = end < now
         ses, bk = f"ses_s{n}", f"bk_s{n}"
         rows.append(
             Slot(
@@ -2142,11 +2145,12 @@ def seed_dispute() -> None:
 
 
 def build_demo(as_of: datetime | None = None) -> DemoContext:
-    global NOW, rows
+    global now, rows
     if as_of is not None:
         if as_of.tzinfo is None:
             raise ValueError("--as-of must include a timezone offset")
-        NOW = as_of.astimezone(ZoneInfo("America/Vancouver"))
+        clock.travel(as_of)
+    now = (clock.now() if as_of is None else as_of).astimezone(VANCOUVER)
     rows = []
     EARNING_STAGE.clear()
     INV_SEQ[0] = 1000
@@ -2166,7 +2170,7 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
     seed_client_series()
     seed_calendar_filler()
     seed_dispute()
-    ctx = DemoContext(NOW, BIZ, owner, rows)
+    ctx = DemoContext(now, BIZ, owner, rows)
     add_scenarios(ctx)
     add_catalog_images(ctx)
     add_finance_scenarios(ctx)
@@ -2187,13 +2191,13 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
             entity_id=BIZ,
             changes={
                 "version": DEMO_VERSION,
-                "as_of": NOW.isoformat(),
+                "as_of": now.isoformat(),
             },
-            created_at=NOW,
+            created_at=now,
         )
     )
     for file in ctx.all(File):
-        file.uploaded_at = NOW  # every demo file's bytes are uploaded before its row is written
+        file.uploaded_at = now  # every demo file's bytes are uploaded before its row is written
     errors = validate_graph(ctx) + chronology_errors(ctx)
     if errors:
         raise ValueError("Invalid demo graph: " + "; ".join(errors[:20]))
@@ -2283,7 +2287,7 @@ async def main(*, reset_demo: bool = False, as_of: datetime | None = None) -> No
         await session.commit()
     await owner.dispose()
     await engine.dispose()
-    print(f"Seeded {len(ctx.rows)} rows; demo {DEMO_VERSION}, as of {NOW.isoformat()}.")
+    print(f"Seeded {len(ctx.rows)} rows; demo {DEMO_VERSION}, as of {now.isoformat()}.")
 
 
 def upload_demo_assets() -> None:
@@ -2340,7 +2344,7 @@ async def refresh_demo_avatar() -> None:
                     s3_key=key,
                     content_type="image/png",
                     size=path.stat().st_size,
-                    uploaded_at=datetime.now(UTC),
+                    uploaded_at=clock.now(),
                 )
             )
             await db.flush()

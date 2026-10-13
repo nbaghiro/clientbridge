@@ -1,11 +1,12 @@
 import secrets
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import get_args
 
 from sqlalchemy import ColumnElement, and_, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.command import Command, PublicPrincipal, remember, replay, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base
@@ -207,7 +208,7 @@ class PublicBookingService:
             addons=addons,
             stripe_account_id=_account(business),
             slug=business.slug,
-            now=datetime.now(tz),
+            now=clock.now().astimezone(tz),
             timezone=business.timezone,
             policy=_policy_out(policy_of(business)),
             rating=rating,
@@ -218,7 +219,7 @@ class PublicBookingService:
         business = await self._business(slug)
         staff = await self._online_staff(business.id)
         tz = await business_tz(self.db, business.id)
-        today = datetime.now(tz).date()
+        today = clock.today(tz)
         items = [await self._bookable_item(business.id, i) for i in dict.fromkeys(item_ids)]
         found = await load_availability(
             self.db,
@@ -434,7 +435,7 @@ def _open(
     business: Business, found: Availability, item: Item, staff: list[Staff], on_date: date
 ) -> list[PublicSlot]:
     policy = policy_of(business)
-    now = datetime.now(UTC)
+    now = clock.now()
     earliest = now + timedelta(hours=policy.lead_hours)
     latest = now + timedelta(days=policy.horizon_days)
     delta = timedelta(minutes=item.duration_min or 0)
@@ -469,7 +470,7 @@ async def _offered(
 
 
 def _assert_bookable_window(policy: BookingPolicy, starts_at: datetime) -> None:
-    now = datetime.now(UTC)
+    now = clock.now()
     if starts_at < now + timedelta(hours=policy.lead_hours):
         raise Conflict("that time is too soon to book online")
     if starts_at > now + timedelta(days=policy.horizon_days):
@@ -487,7 +488,7 @@ async def open_days(
     """Open start times per day for one service, across the given members."""
     policy = policy_of(business)
     tz = await business_tz(db, business.id)
-    now = datetime.now(UTC)
+    now = clock.now()
     earliest = now + timedelta(hours=policy.lead_hours)
     latest = now + timedelta(days=policy.horizon_days)
     days = [start + timedelta(days=offset) for offset in range(min(max(count, 1), _MAX_DAYS))]
@@ -596,7 +597,7 @@ class PublicManageService:
         booking, slot, business = await self._resolve(token)
         item, staff = await self._movable(booking, slot, business)
         policy = policy_of(business)
-        now = datetime.now(UTC)
+        now = clock.now()
         earliest = now + timedelta(hours=policy.lead_hours)
         latest = now + timedelta(days=policy.horizon_days)
         delta = slot.ends_at - slot.starts_at
@@ -723,7 +724,7 @@ class PublicManageService:
             await cancel_open_deposits(self.db, self.gateway, booking)
             booking.deposit_status = "none"
         booking.status = "canceled"
-        booking.canceled_at = datetime.now(UTC)
+        booking.canceled_at = clock.now()
         await release_slot(self.db, slot)
         result = ManageCancelResult(
             deposit=(await booking_refund_status(self.db, booking))
@@ -751,7 +752,7 @@ class PublicManageService:
             return "status", None
         if not policy.self_service:
             return "by_phone", None
-        hours_away = (slot.starts_at - datetime.now(UTC)).total_seconds() / 3600
+        hours_away = (slot.starts_at - clock.now()).total_seconds() / 3600
         if change == "cancel":
             if hours_away < policy.cancel_cutoff_hours:
                 return "cutoff", policy.cancel_cutoff_hours
@@ -855,7 +856,7 @@ class PublicManageService:
             ],
             reschedules_used=booking.reschedule_count,
             policy=_policy_out(policy_of(business)),
-            now=datetime.now(tz),
+            now=clock.now().astimezone(tz),
             timezone=business.timezone,
             can_move=move is None,
             can_cancel=cancel is None,
@@ -917,7 +918,7 @@ class PublicContractService:
     async def context(self, token: str) -> PublicContractContext:
         signature, contract, business = await self._resolve(token)
         if signature.status == "pending" and signature.opened_at is None:
-            signature.opened_at = datetime.now(UTC)
+            signature.opened_at = clock.now()
             await self.db.commit()
         return await self._context(signature, contract, business)
 
@@ -930,7 +931,7 @@ class PublicContractService:
         if data.strokes is not None and not _valid_strokes(data.strokes):
             raise Unprocessable("the drawn signature is empty or too detailed")
         signature.status = "signed"
-        signature.signed_at = datetime.now(UTC)
+        signature.signed_at = clock.now()
         signature.signed_body = contract.body
         signature.contract_version = contract.version
         signature.signer_name = data.typed_name.strip()
@@ -1027,7 +1028,7 @@ class PublicFormService:
     async def context(self, token: str) -> PublicFormContext:
         response, form, business = await self._resolve(token)
         if response.status == "draft" and response.opened_at is None:
-            response.opened_at = datetime.now(UTC)
+            response.opened_at = clock.now()
             await self.db.commit()
         fields = await self._fields(form.id)
         return PublicFormContext(
@@ -1109,11 +1110,11 @@ class PublicFormService:
         if response.status == "submitted":
             raise Conflict("this form was already submitted")
         fields = await self._fields(form.id)
-        _validate(fields, data.answers)
+        validate_answers(fields, data.answers)
         await self._assert_uploaded(response, fields, data.answers)
         response.status = "submitted"
         response.answers = data.answers
-        response.submitted_at = datetime.now(UTC)
+        response.submitted_at = clock.now()
         await self.db.commit()
         return PublicFormContext(
             form_name=form.name,
@@ -1125,7 +1126,7 @@ class PublicFormService:
         )
 
 
-def _validate(fields: list[FormField], answers: dict[str, object]) -> None:
+def validate_answers(fields: list[FormField], answers: dict[str, object]) -> None:
     for field in fields:
         if not field.required:
             continue
@@ -1339,7 +1340,7 @@ class PublicEstimateService:
         result = await tax_for_lines(self.db, estimate.business_id, lines)
         apply_totals(estimate, included_totals(lines, result))
         estimate.status = "accepted"
-        estimate.accepted_at = datetime.now(UTC)
+        estimate.accepted_at = clock.now()
         await self.db.commit()
         return await self._context(estimate, business)
 
@@ -1347,7 +1348,7 @@ class PublicEstimateService:
         estimate, business = await self._resolve(token, lock=True)
         self._assert_open(estimate, business)
         estimate.status = "declined"
-        estimate.declined_at = datetime.now(UTC)
+        estimate.declined_at = clock.now()
         estimate.decline_reason = (data.reason or "").strip() or None
         await self.db.commit()
         return await self._context(estimate, business)
@@ -1510,7 +1511,7 @@ class PublicReviewService:
         ).scalar_one()
         if review.status not in REVIEW_OPEN:
             raise Conflict("this review was already submitted")
-        now = datetime.now(UTC)
+        now = clock.now()
         review.rating = data.rating
         review.body = data.body
         review.submitted_at = now
