@@ -11,8 +11,16 @@ tools="$sdk/cmdline-tools/latest/bin"
 boot() {
     "$sdk/emulator/emulator" -avd "$AVD" -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim \
         -camera-back none "$@" > /tmp/emulator.log 2>&1 &
-    adb wait-for-device
-    timeout 300 sh -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do sleep 2; done'
+    local emulator=$! waited=0
+    until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; do
+        if ! kill -0 "$emulator" 2>/dev/null || [ "$waited" -ge 300 ]; then
+            cat /tmp/emulator.log
+            echo "the emulator did not boot" >&2
+            exit 1
+        fi
+        sleep 2
+        waited=$((waited + 2))
+    done
 }
 
 case "$1" in
