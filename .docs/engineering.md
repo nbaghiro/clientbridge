@@ -12,21 +12,27 @@ type safety.**
 
 ### Backend (Python)
 - **ruff** (`backend/ruff.toml`) — format 4-space/double-quote/100-col; lint `E F I UP B SIM TID ANN RUF`.
-  **`ANN401` bans explicit `Any`** in signatures; `ANN` requires full annotations. Per-file ignores: `tests/`
-  drop `ANN`; `migrations/` drop `ANN,E501,I001,UP`; `seed_demo.py` drops `E501` + ambiguous-glyph rules.
+  **`ANN401` bans explicit `Any`** in signatures; `ANN` requires full annotations, tests included. The one
+  per-file ignore is `E501` in `migrations/`, for long SQL text in applied migrations, which are not
+  rewritten.
 - **pyright** (`pyrightconfig.json` at the repo root, the one config the editor, make, the pre-commit hook
   and CI all read): `typeCheckingMode: strict` over **`src tests scripts migrations`**, with the
   `reportUnknown*` rules off because library stubs (Stripe, SQLAlchemy results) leave members unknown.
   Pinned to `pyright==1.1.408` as a backend dev dependency, so `uv run pyright` is the same version
   everywhere. Pydantic models are checked through `dataclass_transform`: a wrong-typed or unknown
-  constructor argument is an error. JSON columns are typed `dict[str, object]`.
-- **No `Any`:** ruff `ANN401` bans explicit `Any` and `ANN` requires annotations outside tests; pyright
+  constructor argument is an error. JSON columns are typed `dict[str, object]`. The structure check
+  fails if `typeCheckingMode` is not `strict`, if any `report*` rule other than the four `reportUnknown*`
+  rules and `reportMissingTypeStubs` is set below error, if `ignore` is set, or if `include` drops one of
+  the four directories, or if `exclude` or `executionEnvironments` hides files.
+- **No `Any`:** ruff `ANN401` bans explicit `Any` and `ANN` requires annotations; pyright
   strict checks every call against them. With the `reportUnknown*` rules off, an `Any` that comes from a
   library is not reported.
 - **No suppressions:** `scripts/check_structure.py` fails on `# noqa`, `# type: ignore`, `# pyright:`,
-  `# mypy:` and `# ruff: noqa` comments anywhere in `src`, `tests`, `scripts` and `migrations`, and
-  `make lint` runs ruff with `--ignore-noqa`, so a directive cannot hide an error. Fix the cause instead.
-  Coverage's `# pragma: no cover` is not a lint or type directive and stays allowed.
+  `# mypy:`, `# ruff:`, `# fmt:`, `# isort:`, `# pylint:` and `# pragma` comments (coverage pragmas
+  included) anywhere in `src`, `tests`, `scripts` and `migrations`, and `make lint` runs ruff with
+  `--ignore-noqa`, so a directive cannot hide an error. Fix the cause instead; `tests/test_structure.py`
+  checks that each form and each weakened pyright setting is caught. Code the default suite does not reach,
+  such as the real Stripe gateway, shows as uncovered rather than excluded; the contract job runs it.
 
 ### Frontend (TypeScript)
 - **prettier** (`packages/config/prettier.config.json`) — `tabWidth:4`, `semi:true`, `singleQuote:false`,
@@ -47,13 +53,29 @@ type safety.**
   caught error's `message` reaching the UI). Debug panels, tests and e2e suites are exempt
   where the rule is about product copy. The **lean-bundle boundary** (`no-restricted-imports` bans
   `@powersync/*` + `@clientbridge/sync` from `apps/connect` and `app-core/public`) is enforced here too.
+  `pnpm lint` runs eslint with `--max-warnings 0`. The config sets `noInlineConfig` and reports unused
+  disable directives, so an inline `eslint-disable` or `/* eslint */` comment has no effect and fails the
+  run, and `ban-ts-comment` rejects every `@ts-ignore`, `@ts-nocheck` and `@ts-expect-error`. JavaScript
+  and config files are linted too (JavaScript without type information, since it sits in no tsconfig);
+  only generated files are ignored (`api-client/src/generated.ts`, Connect's `public/embed.js`, the
+  `expo prebuild` projects). A rule changes only in `eslint.mjs`, scoped to the files that need it, with a
+  one-line reason. Prettier checks JavaScript files as well as TypeScript.
+- **No suppressions:** `check-structure.mjs` reads the comments of every tracked frontend TS and JS file
+  (generated files included; the generators emit none) and fails on `@ts-ignore`, `@ts-nocheck`,
+  `@ts-expect-error`, `eslint-disable` in any form, `/* eslint */` and `/* global */` directives,
+  `prettier-ignore`, `istanbul ignore`, `c8 ignore`, `biome-ignore` and `tslint:` comments.
+  `packages/config/suppressions.test.mjs` checks each form. Assert a type error in a test with vitest's
+  `expectTypeOf` instead.
 - **tsconfig** (`tsconfig.base.json`) — `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`
   + `noUnusedLocals/Parameters` + `noImplicitReturns/Override` + `noFallthroughCasesInSwitch` +
-  `verbatimModuleSyntax`.
+  `verbatimModuleSyntax`. `check-structure.mjs` fails if the base drops `strict` or one of those checks,
+  if any tracked tsconfig sets a strict-family flag (`noImplicitAny`, `strictNullChecks` and the rest) or
+  one of those checks to `false`, if a tsconfig does not extend `tsconfig.base.json`, or if one sets
+  `exclude`.
 
 ### Commands (root Makefile)
 ```
-make lint          # backend: ruff check + pyright strict + structure check |  frontend: eslint + tsc
+make lint          # backend: ruff check + pyright strict + structure check |  frontend: eslint + structure check + knip + tsc
 make typecheck     # backend: pyright strict              |  frontend: tsc --noEmit
 make format        # backend: ruff format                 |  frontend: prettier --write
 make format-check
@@ -81,7 +103,8 @@ Runs on every push to `main` + all PRs; concurrency-cancels stale runs. The work
 | Job | Steps |
 |---|---|
 | **backend** | Postgres 16 service · `uv sync` → `make format-check-backend lint-backend` (ruff, pyright, structure check) → `make migrate` → `make test-backend` (pytest, 90% branch coverage, on a freshly migrated and seeded database of its own) → `make test-kratos`, which fails rather than skips when Kratos is unreachable in CI |
-| **frontend** | Node from `.nvmrc` · pnpm 9 · `pnpm install --frozen-lockfile` → `make format-check-frontend lint-frontend test-frontend` (prettier, eslint + `check-structure.mjs` + knip, tsc, the site copy rules, the lint rule tests, vitest for app-core and site, then app-core again under `TZ=America/Vancouver`, `America/Halifax` and `Asia/Tokyo`; the formatter tests assert `en-CA` and `en-XA` output) → **`make build`** (a broken bundle must fail CI, beyond `tsc --noEmit`) |
+| **frontend** | Node from `.nvmrc` · pnpm 9 · `pnpm install --frozen-lockfile` → `make format-check-frontend lint-frontend test-frontend` (prettier, eslint + `check-structure.mjs` + knip, tsc, the site copy rules, the lint rule tests, vitest for app-core and site, then app-core again under `TZ=America/Vancouver`, `America/Halifax` and `Asia/Tokyo`; the formatter tests assert `en-CA` and `en-XA` output) |
+| **build** | Node from `.nvmrc` · pnpm 9 · `pnpm install --frozen-lockfile` → `make build` (`tsc -b` and the Vite builds for web, Connect and the site), so a broken bundle fails CI beyond `tsc --noEmit`; runs beside the frontend job rather than after it |
 | **site** | Node from `.nvmrc` · `make test-site`: a fresh build, then Playwright e2e on it (the copy rules and content tests run in the frontend job): every page returns 200 with its content in the HTML, no console errors, no broken images or internal links, no sideways scroll at 390 and 1440px, axe with no serious or critical issues, 404 page served with a 404 |
 | **connect** | Postgres 16 service · `make migrate seed` · the API on :8701 · `make test-connect` against `vite preview` of a production build (the `en-XA` pass uses the dev server, where the pseudo-locale lives): Connect's Playwright walk (book a visit, cancel it from its manage link, shop, invoice, estimate, receipt, review, form, contract, preferences, not found), failing on any console error; every client page through axe (no serious or critical issues), a keyboard walk that fails on a focus stop without a visible indicator, and a hover check on every button (AA text contrast, also over a business cover photo); then the `en-XA` pass over the business, booking, shop, invoice, estimate and receipt pages |
 | **sync** | `make test-sync`: disposable Postgres and PowerSync, per-role replica rows and columns, revocation, hours uploads, the signing-key rotation drill and the replication health check |
@@ -126,9 +149,28 @@ freely, and leave **zero residue** — repeatable, parallel-safe.
 suites, the dev API and e2e runs on the same machine share the `clientbridge` database and lock or change
 the seeded rows, which made tests fail with deadlocks and unexpected rows when they ran at the same time.
 A plain `uv run pytest` still uses `DATABASE_URL`. Tests that commit from their own connections (the race
-tests) delete what they wrote. Dates in tests come from the business's zone (`business_today`), and a
-test that needs a future day computes it (`weeks_ahead`, the next daylight saving Sunday) instead of
-naming one, so it keeps passing after that day.
+tests) delete what they wrote.
+
+### Time: one clock, frozen in tests
+Code reads the current time only through `core/clock.py`: `clock.now()` for business time,
+`clock.today(zone)` for a local date, and `clock.wall()` for checks against a clock outside the app
+(Kratos session age, the PowerSync JWT `iat`/`exp`, Svix and Stripe signature tolerance, provider event
+grace). The structure check fails on `datetime.now`, `datetime.utcnow`, `date.today`, `time.time` and
+`func.now` anywhere else in `src`, `tests` and `scripts` (`func.now` stays in model server defaults), and
+on moving the clock from `src`. Under pytest the clock starts at `FROZEN` (`tests/clock.py`,
+2026-10-13T17:00Z, 10 a.m. in Vancouver) for every test and ticks from there, test modules are collected
+at that instant, and `fresh_database.py` seeds the test database `--as-of FROZEN`; the `db` fixture fails
+if the database was seeded at any other time. Date literals in tests therefore stay on the side of today
+they were written for. Tests marked `wall_clock` (the Kratos contract test and the Stripe and Resend
+test-mode tier) run at real time. Postgres `now()` still stamps `created_at`/`updated_at` at real time;
+a service that compares a row's age against `clock.now()` stamps that column itself. The suite passes
+under `faketime +730d` apart from the real S3 round trip, which S3 rejects for clock skew.
+
+Vitest starts every frontend unit test at the same instant (`packages/config/vitest/frozen-clock.ts`
+through each package's `vitest.config.ts`), and SQL that needs the time takes it as a bound parameter
+rather than SQLite's `datetime('now')`. Playwright and Maestro run at real time against a seed built at
+real time, since the API, PowerSync, Kratos and the device clock cannot be frozen together; their suites
+derive dates from today, and `check-structure.mjs` fails on a date literal in an `e2e` folder.
 
 ### External boundaries: adapters + recording fakes
 Third parties are never called. Each is an interface injected as a dependency, faked in tests:

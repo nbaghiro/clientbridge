@@ -113,16 +113,27 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 - Boundary fakes (`FakeEmailSender`, `FakeOAuthVerifier`); auth clients `as_owner` / `as_staff` / `unauth`;
   factories (`Factory`).
 - Every feature clears the 4-part matrix: **happy · each 4xx · security invariants · idempotency/edge**.
+- Time comes only from `core/clock.py` (`clock.now()`, `clock.today(zone)`; `clock.wall()` only for an
+  external clock such as Kratos, PowerSync tokens or webhook signatures). Pytest and vitest start at
+  `FROZEN` (2026-10-13T17:00Z) over a database seeded at that instant; e2e suites stay at real time with
+  dates derived from today.
 - CI gate: `pytest --cov=clientbridge --cov-branch --cov-fail-under=90`.
 
 ## Tooling — run the gate before "done"
 - Backend: **ruff** (4-space · double quotes · line 100 · ANN bans `Any`) + **pyright strict**
   (`pyrightconfig.json`, pinned 1.1.408; no `Any`, and no `# noqa`, `# type: ignore` or `# pyright:`
-  comments: the structure check rejects them and ruff runs with `--ignore-noqa`).
-  Frontend: eslint strictTypeChecked + tsc strict + prettier (4-space · double · 100).
-- Gate: `make check` (lint + codegen-check + test). CI's jobs call the same make targets
-  (`lint-backend`, `test-backend`, `lint-frontend`, `test-frontend`, `build`, `test-site`, `codegen-check`), so
-  the two can't drift.
+  comments, nor `# fmt:`, `# isort:` or coverage `# pragma`: the structure check rejects them and ruff runs
+  with `--ignore-noqa`). The structure check
+  also fails if `pyrightconfig.json` leaves strict mode or turns off a rule beyond the four
+  `reportUnknown*` rules and `reportMissingTypeStubs`.
+  Frontend: eslint strictTypeChecked (`--max-warnings 0`, inline config ignored, JS and config files
+  included) + tsc strict + prettier (4-space · double · 100). No `@ts-*`, `eslint-disable`,
+  `prettier-ignore`, `istanbul`/`c8`/`biome` ignore or `tslint:` comments, and every tsconfig extends
+  `tsconfig.base.json` without turning a strict flag off or excluding files: `check-structure.mjs` rejects
+  both. Change a rule only in `packages/config/eslint.mjs`, scoped to its files.
+- Gate: `make check` (lint + codegen-check + test); the pre-commit hook runs `make precommit`
+  (format-check + the same gate). CI's jobs call the same make targets (`lint-backend`, `test-backend`,
+  `lint-frontend`, `test-frontend`, `build` in its own job, `test-site`, `codegen-check`), so the two can't drift.
 - **Milestone audit (do this at every slice/phase boundary, before starting the next).** Review the
   changeset against these principles and fix High/Medium findings *then*, not later: layering (thin
   router → service; routers never query; every tenant query goes through
