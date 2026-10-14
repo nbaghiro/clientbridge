@@ -1,4 +1,4 @@
-.PHONY: help up down logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth auth-standalone test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
+.PHONY: preview-emails help up down logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth auth-standalone test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
 .DEFAULT_GOAL := help
 
 help:
@@ -31,6 +31,7 @@ help:
 	@echo "gen-sync-schema  regenerate the PowerSync client schema from models + sync streams"
 	@echo "gen-themes       regenerate the theme tokens from .docs/design/app-explorer.html"
 	@echo "gen-messages     regenerate the backend messages.pot and en_XA.po from the code and en_CA.po"
+	@echo "preview-emails   render every email design with demo data into .scratchpad/emails"
 	@echo "gen-strings      regenerate the strings accessors, en-XA pseudo-locales and Connect's embed.js"
 	@echo "gen-zones        regenerate the frontend's zone table and parity cases from the backend tzdata"
 	@echo "gen-taxes        regenerate the frontend's tax rate table and engine parity cases from the backend"
@@ -151,6 +152,9 @@ gen-themes:
 
 gen-messages:
 	cd backend && uv run python -m scripts.gen_messages
+
+preview-emails:
+	cd backend && uv run python -m scripts.preview_emails
 
 gen-zones:
 	cd backend && uv run python -m scripts.gen_zones

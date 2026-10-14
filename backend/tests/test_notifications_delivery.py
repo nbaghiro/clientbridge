@@ -128,6 +128,17 @@ async def test_resend_carries_reply_to_tags_and_the_idempotency_key(
     ]
 
 
+async def test_resend_sends_the_html_beside_the_plain_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests = _capture(monkeypatch, [200])
+    await ResendEmailSender("re_test_key", "from@example.com").send(
+        Email(to="to@example.com", subject="Test", body="Hello", html="<p>Hello</p>")
+    )
+    payload = json.loads(requests[0].content)
+    assert payload["text"] == "Hello" and payload["html"] == "<p>Hello</p>"
+
+
 @pytest.mark.parametrize("status", [201, 400, 500])
 async def test_twilio_posts_the_message_form_and_returns_its_sid(
     monkeypatch: pytest.MonkeyPatch, status: int

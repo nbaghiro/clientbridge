@@ -7,14 +7,22 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.email_layout import ACCENT
 from clientbridge.core.ids import new_id
+from clientbridge.core.locale import SOURCE_LOCALE
 from clientbridge.models.business import Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Message
 from clientbridge.models.payments import Payment
-from clientbridge.models.platform import Device
-from clientbridge.services.notifications import business_email, client_email, run_prune_devices
+from clientbridge.models.platform import Device, File
+from clientbridge.services.notifications import (
+    business_brand,
+    business_email,
+    client_email,
+    message_notice,
+    run_prune_devices,
+)
 from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
 from tests.helpers import begin, card_pay, enable_payments, sent_invoice
 
@@ -207,6 +215,54 @@ async def test_invoice_sent_carries_pay_link(
     assert token
     assert any(f"http://localhost:8709/i/{token}" in m.body for m in email.sent)
     assert any(f"/i/{token}" in m.body for m in sms.sent)
+
+
+async def test_client_emails_carry_the_business_design(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    cid = await _client_with_contact(db, email="pat@example.ca", phone=None)
+    line = {"description": "Groom", "quantity": 1, "unit_amount_cents": 8000}
+    inv = (await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [line]})).json()
+    token = (await as_owner.post(f"/v1/invoices/{inv['id']}/send")).json()["pay_token"]
+    mail = next(m for m in email.sent if m.to == "pat@example.ca")
+    assert mail.html is not None and f"http://localhost:8709/i/{token}" in mail.body
+    assert f'<a href="http://localhost:8709/i/{token}"' in mail.html and "Pay invoice" in mail.html
+    assert "Sent with Clientbridge" in mail.html and "a client of" in mail.html
+
+
+async def test_a_logo_shows_only_when_mail_apps_can_show_it(db: AsyncSession) -> None:
+    business, other = await Factory(db).business(), await Factory(db).business()
+
+    async def logo(owner: str, content_type: str, *, uploaded: bool = True) -> str:
+        file = File(
+            id=new_id("file"),
+            business_id=owner,
+            parent_type="business",
+            parent_id=owner,
+            purpose="logo",
+            s3_key=new_id("file"),
+            content_type=content_type,
+            uploaded_at=clock.now() if uploaded else None,
+        )
+        db.add(file)
+        await db.flush()
+        return file.id
+
+    shown = await logo(business.id, "image/png")
+    hidden = [
+        await logo(business.id, "image/svg+xml"),
+        await logo(business.id, "image/webp"),
+        await logo(business.id, "image/png", uploaded=False),
+        await logo(other.id, "image/png"),
+    ]
+    business.brand = {"logo_file_id": shown, "primary": "#2F6B4F"}
+    brand = await business_brand(db, business)
+    assert brand.logo_url is not None and brand.logo_url.endswith(f"/media/{shown}")
+    assert brand.accent == "#2F6B4F"
+    for file_id in hidden:
+        business.brand = {"logo_file_id": file_id, "primary": "not-a-colour"}
+        brand = await business_brand(db, business)
+        assert brand.logo_url is None and brand.accent == ACCENT, file_id
 
 
 async def test_refund_notifies_client(
@@ -478,15 +534,17 @@ async def test_tenant_email_builders_apply_the_conventions(db: AsyncSession) -> 
         channel="email",
         status="queued",
     )
-    mail = client_email(business, "pat@test.ca", "Hi", "Body", message=note)
+    brand = await business_brand(db, business)
+    notice = message_notice(SOURCE_LOCALE, business.name, "Body")
+    mail = client_email(business, brand, "pat@test.ca", notice, message=note)
     assert mail.reply_to == "owner@test.ca" and mail.idempotency_key == "msg_builder"
     assert mail.tags == {"business": business.id, "message": "msg_builder"}
-    plain = client_email(business, "pat@test.ca", "Hi", "Body")
+    plain = client_email(business, brand, "pat@test.ca", notice)
     assert plain.idempotency_key is None and plain.tags == {"business": business.id}
     pat = Client(id="cl_builder", business_id=business.id, name="Pat")
-    assert client_email(business, "pat@test.ca", "Hi", "Body", client=pat).tags == {
+    assert client_email(business, brand, "pat@test.ca", notice, client=pat).tags == {
         "business": business.id,
         "client": "cl_builder",
     }
-    alert = business_email(business.id, "owner@test.ca", "Hi", "Body")
+    alert = business_email(business, "owner@test.ca", notice)
     assert alert.reply_to is None and alert.tags == {"business": business.id}

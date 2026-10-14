@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 from pydantic import ValidationError
@@ -11,6 +12,7 @@ from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.db import is_duplicate
 from clientbridge.core.deps import Principal, assert_role
+from clientbridge.core.email_layout import Brand
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for
@@ -44,7 +46,14 @@ from clientbridge.services.consents import (
     stopped_clients,
     texts_stopped,
 )
-from clientbridge.services.notifications import broadcast_text, client_email
+from clientbridge.services.notifications import (
+    Notice,
+    broadcast_notice,
+    broadcast_text,
+    business_brand,
+    client_email,
+    message_notice,
+)
 from clientbridge.services.plans import serving
 
 _log = logging.getLogger(__name__)
@@ -108,19 +117,19 @@ async def dispatch_message(
     email: EmailSender,
     channel: str,
     to: str,
-    subject: str,
-    body: str,
+    notice: Notice,
     *,
     message: Message,
     business: Business,
+    brand: Brand,
 ) -> None:
     """Hand the message to its channel adapter and record the outcome on the row, never raising."""
     try:
         if channel == "sms":
-            message.provider_ref = await sms.send(Sms(to=to, body=body))
+            message.provider_ref = await sms.send(Sms(to=to, body=notice.body))
         else:
             message.provider_ref = await email.send(
-                client_email(business, to, subject, body, message=message)
+                client_email(business, brand, to, notice, message=message)
             )
     except Exception:
         _log.exception("message channel send failed")
@@ -241,6 +250,7 @@ async def _send_broadcast(
     targets = [
         (client.id, to, locale_for(business=business, client=client)) for client, to in recipients
     ]
+    brand = await business_brand(db, business)
     await db.commit()
     for client_id, to, locale in targets:
         claimed = await _claim_broadcast(db, broadcast_id)
@@ -252,9 +262,12 @@ async def _send_broadcast(
         if message is None:
             continue
         link = f"{prefs_url(client_id)}?unsubscribe=email"
-        text = broadcast_text(locale, name, channel, body or "", link, address, contact)
+        notice = broadcast_notice(locale, name, subject, body or "", link, address, contact)
+        if channel == "sms":
+            text = broadcast_text(locale, name, channel, body or "", link, address, contact)
+            notice = replace(notice, body=text)
         await dispatch_message(
-            sms, email, channel, to, subject, text, message=message, business=business
+            sms, email, channel, to, notice, message=message, business=business, brand=brand
         )
         await db.commit()
     claimed = await _claim_broadcast(db, broadcast_id)
@@ -413,7 +426,10 @@ class MessageService:
         business = await self.db.get(Business, self.biz)
         if business is None:
             raise NotFound("business not found")
-        subject = business.name
+        notice = message_notice(
+            locale_for(business=business, client=client), business.name, data.body
+        )
+        brand = await business_brand(self.db, business)
 
         async def run(cmd: Command) -> MessageOut:
             thread = await open_thread(self.db, self.biz, client.id, data.channel)
@@ -434,10 +450,10 @@ class MessageService:
                 self.email,
                 data.channel,
                 to,
-                subject,
-                data.body,
+                notice,
                 message=message,
                 business=business,
+                brand=brand,
             )
             await self.db.flush()
             cmd.record("message.send", entity_type="message", entity_id=message.id)

@@ -43,7 +43,8 @@ INPUTS = [
 ]
 MOMENT = datetime(2026, 10, 9, 21, 30, tzinfo=UTC)
 
-Render = Callable[[str], tuple[str, ...] | list[str] | str]
+Rendered = n.Notice | n.Itemised | str
+Render = Callable[[str], Rendered | tuple[Rendered, ...]]
 
 
 def _builders() -> dict[str, Render]:
@@ -56,7 +57,7 @@ def _builders() -> dict[str, Render]:
     def amount(locale: str) -> str:
         return format_money(locale, 123456, "CAD")
 
-    def auth_email(locale: str, template_type: AuthEmailType) -> tuple[str, str]:
+    def auth_email(locale: str, template_type: AuthEmailType) -> n.Notice:
         email = AuthEmailIn(
             template_type=template_type, to="a@x.ca", code="123456", expires_in_minutes=15
         )
@@ -66,17 +67,26 @@ def _builders() -> dict[str, Render]:
 
     return {
         "returning_code": lambda c: n.returning_code(c, NAME, "123456", 10),
-        "staff_invite": lambda c: n.staff_invite(c, LINK),
+        "staff_invite": lambda c: n.staff_invite(c, NAME, LINK),
+        "waitlist_message": lambda c: n.waitlist_message(c, LINK),
         "auth_email_message": lambda c: tuple(
-            text for kind in get_args(AuthEmailType) for text in auth_email(c, kind)
+            auth_email(c, kind) for kind in get_args(AuthEmailType)
         ),
-        "receipt_message": lambda c: n.receipt_message(c, NAME, amount(c), ["Shampoo"]),
+        "receipt_message": lambda c: n.receipt_message(
+            c,
+            NAME,
+            amount(c),
+            n.receipt_detail_lines(c, [("Shampoo", "1", amount(c))], amount(c), [], amount(c)),
+            pickup=True,
+            order=LINK,
+        ),
         "receipt_pickup_line": lambda c: n.receipt_pickup_line(c, NAME),
         "online_order_alert_message": lambda c: n.online_order_alert_message(c, amount(c)),
         "sale_receipt_message": lambda c: (
-            n.sale_receipt_message(c, NAME, 42, LINK) + n.sale_receipt_message(c, NAME, None, LINK)
+            n.sale_receipt_message(c, NAME, 42, LINK),
+            n.sale_receipt_message(c, NAME, None, LINK),
         ),
-        "order_ready_message": lambda c: n.order_ready_message(c, NAME),
+        "order_ready_message": lambda c: n.order_ready_message(c, NAME, LINK),
         "order_reminder_message": lambda c: n.order_reminder_message(c, NAME),
         "receipt_detail_lines": lambda c: n.receipt_detail_lines(
             c,
@@ -87,49 +97,50 @@ def _builders() -> dict[str, Render]:
         ),
         "dispute_alert_text": lambda c: n.dispute_alert_text(c, amount(c)),
         "invoice_sent_message": lambda c: (
-            n.invoice_sent_message(c, 1001, amount(c), NAME, LINK)
-            + n.invoice_sent_message(c, 1001, amount(c), NAME, "")
+            n.invoice_sent_message(c, 1001, amount(c), NAME, LINK),
+            n.invoice_sent_message(c, 1001, amount(c), NAME, ""),
         ),
         "invoice_overdue_message": lambda c: (
-            n.invoice_overdue_message(c, 1001, amount(c), NAME, LINK)
-            + n.invoice_overdue_message(c, 1001, amount(c), NAME, "")
+            n.invoice_overdue_message(c, 1001, amount(c), NAME, LINK),
+            n.invoice_overdue_message(c, 1001, amount(c), NAME, ""),
         ),
         "estimate_sent_message": lambda c: (
-            n.estimate_sent_message(c, 7, amount(c), NAME, LINK)
-            + n.estimate_sent_message(c, 7, amount(c), NAME, "")
+            n.estimate_sent_message(c, 7, amount(c), NAME, LINK),
+            n.estimate_sent_message(c, 7, amount(c), NAME, ""),
         ),
         "estimate_accepted_message": lambda c: n.estimate_accepted_message(c, 7),
         "estimate_declined_message": lambda c: (
-            n.estimate_declined_message(c, 7, "Too far") + n.estimate_declined_message(c, 7, None)
+            n.estimate_declined_message(c, 7, "Too far"),
+            n.estimate_declined_message(c, 7, None),
         ),
         "payment_failed_message": lambda c: n.payment_failed_message(c, amount(c), NAME),
         "refund_failed_message": lambda c: n.refund_failed_message(c, amount(c), NAME),
         "refund_message": lambda c: (
-            n.refund_message(c, amount(c), NAME, "CN-1")
-            + n.refund_message(c, amount(c), NAME, None)
+            n.refund_message(c, amount(c), NAME, "CN-1"),
+            n.refund_message(c, amount(c), NAME, None),
         ),
         "subscription_past_due_message": lambda c: n.subscription_past_due_message(c, NAME),
         "subscription_canceled_message": lambda c: n.subscription_canceled_message(c, NAME),
         "trial_ending_message": lambda c: (
-            n.trial_ending_message(c, NAME, when(c), LINK, last_day=False)
-            + n.trial_ending_message(c, NAME, when(c), LINK, last_day=True)
+            n.trial_ending_message(c, NAME, when(c), LINK, last_day=False),
+            n.trial_ending_message(c, NAME, when(c), LINK, last_day=True),
         ),
         "gift_card_issued_message": lambda c: n.gift_card_issued_message(
             c, NAME, amount(c), "GC-1"
         ),
         "booking_reminder_message": lambda c: (
-            n.booking_reminder_message(c, NAME, when(c), LINK)
-            + n.booking_reminder_message(c, NAME, when(c), None)
+            n.booking_reminder_message(c, NAME, when(c), LINK),
+            n.booking_reminder_message(c, NAME, when(c), None),
         ),
         "booking_confirmed_message": lambda c: (
-            n.booking_confirmed_message(c, NAME, when(c), LINK)
-            + n.booking_confirmed_message(c, NAME, when(c), None)
+            n.booking_confirmed_message(c, NAME, when(c), LINK),
+            n.booking_confirmed_message(c, NAME, when(c), None),
         ),
         "booking_rescheduled_message": lambda c: n.booking_rescheduled_message(c, NAME, when(c)),
         "booking_canceled_message": lambda c: n.booking_canceled_message(c, NAME, when(c)),
         "booking_reassigned_message": lambda c: (
-            n.booking_reassigned_message(c, NAME, [when(c)], NAME)
-            + n.booking_reassigned_message(c, NAME, [when(c), when(c)], NAME)
+            n.booking_reassigned_message(c, NAME, [when(c)], NAME),
+            n.booking_reassigned_message(c, NAME, [when(c), when(c)], NAME),
         ),
         "booking_requested_message": lambda c: n.booking_requested_message(c, NAME, when(c)),
         "booking_released_message": lambda c: n.booking_released_message(c, NAME, when(c)),
@@ -140,6 +151,10 @@ def _builders() -> dict[str, Render]:
         "contract_sent_message": lambda c: n.contract_sent_message(c, NAME, "Waiver", LINK),
         "review_requested_message": lambda c: n.review_requested_message(c, NAME, LINK),
         "inbound_message_alert_text": lambda c: n.inbound_message_alert_text(c, NAME, "Sale"),
+        "message_notice": lambda c: n.message_notice(c, NAME, "Sale"),
+        "broadcast_notice": lambda c: n.broadcast_notice(
+            c, NAME, "Sale", "Sale", LINK, ADDRESS, CONTACT
+        ),
         "broadcast_text": lambda c: (
             n.broadcast_text(c, NAME, "sms", "Sale", LINK, ADDRESS, CONTACT),
             n.broadcast_text(c, NAME, "email", "Sale", LINK, ADDRESS, CONTACT),
@@ -147,8 +162,22 @@ def _builders() -> dict[str, Render]:
     }
 
 
-def _texts(rendered: tuple[str, ...] | list[str] | str) -> list[str]:
-    return [rendered] if isinstance(rendered, str) else list(rendered)
+def _texts(rendered: Rendered | tuple[Rendered, ...]) -> list[str]:
+    """Every piece of copy a builder produced: subject, text and each part of the email's design."""
+    if isinstance(rendered, tuple):
+        return [text for part in rendered for text in _texts(part)]
+    if isinstance(rendered, str):
+        return [rendered]
+    if isinstance(rendered, n.Itemised):
+        # a tax row is labelled with its code, which is data and not copy
+        return [*rendered.lines, *(row.label for row in rendered.rows if row.label not in INPUTS)]
+    view = rendered.view
+    action = [view.action.label] if view.action else []
+    footer = [*view.footer, *([view.footer_link.label] if view.footer_link else [])]
+    note = [view.note] if view.note else []
+    copy = [view.eyebrow, view.heading, *view.paragraphs, *action, *note, *footer]
+    # a staff message or broadcast carries the business's own words, which are data and not copy
+    return [text for text in (rendered.subject, rendered.body, *copy) if text not in INPUTS]
 
 
 def test_every_builder_is_rendered_here() -> None:
@@ -158,7 +187,7 @@ def test_every_builder_is_rendered_here() -> None:
         if fn.__module__ == n.__name__
         and next(iter(inspect.signature(fn).parameters), "") == "locale"
     }
-    assert builders - {"_when"} == set(_builders())
+    assert {name for name in builders if not name.startswith("_")} == set(_builders())
 
 
 def test_every_builder_renders_only_pseudo_text_in_en_xa() -> None:

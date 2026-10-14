@@ -53,10 +53,10 @@ CLOCK_READS = {
 CLOCK_SETTERS = ("travel", "freeze", "reset")
 COPY_FIELDS = ("subject", "body", "title")
 SENDER_PARAMS = {
-    "Email": ("to", "subject", "body"),
+    "Email": ("to", "subject", "body", "html"),
     "Sms": ("to", "body"),
     "Push": ("tokens", "title", "body", "data"),
-    "dispatch_message": ("sms", "email", "channel", "to", "subject", "body"),
+    "dispatch_message": ("sms", "email", "channel", "to", "notice"),
 }
 CSV_ROWS = {"writerow": 1, "writerows": 2}
 STORED_COPY = ("description", "interval_description", "product_name")

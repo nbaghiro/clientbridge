@@ -29,6 +29,7 @@ class Email:
     to: str
     subject: str
     body: str
+    html: str | None = None
     reply_to: str | None = None
     idempotency_key: str | None = None
     tags: Mapping[str, str] = field(default_factory=dict)
@@ -58,6 +59,8 @@ class ResendEmailSender:
             "subject": email.subject,
             "text": email.body,
         }
+        if email.html:
+            payload["html"] = email.html
         if email.reply_to:
             payload["reply_to"] = [email.reply_to]
         if email.tags:
@@ -111,6 +114,8 @@ class SmtpEmailSender:
         if email.reply_to:
             message["Reply-To"] = email.reply_to
         message.set_content(email.body)
+        if email.html:
+            message.add_alternative(email.html, subtype="html")
         await asyncio.to_thread(self._deliver, message)
         return None
 

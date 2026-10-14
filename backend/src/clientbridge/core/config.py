@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     stripe_connect_country: str = "CA"
     api_base_url: str = "http://127.0.0.1:8701"  # the public API origin, which Twilio signs
     web_base_url: str = "http://localhost:8700"
+    site_base_url: str = "http://localhost:8710"  # the marketing site, which serves email images
     connect_base_url: str = "http://localhost:8709"
     # Every invoice pay link uses this one host (production: https://pay.clientbridge.ca).
     pay_base_url: str = "http://localhost:8709"

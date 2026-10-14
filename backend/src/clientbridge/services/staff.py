@@ -56,7 +56,7 @@ from clientbridge.services.bookings import (
 )
 from clientbridge.services.business import load_staff
 from clientbridge.services.catalog import load_item
-from clientbridge.services.notifications import business_email, invite_link, staff_invite
+from clientbridge.services.notifications import Notice, business_email, invite_link, staff_invite
 from clientbridge.services.payments import cancel_open_deposits, refund_deposit
 from clientbridge.services.plans import INVITE_TTL
 
@@ -143,8 +143,9 @@ class StaffService:
             # billed before commit, so a failed Stripe call fails the invite before anyone joins
             await plans.sync_seats(gateway, business, seats)
             billed.append(True)
-            subject, body = await self._invite_email(principal, raw)
-            await email_sender.send(business_email(principal.business_id, email, subject, body))
+            await email_sender.send(
+                business_email(business, email, self._invite_notice(raw, business))
+            )
             cmd.record("staff.invite", entity_type="staff", entity_id=staff.id)
             return InviteOut(
                 id=staff.id, email=email, role=role, status=staff.status, invite_token=raw
@@ -268,9 +269,8 @@ class StaffService:
             invites=[out(s) for s in staff if s.status == "invited"] if managers else [],
         )
 
-    async def _invite_email(self, principal: Principal, code: str) -> tuple[str, str]:
-        business = await self.db.get(Business, principal.business_id)
-        return staff_invite(locale_for(business=business), invite_link(code))
+    def _invite_notice(self, code: str, business: Business) -> Notice:
+        return staff_invite(locale_for(business=business), business.name, invite_link(code))
 
     async def _invite(self, principal: Principal, invite_id: str) -> Staff:
         row = (
@@ -307,9 +307,10 @@ class StaffService:
             staff.invited_at = now
             staff.invited_by = principal.user_id
             await self.db.flush()
-            subject, body = await self._invite_email(principal, raw)
             await email_sender.send(
-                business_email(principal.business_id, staff.invite_email or "", subject, body)
+                business_email(
+                    business, staff.invite_email or "", self._invite_notice(raw, business)
+                )
             )
             cmd.record("staff.invite_resend", entity_type="staff", entity_id=staff.id)
             return InviteOut(
