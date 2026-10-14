@@ -22,7 +22,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base, SessionLocal, engine
 from clientbridge.core.errors import AppError
 from clientbridge.core.security import hash_token
-from clientbridge.integrations.kratos import get_kratos
+from clientbridge.integrations.kratos import get_identity_provider
 from clientbridge.integrations.s3 import get_file_storage
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
@@ -2248,15 +2248,17 @@ async def purge_businesses(
 
 
 async def link_identities(ctx: DemoContext) -> None:
-    """Every demo user signs in through Kratos with the demo password and a verified email."""
-    kratos = get_kratos()
+    """Every demo user signs in with the demo password and a verified email."""
+    identities = get_identity_provider()
     try:
         for user in ctx.all(User):
-            user.identity_id = await kratos.find_identity(
+            user.identity_id = await identities.find_identity(
                 user.email
-            ) or await kratos.create_identity(user.email, user.name or "", DEMO_PASSWORD)
+            ) or await identities.create_identity(user.email, user.name or "", DEMO_PASSWORD)
     except AppError as exc:
-        raise SystemExit(f"Kratos is not reachable at {get_settings().auth_admin_url}") from exc
+        raise SystemExit(
+            f"the auth service is not reachable at {get_settings().auth_admin_url}"
+        ) from exc
 
 
 async def main(*, reset_demo: bool = False, as_of: datetime | None = None) -> None:

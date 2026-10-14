@@ -1,4 +1,4 @@
-"""Kratos sessions at the API edge: provisioning, /v1/me, cookie vs token, origin guard, outages."""
+"""Auth sessions at the API edge: provisioning, /v1/me, cookie vs token, origin guard, outages."""
 
 from dataclasses import replace
 from datetime import timedelta
@@ -12,7 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.security import issue_powersync_token
-from clientbridge.integrations.kratos import Identity, KratosIdentityProvider, get_identity_provider
+from clientbridge.integrations.identity import Identity
+from clientbridge.integrations.kratos import KratosIdentityProvider, get_identity_provider
 from clientbridge.models.business import User
 from clientbridge.services.auth import AuthService
 from tests.conftest import OWNER_USER, Factory, FakeIdentityProvider, identity_for, session_token
@@ -27,7 +28,7 @@ def fresh(email: str = "fresh@test.ca", *, name: str | None = "Fresh") -> Identi
         verified_emails=frozenset({email}),
         name=name,
         session_id=str(uuid4()),
-        aal="aal1",
+        second_factor=False,
     )
 
 
@@ -43,7 +44,7 @@ async def test_me_describes_the_signed_in_user(
         "email": "hannah@birchbarkpets.ca",
         "name": "Hannah Wong",
         "email_verified": True,
-        "aal": "aal1",
+        "second_factor": False,
     }
 
 
@@ -68,7 +69,7 @@ async def test_provision_is_idempotent_for_one_identity(
     assert first.id == second.id
 
 
-async def test_profile_changes_in_kratos_reach_the_user(
+async def test_profile_changes_in_the_auth_service_reach_the_user(
     api: httpx.AsyncClient, factory: Factory, identities: FakeIdentityProvider
 ) -> None:
     user = await factory.user(email="before@test.ca")
@@ -245,10 +246,10 @@ async def test_second_factor_required_401(
     token = await session_token(identities, db, OWNER_USER)
     identities.step_up.add(token)
     res = await api.get("/v1/me", headers={"X-Session-Token": token})
-    assert res.status_code == 401 and res.json()["error"] == "aal2_required"
+    assert res.status_code == 401 and res.json()["error"] == "second_factor_required"
 
 
-async def test_kratos_outage_is_not_a_sign_out(
+async def test_auth_service_outage_is_not_a_sign_out(
     api: httpx.AsyncClient, db: AsyncSession, identities: FakeIdentityProvider
 ) -> None:
     token = await session_token(identities, db, OWNER_USER)

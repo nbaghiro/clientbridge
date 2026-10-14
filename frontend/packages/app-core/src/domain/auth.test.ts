@@ -158,7 +158,7 @@ describe("useAuthForm", () => {
         });
     });
 
-    it("steps up to a second factor in place when Kratos asks for aal2", async () => {
+    it("steps up to a second factor in place when the auth service asks for one", async () => {
         const identity = fakeIdentity([
             { kind: "redirect", url: "https://auth.test/self-service/login/browser?aal=aal2" },
         ]);
@@ -176,11 +176,11 @@ describe("useAuthForm", () => {
         await waitFor(() => {
             expect(result.current.mode).toBe("mfa");
         });
-        expect(identity.start).toHaveBeenLastCalledWith("login", { aal: "aal2" });
+        expect(identity.start).toHaveBeenLastCalledWith("login", { secondFactor: true });
         expect(result.current.mfaMethods).toContain("totp");
     });
 
-    it("treats a session Kratos already holds as signed in", async () => {
+    it("treats a session the auth service already holds as signed in", async () => {
         const identity = fakeIdentity([]);
         identity.session.mockResolvedValueOnce("none").mockResolvedValueOnce("active");
         identity.start.mockRejectedValue(

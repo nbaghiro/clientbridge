@@ -106,7 +106,7 @@ async def test_pseudo_locale_reaches_auth_email(
     assert "482913" in email.sent[0].body
 
 
-async def test_send_failure_is_a_5xx_so_kratos_retries(api: httpx.AsyncClient) -> None:
+async def test_send_failure_is_a_5xx_so_the_auth_service_retries(api: httpx.AsyncClient) -> None:
     app.dependency_overrides[get_email_sender] = FailingEmailSender
     body = _courier("recovery_code_valid", code="482913", expires_in_minutes=15)
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)

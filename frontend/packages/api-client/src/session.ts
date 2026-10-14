@@ -1,6 +1,6 @@
 import { SessionEpoch } from "./epochs";
 
-/** Who the app believes is signed in; mobile also holds the Kratos session token. */
+/** Who the app believes is signed in; mobile also holds its session token. */
 export interface SessionCredentials {
     userId: string;
     sessionToken?: string;
@@ -13,11 +13,11 @@ interface SessionStore {
 
 interface SessionOptions {
     baseUrl: string;
-    /** Web rides the Kratos session cookie; mobile sends its session token. */
+    /** Web rides the session cookie; mobile sends its session token. */
     mode: "cookie" | "token";
     epoch?: SessionEpoch;
     store: SessionStore;
-    /** Called once the session is gone (Kratos said 401) — the app should show login. */
+    /** Called once the session is gone (the auth service said 401) — the app should show login. */
     onSignedOut: () => void;
     /** Called when the session needs a second factor before the API answers. */
     onStepUp?: () => void;
@@ -74,7 +74,7 @@ export function createSession(opts: SessionOptions): Session {
     // Sign out only when the API says the session is gone; a network error or 5xx keeps it.
     const unauthorized = async (res: Response, generation: number): Promise<void> => {
         if (generation !== epoch.value) return;
-        if ((await errorCode(res)) === "aal2_required" && opts.onStepUp) {
+        if ((await errorCode(res)) === "second_factor_required" && opts.onStepUp) {
             opts.onStepUp();
             return;
         }

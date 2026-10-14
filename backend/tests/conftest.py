@@ -32,12 +32,8 @@ from clientbridge.core.ratelimit import (
     public_review_rate_limit,
 )
 from clientbridge.integrations.expo import Push, get_push_sender
-from clientbridge.integrations.kratos import (
-    Credential,
-    Identity,
-    get_identity_provider,
-    unavailable,
-)
+from clientbridge.integrations.identity import Credential, Identity, unavailable
+from clientbridge.integrations.kratos import get_identity_provider
 from clientbridge.integrations.resend import Email, EmailSender, get_email_sender
 from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.integrations.stripe import (
@@ -246,11 +242,11 @@ def storage() -> FakeFileStorage:
 
 
 class FakeIdentityProvider:
-    """Kratos at the boundary: sessions are opaque strings mapped to identities."""
+    """The auth service at the boundary: sessions are opaque strings mapped to identities."""
 
     def __init__(self) -> None:
         self.sessions: dict[str, Identity] = {}
-        # What a cached (non-fresh) read still returns for a session, as Kratos's old answer.
+        # What a cached (non-fresh) read still returns, the auth service's earlier answer.
         self.cached: dict[str, Identity] = {}
         self.step_up: set[str] = set()
         self.deleted: set[str] = set()
@@ -268,7 +264,7 @@ class FakeIdentityProvider:
         self.fresh_reads += fresh
         key = credential.session_token or credential.cookie
         if key in self.step_up:
-            raise Unauthorized("second factor required", code="aal2_required")
+            raise Unauthorized("second factor required", code="second_factor_required")
         identity = self.sessions.get(key) if fresh else self.cached.get(key, self.sessions.get(key))
         if identity is None:
             raise Unauthorized("session expired", code="unauthenticated")
@@ -279,8 +275,14 @@ class FakeIdentityProvider:
             raise unavailable()
         return identity_id not in self.deleted
 
+    async def find_identity(self, email: str) -> str | None:
+        return next((i.id for i in self.sessions.values() if i.email == email), None)
+
+    async def create_identity(self, email: str, name: str, password: str) -> str:
+        return str(uuid4())
+
     def end_sessions(self, identity_id: str) -> None:
-        """What Kratos does after a password reset: every session of the identity stops working."""
+        """What the auth service does after a password reset: every session of the identity ends."""
         self.sessions = {k: v for k, v in self.sessions.items() if v.id != identity_id}
 
 
@@ -290,7 +292,7 @@ def identities() -> FakeIdentityProvider:
 
 
 def identity_for(
-    user: User, *, email: str | None = None, verified: bool = True, aal: str = "aal1"
+    user: User, *, email: str | None = None, verified: bool = True, second_factor: bool = False
 ) -> Identity:
     address = email or user.email
     return Identity(
@@ -299,7 +301,7 @@ def identity_for(
         verified_emails=frozenset({normalize_email(address)}) if verified else frozenset(),
         name=user.name,
         session_id=f"ses-{uuid4().hex}",
-        aal=aal,
+        second_factor=second_factor,
     )
 
 

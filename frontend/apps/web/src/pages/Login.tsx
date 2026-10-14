@@ -479,7 +479,7 @@ function Recover({ onSuccess }: { onSuccess: () => void }) {
     );
 }
 
-/** Kratos's verify link lands here; it also works while signed in, or held back by the API. */
+/** The auth service's verify link lands here; it also works while signed in, or held back by the API. */
 export function VerifyEmail({
     unverified = false,
     onContinue,
@@ -538,7 +538,7 @@ export function VerifyEmail({
     );
 }
 
-/** Kratos sends the browser here when a flow fails outside the app's screens. */
+/** The auth service sends the browser here when a flow fails outside the app's screens. */
 export function AuthError() {
     const navigate = useNavigate();
     return (

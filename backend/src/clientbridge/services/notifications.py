@@ -137,7 +137,7 @@ def auth_email_message(locale: str, email: AuthEmailIn) -> tuple[str, str]:
 
 
 async def send_auth_email(email_sender: EmailSender, email: AuthEmailIn) -> None:
-    """Words and sends an email the Kratos courier handed over; a failure lets Kratos retry."""
+    """Words and sends an email the auth service handed over; a failure lets it retry."""
     subject, body = auth_email_message(locale_for(), email)
     await email_sender.send(Email(to=email.to, subject=subject, body=body))
 

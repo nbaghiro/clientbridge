@@ -154,12 +154,12 @@ export type FlowStep =
     | { kind: "reauth" }
     | { kind: "restart" };
 
-// The slice of the Kratos client the auth hooks drive (web: browser flows; mobile: native flows).
+// The slice of the auth service client the auth hooks drive (web: browser flows; mobile: native flows).
 export interface IdentityLike {
     start(
         kind: FlowKind,
         opts?: {
-            aal?: "aal2" | undefined;
+            secondFactor?: boolean | undefined;
             refresh?: boolean | undefined;
             returnTo?: string | undefined;
             sessionToken?: string | undefined;
@@ -167,7 +167,7 @@ export interface IdentityLike {
     ): Promise<Flow>;
     resume(kind: FlowKind, id: string, sessionToken?: string): Promise<Flow>;
     submit(flow: Flow, body: Record<string, unknown>, sessionToken?: string): Promise<FlowStep>;
-    session(sessionToken?: string): Promise<"active" | "aal2" | "none">;
+    session(sessionToken?: string): Promise<"active" | "second_factor" | "none">;
     whoami(sessionToken?: string): Promise<{ id: string; email: string } | null>;
     exchange(flow: Flow, returnToCode: string): Promise<string>;
     signOut(sessionToken?: string): Promise<void>;

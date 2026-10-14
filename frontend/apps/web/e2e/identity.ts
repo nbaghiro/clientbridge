@@ -73,7 +73,7 @@ async function mailed(
     throw new Error(`nothing mailed to ${email}`);
 }
 
-/** Deletes the Kratos identity behind `email`, as an operator would; its sessions die with it. */
+/** Deletes the auth identity behind `email`, as an operator would; its sessions die with it. */
 export async function deleteIdentity(request: APIRequestContext, email: string): Promise<void> {
     const found = (await (
         await request.get(`${AUTH_ADMIN}/admin/identities`, {

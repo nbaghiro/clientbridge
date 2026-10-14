@@ -6,7 +6,7 @@ import { webauthn } from "../lib/webauthn";
 
 const a = strings.auth;
 
-/** Account email and name, password, and second factors, all kept in Kratos. */
+/** Account email and name, password, and second factors, all kept in the auth service. */
 export function Security() {
     const s = useSecuritySettings(identity, {
         ...(webauthn ? { webauthn } : {}),

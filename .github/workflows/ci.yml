@@ -81,11 +81,11 @@ jobs:
                   time.sleep(1)
           PYTHON
       - run: make migrate
-      - run: make kratos-standalone  # the seed creates the demo users' Kratos identities
+      - run: make auth-standalone  # the seed creates the demo users' auth identities
       - run: make test-backend
-      - run: make test-kratos  # KratosIdentityProvider against the real Kratos
+      - run: make test-auth  # KratosIdentityProvider against the real auth service
       - if: failure()
-        run: docker logs kratos
+        run: docker logs auth
 
   contract:
     # The Stripe contract tier: the real StripeGateway against the OpenAPI mock. Marker-gated out of
@@ -241,7 +241,7 @@ jobs:
                   time.sleep(1)
           PYTHON
       - run: make migrate
-      - run: make kratos-standalone
+      - run: make auth-standalone
       - run: make seed
       - run: uv run uvicorn clientbridge.main:app --port 8701 > /tmp/api.log 2>&1 &
         working-directory: backend
@@ -338,7 +338,7 @@ jobs:
       - run: pnpm --filter web exec playwright install --with-deps chromium
         working-directory: frontend
       - run: make up migrate seed
-      - run: uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 > /tmp/api.log 2>&1 &  # 0.0.0.0: compose Kratos posts auth email here
+      - run: uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 > /tmp/api.log 2>&1 &  # 0.0.0.0: the compose auth service posts email here
         working-directory: backend
       - run: until curl -sf 127.0.0.1:8701/health; do sleep 1; done
         timeout-minutes: 2
@@ -353,7 +353,7 @@ jobs:
         run: |
           cat /tmp/api.log
           docker compose logs --no-color powersync | tail -200
-          docker compose logs --no-color kratos | tail -200
+          docker compose logs --no-color auth | tail -200
 
   shards:
     # Fails when a walkthrough is in no shard or in two, and hands the shard list to mobile-shard.
@@ -463,7 +463,7 @@ jobs:
       - name: start the stack and the API
         run: |
           ( make up migrate seed && cd backend \
-            && exec uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 ) > /tmp/api.log 2>&1 &  # 0.0.0.0: compose Kratos posts auth email here
+            && exec uv run uvicorn clientbridge.main:app --host 0.0.0.0 --port 8701 ) > /tmp/api.log 2>&1 &  # 0.0.0.0: the compose auth service posts email here
       - name: enable KVM for the emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -544,7 +544,7 @@ jobs:
           tail -200 frontend/apps/mobile/test-results/debug/maestro.log || true
           tail -300 frontend/apps/mobile/test-results/logcat.txt
           cat /tmp/api.log
-          docker compose logs --no-color kratos | tail -200
+          docker compose logs --no-color auth | tail -200
 
   mobile:
     # The required check: passes when the build and every shard passed.

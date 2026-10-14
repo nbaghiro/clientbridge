@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.errors import PaymentsNotConfigured
-from clientbridge.integrations.kratos import Identity
+from clientbridge.integrations.identity import Identity
 from clientbridge.integrations.stripe import PlanItem, PlanSubscription
 from clientbridge.models.business import Business, Staff
 from clientbridge.services import plans
@@ -147,7 +147,7 @@ async def test_accepting_rechecks_the_plan(
         verified_emails=frozenset({"late@test.ca"}),
         name="Late",
         session_id=str(uuid4()),
-        aal="aal1",
+        second_factor=False,
     )
     res = await as_owner.post(
         "/v1/staff/invites/accept",

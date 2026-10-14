@@ -2974,7 +2974,7 @@ export interface components {
         };
         /**
          * AuthEmailIn
-         * @description One message from the Kratos courier, shaped by infra/kratos/courier.jsonnet.
+         * @description One message from the auth service's courier, shaped by infra/auth/courier.jsonnet.
          */
         AuthEmailIn: {
             /**
@@ -4957,8 +4957,8 @@ export interface components {
             name: string | null;
             /** Email Verified */
             email_verified: boolean;
-            /** Aal */
-            aal: string;
+            /** Second Factor */
+            second_factor: boolean;
         };
         /** MessageOut */
         MessageOut: {

@@ -1,57 +1,21 @@
-"""Identity: Ory Kratos sessions, plus the admin calls account relinking and the seed need."""
+"""The auth service on Ory Kratos: sessions, plus the admin calls relinking and the seed need."""
 
-import hashlib
 import logging
 import time
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import lru_cache
-from typing import Protocol
 
 import httpx
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.emails import normalize_email
-from clientbridge.core.errors import AppError, Unauthorized
+from clientbridge.core.errors import Unauthorized
+from clientbridge.integrations.identity import Credential, Identity, IdentityProvider, unavailable
 
 _EXTEND_WITHIN = timedelta(hours=24)
 _CACHE_LIMIT = 10_000
 log = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True)
-class Identity:
-    id: str
-    email: str
-    verified_emails: frozenset[str]
-    name: str | None
-    session_id: str
-    aal: str
-
-    @property
-    def email_verified(self) -> bool:
-        return normalize_email(self.email) in self.verified_emails
-
-
-@dataclass(frozen=True)
-class Credential:
-    session_token: str = ""
-    cookie: str = ""
-
-    def cache_key(self) -> str:
-        raw = f"t:{self.session_token}" if self.session_token else f"c:{self.cookie}"
-        return hashlib.sha256(raw.encode()).hexdigest()
-
-
-class IdentityProvider(Protocol):
-    async def whoami(self, credential: Credential, *, fresh: bool = False) -> Identity: ...
-
-    async def identity_exists(self, identity_id: str) -> bool: ...
-
-
-def unavailable() -> AppError:
-    return AppError("identity service unavailable", code="identity_unavailable", status_code=503)
 
 
 def _dict(value: object) -> dict[str, object]:
@@ -89,7 +53,7 @@ def parse_session(payload: object) -> tuple[Identity, datetime | None, datetime 
             verified_emails=verified,
             name=_str(traits.get("name")),
             session_id=session_id,
-            aal=_str(session.get("authenticator_assurance_level")) or "aal1",
+            second_factor=session.get("authenticator_assurance_level") == "aal2",
         ),
         datetime.fromisoformat(expires) if expires else None,
         datetime.fromisoformat(signed_in) if signed_in else None,
@@ -124,7 +88,7 @@ class KratosIdentityProvider:
         )
         response = await self._call("GET", f"{self._public}/sessions/whoami", headers=headers)
         if response.status_code == 403 and "session_aal2_required" in response.text:
-            raise Unauthorized("second factor required", code="aal2_required")
+            raise Unauthorized("second factor required", code="second_factor_required")
         if response.status_code in (401, 403):
             raise Unauthorized("session expired", code="unauthenticated")
         if response.status_code != 200:
@@ -216,7 +180,7 @@ class KratosIdentityProvider:
 
 
 @lru_cache
-def get_kratos() -> KratosIdentityProvider:
+def get_identity_provider() -> IdentityProvider:
     settings = get_settings()
     return KratosIdentityProvider(
         settings.auth_public_url,
@@ -224,7 +188,3 @@ def get_kratos() -> KratosIdentityProvider:
         settings.auth_session_cookie,
         settings.identity_cache_ttl_seconds,
     )
-
-
-def get_identity_provider() -> IdentityProvider:
-    return get_kratos()

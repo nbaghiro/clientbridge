@@ -15,7 +15,7 @@ serve:
       exposed_headers: [Content-Type, Set-Cookie]
       allow_credentials: true
   admin:
-    base_url: http://kratos:4434/
+    base_url: http://auth:4434/
 
 selfservice:
   default_browser_return_url: http://localhost:8700/
@@ -63,7 +63,7 @@ selfservice:
             label: Google
             client_id: unset
             client_secret: unset
-            mapper_url: file:///etc/config/kratos/oidc.google.jsonnet
+            mapper_url: file:///etc/config/auth/oidc.google.jsonnet
             scope: [openid, email, profile]
             requested_claims:
               id_token:
@@ -118,6 +118,7 @@ session:
   lifespan: 720h
   earliest_possible_extend: 24h
   cookie:
+    name: cb_session
     same_site: Lax
   whoami:
     required_aal: highest_available
@@ -126,7 +127,7 @@ identity:
   default_schema_id: default
   schemas:
     - id: default
-      url: file:///etc/config/kratos/identity.schema.json
+      url: file:///etc/config/auth/identity.schema.json
 
 # The backend words and sends auth email (services/notifications.py); a non-2xx reply is retried.
 courier:
@@ -135,7 +136,7 @@ courier:
     request_config:
       url: http://host.docker.internal:8701/webhooks/auth-email
       method: POST
-      body: file:///etc/config/kratos/courier.jsonnet
+      body: file:///etc/config/auth/courier.jsonnet
       auth:
         type: api_key
         config:

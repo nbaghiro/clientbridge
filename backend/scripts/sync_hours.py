@@ -7,7 +7,8 @@ import httpx
 from sqlalchemy import delete, update
 
 from clientbridge.core.db import SessionLocal, engine
-from clientbridge.integrations.kratos import Credential, Identity, get_identity_provider
+from clientbridge.integrations.identity import Credential, Identity
+from clientbridge.integrations.kratos import get_identity_provider
 from clientbridge.main import create_app
 from clientbridge.models.business import Staff
 from clientbridge.models.scheduling import Hours
@@ -19,12 +20,12 @@ OWNER = Identity(
     verified_emails=frozenset({"owner@sync.test"}),
     name="owner",
     session_id="sync-hours",
-    aal="aal1",
+    second_factor=False,
 )
 
 
 class OwnerSession:
-    """The disposable sync stack runs no Kratos; every request is the seeded owner."""
+    """The disposable sync stack runs no auth service; every request is the seeded owner."""
 
     async def whoami(self, credential: Credential, *, fresh: bool = False) -> Identity:
         return OWNER

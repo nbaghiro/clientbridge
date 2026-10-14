@@ -26,7 +26,7 @@ interface Options {
 const descriptors = (list: Descriptor[] | undefined): PublicKeyCredentialDescriptor[] =>
     (list ?? []).map((d) => ({ ...d, id: decode(d.id) }));
 
-// Kratos hands over JSON options with base64url buffers and expects the credential back the same way.
+// The auth service hands over JSON options with base64url buffers and expects the credential back the same way.
 export const webauthn: WebAuthnLike | undefined =
     "PublicKeyCredential" in window
         ? {

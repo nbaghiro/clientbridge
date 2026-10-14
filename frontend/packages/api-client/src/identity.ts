@@ -39,7 +39,7 @@ export type FlowStep =
     | { kind: "reauth" }
     | { kind: "restart" };
 
-type SessionState = "active" | "aal2" | "none";
+type SessionState = "active" | "second_factor" | "none";
 
 interface SessionIdentity {
     id: string;
@@ -47,7 +47,7 @@ interface SessionIdentity {
 }
 
 interface StartOptions {
-    aal?: "aal2" | undefined;
+    secondFactor?: boolean | undefined;
     refresh?: boolean | undefined;
     returnTo?: string | undefined;
     sessionToken?: string | undefined;
@@ -193,10 +193,10 @@ export function createIdentityClient(opts: IdentityOptions): IdentityClient {
     return {
         async start(kind, startOpts = {}) {
             const query = new URLSearchParams();
-            if (startOpts.aal) query.set("aal", startOpts.aal);
+            if (startOpts.secondFactor) query.set("aal", "aal2");
             if (startOpts.refresh) query.set("refresh", "true");
             if (startOpts.returnTo) query.set("return_to", startOpts.returnTo);
-            if (!browser && kind === "login" && opts.nativeReturnTo && !startOpts.aal) {
+            if (!browser && kind === "login" && opts.nativeReturnTo && !startOpts.secondFactor) {
                 query.set("return_session_token_exchange_code", "true");
                 query.set("return_to", opts.nativeReturnTo);
             }
@@ -265,7 +265,8 @@ export function createIdentityClient(opts: IdentityOptions): IdentityClient {
             const res = await request("/sessions/whoami", {}, sessionToken);
             if (res.ok) return "active";
             const json = await body(res);
-            if (res.status === 403 && errorId(json) === "session_aal2_required") return "aal2";
+            if (res.status === 403 && errorId(json) === "session_aal2_required")
+                return "second_factor";
             if (res.status === 401 || res.status === 403) return "none";
             throw new IdentityError(res.status, errorId(json) || "identity_unavailable");
         },

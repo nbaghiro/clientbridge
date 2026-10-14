@@ -29,7 +29,7 @@ class Settings(BaseSettings):
 
     auth_public_url: str = "http://localhost:8713"
     auth_admin_url: str = "http://localhost:8714"
-    auth_session_cookie: str = "ory_kratos_session"
+    auth_session_cookie: str = "cb_session"
     identity_cache_ttl_seconds: float = 30
     # A session dies this long after its sign-in, however often it was extended.
     session_max_age_days: int = 90
@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     stripe_card_present_bps: int = 270
     stripe_acss_debit_bps: int = 100
     stripe_conversion_bps: int = 200
-    auth_email_hook_secret: str = _DEV_COURIER_SECRET  # matches docker-compose.yml's kratos
+    auth_email_hook_secret: str = _DEV_COURIER_SECRET  # matches docker-compose.yml's auth
 
     # Outreach channels; empty credentials select the no-op console senders.
     resend_api_key: str = ""
@@ -165,7 +165,7 @@ class Settings(BaseSettings):
         return 1000 if self.env == "dev" else 30
 
     def app_origins(self) -> list[str]:
-        """The only origins that may send the Kratos cookie: the web app (and its e2e copy)."""
+        """The only origins that may send the session cookie: the web app (and its e2e copy)."""
         return [self.web_base_url, *(_DEV_E2E_ORIGINS if self.env == "dev" else ())]
 
 

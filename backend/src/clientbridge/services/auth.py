@@ -1,4 +1,4 @@
-"""The local profile behind each Kratos identity, created on its first authenticated request."""
+"""The local profile behind each auth identity, created on its first authenticated request."""
 
 from datetime import timedelta
 
@@ -11,7 +11,7 @@ from sqlalchemy.sql import Executable
 from clientbridge.core import clock
 from clientbridge.core.errors import Conflict
 from clientbridge.core.ids import new_id
-from clientbridge.integrations.kratos import Identity, IdentityProvider
+from clientbridge.integrations.identity import Identity, IdentityProvider
 from clientbridge.models.business import User
 
 SEEN_EVERY = timedelta(minutes=5)

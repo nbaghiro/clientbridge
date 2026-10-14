@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ratelimit import RateLimiter, public_invite_rate_limit
-from clientbridge.integrations.kratos import Identity
+from clientbridge.integrations.identity import Identity
 from clientbridge.main import app
 from clientbridge.models.business import Business
 from clientbridge.models.platform import Audit
@@ -79,7 +79,7 @@ def _joiner(
         verified_emails=frozenset({address.casefold()}) if verified else frozenset(),
         name="Joiner",
         session_id=str(uuid4()),
-        aal="aal1",
+        second_factor=False,
     )
     return {"X-Session-Token": identities.issue(identity), "X-Business-Id": ""}
 

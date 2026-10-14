@@ -25,7 +25,7 @@ const session = createSession({
     onSignedOut: () => {
         signedOutHandler();
     },
-    // The Kratos cookie stays; the login screen sees the session wants a second factor.
+    // The session cookie stays; the login screen sees the session wants a second factor.
     onStepUp: () => {
         signedOutHandler();
     },

@@ -1,10 +1,10 @@
-.PHONY: help up down logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-kratos kratos-standalone test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
+.PHONY: help up down logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth auth-standalone test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
 .DEFAULT_GOAL := help
 
 help:
-	@echo "up / down        docker compose infra (postgres, powersync, kratos, mailpit, redis, s3 on 87xx ports)"
+	@echo "up / down        docker compose infra (postgres, powersync, auth, mailpit, redis, s3 on 87xx ports)"
 	@echo "logs-sync        follow the PowerSync logs"
-	@echo "logs-auth        follow the Kratos logs (verification and recovery mail is on :8715)"
+	@echo "logs-auth        follow the auth service logs (verification and recovery mail is on :8715)"
 	@echo "install          uv sync (backend) and pnpm install (frontend)"
 	@echo "stripe-listen    forward our Stripe webhook events to the local API (sandbox only)"
 	@echo "stripe-setup     plan the Stripe sandbox objects the demo needs (ARGS=--apply to create)"
@@ -39,8 +39,8 @@ help:
 	@echo "test-backend     pytest with the 90% branch-coverage gate, on a freshly seeded database of its own"
 	@echo "test-frontend    the frontend unit tests, with app-core again in three time zones"
 	@echo "test-contract    real StripeGateway vs stripe-mock (starts it; skips locally and fails in CI if it is down)"
-	@echo "test-kratos      KratosIdentityProvider vs the local Kratos (skips locally and fails in CI if it is down)"
-	@echo "kratos-standalone Kratos on the host network for CI (Postgres as a service container)"
+	@echo "test-auth        KratosIdentityProvider vs the local auth service (skips locally, fails in CI if it is down)"
+	@echo "auth-standalone  the auth service on the host network for CI (Postgres as a service container)"
 	@echo "test-e2e         Stripe and Resend test-mode flows (needs STRIPE_TEST_SECRET_KEY, RESEND_TEST_API_KEY and RESEND_TEST_FROM)"
 	@echo "stripe-mock      start the stripe-mock contract-test service on :8708"
 	@echo "lint             lint-backend + lint-frontend"
@@ -57,8 +57,8 @@ up:
 	docker compose up -d --wait --wait-timeout 60 postgres
 	cd backend && uv run python -m scripts.db_access roles
 	docker compose up -d
-	docker compose up -d --wait --wait-timeout 120 kratos
-	@echo "infra up. PowerSync on :8704, Kratos on :8713, Mailpit on :8715 (run 'make migrate seed' if the DB is fresh)."
+	docker compose up -d --wait --wait-timeout 120 auth
+	@echo "infra up. PowerSync on :8704, auth on :8713, Mailpit on :8715 (run 'make migrate seed' if the DB is fresh)."
 
 down:
 	docker compose down
@@ -67,7 +67,7 @@ logs-sync:
 	docker compose logs -f powersync
 
 logs-auth:
-	docker compose logs -f kratos
+	docker compose logs -f auth
 
 install:
 	cd backend && uv sync
@@ -188,13 +188,13 @@ stripe-mock:
 test-contract: stripe-mock
 	cd backend && uv run pytest -m contract -q
 
-# Contract tier: the real KratosIdentityProvider vs the local Kratos; skips locally and fails in CI when it is down.
-test-kratos:
+# Contract tier: the real KratosIdentityProvider vs the local auth service; skips locally, fails in CI when it is down.
+test-auth:
 	cd backend && uv run pytest -m kratos -q
 
-# CI only: Kratos without docker compose, for jobs whose Postgres is a service container.
-kratos-standalone:
-	./infra/kratos/standalone.sh
+# CI only: the auth service without docker compose, for jobs whose Postgres is a service container.
+auth-standalone:
+	./infra/auth/standalone.sh
 
 # E2E tier: real Stripe test mode. Skips unless STRIPE_TEST_SECRET_KEY is exported.
 test-e2e:

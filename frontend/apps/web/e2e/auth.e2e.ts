@@ -367,10 +367,10 @@ test("an invitee who verifies from the emailed link in a new tab lands back on t
         await page.getByRole("button", { name: s.inviteSignUp, exact: true }).click();
         await startSignUp(page, account);
         const tab = await page.context().newPage();
-        // Kratos redirects to its configured web origin (:8700); the e2e app runs on its own port.
+        // The auth service redirects to its configured web origin (:8700); the e2e app runs on its own port.
         await tab.route(/\/self-service\/verification\?code=/, async (route) => {
-            const kratos = await route.fetch({ maxRedirects: 0 });
-            const target = new URL(kratos.headers().location ?? "/");
+            const auth = await route.fetch({ maxRedirects: 0 });
+            const target = new URL(auth.headers().location ?? "/");
             target.port = new URL(baseURL ?? "").port;
             await route.fulfill({ status: 303, headers: { location: target.href } });
         });

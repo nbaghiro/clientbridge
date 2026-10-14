@@ -11,7 +11,7 @@ from scripts.demo_context import DemoContext
 
 
 def placeholder_identity(email: str) -> str:
-    """Stable until the seed links the real Kratos identity, so the demo graph builds offline."""
+    """Stable until the seed links the real auth identity, so the demo graph builds offline."""
     return str(uuid5(NAMESPACE_URL, f"clientbridge-demo:{email}"))
 
 

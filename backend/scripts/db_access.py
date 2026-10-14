@@ -16,12 +16,12 @@ ADMIN_URL = os.environ.get(
     "postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge",
 )
 STORAGE_DB = "powersync_storage"
-KRATOS_DB = "kratos"
+AUTH_DB = "auth"
 MIGRATOR = "clientbridge_migrator"
 API = "clientbridge_api"
 SOURCE = "powersync_source"
 STORAGE = "powersync_storage_owner"
-KRATOS = "kratos"
+AUTH = "auth"
 
 
 def quote(identifier: str) -> str:
@@ -39,7 +39,7 @@ def passwords() -> dict[str, str]:
         API: make_url(settings.database_url).password or API,
         SOURCE: os.environ.get("POWERSYNC_SOURCE_PASSWORD", SOURCE),
         STORAGE: os.environ.get("POWERSYNC_STORAGE_PASSWORD", STORAGE),
-        KRATOS: os.environ.get("KRATOS_DB_PASSWORD", KRATOS),
+        AUTH: os.environ.get("AUTH_DB_PASSWORD", AUTH),
     }
 
 
@@ -59,7 +59,7 @@ async def ensure_role(
 
 async def roles(conn: AsyncConnection, database: str) -> None:
     secrets = passwords()
-    for role in (MIGRATOR, API, STORAGE, KRATOS):
+    for role in (MIGRATOR, API, STORAGE, AUTH):
         await ensure_role(conn, role, secrets[role], replication=False)
     await ensure_role(conn, SOURCE, secrets[SOURCE], replication=True)
     db = quote(database)
@@ -76,7 +76,7 @@ async def roles(conn: AsyncConnection, database: str) -> None:
         )
     if not await conn.scalar(text("SELECT 1 FROM pg_publication WHERE pubname = 'powersync'")):
         await conn.execute(text("CREATE PUBLICATION powersync"))
-    for name, owner in ((STORAGE_DB, STORAGE), (KRATOS_DB, KRATOS)):
+    for name, owner in ((STORAGE_DB, STORAGE), (AUTH_DB, AUTH)):
         await owned_database(conn, name, owner)
 
 

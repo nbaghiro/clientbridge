@@ -12,7 +12,8 @@ from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.emails import normalize_email
 from clientbridge.core.errors import AppError, Unauthorized
-from clientbridge.integrations.kratos import Credential, KratosIdentityProvider
+from clientbridge.integrations.identity import Credential
+from clientbridge.integrations.kratos import KratosIdentityProvider
 from tests.helpers import service_missing
 
 Handler = Callable[[httpx.Request], httpx.Response]
@@ -53,7 +54,7 @@ def provider(handler: Handler, *, ttl: float = 30) -> tuple[KratosIdentityProvid
     kratos = KratosIdentityProvider(
         "http://kratos.test/",
         "http://admin.test",
-        "ory_kratos_session",
+        "cb_session",
         ttl,
         httpx.MockTransport(record),
     )
@@ -65,10 +66,10 @@ async def test_whoami_parses_the_session() -> None:
     identity = await kratos.whoami(Credential(session_token="tok"))
     assert (identity.id, identity.email, identity.name) == ("id-1", "Pat@Test.ca", "Pat")
     assert identity.verified_emails == frozenset({"pat@test.ca"}) and identity.email_verified
-    assert (identity.session_id, identity.aal) == ("ses-1", "aal2")
+    assert (identity.session_id, identity.second_factor) == ("ses-1", True)
 
 
-async def test_only_the_kratos_cookie_or_token_is_forwarded() -> None:
+async def test_only_the_session_cookie_or_token_is_forwarded() -> None:
     requests: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -78,7 +79,7 @@ async def test_only_the_kratos_cookie_or_token_is_forwarded() -> None:
     kratos, _ = provider(handler)
     await kratos.whoami(Credential(cookie="c00kie"))
     await kratos.whoami(Credential(session_token="tok"))
-    assert requests[0].headers["cookie"] == "ory_kratos_session=c00kie"
+    assert requests[0].headers["cookie"] == "cb_session=c00kie"
     assert "x-session-token" not in requests[0].headers
     assert requests[1].headers["x-session-token"] == "tok" and "cookie" not in requests[1].headers
 
@@ -87,7 +88,10 @@ async def test_only_the_kratos_cookie_or_token_is_forwarded() -> None:
     ("response", "code"),
     [
         (httpx.Response(401, json={"error": {"id": "session_inactive"}}), "unauthenticated"),
-        (httpx.Response(403, json={"error": {"id": "session_aal2_required"}}), "aal2_required"),
+        (
+            httpx.Response(403, json={"error": {"id": "session_aal2_required"}}),
+            "second_factor_required",
+        ),
         (httpx.Response(403, json={"error": {"id": "forbidden"}}), "unauthenticated"),
         (httpx.Response(200, json=session(active=False)), "unauthenticated"),
         (httpx.Response(200, json={"identity": {}}), "unauthenticated"),

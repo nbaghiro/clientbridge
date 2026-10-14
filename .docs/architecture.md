@@ -37,13 +37,13 @@ lint-compatibility and pyright checks against 3.14. The `pyproject` floor is `>=
 feature.** The rule: a **server-only invariant** — uniqueness/numbering, capacity/conflict, money,
 secrets, cross-tenant — must be a **command**, never unvalidated replica CRUD.
 
-| #   | Surface              | What it is                                                                                                                                  | Auth                                                            | Examples                                                 |
-| --- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------------- |
-| 1   | **Sync-read**        | PowerSync streams each device its authorized rows into local SQLite                                                                         | Sync Streams                                                    | calendar, clients, invoices on-device                    |
-| 2   | **Offline command**  | Local-only durable intent → typed `/v1` command → authoritative replication                                                                 | Kratos session + service role/tenant checks + expected revision | edit working hours                                       |
-| 3   | **Command / RPC**    | FastAPI `POST/PATCH/DELETE` under `/v1/*`, wrapped in `run_command` (atomic + audited + idempotent) → writes Postgres → flows back via sync | Kratos session + role                                           | book a slot, issue an invoice, take a payment            |
-| 4   | **Webhook / public** | inbound provider callbacks + unauthenticated public pages                                                                                   | signature / token / slug                                        | Stripe/SMS/email webhooks; book/pay/form/contract/review |
-| 5   | **Job**              | arq background work on Redis                                                                                                                | system                                                          | reminders, reap-unpaid, broadcasts, overdue sweep        |
+| #   | Surface              | What it is                                                                                                                                  | Auth                                                          | Examples                                                 |
+| --- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------- |
+| 1   | **Sync-read**        | PowerSync streams each device its authorized rows into local SQLite                                                                         | Sync Streams                                                  | calendar, clients, invoices on-device                    |
+| 2   | **Offline command**  | Local-only durable intent → typed `/v1` command → authoritative replication                                                                 | Auth session + service role/tenant checks + expected revision | edit working hours                                       |
+| 3   | **Command / RPC**    | FastAPI `POST/PATCH/DELETE` under `/v1/*`, wrapped in `run_command` (atomic + audited + idempotent) → writes Postgres → flows back via sync | Auth session + role                                           | book a slot, issue an invoice, take a payment            |
+| 4   | **Webhook / public** | inbound provider callbacks + unauthenticated public pages                                                                                   | signature / token / slug                                      | Stripe/SMS/email webhooks; book/pay/form/contract/review |
+| 5   | **Job**              | arq background work on Redis                                                                                                                | system                                                        | reminders, reap-unpaid, broadcasts, overdue sweep        |
 
 **Decision rule** — where does a new operation go?
 
@@ -78,7 +78,7 @@ clientbridge/
 │       ├── services/           business logic — one file per concept (33)
 │       ├── api/                router.py (mounts /v1) · one router file per concept · public.py · webhooks.py
 │       ├── sync/               auth.py (token/JWKS)
-│       ├── integrations/       stripe · resend · twilio · expo · kratos · s3 (provider adapters)
+│       ├── integrations/       identity · kratos · stripe · resend · twilio · expo · s3 (provider adapters)
 │       └── tasks/              worker.py: the arq cron schedule
 ├── frontend/           ── TypeScript · pnpm + turbo ──
 │   ├── apps/
@@ -90,11 +90,11 @@ clientbridge/
 │       ├── app-core/   shared view-model hooks + strings + icons + UI prop contracts (ui.ts)
 │       ├── ui/         shared components: src/web (DOM, web + Connect) · src/mobile (React Native)
 │       ├── sync/       PowerSync AppSchema + backend connector
-│       ├── api-client/ generated OpenAPI types + session (cookie/token) + Kratos flow client
+│       ├── api-client/ generated OpenAPI types + session (cookie/token) + auth flow client (Kratos)
 │       ├── tokens/     Pewter design system → Tailwind theme + RN theme
 │       └── config/     shared eslint/prettier, the copy lint rules and the e2e helpers (axe, focus, hover, en-XA)
 ├── infra/powersync/    powersync.yaml (service config) · sync-rules.yaml (read authz)
-├── infra/kratos/       kratos.yml · identity schema · Google mapper · courier body
+├── infra/auth/         the auth service (Kratos): kratos.yml · identity schema · Google mapper · courier body
 └── .docs/              architecture · engineering · launch-readiness · design/
 ```
 
@@ -128,17 +128,17 @@ with the subclass's HTTP status, and a request that fails validation as `invalid
 
 ### The cross-cutting core (`core/`)
 
-| File           | Responsibility                                                                                                                                                                                                                                                                                                                                                                             |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `command.py`   | **The command wrapper.** `run_command(db, principal, *, action, run, response_model, idempotency_key)` — replays a stored response for a repeated key, stages `Command.record(...)` audit rows, then commits mutation + audit + idempotency key as **one atomic unit** (rollback on any error). Money/uniqueness/cross-tenant mutations go through it.                                     |
-| `scoping.py`   | **The one place the tenant filter lives.** `scoped(Model, business_id, soft_delete=…)` + `scoped_update`/`scoped_delete`. Services **never** hand-write a `business_id` filter.                                                                                                                                                                                                            |
-| `deps.py`      | DI hub — DB session, adapter aliases (`EmailDep`, `GatewayDep`, `IdentityDep`…), the auth chain (`current_identity` asks Kratos who the session is, `current_user` links the local user, `current_principal` re-derives business/role from the DB every request, honoring `X-Business-Id`), and role gates (`assert_role`, `is_manager`).                                                  |
-| `config.py`    | Pydantic-settings and the origin lists: `app_origins()` (only `WEB_BASE_URL`; credentialed CORS and the cookie Origin check) and `CORS_ALLOW_ORIGINS` (Connect and Pay, without credentials, through `core/cors.py`). **Fails closed in prod:** refuses to boot without real secrets (Stripe, Twilio, Resend and the auth email hook), an https Kratos public URL or a separate admin URL. |
-| `security.py`  | Argon2 hashing for the desk discount PIN · SHA-256 opaque-token hashing (invites) · the PowerSync token (HS256 or RS256 + a JWKS endpoint for prod).                                                                                                                                                                                                                                       |
-| `ids.py`       | Prefixed-ULID PKs (`bz_…`, `bk_…`), time-sortable.                                                                                                                                                                                                                                                                                                                                         |
-| `errors.py`    | `AppError` taxonomy → HTTP status (`NotFound` 404, `Conflict` 409, `CardDeclined` 402, `TooManyRequests` 429…).                                                                                                                                                                                                                                                                            |
-| `ratelimit.py` | In-process sliding-window limiters, one per worker process, for the seven public groups (pay, review, form, contract, booking, which the shop and returning-client checks share, preferences and invite preview): 30 requests a minute from one address each, 1000 with `ENV=dev`. The desk discount PIN has its own limiter in `services/orders.py` (5 tries per 5 minutes).              |
-| `db.py`        | Async engine + `SessionLocal` + the `Base` model metadata.                                                                                                                                                                                                                                                                                                                                 |
+| File           | Responsibility                                                                                                                                                                                                                                                                                                                                                                           |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `command.py`   | **The command wrapper.** `run_command(db, principal, *, action, run, response_model, idempotency_key)` — replays a stored response for a repeated key, stages `Command.record(...)` audit rows, then commits mutation + audit + idempotency key as **one atomic unit** (rollback on any error). Money/uniqueness/cross-tenant mutations go through it.                                   |
+| `scoping.py`   | **The one place the tenant filter lives.** `scoped(Model, business_id, soft_delete=…)` + `scoped_update`/`scoped_delete`. Services **never** hand-write a `business_id` filter.                                                                                                                                                                                                          |
+| `deps.py`      | DI hub — DB session, adapter aliases (`EmailDep`, `GatewayDep`, `IdentityDep`…), the auth chain (`current_identity` asks the auth service who the session is, `current_user` links the local user, `current_principal` re-derives business/role from the DB every request, honoring `X-Business-Id`), and role gates (`assert_role`, `is_manager`).                                      |
+| `config.py`    | Pydantic-settings and the origin lists: `app_origins()` (only `WEB_BASE_URL`; credentialed CORS and the cookie Origin check) and `CORS_ALLOW_ORIGINS` (Connect and Pay, without credentials, through `core/cors.py`). **Fails closed in prod:** refuses to boot without real secrets (Stripe, Twilio, Resend and the auth email hook), an https auth public URL or a separate admin URL. |
+| `security.py`  | Argon2 hashing for the desk discount PIN · SHA-256 opaque-token hashing (invites) · the PowerSync token (HS256 or RS256 + a JWKS endpoint for prod).                                                                                                                                                                                                                                     |
+| `ids.py`       | Prefixed-ULID PKs (`bz_…`, `bk_…`), time-sortable.                                                                                                                                                                                                                                                                                                                                       |
+| `errors.py`    | `AppError` taxonomy → HTTP status (`NotFound` 404, `Conflict` 409, `CardDeclined` 402, `TooManyRequests` 429…).                                                                                                                                                                                                                                                                          |
+| `ratelimit.py` | In-process sliding-window limiters, one per worker process, for the seven public groups (pay, review, form, contract, booking, which the shop and returning-client checks share, preferences and invite preview): 30 requests a minute from one address each, 1000 with `ENV=dev`. The desk discount PIN has its own limiter in `services/orders.py` (5 tries per 5 minutes).            |
+| `db.py`        | Async engine + `SessionLocal` + the `Base` model metadata.                                                                                                                                                                                                                                                                                                                               |
 
 ### Role gates
 
@@ -153,8 +153,8 @@ hand-written role tuple check.
 Every external dependency is an **adapter interface (`typing.Protocol`) + a prod implementation + a `get_*()`
 dependency** that tests override with a recording fake — so the boundary is covered without the network.
 Six adapters in `integrations/`, one per provider so they read apart from our own services:
-`stripe.py` (Stripe Connect + Terminal), `resend.py` (email, the SMTP transport for Mailpit in dev, and the Svix check on the delivery webhook), `twilio.py` (SMS), `expo.py` (push), `kratos.py`
-(Ory Kratos sessions and admin calls), `s3.py` (S3; RustFS locally).
+`stripe.py` (Stripe Connect + Terminal), `resend.py` (email, the SMTP transport for Mailpit in dev, and the Svix check on the delivery webhook), `twilio.py` (SMS), `expo.py` (push), `identity.py`
+(the auth service's interface: `Identity`, `Credential`, `IdentityProvider`) with `kratos.py` (its Ory Kratos implementation and `get_identity_provider`), `s3.py` (S3; RustFS locally).
 
 ### Jobs (`tasks/`)
 
@@ -171,7 +171,7 @@ zone and `locale_for(...)` its text renders in), and each is idempotent via a st
 
 ## The data model
 
-**43 tables** across the 12 domains; credentials and sessions live in Ory Kratos's own database. Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
+**43 tables** across the 12 domains; credentials and sessions live in the auth service's own database. Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
 records every money movement and is the only place money balances are stored. The SQLAlchemy models in
 `backend/src/clientbridge/models/` are the exact-DDL source of truth; the migrations in
 `migrations/versions/` start from one baseline (squashed before launch) with increments after it.
@@ -218,7 +218,7 @@ shown after it.
 ### Tables by domain
 
 **business (3)** — `businesses` (all Stripe-Connect/KYC mirror fields + Canadian tax fields + `slug` + brand
-JSONB), `users` (one per Kratos identity via unique `identity_id`; `email` copied from Kratos, `last_seen_at`, desk `pin_hash`), `staff` (user↔business, `role`
+JSONB), `users` (one per auth identity via unique `identity_id`; `email` copied from the auth service, `last_seen_at`, desk `pin_hash`), `staff` (user↔business, `role`
 owner/admin/staff/contractor, payout config `payee`/`rate_type` with the rate in `rate_bps` (percent) or
 `rate_cents` (fixed or hourly), one membership per user per business, pending invites via
 `status=invited` + hashed `invite_token`).
@@ -350,7 +350,7 @@ build + permanent maintenance.)
 
 ### Database roles and replication
 
-`scripts/db_access.py` creates five roles (the fifth, `kratos`, owns the `kratos` database) and is run by `make up` and `make migrate`. `clientbridge_migrator` owns the schema and runs Alembic and the demo seed (`MIGRATION_DATABASE_URL`). `clientbridge_api` has data access without DDL (`DATABASE_URL`). `powersync_source` has `REPLICATION` and `SELECT` on synced tables only. `powersync_storage_owner` owns the `powersync_storage` database. The `powersync` publication lists exactly the synced tables, generated from the stream config, so users, receipts, commands, audits and webhooks never reach the replication service. Kratos has its own `kratos` database and role. `make replication-health` fails when PowerSync is not ready, its slot is inactive, retained WAL exceeds 1 GiB or replay lag exceeds 60 seconds.
+`scripts/db_access.py` creates five roles (the fifth, `auth`, owns the `auth` database) and is run by `make up` and `make migrate`. `clientbridge_migrator` owns the schema and runs Alembic and the demo seed (`MIGRATION_DATABASE_URL`). `clientbridge_api` has data access without DDL (`DATABASE_URL`). `powersync_source` has `REPLICATION` and `SELECT` on synced tables only. `powersync_storage_owner` owns the `powersync_storage` database. The `powersync` publication lists exactly the synced tables, generated from the stream config, so users, receipts, commands, audits and webhooks never reach the replication service. The auth service has its own `auth` database and role. `make replication-health` fails when PowerSync is not ready, its slot is inactive, retained WAL exceeds 1 GiB or replay lag exceeds 60 seconds.
 
 ### Attachments
 
@@ -358,11 +358,11 @@ build + permanent maintenance.)
 
 ### Device storage
 
-Replicas are named per API, PowerSync URL and user, and refuse a database that belongs to another account. When the API says the session is gone, the shell removes the replica from the screen and shows sign-in; the data and pending work stay on the device for the same account, and sign-out clears them. Web asks the browser to keep its storage persistent. A full device shows its own sync problem. Neither platform encrypts the database at the application level: browser storage does not protect against a script running on the same origin, mobile relies on the platform's file protection, the Kratos session token is in SecureStore on mobile, and on web the session is an HttpOnly cookie (`localStorage` keeps only the user id whose replica is open).
+Replicas are named per API, PowerSync URL and user, and refuse a database that belongs to another account. When the API says the session is gone, the shell removes the replica from the screen and shows sign-in; the data and pending work stay on the device for the same account, and sign-out clears them. Web asks the browser to keep its storage persistent. A full device shows its own sync problem. Neither platform encrypts the database at the application level: browser storage does not protect against a script running on the same origin, mobile relies on the platform's file protection, the session token is in SecureStore on mobile, and on web the session is an HttpOnly cookie (`localStorage` keeps only the user id whose replica is open).
 
 ### `/sync/token` + JWKS (`sync/auth.py`)
 
-Exchanges a Kratos session (cookie or `X-Session-Token`) for a short-lived PowerSync token whose `sub` is `users.id`; serves the RS256 JWKS at `/sync/keys`. Development uses HS256. Production uses RS256 with `POWERSYNC_USE_RS256=true` and `powersync.yaml` `jwks_uri` pointing to `/sync/keys`.
+Exchanges an auth session (cookie or `X-Session-Token`) for a short-lived PowerSync token whose `sub` is `users.id`; serves the RS256 JWKS at `/sync/keys`. Development uses HS256. Production uses RS256 with `POWERSYNC_USE_RS256=true` and `powersync.yaml` `jwks_uri` pointing to `/sync/keys`.
 
 ### The hours write path
 
@@ -376,23 +376,31 @@ Direct writes to synchronized tables are programming errors. There is no generic
 
 ---
 
-## Identity (Ory Kratos)
+## Identity (the auth service)
 
-Self-hosted Kratos (`infra/kratos/`, public :8713, admin :8714) owns credentials, sessions, email
+The auth service is self-hosted Ory Kratos. It is named `auth` wherever it runs (the compose service,
+workload, database and role, `AUTH_*` settings, `infra/auth/`); Kratos is named only in the backend
+adapter (`integrations/kratos.py`), the api-client's flow client (`identity.ts`) and files in Kratos's
+format, so another provider replaces those and keeps the rest. The API depends on `IdentityProvider`
+(`integrations/identity.py`), and its contract speaks of a second factor, never of Kratos's assurance
+levels. The auth hooks in app-core still read Kratos's flow shapes (nodes and message ids); moving them
+behind a provider-neutral contract is _Auth provider independence_ under After launch in launch-readiness.
+
+The auth service (`infra/auth/`, public :8713, admin :8714) owns credentials, sessions, email
 verification, recovery, Google sign-in, second factors (TOTP, backup codes, WebAuthn on web) and the
 settings flow. The apps drive its self-service flows directly with their own screens (app-core
 `useAuthForm`, `useRecoveryForm`, `useVerificationForm`, `useSecuritySettings`): web uses browser
 flows and an HttpOnly session cookie on the shared parent domain; mobile uses native flows and keeps
-the session token in SecureStore. Kratos makes and checks every emailed code, but its courier hands each
+the session token in SecureStore. The auth service makes and checks every emailed code, but its courier hands each
 message to `POST /webhooks/auth-email` (shared `AUTH_EMAIL_HOOK_SECRET`, shaped by
-`infra/kratos/courier.jsonnet`), which words it in `notifications.py` and sends it through `EmailSender`;
-a non-2xx reply makes Kratos retry.
+`infra/auth/courier.jsonnet`), which words it in `notifications.py` and sends it through `EmailSender`;
+a non-2xx reply makes it retry.
 
 - **API edge** — `current_identity` sends the session to `/sessions/whoami` (30 s in-process cache;
   `/v1/me`, onboarding and invite accept read it fresh, so a just-verified email or a step-up counts at
   once; `/v1/me` also provisions from that fresh read, so a relink lands on the first retry). It extends sessions nearing expiry, best effort, and refuses any session signed in more than
-  `SESSION_MAX_AGE_DAYS` (90) ago, ending it in Kratos too so the next sign-in starts fresh. No session is 401 `unauthenticated`; a missing second factor is
-  401 `aal2_required` (the apps step up instead of signing out); Kratos unreachable is 503, never a
+  `SESSION_MAX_AGE_DAYS` (90) ago, ending it in the auth service too so the next sign-in starts fresh. No session is 401 `unauthenticated`; a missing second factor is
+  401 `second_factor_required` (the apps step up instead of signing out); the auth service unreachable is 503, never a
   sign-out.
 - **Origins** — only the staff web app (`WEB_BASE_URL`) gets credentialed CORS, and cookie-authenticated
   writes must carry its `Origin` (`core/cors.py`, `app_origins()`). The cookie also rides along on
@@ -405,7 +413,7 @@ a non-2xx reply makes Kratos retry.
   is 401 `session_changed`, so one account's sync never writes into another's replica.
 - **Removal** — removing a staff member ends that membership only; the next request for that business
   is 403, and the person stays signed in for any other business.
-- **Relinking** — if an identity is deleted in Kratos and the person signs up again with the same,
+- **Relinking** — if an identity is deleted in the auth service and the person signs up again with the same,
   verified email, the existing `users` row moves to the new identity; otherwise the email stays 409.
   The apps treat that 409 as a held session (app-core `checkSession`): the verify screen with a
   sign-out, never the sign-in screen, which would find the live session and loop.
@@ -413,9 +421,9 @@ a non-2xx reply makes Kratos retry.
   storage (never in a URL again) through sign-up, verification and Google, and the page sends
   `Referrer-Policy: no-referrer`. The preview is a rate-limited `POST`.
 - **Password changes** — changing or resetting a password revokes every other session of that
-  identity (Kratos `revoke_active_sessions` hook on settings and recovery).
-- **Not built in** — Kratos OSS has no login lockout; production rate-limits `/self-service/*` at
-  the proxy (CLI-5). The admin API must stay on the private network.
+  identity (the `revoke_active_sessions` hook on settings and recovery in `kratos.yml`).
+- **Not built in** — Kratos OSS has no login lockout; production rate-limits the auth service's
+  `/self-service/*` paths at the proxy (CLI-5). The admin API must stay on the private network.
 
 ## Authorization & visibility
 
@@ -720,7 +728,7 @@ text or Connect message pushes to the business's active staff devices.
 
 ### Auth
 
-Owners and staff sign in through Ory Kratos (see _Identity_): email and password, Google, and second
+Owners and staff sign in through the auth service (see _Identity_): email and password, Google, and second
 factors, with the session in an HttpOnly cookie on web and a session token in SecureStore on mobile. The
 API holds no passwords, sessions or reset tokens; the only token it signs is the short-lived PowerSync JWT.
 Clients **book without an account** (name, phone and email on the public page); a returning client proves
@@ -734,12 +742,12 @@ via `clients.user_id`.
 **All product logic lives in `@clientbridge/app-core`; each app is a thin rendering + platform-binding
 layer.** Only four things differ per platform:
 
-| Seam              | web                                                                                      | mobile                                    |
-| ----------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------- |
-| **SQLite driver** | `@powersync/web` (wa-sqlite on IndexedDB; no cross-origin isolation, so Stripe.js loads) | `@powersync/op-sqlite` (native)           |
-| **Session**       | Kratos HttpOnly cookie (`localStorage` keeps only the signed-in user id)                 | Kratos session token in expo-secure-store |
-| **Config source** | `import.meta.env` (Vite)                                                                 | `Constants.expoConfig.extra`              |
-| **Rendering**     | DOM + Tailwind                                                                           | RN + StyleSheet from the token theme      |
+| Seam              | web                                                                                      | mobile                               |
+| ----------------- | ---------------------------------------------------------------------------------------- | ------------------------------------ |
+| **SQLite driver** | `@powersync/web` (wa-sqlite on IndexedDB; no cross-origin isolation, so Stripe.js loads) | `@powersync/op-sqlite` (native)      |
+| **Session**       | HttpOnly session cookie (`localStorage` keeps only the signed-in user id)                | Session token in expo-secure-store   |
+| **Config source** | `import.meta.env` (Vite)                                                                 | `Constants.expoConfig.extra`         |
+| **Rendering**     | DOM + Tailwind                                                                           | RN + StyleSheet from the token theme |
 
 Everything else — SQL, mutations, validation, status→`Intent` decisions, copy, icon geometry — is shared.
 
@@ -939,8 +947,8 @@ source, with a **CI drift gate** that fails if the committed output diverges.
 
 The copy catalogs are generated the same way within each side (`make gen-strings`, `make gen-messages`), and `make codegen-check` covers all seven.
 
-`api-client`'s `session.ts` sends the Kratos cookie (web) or session token (mobile), signs out only when
-Kratos answers 401 so a network failure does not wipe the replica, asks for a step-up on `aal2_required`,
+`api-client`'s `session.ts` sends the session cookie (web) or session token (mobile), signs out only when
+the API answers 401 so a network failure does not wipe the replica, asks for a step-up on `second_factor_required`,
 and injects the session-store seam.
 `tokens` feeds both platforms from one source: web via CSS variables + a Tailwind v4 @theme (tailwind.css), mobile via
 materialized JS values (`@clientbridge/tokens/native`).
