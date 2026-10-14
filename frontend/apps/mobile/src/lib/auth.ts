@@ -3,7 +3,7 @@ import { type Viewer, useCurrentViewer } from "@clientbridge/app-core";
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useState } from "react";
 
-// The Kratos session token, and whose replica it opened once the API said who that is.
+// The session token, and whose replica it opened once the API said who that is.
 interface StoredSession {
     session_token: string;
     user_id: string | null;

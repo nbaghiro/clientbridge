@@ -111,7 +111,9 @@ describe("session loss", () => {
         vi.stubGlobal(
             "fetch",
             vi.fn(() =>
-                Promise.resolve(Response.json({ error: "aal2_required" }, { status: 401 })),
+                Promise.resolve(
+                    Response.json({ error: "second_factor_required" }, { status: 401 }),
+                ),
             ),
         );
         await expect(state.api.get("/one")).rejects.toThrow();
@@ -272,7 +274,7 @@ describe("identity client", () => {
                 ),
             ),
         );
-        expect(await identity.session("tok")).toBe("aal2");
+        expect(await identity.session("tok")).toBe("second_factor");
         vi.stubGlobal(
             "fetch",
             vi.fn(() => Promise.resolve(Response.json({}, { status: 401 }))),

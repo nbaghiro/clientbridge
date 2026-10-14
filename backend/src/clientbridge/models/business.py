@@ -101,7 +101,7 @@ class Business(PKMixin, TimestampMixin, Base):
 class User(PKMixin, TimestampMixin, Base):
     __tablename__ = "users"
 
-    # Kratos owns credentials, sessions and verification; this row is the tenant-facing profile
+    # the auth service owns credentials, sessions and verification; this row is the profile
     identity_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), unique=True, nullable=False)
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     pin_hash: Mapped[str | None] = mapped_column(String)  # approves a staff discount at the desk

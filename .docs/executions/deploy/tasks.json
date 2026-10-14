@@ -77,7 +77,7 @@
         "frontend/apps/site",
         "frontend/packages/app-core/locales/en-CA.json"
       ],
-      "implementation": "Add BASE_DOMAIN and derive WEB_BASE_URL, CORS_ALLOW_ORIGINS, the Connect, Pay and Shop hosts, the Kratos and PowerSync URLs, the OAuth callback and the RP ID; serve a runtime config.js from the web image; pass the slug host into the catalog message; robots.txt allows indexing only in production; extend the production startup check to every required setting and to agreement with BASE_DOMAIN.",
+      "implementation": "Add BASE_DOMAIN and derive WEB_BASE_URL, CORS_ALLOW_ORIGINS, the Connect, Pay and Shop hosts, the auth service and PowerSync URLs, the OAuth callback and the RP ID; serve a runtime config.js from the web image; pass the slug host into the catalog message; robots.txt allows indexing only in production; extend the production startup check to every required setting and to agreement with BASE_DOMAIN.",
       "acceptance": "Booting with only BASE_DOMAIN and secrets yields the full set of URLs for both environments; a mismatched URL or missing setting refuses to start; tests cover both environments.",
       "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
     },
@@ -101,17 +101,17 @@
     {
       "id": "D04",
       "phase": "Make the code deployable",
-      "title": "Production Kratos and PowerSync configs",
+      "title": "Production auth service and PowerSync configs",
       "status": "pending",
       "depends_on": ["D02"],
       "stories": ["CLI-50"],
       "scope": [
-        "infra/kratos",
+        "infra/auth",
         "infra/powersync",
         "frontend/apps/web/src/lib/auth.ts",
         "frontend/apps/mobile"
       ],
-      "implementation": "Set Kratos's production values through environment variables over infra/kratos/kratos.yml (no --dev, public URL under api.D, a __Host- session cookie, RP ID app.D, courier over the cluster network, Google OIDC callback) and PowerSync's over infra/powersync/powersync.yaml (RS256, jwks_uri to /sync/keys, Postgres bucket storage); verify web and mobile sign-in, recovery, Google sign-in and passkeys against the new cookie.",
+      "implementation": "Set the auth service's production values through environment variables over infra/auth/kratos.yml (no --dev, public URL at api.D/auth with the Gateway stripping the prefix, a __Host- session cookie with path /, RP ID app.D, courier over the cluster network, Google OIDC callback) and PowerSync's over infra/powersync/powersync.yaml (RS256, jwks_uri to /sync/keys, Postgres bucket storage); verify web and mobile sign-in, recovery, Google sign-in and passkeys against the new cookie.",
       "acceptance": "A local stack with production-shaped configs passes the auth e2e on web and mobile and the sync e2e.",
       "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
     },
@@ -154,7 +154,7 @@
       "depends_on": ["D03", "D04", "D06"],
       "stories": ["CLI-50"],
       "scope": ["infra/pulumi/kubernetes", "docker-compose.yml"],
-      "implementation": "In infra/pulumi/kubernetes, one module per workload (namespace, settings, sidecar, api, worker, migrate, kratos, powersync, web, redis, gateway) deploys the plan's table into both namespaces: requests, Spot for the worker and all of staging, Auth Proxy sidecars, surge-one rolling updates, the migrate Job, Kratos and PowerSync mounting infra/kratos and infra/powersync as ConfigMaps, and upstream image digests read from docker-compose.yml. gateway.py adds one Gateway on a static IP with an HTTPRoute per host, Certificate Manager wildcard and apex certificates by DNS authorization, the HTTP to HTTPS redirect, raw passthrough for /webhooks/* and a one-hour backend timeout for sync.",
+      "implementation": "In infra/pulumi/kubernetes, one module per workload (namespace, settings, sidecar, api, worker, migrate, auth, powersync, web, redis, gateway) deploys the plan's table into both namespaces: requests, Spot for the worker and all of staging, Auth Proxy sidecars, surge-one rolling updates, the migrate Job, the auth service and PowerSync mounting infra/auth and infra/powersync as ConfigMaps, and upstream image digests read from docker-compose.yml. gateway.py adds one Gateway on a static IP with an HTTPRoute per host, Certificate Manager wildcard and apex certificates by DNS authorization, the HTTP to HTTPS redirect, raw passthrough for /webhooks/* and a one-hour backend timeout for sync.",
       "acceptance": "Every host in both environments answers over HTTPS; a deploy of a new digest has no failed requests; a webhook signature verifies through the Gateway.",
       "execution_rule": "Start only on the user's go; no commits, pushes or schema changes without approval; production resources only after staging passes."
     },

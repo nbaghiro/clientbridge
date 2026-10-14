@@ -17,11 +17,11 @@ class MeOut(BaseModel):
     email: str
     name: str | None
     email_verified: bool
-    aal: str
+    second_factor: bool
 
 
 class AuthEmailIn(BaseModel):
-    """One message from the Kratos courier, shaped by infra/kratos/courier.jsonnet."""
+    """One message from the auth service's courier, shaped by infra/auth/courier.jsonnet."""
 
     template_type: AuthEmailType
     to: str = Field(min_length=3, max_length=320)

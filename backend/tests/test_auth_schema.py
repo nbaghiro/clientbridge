@@ -1,4 +1,4 @@
-"""Kratos owns credentials: no local auth tables, users link 1:1 to identities, nothing synced."""
+"""Credentials live in the auth service: no local auth tables, users link 1:1, nothing synced."""
 
 import re
 from pathlib import Path

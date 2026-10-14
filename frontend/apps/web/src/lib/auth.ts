@@ -1,7 +1,7 @@
 import { SessionEpoch } from "@clientbridge/api-client";
 import { type Viewer, useCurrentRole, useCurrentViewer } from "@clientbridge/app-core";
 
-// The Kratos session is an HttpOnly cookie; this only remembers whose replica is open.
+// The session is an HttpOnly cookie; this only remembers whose replica is open.
 const KEY = "cb_user";
 
 export const sessionEpoch = new SessionEpoch();
@@ -17,7 +17,7 @@ export function getUserId(): string | null {
 
 // Set by a finished sign-in, so the next restore asks the API who it is.
 let signedIn = new URLSearchParams(window.location.search).has("session");
-// Kratos set its cookie before the app signed in (sign-up awaiting verification); survives reloads.
+// The auth service set its cookie before the app signed in (sign-up awaiting verification); survives reloads.
 const HINT = "cb_session_hint";
 
 export function expectSession(): void {

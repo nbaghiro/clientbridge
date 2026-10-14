@@ -43,15 +43,15 @@ The report and per-flow screenshots live under the ignored `test-results/` direc
 
 ## Coverage
 
-| Flow                     | Checks                                                                                                                                                                    |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `01-workday.yaml`        | Today, search, notifications, schedule, classes, repeating bookings, booking composer, clients and add-client sheet.                                                      |
-| `02-setup.yaml`          | All eight setup destinations, plus Inventory, weekly hours and online-booking add-on/policy tabs.                                                                         |
-| `03-payments.yaml`       | All eight payment areas; invoice/estimate composers; sales register/orders/history; credit notes and disputes.                                                            |
-| `04-inbox.yaml`          | All five Inbox areas; message composer, new-form editor/settings and contract composer.                                                                                   |
-| `05-client-record.yaml`  | Seeded client detail, history, wallet and pets.                                                                                                                           |
-| `06-staff-and-auth.yaml` | Sign-in/signup/reset entry and Google unavailable state; real staff login; reduced Payments/Inbox/Setup surfaces and own hours. Completion restores the owner session.    |
-| `11-recovery.yaml`       | Password recovery end to end: the code from Mailpit, a new password, signed in at onboarding. Uses a throwaway Kratos identity it deletes; completion restores the owner. |
+| Flow                     | Checks                                                                                                                                                                  |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `01-workday.yaml`        | Today, search, notifications, schedule, classes, repeating bookings, booking composer, clients and add-client sheet.                                                    |
+| `02-setup.yaml`          | All eight setup destinations, plus Inventory, weekly hours and online-booking add-on/policy tabs.                                                                       |
+| `03-payments.yaml`       | All eight payment areas; invoice/estimate composers; sales register/orders/history; credit notes and disputes.                                                          |
+| `04-inbox.yaml`          | All five Inbox areas; message composer, new-form editor/settings and contract composer.                                                                                 |
+| `05-client-record.yaml`  | Seeded client detail, history, wallet and pets.                                                                                                                         |
+| `06-staff-and-auth.yaml` | Sign-in/signup/reset entry and Google unavailable state; real staff login; reduced Payments/Inbox/Setup surfaces and own hours. Completion restores the owner session.  |
+| `11-recovery.yaml`       | Password recovery end to end: the code from Mailpit, a new password, signed in at onboarding. Uses a throwaway auth identity it deletes; completion restores the owner. |
 
 Flows assert meaningful visible controls/content, then capture screenshots. The modal checks protect the regression where the accessible backdrop parent hid every sheet descendant from iOS's accessibility tree. The Inbox entry also relies on its explicit accessible name.
 

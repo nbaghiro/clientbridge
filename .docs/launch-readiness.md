@@ -92,15 +92,15 @@ Size: S · Area: Accounts and settings
 
 **Flow:** A new owner signs up, verifies their email, signs out and back in, resets a forgotten password, signs in with Google and turns on two-step verification.
 
-**Built:** Ory Kratos (self-hosted) for email and password, email verification and recovery codes, Google sign-in, authenticator apps, backup codes and security keys (web), and the Sign-in & security settings; `/signup` has its own URL; web holds an HttpOnly session cookie and mobile a session token. Invites need the invited address verified.
+**Built:** the auth service, self-hosted Ory Kratos, for email and password, email verification and recovery codes, Google sign-in, authenticator apps, backup codes and security keys (web), and the Sign-in & security settings; `/signup` has its own URL; web holds an HttpOnly session cookie and mobile a session token. Invites need the invited address verified.
 
 **To do:**
 
-- Deploy Kratos at `auth.clientbridge.ca` with its own database, the session cookie on `.clientbridge.ca`, WebAuthn for `clientbridge.ca`, and the admin API on the private network only.
-- Production secrets: `SECRETS_COOKIE`, `SECRETS_CIPHER` (32 characters; Kratos refuses to start without them, since `kratos.yml` holds none) and `AUTH_EMAIL_HOOK_SECRET` (set on both Kratos and the API), with `COURIER_HTTP_REQUEST_CONFIG_URL` pointing at the API over the private network and Kratos running its courier (`--watch-courier` or `kratos courier watch`); Resend needs the verified sending domain and the three email settings (see Email delivery in engineering.md).
-- Set `WEB_BASE_URL` to the staff app's origin: it is the only origin that gets credentialed CORS and may send the session cookie; `CORS_ALLOW_ORIGINS` lists Connect and Pay, served without credentials.
-- Google OAuth client with the Kratos callback (`https://auth.clientbridge.ca/self-service/methods/oidc/callback/google`) and consent screen; set `GOOGLE_OAUTH_CLIENT_ID`/`SECRET`.
-- Rate limits on `/self-service/*` at the proxy: Kratos OSS has no login lockout.
+- Deploy the auth service under the API host at `api.<base>/auth` (the Gateway strips the prefix) with its own `auth` database, the host-only `__Host-cb_session` session cookie, WebAuthn for `app.<base>`, and the admin API on the private network only.
+- Production secrets: `AUTH_COOKIE_SECRET` and `AUTH_CIPHER_SECRET` (32 characters; passed to Kratos as `SECRETS_COOKIE` and `SECRETS_CIPHER`, and it refuses to start without them, since `kratos.yml` holds none) and `AUTH_EMAIL_HOOK_SECRET` (set on both the auth service and the API), with `COURIER_HTTP_REQUEST_CONFIG_URL` pointing at the API over the private network and the auth service running its courier (`--watch-courier` or `kratos courier watch`); Resend needs the verified sending domain and the three email settings (see Email delivery in engineering.md).
+- Set `BASE_DOMAIN` (`clientbridge.ca`, `staging.clientbridge.ca`): it derives `WEB_BASE_URL` (`app.`), the only origin that gets credentialed CORS and may send the session cookie, and `CORS_ALLOW_ORIGINS` (`book.`, `pay.` and `shop.`), served without credentials; the marketing site makes no API calls. Set `TRUSTED_PROXY_HOPS=2` behind Google's load balancer.
+- Google OAuth client with the auth service's callbacks (`https://api.clientbridge.ca/auth/self-service/methods/oidc/callback/google` and the same path on `api.staging.clientbridge.ca`) and consent screen; set `GOOGLE_OAUTH_CLIENT_ID`/`SECRET`.
+- Rate limits on `/auth/self-service/*` at the proxy: Kratos OSS has no login lockout.
 - Security keys on mobile (native passkeys need associated domains); mobile has authenticator apps and backup codes, and tells a key-only account to add one of those on the web.
 
 **QA:**
@@ -1470,6 +1470,14 @@ Not tracked yet. These are pulled in by demand once the launch stages are done.
 - **Tax and reporting depth:** place of supply by client province, tax-inclusive pricing, compound tax,
   expenses and input tax credits for net profit, real T4A slips and e-filing, client statements, dunning
   and subscription retry.
+- **Auth provider independence:** the backend and the deployed names already treat Kratos as one
+  implementation of the auth service, but app-core's auth hooks (`domain/auth.ts`) read Kratos's flow
+  shapes: node names such as `totp_qr` and `lookup_secret_codes`, request bodies such as
+  `{method: "password", identifier}`, and catalog keys by Kratos message id (`auth.flowMessages.<id>`).
+  Replacing Kratos today means rewriting those hooks. The fix is an intent-level `IdentityLike` (sign in,
+  sign up, send and verify a code, second factor, Google, password change, TOTP and backup codes,
+  passkeys) returning our own results and error codes, with the Kratos mapping kept in the api-client's
+  `identity.ts`, so a new provider is a new adapter and the hooks, screens and catalog stay.
 - **Platform hygiene:** retention and PII purge, metrics and tracing, blue-green deploys and rollback, more than one currency (CAD is fixed
   on create), a decision on `custom_fields`.
 - **Sync follow-ups:** window the money tables with balances, lifetime value and old invoice status

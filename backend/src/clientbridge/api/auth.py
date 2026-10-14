@@ -13,5 +13,5 @@ async def me(user: FreshUser, identity: FreshIdentity) -> MeOut:
         email=user.email,
         name=user.name,
         email_verified=identity.email_verified,
-        aal=identity.aal,
+        second_factor=identity.second_factor,
     )

@@ -9,12 +9,8 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.db import get_session
 from clientbridge.core.errors import AppError, Forbidden, Unauthorized
 from clientbridge.integrations.expo import PushSender, get_push_sender
-from clientbridge.integrations.kratos import (
-    Credential,
-    Identity,
-    IdentityProvider,
-    get_identity_provider,
-)
+from clientbridge.integrations.identity import Credential, Identity, IdentityProvider
+from clientbridge.integrations.kratos import get_identity_provider
 from clientbridge.integrations.resend import EmailSender, get_email_sender
 from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.integrations.stripe import PaymentGateway, get_payment_gateway
@@ -56,7 +52,7 @@ _SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
 def _credential(request: Request, session_token: str) -> Credential:
-    """Mobile sends the Kratos session token; web sends the session cookie."""
+    """Mobile sends its session token; web sends the session cookie."""
     if session_token:
         return Credential(session_token=session_token)
     settings = get_settings()

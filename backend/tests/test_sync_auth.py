@@ -1,4 +1,4 @@
-"""Sync identity + JWKS — /sync/token from a Kratos session, RS256 public key + roundtrip."""
+"""Sync identity + JWKS — /sync/token from an auth session, RS256 public key + roundtrip."""
 
 import json
 

@@ -22,7 +22,7 @@ type MfaMethod = "totp" | "lookup_secret" | "webauthn";
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RESEND_SECONDS = 30;
 
-/** Catalog text for a Kratos message; Kratos's own English is never shown. */
+/** Catalog text for an auth service message; its own English is never shown. */
 function flowMessage(message: FlowMessage): string | null {
     const known = (strings.auth.flowMessages as Readonly<Record<string, string | undefined>>)[
         String(message.id)
@@ -98,15 +98,15 @@ interface AuthOptions {
     initialMode?: "signin" | "signup" | "mfa";
     defaultEmail?: string;
     defaultPassword?: string;
-    /** Kratos sent the browser back to the UI with a flow (an OIDC error or an account to link). */
+    /** The auth service sent the browser back to the UI with a flow (an OIDC error or an account to link). */
     flowId?: string;
     /** Where Google sign-in lands on web. */
     returnTo?: string;
-    /** Ask Kratos for an existing session first (a step-up, or back from Google). */
+    /** Ask the auth service for an existing session first (a step-up, or back from Google). */
     probe?: boolean;
     /** Web navigates away; mobile opens an auth session and returns the callback URL. */
     openUrl?: (url: string) => Promise<string | null>;
-    /** Kratos set a session before the app signed in (sign-up waiting on email verification). */
+    /** The auth service set a session before the app signed in (sign-up waiting on email verification). */
     onSessionStarted?: () => void;
     webauthn?: WebAuthnLike;
 }
@@ -139,7 +139,7 @@ interface AuthForm {
     cancel: () => void;
 }
 
-/** Sign in, sign up (then verify), and the second factor, over Kratos; mobile gets a token. */
+/** Sign in, sign up (then verify), and the second factor, over the auth service; mobile gets a token. */
 export function useAuthForm(
     identity: IdentityLike,
     onSignedIn: (sessionToken?: string) => void | Promise<void>,
@@ -190,9 +190,9 @@ export function useAuthForm(
     const finish = useCallback(
         async (sessionToken?: string): Promise<void> => {
             const state = await identity.session(sessionToken);
-            if (state === "aal2") {
+            if (state === "second_factor") {
                 pending.current = sessionToken;
-                secondStep(await identity.start("login", { aal: "aal2", sessionToken }));
+                secondStep(await identity.start("login", { secondFactor: true, sessionToken }));
                 return;
             }
             await onSignedIn(sessionToken);
@@ -208,10 +208,10 @@ export function useAuthForm(
                 setError(a.flowExpired);
                 restart();
             } else if (step.kind === "redirect") {
-                // A second factor is due: Kratos points at an aal2 login (its own or our UI's).
+                // A second factor is due: the auth service points at a second-factor login (its own or ours).
                 const id = queryParam(step.url, "flow");
                 if (queryParam(step.url, "aal") === "aal2")
-                    secondStep(await identity.start("login", { aal: "aal2" }));
+                    secondStep(await identity.start("login", { secondFactor: true }));
                 else if (id && /\/login(\?|$)/.test(step.url))
                     secondStep(await identity.resume("login", id));
                 else await opts?.openUrl?.(step.url);
@@ -245,7 +245,7 @@ export function useAuthForm(
             const state = await identity.session();
             if (!live) return;
             if (state === "active") await onSignedIn();
-            else if (state === "aal2") await finish();
+            else if (state === "second_factor") await finish();
         };
         begin().catch(() => undefined);
         return () => {
@@ -289,7 +289,7 @@ export function useAuthForm(
     };
 
     const secondFactor = async (): Promise<void> => {
-        const current = flow ?? (await identity.start("login", { aal: "aal2" }));
+        const current = flow ?? (await identity.start("login", { secondFactor: true }));
         let body: Record<string, unknown>;
         if (mfaMethod === "webauthn") {
             const options = nodeValue(current, "webauthn_login_trigger");
@@ -571,7 +571,7 @@ interface VerificationForm {
     resend: () => void;
 }
 
-/** Confirms the email with the code Kratos sent (or a fresh one), e.g. from the verify link. */
+/** Confirms the email with the code the auth service sent (or a fresh one), e.g. from the verify link. */
 export function useVerificationForm(
     identity: IdentityLike,
     opts: { flowId?: string; email?: string },
@@ -620,7 +620,7 @@ export function useVerificationForm(
             if (opts.flowId) {
                 const resumed = await identity.resume("verification", opts.flowId);
                 if (!live) return;
-                // The emailed link only fills the code in; Kratos waits for it to be submitted.
+                // The emailed link only fills the code in; the auth service waits for it to be submitted.
                 const linked = nodeValue(resumed, "code");
                 if (resumed.state === "sent_email" && linked) {
                     setCode(linked);
@@ -679,7 +679,7 @@ export function passwordSaveOutcome(step: FlowStep): "saved" | "retry" | "restar
     return step.kind === "flow" ? "retry" : "restart";
 }
 
-/** How this identity can confirm it's them: the methods Kratos put in the refresh flow. */
+/** How this identity can confirm it's them: the methods the auth service put in the refresh flow. */
 export function reauthMethods(
     flow: Flow,
     canOpenUrl: boolean,
@@ -745,7 +745,7 @@ function backupCodesOf(flow: Flow | null): string[] | null {
     });
 }
 
-/** Account and sign-in security over the Kratos settings flow; `sessionToken` is mobile's. */
+/** Account and sign-in security over the auth service's settings flow; `sessionToken` is mobile's. */
 export function useSecuritySettings(
     identity: IdentityLike,
     opts?: {

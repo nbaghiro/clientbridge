@@ -172,12 +172,12 @@ def _stripe_signature(payload: bytes) -> str:
 
 
 async def sign_in(http: httpx.AsyncClient, *, email: str, password: str) -> str:
-    """A native Kratos password login, as the mobile app does it."""
-    kratos = get_settings().auth_public_url
-    flow = await http.get(f"{kratos}/self-service/login/api")
+    """A native password login against the auth service, as the mobile app does it."""
+    auth = get_settings().auth_public_url
+    flow = await http.get(f"{auth}/self-service/login/api")
     flow.raise_for_status()
     login = await http.post(
-        f"{kratos}/self-service/login",
+        f"{auth}/self-service/login",
         params={"flow": flow.json()["id"]},
         json={"method": "password", "identifier": email, "password": password},
     )

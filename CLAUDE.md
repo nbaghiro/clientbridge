@@ -114,7 +114,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   factories (`Factory`).
 - Every feature clears the 4-part matrix: **happy · each 4xx · security invariants · idempotency/edge**.
 - Time comes only from `core/clock.py` (`clock.now()`, `clock.today(zone)`; `clock.wall()` only for an
-  external clock such as Kratos, PowerSync tokens or webhook signatures). Pytest and vitest start at
+  external clock such as the auth service, PowerSync tokens or webhook signatures). Pytest and vitest start at
   `FROZEN` (2026-10-13T17:00Z) over a database seeded at that instant; e2e suites stay at real time with
   dates derived from today.
 - CI gate: `pytest --cov=clientbridge --cov-branch --cov-fail-under=90`.

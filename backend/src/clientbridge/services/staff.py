@@ -23,7 +23,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for
 from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.core.security import hash_token
-from clientbridge.integrations.kratos import Identity
+from clientbridge.integrations.identity import Identity
 from clientbridge.integrations.resend import EmailSender
 from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.business import Business, Staff, User

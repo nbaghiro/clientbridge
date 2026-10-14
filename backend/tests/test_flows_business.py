@@ -4,20 +4,20 @@ from uuid import uuid4
 
 import httpx
 
-from clientbridge.integrations.kratos import Identity
+from clientbridge.integrations.identity import Identity
 from tests.conftest import FakeIdentityProvider
 from tests.helpers import ok
 
 
 def signed_up(email: str, name: str) -> Identity:
-    """A fresh Kratos identity that has verified its email, as after sign-up."""
+    """A fresh auth identity that has verified its email, as after sign-up."""
     return Identity(
         id=str(uuid4()),
         email=email,
         verified_emails=frozenset({email}),
         name=name,
         session_id=str(uuid4()),
-        aal="aal1",
+        second_factor=False,
     )
 
 

@@ -9,7 +9,7 @@ _ticking = True
 
 
 def wall() -> datetime:
-    """Real UTC time, for checks against a clock outside this app (Kratos, PowerSync, Svix)."""
+    """Real UTC time, for checks against a clock outside this app (auth, PowerSync, Svix)."""
     return datetime.now(UTC)
 
 
