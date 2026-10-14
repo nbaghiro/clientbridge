@@ -1,5 +1,6 @@
 """Staff invites — owner/admin create + email; invitee accepts → active staff."""
 
+from datetime import timedelta
 from uuid import uuid4
 
 import httpx
@@ -7,6 +8,7 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ratelimit import RateLimiter, public_invite_rate_limit
 from clientbridge.integrations.identity import Identity
@@ -289,10 +291,8 @@ async def test_accept_expired_invite_410(
 ) -> None:
     token = (await _invite(as_owner, "exp@test.ca"))["invite_token"]
     await db.execute(
-        text(
-            "UPDATE staff SET invited_at = now() - interval '8 days' "
-            "WHERE invite_email = 'exp@test.ca'"
-        )
+        text("UPDATE staff SET invited_at = :at WHERE invite_email = 'exp@test.ca'"),
+        {"at": clock.now() - timedelta(days=8)},
     )
     res = await as_owner.post(
         "/v1/staff/invites/accept",
@@ -331,8 +331,8 @@ async def test_resend_invite_issues_a_new_link(
         await as_owner.post("/v1/staff/invites", json={"email": "again@test.ca", "role": "staff"})
     ).json()
     await db.execute(
-        text("UPDATE staff SET invited_at = now() - interval '6 days' WHERE id = :i"),
-        {"i": first["id"]},
+        text("UPDATE staff SET invited_at = :at WHERE id = :i"),
+        {"at": clock.now() - timedelta(days=6), "i": first["id"]},
     )
     res = await as_owner.post(f"/v1/staff/invites/{first['id']}/resend")
     assert res.status_code == 200, res.text
@@ -501,10 +501,8 @@ async def test_preview_of_an_expired_invite_410(
 ) -> None:
     token = (await _invite(as_owner, "old-preview@test.ca"))["invite_token"]
     await db.execute(
-        text(
-            "UPDATE staff SET invited_at = now() - interval '8 days' "
-            "WHERE invite_email = 'old-preview@test.ca'"
-        )
+        text("UPDATE staff SET invited_at = :at WHERE invite_email = 'old-preview@test.ca'"),
+        {"at": clock.now() - timedelta(days=8)},
     )
     as_owner.headers.pop("X-Session-Token")
     res = await as_owner.post("/v1/staff/invites/preview", json={"token": token})

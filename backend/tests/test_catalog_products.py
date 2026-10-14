@@ -6,6 +6,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item, Package, StockMovement
@@ -500,7 +501,8 @@ async def test_package_sale_expires_after_its_validity(
     assert sold.status_code == 201, sold.text
     package = await db.get(Package, sold.json()["package_id"])
     assert package is not None and package.expires_at is not None
-    assert 29 <= (package.expires_at - package.created_at).days <= 30
+    # created_at is the database clock; the sale runs on the frozen test clock
+    assert 29 <= (package.expires_at - clock.now()).days <= 30
 
 
 async def test_sale_client_can_change_before_payment(
