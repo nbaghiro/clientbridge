@@ -165,9 +165,17 @@ eyebrow, a heading, paragraphs, and optional code box, receipt table, button and
 `EmailView` the HTML shows), with all copy in `en_CA.po`. Clientbridge's own mail (sign-in codes, invites, trial
 notices, alerts to a business's team) uses `platform_brand()`: the logo over the site's contour lines. Mail a
 business sends its clients uses `business_brand()`: its brand colour and its logo when the upload is PNG, JPEG or
-GIF (other formats show its name), and a "Sent with Clientbridge" line. The header and contour images are drawn by
-the marketing site's build (`scripts/email-images.ts`) and served at `SITE_BASE_URL/email/`. `make preview-emails`
-renders the emails with demo data into `.scratchpad/emails/`, and Mailpit shows the HTML part in dev.
+GIF (other formats show its name), and a "Sent with Clientbridge" line. The header and contour PNGs are bundled in `backend/src/clientbridge/email_assets/` and attached inline
+with Content-ID references by both Resend and SMTP. Only images used by a message are attached; the fixed
+art does not depend on the marketing site. Uploaded business logos still use the existing media URL.
+`make preview-emails` renders ten representative demo emails into `.scratchpad/emails/`, embedding the
+same image bytes as data URLs for browser previews. Mailpit shows the real MIME message in dev.
+Use `make preview-emails ARGS="--list"` to list samples, or `ARGS="--email invoice"` to preview one.
+To send a demo, explicitly choose a recipient, sample and transport:
+`make preview-emails ARGS="--email invoice --send-to you@example.com --transport resend"`.
+Resend needs `RESEND_API_KEY` and `EMAIL_FROM`; SMTP uses `SMTP_URL`. Sends carry a `[TEST]` subject,
+synthetic data and nonfunctional `.test` action links, without changing business records. The gallery is
+a browser approximation; inspect actual deliveries in target email clients before approving the design.
 
 ### Jobs (`tasks/`)
 

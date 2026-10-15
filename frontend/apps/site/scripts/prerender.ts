@@ -4,7 +4,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import type { RenderedPage } from "../src/entry-server.tsx";
-import { writeEmailImages } from "./email-images.ts";
 import { type LogoGeometry, writeOgImages } from "./og.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -53,7 +52,6 @@ writeFileSync(
     `User-agent: *\nAllow: /\n\nSitemap: ${entry.siteUrl}/sitemap.xml\n`,
 );
 await writeOgImages(pages, dist, join(root, "public", "art", "small.svg"), entry.logo);
-await writeEmailImages(dist, join(root, "public", "art", "band.svg"), entry.logo);
 process.stdout.write(
     `wrote sitemap.xml, robots.txt and ${String(new Set(pages.map((p) => p.ogImage)).size)} share images\n`,
 );

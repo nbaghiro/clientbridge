@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from clientbridge.core.config import get_settings
+from clientbridge.core.email_layout import InlineImage
 
 _RESEND_URL = "https://api.resend.com/emails"
 _SIGNATURE_WINDOW = timedelta(minutes=5)
@@ -30,6 +31,7 @@ class Email:
     subject: str
     body: str
     html: str | None = None
+    images: tuple[InlineImage, ...] = ()
     reply_to: str | None = None
     idempotency_key: str | None = None
     tags: Mapping[str, str] = field(default_factory=dict)
@@ -61,6 +63,16 @@ class ResendEmailSender:
         }
         if email.html:
             payload["html"] = email.html
+        if email.images:
+            payload["attachments"] = [
+                {
+                    "filename": image.filename,
+                    "content": base64.b64encode(image.content).decode("ascii"),
+                    "content_type": image.content_type,
+                    "content_id": image.content_id,
+                }
+                for image in email.images
+            ]
         if email.reply_to:
             payload["reply_to"] = [email.reply_to]
         if email.tags:
@@ -116,6 +128,19 @@ class SmtpEmailSender:
         message.set_content(email.body)
         if email.html:
             message.add_alternative(email.html, subtype="html")
+            part = message.get_body(preferencelist=("html",))
+            if not isinstance(part, EmailMessage):
+                raise TypeError("html alternative is not an email message")
+            for image in email.images:
+                maintype, subtype = image.content_type.split("/", 1)
+                part.add_related(
+                    image.content,
+                    maintype=maintype,
+                    subtype=subtype,
+                    cid=f"<{image.content_id}>",
+                    filename=image.filename,
+                    disposition="inline",
+                )
         await asyncio.to_thread(self._deliver, message)
         return None
 

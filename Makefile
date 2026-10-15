@@ -154,7 +154,7 @@ gen-messages:
 	cd backend && uv run python -m scripts.gen_messages
 
 preview-emails:
-	cd backend && uv run python -m scripts.preview_emails
+	cd backend && uv run python -m scripts.preview_emails $(ARGS)
 
 gen-zones:
 	cd backend && uv run python -m scripts.gen_zones

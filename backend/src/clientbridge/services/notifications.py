@@ -13,7 +13,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal
-from clientbridge.core.email_layout import ACCENT, Action, Brand, EmailView, Row, render_html
+from clientbridge.core.email_layout import (
+    ACCENT,
+    Action,
+    Brand,
+    EmailView,
+    Row,
+    inline_images,
+    render_html,
+)
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import (
     currency_for,
@@ -114,12 +122,11 @@ def _paragraphs(text: str) -> tuple[str, ...]:
     return tuple(part.strip() for part in text.split("\n\n") if part.strip())
 
 
-def platform_brand(site: str | None = None) -> Brand:
-    site = site or get_settings().site_base_url
+def platform_brand() -> Brand:
     return Brand(
         name="Clientbridge",
-        header_url=f"{site}/email/header.png",
-        art_url=f"{site}/email/contours.png",
+        header_url="cid:clientbridge-header",
+        art_url="cid:clientbridge-contours",
     )
 
 
@@ -140,7 +147,7 @@ async def business_brand(db: AsyncSession, business: Business) -> Brand:
         name=business.name,
         accent=accent,
         logo_url=media_url(logo.id) if shown and logo is not None else None,
-        art_url=f"{get_settings().site_base_url}/email/contours.png",
+        art_url="cid:clientbridge-contours",
         sent_with=message(locale_for(business=business), "email.sent_with"),
     )
 
@@ -183,11 +190,13 @@ def client_email(
         if notice.view.footer
         else replace(notice.view, footer=_client_footer(locale, business))
     )
+    html = _html(brand, view, locale)
     return Email(
         to=to,
         subject=notice.subject,
         body=notice.body,
-        html=_html(brand, view, locale),
+        html=html,
+        images=inline_images(html),
         reply_to=reply_address(business),
         idempotency_key=message.id if message is not None else None,
         tags=tags,
@@ -201,11 +210,13 @@ def business_email(business: Business, to: str, notice: Notice) -> Email:
         message(locale, "email.footer.team", business=business.name),
         message(locale, "email.footer.company"),
     )
+    html = _html(platform_brand(), replace(notice.view, footer=footer), locale)
     return Email(
         to=to,
         subject=notice.subject,
         body=notice.body,
-        html=_html(platform_brand(), replace(notice.view, footer=footer), locale),
+        html=html,
+        images=inline_images(html),
         tags={"business": business.id},
     )
 
@@ -216,11 +227,13 @@ def account_email(to: str, notice: Notice, *, locale: str) -> Email:
         message(locale, "email.footer.account"),
         message(locale, "email.footer.company"),
     )
+    html = _html(platform_brand(), replace(notice.view, footer=footer), locale)
     return Email(
         to=to,
         subject=notice.subject,
         body=notice.body,
-        html=_html(platform_brand(), replace(notice.view, footer=footer), locale),
+        html=html,
+        images=inline_images(html),
     )
 
 

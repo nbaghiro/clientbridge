@@ -1,5 +1,6 @@
 """The email adapter (Resend only with a key and a from-address) and the HTML each email carries."""
 
+import re
 from email.message import EmailMessage
 
 import pytest
@@ -174,3 +175,50 @@ def test_emails_are_light_like_the_site_and_the_apps() -> None:
     page = _render(PLATFORM, EmailView("Waitlist", "You're on the list.", ("x",)))
     assert '<meta name="color-scheme" content="light">' in page
     assert "prefers-color-scheme" not in page
+
+
+def test_demo_emails_embed_only_referenced_bundled_images() -> None:
+    from scripts.preview_emails import browser_html, samples
+
+    for mail in samples().values():
+        assert mail.html is not None
+        assert "localhost:8710" not in mail.html
+        assert "https://clientbridge.ca/email/" not in mail.html
+        expected = {image.content_id for image in mail.images}
+        assert expected
+        assert expected == set(re.findall(r'src="cid:([^"]+)"', mail.html))
+        for image in mail.images:
+            assert image.content.startswith(b"\x89PNG\r\n\x1a\n")
+        preview = browser_html(mail)
+        assert "cid:" not in preview
+        assert "data:image/png;base64," in preview
+    assert len(samples()["invoice"].images) == 1
+    assert len(samples()["login-code"].images) == 2
+
+
+async def test_smtp_embeds_images_as_related_parts_and_preserves_plain_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from scripts.preview_emails import samples
+
+    delivered: list[EmailMessage] = []
+
+    def deliver(_self: SmtpEmailSender, message: EmailMessage) -> None:
+        delivered.append(message)
+
+    monkeypatch.setattr(SmtpEmailSender, "_deliver", deliver)
+    mail = samples()["login-code"]
+    await SmtpEmailSender("smtp://localhost:8716", "from@example.com").send(mail)
+    message = delivered[0]
+    assert message.get_content_type() == "multipart/alternative"
+    plain = message.get_body(preferencelist=("plain",))
+    body = message.get_body(preferencelist=("html",))
+    assert plain is not None and plain.get_content().strip() == mail.body.strip()
+    assert body is not None and body.get_content().strip() == mail.html
+    images = {part["Content-ID"]: part for part in message.walk() if part["Content-ID"]}
+    for image in mail.images:
+        part = images[f"<{image.content_id}>"]
+        assert part.get_content_disposition() == "inline"
+        assert part.get_payload(decode=True) == image.content
+        assert part.get_content_type() == image.content_type
+        assert part.get_filename() == image.filename

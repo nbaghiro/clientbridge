@@ -1,7 +1,9 @@
 """The branded HTML each email is sent with, beside its plain text."""
 
 from dataclasses import dataclass, field
+from functools import lru_cache
 from html import escape
+from importlib.resources import files
 
 # the Pewter theme from @clientbridge/tokens, which the marketing site and the apps use
 INK = "#191D22"
@@ -21,6 +23,29 @@ _MONO = "'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
 _WIDTH = 560
 _HEADER_HEIGHT = 100
 _ART_HEIGHT = 90
+
+
+@dataclass(frozen=True)
+class InlineImage:
+    content_id: str
+    filename: str
+    content: bytes
+    content_type: str = "image/png"
+
+
+@lru_cache
+def _image(name: str) -> InlineImage:
+    return InlineImage(
+        content_id=f"clientbridge-{name}",
+        filename=f"{name}.png",
+        content=files("clientbridge").joinpath("email_assets", f"{name}.png").read_bytes(),
+    )
+
+
+def inline_images(html: str) -> tuple[InlineImage, ...]:
+    return tuple(
+        _image(name) for name in ("header", "contours") if f'"cid:clientbridge-{name}"' in html
+    )
 
 
 @dataclass(frozen=True)

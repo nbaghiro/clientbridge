@@ -1,19 +1,21 @@
 """Render the emails with demo data into one page, for reviewing the designs in a browser."""
 
+import argparse
+import asyncio
+import base64
 import html
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.email_layout import Brand
 from clientbridge.core.locale import SOURCE_LOCALE, format_day_and_time, format_money
-from clientbridge.integrations.resend import Email
+from clientbridge.integrations.resend import Email, ResendEmailSender, SmtpEmailSender
 from clientbridge.models.business import Business
 from clientbridge.schemas.auth import AuthEmailIn
 from clientbridge.services import notifications as n
 
-# the images the emails show are served by the marketing site
-SITE = "https://clientbridge.ca"
 OUT = Path(__file__).resolve().parents[2] / ".scratchpad" / "emails"
 LOCALE = SOURCE_LOCALE
 
@@ -37,7 +39,7 @@ def emails() -> list[tuple[str, Email]]:
     brand = Brand(
         name=business.name,
         accent="#2F6B4F",
-        art_url=f"{SITE}/email/contours.png",
+        art_url="cid:clientbridge-contours",
         sent_with=n.message(LOCALE, "email.sent_with"),
     )
     when = format_day_and_time(LOCALE, datetime(2026, 10, 22, 17, 30, tzinfo=UTC), "UTC")
@@ -78,13 +80,87 @@ def emails() -> list[tuple[str, Email]]:
     ]
 
 
+def browser_html(mail: Email) -> str:
+    page = mail.html or ""
+    for image in mail.images:
+        encoded = base64.b64encode(image.content).decode("ascii")
+        page = page.replace(
+            f'"cid:{image.content_id}"', f'"data:{image.content_type};base64,{encoded}"'
+        )
+    return page
+
+
+def samples() -> dict[str, Email]:
+    keys = (
+        "login-code",
+        "staff-invite",
+        "trial-ending",
+        "estimate-declined",
+        "invoice",
+        "receipt",
+        "booking-confirmed",
+        "estimate",
+        "gift-card",
+        "message",
+    )
+    return dict(zip(keys, (mail for _, mail in emails()), strict=True))
+
+
+async def send_sample(mail: Email, recipient: str, transport: str) -> str | None:
+    settings = get_settings()
+    if transport == "resend":
+        if not settings.resend_api_key or not settings.email_from:
+            raise ValueError("resend requires RESEND_API_KEY and EMAIL_FROM")
+        sender = ResendEmailSender(settings.resend_api_key, settings.email_from)
+    else:
+        if not settings.smtp_url:
+            raise ValueError("smtp requires SMTP_URL")
+        sender = SmtpEmailSender(
+            settings.smtp_url, settings.email_from or "no-reply@clientbridge.ca"
+        )
+    demo = replace(
+        mail,
+        to=recipient,
+        subject=f"[TEST] {mail.subject}",
+        reply_to=None,
+        idempotency_key=None,
+        tags={"purpose": "email-preview"},
+    )
+    return await sender.send(demo)
+
+
 def main() -> None:
-    get_settings().site_base_url = SITE
+    choices = samples()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--list", action="store_true", help="list the demo email names")
+    parser.add_argument("--email", choices=choices, help="preview or send one demo email")
+    parser.add_argument("--send-to", help="send the selected demo to one recipient")
+    parser.add_argument(
+        "--transport", choices=("smtp", "resend"), help="explicit delivery transport"
+    )
+    args = parser.parse_args()
+    if args.list:
+        for key, mail in choices.items():
+            print(f"{key}: {mail.subject}")
+        return
+    if args.send_to:
+        if not args.email or not args.transport:
+            parser.error("--send-to requires --email and --transport")
+        if "@" not in args.send_to or any(c in args.send_to for c in "\r\n,;"):
+            parser.error("--send-to must be one email address")
+        ref = asyncio.run(send_sample(choices[args.email], args.send_to, args.transport))
+        print(f"sent {args.email} via {args.transport}; delivery id: {ref or 'SMTP accepted'}")
+        return
+    if args.transport:
+        parser.error("--transport requires --send-to")
     OUT.mkdir(parents=True, exist_ok=True)
     cards: list[str] = []
-    for index, (title, mail) in enumerate(emails()):
-        name = f"email-{index}.html"
-        (OUT / name).write_text(mail.html or "")
+    for key, mail in choices.items():
+        if args.email and args.email != key:
+            continue
+        title = key
+        name = f"{key}.html"
+        (OUT / name).write_text(browser_html(mail))
         cards.append(
             f"<section><h2>{html.escape(title)}</h2><p>{html.escape(mail.subject)}</p>"
             f'<iframe src="{name}" width="640" height="760"></iframe>'
