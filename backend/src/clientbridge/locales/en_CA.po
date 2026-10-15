@@ -4,8 +4,14 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "Content-Type: text/plain; charset=utf-8\n"
 
+msgid "booking.action"
+msgstr "Change or cancel"
+
 msgid "booking_canceled.body"
 msgstr "Your appointment with {business} on {when} was canceled."
+
+msgid "booking_canceled.heading"
+msgstr "Appointment canceled"
 
 msgid "booking_canceled.subject"
 msgstr "Appointment canceled — {business}"
@@ -16,14 +22,29 @@ msgstr "You're booked with {business} on {when}."
 msgid "booking_confirmed.body_link"
 msgstr "You're booked with {business} on {when}. Change or cancel: {link}"
 
+msgid "booking_confirmed.heading"
+msgstr "You're booked"
+
 msgid "booking_confirmed.subject"
 msgstr "Booking confirmed — {business}"
 
 msgid "booking_reassigned.body"
 msgstr "Your appointment with {business} on {when} is now with {member}."
 
+msgid "booking_reassigned.heading"
+msgstr "New provider for your appointment"
+
 msgid "booking_reassigned.subject"
 msgstr "New provider for your appointment — {business}"
+
+msgid "booking_released.body"
+msgstr "Your appointment with {business} on {when} was released because its deposit wasn't paid. You're welcome to book again."
+
+msgid "booking_released.heading"
+msgstr "Appointment released"
+
+msgid "booking_released.subject"
+msgstr "Appointment released — {business}"
 
 msgid "booking_reminder.body"
 msgstr "Reminder: you have an appointment with {business} on {when}."
@@ -31,17 +52,17 @@ msgstr "Reminder: you have an appointment with {business} on {when}."
 msgid "booking_reminder.body_link"
 msgstr "Reminder: you have an appointment with {business} on {when}. Change or cancel: {link}"
 
+msgid "booking_reminder.heading"
+msgstr "Appointment reminder"
+
 msgid "booking_reminder.subject"
 msgstr "Appointment reminder — {business}"
 
-msgid "booking_released.body"
-msgstr "Your appointment with {business} on {when} was released because its deposit wasn't paid. You're welcome to book again."
-
-msgid "booking_released.subject"
-msgstr "Appointment released — {business}"
-
 msgid "booking_requested.body"
 msgstr "{business} received your request for {when}. You'll hear back once it's confirmed."
+
+msgid "booking_requested.heading"
+msgstr "Request received"
 
 msgid "booking_requested.subject"
 msgstr "Booking request received — {business}"
@@ -49,8 +70,14 @@ msgstr "Booking request received — {business}"
 msgid "booking_rescheduled.body"
 msgstr "Your appointment with {business} was moved to {when}."
 
+msgid "booking_rescheduled.heading"
+msgstr "Appointment rescheduled"
+
 msgid "booking_rescheduled.subject"
 msgstr "Appointment rescheduled — {business}"
+
+msgid "broadcast.contact"
+msgstr "Contact: {contact}"
 
 msgid "broadcast.email"
 msgstr ""
@@ -91,8 +118,17 @@ msgstr "source"
 msgid "consent_csv.status"
 msgstr "status"
 
+msgid "contract.action"
+msgstr "Review and sign"
+
 msgid "contract_sent.body"
 msgstr "{business} has asked you to sign the contract \"{contract}\": {link}"
+
+msgid "contract_sent.heading"
+msgstr "Please sign {contract}"
+
+msgid "contract_sent.lead"
+msgstr "{business} has asked you to sign the contract \"{contract}\"."
 
 msgid "contract_sent.subject"
 msgstr "{business}: please sign \"{contract}\""
@@ -102,6 +138,87 @@ msgstr "{day} at {time}"
 
 msgid "dispute.push"
 msgstr "Payment disputed: {amount}. Review the dispute details."
+
+msgid "email.footer.account"
+msgstr "You're getting this email because this address was used to sign up or sign in on Clientbridge."
+
+msgid "email.footer.client"
+msgstr "You're getting this email because you're a client of {business}."
+
+msgid "email.footer.company"
+msgstr "ClientBridge Inc., 3704 Lakepoint Dr, Severn, Ontario L3V 8M9, Canada"
+
+msgid "email.footer.separator"
+msgstr " · "
+
+msgid "email.footer.team"
+msgstr "You're getting this email because you work with {business} on Clientbridge."
+
+msgid "email.kind.account"
+msgstr "Account"
+
+msgid "email.kind.booking"
+msgstr "Booking"
+
+msgid "email.kind.contract"
+msgstr "Contract"
+
+msgid "email.kind.estimate"
+msgstr "Estimate"
+
+msgid "email.kind.form"
+msgstr "Form"
+
+msgid "email.kind.gift_card"
+msgstr "Gift card"
+
+msgid "email.kind.invoice"
+msgstr "Invoice"
+
+msgid "email.kind.message"
+msgstr "Message"
+
+msgid "email.kind.news"
+msgstr "News"
+
+msgid "email.kind.order"
+msgstr "Order"
+
+msgid "email.kind.payment"
+msgstr "Payment"
+
+msgid "email.kind.plan"
+msgstr "Plan"
+
+msgid "email.kind.receipt"
+msgstr "Receipt"
+
+msgid "email.kind.refund"
+msgstr "Refund"
+
+msgid "email.kind.review"
+msgstr "Review"
+
+msgid "email.kind.subscription"
+msgstr "Subscription"
+
+msgid "email.kind.team"
+msgstr "Team"
+
+msgid "email.kind.verification"
+msgstr "Verification"
+
+msgid "email.kind.waitlist"
+msgstr "Waitlist"
+
+msgid "email.sent_with"
+msgstr "Sent with Clientbridge"
+
+msgid "email.unsubscribe"
+msgstr "Unsubscribe or change what you get"
+
+msgid "estimate.action"
+msgstr "View estimate"
 
 msgid "estimate_accepted.body"
 msgstr "Estimate #{number} was accepted."
@@ -124,11 +241,26 @@ msgstr "Estimate #{number} for {amount} from {business}"
 msgid "estimate_sent.body_link"
 msgstr "Estimate #{number} for {amount} from {business} — read and accept it at {link}"
 
+msgid "estimate_sent.heading"
+msgstr "Estimate #{number} for {amount}"
+
+msgid "estimate_sent.lead"
+msgstr "Here is your estimate from {business}. You can read it, then accept or decline it."
+
 msgid "estimate_sent.subject"
 msgstr "Estimate #{number} from {business}"
 
+msgid "form.action"
+msgstr "Open form"
+
 msgid "form_sent.body"
 msgstr "{business} has asked you to complete the form \"{form}\": {link}"
+
+msgid "form_sent.heading"
+msgstr "Please complete {form}"
+
+msgid "form_sent.lead"
+msgstr "{business} has asked you to complete the form \"{form}\"."
 
 msgid "form_sent.subject"
 msgstr "{business}: please complete \"{form}\""
@@ -136,11 +268,20 @@ msgstr "{business}: please complete \"{form}\""
 msgid "gift_card_issued.body"
 msgstr "You've received a {amount} gift card from {business}. Code: {code}"
 
+msgid "gift_card_issued.heading"
+msgstr "You've received a {amount} gift card"
+
+msgid "gift_card_issued.lead"
+msgstr "{business} sent you a gift card. Use this code when you book or pay."
+
 msgid "gift_card_issued.subject"
 msgstr "You've received a gift card from {business}"
 
 msgid "inbound_message.push"
 msgstr "Message from {client}: {body}"
+
+msgid "invoice.action"
+msgstr "Pay invoice"
 
 msgid "invoice_line.visit"
 msgstr "Visit"
@@ -151,6 +292,12 @@ msgstr "Invoice #{number} for {amount} from {business} is overdue"
 msgid "invoice_overdue.body_link"
 msgstr "Invoice #{number} for {amount} from {business} is overdue — pay at {link}"
 
+msgid "invoice_overdue.heading"
+msgstr "Invoice #{number} is overdue"
+
+msgid "invoice_overdue.lead"
+msgstr "{amount} is still owing on this invoice from {business}."
+
 msgid "invoice_overdue.subject"
 msgstr "Invoice #{number} overdue — {business}"
 
@@ -160,6 +307,12 @@ msgstr "Invoice #{number} for {amount} from {business}"
 msgid "invoice_sent.body_link"
 msgstr "Invoice #{number} for {amount} from {business} — pay at {link}"
 
+msgid "invoice_sent.heading"
+msgstr "Invoice #{number} for {amount}"
+
+msgid "invoice_sent.lead"
+msgstr "Here is your invoice from {business}."
+
 msgid "invoice_sent.subject"
 msgstr "Invoice #{number} from {business}"
 
@@ -168,17 +321,40 @@ msgid_plural "login_code.body"
 msgstr[0] "Your Clientbridge sign-in code is {code}. It expires in {count} minute. If you did not try to sign in, you can ignore this email."
 msgstr[1] "Your Clientbridge sign-in code is {code}. It expires in {count} minutes. If you did not try to sign in, you can ignore this email."
 
+msgid "login_code.heading"
+msgstr "Your sign-in code"
+
+msgid "login_code.lead"
+msgid_plural "login_code.lead"
+msgstr[0] "Enter this code to sign in to Clientbridge. It expires in {count} minute."
+msgstr[1] "Enter this code to sign in to Clientbridge. It expires in {count} minutes."
+
+msgid "login_code.note"
+msgstr "If you did not try to sign in, you can ignore this email."
+
 msgid "login_code.subject"
 msgstr "Your Clientbridge sign-in code"
+
+msgid "message.heading"
+msgstr "A message from {business}"
 
 msgid "online_order.body"
 msgstr "A client paid {amount} for an online order. It is waiting under Payments, Sales."
 
+msgid "online_order.heading"
+msgstr "Online order paid"
+
 msgid "online_order.subject"
 msgstr "Online order paid: {amount}, for pickup"
 
+msgid "order.action"
+msgstr "View order"
+
 msgid "order_ready.body"
 msgstr "Your order from {business} is ready to pick up."
+
+msgid "order_ready.heading"
+msgstr "Your order is ready"
 
 msgid "order_ready.subject"
 msgstr "Your order from {business} is ready"
@@ -186,11 +362,17 @@ msgstr "Your order from {business} is ready"
 msgid "order_reminder.body"
 msgstr "Your order is ready to collect from {business}. Please contact the studio if you need more time."
 
+msgid "order_reminder.heading"
+msgstr "Your order is waiting"
+
 msgid "order_reminder.subject"
 msgstr "Your order is waiting at {business}"
 
 msgid "payment_failed.body"
 msgstr "Your payment of {amount} to {business} failed. Please try again."
+
+msgid "payment_failed.heading"
+msgstr "Your payment didn't go through"
 
 msgid "payment_failed.subject"
 msgstr "Payment failed — {business}"
@@ -210,8 +392,17 @@ msgstr "Clientbridge Team"
 msgid "receipt.body"
 msgstr "Thank you! Your payment of {amount} to {business} was received."
 
+msgid "receipt.heading"
+msgstr "Payment received"
+
+msgid "receipt.item"
+msgstr "{item} x{quantity}"
+
 msgid "receipt.line"
 msgstr "{item} x{quantity}  {amount}"
+
+msgid "receipt.order_action"
+msgstr "Track your order"
 
 msgid "receipt.push"
 msgstr "Payment received: {amount}"
@@ -222,22 +413,42 @@ msgstr "Receipt from {business}"
 msgid "receipt.subtotal"
 msgstr "Subtotal  {amount}"
 
+msgid "receipt.subtotal_label"
+msgstr "Subtotal"
+
 msgid "receipt.tax"
 msgstr "{tax}  {amount}"
 
 msgid "receipt.total"
 msgstr "Total  {amount}"
 
+msgid "receipt.total_label"
+msgstr "Total"
+
 msgid "recovery_code.body"
 msgid_plural "recovery_code.body"
 msgstr[0] "Your Clientbridge password reset code is {code}. It expires in {count} minute. If you did not ask to reset your password, you can ignore this email."
 msgstr[1] "Your Clientbridge password reset code is {code}. It expires in {count} minutes. If you did not ask to reset your password, you can ignore this email."
+
+msgid "recovery_code.heading"
+msgstr "Reset your password"
+
+msgid "recovery_code.lead"
+msgid_plural "recovery_code.lead"
+msgstr[0] "Enter this code to reset your Clientbridge password. It expires in {count} minute."
+msgstr[1] "Enter this code to reset your Clientbridge password. It expires in {count} minutes."
+
+msgid "recovery_code.note"
+msgstr "If you did not ask to reset your password, you can ignore this email."
 
 msgid "recovery_code.subject"
 msgstr "Your Clientbridge password reset code"
 
 msgid "recovery_unknown.body"
 msgstr "Someone asked to reset a Clientbridge password for this address, but it is not linked to an account. If this was not you, you can ignore this email."
+
+msgid "recovery_unknown.heading"
+msgstr "Password reset request"
 
 msgid "recovery_unknown.subject"
 msgstr "Clientbridge password reset request"
@@ -248,11 +459,17 @@ msgstr "A refund of {amount} from {business} was issued."
 msgid "refund.body_credit_note"
 msgstr "A refund of {amount} from {business} was issued. Credit note {credit_note}."
 
+msgid "refund.heading"
+msgstr "Refund issued"
+
 msgid "refund.subject"
 msgstr "Refund from {business}"
 
 msgid "refund_failed.body"
 msgstr "Your bank could not complete the refund of {amount} from {business}. {business} will arrange it another way."
+
+msgid "refund_failed.heading"
+msgstr "Refund not completed"
 
 msgid "refund_failed.subject"
 msgstr "Refund not completed — {business}"
@@ -261,6 +478,17 @@ msgid "registration_code.body"
 msgid_plural "registration_code.body"
 msgstr[0] "Your Clientbridge sign-up code is {code}. It expires in {count} minute. If you did not create a Clientbridge account, you can ignore this email."
 msgstr[1] "Your Clientbridge sign-up code is {code}. It expires in {count} minutes. If you did not create a Clientbridge account, you can ignore this email."
+
+msgid "registration_code.heading"
+msgstr "Finish signing up"
+
+msgid "registration_code.lead"
+msgid_plural "registration_code.lead"
+msgstr[0] "Enter this code to finish creating your Clientbridge account. It expires in {count} minute."
+msgstr[1] "Enter this code to finish creating your Clientbridge account. It expires in {count} minutes."
+
+msgid "registration_code.note"
+msgstr "If you did not create a Clientbridge account, you can ignore this email."
 
 msgid "registration_code.subject"
 msgstr "Your Clientbridge sign-up code"
@@ -354,20 +582,52 @@ msgid_plural "returning_code.body"
 msgstr[0] "Your verification code is {code}. It expires in {count} minute. Use it to find your previous visit and pets. If you did not request it, ignore this email."
 msgstr[1] "Your verification code is {code}. It expires in {count} minutes. Use it to find your previous visit and pets. If you did not request it, ignore this email."
 
+msgid "returning_code.heading"
+msgstr "Your verification code"
+
+msgid "returning_code.lead"
+msgid_plural "returning_code.lead"
+msgstr[0] "Use this code to find your previous visit and pets with {business}. It expires in {count} minute."
+msgstr[1] "Use this code to find your previous visit and pets with {business}. It expires in {count} minutes."
+
+msgid "returning_code.note"
+msgstr "If you did not request it, you can ignore this email."
+
 msgid "returning_code.subject"
 msgstr "Your booking verification code for {business}"
+
+msgid "review.action"
+msgstr "Leave a review"
 
 msgid "review_requested.body"
 msgstr "Thanks for choosing {business}! Leave a review: {link}"
 
+msgid "review_requested.heading"
+msgstr "How was your visit?"
+
+msgid "review_requested.lead"
+msgstr "Thanks for choosing {business}. Leaving a review takes a minute and helps others find them."
+
 msgid "review_requested.subject"
 msgstr "How was your visit to {business}?"
+
+msgid "sale_receipt.action"
+msgstr "View receipt"
 
 msgid "sale_receipt.body"
 msgstr "Thank you for visiting {business}. Your receipt: {link}"
 
 msgid "sale_receipt.body_numbered"
 msgstr "Thank you for visiting {business}. Your receipt for sale S-{number}: {link}"
+
+msgid "sale_receipt.heading"
+msgstr "Thanks for visiting"
+
+msgid "sale_receipt.lead"
+msgstr "Thank you for visiting {business}. Your receipt is ready to view."
+
+msgid "sale_receipt.lead_numbered"
+msgstr "Thank you for visiting {business}. Your receipt for sale S-{number} is ready to view."
 
 msgid "sale_receipt.subject"
 msgstr "Your receipt from {business}"
@@ -378,17 +638,26 @@ msgstr "; "
 msgid "series_booked.body"
 msgstr "You're booked with {business} on: {whens}."
 
+msgid "series_booked.heading"
+msgstr "Your visits are booked"
+
 msgid "series_booked.subject"
 msgstr "Your visits are booked — {business}"
 
 msgid "series_canceled.body"
 msgstr "These visits with {business} were canceled: {whens}."
 
+msgid "series_canceled.heading"
+msgstr "Your visits were canceled"
+
 msgid "series_canceled.subject"
 msgstr "Your visits were canceled — {business}"
 
 msgid "series_moved.body"
 msgstr "Your visits with {business} are now on: {whens}."
+
+msgid "series_moved.heading"
+msgstr "Your visits were moved"
 
 msgid "series_moved.subject"
 msgstr "Your visits were moved — {business}"
@@ -399,8 +668,17 @@ msgstr "— Signed by {name}"
 msgid "staff.someone"
 msgstr "another member of the team"
 
+msgid "staff_invite.action"
+msgstr "Accept invite"
+
 msgid "staff_invite.body"
 msgstr "You've been invited to join a team on Clientbridge. Accept here: {link}"
+
+msgid "staff_invite.heading"
+msgstr "Join {business} on Clientbridge"
+
+msgid "staff_invite.lead"
+msgstr "You've been invited to join the {business} team on Clientbridge. Accept the invite to sign in or create your account, then you'll see the team's schedule and clients."
 
 msgid "staff_invite.subject"
 msgstr "You're invited to Clientbridge"
@@ -414,17 +692,32 @@ msgstr "Subscription"
 msgid "subscription_canceled.body"
 msgstr "Your subscription to {business} was canceled."
 
+msgid "subscription_canceled.heading"
+msgstr "Subscription canceled"
+
 msgid "subscription_canceled.subject"
 msgstr "Subscription canceled — {business}"
 
 msgid "subscription_past_due.body"
 msgstr "Your subscription payment to {business} failed. Please update your payment method."
 
+msgid "subscription_past_due.heading"
+msgstr "Payment past due"
+
 msgid "subscription_past_due.subject"
 msgstr "Payment past due — {business}"
 
+msgid "trial.action"
+msgstr "Choose a plan"
+
 msgid "trial_ending.body"
 msgstr "The free trial for {business} ends {when}. Choose Premium or Team to keep adding and changing records: {link}"
+
+msgid "trial_ending.heading"
+msgstr "Your free trial ends soon"
+
+msgid "trial_ending.lead"
+msgstr "The free trial for {business} ends {when}. Choose Premium or Team to keep adding and changing records."
 
 msgid "trial_ending.subject"
 msgstr "Your Clientbridge trial ends soon"
@@ -432,16 +725,36 @@ msgstr "Your Clientbridge trial ends soon"
 msgid "trial_last_day.body"
 msgstr "The free trial for {business} ends {when}. After that the business becomes read-only: you can still sign in and see your records, and invoices you already sent can still be paid. Choose a plan to keep working: {link}"
 
+msgid "trial_last_day.heading"
+msgstr "Your free trial is about to end"
+
+msgid "trial_last_day.lead"
+msgstr "The free trial for {business} ends {when}. After that the business becomes read-only: you can still sign in and see your records, and invoices you already sent can still be paid."
+
 msgid "trial_last_day.subject"
 msgstr "Your Clientbridge trial is about to end"
+
+msgid "verification_code.action"
+msgstr "Verify email"
 
 msgid "verification_code.body"
 msgid_plural "verification_code.body"
 msgstr[0] "Your Clientbridge verification code is {code}. It expires in {count} minute. If you did not create a Clientbridge account, you can ignore this email."
 msgstr[1] "Your Clientbridge verification code is {code}. It expires in {count} minutes. If you did not create a Clientbridge account, you can ignore this email."
 
+msgid "verification_code.heading"
+msgstr "Verify your email"
+
+msgid "verification_code.lead"
+msgid_plural "verification_code.lead"
+msgstr[0] "Enter this code to verify your email address. It expires in {count} minute."
+msgstr[1] "Enter this code to verify your email address. It expires in {count} minutes."
+
 msgid "verification_code.link"
 msgstr "You can also open this link: {link}"
+
+msgid "verification_code.note"
+msgstr "If you did not create a Clientbridge account, you can ignore this email."
 
 msgid "verification_code.subject"
 msgstr "Your Clientbridge verification code"
@@ -449,11 +762,42 @@ msgstr "Your Clientbridge verification code"
 msgid "verification_unknown.body"
 msgstr "Someone asked to verify this address on Clientbridge, but it is not linked to an account. If this was not you, you can ignore this email."
 
+msgid "verification_unknown.heading"
+msgstr "Verification request"
+
 msgid "verification_unknown.subject"
 msgstr "Clientbridge verification request"
 
 msgid "visits_reassigned.body"
 msgstr "These visits with {business} are now with {member}: {whens}."
 
+msgid "visits_reassigned.heading"
+msgstr "New provider for your visits"
+
 msgid "visits_reassigned.subject"
 msgstr "New provider for your visits — {business}"
+
+msgid "waitlist.action"
+msgstr "See the features"
+
+msgid "waitlist.body"
+msgstr "Thanks for joining the Clientbridge waitlist. We'll email you once, when you can set up your business, with a 14-day free trial and no card needed."
+
+msgid "waitlist.footer"
+msgstr "You're getting this email because you joined the waitlist at clientbridge.ca. Every email we send has an unsubscribe link."
+
+msgid "waitlist.heading"
+msgstr "You're on the list."
+
+msgid "waitlist.more"
+msgstr "Until then, you can look through what Clientbridge does and what it costs."
+
+msgid "waitlist.subject"
+msgstr "You're on the Clientbridge waitlist"
+
+msgid "waitlist.text"
+msgstr ""
+"{body}\n"
+"\n"
+"{more}\n"
+"{link}"

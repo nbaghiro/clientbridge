@@ -22,6 +22,7 @@ from clientbridge.core.errors import (
     Unprocessable,
 )
 from clientbridge.core.ids import new_id
+from clientbridge.core.locale import locale_for
 from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.core.zones import zone
 from clientbridge.integrations.resend import EmailSender
@@ -84,7 +85,13 @@ from clientbridge.services.business import business_tz, load_staff
 from clientbridge.services.catalog import deposit_cents, load_item
 from clientbridge.services.clients import load_client
 from clientbridge.services.messaging import dispatch_message, open_thread
-from clientbridge.services.notifications import Notifier, Outcome, reminder_message
+from clientbridge.services.notifications import (
+    Notifier,
+    Outcome,
+    business_brand,
+    message_notice,
+    reminder_message,
+)
 from clientbridge.services.payments import (
     cancel_open_deposits,
     default_method_ref,
@@ -820,8 +827,8 @@ class BookingService:
         if message is None:
             raise NotFound("booking not found")
         return ReminderPreview(
-            subject=message[0],
-            body=message[1],
+            subject=message.subject,
+            body=message.body,
             sends_at=slot.starts_at - _REMINDER_WINDOW,
             sent_at=booking.reminded_at,
         )
@@ -1719,7 +1726,7 @@ class ClassService:
         business = await self.db.get(Business, self.biz)
         if business is None:
             raise NotFound("business not found")
-        subject = business.name
+        brand = await business_brand(self.db, business)
         clients = (
             (
                 await self.db.execute(
@@ -1753,8 +1760,11 @@ class ClassService:
                 )
                 self.db.add(note)
                 await self.db.flush()
+                notice = message_notice(
+                    locale_for(business=business, client=client), business.name, data.body
+                )
                 await dispatch_message(
-                    sms, email, channel, to, subject, data.body, message=note, business=business
+                    sms, email, channel, to, notice, message=note, business=business, brand=brand
                 )
                 sent += 1
             await self.db.flush()

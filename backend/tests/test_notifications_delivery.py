@@ -7,6 +7,7 @@ from urllib.parse import parse_qs
 import httpx
 import pytest
 
+from clientbridge.core.config import get_settings
 from clientbridge.integrations.expo import ExpoPushSender, Push
 from clientbridge.integrations.resend import Email, ResendEmailSender
 from clientbridge.integrations.twilio import Sms, TwilioSmsSender
@@ -128,6 +129,17 @@ async def test_resend_carries_reply_to_tags_and_the_idempotency_key(
     ]
 
 
+async def test_resend_sends_the_html_beside_the_plain_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests = _capture(monkeypatch, [200])
+    await ResendEmailSender("re_test_key", "from@example.com").send(
+        Email(to="to@example.com", subject="Test", body="Hello", html="<p>Hello</p>")
+    )
+    payload = json.loads(requests[0].content)
+    assert payload["text"] == "Hello" and payload["html"] == "<p>Hello</p>"
+
+
 @pytest.mark.parametrize("status", [201, 400, 500])
 async def test_twilio_posts_the_message_form_and_returns_its_sid(
     monkeypatch: pytest.MonkeyPatch, status: int
@@ -161,3 +173,33 @@ async def test_twilio_posts_the_message_form_and_returns_its_sid(
         "From": ["+15550000000"],
         "Body": ["Hello"],
     }
+
+
+async def test_resend_sends_bundled_images_with_matching_content_ids(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from scripts.preview_emails import samples, send_sample
+
+    requests = _capture(monkeypatch, [200])
+    monkeypatch.setenv("RESEND_API_KEY", "re_test_key")
+    monkeypatch.setenv("EMAIL_FROM", "Clientbridge <from@example.com>")
+    get_settings.cache_clear()
+    mail = samples()["login-code"]
+    try:
+        assert await send_sample(mail, "recipient@example.com", "resend") == "email_1"
+    finally:
+        get_settings.cache_clear()
+    payload = json.loads(requests[0].content)
+    assert payload["to"] == ["recipient@example.com"]
+    assert payload["subject"] == f"[TEST] {mail.subject}"
+    assert payload["text"] == mail.body
+    assert payload["html"] == mail.html
+    assert payload["tags"] == [{"name": "purpose", "value": "email-preview"}]
+    assert "reply_to" not in payload
+    assert len(payload["attachments"]) == len(mail.images)
+    for attachment, image in zip(payload["attachments"], mail.images, strict=True):
+        assert attachment["content_id"] == image.content_id
+        assert attachment["filename"] == image.filename
+        assert attachment["content_type"] == image.content_type
+        assert base64.b64decode(attachment["content"]) == image.content
+        assert "path" not in attachment

@@ -156,6 +156,27 @@ Six adapters in `integrations/`, one per provider so they read apart from our ow
 `stripe.py` (Stripe Connect + Terminal), `resend.py` (email, the SMTP transport for Mailpit in dev, and the Svix check on the delivery webhook), `twilio.py` (SMS), `expo.py` (push), `identity.py`
 (the auth service's interface: `Identity`, `Credential`, `IdentityProvider`) with `kratos.py` (its Ory Kratos implementation and `get_identity_provider`), `s3.py` (S3; RustFS locally).
 
+### Email design
+
+Every email goes out as plain text and as HTML from one layout, `core/email_layout.py`: a table-based page with
+inline styles (so Gmail, Outlook and Apple Mail keep it), light only like the site and the apps, with an
+eyebrow, a heading, paragraphs, and optional code box, receipt table, button and footer. Each builder in
+`services/notifications.py` returns a `Notice` (subject, the text that SMS and the plain email send, and the
+`EmailView` the HTML shows), with all copy in `en_CA.po`. Clientbridge's own mail (sign-in codes, invites, trial
+notices, alerts to a business's team) uses `platform_brand()`: the logo over the site's contour lines. Mail a
+business sends its clients uses `business_brand()`: its brand colour and its logo when the upload is PNG, JPEG or
+GIF (other formats show its name), and a "Sent with Clientbridge" line. The header and contour PNGs are bundled in `backend/src/clientbridge/email_assets/` and attached inline
+with Content-ID references by both Resend and SMTP. Only images used by a message are attached; the fixed
+art does not depend on the marketing site. Uploaded business logos still use the existing media URL.
+`make preview-emails` renders ten representative demo emails into `.scratchpad/emails/`, embedding the
+same image bytes as data URLs for browser previews. Mailpit shows the real MIME message in dev.
+Use `make preview-emails ARGS="--list"` to list samples, or `ARGS="--email invoice"` to preview one.
+To send a demo, explicitly choose a recipient, sample and transport:
+`make preview-emails ARGS="--email invoice --send-to you@example.com --transport resend"`.
+Resend needs `RESEND_API_KEY` and `EMAIL_FROM`; SMTP uses `SMTP_URL`. Sends carry a `[TEST]` subject,
+synthetic data and nonfunctional `.test` action links, without changing business records. The gallery is
+a browser approximation; inspect actual deliveries in target email clients before approving the design.
+
 ### Jobs (`tasks/`)
 
 `tasks/worker.py` is the schedule only: one-line arq cron wrappers that open a session and call a `run_*`

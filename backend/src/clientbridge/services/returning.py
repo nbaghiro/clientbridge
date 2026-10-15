@@ -29,7 +29,7 @@ from clientbridge.schemas.returning import (
     ReturningVerify,
     ReturningVisit,
 )
-from clientbridge.services.notifications import client_email, returning_code
+from clientbridge.services.notifications import business_brand, client_email, returning_code
 
 _CODE_MINUTES = 10
 
@@ -110,13 +110,12 @@ class ReturningService:
             )
         )
         await self.db.commit()
-        subject, body = returning_code(
-            locale_for(business=business), business.name, code, _CODE_MINUTES
-        )
+        notice = returning_code(locale_for(business=business), business.name, code, _CODE_MINUTES)
         if channel == "email":
-            await sender.send(client_email(business, address, subject, body))
+            brand = await business_brand(self.db, business)
+            await sender.send(client_email(business, brand, address, notice))
         else:
-            await sms.send(Sms(to=address, body=body))
+            await sms.send(Sms(to=address, body=notice.body))
         return ReturningChallengeOut(challenge_id=challenge_id)
 
     async def verify(self, slug: str, data: ReturningVerify) -> ReturningVerified:
