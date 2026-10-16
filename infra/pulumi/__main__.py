@@ -17,6 +17,7 @@ from cloud import (
     identity,
     network,
     observability,
+    quotas,
     registry,
     secrets,
     services,
@@ -25,6 +26,7 @@ from cloud import (
 from kubernetes import (
     api,
     auth,
+    compute,
     gateway,
     migrate,
     namespace,
@@ -43,6 +45,7 @@ def cloud_stack() -> None:
     stack = environments.load_cloud()
     services.require(services.create(stack.project))
     project_number = gcp.organizations.get_project_output(project_id=stack.project).number
+    quotas.create(stack.project, stack.region, stack.alert_email)
     net = network.create(stack.region)
     repository = registry.create(stack.region)
     gke = cluster.create(stack.project, stack.region, net, repository)
@@ -80,6 +83,7 @@ def cloud_stack() -> None:
     )
     endpoint = cluster.dns_endpoint(gke)
     provider = namespace.provider("gke", endpoint)
+    compute.create(provider)
     gateway.create(ip, certificate_map, provider, stack.environments)
 
     shared: dict[str, object] = {}

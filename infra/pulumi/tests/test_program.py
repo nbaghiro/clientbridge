@@ -298,8 +298,25 @@ def test_staging_runs_on_spot_and_production_only_its_worker(stacks: dict[str, B
         for each in deployments:
             name = dig(each.inputs, "metadata", "name")
             selector = dig(each.inputs, "spec", "template", "spec", "nodeSelector")
-            spot = selector == {"cloud.google.com/gke-spot": "true"}
-            assert spot == (env == "staging" or name == "worker"), (env, name)
+            spot = env == "staging" or name == "worker"
+            expected = {
+                "cloud.google.com/compute-class": "small-disk-spot" if spot else "small-disk"
+            }
+            if spot:
+                expected["cloud.google.com/gke-spot"] = "true"
+            assert selector == expected, (env, name)
+
+
+def test_nodes_boot_from_small_disks_to_fit_the_ssd_quota(cloud: Built) -> None:
+    classes = {
+        str(dig(each.inputs, "metadata", "name")): each.inputs
+        for each in of_type(cloud, "kubernetes:cloud.google.com/v1:ComputeClass")
+    }
+    assert set(classes) == {"small-disk", "small-disk-spot"}
+    for name, spec in classes.items():
+        (priority,) = listed(dig(spec, "spec", "priorities"))
+        assert float(str(dig(priority, "storage", "bootDiskSize"))) <= 50
+        assert dig(priority, "spot") is (name == "small-disk-spot")
 
 
 def test_requests_follow_the_plan(stacks: dict[str, Built]) -> None:
@@ -1005,3 +1022,14 @@ def test_only_staging_seeds_the_demo_after_migrate_and_auth(stacks: dict[str, Bu
     assert dig(spec, "serviceAccountName") == "migrate"
     (container,) = listed(dig(spec, "containers"))
     assert "scripts.stripe_setup --link-only --apply" in str(dig(container, "command"))
+
+
+def test_the_project_asks_for_room_beyond_two_autopilot_nodes(cloud: Built) -> None:
+    preferences = {
+        str(dig(each.inputs, "quotaId")): each.inputs
+        for each in of_type(cloud, "gcp:cloudquota/sQuotaPreference:SQuotaPreference")
+    }
+    ssd = preferences["SSD-TOTAL-GB-per-project-region"]
+    assert dig(ssd, "dimensions") == {"region": "us-east1"}
+    assert int(str(dig(ssd, "quotaConfig", "preferredValue"))) >= 500
+    assert "CPUS-ALL-REGIONS-per-project" in preferences

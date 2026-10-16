@@ -21,6 +21,7 @@ from environments import (
     Size,
     Workload,
 )
+from kubernetes import compute
 
 REPO = Path(__file__).resolve().parents[3]
 COMPOSE = REPO / "docker-compose.yml"
@@ -362,7 +363,10 @@ def pod(
             run_as_non_root=True,
             seccomp_profile=k8s.core.v1.SeccompProfileArgs(type="RuntimeDefault"),
         ),
-        node_selector={"cloud.google.com/gke-spot": "true"} if spot else None,
+        node_selector={
+            "cloud.google.com/compute-class": compute.class_for(spot),
+            **({"cloud.google.com/gke-spot": "true"} if spot else {}),
+        },
         tolerations=[
             k8s.core.v1.TolerationArgs(
                 key="cloud.google.com/gke-spot", operator="Equal", value="true", effect="NoSchedule"

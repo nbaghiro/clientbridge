@@ -9,6 +9,7 @@ APIS = (
     "billingbudgets.googleapis.com",
     "certificatemanager.googleapis.com",
     "clouderrorreporting.googleapis.com",
+    "cloudquotas.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "compute.googleapis.com",
     "container.googleapis.com",
