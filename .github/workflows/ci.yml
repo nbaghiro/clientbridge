@@ -91,17 +91,12 @@ jobs:
     # The Pulumi program, built for the cloud, staging and prod stacks against Pulumi's mocks.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: infra/pulumi
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.0
       - run: uv sync --frozen
-      - run: uv run ruff check --ignore-noqa .
-      - run: uv run ruff format --check .
-      - run: PYRIGHT_PYTHON_IGNORE_WARNINGS=1 uv run pyright
-      - run: uv run pytest -q
+        working-directory: infra/pulumi
+      - run: make format-check-infra lint-infra test-infra
 
   contract:
     # The Stripe contract tier: the real StripeGateway against the OpenAPI mock. Marker-gated out of

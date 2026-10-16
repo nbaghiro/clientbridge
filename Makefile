@@ -1,4 +1,4 @@
-.PHONY: infra-bootstrap infra-providers help up down images up-app logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth auth-standalone test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check gen-waitlist-email preview-emails configure-demo-admin dev-admin
+.PHONY: infra-bootstrap infra-providers help up down images up-app logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth auth-standalone test-e2e stripe-mock lint lint-backend lint-frontend lint-infra test-infra typecheck format format-check format-check-backend format-check-frontend format-check-infra precommit hooks check gen-waitlist-email preview-emails configure-demo-admin dev-admin
 .DEFAULT_GOAL := help
 
 help:
@@ -196,7 +196,7 @@ gen-strings:
 		packages/app-core/locales/en-XA.json apps/site/src/strings.ts apps/site/locales/en-XA.json \
 		apps/connect/public/embed.js
 
-test: test-backend test-frontend
+test: test-backend test-frontend test-infra
 
 test-backend:
 	cd backend && uv run python -m scripts.fresh_database \
@@ -228,7 +228,7 @@ auth-standalone:
 test-e2e:
 	cd backend && uv run pytest -m e2e -q
 
-lint: lint-backend lint-frontend
+lint: lint-backend lint-frontend lint-infra
 
 # One config at the repo root (pyrightconfig.json), shared with the editor.
 PYRIGHT := PYRIGHT_PYTHON_IGNORE_WARNINGS=1 uv run pyright -p ../pyrightconfig.json
@@ -239,21 +239,31 @@ lint-backend:
 lint-frontend:
 	cd frontend && pnpm lint && pnpm typecheck && pnpm --filter site lint:content
 
+lint-infra:
+	cd infra/pulumi && uv run ruff check --ignore-noqa . && PYRIGHT_PYTHON_IGNORE_WARNINGS=1 uv run pyright
+
+test-infra:
+	cd infra/pulumi && uv run pytest -q
+
 typecheck:
 	cd backend && $(PYRIGHT)
 	cd frontend && pnpm typecheck
 
 format:
 	cd backend && uv run ruff format .
+	cd infra/pulumi && uv run ruff format .
 	cd frontend && pnpm format
 
-format-check: format-check-backend format-check-frontend
+format-check: format-check-backend format-check-frontend format-check-infra
 
 format-check-backend:
 	cd backend && uv run ruff format --check .
 
 format-check-frontend:
 	cd frontend && pnpm format:check
+
+format-check-infra:
+	cd infra/pulumi && uv run ruff format --check .
 
 # The fast gate the pre-commit hook runs (no tests).
 GENERATED := frontend/packages/api-client/src/generated.ts frontend/packages/sync/src/schema.ts \

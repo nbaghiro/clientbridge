@@ -12,8 +12,7 @@ INSTANCE = "clientbridge"
 TIER = "db-g1-small"
 # every pod reaches the instance through its Auth Proxy sidecar on this address
 PROXY_ADDRESS = "127.0.0.1:5432"
-# both environments deploying at once, with room for Cloud SQL's own connections; the arithmetic
-# is kubernetes/settings.py peak_connections and the plan's Database section
+# both environments deploying at once plus Cloud SQL's own; see settings.py peak_connections
 MAX_CONNECTIONS = 120
 RESERVED_CONNECTIONS = 5
 AUTH_MAX_CONNS = 5
@@ -61,14 +60,12 @@ def create(region: str, zone: str, net: network.Network) -> Instance:
         },
         opts=pulumi.ResourceOptions(protect=True, depends_on=[net.private_services]),
     )
-    # no root password is set, so the built-in postgres user cannot log in; Cloud SQL requires a
-    # password for every other user, so secrets_init.py creates each environment's admin
+    # no root password, so postgres cannot log in; secrets_init.py creates each environment's admin
     return Instance(sql=sql)
 
 
 def admin_user(env: Environment) -> str:
-    # a CREATEROLE CREATEDB user; on PostgreSQL 16 it administers only the roles it creates, and
-    # db_access.py creates the environment's databases with it, so Pulumi creates none
+    # CREATEROLE CREATEDB, administering only its own roles; db_access.py creates the databases
     return f"{env.name}_admin"
 
 

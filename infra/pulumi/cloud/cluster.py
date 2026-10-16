@@ -5,8 +5,7 @@ import pulumi_gcp as gcp
 
 from cloud import network
 
-# what nodes need to pull our images and report logs and metrics, instead of the default compute
-# account, which holds Editor or, in newer organizations, nothing
+# replaces the default compute account, which holds Editor or, in newer organizations, nothing
 NODE_ROLES = (
     "roles/logging.logWriter",
     "roles/monitoring.metricWriter",
@@ -77,8 +76,7 @@ def create(
         },
         gateway_api_config={"channel": "CHANNEL_STANDARD"},
         secret_manager_config={"enabled": True},
-        # Autopilot requires Managed Prometheus on; it bills only for metrics a PodMonitoring
-        # sends, and none is defined, so only the free system metrics are collected
+        # Autopilot requires Managed Prometheus; with no PodMonitoring it collects only free metrics
         monitoring_config={
             "enable_components": ["SYSTEM_COMPONENTS"],
             "managed_prometheus": {"enabled": True},

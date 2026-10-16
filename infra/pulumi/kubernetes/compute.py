@@ -5,8 +5,7 @@ import pulumi_kubernetes as k8s
 
 ON_DEMAND = "small-disk"
 SPOT = "small-disk-spot"
-# Autopilot boots only from pd-balanced, whose regional SSD quota a new project caps at 250 GB:
-# two default 100 GB nodes, or about eight of these
+# a new project's 250 GB pd-balanced quota fits two default 100 GB boot disks, or eight of these
 BOOT_DISK = {"bootDiskType": "pd-balanced", "bootDiskSize": 30}
 
 

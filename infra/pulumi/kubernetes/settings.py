@@ -165,8 +165,7 @@ def readers(workload: str) -> set[str]:
     return {secret for mapping in ACCOUNTS[workload] for secret in mapping.values()}
 
 
-# each image's own numeric user and group (docker image inspect on the pinned digests and the
-# Dockerfiles), set explicitly because runAsNonRoot cannot verify a named or missing USER
+# numeric, because runAsNonRoot cannot verify a named or missing USER in the image
 IMAGE_USERS: Mapping[str, tuple[int, int]] = {
     "backend": (10001, 10001),
     "web": (10001, 10001),
