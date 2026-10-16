@@ -20,14 +20,14 @@ export function ActionTile({
             type="button"
             disabled={disabled}
             onClick={onPress}
-            className={`group flex min-w-0 rounded-xl border text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+            className={`group flex min-w-0 rounded-xl border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
                 layout === "tile"
                     ? "flex-col items-center gap-2 px-2 py-3.5 text-center"
-                    : "items-center gap-3 px-3.5 py-3"
+                    : "items-center gap-3 px-3.5 py-3 text-left"
             } ${inv ? "border-inverse/20 bg-inverse/10 text-inverse hover:bg-inverse/20" : "border-line bg-surface text-ink hover:border-accent-line hover:bg-accent-weak/40"} ${className ?? ""}`}
         >
             <Icon name={icon} size={22} className={inv ? "" : "text-ink-soft"} />
-            <span className="min-w-0">
+            <span className={`min-w-0 ${layout === "tile" ? "w-full" : ""}`}>
                 <span className="block text-[13px] font-semibold leading-tight">{label}</span>
                 {hint !== undefined ? (
                     <span
