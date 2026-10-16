@@ -1,0 +1,37 @@
+# Render Blueprint for the marketing site alone, deployed before the app: sign-ups join a waitlist
+# held in Resend. The app, API and workers deploy to GKE (.docs/operations.md), not here.
+services:
+    - type: web
+      name: clientbridge-site
+      runtime: node
+      region: ohio
+      plan: starter # always on; free instances spin down after 15 idle minutes and show a waking page
+      repo: https://github.com/nbaghiro/clientbridge
+      branch: site-waitlist # main plus this file; the waitlist build only lives here
+      rootDir: frontend
+      # CI runs on main and pull requests, so each push here deploys once it lands
+      autoDeployTrigger: commit
+      buildFilter:
+          paths:
+              - frontend/apps/site/**
+              - frontend/packages/**
+              - frontend/pnpm-lock.yaml
+              - frontend/.nvmrc
+      # Node comes from frontend/.nvmrc; only the site and the workspace packages it uses are installed.
+      buildCommand: corepack pnpm install --frozen-lockfile --filter site... && corepack pnpm --filter site build
+      startCommand: node apps/site/server/main.ts
+      healthCheckPath: /health
+      envVars:
+          - key: VITE_WAITLIST
+            value: "1"
+          - key: VITE_SITE_URL
+            value: https://clientbridge.ca
+          - key: EMAIL_FROM # the waitlist confirmation's sender, on the verified Resend domain
+            value: Clientbridge <no-reply@clientbridge.ca>
+          - key: CONTACT_TO # where the contact form's messages go
+            value: hello@clientbridge.ca
+          # --- secrets: set in the Render dashboard (never committed) ---
+          - key: RESEND_API_KEY # a full-access key; contacts are not open to sending-only keys
+            sync: false
+          - key: RESEND_SEGMENT_ID # the Waitlist segment under Audience in Resend
+            sync: false
