@@ -73,6 +73,7 @@ def cloud_stack() -> None:
     )
     observability.create(
         stack.project,
+        stack.region,
         project_number,
         stack.environments,
         instance.sql,

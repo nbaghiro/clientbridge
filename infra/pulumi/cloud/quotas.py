@@ -3,6 +3,9 @@
 import pulumi_gcp as gcp
 
 COMPUTE = "compute.googleapis.com"
+# the limits Google granted this project; observability alerts at 80% of each, before nodes stall
+SSD_LIMIT_GB = 250
+CPU_LIMIT = 12
 # a new project allows 250 GB of SSD per region, and every Autopilot node boots from a 100 GB disk
 SSD_GB = 500
 CPUS = 24

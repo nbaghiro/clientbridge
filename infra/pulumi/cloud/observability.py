@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import pulumi
 import pulumi_gcp as gcp
 
+from cloud import quotas
 from environments import Environment, Host
 
 UPTIME_CHECKS: tuple[tuple[Host, str], ...] = (("api", "/health"), ("app", "/"))
@@ -53,6 +54,7 @@ LOG_METRICS = (
 
 def create(
     project: str,
+    region: str,
     project_number: pulumi.Output[str],
     envs: Sequence[Environment],
     instance: gcp.sql.DatabaseInstance,
@@ -98,6 +100,23 @@ def create(
                 group_by=["resource.label.host"],
                 channels=channels,
             )
+    # Autopilot cannot add a node past a quota, so a rollout would wait on pods that never schedule
+    for name, metric, location, limit in (
+        ("quota-ssd", "ssd_total_storage", region, quotas.SSD_LIMIT_GB),
+        ("quota-cpus", "cpus_all_regions", "global", quotas.CPU_LIMIT),
+    ):
+        _threshold(
+            name,
+            f"Compute {metric} above 80% of its quota of {limit}: new nodes will soon fail",
+            'metric.type="serviceruntime.googleapis.com/quota/allocation/usage" '
+            'AND resource.type="consumer_quota" '
+            f'AND metric.label.quota_metric="compute.googleapis.com/{metric}" '
+            f'AND resource.label.location="{location}"',
+            threshold=0.8 * limit,
+            duration="0s",
+            aligner="ALIGN_MAX",
+            channels=channels,
+        )
     database = instance.name.apply(
         lambda name: (
             f'resource.type="cloudsql_database" AND resource.label.database_id="{project}:{name}"'

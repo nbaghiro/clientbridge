@@ -1033,3 +1033,15 @@ def test_the_project_asks_for_room_beyond_two_autopilot_nodes(cloud: Built) -> N
     assert dig(ssd, "dimensions") == {"region": "us-east1"}
     assert int(str(dig(ssd, "quotaConfig", "preferredValue"))) >= 500
     assert "CPUS-ALL-REGIONS-per-project" in preferences
+
+
+def test_quota_use_alerts_before_nodes_stall(cloud: Built) -> None:
+    filters = {
+        str(dig(each.inputs, "displayName")): str(
+            dig(listed(dig(each.inputs, "conditions"))[0], "conditionThreshold", "filter")
+        )
+        for each in of_type(cloud, "gcp:monitoring/alertPolicy:AlertPolicy")
+    }
+    quota = {name: f for name, f in filters.items() if "consumer_quota" in f}
+    assert any("ssd_total_storage" in f and '"us-east1"' in f for f in quota.values())
+    assert any("cpus_all_regions" in f for f in quota.values())
