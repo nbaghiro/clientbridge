@@ -1,6 +1,6 @@
 # Deploy progress
 
-Planned on 13 October 2026; D01 to D10 are written in code, D05 to D10 are not yet applied, and `operations.md` holds the first-deploy checklist. The [task queue](tasks.json) is the status source and the [plan](plan.md) holds the design, costs and scaling steps.
+Planned on 13 October 2026; D01 to D10 are written in code, staging was applied on 16 October 2026 (see the last section), production is not applied, and `operations.md` holds the first-deploy checklist. The [task queue](tasks.json) is the status source and the [plan](plan.md) holds the design, costs and scaling steps.
 
 ## Inputs
 
@@ -88,3 +88,9 @@ Left open: PowerSync's pool sizes are its defaults (8 per pool), which is most o
 ## Auth naming after the rebase (14 October 2026)
 
 The branch was rebased onto `main` after the auth naming change, and the deploy code now follows it. The sections above keep the names used when they were written. The workload, Service, NetworkPolicy, database and role are `auth` (with the `staging_` prefix in staging), the migrate Job's second container is `auth-migrate`, `core/deployment.py` exports `auth_env`, `AUTH_COMMAND` and `AUTH_SECRETS`, and the Pulumi module is `kubernetes/auth.py`. The auth service's public API moved from the four Kratos path prefixes on `api.D` to one `/auth` prefix that the Gateway strips with a `URLRewrite` filter, so Kratos's base URL is `https://api.D/auth/`, `AUTH_PUBLIC_URL` and the web and mobile `authUrl` are `https://api.D/auth`, and the Google callback is `https://api.D/auth/self-service/methods/oidc/callback/google`. The session cookie stays `__Host-cb_session` on path `/`.
+
+## Staging applied (16 October 2026)
+
+The cloud and staging stacks were applied by hand with `pulumi up`, since `deploy.yml` runs only from `main`, and the deployed digests are tagged `staging-current`. Every host on `staging.clientbridge.ca` returns 200 and `www.` redirects. The seed Job wrote the demo businesses, and `stripe_setup --link-only` linked them to their sandbox accounts and Terminal locations. Applying it found three problems, now fixed in the program: the new project's 250 GB SSD quota fit only two default nodes, so nodes boot from 30 GB `pd-balanced` disks through the `small-disk` and `small-disk-spot` compute classes (Google denied the quota increase requests, and alerts fire at 80% of the SSD and CPU quotas); GKE refuses a Spot selector beside a custom class, so pods select only the class; and the web pod drops every capability, so the image strips Caddy's file capability and CI starts each image that way.
+
+Still open: the Twilio number waits on the account's Trust Hub approval (then rerun `make infra-providers ENV=staging`), the first `deploy.yml` run checks the deployer's RBAC, the admin isolation check needs production, the demo businesses need Stripe onboarding, and the EAS items in `operations.md` are not set.
