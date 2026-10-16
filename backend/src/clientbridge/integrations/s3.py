@@ -3,9 +3,15 @@
 from typing import Protocol
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from clientbridge.core.config import get_settings
+
+# GCS's S3 interface rejects the checksums boto3 adds to every request by default
+S3_CONFIG = Config(
+    request_checksum_calculation="when_required", response_checksum_validation="when_required"
+)
 
 
 class FileStorage(Protocol):
@@ -34,6 +40,7 @@ class S3Storage:
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
             region_name=region,
+            config=S3_CONFIG,
         )
 
     def presign_upload(self, key: str, content_type: str) -> str:
