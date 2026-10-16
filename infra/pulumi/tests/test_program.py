@@ -750,13 +750,12 @@ def test_mail_records_cannot_take_a_host() -> None:
 
 
 def test_www_redirects_to_the_apex(cloud: Built) -> None:
-    gateway_namespace = named(cloud, "kubernetes:core/v1:Namespace", "gateway")
-    assert dig(gateway_namespace.inputs, "metadata", "labels") == {
-        "clientbridge.ca/gateway-routes": "true"
-    }
     for env, domain in DOMAINS.items():
         route = named(cloud, "kubernetes:gateway.networking.k8s.io/v1:HTTPRoute", f"{env}-www")
         assert dig(route.inputs, "spec", "hostnames") == [f"www.{domain}"]
+        assert listed(dig(route.inputs, "spec", "parentRefs")) == [
+            {"name": "clientbridge", "sectionName": f"{env}-www"}
+        ]
         (rule,) = listed(dig(route.inputs, "spec", "rules"))
         (redirect,) = listed(dig(rule, "filters"))
         assert dig(redirect, "requestRedirect") == {
@@ -876,7 +875,7 @@ def test_the_connection_pools_fit_the_instance(cloud: Built, stacks: dict[str, B
     for built in stacks.values():
         (api,) = containers(named(built, "kubernetes:apps/v1:Deployment", "api"))
         assert env_vars(api)["DB_POOL_SIZE"] == "3"
-        assert env_vars(api)["DB_MAX_OVERFLOW"] == "2"
+        assert env_vars(api)["DB_MAX_OVERFLOW"] == "1"
     envs = environments.build("clientbridge.ca", "staging.clientbridge.ca")
     peak = sum(settings.peak_connections(env) for env in envs)
     assert peak + database.RESERVED_CONNECTIONS <= database.MAX_CONNECTIONS
@@ -1042,3 +1041,78 @@ def test_quota_use_alerts_before_nodes_stall(cloud: Built) -> None:
     quota = {name: f for name, f in filters.items() if "consumer_quota" in f}
     assert any("ssd_total_storage" in f and '"us-east1"' in f for f in quota.values())
     assert any("cpus_all_regions" in f for f in quota.values())
+
+
+def listeners(cloud: Built) -> dict[str, object]:
+    (gateway,) = [
+        each
+        for each in of_type(cloud, "kubernetes:gateway.networking.k8s.io/v1:Gateway")
+        if dig(each.inputs, "metadata", "name") == "clientbridge"
+    ]
+    return {
+        str(dig(each, "name")): each for each in listed(dig(gateway.inputs, "spec", "listeners"))
+    }
+
+
+def admitted(listener: object) -> object:
+    return dig(listener, "allowedRoutes", "namespaces", "selector", "matchLabels")
+
+
+def test_each_host_takes_routes_only_from_its_own_environment(
+    cloud: Built, stacks: dict[str, Built]
+) -> None:
+    every = listeners(cloud)
+    for env in environments.build(*DOMAINS.values()):
+        for host in HOSTS:
+            listener = every[f"{env.name}-{host}"]
+            # an exact hostname: a wildcard is a suffix match, so *.clientbridge.ca takes staging's
+            assert dig(listener, "hostname") == env.host(host)
+            assert admitted(listener) == {"kubernetes.io/metadata.name": env.namespace}
+        assert admitted(every[f"{env.name}-www"]) == {"kubernetes.io/metadata.name": "gateway"}
+        for host in HOSTS:
+            route = named(
+                stacks[env.name], "kubernetes:gateway.networking.k8s.io/v1:HTTPRoute", host
+            )
+            assert dig(route.inputs, "spec", "hostnames") == [env.host(host)]
+            assert listed(dig(route.inputs, "spec", "parentRefs")) == [
+                {
+                    "name": "clientbridge",
+                    "namespace": "gateway",
+                    "sectionName": f"{env.name}-{host}",
+                }
+            ]
+    https = [name for name, each in every.items() if dig(each, "protocol") == "HTTPS"]
+    assert all(dig(every[name], "hostname") for name in https)
+
+
+def test_no_stack_config_holds_a_pulumi_secret() -> None:
+    # every deployer decrypts with the one state key, so a secret here would reach every deployer
+    for config in PROGRAM.glob("Pulumi.*.yaml"):
+        assert "secure:" not in config.read_text(), config.name
+
+
+def test_production_keeps_a_served_pod_through_a_node_upgrade(stacks: dict[str, Built]) -> None:
+    budgets = {
+        str(dig(each.inputs, "metadata", "name")): each
+        for each in of_type(stacks["prod"], "kubernetes:policy/v1:PodDisruptionBudget")
+    }
+    assert set(budgets) == {"api", "auth", "web"}
+    for name, budget in budgets.items():
+        deployment_ = named(stacks["prod"], "kubernetes:apps/v1:Deployment", name)
+        assert dig(deployment_.inputs, "spec", "replicas") == 2
+        assert dig(budget.inputs, "spec", "minAvailable") == 1
+        assert dig(budget.inputs, "spec", "selector", "matchLabels") == {"app": name}
+    assert not of_type(stacks["staging"], "kubernetes:policy/v1:PodDisruptionBudget")
+
+
+def test_a_missing_secret_file_stops_the_container() -> None:
+    script = str(settings.with_secrets(["serve"], {"A_KEY": "a-key"})[2])
+    # export would succeed with an empty value; the bare assignment fails under set -e
+    assert 'A_KEY="$(cat /var/run/secrets/clientbridge/a-key)"; export A_KEY' in script.splitlines()
+
+
+def test_only_the_mobile_jobs_receive_secrets() -> None:
+    jobs = dig(workflow("deploy.yml"), "jobs")
+    assert isinstance(jobs, dict)
+    for name, job in jobs.items():
+        assert ("secrets" in keys(job)) == name.endswith("-mobile"), name

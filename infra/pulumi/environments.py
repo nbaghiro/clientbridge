@@ -66,6 +66,7 @@ PROXY = Size(
 
 
 def build(prod_domain: str, staging_domain: str) -> tuple[Environment, Environment]:
+    # two of each served workload, so a node upgrade evicting one pod drops no request
     prod = Environment(
         name="prod",
         base_domain=prod_domain,
@@ -73,13 +74,13 @@ def build(prod_domain: str, staging_domain: str) -> tuple[Environment, Environme
         prefix="",
         web_environment="production",
         github_environment="production",
-        api=Workload(Size("500m", "1Gi"), spot=False),
+        api=Workload(Size("500m", "1Gi"), spot=False, replicas=2),
         # each job commits after every send, so a preempted run resends nothing
         worker=Workload(Size("250m", "512Mi"), spot=True),
         migrate=Workload(Size("250m", "512Mi"), spot=False),
-        auth=Workload(Size("100m", "256Mi"), spot=False),
+        auth=Workload(Size("100m", "256Mi"), spot=False, replicas=2),
         powersync=Workload(Size("250m", "768Mi"), spot=False),
-        web=Workload(Size("100m", "256Mi"), spot=False),
+        web=Workload(Size("100m", "256Mi"), spot=False, replicas=2),
         redis=Workload(Size("50m", "128Mi"), spot=False),
         migrate_retries=0,
         demo=False,

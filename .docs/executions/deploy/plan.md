@@ -101,18 +101,18 @@ Pods use Autopilot's small minimums and burst above their requests into spare ca
 
 ### Database
 
-One Cloud SQL for PostgreSQL 16 instance, `db-g1-small` (1.7 GB), zonal, with daily backups kept 7 days, point-in-time recovery, private IP only, TLS required and `cloudsql.logical_decoding=on`. It holds six databases: `clientbridge`, `auth` and `powersync_storage` for production, and the same three with a `staging_` prefix, each created by the environment's migrate step as its admin rather than by Pulumi. Each environment has its own roles from `scripts/db_access.py` and its own admin, `prod_admin` or `staging_admin`, which `secrets_init.py` creates and only that environment's migrate Job can read; on PostgreSQL 16 a CREATEROLE admin administers only the roles it created, so staging credentials cannot reach production data, and the built-in `postgres` user has no password. Connection pools are set small (`DB_POOL_SIZE=3`, `DB_MAX_OVERFLOW=2` per process) and `max_connections` is 120, from this count of what one environment opens at most (`kubernetes/settings.py` `peak_connections`, checked by a test):
+One Cloud SQL for PostgreSQL 16 instance, `db-g1-small` (1.7 GB), zonal, with daily backups kept 7 days, point-in-time recovery, private IP only, TLS required and `cloudsql.logical_decoding=on`. It holds six databases: `clientbridge`, `auth` and `powersync_storage` for production, and the same three with a `staging_` prefix, each created by the environment's migrate step as its admin rather than by Pulumi. Each environment has its own roles from `scripts/db_access.py` and its own admin, `prod_admin` or `staging_admin`, which `secrets_init.py` creates and only that environment's migrate Job can read; on PostgreSQL 16 a CREATEROLE admin administers only the roles it created, so staging credentials cannot reach production data, and the built-in `postgres` user has no password. Connection pools are set small (`DB_POOL_SIZE=3`, `DB_MAX_OVERFLOW=1` per process) and `max_connections` is 120, from this count of what one environment opens at most (`kubernetes/settings.py` `peak_connections`, checked by a test):
 
-| Client               | Connections                                                                              |
-| -------------------- | ---------------------------------------------------------------------------------------- |
-| API                  | 2 pods during a rollout × 2 uvicorn workers × (3 + 2) = 20                               |
-| Worker               | 1 process × (3 + 2) = 5                                                                  |
-| Auth service         | 2 pods during a rollout × `max_conns=5` = 10                                             |
-| PowerSync            | source and storage pools of 8 each (its default) plus replication streams, counted as 20 |
-| Migrate Job          | 8, but it runs before the rollout, beside the old pods: 10 + 5 + 5 + 20 + 8 = 48         |
-| Peak per environment | 20 + 5 + 10 + 20 = 55                                                                    |
+| Client               | Production                                                                               | Staging                                    |
+| -------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------ |
+| API                  | 3 pods during a rollout × 2 uvicorn workers × (3 + 1) = 24                               | 2 pods during a rollout × 2 × (3 + 1) = 16 |
+| Worker               | 1 process × (3 + 1) = 4                                                                  | 4                                          |
+| Auth service         | 3 pods during a rollout × `max_conns=5` = 15                                             | 2 × 5 = 10                                 |
+| PowerSync            | source and storage pools of 8 each (its default) plus replication streams, counted as 20 | 20                                         |
+| Migrate Job          | 8, beside the old pods: 16 + 4 + 10 + 20 + 8 = 58                                        | 8 + 4 + 5 + 20 + 8 = 45                    |
+| Peak per environment | 24 + 4 + 15 + 20 = 63                                                                    | 16 + 4 + 10 + 20 = 50                      |
 
-Both environments can deploy at once, so the peak is 110, plus 5 kept for Cloud SQL's own connections, under 120. Idle connections cost a few MB each on the 1.7 GB tier; if memory runs short, lowering PowerSync's `max_pool_size` in `powersync.deployed.yaml` is the cheapest cut, and the larger tier is the next step.
+Production runs two API, auth and web pods, each with a PodDisruptionBudget, so a node upgrade never stops the only one. Both environments can deploy at once, so the peak is 113, plus 5 kept for Cloud SQL's own connections, under 120. Idle connections cost a few MB each on the 1.7 GB tier; if memory runs short, lowering PowerSync's `max_pool_size` in `powersync.deployed.yaml` is the cheapest cut, and the larger tier is the next step.
 
 - **Cost choice:** one small zonal instance for both environments, about $28 a month instead of about $125 for a dedicated production instance with HA plus a staging instance.
 - **Scaled:** `db-custom-1-3840` when CPU or connections run high; staging on its own instance when it gets real load; regional HA once paying customers depend on uptime; a read replica for reports later. Each is a Pulumi setting, and the HA step needs the PowerSync slot's failover tested first.

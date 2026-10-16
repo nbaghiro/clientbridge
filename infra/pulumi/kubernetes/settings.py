@@ -35,7 +35,7 @@ DRAIN_DELAY_SECONDS = 10
 DRAIN_SECONDS = 10
 API_WORKERS = 2
 DB_POOL_SIZE = 3
-DB_MAX_OVERFLOW = 2
+DB_MAX_OVERFLOW = 1
 
 # the backend image's commands (backend/Dockerfile): its default CMD, the worker and migrate
 API_COMMAND = (
@@ -256,8 +256,9 @@ def web_env(env: Environment, stripe_publishable_key: str) -> list[k8s.core.v1.E
 
 def with_secrets(command: Sequence[str], secrets: Mapping[str, str]) -> list[str]:
     """Export each mounted secret file as its variable, then run the image's command."""
+    # a plain assignment, unlike export, fails the script when cat finds no file
     exports = [
-        f'export {variable}="$(cat {SECRETS_DIR}/{secret})"'
+        f'{variable}="$(cat {SECRETS_DIR}/{secret})"; export {variable}'
         for variable, secret in sorted(secrets.items())
     ]
     return [
@@ -439,6 +440,17 @@ def deployment(
             rolling_update=k8s.apps.v1.RollingUpdateDeploymentArgs(max_surge=1, max_unavailable=0),
         )
     )
+    if workload.replicas > 1:
+        # a voluntary eviction (a node upgrade or repair) waits until another pod is ready
+        k8s.policy.v1.PodDisruptionBudget(
+            f"{ctx.env.name}-{name}",
+            metadata=ctx.metadata(name),
+            spec=k8s.policy.v1.PodDisruptionBudgetSpecArgs(
+                min_available=1,
+                selector=k8s.meta.v1.LabelSelectorArgs(match_labels={"app": name}),
+            ),
+            opts=ctx.options(),
+        )
     return k8s.apps.v1.Deployment(
         f"{ctx.env.name}-{name}",
         metadata=ctx.metadata(name),

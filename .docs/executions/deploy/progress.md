@@ -81,7 +81,7 @@ The review's Pulumi findings and the gaps above, fixed in `infra/pulumi` against
 - The registry keeps every image tagged `prod-…` or `staging-current`, keeps `staging-<short sha>` images for 30 days, and keeps the 20 most recent versions of each image.
 - Staging's migrate Job retries twice (`backoff_limit` 2, since it runs on Spot and its steps are idempotent); production's stays at 0, so a failed production migration stops the deploy.
 - The API, Kratos and web pods sleep 10 seconds in `preStop`, and uvicorn has 10 seconds to finish (`--timeout-graceful-shutdown`), within the 25-second grace period. The web Deployment waits on the migrate Job. The worker's liveness probe runs `arq --check`; it notices a hung worker only after arq's `health_check_interval` (3600 seconds by default, set in `tasks/worker.py`). The deployer Role can read `pods/log`.
-- `DB_POOL_SIZE=3` and `DB_MAX_OVERFLOW=2` are set for the backend, and `max_connections` is 120 from the count in the plan's Database section.
+- `DB_POOL_SIZE=3` and `DB_MAX_OVERFLOW=2` were set (now 1, see the review round below) for the backend, and `max_connections` is 120 from the count in the plan's Database section.
 
 Left open: PowerSync's pool sizes are its defaults (8 per pool), which is most of the connection budget, and `infra/powersync` was outside this round.
 
@@ -94,3 +94,13 @@ The branch was rebased onto `main` after the auth naming change, and the deploy 
 The cloud and staging stacks were applied by hand with `pulumi up`, since `deploy.yml` runs only from `main`, and the deployed digests are tagged `staging-current`. Every host on `staging.clientbridge.ca` returns 200 and `www.` redirects. The seed Job wrote the demo businesses, and `stripe_setup --link-only` linked them to their sandbox accounts and Terminal locations. Applying it found three problems, now fixed in the program: the new project's 250 GB SSD quota fit only two default nodes, so nodes boot from 30 GB `pd-balanced` disks through the `small-disk` and `small-disk-spot` compute classes (Google denied the quota increase requests, and alerts fire at 80% of the SSD and CPU quotas); GKE refuses a Spot selector beside a custom class, so pods select only the class; and the web pod drops every capability, so the image strips Caddy's file capability and CI starts each image that way.
 
 Still open: the Twilio number waits on the account's Trust Hub approval (then rerun `make infra-providers ENV=staging`), the first `deploy.yml` run checks the deployer's RBAC, the admin isolation check needs production, the demo businesses need Stripe onboarding, and the EAS items in `operations.md` are not set.
+
+## Review round (16 October 2026)
+
+A review of the branch found these, fixed in code and not yet applied:
+
+- Each environment and host has its own Gateway listener with its exact hostname, taking routes only from that environment's namespace (`kubernetes.io/metadata.name`), so a staging deployer can no longer route a production host. A wildcard listener would not do, since `*.clientbridge.ca` also matches the staging hosts. Applying the cloud stack replaces the shared `https` listener, so staging's routes detach until the staging stack is applied next.
+- Production runs two API, auth and web pods with a PodDisruptionBudget each; `DB_MAX_OVERFLOW` drops from 2 to 1 so both environments still fit `max_connections=120` without restarting the instance.
+- A missing secret file now stops the container instead of starting it with an empty value.
+- A test refuses a `secure:` value in any stack config, since every deployer can decrypt with the shared state key.
+- A failed Stripe setup prints its output with the secrets cut to their prefixes, and the environment deploy jobs no longer receive the repository's secrets.

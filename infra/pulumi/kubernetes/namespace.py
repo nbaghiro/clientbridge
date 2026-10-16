@@ -16,7 +16,6 @@ from environments import (
     Environment,
 )
 
-GATEWAY_ROUTES_LABEL = "clientbridge.ca/gateway-routes"
 UNBOUND_ACCOUNTS = ("web", "redis")  # workloads that call no Google API
 DEPLOY_ROLE = "deployer"
 # everything an environment stack applies or waits on, and nothing outside its namespace
@@ -27,6 +26,7 @@ DEPLOY_RULES: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
     ("apps", ("deployments",), ("*",)),
     ("apps", ("replicasets",), ("get", "list", "watch")),
     ("batch", ("jobs",), ("*",)),
+    ("policy", ("poddisruptionbudgets",), ("*",)),
     ("discovery.k8s.io", ("endpointslices",), ("get", "list", "watch")),
     ("networking.k8s.io", ("networkpolicies",), ("*",)),
     ("gateway.networking.k8s.io", ("httproutes",), ("*",)),
@@ -74,7 +74,7 @@ def create(
         env.namespace,
         metadata=k8s.meta.v1.ObjectMetaArgs(
             name=env.namespace,
-            labels={GATEWAY_ROUTES_LABEL: "true", "clientbridge.ca/environment": env.name},
+            labels={"clientbridge.ca/environment": env.name},
         ),
         opts=pulumi.ResourceOptions(provider=provider),
     )

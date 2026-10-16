@@ -15,7 +15,7 @@ from environments import (
     Environment,
     Host,
 )
-from kubernetes import namespace, settings
+from kubernetes import settings
 
 NAMESPACE = "gateway"
 NAME = "clientbridge"
@@ -43,6 +43,41 @@ def address() -> gcp.compute.GlobalAddress:
     return gcp.compute.GlobalAddress("gateway", address_type="EXTERNAL", ip_version="IPV4")
 
 
+def section(env: Environment, host: str) -> str:
+    return f"{env.name}-{host}"
+
+
+def _only(namespace_name: str) -> dict[str, object]:
+    # Kubernetes sets this label to the namespace's name, so no other namespace can claim it
+    return {
+        "namespaces": {
+            "from": "Selector",
+            "selector": {"matchLabels": {"kubernetes.io/metadata.name": namespace_name}},
+        }
+    }
+
+
+def listener(env: Environment, host: Host) -> dict[str, object]:
+    """One host of one environment, taking routes only from that environment's namespace."""
+    return {
+        "name": section(env, host),
+        "protocol": "HTTPS",
+        "port": 443,
+        "hostname": env.host(host),
+        "allowedRoutes": _only(env.namespace),
+    }
+
+
+def redirect_listener(env: Environment) -> dict[str, object]:
+    return {
+        "name": section(env, "www"),
+        "protocol": "HTTPS",
+        "port": 443,
+        "hostname": f"www.{env.base_domain}",
+        "allowedRoutes": _only(NAMESPACE),
+    }
+
+
 def create(
     ip: gcp.compute.GlobalAddress,
     certificate_map: gcp.certificatemanager.CertificateMap,
@@ -50,13 +85,8 @@ def create(
     envs: Sequence[Environment],
 ) -> k8s.apiextensions.CustomResource:
     options = pulumi.ResourceOptions(provider=provider)
-    # labelled so the HTTPS listener takes the www redirects defined here
     edge = k8s.core.v1.Namespace(
-        NAMESPACE,
-        metadata=k8s.meta.v1.ObjectMetaArgs(
-            name=NAMESPACE, labels={namespace.GATEWAY_ROUTES_LABEL: "true"}
-        ),
-        opts=options,
+        NAMESPACE, metadata=k8s.meta.v1.ObjectMetaArgs(name=NAMESPACE), opts=options
     )
     scoped = pulumi.ResourceOptions(provider=provider, depends_on=[edge])
     gateway = k8s.apiextensions.CustomResource(
@@ -72,17 +102,8 @@ def create(
             "gatewayClassName": "gke-l7-global-external-managed",
             "addresses": [{"type": "NamedAddress", "value": ip.name}],
             "listeners": [
-                {
-                    "name": "https",
-                    "protocol": "HTTPS",
-                    "port": 443,
-                    "allowedRoutes": {
-                        "namespaces": {
-                            "from": "Selector",
-                            "selector": {"matchLabels": {namespace.GATEWAY_ROUTES_LABEL: "true"}},
-                        }
-                    },
-                },
+                *(listener(env, host) for env in envs for host in HOSTS),
+                *(redirect_listener(env) for env in envs),
                 {
                     "name": "http",
                     "protocol": "HTTP",
@@ -120,7 +141,7 @@ def create(
             kind="HTTPRoute",
             metadata=k8s.meta.v1.ObjectMetaArgs(name=f"{env.name}-www", namespace=NAMESPACE),
             spec={
-                "parentRefs": [{"name": NAME, "sectionName": "https"}],
+                "parentRefs": [{"name": NAME, "sectionName": section(env, "www")}],
                 "hostnames": [f"www.{env.base_domain}"],
                 "rules": [
                     {
@@ -145,8 +166,8 @@ def create(
 def routes(env: Environment, provider: k8s.Provider, depends_on: list[pulumi.Resource]) -> None:
     """The environment's routes on the cloud stack's Gateway, which they name by namespace."""
     options = pulumi.ResourceOptions(provider=provider, depends_on=depends_on)
-    parent = [{"name": NAME, "namespace": NAMESPACE, "sectionName": "https"}]
     for host in HOSTS:
+        parent = [{"name": NAME, "namespace": NAMESPACE, "sectionName": section(env, host)}]
         service, port = BACKENDS[host]
         rules: list[dict[str, object]] = []
         if host == "api":

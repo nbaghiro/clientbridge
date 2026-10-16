@@ -147,6 +147,11 @@ def stripe_issued(output: str) -> dict[str, str]:
     return found
 
 
+def redacted(output: str) -> str:
+    """The output with every Stripe secret cut to its prefix, for a terminal or a pasted log."""
+    return re.sub(r"\b(whsec|bpc|sk_test|sk_live|rk_test|rk_live)_[A-Za-z0-9]+", r"\1_…", output)
+
+
 class ProviderError(SystemExit):
     def __init__(self, message: str, detail: str) -> None:
         super().__init__(message)
@@ -322,7 +327,8 @@ def stripe(env: Environment, profile: str, secrets: Secrets, report: Report) -> 
         text=True,
     )
     if result.returncode != 0:
-        raise SystemExit(f"stripe_setup.py failed:\n{result.stdout[-2000:]}{result.stderr[-2000:]}")
+        tail = redacted(f"{result.stdout[-2000:]}{result.stderr[-2000:]}")
+        raise SystemExit(f"stripe_setup.py failed:\n{tail}")
     issued = stripe_issued(result.stdout)
     for name in STRIPE_ISSUED:
         secret = secret_id(env, name)

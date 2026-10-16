@@ -138,7 +138,6 @@ jobs:
       # a push's deploy never moves an environment back to an older commit; a manual run may
       newer_only: ${{ github.event_name == 'workflow_run' }}
       allow_schema_ahead: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback == true }}
-    secrets: inherit
 
   production:
     needs: [images, staging]
@@ -160,4 +159,3 @@ jobs:
       ref: ${{ needs.images.outputs.sha }}
       newer_only: ${{ github.event_name == 'workflow_run' }}
       allow_schema_ahead: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback == true }}
-    secrets: inherit

@@ -108,3 +108,10 @@ def test_an_unapproved_twilio_account_leaves_the_number_empty_once() -> None:
     assert secrets.stored["staging-twilio-sms-from"].strip() == ""
     p.store(secrets, STAGING, "TWILIO_SMS_FROM", "+16135550100", report)
     assert secrets.stored["staging-twilio-sms-from"] == "+16135550100"
+
+
+def test_a_failed_stripe_setup_prints_no_secret() -> None:
+    output = "STRIPE_WEBHOOK_SECRET=whsec_abc123\nkey sk_test_51Xyz and rk_live_9q, bpc_1Qx done"
+    assert p.redacted(output) == (
+        "STRIPE_WEBHOOK_SECRET=whsec_…\nkey sk_test_… and rk_live_…, bpc_… done"
+    )
