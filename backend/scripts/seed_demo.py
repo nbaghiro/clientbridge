@@ -23,7 +23,7 @@ from clientbridge.core.db import Base, SessionLocal, engine
 from clientbridge.core.errors import AppError
 from clientbridge.core.security import hash_token
 from clientbridge.integrations.kratos import get_identity_provider
-from clientbridge.integrations.s3 import get_file_storage
+from clientbridge.integrations.s3 import S3_CONFIG, get_file_storage
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import GiftCard, Item, Package, StockMovement, Subscription
@@ -2306,7 +2306,7 @@ def upload_demo_assets() -> None:
         aws_access_key_id=s.s3_access_key,
         aws_secret_access_key=s.s3_secret_key,
         region_name=s.s3_region,
-        config=BotoConfig(connect_timeout=2, retries={"max_attempts": 1}),
+        config=S3_CONFIG.merge(BotoConfig(connect_timeout=2, retries={"max_attempts": 1})),
     )
     try:
         # local MinIO starts empty; a deployed bucket comes from infra, and its key cannot list
