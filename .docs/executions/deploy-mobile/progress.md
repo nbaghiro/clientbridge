@@ -16,9 +16,15 @@ Started on 16 October 2026 from the deploy branch. The goal of this round is sta
 
 The development build profile was removed with `expo-dev-client` never added: local runs use `expo run:*`, and a development client would change how they start.
 
+## Review round (16 October 2026)
+
+- Two Expo robots: `EXPO_ACCESS_TOKEN` (push, in the cluster) and `EAS_ROBOT_TOKEN` (builds and updates, GitHub only); `mobile_init.py` refuses the same token for both. Staging's `EXPO_ACCESS_TOKEN` is still the Developer robot until a push-only robot replaces it.
+- A new service account key replaces the account's older ones, and a key EAS refuses is deleted.
+- Production's Android build is submitted to Play only once `PLAY_APP_READY` is set; the mobile jobs run only for deploys started by CI; the token reaches `gh` on stdin; `APPLE_TEAM_TYPE` covers a personal Apple account.
+
 ## Still open
 
-- Apply the cloud stack's Firebase resources, run `make infra-mobile ENV=staging`, and start the first staging build.
+- Create the push-only Expo robot, put its token in `EXPO_ACCESS_TOKEN` and rerun `make infra-providers ENV=staging`, which replaces the Secret Manager value, then restart the API and worker.
 - M6, a minimum supported app version, waits on a decision: the backend would refuse requests from a bundle older than a floor with a stable error code, and the app would show an update screen.
 - The Apple developer account (D-U-N-S for ClientBridge Inc. first), then the `APPLE_` values and a rerun of `make infra-mobile`; the TestFlight testers group.
 - Google Play: the organization account, the production app and its first upload by hand, inviting `cb-play-publisher`, and the Play signing certificate's SHA-256 in `clientbridge:androidCertFingerprints`.

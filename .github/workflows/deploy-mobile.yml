@@ -47,6 +47,7 @@ jobs:
       EAS_ENVIRONMENT: ${{ inputs.environment == 'production' && 'production' || 'preview' }}
       # mobile_init.py sets it: android alone until the Apple developer account exists
       PLATFORMS: ${{ vars.EAS_PLATFORMS }}
+      PLAY_APP_READY: ${{ vars.PLAY_APP_READY }}
       REF: ${{ inputs.ref || github.sha }}
       FORCE_BUILD: ${{ inputs.build == true }}
       REPUBLISH_GROUP: ${{ inputs.republish_group }}
@@ -113,6 +114,12 @@ jobs:
                 '.build[$c][$p].distribution // .build[$c].distribution // "store"' eas.json)
               submit=()
               [ "$distribution" = store ] && submit=(--auto-submit-with-profile "$CHANNEL")
+              # Play takes uploads by API only after a person makes the app's first one
+              if [ "$platform" = android ] && [ "${#submit[@]}" -gt 0 ] && [ "$PLAY_APP_READY" != true ]; then
+                submit=()
+                echo "android: built, not submitted; upload it to Play by hand, then set PLAY_APP_READY" \
+                  >> "$GITHUB_STEP_SUMMARY"
+              fi
               npx --yes "$EAS_CLI" build --platform "$platform" --profile "$CHANNEL" "${submit[@]}" \
                 --message "$REF" --no-wait --non-interactive
             else

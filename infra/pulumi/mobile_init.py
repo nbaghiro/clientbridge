@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import urllib.error
 import urllib.request
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -25,7 +25,8 @@ EXPO_OWNER = "clientbridge-ca"
 EXPO_SLUG = "clientbridge"
 IAM = "https://iam.googleapis.com/v1"
 # what the person copies in; the Apple values wait until the developer account exists
-REQUIRED = ("EXPO_ACCESS_TOKEN",)
+# the Developer robot that builds, submits and publishes updates; never the cluster's push token
+REQUIRED = ("EAS_ROBOT_TOKEN",)
 APPLE = (
     "APPLE_TEAM_ID",
     "ASC_API_KEY_ID",
@@ -65,6 +66,7 @@ class Apple:
     asc_key: str  # the .p8 contents
     apns_key_id: str
     apns_key: str
+    team_type: str = "COMPANY_OR_ORGANIZATION"  # or INDIVIDUAL, for a personal developer account
 
 
 class Eas(Protocol):
@@ -94,7 +96,22 @@ class Eas(Protocol):
 
 
 class Keys(Protocol):
-    def create_key(self, service_account: str) -> str: ...
+    def create_key(self, service_account: str) -> tuple[str, str]: ...
+
+    def delete_key(self, name: str) -> None: ...
+
+    def prune(self, service_account: str, keep: str) -> int: ...
+
+
+def replace_key(keys: Keys, service_account: str, upload: Callable[[str], None]) -> int:
+    """A new key on EAS and no other left in Google Cloud; returns the old keys deleted."""
+    name, key = keys.create_key(service_account)
+    try:
+        upload(key)
+    except BaseException:
+        keys.delete_key(name)
+        raise
+    return keys.prune(service_account, name)
 
 
 def desired_variables(env: Environment, stripe_publishable_key: str) -> dict[str, str]:
@@ -149,15 +166,23 @@ def android(
     if credentials.fcm_email == push_sender:
         report.add(f"eas {env.mobile.bundle_id} FCM key: kept")
     else:
-        eas.set_fcm_key(credentials, eas.upload_google_key(keys.create_key(push_sender)))
-        report.add(f"eas {env.mobile.bundle_id} FCM key: created for {push_sender}")
+        pruned = replace_key(
+            keys, push_sender, lambda key: eas.set_fcm_key(credentials, eas.upload_google_key(key))
+        )
+        report.add(f"eas {env.mobile.bundle_id} FCM key: created for {push_sender}, {pruned} old")
     if not env.mobile.play_store:
         return
     if credentials.submit_email == play_publisher:
         report.add(f"eas {env.mobile.bundle_id} Play key: kept")
     else:
-        eas.set_submit_key(credentials, eas.upload_google_key(keys.create_key(play_publisher)))
-        report.add(f"eas {env.mobile.bundle_id} Play key: created for {play_publisher}")
+        pruned = replace_key(
+            keys,
+            play_publisher,
+            lambda key: eas.set_submit_key(credentials, eas.upload_google_key(key)),
+        )
+        report.add(
+            f"eas {env.mobile.bundle_id} Play key: created for {play_publisher}, {pruned} old"
+        )
 
 
 def ios(eas: Eas, env: Environment, apple: Apple | None, report: Report) -> bool:
@@ -195,6 +220,7 @@ def apple_values(values: Mapping[str, str]) -> Apple | None:
         asc_key=Path(values["ASC_API_KEY_PATH"]).expanduser().read_text(),
         apns_key_id=values["APNS_KEY_ID"],
         apns_key=Path(values["APNS_KEY_PATH"]).expanduser().read_text(),
+        team_type=values.get("APPLE_TEAM_TYPE") or "COMPANY_OR_ORGANIZATION",
     )
 
 
@@ -458,14 +484,31 @@ def _key_identifier(key: object) -> str | None:
 
 
 class ServiceAccountKeys(GoogleCloud):
-    def create_key(self, service_account: str) -> str:
-        created = self._call(
-            "POST", f"{IAM}/projects/{self.project}/serviceAccounts/{service_account}/keys", {}
-        )
-        data = created.get("privateKeyData")
-        if not isinstance(data, str):
+    def _keys(self, service_account: str) -> str:
+        return f"{IAM}/projects/{self.project}/serviceAccounts/{service_account}/keys"
+
+    def create_key(self, service_account: str) -> tuple[str, str]:
+        created = self._call("POST", self._keys(service_account), {})
+        name, data = created.get("name"), created.get("privateKeyData")
+        if not isinstance(name, str) or not isinstance(data, str):
             raise SystemExit(f"creating a key for {service_account} returned none")
-        return base64.b64decode(data).decode()
+        return name, base64.b64decode(data).decode()
+
+    def delete_key(self, name: str) -> None:
+        self._call("DELETE", f"{IAM}/{name}")
+
+    def prune(self, service_account: str, keep: str) -> int:
+        listed = self._call("GET", f"{self._keys(service_account)}?keyTypes=USER_MANAGED").get(
+            "keys"
+        )
+        names = [
+            str(each.get("name"))
+            for each in (listed if isinstance(listed, list) else [])
+            if isinstance(each, dict) and each.get("name") != keep
+        ]
+        for name in names:
+            self.delete_key(name)
+        return len(names)
 
 
 def pulumi_output(*args: str) -> str:
@@ -503,7 +546,7 @@ def distribution_certificate(env: Environment, apple: Apple, token: str) -> None
                 "EXPO_ASC_KEY_ID": apple.asc_key_id,
                 "EXPO_ASC_ISSUER_ID": apple.asc_issuer_id,
                 "EXPO_APPLE_TEAM_ID": apple.team_id,
-                "EXPO_APPLE_TEAM_TYPE": "COMPANY_OR_ORGANIZATION",
+                "EXPO_APPLE_TEAM_TYPE": apple.team_type,
             },
         )
 
@@ -529,7 +572,12 @@ def main(argv: Sequence[str] | None = None) -> None:
     env = environment(str(args.env))
     use_state(str(args.project))
     values = read_values(Path(args.env_file), REQUIRED)
-    token = values["EXPO_ACCESS_TOKEN"]
+    token = values["EAS_ROBOT_TOKEN"]
+    # the cluster holds the push token, so a leaked pod must not be able to publish an update
+    if token == values.get("EXPO_ACCESS_TOKEN"):
+        raise SystemExit(
+            "EAS_ROBOT_TOKEN and EXPO_ACCESS_TOKEN must be two robots; see .env.staging.example"
+        )
     apple = apple_values(values)
     shared = json.loads(
         pulumi_output("stack", "output", "environments", "--stack", "cloud", "--json")

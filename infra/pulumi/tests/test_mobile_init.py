@@ -64,12 +64,26 @@ class FakeEas:
 
 
 class FakeKeys:
-    def __init__(self) -> None:
+    def __init__(self, existing: dict[str, list[str]] | None = None) -> None:
+        self.keys = {account: list(names) for account, names in (existing or {}).items()}
         self.created: list[str] = []
 
-    def create_key(self, service_account: str) -> str:
+    def create_key(self, service_account: str) -> tuple[str, str]:
         self.created.append(service_account)
-        return f'{{"client_email": "{service_account}"}}'
+        name = f"{service_account}/keys/{len(self.created)}"
+        self.keys.setdefault(service_account, []).append(name)
+        return name, f'{{"client_email": "{service_account}"}}'
+
+    def delete_key(self, name: str) -> None:
+        for names in self.keys.values():
+            if name in names:
+                names.remove(name)
+
+    def prune(self, service_account: str, keep: str) -> int:
+        old = [name for name in self.keys.get(service_account, []) if name != keep]
+        for name in old:
+            self.delete_key(name)
+        return len(old)
 
 
 def test_the_environments_variables_are_what_the_app_config_reads() -> None:
@@ -122,6 +136,26 @@ def test_staging_gets_a_push_key_and_no_play_key() -> None:
     m.android(eas, keys, STAGING, SENDER, PUBLISHER, report)
     assert keys.created == [SENDER]
     assert eas.calls == ["android ca.clientbridge.app.staging", "fcm key-1"]
+
+
+def test_a_new_key_replaces_the_accounts_old_ones() -> None:
+    eas, report = FakeEas(), Report([])
+    keys = FakeKeys({SENDER: [f"{SENDER}/keys/old"]})
+    m.android(eas, keys, STAGING, SENDER, PUBLISHER, report)
+    assert keys.keys[SENDER] == [f"{SENDER}/keys/1"]
+    assert report.lines == [f"eas ca.clientbridge.app.staging FCM key: created for {SENDER}, 1 old"]
+
+
+def test_a_key_eas_refused_is_deleted() -> None:
+    class Refusing(FakeEas):
+        def upload_google_key(self, key: str) -> str:
+            raise SystemExit("EAS refused the request")
+
+    keys = FakeKeys({SENDER: [f"{SENDER}/keys/old"]})
+    with pytest.raises(SystemExit, match="refused"):
+        m.android(Refusing(), keys, STAGING, SENDER, PUBLISHER, Report([]))
+    # the key EAS still holds stays, and the one it refused is gone
+    assert keys.keys[SENDER] == [f"{SENDER}/keys/old"]
 
 
 def test_a_key_already_on_eas_is_not_created_again() -> None:
