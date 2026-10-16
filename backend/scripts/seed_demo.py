@@ -55,6 +55,7 @@ VANCOUVER = ZoneInfo("America/Vancouver")
 now = clock.now().astimezone(VANCOUVER)
 BIZ = "bz_birchbark"
 DEMO_PASSWORD = "demo1234"  # every seeded user logs in with this
+STAGING_DATABASE = "staging_clientbridge"
 rows: list[Base] = []
 EARNING_STAGE: dict[str, str] = {}  # booking id -> how far its groomer's earning has gone
 PACKAGE_USED = {"pkg_marcus": 2, "pkg_grace": 5, "pkg_sophie": 4}
@@ -2206,8 +2207,13 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
 def validate_seed_target(reset_demo: bool) -> None:
     settings = get_settings()
     url = make_url(settings.migration_database_url)
-    if settings.env != "dev" or url.host not in {"localhost", "127.0.0.1", "::1"}:
-        raise SystemExit("Demo seeding requires ENV=dev and a localhost database.")
+    # staging's pods reach their own database through the Cloud SQL proxy on localhost too
+    if settings.env not in ("dev", "staging") or url.host not in {"localhost", "127.0.0.1", "::1"}:
+        raise SystemExit("Demo seeding requires ENV=dev or staging and a localhost database.")
+    if settings.env == "staging":
+        if url.database != STAGING_DATABASE:
+            raise SystemExit(f"Seed staging's own {STAGING_DATABASE} database.")
+        return
     if url.database != "clientbridge" and not (url.database or "").startswith("clientbridge_test"):
         raise SystemExit(
             "Seed the local clientbridge database or an isolated clientbridge_test database."
