@@ -22,3 +22,6 @@ apps/mobile/test-results
 apps/connect/playwright-report
 packages/sync/test-results
 packages/sync/playwright-report
+
+# Firebase's google-services.json, written byte for byte by infra/pulumi/mobile_init.py
+apps/mobile/firebase/

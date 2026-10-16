@@ -1,10 +1,11 @@
-.PHONY: infra-bootstrap infra-providers help up down images up-app logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth auth-standalone test-e2e stripe-mock lint lint-backend lint-frontend lint-infra test-infra typecheck format format-check format-check-backend format-check-frontend format-check-infra precommit hooks check gen-waitlist-email preview-emails configure-demo-admin dev-admin
+.PHONY: infra-bootstrap infra-providers infra-mobile help up down images up-app logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth auth-standalone test-e2e stripe-mock lint lint-backend lint-frontend lint-infra test-infra typecheck format format-check format-check-backend format-check-frontend format-check-infra precommit hooks check gen-waitlist-email preview-emails configure-demo-admin dev-admin
 .DEFAULT_GOAL := help
 
 help:
 	@echo "up / down        docker compose infra (postgres, powersync, auth, mailpit, redis, s3 on 87xx ports)"
 	@echo "infra-bootstrap  PROJECT=… BILLING=…: create the Google Cloud project, its Pulumi state and the cloud stack"
 	@echo "infra-providers  PROJECT=… ENV=staging: set up the environment's providers from .env.<ENV>"
+	@echo "infra-mobile     PROJECT=… ENV=staging: set up the environment's app on EAS, Firebase, Apple and Play"
 	@echo "images           build the backend and web prod images (backend/Dockerfile, frontend/Dockerfile)"
 	@echo "up-app           run the prod images on the local infra: API on :8750, web on :8751 (profile app)"
 	@echo "logs-sync        follow the PowerSync logs"
@@ -310,7 +311,7 @@ test-sync:
 replication-health:
 	cd backend && uv run python -m scripts.replication_health
 
-# The first deploy's infrastructure (.docs/operations.md, First deploy); both are safe to rerun.
+# The first deploy's infrastructure (.docs/operations.md, First deploy); each is safe to rerun.
 infra-bootstrap:
 	@test -n "$(PROJECT)" -a -n "$(BILLING)" || { echo "usage: make infra-bootstrap PROJECT=<id> BILLING=<account>"; exit 1; }
 	cd infra/pulumi && uv run python bootstrap.py --project $(PROJECT) --billing-account $(BILLING)
@@ -318,3 +319,7 @@ infra-bootstrap:
 infra-providers:
 	@test -n "$(PROJECT)" -a -n "$(ENV)" || { echo "usage: make infra-providers PROJECT=<id> ENV=staging"; exit 1; }
 	cd infra/pulumi && uv run python providers_init.py --env $(ENV) --project $(PROJECT) --env-file ../../.env.$(ENV)
+
+infra-mobile:
+	@test -n "$(PROJECT)" -a -n "$(ENV)" || { echo "usage: make infra-mobile PROJECT=<id> ENV=staging"; exit 1; }
+	cd infra/pulumi && uv run python mobile_init.py --env $(ENV) --project $(PROJECT) --env-file ../../.env.$(ENV)

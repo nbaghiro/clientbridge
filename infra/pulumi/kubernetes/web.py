@@ -20,7 +20,7 @@ def create(ctx: settings.Context, migrate: Sequence[pulumi.Resource]) -> k8s.app
     container = k8s.core.v1.ContainerArgs(
         name=NAME,
         image=ctx.web_image,
-        env=settings.web_env(ctx.env, ctx.stripe_publishable_key),
+        env=settings.web_env(ctx.env, ctx.stripe_publishable_key, ctx.app_links),
         ports=[k8s.core.v1.ContainerPortArgs(name="http", container_port=WEB_PORT)],
         resources=settings.resources(workload.size),
         security_context=settings.security("web"),

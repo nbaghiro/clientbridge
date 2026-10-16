@@ -16,6 +16,7 @@ from environments import (
     AUTH_ADMIN_PORT,
     AUTH_PUBLIC_PORT,
     REDIS_PORT,
+    AppLinks,
     Environment,
     Images,
     Size,
@@ -243,12 +244,18 @@ def powersync_env(env: Environment) -> list[k8s.core.v1.EnvVarArgs]:
     return _plain(derived.powersync_env(api_url=internal(env, "api", API_PORT)))
 
 
-def web_env(env: Environment, stripe_publishable_key: str) -> list[k8s.core.v1.EnvVarArgs]:
+def web_env(
+    env: Environment, stripe_publishable_key: str, links: AppLinks
+) -> list[k8s.core.v1.EnvVarArgs]:
     return _plain(
         {
             "BASE_DOMAIN": env.base_domain,
             "ENVIRONMENT": env.web_environment,
             "STRIPE_PUBLISHABLE_KEY": stripe_publishable_key,
+            # the serve script writes app.<base>'s Apple and Android association files from these
+            "MOBILE_APP_ID": env.mobile.bundle_id,
+            "APPLE_TEAM_ID": links.apple_team_id,
+            "ANDROID_CERT_FINGERPRINTS": ",".join(links.android_fingerprints),
         }
     )
 
@@ -394,6 +401,7 @@ class Context:
     bucket: pulumi.Output[str]
     secrets: Mapping[str, pulumi.Output[str]]  # Secret Manager resource names by catalog name
     stripe_publishable_key: str
+    app_links: AppLinks
     allow_schema_ahead: bool
 
     @property

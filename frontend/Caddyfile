@@ -38,6 +38,10 @@
 		-Server
 	}
 
+	@associations {
+		host {$APP_HOST}
+		path /.well-known/apple-app-site-association /.well-known/assetlinks.json
+	}
 	@site host {$SITE_HOST}
 	@app host {$APP_HOST}
 	@connect host {$BOOK_HOST} {$PAY_HOST} {$SHOP_HOST}
@@ -64,6 +68,14 @@ Sitemap: {$SITE_URL}/sitemap.xml
 		respond "User-agent: *
 Disallow: /
 "
+	}
+
+	handle @associations {
+		header Content-Type application/json
+		header Cache-Control "public, max-age=3600"
+		root * /tmp/well-known
+		uri strip_prefix /.well-known
+		file_server
 	}
 
 	handle @site {

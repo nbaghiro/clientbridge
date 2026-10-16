@@ -13,6 +13,7 @@ from cloud import (
     cluster,
     database,
     dns,
+    firebase,
     github,
     identity,
     network,
@@ -62,6 +63,8 @@ def cloud_stack() -> None:
         if above is not None:
             dns.delegate(zones[above.name], zones[env.name], env.base_domain)
     certificate_map = certificates.create(zones, stack.environments)
+    pushes = firebase.create(stack.project, stack.environments)
+    publisher = firebase.play_publisher()
     github.create(
         stack.github_repository,
         stack.github_reviewer,
@@ -116,6 +119,8 @@ def cloud_stack() -> None:
             "accounts": {name: account.google.email for name, account in accounts.items()},
             "secrets": {name: secret.id for name, secret in stored.items()},
             "deployer": ci.deployers[env.name].email,
+            "pushSender": pushes[env.name].sender.email,
+            "googleServicesFile": pushes[env.name].services_file,
         }
 
     pulumi.export("environments", shared)
@@ -135,6 +140,7 @@ def cloud_stack() -> None:
     )
     pulumi.export("workloadIdentityProvider", ci.provider.name)
     pulumi.export("builderServiceAccount", ci.builder.email)
+    pulumi.export("playPublisher", publisher.email)
 
 
 def environment_stack(name: str) -> None:
@@ -175,6 +181,7 @@ def environment_stack(name: str) -> None:
             for secret in settings.CATALOG
         },
         stripe_publishable_key=stack.stripe_publishable_key,
+        app_links=stack.app_links,
         allow_schema_ahead=stack.allow_schema_ahead,
     )
     cache = redis.create(ctx)

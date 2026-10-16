@@ -7,6 +7,7 @@ Each execution that is planned or in progress owns its plan and progress so unre
 | Scheduling      | [Plan](scheduling/plan.md), [design gaps](scheduling/design.md), [task queue](scheduling/tasks.json), [progress](scheduling/progress.md). |
 | Codebase review | [Plan](codebase-review/plan.md), [task queue](codebase-review/tasks.json), [progress](codebase-review/progress.md).                       |
 | Deploy          | [Plan](deploy/plan.md), [task queue](deploy/tasks.json), [progress](deploy/progress.md).                                                  |
+| Mobile deploy   | [Progress](deploy-mobile/progress.md).                                                                                                    |
 
 | Platform admin | [Plan](platform-admin/plan.md), [task queue](platform-admin/tasks.json), [progress](platform-admin/progress.md). |
 

@@ -61,10 +61,27 @@ export PAY_URL="${PAY_URL:-https://$PAY_HOST}"
 export API_URL="${API_URL:-}"
 export AUTH_URL="${AUTH_URL:-}"
 export SYNC_URL="${SYNC_URL:-}"
-# config.js quotes these values as JSON strings
-for value in "$BASE_DOMAIN" "$API_URL" "$AUTH_URL" "$SYNC_URL" "$PAY_URL" "$BOOK_URL" "$STRIPE_PUBLISHABLE_KEY"; do
+MOBILE_APP_ID="${MOBILE_APP_ID:-}"
+APPLE_TEAM_ID="${APPLE_TEAM_ID:-}"
+ANDROID_CERT_FINGERPRINTS="${ANDROID_CERT_FINGERPRINTS:-}"
+# config.js and the association files quote these values as JSON strings
+for value in "$BASE_DOMAIN" "$API_URL" "$AUTH_URL" "$SYNC_URL" "$PAY_URL" "$BOOK_URL" "$STRIPE_PUBLISHABLE_KEY" \
+             "$MOBILE_APP_ID" "$APPLE_TEAM_ID" "$ANDROID_CERT_FINGERPRINTS"; do
     case "$value" in *'"'* | *'\'*) echo "serve: $value holds a quote or a backslash" >&2; exit 1 ;; esac
 done
+# app.<base> vouches for the mobile app's passwords and passkeys; no link opens the app yet
+rm -rf /tmp/well-known && mkdir -p /tmp/well-known
+apps=""
+if [ -n "$APPLE_TEAM_ID" ] && [ -n "$MOBILE_APP_ID" ]; then apps="\"$APPLE_TEAM_ID.$MOBILE_APP_ID\""; fi
+printf '{"applinks":{"details":[]},"webcredentials":{"apps":[%s]}}\n' "$apps" \
+    > /tmp/well-known/apple-app-site-association
+fingerprints=$(printf '%s' "$ANDROID_CERT_FINGERPRINTS" | sed 's/[^,][^,]*/"&"/g')
+if [ -n "$fingerprints" ] && [ -n "$MOBILE_APP_ID" ]; then
+    printf '[{"relation":["delegate_permission/common.get_login_creds"],"target":{"namespace":"android_app","package_name":"%s","sha256_cert_fingerprints":[%s]}}]\n' \
+        "$MOBILE_APP_ID" "$fingerprints"
+else
+    printf '[]\n'
+fi > /tmp/well-known/assetlinks.json
 # The image filesystem may be read-only, so the site is rewritten into /tmp.
 rm -rf /tmp/site && cp -R /srv/site /tmp/site
 find /tmp/site -type f \( -name '*.html' -o -name '*.xml' -o -name '*.txt' \) -exec sed -i \

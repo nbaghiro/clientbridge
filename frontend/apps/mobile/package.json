@@ -8,7 +8,8 @@
         "ios": "expo run:ios",
         "e2e": "maestro test e2e --test-output-dir test-results --format HTML --output test-results/index.html",
         "lint": "eslint .",
-        "typecheck": "tsc --noEmit"
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run"
     },
     "dependencies": {
         "@azure/core-asynciterator-polyfill": "^1.0.2",
@@ -42,6 +43,7 @@
         "expo-sharing": "~57.0.22",
         "expo-splash-screen": "~57.0.9",
         "expo-status-bar": "~57.0.1",
+        "expo-updates": "~57.0.26",
         "expo-web-browser": "~57.0.3",
         "react": "19.2.3",
         "react-native": "0.86.3",
@@ -59,6 +61,7 @@
         "@babel/core": "^7.24.0",
         "@types/node": "^24.0.0",
         "@types/react": "~19.2.18",
-        "typescript": "^6.0.3"
+        "typescript": "^6.0.3",
+        "vitest": "^5.0.3"
     }
 }
