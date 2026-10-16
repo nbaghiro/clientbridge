@@ -24,7 +24,6 @@ EXPO_GRAPHQL = "https://api.expo.dev/graphql"
 EXPO_OWNER = "clientbridge-ca"
 EXPO_SLUG = "clientbridge"
 IAM = "https://iam.googleapis.com/v1"
-# what the person copies in; the Apple values wait until the developer account exists
 # the Developer robot that builds, submits and publishes updates; never the cluster's push token
 REQUIRED = ("EAS_ROBOT_TOKEN",)
 APPLE = (
