@@ -25,9 +25,11 @@ export function Header({ current }: { current?: string }) {
                     ))}
                 </nav>
                 <div className="nav-right">
-                    <a className="signin" href={nav.signIn.href}>
-                        {nav.signIn.label}
-                    </a>
+                    {nav.signIn.href === null ? null : (
+                        <a className="signin" href={nav.signIn.href}>
+                            {nav.signIn.label}
+                        </a>
+                    )}
                     <a className="btn btn-primary" href={nav.startFree.href}>
                         {nav.startFree.label}
                     </a>
@@ -41,7 +43,9 @@ export function Header({ current }: { current?: string }) {
                                     {l.label}
                                 </a>
                             ))}
-                            <a href={nav.signIn.href}>{nav.signIn.label}</a>
+                            {nav.signIn.href === null ? null : (
+                                <a href={nav.signIn.href}>{nav.signIn.label}</a>
+                            )}
                         </div>
                     </details>
                 </div>

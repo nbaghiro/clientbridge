@@ -5,7 +5,6 @@ import { Hero } from "../sections/Hero";
 import { Included } from "../sections/Included";
 import { PaymentsBand } from "../sections/PaymentsBand";
 import { Pricing } from "../sections/Pricing";
-import { Proof } from "../sections/Proof";
 import { Props } from "../sections/Props";
 import { TradeStrip } from "../sections/TradeStrip";
 
@@ -19,7 +18,6 @@ export function Home() {
             <FeatureBands />
             <PaymentsBand />
             <Included />
-            <Proof />
             <Pricing />
             <Closing />
         </>

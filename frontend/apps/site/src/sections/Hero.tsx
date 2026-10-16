@@ -8,14 +8,16 @@ import { PhoneAndroid } from "../mocks/PhoneAndroid";
 /** The web app on a laptop with the mobile app's Payments screen overlapping its right edge. */
 function DeviceShowcase() {
     return (
-        <div className="trio">
-            <div className="trio-web">
-                <Laptop>
-                    <AppWindow />
-                </Laptop>
-            </div>
-            <div className="trio-phone">
-                <PhoneAndroid />
+        <div className="trio-stage">
+            <div className="trio">
+                <div className="trio-web">
+                    <Laptop>
+                        <AppWindow />
+                    </Laptop>
+                </div>
+                <div className="trio-phone">
+                    <PhoneAndroid />
+                </div>
             </div>
         </div>
     );
@@ -37,9 +39,11 @@ export function Hero() {
                     <a className="btn btn-primary btn-lg" href={links.startFree}>
                         {hero.primary}
                     </a>
-                    <a className="btn btn-ghost btn-lg" href={links.demoBusiness}>
-                        {hero.secondary}
-                    </a>
+                    {links.demoBusiness === null ? null : (
+                        <a className="btn btn-ghost btn-lg" href={links.demoBusiness}>
+                            {hero.secondary}
+                        </a>
+                    )}
                 </div>
                 <p className="note">{hero.note}</p>
                 <DeviceShowcase />

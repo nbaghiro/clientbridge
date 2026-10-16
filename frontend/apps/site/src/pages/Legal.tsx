@@ -20,13 +20,27 @@ export function Legal({ page }: { page: LegalPage }) {
                         ))}
                     </ul>
                 </section>
-                {page.sections.map((title) => (
-                    <section key={title} className="mt-10">
-                        <h2 className="h3">{title}</h2>
-                        <p className="placeholder mt-3">{page.placeholder}</p>
+                {page.sections.map((section) => (
+                    <section key={section.title} className="mt-10">
+                        <h2 className="h3">{section.title}</h2>
+                        {section.body.map((paragraph) => (
+                            <p key={paragraph} className="body mt-3">
+                                {paragraph}
+                            </p>
+                        ))}
+                        {section.items.length > 0 ? (
+                            <ul className="legal-list mt-3">
+                                {section.items.map((item) => (
+                                    <li key={item}>{item}</li>
+                                ))}
+                            </ul>
+                        ) : null}
                     </section>
                 ))}
-                <p className="body mt-12">{page.contact}</p>
+                <section className="mt-10">
+                    <h2 className="h3">{page.contactTitle}</h2>
+                    <p className="body mt-3">{page.contact}</p>
+                </section>
             </div>
         </section>
     );

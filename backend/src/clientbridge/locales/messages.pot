@@ -786,3 +786,12 @@ msgstr ""
 msgid "waitlist.text"
 msgstr ""
 
+msgid "waitlist_again.body"
+msgstr ""
+
+msgid "waitlist_again.heading"
+msgstr ""
+
+msgid "waitlist_again.subject"
+msgstr ""
+

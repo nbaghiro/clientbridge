@@ -801,3 +801,12 @@ msgstr ""
 "\n"
 "{more}\n"
 "{link}"
+
+msgid "waitlist_again.body"
+msgstr "Thanks for your continued interest. This address is already on the Clientbridge waitlist, so there's nothing more to do. We'll get in touch when you can set up your business, with a 14-day free trial and no card needed."
+
+msgid "waitlist_again.heading"
+msgstr "You're already on the list."
+
+msgid "waitlist_again.subject"
+msgstr "You're already on the Clientbridge waitlist"

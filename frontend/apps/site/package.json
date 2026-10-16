@@ -6,6 +6,7 @@
         "dev": "node scripts/art.ts && node scripts/images.ts && vite",
         "build": "tsc --noEmit && node scripts/art.ts && node scripts/images.ts && vite build && vite build --ssr src/entry-server.tsx --outDir dist-server && node scripts/prerender.ts",
         "preview": "vite preview",
+        "start": "node server/main.ts",
         "lint": "eslint . && node scripts/content-lint.ts",
         "typecheck": "tsc --noEmit",
         "test": "vitest run --passWithNoTests",

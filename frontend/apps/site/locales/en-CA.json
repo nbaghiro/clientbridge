@@ -77,9 +77,6 @@
     "site.footer.columns.2.links.3.label": {
         "message": "Contact"
     },
-    "site.footer.columns.2.links.4.label": {
-        "message": "Photo credits"
-    },
     "site.notFound.title": {
         "message": "Page not found"
     },
@@ -88,6 +85,71 @@
     },
     "site.notFound.back": {
         "message": "Back to the home page"
+    },
+    "site.waitlist.cta": {
+        "message": "Join the waitlist"
+    },
+    "site.waitlist.note": {
+        "message": "Web, iPhone and Android. We'll email you when it opens."
+    },
+    "site.waitlist.closing.title": {
+        "message": "Be first in line when Clientbridge opens."
+    },
+    "site.waitlist.closing.lede": {
+        "message": "Leave your email and we'll write when you can set up your business. Every business starts with a 14-day free trial, and no card is needed."
+    },
+    "site.waitlist.trialAnswer": {
+        "message": "Yes. Every business starts with a 14-day free trial and no card is needed."
+    },
+    "site.waitlist.meta.headline": {
+        "message": "Join the waitlist"
+    },
+    "site.waitlist.meta.description": {
+        "message": "Leave your email and we'll write when Clientbridge opens to service businesses in Canada."
+    },
+    "site.waitlist.eyebrow": {
+        "message": "Waitlist"
+    },
+    "site.waitlist.title": {
+        "message": "Join the waitlist"
+    },
+    "site.waitlist.lede": {
+        "message": "Clientbridge opens to service businesses in Canada shortly. Leave your email and we'll write when you can set up your business."
+    },
+    "site.waitlist.email": {
+        "message": "Email"
+    },
+    "site.waitlist.honeypot": {
+        "message": "Leave this field empty",
+        "description": "The label of a field hidden from people, which only spam bots fill in."
+    },
+    "site.waitlist.submit": {
+        "message": "Join the waitlist"
+    },
+    "site.waitlist.consent": {
+        "message": "We'll use your email only to tell you when Clientbridge opens, and every email has an unsubscribe link."
+    },
+    "site.waitlist.retry": {
+        "message": "We couldn't add that address. Check it and try again, or write to us at {email}.",
+        "args": ["email"]
+    },
+    "site.waitlist.thanks.meta.headline": {
+        "message": "You're on the list"
+    },
+    "site.waitlist.thanks.meta.description": {
+        "message": "Thanks for joining the Clientbridge waitlist. We'll email you when you can set up your business."
+    },
+    "site.waitlist.thanks.title": {
+        "message": "You're on the list."
+    },
+    "site.waitlist.thanks.body": {
+        "message": "We'll email you when Clientbridge opens. Until then, you can look through what it does and what it costs."
+    },
+    "site.waitlist.thanks.features": {
+        "message": "See the features"
+    },
+    "site.waitlist.thanks.pricing": {
+        "message": "See pricing"
     },
     "home.homeMeta.title": {
         "message": "Clientbridge: book, sell and get paid, for service businesses in Canada"
@@ -337,12 +399,6 @@
     },
     "home.included.items.11.body": {
         "message": "Income, GST/HST and T4A reports, exported as CSV for your bookkeeper."
-    },
-    "home.proof.eyebrow": {
-        "message": "From businesses using Clientbridge"
-    },
-    "home.proof.logo": {
-        "message": "Customer logo"
     },
     "home.pricing.eyebrow": {
         "message": "Pricing"
@@ -823,8 +879,17 @@
     "pages.featuresPage.tradesTitle": {
         "message": "By trade"
     },
-    "pages.legalPlaceholder": {
-        "message": "Legal text to be provided."
+    "pages.legal.updated": {
+        "message": "Last updated: {date}",
+        "description": "The date a legal page last changed, formatted as a long date.",
+        "args": ["date"]
+    },
+    "pages.legal.contactTitle": {
+        "message": "Contact us"
+    },
+    "pages.legal.address": {
+        "message": "ClientBridge Inc., 3704 Lakepoint Dr, Severn, Ontario L3V 8M9, Canada",
+        "description": "The company's mailing address, written the way Canada Post expects it."
     },
     "pages.paymentDisclosure.title": {
         "message": "Payment services"
@@ -850,26 +915,177 @@
     "pages.privacyPage.title": {
         "message": "Privacy policy"
     },
-    "pages.privacyPage.updated": {
-        "message": "Last updated: [date to be confirmed]"
-    },
     "pages.privacyPage.intro": {
-        "message": "This page will describe how Clientbridge handles personal information for the businesses that use it and for their clients."
+        "message": "This policy explains how ClientBridge Inc. collects, uses, discloses and protects personal information when you use Clientbridge, our website at clientbridge.ca, and the booking, payment and shop pages that businesses share with their clients."
     },
-    "pages.privacyPage.sections.0": {
+    "pages.privacyPage.sections.0.title": {
+        "message": "Who we are and what this policy covers"
+    },
+    "pages.privacyPage.sections.0.body.0": {
+        "message": "ClientBridge Inc. (\"ClientBridge\", \"we\", \"us\") is a corporation based in Ontario, Canada. We provide Clientbridge, software that service businesses use to take bookings, sell services and products, send invoices and estimates, accept payments and keep client records, on the web and in the iPhone and Android apps."
+    },
+    "pages.privacyPage.sections.0.body.1": {
+        "message": "This policy covers two kinds of personal information. The first is information about you when you visit our website, join our waitlist, or sign up for and use Clientbridge on behalf of a business. We decide how that information is used and are responsible for it."
+    },
+    "pages.privacyPage.sections.0.body.2": {
+        "message": "The second is information that a business using Clientbridge keeps about its own clients, such as names, contact details, the pets or other subjects of a booking, appointments, purchases, payments, forms, contracts, messages and notes. The business decides what it collects and how it uses it, and we process that information on the business's behalf to provide the service. If you are a client of a business that uses Clientbridge, the business's own privacy practices apply, and requests to see, correct or delete that information should go to the business first. We help businesses respond to those requests."
+    },
+    "pages.privacyPage.sections.1.title": {
         "message": "Information we collect"
     },
-    "pages.privacyPage.sections.1": {
+    "pages.privacyPage.sections.1.body.0": {
+        "message": "We collect only the information we need to provide, secure and support Clientbridge:"
+    },
+    "pages.privacyPage.sections.1.items.0": {
+        "message": "Account information: your name, email address and phone number, your password (stored only as a one-way hash) or the Google account you sign in with, and your role in the business."
+    },
+    "pages.privacyPage.sections.1.items.1": {
+        "message": "Business information: the business's name, address, time zone, services, hours, staff, tax registrations, branding and plan."
+    },
+    "pages.privacyPage.sections.1.items.2": {
+        "message": "Payment and payout information: when a business sets up payments, Stripe collects the identity, bank and tax details it requires. We receive the status of the account and the details needed to show payments and payouts, not full card or bank account numbers."
+    },
+    "pages.privacyPage.sections.1.items.3": {
+        "message": "Client information that a business enters, or that its clients submit through booking, payment, shop, form, contract and review pages."
+    },
+    "pages.privacyPage.sections.1.items.4": {
+        "message": "Messages: the emails, text messages and push notifications sent through Clientbridge, with their delivery status, and replies that clients send to a business's text number."
+    },
+    "pages.privacyPage.sections.1.items.5": {
+        "message": "Device and usage information: the IP address, browser or device type, app version and time of each request, which our servers record to keep the service secure and working, and a device token for push notifications if you allow them in the mobile apps."
+    },
+    "pages.privacyPage.sections.1.items.6": {
+        "message": "Waitlist information: the email address you give us when you join the waitlist."
+    },
+    "pages.privacyPage.sections.2.title": {
         "message": "How we use information"
     },
-    "pages.privacyPage.sections.2": {
+    "pages.privacyPage.sections.2.body.0": {
+        "message": "We use personal information for the following purposes:"
+    },
+    "pages.privacyPage.sections.2.items.0": {
+        "message": "To provide Clientbridge: to run accounts, show schedules and records, handle bookings, sales and invoices, and send the emails, texts and notifications that a business or its clients ask for."
+    },
+    "pages.privacyPage.sections.2.items.1": {
+        "message": "To process payments, refunds, payouts and plan subscriptions through Stripe."
+    },
+    "pages.privacyPage.sections.2.items.2": {
+        "message": "To keep the service secure: to verify sign-ins, prevent fraud and abuse, and investigate problems."
+    },
+    "pages.privacyPage.sections.2.items.3": {
+        "message": "To answer you when you contact us for help."
+    },
+    "pages.privacyPage.sections.2.items.4": {
+        "message": "To send service messages, such as receipts, security notices, trial and billing reminders, and notice of changes to our terms or this policy."
+    },
+    "pages.privacyPage.sections.2.items.5": {
+        "message": "To tell waitlist members when Clientbridge opens. Every such email has an unsubscribe link."
+    },
+    "pages.privacyPage.sections.2.items.6": {
+        "message": "To meet our legal, tax and accounting obligations."
+    },
+    "pages.privacyPage.sections.3.title": {
+        "message": "Consent"
+    },
+    "pages.privacyPage.sections.3.body.0": {
+        "message": "We collect, use and disclose personal information with your consent. Consent may be express, for example when you join the waitlist or turn on push notifications, or implied by your use of a feature for the purpose it serves. You can withdraw your consent at any time, subject to legal or contractual limits, although some features may then stop working."
+    },
+    "pages.privacyPage.sections.3.body.1": {
+        "message": "A business that uses Clientbridge is responsible for having the consent it needs from its clients, including consent to receive commercial emails and texts under Canada's Anti-Spam Legislation."
+    },
+    "pages.privacyPage.sections.3.body.2": {
+        "message": "We do not sell personal information, and we do not use a business's client information for our own marketing."
+    },
+    "pages.privacyPage.sections.4.title": {
+        "message": "Who we share information with"
+    },
+    "pages.privacyPage.sections.4.body.0": {
+        "message": "We share personal information only with the service providers that help us run Clientbridge, under contracts that limit their use of it to the services they provide to us:"
+    },
+    "pages.privacyPage.sections.4.items.0": {
+        "message": "Google Cloud, for hosting, databases and file storage."
+    },
+    "pages.privacyPage.sections.4.items.1": {
+        "message": "Stripe, for payment processing, payouts and plan billing. Stripe is responsible for the information it collects as a payment provider, as described under Payment services above."
+    },
+    "pages.privacyPage.sections.4.items.2": {
+        "message": "Resend, for sending email."
+    },
+    "pages.privacyPage.sections.4.items.3": {
+        "message": "Twilio, for sending and receiving text messages."
+    },
+    "pages.privacyPage.sections.4.items.4": {
+        "message": "Expo, for delivering push notifications to the mobile apps."
+    },
+    "pages.privacyPage.sections.4.items.5": {
+        "message": "Google, for sign-in when you choose to sign in with a Google account."
+    },
+    "pages.privacyPage.sections.4.items.6": {
+        "message": "Render, for hosting our website and waitlist."
+    },
+    "pages.privacyPage.sections.5.title": {
+        "message": "Other disclosures"
+    },
+    "pages.privacyPage.sections.5.body.0": {
+        "message": "We may also disclose personal information when the law requires it, to protect the rights, safety or property of our users, ClientBridge or others, or as part of a merger, financing or sale of all or part of our business. In a sale or merger, the information stays subject to the protections in this policy."
+    },
+    "pages.privacyPage.sections.6.title": {
         "message": "Where information is stored"
     },
-    "pages.privacyPage.sections.3": {
+    "pages.privacyPage.sections.6.body.0": {
+        "message": "Clientbridge stores its data with Google Cloud in the United States, and some of our service providers process information in the United States and other countries. Information held outside Canada is subject to the laws of the country where it is held, and may be accessible to that country's courts, law enforcement and national security authorities. We choose providers that protect personal information to a standard comparable to the one required in Canada."
+    },
+    "pages.privacyPage.sections.7.title": {
         "message": "How long we keep information"
     },
-    "pages.privacyPage.sections.4": {
-        "message": "Your choices and rights"
+    "pages.privacyPage.sections.7.body.0": {
+        "message": "We keep account and business information while the account is open. When a business's trial or plan ends without a new plan, its records stay available read-only, so it can still see them and get paid for invoices it already sent."
+    },
+    "pages.privacyPage.sections.7.body.1": {
+        "message": "When a business asks us to close its account, we delete or anonymize its information, including its clients' information, within 90 days, except for records we must keep longer to meet legal, tax or accounting obligations, such as our own billing records. Database backups are kept for 7 days and earlier versions of stored files for 30 days, after which they are overwritten."
+    },
+    "pages.privacyPage.sections.7.body.2": {
+        "message": "We keep a waitlist email address until Clientbridge opens and we have told you, or until you unsubscribe or ask us to delete it."
+    },
+    "pages.privacyPage.sections.8.title": {
+        "message": "How we protect information"
+    },
+    "pages.privacyPage.sections.8.body.0": {
+        "message": "We protect personal information with safeguards suited to its sensitivity: encrypted connections, encryption of stored data, access limited to the people and systems that need it, separate database permissions for each part of the service, and a record of sensitive changes such as payments and refunds. Card numbers are entered into Stripe's own payment fields and never reach our servers."
+    },
+    "pages.privacyPage.sections.8.body.1": {
+        "message": "No system is completely secure. If a breach of our security safeguards creates a real risk of significant harm to anyone, we will notify the people affected and the Privacy Commissioner of Canada, and the privacy commissioner of a province where the law requires it."
+    },
+    "pages.privacyPage.sections.9.title": {
+        "message": "Your rights"
+    },
+    "pages.privacyPage.sections.9.body.0": {
+        "message": "You can ask to see the personal information we hold about you, to correct it, or to have it deleted, and you can ask how it has been used and to whom it has been disclosed. Residents of Quebec can also ask to receive their information in a structured, commonly used technological format. Many details can be changed directly in the app. We respond to requests within 30 days, and we may first need to confirm your identity."
+    },
+    "pages.privacyPage.sections.9.body.1": {
+        "message": "If you are not satisfied with our answer, you can complain to the Office of the Privacy Commissioner of Canada, or to the privacy regulator of your province: the Office of the Information and Privacy Commissioner for British Columbia, the Office of the Information and Privacy Commissioner of Alberta, or the Commission d'accès à l'information du Québec."
+    },
+    "pages.privacyPage.sections.10.title": {
+        "message": "Cookies"
+    },
+    "pages.privacyPage.sections.10.body.0": {
+        "message": "Our website does not use cookies. The Clientbridge web app uses cookies only to keep you signed in and to protect its sign-in forms, and the mobile apps keep your session in the device's secure storage. Pages that take payments load Stripe's payment fields, which may set cookies that Stripe uses to prevent fraud. We do not use cookies or other trackers for advertising or third-party analytics."
+    },
+    "pages.privacyPage.sections.11.title": {
+        "message": "Children"
+    },
+    "pages.privacyPage.sections.11.body.0": {
+        "message": "Clientbridge is a service for businesses and is not directed at children. Account holders must have reached the age of majority where they live. A business may keep information about a child who is its client, such as a student, and is responsible for having the consent of a parent or guardian."
+    },
+    "pages.privacyPage.sections.12.title": {
+        "message": "Changes to this policy"
+    },
+    "pages.privacyPage.sections.12.body.0": {
+        "message": "We may update this policy as Clientbridge changes. We will post the new version on this page with its date, and if a change is significant we will tell account holders by email or in the app before it takes effect."
+    },
+    "pages.privacyPage.contact": {
+        "message": "Our privacy officer is responsible for this policy. You can reach them at {email}, or by mail at {address}.",
+        "args": ["email", "address"]
     },
     "pages.termsPage.meta.headline": {
         "message": "Terms"
@@ -880,32 +1096,162 @@
     "pages.termsPage.title": {
         "message": "Terms of service"
     },
-    "pages.termsPage.updated": {
-        "message": "Last updated: [date to be confirmed]"
-    },
     "pages.termsPage.intro": {
-        "message": "This page will set out the terms that apply to businesses using Clientbridge and to their clients using its booking and payment pages."
+        "message": "These terms set out the rules for using Clientbridge, for the businesses that use it and for their clients who use its booking, payment and shop pages. Please read them with our privacy policy."
     },
-    "pages.termsPage.sections.0": {
-        "message": "Using Clientbridge"
+    "pages.termsPage.sections.0.title": {
+        "message": "Agreement"
     },
-    "pages.termsPage.sections.1": {
+    "pages.termsPage.sections.0.body.0": {
+        "message": "These terms are an agreement between ClientBridge Inc. (\"ClientBridge\", \"we\", \"us\") and the business or person that creates a Clientbridge account (\"you\"). By creating an account or using Clientbridge, you agree to them. If you accept them on behalf of a business, you confirm that you have the authority to bind it."
+    },
+    "pages.termsPage.sections.0.body.1": {
+        "message": "Clients of a business who use its booking, payment, shop, form, contract or review pages do so under the section of these terms written for them. Their agreement for the services and products they buy is with the business, not with ClientBridge."
+    },
+    "pages.termsPage.sections.1.title": {
+        "message": "The service"
+    },
+    "pages.termsPage.sections.1.body.0": {
+        "message": "Clientbridge is software for running a service business: online booking, client records, sales, invoices and estimates, payments, sales tax, staff and pay, messages, forms and contracts, on the web and in the iPhone and Android apps. Some features depend on the plan you choose and on third-party services such as Stripe."
+    },
+    "pages.termsPage.sections.1.body.1": {
+        "message": "Clientbridge helps you keep records and work out amounts such as sales tax and staff pay, but it does not give legal, tax or accounting advice. You are responsible for checking the figures you file or rely on."
+    },
+    "pages.termsPage.sections.2.title": {
         "message": "Your account"
     },
-    "pages.termsPage.sections.2": {
-        "message": "Payments and fees"
+    "pages.termsPage.sections.2.body.0": {
+        "message": "You must have reached the age of majority where you live, and you must give accurate information when you sign up. You are responsible for keeping your sign-in details secure, for everything done under your account, and for the staff you invite and the roles you give them. Tell us promptly if you think your account has been used without your permission."
     },
-    "pages.termsPage.sections.3": {
-        "message": "Your content and your clients' information"
+    "pages.termsPage.sections.3.title": {
+        "message": "Plans, trial and billing"
     },
-    "pages.termsPage.sections.4": {
+    "pages.termsPage.sections.3.body.0": {
+        "message": "Every business starts with a 14-day free trial, and no card is needed for it. To keep using Clientbridge after the trial, you choose a paid plan, billed monthly or yearly in advance through Stripe. Prices are in Canadian dollars and do not include sales tax, which is added where it applies. On the Premium plan, each additional staff seat is billed with the plan."
+    },
+    "pages.termsPage.sections.3.body.1": {
+        "message": "Plans renew automatically until you cancel. You can change or cancel your plan at any time from the app. A cancellation takes effect at the end of the period you have paid for, and amounts already paid are not refunded, except where the law requires it."
+    },
+    "pages.termsPage.sections.3.body.2": {
+        "message": "If you do not choose a plan when your trial ends, or a plan payment fails and is not resolved, your business becomes read-only: you can still sign in, see your records and get paid for invoices you already sent, and your data is kept."
+    },
+    "pages.termsPage.sections.3.body.3": {
+        "message": "We may change our prices. We will tell you at least 30 days before a change applies to your plan, and it applies from your next billing period."
+    },
+    "pages.termsPage.sections.4.title": {
+        "message": "Payments you accept"
+    },
+    "pages.termsPage.sections.4.body.0": {
+        "message": "To take payments from your clients, you connect a Stripe account. Payment processing is provided by Stripe under the Stripe Connected Account Agreement, which you accept when you connect, and Stripe, not ClientBridge, holds and pays out your funds. You authorize us to share information with Stripe and to create charges, refunds and payouts on your account as you instruct through Clientbridge."
+    },
+    "pages.termsPage.sections.4.body.1": {
+        "message": "Payments carry the fees shown on our pricing page, which combine Stripe's processing fee and the Clientbridge fee and are deducted from each payment. You are responsible for refunds, disputes and chargebacks on payments to your business, including their fees, and for honouring your own cancellation and refund policies."
+    },
+    "pages.termsPage.sections.5.title": {
+        "message": "Your responsibilities"
+    },
+    "pages.termsPage.sections.5.body.0": {
+        "message": "You are responsible for the services and products you sell, for the prices, taxes and policies you set, and for your dealings with your clients. You are responsible for collecting, reporting and remitting the sales taxes on your sales."
+    },
+    "pages.termsPage.sections.5.body.1": {
+        "message": "You must collect and use your clients' personal information lawfully and with the consent it requires, and send commercial emails and texts only to clients who have agreed to receive them, as Canada's Anti-Spam Legislation requires."
+    },
+    "pages.termsPage.sections.6.title": {
+        "message": "Acceptable use"
+    },
+    "pages.termsPage.sections.6.body.0": {
+        "message": "You agree not to use Clientbridge to:"
+    },
+    "pages.termsPage.sections.6.items.0": {
+        "message": "break the law or infringe anyone's rights;"
+    },
+    "pages.termsPage.sections.6.items.1": {
+        "message": "sell goods or services that the law or Stripe's list of restricted businesses prohibits;"
+    },
+    "pages.termsPage.sections.6.items.2": {
+        "message": "send messages to people who have not agreed to receive them;"
+    },
+    "pages.termsPage.sections.6.items.3": {
+        "message": "upload malicious code, or content you do not have the right to use;"
+    },
+    "pages.termsPage.sections.6.items.4": {
+        "message": "access accounts or systems that are not yours, or probe, disrupt or overload the service;"
+    },
+    "pages.termsPage.sections.6.items.5": {
+        "message": "copy, resell or reverse engineer Clientbridge, except where the law allows it."
+    },
+    "pages.termsPage.sections.7.title": {
+        "message": "Enforcement"
+    },
+    "pages.termsPage.sections.7.body.0": {
+        "message": "We may remove content or suspend an account that breaks these terms. We will tell you why, unless the law or the safety of others prevents it."
+    },
+    "pages.termsPage.sections.8.title": {
+        "message": "Your data"
+    },
+    "pages.termsPage.sections.8.body.0": {
+        "message": "You keep all rights to the information you and your clients put into Clientbridge. You give us permission to host, copy, process and display it only as needed to provide, secure and support the service for you. We handle the personal information in it as our privacy policy describes, acting on your behalf for your clients' information."
+    },
+    "pages.termsPage.sections.8.body.1": {
+        "message": "You can ask us for a copy of your data at any time while your account is open, and for 90 days after it closes."
+    },
+    "pages.termsPage.sections.9.title": {
+        "message": "Our service and intellectual property"
+    },
+    "pages.termsPage.sections.9.body.0": {
+        "message": "Clientbridge, including its software, design and name, belongs to ClientBridge Inc. and its licensors. These terms give you a limited, non-exclusive, non-transferable right to use Clientbridge for your business while your account is in good standing. If you send us suggestions, we may use them without any obligation to you."
+    },
+    "pages.termsPage.sections.10.title": {
         "message": "Availability and changes"
     },
-    "pages.termsPage.sections.5": {
+    "pages.termsPage.sections.10.body.0": {
+        "message": "We work to keep Clientbridge available and to protect your data with regular backups, but we do not promise that it will be free of interruptions or errors. We may change, add or remove features. If we remove a feature that your paid plan includes in a way that significantly reduces the plan, we will tell you in advance."
+    },
+    "pages.termsPage.sections.11.title": {
+        "message": "Clients of a business"
+    },
+    "pages.termsPage.sections.11.body.0": {
+        "message": "If you use a booking, payment, shop, form, contract or review page as a client of a business, the business is responsible for its services, prices, cancellation and refund policies, and for how it uses your information. Payments you make are processed by Stripe on the business's behalf. Questions about a booking, a charge or a refund should go to the business first. You agree to give accurate information and not to misuse these pages."
+    },
+    "pages.termsPage.sections.12.title": {
         "message": "Ending your account"
     },
-    "pages.termsPage.sections.6": {
-        "message": "Liability"
+    "pages.termsPage.sections.12.body.0": {
+        "message": "You can close your account at any time by contacting us. Closing it cancels your plan at the end of the period you have paid for. We may suspend or close an account that seriously or repeatedly breaks these terms, that does not pay what it owes, or that we are required by law to close, and we will give notice where we reasonably can."
+    },
+    "pages.termsPage.sections.12.body.1": {
+        "message": "The sections on your data, intellectual property, liability and governing law continue to apply after an account ends."
+    },
+    "pages.termsPage.sections.13.title": {
+        "message": "Disclaimers and liability"
+    },
+    "pages.termsPage.sections.13.body.0": {
+        "message": "Clientbridge is provided \"as is\" and \"as available\". To the extent the law allows, we disclaim all warranties and conditions that these terms do not state, including those of merchantable quality, fitness for a particular purpose and non-infringement."
+    },
+    "pages.termsPage.sections.13.body.1": {
+        "message": "To the extent the law allows, ClientBridge is not liable for indirect, incidental, special or consequential losses, or for lost profits, revenue or data, and our total liability for all claims relating to Clientbridge is limited to the amount you paid us in the 12 months before the claim arose."
+    },
+    "pages.termsPage.sections.13.body.2": {
+        "message": "You agree to compensate ClientBridge for claims by third parties, including your clients, that arise from your services, your content or your breach of these terms."
+    },
+    "pages.termsPage.sections.13.body.3": {
+        "message": "Nothing in these terms limits liability that the law does not allow to be limited, or the rights that consumers have under the consumer protection laws of their province."
+    },
+    "pages.termsPage.sections.14.title": {
+        "message": "Governing law"
+    },
+    "pages.termsPage.sections.14.body.0": {
+        "message": "These terms are governed by the laws of Ontario and the federal laws of Canada that apply there, and the courts of Ontario have jurisdiction over any dispute about them. If you are a consumer in Quebec, British Columbia, Alberta or another province, you keep the protection of your province's consumer protection laws, including any right they give you to bring a claim in your own province."
+    },
+    "pages.termsPage.sections.15.title": {
+        "message": "Changes to these terms"
+    },
+    "pages.termsPage.sections.15.body.0": {
+        "message": "We may update these terms. We will post the new version on this page with its date and, for a significant change, tell account holders by email or in the app at least 30 days before it takes effect. If you keep using Clientbridge after that, the new terms apply. If you do not agree to them, you can cancel your plan before they take effect."
+    },
+    "pages.termsPage.contact": {
+        "message": "Questions about these terms can be sent to {email}, or by mail to {address}.",
+        "args": ["email", "address"]
     },
     "solutions.solutionsMeta.title": {
         "message": "Clientbridge solutions"
@@ -1080,33 +1426,6 @@
     },
     "solutions.tradePage.forms": {
         "message": "Forms"
-    },
-    "solutions.creditsMeta.headline": {
-        "message": "Photo credits"
-    },
-    "solutions.creditsMeta.description": {
-        "message": "The photographers whose work appears on the Clientbridge website."
-    },
-    "solutions.creditsPage.title": {
-        "message": "Photo credits"
-    },
-    "solutions.creditsPage.lede": {
-        "message": "The photos on this site are from Pexels and are used under the Pexels License, which allows commercial use without attribution. We list the photographers here as a courtesy."
-    },
-    "solutions.creditsPage.license": {
-        "message": "Pexels License"
-    },
-    "solutions.creditsPage.columns.subject": {
-        "message": "Photo"
-    },
-    "solutions.creditsPage.columns.photographer": {
-        "message": "Photographer"
-    },
-    "solutions.creditsPage.columns.source": {
-        "message": "Source"
-    },
-    "solutions.creditsPage.view": {
-        "message": "View on Pexels"
     },
     "trades.pet-grooming.name": {
         "message": "Pet grooming and daycare"
@@ -3316,69 +3635,6 @@
         "message": "{method, select, card {Card payment} cash {Cash payment} etransfer {e-Transfer payment} bank_eft {Bank payment} cheque {Cheque payment} other {Payment}}",
         "args": ["method"]
     },
-    "photos.grooming.subject": {
-        "message": "Groomer trimming a Shih Tzu on a grooming table, a second dog waiting behind"
-    },
-    "photos.grooming-2.subject": {
-        "message": "Close-up of a Cocker Spaniel being brushed by a groomer's hands"
-    },
-    "photos.salon.subject": {
-        "message": "Hairdresser's hands trimming a client's hair by a sunlit window"
-    },
-    "photos.salon-2.subject": {
-        "message": "Stylist with a client in a hair salon, mirrors and styling chairs behind"
-    },
-    "photos.fitness.subject": {
-        "message": "Personal trainer reviewing a plan on a tablet with a client in a small gym"
-    },
-    "photos.cleaning.subject": {
-        "message": "Woman wiping a white counter with a cloth in a bright home"
-    },
-    "photos.cleaning-2.subject": {
-        "message": "Woman in rubber gloves cleaning a table in a home with plants"
-    },
-    "photos.tutoring.subject": {
-        "message": "Teacher guiding a girl at a keyboard during a one-to-one music lesson"
-    },
-    "photos.tutoring-2.subject": {
-        "message": "Music teacher seated beside a student playing a keyboard in a living room"
-    },
-    "photos.wellness.subject": {
-        "message": "Two therapists giving massages to clients in a treatment room"
-    },
-    "photos.wellness-2.subject": {
-        "message": "Therapist working on a client's back and shoulder by a studio window"
-    },
-    "photos.photography.subject": {
-        "message": "Photographer checking his camera in a daylight studio with a softbox"
-    },
-    "photos.photography-2.subject": {
-        "message": "Photographer shooting a portrait of a seated client in a daylight studio"
-    },
-    "photos.trades.subject": {
-        "message": "Tradesperson in a paint-spattered apron preparing a window frame on trestles"
-    },
-    "photos.trades-2.subject": {
-        "message": "Tradesperson fitting a window frame with a cordless drill"
-    },
-    "home.testimonial.lead": {
-        "message": "Testimonial placeholder {n, number}.",
-        "args": ["n"]
-    },
-    "home.testimonial.body": {
-        "message": "A short quote from a pilot customer about a specific outcome (for example, fewer unpaid invoices or less time on GST). To be replaced with a real, approved quote."
-    },
-    "home.testimonial.byline": {
-        "message": "Name, business, city (to be confirmed)"
-    },
-    "pages.privacyPage.contact": {
-        "message": "Questions about privacy: {email} (placeholder address).",
-        "args": ["email"]
-    },
-    "pages.termsPage.contact": {
-        "message": "Questions about these terms: {email} (placeholder address).",
-        "args": ["email"]
-    },
     "solutions.tradeMeta.title": {
         "message": "Clientbridge for {trade}",
         "args": ["trade"],
@@ -3390,10 +3646,6 @@
     },
     "solutions.tradePage.handles": {
         "message": "What Clientbridge handles for {who}.",
-        "args": ["who"]
-    },
-    "solutions.tradePage.proofEyebrow": {
-        "message": "From {who} using Clientbridge",
         "args": ["who"]
     },
     "solutions.tradePage.bookingTag": {
@@ -3416,12 +3668,8 @@
         "message": "{form} · signed",
         "args": ["form"]
     },
-    "solutions.creditsPage.photoBy": {
-        "message": "Photo by {name}",
-        "args": ["name"]
-    },
     "site.footer.copyright": {
-        "message": "© {year} Clientbridge",
+        "message": "© {year} ClientBridge Inc.",
         "args": ["year"]
     },
     "site.pageTitle": {
@@ -3430,5 +3678,136 @@
     },
     "site.jsonLd.description": {
         "message": "Booking, invoices, payments and sales tax for service businesses in Canada."
+    },
+    "pages.paymentsPage.meta.headline": {
+        "message": "Payments"
+    },
+    "pages.paymentsPage.meta.description": {
+        "message": "Card payments online and Tap to Pay in person, recorded against each invoice, paid out to your bank, with the sales tax set aside for your return."
+    },
+    "pages.paymentsPage.eyebrow": {
+        "message": "Payments"
+    },
+    "pages.paymentsPage.title": {
+        "message": "Get paid in person and online, straight to your bank."
+    },
+    "pages.paymentsPage.lede": {
+        "message": "Clients pay by card from an invoice link, when they book, or with Tap to Pay at the counter. Each payment is recorded against its invoice and paid out to your bank, and its sales tax is set aside for your return."
+    },
+    "pages.paymentsPage.bands.0.eyebrow": {
+        "message": "In person"
+    },
+    "pages.paymentsPage.bands.0.title": {
+        "message": "Tap to Pay at the counter, on the phone you already have."
+    },
+    "pages.paymentsPage.bands.0.body": {
+        "message": "Tap to Pay turns an iPhone or Android phone into a card reader. Charge for a visit or sell retail items, gift cards and packages, and the receipt goes out by email or text."
+    },
+    "pages.paymentsPage.bands.0.points.0": {
+        "message": "Tap to Pay on iPhone and Android"
+    },
+    "pages.paymentsPage.bands.0.points.1": {
+        "message": "Visits, products and gift cards on one sale"
+    },
+    "pages.paymentsPage.bands.0.points.2": {
+        "message": "Itemised receipts by email or text"
+    },
+    "pages.paymentsPage.bands.1.eyebrow": {
+        "message": "Online"
+    },
+    "pages.paymentsPage.bands.1.title": {
+        "message": "Every invoice carries a link the client can pay from."
+    },
+    "pages.paymentsPage.bands.1.body": {
+        "message": "Send an invoice and the client pays it by card from the link, or ask for a deposit when they book online. Partial payments, refunds and credit notes are recorded on the same invoice."
+    },
+    "pages.paymentsPage.bands.1.points.0": {
+        "message": "Card payment from a link on every invoice"
+    },
+    "pages.paymentsPage.bands.1.points.1": {
+        "message": "Deposits taken at booking and applied to the invoice"
+    },
+    "pages.paymentsPage.bands.1.points.2": {
+        "message": "Pre-authorized debit for clients who prefer it"
+    },
+    "pages.paymentsPage.stripeEyebrow": {
+        "message": "Payments by Stripe"
+    },
+    "pages.paymentsPage.faqTitle": {
+        "message": "Payment questions"
+    },
+    "pages.paymentsPage.closing.title": {
+        "message": "Get paid the way your clients want to pay."
+    },
+    "pages.paymentsPage.closing.lede": {
+        "message": "Set up card payments and payouts in the app, then send your first invoice or open your booking page."
+    },
+    "pages.paymentsPage.closing.primary": {
+        "message": "Start free"
+    },
+    "pages.paymentsPage.closing.secondary": {
+        "message": "Open the demo"
+    },
+    "home.payments.link": {
+        "message": "See how payments work"
+    },
+    "pages.contactPage.meta.headline": {
+        "message": "Contact"
+    },
+    "pages.contactPage.meta.description": {
+        "message": "Send a question to the Clientbridge team about the product, pricing or getting your business set up."
+    },
+    "pages.contactPage.eyebrow": {
+        "message": "Contact"
+    },
+    "pages.contactPage.title": {
+        "message": "Get in touch."
+    },
+    "pages.contactPage.lede": {
+        "message": "Questions about Clientbridge, pricing or getting your business set up? Send us a note and we'll reply by email."
+    },
+    "pages.contactPage.name": {
+        "message": "Your name"
+    },
+    "pages.contactPage.email": {
+        "message": "Email"
+    },
+    "pages.contactPage.message": {
+        "message": "Message"
+    },
+    "pages.contactPage.honeypot": {
+        "message": "Leave this field empty",
+        "description": "The label of a field hidden from people, which only spam bots fill in."
+    },
+    "pages.contactPage.submit": {
+        "message": "Send message"
+    },
+    "pages.contactPage.consent": {
+        "message": "We use what you send only to answer you."
+    },
+    "pages.contactPage.retry": {
+        "message": "We couldn't send your message. Check your email address and try again."
+    },
+    "pages.contactPage.reach": {
+        "message": "You can also write to {email}, or by mail to {address}.",
+        "args": ["email", "address"]
+    },
+    "pages.contactPage.thanks.meta.headline": {
+        "message": "Message sent"
+    },
+    "pages.contactPage.thanks.meta.description": {
+        "message": "Thanks for writing to Clientbridge. We'll reply to the email address you gave us."
+    },
+    "pages.contactPage.thanks.title": {
+        "message": "Thanks, your message is on its way."
+    },
+    "pages.contactPage.thanks.body": {
+        "message": "We'll reply to the email address you gave us. Until then, you can look through what Clientbridge does and what it costs."
+    },
+    "pages.contactPage.thanks.features": {
+        "message": "See the features"
+    },
+    "pages.contactPage.thanks.pricing": {
+        "message": "See pricing"
     }
 }

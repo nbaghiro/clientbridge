@@ -44,7 +44,7 @@ function Mock({ kind }: { kind: FeatureMock }) {
     }
 }
 
-function FeatureBand({ feature, flip }: { feature: Feature; flip: boolean }) {
+export function FeatureBand({ feature, flip }: { feature: Feature; flip: boolean }) {
     return (
         <div className={`feat split${flip ? " flip" : ""}`} id={feature.id}>
             <div className="feat-text">

@@ -1,13 +1,18 @@
 import type { LineIconName } from "../art/LineIcon";
 import type { GlyphName } from "../art/TradeGlyph";
 import { planPrices } from "./plans";
+import { closingCopy, ctaLabel, ctaNote } from "./waitlist";
 import { strings } from "../strings";
 
 const s = strings.home;
 
 export const homeMeta = s.homeMeta;
 
-export const hero = s.hero;
+export const hero = {
+    ...s.hero,
+    primary: ctaLabel(s.hero.primary),
+    note: ctaNote(s.hero.note),
+};
 
 export const props: { icon: LineIconName; title: string; body: string }[] = [
     {
@@ -89,6 +94,7 @@ export const payments = {
     eyebrow: s.payments.eyebrow,
     title: s.payments.title,
     lede: s.payments.lede,
+    link: s.payments.link,
     steps: [s.payments.steps[0], s.payments.steps[1], s.payments.steps[2], s.payments.steps[3]],
 };
 
@@ -159,29 +165,9 @@ export const included = {
     ] satisfies { icon: LineIconName; title: string; body: string }[],
 };
 
-export const proof = {
-    eyebrow: s.proof.eyebrow,
-    logo: s.proof.logo,
-    logoCount: 5,
-    testimonials: [1, 2, 3].map(testimonialPlaceholder),
-};
-
-export interface TestimonialCopy {
-    lead: string;
-    body: string;
-    byline: string;
-}
-
-export function testimonialPlaceholder(n: number): TestimonialCopy {
-    return {
-        lead: s.testimonial.lead(n),
-        body: s.testimonial.body,
-        byline: s.testimonial.byline,
-    };
-}
-
 export const pricing = {
     ...s.pricing,
+    cta: ctaLabel(s.pricing.cta),
     price: s.pricing.price(planPrices.premium.month),
     note: s.pricing.note(planPrices.team.month),
     points: [
@@ -192,4 +178,4 @@ export const pricing = {
     ],
 };
 
-export const closing = s.closing;
+export const closing = closingCopy(s.closing);

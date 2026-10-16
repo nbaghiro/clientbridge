@@ -1,6 +1,6 @@
 import { links } from "../config";
-import { contactEmail } from "./pages";
 import { solutionPath, TRADES } from "./trades";
+import { ctaLabel } from "./waitlist";
 import { strings } from "../strings";
 
 const s = strings.site;
@@ -18,11 +18,11 @@ export const nav = {
     links: [
         { label: s.nav.links[0].label, href: "/features" },
         { label: s.nav.links[1].label, href: "/solutions" },
-        { label: s.nav.links[2].label, href: "/#payments" },
+        { label: s.nav.links[2].label, href: "/payments" },
         { label: s.nav.links[3].label, href: "/pricing" },
     ] satisfies NavLink[],
     signIn: { label: s.nav.signIn.label, href: links.signIn },
-    startFree: { label: s.nav.startFree.label, href: links.startFree },
+    startFree: { label: ctaLabel(s.nav.startFree.label), href: links.startFree },
 };
 
 export const footer = {
@@ -33,7 +33,7 @@ export const footer = {
             links: [
                 { label: s.footer.columns[0].links[0].label, href: "/features#bookings" },
                 { label: s.footer.columns[0].links[1].label, href: "/features#invoices" },
-                { label: s.footer.columns[0].links[2].label, href: "/features#payments" },
+                { label: s.footer.columns[0].links[2].label, href: "/payments" },
                 { label: s.footer.columns[0].links[3].label, href: "/features#products" },
                 { label: s.footer.columns[0].links[4].label, href: "/features#tax" },
                 { label: s.footer.columns[0].links[5].label, href: "/features#staff" },
@@ -53,8 +53,7 @@ export const footer = {
                 { label: s.footer.columns[2].links[0].label, href: "/pricing" },
                 { label: s.footer.columns[2].links[1].label, href: "/privacy" },
                 { label: s.footer.columns[2].links[2].label, href: "/terms" },
-                { label: s.footer.columns[2].links[3].label, href: `mailto:${contactEmail}` },
-                { label: s.footer.columns[2].links[4].label, href: "/credits" },
+                { label: s.footer.columns[2].links[3].label, href: "/contact" },
             ],
         },
     ] satisfies { title: string; links: NavLink[] }[],

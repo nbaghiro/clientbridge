@@ -68,7 +68,10 @@ def _builders() -> dict[str, Render]:
     return {
         "returning_code": lambda c: n.returning_code(c, NAME, "123456", 10),
         "staff_invite": lambda c: n.staff_invite(c, NAME, LINK),
-        "waitlist_message": lambda c: n.waitlist_message(c, LINK),
+        "waitlist_message": lambda c: (
+            n.waitlist_message(c, LINK),
+            n.waitlist_message(c, LINK, already=True),
+        ),
         "auth_email_message": lambda c: tuple(
             auth_email(c, kind) for kind in get_args(AuthEmailType)
         ),

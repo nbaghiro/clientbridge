@@ -25,8 +25,8 @@ const render = (route: SiteRoute): RenderedPage => ({
     headline: route.meta.headline,
     description: route.meta.description,
     ogImage: ogImageFor(route.path),
-    indexable: route !== NOT_FOUND,
-    head: headTags(route.meta, route.path),
+    indexable: route.hidden !== true,
+    head: headTags(route.meta, route.path, route.hidden === true),
     html: renderToString(<App route={route} />),
 });
 

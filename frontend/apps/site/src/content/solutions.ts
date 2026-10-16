@@ -1,7 +1,7 @@
 import type { LineIconName } from "../art/LineIcon";
 import type { PageMeta } from "../routes";
-import { pageMeta } from "./pages";
 import type { Trade } from "./trades";
+import { closingButton, closingCopy, ctaLabel, ctaNote } from "./waitlist";
 import { strings } from "../strings";
 
 const s = strings.solutions;
@@ -71,14 +71,14 @@ export const solutionsPage = {
             body: s.solutionsPage.engine[8].body,
         },
     ] satisfies { icon: LineIconName; title: string; body: string }[],
-    closing: s.solutionsPage.closing,
+    closing: closingButton(s.solutionsPage.closing),
 };
 
 export const tradePage = {
     crumb: s.tradePage.crumb,
-    primary: s.tradePage.primary,
+    primary: ctaLabel(s.tradePage.primary),
     secondary: s.tradePage.secondary,
-    note: s.tradePage.note,
+    note: ctaNote(s.tradePage.note),
     bookingsEyebrow: s.tradePage.bookingsEyebrow,
     example: s.tradePage.example,
     dayToDay: s.tradePage.dayToDay,
@@ -86,10 +86,9 @@ export const tradePage = {
     gettingPaid: s.tradePage.gettingPaid,
     clientsEyebrow: s.tradePage.clientsEyebrow,
     bookingPage: s.tradePage.bookingPage,
-    proofEyebrow: s.tradePage.proofEyebrow,
     bookingTag: s.tradePage.bookingTag,
     others: s.tradePage.others,
-    closing: s.tradePage.closing,
+    closing: closingCopy(s.tradePage.closing),
     scheduleTitle: s.tradePage.scheduleTitle,
     scheduleViews: s.tradePage.scheduleViews,
     subtotal: s.tradePage.subtotal,
@@ -106,16 +105,4 @@ export const tradePage = {
     upcoming: s.tradePage.upcoming,
     forms: s.tradePage.forms,
     signed: s.tradePage.signed,
-};
-
-export const creditsMeta = pageMeta(s.creditsMeta);
-
-export const creditsPage = {
-    title: s.creditsPage.title,
-    lede: s.creditsPage.lede,
-    license: s.creditsPage.license,
-    licenseUrl: "https://www.pexels.com/license/",
-    photoBy: s.creditsPage.photoBy,
-    columns: s.creditsPage.columns,
-    view: s.creditsPage.view,
 };
