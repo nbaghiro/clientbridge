@@ -2942,6 +2942,261 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/v1/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Session */
+        get: operations["admin_session_admin_v1_session_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Overview */
+        get: operations["overview_admin_v1_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/businesses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Businesses */
+        get: operations["businesses_admin_v1_businesses_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/businesses/{business_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Business */
+        get: operations["business_admin_v1_businesses__business_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Users */
+        get: operations["users_admin_v1_users_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Person */
+        get: operations["person_admin_v1_users__user_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/clients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Clients */
+        get: operations["clients_admin_v1_clients_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payments */
+        get: operations["payments_admin_v1_payments_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/payments/{payment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payment */
+        get: operations["payment_admin_v1_payments__payment_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Activity */
+        get: operations["activity_admin_v1_activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Operations */
+        get: operations["operations_admin_v1_operations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Access */
+        get: operations["access_admin_v1_access_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/emails": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Emails */
+        get: operations["emails_admin_v1_emails_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/emails/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Email Preview */
+        get: operations["email_preview_admin_v1_emails__key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/emails/{key}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send Email */
+        post: operations["send_email_admin_v1_emails__key__send_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2971,6 +3226,398 @@ export interface components {
         AddonOffersPatch: {
             /** Offers */
             offers: components["schemas"]["AddonOffer"][];
+        };
+        /** AdminAccessInfo */
+        AdminAccessInfo: {
+            /** Identity Id */
+            identity_id: string;
+            /** Email */
+            email: string;
+            /** Environment */
+            environment: string;
+            /** Development Grant */
+            development_grant: boolean;
+            /** Second Factor */
+            second_factor: boolean;
+        };
+        /** AdminActivity */
+        AdminActivity: {
+            /** Business Name */
+            business_name?: string | null;
+            /** Actor Name */
+            actor_name?: string | null;
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Performed By */
+            performed_by: string | null;
+            /** Action */
+            action: string;
+            /** Entity Type */
+            entity_type: string;
+            /** Entity Id */
+            entity_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AdminBusiness */
+        AdminBusiness: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "closed";
+            /** Timezone */
+            timezone: string;
+            /** Billing Email */
+            billing_email: string | null;
+            /** Plan */
+            plan: ("premium" | "team") | null;
+            /**
+             * Plan Status
+             * @enum {string}
+             */
+            plan_status: "trialing" | "active" | "past_due" | "lapsed";
+            /**
+             * Trial Ends At
+             * Format: date-time
+             */
+            trial_ends_at: string;
+            /** Stripe Account Id */
+            stripe_account_id: string | null;
+            /** Stripe Charges Enabled */
+            stripe_charges_enabled: boolean;
+            /** Stripe Payouts Enabled */
+            stripe_payouts_enabled: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AdminBusinessDetail */
+        AdminBusinessDetail: {
+            business: components["schemas"]["AdminBusiness"];
+            /** Staff */
+            staff: components["schemas"]["AdminMembership"][];
+            /** Clients */
+            clients: number;
+            /** Payments */
+            payments: number;
+        };
+        /** AdminClient */
+        AdminClient: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Name */
+            name: string;
+            /** Email */
+            email: string | null;
+            /** Phone */
+            phone: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "inactive";
+            /** User Id */
+            user_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AdminEmail */
+        AdminEmail: {
+            /** Key */
+            key: string;
+            /** Subject */
+            subject: string;
+        };
+        /** AdminEmailPreview */
+        AdminEmailPreview: {
+            /** Key */
+            key: string;
+            /** Subject */
+            subject: string;
+            /** Html */
+            html: string;
+            /** Text */
+            text: string;
+        };
+        /** AdminEmailResult */
+        AdminEmailResult: {
+            /** Delivery Id */
+            delivery_id: string | null;
+        };
+        /** AdminEmailSend */
+        AdminEmailSend: {
+            /** Recipient */
+            recipient: string;
+            /**
+             * Transport
+             * @enum {string}
+             */
+            transport: "smtp" | "resend";
+            /** Request Id */
+            request_id: string;
+        };
+        /** AdminLedgerLeg */
+        AdminLedgerLeg: {
+            /** Account Category */
+            account_category: string;
+            /** Id */
+            id: string;
+            /** Journal Id */
+            journal_id: string;
+            /** Account Id */
+            account_id: string;
+            /** Event */
+            event: string;
+            /** Amount Cents */
+            amount_cents: number;
+            /** Currency */
+            currency: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+        };
+        /** AdminMembership */
+        AdminMembership: {
+            /** Business Id */
+            business_id: string;
+            /** Business Name */
+            business_name: string;
+            /** User Id */
+            user_id: string | null;
+            /** Name */
+            name: string | null;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "owner" | "admin" | "staff" | "contractor";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "invited" | "removed";
+        };
+        /** AdminOperations */
+        AdminOperations: {
+            /** Environment */
+            environment: string;
+            /** Database Revision */
+            database_revision: string[];
+            /** Expected Revision */
+            expected_revision: string[];
+            webhooks: components["schemas"]["AdminPage_AdminWebhook_"];
+            /** Pending Webhooks */
+            pending_webhooks: number;
+            /** Failed Webhooks */
+            failed_webhooks: number;
+            /**
+             * Email Transport
+             * @enum {string}
+             */
+            email_transport: "smtp" | "resend" | "unconfigured";
+            /** Email Transports */
+            email_transports: ("smtp" | "resend")[];
+        };
+        /** AdminOverview */
+        AdminOverview: {
+            /** Businesses */
+            businesses: number;
+            /** Users */
+            users: number;
+            /** Clients */
+            clients: number;
+            /** Failed Payments */
+            failed_payments: number;
+            /** Failed Webhooks */
+            failed_webhooks: number;
+            /** Recent Businesses */
+            recent_businesses: components["schemas"]["AdminBusiness"][];
+            /** Activity */
+            activity: components["schemas"]["AdminActivity"][];
+        };
+        /** AdminPage[AdminActivity] */
+        AdminPage_AdminActivity_: {
+            /** Items */
+            items: components["schemas"]["AdminActivity"][];
+            /** Has More */
+            has_more: boolean;
+        };
+        /** AdminPage[AdminBusiness] */
+        AdminPage_AdminBusiness_: {
+            /** Items */
+            items: components["schemas"]["AdminBusiness"][];
+            /** Has More */
+            has_more: boolean;
+        };
+        /** AdminPage[AdminClient] */
+        AdminPage_AdminClient_: {
+            /** Items */
+            items: components["schemas"]["AdminClient"][];
+            /** Has More */
+            has_more: boolean;
+        };
+        /** AdminPage[AdminPayment] */
+        AdminPage_AdminPayment_: {
+            /** Items */
+            items: components["schemas"]["AdminPayment"][];
+            /** Has More */
+            has_more: boolean;
+        };
+        /** AdminPage[AdminUser] */
+        AdminPage_AdminUser_: {
+            /** Items */
+            items: components["schemas"]["AdminUser"][];
+            /** Has More */
+            has_more: boolean;
+        };
+        /** AdminPage[AdminWebhook] */
+        AdminPage_AdminWebhook_: {
+            /** Items */
+            items: components["schemas"]["AdminWebhook"][];
+            /** Has More */
+            has_more: boolean;
+        };
+        /** AdminPayment */
+        AdminPayment: {
+            /** Business Name */
+            business_name?: string | null;
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Client Id */
+            client_id: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "payment" | "deposit" | "refund";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "succeeded" | "failed" | "canceled";
+            /** Amount Cents */
+            amount_cents: number;
+            /** Currency */
+            currency: string;
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "card" | "etransfer" | "bank_eft" | "cash" | "cheque" | "other";
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "stripe" | "manual";
+            /** Provider Ref */
+            provider_ref: string | null;
+            /** Parent Payment Id */
+            parent_payment_id: string | null;
+            /** Invoice Id */
+            invoice_id: string | null;
+            /** Order Id */
+            order_id: string | null;
+            /** Booking Id */
+            booking_id: string | null;
+            /** Dispute Status */
+            dispute_status: ("needs_response" | "under_review" | "won" | "lost") | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Paid At */
+            paid_at: string | null;
+        };
+        /** AdminPaymentDetail */
+        AdminPaymentDetail: {
+            payment: components["schemas"]["AdminPayment"];
+            business: components["schemas"]["AdminBusiness"];
+            client: components["schemas"]["AdminClient"] | null;
+            /** Refunds */
+            refunds: components["schemas"]["AdminPayment"][];
+            /** Entries */
+            entries: components["schemas"]["AdminLedgerLeg"][];
+            /** Stripe Url */
+            stripe_url: string | null;
+        };
+        /** AdminPersonDetail */
+        AdminPersonDetail: {
+            user: components["schemas"]["AdminUser"];
+            /** Memberships */
+            memberships: components["schemas"]["AdminMembership"][];
+            /** Clients */
+            clients: components["schemas"]["AdminClient"][];
+        };
+        /** AdminSession */
+        AdminSession: {
+            /** Identity Id */
+            identity_id: string;
+        };
+        /** AdminUser */
+        AdminUser: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string | null;
+            /** Email */
+            email: string;
+            /** Phone */
+            phone: string | null;
+            /** Last Seen At */
+            last_seen_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AdminWebhook */
+        AdminWebhook: {
+            /** Id */
+            id: string;
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "stripe" | "twilio" | "resend";
+            /** Event */
+            event: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "processed" | "failed";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Processed At */
+            processed_at: string | null;
         };
         /**
          * AuthEmailIn
@@ -14208,6 +14855,507 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ZonesOut"];
+                };
+            };
+        };
+    };
+    admin_session_admin_v1_session_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSession"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    overview_admin_v1_overview_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOverview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    businesses_admin_v1_businesses_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                offset?: number;
+            };
+            header?: {
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPage_AdminBusiness_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    business_admin_v1_businesses__business_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-session-token"?: string;
+            };
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBusinessDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    users_admin_v1_users_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                offset?: number;
+            };
+            header?: {
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPage_AdminUser_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    person_admin_v1_users__user_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-session-token"?: string;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPersonDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clients_admin_v1_clients_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                business_id?: string | null;
+                offset?: number;
+            };
+            header?: {
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPage_AdminClient_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    payments_admin_v1_payments_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                business_id?: string | null;
+                status?: ("pending" | "succeeded" | "failed" | "canceled") | null;
+                offset?: number;
+            };
+            header?: {
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPage_AdminPayment_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    payment_admin_v1_payments__payment_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-session-token"?: string;
+            };
+            path: {
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPaymentDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    activity_admin_v1_activity_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                business_id?: string | null;
+                offset?: number;
+            };
+            header?: {
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPage_AdminActivity_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    operations_admin_v1_operations_get: {
+        parameters: {
+            query?: {
+                status?: ("pending" | "processed" | "failed") | null;
+                offset?: number;
+            };
+            header?: {
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOperations"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    access_admin_v1_access_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAccessInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    emails_admin_v1_emails_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEmail"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    email_preview_admin_v1_emails__key__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-session-token"?: string;
+            };
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEmailPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_email_admin_v1_emails__key__send_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-session-token"?: string;
+            };
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminEmailSend"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEmailResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -1,3 +1,24 @@
+msgid "admin_demo.business"
+msgstr "[Ɓîŕçĥƀåŕķ Þéţ Šţûðîö~~~~~~~]"
+
+msgid "admin_demo.declined"
+msgstr "[Ţöö ƒåŕ öûţ öƒ ţöŵñ~~~~~~~]"
+
+msgid "admin_demo.groom"
+msgstr "[Ƒûļļ ĝŕööɱ, ļåŕĝé ðöĝ~~~~~~~~]"
+
+msgid "admin_demo.login"
+msgstr "[Šîĝñ-îñ çöðé~~~~~]"
+
+msgid "admin_demo.message"
+msgstr ""
+"[Šéé ýöû Ţĥûŕšðåý.\n"
+"\n"
+"Ɓŕîñĝ Ɓîšçûîţ'š ļéåšĥ.~~~~~~~~~~~~~~~]"
+
+msgid "admin_demo.nails"
+msgstr "[Ñåîļ ĝŕîñð~~~~]"
+
 msgid "booking.action"
 msgstr "[Çĥåñĝé öŕ çåñçéļ~~~~~~]"
 

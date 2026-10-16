@@ -381,7 +381,7 @@ function Shell({ children }: { children: ReactNode }) {
 
 const AUTH_PATHS = ["/", "/login", "/signup", "/recover", "/verify", "/auth-error"];
 
-function SignIn({ onSuccess }: { onSuccess: () => void }) {
+function SignIn({ onSuccess, probe }: { onSuccess: () => void; probe?: boolean }) {
     const [params] = useSearchParams();
     const { pathname, search } = useLocation();
     const navigate = useNavigate();
@@ -406,7 +406,7 @@ function SignIn({ onSuccess }: { onSuccess: () => void }) {
             initialMode: pathname === "/signup" ? "signup" : "signin",
             defaultEmail: params.get("email") ?? "",
             returnTo: returnTo.toString(),
-            probe: getUserId() !== null || params.has("session") || sessionHinted(),
+            probe: probe ?? (getUserId() !== null || params.has("session") || sessionHinted()),
             onSessionStarted: hintSession,
             openUrl: (url) => {
                 window.location.assign(url);
@@ -561,14 +561,14 @@ export function AuthError() {
     );
 }
 
-export function Login({ onSuccess }: { onSuccess: () => void }) {
+export function Login({ onSuccess, probe }: { onSuccess: () => void; probe?: boolean }) {
     const { pathname } = useLocation();
     return (
         <Shell>
             {pathname === "/recover" ? (
                 <Recover onSuccess={onSuccess} />
             ) : (
-                <SignIn onSuccess={onSuccess} />
+                <SignIn onSuccess={onSuccess} {...(probe === undefined ? {} : { probe })} />
             )}
         </Shell>
     );

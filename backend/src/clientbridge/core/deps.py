@@ -87,6 +87,24 @@ async def fresh_identity(
 FreshIdentity = Annotated[Identity, Depends(fresh_identity)]
 
 
+def assert_platform_access(identity: Identity) -> None:
+    settings = get_settings()
+    configured = settings.platform_admin_identity_ids
+    if settings.env == "dev":
+        configured += f",{settings.dev_platform_admin_identity_ids}"
+    allowed = {value.strip() for value in configured.split(",")}
+    if not identity.email_verified or not identity.id or identity.id not in allowed:
+        raise Forbidden("platform access required", code="platform_access_required")
+
+
+async def platform_identity(identity: FreshIdentity) -> Identity:
+    assert_platform_access(identity)
+    return identity
+
+
+PlatformIdentity = Annotated[Identity, Depends(platform_identity)]
+
+
 async def _provisioned(
     identity: Identity, identities: IdentityProvider, db: AsyncSession, expected_user: str
 ) -> User:

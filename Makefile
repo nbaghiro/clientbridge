@@ -1,4 +1,4 @@
-.PHONY: gen-waitlist-email preview-emails help up down logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth auth-standalone test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
+.PHONY: configure-demo-admin dev-admin gen-waitlist-email preview-emails help up down logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth auth-standalone test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
 .DEFAULT_GOAL := help
 
 help:
@@ -12,6 +12,8 @@ help:
 	@echo "worker           run the arq job worker"
 	@echo "dev-web          run web (Vite) on :8700"
 	@echo "dev-connect      run Connect, the client pages (Vite), on :8709"
+	@echo "dev-admin        run the platform admin app on :8711"
+	@echo "configure-demo-admin  grant the seeded Hannah account development-only platform access"
 	@echo "dev-site         run the marketing site (Vite) on :8710"
 	@echo "dev-mobile       run mobile (Expo/Metro) on :8707"
 	@echo "build            build every frontend app and package"
@@ -89,6 +91,12 @@ worker:
 
 dev-web:
 	cd frontend && pnpm --filter web dev --port 8700
+
+configure-demo-admin:
+	cd backend && uv run python -m scripts.configure_demo_admin
+
+dev-admin:
+	cd frontend && pnpm --filter admin dev
 
 dev-connect:
 	cd frontend && pnpm --filter connect dev

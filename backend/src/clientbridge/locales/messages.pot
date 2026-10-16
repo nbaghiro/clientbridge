@@ -1,3 +1,21 @@
+msgid "admin_demo.business"
+msgstr ""
+
+msgid "admin_demo.declined"
+msgstr ""
+
+msgid "admin_demo.groom"
+msgstr ""
+
+msgid "admin_demo.login"
+msgstr ""
+
+msgid "admin_demo.message"
+msgstr ""
+
+msgid "admin_demo.nails"
+msgstr ""
+
 msgid "booking.action"
 msgstr ""
 

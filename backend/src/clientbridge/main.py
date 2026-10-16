@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 
+from clientbridge.api.admin import router as admin_router
 from clientbridge.api.public import (
     booking_router,
     contract_router,
@@ -63,6 +64,7 @@ def create_app() -> FastAPI:
     app.include_router(media_router)
     app.include_router(prefs_router)
     app.include_router(api_router)
+    app.include_router(admin_router)
     return app
 
 
