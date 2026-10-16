@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Literal, cast
 from urllib.parse import parse_qs, urlparse
 
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
@@ -841,6 +842,93 @@ class Stripe:
         )
 
 
+@dataclass(frozen=True)
+class ApiRequest:
+    query: list[tuple[str, str]]
+    form: dict[str, list[str]] | None
+    body: str | None
+
+
+def api_request(method: str, path: str, params: Sequence[str]) -> ApiRequest:
+    """The CLI-shaped parameters as Stripe's REST API takes them: v2 as JSON, v1 as form pairs."""
+    if path.startswith("/v2/"):
+        merged: dict[str, object] = {}
+        for each in params:
+            merged.update(cast(dict[str, object], json.loads(each)))
+        if method != "get":
+            return ApiRequest([], None, json.dumps(merged))
+        query: list[tuple[str, str]] = []
+        for key, value in merged.items():
+            for item in cast(list[object], value) if isinstance(value, list) else [value]:
+                query.append((key, str(item).lower() if isinstance(item, bool) else str(item)))
+        return ApiRequest(query, None, None)
+    pairs = [(key, value) for key, _, value in (each.partition("=") for each in params)]
+    if method == "get":
+        return ApiRequest(pairs, None, None)
+    form: dict[str, list[str]] = {}
+    for key, value in pairs:
+        form.setdefault(key, []).append(value)
+    return ApiRequest([], form, None)
+
+
+class ApiStripe(Stripe):
+    """The same calls through Stripe's REST API with a secret key, for hosts without the CLI."""
+
+    def __init__(self, api_key: str) -> None:
+        super().__init__(cli_runner, None)
+        self.api_key = api_key
+
+    def text(self, *args: str) -> str:
+        raise SystemExit(f"stripe {args[0]} needs the Stripe CLI, which this run does not use")
+
+    def call(
+        self,
+        method: str,
+        path: str,
+        params: Sequence[str] = (),
+        *,
+        account: str | None = None,
+        idempotency: str | None = None,
+    ) -> Json:
+        body = self._send(method, path, params, account, idempotency)
+        if "error" in body:
+            message = _map(body["error"]).get("message")
+            raise SystemExit(f"Stripe rejected {method.upper()} {path}: {message}")
+        return body
+
+    def find(self, path: str, account: str) -> bool:
+        body = self._send("get", path, (), account, None)
+        return "error" not in body and not body.get("deleted")
+
+    def _send(
+        self,
+        method: str,
+        path: str,
+        params: Sequence[str],
+        account: str | None,
+        idempotency: str | None,
+    ) -> Json:
+        request = api_request(method, path, params)
+        headers = {"Authorization": f"Bearer {self.api_key}", "Stripe-Version": STRIPE_API_VERSION}
+        if account is not None:
+            headers["Stripe-Account"] = account
+        if idempotency is not None:
+            headers["Idempotency-Key"] = idempotency
+        if request.body is not None:
+            headers["Content-Type"] = "application/json"
+        response = httpx.request(
+            method.upper(),
+            f"https://api.stripe.com{path}",
+            params=tuple(request.query),
+            data=request.form,
+            content=request.body,
+            headers=headers,
+            timeout=60,
+        )
+        parsed: object = response.json()
+        return cast(Json, parsed) if isinstance(parsed, dict) else {}
+
+
 def cli_runner(args: Sequence[str]) -> str:
     result = subprocess.run(["stripe", *args], capture_output=True, text=True, check=False)
     if result.returncode != 0:
@@ -902,7 +990,7 @@ def card_token_for(brand: str | None) -> str:
 
 
 class Linker:
-    """Points the local demo rows at the sandbox objects; writes only with apply."""
+    """Points the demo rows at the sandbox objects; writes only with apply."""
 
     def __init__(self, stripe: Stripe, db: AsyncSession, *, apply: bool) -> None:
         self.stripe = stripe
@@ -1060,6 +1148,34 @@ async def link_database(stripe: Stripe, accounts: Mapping[str, Json | None], *, 
     return 1 if any(step.action == "blocked" for step in linker.steps) else 0
 
 
+def link_problems(env: str, api_key: str) -> list[str]:
+    problems: list[str] = []
+    if env not in ("dev", "staging"):
+        problems.append(f"ENV is {env!r}; linking runs only with ENV=dev or ENV=staging")
+    if not api_key.startswith(("sk_test_", "rk_test_")):
+        problems.append("STRIPE_SECRET_KEY is not a test-mode key")
+    return problems
+
+
+def link_only(env: str, api_key: str, *, apply: bool) -> int:
+    """Points the demo rows at the sandbox's demo accounts through the API, as a deploy job does."""
+    problems = link_problems(env, api_key)
+    stripe = ApiStripe(api_key)
+    if not problems and stripe.call("get", "/v1/balance").get("livemode") is not False:
+        problems.append("Stripe did not answer in test mode")
+    if problems:
+        print("refusing to run:")
+        for problem in problems:
+            print(f"  - {problem}")
+        return 2
+    accounts = stripe.list_v2("/v2/core/accounts")
+    resolved: dict[str, Json | None] = {}
+    for biz in DEMO_BUSINESSES:
+        found = [stripe.account(str(a["id"])) for a in find_account(accounts, biz)]
+        resolved[biz.id] = found[0] if len(found) == 1 else None
+    return asyncio.run(link_database(stripe, resolved, apply=apply))
+
+
 def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="perform the plan (default: dry run)")
@@ -1073,8 +1189,16 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
     )
     parser.add_argument("--listen", action="store_true", help="run `stripe listen` for our events")
     parser.add_argument("--show-secrets", action="store_true", help="print secrets unredacted")
+    parser.add_argument(
+        "--link-only",
+        action="store_true",
+        help="only point the demo rows at their sandbox accounts, through the API with "
+        "STRIPE_SECRET_KEY instead of the CLI (ENV=dev or staging)",
+    )
     args = parser.parse_args(argv)
     settings = get_settings()
+    if args.link_only:
+        return link_only(settings.env, settings.stripe_secret_key, apply=args.apply)
     stripe = Stripe(runner, args.project_name)
     config = parse_config(stripe.text("config", "--list"))
     platform = stripe.call("get", "/v1/account")

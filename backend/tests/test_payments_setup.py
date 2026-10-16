@@ -11,7 +11,9 @@ from scripts.stripe_setup import (
     WEBHOOK_EVENTS,
     Linker,
     Stripe,
+    api_request,
     card_token_for,
+    link_problems,
     listen_args,
     main,
     plan_account,
@@ -664,3 +666,34 @@ def test_a_price_swung_back_and_forth_gets_a_fresh_key_each_time() -> None:
     again = plan_price("premium_year", PREMIUM_YEAR, [_price(id="price_c", unit_amount=60000)])
     assert len({a.idempotency, b.idempotency, again.idempotency}) == 3
     assert a.idempotency is not None and "price_a" in a.idempotency
+
+
+def test_api_requests_send_v2_as_json_and_repeat_list_queries() -> None:
+    listing = api_request("get", "/v2/core/accounts", [json.dumps({"limit": 20, "closed": True})])
+    assert listing.query == [("limit", "20"), ("closed", "true")]
+    include = json.dumps({"include": ["defaults", "requirements"]})
+    assert api_request("get", "/v2/core/accounts/acct_1", [include]).query == [
+        ("include", "defaults"),
+        ("include", "requirements"),
+    ]
+    created = api_request("post", "/v2/core/accounts", [json.dumps({"display_name": "Birchbark"})])
+    assert (created.query, created.form, created.body) == (
+        [],
+        None,
+        '{"display_name": "Birchbark"}',
+    )
+
+
+def test_api_requests_send_v1_as_query_or_form_pairs() -> None:
+    assert api_request("get", "/v1/customers", ["limit=100"]).query == [("limit", "100")]
+    attach = api_request("post", "/v1/customers", ["name=Ana", "expand[]=a", "expand[]=b"])
+    assert attach.form == {"name": ["Ana"], "expand[]": ["a", "b"]}
+
+
+def test_linking_runs_only_on_dev_or_staging_with_a_test_key() -> None:
+    assert link_problems("staging", "sk_test_1") == []
+    assert link_problems("dev", "rk_test_1") == []
+    assert link_problems("prod", "sk_test_1") == [
+        "ENV is 'prod'; linking runs only with ENV=dev or ENV=staging"
+    ]
+    assert link_problems("staging", "sk_live_1") == ["STRIPE_SECRET_KEY is not a test-mode key"]

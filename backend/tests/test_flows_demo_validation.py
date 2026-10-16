@@ -1,10 +1,12 @@
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+import pytest
 from scripts.demo_validate import validate_database, validate_graph
-from scripts.seed_demo import build_demo
+from scripts.seed_demo import build_demo, validate_seed_target
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.config import get_settings
 from clientbridge.models.clients import Consent
 from clientbridge.models.scheduling import Booking, Slot
 from tests.conftest import BIZ
@@ -59,3 +61,25 @@ async def test_seed_reset_preserves_unrelated_accounts(owner_db: AsyncSession) -
     assert await db.scalar(select(Business.id).where(Business.id == outsider.id)) == outsider.id
     assert await db.scalar(select(User.id).where(User.id == user.id)) == user.id
     assert await db.scalar(select(Business.id).where(Business.id == BIZ)) is None
+
+
+@pytest.mark.parametrize(
+    ("env", "url", "allowed"),
+    [
+        ("dev", "postgresql+asyncpg://u@localhost/clientbridge", True),
+        ("staging", "postgresql+asyncpg://u@127.0.0.1/staging_clientbridge", True),
+        ("staging", "postgresql+asyncpg://u@127.0.0.1/clientbridge", False),
+        ("staging", "postgresql+asyncpg://u@db.internal/staging_clientbridge", False),
+        ("prod", "postgresql+asyncpg://u@127.0.0.1/clientbridge", False),
+    ],
+)
+def test_the_demo_seeds_only_a_local_or_staging_database(
+    monkeypatch: pytest.MonkeyPatch, env: str, url: str, allowed: bool
+) -> None:
+    monkeypatch.setattr(get_settings(), "env", env)
+    monkeypatch.setattr(get_settings(), "migration_database_url", url)
+    if allowed:
+        validate_seed_target(reset_demo=False)
+    else:
+        with pytest.raises(SystemExit):
+            validate_seed_target(reset_demo=False)
