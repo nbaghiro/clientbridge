@@ -182,3 +182,16 @@ def valid_resend_signature(
         for entry in header.split()
         if entry.startswith("v1,")
     )
+
+
+def get_test_email_sender(transport: str) -> EmailSender:
+    from clientbridge.core.errors import AppError
+
+    settings = get_settings()
+    if transport == "smtp" and settings.smtp_url:
+        return SmtpEmailSender(settings.smtp_url, settings.email_from or "no-reply@clientbridge.ca")
+    if transport == "resend" and settings.resend_api_key and settings.email_from:
+        return ResendEmailSender(settings.resend_api_key, settings.email_from)
+    raise AppError(
+        "email transport unavailable", code="email_transport_unavailable", status_code=503
+    )

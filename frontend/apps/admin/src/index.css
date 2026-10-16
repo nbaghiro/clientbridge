@@ -1,0 +1,68 @@
+@import "tailwindcss";
+@import "@clientbridge/tokens/themes.css";
+@import "@clientbridge/tokens/admin.css";
+@import "@clientbridge/tokens/tailwind.css";
+@source "../../../packages/ui/src";
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+}
+
+.admin-shell {
+    display: grid;
+    grid-template-columns: 230px minmax(0, 1fr);
+    min-height: 100dvh;
+}
+
+.admin-sidebar {
+    background: var(--side);
+    color: var(--side-ink);
+    padding: 30px 18px;
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+}
+
+.admin-brand {
+    padding: 0 12px;
+    color: var(--accent-ink);
+}
+
+.admin-sidebar nav {
+    display: grid;
+    gap: 5px;
+}
+
+.admin-sidebar a {
+    display: block;
+    padding: 12px;
+    border-radius: var(--radius);
+}
+
+.admin-sidebar a:hover {
+    background: var(--accent);
+    color: var(--accent-ink);
+}
+
+.admin-sidebar a[aria-current="page"] {
+    background: var(--accent);
+    color: var(--accent-ink);
+}
+
+@media (max-width: 760px) {
+    .admin-shell {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .admin-sidebar {
+        position: static;
+        height: auto;
+    }
+    .admin-sidebar nav {
+        display: flex;
+        flex-wrap: wrap;
+    }
+}

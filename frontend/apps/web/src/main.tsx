@@ -2,6 +2,7 @@ import React from "react";
 import { activeLocale, setPseudoLocale } from "@clientbridge/app-core";
 import { configureStripe } from "@clientbridge/ui";
 import ReactDOM from "react-dom/client";
+import { AdminLogin } from "./AdminLogin";
 import { App } from "./App";
 import { config } from "./config";
 import "./index.css";
@@ -15,7 +16,7 @@ const render = (): void => {
     document.documentElement.lang = activeLocale();
     ReactDOM.createRoot(root).render(
         <React.StrictMode>
-            <App />
+            {window.location.pathname === "/admin-login" ? <AdminLogin /> : <App />}
         </React.StrictMode>,
     );
 };

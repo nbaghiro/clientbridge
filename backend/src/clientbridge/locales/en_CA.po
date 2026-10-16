@@ -810,3 +810,21 @@ msgstr "You're already on the list."
 
 msgid "waitlist_again.subject"
 msgstr "You're already on the Clientbridge waitlist"
+
+msgid "admin_demo.business"
+msgstr "Birchbark Pet Studio"
+
+msgid "admin_demo.groom"
+msgstr "Full groom, large dog"
+
+msgid "admin_demo.nails"
+msgstr "Nail grind"
+
+msgid "admin_demo.message"
+msgstr "See you Thursday.\n\nBring Biscuit's leash."
+
+msgid "admin_demo.declined"
+msgstr "Too far out of town"
+
+msgid "admin_demo.login"
+msgstr "Sign-in code"

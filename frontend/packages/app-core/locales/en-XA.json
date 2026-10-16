@@ -12118,5 +12118,431 @@
     },
     "sync.awaitingDetail": {
         "message": "[Çĥåñĝéš ŵéŕé åççéþţéð ƀý ţĥé šéŕṽéŕ, ƀûţ ţĥé ûþðåţéð ðåţå ĥåš ñöţ ŕéåçĥéð ţĥîš ðéṽîçé ýéţ. one two three four five six]"
+    },
+    "admin.title": {
+        "message": "[Þļåţƒöŕɱ åðɱîñ one two]"
+    },
+    "admin.environment": {
+        "message": "[Þļåţƒöŕɱ åççéšš ṽéŕîƒîéð one two three]"
+    },
+    "admin.overview": {
+        "message": "[Öṽéŕṽîéŵ one]"
+    },
+    "admin.businesses": {
+        "message": "[Ɓûšîñéššéš one two]"
+    },
+    "admin.people": {
+        "message": "[Þéöþļé one]"
+    },
+    "admin.payments": {
+        "message": "[Þåýɱéñţš one]"
+    },
+    "admin.emails": {
+        "message": "[Éɱåîļ ļåƀ one]"
+    },
+    "admin.activity": {
+        "message": "[Åçţîṽîţý one]"
+    },
+    "admin.operations": {
+        "message": "[Öþéŕåţîöñš one two]"
+    },
+    "admin.access": {
+        "message": "[Åççéšš one]"
+    },
+    "admin.navigation": {
+        "message": "[Åðɱîñîšţŕåţîöñ one two]"
+    },
+    "admin.overviewDetail": {
+        "message": "[Ƒîñð åñ åççöûñţ, ƒöļļöŵ å þåýɱéñţ, öŕ îñṽéšţîĝåţé ŕéçéñţ åçţîṽîţý. one two three four five]"
+    },
+    "admin.businessesDetail": {
+        "message": "[Ƒîñð ƀûšîñéššéš åñð îñšþéçţ ţĥéîŕ ţéåɱ, çļîéñţš åñð çöññéçţéð þåýɱéñţ åççöûñţ. one two three four five six]"
+    },
+    "admin.peopleDetail": {
+        "message": "[Ûšéŕ åççöûñţš åñð ƀûšîñéšš-ļöçåļ çļîéñţ ŕéçöŕðš. one two three four]"
+    },
+    "admin.paymentsDetail": {
+        "message": "[Þåýɱéñţš, ŕéƒûñðš åñð ţĥéîŕ šûþþöŕţîñĝ ļéðĝéŕ ŕéçöŕðš. one two three four]"
+    },
+    "admin.emailsDetail": {
+        "message": "[Þŕéṽîéŵ šýšţéɱ éɱåîļš åñð šéñð å ţéšţ ûšîñĝ ðéɱö ðåţå. one two three four]"
+    },
+    "admin.activityDetail": {
+        "message": "[Åûðîţéð åçţîṽîţý åçŕöšš ƀûšîñéššéš. one two three]"
+    },
+    "admin.operationsDetail": {
+        "message": "[Ṁîĝŕåţîöñ šţåţé, éɱåîļ ţŕåñšþöŕţ åñð îñƀöûñð þŕöṽîðéŕ éṽéñţš. one two three four five]"
+    },
+    "admin.accessDetailPage": {
+        "message": "[Ýöûŕ þļåţƒöŕɱ åççéšš åñð šéššîöñ. one two three]"
+    },
+    "admin.denied": {
+        "message": "[Ñö åççéšš ţö þļåţƒöŕɱ åðɱîñ one two three]"
+    },
+    "admin.deniedDetail": {
+        "message": "[Ýöûŕ åççöûñţ ðöéš ñöţ ĥåṽé þļåţƒöŕɱ-åðɱîñ åççéšš. Ýöû çåñ çöñţîñûé ţö ţĥé ɱåîñ åþþ. one two three four five six]"
+    },
+    "admin.unavailable": {
+        "message": "[Ûñåƀļé ţö çĥéçķ åðɱîñ åççéšš one two three]"
+    },
+    "admin.unavailableDetail": {
+        "message": "[Ţĥé åççéšš šéŕṽîçé îš ûñåṽåîļåƀļé. Ţŕý åĝåîñ šĥöŕţļý. one two three four]"
+    },
+    "admin.backToApp": {
+        "message": "[Ĝö ţö ɱåîñ åþþ one two]"
+    },
+    "admin.retry": {
+        "message": "[Ţŕý åĝåîñ one]"
+    },
+    "admin.search": {
+        "message": "[Šéåŕçĥ one]"
+    },
+    "admin.searchPeople": {
+        "message": "[Ñåɱé, éɱåîļ öŕ ÎĐ one two]"
+    },
+    "admin.searchPayments": {
+        "message": "[Þåýɱéñţ, Šţŕîþé, çļîéñţ öŕ ðöçûɱéñţ ÎĐ one two three]"
+    },
+    "admin.businessFilter": {
+        "message": "[Ɓûšîñéšš ÎĐ one two]"
+    },
+    "admin.allBusinesses": {
+        "message": "[Åļļ ƀûšîñéššéš one two]"
+    },
+    "admin.allStatuses": {
+        "message": "[Åļļ šţåţûšéš one two]"
+    },
+    "admin.status": {
+        "message": "[Šţåţûš one]"
+    },
+    "admin.name": {
+        "message": "[Ñåɱé one]"
+    },
+    "admin.email": {
+        "message": "[Éɱåîļ one]"
+    },
+    "admin.phone": {
+        "message": "[Þĥöñé one]"
+    },
+    "admin.created": {
+        "message": "[Çŕéåţéð one]"
+    },
+    "admin.lastSeen": {
+        "message": "[Ļåšţ šééñ one]"
+    },
+    "admin.plan": {
+        "message": "[Þļåñ one]"
+    },
+    "admin.timezone": {
+        "message": "[Ţîɱé žöñé one]"
+    },
+    "admin.identifier": {
+        "message": "[ÎĐ one]"
+    },
+    "admin.clients": {
+        "message": "[Çļîéñţš one]"
+    },
+    "admin.users": {
+        "message": "[Ûšéŕ åççöûñţš one two]"
+    },
+    "admin.staff": {
+        "message": "[Ţéåɱ ɱéɱƀéŕšĥîþš one two]"
+    },
+    "admin.role": {
+        "message": "[Ŕöļé one]"
+    },
+    "admin.amount": {
+        "message": "[Åɱöûñţ one]"
+    },
+    "admin.method": {
+        "message": "[Ṁéţĥöð one]"
+    },
+    "admin.provider": {
+        "message": "[Þŕöṽîðéŕ one]"
+    },
+    "admin.reference": {
+        "message": "[Þŕöṽîðéŕ ŕéƒéŕéñçé one two]"
+    },
+    "admin.kind": {
+        "message": "[Ķîñð one]"
+    },
+    "admin.business": {
+        "message": "[Ɓûšîñéšš one]"
+    },
+    "admin.client": {
+        "message": "[Çļîéñţ one]"
+    },
+    "admin.invoice": {
+        "message": "[Îñṽöîçé one]"
+    },
+    "admin.order": {
+        "message": "[Öŕðéŕ one]"
+    },
+    "admin.booking": {
+        "message": "[Ɓööķîñĝ one]"
+    },
+    "admin.parentPayment": {
+        "message": "[Öŕîĝîñåļ þåýɱéñţ one two]"
+    },
+    "admin.refunds": {
+        "message": "[Ŕéƒûñðš one]"
+    },
+    "admin.ledger": {
+        "message": "[Ļéðĝéŕ éñţŕîéš one two]"
+    },
+    "admin.journal": {
+        "message": "[Ĵöûŕñåļ one]"
+    },
+    "admin.account": {
+        "message": "[Åççöûñţ one]"
+    },
+    "admin.event": {
+        "message": "[Éṽéñţ one]"
+    },
+    "admin.recorded": {
+        "message": "[Ŕéçöŕðéð (ÛŢÇ) one two]"
+    },
+    "admin.noResults": {
+        "message": "[Ñö ɱåţçĥîñĝ ŕéçöŕðš one two]"
+    },
+    "admin.previous": {
+        "message": "[Þŕéṽîöûš one]"
+    },
+    "admin.next": {
+        "message": "[Ñéẋţ one]"
+    },
+    "admin.refresh": {
+        "message": "[Ŕéƒŕéšĥ one]"
+    },
+    "admin.back": {
+        "message": "[Ɓåçķ one]"
+    },
+    "admin.details": {
+        "message": "[Đéţåîļš one]"
+    },
+    "admin.viewActivity": {
+        "message": "[Ṽîéŵ åçţîṽîţý one two]"
+    },
+    "admin.viewPayments": {
+        "message": "[Ṽîéŵ þåýɱéñţš one two]"
+    },
+    "admin.viewClients": {
+        "message": "[Ṽîéŵ çļîéñţš one two]"
+    },
+    "admin.stripe": {
+        "message": "[Öþéñ îñ Šţŕîþé one two]"
+    },
+    "admin.charges": {
+        "message": "[Çåŕð þåýɱéñţš éñåƀļéð one two]"
+    },
+    "admin.payouts": {
+        "message": "[Þåýöûţš éñåƀļéð one two]"
+    },
+    "admin.yes": {
+        "message": "[Ýéš one]"
+    },
+    "admin.no": {
+        "message": "[Ñö one]"
+    },
+    "admin.none": {
+        "message": "—"
+    },
+    "admin.failedPayments": {
+        "message": "[Ƒåîļéð þåýɱéñţš one two]"
+    },
+    "admin.failedWebhooks": {
+        "message": "[Ƒåîļéð ŵéƀĥööķš one two]"
+    },
+    "admin.pendingWebhooks": {
+        "message": "[Þéñðîñĝ ŵéƀĥööķš one two]"
+    },
+    "admin.recentBusinesses": {
+        "message": "[Ŕéçéñţ ƀûšîñéššéš one two]"
+    },
+    "admin.recentActivity": {
+        "message": "[Ŕéçéñţ åçţîṽîţý one two]"
+    },
+    "admin.webhooks": {
+        "message": "[Ŵéƀĥööķ þŕöçéššîñĝ one two]"
+    },
+    "admin.database": {
+        "message": "[Đåţåƀåšé one]"
+    },
+    "admin.revision": {
+        "message": "[Åþþļîéð ŕéṽîšîöñ one two]"
+    },
+    "admin.expectedRevision": {
+        "message": "[Éẋþéçţéð ŕéṽîšîöñ one two]"
+    },
+    "admin.environmentLabel": {
+        "message": "[Éñṽîŕöñɱéñţ one two]"
+    },
+    "admin.emailTransport": {
+        "message": "[Éɱåîļ ţŕåñšþöŕţ one two]"
+    },
+    "admin.migrationNote": {
+        "message": "[Ṁîĝŕåţîöñš ŕûñ ţĥŕöûĝĥ ţĥé ðéþļöýɱéñţ ŵöŕķƒļöŵ. Ţĥîš þåĝé öñļý ŕéåðš ţĥé çûŕŕéñţ ŕéṽîšîöñ. one two three four five six]"
+    },
+    "admin.activityNote": {
+        "message": "[Ŕéçöŕðéð çöɱɱåñðš åñð åûðîţéð çĥåñĝéš, ñéŵéšţ ƒîŕšţ. Ţĥîš îš ñöţ å çöɱþļéţé ļöĝ öƒ éṽéŕý ûšéŕ åçţîöñ. one two three four five six seven]"
+    },
+    "admin.emailSample": {
+        "message": "[Ţéɱþļåţé one]"
+    },
+    "admin.recipient": {
+        "message": "[Ŕéçîþîéñţ one two]"
+    },
+    "admin.sendTest": {
+        "message": "[Šéñð ţéšţ éɱåîļ one two]"
+    },
+    "admin.sendConfirm": {
+        "message": "[Çöñƒîŕɱ ţéšţ ðéļîṽéŕý one two]"
+    },
+    "admin.cancel": {
+        "message": "[Çåñçéļ one]"
+    },
+    "admin.testInfo": {
+        "message": "[Ûšéš ðéɱö ðåţå åñð å [ŢÉŠŢ] šûƀĵéçţ. Ñö çûšţöɱéŕ ŕéçöŕðš åŕé çĥåñĝéð. one two three four five]"
+    },
+    "admin.testAccepted": {
+        "message": "[Ţéšţ åççéþţéð ƀý ţĥé çöñƒîĝûŕéð ɱåîļ ţŕåñšþöŕţ. one two three four]"
+    },
+    "admin.testFailed": {
+        "message": "[Đéļîṽéŕý çöûļð ñöţ ƀé çöñƒîŕɱéð. Çĥéçķ ţĥé ɱåîļ þŕöṽîðéŕ ƀéƒöŕé ţŕýîñĝ åĝåîñ. one two three four five]"
+    },
+    "admin.transportUnavailable": {
+        "message": "[Éɱåîļ ðéļîṽéŕý îš ñöţ çöñƒîĝûŕéð. one two three]"
+    },
+    "admin.preview": {
+        "message": "[Éɱåîļ þŕéṽîéŵ one two]"
+    },
+    "admin.plainText": {
+        "message": "[Þļåîñ ţéẋţ one two]"
+    },
+    "admin.sendInfo": {
+        "message": "[ŠṀŢÞ ɱåý ðéļîṽéŕ ţö å ļöçåļ îñƀöẋ. Ŕéšéñð ðéļîṽéŕš ţĥŕöûĝĥ ţĥé çöñƒîĝûŕéð šéñðéŕ. one two three four five six]"
+    },
+    "admin.identity": {
+        "message": "[Åûţĥ îðéñţîţý one two]"
+    },
+    "admin.grant": {
+        "message": "[Ĝŕåñţ šöûŕçé one two]"
+    },
+    "admin.devGrant": {
+        "message": "[Đéṽéļöþɱéñţ çöñƒîĝûŕåţîöñ one two three]"
+    },
+    "admin.configuredGrant": {
+        "message": "[Þļåţƒöŕɱ çöñƒîĝûŕåţîöñ one two three]"
+    },
+    "admin.secondFactor": {
+        "message": "[Šéçöñð ƒåçţöŕ öñ ţĥîš šéššîöñ one two three]"
+    },
+    "admin.accessNote": {
+        "message": "[Þļåţƒöŕɱ åççéšš îš çöñƒîĝûŕéð öñ ţĥé šéŕṽéŕ åñð çĥéçķéð öñ éṽéŕý ŕéǫûéšţ. Ɓûšîñéšš ŕöļéš ðö ñöţ ĝŕåñţ åççéšš ĥéŕé. one two three four five six seven]"
+    },
+    "admin.clientProfiles": {
+        "message": "[Ļîñķéð çļîéñţ þŕöƒîļéš one two]"
+    },
+    "admin.queryHint": {
+        "message": "[Šéåŕçĥ ƀý åçţîöñ, ŕéçöŕð ÎĐ öŕ åçţöŕ ÎĐ one two three]"
+    },
+    "admin.valueActive": {
+        "message": "[Åçţîṽé one]"
+    },
+    "admin.valueClosed": {
+        "message": "[Çļöšéð one]"
+    },
+    "admin.valueTrialing": {
+        "message": "[Ţŕîåļ one]"
+    },
+    "admin.valuePremium": {
+        "message": "[Þŕéɱîûɱ one]"
+    },
+    "admin.valueTeam": {
+        "message": "[Ţéåɱ one]"
+    },
+    "admin.valuePastDue": {
+        "message": "[Þåšţ ðûé one]"
+    },
+    "admin.valueLapsed": {
+        "message": "[Ļåþšéð one]"
+    },
+    "admin.valuePending": {
+        "message": "[Þéñðîñĝ one]"
+    },
+    "admin.valueSucceeded": {
+        "message": "[Šûççééðéð one two]"
+    },
+    "admin.valueFailed": {
+        "message": "[Ƒåîļéð one]"
+    },
+    "admin.valueCanceled": {
+        "message": "[Çåñçéļéð one]"
+    },
+    "admin.valueProcessed": {
+        "message": "[Þŕöçéššéð one two]"
+    },
+    "admin.valueInvited": {
+        "message": "[Îñṽîţéð one]"
+    },
+    "admin.valueRemoved": {
+        "message": "[Ŕéɱöṽéð one]"
+    },
+    "admin.valueOwner": {
+        "message": "[Öŵñéŕ one]"
+    },
+    "admin.valueAdmin": {
+        "message": "[Ɓûšîñéšš åðɱîñ one two]"
+    },
+    "admin.valueStaff": {
+        "message": "[Šţåƒƒ one]"
+    },
+    "admin.valueContractor": {
+        "message": "[Çöñţŕåçţöŕ one two]"
+    },
+    "admin.valuePayment": {
+        "message": "[Þåýɱéñţ one]"
+    },
+    "admin.valueDeposit": {
+        "message": "[Đéþöšîţ one]"
+    },
+    "admin.valueRefund": {
+        "message": "[Ŕéƒûñð one]"
+    },
+    "admin.valueCard": {
+        "message": "[Çåŕð one]"
+    },
+    "admin.valueEtransfer": {
+        "message": "[é-Ţŕåñšƒéŕ one two]"
+    },
+    "admin.valueBankEft": {
+        "message": "[Ɓåñķ ţŕåñšƒéŕ one two]"
+    },
+    "admin.valueCash": {
+        "message": "[Çåšĥ one]"
+    },
+    "admin.valueCheque": {
+        "message": "[Çĥéǫûé one]"
+    },
+    "admin.valueOther": {
+        "message": "[Öţĥéŕ one]"
+    },
+    "admin.valueStripe": {
+        "message": "[Šţŕîþé one]"
+    },
+    "admin.valueManual": {
+        "message": "[Ṁåñûåļ one]"
+    },
+    "admin.valueInactive": {
+        "message": "[Îñåçţîṽé one]"
+    },
+    "admin.valueSmtp": {
+        "message": "[ŠṀŢÞ one]"
+    },
+    "admin.valueResend": {
+        "message": "[Ŕéšéñð one]"
+    },
+    "admin.searchBusiness": {
+        "message": "[Ɓûšîñéšš ñåɱé, šļûĝ öŕ ÎĐ one two]"
     }
 }

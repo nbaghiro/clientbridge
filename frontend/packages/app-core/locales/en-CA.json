@@ -12881,5 +12881,431 @@
     },
     "sync.awaitingDetail": {
         "message": "Changes were accepted by the server, but the updated data has not reached this device yet."
+    },
+    "admin.title": {
+        "message": "Platform admin"
+    },
+    "admin.environment": {
+        "message": "Platform access verified"
+    },
+    "admin.overview": {
+        "message": "Overview"
+    },
+    "admin.businesses": {
+        "message": "Businesses"
+    },
+    "admin.people": {
+        "message": "People"
+    },
+    "admin.payments": {
+        "message": "Payments"
+    },
+    "admin.emails": {
+        "message": "Email lab"
+    },
+    "admin.activity": {
+        "message": "Activity"
+    },
+    "admin.operations": {
+        "message": "Operations"
+    },
+    "admin.access": {
+        "message": "Access"
+    },
+    "admin.navigation": {
+        "message": "Administration"
+    },
+    "admin.overviewDetail": {
+        "message": "Find an account, follow a payment, or investigate recent activity."
+    },
+    "admin.businessesDetail": {
+        "message": "Find businesses and inspect their team, clients and connected payment account."
+    },
+    "admin.peopleDetail": {
+        "message": "User accounts and business-local client records."
+    },
+    "admin.paymentsDetail": {
+        "message": "Payments, refunds and their supporting ledger records."
+    },
+    "admin.emailsDetail": {
+        "message": "Preview system emails and send a test using demo data."
+    },
+    "admin.activityDetail": {
+        "message": "Audited activity across businesses."
+    },
+    "admin.operationsDetail": {
+        "message": "Migration state, email transport and inbound provider events."
+    },
+    "admin.accessDetailPage": {
+        "message": "Your platform access and session."
+    },
+    "admin.denied": {
+        "message": "No access to platform admin"
+    },
+    "admin.deniedDetail": {
+        "message": "Your account does not have platform-admin access. You can continue to the main app."
+    },
+    "admin.unavailable": {
+        "message": "Unable to check admin access"
+    },
+    "admin.unavailableDetail": {
+        "message": "The access service is unavailable. Try again shortly."
+    },
+    "admin.backToApp": {
+        "message": "Go to main app"
+    },
+    "admin.retry": {
+        "message": "Try again"
+    },
+    "admin.search": {
+        "message": "Search"
+    },
+    "admin.searchPeople": {
+        "message": "Name, email or ID"
+    },
+    "admin.searchPayments": {
+        "message": "Payment, Stripe, client or document ID"
+    },
+    "admin.businessFilter": {
+        "message": "Business ID"
+    },
+    "admin.allBusinesses": {
+        "message": "All businesses"
+    },
+    "admin.allStatuses": {
+        "message": "All statuses"
+    },
+    "admin.status": {
+        "message": "Status"
+    },
+    "admin.name": {
+        "message": "Name"
+    },
+    "admin.email": {
+        "message": "Email"
+    },
+    "admin.phone": {
+        "message": "Phone"
+    },
+    "admin.created": {
+        "message": "Created"
+    },
+    "admin.lastSeen": {
+        "message": "Last seen"
+    },
+    "admin.plan": {
+        "message": "Plan"
+    },
+    "admin.timezone": {
+        "message": "Time zone"
+    },
+    "admin.identifier": {
+        "message": "ID"
+    },
+    "admin.clients": {
+        "message": "Clients"
+    },
+    "admin.users": {
+        "message": "User accounts"
+    },
+    "admin.staff": {
+        "message": "Team memberships"
+    },
+    "admin.role": {
+        "message": "Role"
+    },
+    "admin.amount": {
+        "message": "Amount"
+    },
+    "admin.method": {
+        "message": "Method"
+    },
+    "admin.provider": {
+        "message": "Provider"
+    },
+    "admin.reference": {
+        "message": "Provider reference"
+    },
+    "admin.kind": {
+        "message": "Kind"
+    },
+    "admin.business": {
+        "message": "Business"
+    },
+    "admin.client": {
+        "message": "Client"
+    },
+    "admin.invoice": {
+        "message": "Invoice"
+    },
+    "admin.order": {
+        "message": "Order"
+    },
+    "admin.booking": {
+        "message": "Booking"
+    },
+    "admin.parentPayment": {
+        "message": "Original payment"
+    },
+    "admin.refunds": {
+        "message": "Refunds"
+    },
+    "admin.ledger": {
+        "message": "Ledger entries"
+    },
+    "admin.journal": {
+        "message": "Journal"
+    },
+    "admin.account": {
+        "message": "Account"
+    },
+    "admin.event": {
+        "message": "Event"
+    },
+    "admin.recorded": {
+        "message": "Recorded (UTC)"
+    },
+    "admin.noResults": {
+        "message": "No matching records"
+    },
+    "admin.previous": {
+        "message": "Previous"
+    },
+    "admin.next": {
+        "message": "Next"
+    },
+    "admin.refresh": {
+        "message": "Refresh"
+    },
+    "admin.back": {
+        "message": "Back"
+    },
+    "admin.details": {
+        "message": "Details"
+    },
+    "admin.viewActivity": {
+        "message": "View activity"
+    },
+    "admin.viewPayments": {
+        "message": "View payments"
+    },
+    "admin.viewClients": {
+        "message": "View clients"
+    },
+    "admin.stripe": {
+        "message": "Open in Stripe"
+    },
+    "admin.charges": {
+        "message": "Card payments enabled"
+    },
+    "admin.payouts": {
+        "message": "Payouts enabled"
+    },
+    "admin.yes": {
+        "message": "Yes"
+    },
+    "admin.no": {
+        "message": "No"
+    },
+    "admin.none": {
+        "message": "—"
+    },
+    "admin.failedPayments": {
+        "message": "Failed payments"
+    },
+    "admin.failedWebhooks": {
+        "message": "Failed webhooks"
+    },
+    "admin.pendingWebhooks": {
+        "message": "Pending webhooks"
+    },
+    "admin.recentBusinesses": {
+        "message": "Recent businesses"
+    },
+    "admin.recentActivity": {
+        "message": "Recent activity"
+    },
+    "admin.webhooks": {
+        "message": "Webhook processing"
+    },
+    "admin.database": {
+        "message": "Database"
+    },
+    "admin.revision": {
+        "message": "Applied revision"
+    },
+    "admin.expectedRevision": {
+        "message": "Expected revision"
+    },
+    "admin.environmentLabel": {
+        "message": "Environment"
+    },
+    "admin.emailTransport": {
+        "message": "Email transport"
+    },
+    "admin.migrationNote": {
+        "message": "Migrations run through the deployment workflow. This page only reads the current revision."
+    },
+    "admin.activityNote": {
+        "message": "Recorded commands and audited changes, newest first. This is not a complete log of every user action."
+    },
+    "admin.emailSample": {
+        "message": "Template"
+    },
+    "admin.recipient": {
+        "message": "Recipient"
+    },
+    "admin.sendTest": {
+        "message": "Send test email"
+    },
+    "admin.sendConfirm": {
+        "message": "Confirm test delivery"
+    },
+    "admin.cancel": {
+        "message": "Cancel"
+    },
+    "admin.testInfo": {
+        "message": "Uses demo data and a [TEST] subject. No customer records are changed."
+    },
+    "admin.testAccepted": {
+        "message": "Test accepted by the configured mail transport."
+    },
+    "admin.testFailed": {
+        "message": "Delivery could not be confirmed. Check the mail provider before trying again."
+    },
+    "admin.transportUnavailable": {
+        "message": "Email delivery is not configured."
+    },
+    "admin.preview": {
+        "message": "Email preview"
+    },
+    "admin.plainText": {
+        "message": "Plain text"
+    },
+    "admin.sendInfo": {
+        "message": "SMTP may deliver to a local inbox. Resend delivers through the configured sender."
+    },
+    "admin.identity": {
+        "message": "Auth identity"
+    },
+    "admin.grant": {
+        "message": "Grant source"
+    },
+    "admin.devGrant": {
+        "message": "Development configuration"
+    },
+    "admin.configuredGrant": {
+        "message": "Platform configuration"
+    },
+    "admin.secondFactor": {
+        "message": "Second factor on this session"
+    },
+    "admin.accessNote": {
+        "message": "Platform access is configured on the server and checked on every request. Business roles do not grant access here."
+    },
+    "admin.clientProfiles": {
+        "message": "Linked client profiles"
+    },
+    "admin.queryHint": {
+        "message": "Search by action, record ID or actor ID"
+    },
+    "admin.valueActive": {
+        "message": "Active"
+    },
+    "admin.valueClosed": {
+        "message": "Closed"
+    },
+    "admin.valueTrialing": {
+        "message": "Trial"
+    },
+    "admin.valuePremium": {
+        "message": "Premium"
+    },
+    "admin.valueTeam": {
+        "message": "Team"
+    },
+    "admin.valuePastDue": {
+        "message": "Past due"
+    },
+    "admin.valueLapsed": {
+        "message": "Lapsed"
+    },
+    "admin.valuePending": {
+        "message": "Pending"
+    },
+    "admin.valueSucceeded": {
+        "message": "Succeeded"
+    },
+    "admin.valueFailed": {
+        "message": "Failed"
+    },
+    "admin.valueCanceled": {
+        "message": "Canceled"
+    },
+    "admin.valueProcessed": {
+        "message": "Processed"
+    },
+    "admin.valueInvited": {
+        "message": "Invited"
+    },
+    "admin.valueRemoved": {
+        "message": "Removed"
+    },
+    "admin.valueOwner": {
+        "message": "Owner"
+    },
+    "admin.valueAdmin": {
+        "message": "Business admin"
+    },
+    "admin.valueStaff": {
+        "message": "Staff"
+    },
+    "admin.valueContractor": {
+        "message": "Contractor"
+    },
+    "admin.valuePayment": {
+        "message": "Payment"
+    },
+    "admin.valueDeposit": {
+        "message": "Deposit"
+    },
+    "admin.valueRefund": {
+        "message": "Refund"
+    },
+    "admin.valueCard": {
+        "message": "Card"
+    },
+    "admin.valueEtransfer": {
+        "message": "e-Transfer"
+    },
+    "admin.valueBankEft": {
+        "message": "Bank transfer"
+    },
+    "admin.valueCash": {
+        "message": "Cash"
+    },
+    "admin.valueCheque": {
+        "message": "Cheque"
+    },
+    "admin.valueOther": {
+        "message": "Other"
+    },
+    "admin.valueStripe": {
+        "message": "Stripe"
+    },
+    "admin.valueManual": {
+        "message": "Manual"
+    },
+    "admin.valueInactive": {
+        "message": "Inactive"
+    },
+    "admin.valueSmtp": {
+        "message": "SMTP"
+    },
+    "admin.valueResend": {
+        "message": "Resend"
+    },
+    "admin.searchBusiness": {
+        "message": "Business name, slug or ID"
     }
 }

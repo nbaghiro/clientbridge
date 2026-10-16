@@ -8,7 +8,8 @@
         ".": "./src/index.ts",
         "./tailwind.css": "./src/tailwind.css",
         "./native": "./src/native.ts",
-        "./themes.css": "./src/themes.css"
+        "./themes.css": "./src/themes.css",
+        "./admin.css": "./src/admin.css"
     },
     "scripts": {
         "typecheck": "tsc --noEmit"

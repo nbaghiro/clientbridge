@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     stripe_connect_country: str = "CA"
     api_base_url: str = "http://127.0.0.1:8701"  # the public API origin, which Twilio signs
     web_base_url: str = "http://localhost:8700"
+    admin_base_url: str = ""
+    platform_admin_identity_ids: str = ""
+    dev_platform_admin_identity_ids: str = ""
     connect_base_url: str = "http://localhost:8709"
     # Every invoice pay link uses this one host (production: https://pay.clientbridge.ca).
     pay_base_url: str = "http://localhost:8709"
@@ -166,7 +169,11 @@ class Settings(BaseSettings):
 
     def app_origins(self) -> list[str]:
         """The only origins that may send the session cookie: the web app (and its e2e copy)."""
-        return [self.web_base_url, *(_DEV_E2E_ORIGINS if self.env == "dev" else ())]
+        return [
+            self.web_base_url,
+            *([self.admin_base_url] if self.admin_base_url else []),
+            *(["http://localhost:8711", *_DEV_E2E_ORIGINS] if self.env == "dev" else []),
+        ]
 
 
 @lru_cache

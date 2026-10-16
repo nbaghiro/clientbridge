@@ -1,0 +1,61 @@
+{
+  "title": "Platform admin",
+  "status": "in_progress",
+  "plan": "plan.md",
+  "tasks": [
+    {
+      "id": "A0",
+      "title": "Finish CID emails and demo preview/test send",
+      "status": "complete",
+      "depends_on": []
+    },
+    {
+      "id": "A1",
+      "title": "Approve operator access and exact schema proposals",
+      "status": "in_progress",
+      "depends_on": ["A0"]
+    },
+    {
+      "id": "A2",
+      "title": "Build admin shell and read-only business/people views",
+      "status": "complete",
+      "depends_on": ["A1"]
+    },
+    {
+      "id": "A3",
+      "title": "Build email registry, preview and test delivery history",
+      "status": "in_progress",
+      "depends_on": ["A2"]
+    },
+    {
+      "id": "A4",
+      "title": "Build payment investigation views and provider links",
+      "status": "in_progress",
+      "depends_on": ["A3"]
+    },
+    {
+      "id": "A5",
+      "title": "Build scoped grouped activity timelines",
+      "status": "in_progress",
+      "depends_on": ["A4"]
+    },
+    {
+      "id": "A6",
+      "title": "Add approved named support commands",
+      "status": "pending",
+      "depends_on": ["A5"]
+    },
+    {
+      "id": "A7",
+      "title": "Add operations visibility and controlled workflow execution",
+      "status": "in_progress",
+      "depends_on": ["A6"]
+    },
+    {
+      "id": "A8",
+      "title": "Complete security, usability and incident walkthroughs",
+      "status": "in_progress",
+      "depends_on": ["A7"]
+    }
+  ]
+}

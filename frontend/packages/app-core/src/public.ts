@@ -25,3 +25,5 @@ export * from "./domain/publicOrder";
 export * from "./domain/publicLanding";
 
 export * from "./domain/publicReturning";
+
+export * from "./domain/admin";
