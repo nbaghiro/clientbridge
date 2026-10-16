@@ -49,7 +49,7 @@ import { type Checkout, useCheckout } from "./checkout";
 import { type ClientRow, temperamentLabel, useClients } from "./clients";
 import { canManagePayments } from "./payments";
 import { type StaffRow, staffName, useStaff } from "./staff";
-import { type Arrival, expectArrival, useArrival, useReplicaLoad } from "./sync";
+import { type Arrival, expectArrival, useArrival, useReplicaLoad, useHistoryRange } from "./sync";
 
 const MIN = 60_000;
 const s = strings.bookings;
@@ -364,7 +364,14 @@ function useActiveStaff(): ActiveStaff {
 export function useScheduleEvents(
     start: Date,
     end: Date,
-): { events: ScheduleEvent[]; isLoading: boolean; error: Error | undefined } {
+): {
+    events: ScheduleEvent[];
+    isLoading: boolean;
+    error: Error | undefined;
+    unavailable: boolean;
+    refresh: () => void;
+} {
+    const coverage = useHistoryRange(start, end);
     const { data, isLoading, error } = useQuery<EventRow>(EVENTS_SQL, [
         end.toISOString(),
         start.toISOString(),
@@ -376,7 +383,15 @@ export function useScheduleEvents(
         () => data.map((r) => enrich(r, staff.byId, now, zone)),
         [data, staff.byId, now, zone],
     );
-    return { events, isLoading, error };
+    return {
+        events,
+        isLoading: isLoading || coverage.isLoading,
+        error: error ?? coverage.error ?? undefined,
+        unavailable: coverage.unavailable,
+        refresh: () => {
+            Promise.resolve(coverage.refresh?.()).catch(() => undefined);
+        },
+    };
 }
 
 interface HoursRow {
@@ -1050,6 +1065,7 @@ function summarize(day: DayColumn): DaySummary {
 }
 
 export interface ScheduleBoard {
+    historyUnavailable: boolean;
     now: Date;
     zone: string;
     anchor: Date;
@@ -1133,6 +1149,7 @@ export function useScheduleBoard(
     );
     const load = useReplicaLoad([raw, ...avail.sources], false);
     return {
+        historyUnavailable: raw.unavailable,
         now,
         zone,
         anchor,

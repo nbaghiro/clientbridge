@@ -1,0 +1,38 @@
+const ASSETS = [];
+const CACHE = "clientbridge-shell";
+const paths = new Set(ASSETS.map((path) => new URL(path, self.location.origin).pathname));
+
+self.addEventListener("install", (event) => {
+    event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
+});
+self.addEventListener("activate", (event) => {
+    event.waitUntil(
+        caches.keys().then(async (keys) => {
+            await Promise.all(
+                keys
+                    .filter((key) => key.startsWith("clientbridge-shell-") && key !== CACHE)
+                    .map((key) => caches.delete(key)),
+            );
+            await self.clients.claim();
+        }),
+    );
+});
+self.addEventListener("fetch", (event) => {
+    const request = event.request;
+    const url = new URL(request.url);
+    if (request.method !== "GET" || url.origin !== self.location.origin) return;
+    if (request.mode === "navigate") {
+        event.respondWith(
+            fetch(request).catch(async () => {
+                const response = await (await caches.open(CACHE)).match("/index.html");
+                return response ?? Response.error();
+            }),
+        );
+    } else if (paths.has(url.pathname) && !url.search) {
+        event.respondWith(
+            caches
+                .open(CACHE)
+                .then(async (cache) => (await cache.match(url.pathname)) ?? fetch(request)),
+        );
+    }
+});

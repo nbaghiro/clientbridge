@@ -66,20 +66,46 @@ function useCooldown(): [number, (s: number) => void] {
 }
 
 type SessionCheck =
-    | { state: "user"; userId: string }
+    | { state: "user"; userId: string; verifiedAt: number }
     | { state: "none" }
     /** A live session the API refuses until its email is verified (a recreated identity). */
     | { state: "unverified" };
 
 /** What `/v1/me` says about the session this device holds; offline, the remembered user stands. */
-export async function checkSession(api: ApiLike, remembered: string | null): Promise<SessionCheck> {
+export async function checkSession(
+    api: ApiLike,
+    remembered: string | null,
+    verifiedAt = 0,
+): Promise<SessionCheck> {
     try {
-        const me = await api.get<{ user_id: string }>("/v1/me");
-        return { state: "user", userId: me.user_id };
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const deadline = new Promise<never>((_, reject) => {
+            timer = setTimeout(() => {
+                reject(new Error("session check timed out"));
+            }, 8_000);
+        });
+        const me = await Promise.race([api.get<{ user_id: string }>("/v1/me"), deadline]).finally(
+            () => {
+                clearTimeout(timer);
+            },
+        );
+        return { state: "user", userId: me.user_id, verifiedAt: Date.now() };
     } catch (e) {
         const status = failedStatus(e);
-        if (status === null || status >= 500)
-            return remembered === null ? { state: "none" } : { state: "user", userId: remembered };
+        if (status === null || status >= 500) {
+            if (remembered === null) return { state: "none" };
+            const age = Date.now() - verifiedAt;
+            if (
+                !Number.isFinite(age) ||
+                verifiedAt <= 0 ||
+                age < 0 ||
+                age >= 7 * 24 * 60 * 60 * 1000
+            )
+                throw Object.assign(new Error("offline access expired"), {
+                    code: "offline_access_expired",
+                });
+            return { state: "user", userId: remembered, verifiedAt };
+        }
         if (status === 401) return { state: "none" };
         if (failedCode(e) === "email_in_use") return { state: "unverified" };
         // Any other refusal: the shell offers retry and sign-out rather than a sign-in that loops.

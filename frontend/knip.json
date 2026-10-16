@@ -2,7 +2,8 @@
     "$schema": "https://unpkg.com/knip@6/schema.json",
     "workspaces": {
         "apps/web": {
-            "ignoreDependencies": ["@journeyapps/wa-sqlite"]
+            "ignoreDependencies": ["@journeyapps/wa-sqlite"],
+            "entry": ["scripts/service-worker.js"]
         },
         "apps/connect": {
             "entry": ["public/embed.js", "src/embedLoader.ts"]

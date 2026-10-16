@@ -8,7 +8,8 @@
         "preview": "vite preview",
         "lint": "eslint .",
         "typecheck": "tsc --noEmit",
-        "e2e": "playwright test"
+        "e2e": "playwright test",
+        "test": "node --test scripts/*.test.mjs"
     },
     "dependencies": {
         "@clientbridge/api-client": "workspace:*",

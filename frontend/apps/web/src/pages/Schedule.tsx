@@ -177,7 +177,11 @@ export function Schedule() {
                     ) : board.load.state === "error" ? (
                         <div className="min-h-0 flex-1 p-5">
                             <LoadFailed
-                                message={s.loadError}
+                                message={
+                                    board.historyUnavailable
+                                        ? strings.sync.historyUnavailable
+                                        : s.loadError
+                                }
                                 onRetry={board.load.retry}
                                 retrying={board.load.retrying}
                             />

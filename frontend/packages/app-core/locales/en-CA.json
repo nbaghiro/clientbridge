@@ -12624,7 +12624,7 @@
         "message": "We can’t read unsent changes on this device. Keep this account signed in while storage recovers."
     },
     "sync.problems.upload": {
-        "message": "Some changes haven’t reached the server. They remain on this device while sync retries."
+        "message": "Some changes were rejected. Review them in working hours, or discard the rejected changes."
     },
     "sync.problems.download": {
         "message": "We can’t get the latest updates. Showing the data already saved on this device."
@@ -12655,7 +12655,7 @@
         "message": "You’re offline"
     },
     "sync.offlineStrip": {
-        "message": "{n, plural, =0 {Changes you make are saved on this device and sync when you reconnect} one {# change will sync when you reconnect} other {# changes will sync when you reconnect}}",
+        "message": "{n, plural, =0 {Viewing saved data. Working-hours edits can be saved offline; other changes need a connection} one {# change will sync when you reconnect} other {# changes will sync when you reconnect}}",
         "args": ["n"]
     },
     "sync.lastSynced": {
@@ -12857,5 +12857,29 @@
     },
     "plans.status.lapsed": {
         "message": "Paused"
+    },
+    "sync.historyUnavailable": {
+        "message": "These dates are not available on this device. Connect to load them."
+    },
+    "sync.discardRejected": {
+        "message": "Discard rejected changes"
+    },
+    "sync.discardRejectedDetail": {
+        "message": "Remove rejected working-hours changes and any unsent edits that depend on them? Accepted changes stay saved on the server."
+    },
+    "sync.offlineExpired": {
+        "message": "Connect to verify your access before opening this device’s saved data. Your unsent changes are still on this device."
+    },
+    "sync.persistenceTitle": {
+        "message": "Offline storage is not protected"
+    },
+    "sync.persistenceDetail": {
+        "message": "This browser may remove saved data, including unsent changes. Keep this device connected until changes finish syncing."
+    },
+    "sync.awaitingTitle": {
+        "message": "Waiting for updated data"
+    },
+    "sync.awaitingDetail": {
+        "message": "Changes were accepted by the server, but the updated data has not reached this device yet."
     }
 }

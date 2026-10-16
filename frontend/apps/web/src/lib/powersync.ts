@@ -20,11 +20,22 @@ export async function connectPowerSync(api: Session) {
     const userId = getUserId();
     if (!userId) throw new Error("a valid account identity is required");
     // without persistence the browser may evict the replica, and unsent hours edits with it
-    if ("storage" in navigator) navigator.storage.persist().catch(() => undefined);
-    return replica.activate(
+    const db = await replica.activate(
         { userId, apiUrl, powersyncUrl },
         createConnector({ powersyncUrl, authFetch: api.forBusiness(null).authFetchFor(userId) }),
     );
+    if ("storage" in navigator) {
+        navigator.storage
+            .persist()
+            .then(async (persistent) => {
+                await db.execute(
+                    "INSERT OR REPLACE INTO device_prefs (id, value) VALUES ('sync.persistence', ?)",
+                    [persistent ? "granted" : "denied"],
+                );
+            })
+            .catch(() => undefined);
+    }
+    return db;
 }
 
 export function signOut(): Promise<void> {

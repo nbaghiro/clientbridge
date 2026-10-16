@@ -176,7 +176,9 @@ export function ScheduleScreen() {
             ) : board.load.state === "error" ? (
                 <View style={styles.pad}>
                     <LoadFailed
-                        message={s.loadError}
+                        message={
+                            board.historyUnavailable ? strings.sync.historyUnavailable : s.loadError
+                        }
                         onRetry={board.load.retry}
                         retrying={board.load.retrying}
                     />

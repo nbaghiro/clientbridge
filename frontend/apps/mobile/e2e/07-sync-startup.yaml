@@ -1,5 +1,7 @@
 appId: ca.clientbridge.app
-name: Scoped replica startup and hours editor
+name: Offline hours survive a process restart
+onFlowComplete:
+    - setAirplaneMode: disabled
 ---
 - runFlow: helpers/owner.yaml
 - tapOn: "Setup"
@@ -12,3 +14,26 @@ name: Scoped replica startup and hours editor
       direction: DOWN
 - assertNotVisible: "This didn't load."
 - takeScreenshot: scoped-hours-ready
+
+- setAirplaneMode: enabled
+- tapOn: "Save hours"
+- extendedWaitUntil:
+      visible: "Saved on this device.*"
+      timeout: 15000
+- stopApp
+- launchApp:
+      permissions:
+          notifications: allow
+- extendedWaitUntil:
+      visible: "Today"
+      timeout: 60000
+- tapOn: "Setup"
+- tapOn: "Team & hours"
+- scrollUntilVisible:
+      element: "Saved on this device.*"
+      direction: DOWN
+- setAirplaneMode: disabled
+- extendedWaitUntil:
+      notVisible: "Saved on this device.*"
+      timeout: 60000
+- assertNotVisible: "Sync needs attention"

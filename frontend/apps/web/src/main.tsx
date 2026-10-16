@@ -22,3 +22,6 @@ const render = (): void => {
 
 if (config.pseudoLocale) setPseudoLocale(true).then(render, render);
 else render();
+
+if (import.meta.env.PROD && "serviceWorker" in navigator)
+    navigator.serviceWorker.register("/sw.js").catch(() => undefined);

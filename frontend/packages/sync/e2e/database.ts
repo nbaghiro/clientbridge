@@ -61,5 +61,5 @@ export function replicaDatabase(filename: string) {
 
 export const liveReplicas = new Map<string, PowerSyncDatabase>();
 export { businessQuery, selectReplicaBusiness } from "../src/scoping";
-export { enqueueHours, uploadHoursOnce } from "../src/hours";
+export { enqueueHours, uploadHoursOnce, discardRejectedQueue } from "../src/hours";
 export { subscribeHistory } from "../src/history";

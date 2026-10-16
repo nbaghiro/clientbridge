@@ -70,13 +70,17 @@ describe("checkSession", () => {
 
     it("names the signed-in user", async () => {
         const api = apiOf((() => Promise.resolve({ user_id: "us_1" })) as ApiLike["get"]);
-        expect(await checkSession(api, null)).toEqual({ state: "user", userId: "us_1" });
+        expect(await checkSession(api, null)).toMatchObject({ state: "user", userId: "us_1" });
     });
 
-    it("keeps the remembered user through an outage, and nobody otherwise", async () => {
-        expect(await checkSession(refusing(503, "identity_unavailable"), "us_1")).toEqual({
+    it("keeps a recently verified user through an outage, and nobody otherwise", async () => {
+        const verifiedAt = Date.now();
+        expect(
+            await checkSession(refusing(503, "identity_unavailable"), "us_1", verifiedAt),
+        ).toEqual({
             state: "user",
             userId: "us_1",
+            verifiedAt,
         });
         expect(await checkSession(refusing(503, "identity_unavailable"), null)).toEqual({
             state: "none",
@@ -84,6 +88,13 @@ describe("checkSession", () => {
         expect(await checkSession(refusing(401, "unauthenticated"), "us_1")).toEqual({
             state: "none",
         });
+    });
+
+    it("requires online verification after seven days, with no timestamp, or after a clock rollback", async () => {
+        for (const time of [0, Date.now() - 7 * 86400_000, Date.now() + 86400_000])
+            await expect(
+                checkSession(refusing(503, "identity_unavailable"), "us_1", time),
+            ).rejects.toMatchObject({ code: "offline_access_expired" });
     });
 
     it("holds a live session the API refuses until its email is verified", async () => {

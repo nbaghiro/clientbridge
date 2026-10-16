@@ -269,3 +269,59 @@ test("another editor cannot overwrite a proposal it did not observe", async ({ p
         days: Array.from({ length: 7 }, (_, weekday) => ({ weekday, available: true })),
     });
 });
+
+test("accepted work reconciles after access removal, while unsent work survives until explicitly discarded", async ({
+    page,
+}) => {
+    await page.goto("/");
+    const result = await page.evaluate(async () => {
+        const { openReplica, enqueueHours, uploadHoursOnce, discardRejectedQueue } =
+            await import("./database");
+        const db = await openReplica(`removed-${crypto.randomUUID()}.db`);
+        await db.execute("INSERT INTO device_prefs (id, value) VALUES ('sync.identity', ?)", [
+            JSON.stringify(["api", "sync", "actor"]),
+        ]);
+        const days = Array.from({ length: 7 }, (_, weekday) => ({
+            weekday,
+            available: false,
+            start_time: null,
+            end_time: null,
+        }));
+        const first = await enqueueHours(db, "removed", "business", 0, days, days);
+        await db.execute(
+            "UPDATE hours_outbox SET state = 'accepted', result_revision = 1, retry_at = 0 WHERE id = ?",
+            [first.id],
+        );
+        await enqueueHours(db, "removed", "business", 1, days, days, false, first);
+        await uploadHoursOnce(
+            db,
+            () => Promise.reject(new Error("offline")),
+            new AbortController().signal,
+        );
+        const offline = await db.get<{ count: number }>(
+            "SELECT count(*) AS count FROM hours_outbox",
+        );
+        await db.execute("UPDATE hours_outbox SET retry_at = 0");
+        await uploadHoursOnce(
+            db,
+            () =>
+                Promise.resolve(
+                    new Response(JSON.stringify({ error: "forbidden" }), { status: 403 }),
+                ),
+            new AbortController().signal,
+        );
+        const refused = await db.getAll("SELECT state FROM hours_outbox");
+        await discardRejectedQueue(db);
+        const remaining = await db.get<{ count: number }>(
+            "SELECT count(*) AS count FROM hours_outbox",
+        );
+        await db.disconnectAndClear();
+        await db.close();
+        return { offline, refused, remaining };
+    });
+    expect(result).toEqual({
+        offline: { count: 2 },
+        refused: [{ state: "rejected" }],
+        remaining: { count: 0 },
+    });
+});

@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import type { CommonPowerSyncDatabase } from "@powersync/common";
 import { PowerSyncContext } from "@powersync/react";
-import { cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook } from "@testing-library/react";
 import { type ReactNode, createElement } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
     UPLOAD_NOTICE_AFTER_MS,
@@ -12,10 +12,14 @@ import {
     syncNotice,
     syncProblem,
     useSyncStatus,
+    useReplicaSession,
 } from "./sync";
 
 // unmount each hook, so a ticking timer cannot render after the file's DOM is torn down
-afterEach(cleanup);
+afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+});
 
 describe("sync health", () => {
     it("reports failed uploads even while downloads are healthy", () => {
@@ -45,6 +49,7 @@ describe("syncNotice", () => {
         online: true,
         hasSynced: true,
         pendingCount: 0,
+        awaitingCount: 0,
         lastSynced: null,
         problem: null,
         firstSyncFailed: false,
@@ -82,6 +87,23 @@ describe("syncNotice", () => {
             syncNotice({ ...waiting, pendingSince: now - UPLOAD_NOTICE_AFTER_MS }, now)?.detail,
         ).toBe("51 changes are saved on this device and still on their way to the server");
     });
+});
+
+it("distinguishes accepted work waiting for replication from unsent work", () => {
+    const notice = syncNotice(
+        {
+            online: true,
+            hasSynced: true,
+            pendingCount: 1,
+            awaitingCount: 1,
+            lastSynced: null,
+            problem: null,
+            firstSyncFailed: false,
+            pendingSince: 0,
+        },
+        30_000,
+    );
+    expect(notice?.title).toBe("Waiting for updated data");
 });
 
 describe("arrivalState", () => {
@@ -127,4 +149,36 @@ describe("useSyncStatus", () => {
         const { result } = renderHook(() => useSyncStatus().hasSynced, { wrapper });
         expect(result.current).toBe(true);
     });
+});
+
+it("checks whether timed-out restore is invalidated before its delayed side effects", async () => {
+    vi.useFakeTimers();
+    let finish!: () => void;
+    const auth = new Promise<void>((resolve) => {
+        finish = resolve;
+    });
+    let activated = false;
+    const options = {
+        restore: async (stale: () => boolean) => {
+            await auth;
+            if (stale()) return null;
+            activated = true;
+            return null;
+        },
+        pause: vi.fn(() => Promise.resolve()),
+        discard: () => Promise.resolve(),
+        clearCredentials: () => Promise.resolve(),
+        subscribe: () => undefined,
+    };
+    const { result } = renderHook(() => useReplicaSession(options));
+    await act(async () => {
+        await vi.advanceTimersByTimeAsync(30_001);
+    });
+    expect(result.current.failed).toBe("load");
+    expect(options.pause).toHaveBeenCalled();
+    await act(async () => {
+        finish();
+        await Promise.resolve();
+    });
+    expect(activated).toBe(false);
 });

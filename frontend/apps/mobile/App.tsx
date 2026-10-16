@@ -14,7 +14,7 @@ import { PowerSyncContext } from "@powersync/react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { LogBox, StyleSheet, View } from "react-native";
+import { AppState, LogBox, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Button, ConfirmHost, configureStripe, LoadFailed, Select } from "@clientbridge/ui";
 
@@ -108,19 +108,39 @@ async function endSession(): Promise<void> {
 }
 
 const lifecycle = {
+    validate: async (stale: () => boolean) => {
+        const stored = await getSession();
+        const session = await checkSession(
+            api.forBusiness(null),
+            stored?.user_id ?? null,
+            stored?.verified_at,
+        );
+        if (stale()) return;
+        if (session.state !== "user") throw new Error("session requires attention");
+        await rememberUser(session.userId, session.verifiedAt);
+    },
+    subscribeResume: (refresh: () => void) => {
+        const listener = AppState.addEventListener("change", (state) => {
+            if (state === "active") refresh();
+        });
+        return () => {
+            listener.remove();
+        };
+    },
     restore: async (stale: () => boolean) => {
         const stored = await getSession();
         const session =
             stored === null
                 ? { state: "none" as const }
-                : await checkSession(api.forBusiness(null), stored.user_id);
+                : await checkSession(api.forBusiness(null), stored.user_id, stored.verified_at);
         // A replaced restore (development runs effects twice) must not touch the replica.
         if (stale()) return null;
         if (session.state !== "user") {
             await replica.pause();
             return session.state === "unverified" ? "unverified" : null;
         }
-        await rememberUser(session.userId);
+        await rememberUser(session.userId, session.verifiedAt);
+        if (stale()) return null;
         return connectPowerSync(api);
     },
     pause: () => replica.pause(),
@@ -145,6 +165,7 @@ function Root() {
                 {failed ? (
                     <>
                         <LoadFailed
+                            message={failed === "offline" ? strings.sync.offlineExpired : undefined}
                             variant="page"
                             onRetry={() => {
                                 retry();

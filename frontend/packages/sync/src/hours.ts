@@ -165,6 +165,49 @@ export async function uploadHoursOnce(
     fetch: HoursTransport,
     signal: AbortSignal,
 ): Promise<boolean> {
+    const unseen = await db.getOptional<OutboxRow>(
+        "SELECT o.* FROM hours_outbox o LEFT JOIN staff s ON s.id = o.staff_id AND s.business_id = o.business_id WHERE o.state = 'accepted' AND s.id IS NULL AND o.retry_at <= ? ORDER BY o.sequence LIMIT 1",
+        [Date.now()],
+    );
+    if (unseen) {
+        await db.execute("UPDATE hours_outbox SET retry_at = ? WHERE id = ?", [
+            Date.now() + 60_000,
+            unseen.id,
+        ]);
+        const probe = new AbortController();
+        const cancel = () => {
+            probe.abort();
+        };
+        signal.addEventListener("abort", cancel, { once: true });
+        if (signal.aborted) probe.abort();
+        const timer = setTimeout(cancel, 15_000);
+        try {
+            const response = await abortable(
+                fetch(`/v1/hours/${encodeURIComponent(unseen.staff_id)}/week`, {
+                    headers: { "X-Business-Id": unseen.business_id },
+                    signal: probe.signal,
+                }),
+                probe.signal,
+            );
+            if (response.status === 403 || response.status === 404) {
+                await db.writeTransaction(async (tx) => {
+                    await tx.execute(
+                        "UPDATE hours_outbox SET predecessor_id = NULL WHERE predecessor_id = ?",
+                        [unseen.id],
+                    );
+                    await tx.execute(
+                        "DELETE FROM hours_outbox WHERE id = ? AND state = 'accepted'",
+                        [unseen.id],
+                    );
+                });
+            }
+        } catch {
+            // A transport failure cannot establish whether access was removed.
+        } finally {
+            clearTimeout(timer);
+            signal.removeEventListener("abort", cancel);
+        }
+    }
     const row = await db.writeTransaction(async (tx) => {
         const observed = await tx.getAll<{ id: string; result_revision: number }>(
             "SELECT o.id, o.result_revision FROM hours_outbox o JOIN staff s ON s.id = o.staff_id AND s.business_id = o.business_id WHERE o.state = 'accepted' AND s.hours_revision >= o.result_revision",
@@ -185,6 +228,19 @@ export async function uploadHoursOnce(
                     "UPDATE hours_outbox SET predecessor_id = NULL, payload = ? WHERE id = ?",
                     [payload, child.id],
                 );
+            }
+            const accepted = await tx.getOptional<{ value: string }>(
+                "SELECT value FROM device_prefs WHERE id = ?",
+                [`sync.accepted:${parent.id}`],
+            );
+            if (accepted) {
+                await tx.execute(
+                    "INSERT OR REPLACE INTO device_prefs (id, value) VALUES ('sync.replicationDelayMs', ?)",
+                    [String(Math.max(0, Date.now() - Number(accepted.value)))],
+                );
+                await tx.execute("DELETE FROM device_prefs WHERE id = ?", [
+                    `sync.accepted:${parent.id}`,
+                ]);
             }
             await tx.execute("DELETE FROM hours_outbox WHERE id = ?", [parent.id]);
         }
@@ -248,6 +304,10 @@ export async function uploadHoursOnce(
                 throw new Error("invalid hours result");
             const key = strandedKey(row.business_id, row.staff_id);
             await db.writeTransaction(async (tx) => {
+                await tx.execute("INSERT OR IGNORE INTO device_prefs (id, value) VALUES (?, ?)", [
+                    `sync.accepted:${row.id}`,
+                    String(Date.now()),
+                ]);
                 await tx.execute(
                     "UPDATE hours_outbox SET state = 'accepted', result_revision = ?, error_code = NULL WHERE id = ?",
                     [result.revision, row.id],
@@ -329,4 +389,23 @@ export function startHoursUploads(
         clearTimeout(timer);
         await pending;
     };
+}
+
+export async function discardRejectedQueue(db: CommonPowerSyncDatabase): Promise<void> {
+    await db.writeTransaction(async (tx) => {
+        const groups = await tx.getAll<{ business_id: string; staff_id: string }>(
+            "SELECT DISTINCT business_id, staff_id FROM hours_outbox WHERE state = 'rejected'",
+        );
+        for (const group of groups) {
+            const sending = await tx.getOptional(
+                "SELECT id FROM hours_outbox WHERE business_id = ? AND staff_id = ? AND state = 'sending'",
+                [group.business_id, group.staff_id],
+            );
+            if (sending) throw new Error("working week is still uploading");
+            await tx.execute(
+                "DELETE FROM hours_outbox WHERE business_id = ? AND staff_id = ? AND state != 'accepted'",
+                [group.business_id, group.staff_id],
+            );
+        }
+    });
 }

@@ -1,7 +1,7 @@
 import type { CommonPowerSyncDatabase, SyncStreamSubscription } from "@powersync/common";
 
 import type { ManagedConnector } from "./connector";
-import { subscribeHistory } from "./history";
+import { subscribeHistory, maintainHistory } from "./history";
 
 interface ReplicaIdentity {
     userId: string;
@@ -24,6 +24,7 @@ export class ReplicaController {
     private generation = 0;
     private stopUploads: (() => Promise<void>) | null = null;
     private history: SyncStreamSubscription[] = [];
+    private stopHistory: (() => void) | null = null;
     private active: { db: CommonPowerSyncDatabase; identity: string } | null = null;
 
     constructor(private readonly open: (filename: string) => CommonPowerSyncDatabase) {}
@@ -49,6 +50,8 @@ export class ReplicaController {
         ]);
         return this.serialize(async () => {
             if (generation !== this.generation) throw new Error("replica activation superseded");
+            this.stopHistory?.();
+            this.stopHistory = null;
             await this.stopUploads?.();
             this.stopUploads = null;
             if (this.active?.identity !== key) {
@@ -98,6 +101,9 @@ export class ReplicaController {
                 throw new Error("replica activation superseded");
             }
             this.stopUploads = connector.startUploads?.(db) ?? null;
+            for (const subscription of this.history) subscription.unsubscribe();
+            this.history = [];
+            this.stopHistory = maintainHistory(db);
             // without table statistics SQLite prefers the business_id index, scanning a whole business per row
             db.waitForFirstSync()
                 .then(() => db.execute("PRAGMA optimize=0x10002"))
@@ -109,6 +115,8 @@ export class ReplicaController {
     pause(): Promise<void> {
         ++this.generation;
         return this.serialize(async () => {
+            this.stopHistory?.();
+            this.stopHistory = null;
             await this.stopUploads?.();
             this.stopUploads = null;
             await this.active?.db.disconnect();
@@ -118,6 +126,8 @@ export class ReplicaController {
     discard(): Promise<void> {
         ++this.generation;
         return this.serialize(async () => {
+            this.stopHistory?.();
+            this.stopHistory = null;
             await this.stopUploads?.();
             this.stopUploads = null;
             for (const subscription of this.history) subscription.unsubscribe();

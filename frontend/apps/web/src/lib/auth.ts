@@ -3,6 +3,11 @@ import { type Viewer, useCurrentRole, useCurrentViewer } from "@clientbridge/app
 
 // The session is an HttpOnly cookie; this only remembers whose replica is open.
 const KEY = "cb_user";
+const VERIFIED = "cb_verified_at";
+
+export function verifiedAt(): number {
+    return Number(localStorage.getItem(VERIFIED) ?? 0);
+}
 
 export const sessionEpoch = new SessionEpoch();
 let teardown: () => Promise<void> = () => Promise.resolve();
@@ -77,15 +82,21 @@ export function releaseInvite(): void {
 export function forgetUser(): Promise<void> {
     sessionEpoch.advance();
     localStorage.removeItem(KEY);
+    localStorage.removeItem(VERIFIED);
     localStorage.removeItem(HINT);
     return Promise.resolve();
 }
 
-export async function rememberUser(userId: string): Promise<void> {
-    if (getUserId() === userId) return;
+export async function rememberUser(userId: string, checkedAt?: number): Promise<void> {
+    if (getUserId() === userId) {
+        if (checkedAt !== undefined) localStorage.setItem(VERIFIED, String(checkedAt));
+        return;
+    }
     sessionEpoch.advance();
     await teardown();
     localStorage.setItem(KEY, userId);
+    if (checkedAt !== undefined) localStorage.setItem(VERIFIED, String(checkedAt));
+    else localStorage.removeItem(VERIFIED);
     localStorage.removeItem(HINT);
     sessionEpoch.advance();
 }

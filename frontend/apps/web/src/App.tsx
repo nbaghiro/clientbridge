@@ -16,7 +16,14 @@ import { config } from "./config";
 import { AuthError, Login, VerifyEmail } from "./pages/Login";
 import { Button, ConfirmHost, LoadFailed, Loading, Logo, Select } from "@clientbridge/ui";
 import { api, identity, onSignedOut, selectBusiness } from "./lib/api";
-import { clearUser, getUserId, onSessionChanged, rememberUser, sessionExpected } from "./lib/auth";
+import {
+    clearUser,
+    verifiedAt,
+    getUserId,
+    onSessionChanged,
+    rememberUser,
+    sessionExpected,
+} from "./lib/auth";
 import { connectPowerSync, replica, signOut } from "./lib/powersync";
 import { AcceptInvite } from "./pages/AcceptInvite";
 import { Schedule } from "./pages/Schedule";
@@ -35,9 +42,21 @@ async function endSession(): Promise<void> {
 }
 
 const lifecycle = {
+    validate: async (stale: () => boolean) => {
+        const session = await checkSession(api.forBusiness(null), getUserId(), verifiedAt());
+        if (stale()) return;
+        if (session.state !== "user") throw new Error("session requires attention");
+        await rememberUser(session.userId, session.verifiedAt);
+    },
+    subscribeResume: (refresh: () => void) => {
+        window.addEventListener("focus", refresh);
+        return () => {
+            window.removeEventListener("focus", refresh);
+        };
+    },
     restore: async (stale: () => boolean) => {
         const session = sessionExpected()
-            ? await checkSession(api.forBusiness(null), getUserId())
+            ? await checkSession(api.forBusiness(null), getUserId(), verifiedAt())
             : { state: "none" as const };
         // A replaced restore (development runs effects twice) must not touch the replica.
         if (stale()) return null;
@@ -45,7 +64,8 @@ const lifecycle = {
             await replica.pause();
             return session.state === "unverified" ? "unverified" : null;
         }
-        await rememberUser(session.userId);
+        await rememberUser(session.userId, session.verifiedAt);
+        if (stale()) return null;
         return connectPowerSync(api);
     },
     pause: () => replica.pause(),
@@ -84,6 +104,7 @@ export function App() {
             ) : failed ? (
                 <>
                     <LoadFailed
+                        message={failed === "offline" ? strings.sync.offlineExpired : undefined}
                         variant="page"
                         onRetry={() => {
                             retry();

@@ -518,6 +518,7 @@ export interface ClientRecord {
 }
 
 interface EarlierVisits {
+    before: string;
     completed: number;
     last_completed_at: string | null;
 }
@@ -533,8 +534,10 @@ function useEarlierVisits(api: ApiLike, clientId: string): EarlierVisits | null 
         () =>
             clientId === ""
                 ? Promise.resolve(null)
-                : api.get<EarlierVisits>(`/v1/bookings/visits?${params.toString()}`),
-        clientId,
+                : api
+                      .get<EarlierVisits>(`/v1/bookings/visits?${params.toString()}`)
+                      .then((result) => ({ ...result, before: params.get("before") ?? "" })),
+        `${clientId}:${params.toString()}`,
     ).data;
 }
 
@@ -561,7 +564,11 @@ export function useClientRecord(
         if (row === undefined) return null;
         const now = new Date();
         const all = visits.data.map(toVisit);
-        const done = all.filter((v) => v.status === "completed");
+        const done = all.filter(
+            (v) =>
+                v.status === "completed" &&
+                (earlier === null || v.start >= parseTimestamp(earlier.before)),
+        );
         return {
             client: toListRow(row),
             pets: subjects.data.map(toSubject),

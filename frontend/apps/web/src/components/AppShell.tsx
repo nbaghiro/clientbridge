@@ -1,3 +1,4 @@
+import { confirm } from "@clientbridge/ui";
 import {
     DESTINATIONS,
     mediaUrl,
@@ -143,6 +144,22 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
                 }}
                 onSignOut={signOut}
                 setupHref={nextStep === undefined ? "/setup" : linkPath(nextStep.target)}
+                onDiscardSync={
+                    sync.rejectedCount > 0
+                        ? () => {
+                              confirm({
+                                  title: strings.sync.discardRejected,
+                                  message: strings.sync.discardRejectedDetail,
+                                  confirmLabel: strings.sync.discardRejected,
+                                  destructive: true,
+                              })
+                                  .then(async (ok) => {
+                                      if (ok) await sync.discardRejected();
+                                  })
+                                  .catch(() => undefined);
+                          }
+                        : undefined
+                }
                 notice={sync.notice}
                 onRetrySync={() => {
                     connectPowerSync(api).catch(() => undefined);
@@ -186,6 +203,7 @@ function ShellBody({
     setupHref,
     notice,
     onRetrySync,
+    onDiscardSync,
 }: {
     nav: ReturnType<typeof useShellNav>;
     notifications: ReturnType<typeof useNotifications>;
@@ -200,6 +218,7 @@ function ShellBody({
     setupHref: string;
     notice: SyncNotice | null;
     onRetrySync: () => void;
+    onDiscardSync?: (() => void) | undefined;
 }) {
     const openLink = useOpenLink();
     const n = strings.navigation;
@@ -366,9 +385,14 @@ function ShellBody({
                             title={notice.title}
                             detail={notice.detail}
                             action={
-                                notice.retry
-                                    ? { label: strings.sync.retry, onPress: onRetrySync }
-                                    : undefined
+                                onDiscardSync
+                                    ? {
+                                          label: strings.sync.discardRejected,
+                                          onPress: onDiscardSync,
+                                      }
+                                    : notice.retry
+                                      ? { label: strings.sync.retry, onPress: onRetrySync }
+                                      : undefined
                             }
                         />
                     </div>

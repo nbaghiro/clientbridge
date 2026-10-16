@@ -4270,6 +4270,14 @@ interface Strings {
         readonly signOutConfirm: string;
         readonly signOutCancel: string;
         readonly hoursChanged: string;
+        readonly historyUnavailable: string;
+        readonly discardRejected: string;
+        readonly discardRejectedDetail: string;
+        readonly offlineExpired: string;
+        readonly persistenceTitle: string;
+        readonly persistenceDetail: string;
+        readonly awaitingTitle: string;
+        readonly awaitingDetail: string;
     };
     readonly embed: {
         readonly titles: {

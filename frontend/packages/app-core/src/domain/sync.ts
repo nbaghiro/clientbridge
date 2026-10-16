@@ -1,3 +1,9 @@
+import {
+    rangeMonths,
+    subscribeMonths,
+    recordHistory,
+    discardRejectedQueue,
+} from "@clientbridge/sync";
 import type { CommonPowerSyncDatabase, SyncStatus } from "@powersync/common";
 import { usePowerSync, useQuery } from "@powersync/react";
 import { useCallback, useEffect, useReducer, useRef, useState, useSyncExternalStore } from "react";
@@ -166,7 +172,10 @@ interface SyncState {
     online: boolean;
     hasSynced: boolean;
     pendingCount: number;
+    awaitingCount: number;
     queueKnown: boolean;
+    rejectedCount: number;
+    discardRejected: () => Promise<void>;
     pending: PendingChange[];
     lastSynced: string | null;
     problem: "storage" | "full" | "upload" | "download" | null;
@@ -191,6 +200,7 @@ type NoticeInput = Pick<
     | "online"
     | "hasSynced"
     | "pendingCount"
+    | "awaitingCount"
     | "lastSynced"
     | "problem"
     | "firstSyncFailed"
@@ -212,7 +222,7 @@ export function syncNotice(sync: NoticeInput, now: number): SyncNotice | null {
         return { state: "error", title: s.firstSyncTitle, detail: s.firstSyncBody, retry: true };
     }
     if (!sync.online && sync.hasSynced) {
-        const strip = s.offlineStrip(sync.pendingCount);
+        const strip = s.offlineStrip(sync.pendingCount - sync.awaitingCount);
         return {
             state: "offline",
             title: s.offlineTitle,
@@ -231,8 +241,8 @@ export function syncNotice(sync: NoticeInput, now: number): SyncNotice | null {
     ) {
         return {
             state: "syncing",
-            title: s.uploadingTitle,
-            detail: s.uploadingStrip(sync.pendingCount),
+            title: sync.awaitingCount > 0 ? s.awaitingTitle : s.uploadingTitle,
+            detail: sync.awaitingCount > 0 ? s.awaitingDetail : s.uploadingStrip(sync.pendingCount),
             retry: false,
         };
     }
@@ -261,12 +271,17 @@ export function syncProblem(
 export function useSyncState(pollMs = 3000): SyncState {
     const db = usePowerSync();
     const zone = useBusinessZone();
+    const persistence = useQuery<{ value: string }>(
+        "SELECT value FROM device_prefs WHERE id = 'sync.persistence'",
+    ).data[0]?.value;
     const status = useSyncStatus();
     const [pending, setPending] = useState<PendingChange[]>([]);
     const [pendingCount, setPendingCount] = useState(0);
+    const [awaitingCount, setAwaitingCount] = useState(0);
     const [queueKnown, setQueueKnown] = useState(false);
     const [queueFailed, setQueueFailed] = useState(false);
     const [outboxFailed, setOutboxFailed] = useState(false);
+    const [rejectedCount, setRejectedCount] = useState(0);
     const [now, setNow] = useState(() => Date.now());
     const [stalled, setStalled] = useState(false);
     const pendingSince = useRef<number | null>(null);
@@ -293,17 +308,21 @@ export function useSyncState(pollMs = 3000): SyncState {
                 db.getAll<{ id: string }>(
                     "SELECT o.id FROM hours_outbox o LEFT JOIN staff s ON s.id = o.staff_id WHERE o.state != 'accepted' OR s.hours_revision IS NULL OR s.hours_revision < o.result_revision ORDER BY o.sequence LIMIT 50",
                 ),
-                db.get<{ count: number; failed: number }>(
-                    "SELECT count(*) AS count, COALESCE(SUM(CASE WHEN o.error_code IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed FROM hours_outbox o LEFT JOIN staff s ON s.id = o.staff_id WHERE o.state != 'accepted' OR s.hours_revision IS NULL OR s.hours_revision < o.result_revision",
+                db.get<{ count: number; failed: number; awaiting: number; oldest: string | null }>(
+                    "SELECT count(*) AS count, MIN(o.created_at) AS oldest, COALESCE(SUM(CASE WHEN o.state = 'accepted' THEN 1 ELSE 0 END), 0) AS awaiting, COALESCE(SUM(CASE WHEN o.state = 'rejected' THEN 1 ELSE 0 END), 0) AS failed FROM hours_outbox o LEFT JOIN staff s ON s.id = o.staff_id WHERE o.state != 'accepted' OR s.hours_revision IS NULL OR s.hours_revision < o.result_revision",
                 ),
             ])
                 .then(([outbox, total]) => {
                     if (!live) return;
                     if (total.count === 0) pendingSince.current = null;
-                    else pendingSince.current ??= Date.now();
+                    else
+                        pendingSince.current =
+                            total.oldest === null ? Date.now() : Date.parse(total.oldest);
                     setNow(Date.now());
                     setPendingCount(total.count);
+                    setAwaitingCount(total.awaiting);
                     setOutboxFailed(total.failed > 0);
+                    setRejectedCount(total.failed);
                     setQueueKnown(true);
                     setQueueFailed(false);
                     setPending(
@@ -329,7 +348,10 @@ export function useSyncState(pollMs = 3000): SyncState {
         online: status.connected,
         hasSynced,
         pendingCount,
+        awaitingCount,
         queueKnown,
+        rejectedCount,
+        discardRejected: () => discardRejectedQueue(db),
         pending,
         lastSynced: last === undefined ? null : formatTime(last, zone),
         problem: syncProblem(
@@ -341,10 +363,24 @@ export function useSyncState(pollMs = 3000): SyncState {
         firstSyncFailed: !hasSynced && (stalled || !!status.downloadError),
         pendingSince: pendingSince.current,
     };
-    return { ...state, notice: syncNotice(state, now) };
+    return {
+        ...state,
+        notice:
+            syncNotice(state, now) ??
+            (persistence === "denied"
+                ? {
+                      state: "offline" as const,
+                      title: strings.sync.persistenceTitle,
+                      detail: strings.sync.persistenceDetail,
+                      retry: false,
+                  }
+                : null),
+    };
 }
 
 interface ReplicaSessionOptions {
+    validate?: (stale: () => boolean) => Promise<void>;
+    subscribeResume?: (refresh: () => void) => () => void;
     /** `stale()` turns true once a newer action replaced this one; it must then touch nothing. */
     restore: (stale: () => boolean) => Promise<CommonPowerSyncDatabase | "unverified" | null>;
     pause: () => Promise<void>;
@@ -370,13 +406,16 @@ function bounded<T>(work: Promise<T>): Promise<T> {
 export function useReplicaSession(options: ReplicaSessionOptions) {
     const [db, setDb] = useState<CommonPowerSyncDatabase | null>(null);
     const [loading, setLoading] = useState(true);
-    const [failed, setFailed] = useState<"load" | "discard" | "reauthenticate" | null>(null);
+    const [failed, setFailed] = useState<"load" | "discard" | "reauthenticate" | "offline" | null>(
+        null,
+    );
     // The API refuses the live session until its email is verified; sign-in must not probe it.
     const [unverified, setUnverified] = useState(false);
     const generation = useRef(0);
     const run = useCallback(
         async (action: "load" | "discard" | "reauthenticate"): Promise<void> => {
             const current = ++generation.current;
+            let cancelled = false;
             setDb(null);
             setLoading(true);
             setFailed(null);
@@ -384,7 +423,9 @@ export function useReplicaSession(options: ReplicaSessionOptions) {
             try {
                 const next =
                     action === "load"
-                        ? await bounded(options.restore(() => current !== generation.current))
+                        ? await bounded(
+                              options.restore(() => cancelled || current !== generation.current),
+                          )
                         : await bounded(
                               action === "discard" ? options.discard() : options.clearCredentials(),
                           ).then(() => null);
@@ -393,9 +434,17 @@ export function useReplicaSession(options: ReplicaSessionOptions) {
                     setUnverified(next === "unverified");
                     if (next && next !== "unverified") options.onReady?.();
                 }
-            } catch {
+            } catch (error) {
+                cancelled = true;
                 if (current === generation.current) {
-                    setFailed(action);
+                    setFailed(
+                        error !== null &&
+                            typeof error === "object" &&
+                            "code" in error &&
+                            error.code === "offline_access_expired"
+                            ? "offline"
+                            : action,
+                    );
                     options.pause().catch(() => undefined);
                 }
             } finally {
@@ -443,6 +492,33 @@ export function useReplicaSession(options: ReplicaSessionOptions) {
             options.pause().catch(() => undefined);
         };
     }, [options, restore]);
+    useEffect(() => {
+        const validateSession = options.validate;
+        if (!db || !validateSession) return;
+        let active = true;
+        let busy = false;
+        const validate = () => {
+            if (busy) return;
+            busy = true;
+            let cancelled = false;
+            const current = generation.current;
+            bounded(validateSession(() => cancelled || !active || current !== generation.current))
+                .catch(() => {
+                    cancelled = true;
+                    if (active && current === generation.current) restore();
+                })
+                .finally(() => {
+                    busy = false;
+                });
+        };
+        const timer = setInterval(validate, 60_000);
+        const unsubscribe = options.subscribeResume?.(validate);
+        return () => {
+            active = false;
+            clearInterval(timer);
+            unsubscribe?.();
+        };
+    }, [db, options, restore]);
     return {
         db,
         loading,
@@ -453,5 +529,71 @@ export function useReplicaSession(options: ReplicaSessionOptions) {
         reauthenticate,
         retry:
             failed === "discard" ? discard : failed === "reauthenticate" ? reauthenticate : restore,
+    };
+}
+
+export function useHistoryRange(start: Date, end: Date): LoadSource & { unavailable: boolean } {
+    const db = usePowerSync();
+    const connected = useSyncStatus().connected;
+    const months = rangeMonths(start, end);
+    const key = months.join(",");
+    const rows = useQuery<{ id: string; value: string }>(
+        "SELECT id, value FROM device_prefs WHERE id LIKE 'sync.history:%'",
+    );
+    const covered = months.every((month) =>
+        rows.data.some(
+            (row) => row.id === `sync.history:${month}` && Number(row.value) > Date.now(),
+        ),
+    );
+    const [failed, setFailed] = useState<string | null>(null);
+    const [attempt, setAttempt] = useState(0);
+    useEffect(() => {
+        if (!connected) return;
+        const controller = new AbortController();
+        let subscriptions: Awaited<ReturnType<typeof subscribeMonths>> = [];
+        const timer = setTimeout(() => {
+            controller.abort();
+        }, 30_000);
+        const isAborted = () => controller.signal.aborted;
+        let loaded = false;
+        const refreshCoverage = setInterval(() => {
+            if (loaded) recordHistory(db, key.split(",")).catch(() => undefined);
+        }, 60_000);
+        setFailed(null);
+        const load = async () => {
+            try {
+                subscriptions = await subscribeMonths(db, key.split(","));
+                if (isAborted()) {
+                    for (const subscription of subscriptions) subscription.unsubscribe();
+                    return;
+                }
+                await Promise.all(subscriptions.map((s) => s.waitForFirstSync(controller.signal)));
+                if (!isAborted()) {
+                    await recordHistory(db, key.split(","));
+                    loaded = true;
+                    clearTimeout(timer);
+                }
+            } catch {
+                if (!disposed) setFailed(key);
+            }
+        };
+        let disposed = false;
+        load().catch(() => undefined);
+        return () => {
+            disposed = true;
+            controller.abort();
+            clearTimeout(timer);
+            clearInterval(refreshCoverage);
+            for (const subscription of subscriptions) subscription.unsubscribe();
+        };
+    }, [db, key, connected, attempt]);
+    const unavailable = !rows.isLoading && !covered && (!connected || failed === key);
+    return {
+        unavailable,
+        isLoading: !covered && !unavailable,
+        error: unavailable ? new Error("history unavailable") : rows.error,
+        refresh: () => {
+            setAttempt((v) => v + 1);
+        },
     };
 }

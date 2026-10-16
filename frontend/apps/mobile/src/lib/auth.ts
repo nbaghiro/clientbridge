@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 interface StoredSession {
     session_token: string;
     user_id: string | null;
+    verified_at?: number;
 }
 
 const KEY = "cb_session";
@@ -59,11 +60,14 @@ export async function keepSessionToken(sessionToken: string): Promise<void> {
     });
 }
 
-export async function rememberUser(userId: string): Promise<void> {
+export async function rememberUser(userId: string, checkedAt?: number): Promise<void> {
     await serialized(async () => {
         const session = await getSession();
-        if (session === null || session.user_id === userId) return;
-        await SecureStore.setItemAsync(KEY, JSON.stringify({ ...session, user_id: userId }));
+        if (session === null) return;
+        await SecureStore.setItemAsync(
+            KEY,
+            JSON.stringify({ ...session, user_id: userId, verified_at: checkedAt ?? 0 }),
+        );
     });
 }
 

@@ -340,7 +340,13 @@ export function useConversation(api: ApiLike, thread: InboxThread): Conversation
             },
         );
     };
-    const rows = useMemo(() => [...earlier.rows, ...local], [earlier.rows, local]);
+    const rows = useMemo(
+        () =>
+            [...new Map([...earlier.rows, ...local].map((row) => [row.id, row])).values()].sort(
+                (a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id),
+            ),
+        [earlier.rows, local],
+    );
     const client =
         useQuery<ClientContextRow>(INBOX_CLIENT_SQL, [iso, iso, thread.client_id]).data[0] ?? null;
     const consents = useConsents();

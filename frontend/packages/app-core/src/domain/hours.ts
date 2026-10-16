@@ -1,3 +1,4 @@
+import { isStorageFull } from "./sync";
 import { discardRejectedHours, enqueueHours, strandedKey, type WeekDay } from "@clientbridge/sync";
 import { useBusinessQuery as useQuery } from "../hooks";
 import { usePowerSync } from "@powersync/react";
@@ -554,7 +555,8 @@ export function useWeekEditor(api: ApiLike, staffId: string | null): WeekEditor 
                     onSuccess: () => {
                         setSaved(true);
                     },
-                    errorMessage: s.saveError,
+                    errorMessage: (error) =>
+                        isStorageFull(error) ? strings.sync.problems.full : s.saveError,
                 },
             );
         },

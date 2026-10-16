@@ -11880,7 +11880,7 @@
         "message": "[Ŵé çåñ’ţ ŕéåð ûñšéñţ çĥåñĝéš öñ ţĥîš ðéṽîçé. Ķééþ ţĥîš åççöûñţ šîĝñéð îñ ŵĥîļé šţöŕåĝé ŕéçöṽéŕš. one two three four five six seven]"
     },
     "sync.problems.upload": {
-        "message": "[Šöɱé çĥåñĝéš ĥåṽéñ’ţ ŕéåçĥéð ţĥé šéŕṽéŕ. Ţĥéý ŕéɱåîñ öñ ţĥîš ðéṽîçé ŵĥîļé šýñç ŕéţŕîéš. one two three four five six]"
+        "message": "[Šöɱé çĥåñĝéš ŵéŕé ŕéĵéçţéð. Ŕéṽîéŵ ţĥéɱ îñ ŵöŕķîñĝ ĥöûŕš, öŕ ðîšçåŕð ţĥé ŕéĵéçţéð çĥåñĝéš. one two three four five six]"
     },
     "sync.problems.download": {
         "message": "[Ŵé çåñ’ţ ĝéţ ţĥé ļåţéšţ ûþðåţéš. Šĥöŵîñĝ ţĥé ðåţå åļŕéåðý šåṽéð öñ ţĥîš ðéṽîçé. one two three four five]"
@@ -11910,7 +11910,7 @@
         "message": "[Ýöû’ŕé öƒƒļîñé one two]"
     },
     "sync.offlineStrip": {
-        "message": "[{n,plural,one{# çĥåñĝé ŵîļļ šýñç ŵĥéñ ýöû ŕéçöññéçţ} other{# çĥåñĝéš ŵîļļ šýñç ŵĥéñ ýöû ŕéçöññéçţ} =0{Çĥåñĝéš ýöû ɱåķé åŕé šåṽéð öñ ţĥîš ðéṽîçé åñð šýñç ŵĥéñ ýöû ŕéçöññéçţ}} one two three four five six seven eight nine]"
+        "message": "[{n,plural,one{# çĥåñĝé ŵîļļ šýñç ŵĥéñ ýöû ŕéçöññéçţ} other{# çĥåñĝéš ŵîļļ šýñç ŵĥéñ ýöû ŕéçöññéçţ} =0{Ṽîéŵîñĝ šåṽéð ðåţå. Ŵöŕķîñĝ-ĥöûŕš éðîţš çåñ ƀé šåṽéð öƒƒļîñé; öţĥéŕ çĥåñĝéš ñééð å çöññéçţîöñ}} one two three four five six seven eight nine ten one]"
     },
     "sync.lastSynced": {
         "message": "[Ļåšţ šýñçéð åţ {time} one two]"
@@ -12094,5 +12094,29 @@
     },
     "plans.status.lapsed": {
         "message": "[Þåûšéð one]"
+    },
+    "sync.historyUnavailable": {
+        "message": "[Ţĥéšé ðåţéš åŕé ñöţ åṽåîļåƀļé öñ ţĥîš ðéṽîçé. Çöññéçţ ţö ļöåð ţĥéɱ. one two three four five]"
+    },
+    "sync.discardRejected": {
+        "message": "[Đîšçåŕð ŕéĵéçţéð çĥåñĝéš one two three]"
+    },
+    "sync.discardRejectedDetail": {
+        "message": "[Ŕéɱöṽé ŕéĵéçţéð ŵöŕķîñĝ-ĥöûŕš çĥåñĝéš åñð åñý ûñšéñţ éðîţš ţĥåţ ðéþéñð öñ ţĥéɱ? Åççéþţéð çĥåñĝéš šţåý šåṽéð öñ ţĥé šéŕṽéŕ. one two three four five six seven eight]"
+    },
+    "sync.offlineExpired": {
+        "message": "[Çöññéçţ ţö ṽéŕîƒý ýöûŕ åççéšš ƀéƒöŕé öþéñîñĝ ţĥîš ðéṽîçé’š šåṽéð ðåţå. Ýöûŕ ûñšéñţ çĥåñĝéš åŕé šţîļļ öñ ţĥîš ðéṽîçé. one two three four five six seven eight]"
+    },
+    "sync.persistenceTitle": {
+        "message": "[Öƒƒļîñé šţöŕåĝé îš ñöţ þŕöţéçţéð one two three]"
+    },
+    "sync.persistenceDetail": {
+        "message": "[Ţĥîš ƀŕöŵšéŕ ɱåý ŕéɱöṽé šåṽéð ðåţå, îñçļûðîñĝ ûñšéñţ çĥåñĝéš. Ķééþ ţĥîš ðéṽîçé çöññéçţéð ûñţîļ çĥåñĝéš ƒîñîšĥ šýñçîñĝ. one two three four five six seven eight]"
+    },
+    "sync.awaitingTitle": {
+        "message": "[Ŵåîţîñĝ ƒöŕ ûþðåţéð ðåţå one two three]"
+    },
+    "sync.awaitingDetail": {
+        "message": "[Çĥåñĝéš ŵéŕé åççéþţéð ƀý ţĥé šéŕṽéŕ, ƀûţ ţĥé ûþðåţéð ðåţå ĥåš ñöţ ŕéåçĥéð ţĥîš ðéṽîçé ýéţ. one two three four five six]"
     }
 }

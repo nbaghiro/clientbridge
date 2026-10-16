@@ -7,6 +7,13 @@ import { useSyncStatus } from "./domain/sync";
 
 interface ClientState {
     status: SyncStatus;
+    queue: {
+        pending: number;
+        rejected: number;
+        awaiting: number;
+        oldest: string | null;
+        replicationDelayMs: string | null;
+    } | null;
     tables: TableCount[];
     totalRows: number;
     refresh: () => void;
@@ -15,9 +22,15 @@ interface ClientState {
 export function useClientState(pollMs = 1500): ClientState {
     const db = usePowerSync();
     const status = useSyncStatus();
+    const [queue, setQueue] = useState<ClientState["queue"]>(null);
     const [tables, setTables] = useState<TableCount[]>([]);
 
     const refresh = useCallback((): void => {
+        db.get<NonNullable<ClientState["queue"]>>(
+            "SELECT count(*) AS pending, COALESCE(SUM(state = 'rejected'), 0) AS rejected, COALESCE(SUM(state = 'accepted'), 0) AS awaiting, MIN(created_at) AS oldest, (SELECT value FROM device_prefs WHERE id = 'sync.replicationDelayMs') AS replicationDelayMs FROM hours_outbox",
+        )
+            .then(setQueue)
+            .catch(() => undefined);
         db.getAll<TableCount>(countsQuery())
             .then((rows) => {
                 setTables(rows.filter((r) => r.rows > 0).sort((a, b) => b.rows - a.rows));
@@ -33,5 +46,11 @@ export function useClientState(pollMs = 1500): ClientState {
         };
     }, [refresh, pollMs, status.lastSyncedAt]);
 
-    return { status, tables, totalRows: tables.reduce((sum, t) => sum + t.rows, 0), refresh };
+    return {
+        status,
+        queue,
+        tables,
+        totalRows: tables.reduce((sum, t) => sum + t.rows, 0),
+        refresh,
+    };
 }

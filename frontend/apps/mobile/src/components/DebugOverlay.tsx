@@ -6,7 +6,7 @@ import { useClientState } from "@clientbridge/app-core";
 import { Modal } from "@clientbridge/ui";
 
 export function DebugOverlay({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-    const { status, tables, totalRows } = useClientState();
+    const { status, queue, tables, totalRows } = useClientState();
 
     return (
         <Modal open={visible} onClose={onClose} framed={false}>
@@ -19,6 +19,7 @@ export function DebugOverlay({ visible, onClose }: { visible: boolean; onClose: 
                 </View>
 
                 <View style={styles.section}>
+                    <Row k="queue diagnostics" v={JSON.stringify(queue)} />
                     <Row k="connected" v={String(status.connected)} good={status.connected} />
                     <Row k="connecting" v={String(status.connecting)} />
                     <Row k="has synced" v={String(status.hasSynced ?? false)} />

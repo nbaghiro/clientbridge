@@ -4,6 +4,17 @@ import config from "@clientbridge/config/eslint";
 export default [
     ...config,
     {
+        files: ["apps/web/scripts/service-worker.js"],
+        languageOptions: {
+            globals: {
+                self: "readonly",
+                caches: "readonly",
+                fetch: "readonly",
+                Response: "readonly",
+            },
+        },
+    },
+    {
         files: ["**/*.{ts,tsx}"],
         languageOptions: {
             parserOptions: {
