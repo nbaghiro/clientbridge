@@ -195,6 +195,10 @@ class AdminAccessInfo(BaseModel):
     second_factor: bool
 
 
+class AdminEmailConfig(BaseModel):
+    email_transports: list[Literal["smtp", "resend"]]
+
+
 class AdminEmail(BaseModel):
     key: str
     subject: str

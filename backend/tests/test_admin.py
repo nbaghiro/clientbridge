@@ -98,6 +98,7 @@ def admin_headers(
         "payments",
         "activity",
         "operations",
+        "email-config",
         "access",
         "emails",
         "emails/invoice",
@@ -124,6 +125,7 @@ async def test_admin_reads_require_platform_grant(
         "payments",
         "activity",
         "operations",
+        "email-config",
         "access",
         "emails",
         "emails/invoice",
@@ -234,3 +236,40 @@ async def test_admin_email_preview_and_send(
         )
     ).status_code == 503
     assert (await api.post("/admin/v1/emails/invoice/send", json=body)).status_code == 401
+
+
+@pytest.mark.parametrize(
+    "smtp,resend,expected",
+    [
+        ("", "", []),
+        ("smtp://localhost", "", ["smtp"]),
+        ("", "test-key", ["resend"]),
+        ("smtp://localhost", "test-key", ["smtp", "resend"]),
+    ],
+)
+async def test_email_configuration(
+    api: httpx.AsyncClient,
+    admin_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+    smtp: str,
+    resend: str,
+    expected: list[str],
+) -> None:
+    settings = get_settings()
+    monkeypatch.setattr(settings, "smtp_url", smtp)
+    monkeypatch.setattr(settings, "resend_api_key", resend)
+    monkeypatch.setattr(settings, "email_from", "demo@example.com")
+    response = await api.get("/admin/v1/email-config", headers=admin_headers)
+    assert response.status_code == 200
+    assert response.json() == {"email_transports": expected}
+    assert response.headers["cache-control"] == "no-store"
+
+
+async def test_operations_reports_migration_head(
+    api: httpx.AsyncClient, admin_headers: dict[str, str]
+) -> None:
+    response = await api.get("/admin/v1/operations", headers=admin_headers)
+    assert response.status_code == 200
+    operations = response.json()
+    assert operations["expected_revision"]
+    assert operations["database_revision"] == operations["expected_revision"]

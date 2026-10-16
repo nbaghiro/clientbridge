@@ -26,6 +26,7 @@ from clientbridge.schemas.admin import (
     AdminBusiness,
     AdminBusinessDetail,
     AdminClient,
+    AdminEmailConfig,
     AdminEmailPreview,
     AdminEmailResult,
     AdminEmailSend,
@@ -322,14 +323,12 @@ class AdminService:
         ).all()
         settings = get_settings()
         cfg = Config()
-        cfg.set_main_option(
-            "script_location", str(Path(__file__).resolve().parents[3] / "migrations")
+        packaged = Path(__file__).resolve().parents[1] / "migrations"
+        migrations = (
+            packaged if packaged.is_dir() else Path(__file__).resolve().parents[3] / "migrations"
         )
-        transports: list[Literal["smtp", "resend"]] = []
-        if settings.smtp_url:
-            transports.append("smtp")
-        if settings.resend_api_key and settings.email_from:
-            transports.append("resend")
+        cfg.set_main_option("script_location", str(migrations))
+        email = self.email_config()
         return AdminOperations(
             environment=settings.env,
             database_revision=list(
@@ -342,12 +341,8 @@ class AdminService:
             ),
             pending_webhooks=await self._count(select(Webhook).where(Webhook.status == "pending")),
             failed_webhooks=await self._count(select(Webhook).where(Webhook.status == "failed")),
-            email_transports=transports,
-            email_transport="smtp"
-            if settings.smtp_url
-            else "resend"
-            if settings.resend_api_key and settings.email_from
-            else "unconfigured",
+            email_transports=email.email_transports,
+            email_transport=email.email_transports[0] if email.email_transports else "unconfigured",
         )
 
     def access(self) -> AdminAccessInfo:
@@ -361,6 +356,15 @@ class AdminService:
             in {v.strip() for v in settings.dev_platform_admin_identity_ids.split(",")},
             second_factor=self.identity.second_factor,
         )
+
+    def email_config(self) -> AdminEmailConfig:
+        settings = get_settings()
+        transports: list[Literal["smtp", "resend"]] = []
+        if settings.smtp_url:
+            transports.append("smtp")
+        if settings.resend_api_key and settings.email_from:
+            transports.append("resend")
+        return AdminEmailConfig(email_transports=transports)
 
     def email_preview(self, key: str) -> AdminEmailPreview:
         from clientbridge.services.email_samples import browser_html, samples

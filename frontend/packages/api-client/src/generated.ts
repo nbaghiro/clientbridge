@@ -3163,6 +3163,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/v1/email-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Email Config */
+        get: operations["email_config_admin_v1_email_config_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/v1/emails/{key}": {
         parameters: {
             query?: never;
@@ -3346,6 +3363,11 @@ export interface components {
             key: string;
             /** Subject */
             subject: string;
+        };
+        /** AdminEmailConfig */
+        AdminEmailConfig: {
+            /** Email Transports */
+            email_transports: ("smtp" | "resend")[];
         };
         /** AdminEmailPreview */
         AdminEmailPreview: {
@@ -15277,6 +15299,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminEmail"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    email_config_admin_v1_email_config_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEmailConfig"];
                 };
             };
             /** @description Validation Error */

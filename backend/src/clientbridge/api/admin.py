@@ -13,6 +13,7 @@ from clientbridge.schemas.admin import (
     AdminBusinessDetail,
     AdminClient,
     AdminEmail,
+    AdminEmailConfig,
     AdminEmailPreview,
     AdminEmailResult,
     AdminEmailSend,
@@ -123,6 +124,11 @@ async def access(admin: Service) -> AdminAccessInfo:
 @router.get("/emails")
 async def emails(identity: PlatformIdentity) -> list[AdminEmail]:
     return [AdminEmail(key=key, subject=mail.subject) for key, mail in samples().items()]
+
+
+@router.get("/email-config")
+async def email_config(admin: Service) -> AdminEmailConfig:
+    return admin.email_config()
 
 
 @router.get("/emails/{key}")

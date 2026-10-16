@@ -5,7 +5,7 @@ import {
     useAdminEmailForm,
     useAdminResource,
 } from "@clientbridge/app-core/public";
-import { Button, Notice, Panel, Select, TextField } from "@clientbridge/ui";
+import { Button, LoadFailed, Notice, Panel, Select, TextField } from "@clientbridge/ui";
 import { config } from "../config";
 import { Resource } from "../components/Records";
 
@@ -30,14 +30,17 @@ export function Emails() {
 }
 function EmailSample({ sample }: { sample: string }) {
     const state = useAdminResource("AdminEmailPreview", config.apiUrl, `emails/${sample}`);
-    const operations = useAdminResource("AdminOperations", config.apiUrl, "operations");
+    const configuration = useAdminResource("AdminEmailConfig", config.apiUrl, "email-config");
     const form = useAdminEmailForm(config.apiUrl);
     const [selectedTransport, setTransport] = useState<"smtp" | "resend" | "">("");
-    const transports = operations.data?.email_transports ?? [];
+    const transports = configuration.data?.email_transports ?? [];
     const transport = selectedTransport || transports[0];
     return (
         <>
             <Panel title={strings.admin.sendTest}>
+                {configuration.error !== null ? (
+                    <LoadFailed onRetry={configuration.refresh} />
+                ) : null}
                 <p className="text-sm text-muted">{strings.admin.testInfo}</p>
                 <div className="flex flex-wrap items-end gap-3">
                     <div className="min-w-60 flex-1">
@@ -104,7 +107,7 @@ function EmailSample({ sample }: { sample: string }) {
                             : strings.admin.testFailed}
                     </Notice>
                 ) : null}
-                {operations.data !== null && transports.length === 0 ? (
+                {configuration.data !== null && transports.length === 0 ? (
                     <Notice tone="info">{strings.admin.transportUnavailable}</Notice>
                 ) : null}
             </Panel>

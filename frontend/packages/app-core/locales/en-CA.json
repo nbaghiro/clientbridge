@@ -52,95 +52,59 @@
     },
     "common.labelValue": {
         "message": "{label} {value}",
-        "args": [
-            "label",
-            "value"
-        ]
+        "args": ["label", "value"]
     },
     "common.labelCount": {
         "message": "{label} {count, number}",
-        "args": [
-            "label",
-            "count"
-        ]
+        "args": ["label", "count"]
     },
     "common.labelColonValue": {
         "message": "{label}: {value}",
-        "args": [
-            "label",
-            "value"
-        ]
+        "args": ["label", "value"]
     },
     "common.withDetail": {
         "message": "{label} ({detail})",
-        "args": [
-            "label",
-            "detail"
-        ]
+        "args": ["label", "detail"]
     },
     "common.withCount": {
         "message": "{label} ({count, number})",
-        "args": [
-            "label",
-            "count"
-        ]
+        "args": ["label", "count"]
     },
     "common.titleAndBody": {
         "message": "{title}. {body}",
-        "args": [
-            "title",
-            "body"
-        ]
+        "args": ["title", "body"]
     },
     "common.twoSentences": {
         "message": "{first} {second}",
-        "args": [
-            "first",
-            "second"
-        ]
+        "args": ["first", "second"]
     },
     "common.quantityOf": {
         "message": "{quantity, number} × {name}",
-        "args": [
-            "quantity",
-            "name"
-        ]
+        "args": ["quantity", "name"]
     },
     "common.bullet": {
         "message": "• {item}",
-        "args": [
-            "item"
-        ]
+        "args": ["item"]
     },
     "common.requiredLabel": {
         "message": "{label} *",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "common.decrease": {
         "message": "Decrease {label}",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "common.increase": {
         "message": "Increase {label}",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "common.stars": {
         "message": "{n, plural, one {# star} other {# stars}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "common.ratingOf": {
         "message": "{n, number} out of 5",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "common.stillSyncing": {
         "message": "Still syncing — try again in a moment."
@@ -156,34 +120,22 @@
     },
     "common.range": {
         "message": "{start} – {end}",
-        "args": [
-            "start",
-            "end"
-        ],
+        "args": ["start", "end"],
         "description": "A span between two times or dates, already formatted."
     },
     "common.shortRange": {
         "message": "{start}–{end}",
-        "args": [
-            "start",
-            "end"
-        ],
+        "args": ["start", "end"],
         "description": "A compact span between two times, such as a shift of 9–5."
     },
     "common.dayAndTime": {
         "message": "{day}, {time}",
-        "args": [
-            "day",
-            "time"
-        ],
+        "args": ["day", "time"],
         "description": "A relative day such as Today followed by a time."
     },
     "common.weekdayAndTime": {
         "message": "{weekday} {time}",
-        "args": [
-            "weekday",
-            "time"
-        ],
+        "args": ["weekday", "time"],
         "description": "A short weekday followed by a time, such as Fri 2:30 p.m."
     },
     "api.invalidTimezone": {
@@ -254,10 +206,7 @@
     },
     "common.amountWithCurrency": {
         "message": "{amount} {currency}",
-        "args": [
-            "amount",
-            "currency"
-        ],
+        "args": ["amount", "currency"],
         "description": "A formatted amount followed by its ISO currency code."
     },
     "common.relativeTime.justNow": {
@@ -265,21 +214,15 @@
     },
     "common.relativeTime.minutes": {
         "message": "{n, number}m",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "common.relativeTime.hours": {
         "message": "{n, number}h",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "common.relativeTime.days": {
         "message": "{n, number}d",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "ui.clearSearch": {
         "message": "Clear search"
@@ -295,15 +238,11 @@
     },
     "ui.removeTag": {
         "message": "Remove {tag}",
-        "args": [
-            "tag"
-        ]
+        "args": ["tag"]
     },
     "ui.createTag": {
         "message": "Add \"{text}\"",
-        "args": [
-            "text"
-        ]
+        "args": ["text"]
     },
     "ui.previous": {
         "message": "Previous"
@@ -316,29 +255,19 @@
     },
     "ui.withCount": {
         "message": "{label}, {count}",
-        "args": [
-            "label",
-            "count"
-        ]
+        "args": ["label", "count"]
     },
     "ui.onTicket": {
         "message": "{name}, {count, number} on ticket",
-        "args": [
-            "name",
-            "count"
-        ]
+        "args": ["name", "count"]
     },
     "ui.startOf": {
         "message": "{day} start",
-        "args": [
-            "day"
-        ]
+        "args": ["day"]
     },
     "ui.endOf": {
         "message": "{day} end",
-        "args": [
-            "day"
-        ]
+        "args": ["day"]
     },
     "ui.cardFallback": {
         "message": "CARD"
@@ -381,21 +310,15 @@
     },
     "ui.chooseYear": {
         "message": "{month}, choose a year",
-        "args": [
-            "month"
-        ]
+        "args": ["month"]
     },
     "ui.dateTimeDay": {
         "message": "{label} day",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "ui.dateTimeTime": {
         "message": "{label} time",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "ui.loadFailed": {
         "message": "This didn't load."
@@ -411,15 +334,11 @@
     },
     "billing.invoiceNo": {
         "message": "Invoice #{n, number, ::group-off}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "billing.estimateNo": {
         "message": "Estimate #{n, number, ::group-off}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "billing.draftInvoice": {
         "message": "Draft invoice"
@@ -429,9 +348,7 @@
     },
     "billing.number": {
         "message": "#{n, number, ::group-off}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "billing.newInvoice": {
         "message": "New invoice"
@@ -462,15 +379,11 @@
     },
     "billing.discountedBy": {
         "message": "{label} off",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "billing.lineDiscount": {
         "message": "Discount on {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "billing.subtotal": {
         "message": "Subtotal"
@@ -486,20 +399,14 @@
     },
     "billing.paymentOn": {
         "message": "{method}, {when}",
-        "args": [
-            "method",
-            "when"
-        ]
+        "args": ["method", "when"]
     },
     "billing.lines": {
         "message": "Lines"
     },
     "billing.qtyTimes": {
         "message": "{qty, number} × {price}",
-        "args": [
-            "qty",
-            "price"
-        ]
+        "args": ["qty", "price"]
     },
     "billing.notes": {
         "message": "Notes"
@@ -575,30 +482,22 @@
     },
     "billing.dueOn": {
         "message": "Due {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "billing.dueToday": {
         "message": "Due today"
     },
     "billing.overdueBy": {
         "message": "{days, plural, one {# day overdue} other {# days overdue}}",
-        "args": [
-            "days"
-        ]
+        "args": ["days"]
     },
     "billing.paidOn": {
         "message": "Paid {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "billing.voidedOn": {
         "message": "Voided {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "billing.notSent": {
         "message": "Not sent"
@@ -623,60 +522,43 @@
     },
     "billing.segmentCount": {
         "message": "{label} {n, number}",
-        "args": [
-            "label",
-            "n"
-        ]
+        "args": ["label", "n"]
     },
     "billing.statOutstanding": {
         "message": "Outstanding"
     },
     "billing.statOutstandingHint": {
         "message": "{n, plural, one {# invoice awaiting payment} other {# invoices awaiting payment}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "billing.statOverdue": {
         "message": "Overdue"
     },
     "billing.statOverdueHint": {
         "message": "{n, plural, =0 {Nothing overdue} one {# invoice past due} other {# invoices past due}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "billing.statPaid": {
         "message": "Paid, last 30 days"
     },
     "billing.statPaidHint": {
         "message": "{n, plural, one {# invoice settled} other {# invoices settled}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "billing.statDrafts": {
         "message": "Drafts"
     },
     "billing.statDraftsHint": {
         "message": "{n, plural, =0 {Nothing waiting} one {# draft to send} other {# drafts to send}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "billing.summary": {
         "message": "{n, plural, one {# invoice} other {# invoices}} · {owed} outstanding",
-        "args": [
-            "n",
-            "owed"
-        ]
+        "args": ["n", "owed"]
     },
     "billing.estimatesSummary": {
         "message": "{n, plural, one {# estimate} other {# estimates}} · {open} waiting on clients",
-        "args": [
-            "n",
-            "open"
-        ]
+        "args": ["n", "open"]
     },
     "billing.emptyInvoicesTitle": {
         "message": "No invoices yet"
@@ -686,9 +568,7 @@
     },
     "billing.emptySegment": {
         "message": "{segment, select, all {No all invoices.} open {No open invoices.} overdue {No overdue invoices.} draft {No drafts invoices.} paid {No paid invoices.} void {No void invoices.} other {No invoices.}}",
-        "args": [
-            "segment"
-        ]
+        "args": ["segment"]
     },
     "billing.emptySearch": {
         "message": "Nothing matches that search."
@@ -701,9 +581,7 @@
     },
     "billing.emptyEstimateSegment": {
         "message": "{segment, select, all {No all estimates.} draft {No drafts estimates.} sent {No waiting estimates.} accepted {No accepted estimates.} closed {No closed estimates.} other {No estimates.}}",
-        "args": [
-            "segment"
-        ]
+        "args": ["segment"]
     },
     "billing.send": {
         "message": "Send"
@@ -728,9 +606,7 @@
     },
     "billing.voidConfirmTitle": {
         "message": "Void invoice #{n, number, ::group-off}?",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "billing.voidConfirmBody": {
         "message": "The client's pay link stops working and the amount comes off what they owe. This can't be undone."
@@ -740,22 +616,15 @@
     },
     "billing.invoiceSentTo": {
         "message": "Invoice #{n, number, ::group-off} sent to {name}.",
-        "args": [
-            "n",
-            "name"
-        ]
+        "args": ["n", "name"]
     },
     "billing.reminderSentTo": {
         "message": "Reminder sent to {name}.",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "billing.invoiceVoided": {
         "message": "{label} voided. It stays in the list for your records.",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "billing.actionError": {
         "message": "Couldn't do that. Nothing changed; try again."
@@ -768,22 +637,15 @@
     },
     "billing.event.payment": {
         "message": "Payment of {amount}, {method}",
-        "args": [
-            "amount",
-            "method"
-        ]
+        "args": ["amount", "method"]
     },
     "billing.event.depositApplied": {
         "message": "Deposit of {amount} applied",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "billing.event.refund": {
         "message": "Refunded {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "billing.event.voided": {
         "message": "Voided"
@@ -796,9 +658,7 @@
     },
     "billing.event.converted": {
         "message": "Converted to invoice {n}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "billing.method.card": {
         "message": "Card"
@@ -859,39 +719,27 @@
     },
     "billing.validUntil": {
         "message": "Valid until {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "billing.expiresIn": {
         "message": "{days, plural, =0 {Expires today} one {Expires in # day} other {Expires in # days}}",
-        "args": [
-            "days"
-        ]
+        "args": ["days"]
     },
     "billing.expiredOn": {
         "message": "Expired {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "billing.acceptedOn": {
         "message": "Accepted {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "billing.declinedOn": {
         "message": "Declined {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "billing.convertedTo": {
         "message": "Invoice {n}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "billing.convert": {
         "message": "Convert to invoice"
@@ -925,22 +773,15 @@
     },
     "billing.estimateSentTo": {
         "message": "Estimate #{n, number, ::group-off} sent to {name}.",
-        "args": [
-            "n",
-            "name"
-        ]
+        "args": ["n", "name"]
     },
     "billing.estimateMarkedAccepted": {
         "message": "{label} marked accepted.",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "billing.estimateMarkedDeclined": {
         "message": "{label} marked declined.",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "billing.convertedDraft": {
         "message": "Invoice created as a draft. Find it under Drafts."
@@ -1022,9 +863,7 @@
     },
     "billing.taxNote": {
         "message": "Tax: {rates}",
-        "args": [
-            "rates"
-        ]
+        "args": ["rates"]
     },
     "billing.noTaxNote": {
         "message": "You don't collect sales tax yet, so nothing is added."
@@ -1049,15 +888,11 @@
     },
     "billing.sentTitle": {
         "message": "{noun} sent",
-        "args": [
-            "noun"
-        ]
+        "args": ["noun"]
     },
     "billing.sentBody": {
         "message": "{who} gets it by email with a link to open it.",
-        "args": [
-            "who"
-        ]
+        "args": ["who"]
     },
     "billing.startAnother": {
         "message": "Start another"
@@ -1079,10 +914,7 @@
     },
     "billing.rec.subtitle": {
         "message": "{client} · {n}",
-        "args": [
-            "client",
-            "n"
-        ]
+        "args": ["client", "n"]
     },
     "billing.rec.howPaid": {
         "message": "How did they pay?"
@@ -1125,9 +957,7 @@
     },
     "billing.rec.fullBalance": {
         "message": "Full balance {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "billing.rec.partial": {
         "message": "Part of it"
@@ -1167,9 +997,7 @@
     },
     "billing.rec.sendReceiptTo": {
         "message": "To {email}",
-        "args": [
-            "email"
-        ]
+        "args": ["email"]
     },
     "billing.rec.thisPayment": {
         "message": "This payment"
@@ -1182,15 +1010,11 @@
     },
     "billing.rec.charge": {
         "message": "Charge {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "billing.rec.record": {
         "message": "Record {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "billing.rec.recording": {
         "message": "Recording…"
@@ -1200,15 +1024,11 @@
     },
     "billing.rec.amountInvalid": {
         "message": "Enter an amount more than {zero}.",
-        "args": [
-            "zero"
-        ]
+        "args": ["zero"]
     },
     "billing.rec.amountTooHigh": {
         "message": "That's more than the {max} owing.",
-        "args": [
-            "max"
-        ]
+        "args": ["max"]
     },
     "billing.rec.tenderedShort": {
         "message": "That's less than the amount being paid."
@@ -1230,28 +1050,19 @@
     },
     "billing.rec.donePaid": {
         "message": "Invoice {n} is paid in full.",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "billing.rec.donePartial": {
         "message": "Invoice {n} has {left} left to pay.",
-        "args": [
-            "n",
-            "left"
-        ]
+        "args": ["n", "left"]
     },
     "billing.rec.receiptSent": {
         "message": "Receipt sent to {email}.",
-        "args": [
-            "email"
-        ]
+        "args": ["email"]
     },
     "billing.rec.giveChange": {
         "message": "Give {amount} change.",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "billing.rec.recordAnother": {
         "message": "Record another payment"
@@ -1273,11 +1084,7 @@
     },
     "billing.doc.fileName": {
         "message": "{business}-{kind}-{n}.pdf",
-        "args": [
-            "business",
-            "kind",
-            "n"
-        ]
+        "args": ["business", "kind", "n"]
     },
     "billing.doc.pages": {
         "message": "1 page"
@@ -1299,21 +1106,15 @@
     },
     "billing.doc.attachedInvoice": {
         "message": "Invoice email, {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "billing.doc.attachedEstimate": {
         "message": "Estimate email, {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "billing.doc.attachedReceipt": {
         "message": "Receipt email, {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "billing.doc.notSentYet": {
         "message": "Not sent yet"
@@ -1407,59 +1208,41 @@
     },
     "printing.taxBase": {
         "message": "On {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "printing.howToPay": {
         "message": "How to pay"
     },
     "printing.payOnline": {
         "message": "Pay online at {url}",
-        "args": [
-            "url"
-        ]
+        "args": ["url"]
     },
     "printing.acceptOnline": {
         "message": "Read and accept it online at {url}",
-        "args": [
-            "url"
-        ]
+        "args": ["url"]
     },
     "printing.acceptBy": {
         "message": "To go ahead, accept before {when}.",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "printing.thanks": {
         "message": "Thank you for your business."
     },
     "printing.page": {
         "message": "Page {page, number} of {pages, number}",
-        "args": [
-            "page",
-            "pages"
-        ]
+        "args": ["page", "pages"]
     },
     "printing.registration": {
         "message": "{first} · {second}",
-        "args": [
-            "first",
-            "second"
-        ]
+        "args": ["first", "second"]
     },
     "printing.gstNo": {
         "message": "GST/HST {n}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "printing.qstNo": {
         "message": "QST {n}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "printing.scanToPay": {
         "message": "Scan to pay"
@@ -1469,45 +1252,30 @@
     },
     "printing.forPet": {
         "message": "for {pet}",
-        "args": [
-            "pet"
-        ]
+        "args": ["pet"]
     },
     "printing.reference": {
         "message": "#{number}",
-        "args": [
-            "number"
-        ],
+        "args": ["number"],
         "description": "A document number as printed, such as #1002 or #1002-1."
     },
     "printing.saleNumber": {
         "message": "S-{n, number, ::group-off}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "printing.receiptNumber": {
         "message": "{invoice}-{n, number}",
-        "args": [
-            "invoice",
-            "n"
-        ],
+        "args": ["invoice", "n"],
         "description": "The nth receipt for an invoice number."
     },
     "printing.heading": {
         "message": "{title} {reference}",
-        "args": [
-            "title",
-            "reference"
-        ],
+        "args": ["title", "reference"],
         "description": "A document's kind and number, such as Invoice #1002."
     },
     "printing.deadline": {
         "message": "{label} {date}",
-        "args": [
-            "label",
-            "date"
-        ],
+        "args": ["label", "date"],
         "description": "A date and what it is, such as Due October 20, 2026."
     },
     "printing.draftNumber": {
@@ -1527,33 +1295,23 @@
     },
     "pos.pickup.placed": {
         "message": "Placed {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "pos.pickup.readySince": {
         "message": "Ready since {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "pos.pickup.pickedAt": {
         "message": "Picked up {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "pos.pickup.items": {
         "message": "{n, plural, one {# item} other {# items}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "pos.pickup.waiting": {
         "message": "{days, plural, =0 {Today} one {Waiting # day} other {Waiting # days}}",
-        "args": [
-            "days"
-        ]
+        "args": ["days"]
     },
     "pos.pickup.emptyToPack": {
         "message": "Nothing to pack. New online orders show up here."
@@ -1575,9 +1333,7 @@
     },
     "pos.desk.saleNumber": {
         "message": "Sale {n}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "pos.desk.itemsTotal": {
         "message": "Items"
@@ -1629,15 +1385,11 @@
     },
     "pos.desk.inStock": {
         "message": "{n, number} in stock",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "pos.desk.minutes": {
         "message": "{n, number} min",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "pos.desk.noResults": {
         "message": "Nothing matches that search."
@@ -1686,30 +1438,22 @@
     },
     "pos.desk.items": {
         "message": "{n, plural, one {# item} other {# items}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "pos.desk.each": {
         "message": "{money} each",
-        "args": [
-            "money"
-        ]
+        "args": ["money"]
     },
     "pos.desk.quantity": {
         "message": "quantity"
     },
     "pos.desk.removeLine": {
         "message": "Remove {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "pos.desk.servedBy": {
         "message": "with {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "pos.desk.noStaff": {
         "message": "No staff"
@@ -1722,15 +1466,11 @@
     },
     "pos.desk.charge": {
         "message": "Charge {money}",
-        "args": [
-            "money"
-        ]
+        "args": ["money"]
     },
     "pos.desk.collect": {
         "message": "Collect {money}",
-        "args": [
-            "money"
-        ]
+        "args": ["money"]
     },
     "pos.desk.holdSale": {
         "message": "Hold"
@@ -1758,9 +1498,7 @@
     },
     "pos.desk.endsAt": {
         "message": "ends {time}",
-        "args": [
-            "time"
-        ]
+        "args": ["time"]
     },
     "pos.desk.checkOut": {
         "message": "Check out"
@@ -1770,9 +1508,7 @@
     },
     "pos.desk.depositCredit": {
         "message": "{money} deposit paid",
-        "args": [
-            "money"
-        ]
+        "args": ["money"]
     },
     "pos.desk.addExtras": {
         "message": "Add-ons and retail"
@@ -1788,9 +1524,7 @@
     },
     "pos.desk.payFor": {
         "message": "Payment from {client}",
-        "args": [
-            "client"
-        ]
+        "args": ["client"]
     },
     "pos.desk.howPaying": {
         "message": "How is the client paying?"
@@ -1827,9 +1561,7 @@
     },
     "pos.desk.cashShort": {
         "message": "Cash received must cover {money}",
-        "args": [
-            "money"
-        ]
+        "args": ["money"]
     },
     "pos.desk.exactCash": {
         "message": "Exact"
@@ -1848,9 +1580,7 @@
     },
     "pos.desk.savedCardCharge": {
         "message": "We'll charge {card} now.",
-        "args": [
-            "card"
-        ]
+        "args": ["card"]
     },
     "pos.desk.payError": {
         "message": "The card was declined. Try another card or payment method."
@@ -1860,9 +1590,7 @@
     },
     "pos.desk.overLimit": {
         "message": "Discounts over {pct, number, ::percent scale/0.01 .###} need an owner or admin to approve.",
-        "args": [
-            "pct"
-        ]
+        "args": ["pct"]
     },
     "pos.desk.backToTicket": {
         "message": "Back to ticket"
@@ -1881,16 +1609,11 @@
     },
     "pos.desk.paidBody": {
         "message": "{money} by {method}",
-        "args": [
-            "money",
-            "method"
-        ]
+        "args": ["money", "method"]
     },
     "pos.desk.changeToGive": {
         "message": "Give {money} in change",
-        "args": [
-            "money"
-        ]
+        "args": ["money"]
     },
     "pos.desk.receiptTitle": {
         "message": "Send a receipt"
@@ -1918,9 +1641,7 @@
     },
     "pos.desk.receiptSent": {
         "message": "Receipt sent to {to}",
-        "args": [
-            "to"
-        ]
+        "args": ["to"]
     },
     "pos.desk.receiptSkipped": {
         "message": "No receipt sent"
@@ -1951,9 +1672,7 @@
     },
     "pos.desk.tipOn": {
         "message": "Tip is worked out on {money}, before tax.",
-        "args": [
-            "money"
-        ]
+        "args": ["money"]
     },
     "pos.desk.tipAmount": {
         "message": "Tip amount"
@@ -1972,9 +1691,7 @@
     },
     "pos.desk.discountLine": {
         "message": "Discount on {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "pos.desk.discountScope": {
         "message": "Apply to"
@@ -2032,29 +1749,19 @@
     },
     "pos.desk.discountPreview": {
         "message": "{off} off, {after} before tax",
-        "args": [
-            "off",
-            "after"
-        ]
+        "args": ["off", "after"]
     },
     "pos.desk.discountInvalid": {
         "message": "Enter a discount like {percent} or {amount}",
-        "args": [
-            "percent",
-            "amount"
-        ]
+        "args": ["percent", "amount"]
     },
     "pos.desk.discountPercentMax": {
         "message": "A discount can't be more than {max}",
-        "args": [
-            "max"
-        ]
+        "args": ["max"]
     },
     "pos.desk.discountTooBig": {
         "message": "The discount can't be more than {money}",
-        "args": [
-            "money"
-        ]
+        "args": ["money"]
     },
     "pos.desk.discountReasonRequired": {
         "message": "Choose or type a reason"
@@ -2064,19 +1771,14 @@
     },
     "pos.desk.limitNote": {
         "message": "Staff can discount up to {pct, number, ::percent scale/0.01 .###} of a sale.",
-        "args": [
-            "pct"
-        ]
+        "args": ["pct"]
     },
     "pos.desk.approvalTitle": {
         "message": "Owner or admin approval"
     },
     "pos.desk.approvalBody": {
         "message": "This sale is discounted more than {pct, number, ::percent scale/0.01 .###} (over {money}). Ask an owner or admin to approve it.",
-        "args": [
-            "pct",
-            "money"
-        ]
+        "args": ["pct", "money"]
     },
     "pos.desk.approvalPin": {
         "message": "Approver PIN"
@@ -2119,19 +1821,14 @@
     },
     "pos.desk.dayTotal": {
         "message": "{n, plural, one {# sale} other {# sales}} · {money}",
-        "args": [
-            "n",
-            "money"
-        ]
+        "args": ["n", "money"]
     },
     "pos.desk.todaySales": {
         "message": "Today's sales"
     },
     "pos.desk.todayCount": {
         "message": "{n, number} paid, before tips",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "pos.desk.todayTips": {
         "message": "Tips"
@@ -2165,9 +1862,7 @@
     },
     "pos.desk.rungBy": {
         "message": "Rung up by {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "pos.desk.lines": {
         "message": "Items"
@@ -2183,10 +1878,7 @@
     },
     "pos.desk.sentBy": {
         "message": "{channel, select, sms {Texted} other {Emailed}} to {to}",
-        "args": [
-            "channel",
-            "to"
-        ]
+        "args": ["channel", "to"]
     },
     "pos.desk.noReceipt": {
         "message": "No receipt was sent."
@@ -2211,9 +1903,7 @@
     },
     "pos.desk.refunded": {
         "message": "{money} refunded",
-        "args": [
-            "money"
-        ]
+        "args": ["money"]
     },
     "pos.desk.openTickets": {
         "message": "Open tickets"
@@ -2244,36 +1934,26 @@
     },
     "pos.desk.heldAt": {
         "message": "Held {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "pos.desk.history": {
         "message": "History"
     },
     "pos.desk.ago": {
         "message": "{when} ago",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "pos.desk.waitMinutes": {
         "message": "{n, number} min",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "pos.desk.waitHours": {
         "message": "{n, number} h",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "pos.desk.waitDays": {
         "message": "{n, number} d",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "pos.desk.pickupNotify": {
         "message": "We'll text the client when you mark it ready."
@@ -2286,9 +1966,7 @@
     },
     "pos.desk.tipShareOf": {
         "message": "{pct, number, ::percent scale/0.01 .###} of the tip",
-        "args": [
-            "pct"
-        ]
+        "args": ["pct"]
     },
     "pos.desk.tipPickPerson": {
         "message": "Give it all to"
@@ -2316,21 +1994,15 @@
     },
     "pos.desk.discountedBy": {
         "message": "{label} off",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "pos.desk.markedReady": {
         "message": "Marked ready. We texted {name}.",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "pos.desk.markedPickedUp": {
         "message": "{name}'s order is picked up.",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "pos.desk.details": {
         "message": "Details"
@@ -2382,9 +2054,7 @@
     },
     "pos.desk.heldNotice": {
         "message": "{n} is on hold. Find it under Orders, Open tickets.",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "pos.desk.holdError": {
         "message": "Couldn't hold this sale. Please try again."
@@ -2394,51 +2064,34 @@
     },
     "pos.desk.refundTitle": {
         "message": "Refund sale {n}?",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "pos.desk.refundBody": {
         "message": "{money} goes back to {card}. We issue credit note {cn} and email it with the refund.",
-        "args": [
-            "money",
-            "card",
-            "cn"
-        ]
+        "args": ["money", "card", "cn"]
     },
     "pos.desk.refundConfirm": {
         "message": "Refund {money}",
-        "args": [
-            "money"
-        ]
+        "args": ["money"]
     },
     "pos.desk.refundDone": {
         "message": "Refunded {money}. Credit note {cn} is on its way to the client.",
-        "args": [
-            "money",
-            "cn"
-        ]
+        "args": ["money", "cn"]
     },
     "pos.desk.voidTitle": {
         "message": "Void sale {n}?",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "pos.desk.voidBody": {
         "message": "Nothing was charged, so voiding removes it from Open tickets. It stays in history, marked void."
     },
     "pos.desk.voidDone": {
         "message": "{n} is void.",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "pos.desk.creditNote": {
         "message": "Credit note {cn}",
-        "args": [
-            "cn"
-        ]
+        "args": ["cn"]
     },
     "earnings.subtitle": {
         "message": "Staff earn a share of what they do, and tips. Approve them, then pay them."
@@ -2466,37 +2119,26 @@
     },
     "earnings.serviceRate": {
         "message": "{rate} of services",
-        "args": [
-            "rate"
-        ]
+        "args": ["rate"]
     },
     "earnings.fixedRate": {
         "message": "{amount} per visit",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "earnings.hourlyRate": {
         "message": "{amount} an hour",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "earnings.retailRate": {
         "message": "{rate} of retail",
-        "args": [
-            "rate"
-        ]
+        "args": ["rate"]
     },
     "earnings.noRate": {
         "message": "No pay rate set"
     },
     "earnings.lineOf": {
         "message": "{rate} of {base}",
-        "args": [
-            "rate",
-            "base"
-        ]
+        "args": ["rate", "base"]
     },
     "earnings.fixed": {
         "message": "Fixed rate"
@@ -2518,33 +2160,25 @@
     },
     "earnings.saleTitle": {
         "message": "Sale S-{n, number, ::group-off}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "earnings.selectAll": {
         "message": "Select all to approve"
     },
     "earnings.approveSelected": {
         "message": "{count, plural, =0 {Approve selected} one {Approve # earning} other {Approve # earnings}}",
-        "args": [
-            "count"
-        ]
+        "args": ["count"]
     },
     "earnings.payApproved": {
         "message": "Pay {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "earnings.working": {
         "message": "Saving…"
     },
     "earnings.count": {
         "message": "{count, plural, one {# earning} other {# earnings}}",
-        "args": [
-            "count"
-        ]
+        "args": ["count"]
     },
     "earnings.noEarnings": {
         "message": "No earnings yet. They appear when a visit or sale this person did is paid."
@@ -2593,9 +2227,7 @@
     },
     "entitlements.emptyClient": {
         "message": "{name} has no packages, memberships or gift cards yet.",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "entitlements.deferred": {
         "message": "Unused package value"
@@ -2617,56 +2249,38 @@
     },
     "entitlements.sessionsLeft": {
         "message": "{left, number} of {total, number} left",
-        "args": [
-            "left",
-            "total"
-        ]
+        "args": ["left", "total"]
     },
     "entitlements.sessionsUsedOf": {
         "message": "{used, number} of {total, number} used",
-        "args": [
-            "used",
-            "total"
-        ]
+        "args": ["used", "total"]
     },
     "entitlements.moneyLeft": {
         "message": "{amount} left",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "entitlements.ofAmount": {
         "message": "of {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "entitlements.renews": {
         "message": "Renews {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "entitlements.retrying": {
         "message": "Payment failed"
     },
     "entitlements.expires": {
         "message": "Expires {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "entitlements.expired": {
         "message": "Expired {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "entitlements.forRecipient": {
         "message": "For {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "entitlements.statusLabel.active": {
         "message": "Active"
@@ -2733,9 +2347,7 @@
     },
     "entitlements.ledgerPackage": {
         "message": "Each session moves {share} from unused package value to revenue. Unused value at expiry is booked as revenue.",
-        "args": [
-            "share"
-        ]
+        "args": ["share"]
     },
     "entitlements.ledgerGift": {
         "message": "The balance is a liability until it is spent. An unspent balance is booked as revenue when the card expires."
@@ -2796,15 +2408,11 @@
     },
     "entitlements.noItems": {
         "message": "{kind, select, package {No package in your catalog yet. Add one under Services & products.} membership {No membership in your catalog yet. Add one under Services & products.} other {No gift card in your catalog yet. Add one under Services & products.}}",
-        "args": [
-            "kind"
-        ]
+        "args": ["kind"]
     },
     "entitlements.giftCardAmount": {
         "message": "{amount} gift card",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "entitlements.giftAmount": {
         "message": "Amount"
@@ -2841,15 +2449,11 @@
     },
     "entitlements.charge": {
         "message": "Charge {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "entitlements.record": {
         "message": "Record {amount} cash",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "entitlements.busy": {
         "message": "Saving…"
@@ -2859,10 +2463,7 @@
     },
     "entitlements.doneBody": {
         "message": "{what} is on {who}'s account.",
-        "args": [
-            "what",
-            "who"
-        ]
+        "args": ["what", "who"]
     },
     "entitlements.errItem": {
         "message": "Choose what you're selling."
@@ -2872,10 +2473,7 @@
     },
     "entitlements.errAmount": {
         "message": "Enter a gift card amount from {min} to {max}.",
-        "args": [
-            "min",
-            "max"
-        ]
+        "args": ["min", "max"]
     },
     "entitlements.sellError": {
         "message": "The sale didn't go through. Nothing was sold; please try again."
@@ -2957,10 +2555,7 @@
     },
     "bookings.bookings": {
         "message": "{classes, plural, =0 {{visits, plural, one {# visit} other {# visits}}} one {{visits, plural, one {# visit} other {# visits}} · 1 class} other {{visits, plural, one {# visit} other {# visits}} · {classes, number} classes}}",
-        "args": [
-            "visits",
-            "classes"
-        ]
+        "args": ["visits", "classes"]
     },
     "bookings.booked": {
         "message": "Booked"
@@ -2970,9 +2565,7 @@
     },
     "bookings.expectedAmount": {
         "message": "{amount} expected",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "bookings.openTime": {
         "message": "Open time"
@@ -2982,15 +2575,11 @@
     },
     "bookings.hoursOpen": {
         "message": "{h, number, ::.#} h",
-        "args": [
-            "h"
-        ]
+        "args": ["h"]
     },
     "bookings.utilization": {
         "message": "{pct, number, ::percent scale/0.01 .###} booked",
-        "args": [
-            "pct"
-        ]
+        "args": ["pct"]
     },
     "bookings.legendConfirmed": {
         "message": "Confirmed"
@@ -3006,61 +2595,41 @@
     },
     "bookings.classSeats": {
         "message": "{booked, number} of {cap, number} booked",
-        "args": [
-            "booked",
-            "cap"
-        ]
+        "args": ["booked", "cap"]
     },
     "bookings.dragHint": {
         "message": "Drag to move, drag the bottom edge to change the length"
     },
     "bookings.dragTo": {
         "message": "Move to {when} with {who}",
-        "args": [
-            "when",
-            "who"
-        ]
+        "args": ["when", "who"]
     },
     "bookings.dropRefused": {
         "message": "Can't move here"
     },
     "bookings.dropRefusedBecause": {
         "message": "Can't move here: {reason}",
-        "args": [
-            "reason"
-        ]
+        "args": ["reason"]
     },
     "bookings.resizeTo": {
         "message": "Ends {end} · {min, number} min",
-        "args": [
-            "end",
-            "min"
-        ]
+        "args": ["end", "min"]
     },
     "bookings.problemOverlap": {
         "message": "{who} is already booked then",
-        "args": [
-            "who"
-        ]
+        "args": ["who"]
     },
     "bookings.problemOffHours": {
         "message": "Outside {who}'s hours",
-        "args": [
-            "who"
-        ]
+        "args": ["who"]
     },
     "bookings.problemTimeOff": {
         "message": "{who} is away: {why}",
-        "args": [
-            "who",
-            "why"
-        ]
+        "args": ["who", "why"]
     },
     "bookings.problemClosed": {
         "message": "The business is closed: {why}",
-        "args": [
-            "why"
-        ]
+        "args": ["why"]
     },
     "bookings.problemPast": {
         "message": "That time has passed"
@@ -3076,9 +2645,7 @@
     },
     "bookings.moved": {
         "message": "Moved to {when}. The client gets an updated confirmation.",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "bookings.undo": {
         "message": "Undo"
@@ -3097,10 +2664,7 @@
     },
     "bookings.closedNote": {
         "message": "Closed · {reason}. {count, plural, =0 {Nothing is booked this day.} one {# visit still booked needs a new time.} other {# visits still booked need a new time.}}",
-        "args": [
-            "reason",
-            "count"
-        ]
+        "args": ["reason", "count"]
     },
     "bookings.needsMove": {
         "message": "Needs a new time"
@@ -3125,16 +2689,11 @@
     },
     "bookings.timeUntil": {
         "message": "{hours, plural, =0 {in {minutes, number} min} other {{minutes, plural, =0 {in {hours, number} h} other {in {hours, number} h {minutes, number} min}}}}",
-        "args": [
-            "hours",
-            "minutes"
-        ]
+        "args": ["hours", "minutes"]
     },
     "bookings.statusLabel": {
         "message": "{status, select, confirmed {Confirmed} pending {Awaiting deposit} completed {Completed} no_show {No-show} canceled {Canceled} waitlisted {Waitlist} other {{status}}}",
-        "args": [
-            "status"
-        ]
+        "args": ["status"]
     },
     "bookings.unpaid": {
         "message": "Unpaid"
@@ -3171,51 +2730,34 @@
     },
     "bookings.visitsCount": {
         "message": "{n, number} visits",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "bookings.lastVisit": {
         "message": "Last visit {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "bookings.firstVisit": {
         "message": "First visit"
     },
     "bookings.seriesLabel": {
         "message": "Visit {i, number} of {n, number} · {every}",
-        "args": [
-            "i",
-            "n",
-            "every"
-        ]
+        "args": ["i", "n", "every"]
     },
     "bookings.seriesLabelOpen": {
         "message": "Visit {i, number} · {every}",
-        "args": [
-            "i",
-            "every"
-        ]
+        "args": ["i", "every"]
     },
     "bookings.everyWeeks": {
         "message": "{n, plural, one {every week} other {every # weeks}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "bookings.everyMonths": {
         "message": "{n, plural, one {every month} other {every # months}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "bookings.everyDays": {
         "message": "{n, plural, one {every day} other {every # days}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "bookings.historyOnline": {
         "message": "Booked online"
@@ -3225,15 +2767,11 @@
     },
     "bookings.historyDeposit": {
         "message": "Deposit of {amount} paid",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "bookings.historyDepositDue": {
         "message": "Deposit of {amount} requested",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "bookings.historyReminderSent": {
         "message": "Reminder sent"
@@ -3246,45 +2784,31 @@
     },
     "bookings.depositPaid": {
         "message": "{amount} paid",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "bookings.depositDue": {
         "message": "{amount} due",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "bookings.depositKept": {
         "message": "{amount} kept",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "bookings.depositApplied": {
         "message": "{amount} applied to the invoice",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "bookings.depositRefunded": {
         "message": "{amount} refunded",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "bookings.addonsTotal": {
         "message": "Paid with the visit · {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "bookings.cardOnFile": {
         "message": "Card on file: {label}",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "bookings.noCard": {
         "message": "No card on file"
@@ -3312,9 +2836,7 @@
     },
     "bookings.messageTitle": {
         "message": "Message {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "bookings.messageChannel": {
         "message": "Send by"
@@ -3351,15 +2873,11 @@
     },
     "bookings.noShowKeep": {
         "message": "The {amount} deposit is kept, as your policy says.",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "bookings.noShowCharge": {
         "message": "The {amount} deposit is charged to the card on file, as your policy says.",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "bookings.noShowNoDeposit": {
         "message": "No deposit was taken for this visit."
@@ -3372,9 +2890,7 @@
     },
     "bookings.cancelKept": {
         "message": "The {amount} deposit stays paid. Refund it from Payments if you want to give it back.",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "bookings.cancelNotify": {
         "message": "The client gets a cancellation message."
@@ -3393,18 +2909,14 @@
     },
     "bookings.endsIn": {
         "message": "Ends in {min, number} min",
-        "args": [
-            "min"
-        ]
+        "args": ["min"]
     },
     "bookings.endedAgo": {
         "message": "Ended, not closed yet"
     },
     "bookings.startsIn": {
         "message": "Starts {label}",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "bookings.composerTitle": {
         "message": "New booking"
@@ -3453,25 +2965,18 @@
     },
     "bookings.composerDeposit": {
         "message": "A {amount} deposit will be due for this visit",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "bookings.composerEnds": {
         "message": "Ends {time} · {min, number} min",
-        "args": [
-            "time",
-            "min"
-        ]
+        "args": ["time", "min"]
     },
     "bookings.composerBook": {
         "message": "Book visit"
     },
     "bookings.composerBookSeries": {
         "message": "Book {n, number} visits",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "bookings.composerBooking": {
         "message": "Booking…"
@@ -3484,10 +2989,7 @@
     },
     "bookings.composerSeriesSkipped": {
         "message": "Booked {created, number} visits. {skipped, number} dates were taken and left out.",
-        "args": [
-            "created",
-            "skipped"
-        ]
+        "args": ["created", "skipped"]
     },
     "bookings.composerNoClients": {
         "message": "No clients match. Add the client in Clients first."
@@ -3527,9 +3029,7 @@
     },
     "bookings.rescheduleTo": {
         "message": "Move to {label}",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "bookings.rescheduling": {
         "message": "Moving…"
@@ -3545,9 +3045,7 @@
     },
     "bookings.depositDueTitle": {
         "message": "{amount} deposit not paid yet",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "bookings.depositDueBody": {
         "message": "Collect it now with a saved card or a new one."
@@ -3566,9 +3064,7 @@
     },
     "bookings.collectAmount": {
         "message": "Collect {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "bookings.addonRemove": {
         "message": "Remove"
@@ -3623,9 +3119,7 @@
     },
     "recurrences.listSubtitle": {
         "message": "{n, number} active series",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "recurrences.newSeries": {
         "message": "New series"
@@ -3695,15 +3189,11 @@
     },
     "recurrences.weeksUnit": {
         "message": "{n, plural, one {week} other {weeks}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "recurrences.monthsUnit": {
         "message": "{n, plural, one {month} other {months}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "recurrences.ends": {
         "message": "Ends"
@@ -3731,9 +3221,7 @@
     },
     "recurrences.pet": {
         "message": "Pet: {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "recurrences.dates": {
         "message": "Dates"
@@ -3743,82 +3231,47 @@
     },
     "recurrences.patternWeekly": {
         "message": "{n, plural, one {Every {day} at {time}} other {Every # weeks on {day} at {time}}}",
-        "args": [
-            "n",
-            "day",
-            "time"
-        ]
+        "args": ["n", "day", "time"]
     },
     "recurrences.patternMonthly": {
         "message": "{n, plural, one {The {ord} {day} of every month at {time}} other {The {ord} {day} every # months at {time}}}",
-        "args": [
-            "n",
-            "ord",
-            "day",
-            "time"
-        ]
+        "args": ["n", "ord", "day", "time"]
     },
     "recurrences.ordinal": {
         "message": "{n, plural, =1 {first} =2 {second} =3 {third} =4 {fourth} =5 {fifth} other {last}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "recurrences.summary": {
         "message": "{n, number} visits · {pattern} · {from} to {to}",
-        "args": [
-            "n",
-            "pattern",
-            "from",
-            "to"
-        ]
+        "args": ["n", "pattern", "from", "to"]
     },
     "recurrences.countsLine": {
         "message": "{booked, number} to book{moved, plural, =0 {} other { · # at another time}}{skipped, plural, =0 {} other { · # skipped}}",
-        "args": [
-            "booked",
-            "moved",
-            "skipped"
-        ]
+        "args": ["booked", "moved", "skipped"]
     },
     "recurrences.closed": {
         "message": "Closed for {why}",
-        "args": [
-            "why"
-        ]
+        "args": ["why"]
     },
     "recurrences.away": {
         "message": "{name} is away: {why}",
-        "args": [
-            "name",
-            "why"
-        ]
+        "args": ["name", "why"]
     },
     "recurrences.notWorking": {
         "message": "{name} doesn't work {day}s",
-        "args": [
-            "name",
-            "day"
-        ]
+        "args": ["name", "day"]
     },
     "recurrences.outsideHours": {
         "message": "Outside {name}'s hours",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "recurrences.taken": {
         "message": "{name} is booked at {time}",
-        "args": [
-            "name",
-            "time"
-        ]
+        "args": ["name", "time"]
     },
     "recurrences.moveTo": {
         "message": "Book {time} instead",
-        "args": [
-            "time"
-        ]
+        "args": ["time"]
     },
     "recurrences.skip": {
         "message": "Skip this date"
@@ -3855,9 +3308,7 @@
     },
     "recurrences.book": {
         "message": "{n, plural, one {Book # visit} other {Book # visits}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "recurrences.booking": {
         "message": "Booking…"
@@ -3870,22 +3321,15 @@
     },
     "recurrences.doneBody": {
         "message": "{n, number} visits are on the schedule. {name} gets one confirmation with every date.",
-        "args": [
-            "n",
-            "name"
-        ]
+        "args": ["n", "name"]
     },
     "recurrences.doneBodyEach": {
         "message": "{n, number} visits are on the schedule. Each one gets its own confirmation.",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "recurrences.doneSkipped": {
         "message": "{n, plural, one {# date was taken while you booked and was left out.} other {# dates were taken while you booked and were left out.}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "recurrences.viewSchedule": {
         "message": "View on schedule"
@@ -3895,35 +3339,25 @@
     },
     "recurrences.progress": {
         "message": "{done, number} of {total, number} done",
-        "args": [
-            "done",
-            "total"
-        ]
+        "args": ["done", "total"]
     },
     "recurrences.todayAt": {
         "message": "Today, {time}",
-        "args": [
-            "time"
-        ]
+        "args": ["time"]
     },
     "recurrences.noneLeft": {
         "message": "No visits left"
     },
     "recurrences.endsOn": {
         "message": "Ends {date} · {left, number} left",
-        "args": [
-            "date",
-            "left"
-        ]
+        "args": ["date", "left"]
     },
     "recurrences.next": {
         "message": "Next visit"
     },
     "recurrences.needsDecision": {
         "message": "{n, plural, one {# clash} other {# clashes}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "recurrences.endingSoon": {
         "message": "Last visit"
@@ -3972,23 +3406,14 @@
     },
     "recurrences.changeSummary": {
         "message": "{n, plural, one {# visit moves} other {# visits move}} to {day} at {time} with {who}.{conflicts, plural, =0 {} one { # clashes and will be left where it is.} other { # clash and will be left where it is.}}",
-        "args": [
-            "n",
-            "day",
-            "time",
-            "who",
-            "conflicts"
-        ]
+        "args": ["n", "day", "time", "who", "conflicts"]
     },
     "recurrences.saveChange": {
         "message": "Move visits"
     },
     "recurrences.changeSaved": {
         "message": "{left, plural, =0 {Series updated: {moved, number} visits moved. The client gets one message with the new dates.} other {{moved, number} visits moved, # left where they were because of a clash.}}",
-        "args": [
-            "moved",
-            "left"
-        ]
+        "args": ["moved", "left"]
     },
     "recurrences.changeError": {
         "message": "Couldn't change the series. Please try again."
@@ -3998,11 +3423,7 @@
     },
     "recurrences.cancelSummary": {
         "message": "Cancels {n, plural, one {# upcoming visit} other {# upcoming visits}} from {from}. Past visits stay in the history.{deposit, select, true { Deposits already paid are refunded.} other {}}",
-        "args": [
-            "n",
-            "from",
-            "deposit"
-        ]
+        "args": ["n", "from", "deposit"]
     },
     "recurrences.notifyClient": {
         "message": "Tell the client"
@@ -4042,47 +3463,30 @@
     },
     "classes.fullWaiting": {
         "message": "Full · {n, number} waiting",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "classes.seatsLeft": {
         "message": "{n, plural, one {# seat left} other {# seats left}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "classes.seatsBooked": {
         "message": "{booked, number} of {cap, number} booked",
-        "args": [
-            "booked",
-            "cap"
-        ]
+        "args": ["booked", "cap"]
     },
     "classes.add": {
         "message": "Add"
     },
     "classes.checkedIn": {
         "message": "{n, number} of {of, number} here",
-        "args": [
-            "n",
-            "of"
-        ]
+        "args": ["n", "of"]
     },
     "classes.with": {
         "message": "{when} · {name}",
-        "args": [
-            "when",
-            "name"
-        ]
+        "args": ["when", "name"]
     },
     "classes.withRoom": {
         "message": "{when} · {name} · {room}",
-        "args": [
-            "when",
-            "name",
-            "room"
-        ]
+        "args": ["when", "name", "room"]
     },
     "classes.roster": {
         "message": "Roster"
@@ -4143,31 +3547,22 @@
     },
     "classes.added": {
         "message": "{name} is booked into this class.",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "classes.addedWaitlist": {
         "message": "The class is full, so {name} is on the waitlist.",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "classes.messageClass": {
         "message": "Message everyone"
     },
     "classes.messageClassTitle": {
         "message": "Message everyone in {name}, {when}",
-        "args": [
-            "name",
-            "when"
-        ]
+        "args": ["name", "when"]
     },
     "classes.messageClassHint": {
         "message": "{n, plural, one {Goes to the # client booked, by text when they have a mobile, otherwise by email.} other {Goes to the # clients booked, by text when they have a mobile, otherwise by email.}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "classes.messageClassLabel": {
         "message": "Message"
@@ -4183,9 +3578,7 @@
     },
     "classes.messageSent": {
         "message": "{n, plural, one {Sent to # client.} other {Sent to # clients.}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "classes.loading": {
         "message": "Loading classes"
@@ -4213,10 +3606,7 @@
     },
     "classes.takenBy": {
         "message": "{pet} · {time}",
-        "args": [
-            "pet",
-            "time"
-        ]
+        "args": ["pet", "time"]
     },
     "classes.freeThen": {
         "message": "Free then"
@@ -4262,24 +3652,18 @@
     },
     "reminders.previewVisit": {
         "message": "Shown with {who}'s next visit",
-        "args": [
-            "who"
-        ]
+        "args": ["who"]
     },
     "reminders.previewNone": {
         "message": "Book a visit to see the reminder it would get."
     },
     "reminders.sendsAt": {
         "message": "Sends {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "reminders.sentAt": {
         "message": "Sent {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "reminders.deliveryTitle": {
         "message": "Last 7 days"
@@ -4289,9 +3673,7 @@
     },
     "reminders.sentCount": {
         "message": "{n, number}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "reminders.endOfDayTitle": {
         "message": "End of day"
@@ -4304,9 +3686,7 @@
     },
     "reminders.openToday": {
         "message": "{n, plural, =0 {No visits are left open today.} one {# visit today has ended and is still open.} other {# visits today have ended and are still open.}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "reminders.openEarlier": {
         "message": "Still open from earlier days"
@@ -4400,21 +3780,15 @@
     },
     "forms.fields": {
         "message": "{n, plural, one {# question} other {# questions}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "forms.responses": {
         "message": "{n, number} answered",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "forms.waiting": {
         "message": "{n, number} waiting",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "forms.noResponsesYet": {
         "message": "No answers yet"
@@ -4469,18 +3843,14 @@
     },
     "forms.optionPlaceholder": {
         "message": "Choice {n, number}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "forms.addOption": {
         "message": "Add choice"
     },
     "forms.removeOption": {
         "message": "Remove choice {n, number}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "forms.moveUp": {
         "message": "Move up"
@@ -4538,9 +3908,7 @@
     },
     "forms.sendTitle": {
         "message": "Send \"{form}\"",
-        "args": [
-            "form"
-        ]
+        "args": ["form"]
     },
     "forms.sendBody": {
         "message": "They get a link by email, and by text when they have a number on file."
@@ -4556,9 +3924,7 @@
     },
     "forms.sent": {
         "message": "Sent to {name}.",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "forms.pickClient": {
         "message": "Choose who to send it to."
@@ -4601,42 +3967,30 @@
     },
     "contracts.version": {
         "message": "Version {n, number}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "contracts.versionShort": {
         "message": "v{n, number}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "contracts.signedCount": {
         "message": "{n, number} signed",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "contracts.waitingCount": {
         "message": "{n, number} waiting",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "contracts.updated": {
         "message": "Updated {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "contracts.send": {
         "message": "Send for signature"
     },
     "contracts.sendTitle": {
         "message": "Send \"{name}\" for signature",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "contracts.editText": {
         "message": "Edit text"
@@ -4721,33 +4075,23 @@
     },
     "contracts.activity.pending": {
         "message": "Sent {d}",
-        "args": [
-            "d"
-        ]
+        "args": ["d"]
     },
     "contracts.activity.opened": {
         "message": "Opened {d}",
-        "args": [
-            "d"
-        ]
+        "args": ["d"]
     },
     "contracts.activity.signed": {
         "message": "Signed {d}",
-        "args": [
-            "d"
-        ]
+        "args": ["d"]
     },
     "contracts.activity.declined": {
         "message": "Declined {d}",
-        "args": [
-            "d"
-        ]
+        "args": ["d"]
     },
     "contracts.activity.expired": {
         "message": "Sent {d}, link expired",
-        "args": [
-            "d"
-        ]
+        "args": ["d"]
     },
     "contracts.status.pending": {
         "message": "Sent"
@@ -4781,21 +4125,15 @@
     },
     "contracts.eventIp": {
         "message": "From IP {ip}",
-        "args": [
-            "ip"
-        ]
+        "args": ["ip"]
     },
     "contracts.versionNotice": {
         "message": "Saving publishes version {next, number}. Clients who already signed keep the version they signed.",
-        "args": [
-            "next"
-        ]
+        "args": ["next"]
     },
     "contracts.publish": {
         "message": "Publish version {next, number}",
-        "args": [
-            "next"
-        ]
+        "args": ["next"]
     },
     "contracts.publishError": {
         "message": "Couldn't publish the new version. Please try again."
@@ -4856,9 +4194,7 @@
     },
     "clients.saveMethod": {
         "message": "Save {noun}",
-        "args": [
-            "noun"
-        ]
+        "args": ["noun"]
     },
     "clients.subscriptions": {
         "message": "Subscriptions"
@@ -4874,9 +4210,7 @@
     },
     "clients.nextCharge": {
         "message": "Next charge {date}",
-        "args": [
-            "date"
-        ]
+        "args": ["date"]
     },
     "clients.cancelSubscriptionTitle": {
         "message": "Cancel subscription"
@@ -4907,17 +4241,11 @@
     },
     "clients.sessionsLeft": {
         "message": "{remaining, number} of {total, number} sessions left",
-        "args": [
-            "remaining",
-            "total"
-        ]
+        "args": ["remaining", "total"]
     },
     "clients.sessionsLeftShort": {
         "message": "{remaining, number} of {total, number} left",
-        "args": [
-            "remaining",
-            "total"
-        ]
+        "args": ["remaining", "total"]
     },
     "clients.consumeSession": {
         "message": "Consume session"
@@ -4978,9 +4306,7 @@
     },
     "clients.record.lastVisit": {
         "message": "Last visit {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "clients.record.notes": {
         "message": "Notes"
@@ -5002,9 +4328,7 @@
     },
     "clients.record.renews": {
         "message": "Renews {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "clients.record.book": {
         "message": "Book"
@@ -5026,30 +4350,22 @@
     },
     "clients.record.prefers": {
         "message": "{channel, select, email {Prefers email} other {Prefers text}}",
-        "args": [
-            "channel"
-        ]
+        "args": ["channel"]
     },
     "clients.record.textsStopped": {
         "message": "Texts stopped by the client on {when}. Texts stay off until they reply START.",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "clients.record.inProgress": {
         "message": "In progress"
     },
     "clients.record.depositDue": {
         "message": "{amount} deposit due",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "clients.record.depositPaid": {
         "message": "{amount} deposit paid",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "clients.record.noNotes": {
         "message": "No notes yet."
@@ -5068,9 +4384,7 @@
     },
     "clients.record.editPetNamed": {
         "message": "Edit {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "clients.record.addNoteTitle": {
         "message": "Add a note"
@@ -5134,10 +4448,7 @@
     },
     "clients.edit.consentRecorded": {
         "message": "Agreed {when}, recorded by {who}",
-        "args": [
-            "when",
-            "who"
-        ]
+        "args": ["when", "who"]
     },
     "clients.edit.petSection": {
         "message": "First pet"
@@ -5189,15 +4500,11 @@
     },
     "clients.edit.duplicateTitle": {
         "message": "{name} may already be a client",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "clients.edit.duplicateBody": {
         "message": "Same {reasons}. Open their record instead of adding a second one.",
-        "args": [
-            "reasons"
-        ]
+        "args": ["reasons"]
     },
     "clients.edit.duplicateOpen": {
         "message": "Open record"
@@ -5222,9 +4529,7 @@
     },
     "clients.edit.archiveTitle": {
         "message": "Archive {name}?",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "clients.edit.archiveBody": {
         "message": "They leave search and booking pickers. Their bookings, invoices and payments stay, and you can restore them any time."
@@ -5237,9 +4542,7 @@
     },
     "clients.edit.archivedBanner": {
         "message": "Archived {when}. Hidden from search and booking; history is kept.",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "clients.edit.archivedNoDate": {
         "message": "Archived. Hidden from search and booking; history is kept."
@@ -5252,22 +4555,15 @@
     },
     "clients.edit.segmentActive": {
         "message": "Active {n, number}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "clients.edit.segmentArchived": {
         "message": "Archived {n, number}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "clients.edit.listSummary": {
         "message": "{active, number} active · {archived, number} archived",
-        "args": [
-            "active",
-            "archived"
-        ]
+        "args": ["active", "archived"]
     },
     "clients.edit.emptyArchived": {
         "message": "No archived clients. Archived clients keep their history and can be restored."
@@ -5286,18 +4582,14 @@
     },
     "clients.pets.editNamed": {
         "message": "Edit {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "clients.pets.removePet": {
         "message": "Remove pet"
     },
     "clients.pets.removeTitle": {
         "message": "Remove {name}?",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "clients.pets.removeBody": {
         "message": "Past bookings and invoices keep the pet's name. It won't be offered for new bookings."
@@ -5409,36 +4701,26 @@
     },
     "clients.pets.age": {
         "message": "{years, plural, =0 {Under 1 yr} other {# yr}}",
-        "args": [
-            "years"
-        ]
+        "args": ["years"]
     },
     "clients.pets.weight": {
         "message": "{kg, number} kg",
-        "args": [
-            "kg"
-        ]
+        "args": ["kg"]
     },
     "clients.pets.allergy": {
         "message": "Allergic: {what}",
-        "args": [
-            "what"
-        ]
+        "args": ["what"]
     },
     "clients.pets.temperamentAlert": {
         "message": "Temperament: {t}",
-        "args": [
-            "t"
-        ]
+        "args": ["t"]
     },
     "clients.pets.rabiesExpired": {
         "message": "Rabies vaccine expired"
     },
     "clients.pets.rabiesSoon": {
         "message": "Rabies vaccine expires {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "clients.pets.visits": {
         "message": "Visits"
@@ -5484,10 +4766,7 @@
     },
     "clients.history.withCount": {
         "message": "{label} {n}",
-        "args": [
-            "label",
-            "n"
-        ]
+        "args": ["label", "n"]
     },
     "clients.history.notePlaceholder": {
         "message": "Add a note about this client or a pet"
@@ -5539,10 +4818,7 @@
     },
     "clients.history.by": {
         "message": "{who} · {when}",
-        "args": [
-            "who",
-            "when"
-        ]
+        "args": ["who", "when"]
     },
     "clients.history.empty": {
         "message": "Nothing here yet. Bookings, payments, messages and notes appear as they happen."
@@ -5567,9 +4843,7 @@
     },
     "clients.history.since": {
         "message": "Client since {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "clients.history.you": {
         "message": "You"
@@ -5579,10 +4853,7 @@
     },
     "clients.history.visit": {
         "message": "{service} · {pet}",
-        "args": [
-            "service",
-            "pet"
-        ]
+        "args": ["service", "pet"]
     },
     "clients.history.canceled": {
         "message": "Canceled"
@@ -5592,21 +4863,15 @@
     },
     "clients.history.invoiceDrafted": {
         "message": "Invoice #{n} drafted",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "clients.history.invoiceSent": {
         "message": "Invoice #{n} sent",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "clients.history.invoiceVoid": {
         "message": "Invoice #{n} voided",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "clients.history.paymentReceived": {
         "message": "Payment received"
@@ -5631,9 +4896,7 @@
     },
     "clients.history.review": {
         "message": "Left a {rating, number}-star review",
-        "args": [
-            "rating"
-        ]
+        "args": ["rating"]
     },
     "clients.history.note": {
         "message": "Note"
@@ -5664,18 +4927,14 @@
     },
     "clients.wallet.removeTitle": {
         "message": "Remove {label}?",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "clients.wallet.removeBody": {
         "message": "It can't be charged again. Past payments made with it are kept."
     },
     "clients.wallet.removeBodyInUse": {
         "message": "It pays {plans}. Those charges will move to the default method, or fail if there is none.",
-        "args": [
-            "plans"
-        ]
+        "args": ["plans"]
     },
     "clients.wallet.removeConfirm": {
         "message": "Remove"
@@ -5703,24 +4962,15 @@
     },
     "clients.wallet.expires": {
         "message": "Expires {mm}/{yy}",
-        "args": [
-            "mm",
-            "yy"
-        ]
+        "args": ["mm", "yy"]
     },
     "clients.wallet.expired": {
         "message": "Expired {mm}/{yy}",
-        "args": [
-            "mm",
-            "yy"
-        ]
+        "args": ["mm", "yy"]
     },
     "clients.wallet.expiresSoon": {
         "message": "Expires {mm}/{yy}, ask for a new card",
-        "args": [
-            "mm",
-            "yy"
-        ]
+        "args": ["mm", "yy"]
     },
     "clients.wallet.mandateActive": {
         "message": "Mandate active"
@@ -5736,30 +4986,22 @@
     },
     "clients.wallet.pays": {
         "message": "Pays {plans}",
-        "args": [
-            "plans"
-        ]
+        "args": ["plans"]
     },
     "clients.wallet.added": {
         "message": "Added {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "clients.wallet.defaultHint": {
         "message": "The default is charged for memberships, no-show fees and invoices on autopay."
     },
     "clients.wallet.more": {
         "message": "More actions for {label}",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "clients.wallet.expiringBanner": {
         "message": "{label} expires soon. Ask for a new card at the next visit.",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "clients.wallet.onlyManagers": {
         "message": "Only owners and admins can add or remove payment methods."
@@ -5772,9 +5014,7 @@
     },
     "clients.tidy.selected": {
         "message": "{n, number} selected",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "clients.tidy.clear": {
         "message": "Clear"
@@ -5793,25 +5033,18 @@
     },
     "clients.tidy.applyTags": {
         "message": "Tags for {n, number} clients",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "clients.tidy.onAll": {
         "message": "On all selected"
     },
     "clients.tidy.onSome": {
         "message": "On {n, number} of {total, number}",
-        "args": [
-            "n",
-            "total"
-        ]
+        "args": ["n", "total"]
     },
     "clients.tidy.clientsCount": {
         "message": "{n, plural, one {# client} other {# clients}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "clients.tidy.newTag": {
         "message": "New tag"
@@ -5830,9 +5063,7 @@
     },
     "clients.tidy.archiveTitle": {
         "message": "{n, plural, one {Archive # client?} other {Archive # clients?}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "clients.tidy.archiveBody": {
         "message": "They leave search and booking pickers. Their bookings, invoices and payments stay, and you can restore them from Archived."
@@ -5842,15 +5073,11 @@
     },
     "clients.tidy.archived": {
         "message": "{n, plural, one {# client archived.} other {# clients archived.}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "clients.tidy.tagsUpdated": {
         "message": "{n, plural, one {Tags updated for # client.} other {Tags updated for # clients.}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "clients.tidy.mergeTitle": {
         "message": "Merge these records?"
@@ -5869,40 +5096,27 @@
     },
     "clients.tidy.moves.bookings": {
         "message": "{n, plural, one {# booking} other {# bookings}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "clients.tidy.moves.pets": {
         "message": "Pets: {names}",
-        "args": [
-            "names"
-        ]
+        "args": ["names"]
     },
     "clients.tidy.moves.messages": {
         "message": "{n, plural, one {# message} other {# messages}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "clients.tidy.moves.notes": {
         "message": "{n, plural, one {# note} other {# notes}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "clients.tidy.footprint": {
         "message": "{bookings, plural, one {# booking} other {# bookings}} · {pets, plural, one {# pet} other {# pets}}",
-        "args": [
-            "bookings",
-            "pets"
-        ]
+        "args": ["bookings", "pets"]
     },
     "clients.tidy.created": {
         "message": "Added {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "clients.tidy.same": {
         "message": "Same on both"
@@ -5927,19 +5141,14 @@
     },
     "clients.tidy.merge": {
         "message": "Merge into {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "clients.tidy.merging": {
         "message": "Merging…"
     },
     "clients.tidy.mergeConfirmBody": {
         "message": "{from} is removed and everything it holds moves to {into}. This can't be undone.",
-        "args": [
-            "from",
-            "into"
-        ]
+        "args": ["from", "into"]
     },
     "clients.tidy.mergeConfirm": {
         "message": "Merge"
@@ -5949,9 +5158,7 @@
     },
     "clients.tidy.merged": {
         "message": "Merged into {name}. Every booking and note now sits under one client.",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "messaging.title": {
         "message": "Inbox"
@@ -5973,9 +5180,7 @@
     },
     "messaging.unreadCount": {
         "message": "{n, plural, =0 {All caught up} one {# conversation unread} other {# conversations unread}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "messaging.newShort": {
         "message": "New"
@@ -6000,9 +5205,7 @@
     },
     "messaging.sentNew": {
         "message": "Sent to {name}. Their reply will show up here.",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "messaging.searchPlaceholder": {
         "message": "Search name, pet or message"
@@ -6066,9 +5269,7 @@
     },
     "messaging.replyPlaceholder": {
         "message": "{channel, select, sms {Reply by text} email {Reply by email} chat {Reply by chat} other {Reply by {channel}}}",
-        "args": [
-            "channel"
-        ]
+        "args": ["channel"]
     },
     "messaging.send": {
         "message": "Send"
@@ -6078,10 +5279,7 @@
     },
     "messaging.smsCount": {
         "message": "{chars, number} characters · {segments, plural, one {# text} other {# texts}}",
-        "args": [
-            "chars",
-            "segments"
-        ]
+        "args": ["chars", "segments"]
     },
     "messaging.quickReplies": {
         "message": "Quick replies"
@@ -6106,9 +5304,7 @@
     },
     "messaging.textsOffTitle": {
         "message": "{name} replied STOP.",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "messaging.textsOffBody": {
         "message": "Texts to this number are off until they reply START. Switch to email to reach them."
@@ -6163,9 +5359,7 @@
     },
     "messaging.consentImpliedUntil": {
         "message": "From a purchase · ends {date}",
-        "args": [
-            "date"
-        ]
+        "args": ["date"]
     },
     "messaging.back": {
         "message": "Inbox"
@@ -6223,10 +5417,7 @@
     },
     "broadcasts.tagChip": {
         "message": "{tag} · {n, number}",
-        "args": [
-            "tag",
-            "n"
-        ]
+        "args": ["tag", "n"]
     },
     "broadcasts.messageLabel": {
         "message": "Message"
@@ -6242,19 +5433,11 @@
     },
     "broadcasts.smsPreview": {
         "message": "{business}: {text} {optOut}",
-        "args": [
-            "business",
-            "text",
-            "optOut"
-        ]
+        "args": ["business", "text", "optOut"]
     },
     "broadcasts.emailPreview": {
         "message": "{text}\n\n{business}\n{optOut} …",
-        "args": [
-            "text",
-            "business",
-            "optOut"
-        ]
+        "args": ["text", "business", "optOut"]
     },
     "broadcasts.optOutNote": {
         "message": "We add your business name and the opt-out line to every broadcast. The law requires both."
@@ -6273,15 +5456,11 @@
     },
     "broadcasts.recipientsWord": {
         "message": "{n, plural, one {recipient} other {recipients}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "broadcasts.matched": {
         "message": "{n, number} match the audience",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "broadcasts.noAudience": {
         "message": "No clients to send to yet"
@@ -6294,9 +5473,7 @@
     },
     "broadcasts.leftOut": {
         "message": "{n, number} left out",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "broadcasts.reasons.opted_out": {
         "message": "Opted out"
@@ -6315,21 +5492,15 @@
     },
     "broadcasts.sendTo": {
         "message": "{n, plural, one {Send to # client} other {Send to # clients}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "broadcasts.scheduleFor": {
         "message": "{n, plural, one {Schedule for # client} other {Schedule for # clients}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "broadcasts.confirmTitle": {
         "message": "{n, plural, one {Send to # client now?} other {Send to # clients now?}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "broadcasts.confirmBody": {
         "message": "A broadcast can't be recalled once it goes out."
@@ -6348,17 +5519,12 @@
     },
     "broadcasts.queuedBody": {
         "message": "It's quiet hours for your clients, so it goes out at {when}. {n, plural, one {# client} other {# clients}} will get it.",
-        "args": [
-            "when",
-            "n"
-        ],
+        "args": ["when", "n"],
         "description": "Broadcasts don't send between 9 p.m. and 9 a.m. in the business's time zone."
     },
     "broadcasts.sentBody": {
         "message": "{n, plural, one {# client} other {# clients}} will get it. Replies land in your inbox, and opt-outs are recorded automatically.",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "broadcasts.sentDone": {
         "message": "Back to broadcasts"
@@ -6386,17 +5552,11 @@
     },
     "broadcasts.stepOf": {
         "message": "Step {n, number} of {total, number}",
-        "args": [
-            "n",
-            "total"
-        ]
+        "args": ["n", "total"]
     },
     "broadcasts.smsCount": {
         "message": "{chars, number} characters · {segments, plural, one {# text} other {# texts}}",
-        "args": [
-            "chars",
-            "segments"
-        ]
+        "args": ["chars", "segments"]
     },
     "broadcasts.errors.nameRequired": {
         "message": "Give the broadcast a name."
@@ -6424,9 +5584,7 @@
     },
     "broadcasts.reachOf": {
         "message": "of {n, number} clients",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "broadcasts.colBroadcast": {
         "message": "Broadcast"
@@ -6457,21 +5615,15 @@
     },
     "broadcasts.delivered": {
         "message": "{n, number} delivered",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "broadcasts.replies": {
         "message": "{n, plural, one {# reply} other {# replies}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "broadcasts.optOutsCount": {
         "message": "{n, plural, one {# opt-out} other {# opt-outs}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "broadcasts.notSent": {
         "message": "Not sent"
@@ -6499,28 +5651,21 @@
     },
     "broadcasts.endsOn": {
         "message": "Ends {date}",
-        "args": [
-            "date"
-        ]
+        "args": ["date"]
     },
     "broadcasts.exportLog": {
         "message": "Export consent log"
     },
     "broadcasts.exported": {
         "message": "{file} is ready in your downloads.",
-        "args": [
-            "file"
-        ]
+        "args": ["file"]
     },
     "broadcasts.exportShared": {
         "message": "Consent log ready to share."
     },
     "broadcasts.consentSource": {
         "message": "{source} · {date}",
-        "args": [
-            "source",
-            "date"
-        ]
+        "args": ["source", "date"]
     },
     "broadcasts.sources.in_person": {
         "message": "In person"
@@ -6575,22 +5720,15 @@
     },
     "broadcasts.copyOf": {
         "message": "{name} (copy)",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "broadcasts.viaChannel": {
         "message": "{channel, select, sms {By text} email {By email} other {By {channel}}}",
-        "args": [
-            "channel"
-        ]
+        "args": ["channel"]
     },
     "broadcasts.recipientsLine": {
         "message": "{n, plural, one {# recipient} other {# recipients}}{out, plural, =0 {} other { · # left out}}",
-        "args": [
-            "n",
-            "out"
-        ]
+        "args": ["n", "out"]
     },
     "broadcasts.statRecipients": {
         "message": "Recipients"
@@ -6642,9 +5780,7 @@
     },
     "reviews.requestSent": {
         "message": "Review request sent to {name}.",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "reviews.done": {
         "message": "Done"
@@ -6663,16 +5799,11 @@
     },
     "reviews.reviewCount": {
         "message": "{n, plural, one {# published review} other {# published reviews}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "reviews.distributionRow": {
         "message": "{stars, plural, one {# star} other {# stars}}: {n, plural, one {# review} other {# reviews}}",
-        "args": [
-            "stars",
-            "n"
-        ]
+        "args": ["stars", "n"]
     },
     "reviews.holdToggle": {
         "message": "Hold 3 stars and below for my OK"
@@ -6715,9 +5846,7 @@
     },
     "reviews.hiddenLink": {
         "message": "{n, plural, one {# hidden review} other {# hidden reviews}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "reviews.noPublished": {
         "message": "No published reviews yet."
@@ -6748,9 +5877,7 @@
     },
     "reviews.messageClient": {
         "message": "Message {first}",
-        "args": [
-            "first"
-        ]
+        "args": ["first"]
     },
     "reviews.messageShort": {
         "message": "Message"
@@ -6766,9 +5893,7 @@
     },
     "reviews.replied": {
         "message": "You replied {date}",
-        "args": [
-            "date"
-        ]
+        "args": ["date"]
     },
     "reviews.askTitle": {
         "message": "Ask for a review"
@@ -6796,27 +5921,18 @@
     },
     "reviews.requestedOn": {
         "message": "Asked {date}",
-        "args": [
-            "date"
-        ]
+        "args": ["date"]
     },
     "reviews.visitLine": {
         "message": "{service} with {staff} · {when}",
-        "args": [
-            "service",
-            "staff",
-            "when"
-        ]
+        "args": ["service", "staff", "when"]
     },
     "reviews.suggestedReply": {
         "message": "Suggested reply"
     },
     "reviews.suggestedReplyFor": {
         "message": "{low, select, true {Thank you for the honest feedback, {first}. We''re sorry this visit fell short of what you expect from us, and we''d like to make it right. We''ll be in touch today.} other {Thank you, {first}. It means a lot to the whole team, and we look forward to seeing you again.}}",
-        "args": [
-            "first",
-            "low"
-        ]
+        "args": ["first", "low"]
     },
     "reviews.useSuggestion": {
         "message": "Use this"
@@ -6874,10 +5990,7 @@
     },
     "business.getSetUp.progress": {
         "message": "{done, number} of {total, number} done",
-        "args": [
-            "done",
-            "total"
-        ]
+        "args": ["done", "total"]
     },
     "business.getSetUp.hide": {
         "message": "Hide this list"
@@ -6887,9 +6000,7 @@
     },
     "business.getSetUp.hiddenBody": {
         "message": "{left, plural, one {# step is} other {# steps are}} still open. Show the list again whenever you're ready.",
-        "args": [
-            "left"
-        ]
+        "args": ["left"]
     },
     "business.getSetUp.showList": {
         "message": "Show the list"
@@ -6974,10 +6085,7 @@
     },
     "business.getSetUp.servicesHint": {
         "message": "{services, plural, one {# service} other {# services}}{classes, plural, =0 {} one { and # class} other { and # classes}}",
-        "args": [
-            "services",
-            "classes"
-        ]
+        "args": ["services", "classes"]
     },
     "business.getSetUp.hoursSet": {
         "message": "Your weekly hours are set."
@@ -6987,16 +6095,11 @@
     },
     "business.getSetUp.teamHint": {
         "message": "{n, plural, =0 {Give staff their own sign-in and schedule.} one {Invite waiting for {email}} other {# invites waiting}}",
-        "args": [
-            "n",
-            "email"
-        ]
+        "args": ["n", "email"]
     },
     "business.getSetUp.taxHint": {
         "message": "{pst, select, true {GST and PST registered} other {GST/HST registered}}",
-        "args": [
-            "pst"
-        ]
+        "args": ["pst"]
     },
     "business.getSetUp.loading": {
         "message": "Loading your setup"
@@ -7239,9 +6342,7 @@
     },
     "business.onboarding.taxTitle": {
         "message": "Sales tax in {province}",
-        "args": [
-            "province"
-        ]
+        "args": ["province"]
     },
     "business.onboarding.taxNone": {
         "message": "No sales tax is charged until you turn it on in Setup."
@@ -7344,21 +6445,15 @@
     },
     "hours.perWeek": {
         "message": "{h, number, ::.#} h a week",
-        "args": [
-            "h"
-        ]
+        "args": ["h"]
     },
     "hours.dayHours": {
         "message": "{h, plural, =0 {} other {{h, number, ::.#} h}}",
-        "args": [
-            "h"
-        ]
+        "args": ["h"]
     },
     "hours.daysOpen": {
         "message": "{n, plural, one {# day} other {# days}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "hours.closed": {
         "message": "Closed"
@@ -7380,9 +6475,7 @@
     },
     "hours.editHoursFor": {
         "message": "{name}'s hours",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "hours.regularHours": {
         "message": "Regular hours"
@@ -7407,10 +6500,7 @@
     },
     "hours.splitWeek": {
         "message": "{days} {count, plural, one {has} other {have}} a break between shifts, which this editor can't change yet. Saving is off so the break is kept.",
-        "args": [
-            "days",
-            "count"
-        ]
+        "args": ["days", "count"]
     },
     "hours.splitRefused": {
         "message": "Some days now have a break between shifts, which this editor can't change yet. Discard these changes to see the current hours."
@@ -7465,9 +6555,7 @@
     },
     "hours.upcomingFor": {
         "message": "Coming up for {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "hours.everyone": {
         "message": "Everyone"
@@ -7525,35 +6613,23 @@
     },
     "hours.awaySummary": {
         "message": "{who} · {when}",
-        "args": [
-            "who",
-            "when"
-        ]
+        "args": ["who", "when"]
     },
     "hours.timeOffAffects": {
         "message": "{n, plural, one {# visit is already booked in this time. Move or cancel it after saving.} other {# visits are already booked in this time. Move or cancel them after saving.}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "hours.closureAffects": {
         "message": "{n, plural, one {# visit is booked that day. Its client isn't told until you move or cancel it.} other {# visits are booked that day. Clients aren't told until you move or cancel them.}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "hours.toMove": {
         "message": "{n, plural, one {# visit to move} other {# visits to move}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "hours.stranded": {
         "message": "{n, plural, one {This booked visit is now outside the new hours. Move it or let the client know: {visits}} other {These # booked visits are now outside the new hours. Move them or let the clients know: {visits}}}",
-        "args": [
-            "n",
-            "visits"
-        ]
+        "args": ["n", "visits"]
     },
     "hours.nothingBooked": {
         "message": "Nothing booked"
@@ -7572,9 +6648,7 @@
     },
     "hours.removeLabel": {
         "message": "Remove {what}",
-        "args": [
-            "what"
-        ]
+        "args": ["what"]
     },
     "hours.cancel": {
         "message": "Cancel"
@@ -7593,25 +6667,18 @@
     },
     "hours.weekTotal": {
         "message": "{h, number, ::.#} h",
-        "args": [
-            "h"
-        ]
+        "args": ["h"]
     },
     "hours.rowLabel": {
         "message": "Edit {name}'s hours",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "hours.ownOnly": {
         "message": "You can change your own hours and time off."
     },
     "hours.partialAway": {
         "message": "{time} {reason}",
-        "args": [
-            "time",
-            "reason"
-        ],
+        "args": ["time", "reason"],
         "description": "A shift cell noting part-day time off: the time it starts and the reason."
     },
     "staff.acceptInviteError": {
@@ -7622,15 +6689,11 @@
     },
     "staff.inviteFrom": {
         "message": "{business} invited you to Clientbridge.",
-        "args": [
-            "business"
-        ]
+        "args": ["business"]
     },
     "staff.inviteFor": {
         "message": "This invite is for {email}.",
-        "args": [
-            "email"
-        ]
+        "args": ["email"]
     },
     "staff.inviteSignUp": {
         "message": "Create an account"
@@ -7715,9 +6778,7 @@
     },
     "staff.rateLabel": {
         "message": "{type, select, percent {Rate (%)} hourly {Rate ($ per hour)} other {Rate ($)}}",
-        "args": [
-            "type"
-        ]
+        "args": ["type"]
     },
     "staff.retailRate": {
         "message": "Commission on products sold (%)"
@@ -7736,28 +6797,19 @@
     },
     "staff.payPercent": {
         "message": "{rate, number, ::percent scale/0.01 .###} of services",
-        "args": [
-            "rate"
-        ]
+        "args": ["rate"]
     },
     "staff.payFixed": {
         "message": "{money} per booking",
-        "args": [
-            "money"
-        ]
+        "args": ["money"]
     },
     "staff.payHourly": {
         "message": "{money} an hour",
-        "args": [
-            "money"
-        ]
+        "args": ["money"]
     },
     "staff.payWithRetail": {
         "message": "{service} · {retail, number, ::percent scale/0.01 .###} on products",
-        "args": [
-            "service",
-            "retail"
-        ]
+        "args": ["service", "retail"]
     },
     "staff.team.subtitle": {
         "message": "Who can sign in, and what each person can see and do."
@@ -7782,31 +6834,22 @@
     },
     "staff.team.activeAgo": {
         "message": "{when} ago",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "staff.team.neverSignedIn": {
         "message": "Not signed in yet"
     },
     "staff.team.invitedBy": {
         "message": "Invited by {name}, {when} ago",
-        "args": [
-            "name",
-            "when"
-        ]
+        "args": ["name", "when"]
     },
     "staff.team.invited": {
         "message": "Invited {when} ago",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "staff.team.expiresIn": {
         "message": "{days, plural, one {Expires in # day} other {Expires in # days}}",
-        "args": [
-            "days"
-        ]
+        "args": ["days"]
     },
     "staff.team.expired": {
         "message": "Expired"
@@ -7822,9 +6865,7 @@
     },
     "staff.team.revokeTitle": {
         "message": "Revoke the invite to {email}?",
-        "args": [
-            "email"
-        ]
+        "args": ["email"]
     },
     "staff.team.revokeBody": {
         "message": "The link in their email stops working. You can invite them again later."
@@ -7903,15 +6944,11 @@
     },
     "staff.team.yourRole": {
         "message": "Your role: {role}",
-        "args": [
-            "role"
-        ]
+        "args": ["role"]
     },
     "staff.team.readOnly": {
         "message": "Only owners and admins can invite people or change roles. Ask {owner} if something needs to change.",
-        "args": [
-            "owner"
-        ]
+        "args": ["owner"]
     },
     "staff.team.readOnlyNoName": {
         "message": "Only owners and admins can invite people or change roles."
@@ -7936,9 +6973,7 @@
     },
     "staff.team.sentTitle": {
         "message": "{n, plural, one {Invite sent} other {# invites sent}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "staff.team.sentBody": {
         "message": "They get an email with a link that works for 7 days. You can also share the link yourself."
@@ -7954,15 +6989,11 @@
     },
     "staff.team.emailInvalid": {
         "message": "{email} doesn't look like an email address.",
-        "args": [
-            "email"
-        ]
+        "args": ["email"]
     },
     "staff.team.alreadyMember": {
         "message": "{email} is already on the team.",
-        "args": [
-            "email"
-        ]
+        "args": ["email"]
     },
     "staff.team.inviteError": {
         "message": "We couldn't send that invite. Check your connection and try again."
@@ -7990,9 +7021,7 @@
     },
     "staff.team.removeTitle": {
         "message": "Remove {name}?",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "staff.team.removeBody": {
         "message": "They lose access to this business right away. Their past bookings, sales and pay records stay."
@@ -8005,15 +7034,11 @@
     },
     "staff.team.removeWork": {
         "message": "{count, plural, one {They have # upcoming visit.} other {They have # upcoming visits.}}",
-        "args": [
-            "count"
-        ]
+        "args": ["count"]
     },
     "staff.team.removeSeries": {
         "message": "{count, plural, one {Their repeating series goes with the visits.} other {Their # repeating series go with the visits.}}",
-        "args": [
-            "count"
-        ]
+        "args": ["count"]
     },
     "staff.team.removeFuture": {
         "message": "Upcoming visits"
@@ -8047,15 +7072,11 @@
     },
     "staff.team.removeLeftTitle": {
         "message": "{name} was removed",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "staff.team.removeLeftBody": {
         "message": "{count, plural, one {# visit had no free member, so it stays on the calendar. Move it from the schedule.} other {# visits had no free member, so they stay on the calendar. Move them from the schedule.}}",
-        "args": [
-            "count"
-        ]
+        "args": ["count"]
     },
     "staff.team.ownerNote": {
         "message": "The owner's role can't be changed here."
@@ -8095,10 +7116,7 @@
     },
     "catalog.summary": {
         "message": "{low, plural, =0 {{items, number} items} other {{items, number} items · # need restocking}}",
-        "args": [
-            "items",
-            "low"
-        ]
+        "args": ["items", "low"]
     },
     "catalog.views.catalog": {
         "message": "Catalog"
@@ -8144,10 +7162,7 @@
     },
     "catalog.filterCount": {
         "message": "{label} {n, number}",
-        "args": [
-            "label",
-            "n"
-        ]
+        "args": ["label", "n"]
     },
     "catalog.noMatch": {
         "message": "No items match that search."
@@ -8157,9 +7172,7 @@
     },
     "catalog.countIn": {
         "message": "{n, plural, one {# item} other {# items}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "catalog.groups.service": {
         "message": "Services"
@@ -8295,80 +7308,56 @@
     },
     "catalog.minutes": {
         "message": "{n, number} min",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "catalog.plusBuffer": {
         "message": " · {n, number} min buffer",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "catalog.classSize": {
         "message": "up to {n, number}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "catalog.visits": {
         "message": "{n, plural, one {# visit} other {# visits}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "catalog.noExpiry": {
         "message": "no expiry"
     },
     "catalog.validMonths": {
         "message": "valid {n, number} months",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "catalog.validDays": {
         "message": "valid {n, number} days",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "catalog.every": {
         "message": "{freq, select, day {{interval, plural, one {every day} other {every # days}}} week {{interval, plural, one {every week} other {every # weeks}}} month {{interval, plural, one {every month} other {every # months}}} year {{interval, plural, one {every year} other {every # years}}} other {{interval, plural, one {every {freq}} other {every # {freq}s}}}}",
-        "args": [
-            "interval",
-            "freq"
-        ]
+        "args": ["interval", "freq"]
     },
     "catalog.perPeriod": {
         "message": "{money} / {freq}",
-        "args": [
-            "money",
-            "freq"
-        ]
+        "args": ["money", "freq"]
     },
     "catalog.anyAmount": {
         "message": "Any amount"
     },
     "catalog.depositMeta": {
         "message": "{label} deposit",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "catalog.skuLine": {
         "message": "SKU {sku}",
-        "args": [
-            "sku"
-        ]
+        "args": ["sku"]
     },
     "catalog.untracked": {
         "message": "Stock not tracked"
     },
     "catalog.newItem": {
         "message": "{kind, select, service {New service} product {New product} class {New class} package {New package} subscription {New membership} gift {New gift card} other {New {kind}}}",
-        "args": [
-            "kind"
-        ]
+        "args": ["kind"]
     },
     "catalog.save": {
         "message": "Save"
@@ -8477,29 +7466,18 @@
     },
     "catalog.depositSummary": {
         "message": "Clients pay {deposit} when they book. The other {rest} is due at the visit.",
-        "args": [
-            "deposit",
-            "rest"
-        ]
+        "args": ["deposit", "rest"]
     },
     "catalog.depositNoneSummary": {
         "message": "Clients pay at the visit. Without a deposit, no-shows cost you the slot."
     },
     "catalog.timelineCaption": {
         "message": "{before, plural, =0 {{after, plural, =0 {Blocks {total, number} min on the calendar.} other {Blocks {total, number} min: {main, number} min with the client, {after, number} min clean-up. No one else can book the buffers.}}} other {{after, plural, =0 {Blocks {total, number} min: {before, number} min setup, {main, number} min with the client. No one else can book the buffers.} other {Blocks {total, number} min: {before, number} min setup, {main, number} min with the client, {after, number} min clean-up. No one else can book the buffers.}}}}",
-        "args": [
-            "total",
-            "before",
-            "main",
-            "after"
-        ]
+        "args": ["total", "before", "main", "after"]
     },
     "catalog.mainSegment": {
         "message": "{name} · {minutes, number} min",
-        "args": [
-            "name",
-            "minutes"
-        ]
+        "args": ["name", "minutes"]
     },
     "catalog.taxClass": {
         "message": "Tax"
@@ -8509,9 +7487,7 @@
     },
     "catalog.taxOnly": {
         "message": "{codes} only",
-        "args": [
-            "codes"
-        ]
+        "args": ["codes"]
     },
     "catalog.taxFederalOnly": {
         "message": "GST or HST only"
@@ -8530,17 +7506,11 @@
     },
     "catalog.taxPreview": {
         "message": "{rates}: a client pays {money}",
-        "args": [
-            "rates",
-            "money"
-        ]
+        "args": ["rates", "money"]
     },
     "catalog.productsSummary": {
         "message": "{n, number} products · {value} on the shelf at cost",
-        "args": [
-            "n",
-            "value"
-        ]
+        "args": ["n", "value"]
     },
     "catalog.addProduct": {
         "message": "Add product"
@@ -8577,19 +7547,14 @@
     },
     "catalog.marginSummary": {
         "message": "{money} a sale · {pct, number, ::percent scale/0.01 .###}",
-        "args": [
-            "money",
-            "pct"
-        ]
+        "args": ["money", "pct"]
     },
     "catalog.marginUnknown": {
         "message": "Add your cost to see the margin"
     },
     "catalog.marginLow": {
         "message": "Below {threshold}: check the price",
-        "args": [
-            "threshold"
-        ]
+        "args": ["threshold"]
     },
     "catalog.trackStock": {
         "message": "Track stock"
@@ -8632,15 +7597,11 @@
     },
     "catalog.marginPct": {
         "message": "{pct, number, ::percent scale/0.01 .###}",
-        "args": [
-            "pct"
-        ]
+        "args": ["pct"]
     },
     "catalog.sold30": {
         "message": "{n, number} sold in 30 days",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "catalog.sortBy": {
         "message": "Sort by"
@@ -8659,15 +7620,11 @@
     },
     "catalog.stockLow": {
         "message": "Low: {n, number} left",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "catalog.stockIn": {
         "message": "{n, number} in stock",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "catalog.inventorySubtitle": {
         "message": "Products you track stock for."
@@ -8686,9 +7643,7 @@
     },
     "catalog.statRetail": {
         "message": "{money} at retail",
-        "args": [
-            "money"
-        ]
+        "args": ["money"]
     },
     "catalog.needsRestock": {
         "message": "Needs restocking"
@@ -8710,21 +7665,15 @@
     },
     "catalog.suggested": {
         "message": "Suggest ordering {n, number}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "catalog.daysLeft": {
         "message": "{n, plural, =0 {Sold out} one {About a day left} other {About # days left}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "catalog.restockTitle": {
         "message": "Restock {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "catalog.restockQuantity": {
         "message": "Units received"
@@ -8740,9 +7689,7 @@
     },
     "catalog.restockAfter": {
         "message": "{n, number} on hand after this",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "catalog.restockSave": {
         "message": "Add to stock"
@@ -8752,17 +7699,11 @@
     },
     "catalog.restockDone": {
         "message": "Added {n, number} to {name}.",
-        "args": [
-            "n",
-            "name"
-        ]
+        "args": ["n", "name"]
     },
     "catalog.restockCorrected": {
         "message": "Corrected {name} by {n, number}.",
-        "args": [
-            "n",
-            "name"
-        ]
+        "args": ["n", "name"]
     },
     "catalog.restockInvalid": {
         "message": "Enter a whole number other than zero"
@@ -8793,28 +7734,19 @@
     },
     "catalog.moveQtyIn": {
         "message": "+{n, number}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "catalog.moveQtyOut": {
         "message": "−{n, number}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "catalog.moveLabel": {
         "message": "{name} {qty}",
-        "args": [
-            "name",
-            "qty"
-        ]
+        "args": ["name", "qty"]
     },
     "catalog.by": {
         "message": "by {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "catalog.recentMoves": {
         "message": "Recent stock changes"
@@ -8866,56 +7798,38 @@
     },
     "catalog.onHandShort": {
         "message": "{n, number} on hand",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "catalog.onHandAfter": {
         "message": "On hand {from, number} → {to, number}",
-        "args": [
-            "from",
-            "to"
-        ]
+        "args": ["from", "to"]
     },
     "catalog.unitCostHint": {
         "message": "Changed costs update the product."
     },
     "catalog.deliveryTotal": {
         "message": "{units, number} units · {money}",
-        "args": [
-            "units",
-            "money"
-        ]
+        "args": ["units", "money"]
     },
     "catalog.removeLine": {
         "message": "Remove {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "catalog.receivedFor": {
         "message": "Received {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "catalog.unitCostFor": {
         "message": "Unit cost for {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "catalog.receiveSave": {
         "message": "{n, plural, one {Receive # product} other {Receive # products}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "catalog.received": {
         "message": "{n, plural, one {Stock updated for # product.} other {Stock updated for # products.}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "catalog.receiveError": {
         "message": "Couldn’t save this delivery. Please try again."
@@ -8970,43 +7884,29 @@
     },
     "catalog.perVisit": {
         "message": "{money} a visit",
-        "args": [
-            "money"
-        ]
+        "args": ["money"]
     },
     "catalog.saves": {
         "message": "Saves {money} against {n, number} × {name}",
-        "args": [
-            "money",
-            "n",
-            "name"
-        ]
+        "args": ["money", "n", "name"]
     },
     "catalog.noSaving": {
         "message": "No saving against paying each visit"
     },
     "catalog.perYear": {
         "message": "{money} a year",
-        "args": [
-            "money"
-        ]
+        "args": ["money"]
     },
     "catalog.planSummaryPackage": {
         "message": "{n, number} × {name}",
-        "args": [
-            "n",
-            "name"
-        ]
+        "args": ["n", "name"]
     },
     "catalog.planSummaryIncomplete": {
         "message": "Choose the service and how many visits it includes"
     },
     "catalog.planSummaryMembership": {
         "message": "{money} every {freq}",
-        "args": [
-            "money",
-            "freq"
-        ]
+        "args": ["money", "freq"]
     },
     "catalog.sellsAt": {
         "message": "Sells from Sales, with its own checkout."
@@ -9124,9 +8024,7 @@
     },
     "refunds.feeKept": {
         "message": "The {fee} processing fee isn't returned on refunds.",
-        "args": [
-            "fee"
-        ]
+        "args": ["fee"]
     },
     "refunds.byHandNote": {
         "message": "This payment must be returned outside Clientbridge. Give the money back yourself; the refund records it."
@@ -9139,9 +8037,7 @@
     },
     "refunds.full": {
         "message": "All of it ({amount})",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "refunds.part": {
         "message": "Part"
@@ -9151,9 +8047,7 @@
     },
     "refunds.amountPlaceholder": {
         "message": "Up to {max}",
-        "args": [
-            "max"
-        ]
+        "args": ["max"]
     },
     "refunds.reason": {
         "message": "Reason"
@@ -9199,52 +8093,37 @@
     },
     "refunds.part_tax": {
         "message": "{code}",
-        "args": [
-            "code"
-        ]
+        "args": ["code"]
     },
     "refunds.backTo": {
         "message": "Back to {method}",
-        "args": [
-            "method"
-        ]
+        "args": ["method"]
     },
     "refunds.refundButton": {
         "message": "Refund {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "refunds.refunding": {
         "message": "Refunding…"
     },
     "refunds.refundedDone": {
         "message": "Refunded {amount}. {note} is on the client's account.",
-        "args": [
-            "amount",
-            "note"
-        ]
+        "args": ["amount", "note"]
     },
     "refunds.errAmount": {
         "message": "Enter an amount up to {max}.",
-        "args": [
-            "max"
-        ]
+        "args": ["max"]
     },
     "refunds.refundError": {
         "message": "The refund didn't go through. Nothing changed; please try again."
     },
     "refunds.confirmTitle": {
         "message": "Refund {amount}?",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "refunds.confirmBody": {
         "message": "This issues credit note {note} and can't be undone.",
-        "args": [
-            "note"
-        ]
+        "args": ["note"]
     },
     "refunds.wholeOnly": {
         "message": "Gift card and package purchases are refunded in full only."
@@ -9257,9 +8136,7 @@
     },
     "refunds.refundEvent": {
         "message": "Refunded · {note}",
-        "args": [
-            "note"
-        ]
+        "args": ["note"]
     },
     "refunds.method.card": {
         "message": "Card"
@@ -9281,21 +8158,15 @@
     },
     "refunds.subject.invoice": {
         "message": "Invoice #{n, number, ::group-off}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "refunds.subject.sale": {
         "message": "Sale S-{n, number, ::group-off}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "refunds.subject.giftCard": {
         "message": "Gift card {code}",
-        "args": [
-            "code"
-        ]
+        "args": ["code"]
     },
     "refunds.subject.deposit": {
         "message": "Booking deposit"
@@ -9305,10 +8176,7 @@
     },
     "refunds.notesSummary": {
         "message": "{n, number} credit notes · {amount} refunded this month",
-        "args": [
-            "n",
-            "amount"
-        ]
+        "args": ["n", "amount"]
     },
     "refunds.noNotes": {
         "message": "No refunds yet. Credit notes appear here after a refund."
@@ -9336,9 +8204,7 @@
     },
     "refunds.disputesSummary": {
         "message": "{open, number} open",
-        "args": [
-            "open"
-        ]
+        "args": ["open"]
     },
     "refunds.noDisputes": {
         "message": "No disputes. When a client disputes a card charge it shows here with the bank's deadline."
@@ -9363,16 +8229,11 @@
     },
     "refunds.disputeTitle": {
         "message": "Dispute · {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "refunds.respondBy": {
         "message": "Respond by {when} · {days, plural, one {# day left} other {# days left}}",
-        "args": [
-            "when",
-            "days"
-        ]
+        "args": ["when", "days"]
     },
     "refunds.reviewNote": {
         "message": "Evidence is with the card issuer."
@@ -9448,9 +8309,7 @@
     },
     "taxes.regSmall": {
         "message": "Not yet, I earn under {threshold} a year",
-        "args": [
-            "threshold"
-        ]
+        "args": ["threshold"]
     },
     "taxes.regSmallHint": {
         "message": "Small suppliers don't have to register. No tax is added until you add your number."
@@ -9508,16 +8367,11 @@
     },
     "taxes.filingDue": {
         "message": "Due {date}",
-        "args": [
-            "date"
-        ]
+        "args": ["date"]
     },
     "taxes.filingPeriod": {
         "message": "{from} to {to}",
-        "args": [
-            "from",
-            "to"
-        ]
+        "args": ["from", "to"]
     },
     "taxes.filingCollected": {
         "message": "Collected so far"
@@ -9545,9 +8399,7 @@
     },
     "taxes.classFor": {
         "message": "Tax for {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "taxes.anyAmount": {
         "message": "Any amount"
@@ -9557,15 +8409,11 @@
     },
     "taxes.selectItem": {
         "message": "Select {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "taxes.selected": {
         "message": "{n, number} selected",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "taxes.setTo": {
         "message": "Set to"
@@ -9596,9 +8444,7 @@
     },
     "taxes.only": {
         "message": "{name} only",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "taxes.names.GST": {
         "message": "GST",
@@ -9619,18 +8465,12 @@
     },
     "taxes.rate": {
         "message": "{name} {rate}",
-        "args": [
-            "name",
-            "rate"
-        ],
+        "args": ["name", "rate"],
         "description": "A tax and its rate, such as GST 5%."
     },
     "taxes.plus": {
         "message": "{first} + {second}",
-        "args": [
-            "first",
-            "second"
-        ],
+        "args": ["first", "second"],
         "description": "Two taxes charged together, such as GST + PST."
     },
     "taxes.exampleFor.federal_only": {
@@ -9641,9 +8481,7 @@
     },
     "taxes.exampleTitle": {
         "message": "On a {amount} sale",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "taxes.total": {
         "message": "Total"
@@ -9680,10 +8518,7 @@
     },
     "payments.savedCardLabel": {
         "message": "{noun} ···· {last4}",
-        "args": [
-            "noun",
-            "last4"
-        ]
+        "args": ["noun", "last4"]
     },
     "terminal.failed": {
         "message": "Tap to Pay needs attention"
@@ -9867,9 +8702,7 @@
     },
     "gettingPaid.pausedBody": {
         "message": "You can still take card payments, but your payouts are on hold until you send what's listed below. Send it by {date} to keep card payments on.",
-        "args": [
-            "date"
-        ]
+        "args": ["date"]
     },
     "gettingPaid.pausedBodyNoDate": {
         "message": "You can still take card payments, but your payouts are on hold until you send what's listed below."
@@ -9924,9 +8757,7 @@
     },
     "gettingPaid.due": {
         "message": "Due {date}",
-        "args": [
-            "date"
-        ]
+        "args": ["date"]
     },
     "gettingPaid.dueSoon": {
         "message": "Due"
@@ -9975,10 +8806,7 @@
     },
     "today.greetingNamed": {
         "message": "{part}, {name}",
-        "args": [
-            "part",
-            "name"
-        ]
+        "args": ["part", "name"]
     },
     "today.newBooking": {
         "message": "New booking"
@@ -9991,10 +8819,7 @@
     },
     "today.bookedHint": {
         "message": "{done, number} done, {left, number} to go",
-        "args": [
-            "done",
-            "left"
-        ]
+        "args": ["done", "left"]
     },
     "today.expected": {
         "message": "Still to come"
@@ -10013,40 +8838,29 @@
     },
     "today.collectedHint": {
         "message": "{n, plural, one {# payment, after refunds} other {# payments, after refunds}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "today.awaiting": {
         "message": "Awaiting payment"
     },
     "today.awaitingHint": {
         "message": "{n, plural, one {# open invoice} other {# open invoices}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "today.setAside": {
         "message": "Sales tax set aside"
     },
     "today.filing": {
         "message": "{days, plural, =0 {Return due today, {due}} other {Return due {due}, in # days}}",
-        "args": [
-            "due",
-            "days"
-        ]
+        "args": ["due", "days"]
     },
     "today.filingLate": {
         "message": "Return was due {due}",
-        "args": [
-            "due"
-        ]
+        "args": ["due"]
     },
     "today.filingShort": {
         "message": "Due {due}",
-        "args": [
-            "due"
-        ]
+        "args": ["due"]
     },
     "today.notRegistered": {
         "message": "Not registered for GST/HST, so nothing is set aside."
@@ -10071,9 +8885,7 @@
     },
     "today.teamCount": {
         "message": "{n, plural, one {# booking} other {# bookings}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "today.quietTitle": {
         "message": "A quiet day"
@@ -10107,16 +8919,11 @@
     },
     "today.classBooked": {
         "message": "{n, number} of {cap, number} booked",
-        "args": [
-            "n",
-            "cap"
-        ]
+        "args": ["n", "cap"]
     },
     "today.nowLine": {
         "message": "Now {time}",
-        "args": [
-            "time"
-        ]
+        "args": ["time"]
     },
     "today.checkIn": {
         "message": "Check in"
@@ -10129,22 +8936,15 @@
     },
     "today.inMinutes": {
         "message": "{hours, plural, =0 {in {minutes, number} min} other {{minutes, plural, =0 {in {hours, number} h} other {in {hours, number} h {minutes, number} min}}}}",
-        "args": [
-            "hours",
-            "minutes"
-        ]
+        "args": ["hours", "minutes"]
     },
     "today.endsAt": {
         "message": "until {time}",
-        "args": [
-            "time"
-        ]
+        "args": ["time"]
     },
     "today.withStaff": {
         "message": "with {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "today.upNext": {
         "message": "Up next"
@@ -10154,10 +8954,7 @@
     },
     "today.hoursValue": {
         "message": "{from} to {to}",
-        "args": [
-            "from",
-            "to"
-        ]
+        "args": ["from", "to"]
     },
     "today.loading": {
         "message": "Loading today"
@@ -10185,82 +8982,55 @@
     },
     "today.attention.depositDetail": {
         "message": "{client}, {amount} for {time} today",
-        "args": [
-            "client",
-            "amount",
-            "time"
-        ]
+        "args": ["client", "amount", "time"]
     },
     "today.attention.depositAction": {
         "message": "View"
     },
     "today.attention.overdueTitle": {
         "message": "Invoice #{n, number, ::group-off} overdue",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "today.attention.overdueDetail": {
         "message": "{days, plural, =0 {{client}, {amount}, due today} one {{client}, {amount}, # day late} other {{client}, {amount}, # days late}}",
-        "args": [
-            "client",
-            "amount",
-            "days"
-        ]
+        "args": ["client", "amount", "days"]
     },
     "today.attention.overdueAction": {
         "message": "Remind"
     },
     "today.attention.unreadTitle": {
         "message": "{n, plural, one {# unread message} other {# unread messages}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "today.attention.unreadDetail": {
         "message": "From {names}",
-        "args": [
-            "names"
-        ]
+        "args": ["names"]
     },
     "today.attention.unreadAction": {
         "message": "Open"
     },
     "today.attention.reviewTitle": {
         "message": "{stars, number}-star review to answer",
-        "args": [
-            "stars"
-        ]
+        "args": ["stars"]
     },
     "today.attention.reviewAction": {
         "message": "Reply"
     },
     "today.attention.stockTitle": {
         "message": "{item} is low",
-        "args": [
-            "item"
-        ]
+        "args": ["item"]
     },
     "today.attention.stockDetail": {
         "message": "{left, number} left, you reorder at {at, number}",
-        "args": [
-            "left",
-            "at"
-        ]
+        "args": ["left", "at"]
     },
     "today.attention.stockManyTitle": {
         "message": "{n, number} products running low",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "today.attention.stockManyDetail": {
         "message": "{more, plural, =0 {{a} and {b}} other {{a}, {b} and # more}}",
-        "args": [
-            "a",
-            "b",
-            "more"
-        ]
+        "args": ["a", "b", "more"]
     },
     "today.attention.stockAction": {
         "message": "Restock"
@@ -10270,10 +9040,7 @@
     },
     "today.attention.filingDetail": {
         "message": "{amount} to file by {due}",
-        "args": [
-            "amount",
-            "due"
-        ]
+        "args": ["amount", "due"]
     },
     "today.attention.filingAction": {
         "message": "Prepare"
@@ -10283,10 +9050,7 @@
     },
     "today.attention.earningsDetail": {
         "message": "{n, plural, one {# earning, {amount}} other {# earnings, {amount}}}",
-        "args": [
-            "n",
-            "amount"
-        ]
+        "args": ["n", "amount"]
     },
     "today.attention.earningsAction": {
         "message": "Review"
@@ -10296,19 +9060,14 @@
     },
     "today.attention.draftDetail": {
         "message": "{amount} for {client}",
-        "args": [
-            "client",
-            "amount"
-        ]
+        "args": ["client", "amount"]
     },
     "today.attention.draftAction": {
         "message": "Review"
     },
     "today.staff.subtitle": {
         "message": "{n, plural, =0 {No bookings for you today.} one {You have # booking today.} other {You have # bookings today.}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "today.staff.nextClient": {
         "message": "Your next client"
@@ -10336,22 +9095,15 @@
     },
     "today.staff.lastVisit": {
         "message": "Last visit {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "today.staff.free": {
         "message": "Free from {from} to {to}",
-        "args": [
-            "from",
-            "to"
-        ]
+        "args": ["from", "to"]
     },
     "today.staff.dayEnds": {
         "message": "Your day ends at {time}",
-        "args": [
-            "time"
-        ]
+        "args": ["time"]
     },
     "today.staff.message": {
         "message": "Message"
@@ -10394,10 +9146,7 @@
     },
     "reports.range": {
         "message": "{from} to {to}",
-        "args": [
-            "from",
-            "to"
-        ]
+        "args": ["from", "to"]
     },
     "reports.library.income": {
         "message": "Income"
@@ -10437,9 +9186,7 @@
     },
     "reports.pstTitle": {
         "message": "{code} collected",
-        "args": [
-            "code"
-        ]
+        "args": ["code"]
     },
     "reports.noProvincial": {
         "message": "Your province has no separate sales tax, so there is nothing to file here."
@@ -10458,9 +9205,7 @@
     },
     "reports.taxCollected": {
         "message": "{code} collected",
-        "args": [
-            "code"
-        ]
+        "args": ["code"]
     },
     "reports.salesWithTax": {
         "message": "Sales with tax"
@@ -10470,9 +9215,7 @@
     },
     "reports.received": {
         "message": "Received {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "reports.byMethod": {
         "message": "How clients paid"
@@ -10500,9 +9243,7 @@
     },
     "reports.share": {
         "message": "{fraction, number, ::percent .0}",
-        "args": [
-            "fraction"
-        ]
+        "args": ["fraction"]
     },
     "reports.kind.service": {
         "message": "Service"
@@ -10560,9 +9301,7 @@
     },
     "reports.soFarAmount": {
         "message": "{amount} so far",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "reports.monthlyNet": {
         "message": "Net sales by month"
@@ -10596,51 +9335,37 @@
     },
     "reports.qtyValue": {
         "message": "Qty {qty}",
-        "args": [
-            "qty"
-        ]
+        "args": ["qty"]
     },
     "reports.refundedValue": {
         "message": "Refunded {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "reports.paymentsValue": {
         "message": "Payments {n, number}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "reports.colPaid": {
         "message": "Paid"
     },
     "reports.qty": {
         "message": "{n, number, ::.00/w}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "reports.sold": {
         "message": "{n, number, ::.00/w} sold",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "reports.taxableSales": {
         "message": "Taxable sales (line 101)"
     },
     "reports.gstLine105": {
         "message": "{code} collected (line 105)",
-        "args": [
-            "code"
-        ]
+        "args": ["code"]
     },
     "reports.gstNumber": {
         "message": "GST/HST {n}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "reports.noGstNumber": {
         "message": "No GST/HST number on file"
@@ -10650,19 +9375,14 @@
     },
     "reports.provincialNumber": {
         "message": "{code} {n}",
-        "args": [
-            "code",
-            "n"
-        ]
+        "args": ["code", "n"]
     },
     "reports.provincialFiled": {
         "message": "Filed with the province"
     },
     "reports.t4aYear": {
         "message": "Calendar year {y, number, ::group-off}",
-        "args": [
-            "y"
-        ]
+        "args": ["y"]
     },
     "reports.t4aNote": {
         "message": "Amounts paid to staff and contractors. Slips are due to payees and the CRA by the last day of February."
@@ -10687,9 +9407,7 @@
     },
     "reports.downloaded": {
         "message": "{file} is ready in your downloads.",
-        "args": [
-            "file"
-        ]
+        "args": ["file"]
     },
     "reports.downloadFailed": {
         "message": "Couldn't prepare the file. Please try again."
@@ -10720,9 +9438,7 @@
     },
     "reports.packRows": {
         "message": "{n, plural, one {# row} other {# rows}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "reports.packDownload": {
         "message": "Download ZIP"
@@ -10744,16 +9460,11 @@
     },
     "remittances.subtitle": {
         "message": "{federal} goes to the CRA for each period you file.",
-        "args": [
-            "federal"
-        ]
+        "args": ["federal"]
     },
     "remittances.subtitleWithProvince": {
         "message": "{federal} goes to the CRA and {provincial} to the province, each period you file.",
-        "args": [
-            "federal",
-            "provincial"
-        ]
+        "args": ["federal", "provincial"]
     },
     "remittances.owed": {
         "message": "Owed to the CRA"
@@ -10766,26 +9477,18 @@
     },
     "remittances.provincialOwed": {
         "message": "{code} owed",
-        "args": [
-            "code"
-        ]
+        "args": ["code"]
     },
     "remittances.provincialOwedHint": {
         "message": "Filed separately with the province"
     },
     "remittances.quarter": {
         "message": "Q{q, number, ::group-off} {y, number, ::group-off}",
-        "args": [
-            "q",
-            "y"
-        ]
+        "args": ["q", "y"]
     },
     "remittances.span": {
         "message": "{from} to {to}",
-        "args": [
-            "from",
-            "to"
-        ]
+        "args": ["from", "to"]
     },
     "remittances.status.filed": {
         "message": "Filed"
@@ -10798,28 +9501,19 @@
     },
     "remittances.dueOn": {
         "message": "Due {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "remittances.overdue": {
         "message": "Was due {when}; file it as soon as you can",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "remittances.dueIn": {
         "message": "{days, plural, =0 {Due {when}, today} one {Due {when}, in # day} other {Due {when}, in # days}}",
-        "args": [
-            "days",
-            "when"
-        ]
+        "args": ["days", "when"]
     },
     "remittances.filedOn": {
         "message": "Filed {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "remittances.filed": {
         "message": "Filed"
@@ -10832,9 +9526,7 @@
     },
     "remittances.reminder": {
         "message": "We'll remind you on {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "remittances.history": {
         "message": "Filed returns"
@@ -10844,24 +9536,18 @@
     },
     "remittances.notRegistered": {
         "message": "You don't collect sales tax yet, so there is nothing to file. Turn on tax registration in Setup once you pass {threshold} in a year.",
-        "args": [
-            "threshold"
-        ]
+        "args": ["threshold"]
     },
     "remittances.recordTitle": {
         "message": "Record the filed return: {period}",
-        "args": [
-            "period"
-        ]
+        "args": ["period"]
     },
     "remittances.whichReturn": {
         "message": "Return"
     },
     "remittances.familyFor": {
         "message": "{code} return",
-        "args": [
-            "code"
-        ]
+        "args": ["code"]
     },
     "remittances.worksheet": {
         "message": "GST/HST return worksheet"
@@ -10871,9 +9557,7 @@
     },
     "remittances.provincialWorksheet": {
         "message": "{code} return",
-        "args": [
-            "code"
-        ]
+        "args": ["code"]
     },
     "remittances.provincialWorksheetHint": {
         "message": "File it with the province for the same period."
@@ -10883,9 +9567,7 @@
     },
     "remittances.collected": {
         "message": "{code} collected (line 105)",
-        "args": [
-            "code"
-        ]
+        "args": ["code"]
     },
     "remittances.itcLine": {
         "message": "Input tax credits (line 108)"
@@ -10898,9 +9580,7 @@
     },
     "remittances.provincialCollected": {
         "message": "{code} collected",
-        "args": [
-            "code"
-        ]
+        "args": ["code"]
     },
     "remittances.itcField": {
         "message": "Input tax credits"
@@ -10931,10 +9611,7 @@
     },
     "remittances.recorded": {
         "message": "{which} for {period} recorded as filed.",
-        "args": [
-            "period",
-            "which"
-        ]
+        "args": ["period", "which"]
     },
     "remittances.nothingToFile": {
         "message": "Both returns for this period are filed."
@@ -11004,15 +9681,11 @@
     },
     "payouts.arrived": {
         "message": "Arrived {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "payouts.returned": {
         "message": "Returned {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "payouts.payoutRef": {
         "message": "Payout reference"
@@ -11043,9 +9716,7 @@
     },
     "payouts.refunded": {
         "message": "refunded {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "payouts.feePending": {
         "message": "Fee pending"
@@ -11055,15 +9726,11 @@
     },
     "payouts.invoiceCharge": {
         "message": "Invoice #{n, number, ::group-off}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "payouts.saleCharge": {
         "message": "Sale S-{n, number, ::group-off}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "payouts.depositCharge": {
         "message": "Booking deposit"
@@ -11193,9 +9860,7 @@
     },
     "auth.resetCodeBody": {
         "message": "If an account exists for {email}, we sent a code. It works for 15 minutes.",
-        "args": [
-            "email"
-        ]
+        "args": ["email"]
     },
     "auth.resetPasswordTitle": {
         "message": "Choose a new password"
@@ -11226,9 +9891,7 @@
     },
     "auth.resendIn": {
         "message": "Send again in {s, number}s",
-        "args": [
-            "s"
-        ]
+        "args": ["s"]
     },
     "auth.backToSignIn": {
         "message": "Back to sign in"
@@ -11244,9 +9907,7 @@
     },
     "auth.verifyBody": {
         "message": "We sent a code to {email}.",
-        "args": [
-            "email"
-        ]
+        "args": ["email"]
     },
     "auth.verifyBodyAnyEmail": {
         "message": "We sent a code to your email."
@@ -11372,9 +10033,7 @@
     },
     "auth.securityTotpSecret": {
         "message": "Or enter this key: {secret}",
-        "args": [
-            "secret"
-        ]
+        "args": ["secret"]
     },
     "auth.securityTotpQr": {
         "message": "Authenticator app QR code"
@@ -11417,9 +10076,7 @@
     },
     "auth.securityRemoveKey": {
         "message": "Remove {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "auth.securityKey": {
         "message": "Security key"
@@ -11507,21 +10164,15 @@
     },
     "publicReceipt.title": {
         "message": "Receipt from {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "publicReceipt.sale": {
         "message": "Sale {n}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "publicReceipt.servedBy": {
         "message": "Served by {names}",
-        "args": [
-            "names"
-        ]
+        "args": ["names"]
     },
     "publicReceipt.discount": {
         "message": "Discount"
@@ -11561,15 +10212,11 @@
     },
     "publicReceipt.gst": {
         "message": "GST/HST {n}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "publicReceipt.qst": {
         "message": "QST {n}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "publicReceipt.print": {
         "message": "Print or save as PDF"
@@ -11588,9 +10235,7 @@
     },
     "publicPay.tipTitle": {
         "message": "Add a tip for {name}?",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "publicPay.tipTeam": {
         "message": "the team"
@@ -11618,15 +10263,11 @@
     },
     "publicPay.tipBase": {
         "message": "Tip is worked out on {money}, before tax.",
-        "args": [
-            "money"
-        ]
+        "args": ["money"]
     },
     "publicPay.payWithTip": {
         "message": "Pay {money} by card",
-        "args": [
-            "money"
-        ]
+        "args": ["money"]
     },
     "publicPay.notFoundTitle": {
         "message": "Invoice not found"
@@ -11645,15 +10286,11 @@
     },
     "publicPay.invoiceNumber": {
         "message": "Invoice #{n, number, ::group-off}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "publicPay.dueOn": {
         "message": "Due {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "publicPay.balanceDue": {
         "message": "Balance due"
@@ -11675,9 +10312,7 @@
     },
     "publicPay.offlineBody": {
         "message": "Contact {businessName} to arrange how to pay the balance.",
-        "args": [
-            "businessName"
-        ]
+        "args": ["businessName"]
     },
     "publicPay.payByCard": {
         "message": "Pay by card"
@@ -11687,19 +10322,14 @@
     },
     "publicPay.paidBody": {
         "message": "Your payment to {businessName} is complete. A receipt will follow from the business.",
-        "args": [
-            "businessName"
-        ]
+        "args": ["businessName"]
     },
     "publicPay.cardStartError": {
         "message": "We couldn't start the card payment. Please try again."
     },
     "publicPay.credit": {
         "message": "{method}, {when}",
-        "args": [
-            "method",
-            "when"
-        ]
+        "args": ["method", "when"]
     },
     "publicPay.depositCredit": {
         "message": "Deposit you paid when booking"
@@ -11742,24 +10372,18 @@
     },
     "publicEstimate.estimateNumber": {
         "message": "Estimate #{n, number, ::group-off}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "publicEstimate.preparedFor": {
         "message": "Prepared for {client}",
-        "args": [
-            "client"
-        ]
+        "args": ["client"]
     },
     "publicEstimate.estimateTotal": {
         "message": "Estimate total"
     },
     "publicEstimate.validUntil": {
         "message": "Valid until {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "publicEstimate.lines": {
         "message": "What's included"
@@ -11778,9 +10402,7 @@
     },
     "publicEstimate.acceptFor": {
         "message": "Accept for {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "publicEstimate.accepting": {
         "message": "Accepting…"
@@ -11805,36 +10427,28 @@
     },
     "publicEstimate.acceptNote": {
         "message": "Accepting tells {biz} to go ahead. Nothing is charged now; you'll get an invoice.",
-        "args": [
-            "biz"
-        ]
+        "args": ["biz"]
     },
     "publicEstimate.acceptedTitle": {
         "message": "Estimate accepted"
     },
     "publicEstimate.acceptedBody": {
         "message": "Thanks. {biz} has been told and will be in touch.",
-        "args": [
-            "biz"
-        ]
+        "args": ["biz"]
     },
     "publicEstimate.declinedTitle": {
         "message": "Estimate declined"
     },
     "publicEstimate.declinedBody": {
         "message": "Thanks for letting {biz} know.",
-        "args": [
-            "biz"
-        ]
+        "args": ["biz"]
     },
     "publicEstimate.expiredTitle": {
         "message": "This estimate has expired"
     },
     "publicEstimate.expiredBody": {
         "message": "Ask {biz} for an updated one.",
-        "args": [
-            "biz"
-        ]
+        "args": ["biz"]
     },
     "publicEstimate.downloadPdf": {
         "message": "Download PDF"
@@ -11877,9 +10491,7 @@
     },
     "publicReturning.welcome": {
         "message": "Welcome back, {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "publicReturning.usual": {
         "message": "Book the usual"
@@ -11904,9 +10516,7 @@
     },
     "publicBooking.guided.welcome": {
         "message": "Book at {business}",
-        "args": [
-            "business"
-        ]
+        "args": ["business"]
     },
     "publicBooking.guided.intro": {
         "message": "Choose a service and a time. You'll review everything before confirming."
@@ -11958,10 +10568,7 @@
     },
     "publicBooking.stepOf": {
         "message": "Step {i, number} of {n, number}",
-        "args": [
-            "i",
-            "n"
-        ]
+        "args": ["i", "n"]
     },
     "publicBooking.chooseService": {
         "message": "Choose a service"
@@ -12004,24 +10611,18 @@
     },
     "publicBooking.noTimes": {
         "message": "{day, select, today {No open times today.} tomorrow {No open times tomorrow.} other {No open times on {day}.}}",
-        "args": [
-            "day"
-        ]
+        "args": ["day"]
     },
     "publicBooking.nextOpen": {
         "message": "Next opening {day}",
-        "args": [
-            "day"
-        ]
+        "args": ["day"]
     },
     "publicBooking.noTimesWeek": {
         "message": "Nothing is open this week. Try later dates or call the studio."
     },
     "publicBooking.closedDay": {
         "message": "Closed for {reason}.",
-        "args": [
-            "reason"
-        ]
+        "args": ["reason"]
     },
     "publicBooking.slotsError": {
         "message": "We couldn't load open times. Try another day."
@@ -12031,21 +10632,15 @@
     },
     "publicBooking.withName": {
         "message": "with {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "publicBooking.deposit": {
         "message": "{amount} deposit",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "publicBooking.addNamed": {
         "message": "Add {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "publicBooking.soldOut": {
         "message": "Sold out"
@@ -12130,9 +10725,7 @@
     },
     "publicBooking.confirmAndPay": {
         "message": "Continue to {amount} deposit",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "publicBooking.booking": {
         "message": "Booking…"
@@ -12151,23 +10744,15 @@
     },
     "publicBooking.payBody": {
         "message": "Pay the {amount} deposit to confirm. It comes off your bill at the visit.",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "publicBooking.payPolicy": {
         "message": "Free to cancel up to {cancel, number} hours before and to move up to {move, number} hours before.{kept, select, true { A later cancellation keeps the deposit.} other {}}",
-        "args": [
-            "cancel",
-            "move",
-            "kept"
-        ]
+        "args": ["cancel", "move", "kept"]
     },
     "publicBooking.pay": {
         "message": "Pay {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "publicBooking.paying": {
         "message": "Paying…"
@@ -12186,41 +10771,29 @@
     },
     "publicBooking.pendingBody": {
         "message": "The studio confirms new clients first. You'll hear back about {when}.",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "publicBooking.doneBody": {
         "message": "{pet} is booked for {when}. A confirmation is on its way.",
-        "args": [
-            "pet",
-            "when"
-        ]
+        "args": ["pet", "when"]
     },
     "publicBooking.doneNoPet": {
         "message": "You're booked for {when}. A confirmation is on its way.",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "publicBooking.addToCalendar": {
         "message": "Add to calendar"
     },
     "publicBooking.calendarTitle": {
         "message": "{service} at {business}",
-        "args": [
-            "service",
-            "business"
-        ]
+        "args": ["service", "business"]
     },
     "publicBooking.manage": {
         "message": "Change or cancel"
     },
     "publicBooking.depositPaid": {
         "message": "{amount} deposit paid",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "publicBooking.bookAnother": {
         "message": "Book another visit"
@@ -12239,23 +10812,15 @@
     },
     "publicBooking.minutes": {
         "message": "{n, number} min",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "publicBooking.hoursMinutes": {
         "message": "{m, plural, =0 {{h, number} h} other {{h, number} h # min}}",
-        "args": [
-            "h",
-            "m"
-        ]
+        "args": ["h", "m"]
     },
     "publicBooking.reviews": {
         "message": "{rating} · {n, plural, one {# review} other {# reviews}}",
-        "args": [
-            "rating",
-            "n"
-        ]
+        "args": ["rating", "n"]
     },
     "publicBooking.today": {
         "message": "today"
@@ -12265,19 +10830,14 @@
     },
     "publicBooking.at": {
         "message": "{day} at {time}",
-        "args": [
-            "day",
-            "time"
-        ]
+        "args": ["day", "time"]
     },
     "publicBooking.nothingBookable": {
         "message": "Nothing can be booked online right now. Call the studio to book."
     },
     "publicBooking.timesIn": {
         "message": "Times are in {zone}",
-        "args": [
-            "zone"
-        ],
+        "args": ["zone"],
         "description": "Shown when the visitor's device is in another time zone; the zone is a name such as Pacific Time."
     },
     "publicOrder.pickup": {
@@ -12399,9 +10959,7 @@
     },
     "publicShop.pickupWindowAt": {
         "message": "Pickup time: {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "publicShop.pickupAsap": {
         "message": "When my order is ready"
@@ -12411,9 +10969,7 @@
     },
     "publicShop.pickupHold": {
         "message": "We hold your order for {days, number} days after it's ready.",
-        "args": [
-            "days"
-        ]
+        "args": ["days"]
     },
     "publicShop.search": {
         "message": "Search products"
@@ -12447,9 +11003,7 @@
     },
     "publicShop.lowStock": {
         "message": "Only {n, number} left",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "publicShop.cart": {
         "message": "Your order"
@@ -12459,9 +11013,7 @@
     },
     "publicShop.items": {
         "message": "{n, plural, one {# item} other {# items}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "publicShop.subtotal": {
         "message": "Subtotal"
@@ -12498,15 +11050,11 @@
     },
     "publicShop.payBody": {
         "message": "{total}, tax included. Paid now, picked up later.",
-        "args": [
-            "total"
-        ]
+        "args": ["total"]
     },
     "publicShop.pay": {
         "message": "Pay {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "publicShop.paying": {
         "message": "Paying…"
@@ -12516,9 +11064,7 @@
     },
     "publicShop.doneBody": {
         "message": "Order {number} is with the studio. We'll let you know as soon as it's ready to pick up.",
-        "args": [
-            "number"
-        ]
+        "args": ["number"]
     },
     "publicShop.whatNext": {
         "message": "What happens next"
@@ -12555,9 +11101,7 @@
     },
     "publicShop.addNamed": {
         "message": "Add {name} to your order",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "publicShop.estimatedTotal": {
         "message": "Estimated total"
@@ -12579,10 +11123,7 @@
     },
     "publicShop.orderUpdated": {
         "message": "Your order: {items}, {total}",
-        "args": [
-            "items",
-            "total"
-        ]
+        "args": ["items", "total"]
     },
     "publicShop.notTakingPayments": {
         "message": "This shop isn't taking online payments right now."
@@ -12637,9 +11178,7 @@
     },
     "onlineBooking.embedTitle": {
         "message": "Book with {business}",
-        "args": [
-            "business"
-        ]
+        "args": ["business"]
     },
     "onlineBooking.embedHint": {
         "message": "Paste this where the booking page should appear. It resizes to fit."
@@ -12658,9 +11197,7 @@
     },
     "onlineBooking.deposit": {
         "message": "{amount} deposit",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "onlineBooking.noDeposit": {
         "message": "No deposit"
@@ -12772,9 +11309,7 @@
     },
     "onlineBooking.previewMore": {
         "message": "{n, plural, one {and # more service} other {and # more services}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "onlineBooking.stats": {
         "message": "Last 30 days"
@@ -12787,9 +11322,7 @@
     },
     "onlineBooking.minutes": {
         "message": "{n, number} min",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "onlineBooking.loading": {
         "message": "Loading online booking"
@@ -12823,9 +11356,7 @@
     },
     "onlineBooking.policy.hoursBefore": {
         "message": "{n, number} hours before",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "onlineBooking.policy.maxMoves": {
         "message": "Moves per booking"
@@ -12844,11 +11375,7 @@
     },
     "onlineBooking.policy.clientText": {
         "message": "You can cancel up to {cancel} and move your visit up to {move}, from the link in your confirmation. {keepLate, select, true {After that, the deposit is kept.} other {Deposits are always refunded.}}",
-        "args": [
-            "cancel",
-            "move",
-            "keepLate"
-        ]
+        "args": ["cancel", "move", "keepLate"]
     },
     "onlineBooking.policy.clientTextOff": {
         "message": "To change or cancel, call or text the studio."
@@ -12858,22 +11385,15 @@
     },
     "onlineBooking.policy.exampleCancelEarly": {
         "message": "Cancels on {day} for a {visit} visit: deposit refunded, slot reopens",
-        "args": [
-            "day",
-            "visit"
-        ]
+        "args": ["day", "visit"]
     },
     "onlineBooking.policy.exampleCancelLate": {
         "message": "Tries to cancel {hours, number} hours before: refused, asked to call",
-        "args": [
-            "hours"
-        ]
+        "args": ["hours"]
     },
     "onlineBooking.policy.exampleMove": {
         "message": "Moves {hours, number} hours before: allowed, deposit moves too",
-        "args": [
-            "hours"
-        ]
+        "args": ["hours"]
     },
     "onlineBooking.policy.save": {
         "message": "Save policy"
@@ -12901,27 +11421,21 @@
     },
     "onlineBooking.addons.withSome": {
         "message": "{n, plural, one {With # service} other {With # services}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "onlineBooking.addons.pickServices": {
         "message": "Show with"
     },
     "onlineBooking.addons.attach": {
         "message": "{pct, number, ::percent scale/0.01 .###} of online bookings add it",
-        "args": [
-            "pct"
-        ]
+        "args": ["pct"]
     },
     "onlineBooking.addons.noStock": {
         "message": "Out of stock: hidden from clients until restocked"
     },
     "onlineBooking.addons.stock": {
         "message": "{n, number} in stock",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "onlineBooking.addons.save": {
         "message": "Save"
@@ -12970,24 +11484,18 @@
     },
     "publicManage.cancelDeadline": {
         "message": "Cancel before {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "publicManage.moveDeadline": {
         "message": "Reschedule before {when}",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "publicManage.title": {
         "message": "Your booking"
     },
     "publicManage.hello": {
         "message": "Hi {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "publicManage.extras": {
         "message": "Extras"
@@ -12997,9 +11505,7 @@
     },
     "publicManage.depositPaid": {
         "message": "{amount} paid",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "publicManage.reschedule": {
         "message": "Reschedule"
@@ -13015,40 +11521,29 @@
     },
     "publicManage.policyLine": {
         "message": "Cancel up to {cancel, number} hours before, move up to {move, number} hours before.",
-        "args": [
-            "cancel",
-            "move"
-        ]
+        "args": ["cancel", "move"]
     },
     "publicManage.policyOff": {
         "message": "To change or cancel, call or text the studio."
     },
     "publicManage.countdown": {
         "message": "Your visit is {label}",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "publicManage.inHours": {
         "message": "{h, plural, =0 {within the hour} one {in # hour} other {in # hours}}",
-        "args": [
-            "h"
-        ]
+        "args": ["h"]
     },
     "publicManage.inDays": {
         "message": "{d, plural, one {in # day} other {in # days}}",
-        "args": [
-            "d"
-        ]
+        "args": ["d"]
     },
     "publicManage.cancelTitle": {
         "message": "Cancel this visit?"
     },
     "publicManage.cancelRefund": {
         "message": "Your {amount} deposit goes back to your card within 5 to 10 days.",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "publicManage.cancelNoDeposit": {
         "message": "There's nothing to pay or refund."
@@ -13070,9 +11565,7 @@
     },
     "publicManage.canceledBody": {
         "message": "Your {amount} deposit is on its way back to your card.",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "publicManage.canceledNoDeposit": {
         "message": "Nothing more to do. We hope to see you soon."
@@ -13085,10 +11578,7 @@
     },
     "publicManage.moveHint": {
         "message": "Same service, {mins} with {who}.",
-        "args": [
-            "who",
-            "mins"
-        ]
+        "args": ["who", "mins"]
     },
     "publicManage.current": {
         "message": "Current time"
@@ -13098,9 +11588,7 @@
     },
     "publicManage.confirmMove": {
         "message": "Move to {time}",
-        "args": [
-            "time"
-        ]
+        "args": ["time"]
     },
     "publicManage.moving": {
         "message": "Moving…"
@@ -13110,9 +11598,7 @@
     },
     "publicManage.movedBody": {
         "message": "See you {when}. Your deposit moved with it.",
-        "args": [
-            "when"
-        ]
+        "args": ["when"]
     },
     "publicManage.back": {
         "message": "Back"
@@ -13144,9 +11630,7 @@
     },
     "publicManage.blocked.cutoff": {
         "message": "{hours, plural, one {It's less than # hour away.} other {It's less than # hours away.}} Please call the studio.",
-        "args": [
-            "hours"
-        ],
+        "args": ["hours"],
         "description": "The visit is inside the business's change cutoff."
     },
     "publicManage.error": {
@@ -13184,10 +11668,7 @@
     },
     "navigation.setupProgress": {
         "message": "{done, number} of {total, number} set up",
-        "args": [
-            "done",
-            "total"
-        ]
+        "args": ["done", "total"]
     },
     "navigation.yourHours": {
         "message": "Your hours"
@@ -13254,9 +11735,7 @@
     },
     "navigation.overduePayments": {
         "message": "{count, number} overdue",
-        "args": [
-            "count"
-        ]
+        "args": ["count"]
     },
     "navigation.inbox": {
         "message": "Inbox"
@@ -13344,9 +11823,7 @@
     },
     "publicContract.intro": {
         "message": "{business} asks you to read and sign this before your visit.",
-        "args": [
-            "business"
-        ]
+        "args": ["business"]
     },
     "publicContract.signTitle": {
         "message": "Sign"
@@ -13377,9 +11854,7 @@
     },
     "publicContract.agree": {
         "message": "I agree to the terms above and to sign electronically with {business}.",
-        "args": [
-            "business"
-        ]
+        "args": ["business"]
     },
     "publicContract.sign": {
         "message": "Sign agreement"
@@ -13410,10 +11885,7 @@
     },
     "publicContract.signedBody": {
         "message": "Your signature on {contract} is recorded. {business} has a copy.",
-        "args": [
-            "contract",
-            "business"
-        ]
+        "args": ["contract", "business"]
     },
     "publicContract.print": {
         "message": "Print a copy"
@@ -13423,9 +11895,7 @@
     },
     "publicContract.declinedBody": {
         "message": "{business} has been told. Contact them if this was a mistake.",
-        "args": [
-            "business"
-        ]
+        "args": ["business"]
     },
     "publicContract.errorTitle": {
         "message": "This agreement didn't load"
@@ -13435,9 +11905,7 @@
     },
     "publicContract.version": {
         "message": "Version {n, number}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "publicContract.facts.signedAt": {
         "message": "Signed"
@@ -13468,9 +11936,7 @@
     },
     "publicForm.answerRequired": {
         "message": "“{label}” is required.",
-        "args": [
-            "label"
-        ]
+        "args": ["label"]
     },
     "publicForm.fileUploadError": {
         "message": "We couldn't upload that file. Please try again."
@@ -13483,16 +11949,11 @@
     },
     "publicForm.intro": {
         "message": "{business} reads this before your visit.",
-        "args": [
-            "business"
-        ]
+        "args": ["business"]
     },
     "publicForm.progress": {
         "message": "{done, number} of {total, number} answered",
-        "args": [
-            "done",
-            "total"
-        ]
+        "args": ["done", "total"]
     },
     "publicForm.chooseFile": {
         "message": "Choose a file"
@@ -13514,25 +11975,18 @@
     },
     "publicForm.privacy": {
         "message": "Only {business} sees your answers.",
-        "args": [
-            "business"
-        ]
+        "args": ["business"]
     },
     "publicForm.allDone": {
         "message": "Your answers are with {business}. You can close this page.",
-        "args": [
-            "business"
-        ]
+        "args": ["business"]
     },
     "publicPreferences.title": {
         "message": "Email and text preferences"
     },
     "publicPreferences.greeting": {
         "message": "Hi {first}, choose what {business} sends you.",
-        "args": [
-            "first",
-            "business"
-        ]
+        "args": ["first", "business"]
     },
     "publicPreferences.offers": {
         "message": "News and offers"
@@ -13545,18 +11999,14 @@
     },
     "publicPreferences.byEmailTo": {
         "message": "By email to {email}",
-        "args": [
-            "email"
-        ]
+        "args": ["email"]
     },
     "publicPreferences.byText": {
         "message": "By text"
     },
     "publicPreferences.byTextTo": {
         "message": "By text to {phone}",
-        "args": [
-            "phone"
-        ]
+        "args": ["phone"]
     },
     "publicPreferences.reminders": {
         "message": "Appointment messages"
@@ -13584,16 +12034,11 @@
     },
     "publicPreferences.unsubscribedBody": {
         "message": "{business} won't send news or offers to {email}. A message already on its way can take up to a day.",
-        "args": [
-            "business",
-            "email"
-        ]
+        "args": ["business", "email"]
     },
     "publicPreferences.unsubscribedNoEmail": {
         "message": "{business} won't send news or offers to your email. A message already on its way can take up to a day.",
-        "args": [
-            "business"
-        ]
+        "args": ["business"]
     },
     "publicPreferences.unsubscribedReminders": {
         "message": "You'll still get reminders and receipts for visits you book."
@@ -13606,9 +12051,7 @@
     },
     "publicPreferences.resubscribedBody": {
         "message": "Thanks for staying in touch with {business}.",
-        "args": [
-            "business"
-        ]
+        "args": ["business"]
     },
     "publicPreferences.manageAll": {
         "message": "Manage text and email preferences"
@@ -13630,22 +12073,15 @@
     },
     "publicReview.prompt": {
         "message": "How was your visit to {businessName}?",
-        "args": [
-            "businessName"
-        ]
+        "args": ["businessName"]
     },
     "publicReview.promptPet": {
         "message": "How was {pet}'s visit?",
-        "args": [
-            "pet"
-        ]
+        "args": ["pet"]
     },
     "publicReview.context": {
         "message": "{service} with {staff}",
-        "args": [
-            "service",
-            "staff"
-        ]
+        "args": ["service", "staff"]
     },
     "publicReview.ratingLabel": {
         "message": "Your rating"
@@ -13676,9 +12112,7 @@
     },
     "publicReview.privateNote": {
         "message": "Only {business} sees this.",
-        "args": [
-            "business"
-        ]
+        "args": ["business"]
     },
     "publicReview.placeholderPositive": {
         "message": "What went well?"
@@ -13712,30 +12146,22 @@
     },
     "publicReview.thanksTitle": {
         "message": "Thank you, {first}",
-        "args": [
-            "first"
-        ]
+        "args": ["first"]
     },
     "publicReview.thanks": {
         "message": "Thank you"
     },
     "publicReview.thanksPublicBody": {
         "message": "{business} will see your review shortly. Would you share it on Google too? It helps other people find them.",
-        "args": [
-            "business"
-        ]
+        "args": ["business"]
     },
     "publicReview.thanksGoogleLess": {
         "message": "{business} will see your review shortly.",
-        "args": [
-            "business"
-        ]
+        "args": ["business"]
     },
     "publicReview.thanksPrivateBody": {
         "message": "{business} has your feedback and will be in touch. Nothing you wrote is posted publicly.",
-        "args": [
-            "business"
-        ]
+        "args": ["business"]
     },
     "publicReview.copyReview": {
         "message": "Copy my review"
@@ -13832,22 +12258,15 @@
     },
     "publicLanding.rating": {
         "message": "{rating} · {count, number} reviews",
-        "args": [
-            "rating",
-            "count"
-        ]
+        "args": ["rating", "count"]
     },
     "publicLanding.cancelPolicy": {
         "message": "Cancel at least {hours, number} hours before your visit.",
-        "args": [
-            "hours"
-        ]
+        "args": ["hours"]
     },
     "publicLanding.reschedulePolicy": {
         "message": "Reschedule at least {hours, number} hours before your visit.",
-        "args": [
-            "hours"
-        ]
+        "args": ["hours"]
     },
     "publicLanding.contactPolicy": {
         "message": "Contact the business to change your booking."
@@ -13929,9 +12348,7 @@
     },
     "checkout.bankSetupFor": {
         "message": "Bank authorization for {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "checkout.payment": {
         "message": "Payment"
@@ -13965,15 +12382,11 @@
     },
     "checkout.charge": {
         "message": "Charge {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "checkout.pay": {
         "message": "Pay {amount}",
-        "args": [
-            "amount"
-        ]
+        "args": ["amount"]
     },
     "checkout.saveError": {
         "message": "Couldn’t save the card. Please check the details and try again."
@@ -14016,60 +12429,41 @@
     },
     "search.noResults": {
         "message": "Nothing matches “{q}”.",
-        "args": [
-            "q"
-        ]
+        "args": ["q"]
     },
     "search.noResultsHint": {
         "message": "Try a phone number, an email or an invoice number."
     },
     "search.addClientNamed": {
         "message": "Add “{q}” as a new client",
-        "args": [
-            "q"
-        ]
+        "args": ["q"]
     },
     "search.bookFor": {
         "message": "Book {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "search.messageTo": {
         "message": "Message {name}",
-        "args": [
-            "name"
-        ]
+        "args": ["name"]
     },
     "search.bookingLine": {
         "message": "{item} · {when} · {staff}",
-        "args": [
-            "item",
-            "when",
-            "staff"
-        ]
+        "args": ["item", "when", "staff"]
     },
     "search.invoiceNumber": {
         "message": "#{n, number, ::group-off}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "search.draftInvoice": {
         "message": "Draft invoice"
     },
     "search.invoiceLine": {
         "message": "{client} · {amount}",
-        "args": [
-            "client",
-            "amount"
-        ]
+        "args": ["client", "amount"]
     },
     "search.minutes": {
         "message": "{n, number} min",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "search.navigate": {
         "message": "to move"
@@ -14100,15 +12494,11 @@
     },
     "search.seeAll": {
         "message": "See all {n, number}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "search.recentSearch": {
         "message": "Search again for {q}",
-        "args": [
-            "q"
-        ]
+        "args": ["q"]
     },
     "search.cancel": {
         "message": "Cancel"
@@ -14139,9 +12529,7 @@
     },
     "notifications.unreadCount": {
         "message": "Unread {n, number}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "notifications.filterBy": {
         "message": "Show"
@@ -14169,17 +12557,11 @@
     },
     "notifications.unreadLabel": {
         "message": "Unread: {title}. {body}",
-        "args": [
-            "title",
-            "body"
-        ]
+        "args": ["title", "body"]
     },
     "notifications.readLabel": {
         "message": "{title}. {body}",
-        "args": [
-            "title",
-            "body"
-        ]
+        "args": ["title", "body"]
     },
     "notifications.someone": {
         "message": "A client"
@@ -14189,30 +12571,21 @@
     },
     "notifications.kinds.paymentBody": {
         "message": "{client} paid {amount}",
-        "args": [
-            "client",
-            "amount"
-        ]
+        "args": ["client", "amount"]
     },
     "notifications.kinds.deposit": {
         "message": "Deposit received"
     },
     "notifications.kinds.depositBody": {
         "message": "{client} paid a {amount} deposit",
-        "args": [
-            "client",
-            "amount"
-        ]
+        "args": ["client", "amount"]
     },
     "notifications.kinds.refund": {
         "message": "Refund sent"
     },
     "notifications.kinds.refundBody": {
         "message": "{amount} back to {client}",
-        "args": [
-            "client",
-            "amount"
-        ]
+        "args": ["client", "amount"]
     },
     "notifications.kinds.bookingNew": {
         "message": "New online booking"
@@ -14222,42 +12595,27 @@
     },
     "notifications.kinds.bookingBody": {
         "message": "{client}, {item}, {when}",
-        "args": [
-            "client",
-            "item",
-            "when"
-        ]
+        "args": ["client", "item", "when"]
     },
     "notifications.kinds.message": {
         "message": "Message from {client}",
-        "args": [
-            "client"
-        ]
+        "args": ["client"]
     },
     "notifications.kinds.review": {
         "message": "New {stars, number}-star review",
-        "args": [
-            "stars"
-        ]
+        "args": ["stars"]
     },
     "notifications.kinds.reviewBody": {
         "message": "{client}: “{body}”",
-        "args": [
-            "client",
-            "body"
-        ]
+        "args": ["client", "body"]
     },
     "notifications.kinds.overdue": {
         "message": "Invoice #{n, number, ::group-off} is overdue",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "notifications.kinds.overdueBody": {
         "message": "{client} hasn’t paid yet",
-        "args": [
-            "client"
-        ]
+        "args": ["client"]
     },
     "sync.problemTitle": {
         "message": "Sync needs attention"
@@ -14291,24 +12649,18 @@
     },
     "sync.uploadingStrip": {
         "message": "{n, plural, one {# change is saved on this device and still on its way to the server} other {# changes are saved on this device and still on their way to the server}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "sync.offlineTitle": {
         "message": "You’re offline"
     },
     "sync.offlineStrip": {
         "message": "{n, plural, =0 {Viewing saved data. Working-hours edits can be saved offline; other changes need a connection} one {# change will sync when you reconnect} other {# changes will sync when you reconnect}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "sync.lastSynced": {
         "message": "Last synced at {time}",
-        "args": [
-            "time"
-        ]
+        "args": ["time"]
     },
     "sync.signOutTitle": {
         "message": "Sign out with changes not synced?"
@@ -14318,9 +12670,7 @@
     },
     "sync.signOutBody": {
         "message": "{n, plural, one {# change is only on this device. If you sign out before reconnecting, it will be lost.} other {# changes are only on this device. If you sign out before reconnecting, they will be lost.}}",
-        "args": [
-            "n"
-        ]
+        "args": ["n"]
     },
     "sync.signOutListTitle": {
         "message": "These changes will be lost"
@@ -14370,9 +12720,7 @@
     },
     "plans.premiumStaff": {
         "message": "Each team member adds {price} a month.",
-        "args": [
-            "price"
-        ]
+        "args": ["price"]
     },
     "plans.teamStaff": {
         "message": "Your whole team is included, with no charge per person."
@@ -14380,16 +12728,12 @@
     "plans.perMonth": {
         "message": "{price} / month",
         "description": "A plan price; the amount is already formatted with its currency.",
-        "args": [
-            "price"
-        ]
+        "args": ["price"]
     },
     "plans.perYear": {
         "message": "{price} / year, two months free",
         "description": "A yearly plan price; the amount is already formatted with its currency.",
-        "args": [
-            "price"
-        ]
+        "args": ["price"]
     },
     "plans.monthly": {
         "message": "Monthly"
@@ -14399,15 +12743,11 @@
     },
     "plans.choose": {
         "message": "Choose {plan}",
-        "args": [
-            "plan"
-        ]
+        "args": ["plan"]
     },
     "plans.switchTo": {
         "message": "Switch to {plan}",
-        "args": [
-            "plan"
-        ]
+        "args": ["plan"]
     },
     "plans.current": {
         "message": "Current plan"
@@ -14420,21 +12760,15 @@
     },
     "plans.trialTitle": {
         "message": "{days, plural, =0 {Your free trial ends today} one {# day left in your free trial} other {# days left in your free trial}}",
-        "args": [
-            "days"
-        ]
+        "args": ["days"]
     },
     "plans.trialBody": {
         "message": "Your trial ends {date}. Choose a plan now and billing starts when the trial ends.",
-        "args": [
-            "date"
-        ]
+        "args": ["date"]
     },
     "plans.trialBodyBillsNow": {
         "message": "Your trial ends {date}. A plan you choose now is billed right away, since less than two days of the trial are left.",
-        "args": [
-            "date"
-        ]
+        "args": ["date"]
     },
     "plans.lapsedTitle": {
         "message": "Your business is paused"
@@ -14450,9 +12784,7 @@
     },
     "plans.activeTitle": {
         "message": "{plan} plan",
-        "args": [
-            "plan"
-        ]
+        "args": ["plan"]
     },
     "plans.activeBody": {
         "message": "Billed through Stripe. Change your plan here, and update your payment method or see invoices on the billing page."
@@ -14465,9 +12797,7 @@
     },
     "plans.seats": {
         "message": "{count, plural, =0 {Just you} one {# besides you} other {# besides you}}",
-        "args": [
-            "count"
-        ]
+        "args": ["count"]
     },
     "plans.renewsLabel": {
         "message": "Renews"
@@ -14495,9 +12825,7 @@
     },
     "plans.noticeTrial": {
         "message": "{days, plural, =0 {Your free trial ends today.} one {# day left in your free trial.} other {# days left in your free trial.}}",
-        "args": [
-            "days"
-        ]
+        "args": ["days"]
     },
     "plans.noticeLapsed": {
         "message": "This business is paused. Records can be viewed but not changed."
@@ -14513,9 +12841,7 @@
     },
     "plans.seatCost": {
         "message": "On Premium, each team member adds {price} a month to your plan.",
-        "args": [
-            "price"
-        ]
+        "args": ["price"]
     },
     "plans.interval": {
         "message": "Billing period"
