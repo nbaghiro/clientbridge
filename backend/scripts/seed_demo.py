@@ -2309,7 +2309,10 @@ def upload_demo_assets() -> None:
         config=BotoConfig(connect_timeout=2, retries={"max_attempts": 1}),
     )
     try:
-        if s.s3_bucket not in {b["Name"] for b in client.list_buckets().get("Buckets", [])}:
+        # local MinIO starts empty; a deployed bucket comes from infra, and its key cannot list
+        if s.env == "dev" and s.s3_bucket not in {
+            b["Name"] for b in client.list_buckets().get("Buckets", [])
+        }:
             client.create_bucket(Bucket=s.s3_bucket)
         for asset in (r for r in rows if isinstance(r, File)):
             path = ASSETS / Path(asset.s3_key).name
