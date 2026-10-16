@@ -1,5 +1,6 @@
 """The arq worker (`uv run arq clientbridge.tasks.worker.WorkerSettings`): the job schedule only."""
 
+from datetime import UTC
 from typing import ClassVar
 
 from arq import cron
@@ -8,6 +9,7 @@ from arq.connections import RedisSettings
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal
+from clientbridge.core.logs import configure_logging
 from clientbridge.integrations.expo import get_push_sender
 from clientbridge.integrations.resend import get_email_sender
 from clientbridge.integrations.s3 import get_file_storage
@@ -117,9 +119,17 @@ async def send_trial_reminders(ctx: Context) -> int:
         return await run_trial_reminders(db, _notifier(), clock.now())
 
 
+async def startup(ctx: Context) -> None:
+    configure_logging(get_settings().env)
+
+
 class WorkerSettings:
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)
+    timezone = UTC  # cron times are UTC whatever the host's zone
+    on_startup = startup
     job_timeout = 900
+    # the liveness probe runs `arq --check`, which fails once this heartbeat is a minute late
+    health_check_interval = 60
     functions: ClassVar[list[object]] = []
     cron_jobs: ClassVar[list[object]] = [
         cron(send_booking_reminders, minute={0, 15, 30, 45}),

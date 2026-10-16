@@ -1,0 +1,163 @@
+name: deploy
+# After CI passes on a push to main: build and push both images by digest, apply them to the staging
+# stack, then promote the same digests to the prod stack behind the production environment's required
+# reviewers. A manual run from main redeploys given digests to one environment; with rollback set, its
+# migrate step may find the database at a newer revision than the image knows. The cloud stack
+# (everything both environments share) is applied by an administrator, never here.
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to deploy
+        type: choice
+        options: [staging, production]
+        default: staging
+      backend_digest:
+        description: Backend image digest (sha256:...) to redeploy; empty builds this commit
+        required: false
+      web_digest:
+        description: Web image digest (sha256:...) to redeploy; empty builds this commit
+        required: false
+      rollback:
+        description: Roll back to the given digests, allowing a database migrated by a newer image
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  images:
+    # a fork's pull request can name its branch main, so only this repository's pushes deploy
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      backend: ${{ steps.digests.outputs.backend }}
+      web: ${{ steps.digests.outputs.web }}
+      sha: ${{ env.SHA }}
+    env:
+      REGISTRY: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/clientbridge
+      GIVEN_BACKEND: ${{ inputs.backend_digest }}
+      GIVEN_WEB: ${{ inputs.web_digest }}
+      ROLLBACK: ${{ inputs.rollback == true }}
+      SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - name: check the requested digests
+        id: given
+        run: |
+          pattern='^sha256:[0-9a-f]{64}$'
+          if [ -n "$GIVEN_BACKEND$GIVEN_WEB" ]; then
+            [[ "$GIVEN_BACKEND" =~ $pattern && "$GIVEN_WEB" =~ $pattern ]] || {
+              echo "give both digests as sha256:<64 hex>, or neither to build this commit"; exit 1; }
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          elif [ "$ROLLBACK" = true ]; then
+            echo "a rollback needs both earlier digests"; exit 1
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.given.outputs.build == 'true'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SHA }}
+          persist-credentials: false
+      - if: steps.given.outputs.build == 'true'
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_BUILDER }}
+          token_format: access_token
+          create_credentials_file: false
+      - if: steps.given.outputs.build == 'true'
+        name: log in to Artifact Registry
+        env:
+          TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: echo "$TOKEN" | docker login -u oauth2accesstoken --password-stdin "https://${REGISTRY%%/*}"
+      - if: steps.given.outputs.build == 'true'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - if: steps.given.outputs.build == 'true'
+        id: backend
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: backend/Dockerfile
+          target: prod
+          push: true
+          provenance: false
+          tags: ${{ env.REGISTRY }}/backend:${{ env.SHA }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+      - if: steps.given.outputs.build == 'true'
+        id: web
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: frontend/Dockerfile
+          target: prod
+          push: true
+          provenance: false
+          tags: ${{ env.REGISTRY }}/web:${{ env.SHA }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+      - if: always() && steps.given.outputs.build == 'true'
+        name: log out of Artifact Registry
+        run: docker logout "https://${REGISTRY%%/*}"
+      - id: digests
+        env:
+          BUILT_BACKEND: ${{ steps.backend.outputs.digest }}
+          BUILT_WEB: ${{ steps.web.outputs.digest }}
+        run: |
+          echo "backend=${GIVEN_BACKEND:-$BUILT_BACKEND}" >> "$GITHUB_OUTPUT"
+          echo "web=${GIVEN_WEB:-$BUILT_WEB}" >> "$GITHUB_OUTPUT"
+
+  staging:
+    needs: images
+    if: github.event_name == 'workflow_run' || inputs.environment == 'staging'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/deploy-environment.yml
+    with:
+      environment: staging
+      backend_digest: ${{ needs.images.outputs.backend }}
+      web_digest: ${{ needs.images.outputs.web }}
+      ref: ${{ needs.images.outputs.sha }}
+      # a push's deploy never moves an environment back to an older commit; a manual run may
+      newer_only: ${{ github.event_name == 'workflow_run' }}
+      allow_schema_ahead: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback == true }}
+    secrets: inherit
+
+  production:
+    needs: [images, staging]
+    # after staging deployed a push to main; directly (still behind approval) for a manual production run.
+    # DEPLOY_PRODUCTION is set by the cloud stack, false until production is one of its environments
+    if: >-
+      always() && vars.DEPLOY_PRODUCTION == 'true' && needs.images.result == 'success' &&
+      ((github.event_name == 'workflow_run' && needs.staging.result == 'success' &&
+        needs.staging.outputs.deployed == 'true') ||
+       (github.event_name == 'workflow_dispatch' && inputs.environment == 'production'))
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/deploy-environment.yml
+    with:
+      environment: production
+      backend_digest: ${{ needs.images.outputs.backend }}
+      web_digest: ${{ needs.images.outputs.web }}
+      ref: ${{ needs.images.outputs.sha }}
+      newer_only: ${{ github.event_name == 'workflow_run' }}
+      allow_schema_ahead: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback == true }}
+    secrets: inherit

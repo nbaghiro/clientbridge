@@ -1,0 +1,27 @@
+# PowerSync in staging and production; the environment comes from clientbridge.core.deployment.
+# powersync.yaml is the local config. PowerSync's !env has no defaults and RS256 needs a different
+# client_auth block, so deployed environments read this file instead (see .docs/architecture.md).
+replication:
+  connections:
+    - type: postgresql
+      # POWERSYNC_SOURCE_DATABASE_URL as postgresql://, through the Cloud SQL Auth Proxy on localhost
+      uri: !env PS_SOURCE_URI
+      # the proxy encrypts to Cloud SQL, and pgwire ignores a ?sslmode= in the URI
+      sslmode: disable
+
+storage:
+  type: postgresql
+  # POWERSYNC_STORAGE_DATABASE_URL as postgresql://, through the same proxy
+  uri: !env PS_STORAGE_URI
+  sslmode: disable
+
+port: 8080
+
+sync_rules:
+  path: /config/sync-rules.yaml
+
+client_auth:
+  # the API signs PowerSync tokens with RS256 (POWERSYNC_USE_RS256) and serves the keys
+  jwks_uri: !env PS_JWKS_URI
+  audience:
+    - powersync

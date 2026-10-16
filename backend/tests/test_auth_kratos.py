@@ -1,8 +1,10 @@
 """KratosIdentityProvider over a mocked transport, plus a contract run against the local Kratos."""
 
 import json
+import re
 from collections.abc import Callable
 from datetime import timedelta
+from pathlib import Path
 from uuid import uuid4
 
 import httpx
@@ -10,6 +12,7 @@ import pytest
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
+from clientbridge.core.deployment import AUTH_SECRETS, auth_env
 from clientbridge.core.emails import normalize_email
 from clientbridge.core.errors import AppError, Unauthorized
 from clientbridge.integrations.identity import Credential
@@ -17,6 +20,7 @@ from clientbridge.integrations.kratos import KratosIdentityProvider
 from tests.helpers import service_missing
 
 Handler = Callable[[httpx.Request], httpx.Response]
+KRATOS_YML = Path(__file__).resolve().parents[2] / "infra/auth/kratos.yml"
 
 
 def session(
@@ -242,14 +246,14 @@ async def test_admin_identity_helpers() -> None:
 async def test_contract_against_local_kratos() -> None:
     settings = get_settings()
     kratos = KratosIdentityProvider(
-        settings.auth_public_url, settings.auth_admin_url, settings.auth_session_cookie, 0
+        settings.auth_internal_url, settings.auth_admin_url, settings.auth_session_cookie, 0
     )
     email, password = f"contract-{uuid4().hex[:10]}@example.com", f"Pw-{uuid4().hex}"
     try:
         identity_id = await kratos.create_identity(email, "Contract", password)
     except AppError:
         service_missing("Kratos is not running (make up)")
-    async with httpx.AsyncClient(base_url=settings.auth_public_url) as http:
+    async with httpx.AsyncClient(base_url=settings.auth_internal_url) as http:
         flow = (await http.get("/self-service/login/api")).json()["id"]
         login = await http.post(
             "/self-service/login",
@@ -288,3 +292,64 @@ async def _past_the_age_cap(
         settings.session_max_age_days = cap
     with pytest.raises(Unauthorized):
         await kratos.whoami(Credential(session_token=token))
+
+
+def test_the_deployed_auth_env_replaces_every_local_url() -> None:
+    app = "https://app.staging.clientbridge.ca"
+    env = auth_env(
+        "staging.clientbridge.ca", api_url="http://api:8000/", admin_url="http://auth:4434"
+    )
+    local = sorted(re.findall(r"http://localhost:8700(/[\w/-]*)", KRATOS_YML.read_text()))
+    assert local == sorted(v.removeprefix(app) for v in env.values() if v.startswith(f"{app}/"))
+    assert not [v for v in env.values() if "localhost" in v or "host.docker.internal" in v]
+    assert env["SERVE_PUBLIC_BASE_URL"] == "https://api.staging.clientbridge.ca/auth/"
+    assert env["SESSION_COOKIE_NAME"].startswith("__Host-")
+    assert env["SELFSERVICE_METHODS_WEBAUTHN_CONFIG_RP_ID"] == "app.staging.clientbridge.ca"
+    assert env["SELFSERVICE_ALLOWED_RETURN_URLS"] == f"{app},clientbridge://auth/callback"
+    assert env["COURIER_HTTP_REQUEST_CONFIG_URL"] == "http://api:8000/webhooks/auth-email"
+    assert not set(env) & set(AUTH_SECRETS)
+
+
+@pytest.mark.kratos
+@pytest.mark.wall_clock
+async def test_a_browser_sign_in_cookie_reaches_whoami() -> None:
+    """The cookie Kratos sets is the one the API reads; a __Host- cookie keeps its attributes."""
+    settings = get_settings()
+    name = settings.auth_session_cookie
+    kratos = KratosIdentityProvider(settings.auth_internal_url, settings.auth_admin_url, name, 0)
+    email, password = f"cookie-{uuid4().hex[:10]}@example.com", f"Pw-{uuid4().hex}"
+    try:
+        identity_id = await kratos.create_identity(email, "Cookie", password)
+    except AppError:
+        service_missing("Kratos is not running (make up)")
+    headers = {"Accept": "application/json"}
+    try:
+        async with httpx.AsyncClient(base_url=settings.auth_internal_url, headers=headers) as http:
+            flow = await http.get("/self-service/login/browser")
+            csrf = next(c for c in flow.headers.get_list("set-cookie") if c.startswith("csrf_"))
+            token = next(
+                node["attributes"]["value"]
+                for node in flow.json()["ui"]["nodes"]
+                if node["attributes"].get("name") == "csrf_token"
+            )
+            login = await http.post(
+                "/self-service/login",
+                params={"flow": flow.json()["id"]},
+                headers={"Cookie": csrf.split(";")[0]},
+                json={
+                    "method": "password",
+                    "identifier": email,
+                    "password": password,
+                    "csrf_token": token,
+                },
+            )
+        cookie = next(c for c in login.headers.get_list("set-cookie") if c.startswith(f"{name}="))
+        if name.startswith("__Host-"):
+            attributes = cookie.lower()
+            assert "; secure" in attributes and "; path=/;" in attributes
+            assert "domain=" not in attributes
+        identity = await kratos.whoami(Credential(cookie=cookie.split(";")[0].split("=", 1)[1]))
+        assert identity.id == identity_id
+    finally:
+        async with httpx.AsyncClient() as admin:
+            await admin.delete(f"{settings.auth_admin_url}/admin/identities/{identity_id}")

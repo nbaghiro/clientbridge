@@ -336,6 +336,7 @@ class FakePaymentGateway:
 
     def __init__(self) -> None:
         self.account_sessions: list[tuple[str, ConnectComponent]] = []
+        self.payment_domains: dict[str, set[str]] = {}
         self.created_accounts: list[str] = []
         self.configurations: dict[str, set[AccountConfiguration]] = {}
         self.merchant_added: list[str] = []
@@ -465,6 +466,9 @@ class FakePaymentGateway:
     async def create_account_session(self, account_id: str, component: ConnectComponent) -> str:
         self.account_sessions.append((account_id, component))
         return f"session_secret_{len(self.account_sessions)}"
+
+    async def register_payment_domains(self, account_id: str, domains: Sequence[str]) -> None:
+        self.payment_domains.setdefault(account_id, set()).update(domains)
 
     async def get_account(self, account_id: str) -> ConnectAccount:
         # a freshly-created account: nothing submitted, Stripe wants the hosted KYC details

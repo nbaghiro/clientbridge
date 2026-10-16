@@ -1,0 +1,16 @@
+name: clientbridge
+description: The Clientbridge cloud foundation (stack cloud) and each environment's workloads (stacks staging and prod)
+runtime:
+  name: python
+  options:
+    toolchain: uv
+config:
+  prodBaseDomain:
+    type: string
+    default: clientbridge.ca
+  stagingBaseDomain:
+    type: string
+    default: staging.clientbridge.ca
+  allowSchemaAhead:
+    type: boolean
+    default: false

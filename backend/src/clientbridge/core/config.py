@@ -1,5 +1,8 @@
 import base64
+import re
+from email.utils import parseaddr
 from functools import lru_cache
+from typing import Literal
 from urllib.parse import urlsplit
 
 from cryptography.hazmat.primitives import serialization
@@ -7,27 +10,66 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from clientbridge.core.deployment import SESSION_COOKIE, public_urls
+
 _DEV_E2E_ORIGINS = ("http://localhost:8721", "http://localhost:8724")  # web e2e, en-CA and en-XA
 _DEV_JWT_SECRET = "clientbridge-dev-secret-do-not-use-in-prod"
 _DEV_COURIER_SECRET = "clientbridge-dev-courier-secret-do-not-use-in-prod"
 _DEV_SMTP_URL = "smtp://localhost:8716"  # Mailpit in docker-compose.yml
+_DOMAIN = re.compile(r"[a-z0-9-]+(\.[a-z0-9-]+)+")
+_LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "0.0.0.0", "host.docker.internal"})
+# reserved names (RFC 2606, 6761) and the web image's build placeholder base.invalid
+_RESERVED_TLDS = frozenset({"localhost", "invalid", "test", "example", "local", "internal"})
+# reached across the cluster; only the database is served on localhost, by the Cloud SQL proxy
+_REMOTE = ("redis_url", "s3_endpoint", "auth_admin_url", "auth_internal_url")
+# outside dev each must be set to something other than its local default
+_DEPLOYED = (
+    "database_url",
+    "redis_url",
+    "s3_endpoint",
+    "s3_bucket",
+    "s3_access_key",
+    "s3_secret_key",
+    "stripe_secret_key",
+    "stripe_webhook_secret",
+    "stripe_thin_webhook_secret",
+    "stripe_platform_webhook_secret",
+    "stripe_portal_configuration",
+    "twilio_auth_token",
+    "resend_api_key",
+    "resend_webhook_secret",
+    "email_from",
+    "powersync_private_key_pem",
+)
+
+Environment = Literal["dev", "staging", "prod"]
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # errors would otherwise echo the inputs, database passwords and provider secrets included
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
 
-    env: str = "dev"
+    env: Environment = "dev"
+    # production clientbridge.ca, staging staging.clientbridge.ca; derives every public URL
+    base_domain: str = ""
+    # proxies in front of the API that append to X-Forwarded-For (Google's load balancer adds 2)
+    trusted_proxy_hops: int = Field(default=0, ge=0)
     pseudo_locale: bool = False  # renders backend text in en_XA; development and tests only
     # the API reads and writes data; only migrations and the demo seed change the schema
     database_url: str = (
         "postgresql+asyncpg://clientbridge_api:clientbridge_api@localhost:8702/clientbridge"
     )
     migration_database_url: str = "postgresql+asyncpg://clientbridge_migrator:clientbridge_migrator@localhost:8702/clientbridge"
+    # per process: Cloud SQL's max_connections is shared by every pod of both environments
+    db_pool_size: int = Field(default=5, ge=1)
+    db_max_overflow: int = Field(default=10, ge=0)
 
     jwt_secret: str = _DEV_JWT_SECRET  # matches infra/powersync jwks
     jwt_ttl_seconds: int = 300  # the PowerSync token
 
     auth_public_url: str = "http://localhost:8713"
+    # the auth public API as the API reaches it (in the cluster, its Service); empty: the public URL
+    auth_internal_url: str = ""
     auth_admin_url: str = "http://localhost:8714"
     auth_session_cookie: str = "cb_session"
     identity_cache_ttl_seconds: float = 30
@@ -89,48 +131,71 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _require_prod_secrets(self) -> "Settings":
-        """Refuse to boot outside dev without real secrets and a private auth admin API."""
+        """Derive the public URLs, and refuse to boot outside dev without real deployed settings."""
+        explicit = set(self.model_fields_set)
+        if self.base_domain and not _DOMAIN.fullmatch(self.base_domain):
+            raise ValueError("BASE_DOMAIN must be a bare lowercase domain such as clientbridge.ca")
+        derived = (
+            {**public_urls(self.base_domain), "auth_session_cookie": SESSION_COOKIE}
+            if self.base_domain
+            else {}
+        )
+        for name, url in derived.items():
+            if name not in explicit:
+                setattr(self, name, url)
+        self.auth_internal_url = self.auth_internal_url or self.auth_public_url
         if self.smtp_url is None:
             self.smtp_url = _DEV_SMTP_URL if self.env == "dev" else ""
-        if self.env != "dev":
-            if self.smtp_url:
-                raise ValueError(
-                    "SMTP_URL is a development transport; unset it when ENV is not 'dev'"
-                )
-            missing = []
-            if self.jwt_secret == _DEV_JWT_SECRET:
-                missing.append("JWT_SECRET")
-            auth = urlsplit(self.auth_public_url)
-            if auth.scheme != "https" or auth.hostname in ("localhost", "127.0.0.1"):
-                missing.append("AUTH_PUBLIC_URL (https, not localhost)")
-            if not self.auth_admin_url or self.auth_admin_url == self.auth_public_url:
-                missing.append("AUTH_ADMIN_URL (private, distinct from the public URL)")
-            if not self.stripe_webhook_secret:
-                missing.append("STRIPE_WEBHOOK_SECRET")
-            if not self.stripe_thin_webhook_secret:
-                missing.append("STRIPE_THIN_WEBHOOK_SECRET")
-            if not self.stripe_platform_webhook_secret:
-                missing.append("STRIPE_PLATFORM_WEBHOOK_SECRET")
-            if not self.stripe_portal_configuration:
-                missing.append("STRIPE_PORTAL_CONFIGURATION")
-            if not self.twilio_auth_token:
-                missing.append("TWILIO_AUTH_TOKEN")
-            if self.auth_email_hook_secret in ("", _DEV_COURIER_SECRET):
-                missing.append("AUTH_EMAIL_HOOK_SECRET")
-            if not self.resend_api_key:
-                missing.append("RESEND_API_KEY")
-            if not self.email_from:
-                missing.append("EMAIL_FROM")
-            if not self.resend_webhook_secret:
-                missing.append("RESEND_WEBHOOK_SECRET")
-            if not self.powersync_use_rs256:
-                missing.append("POWERSYNC_USE_RS256=true")
-            if not self.powersync_private_key_pem:
-                missing.append("POWERSYNC_PRIVATE_KEY_PEM")
-            if not self.powersync_kid or self.powersync_kid == "clientbridge-dev":
-                missing.append("POWERSYNC_KID (unique production key ID)")
-            if missing:
-                raise ValueError(f"{', '.join(missing)} must be set when ENV is not 'dev'")
+        if self.env == "dev":
+            return self
+        if self.smtp_url:
+            raise ValueError("SMTP_URL is a development transport; unset it when ENV is not 'dev'")
+        defaults = {name: Settings.model_fields[name].default for name in _DEPLOYED}
+        missing = [
+            name.upper()
+            for name, default in defaults.items()
+            if name not in explicit or getattr(self, name) in ("", default)
+        ]
+        if not self.base_domain:
+            missing.append("BASE_DOMAIN")
+        if self.jwt_secret == _DEV_JWT_SECRET:
+            missing.append("JWT_SECRET")
+        if not self.auth_admin_url or self.auth_admin_url == self.auth_public_url:
+            missing.append("AUTH_ADMIN_URL (private, distinct from the public URL)")
+        if self.auth_email_hook_secret in ("", _DEV_COURIER_SECRET):
+            missing.append("AUTH_EMAIL_HOOK_SECRET")
+        if self.trusted_proxy_hops == 0:
+            missing.append("TRUSTED_PROXY_HOPS (2 behind Google's load balancer)")
+        if not self.powersync_use_rs256:
+            missing.append("POWERSYNC_USE_RS256=true")
+        if not self.powersync_kid or self.powersync_kid == "clientbridge-dev":
+            missing.append("POWERSYNC_KID (unique production key ID)")
+        if missing:
+            raise ValueError(f"{', '.join(missing)} must be set when ENV is not 'dev'")
+        if self.base_domain.rsplit(".", 1)[-1] in _RESERVED_TLDS:
+            raise ValueError(
+                f"BASE_DOMAIN {self.base_domain} is a reserved name, not a real domain"
+            )
+        local = [name.upper() for name in _REMOTE if _is_local(getattr(self, name))]
+        if local:
+            raise ValueError(
+                f"{', '.join(local)} must not point at this machine when ENV is not 'dev'"
+            )
+        if parseaddr(self.email_from)[1].rpartition("@")[2].lower() != self.base_domain:
+            raise ValueError(f"EMAIL_FROM must be an address at BASE_DOMAIN {self.base_domain}")
+        disagreeing = [
+            name.upper()
+            for name, url in derived.items()
+            if _normalized(getattr(self, name)) != _normalized(url)
+        ]
+        if disagreeing:
+            raise ValueError(
+                f"{', '.join(disagreeing)} must match BASE_DOMAIN {self.base_domain}; unset them"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _check_keys(self) -> "Settings":
         if self.powersync_private_key_pem:
             key = serialization.load_pem_private_key(
                 self.powersync_private_key_pem.encode(), password=None
@@ -174,6 +239,15 @@ class Settings(BaseSettings):
             *([self.admin_base_url] if self.admin_base_url else []),
             *(["http://localhost:8711", *_DEV_E2E_ORIGINS] if self.env == "dev" else []),
         ]
+
+
+def _is_local(url: str) -> bool:
+    host = (urlsplit(url).hostname or "").lower()
+    return host in _LOCAL_HOSTS or host.endswith(".localhost")
+
+
+def _normalized(urls: str) -> set[str]:
+    return {url.strip().rstrip("/") for url in urls.split(",") if url.strip()}
 
 
 @lru_cache

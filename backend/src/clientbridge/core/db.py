@@ -1,18 +1,33 @@
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
+from typing import TypedDict
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-from clientbridge.core.config import get_settings
+from clientbridge.core.config import Settings, get_settings
 
 
 class Base(DeclarativeBase):
     pass
 
 
-engine = create_async_engine(get_settings().database_url, pool_pre_ping=True)
+class EngineOptions(TypedDict):
+    pool_pre_ping: bool
+    pool_size: int
+    max_overflow: int
+
+
+def engine_options(settings: Settings) -> EngineOptions:
+    return {
+        "pool_pre_ping": True,
+        "pool_size": settings.db_pool_size,
+        "max_overflow": settings.db_max_overflow,
+    }
+
+
+engine = create_async_engine(get_settings().database_url, **engine_options(get_settings()))
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 

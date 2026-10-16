@@ -183,7 +183,7 @@ class KratosIdentityProvider:
 def get_identity_provider() -> IdentityProvider:
     settings = get_settings()
     return KratosIdentityProvider(
-        settings.auth_public_url,
+        settings.auth_internal_url,
         settings.auth_admin_url,
         settings.auth_session_cookie,
         settings.identity_cache_ttl_seconds,

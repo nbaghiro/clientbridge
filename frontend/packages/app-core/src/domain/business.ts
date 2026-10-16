@@ -624,6 +624,10 @@ export interface SetupProgress {
 }
 
 /** The public booking page for a business, on the Connect host the app is configured with. */
+export function bookingHost(base: string): string {
+    return base.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+}
+
 export function bookingPageUrl(base: string, slug: string): string {
     return `${base.replace(/\/+$/, "")}/b/${slug}/book`;
 }

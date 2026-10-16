@@ -1,0 +1,35 @@
+{
+    "cli": {
+        "version": ">= 16.0.0",
+        "appVersionSource": "remote"
+    },
+    "build": {
+        "development": {
+            "developmentClient": true,
+            "distribution": "internal",
+            "env": {
+                "STRIPE_TERMINAL_SIMULATED": "true"
+            }
+        },
+        "staging": {
+            "distribution": "internal",
+            "channel": "staging",
+            "env": {
+                "BASE_DOMAIN": "staging.clientbridge.ca",
+                "STRIPE_TERMINAL_SIMULATED": "false"
+            }
+        },
+        "production": {
+            "distribution": "store",
+            "channel": "production",
+            "autoIncrement": true,
+            "env": {
+                "BASE_DOMAIN": "clientbridge.ca",
+                "STRIPE_TERMINAL_SIMULATED": "false"
+            }
+        }
+    },
+    "submit": {
+        "production": {}
+    }
+}

@@ -19,6 +19,7 @@ from scripts.stripe_setup import (
     plan_account,
     plan_destination,
     plan_location,
+    plan_payment_domains,
     plan_platform_webhook,
     plan_portal,
     plan_price,
@@ -666,6 +667,38 @@ def test_a_price_swung_back_and_forth_gets_a_fresh_key_each_time() -> None:
     again = plan_price("premium_year", PREMIUM_YEAR, [_price(id="price_c", unit_amount=60000)])
     assert len({a.idempotency, b.idempotency, again.idempotency}) == 3
     assert a.idempotency is not None and "price_a" in a.idempotency
+
+
+def test_payment_domains_are_registered_on_the_account_and_disabled_ones_enabled() -> None:
+    domains = ("book.staging.clientbridge.ca", "pay.staging.clientbridge.ca")
+    existing = [{"id": "pmd_1", "domain_name": domains[0], "enabled": False}]
+    update, create = plan_payment_domains("bz_birchbark", "acct_b", existing, domains)
+    assert (update.action, update.path, update.params) == (
+        "update",
+        "/v1/payment_method_domains/pmd_1",
+        ("enabled=true",),
+    )
+    assert (create.action, create.path, create.account) == (
+        "create",
+        "/v1/payment_method_domains",
+        "acct_b",
+    )
+    assert create.params == (f"domain_name={domains[1]}", "enabled=true")
+    enabled = [{"id": "pmd_1", "domain_name": d, "enabled": True} for d in domains]
+    kept = plan_payment_domains("bz_birchbark", "acct_b", enabled, domains)
+    assert {step.action for step in kept} == {"keep"}
+    (waiting,) = plan_payment_domains("bz_birchbark", None, [], domains)
+    assert waiting.action == "keep" and waiting.method == ""
+
+
+def test_payment_domains_are_planned_for_each_demo_account(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(["--payment-domains", "staging.clientbridge.ca"], runner=FakeCli()) == 0
+    out = capsys.readouterr().out
+    assert "payment method domains for bz_birchbark: the account does not exist yet" in out
+    assert main(["--payment-domains", "localhost:8751"], runner=FakeCli()) == 1
+    assert "[blocked] payment method domains" in capsys.readouterr().out
 
 
 def test_api_requests_send_v2_as_json_and_repeat_list_queries() -> None:

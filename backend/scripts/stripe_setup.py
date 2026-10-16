@@ -5,6 +5,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import subprocess
 import time
 from collections.abc import Callable, Mapping, Sequence
@@ -17,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal, engine
+from clientbridge.core.deployment import payment_domains
 from clientbridge.core.errors import Unprocessable
 from clientbridge.core.locale import SOURCE_LOCALE
 from clientbridge.core.scoping import scoped
@@ -43,6 +45,7 @@ from clientbridge.services.plans import (
 )
 
 TAG = "clientbridge"
+DOMAIN = re.compile(r"[a-z0-9-]+(\.[a-z0-9-]+)+")
 WEBHOOK_KEY = "connect_webhook"
 PLATFORM_WEBHOOK_KEY = "platform_webhook"
 PORTAL_KEY = "portal"
@@ -104,7 +107,6 @@ DASHBOARD_STEPS = (
     "Connect branding for connected accounts: icon, logo, colours (Settings > Connect > Branding)",
     "payment methods for connected accounts: cards, Link, Apple Pay, Google Pay and "
     "Canadian pre-authorized debit (Settings > Connect > Payment methods)",
-    "Apple Pay domain registration for the Connect and web hosts once they are public",
     "Terminal and Tap to Pay: enable Terminal for the platform and Tap to Pay on iPhone/Android "
     "for Canada; real-device testing needs the Apple entitlement",
     "the sandbox default API version, which `stripe listen` uses for snapshot payloads unless "
@@ -736,6 +738,37 @@ def plan_location(
     )
 
 
+def plan_payment_domains(
+    business_id: str,
+    account_id: str | None,
+    existing: Sequence[Mapping[str, object]],
+    domains: Sequence[str],
+) -> list[Step]:
+    if account_id is None:
+        detail = "the account does not exist yet; rerun after --apply creates it"
+        return [Step("keep", f"payment method domains for {business_id}", detail)]
+    found = {str(d.get("domain_name")): d for d in existing}
+    steps: list[Step] = []
+    for domain in domains:
+        target = f"payment method domain {domain} on {business_id}"
+        current = found.get(domain)
+        if current is None:
+            params = ("domain_name=" + domain, "enabled=true")
+            path = "/v1/payment_method_domains"
+            steps.append(Step("create", target, account_id, "post", path, params, account_id))
+        elif current.get("enabled") is not True:
+            path = f"/v1/payment_method_domains/{current.get('id')}"
+            detail = f"{current.get('id')}: enable"
+            steps.append(
+                Step("update", target, detail, "post", path, ("enabled=true",), account_id)
+            )
+        else:
+            steps.append(
+                Step("keep", target, f"{current.get('id')} is enabled", account=account_id)
+            )
+    return steps
+
+
 class Stripe:
     def __init__(self, runner: Runner, project: str | None) -> None:
         self.runner = runner
@@ -1187,6 +1220,11 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
         action="store_true",
         help="point the local demo rows at the sandbox objects (writes only with --apply)",
     )
+    parser.add_argument(
+        "--payment-domains",
+        metavar="BASE_DOMAIN",
+        help="register app., book., pay. and shop. of this domain on each demo account",
+    )
     parser.add_argument("--listen", action="store_true", help="run `stripe listen` for our events")
     parser.add_argument("--show-secrets", action="store_true", help="print secrets unredacted")
     parser.add_argument(
@@ -1242,6 +1280,21 @@ def main(argv: Sequence[str] | None = None, runner: Runner = cli_runner) -> int:
     }
     closed = stripe.list_v2("/v2/core/accounts", closed=True)
     steps += [plan_account(biz, matched[biz.id], closed) for biz in DEMO_BUSINESSES]
+    if args.payment_domains is not None:
+        if not DOMAIN.fullmatch(args.payment_domains):
+            detail = "--payment-domains takes a bare domain such as staging.clientbridge.ca"
+            steps.append(Step("blocked", "payment method domains", detail))
+        else:
+            domains = payment_domains(args.payment_domains)
+            for biz in DEMO_BUSINESSES:
+                found = matched[biz.id]
+                account_id = str(found[0]["id"]) if len(found) == 1 else None
+                existing = (
+                    stripe.list_all("/v1/payment_method_domains", account=account_id)
+                    if account_id is not None
+                    else []
+                )
+                steps += plan_payment_domains(biz.id, account_id, existing, domains)
     print("plan:")
     for step in steps:
         show(step)

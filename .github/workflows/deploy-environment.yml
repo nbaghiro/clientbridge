@@ -1,0 +1,170 @@
+name: deploy-environment
+# One environment's stack: pulumi up with the given digests (the migrate Job runs first and a failure
+# stops the rollout), a smoke test of api., sync. and app., then the deployed digests are tagged
+# <env>-current and <env>-<short sha>. The job's GitHub environment selects the deployer account,
+# which may change only that environment's namespace.
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      backend_digest:
+        type: string
+        required: true
+      web_digest:
+        type: string
+        required: true
+      ref:
+        type: string
+        required: true
+      newer_only:
+        description: Skip when the environment already runs a later commit of main
+        type: boolean
+        required: true
+      allow_schema_ahead:
+        description: A rollback, whose migrate step skips a database at a revision the image lacks
+        type: boolean
+        required: true
+    outputs:
+      deployed:
+        description: Whether this run deployed, as opposed to skipping an older commit
+        value: ${{ jobs.deploy.outputs.deployed }}
+
+permissions: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    # production's GitHub environment requires a reviewer's approval before this job starts
+    environment: ${{ inputs.environment }}
+    # one deploy per environment at a time, never cancelled halfway through a migration or rollout
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      deployed: ${{ steps.order.outputs.deploy }}
+    env:
+      PULUMI_VERSION: 3.268.0
+      ENV_NAME: ${{ inputs.environment == 'production' && 'prod' || 'staging' }}
+      STACK: ${{ inputs.environment == 'production' && 'prod' || 'staging' }}
+      # the state bucket the cloud stack names; the deployer's Google credentials reach it and its key
+      PULUMI_BACKEND_URL: ${{ vars.PULUMI_BACKEND_URL }}
+      REGISTRY: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/clientbridge
+      BACKEND: ${{ inputs.backend_digest }}
+      WEB: ${{ inputs.web_digest }}
+      REF: ${{ inputs.ref }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          # the whole history of main, to tell whether the deployed commit is newer than this one
+          fetch-depth: 0
+          persist-credentials: false
+      - id: builder
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_BUILDER }}
+      # replaces the builder as the default credential; the registry steps select the builder's file
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER }}
+      - uses: google-github-actions/setup-gcloud@v3
+        with:
+          install_components: gke-gcloud-auth-plugin
+      - name: skip an older commit than the one deployed
+        id: order
+        env:
+          NEWER_ONLY: ${{ inputs.newer_only }}
+          CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE: ${{ steps.builder.outputs.credentials_file_path }}
+        run: |
+          deploy=true
+          if [ "$NEWER_ONLY" = true ]; then
+            tags=$(gcloud artifacts docker tags list "$REGISTRY/backend" \
+              --format='value(tag.basename(),version.basename())')
+            current=$(awk -v t="$ENV_NAME-current" '$1 == t {print $2; exit}' <<<"$tags")
+            deployed=$(awk -v d="$current" '$2 == d && length($1) == 40 && $1 ~ /^[0-9a-f]+$/ {print $1; exit}' <<<"$tags")
+            if [ -z "$deployed" ]; then
+              echo "no commit is recorded as deployed to $ENV_NAME"
+            elif [ "$deployed" != "$REF" ] && git cat-file -e "$deployed^{commit}" 2>/dev/null &&
+                 git merge-base --is-ancestor "$REF" "$deployed"; then
+              echo "$ENV_NAME already runs $deployed, which is newer than $REF; skipping"
+              deploy=false
+            fi
+          fi
+          echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
+      - if: steps.order.outputs.deploy == 'true'
+        uses: astral-sh/setup-uv@v10.3.0
+      - if: steps.order.outputs.deploy == 'true'
+        name: install the Pulumi CLI
+        run: |
+          base="https://github.com/pulumi/pulumi/releases/download/v$PULUMI_VERSION"
+          archive="pulumi-v$PULUMI_VERSION-linux-x64.tar.gz"
+          cd "$RUNNER_TEMP"
+          curl -fsSLO "$base/$archive"
+          curl -fsSL "$base/pulumi-$PULUMI_VERSION-checksums.txt" | grep " $archive\$" | sha256sum -c -
+          tar -xzf "$archive"
+          echo "$RUNNER_TEMP/pulumi" >> "$GITHUB_PATH"
+      - if: steps.order.outputs.deploy == 'true'
+        name: pulumi up
+        id: up
+        working-directory: infra/pulumi
+        env:
+          ALLOW_SCHEMA_AHEAD: ${{ inputs.allow_schema_ahead }}
+        run: |
+          uv sync --frozen
+          pulumi login "$PULUMI_BACKEND_URL"
+          # set on every run, so a rollback's value never carries over to the next deploy
+          pulumi up --yes --diff --suppress-outputs --stack "$STACK" \
+            --config "clientbridge:backendDigest=$BACKEND" --config "clientbridge:webDigest=$WEB" \
+            --config "clientbridge:allowSchemaAhead=$ALLOW_SCHEMA_AHEAD"
+          echo "domain=$(pulumi stack output baseDomain --stack "$STACK")" >> "$GITHUB_OUTPUT"
+      - if: steps.order.outputs.deploy == 'true'
+        name: smoke test
+        env:
+          DOMAIN: ${{ steps.up.outputs.domain }}
+        run: |
+          # a first deploy waits on the Gateway programming its routes, which can take minutes
+          healthy() {
+            for url in "https://api.$DOMAIN/health" "https://api.$DOMAIN/ready" \
+                       "https://sync.$DOMAIN/probes/liveness" "https://app.$DOMAIN/"; do
+              curl -fsS --max-time 10 -o /dev/null "$url" || return 1
+            done
+            curl -fsS --max-time 10 "https://app.$DOMAIN/config.js" |
+              grep -q "\"baseDomain\":\"$DOMAIN\""
+          }
+          deadline=$((SECONDS + 300))
+          delay=5
+          until healthy; do
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "smoke test failed for $DOMAIN after 5 minutes"
+              exit 1
+            fi
+            echo "not healthy yet; retrying in ${delay}s"
+            sleep "$delay"
+            delay=$((delay * 2 > 60 ? 60 : delay * 2))
+          done
+          echo "ok $DOMAIN"
+      - if: steps.order.outputs.deploy == 'true'
+        name: tag the deployed digests
+        env:
+          CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE: ${{ steps.builder.outputs.credentials_file_path }}
+        run: |
+          for pair in "backend=$BACKEND" "web=$WEB"; do
+            image="${pair%%=*}"
+            digest="${pair#*=}"
+            # a manual run may redeploy digests built from an earlier commit than the one checked out
+            commit=$(gcloud artifacts docker tags list "$REGISTRY/$image" \
+              --format='value(tag.basename(),version.basename())' |
+              awk -v d="$digest" '$2 == d && length($1) == 40 && $1 ~ /^[0-9a-f]+$/ {print $1; exit}')
+            commit="${commit:-$REF}"
+            for tag in "$ENV_NAME-current" "$ENV_NAME-${commit:0:7}"; do
+              gcloud artifacts docker tags add "$REGISTRY/$image@$digest" "$REGISTRY/$image:$tag" --quiet
+            done
+          done

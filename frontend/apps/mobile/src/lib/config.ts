@@ -32,19 +32,15 @@ export const authUrl =
 export const publicWebUrl =
     developmentUrl(process.env.EXPO_PUBLIC_PUBLIC_WEB_URL) ??
     extra.publicWebUrl ??
-    "https://app.clientbridge.ca";
+    "http://localhost:8700";
 
 /** The one host every invoice pay link uses. */
 export const payUrl =
-    developmentUrl(process.env.EXPO_PUBLIC_PAY_URL) ??
-    extra.payUrl ??
-    "https://pay.clientbridge.ca";
+    developmentUrl(process.env.EXPO_PUBLIC_PAY_URL) ?? extra.payUrl ?? "http://localhost:8709";
 
 /** Where the public booking pages live (Connect). */
 export const bookUrl =
-    developmentUrl(process.env.EXPO_PUBLIC_BOOK_URL) ??
-    extra.bookUrl ??
-    "https://book.clientbridge.ca";
+    developmentUrl(process.env.EXPO_PUBLIC_BOOK_URL) ?? extra.bookUrl ?? "http://localhost:8709";
 
 /** Blank until configured; the card forms then show a not-configured note. Never a secret key. */
 export const stripePublishableKey = extra.stripePublishableKey ?? "";

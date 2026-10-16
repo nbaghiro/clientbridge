@@ -1,0 +1,62 @@
+# Applied by an administrator. Settings only; secrets live in Secret Manager.
+config:
+  gcp:project: clientbridge-platform
+  gcp:region: us-east1
+  # the Billing Budgets API needs a quota project when the administrator's own credentials apply it
+  gcp:userProjectOverride: "true"
+  gcp:billingProject: clientbridge-platform
+  clientbridge:databaseZone: us-east1-b
+  clientbridge:githubRepository: nbaghiro/clientbridge
+  # who approves production deploys in GitHub
+  clientbridge:githubReviewer: nbaghiro
+  # the environments this project runs; add prod here when production goes live
+  clientbridge:environments:
+    - staging
+  # created by bootstrap.py before the first pulumi up; Pulumi keeps its state and key there
+  clientbridge:stateBucket: clientbridge-platform-pulumi-state
+  clientbridge:stateKey: projects/clientbridge-platform/locations/us-east1/keyRings/pulumi/cryptoKeys/state
+  clientbridge:alertEmail: alerts@clientbridge.ca
+  clientbridge:billingAccount: 01C64F-90458C-1CCCC2
+  # the billing account bills in CAD, and a budget must use the account's currency
+  clientbridge:budgetAmount: "200"
+  clientbridge:budgetCurrency: CAD
+  # records each environment's Resend domain (and Workspace's DKIM) issue, by name under its base
+  # domain; the apex MX, SPF and DMARC are in cloud/dns.py. Production's are the ones published
+  # today; staging's come from Resend once staging.clientbridge.ca is added there.
+  clientbridge:mailRecords:
+    prod:
+      - name: resend._domainkey
+        type: TXT
+        data:
+          - p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDbQ9FeEowzQIAv8QeeNcY5F0W3mIcNhahp6dtX+4L8dbY5SVMV7fRG1t8krkccPMmY5EOeQR2Rimo2Bc/ZM8WtzQk+zEUQyzej8+pnXrvjCrwkpO2FzP8e5fWWq101C5yPA3p3MMvIw6pWCiMvkXxXXPkX0o1WgN7UAn6bavc0nwIDAQAB
+      - name: send
+        type: CNAME
+        data:
+          - send.forge.rmta.net.
+      - name: rsend
+        type: CNAME
+        data:
+          - rsend.forge.rmta.net.
+      - name: google._domainkey
+        type: TXT
+        data:
+          - v=DKIM1;k=rsa;p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAs7W81rsonDMcZUlgbP+X1qdtbg50tn7K3bwrOiEyDF6571B1CiNS7bE/JU5Oeog5rPBlSIqWTtqoYDD0cOsWF5C0RAfzmteweOVB0972VOSP52CHFGzHlPJ29ATMk2BJkxNyqWccMLCUQq0mTqsJ5N83lsQdjH2jRw+3IDkJIGCgZ1hsOPOFPZC3onRV0EYSLDoAMgxu44r+Zsf/Mxuvru1QyO36lKBVQhZCH9PefeuPxW4H27eo0FY1FI/1Rp7yB6vjccfRWTQZoJHdbVatYl1LamXVFMQR/XOGp6TZum7Aoosi054evZGYzQRAn3YJyq5wZOL4txEka4dQZKr35QIDAQAB
+    staging:
+    - name: resend._domainkey
+      type: TXT
+      data:
+      - p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDFo4wjGAbtkpv1kQAqLOs3FJqVZs3CiSfPDO05cNe4Pq3urlliQ0nAHOdPzrd18iqydYgdET0OUiWuZfBwQiNSPwZxIPqtx8L9uwXBmczQH3660JmsKAvSpZCjPNsFNVGQDALKO/fnTroZcTjNhDSpmV1HzmUN6a/JcXxiesyAgwIDAQAB
+    - name: send
+      type: MX
+      data:
+      - 10 feedback-smtp.us-east-1.amazonses.com.
+    - name: send
+      type: TXT
+      data:
+      - v=spf1 include:amazonses.com ~all
+    - name: rsend
+      type: CNAME
+      data:
+      - send.forge.rmta.net.
+secretsprovider: gcpkms://projects/clientbridge-platform/locations/us-east1/keyRings/pulumi/cryptoKeys/state
+encryptedkey: CiQADSZLDiaMiMJdMCr+7TCCwvkPaHHuVhNICL0FcoOo8Qft8acSSQAyFkhwPt4FpVijKFeqefYz3jPP8qJC56xLqzaljjJityPYB1gHieZuyzf77BZcr1NpgjL0zJBzJ0YfrzcB11ssK9yAgT9dL98=

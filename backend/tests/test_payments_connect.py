@@ -141,6 +141,37 @@ async def test_embedded_onboarding_reuses_an_account_that_only_pays_for_its_plan
     assert gateway.account_sessions == [("acct_customer", "onboarding")]
 
 
+async def test_onboarding_registers_the_payment_domains_on_the_account(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _reset_account(db)
+    monkeypatch.setattr(get_settings(), "base_domain", "staging.clientbridge.ca")
+    res = await as_owner.post("/v1/connect/onboard")
+    assert res.status_code == 200, res.text
+    (account,) = gateway.created_accounts
+    hosts = {f"{h}.staging.clientbridge.ca" for h in ("app", "book", "pay", "shop")}
+    assert gateway.payment_domains == {account: hosts}
+    gateway.payment_domains.clear()
+    session = await as_owner.post("/v1/connect/session", json={"component": "onboarding"})
+    assert session.status_code == 200, session.text
+    assert gateway.payment_domains == {account: hosts}
+    gateway.payment_domains.clear()
+    await as_owner.post("/v1/connect/session", json={"component": "payments"})
+    assert gateway.payment_domains == {}
+
+
+async def test_local_onboarding_registers_no_payment_domain(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _reset_account(db)
+    assert get_settings().base_domain == ""
+    assert (await as_owner.post("/v1/connect/onboard")).status_code == 200
+    assert gateway.payment_domains == {}
+
+
 async def test_staff_cannot_onboard(as_staff: httpx.AsyncClient) -> None:
     res = await as_staff.post("/v1/connect/onboard")
     assert res.status_code == 403
