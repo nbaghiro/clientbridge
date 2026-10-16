@@ -299,12 +299,9 @@ def test_staging_runs_on_spot_and_production_only_its_worker(stacks: dict[str, B
             name = dig(each.inputs, "metadata", "name")
             selector = dig(each.inputs, "spec", "template", "spec", "nodeSelector")
             spot = env == "staging" or name == "worker"
-            expected = {
-                "cloud.google.com/compute-class": "small-disk-spot" if spot else "small-disk"
-            }
-            if spot:
-                expected["cloud.google.com/gke-spot"] = "true"
-            assert selector == expected, (env, name)
+            spot = env == "staging" or name == "worker"
+            klass = "small-disk-spot" if spot else "small-disk"
+            assert selector == {"cloud.google.com/compute-class": klass}, (env, name)
 
 
 def test_nodes_boot_from_small_disks_to_fit_the_ssd_quota(cloud: Built) -> None:

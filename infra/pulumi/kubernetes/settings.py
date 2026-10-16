@@ -363,10 +363,8 @@ def pod(
             run_as_non_root=True,
             seccomp_profile=k8s.core.v1.SeccompProfileArgs(type="RuntimeDefault"),
         ),
-        node_selector={
-            "cloud.google.com/compute-class": compute.class_for(spot),
-            **({"cloud.google.com/gke-spot": "true"} if spot else {}),
-        },
+        # the class decides Spot; GKE refuses a gke-spot selector beside a custom compute class
+        node_selector={"cloud.google.com/compute-class": compute.class_for(spot)},
         tolerations=[
             k8s.core.v1.TolerationArgs(
                 key="cloud.google.com/gke-spot", operator="Equal", value="true", effect="NoSchedule"
