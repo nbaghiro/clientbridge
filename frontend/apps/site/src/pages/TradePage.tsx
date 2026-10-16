@@ -6,7 +6,6 @@ import { links } from "../config";
 import { Icon } from "../art/Icon";
 import { Photo } from "../components/Photo";
 import { BRANDS } from "../content/brands";
-import { testimonialPlaceholder } from "../content/home";
 import { tradePage } from "../content/solutions";
 import { solutionPath, type Trade, TRADES } from "../content/trades";
 import { BillMock } from "../mocks/BillMock";
@@ -15,7 +14,6 @@ import { ClientRecordMock } from "../mocks/ClientRecordMock";
 import { ScheduleMock } from "../mocks/ScheduleMock";
 import { CapabilityGrid } from "../sections/CapabilityGrid";
 import { Closing } from "../sections/Closing";
-import { Testimonial } from "../sections/Proof";
 
 export function TradePage({ trade }: { trade: Trade }) {
     const brand = BRANDS[trade.slug];
@@ -54,9 +52,11 @@ export function TradePage({ trade }: { trade: Trade }) {
                             <a className="btn btn-primary btn-lg" href={links.startFree}>
                                 {tradePage.primary}
                             </a>
-                            <a className="btn btn-ghost btn-lg" href={links.demoBusiness}>
-                                {tradePage.secondary}
-                            </a>
+                            {links.demoBusiness === null ? null : (
+                                <a className="btn btn-ghost btn-lg" href={links.demoBusiness}>
+                                    {tradePage.secondary}
+                                </a>
+                            )}
                         </div>
                         <p className="note">{tradePage.note}</p>
                     </div>
@@ -162,12 +162,8 @@ export function TradePage({ trade }: { trade: Trade }) {
             ) : null}
 
             <section className="band">
-                <div className="wrap grid-2 items-start">
-                    <div className="stack-16">
-                        <p className="eyebrow">{tradePage.proofEyebrow(trade.who)}</p>
-                        <Testimonial quote={testimonialPlaceholder(1)} />
-                    </div>
-                    <div className="stack-16">
+                <div className="wrap">
+                    <div className="narrow stack-16">
                         <p className="eyebrow">{tradePage.others}</p>
                         <div className="other-list">
                             {others.map((o) => (

@@ -14,7 +14,7 @@ const RULES: { name: string; pattern: RegExp }[] = [
     },
     {
         name: "unfinished-product wording",
-        pattern: /\b(beta|coming soon|early access|waitlist)\b/i,
+        pattern: /\b(beta|coming soon|early access)\b/i,
     },
     { name: "exclamation mark", pattern: /!/ },
 ];

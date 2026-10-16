@@ -1,7 +1,10 @@
+import { formatLongDate } from "@clientbridge/app-core/public";
+
 import type { LineIconName } from "../art/LineIcon";
 import type { PageMeta } from "../routes";
 import { planPrices } from "./plans";
 import { solutionPath, TRADES } from "./trades";
+import { closingCopy, ctaLabel, trialAnswer } from "./waitlist";
 import { strings } from "../strings";
 
 const s = strings.pages;
@@ -41,7 +44,7 @@ export const pricingPage = {
         staff,
     })),
     trial: s.pricingPage.plans.trial,
-    cta: s.pricingPage.plans.cta,
+    cta: ctaLabel(s.pricingPage.plans.cta),
     included: {
         title: s.pricingPage.included.title,
         groups: [
@@ -63,7 +66,7 @@ export const pricingPage = {
     },
     faqTitle: s.pricingPage.faqTitle,
     faq: [
-        s.pricingPage.faq[0],
+        { ...s.pricingPage.faq[0], a: trialAnswer(s.pricingPage.faq[0].a) },
         s.pricingPage.faq[1],
         s.pricingPage.faq[2],
         s.pricingPage.faq[3],
@@ -73,7 +76,45 @@ export const pricingPage = {
         s.pricingPage.faq[7],
         s.pricingPage.faq[8],
     ],
-    closing: s.pricingPage.closing,
+    closing: closingCopy(s.pricingPage.closing),
+};
+
+export const paymentsMeta = pageMeta(s.paymentsPage.meta);
+
+const band = (i: 0 | 1) => ({
+    eyebrow: s.paymentsPage.bands[i].eyebrow,
+    title: s.paymentsPage.bands[i].title,
+    body: s.paymentsPage.bands[i].body,
+    points: s.paymentsPage.bands[i].points,
+});
+
+export const paymentsPage = {
+    eyebrow: s.paymentsPage.eyebrow,
+    title: s.paymentsPage.title,
+    lede: s.paymentsPage.lede,
+    bands: [band(0), band(1)],
+    stripeEyebrow: s.paymentsPage.stripeEyebrow,
+    faqTitle: s.paymentsPage.faqTitle,
+    // the payment questions from the pricing page, so the two pages answer them the same way
+    faq: [s.pricingPage.faq[1], s.pricingPage.faq[2], s.pricingPage.faq[3]],
+    closing: closingCopy(s.paymentsPage.closing),
+};
+
+export const contactPage = {
+    meta: pageMeta(s.contactPage.meta),
+    thanksMeta: pageMeta(s.contactPage.thanks.meta),
+    eyebrow: s.contactPage.eyebrow,
+    title: s.contactPage.title,
+    lede: s.contactPage.lede,
+    name: s.contactPage.name,
+    email: s.contactPage.email,
+    message: s.contactPage.message,
+    honeypot: s.contactPage.honeypot,
+    submit: s.contactPage.submit,
+    consent: s.contactPage.consent,
+    retry: s.contactPage.retry,
+    reach: s.contactPage.reach(contactEmail, strings.pages.legal.address),
+    thanks: s.contactPage.thanks,
 };
 
 export const featuresMeta = pageMeta(s.featuresMeta);
@@ -122,7 +163,7 @@ export const featuresPage = {
             title: s.featuresPage.groups.payments.title,
             body: s.featuresPage.groups.payments.body,
             items: s.featuresPage.groups.payments.items,
-            link: { label: s.featuresPage.groups.payments.link.label, href: "/#payments" },
+            link: { label: s.featuresPage.groups.payments.link.label, href: "/payments" },
         },
         {
             id: "products",
@@ -138,7 +179,7 @@ export const featuresPage = {
             title: s.featuresPage.groups.tax.title,
             body: s.featuresPage.groups.tax.body,
             items: s.featuresPage.groups.tax.items,
-            link: { label: s.featuresPage.groups.tax.link.label, href: "/#payments" },
+            link: { label: s.featuresPage.groups.tax.link.label, href: "/payments#flow" },
         },
         {
             id: "staff",
@@ -169,13 +210,19 @@ export const featuresPage = {
     trades: TRADES.map((t) => ({ label: t.name, href: solutionPath(t.slug), glyph: t.glyph })),
 };
 
+interface LegalSection {
+    title: string;
+    body: readonly string[];
+    items: readonly string[];
+}
+
 export interface LegalPage {
     meta: PageMeta;
     title: string;
     updated: string;
     intro: string;
-    sections: readonly string[];
-    placeholder: string;
+    sections: LegalSection[];
+    contactTitle: string;
     contact: string;
     paymentDisclosure: {
         title: string;
@@ -184,8 +231,14 @@ export interface LegalPage {
     };
 }
 
-const legalPlaceholder = s.legalPlaceholder;
-const paymentDisclosure = {
+// the day both legal pages last changed, as a date in Ontario
+const LEGAL_UPDATED = new Date("2026-10-14T12:00:00-04:00");
+
+const legalSections = (
+    sections: readonly { title: string; body: readonly string[]; items?: readonly string[] }[],
+): LegalSection[] => sections.map((x) => ({ title: x.title, body: x.body, items: x.items ?? [] }));
+
+export const paymentDisclosure = {
     title: s.paymentDisclosure.title,
     body: s.paymentDisclosure.body,
     links: [
@@ -201,24 +254,26 @@ const paymentDisclosure = {
     ],
 };
 
+const updated = s.legal.updated(formatLongDate(LEGAL_UPDATED, "America/Toronto"));
+
 export const privacyPage: LegalPage = {
     paymentDisclosure,
     meta: pageMeta(s.privacyPage.meta),
     title: s.privacyPage.title,
-    updated: s.privacyPage.updated,
+    updated,
     intro: s.privacyPage.intro,
-    sections: s.privacyPage.sections,
-    placeholder: legalPlaceholder,
-    contact: s.privacyPage.contact(contactEmail),
+    sections: legalSections(s.privacyPage.sections),
+    contactTitle: s.legal.contactTitle,
+    contact: s.privacyPage.contact(contactEmail, s.legal.address),
 };
 
 export const termsPage: LegalPage = {
     paymentDisclosure,
     meta: pageMeta(s.termsPage.meta),
     title: s.termsPage.title,
-    updated: s.termsPage.updated,
+    updated,
     intro: s.termsPage.intro,
-    sections: s.termsPage.sections,
-    placeholder: legalPlaceholder,
-    contact: s.termsPage.contact(contactEmail),
+    sections: legalSections(s.termsPage.sections),
+    contactTitle: s.legal.contactTitle,
+    contact: s.termsPage.contact(contactEmail, s.legal.address),
 };

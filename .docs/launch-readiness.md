@@ -1394,13 +1394,13 @@ Size: S · Area: Platform and launch
 
 **Flow:** A visitor reads the site, trusts what it says, and signs up.
 
-**Built:** Home, features, solutions with eight trade pages, pricing, legal shells and credits; content, link, accessibility and Lighthouse checks in CI.
+**Built:** Home, features, solutions with eight trade pages, pricing, legal shells and credits; content, link, accessibility and Lighthouse checks in CI; a waitlist build for the time before the app is deployed (`VITE_WAITLIST=1`, `render.yaml`), whose sign-ups go to a Resend segment.
 
 **To do:**
 
 - Privacy policy and terms from a lawyer; prices and the platform fee; a contact address.
 - Remove or build every capability a page describes that doesn't exist yet.
-- Point Start free at the sign-up page and deploy on the main domain.
+- Point Start free at the sign-up page and deploy on the main domain, replacing the waitlist build on Render, and email the waitlist.
 
 **QA:**
 

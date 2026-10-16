@@ -164,7 +164,7 @@ def _client_footer(locale: str, business: Business) -> tuple[str, ...]:
     return (_business_line(locale, business), reason)
 
 
-def _html(brand: Brand, view: EmailView, locale: str) -> str:
+def email_html(brand: Brand, view: EmailView, locale: str) -> str:
     preheader = view.paragraphs[0] if view.paragraphs else view.heading
     return render_html(brand, view, preheader=preheader, lang=_lang(locale))
 
@@ -190,7 +190,7 @@ def client_email(
         if notice.view.footer
         else replace(notice.view, footer=_client_footer(locale, business))
     )
-    html = _html(brand, view, locale)
+    html = email_html(brand, view, locale)
     return Email(
         to=to,
         subject=notice.subject,
@@ -210,7 +210,7 @@ def business_email(business: Business, to: str, notice: Notice) -> Email:
         message(locale, "email.footer.team", business=business.name),
         message(locale, "email.footer.company"),
     )
-    html = _html(platform_brand(), replace(notice.view, footer=footer), locale)
+    html = email_html(platform_brand(), replace(notice.view, footer=footer), locale)
     return Email(
         to=to,
         subject=notice.subject,
@@ -227,7 +227,7 @@ def account_email(to: str, notice: Notice, *, locale: str) -> Email:
         message(locale, "email.footer.account"),
         message(locale, "email.footer.company"),
     )
-    html = _html(platform_brand(), replace(notice.view, footer=footer), locale)
+    html = email_html(platform_brand(), replace(notice.view, footer=footer), locale)
     return Email(
         to=to,
         subject=notice.subject,
@@ -264,15 +264,23 @@ def staff_invite(locale: str, business_name: str, link: str) -> Notice:
     )
 
 
-def waitlist_message(locale: str, link: str) -> Notice:
-    """The confirmation a waitlist sign-up gets, sent by the marketing site's server."""
-    body, more = message(locale, "waitlist.body"), message(locale, "waitlist.more")
+def waitlist_message(locale: str, link: str, *, already: bool = False) -> Notice:
+    """The email a waitlist sign-up gets from the site's server: welcome, or already on the list."""
+    if already:
+        subject = message(locale, "waitlist_again.subject")
+        heading = message(locale, "waitlist_again.heading")
+        body = message(locale, "waitlist_again.body")
+    else:
+        subject = message(locale, "waitlist.subject")
+        heading = message(locale, "waitlist.heading")
+        body = message(locale, "waitlist.body")
+    more = message(locale, "waitlist.more")
     return Notice(
-        message(locale, "waitlist.subject"),
+        subject,
         message(locale, "waitlist.text", body=body, more=more, link=link),
         EmailView(
             eyebrow=message(locale, "email.kind.waitlist"),
-            heading=message(locale, "waitlist.heading"),
+            heading=heading,
             paragraphs=(body, more),
             action=Action(message(locale, "waitlist.action"), link),
             footer=(message(locale, "waitlist.footer"), message(locale, "email.footer.company")),

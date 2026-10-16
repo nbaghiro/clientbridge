@@ -10,6 +10,17 @@
     </head>
     <body>
         <div id="root"><!--app-html--></div>
+        <!-- the only script the built pages keep: the phone menu closes after a tap and when a page is shown again -->
+        <script>
+            addEventListener("click", (event) => {
+                const link = event.target.closest(".nav-sheet a");
+                if (link) link.closest("details").open = false;
+            });
+            addEventListener("pageshow", () => {
+                const menu = document.querySelector(".nav-menu");
+                if (menu) menu.open = false;
+            });
+        </script>
         <script type="module" src="/src/main.tsx"></script>
     </body>
 </html>

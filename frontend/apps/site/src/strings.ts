@@ -46,7 +46,6 @@ interface Strings {
                         { readonly label: string } & Labels,
                         { readonly label: string } & Labels,
                         { readonly label: string } & Labels,
-                        { readonly label: string } & Labels,
                     ];
                 },
             ];
@@ -57,6 +56,28 @@ interface Strings {
             readonly body: string;
             readonly back: string;
         } & Labels;
+        readonly waitlist: {
+            readonly cta: string;
+            readonly note: string;
+            readonly closing: { readonly title: string; readonly lede: string } & Labels;
+            readonly trialAnswer: string;
+            readonly meta: { readonly headline: string; readonly description: string } & Labels;
+            readonly eyebrow: string;
+            readonly title: string;
+            readonly lede: string;
+            readonly email: string;
+            readonly honeypot: string;
+            readonly submit: string;
+            readonly consent: string;
+            readonly retry: (email: string) => string;
+            readonly thanks: {
+                readonly meta: { readonly headline: string; readonly description: string } & Labels;
+                readonly title: string;
+                readonly body: string;
+                readonly features: string;
+                readonly pricing: string;
+            };
+        };
         readonly pageTitle: (page: string) => string;
         readonly jsonLd: { readonly description: string } & Labels;
     };
@@ -121,6 +142,7 @@ interface Strings {
                 { readonly title: string; readonly body: string } & Labels,
                 { readonly title: string; readonly body: string } & Labels,
             ];
+            readonly link: string;
         };
         readonly included: {
             readonly eyebrow: string;
@@ -140,7 +162,6 @@ interface Strings {
                 { readonly title: string; readonly body: string } & Labels,
             ];
         };
-        readonly proof: { readonly eyebrow: string; readonly logo: string } & Labels;
         readonly pricing: {
             readonly eyebrow: string;
             readonly title: string;
@@ -157,11 +178,6 @@ interface Strings {
             readonly primary: string;
             readonly secondary: string;
         } & Labels;
-        readonly testimonial: {
-            readonly lead: (n: number) => string;
-            readonly body: string;
-            readonly byline: string;
-        };
     };
     readonly pages: {
         readonly pricingMeta: { readonly headline: string; readonly description: string } & Labels;
@@ -304,7 +320,11 @@ interface Strings {
             };
             readonly tradesTitle: string;
         };
-        readonly legalPlaceholder: string;
+        readonly legal: {
+            readonly updated: (date: string) => string;
+            readonly contactTitle: string;
+            readonly address: string;
+        };
         readonly paymentDisclosure: {
             readonly title: string;
             readonly body: string;
@@ -317,18 +337,142 @@ interface Strings {
         readonly privacyPage: {
             readonly meta: { readonly headline: string; readonly description: string } & Labels;
             readonly title: string;
-            readonly updated: string;
             readonly intro: string;
-            readonly sections: readonly [string, string, string, string, string];
-            readonly contact: (email: string) => string;
+            readonly sections: readonly [
+                { readonly title: string; readonly body: readonly [string, string, string] },
+                {
+                    readonly title: string;
+                    readonly body: readonly [string];
+                    readonly items: readonly [
+                        string,
+                        string,
+                        string,
+                        string,
+                        string,
+                        string,
+                        string,
+                    ];
+                },
+                {
+                    readonly title: string;
+                    readonly body: readonly [string];
+                    readonly items: readonly [
+                        string,
+                        string,
+                        string,
+                        string,
+                        string,
+                        string,
+                        string,
+                    ];
+                },
+                { readonly title: string; readonly body: readonly [string, string, string] },
+                {
+                    readonly title: string;
+                    readonly body: readonly [string];
+                    readonly items: readonly [
+                        string,
+                        string,
+                        string,
+                        string,
+                        string,
+                        string,
+                        string,
+                    ];
+                },
+                { readonly title: string; readonly body: readonly [string] },
+                { readonly title: string; readonly body: readonly [string] },
+                { readonly title: string; readonly body: readonly [string, string, string] },
+                { readonly title: string; readonly body: readonly [string, string] },
+                { readonly title: string; readonly body: readonly [string, string] },
+                { readonly title: string; readonly body: readonly [string] },
+                { readonly title: string; readonly body: readonly [string] },
+                { readonly title: string; readonly body: readonly [string] },
+            ];
+            readonly contact: (email: string, address: string) => string;
         };
         readonly termsPage: {
             readonly meta: { readonly headline: string; readonly description: string } & Labels;
             readonly title: string;
-            readonly updated: string;
             readonly intro: string;
-            readonly sections: readonly [string, string, string, string, string, string, string];
-            readonly contact: (email: string) => string;
+            readonly sections: readonly [
+                { readonly title: string; readonly body: readonly [string, string] },
+                { readonly title: string; readonly body: readonly [string, string] },
+                { readonly title: string; readonly body: readonly [string] },
+                {
+                    readonly title: string;
+                    readonly body: readonly [string, string, string, string];
+                },
+                { readonly title: string; readonly body: readonly [string, string] },
+                { readonly title: string; readonly body: readonly [string, string] },
+                {
+                    readonly title: string;
+                    readonly body: readonly [string];
+                    readonly items: readonly [string, string, string, string, string, string];
+                },
+                { readonly title: string; readonly body: readonly [string] },
+                { readonly title: string; readonly body: readonly [string, string] },
+                { readonly title: string; readonly body: readonly [string] },
+                { readonly title: string; readonly body: readonly [string] },
+                { readonly title: string; readonly body: readonly [string] },
+                { readonly title: string; readonly body: readonly [string, string] },
+                {
+                    readonly title: string;
+                    readonly body: readonly [string, string, string, string];
+                },
+                { readonly title: string; readonly body: readonly [string] },
+                { readonly title: string; readonly body: readonly [string] },
+            ];
+            readonly contact: (email: string, address: string) => string;
+        };
+        readonly paymentsPage: {
+            readonly meta: { readonly headline: string; readonly description: string } & Labels;
+            readonly eyebrow: string;
+            readonly title: string;
+            readonly lede: string;
+            readonly bands: readonly [
+                {
+                    readonly eyebrow: string;
+                    readonly title: string;
+                    readonly body: string;
+                    readonly points: readonly [string, string, string];
+                },
+                {
+                    readonly eyebrow: string;
+                    readonly title: string;
+                    readonly body: string;
+                    readonly points: readonly [string, string, string];
+                },
+            ];
+            readonly stripeEyebrow: string;
+            readonly faqTitle: string;
+            readonly closing: {
+                readonly title: string;
+                readonly lede: string;
+                readonly primary: string;
+                readonly secondary: string;
+            } & Labels;
+        };
+        readonly contactPage: {
+            readonly meta: { readonly headline: string; readonly description: string } & Labels;
+            readonly eyebrow: string;
+            readonly title: string;
+            readonly lede: string;
+            readonly name: string;
+            readonly email: string;
+            readonly message: string;
+            readonly honeypot: string;
+            readonly submit: string;
+            readonly consent: string;
+            readonly retry: string;
+            readonly reach: (email: string, address: string) => string;
+            readonly thanks: {
+                readonly meta: { readonly headline: string; readonly description: string } & Labels;
+                readonly title: string;
+                readonly body: string;
+                readonly features: string;
+                readonly pricing: string;
+            };
         };
     };
     readonly solutions: {
@@ -389,25 +533,11 @@ interface Strings {
             readonly upcoming: string;
             readonly forms: string;
             readonly handles: (who: string) => string;
-            readonly proofEyebrow: (who: string) => string;
             readonly bookingTag: (tag: string, city: string) => string;
             readonly inCad: (amount: string) => string;
             readonly retainerPaid: (share: number) => string;
             readonly used: (used: number, total: number) => string;
             readonly signed: (form: string) => string;
-        };
-        readonly creditsMeta: { readonly headline: string; readonly description: string } & Labels;
-        readonly creditsPage: {
-            readonly title: string;
-            readonly lede: string;
-            readonly license: string;
-            readonly columns: {
-                readonly subject: string;
-                readonly photographer: string;
-                readonly source: string;
-            } & Labels;
-            readonly view: string;
-            readonly photoBy: (name: string) => string;
         };
         readonly tradeMeta: { readonly title: (trade: string) => string };
     };
@@ -1067,23 +1197,6 @@ interface Strings {
             readonly activityTitle: string;
             readonly payment: (method: string) => string;
         };
-    };
-    readonly photos: {
-        readonly grooming: { readonly subject: string } & Labels;
-        readonly "grooming-2": { readonly subject: string } & Labels;
-        readonly salon: { readonly subject: string } & Labels;
-        readonly "salon-2": { readonly subject: string } & Labels;
-        readonly fitness: { readonly subject: string } & Labels;
-        readonly cleaning: { readonly subject: string } & Labels;
-        readonly "cleaning-2": { readonly subject: string } & Labels;
-        readonly tutoring: { readonly subject: string } & Labels;
-        readonly "tutoring-2": { readonly subject: string } & Labels;
-        readonly wellness: { readonly subject: string } & Labels;
-        readonly "wellness-2": { readonly subject: string } & Labels;
-        readonly photography: { readonly subject: string } & Labels;
-        readonly "photography-2": { readonly subject: string } & Labels;
-        readonly trades: { readonly subject: string } & Labels;
-        readonly "trades-2": { readonly subject: string } & Labels;
     };
 }
 

@@ -18,6 +18,10 @@
 }
 
 @layer base {
+    /* iOS Safari reads only the prefixed property; without it, it enlarges the zoomed phone mocks' text */
+    html {
+        -webkit-text-size-adjust: 100%;
+    }
     body {
         margin: 0;
         background: var(--surface);
@@ -307,36 +311,6 @@
         margin-top: 24px;
     }
 
-    .placeholder {
-        border: 1.5px dashed var(--border);
-        border-radius: var(--radius);
-        background: var(--head);
-        color: var(--muted);
-        font-size: 14px;
-        padding: 20px;
-    }
-    .placeholder b {
-        color: var(--ink-soft);
-        font-weight: 600;
-    }
-    .logo-ph {
-        border: 1.5px dashed var(--border);
-        border-radius: var(--radius);
-        height: 56px;
-        display: grid;
-        place-items: center;
-        color: var(--muted);
-        font-size: 12px;
-        font-weight: 500;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-    }
-
-    .logo-row {
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 16px;
-    }
     .list {
         list-style: none;
     }
@@ -867,11 +841,19 @@
         .hide-sm {
             display: none !important;
         }
-        .logo-row {
-            grid-template-columns: 1fr 1fr;
-        }
-        .logo-row > :nth-child(5) {
+        /* the header's button stays on screen at phone width, so the hero does not repeat it */
+        .hero .cta-row .btn-primary {
             display: none;
+        }
+        .hero .cta-row:has(> .btn-primary:only-child) {
+            display: none;
+        }
+        .hero .note {
+            margin-top: 20px;
+        }
+        .contact-foot {
+            flex-direction: column-reverse;
+            align-items: stretch;
         }
     }
 
@@ -1020,29 +1002,66 @@
         display: flex;
         justify-content: center;
     }
-    .steps {
+    .flow {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 16px;
-        margin-top: 48px;
+        gap: 32px;
+        margin-top: 56px;
+        list-style: none;
     }
-    .step {
-        padding: 24px;
+    .flow-step {
         position: relative;
     }
-    .step .num {
+    /* the line joining each step's icon to the next */
+    .flow-step:not(:last-child)::after {
+        content: "";
+        position: absolute;
+        top: 32px;
+        left: 80px;
+        right: -24px;
+        height: 1px;
+        background: var(--accent-line);
+    }
+    .flow-node {
+        display: grid;
+        place-items: center;
+        width: 64px;
+        height: 64px;
+        border: 1px solid var(--border);
+        border-radius: 50%;
+        background: var(--surface);
+    }
+    .flow-node .line-icon {
+        width: 36px;
+        height: 36px;
+    }
+    .flow-num {
+        margin-top: 20px;
         font-family: var(--font-mono);
         font-size: 12px;
-        color: var(--accent);
         font-weight: 600;
+        color: var(--accent);
     }
-    .step .h3 {
+    .flow-step .h3 {
+        margin-top: 6px;
         font-size: 17px;
-        margin-top: 10px;
     }
-    .step p {
+    .flow-step p {
         margin-top: 8px;
         font-size: 14px;
+        color: var(--ink-soft);
+    }
+    .stripe-note {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 8px 24px;
+        margin-top: 32px;
+        font-size: 14px;
+    }
+    .stripe-note a {
+        color: var(--accent);
+        font-weight: 500;
     }
     .more {
         display: grid;
@@ -1460,10 +1479,13 @@
         .feat.flip .feat-text {
             order: 0;
         }
-        .steps,
         .more,
+        .flow,
         .trade-grid {
             grid-template-columns: 1fr 1fr;
+        }
+        .flow-step:nth-child(2n)::after {
+            display: none;
         }
         .price {
             grid-template-columns: 1fr;
@@ -1486,6 +1508,32 @@
             grid-template-columns: 1fr 1fr;
         }
     }
+    /* after the two-column rule above, so phones stack the steps along one line */
+    @media (max-width: 600px) {
+        .flow {
+            grid-template-columns: 1fr;
+            gap: 28px;
+        }
+        .flow-step {
+            display: grid;
+            grid-template-columns: 64px 1fr;
+            column-gap: 20px;
+        }
+        .flow-step:not(:last-child)::after {
+            top: 72px;
+            bottom: -20px;
+            left: 32px;
+            right: auto;
+            width: 1px;
+            height: auto;
+        }
+        .flow-num {
+            margin-top: 4px;
+        }
+        .flow-step:nth-child(2n)::after {
+            display: block;
+        }
+    }
     @media (max-width: 600px) {
         .hero {
             padding-top: 56px;
@@ -1493,7 +1541,6 @@
         .props {
             padding-top: 64px;
         }
-        .steps,
         .more,
         .trade-grid,
         .sol-grid {
@@ -1637,14 +1684,6 @@
         position: relative;
         z-index: 0;
     }
-    .step .trade {
-        position: absolute;
-        right: 16px;
-        top: 16px;
-        width: 28px;
-        height: 28px;
-        color: var(--accent-line);
-    }
     @media (max-width: 600px) {
         .topo-small {
             width: 360px;
@@ -1762,9 +1801,16 @@
     .trio-web .appwin {
         text-align: left;
     }
+    /* scaled with a transform, not zoom: iOS WebKit zooms the frame but not all of its text */
     .dev {
-        zoom: 0.6;
+        --dev-scale: 0.6;
+        width: calc(380px * var(--dev-scale));
+        height: calc(800px * var(--dev-scale));
         text-align: left;
+    }
+    .dev-frame {
+        transform: scale(var(--dev-scale));
+        transform-origin: 0 0;
     }
     .dev-frame {
         width: 384px;
@@ -1996,7 +2042,7 @@
     }
     @media (max-width: 1240px) {
         .dev {
-            zoom: 0.56;
+            --dev-scale: 0.56;
         }
         .trio-web {
             width: 860px;
@@ -2006,39 +2052,75 @@
             left: calc(50% + 262px);
         }
     }
+    /* narrower screens keep the desktop scene and scale it down as one picture */
     @media (max-width: 1060px) {
-        .trio-phone {
-            display: none;
-        }
-        .trio-web {
-            width: 100%;
-            margin: 0 auto;
+        .trio-stage {
+            --trio-scale: 0.7;
+            --trio-height: 627px;
+            height: calc(var(--trio-height) * var(--trio-scale));
+            margin-top: 48px;
+            overflow: hidden;
         }
         .trio {
-            padding-bottom: 0;
-        }
-    }
-    @media (max-width: 600px) {
-        .trio {
-            display: flex;
-            justify-content: center;
-            padding-bottom: 0;
-            margin-top: 40px;
+            width: 1080px;
+            margin: 0 0 0 calc(50% - 529px * var(--trio-scale));
+            padding-bottom: 40px;
+            transform: scale(var(--trio-scale));
+            transform-origin: 0 0;
         }
         .trio-web {
-            display: none;
+            width: 940px;
+            margin: 0;
         }
         .trio-phone {
             display: block;
-            position: static;
+            position: absolute;
+            left: 830px;
+            bottom: 0;
         }
         .dev {
-            zoom: 0.6;
+            --dev-scale: 0.6;
+        }
+        .trio .appwin {
+            grid-template-columns: 200px 1fr;
+        }
+        .trio .appwin-side {
+            display: flex;
+        }
+        .trio .appwin-main {
+            padding: 24px 28px;
+        }
+        .trio .stats {
+            grid-template-columns: repeat(3, 1fr);
+        }
+        .trio .winbar span {
+            display: block;
         }
     }
-    @media (max-width: 360px) {
-        .dev {
-            zoom: 0.52;
+    @media (max-width: 800px) {
+        .trio-stage {
+            --trio-scale: 0.52;
+        }
+    }
+    @media (max-width: 600px) {
+        .trio-stage {
+            --trio-scale: 0.36;
+            margin-top: 36px;
+        }
+    }
+    @media (max-width: 440px) {
+        .trio-stage {
+            --trio-scale: 0.31;
+        }
+    }
+    @media (max-width: 380px) {
+        .trio-stage {
+            --trio-scale: 0.28;
+        }
+    }
+    @media (max-width: 340px) {
+        .trio-stage {
+            --trio-scale: 0.25;
         }
     }
 
@@ -2295,10 +2377,6 @@
         color: var(--ink-soft);
         margin-top: 6px;
     }
-    .credits td,
-    .credits th {
-        vertical-align: top;
-    }
     @media (max-width: 960px) {
         .engine {
             grid-template-columns: 1fr 1fr;
@@ -2460,6 +2538,15 @@
     .legal .h1 {
         font-size: 44px;
     }
+    .legal-list {
+        padding-left: 20px;
+        list-style: disc;
+        font-size: 16px;
+        color: var(--ink-soft);
+    }
+    .legal-list li + li {
+        margin-top: 8px;
+    }
     @media (max-width: 960px) {
         .plan {
             grid-template-columns: 1fr;
@@ -2491,6 +2578,67 @@
         }
         .legal .h1 {
             font-size: 34px;
+        }
+    }
+
+    .waitlist-body {
+        max-width: 640px;
+    }
+    .waitlist {
+        display: grid;
+        gap: 12px;
+        padding: 24px;
+    }
+    .waitlist-label {
+        font-weight: 600;
+        color: var(--ink);
+    }
+    .waitlist-row {
+        display: flex;
+        gap: 12px;
+    }
+    .waitlist-input {
+        flex: 1;
+        min-width: 0;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 12px 14px;
+        font: 400 16px/1.2 var(--font-ui);
+        color: var(--ink);
+        background: var(--surface);
+    }
+    .waitlist-input:focus-visible {
+        border-color: var(--accent);
+    }
+    .contact-message {
+        resize: vertical;
+        min-height: 140px;
+        line-height: 1.5;
+    }
+    .contact-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-top: 4px;
+    }
+    .waitlist-trap {
+        position: absolute;
+        left: -10000px;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+    }
+    .waitlist-retry {
+        margin-bottom: 16px;
+        border-radius: 6px;
+        padding: 12px 14px;
+        background: var(--dan-bg);
+        color: var(--dan-fg);
+    }
+    @media (max-width: 600px) {
+        .waitlist-row {
+            flex-direction: column;
         }
     }
 }

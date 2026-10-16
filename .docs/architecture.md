@@ -176,6 +176,8 @@ To send a demo, explicitly choose a recipient, sample and transport:
 Resend needs `RESEND_API_KEY` and `EMAIL_FROM`; SMTP uses `SMTP_URL`. Sends carry a `[TEST]` subject,
 synthetic data and nonfunctional `.test` action links, without changing business records. The gallery is
 a browser approximation; inspect actual deliveries in target email clients before approving the design.
+The waitlist confirmation is the one exception: the marketing site's server sends it, so `make gen-waitlist-email`
+writes it to `apps/site/server/waitlist-email.json` with the images the site's build serves at `/email/`.
 
 ### Jobs (`tasks/`)
 
@@ -935,7 +937,8 @@ from Connect and `app-core/public`.
 The public website is its own app in the same workspace, built with the same stack (Vite, React 19,
 Tailwind 4, TypeScript strict) and deployed apart from the web app, on its own subdomain. It is a static
 build: `scripts/prerender.ts` renders every route in `src/routes.tsx` to its own HTML file, so pages need no
-JavaScript, and the only shipped asset besides HTML is one CSS file and the fonts. It shares the Pewter theme
+JavaScript beyond a few inline lines that close the phone menu after a tap, and the only shipped asset besides
+HTML is one CSS file and the fonts. It shares the Pewter theme
 through `@clientbridge/tokens` and the logo through `@clientbridge/ui`, so the site and the apps cannot drift
 apart visually.
 
@@ -946,6 +949,14 @@ apart visually.
 - **Links out:** `VITE_SITE_URL`, `VITE_APP_URL` and `VITE_BOOK_URL` set where the site, the web app and
   Connect live (production: the main domain, `app.` and `book.`). "Sign in" and "Start free" go to the web
   app, "See the demo business" to Birchbark's public booking page.
+- **Waitlist build:** before the app is deployed, `VITE_WAITLIST=1` builds a site with no link to the app
+  or the demo: every call to action goes to `/waitlist`, whose form posts to `server/` (a small Node server
+  that also serves the build). It adds the address to a Resend segment and answers with the thanks or retry
+  page, with a hidden spam field and a per-address limit. `render.yaml` on the `site-waitlist` branch deploys
+  it to Render; that branch is `main` plus its Render config.
+- **Contact form:** `/contact` posts to the same server, which emails the message to `CONTACT_TO` through
+  Resend with the sender as reply-to. The full deploy serves the site from static files, so it needs an API
+  route for the form before the site moves there.
 - **Images:** `scripts/images.ts` encodes the stock photos to AVIF, WebP and JPEG at three widths with sharp;
   pages render them with `<picture>`, `srcset` and fixed dimensions. Fonts are self-hosted (no third-party
   requests).

@@ -13,9 +13,11 @@ export function Closing({ copy = closing }: { copy?: typeof closing }) {
                     <a className="btn btn-primary btn-lg" href={links.startFree}>
                         {copy.primary}
                     </a>
-                    <a className="btn btn-ghost btn-lg" href={links.demoBusiness}>
-                        {copy.secondary}
-                    </a>
+                    {links.demoBusiness === null ? null : (
+                        <a className="btn btn-ghost btn-lg" href={links.demoBusiness}>
+                            {copy.secondary}
+                        </a>
+                    )}
                 </div>
             </div>
         </section>

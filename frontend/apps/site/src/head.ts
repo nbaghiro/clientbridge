@@ -33,7 +33,7 @@ const homeJsonLd = (): string =>
         },
     ]).replace(/</g, "\\u003c");
 
-export function headTags(meta: PageMeta, path: string): string {
+export function headTags(meta: PageMeta, path: string, hidden: boolean): string {
     const url = `${config.siteUrl}${path === "/" ? "/" : path}`;
     const title = escape(meta.title);
     const description = escape(meta.description);
@@ -58,7 +58,7 @@ export function headTags(meta: PageMeta, path: string): string {
         `<link rel="manifest" href="/site.webmanifest" />`,
         `<meta name="theme-color" content="#ffffff" />`,
     ];
-    if (path === "/404") tags.push(`<meta name="robots" content="noindex" />`);
+    if (hidden) tags.push(`<meta name="robots" content="noindex" />`);
     if (path === "/") tags.push(`<script type="application/ld+json">${homeJsonLd()}</script>`);
     return tags.join("\n        ");
 }

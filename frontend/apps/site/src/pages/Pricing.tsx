@@ -3,9 +3,11 @@ import { PageHead } from "../components/PageHead";
 import { links } from "../config";
 import { pricingPage } from "../content/pages";
 import { Closing } from "../sections/Closing";
+import { Faq } from "../sections/Faq";
+import { Fees } from "../sections/Fees";
 
 export function PricingPage() {
-    const { included, fees } = pricingPage;
+    const { included } = pricingPage;
     return (
         <>
             <PageHead
@@ -54,35 +56,8 @@ export function PricingPage() {
                     </div>
                 </div>
             </section>
-            <section className="band band-bg">
-                <div className="wrap">
-                    <div className="narrow">
-                        <h2 className="h2">{fees.title}</h2>
-                        <p className="lede mt-4">{fees.lede}</p>
-                    </div>
-                    <dl className="fees">
-                        {fees.rows.map((r) => (
-                            <div key={r.label}>
-                                <dt>{r.label}</dt>
-                                <dd>{r.value}</dd>
-                            </div>
-                        ))}
-                    </dl>
-                </div>
-            </section>
-            <section className="band">
-                <div className="wrap narrow">
-                    <h2 className="h2">{pricingPage.faqTitle}</h2>
-                    <div className="faq">
-                        {pricingPage.faq.map((item) => (
-                            <details key={item.q}>
-                                <summary>{item.q}</summary>
-                                <p>{item.a}</p>
-                            </details>
-                        ))}
-                    </div>
-                </div>
-            </section>
+            <Fees />
+            <Faq title={pricingPage.faqTitle} items={pricingPage.faq} />
             <Closing copy={pricingPage.closing} />
         </>
     );
