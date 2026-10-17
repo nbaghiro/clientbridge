@@ -12872,12 +12872,6 @@
     "sync.offlineExpired": {
         "message": "Connect to verify your access before opening this device’s saved data. Your unsent changes are still on this device."
     },
-    "sync.persistenceTitle": {
-        "message": "Offline storage is not protected"
-    },
-    "sync.persistenceDetail": {
-        "message": "This browser may remove saved data, including unsent changes. Keep this device connected until changes finish syncing."
-    },
     "sync.awaitingTitle": {
         "message": "Waiting for updated data"
     },

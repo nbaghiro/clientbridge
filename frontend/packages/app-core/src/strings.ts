@@ -4274,8 +4274,6 @@ interface Strings {
         readonly discardRejected: string;
         readonly discardRejectedDetail: string;
         readonly offlineExpired: string;
-        readonly persistenceTitle: string;
-        readonly persistenceDetail: string;
         readonly awaitingTitle: string;
         readonly awaitingDetail: string;
     };
