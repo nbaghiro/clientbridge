@@ -871,6 +871,22 @@ def test_deployers_can_read_pod_logs(cloud: Built) -> None:
         assert {"apiGroups": [""], "resources": ["pods/log"], "verbs": ["get"]} in rules
 
 
+def test_deployers_can_watch_what_pulumi_awaits(cloud: Built) -> None:
+    for env in DOMAINS:
+        (role,) = [
+            each
+            for each in of_type(cloud, "kubernetes:rbac.authorization.k8s.io/v1:Role")
+            if dig(each.inputs, "metadata", "namespace") == env
+        ]
+        rules = listed(dig(role.inputs, "rules"))
+        readable: set[str] = set()
+        for rule in rules:
+            verbs = {str(verb) for verb in listed(dig(rule, "verbs"))}
+            if {"get", "list", "watch"} <= verbs or verbs == {"*"}:
+                readable |= {str(each) for each in listed(dig(rule, "resources"))}
+        assert {"pods", "replicasets", "persistentvolumeclaims", "jobs", "deployments"} <= readable
+
+
 def test_the_connection_pools_fit_the_instance(cloud: Built, stacks: dict[str, Built]) -> None:
     for built in stacks.values():
         (api,) = containers(named(built, "kubernetes:apps/v1:Deployment", "api"))
