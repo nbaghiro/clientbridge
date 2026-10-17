@@ -79,7 +79,15 @@ const config: ExpoConfig = {
             },
         ],
         "expo-sharing",
-        ["expo-image-picker", { cameraPermission: false, microphonePermission: false }],
+        // Apple rejects a build whose binary links camera APIs without a purpose string
+        [
+            "expo-image-picker",
+            {
+                cameraPermission:
+                    "Clientbridge doesn't use the camera. Photos for your services, products and logo come from your photo library.",
+                microphonePermission: false,
+            },
+        ],
         ["expo-localization", { supportedLocales: ["en"] }],
         ["expo-notifications", { icon: "./assets/notification-icon.png", color: "#3F5E80" }],
         [
