@@ -18,7 +18,7 @@ from pulumi.runtime.settings import get_root_resource
 from pulumi.runtime.stack import Stack
 
 import environments
-from cloud import cluster, database, services
+from cloud import cluster, database, identity, services
 from environments import HOSTS
 from kubernetes import settings
 
@@ -1116,3 +1116,32 @@ def test_only_the_mobile_jobs_receive_secrets() -> None:
     assert isinstance(jobs, dict)
     for name, job in jobs.items():
         assert ("secrets" in keys(job)) == name.endswith("-mobile"), name
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        ".pulumi/stacks/clientbridge/staging.json",
+        ".pulumi/stacks/clientbridge/staging.json.bak",
+        ".pulumi/history/clientbridge/staging/staging-1792120874690481000.history.json",
+        ".pulumi/backups/clientbridge/staging/staging.1792120874690481000.json",
+        ".pulumi/locks/organization/clientbridge/staging/82eaa4a8-6455-4f02-8f23-33d812e1fbd7.json",
+    ],
+)
+def test_a_deployer_writes_every_file_of_its_stack(path: str) -> None:
+    prefixes = identity.state_prefixes("state", "staging")
+    assert any(f"projects/_/buckets/state/objects/{path}".startswith(p) for p in prefixes)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        ".pulumi/stacks/clientbridge/cloud.json",
+        ".pulumi/stacks/clientbridge/staging-old.json",
+        ".pulumi/locks/organization/clientbridge/prod/82eaa4a8.json",
+        ".pulumi/meta.yaml",
+    ],
+)
+def test_a_deployer_writes_no_other_stack(path: str) -> None:
+    prefixes = identity.state_prefixes("state", "staging")
+    assert not any(f"projects/_/buckets/state/objects/{path}".startswith(p) for p in prefixes)

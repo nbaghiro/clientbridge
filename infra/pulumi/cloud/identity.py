@@ -152,6 +152,17 @@ STATE_PROJECT = (
 )
 
 
+def state_prefixes(bucket: str, stack: str) -> list[str]:
+    objects = f"projects/_/buckets/{bucket}/objects/.pulumi"
+    return [
+        f"{objects}/stacks/{STATE_PROJECT}/{stack}.json",
+        f"{objects}/history/{STATE_PROJECT}/{stack}/",
+        f"{objects}/backups/{STATE_PROJECT}/{stack}/",
+        # locks are kept under the stack's fully qualified name
+        f"{objects}/locks/organization/{STATE_PROJECT}/{stack}/",
+    ]
+
+
 def state_access(ci: Ci, envs: Sequence[Environment], bucket: str, key: str) -> None:
     """Each deployer reads every stack's state (none holds a secret) and writes only its own."""
     for env in envs:
@@ -162,14 +173,7 @@ def state_access(ci: Ci, envs: Sequence[Environment], bucket: str, key: str) -> 
             role="roles/storage.objectViewer",
             member=member,
         )
-        objects = f"projects/_/buckets/{bucket}/objects/.pulumi"
-        prefixes = [
-            f"{objects}/stacks/{STATE_PROJECT}/{env.name}.json",
-            *(
-                f"{objects}/{kind}/{STATE_PROJECT}/{env.name}/"
-                for kind in ("history", "locks", "backups")
-            ),
-        ]
+        prefixes = state_prefixes(bucket, env.name)
         gcp.storage.BucketIAMMember(
             f"deploy-{env.name}-state-write",
             bucket=bucket,
@@ -179,6 +183,8 @@ def state_access(ci: Ci, envs: Sequence[Environment], bucket: str, key: str) -> 
                 "title": f"{env.name} stack only",
                 "expression": " || ".join(f'resource.name.startsWith("{p}")' for p in prefixes),
             },
+            # the replacement has the same IAM key, so deleting the original after would remove it
+            opts=pulumi.ResourceOptions(delete_before_replace=True),
         )
         gcp.kms.CryptoKeyIAMMember(
             f"deploy-{env.name}-state-key",
