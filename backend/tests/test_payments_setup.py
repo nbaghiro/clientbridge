@@ -109,7 +109,7 @@ def test_webhook_keeps_updates_or_blocks_an_existing_endpoint() -> None:
     current = {
         "id": "we_1",
         "url": URL,
-        "connect": True,
+        "application": "ca_platform",
         "api_version": STRIPE_API_VERSION,
         "status": "enabled",
         "enabled_events": list(WEBHOOK_EVENTS),
@@ -447,7 +447,7 @@ def test_platform_endpoint_is_a_separate_non_connect_endpoint_for_plan_events() 
     connect = {
         "id": "we_connect",
         "url": URL,
-        "connect": True,
+        "application": "ca_platform",
         "api_version": STRIPE_API_VERSION,
         "status": "enabled",
         "enabled_events": list(WEBHOOK_EVENTS),
@@ -464,13 +464,13 @@ def test_platform_endpoint_is_a_separate_non_connect_endpoint_for_plan_events() 
     platform = {
         **connect,
         "id": "we_platform",
-        "connect": False,
+        "application": None,
         "enabled_events": list(PLAN_EVENTS),
         "metadata": {"clientbridge": "platform_webhook"},
     }
     assert plan_platform_webhook([connect, platform], URL).action == "keep"
     assert plan_webhook([connect, platform], URL).action == "keep"
-    wrong_scope = {**platform, "connect": True}
+    wrong_scope = {**platform, "application": "ca_platform"}
     assert plan_platform_webhook([wrong_scope], URL).action == "blocked"
     assert plan_platform_webhook([], None).action == "keep"
 
