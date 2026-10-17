@@ -2105,7 +2105,7 @@ interface Strings {
             readonly businessName: string;
             readonly businessNamePlaceholder: string;
             readonly webAddress: string;
-            readonly slugPrefix: string;
+            readonly slugPrefix: (host: string) => string;
             readonly slugPlaceholder: string;
             readonly province: string;
             readonly taxTitle: (province: string) => string;

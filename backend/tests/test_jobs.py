@@ -361,3 +361,7 @@ def test_the_worker_schedules_every_service_job() -> None:
     jobs = _service_jobs()
     assert jobs, "no run_* jobs found in clientbridge.services"
     assert scheduled == jobs
+
+
+def test_the_worker_heartbeat_is_fresh_enough_for_the_liveness_probe() -> None:
+    assert WorkerSettings.health_check_interval == 60

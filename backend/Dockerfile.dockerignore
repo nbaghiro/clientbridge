@@ -1,0 +1,13 @@
+*
+!backend/pyproject.toml
+!backend/uv.lock
+!backend/.python-version
+!backend/alembic.ini
+!backend/migrations
+!backend/scripts
+!backend/src
+!infra/powersync/sync-rules.yaml
+**/__pycache__
+**/*.py[cod]
+**/.env
+**/.env.*

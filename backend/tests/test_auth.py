@@ -205,12 +205,12 @@ async def test_production_cookie_writes_come_only_from_the_web_app(
     monkeypatch.setattr(
         settings,
         "cors_allow_origins",
-        "https://connect.clientbridge.ca,https://pay.clientbridge.ca",
+        "https://book.clientbridge.ca,https://pay.clientbridge.ca",
     )
     api.cookies.set(COOKIE, await session_token(identities, db, OWNER_USER))
     for origin, status in (
         ("http://localhost:8700", 403),
-        ("https://connect.clientbridge.ca", 403),
+        ("https://book.clientbridge.ca", 403),
         ("https://app.clientbridge.ca", 201),
     ):
         res = await api.post(

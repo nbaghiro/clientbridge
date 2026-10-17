@@ -1,4 +1,4 @@
-# Dev config. Production overrides through env (see .docs/architecture.md, Identity).
+# Dev config. Deployed environments override it through clientbridge.core.deployment.auth_env.
 version: v26.2.0
 
 serve:
@@ -10,10 +10,12 @@ serve:
         - http://localhost:8700
         - http://localhost:8721   # web e2e (apps/web/playwright.config.ts)
         - http://localhost:8724   # web e2e, en-XA pseudo-locale
+        - http://localhost:8751   # web in the compose app profile (make up-app)
       allowed_methods: [GET, POST, PUT, PATCH, DELETE]
       allowed_headers: [Accept, Content-Type, Cookie, X-Session-Token, X-CSRF-Token]
       exposed_headers: [Content-Type, Set-Cookie]
       allow_credentials: true
+      max_age: 600   # seconds a browser may reuse a preflight, as the API's CORS does
   admin:
     base_url: http://auth:4434/
 
@@ -23,6 +25,7 @@ selfservice:
     - http://localhost:8700
     - http://localhost:8721
     - http://localhost:8724
+    - http://localhost:8751
     - clientbridge://auth/callback
 
   methods:
@@ -54,6 +57,7 @@ selfservice:
             - http://localhost:8700
             - http://localhost:8721
             - http://localhost:8724
+            - http://localhost:8751
     oidc:
       enabled: true
       config:

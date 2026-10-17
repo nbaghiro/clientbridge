@@ -2,11 +2,12 @@
 
 Keep the root for the main, maintained documentation. Reviews, explorations and execution records belong in the folders below.
 
-| Main document                           | Purpose                                                                     |
-| --------------------------------------- | --------------------------------------------------------------------------- |
-| [Architecture](architecture.md)         | System, data model, synchronization, authorization and client architecture. |
-| [Engineering](engineering.md)           | Development conventions, testing, local setup and shipping workflow.        |
-| [Launch readiness](launch-readiness.md) | Product scope, launch work and deferred capabilities.                       |
+| Main document                           | Purpose                                                                                        |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| [Architecture](architecture.md)         | System, data model, synchronization, authorization and client architecture.                    |
+| [Engineering](engineering.md)           | Development conventions, testing, local setup and shipping workflow.                           |
+| [Launch readiness](launch-readiness.md) | Product scope, launch work and deferred capabilities.                                          |
+| [Operations](operations.md)             | Environments, stacks, settings and secrets, provider setup, deploys, jobs, alerts and restore. |
 
 ## Supporting documentation
 

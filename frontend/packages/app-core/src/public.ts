@@ -14,6 +14,7 @@ export * from "./domain/publicPreferences";
 export * from "./datetime";
 export * from "./format";
 export * from "./payCode";
+export * from "./runtime";
 export { strings } from "./strings";
 export { activeLocale, catalog, setPseudoLocale } from "./locale";
 export * from "./icons";

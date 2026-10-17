@@ -1,4 +1,4 @@
-# PowerSync service config (local dev). See .docs/architecture.md.
+# PowerSync service config (local dev; staging and production read powersync.deployed.yaml).
 # Prereqs (created by `make up` and `make migrate` through backend/scripts/db_access.py):
 # wal_level=logical, a `powersync` publication limited to the synced tables, the replication role
 # and a separate `powersync_storage` database owned by the storage role.
@@ -24,10 +24,8 @@ sync_rules:
 
 client_auth:
   # Dev: a static symmetric (HS256) key matching the backend JWT secret (k = base64url of the dev
-  # secret "clientbridge-dev-secret-do-not-use-in-prod").
-  # Prod: replace the `jwks` block below with the backend's RS256 JWKS endpoint —
-  #   jwks_uri: https://api.clientbridge.ca/sync/keys
-  # and set POWERSYNC_USE_RS256=true so the backend signs PowerSync tokens with RS256.
+  # secret "clientbridge-dev-secret-do-not-use-in-prod"). Deployed environments use RS256 through
+  # powersync.deployed.yaml.
   jwks:
     keys:
       - kty: oct

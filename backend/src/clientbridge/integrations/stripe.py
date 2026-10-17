@@ -466,6 +466,10 @@ class PaymentGateway(Protocol):
     ) -> str: ...
     async def create_account_session(self, account_id: str, component: ConnectComponent) -> str: ...
 
+    async def register_payment_domains(self, account_id: str, domains: Sequence[str]) -> None:
+        """Register and enable the hosts where Elements shows wallets for the account's charges."""
+        ...
+
     async def get_account(self, account_id: str) -> ConnectAccount: ...
     def verify_webhook(self, payload: bytes, signature: str) -> GatewayEvent: ...
 
@@ -913,6 +917,21 @@ class StripeGateway:
             account=account_id, components=components
         )
         return str(session.client_secret)
+
+    @_keyed
+    async def register_payment_domains(self, account_id: str, domains: Sequence[str]) -> None:
+        found = await stripe.PaymentMethodDomain.list_async(limit=100, stripe_account=account_id)
+        current = {str(d.domain_name): d async for d in found.auto_paging_iter()}
+        for domain in domains:
+            existing = current.get(domain)
+            if existing is None:
+                await stripe.PaymentMethodDomain.create_async(
+                    domain_name=domain, enabled=True, stripe_account=account_id
+                )
+            elif not existing.enabled:
+                await stripe.PaymentMethodDomain.modify_async(
+                    str(existing.id), enabled=True, stripe_account=account_id
+                )
 
     @_keyed
     async def get_account(self, account_id: str) -> ConnectAccount:

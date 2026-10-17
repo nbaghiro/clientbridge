@@ -1,4 +1,6 @@
 import json
+import re
+from pathlib import Path
 
 import httpx
 import jwt
@@ -10,7 +12,10 @@ from pydantic import ValidationError
 
 from clientbridge.core import clock
 from clientbridge.core.config import Settings, get_settings
+from clientbridge.core.deployment import POWERSYNC_SECRETS, powersync_env
 from clientbridge.core.security import issue_powersync_token
+
+POWERSYNC = Path(__file__).resolve().parents[2] / "infra/powersync"
 
 
 def private_pem(key: rsa.RSAPrivateKey) -> str:
@@ -94,3 +99,18 @@ async def test_rotation_serves_both_keys_and_only_signs_with_the_current_key(
         assert claims["exp"] <= int(clock.wall().timestamp()) + settings.jwt_ttl_seconds
     monkeypatch.setattr(settings, "powersync_previous_public_keys", {})
     assert len((await api.get("/sync/keys")).json()["keys"]) == 1
+
+
+def test_the_deployed_powersync_config_is_filled_from_its_environment() -> None:
+    deployed = (POWERSYNC / "powersync.deployed.yaml").read_text()
+    env = powersync_env(api_url="http://api:8000/")
+    assert env["PS_JWKS_URI"] == "http://api:8000/sync/keys"
+    assert env["POWERSYNC_CONFIG_PATH"].endswith("/powersync.deployed.yaml")
+    assert set(re.findall(r": !env (\w+)", deployed)) == {*env, *POWERSYNC_SECRETS} - {
+        "POWERSYNC_CONFIG_PATH"
+    }
+    assert "jwks:" not in deployed and "HS256" not in deployed
+    shared = re.compile(r"^(?:port|  path|    - powersync|  type).*$", re.MULTILINE)
+    local = (POWERSYNC / "powersync.yaml").read_text()
+    assert shared.findall(deployed) == shared.findall(local)
+    assert f"    - {get_settings().powersync_audience}\n" in deployed

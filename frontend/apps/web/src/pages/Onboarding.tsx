@@ -1,8 +1,9 @@
-import { PROVINCES, strings, useOnboardingForm } from "@clientbridge/app-core";
+import { PROVINCES, bookingHost, strings, useOnboardingForm } from "@clientbridge/app-core";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Button, Lockup, Logo, Notice, Select, TextField } from "@clientbridge/ui";
+import { config } from "../config";
 import { api } from "../lib/api";
 
 export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
@@ -52,7 +53,7 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                     />
                     <TextField
                         label={strings.business.onboarding.webAddress}
-                        prefix={strings.business.onboarding.slugPrefix}
+                        prefix={strings.business.onboarding.slugPrefix(bookingHost(config.bookUrl))}
                         value={form.slug}
                         onChange={form.setSlug}
                         placeholder={strings.business.onboarding.slugPlaceholder}

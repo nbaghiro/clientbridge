@@ -1,8 +1,12 @@
-.PHONY: configure-demo-admin dev-admin gen-waitlist-email preview-emails help up down logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth auth-standalone test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
+.PHONY: infra-bootstrap infra-providers help up down images up-app logs-sync logs-auth install stripe-listen stripe-setup dev-api worker dev-web dev-connect dev-site dev-mobile build build-apps build-site test-site test-web test-connect test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes gen-messages gen-strings gen-zones gen-taxes codegen-check test test-backend test-frontend test-contract test-auth auth-standalone test-e2e stripe-mock lint lint-backend lint-frontend lint-infra test-infra typecheck format format-check format-check-backend format-check-frontend format-check-infra precommit hooks check gen-waitlist-email preview-emails configure-demo-admin dev-admin
 .DEFAULT_GOAL := help
 
 help:
 	@echo "up / down        docker compose infra (postgres, powersync, auth, mailpit, redis, s3 on 87xx ports)"
+	@echo "infra-bootstrap  PROJECT=… BILLING=…: create the Google Cloud project, its Pulumi state and the cloud stack"
+	@echo "infra-providers  PROJECT=… ENV=staging: set up the environment's providers from .env.<ENV>"
+	@echo "images           build the backend and web prod images (backend/Dockerfile, frontend/Dockerfile)"
+	@echo "up-app           run the prod images on the local infra: API on :8750, web on :8751 (profile app)"
 	@echo "logs-sync        follow the PowerSync logs"
 	@echo "logs-auth        follow the auth service logs (verification and recovery mail is on :8715)"
 	@echo "install          uv sync (backend) and pnpm install (frontend)"
@@ -66,6 +70,13 @@ up:
 
 down:
 	docker compose down
+
+images:
+	docker compose --profile app build migrate web
+
+# The prod images against the local services; the migrate service runs `make migrate`'s three steps first.
+up-app:
+	docker compose --profile app up --build
 
 logs-sync:
 	docker compose logs -f powersync
@@ -185,7 +196,7 @@ gen-strings:
 		packages/app-core/locales/en-XA.json apps/site/src/strings.ts apps/site/locales/en-XA.json \
 		apps/connect/public/embed.js
 
-test: test-backend test-frontend
+test: test-backend test-frontend test-infra
 
 test-backend:
 	cd backend && uv run python -m scripts.fresh_database \
@@ -217,7 +228,7 @@ auth-standalone:
 test-e2e:
 	cd backend && uv run pytest -m e2e -q
 
-lint: lint-backend lint-frontend
+lint: lint-backend lint-frontend lint-infra
 
 # One config at the repo root (pyrightconfig.json), shared with the editor.
 PYRIGHT := PYRIGHT_PYTHON_IGNORE_WARNINGS=1 uv run pyright -p ../pyrightconfig.json
@@ -228,21 +239,31 @@ lint-backend:
 lint-frontend:
 	cd frontend && pnpm lint && pnpm typecheck && pnpm --filter site lint:content
 
+lint-infra:
+	cd infra/pulumi && uv run ruff check --ignore-noqa . && PYRIGHT_PYTHON_IGNORE_WARNINGS=1 uv run pyright
+
+test-infra:
+	cd infra/pulumi && uv run pytest -q
+
 typecheck:
 	cd backend && $(PYRIGHT)
 	cd frontend && pnpm typecheck
 
 format:
 	cd backend && uv run ruff format .
+	cd infra/pulumi && uv run ruff format .
 	cd frontend && pnpm format
 
-format-check: format-check-backend format-check-frontend
+format-check: format-check-backend format-check-frontend format-check-infra
 
 format-check-backend:
 	cd backend && uv run ruff format --check .
 
 format-check-frontend:
 	cd frontend && pnpm format:check
+
+format-check-infra:
+	cd infra/pulumi && uv run ruff format --check .
 
 # The fast gate the pre-commit hook runs (no tests).
 GENERATED := frontend/packages/api-client/src/generated.ts frontend/packages/sync/src/schema.ts \
@@ -288,3 +309,12 @@ test-sync:
 # Readiness, an active replication slot, retained WAL (alert above 1 GiB) and lag (above 60 s).
 replication-health:
 	cd backend && uv run python -m scripts.replication_health
+
+# The first deploy's infrastructure (.docs/operations.md, First deploy); both are safe to rerun.
+infra-bootstrap:
+	@test -n "$(PROJECT)" -a -n "$(BILLING)" || { echo "usage: make infra-bootstrap PROJECT=<id> BILLING=<account>"; exit 1; }
+	cd infra/pulumi && uv run python bootstrap.py --project $(PROJECT) --billing-account $(BILLING)
+
+infra-providers:
+	@test -n "$(PROJECT)" -a -n "$(ENV)" || { echo "usage: make infra-providers PROJECT=<id> ENV=staging"; exit 1; }
+	cd infra/pulumi && uv run python providers_init.py --env $(ENV) --project $(PROJECT) --env-file ../../.env.$(ENV)

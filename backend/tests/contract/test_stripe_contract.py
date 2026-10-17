@@ -114,6 +114,10 @@ async def test_get_balance_cents(contract_gateway: StripeGateway) -> None:
     assert isinstance(await contract_gateway.get_balance_cents(ACCT, currency="CAD"), int)
 
 
+async def test_register_payment_domains(contract_gateway: StripeGateway) -> None:
+    await contract_gateway.register_payment_domains(ACCT, ["book.example.com", "pay.example.com"])
+
+
 @pytest.mark.parametrize("component", ["onboarding", "account", "notices", "payments", "payouts"])
 async def test_create_account_session(
     contract_gateway: StripeGateway, component: ConnectComponent

@@ -47,11 +47,18 @@ _public_invite_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 
 
 def requester_ip(request: Request) -> str:
-    # behind a proxy/LB the socket peer is the proxy; the forwarded chain's first hop is the client
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    """The client address: the entry each trusted proxy appended last, else the socket peer."""
+    peer = request.client.host if request.client else "unknown"
+    hops = get_settings().trusted_proxy_hops
+    chain = [
+        entry.strip()
+        for header in request.headers.getlist("x-forwarded-for")
+        for entry in header.split(",")
+        if entry.strip()
+    ]
+    if hops == 0 or len(chain) < hops:
+        return peer
+    return chain[-hops]
 
 
 def public_pay_rate_limit(request: Request) -> None:

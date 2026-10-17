@@ -1,5 +1,7 @@
+import pytest
 from starlette.requests import Request
 
+from clientbridge.core.config import get_settings
 from clientbridge.core.ratelimit import RateLimiter, requester_ip
 
 
@@ -12,9 +14,25 @@ def _request(headers: dict[str, str], client: tuple[str, int] | None) -> Request
     return Request(scope)
 
 
-def test_client_ip_prefers_forwarded_for() -> None:
+def test_without_trusted_proxies_the_forwarded_header_is_ignored() -> None:
     req = _request({"x-forwarded-for": "1.2.3.4, 5.6.7.8"}, ("10.0.0.1", 0))
-    assert requester_ip(req) == "1.2.3.4"
+    assert requester_ip(req) == "10.0.0.1"
+
+
+def test_behind_two_proxies_the_client_is_second_from_the_right(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(get_settings(), "trusted_proxy_hops", 2)
+    honest = _request({"x-forwarded-for": "203.0.113.7, 130.211.0.1"}, ("10.0.0.1", 0))
+    spoofed = _request({"x-forwarded-for": "6.6.6.6, 203.0.113.7, 130.211.0.1"}, ("10.0.0.1", 0))
+    assert requester_ip(honest) == requester_ip(spoofed) == "203.0.113.7"
+
+
+def test_a_chain_shorter_than_the_trusted_hops_falls_back_to_the_peer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(get_settings(), "trusted_proxy_hops", 2)
+    assert requester_ip(_request({"x-forwarded-for": "1.2.3.4"}, ("10.0.0.1", 0))) == "10.0.0.1"
 
 
 def test_client_ip_falls_back_to_peer() -> None:

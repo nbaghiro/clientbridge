@@ -1,24 +1,34 @@
-"""The transaction() helper: the outermost block commits, inner blocks are savepoints."""
+"""The database layer: the transaction() helper, the engine pool and the image's migrate step."""
 
 import asyncio
+import os
+import secrets
+import subprocess
+import sys
 import uuid
 from collections.abc import AsyncIterator
 
 import pytest
 from pydantic import BaseModel
-from sqlalchemy import delete, insert, select
+from scripts.db_access import ADMIN_URL, quote
+from scripts.fresh_database import admin, on
+from scripts.migrate import ALLOW_AHEAD, known_revisions
+from sqlalchemy import delete, insert, select, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.pool import QueuePool
 from sqlalchemy.sql import Insert
 
 from clientbridge.core.command import Command, run_command
-from clientbridge.core.db import SessionLocal, transaction
+from clientbridge.core.config import get_settings
+from clientbridge.core.db import SessionLocal, engine, engine_options, transaction
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import Conflict
 from clientbridge.core.ids import new_id
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Account, Entry
 from tests.conftest import BIZ, OWNER_USER
+from tests.helpers import EnvSettings
 
 
 class Boom(Exception):
@@ -446,3 +456,69 @@ async def test_the_rolled_back_fixture_session_nests_the_same_way(db: AsyncSessi
             await _add(db, f"{tag} gone")
             raise Boom
     assert await _seen(db, tag) == {"outer", "kept"}
+
+
+def test_the_pool_defaults_to_sqlalchemys_own_sizes() -> None:
+    assert engine_options(EnvSettings()) == {
+        "pool_pre_ping": True,
+        "pool_size": 5,
+        "max_overflow": 10,
+    }
+    pool = engine.pool
+    assert isinstance(pool, QueuePool)
+    assert pool.size() == get_settings().db_pool_size
+
+
+def test_the_pool_takes_its_sizes_from_the_settings() -> None:
+    options = engine_options(EnvSettings(db_pool_size=3, db_max_overflow=2))
+    assert options == {"pool_pre_ping": True, "pool_size": 3, "max_overflow": 2}
+
+
+@pytest.mark.parametrize("allow_ahead", [False, True])
+async def test_migrate_stops_on_an_unknown_revision_unless_a_rollback_allows_it(
+    allow_ahead: bool,
+) -> None:
+    settings = get_settings()
+    database = f"clientbridge_ahead_{secrets.token_hex(4)}"
+    url = on(settings.migration_database_url, database)
+    env = {key: value for key, value in os.environ.items() if key != ALLOW_AHEAD} | {
+        "ADMIN_DATABASE_URL": on(ADMIN_URL, database),
+        "MIGRATION_DATABASE_URL": url,
+        "DATABASE_URL": on(settings.database_url, database),
+    }
+    if allow_ahead:
+        env[ALLOW_AHEAD] = "1"
+    newer = "f" * 12
+    assert newer not in known_revisions()
+    await admin(f"CREATE DATABASE {quote(database)}")
+    owner = create_async_engine(on(ADMIN_URL, database))
+    reader = create_async_engine(url)
+    try:
+        async with owner.begin() as conn:
+            await conn.execute(text("CREATE TABLE alembic_version (version_num varchar(32))"))
+            await conn.execute(text("INSERT INTO alembic_version VALUES (:v)"), {"v": newer})
+        result = subprocess.run(
+            [sys.executable, "-m", "scripts.migrate"],
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if allow_ahead:
+            assert result.returncode == 0, result.stderr
+            assert f"the database is at {newer}" in result.stdout
+        else:
+            assert result.returncode == 1, result.stdout
+            assert f"the database is at {newer}, which this image does not know" in result.stderr
+            assert f"{ALLOW_AHEAD}=1" in result.stderr
+        async with reader.connect() as conn:
+            versions = (await conn.execute(text("SELECT version_num FROM alembic_version"))).all()
+            tables = await conn.scalar(
+                text("SELECT count(*) FROM pg_tables WHERE schemaname = 'public'")
+            )
+        assert [v for (v,) in versions] == [newer]
+        assert tables == 1
+    finally:
+        await owner.dispose()
+        await reader.dispose()
+        await admin(f"DROP DATABASE IF EXISTS {quote(database)} WITH (FORCE)")

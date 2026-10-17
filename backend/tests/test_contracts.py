@@ -1,9 +1,11 @@
 import secrets
 
 import httpx
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.config import get_settings
 from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import RateLimiter, public_contract_rate_limit
@@ -101,6 +103,21 @@ async def test_public_sign_records_snapshot_and_ip(
     assert row.status == "signed" and row.signed_at is not None and row.ip
     assert row.signed_body == contract.body and row.signer_name == "Jane Doe"
     assert res.json()["body"] == contract.body
+
+
+async def test_a_spoofed_forwarded_entry_does_not_change_the_signer_ip(
+    api: httpx.AsyncClient, db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(get_settings(), "trusted_proxy_hops", 2)
+    token = await _a_signature(db)
+    res = await api.post(
+        f"/contract/{token}/sign",
+        json=SIGN,
+        headers={"X-Forwarded-For": "6.6.6.6, 203.0.113.7, 130.211.0.1"},
+    )
+    assert res.status_code == 200, res.text
+    row = (await db.execute(select(Signature).where(Signature.token == token))).scalar_one()
+    assert row.ip == "203.0.113.7"
 
 
 async def test_public_second_sign_409(api: httpx.AsyncClient, db: AsyncSession) -> None:

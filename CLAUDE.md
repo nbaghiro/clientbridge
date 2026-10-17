@@ -133,7 +133,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   both. Change a rule only in `packages/config/eslint.mjs`, scoped to its files.
 - Gate: `make check` (lint + codegen-check + test); the pre-commit hook runs `make precommit`
   (format-check + the same gate). CI's jobs call the same make targets (`lint-backend`, `test-backend`,
-  `lint-frontend`, `test-frontend`, `build` in its own job, `test-site`, `codegen-check`), so the two can't drift.
+  `lint-frontend`, `test-frontend`, `lint-infra`, `test-infra`, `build` in its own job, `test-site`, `codegen-check`), so the two can't drift.
 - **Milestone audit (do this at every slice/phase boundary, before starting the next).** Review the
   changeset against these principles and fix High/Medium findings *then*, not later: layering (thin
   router → service; routers never query; every tenant query goes through
@@ -166,7 +166,8 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 ## Docs (`.docs/`)
 Keep only the documentation index and main docs at the root: **architecture** (system · data model ·
 sync · authorization · frontend), **engineering** (gate · testing · shipping · ports · demo · conventions),
-and **launch-readiness** (launch work and deferred scope). Use `.docs/reviews/<area>/` for dated audits,
+**launch-readiness** (launch work and deferred scope), and **operations** (environments · secrets ·
+providers · deploys · jobs · alerts · restore). Use `.docs/reviews/<area>/` for dated audits,
 `.docs/explorations/<topic>/` for investigations, and `.docs/executions/<name>/` for each execution's plan,
 task queue and progress; delete an execution's folder once it is implemented, after moving anything durable
 into the main docs. Keep raw logs and temporary artifacts in `.scratchpad/`. Update links after

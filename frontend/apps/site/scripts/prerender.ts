@@ -48,14 +48,11 @@ writeFileSync(
     join(dist, "sitemap.xml"),
     `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>\n`,
 );
-writeFileSync(
-    join(dist, "robots.txt"),
-    `User-agent: *\nAllow: /\n\nSitemap: ${entry.siteUrl}/sitemap.xml\n`,
-);
+// robots.txt is served by the web server, which allows indexing only in production.
 await writeOgImages(pages, dist, join(root, "public", "art", "small.svg"), entry.logo);
 await writeEmailImages(dist, join(root, "public", "art", "band.svg"), entry.logo);
 process.stdout.write(
-    `wrote sitemap.xml, robots.txt and ${String(new Set(pages.map((p) => p.ogImage)).size)} share images\n`,
+    `wrote sitemap.xml and ${String(new Set(pages.map((p) => p.ogImage)).size)} share images\n`,
 );
 
 for (const file of readdirSync(join(dist, "assets"))) {

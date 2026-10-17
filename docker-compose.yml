@@ -1,3 +1,37 @@
+# The `app` profile runs the prod images against these services the way the cluster runs them:
+# `make up-app`, with the API on :8750 and the web image on :8751 (see .docs/engineering.md).
+x-backend: &backend
+  build: { context: ., dockerfile: backend/Dockerfile, target: prod }
+  image: clientbridge-backend:local
+  profiles: ["app"]
+  depends_on:
+    postgres:
+      condition: service_healthy
+  environment: &backend-env
+    ENV: dev
+    DATABASE_URL: postgresql+asyncpg://clientbridge_api:clientbridge_api@postgres:5432/${APP_DATABASE:-clientbridge}
+    MIGRATION_DATABASE_URL: postgresql+asyncpg://clientbridge_migrator:clientbridge_migrator@postgres:5432/${APP_DATABASE:-clientbridge}
+    ADMIN_DATABASE_URL: postgresql+asyncpg://clientbridge:clientbridge@postgres:5432/${APP_DATABASE:-clientbridge}
+    POWERSYNC_SOURCE_PASSWORD: ${POWERSYNC_SOURCE_PASSWORD:-powersync_source}
+    POWERSYNC_STORAGE_PASSWORD: ${POWERSYNC_STORAGE_PASSWORD:-powersync_storage_owner}
+    AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:-auth}
+    REDIS_URL: redis://redis:6379/1   # its own queue, so a dev worker on db 0 never takes its jobs
+    AUTH_PUBLIC_URL: http://auth:4433
+    AUTH_ADMIN_URL: http://auth:4434
+    AUTH_EMAIL_HOOK_SECRET: ${AUTH_EMAIL_HOOK_SECRET:-clientbridge-dev-courier-secret-do-not-use-in-prod}
+    S3_ENDPOINT: http://s3:9000
+    S3_BUCKET: clientbridge
+    S3_ACCESS_KEY: rustfs
+    S3_SECRET_KEY: rustfs-dev-secret
+    S3_REGION: us-east-1
+    SMTP_URL: smtp://mailpit:1025
+    API_BASE_URL: http://localhost:8750
+    WEB_BASE_URL: http://localhost:8751
+    CONNECT_BASE_URL: http://book.localhost:8751
+    PAY_BASE_URL: http://pay.localhost:8751
+    CORS_ALLOW_ORIGINS: http://book.localhost:8751,http://pay.localhost:8751,http://shop.localhost:8751
+    STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+
 services:
   postgres:
     image: postgres:16@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54
@@ -75,6 +109,12 @@ services:
     profiles: ["test"]
     ports: ["8708:12111"]   # host 8708 → stripe-mock 12111 (http)
 
+  # Deploy only (profile "deploy", never started locally): the Cloud SQL Auth Proxy pin the cluster's
+  # sidecars run, kept here so infra/pulumi reads every upstream pin from this file.
+  cloud-sql-proxy:
+    image: gcr.io/cloud-sql-connectors/cloud-sql-proxy@sha256:86e4f3cc266020e7ee07740df78d7511e2c340c274b56f84d80b7251913af9ad  # 2.26.0
+    profiles: ["deploy"]
+
   redis:
     image: redis@sha256:4fa24486b8bcca8eec45ee0eb166edc674795e53a2b53d1a9ef263eecebaac85
     ports: ["8703:6379"]   # host 8703 → redis 6379
@@ -89,6 +129,52 @@ services:
       RUSTFS_CORS_ALLOWED_ORIGINS: "*"
     ports: ["8705:9000", "8706:9001"]   # host 8705 → S3 API, 8706 → console
     volumes: ["s3data:/data"]
+
+  migrate:
+    <<: *backend
+    command: ["migrate"]
+
+  api:
+    <<: *backend
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    ports: ["8750:8701"]   # host 8750 → the API image (dev-api keeps 8701)
+
+  worker:
+    <<: *backend
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    command: ["arq", "clientbridge.tasks.worker.WorkerSettings"]
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      target: prod
+    image: clientbridge-web:local
+    profiles: ["app"]
+    ports: ["8751:8080"]   # host 8751 → Caddy, which routes by host
+    environment:
+      BASE_DOMAIN: localhost
+      ENVIRONMENT: development
+      # the app stays on localhost so the auth session cookie on localhost reaches it, as with dev-web
+      APP_HOST: localhost
+      SITE_HOST: site.localhost
+      SITE_URL: http://site.localhost:8751
+      APP_URL: http://localhost:8751
+      BOOK_URL: http://book.localhost:8751
+      PAY_URL: http://pay.localhost:8751
+      # config.js names these, since the hosts derived from BASE_DOMAIN are https and unrouted here
+      API_URL: http://localhost:8750
+      AUTH_URL: http://localhost:8713
+      SYNC_URL: http://localhost:8704
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
 
 volumes:
   pgdata: {}

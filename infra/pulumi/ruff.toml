@@ -1,0 +1,13 @@
+# The backend's rules (backend/ruff.toml), for the Pulumi program.
+line-length = 100
+indent-width = 4
+target-version = "py312"
+src = ["."]
+extend-exclude = [".venv"]
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "TID", "ANN", "RUF"]
+
+[format]
+quote-style = "double"
+indent-style = "space"

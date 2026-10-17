@@ -1,0 +1,4 @@
+# Applied by CI with --config clientbridge:backendDigest=sha256:… and clientbridge:webDigest=sha256:…
+# During a restore, clientbridge:databaseInstance names the clone this environment's pods reach.
+config:
+  clientbridge:stripePublishableKey: ""

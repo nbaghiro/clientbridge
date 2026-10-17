@@ -6332,7 +6332,9 @@
         "message": "Web address"
     },
     "business.onboarding.slugPrefix": {
-        "message": "clientbridge.ca/"
+        "message": "{host}/b/",
+        "description": "Shown before the slug field; host is the booking site, such as book.clientbridge.ca",
+        "args": ["host"]
     },
     "business.onboarding.slugPlaceholder": {
         "message": "birch-bark"

@@ -3,6 +3,15 @@ import type { ExpoConfig } from "expo/config";
 // expo-modules-core widens ProcessEnv's values to any; config values are strings or unset.
 const env: Record<string, string | undefined> = process.env;
 
+// EAS builds set BASE_DOMAIN and get the deployed hosts; the auth service is at api.<base>/auth.
+const deployed = (host: string, path = ""): string | undefined =>
+    env.BASE_DOMAIN ? `https://${host}.${env.BASE_DOMAIN}${path}` : undefined;
+
+// without it a staging or store build would ship the local development URLs
+if (["staging", "production"].includes(env.EAS_BUILD_PROFILE ?? "") && !env.BASE_DOMAIN) {
+    throw new Error(`the ${env.EAS_BUILD_PROFILE ?? ""} build profile needs BASE_DOMAIN`);
+}
+
 // Apple Pay merchant id for the Stripe SDK (also the iOS in-app-payments entitlement the plugin adds).
 const STRIPE_MERCHANT_ID = env.STRIPE_MERCHANT_ID ?? "merchant.ca.clientbridge.app";
 
@@ -60,12 +69,12 @@ const config: ExpoConfig = {
         ],
     ],
     extra: {
-        apiUrl: env.API_URL ?? "http://127.0.0.1:8701",
-        powersyncUrl: env.POWERSYNC_URL ?? "http://127.0.0.1:8704",
-        authUrl: env.AUTH_URL ?? "http://127.0.0.1:8713",
-        publicWebUrl: env.PUBLIC_WEB_URL ?? "https://app.clientbridge.ca",
-        payUrl: env.PAY_URL ?? "https://pay.clientbridge.ca",
-        bookUrl: env.BOOK_URL ?? "https://book.clientbridge.ca",
+        apiUrl: env.API_URL ?? deployed("api") ?? "http://127.0.0.1:8701",
+        powersyncUrl: env.POWERSYNC_URL ?? deployed("sync") ?? "http://127.0.0.1:8704",
+        authUrl: env.AUTH_URL ?? deployed("api", "/auth") ?? "http://127.0.0.1:8713",
+        publicWebUrl: env.PUBLIC_WEB_URL ?? deployed("app") ?? "http://localhost:8700",
+        payUrl: env.PAY_URL ?? deployed("pay") ?? "http://localhost:8709",
+        bookUrl: env.BOOK_URL ?? deployed("book") ?? "http://localhost:8709",
         // Stripe publishable (platform) key — NOT a secret; left blank until configured per env.
         stripePublishableKey: env.STRIPE_PUBLISHABLE_KEY ?? "",
         stripeMerchantId: STRIPE_MERCHANT_ID,

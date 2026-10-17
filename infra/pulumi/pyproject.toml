@@ -1,0 +1,28 @@
+[project]
+name = "clientbridge-infra"
+version = "0.1.0"
+description = "The Pulumi program for the Clientbridge cloud and cluster"
+requires-python = ">=3.14"
+dependencies = [
+    "pulumi==3.268.0",
+    "pulumi-gcp==10.1.1",
+    "pulumi-github==6.15.0",
+    "pulumi-kubernetes==4.34.2",
+    "pyyaml==6.0.3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+    "ruff==0.15.19",
+    # the backend's pin, so both programs type-check with one version
+    "pyright==1.1.408",
+    "types-pyyaml==6.0.12.20250915",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "../../backend/src"]

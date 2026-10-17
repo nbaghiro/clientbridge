@@ -4,6 +4,9 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from clientbridge.core.config import Settings
 
+# response headers the clients read beyond the CORS-safelisted ones
+EXPOSED = ["Retry-After"]
+
 
 class SplitCors:
     """Credentialed CORS for the staff web app only; Connect and Pay get CORS without the cookie."""
@@ -16,6 +19,7 @@ class SplitCors:
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
+            expose_headers=EXPOSED,
         )
         self.public = CORSMiddleware(
             app,
@@ -23,6 +27,7 @@ class SplitCors:
             allow_origin_regex=settings.allowed_origin_regex(),
             allow_methods=["*"],
             allow_headers=["*"],
+            expose_headers=EXPOSED,
         )
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:

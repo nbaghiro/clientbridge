@@ -1,0 +1,14 @@
+*
+!frontend
+frontend/**/node_modules
+frontend/**/dist
+frontend/**/dist-server
+frontend/**/.turbo
+frontend/**/*.tsbuildinfo
+frontend/**/test-results
+frontend/**/playwright-report
+frontend/**/.env
+frontend/**/.env.*
+frontend/apps/mobile
+frontend/apps/site/public/art
+frontend/apps/site/public/photos

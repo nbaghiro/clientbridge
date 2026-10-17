@@ -14,6 +14,7 @@ from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import transaction
+from clientbridge.core.deployment import payment_domains
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
@@ -137,6 +138,7 @@ class PaymentService:
             # the lock makes a concurrent onboarding or plan Checkout reuse this account
             business = await self._locked_business()
             account_id = await self._ensure_merchant(business, cmd)
+            await self._register_domains(account_id)
             url = await self.gateway.create_account_link(
                 account_id,
                 refresh_url=f"{settings.web_base_url}/setup/getting-paid?refresh=1",
@@ -166,6 +168,8 @@ class PaymentService:
             self.db.add_all(cmd.audits)
             await self.db.commit()
         assert business.stripe_account_id is not None
+        if component == "onboarding":
+            await self._register_domains(business.stripe_account_id)
         secret = await self.gateway.create_account_session(business.stripe_account_id, component)
         cmd = Command(self.db, self.principal)
         cmd.record(
@@ -178,6 +182,12 @@ class PaymentService:
         # Single-use credentials must never enter command response storage.
         await self.db.commit()
         return ConnectSessionOut(client_secret=secret)
+
+    async def _register_domains(self, account_id: str) -> None:
+        # direct charges show wallets only on hosts registered on the connected account itself
+        base_domain = get_settings().base_domain
+        if base_domain:
+            await self.gateway.register_payment_domains(account_id, payment_domains(base_domain))
 
     async def _ensure_merchant(self, business: Business, cmd: Command) -> str:
         """The business's account with the merchant configuration, reusing an account it has."""

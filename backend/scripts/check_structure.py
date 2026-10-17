@@ -11,6 +11,7 @@ PACKAGE = BACKEND / "src" / "clientbridge"
 TESTS = BACKEND / "tests"
 SCRIPTS = BACKEND / "scripts"
 MIGRATIONS = BACKEND / "migrations"
+INFRA = BACKEND.parent / "infra" / "pulumi"
 PYRIGHT_CONFIG = BACKEND.parent / "pyrightconfig.json"
 PYRIGHT_RELAXED = {
     "reportMissingTypeStubs",
@@ -384,6 +385,9 @@ def main() -> int:
         )
     for path in sorted([*TESTS.rglob("*.py"), *SCRIPTS.rglob("*.py")]):
         problems += comment_problems(path) + clock_problems(path, ast.parse(path.read_text()))
+    for path in sorted(INFRA.rglob("*.py")):
+        if ".venv" not in path.parts:
+            problems += comment_problems(path)
     for path in sorted(MIGRATIONS.rglob("*.py")):
         problems += suppression_problems(path, path.read_text())
     problems += pyright_problems()
