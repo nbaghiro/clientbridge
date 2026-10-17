@@ -155,6 +155,7 @@ jobs:
         name: tag the deployed digests
         env:
           CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE: ${{ steps.builder.outputs.credentials_file_path }}
+          LOCATION: ${{ vars.GCP_REGION }}
         run: |
           for pair in "backend=$BACKEND" "web=$WEB"; do
             image="${pair%%=*}"
@@ -165,6 +166,13 @@ jobs:
               awk -v d="$digest" '$2 == d && length($1) == 40 && $1 ~ /^[0-9a-f]+$/ {print $1; exit}')
             commit="${commit:-$REF}"
             for tag in "$ENV_NAME-current" "$ENV_NAME-${commit:0:7}"; do
-              gcloud artifacts docker tags add "$REGISTRY/$image@$digest" "$REGISTRY/$image:$tag" --quiet
+              # the builder may move a tag but not delete one, which `docker tags add` does to move it
+              if gcloud artifacts tags list --location "$LOCATION" --repository clientbridge \
+                   --package "$image" --filter "name~/tags/$tag\$" --format 'value(name)' | grep -q .; then
+                gcloud artifacts tags update "$tag" --location "$LOCATION" --repository clientbridge \
+                  --package "$image" --version "$digest" --quiet
+              else
+                gcloud artifacts docker tags add "$REGISTRY/$image@$digest" "$REGISTRY/$image:$tag" --quiet
+              fi
             done
           done
