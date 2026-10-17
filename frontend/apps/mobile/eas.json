@@ -20,7 +20,7 @@
     },
     "submit": {
         "staging": {
-            "ios": { "bundleIdentifier": "ca.clientbridge.app.staging" }
+            "ios": { "bundleIdentifier": "ca.clientbridge.app.staging", "ascAppId": "6823829504" }
         },
         "production": {
             "ios": { "bundleIdentifier": "ca.clientbridge.app" },

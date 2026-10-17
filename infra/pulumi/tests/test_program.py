@@ -1226,7 +1226,8 @@ def test_the_web_image_vouches_for_its_environments_app(
     for env in environments.build(*DOMAINS.values()):
         values = web_env(stacks[env.name])
         assert values["MOBILE_APP_ID"] == env.mobile.bundle_id
-        assert values["APPLE_TEAM_ID"] == ""
+        config = yaml.safe_load((PROGRAM / f"Pulumi.{env.name}.yaml").read_text())["config"]
+        assert values["APPLE_TEAM_ID"] == config.get("clientbridge:appleTeamId", "")
         assert values["ANDROID_CERT_FINGERPRINTS"] == ""
     fingerprint = ":".join(["ab"] * 32)
     linked = build_environment(
