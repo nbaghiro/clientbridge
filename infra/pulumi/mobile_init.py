@@ -4,9 +4,12 @@ import argparse
 import base64
 import json
 import os
+import secrets
 import subprocess
 import tempfile
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -21,6 +24,7 @@ from secrets_init import GoogleCloud, environment
 PROGRAM = Path(__file__).resolve().parent
 MOBILE = PROGRAM.parents[1] / "frontend" / "apps" / "mobile"
 EXPO_GRAPHQL = "https://api.expo.dev/graphql"
+APP_STORE_CONNECT = "https://api.appstoreconnect.apple.com/v1"
 EXPO_OWNER = "clientbridge-ca"
 EXPO_SLUG = "clientbridge"
 IAM = "https://iam.googleapis.com/v1"
@@ -55,6 +59,19 @@ class IosCredentials:
     push_key: str | None
     asc_key: str | None
     distribution_certificate: bool
+    app_store_build: str | None = None  # the App Store build credentials, once they exist
+
+
+@dataclass(frozen=True)
+class Signing:
+    """A distribution certificate and its App Store profile, as EAS stores them."""
+
+    certificate_id: str
+    p12: str
+    password: str
+    private_key: str
+    profile_id: str
+    profile: str
 
 
 @dataclass(frozen=True)
@@ -65,7 +82,6 @@ class Apple:
     asc_key: str  # the .p8 contents
     apns_key_id: str
     apns_key: str
-    team_type: str = "COMPANY_OR_ORGANIZATION"  # or INDIVIDUAL, for a personal developer account
 
 
 class Eas(Protocol):
@@ -92,6 +108,18 @@ class Eas(Protocol):
     def set_asc_key(
         self, credentials: IosCredentials, team_id: str, key_id: str, issuer: str, p8: str
     ) -> None: ...
+
+    def set_signing(
+        self, credentials: IosCredentials, team_id: str, bundle_id: str, signing: Signing
+    ) -> None: ...
+
+
+class Developer(Protocol):
+    def create_certificate(self, csr: str) -> tuple[str, str]: ...
+
+    def bundle_id(self, identifier: str) -> str: ...
+
+    def create_profile(self, name: str, bundle: str, certificate: str) -> tuple[str, str]: ...
 
 
 class Keys(Protocol):
@@ -184,11 +212,13 @@ def android(
         )
 
 
-def ios(eas: Eas, env: Environment, apple: Apple | None, report: Report) -> bool:
-    """The push and App Store Connect keys; true while no distribution certificate exists."""
-    if apple is None:
+def ios(
+    eas: Eas, developer: Developer | None, env: Environment, apple: Apple | None, report: Report
+) -> None:
+    """The push and App Store Connect keys, and a distribution certificate when EAS has none."""
+    if apple is None or developer is None:
         report.add("ios: waiting on the Apple developer account; add the APPLE_ values and rerun")
-        return False
+        return
     credentials = eas.ios(apple.team_id, env.mobile.bundle_id)
     if credentials.push_key == apple.apns_key_id:
         report.add(f"eas {env.mobile.bundle_id} push key: kept")
@@ -202,7 +232,123 @@ def ios(eas: Eas, env: Environment, apple: Apple | None, report: Report) -> bool
             credentials, apple.team_id, apple.asc_key_id, apple.asc_issuer_id, apple.asc_key
         )
         report.add(f"eas {env.mobile.bundle_id} App Store Connect key: set to {apple.asc_key_id}")
-    return not credentials.distribution_certificate
+    if credentials.distribution_certificate:
+        report.add(f"eas {env.mobile.bundle_id} distribution certificate: kept")
+        return
+    created = signing(developer, env.mobile.bundle_id, secrets.token_urlsafe(24))
+    eas.set_signing(credentials, apple.team_id, env.mobile.bundle_id, created)
+    report.add(
+        f"eas {env.mobile.bundle_id} distribution certificate {created.certificate_id} "
+        f"and App Store profile {created.profile_id}: created"
+    )
+
+
+def signing(developer: Developer, bundle_id: str, password: str) -> Signing:
+    key, csr = signing_request()
+    certificate_id, certificate = developer.create_certificate(csr)
+    profile_id, profile = developer.create_profile(
+        f"{bundle_id} App Store {certificate_id}", developer.bundle_id(bundle_id), certificate_id
+    )
+    return Signing(
+        certificate_id=certificate_id,
+        p12=p12(key, certificate, password),
+        password=password,
+        private_key=key,
+        profile_id=profile_id,
+        profile=profile,
+    )
+
+
+def _openssl(*args: str, data: bytes | None = None, env: Mapping[str, str] | None = None) -> bytes:
+    return subprocess.run(
+        ["openssl", *args],
+        input=data,
+        capture_output=True,
+        check=True,
+        env={**os.environ, **(env or {})},
+    ).stdout
+
+
+def signing_request() -> tuple[str, str]:
+    """A new RSA key and the certificate signing request Apple signs, both PEM."""
+    with tempfile.TemporaryDirectory() as directory:
+        key = Path(directory) / "key.pem"
+        csr = _openssl(
+            "req",
+            "-new",
+            "-newkey",
+            "rsa:2048",
+            "-nodes",
+            "-keyout",
+            str(key),
+            "-subj",
+            "/CN=Clientbridge distribution",
+        )
+        return key.read_text(), csr.decode()
+
+
+def p12(key: str, certificate: str, password: str) -> str:
+    """Apple's DER certificate and its key as a base64 .p12, in the algorithms Keychain reads."""
+    with tempfile.TemporaryDirectory() as directory:
+        key_path = Path(directory) / "key.pem"
+        key_path.write_text(key)
+        pem_path = Path(directory) / "certificate.pem"
+        pem_path.write_bytes(_openssl("x509", "-inform", "DER", data=base64.b64decode(certificate)))
+        exported = _openssl(
+            "pkcs12",
+            "-export",
+            "-inkey",
+            str(key_path),
+            "-in",
+            str(pem_path),
+            "-keypbe",
+            "PBE-SHA1-3DES",
+            "-certpbe",
+            "PBE-SHA1-3DES",
+            "-macalg",
+            "sha1",
+            "-passout",
+            "env:P12_PASSWORD",
+            env={"P12_PASSWORD": password},
+        )
+        return base64.b64encode(exported).decode()
+
+
+def raw_signature(der: bytes) -> bytes:
+    """An ECDSA signature from DER (a SEQUENCE of r and s) as the 64 bytes ES256 expects."""
+    if der[0] != 0x30:
+        raise ValueError("not a DER signature")
+    raw = b""
+    index = 2
+    for _ in range(2):
+        if der[index] != 0x02:
+            raise ValueError("not a DER integer")
+        length = der[index + 1]
+        value = der[index + 2 : index + 2 + length].lstrip(b"\x00")
+        raw += value.rjust(32, b"\x00")
+        index += 2 + length
+    return raw
+
+
+def _base64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+
+def asc_token(apple: Apple, now: int) -> str:
+    """The App Store Connect API's bearer token, signed with the API key for twenty minutes."""
+    header = {"alg": "ES256", "kid": apple.asc_key_id, "typ": "JWT"}
+    claims = {
+        "iss": apple.asc_issuer_id,
+        "iat": now,
+        "exp": now + 1200,
+        "aud": "appstoreconnect-v1",
+    }
+    unsigned = ".".join(_base64url(json.dumps(part).encode()) for part in (header, claims))
+    with tempfile.TemporaryDirectory() as directory:
+        key = Path(directory) / "asc.p8"
+        key.write_text(apple.asc_key)
+        der = _openssl("dgst", "-sha256", "-sign", str(key), data=unsigned.encode())
+    return f"{unsigned}.{_base64url(raw_signature(der))}"
 
 
 def apple_values(values: Mapping[str, str]) -> Apple | None:
@@ -219,7 +365,6 @@ def apple_values(values: Mapping[str, str]) -> Apple | None:
         asc_key=Path(values["ASC_API_KEY_PATH"]).expanduser().read_text(),
         apns_key_id=values["APNS_KEY_ID"],
         apns_key=Path(values["APNS_KEY_PATH"]).expanduser().read_text(),
-        team_type=values.get("APPLE_TEAM_TYPE") or "COMPANY_OR_ORGANIZATION",
     )
 
 
@@ -253,7 +398,7 @@ class ExpoApi:
             with urllib.request.urlopen(request, timeout=60) as response:
                 parsed: object = json.loads(response.read())
         except urllib.error.HTTPError as error:
-            raise SystemExit(f"EAS answered {error.code}") from None
+            raise SystemExit(f"EAS answered {error.code}: {error.read().decode()[:2000]}") from None
         if not isinstance(parsed, dict):
             raise SystemExit("EAS answered without a JSON object")
         errors = parsed.get("errors")
@@ -387,10 +532,11 @@ class ExpoApi:
         team = self._team(team_id)
         identifier = self._app_identifier(team, bundle_id)
         query = (
-            "query($id: String!, $identifier: ID!) { app { byId(appId: $id) { "
+            "query($id: String!, $identifier: String!) { app { byId(appId: $id) { "
             "iosAppCredentials(filter: { appleAppIdentifierId: $identifier }) { id "
             "pushKey { keyIdentifier } appStoreConnectApiKeyForSubmissions { keyIdentifier } "
-            "iosAppBuildCredentialsList { distributionCertificate { id } } } } } }"
+            "iosAppBuildCredentialsList { id iosDistributionType distributionCertificate { id } } "
+            "} } } }"
         )
         found = _dig(self._call(query, {"id": self.app_id, "identifier": identifier}), "app")
         listed = _dig(found, "byId").get("iosAppCredentials")
@@ -404,14 +550,19 @@ class ExpoApi:
             return self.ios(team_id, bundle_id)
         each = listed[0] if isinstance(listed[0], dict) else {}
         builds = each.get("iosAppBuildCredentialsList")
+        app_store = [
+            build
+            for build in (builds if isinstance(builds, list) else [])
+            if isinstance(build, dict) and build.get("iosDistributionType") == "APP_STORE"
+        ]
         return IosCredentials(
             id=str(each.get("id")),
             push_key=_key_identifier(each.get("pushKey")),
             asc_key=_key_identifier(each.get("appStoreConnectApiKeyForSubmissions")),
             distribution_certificate=any(
-                isinstance(build, dict) and build.get("distributionCertificate")
-                for build in (builds if isinstance(builds, list) else [])
+                build.get("distributionCertificate") for build in app_store
             ),
+            app_store_build=str(app_store[0]["id"]) if app_store else None,
         )
 
     def set_push_key(self, credentials: IosCredentials, team_id: str, key_id: str, p8: str) -> None:
@@ -464,13 +615,139 @@ class ExpoApi:
             },
         )
 
+    def set_signing(
+        self, credentials: IosCredentials, team_id: str, bundle_id: str, signing: Signing
+    ) -> None:
+        team = self._team(team_id)
+        certificate = self._call(
+            "mutation($input: AppleDistributionCertificateInput!, $account: ID!) { "
+            "appleDistributionCertificate { createAppleDistributionCertificate("
+            "appleDistributionCertificateInput: $input, accountId: $account) { id } } }",
+            {
+                "input": {
+                    "certP12": signing.p12,
+                    "certPassword": signing.password,
+                    "certPrivateSigningKey": signing.private_key,
+                    "developerPortalIdentifier": signing.certificate_id,
+                    "appleTeamId": team,
+                },
+                "account": self.account_id,
+            },
+        )
+        certificate_id = _dig(
+            certificate, "appleDistributionCertificate", "createAppleDistributionCertificate"
+        )["id"]
+        profile = self._call(
+            "mutation($input: AppleProvisioningProfileInput!, $account: ID!, $identifier: ID!) { "
+            "appleProvisioningProfile { createAppleProvisioningProfile("
+            "appleProvisioningProfileInput: $input, accountId: $account, "
+            "appleAppIdentifierId: $identifier) { id } } }",
+            {
+                "input": {
+                    "appleProvisioningProfile": signing.profile,
+                    "developerPortalIdentifier": signing.profile_id,
+                },
+                "account": self.account_id,
+                "identifier": self._app_identifier(team, bundle_id),
+            },
+        )
+        profile_id = _dig(profile, "appleProvisioningProfile", "createAppleProvisioningProfile")[
+            "id"
+        ]
+        if credentials.app_store_build is None:
+            self._call(
+                "mutation($input: IosAppBuildCredentialsInput!, $credentials: ID!) { "
+                "iosAppBuildCredentials { createIosAppBuildCredentials("
+                "iosAppBuildCredentialsInput: $input, iosAppCredentialsId: $credentials) "
+                "{ id } } }",
+                {
+                    "input": {
+                        "iosDistributionType": "APP_STORE",
+                        "distributionCertificateId": certificate_id,
+                        "provisioningProfileId": profile_id,
+                    },
+                    "credentials": credentials.id,
+                },
+            )
+            return
+        self._call(
+            "mutation($id: ID!, $certificate: ID!, $profile: ID!) { iosAppBuildCredentials { "
+            "setDistributionCertificate(id: $id, distributionCertificateId: $certificate) { id } "
+            "setProvisioningProfile(id: $id, provisioningProfileId: $profile) { id } } }",
+            {
+                "id": credentials.app_store_build,
+                "certificate": certificate_id,
+                "profile": profile_id,
+            },
+        )
+
+
+class AppStoreConnect:
+    """The App Store Connect API, signed in with the account's API key."""
+
+    def __init__(self, apple: Apple) -> None:
+        self.apple = apple
+
+    def _call(self, method: str, path: str, body: object = None) -> dict[str, object]:
+        request = urllib.request.Request(
+            f"{APP_STORE_CONNECT}{path}",
+            data=None if body is None else json.dumps(body).encode(),
+            method=method,
+            headers={
+                "Authorization": f"Bearer {asc_token(self.apple, int(time.time()))}",
+                "Content-Type": "application/json",
+            },
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                parsed: object = json.loads(response.read())
+        except urllib.error.HTTPError as error:
+            raise SystemExit(
+                f"App Store Connect answered {error.code}: {error.read().decode()[:2000]}"
+            ) from None
+        if not isinstance(parsed, dict):
+            raise SystemExit("App Store Connect answered without a JSON object")
+        return {str(key): value for key, value in parsed.items()}
+
+    def create_certificate(self, csr: str) -> tuple[str, str]:
+        body = {
+            "data": {
+                "type": "certificates",
+                "attributes": {"certificateType": "IOS_DISTRIBUTION", "csrContent": csr},
+            }
+        }
+        created = _dig(self._call("POST", "/certificates", body), "data")
+        return str(created["id"]), str(_dig(created, "attributes")["certificateContent"])
+
+    def bundle_id(self, identifier: str) -> str:
+        query = urllib.parse.urlencode({"filter[identifier]": identifier})
+        found = self._call("GET", f"/bundleIds?{query}").get("data")
+        for each in found if isinstance(found, list) else []:
+            if isinstance(each, dict) and _dig(each, "attributes").get("identifier") == identifier:
+                return str(each["id"])
+        raise SystemExit(f"{identifier} is not registered under Identifiers in the Apple account")
+
+    def create_profile(self, name: str, bundle: str, certificate: str) -> tuple[str, str]:
+        body = {
+            "data": {
+                "type": "profiles",
+                "attributes": {"name": name, "profileType": "IOS_APP_STORE"},
+                "relationships": {
+                    "bundleId": {"data": {"type": "bundleIds", "id": bundle}},
+                    "certificates": {"data": [{"type": "certificates", "id": certificate}]},
+                },
+            }
+        }
+        created = _dig(self._call("POST", "/profiles", body), "data")
+        return str(created["id"]), str(_dig(created, "attributes")["profileContent"])
+
 
 def _dig(data: Mapping[str, object], *path: str) -> dict[str, object]:
     current: object = data
     for key in path:
         current = current.get(key) if isinstance(current, dict) else None
     if not isinstance(current, dict):
-        raise SystemExit(f"EAS answered without {'.'.join(path)}")
+        raise SystemExit(f"the answer has no {'.'.join(path)}")
     return current
 
 
@@ -514,40 +791,6 @@ def pulumi_output(*args: str) -> str:
     return subprocess.run(
         ["pulumi", *args], cwd=PROGRAM, check=True, capture_output=True, text=True
     ).stdout.strip()
-
-
-def distribution_certificate(env: Environment, apple: Apple, token: str) -> None:
-    """EAS creates a certificate only interactively; the App Store Connect key signs in for it."""
-    print("Creating the iOS distribution certificate; answer EAS's prompts with the defaults.")
-    with tempfile.TemporaryDirectory() as directory:
-        key = Path(directory) / "asc-key.p8"
-        key.write_text(apple.asc_key)
-        subprocess.run(
-            [
-                "npx",
-                "--yes",
-                "eas-cli@25.0.0",
-                "credentials:configure-build",
-                "--platform",
-                "ios",
-                "--profile",
-                env.mobile.channel,
-            ],
-            cwd=MOBILE,
-            check=True,
-            env={
-                "PATH": os.environ["PATH"],
-                "HOME": os.environ["HOME"],
-                "EXPO_TOKEN": token,
-                "APP_ID": env.mobile.bundle_id,
-                "BASE_DOMAIN": env.base_domain,
-                "EXPO_ASC_API_KEY_PATH": str(key),
-                "EXPO_ASC_KEY_ID": apple.asc_key_id,
-                "EXPO_ASC_ISSUER_ID": apple.asc_issuer_id,
-                "EXPO_APPLE_TEAM_ID": apple.team_id,
-                "EXPO_APPLE_TEAM_TYPE": apple.team_type,
-            },
-        )
 
 
 def github_settings(env: Environment, token: str, platforms: str) -> None:
@@ -598,14 +841,12 @@ def main(argv: Sequence[str] | None = None) -> None:
         publisher,
         report,
     )
-    needs_certificate = ios(eas, env, apple, report)
+    ios(eas, None if apple is None else AppStoreConnect(apple), env, apple, report)
     # iOS builds need the Apple account's certificate, so until then only Android ships
     platforms = "android ios" if apple is not None else "android"
     github_settings(env, token, platforms)
     report.add(f"github {env.github_environment} EXPO_TOKEN and EAS_PLATFORMS={platforms}: set")
     print("\n".join(report.lines))
-    if needs_certificate and apple is not None:
-        distribution_certificate(env, apple, token)
 
 
 if __name__ == "__main__":

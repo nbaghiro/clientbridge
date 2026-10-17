@@ -20,7 +20,7 @@ The development build profile was removed with `expo-dev-client` never added: lo
 
 - Two Expo robots: `EXPO_ACCESS_TOKEN` (push, in the cluster) and `EAS_ROBOT_TOKEN` (builds and updates, GitHub only); `mobile_init.py` refuses the same token for both. Staging's `EXPO_ACCESS_TOKEN` is still the Developer robot until a push-only robot replaces it.
 - A new service account key replaces the account's older ones, and a key EAS refuses is deleted.
-- Production's Android build is submitted to Play only once `PLAY_APP_READY` is set; the mobile jobs run only for deploys started by CI; the token reaches `gh` on stdin; `APPLE_TEAM_TYPE` covers a personal Apple account.
+- Production's Android build is submitted to Play only once `PLAY_APP_READY` is set; the mobile jobs run only for deploys started by CI; the token reaches `gh` on stdin; the distribution certificate and profile come from the App Store Connect API, so `make infra-mobile` never prompts.
 
 ## Still open
 
