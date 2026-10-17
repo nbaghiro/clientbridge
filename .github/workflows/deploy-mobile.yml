@@ -1,0 +1,133 @@
+name: deploy-mobile
+# One environment's mobile app, after its backend deployed: for each platform whose native fingerprint
+# already has a build on the environment's channel, an EAS update with this commit's bundle; otherwise
+# a new EAS build, which goes on to TestFlight or Google Play where the profile submits. A manual run
+# may force builds, or roll back by republishing an earlier update group to the channel.
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      ref:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment whose app to ship
+        type: choice
+        options: [staging, production]
+        default: staging
+      build:
+        description: Build and submit both platforms, even where a matching build exists
+        type: boolean
+        default: false
+      republish_group:
+        description: Roll back by republishing this earlier update group (eas update:list) instead
+        required: false
+
+permissions: {}
+
+jobs:
+  mobile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # the GitHub environment holds EXPO_TOKEN and EAS_PLATFORMS, and production's required reviewer
+    environment: ${{ inputs.environment }}
+    concurrency:
+      group: mobile-${{ inputs.environment }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      # the eas.json build profile and update channel; the EAS environment holds app.config.ts's inputs
+      CHANNEL: ${{ inputs.environment }}
+      EAS_ENVIRONMENT: ${{ inputs.environment == 'production' && 'production' || 'preview' }}
+      # mobile_init.py sets it: android alone until the Apple developer account exists
+      PLATFORMS: ${{ vars.EAS_PLATFORMS }}
+      PLAY_APP_READY: ${{ vars.PLAY_APP_READY }}
+      REF: ${{ inputs.ref || github.sha }}
+      FORCE_BUILD: ${{ inputs.build == true }}
+      REPUBLISH_GROUP: ${{ inputs.republish_group }}
+      EAS_CLI: eas-cli@25.0.0
+    defaults:
+      run:
+        working-directory: frontend/apps/mobile
+    steps:
+      - name: check the request
+        id: ready
+        working-directory: .
+        run: |
+          # an environment whose app is not set up yet ships no app, and its backend deploy stands
+          if [ -z "$EXPO_TOKEN" ] || [ -z "$PLATFORMS" ]; then
+            echo "::notice::no app for $CHANNEL yet; make infra-mobile ENV=… sets EXPO_TOKEN and EAS_PLATFORMS"
+            echo "ship=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "ship=true" >> "$GITHUB_OUTPUT"
+          if [ -n "$REPUBLISH_GROUP" ] && ! [[ "$REPUBLISH_GROUP" =~ ^[0-9a-f-]{36}$ ]]; then
+            echo "republish_group must be an update group id"; exit 1
+          fi
+      - if: steps.ready.outputs.ship == 'true'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.REF }}
+          persist-credentials: false
+      - if: steps.ready.outputs.ship == 'true'
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - if: steps.ready.outputs.ship == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - if: steps.ready.outputs.ship == 'true'
+        run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - name: roll back to an earlier update
+        if: steps.ready.outputs.ship == 'true' && env.REPUBLISH_GROUP != ''
+        run: |
+          npx --yes "$EAS_CLI" update:republish --group "$REPUBLISH_GROUP" \
+            --destination-channel "$CHANNEL" --message "rollback to $REPUBLISH_GROUP" --non-interactive
+      - name: update the builds that can run this commit, build the rest
+        if: steps.ready.outputs.ship == 'true' && env.REPUBLISH_GROUP == ''
+        run: |
+          updates=()
+          for platform in $PLATFORMS; do
+            # the CLI logs the variables it loaded on stdout ahead of the JSON
+            hash=$(npx --yes "$EAS_CLI" fingerprint:generate --platform "$platform" \
+              --environment "$EAS_ENVIRONMENT" --json --non-interactive | sed -n '/^{/,$p' | jq -r .hash)
+            # an empty hash would match every build on the channel
+            [[ "$hash" =~ ^[0-9a-f]{40}$ ]] || { echo "$platform: no fingerprint from eas"; exit 1; }
+            # a build still queued or running counts: the update reaches it once it installs
+            builds=$(npx --yes "$EAS_CLI" build:list --platform "$platform" --channel "$CHANNEL" \
+              --fingerprint-hash "$hash" --limit 5 --json --non-interactive | sed -n '/^\[/,$p' |
+              jq '[.[] | select(.status != "ERRORED" and .status != "CANCELED")] | length')
+            if [ "$FORCE_BUILD" = true ] || [ "$builds" -eq 0 ]; then
+              echo "$platform: native fingerprint $hash has no build on $CHANNEL; building"
+              # a store build goes on to TestFlight or Play; an internal one installs from its EAS link
+              distribution=$(jq -r --arg c "$CHANNEL" --arg p "$platform" \
+                '.build[$c][$p].distribution // .build[$c].distribution // "store"' eas.json)
+              submit=()
+              [ "$distribution" = store ] && submit=(--auto-submit-with-profile "$CHANNEL")
+              # Play takes uploads by API only after a person makes the app's first one
+              if [ "$platform" = android ] && [ "${#submit[@]}" -gt 0 ] && [ "$PLAY_APP_READY" != true ]; then
+                submit=()
+                echo "android: built, not submitted; upload it to Play by hand, then set PLAY_APP_READY" \
+                  >> "$GITHUB_STEP_SUMMARY"
+              fi
+              npx --yes "$EAS_CLI" build --platform "$platform" --profile "$CHANNEL" "${submit[@]}" \
+                --message "$REF" --no-wait --non-interactive
+            else
+              echo "$platform: fingerprint $hash has a build on $CHANNEL; publishing an update"
+              updates+=("$platform")
+            fi
+          done
+          for platform in "${updates[@]}"; do
+            npx --yes "$EAS_CLI" update --channel "$CHANNEL" --environment "$EAS_ENVIRONMENT" \
+              --platform "$platform" --message "$REF" --non-interactive
+          done

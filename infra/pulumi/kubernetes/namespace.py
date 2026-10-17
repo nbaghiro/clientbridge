@@ -21,7 +21,8 @@ DEPLOY_ROLE = "deployer"
 # everything an environment stack applies or waits on, and nothing outside its namespace
 DEPLOY_RULES: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
     ("", ("services", "serviceaccounts", "configmaps"), ("*",)),
-    ("", ("pods", "events", "endpoints"), ("get", "list", "watch")),
+    # Pulumi waits on a Deployment by watching its pods and their volume claims
+    ("", ("pods", "events", "endpoints", "persistentvolumeclaims"), ("get", "list", "watch")),
     ("", ("pods/log",), ("get",)),  # why a migrate Job failed, in the deploy's log
     ("apps", ("deployments",), ("*",)),
     ("apps", ("replicasets",), ("get", "list", "watch")),

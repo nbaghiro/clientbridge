@@ -12107,12 +12107,6 @@
     "sync.offlineExpired": {
         "message": "[Çöññéçţ ţö ṽéŕîƒý ýöûŕ åççéšš ƀéƒöŕé öþéñîñĝ ţĥîš ðéṽîçé’š šåṽéð ðåţå. Ýöûŕ ûñšéñţ çĥåñĝéš åŕé šţîļļ öñ ţĥîš ðéṽîçé. one two three four five six seven eight]"
     },
-    "sync.persistenceTitle": {
-        "message": "[Öƒƒļîñé šţöŕåĝé îš ñöţ þŕöţéçţéð one two three]"
-    },
-    "sync.persistenceDetail": {
-        "message": "[Ţĥîš ƀŕöŵšéŕ ɱåý ŕéɱöṽé šåṽéð ðåţå, îñçļûðîñĝ ûñšéñţ çĥåñĝéš. Ķééþ ţĥîš ðéṽîçé çöññéçţéð ûñţîļ çĥåñĝéš ƒîñîšĥ šýñçîñĝ. one two three four five six seven eight]"
-    },
     "sync.awaitingTitle": {
         "message": "[Ŵåîţîñĝ ƒöŕ ûþðåţéð ðåţå one two three]"
     },

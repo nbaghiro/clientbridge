@@ -18,12 +18,13 @@ from pulumi.runtime.settings import get_root_resource
 from pulumi.runtime.stack import Stack
 
 import environments
-from cloud import cluster, database, services
+from cloud import cluster, database, identity, services
 from environments import HOSTS
 from kubernetes import settings
 
 PROGRAM = Path(__file__).resolve().parents[1]
 WORKFLOWS = PROGRAM.parents[1] / ".github" / "workflows"
+EAS = PROGRAM.parents[1] / "frontend" / "apps" / "mobile" / "eas.json"
 BACKEND = "sha256:" + "b" * 64
 WEB = "sha256:" + "c" * 64
 SECRET_SIG = "4dabf18193072939515e22adb298388d"
@@ -94,6 +95,8 @@ class Fakes(mocks.Mocks):
                 state["id"] = f"projects/project/secrets/{args.inputs['secretId']}"
             case "gcp:storage/bucket:Bucket":
                 state["name"] = args.inputs["name"]
+            case "gcp:firebase/androidApp:AndroidApp":
+                state["appId"] = f"1:123456789:android:{args.name}"
             case "pulumi:pulumi:StackReference":
                 state["outputs"] = self.cloud_outputs
             case _:
@@ -105,6 +108,8 @@ class Fakes(mocks.Mocks):
             return {"number": "123456789"}, []
         if args.token == "github:index/getUser:getUser":
             return {"id": "12300880", "login": str(args.args.get("username"))}, []
+        if args.token == "gcp:firebase/getAndroidAppConfig:getAndroidAppConfig":
+            return {"configFileContents": f"services-{args.args.get('appId')}"}, []
         return {}, []
 
 
@@ -598,8 +603,17 @@ def test_deploy_jobs_hold_only_what_they_need() -> None:
         assert each["permissions"] == {}
         jobs = dig(each, "jobs")
         assert isinstance(jobs, dict)
-        for job in jobs.values():
-            assert dig(job, "permissions") == {"contents": "read", "id-token": "write"}
+        for name_, job in jobs.items():
+            # the app jobs reach EAS with its token, so they need no Google identity
+            wanted = (
+                {"contents": "read"}
+                if name_.endswith("-mobile")
+                else {
+                    "contents": "read",
+                    "id-token": "write",
+                }
+            )
+            assert dig(job, "permissions") == wanted
     steps = listed(dig(workflow("deploy-environment.yml"), "jobs", "deploy", "steps"))
     # the state is in the project's bucket, reached with the deployer's own Google credentials
     assert not [s for s in steps if "PULUMI_ACCESS_TOKEN" in keys(dig(s, "env"))]
@@ -871,6 +885,22 @@ def test_deployers_can_read_pod_logs(cloud: Built) -> None:
         assert {"apiGroups": [""], "resources": ["pods/log"], "verbs": ["get"]} in rules
 
 
+def test_deployers_can_watch_what_pulumi_awaits(cloud: Built) -> None:
+    for env in DOMAINS:
+        (role,) = [
+            each
+            for each in of_type(cloud, "kubernetes:rbac.authorization.k8s.io/v1:Role")
+            if dig(each.inputs, "metadata", "namespace") == env
+        ]
+        rules = listed(dig(role.inputs, "rules"))
+        readable: set[str] = set()
+        for rule in rules:
+            verbs = {str(verb) for verb in listed(dig(rule, "verbs"))}
+            if {"get", "list", "watch"} <= verbs or verbs == {"*"}:
+                readable |= {str(each) for each in listed(dig(rule, "resources"))}
+        assert {"pods", "replicasets", "persistentvolumeclaims", "jobs", "deployments"} <= readable
+
+
 def test_the_connection_pools_fit_the_instance(cloud: Built, stacks: dict[str, Built]) -> None:
     for built in stacks.values():
         (api,) = containers(named(built, "kubernetes:apps/v1:Deployment", "api"))
@@ -1116,3 +1146,132 @@ def test_only_the_mobile_jobs_receive_secrets() -> None:
     assert isinstance(jobs, dict)
     for name, job in jobs.items():
         assert ("secrets" in keys(job)) == name.endswith("-mobile"), name
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        ".pulumi/stacks/clientbridge/staging.json",
+        ".pulumi/stacks/clientbridge/staging.json.bak",
+        ".pulumi/history/clientbridge/staging/staging-1792120874690481000.history.json",
+        ".pulumi/backups/clientbridge/staging/staging.1792120874690481000.json",
+        ".pulumi/locks/organization/clientbridge/staging/82eaa4a8-6455-4f02-8f23-33d812e1fbd7.json",
+    ],
+)
+def test_a_deployer_writes_every_file_of_its_stack(path: str) -> None:
+    prefixes = identity.state_prefixes("state", "staging")
+    assert any(f"projects/_/buckets/state/objects/{path}".startswith(p) for p in prefixes)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        ".pulumi/stacks/clientbridge/cloud.json",
+        ".pulumi/stacks/clientbridge/staging-old.json",
+        ".pulumi/locks/organization/clientbridge/prod/82eaa4a8.json",
+        ".pulumi/meta.yaml",
+    ],
+)
+def test_a_deployer_writes_no_other_stack(path: str) -> None:
+    prefixes = identity.state_prefixes("state", "staging")
+    assert not any(f"projects/_/buckets/state/objects/{path}".startswith(p) for p in prefixes)
+
+
+def test_each_environment_has_an_android_app_that_push_can_reach(cloud: Built) -> None:
+    for env in environments.build(*DOMAINS.values()):
+        (app,) = [
+            each
+            for each in of_type(cloud, "gcp:firebase/androidApp:AndroidApp")
+            if each.name == f"{env.name}-android"
+        ]
+        assert app.inputs["packageName"] == env.mobile.bundle_id
+        assert app.inputs["deletionPolicy"] == "ABANDON"
+        sender = f"cb-{env.name}-push@project.iam.gserviceaccount.com"
+        (grant,) = [
+            each
+            for each in of_type(cloud, "gcp:projects/iAMMember:IAMMember")
+            if each.inputs.get("member") == f"serviceAccount:{sender}"
+        ]
+        assert grant.inputs["role"] == "roles/firebasecloudmessaging.admin"
+        shared = dig(cloud.outputs, "environments", env.name)
+        assert dig(shared, "pushSender") == sender
+        assert (
+            dig(shared, "googleServicesFile") == f"services-1:123456789:android:{env.name}-android"
+        )
+    assert cloud.outputs["playPublisher"] == "cb-play-publisher@project.iam.gserviceaccount.com"
+
+
+def test_each_environments_app_matches_its_eas_profile() -> None:
+    eas = json.loads(EAS.read_text())
+    envs = environments.build(*DOMAINS.values())
+    assert len({env.mobile.bundle_id for env in envs}) == len(envs)
+    for env in envs:
+        build = eas["build"][env.mobile.channel]
+        assert build["channel"] == env.mobile.channel
+        assert build["environment"] == env.mobile.eas_environment
+        assert eas["submit"][env.mobile.channel]["ios"]["bundleIdentifier"] == env.mobile.bundle_id
+        # an Android build for Play is a store bundle; one installed from an EAS link is an APK
+        android = build.get("android", {}).get("distribution", build.get("distribution"))
+        assert (android == "store") == env.mobile.play_store
+
+
+def web_env(built: Built) -> dict[str, object]:
+    (container,) = containers(named(built, "kubernetes:apps/v1:Deployment", "web"))
+    return env_vars(container)
+
+
+def test_the_web_image_vouches_for_its_environments_app(
+    cloud: Built, stacks: dict[str, Built]
+) -> None:
+    for env in environments.build(*DOMAINS.values()):
+        values = web_env(stacks[env.name])
+        assert values["MOBILE_APP_ID"] == env.mobile.bundle_id
+        config = yaml.safe_load((PROGRAM / f"Pulumi.{env.name}.yaml").read_text())["config"]
+        assert values["APPLE_TEAM_ID"] == config.get("clientbridge:appleTeamId", "")
+        assert values["ANDROID_CERT_FINGERPRINTS"] == ""
+    fingerprint = ":".join(["ab"] * 32)
+    linked = build_environment(
+        "staging",
+        cloud,
+        extra={
+            "clientbridge:appleTeamId": "ABCDE12345",
+            "clientbridge:androidCertFingerprints": json.dumps([fingerprint]),
+        },
+    )
+    values = web_env(linked)
+    assert values["APPLE_TEAM_ID"] == "ABCDE12345"
+    assert values["ANDROID_CERT_FINGERPRINTS"] == fingerprint.upper()
+
+
+def test_app_links_take_only_a_team_id_and_sha256_fingerprints(cloud: Built) -> None:
+    for key, value in (
+        ("appleTeamId", "abc"),
+        ("androidCertFingerprints", json.dumps(["AB:CD"])),
+    ):
+        with pytest.raises(Exception, match=key):
+            build_environment("staging", cloud, extra={f"clientbridge:{key}": value})
+
+
+def test_each_app_ships_after_its_environment_and_one_run_at_a_time() -> None:
+    deploy = workflow("deploy.yml")
+    for name, after in (("staging-mobile", "staging"), ("production-mobile", "production")):
+        job = dig(deploy, "jobs", name)
+        assert dig(job, "uses") == "./.github/workflows/deploy-mobile.yml"
+        assert after in listed(dig(job, "needs"))
+        condition = " ".join(str(dig(job, "if")).split())
+        assert f"needs.{after}.outputs.deployed == 'true'" in condition
+        # a manual run may roll the backend back; shipping main's bundle then would outrun it
+        assert "github.event_name == 'workflow_run'" in condition
+        assert dig(job, "with", "ref") == "${{ needs.images.outputs.sha }}"
+    called = workflow("deploy-mobile.yml")
+    assert called["permissions"] == {}
+    job = dig(called, "jobs", "mobile")
+    assert dig(job, "permissions") == {"contents": "read"}
+    assert dig(job, "environment") == "${{ inputs.environment }}"
+    assert dig(job, "concurrency") == {
+        "group": "mobile-${{ inputs.environment }}",
+        "cancel-in-progress": False,
+    }
+    # one pinned CLI, so a build and its updates compute fingerprints the same way
+    pinned = {text for text in strings(called) if "eas-cli@" in text}
+    assert pinned == {"eas-cli@25.0.0"}

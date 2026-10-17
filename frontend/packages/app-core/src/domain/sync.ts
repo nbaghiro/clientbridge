@@ -271,9 +271,6 @@ export function syncProblem(
 export function useSyncState(pollMs = 3000): SyncState {
     const db = usePowerSync();
     const zone = useBusinessZone();
-    const persistence = useQuery<{ value: string }>(
-        "SELECT value FROM device_prefs WHERE id = 'sync.persistence'",
-    ).data[0]?.value;
     const status = useSyncStatus();
     const [pending, setPending] = useState<PendingChange[]>([]);
     const [pendingCount, setPendingCount] = useState(0);
@@ -363,19 +360,7 @@ export function useSyncState(pollMs = 3000): SyncState {
         firstSyncFailed: !hasSynced && (stalled || !!status.downloadError),
         pendingSince: pendingSince.current,
     };
-    return {
-        ...state,
-        notice:
-            syncNotice(state, now) ??
-            (persistence === "denied"
-                ? {
-                      state: "offline" as const,
-                      title: strings.sync.persistenceTitle,
-                      detail: strings.sync.persistenceDetail,
-                      retry: false,
-                  }
-                : null),
-    };
+    return { ...state, notice: syncNotice(state, now) };
 }
 
 interface ReplicaSessionOptions {

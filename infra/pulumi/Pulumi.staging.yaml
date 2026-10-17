@@ -1,6 +1,7 @@
 # Applied by CI with --config clientbridge:backendDigest=sha256:… and clientbridge:webDigest=sha256:…
 # During a restore, clientbridge:databaseInstance names the clone this environment's pods reach.
 config:
+  clientbridge:appleTeamId: 6KL6VSWZ36
   clientbridge:stripePublishableKey: "pk_test_51UPkgSFGqw7iO9oDuhJvSbIZEC9REk9DTRuZ5dcqdSYtoasj2Qe8KdmYIMCQ45sKg17v2Qvhtrk5xyx8IlIzsNyY00LIiIlb2g"
 secretsprovider: gcpkms://projects/clientbridge-platform/locations/us-east1/keyRings/pulumi/cryptoKeys/state
 encryptedkey: CiQADSZLDoSbgjqNPyswITtQNOqBwqn9BC7XOAfvhhaFSrG9FwcSSQAyFkhwnIt27+fyuYzeNHOnfsA/ItWHIlEpz+KjaGVbbrh17ILIS3m4v6e3jZxwWjjFFzyZnbFC2NPfw16JCmzsSN7TvmUOS7s=

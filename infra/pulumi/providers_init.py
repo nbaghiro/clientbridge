@@ -79,6 +79,10 @@ class Report:
 
 
 def read_env_file(path: Path) -> dict[str, str]:
+    return read_values(path, REQUIRED)
+
+
+def read_values(path: Path, required: Sequence[str]) -> dict[str, str]:
     values: dict[str, str] = {}
     for raw in path.read_text().splitlines():
         line = raw.strip()
@@ -86,7 +90,7 @@ def read_env_file(path: Path) -> dict[str, str]:
             continue
         key, value = line.split("=", 1)
         values[key.strip()] = value.strip().strip('"').strip("'")
-    missing = [key for key in REQUIRED if not values.get(key)]
+    missing = [key for key in required if not values.get(key)]
     if missing:
         raise SystemExit(f"{path} is missing {', '.join(missing)}")
     return values

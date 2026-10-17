@@ -258,6 +258,10 @@ Read local, write via command/sync — the server is the source of truth; client
 
 - Review the sales-tax rates in `services/tax.py` against the CRA and provincial pages cited in `tests/test_tax_rates.py`, and again whenever a federal or provincial budget changes a rate: add a dated row (never edit a past one), update the golden test, and run `make gen-taxes`.
 
+### Mobile changes: an update or a store build
+
+Each deploy ships the mobile app too ([operations](operations.md#deploys-and-rollback)). A change to JavaScript, copy, assets bundled through Metro or the app-core schema reaches installed apps as an EAS update, without review. A change to the native fingerprint needs a new store build and, for production, App Review: a native module added or upgraded (an Expo SDK upgrade included), a config plugin or its options, a permission, entitlement or `Info.plist` value, the icon or splash screen, the bundle id, and any value `app.config.ts` reads, the `extra` URLs and the Stripe publishable key included, since the fingerprint hashes the whole config. The deploy workflow tells the two apart by itself; to see it before merging, compare `node ../../node_modules/@expo/fingerprint/bin/cli.js fingerprint:generate --platform android` from `frontend/apps/mobile` on both commits. An update may change behavior within what the app already does (Apple guideline 2.5.2 and the developer agreement forbid an update that changes the app's purpose), and an installed app runs an older bundle until its next two starts, so an API change stays readable by the previous bundle for at least one release.
+
 ---
 
 ## Copy and formatting

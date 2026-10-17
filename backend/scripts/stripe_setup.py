@@ -275,6 +275,11 @@ def webhook_url_problem(url: str) -> str | None:
     return None
 
 
+def _is_connect(endpoint: Mapping[str, object]) -> bool:
+    # `connect` is create-only; a Connect endpoint reads back with the platform's application
+    return endpoint.get("application") is not None
+
+
 def _plan_endpoint(
     endpoints: Sequence[Mapping[str, object]],
     url: str | None,
@@ -292,9 +297,7 @@ def _plan_endpoint(
     problem = webhook_url_problem(url)
     if problem is not None:
         return Step("blocked", target, problem)
-    found = ours or [
-        e for e in endpoints if e.get("url") == url and (e.get("connect") is True) == connect
-    ]
+    found = ours or [e for e in endpoints if e.get("url") == url and _is_connect(e) == connect]
     if len(found) > 1:
         ids = ", ".join(str(e.get("id")) for e in found)
         return Step("blocked", target, f"several endpoints match ({ids}); delete the extras")
@@ -316,13 +319,11 @@ def _plan_endpoint(
         )
     endpoint = found[0]
     endpoint_id = str(endpoint.get("id"))
-    if (endpoint.get("connect") is True) != connect or (
-        endpoint.get("api_version") != STRIPE_API_VERSION
-    ):
+    if _is_connect(endpoint) != connect or endpoint.get("api_version") != STRIPE_API_VERSION:
         return Step(
             "blocked",
             target,
-            f"{endpoint_id} is connect={endpoint.get('connect')} at "
+            f"{endpoint_id} is connect={_is_connect(endpoint)} at "
             f"{endpoint.get('api_version')}; both are fixed at creation, so delete it in the "
             f"Dashboard and rerun to create one at {STRIPE_API_VERSION}",
         )

@@ -1,5 +1,6 @@
 """Production and staging: what differs between them, and the stack's configuration."""
 
+import re
 from dataclasses import dataclass
 from typing import Literal
 
@@ -24,6 +25,20 @@ class Workload:
 
 
 @dataclass(frozen=True)
+class Mobile:
+    """The environment's app: its store identity, EAS build profile and update channel."""
+
+    bundle_id: str  # the iOS bundle id and the Android package
+    name: str
+    channel: str  # the eas.json build profile and the EAS Update channel, by the same name
+    eas_environment: Literal["preview", "production"]  # where its EAS variables live
+    # whether its Android build goes to Google Play; staging's installs from an EAS link instead
+    play_store: bool
+    # Apple grants the Tap to Pay entitlement on request; the build adds it once this is set
+    tap_to_pay: bool
+
+
+@dataclass(frozen=True)
 class Environment:
     name: Name  # the backend's ENV
     base_domain: str
@@ -43,6 +58,7 @@ class Environment:
     migrate_retries: int
     # staging seeds the demo businesses and links them to the Stripe sandbox after each migrate
     demo: bool
+    mobile: Mobile
 
     def host(self, host: Host) -> str:
         return self.base_domain if host == "site" else f"{host}.{self.base_domain}"
@@ -84,6 +100,14 @@ def build(prod_domain: str, staging_domain: str) -> tuple[Environment, Environme
         redis=Workload(Size("50m", "128Mi"), spot=False),
         migrate_retries=0,
         demo=False,
+        mobile=Mobile(
+            bundle_id="ca.clientbridge.app",
+            name="Clientbridge",
+            channel="production",
+            eas_environment="production",
+            play_store=True,
+            tap_to_pay=False,
+        ),
     )
     staging = Environment(
         name="staging",
@@ -101,6 +125,15 @@ def build(prod_domain: str, staging_domain: str) -> tuple[Environment, Environme
         redis=Workload(Size("50m", "128Mi"), spot=True),
         migrate_retries=2,
         demo=True,
+        # a separate app, so testers keep it beside the store one
+        mobile=Mobile(
+            bundle_id="ca.clientbridge.app.staging",
+            name="Clientbridge Staging",
+            channel="staging",
+            eas_environment="preview",
+            play_store=False,
+            tap_to_pay=False,
+        ),
     )
     return prod, staging
 
@@ -227,12 +260,21 @@ class Images:
 
 
 @dataclass(frozen=True)
+class AppLinks:
+    """What app.<base> publishes to vouch for the mobile app: Apple's team and Android's keys."""
+
+    apple_team_id: str  # empty until the Apple developer account exists
+    android_fingerprints: tuple[str, ...]  # SHA-256 of each Android signing certificate
+
+
+@dataclass(frozen=True)
 class Deployment:
     """One environment's stack: its namespace's workloads, deployed by CI with two digests."""
 
     env: Environment
     images: Images
     stripe_publishable_key: str
+    app_links: AppLinks
     cloud_stack: str  # the fully qualified name of the cloud stack it reads
     # empty for the shared instance; a restored clone's name points this environment at it
     database_instance: str
@@ -249,11 +291,32 @@ def load_deployment(stack: str) -> Deployment:
         env=matching[0],
         images=Images(_digest(config, "backendDigest"), _digest(config, "webDigest")),
         stripe_publishable_key=config.get("stripePublishableKey") or "",
+        app_links=_app_links(config),
         cloud_stack=config.get("cloudStack")
         or f"{pulumi.get_organization()}/{pulumi.get_project()}/{CLOUD_STACK}",
         database_instance=config.get("databaseInstance") or "",
         allow_schema_ahead=config.get_bool("allowSchemaAhead") or False,
     )
+
+
+APPLE_TEAM_ID = re.compile(r"[A-Z0-9]{10}")
+CERT_FINGERPRINT = re.compile(r"([0-9A-F]{2}:){31}[0-9A-F]{2}")
+
+
+def _app_links(config: pulumi.Config) -> AppLinks:
+    team = config.get("appleTeamId") or ""
+    if team and not APPLE_TEAM_ID.fullmatch(team):
+        raise ValueError("clientbridge:appleTeamId must be the 10-character Apple team id")
+    raw = config.get_object("androidCertFingerprints") or []
+    if not isinstance(raw, list):
+        raise ValueError("clientbridge:androidCertFingerprints must be a list")
+    fingerprints = tuple(str(each).upper() for each in raw)
+    bad = [each for each in fingerprints if not CERT_FINGERPRINT.fullmatch(each)]
+    if bad:
+        raise ValueError(
+            f"clientbridge:androidCertFingerprints holds no SHA-256 fingerprint: {bad}"
+        )
+    return AppLinks(team, fingerprints)
 
 
 def _digest(config: pulumi.Config, key: str) -> str:

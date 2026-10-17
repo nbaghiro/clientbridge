@@ -5,6 +5,7 @@ import pulumi_gcp as gcp
 
 # serviceusage and cloudresourcemanager are enabled by hand first: Pulumi needs them for the rest
 APIS = (
+    "androidpublisher.googleapis.com",
     "artifactregistry.googleapis.com",
     "billingbudgets.googleapis.com",
     "certificatemanager.googleapis.com",
@@ -14,6 +15,8 @@ APIS = (
     "compute.googleapis.com",
     "container.googleapis.com",
     "dns.googleapis.com",
+    "fcm.googleapis.com",
+    "firebase.googleapis.com",
     "iam.googleapis.com",
     "iamcredentials.googleapis.com",
     "logging.googleapis.com",

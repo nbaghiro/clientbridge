@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "162823908109",
+    "project_id": "clientbridge-platform",
+    "storage_bucket": "clientbridge-platform.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:162823908109:android:07811602cb0e27fd8bde44",
+        "android_client_info": {
+          "package_name": "ca.clientbridge.app.staging"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "162823908109-f42fcu0fqrf3t9uiffaisc64diaifmfj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBzwOh1s8MhJD6agbTOyK72QGWEPt2kETQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "162823908109-f42fcu0fqrf3t9uiffaisc64diaifmfj.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

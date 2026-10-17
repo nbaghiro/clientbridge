@@ -1,7 +1,7 @@
 name: deploy
 # After CI passes on a push to main: build and push both images by digest, apply them to the staging
 # stack, then promote the same digests to the prod stack behind the production environment's required
-# reviewers. A manual run from main redeploys given digests to one environment; with rollback set, its
+# reviewers; after each environment, deploy-mobile.yml ships its app from the same commit. A manual run from main redeploys given digests to one environment; with rollback set, its
 # migrate step may find the database at a newer revision than the image knows. The cloud stack
 # (everything both environments share) is applied by an administrator, never here.
 on:
@@ -159,3 +159,28 @@ jobs:
       ref: ${{ needs.images.outputs.sha }}
       newer_only: ${{ github.event_name == 'workflow_run' }}
       allow_schema_ahead: ${{ github.event_name == 'workflow_dispatch' && inputs.rollback == true }}
+
+  # a manual run redeploys or rolls back the backend; the app rolls back with deploy-mobile.yml
+  staging-mobile:
+    needs: [images, staging]
+    if: github.event_name == 'workflow_run' && needs.staging.outputs.deployed == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/deploy-mobile.yml
+    with:
+      environment: staging
+      ref: ${{ needs.images.outputs.sha }}
+    secrets: inherit
+
+  production-mobile:
+    needs: [images, production]
+    if: >-
+      always() && github.event_name == 'workflow_run' && needs.production.result == 'success' &&
+      needs.production.outputs.deployed == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/deploy-mobile.yml
+    with:
+      environment: production
+      ref: ${{ needs.images.outputs.sha }}
+    secrets: inherit

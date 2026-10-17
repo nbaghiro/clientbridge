@@ -469,6 +469,11 @@ jobs:
         working-directory: frontend/apps/mobile
         run: |
           pnpm exec expo prebuild --platform android --no-install
+          # the template's 512 MB Metaspace runs out compiling the app's Kotlin, which inherits it
+          jvm="-Xmx4g -XX:MaxMetaspaceSize=1g"
+          sed -i "s/^org\.gradle\.jvmargs=.*/org.gradle.jvmargs=$jvm/" android/gradle.properties
+          grep -qx "org.gradle.jvmargs=$jvm" android/gradle.properties
+          echo "kotlin.daemon.jvmargs=$jvm" >> android/gradle.properties
           cd android && ./gradlew assembleRelease --build-cache -PreactNativeArchitectures=x86_64
           mkdir -p "$GITHUB_WORKSPACE/native-apk"
           cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/native-apk/"

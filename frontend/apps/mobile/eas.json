@@ -4,32 +4,27 @@
         "appVersionSource": "remote"
     },
     "build": {
-        "development": {
-            "developmentClient": true,
-            "distribution": "internal",
-            "env": {
-                "STRIPE_TERMINAL_SIMULATED": "true"
-            }
-        },
         "staging": {
-            "distribution": "internal",
+            "environment": "preview",
             "channel": "staging",
-            "env": {
-                "BASE_DOMAIN": "staging.clientbridge.ca",
-                "STRIPE_TERMINAL_SIMULATED": "false"
-            }
+            "autoIncrement": true,
+            "ios": { "distribution": "store" },
+            "android": { "distribution": "internal", "buildType": "apk" }
         },
         "production": {
-            "distribution": "store",
+            "environment": "production",
             "channel": "production",
-            "autoIncrement": true,
-            "env": {
-                "BASE_DOMAIN": "clientbridge.ca",
-                "STRIPE_TERMINAL_SIMULATED": "false"
-            }
+            "distribution": "store",
+            "autoIncrement": true
         }
     },
     "submit": {
-        "production": {}
+        "staging": {
+            "ios": { "bundleIdentifier": "ca.clientbridge.app.staging", "ascAppId": "6823829504" }
+        },
+        "production": {
+            "ios": { "bundleIdentifier": "ca.clientbridge.app" },
+            "android": { "track": "internal", "releaseStatus": "draft" }
+        }
     }
 }
