@@ -81,10 +81,6 @@ class Business(PKMixin, TimestampMixin, Base):
         JSONB, default=dict, server_default="{}", nullable=False
     )
     status: Mapped[BusinessStatus] = mapped_column(String, default="active", nullable=False)
-    # the most staff may take off a sale without an owner's or admin's PIN
-    staff_discount_limit_bps: Mapped[int] = mapped_column(
-        Integer, default=1500, server_default="1500", nullable=False
-    )
     filing_frequency: Mapped[FilingFrequency] = mapped_column(
         String, default="quarterly", server_default="quarterly", nullable=False
     )
@@ -105,7 +101,6 @@ class User(PKMixin, TimestampMixin, Base):
     # the auth service owns credentials, sessions and verification; this row is the profile
     identity_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), unique=True, nullable=False)
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    pin_hash: Mapped[str | None] = mapped_column(String)  # approves a staff discount at the desk
     name: Mapped[str | None] = mapped_column(String)
     phone: Mapped[str | None] = mapped_column(String)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

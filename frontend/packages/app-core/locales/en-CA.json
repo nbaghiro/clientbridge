@@ -1588,10 +1588,6 @@
     "pos.desk.addItemFirst": {
         "message": "Add an item before taking payment."
     },
-    "pos.desk.overLimit": {
-        "message": "Discounts over {pct, number, ::percent scale/0.01 .###} need an owner or admin to approve.",
-        "args": ["pct"]
-    },
     "pos.desk.backToTicket": {
         "message": "Back to ticket"
     },
@@ -1768,26 +1764,6 @@
     },
     "pos.desk.taxFollows": {
         "message": "Tax is worked out on the discounted price."
-    },
-    "pos.desk.limitNote": {
-        "message": "Staff can discount up to {pct, number, ::percent scale/0.01 .###} of a sale.",
-        "args": ["pct"]
-    },
-    "pos.desk.approvalTitle": {
-        "message": "Owner or admin approval"
-    },
-    "pos.desk.approvalBody": {
-        "message": "This sale is discounted more than {pct, number, ::percent scale/0.01 .###} (over {money}). Ask an owner or admin to approve it.",
-        "args": ["pct", "money"]
-    },
-    "pos.desk.approvalPin": {
-        "message": "Approver PIN"
-    },
-    "pos.desk.approve": {
-        "message": "Approve"
-    },
-    "pos.desk.approvalOk": {
-        "message": "Approved. The PIN is checked again when you charge."
     },
     "pos.desk.ordersTitle": {
         "message": "Orders"
@@ -1970,12 +1946,6 @@
     },
     "pos.desk.tipPickPerson": {
         "message": "Give it all to"
-    },
-    "pos.desk.pinInvalid": {
-        "message": "Enter the 4-digit PIN"
-    },
-    "pos.desk.pinHint": {
-        "message": "An owner or admin enters their PIN on this screen."
     },
     "pos.desk.before": {
         "message": "Before"

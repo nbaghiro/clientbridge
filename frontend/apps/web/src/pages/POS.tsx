@@ -52,7 +52,6 @@ export function POS() {
     const viewer = useViewer();
     const role = viewer?.role ?? null;
     const sale = useSale(api, {
-        role,
         viewerStaffId: viewer?.staffId ?? null,
         platform: "web",
     });

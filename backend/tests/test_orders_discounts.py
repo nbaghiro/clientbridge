@@ -1,94 +1,33 @@
 import httpx
-from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.security import hash_password
-from clientbridge.models.business import Business, User
-from clientbridge.models.platform import Audit
 from tests.helpers import client_id, ok
 
-BIZ = "bz_birchbark"
 GROOM = {"description": "Full Groom", "unit_amount_cents": 10000, "tax_class": "federal_only"}
 
 
-def _sale(percent: int, pin: str | None = None) -> dict[str, object]:
-    body: dict[str, object] = {
+def _sale(percent: int) -> dict[str, object]:
+    return {
         "lines": [GROOM],
         "discount": {"kind": "percent", "value": percent, "reason": "Regular"},
     }
-    if pin is not None:
-        body["approval_pin"] = pin
-    return body
 
 
-async def _owner_pin(db: AsyncSession, pin: str = "4321") -> None:
-    await db.execute(update(User).where(User.id == "us_dev").values(pin_hash=hash_password(pin)))
-    await db.flush()
-
-
-async def test_staff_discount_within_the_limit_needs_no_approval(
-    as_staff: httpx.AsyncClient,
-) -> None:
+async def test_staff_apply_any_discount(as_staff: httpx.AsyncClient) -> None:
     sale = ok(await as_staff.post("/v1/orders", json=_sale(15)), 201).json()
-    assert (sale["discount_cents"], sale["approved_by"]) == (1500, None)
+    assert sale["discount_cents"] == 1500
     assert sale["subtotal_cents"] == 8500 and sale["tax_total_cents"] == 425
+    deep = ok(
+        await as_staff.patch(f"/v1/orders/{sale['id']}", json={"discount": _sale(80)["discount"]})
+    ).json()
+    assert (deep["discount_cents"], deep["subtotal_cents"]) == (8000, 2000)
+    full = ok(await as_staff.post("/v1/orders", json=_sale(100)), 201).json()
+    assert (full["discount_cents"], full["total_cents"]) == (10000, 0)
 
 
-async def test_staff_over_the_limit_needs_an_owner_pin(
-    as_staff: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    refused = await as_staff.post("/v1/orders", json=_sale(20))
-    assert refused.status_code == 403
-    assert refused.json()["error"] == "approval_required"
-    await _owner_pin(db)
-    sale = ok(await as_staff.post("/v1/orders", json=_sale(20, "4321")), 201).json()
-    assert sale["approved_by"] == "us_dev"
-    cleared = ok(await as_staff.patch(f"/v1/orders/{sale['id']}", json={"discount": None})).json()
-    assert (cleared["discount"], cleared["approved_by"]) == (None, None)
-    wrong = await as_staff.post("/v1/orders", json=_sale(20, "1111"))
-    assert (wrong.status_code, wrong.json()["error"]) == (403, "approval_invalid")
-
-
-async def test_the_limit_is_a_business_setting(
-    as_staff: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    await db.execute(
-        update(Business).where(Business.id == BIZ).values(staff_discount_limit_bps=500)
-    )
-    await db.flush()
-    assert (await as_staff.post("/v1/orders", json=_sale(10))).status_code == 403
-
-
-async def test_an_owner_discounts_without_a_pin(as_owner: httpx.AsyncClient) -> None:
+async def test_an_owner_discounts_a_sale(as_owner: httpx.AsyncClient) -> None:
     sale = ok(await as_owner.post("/v1/orders", json=_sale(50)), 201).json()
-    assert (sale["discount_cents"], sale["approved_by"]) == (5000, None)
-
-
-async def test_pin_guessing_is_rate_limited(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _owner_pin(db)
-    codes = [
-        (await as_staff.post("/v1/orders", json=_sale(30, f"{n:04d}"))).status_code
-        for n in range(7)
-    ]
-    assert 429 in codes
-
-
-async def test_staff_cannot_set_an_approval_pin(as_staff: httpx.AsyncClient) -> None:
-    res = await as_staff.post("/v1/orders/approval-pin", json={"pin": "1234"})
-    assert res.status_code == 403
-
-
-async def test_an_owner_sets_an_approval_pin(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    bad = await as_owner.post("/v1/orders/approval-pin", json={"pin": "12a4"})
-    assert bad.status_code == 422
-    ok(await as_owner.post("/v1/orders/approval-pin", json={"pin": "2468"}), 204)
-    user = await db.get(User, "us_dev", populate_existing=True)
-    assert user is not None and user.pin_hash is not None and "2468" not in user.pin_hash
-
-
-async def test_an_approval_pin_needs_a_login(unauth: httpx.AsyncClient) -> None:
-    res = await unauth.post("/v1/orders/approval-pin", json={"pin": "1234"})
-    assert res.status_code == 401
+    assert sale["discount_cents"] == 5000
 
 
 async def test_discount_validation(as_owner: httpx.AsyncClient) -> None:
@@ -160,13 +99,3 @@ async def test_the_pay_link_shows_discounts(
     assert (page["discount_cents"], page["discount_reason"]) == (500, "Wait")
     assert page["subtotal_cents"] == 8500
 
-
-async def test_approval_pin_changes_are_audited_without_secrets(
-    as_owner: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    ok(await as_owner.post("/v1/orders/approval-pin", json={"pin": "2468"}), 204)
-    audit = await db.scalar(select(Audit).where(Audit.action == "order.approval_pin"))
-    assert audit is not None
-    assert audit.performed_by == "us_dev" and audit.business_id == BIZ
-    assert audit.entity_id == "us_dev"
-    assert "2468" not in str(audit.changes) and "argon2" not in str(audit.changes)

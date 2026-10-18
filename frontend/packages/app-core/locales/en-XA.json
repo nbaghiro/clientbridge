@@ -1457,9 +1457,6 @@
     "pos.desk.addItemFirst": {
         "message": "[Åðð åñ îţéɱ ƀéƒöŕé ţåķîñĝ þåýɱéñţ. one two three]"
     },
-    "pos.desk.overLimit": {
-        "message": "[Đîšçöûñţš öṽéŕ {pct, number, ::percent scale/0.01 .###} ñééð åñ öŵñéŕ öŕ åðɱîñ ţö åþþŕöṽé. one two three four]"
-    },
     "pos.desk.backToTicket": {
         "message": "[Ɓåçķ ţö ţîçķéţ one two]"
     },
@@ -1627,24 +1624,6 @@
     },
     "pos.desk.taxFollows": {
         "message": "[Ţåẋ îš ŵöŕķéð öûţ öñ ţĥé ðîšçöûñţéð þŕîçé. one two three]"
-    },
-    "pos.desk.limitNote": {
-        "message": "[Šţåƒƒ çåñ ðîšçöûñţ ûþ ţö {pct, number, ::percent scale/0.01 .###} öƒ å šåļé. one two three]"
-    },
-    "pos.desk.approvalTitle": {
-        "message": "[Öŵñéŕ öŕ åðɱîñ åþþŕöṽåļ one two]"
-    },
-    "pos.desk.approvalBody": {
-        "message": "[Ţĥîš šåļé îš ðîšçöûñţéð ɱöŕé ţĥåñ {pct, number, ::percent scale/0.01 .###} (öṽéŕ {money}). Åšķ åñ öŵñéŕ öŕ åðɱîñ ţö åþþŕöṽé îţ. one two three four five]"
-    },
-    "pos.desk.approvalPin": {
-        "message": "[Åþþŕöṽéŕ ÞÎÑ one two]"
-    },
-    "pos.desk.approve": {
-        "message": "[Åþþŕöṽé one]"
-    },
-    "pos.desk.approvalOk": {
-        "message": "[Åþþŕöṽéð. Ţĥé ÞÎÑ îš çĥéçķéð åĝåîñ ŵĥéñ ýöû çĥåŕĝé. one two three four]"
     },
     "pos.desk.ordersTitle": {
         "message": "[Öŕðéŕš one]"
@@ -1816,12 +1795,6 @@
     },
     "pos.desk.tipPickPerson": {
         "message": "[Ĝîṽé îţ åļļ ţö one two]"
-    },
-    "pos.desk.pinInvalid": {
-        "message": "[Éñţéŕ ţĥé 4-ðîĝîţ ÞÎÑ one two]"
-    },
-    "pos.desk.pinHint": {
-        "message": "[Åñ öŵñéŕ öŕ åðɱîñ éñţéŕš ţĥéîŕ ÞÎÑ öñ ţĥîš šçŕééñ. one two three four]"
     },
     "pos.desk.before": {
         "message": "[Ɓéƒöŕé one]"

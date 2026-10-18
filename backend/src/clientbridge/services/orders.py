@@ -1,4 +1,3 @@
-import asyncio
 import secrets
 from datetime import datetime, timedelta
 
@@ -7,15 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
-from clientbridge.core.deps import Principal, assert_role, is_manager
+from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
-from clientbridge.core.ratelimit import RateLimiter, allow_action
 from clientbridge.core.scoping import scoped
-from clientbridge.core.security import hash_password, verify_password
 from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.billing import Line, Order
-from clientbridge.models.business import Business, Staff, User
+from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
@@ -33,7 +30,6 @@ from clientbridge.schemas.orders import (
     OrderPickupIn,
     OrderReceiptIn,
     OrderUpdate,
-    PinIn,
     TipIn,
 )
 from clientbridge.schemas.public import PublicPickupWindow
@@ -51,7 +47,6 @@ from clientbridge.services.lines import (
     discount_of,
     discount_total,
     fetch_lines,
-    gross_cents,
     line_out,
     price_lines,
     replace_lines,
@@ -71,7 +66,6 @@ from clientbridge.services.tax import tax_for_lines
 
 _PICKUP_STEPS = {"unfulfilled": 0, "preparing": 1, "ready": 2, "picked_up": 3}
 # a wrong PIN locks the desk out for a while, so four digits can't be guessed in a minute
-_pin_attempts = RateLimiter(limit=5, window_s=300.0)
 
 
 class OrderService:
@@ -102,7 +96,7 @@ class OrderService:
             self.db.add(order)
             await self.db.flush()
             lines = await replace_lines(self.db, self.biz, "order", order.id, data.lines, order)
-            await self._settle_terms(order, lines, data.approval_pin)
+            await self._settle_terms(order, lines)
             cmd.record("order.create", entity_type="order", entity_id=order.id)
             return await order_out(self.db, order, lines)
 
@@ -136,7 +130,7 @@ class OrderService:
             else:
                 lines = await fetch_lines(self.db, self.biz, "order", order.id)
                 price_lines(lines, order)
-            await self._settle_terms(order, lines, data.approval_pin)
+            await self._settle_terms(order, lines)
             cmd.record("order.update", entity_type="order", entity_id=order.id)
             return await order_out(self.db, order, lines)
 
@@ -336,31 +330,6 @@ class OrderService:
             self.db, self.principal, action="order.receipt", run=run, response_model=OrderOut
         )
 
-    async def set_pin(self, data: PinIn) -> None:
-        """An owner's or admin's PIN for approving staff discounts over the limit."""
-        assert_role(
-            self.principal,
-            "owner",
-            "admin",
-            message="only an owner or admin approves discounts with a PIN",
-        )
-        user = await self.db.get(User, self.principal.user_id)
-        if user is None:
-            raise NotFound("user not found")
-        user.pin_hash = await asyncio.to_thread(hash_password, data.pin)
-        self.db.add(
-            Audit(
-                id=new_id("audit"),
-                business_id=self.biz,
-                performed_by=self.principal.user_id,
-                action="order.approval_pin",
-                entity_type="user",
-                entity_id=user.id,
-                changes={},
-            )
-        )
-        await self.db.commit()
-
     async def set_pickup(self, order_id: str, data: OrderPickupIn) -> OrderOut:
         """Move a paid online order along: ready for the client, then picked up."""
         order = await self._order(order_id)
@@ -450,50 +419,11 @@ class OrderService:
             self.db, self.biz, data.tip_cents, data.tip_split, lines, order.staff_id
         )
 
-    async def _settle_terms(self, order: Order, lines: list[Line], pin: str | None) -> None:
+    async def _settle_terms(self, order: Order, lines: list[Line]) -> None:
         order.currency = await self._currency(lines)
         apply_totals(order, await tax_for_lines(self.db, self.biz, lines))
-        order.approved_by = await self._approval(lines, pin)
         await self._link_visits(order, lines)
         await self.db.flush()
-
-    async def _approval(self, lines: list[Line], pin: str | None) -> str | None:
-        """Who approved a discount over the staff limit; refused when nobody did."""
-        off = discount_total(lines)
-        if off == 0 or is_manager(self.principal.role):
-            return None
-        business = await self.db.get(Business, self.biz)
-        limit = business.staff_discount_limit_bps if business is not None else 0
-        if off * 10000 <= sum(gross_cents(ln) for ln in lines) * limit:
-            return None
-        if pin is None:
-            raise AppError(
-                f"discounts over {limit / 100:g}% need an owner or admin to approve them",
-                status_code=403,
-                code="approval_required",
-            )
-        if not await allow_action(
-            f"{self.biz}:{self.principal.staff_id}", "approval-pin", _pin_attempts
-        ):
-            raise AppError(
-                "too many PIN attempts, please wait a few minutes",
-                status_code=429,
-                code="too_many_requests",
-            )
-        managers = await self.db.execute(
-            scoped(Staff, self.biz)
-            .with_only_columns(User.id, User.pin_hash)
-            .join_from(Staff, User, User.id == Staff.user_id)
-            .where(
-                Staff.status == "active",
-                Staff.role.in_(("owner", "admin")),
-                User.pin_hash.is_not(None),
-            )
-        )
-        for user_id, pin_hash in managers.tuples().all():
-            if pin_hash is not None and await asyncio.to_thread(verify_password, pin, pin_hash):
-                return str(user_id)
-        raise AppError("that PIN isn't right", status_code=403, code="approval_invalid")
 
     async def _link_visits(self, order: Order, lines: list[Line]) -> None:
         """A visit rung up on this sale points at it, so the desk queue knows it is on a ticket."""
@@ -620,7 +550,6 @@ async def order_out(db: AsyncSession, order: Order, lines: list[Line]) -> OrderO
         note=order.note,
         discount=discount_of(order),
         discount_cents=discount_total(lines),
-        approved_by=order.approved_by,
         deposit_cents=deposit,
         due_cents=max(0, due),
         tip_cents=tip,

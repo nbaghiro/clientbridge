@@ -142,7 +142,7 @@ async def test_admin_reads(
     response = await api.get(f"/admin/v1/{path}", headers=admin_headers)
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
-    for secret in ('"pin_hash"', '"invite_token"', '"payload"', '"changes"'):
+    for secret in ('"invite_token"', '"payload"', '"changes"'):
         assert secret not in response.text
 
 

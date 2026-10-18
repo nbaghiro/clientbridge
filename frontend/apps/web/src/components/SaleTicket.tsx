@@ -281,84 +281,6 @@ function LineDiscountEditor({
     );
 }
 
-function ApprovalBox({
-    title,
-    body,
-    pin,
-    setPin,
-    onApprove,
-    error,
-}: {
-    title: string;
-    body: string;
-    pin: string;
-    setPin: (v: string) => void;
-    onApprove: () => void;
-    error: string | null;
-}) {
-    return (
-        <div className="space-y-3 rounded-md bg-warn-bg px-4 py-3.5">
-            <p className="flex items-center gap-2 text-sm font-semibold text-warn-fg">
-                <Icon name="lock" size={16} />
-                {title}
-            </p>
-            <p className="text-sm text-ink-soft">{body}</p>
-            <div className="flex items-end gap-2">
-                <div className="w-36">
-                    <TextField
-                        label={d.approvalPin}
-                        type="password"
-                        value={pin}
-                        onChange={setPin}
-                        error={error}
-                        surface="surface"
-                        maxLength={4}
-                    />
-                </div>
-                <Button variant="outline" onPress={onApprove}>
-                    {d.approve}
-                </Button>
-            </div>
-            <p className="text-xs text-muted">{d.pinHint}</p>
-        </div>
-    );
-}
-
-const pct = (bps: number | null): number => (bps ?? 0) / 100;
-
-/** A line discount past the staff limit is approved here, before the sale is charged. */
-function TicketApproval({ sale }: { sale: SaleTicket }) {
-    const [pin, setPin] = useState("");
-    const [error, setError] = useState<string | null>(null);
-    if (!sale.overLimit) return null;
-    return (
-        <ApprovalBox
-            title={d.approvalTitle}
-            body={d.approvalBody(
-                pct(sale.limitBps),
-                formatMoney(
-                    Math.round((sale.totals.grossCents * (sale.limitBps ?? 0)) / 10000),
-                    BUSINESS_CURRENCY,
-                ),
-            )}
-            pin={pin}
-            setPin={(v) => {
-                setError(null);
-                setPin(v.replace(/\D/g, "").slice(0, 4));
-            }}
-            onApprove={() => {
-                if (pin.length !== 4) {
-                    setError(d.pinInvalid);
-                    return;
-                }
-                sale.approve(pin);
-                setPin("");
-            }}
-            error={error}
-        />
-    );
-}
-
 function PreviewRow({
     label,
     before,
@@ -387,7 +309,7 @@ function PreviewRow({
     );
 }
 
-/** Discounts B: scope, amount and reason with a before and after, and approval past the staff limit. */
+/** Discounts B: scope, amount and reason with a before and after. */
 function DiscountSheet({ sale, onClose }: { sale: SaleTicket; onClose: () => void }) {
     const sheet = useDiscountSheet(sale);
     const p = sheet.preview;
@@ -402,11 +324,6 @@ function DiscountSheet({ sale, onClose }: { sale: SaleTicket; onClose: () => voi
             <div className="-mr-2 max-h-[calc(100vh-7rem)] space-y-5 overflow-y-auto pr-2">
                 <div>
                     <h2 className="font-display text-lg font-bold text-ink">{d.discountTitle}</h2>
-                    {sale.limitBps !== null ? (
-                        <p className="mt-0.5 text-sm text-muted">
-                            {d.limitNote(pct(sale.limitBps))}
-                        </p>
-                    ) : null}
                 </div>
                 <div>
                     <Heading>{d.discountScope}</Heading>
@@ -477,26 +394,6 @@ function DiscountSheet({ sale, onClose }: { sale: SaleTicket; onClose: () => voi
                     />
                     <p className="py-1 text-xs text-muted">{d.taxFollows}</p>
                 </div>
-                {sheet.approval.needed ? (
-                    <ApprovalBox
-                        title={d.approvalTitle}
-                        body={d.approvalBody(
-                            pct(sale.limitBps),
-                            formatMoney(
-                                Math.round((p.after.grossCents * (sale.limitBps ?? 0)) / 10000),
-                                BUSINESS_CURRENCY,
-                            ),
-                        )}
-                        pin={sheet.approval.pin}
-                        setPin={sheet.approval.setPin}
-                        onApprove={sheet.approval.approve}
-                        error={sheet.approval.error}
-                    />
-                ) : sheet.approval.approved ? (
-                    <Notice tone="success" banner>
-                        {d.approvalOk}
-                    </Notice>
-                ) : null}
                 {sheet.scope === "lines" && sheet.keys.length === 0 ? (
                     <p className="text-xs text-muted">{d.chooseLines}</p>
                 ) : null}
@@ -505,7 +402,6 @@ function DiscountSheet({ sale, onClose }: { sale: SaleTicket; onClose: () => voi
                         {d.cancel}
                     </Button>
                     <Button
-                        disabled={sheet.approval.needed}
                         onPress={() => {
                             if (sheet.apply()) onClose();
                         }}
@@ -600,11 +496,7 @@ export function TicketPanel({ sale, onCharge }: { sale: SaleTicket; onCharge: ()
                 {sale.isEmpty ? null : (
                     <div className="space-y-3 pb-4 pt-1">
                         <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-line px-3 py-2">
-                            <span className="text-xs text-muted">
-                                {sale.limitBps !== null
-                                    ? d.limitNote(pct(sale.limitBps))
-                                    : d.taxFollows}
-                            </span>
+                            <span className="text-xs text-muted">{d.taxFollows}</span>
                             <div className="flex gap-2">
                                 <Button
                                     size="sm"
@@ -630,7 +522,6 @@ export function TicketPanel({ sale, onCharge }: { sale: SaleTicket; onCharge: ()
                                 </Button>
                             </div>
                         </div>
-                        <TicketApproval sale={sale} />
                     </div>
                 )}
             </div>
@@ -649,7 +540,7 @@ export function TicketPanel({ sale, onCharge }: { sale: SaleTicket; onCharge: ()
                     size="lg"
                     full
                     onPress={onCharge}
-                    disabled={sale.isEmpty || !sale.ratesReady || sale.overLimit}
+                    disabled={sale.isEmpty || !sale.ratesReady}
                 >
                     {sale.isEmpty
                         ? d.review

@@ -1293,7 +1293,6 @@ describe("app-core SQL against the replica schema", () => {
     });
 
     it("reads the front desk: today's visits, sales and one sale's record", () => {
-        expect(run("DISCOUNT_LIMIT_SQL")).toEqual([{ staff_discount_limit_bps: null }]);
         expect(
             run("SALE_STAFF_SQL")
                 .map((r) => r.id)

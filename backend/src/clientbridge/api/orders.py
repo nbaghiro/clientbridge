@@ -21,7 +21,6 @@ from clientbridge.schemas.orders import (
     OrderPickupIn,
     OrderReceiptIn,
     OrderUpdate,
-    PinIn,
 )
 from clientbridge.services.notifications import Notifier
 from clientbridge.services.orders import OrderService
@@ -101,13 +100,6 @@ async def send_order_receipt(
     result = await OrderService(db, principal, gateway).send_receipt(order_id, data)
     await Notifier(email, sms, push).on_order_receipt(db, result.id)
     return result
-
-
-@router.post("/approval-pin", status_code=204)
-async def set_approval_pin(
-    data: PinIn, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
-) -> None:
-    await OrderService(db, principal, gateway).set_pin(data)
 
 
 @router.post("/{order_id}/pay", response_model=CheckoutOut)

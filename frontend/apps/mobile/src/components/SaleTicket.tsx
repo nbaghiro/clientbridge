@@ -201,73 +201,7 @@ function ClientPicker({ sale }: { sale: SaleTicket }) {
     );
 }
 
-const pct = (bps: number | null): number => (bps ?? 0) / 100;
-
-function Approval({
-    body,
-    pin,
-    setPin,
-    onApprove,
-    error,
-}: {
-    body: string;
-    pin: string;
-    setPin: (v: string) => void;
-    onApprove: () => void;
-    error: string | null;
-}) {
-    return (
-        <View style={styles.warn}>
-            <Text style={styles.warnTitle}>{d.approvalTitle}</Text>
-            <Text style={styles.soft}>{body}</Text>
-            <TextField
-                label={d.approvalPin}
-                type="password"
-                value={pin}
-                onChange={setPin}
-                error={error}
-                maxLength={4}
-            />
-            <Button variant="outline" onPress={onApprove}>
-                {d.approve}
-            </Button>
-            <Text style={styles.note}>{d.pinHint}</Text>
-        </View>
-    );
-}
-
-function TicketApproval({ sale }: { sale: SaleTicket }) {
-    const [pin, setPin] = useState("");
-    const [error, setError] = useState<string | null>(null);
-    if (!sale.overLimit) return null;
-    return (
-        <Approval
-            body={d.approvalBody(
-                pct(sale.limitBps),
-                formatMoney(
-                    Math.round((sale.totals.grossCents * (sale.limitBps ?? 0)) / 10000),
-                    BUSINESS_CURRENCY,
-                ),
-            )}
-            pin={pin}
-            setPin={(v) => {
-                setError(null);
-                setPin(v.replace(/\D/g, "").slice(0, 4));
-            }}
-            onApprove={() => {
-                if (pin.length !== 4) {
-                    setError(d.pinInvalid);
-                    return;
-                }
-                sale.approve(pin);
-                setPin("");
-            }}
-            error={error}
-        />
-    );
-}
-
-/** Discounts B on a phone: scope, amount and reason, a before and after, and the approver's PIN. */
+/** Discounts B on a phone: scope, amount and reason, and a before and after. */
 function DiscountSheetBody({ sale, onDone }: { sale: SaleTicket; onDone: () => void }) {
     const sheet = useDiscountSheet(sale);
     const p = sheet.preview;
@@ -280,9 +214,6 @@ function DiscountSheetBody({ sale, onDone }: { sale: SaleTicket; onDone: () => v
     return (
         <View style={styles.stack}>
             <Text style={styles.title}>{d.discountTitle}</Text>
-            {sale.limitBps !== null ? (
-                <Text style={styles.note}>{d.limitNote(pct(sale.limitBps))}</Text>
-            ) : null}
             <Choice
                 layout="tiles"
                 columns={2}
@@ -333,27 +264,9 @@ function DiscountSheetBody({ sale, onDone }: { sale: SaleTicket; onDone: () => v
                 ]}
             />
             <Text style={styles.note}>{d.taxFollows}</Text>
-            {sheet.approval.needed ? (
-                <Approval
-                    body={d.approvalBody(
-                        pct(sale.limitBps),
-                        formatMoney(
-                            Math.round((p.after.grossCents * (sale.limitBps ?? 0)) / 10000),
-                            BUSINESS_CURRENCY,
-                        ),
-                    )}
-                    pin={sheet.approval.pin}
-                    setPin={sheet.approval.setPin}
-                    onApprove={sheet.approval.approve}
-                    error={sheet.approval.error}
-                />
-            ) : sheet.approval.approved ? (
-                <Notice tone="success">{d.approvalOk}</Notice>
-            ) : null}
             <Button
                 size="lg"
                 full
-                disabled={sheet.approval.needed}
                 onPress={() => {
                     if (sheet.apply()) onDone();
                 }}
@@ -844,7 +757,6 @@ export function TicketSheet({
                         </Button>
                     </View>
                 )}
-                <TicketApproval sale={sale} />
                 {sale.isEmpty ? null : (
                     <DocTotals
                         currency={BUSINESS_CURRENCY}
@@ -856,7 +768,7 @@ export function TicketSheet({
                 <Button
                     size="lg"
                     full
-                    disabled={sale.isEmpty || !sale.ratesReady || sale.overLimit}
+                    disabled={sale.isEmpty || !sale.ratesReady}
                     onPress={() => {
                         setStep("pay");
                     }}
@@ -913,6 +825,4 @@ const styles = StyleSheet.create({
         borderColor: c.border,
         backgroundColor: c.bg,
     },
-    warn: { gap: 10, padding: 14, borderRadius: theme.radius, backgroundColor: c.warnBg },
-    warnTitle: { color: c.warnFg, fontSize: 14, fontWeight: "600" },
 });

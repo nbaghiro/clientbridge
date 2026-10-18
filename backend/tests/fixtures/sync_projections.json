@@ -210,7 +210,6 @@
       "stripe_charges_enabled",
       "tax_registered",
       "setup_dismissed_at",
-      "staff_discount_limit_bps",
       "plan_status",
       "trial_ends_at"
     ],
@@ -357,7 +356,6 @@
       "stripe_charges_enabled",
       "tax_registered",
       "setup_dismissed_at",
-      "staff_discount_limit_bps",
       "plan",
       "plan_status",
       "trial_ends_at"
@@ -491,7 +489,6 @@
       "ready_at",
       "picked_up_at",
       "note",
-      "approved_by",
       "receipt_channel",
       "receipt_sent_at",
       "id",

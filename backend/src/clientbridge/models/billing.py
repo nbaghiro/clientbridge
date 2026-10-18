@@ -125,7 +125,6 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
     ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     picked_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     note: Mapped[str | None] = mapped_column(String)  # why a sale was held
-    approved_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))  # over-limit discount
     status_token: Mapped[str | None] = mapped_column(String, unique=True)
     receipt_token: Mapped[str | None] = mapped_column(String, unique=True)  # public receipt key
     receipt_channel: Mapped[Channel | None] = mapped_column(String)
