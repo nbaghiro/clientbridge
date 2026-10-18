@@ -138,7 +138,8 @@ async def test_removal_reassigns_visits_and_series_to_a_named_member(
     assert res.status_code == 200, res.text
     out = res.json()
     assert visit in out["moved"] and len(out["moved"]) == 3
-    assert out["left"] == [] and out["series_moved"] == [series]
+    assert out["left"] == [] and out["series_ended"] == []
+    assert out["series_moved"] == [{"recurrence_id": series, "staff_id": taking}]
     assert await _staff_of(db, visit) == (taking, taking, "confirmed")
     recurrence = await db.get(Recurrence, series, populate_existing=True)
     assert recurrence is not None and recurrence.staff_id == taking
@@ -155,13 +156,18 @@ async def test_removal_reassigns_to_any_free_member(
     item = await _item(db)
     leaving = await _member(db, factory, "Leaving Lee")
     visit = await _visit(as_owner, item, leaving, FIRST)
+    series = await _series(as_owner, item, leaving)
     res = await _remove(as_owner, leaving, future="reassign", reassign_to="any")
     assert res.status_code == 200, res.text
-    assert res.json()["moved"] == [visit]
+    out = res.json()
+    assert visit in out["moved"]
     booking_staff, slot_staff, _ = await _staff_of(db, visit)
     assert booking_staff == slot_staff
     assert slot_staff is not None and slot_staff != leaving
     assert await _status(db, slot_staff) == "active"
+    recurrence = await db.get(Recurrence, series, populate_existing=True)
+    assert recurrence is not None and recurrence.staff_id not in (None, leaving)
+    assert out["series_moved"] == [{"recurrence_id": series, "staff_id": recurrence.staff_id}]
 
 
 async def test_removal_cancels_visits_and_series_and_tells_the_client(
@@ -175,7 +181,8 @@ async def test_removal_cancels_visits_and_series_and_tells_the_client(
     assert res.status_code == 200, res.text
     out = res.json()
     assert visit in out["canceled"] and len(out["canceled"]) == 3
-    assert out["series_ended"] == [series] and out["moved"] == []
+    assert out["series_ended"] == [series] and out["series_moved"] == []
+    assert out["moved"] == []
     assert (await _staff_of(db, visit))[2] == "canceled"
     booking = await db.get(Booking, visit)
     assert booking is not None
@@ -222,6 +229,24 @@ async def test_a_visit_that_clashes_is_left_in_place_and_listed(
     assert [(v["booking_id"], v["problem"]) for v in out["left"]] == [(clashing, "overlap")]
     assert await _staff_of(db, clashing) == (leaving, leaving, "confirmed")
     assert await _status(db, leaving) == "removed"
+
+
+async def test_a_series_whose_visits_all_clash_ends_instead_of_moving(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    item = await _item(db)
+    leaving = await _member(db, factory, "Leaving Lee")
+    taking = await _member(db, factory, "Taking Tam")
+    series = await _series(as_owner, item, leaving)
+    await _series(as_owner, item, taking)
+    res = await _remove(as_owner, leaving, future="reassign", reassign_to=taking)
+    assert res.status_code == 200, res.text
+    out = res.json()
+    assert out["series_moved"] == [] and out["series_ended"] == [series]
+    assert out["moved"] == [] and len(out["left"]) == 2
+    recurrence = await db.get(Recurrence, series, populate_existing=True)
+    assert recurrence is not None
+    assert recurrence.status == "ended" and recurrence.staff_id == leaving
 
 
 async def test_removal_choices_are_validated_422_404(

@@ -2364,8 +2364,14 @@ interface Strings {
             readonly removeStateMove: string;
             readonly removeStateCancel: string;
             readonly removeLeftState: string;
-            readonly removeLeftTitle: (name: string) => string;
+            readonly removedTitle: (name: string) => string;
             readonly removeLeftBody: (count: number) => string;
+            readonly removedSeriesMoved: (count: number) => string;
+            readonly removedSeriesEnded: (count: number) => string;
+            readonly removedSeries: string;
+            readonly removedSeriesNowWith: (name: string) => string;
+            readonly removedSeriesMovedState: string;
+            readonly removedSeriesEndedState: string;
             readonly ownerNote: string;
             readonly selfNote: string;
             readonly noInvites: string;

@@ -7103,13 +7103,36 @@
     "staff.team.removeLeftState": {
         "message": "Not moved"
     },
-    "staff.team.removeLeftTitle": {
+    "staff.team.removedTitle": {
         "message": "{name} was removed",
         "args": ["name"]
     },
     "staff.team.removeLeftBody": {
         "message": "{count, plural, one {# visit had no free member, so it stays on the calendar. Move it from the schedule.} other {# visits had no free member, so they stay on the calendar. Move them from the schedule.}}",
         "args": ["count"]
+    },
+    "staff.team.removedSeriesMoved": {
+        "message": "{count, plural, one {# repeating series moved with its visits.} other {# repeating series moved with their visits.}}",
+        "args": ["count"]
+    },
+    "staff.team.removedSeriesEnded": {
+        "message": "{count, plural, one {# repeating series ended and books no new visits.} other {# repeating series ended and book no new visits.}}",
+        "args": ["count"]
+    },
+    "staff.team.removedSeries": {
+        "message": "Repeating series",
+        "description": "Heading over the removed member's series, and the name of one whose service is unknown"
+    },
+    "staff.team.removedSeriesNowWith": {
+        "message": "Now with {name}",
+        "args": ["name"]
+    },
+    "staff.team.removedSeriesMovedState": {
+        "message": "Moved",
+        "description": "A series moved to a member who is no longer on the team list"
+    },
+    "staff.team.removedSeriesEndedState": {
+        "message": "Ended"
     },
     "staff.team.ownerNote": {
         "message": "The owner's role can't be changed here."

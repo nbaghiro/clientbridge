@@ -31,6 +31,7 @@ import {
     DetailSection,
     DetailView,
     Empty,
+    FactList,
     Icon,
     KeyValueList,
     ListRow,
@@ -196,20 +197,29 @@ function RemoveSheet({
     onClose: () => void;
     onRemoved: () => void;
 }) {
-    const removal = useRemoveMember(api, member, team.members, () => {
+    const finish = () => {
         team.refresh();
         onRemoved();
-    });
-    if (removal.left !== null) {
+    };
+    const removal = useRemoveMember(api, member, team.members, finish);
+    const outcome = removal.outcome;
+    if (outcome !== null) {
         return (
-            <Modal open onClose={onRemoved} size="xl">
-                <Text style={styles.sheetTitle}>{t.removeLeftTitle(member.name)}</Text>
-                <Text style={styles.small}>{t.removeLeftBody(removal.left.length)}</Text>
+            <Modal open onClose={finish} size="xl">
+                <Text style={styles.sheetTitle}>{t.removedTitle(member.name)}</Text>
+                <Text style={styles.small}>{outcome.body}</Text>
+                {outcome.series.length > 0 ? (
+                    <View style={styles.gap}>
+                        <FactList facts={outcome.series} label={t.removedSeries} />
+                    </View>
+                ) : null}
+                {outcome.left.length > 0 ? (
+                    <View style={styles.gap}>
+                        <OccurrenceList rows={outcome.left} label={t.removeFuture} />
+                    </View>
+                ) : null}
                 <View style={styles.gap}>
-                    <OccurrenceList rows={removal.left} label={t.removeFuture} />
-                </View>
-                <View style={styles.gap}>
-                    <Button size="lg" full onPress={onRemoved}>
+                    <Button size="lg" full onPress={finish}>
                         {strings.common.done}
                     </Button>
                 </View>

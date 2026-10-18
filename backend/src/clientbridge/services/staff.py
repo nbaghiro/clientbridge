@@ -38,6 +38,7 @@ from clientbridge.schemas.staff import (
     InvitePreviewOut,
     LeftVisit,
     MemberRole,
+    MovedSeries,
     RoleUpdate,
     StaffPayOut,
     StaffPayUpdate,
@@ -602,8 +603,9 @@ class StaffService:
         for recurrence in series:
             takers = taken.get(recurrence.id)
             if data.future == "reassign" and takers:
-                recurrence.staff_id = Counter(takers).most_common(1)[0][0]
-                out.series_moved.append(recurrence.id)
+                taker = Counter(takers).most_common(1)[0][0]
+                recurrence.staff_id = taker
+                out.series_moved.append(MovedSeries(recurrence_id=recurrence.id, staff_id=taker))
                 continue
             ahead = await self.db.scalar(
                 scoped(Booking, biz, soft_delete=True)

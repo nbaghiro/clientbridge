@@ -7,7 +7,7 @@ import { formatShortDay, formatTime, parseTimestamp, useBusinessZone, utcSql } f
 import { formatMoney, formatNumber, formatParts, parseNumber, BUSINESS_CURRENCY } from "../format";
 
 import { type Load, useAsyncAction, useRemote } from "../hooks";
-import type { Intent, OccurrenceRow } from "../ui";
+import type { Fact, Intent, OccurrenceRow } from "../ui";
 import type { Viewer } from "./auth";
 import { useReplicaLoad } from "./sync";
 import { strings } from "../strings";
@@ -228,7 +228,19 @@ WHERE s.staff_id = ?1 AND s.status = 'scheduled' AND b.deleted_at IS NULL
   AND ${utcSql("s.starts_at")} >= ${utcSql("?2")}
 ORDER BY s.starts_at, b.id`;
 
-const MEMBER_SERIES_SQL = "SELECT id FROM recurrences WHERE staff_id = ? AND status = 'active'";
+const MEMBER_SERIES_SQL = `
+SELECT r.id, i.name AS item_name, c.name AS client_name
+FROM recurrences r
+LEFT JOIN items i ON i.id = r.item_id
+LEFT JOIN clients c ON c.id = r.client_id
+WHERE r.staff_id = ? AND r.status = 'active'
+ORDER BY r.id`;
+
+interface MemberSeriesRow {
+    id: string;
+    item_name: string | null;
+    client_name: string | null;
+}
 
 interface FutureVisitRow {
     id: string;
@@ -247,6 +259,62 @@ interface RemovalResult {
     moved: string[];
     canceled: string[];
     left: LeftVisit[];
+    series_moved: { recurrence_id: string; staff_id: string }[];
+    series_ended: string[];
+}
+
+interface RemovalOutcome {
+    body: string;
+    series: Fact[];
+    left: OccurrenceRow[];
+}
+
+/** What the owner is told after a removal; null when nothing needs telling. */
+export function removalOutcome(
+    result: Pick<RemovalResult, "series_moved" | "series_ended">,
+    series: readonly MemberSeriesRow[],
+    members: readonly Pick<TeamMember, "id" | "name">[],
+    left: OccurrenceRow[],
+): RemovalOutcome | null {
+    const t = strings.staff.team;
+    const moved = result.series_moved;
+    const ended = result.series_ended;
+    if (left.length === 0 && moved.length === 0 && ended.length === 0) return null;
+    const known = new Map(series.map((r) => [r.id, r]));
+    const title = (id: string): string => {
+        const r = known.get(id);
+        return formatParts([r?.item_name, r?.client_name]) || t.removedSeries;
+    };
+    const names = new Map(members.map((m) => [m.id, m.name]));
+    const sentences = [
+        left.length > 0 ? t.removeLeftBody(left.length) : null,
+        moved.length > 0 ? t.removedSeriesMoved(moved.length) : null,
+        ended.length > 0 ? t.removedSeriesEnded(ended.length) : null,
+    ].filter((line): line is string => line !== null);
+    return {
+        body: sentences.reduce((all, line) => strings.common.twoSentences(all, line)),
+        series: [
+            ...moved.map((m): Fact => {
+                const name = names.get(m.staff_id);
+                return {
+                    key: m.recurrence_id,
+                    icon: "repeat",
+                    title: title(m.recurrence_id),
+                    detail:
+                        name === undefined
+                            ? t.removedSeriesMovedState
+                            : t.removedSeriesNowWith(name),
+                };
+            }),
+            ...ended.map((id): Fact => ({
+                key: id,
+                icon: "repeat",
+                title: title(id),
+                detail: t.removedSeriesEndedState,
+            })),
+        ],
+        left,
+    };
 }
 
 interface RemoveMemberView {
@@ -260,7 +328,7 @@ interface RemoveMemberView {
     takers: { key: string; label: string }[];
     busy: boolean;
     error: string | null;
-    left: OccurrenceRow[] | null;
+    outcome: RemovalOutcome | null;
     submit: () => void;
 }
 
@@ -275,10 +343,10 @@ export function useRemoveMember(
     const zone = useBusinessZone();
     const [now] = useState(() => new Date().toISOString());
     const rows = useQuery<FutureVisitRow>(MEMBER_FUTURE_SQL, [member.id, now]).data;
-    const series = useQuery<{ id: string }>(MEMBER_SERIES_SQL, [member.id]).data;
+    const series = useQuery<MemberSeriesRow>(MEMBER_SERIES_SQL, [member.id]).data;
     const [choice, setChoice] = useState<RemovalChoice>("reassign");
     const [taker, setTaker] = useState(ANY_MEMBER);
-    const [left, setLeft] = useState<OccurrenceRow[] | null>(null);
+    const [outcome, setOutcome] = useState<RemovalOutcome | null>(null);
     const attempt = useRef<Attempt | null>(null);
     const { busy, error, run } = useAsyncAction();
     const names = new Map(rows.map((r) => [r.id, r]));
@@ -327,7 +395,7 @@ export function useRemoveMember(
         ],
         busy,
         error,
-        left,
+        outcome,
         submit: () => {
             const body =
                 choice === "cancel"
@@ -339,22 +407,22 @@ export function useRemoveMember(
                     const result = await sendAttempt(attempt, [path, body], (key) =>
                         api.post<RemovalResult>(path, body, { idempotencyKey: key }),
                     );
-                    if (result.left.length === 0) {
+                    const left = result.left.map((v, i) =>
+                        row(
+                            v.booking_id,
+                            v.starts_at,
+                            i + 1,
+                            t.removeLeftState,
+                            "warning",
+                            v.message,
+                        ),
+                    );
+                    const told = removalOutcome(result, series, members, left);
+                    if (told === null) {
                         onRemoved();
                         return;
                     }
-                    setLeft(
-                        result.left.map((v, i) =>
-                            row(
-                                v.booking_id,
-                                v.starts_at,
-                                i + 1,
-                                t.removeLeftState,
-                                "warning",
-                                v.message,
-                            ),
-                        ),
-                    );
+                    setOutcome(told);
                 },
                 { errorMessage: (e) => failureMessage(e, t.actionError) },
             );
