@@ -207,8 +207,10 @@ zone and `locale_for(...)` its text renders in), and each is idempotent via a st
 The worker evaluates cron times in UTC (`timezone = UTC`) whatever the host's zone.
 
 `GET /health` is the liveness check and touches nothing; `GET /ready` (`services/health.py`) runs
-`SELECT 1` and a Redis `PING` concurrently with a two-second timeout each and answers 503 with the failed
-dependencies (`{"status": "unavailable", "failed": ["redis"]}`).
+`SELECT 1` with a two-second timeout and answers 503 when it fails
+(`{"status": "unavailable", "failed": ["database"]}`). Redis is not part of readiness: only the public
+rate limits and the worker use it, so an outage answers 503 on the rate-limited public routes and
+restarts the worker without taking the API out of the load balancer.
 
 ---
 

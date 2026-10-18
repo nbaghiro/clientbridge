@@ -86,3 +86,16 @@ async def test_deployed_limit_is_shared_between_api_processes(
     monkeypatch.setattr(ratelimit, "_public_pay_limiter", RateLimiter(limit=1, window_s=60))
     with pytest.raises(TooManyRequests):
         await ratelimit.public_pay_rate_limit(request)
+
+
+async def test_deployed_limit_refuses_with_503_while_redis_is_unreachable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from clientbridge.core import ratelimit
+    from clientbridge.core.errors import AppError
+
+    monkeypatch.setattr(get_settings(), "env", "staging")
+    monkeypatch.setattr(get_settings(), "redis_url", "redis://127.0.0.1:1/0")
+    with pytest.raises(AppError) as refused:
+        await ratelimit.public_pay_rate_limit(_request({}, ("203.0.113.9", 0)))
+    assert refused.value.status_code == 503
