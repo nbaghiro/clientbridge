@@ -39,11 +39,11 @@ from clientbridge.schemas.staff import (
     LeftVisit,
     MemberRole,
     MovedSeries,
-    RoleUpdate,
     StaffPayOut,
     StaffPayUpdate,
     StaffRemove,
     StaffRemoveOut,
+    StaffUpdate,
     TeamMember,
     TeamOut,
 )
@@ -379,22 +379,42 @@ class StaffService:
             raise Forbidden("the owner's role can't be changed")
         return member
 
-    async def change_role(self, principal: Principal, staff_id: str, data: RoleUpdate) -> None:
-        member = await self._member(principal, staff_id)
-        previous = member.role
-        member.role = data.role
+    async def update_member(self, principal: Principal, staff_id: str, data: StaffUpdate) -> None:
+        """Role, title and colour; the self and owner guards apply only to a role change."""
+        assert_role(principal, "owner", "admin", message="only an owner or admin can edit members")
+        if data.role is not None:
+            member = await self._member(principal, staff_id)
+            previous = member.role
+            member.role = data.role
+            self._audit(principal, member, "staff.role", {"from": previous, "to": data.role})
+        else:
+            member = await load_staff(self.db, principal.business_id, staff_id)
+        profile: dict[str, object] = {}
+        for field in ("title", "color"):
+            if field not in data.model_fields_set:
+                continue
+            before, after = getattr(member, field), getattr(data, field) or None
+            if before != after:
+                setattr(member, field, after)
+                profile[field] = {"from": before, "to": after}
+        if profile:
+            self._audit(principal, member, "staff.profile", profile)
+        await self.db.commit()
+
+    def _audit(
+        self, principal: Principal, member: Staff, action: str, changes: dict[str, object]
+    ) -> None:
         self.db.add(
             Audit(
                 id=new_id("audit"),
                 business_id=principal.business_id,
                 performed_by=principal.user_id,
-                action="staff.role",
+                action=action,
                 entity_type="staff",
                 entity_id=member.id,
-                changes={"from": previous, "to": data.role},
+                changes=changes,
             )
         )
-        await self.db.commit()
 
     async def remove(
         self,

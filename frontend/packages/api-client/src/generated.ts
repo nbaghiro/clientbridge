@@ -75,23 +75,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/contact": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Submit Contact */
-        post: operations["submit_contact_contact_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/webhooks/stripe": {
         parameters: {
             query?: never;
@@ -1730,6 +1713,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/connect/onboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Onboard */
+        post: operations["onboard_v1_connect_onboard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/connect/session": {
         parameters: {
             query?: never;
@@ -1775,6 +1775,23 @@ export interface paths {
         put?: never;
         /** Setup Card */
         post: operations["setup_card_v1_payments_setup_intent__client_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/pad-setup-intent/{client_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Setup Pad */
+        post: operations["setup_pad_v1_payments_pad_setup_intent__client_id__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2003,6 +2020,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/orders/approval-pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Approval Pin */
+        post: operations["set_approval_pin_v1_orders_approval_pin_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/orders/{order_id}/pay": {
         parameters: {
             query?: never;
@@ -2173,6 +2207,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tax-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Tax Rates */
+        get: operations["list_tax_rates_v1_tax_rates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/onboarding": {
         parameters: {
             query?: never;
@@ -2322,8 +2373,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Change Role */
-        patch: operations["change_role_v1_staff__staff_id__patch"];
+        /** Update Member */
+        patch: operations["update_member_v1_staff__staff_id__patch"];
         trace?: never;
     };
     "/v1/staff/{staff_id}/remove": {
@@ -3180,40 +3231,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/v1/deliveries": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Deliveries */
-        get: operations["deliveries_admin_v1_deliveries_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/v1/businesses/{business_id}/sms": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Assign Sms */
-        post: operations["assign_sms_admin_v1_businesses__business_id__sms_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3298,8 +3315,6 @@ export interface components {
             timezone: string;
             /** Billing Email */
             billing_email: string | null;
-            /** Sms Number */
-            sms_number: string | null;
             /** Plan */
             plan: ("premium" | "team") | null;
             /**
@@ -3359,33 +3374,6 @@ export interface components {
              */
             created_at: string;
         };
-        /** AdminDelivery */
-        AdminDelivery: {
-            /** Id */
-            id: string;
-            /** Business Id */
-            business_id: string | null;
-            /**
-             * State
-             * @enum {string}
-             */
-            state: "queued" | "sending" | "accepted" | "delivered" | "failed" | "ambiguous";
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Provider Ref */
-            provider_ref: string | null;
-            /** Error */
-            error: string | null;
-            /** Recipient */
-            recipient: string;
-            /** Subject */
-            subject: string;
-            /** Actor */
-            actor: string | null;
-        };
         /** AdminEmail */
         AdminEmail: {
             /** Key */
@@ -3412,12 +3400,7 @@ export interface components {
         /** AdminEmailResult */
         AdminEmailResult: {
             /** Delivery Id */
-            delivery_id: string;
-            /**
-             * State
-             * @enum {string}
-             */
-            state: "queued" | "sending" | "accepted" | "delivered" | "failed" | "ambiguous";
+            delivery_id: string | null;
         };
         /** AdminEmailSend */
         AdminEmailSend: {
@@ -3533,13 +3516,6 @@ export interface components {
             /** Has More */
             has_more: boolean;
         };
-        /** AdminPage[AdminDelivery] */
-        AdminPage_AdminDelivery_: {
-            /** Items */
-            items: components["schemas"]["AdminDelivery"][];
-            /** Has More */
-            has_more: boolean;
-        };
         /** AdminPage[AdminPayment] */
         AdminPage_AdminPayment_: {
             /** Items */
@@ -3640,11 +3616,6 @@ export interface components {
             /** Identity Id */
             identity_id: string;
         };
-        /** AdminSmsAssignment */
-        AdminSmsAssignment: {
-            /** Number */
-            number: string | null;
-        };
         /** AdminUser */
         AdminUser: {
             /** Id */
@@ -3714,7 +3685,7 @@ export interface components {
             /** Ok */
             ok: boolean;
             /** Problem */
-            problem?: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class") | null;
+            problem?: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "resource" | "class") | null;
             /**
              * Reason
              * @description The closure or time-off reason
@@ -3736,6 +3707,8 @@ export interface components {
              * Format: date-time
              */
             starts_at: string;
+            /** Resource Id */
+            resource_id?: string | null;
             /** Subject Id */
             subject_id?: string | null;
             /**
@@ -3764,6 +3737,11 @@ export interface components {
              * @description Moves the visit to another member
              */
             staff_id?: string | null;
+            /**
+             * Resource Id
+             * @description Room or station; set to change it
+             */
+            resource_id?: string | null;
         };
         /** BookingOut */
         BookingOut: {
@@ -3825,6 +3803,11 @@ export interface components {
              * @description Moves the visit to another member
              */
             staff_id?: string | null;
+            /**
+             * Resource Id
+             * @description Room or station; set to change it
+             */
+            resource_id?: string | null;
             /** Status */
             status?: ("confirmed" | "completed" | "canceled" | "no_show") | null;
         };
@@ -3915,6 +3898,8 @@ export interface components {
         BrandInput: {
             /** Logo File Id */
             logo_file_id?: string | null;
+            /** Avatar File Id */
+            avatar_file_id?: string | null;
             /** Primary */
             primary?: string | null;
             /** Tagline */
@@ -4053,8 +4038,6 @@ export interface components {
             brand: {
                 [key: string]: unknown;
             };
-            /** Subject */
-            subject: ("pet" | "student" | "property") | null;
         };
         /** BusinessSettingsUpdate */
         BusinessSettingsUpdate: {
@@ -4093,11 +4076,6 @@ export interface components {
              */
             google_review_url?: string | null;
             brand?: components["schemas"]["BrandInput"] | null;
-            /**
-             * Subject
-             * @description What bookings are for besides the client; null books only them
-             */
-            subject?: ("pet" | "student" | "property") | null;
         };
         /** CheckoutOut */
         CheckoutOut: {
@@ -4567,7 +4545,7 @@ export interface components {
              * Parent Type
              * @enum {string}
              */
-            parent_type: "business" | "subject" | "item" | "signature" | "form_response";
+            parent_type: "business" | "client" | "subject" | "item" | "signature" | "form_response";
             /** Parent Id */
             parent_id: string;
             /** Purpose */
@@ -4587,7 +4565,7 @@ export interface components {
              * Parent Type
              * @enum {string}
              */
-            parent_type: "business" | "subject" | "item" | "signature" | "form_response";
+            parent_type: "business" | "client" | "subject" | "item" | "signature" | "form_response";
             /** Parent Id */
             parent_id: string;
             /** Purpose */
@@ -4691,12 +4669,15 @@ export interface components {
         };
         /** FirstSubject */
         FirstSubject: {
+            /**
+             * Kind
+             * @default pet
+             * @enum {string}
+             */
+            kind: "pet" | "vehicle" | "child" | "property";
             /** Name */
             name: string;
-            /** Attributes */
-            attributes?: {
-                [key: string]: unknown;
-            };
+            attributes?: components["schemas"]["SubjectAttributes"];
         };
         /** FormFieldIn */
         FormFieldIn: {
@@ -4789,21 +4770,6 @@ export interface components {
             form_id: string;
             /** Client Id */
             client_id: string;
-        };
-        /** FormSignature */
-        FormSignature: {
-            /** Name */
-            name: string;
-            /**
-             * Agreed
-             * @constant
-             */
-            agreed: true;
-            /** Strokes */
-            strokes?: [
-                number,
-                number
-            ][][] | null;
         };
         /** GiftCardOut */
         GiftCardOut: {
@@ -5468,7 +5434,7 @@ export interface components {
              */
             starts_at: string;
             /** Problem */
-            problem: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class") | null;
+            problem: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "resource" | "class") | null;
             /** Message */
             message: string | null;
         };
@@ -5611,10 +5577,8 @@ export interface components {
             slug: string;
             /** Client Name */
             client_name: string;
-            /** Subject */
-            subject?: ("pet" | "student" | "property") | null;
-            /** Subject Name */
-            subject_name: string | null;
+            /** Pet Name */
+            pet_name: string | null;
             service: components["schemas"]["PublicService"];
             staff: components["schemas"]["PublicStaff"];
             /**
@@ -5731,13 +5695,6 @@ export interface components {
              */
             net_cents: number;
         };
-        /** MovedSeries */
-        MovedSeries: {
-            /** Recurrence Id */
-            recurrence_id: string;
-            /** Staff Id */
-            staff_id: string;
-        };
         /** NoteCreate */
         NoteCreate: {
             /**
@@ -5805,11 +5762,13 @@ export interface components {
             province: "AB" | "BC" | "MB" | "NB" | "NL" | "NS" | "NT" | "NU" | "ON" | "PE" | "QC" | "SK" | "YT";
             /** Timezone */
             timezone?: string | null;
-            /**
-             * Subject
-             * @description What bookings are for besides the client; null books only them
-             */
-            subject: ("pet" | "student" | "property") | null;
+        };
+        /** OnboardingLink */
+        OnboardingLink: {
+            /** Url */
+            url: string;
+            /** Charges Enabled */
+            charges_enabled: boolean;
         };
         /** OnlineBookingOut */
         OnlineBookingOut: {
@@ -5972,6 +5931,11 @@ export interface components {
             /** @description Off the whole sale */
             discount?: components["schemas"]["DiscountIn"] | null;
             /**
+             * Approval Pin
+             * @description An owner's or admin's PIN for an over-limit discount
+             */
+            approval_pin?: string | null;
+            /**
              * Note
              * @description Why the sale is held
              */
@@ -6033,6 +5997,8 @@ export interface components {
              * @default 0
              */
             discount_cents: number;
+            /** Approved By */
+            approved_by?: string | null;
             /**
              * Deposit Cents
              * @description Visit deposits applied or still to apply
@@ -6108,6 +6074,8 @@ export interface components {
             lines?: components["schemas"]["LineInput"][] | null;
             /** @description Off the whole sale */
             discount?: components["schemas"]["DiscountIn"] | null;
+            /** Approval Pin */
+            approval_pin?: string | null;
             /** Note */
             note?: string | null;
             /** Receipt Email */
@@ -6198,6 +6166,11 @@ export interface components {
              * @description paid, or failed when the bank returned it
              */
             status: string;
+        };
+        /** PinIn */
+        PinIn: {
+            /** Pin */
+            pin: string;
         };
         /** PlanChoice */
         PlanChoice: {
@@ -6362,13 +6335,8 @@ export interface components {
             client: components["schemas"]["PublicBookingClient"];
             /** Addons */
             addons?: components["schemas"]["PublicAddonIn"][];
-            /** Subject Name */
-            subject_name?: string | null;
-            /**
-             * Subject Address
-             * @description A new property's address, for property businesses
-             */
-            subject_address?: string | null;
+            /** Pet Name */
+            pet_name?: string | null;
             /** Note */
             note?: string | null;
         };
@@ -6417,11 +6385,6 @@ export interface components {
              * @default 0
              */
             review_count: number;
-            /**
-             * Subject
-             * @description What a booking names besides the client; null asks for nothing
-             */
-            subject?: ("pet" | "student" | "property") | null;
         };
         /** PublicBookingResult */
         PublicBookingResult: {
@@ -6461,6 +6424,8 @@ export interface components {
             cover_url?: string | null;
             /** Logo Url */
             logo_url?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
             /** Primary */
             primary?: string | null;
             /** Tagline */
@@ -6509,8 +6474,6 @@ export interface components {
         };
         /** PublicContractSign */
         PublicContractSign: {
-            /** Version */
-            version: number;
             /**
              * Typed Name
              * @description The printed name
@@ -6729,8 +6692,6 @@ export interface components {
             timezone: string;
             /** Completed */
             completed: boolean;
-            /** Require Signature */
-            require_signature: boolean;
             /** Fields */
             fields: components["schemas"]["PublicFormField"][];
         };
@@ -6753,6 +6714,10 @@ export interface components {
             required: boolean;
             /** Options */
             options: unknown[];
+            /** Validation */
+            validation: {
+                [key: string]: unknown;
+            };
             /** Position */
             position: number;
         };
@@ -6762,7 +6727,6 @@ export interface components {
             answers: {
                 [key: string]: unknown;
             };
-            signature?: components["schemas"]["FormSignature"] | null;
         };
         /** PublicInvoice */
         PublicInvoice: {
@@ -7063,11 +7027,6 @@ export interface components {
              * @default 0
              */
             review_count: number;
-            /**
-             * Subject
-             * @description What a booking names besides the client; null asks for nothing
-             */
-            subject?: ("pet" | "student" | "property") | null;
             /** Cover Url */
             cover_url?: string | null;
             /** About */
@@ -7195,10 +7154,8 @@ export interface components {
             rating?: number | null;
             /** First Name */
             first_name?: string | null;
-            /** Subject */
-            subject?: ("pet" | "student" | "property") | null;
-            /** Subject Name */
-            subject_name?: string | null;
+            /** Pet */
+            pet?: string | null;
             /** Service */
             service?: string | null;
             /** Staff */
@@ -7511,6 +7468,8 @@ export interface components {
              * @description End on this date; set count or until
              */
             until?: string | null;
+            /** Resource Id */
+            resource_id?: string | null;
             /** Subject Id */
             subject_id?: string | null;
             /** Exceptions */
@@ -7840,6 +7799,13 @@ export interface components {
             /** Challenge Id */
             challenge_id: string;
         };
+        /** ReturningPet */
+        ReturningPet: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /** ReturningProfile */
         ReturningProfile: {
             /** Name */
@@ -7848,8 +7814,8 @@ export interface components {
             email: string | null;
             /** Phone */
             phone: string | null;
-            /** Subjects */
-            subjects: components["schemas"]["ReturningSubject"][];
+            /** Pets */
+            pets: components["schemas"]["ReturningPet"][];
             last_visit: components["schemas"]["ReturningVisit"] | null;
         };
         /** ReturningRequest */
@@ -7858,13 +7824,6 @@ export interface components {
             email?: string | null;
             /** Phone */
             phone?: string | null;
-        };
-        /** ReturningSubject */
-        ReturningSubject: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
         };
         /** ReturningVerified */
         ReturningVerified: {
@@ -7979,14 +7938,6 @@ export interface components {
             review: components["schemas"]["ReviewOut"];
             /** Google Review Url */
             google_review_url: string;
-        };
-        /** RoleUpdate */
-        RoleUpdate: {
-            /**
-             * Role
-             * @enum {string}
-             */
-            role: "admin" | "staff" | "contractor";
         };
         /** RosterAction */
         RosterAction: {
@@ -8140,23 +8091,68 @@ export interface components {
              */
             left: components["schemas"]["LeftVisit"][];
             /** Series Moved */
-            series_moved: components["schemas"]["MovedSeries"][];
+            series_moved: string[];
             /** Series Ended */
             series_ended: string[];
+        };
+        /** StaffUpdate */
+        StaffUpdate: {
+            /** Role */
+            role?: ("admin" | "staff" | "contractor") | null;
+            /**
+             * Title
+             * @description Shown under the name; an empty string clears it
+             */
+            title?: string | null;
+            /**
+             * Color
+             * @description A #RRGGBB colour for the calendar; an empty string clears it
+             */
+            color?: string | null;
+        };
+        /**
+         * SubjectAttributes
+         * @description The typed details of a subject; keys a kind doesn't use stay empty, unknown keys are kept.
+         */
+        SubjectAttributes: {
+            /** Species */
+            species?: ("dog" | "cat" | "other") | null;
+            /** Breed */
+            breed?: string | null;
+            /** Weight Kg */
+            weight_kg?: number | null;
+            /** Birthday */
+            birthday?: string | null;
+            /** Sex */
+            sex?: ("female" | "male") | null;
+            /** Temperament */
+            temperament?: string | null;
+            /** Coat */
+            coat?: string | null;
+            /** Allergies */
+            allergies?: string | null;
+            /** Vet */
+            vet?: string | null;
+            /** Rabies Until */
+            rabies_until?: string | null;
+            /** Style */
+            style?: string | null;
+        } & {
+            [key: string]: unknown;
         };
         /** SubjectCreate */
         SubjectCreate: {
             /** Client Id */
             client_id: string;
+            /**
+             * Kind
+             * @default pet
+             * @enum {string}
+             */
+            kind: "pet" | "vehicle" | "child" | "property";
             /** Name */
             name: string;
-            /**
-             * Attributes
-             * @description Validated against the business's subject kind
-             */
-            attributes?: {
-                [key: string]: unknown;
-            };
+            attributes?: components["schemas"]["SubjectAttributes"];
         };
         /** SubjectOut */
         SubjectOut: {
@@ -8166,6 +8162,11 @@ export interface components {
             business_id: string;
             /** Client Id */
             client_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "pet" | "vehicle" | "child" | "property";
             /** Name */
             name: string;
             /** Attributes */
@@ -8187,10 +8188,7 @@ export interface components {
         SubjectUpdate: {
             /** Name */
             name?: string | null;
-            /** Attributes */
-            attributes?: {
-                [key: string]: unknown;
-            } | null;
+            attributes?: components["schemas"]["SubjectAttributes"] | null;
         };
         /** SubscriptionCreate */
         SubscriptionCreate: {
@@ -8286,6 +8284,17 @@ export interface components {
              */
             periods: components["schemas"]["FilingPeriod"][];
         };
+        /** TaxRateOut */
+        TaxRateOut: {
+            /** Id */
+            id: string;
+            /** Jurisdiction */
+            jurisdiction: string;
+            /** Province */
+            province: string;
+            /** Rate Bps */
+            rate_bps: number;
+        };
         /** TeamMember */
         TeamMember: {
             /** Id */
@@ -8334,9 +8343,9 @@ export interface components {
             unread_count: number;
             /**
              * Status
-             * @constant
+             * @enum {string}
              */
-            status: "open";
+            status: "open" | "closed";
         };
         /** TimeOffCreate */
         TimeOffCreate: {
@@ -8586,26 +8595,6 @@ export interface operations {
                             [key: string]: string;
                         }[];
                     };
-                };
-            };
-        };
-    };
-    submit_contact_contact_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
                 };
             };
         };
@@ -10280,7 +10269,6 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -10394,7 +10382,6 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -12217,6 +12204,40 @@ export interface operations {
             };
         };
     };
+    onboard_v1_connect_onboard_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingLink"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     account_session_v1_connect_session_post: {
         parameters: {
             query?: never;
@@ -12288,6 +12309,42 @@ export interface operations {
         };
     };
     setup_card_v1_payments_setup_intent__client_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupIntentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    setup_pad_v1_payments_pad_setup_intent__client_id__post: {
         parameters: {
             query?: never;
             header?: {
@@ -12464,8 +12521,8 @@ export interface operations {
     refund_payment_v1_payments__payment_id__refund_post: {
         parameters: {
             query?: never;
-            header: {
-                "Idempotency-Key": string;
+            header?: {
+                "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -12826,6 +12883,41 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["OrderOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_approval_pin_v1_orders_approval_pin_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -13209,6 +13301,39 @@ export interface operations {
             };
         };
     };
+    list_tax_rates_v1_tax_rates_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxRateOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     onboard_v1_onboarding_post: {
         parameters: {
             query?: never;
@@ -13492,7 +13617,7 @@ export interface operations {
             };
         };
     };
-    change_role_v1_staff__staff_id__patch: {
+    update_member_v1_staff__staff_id__patch: {
         parameters: {
             query?: never;
             header?: {
@@ -13507,7 +13632,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RoleUpdate"];
+                "application/json": components["schemas"]["StaffUpdate"];
             };
         };
         responses: {
@@ -15319,76 +15444,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminEmailResult"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    deliveries_admin_v1_deliveries_get: {
-        parameters: {
-            query?: {
-                offset?: number;
-            };
-            header?: {
-                "x-session-token"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminPage_AdminDelivery_"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    assign_sms_admin_v1_businesses__business_id__sms_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-session-token"?: string;
-            };
-            path: {
-                business_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminSmsAssignment"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminBusiness"];
                 };
             };
             /** @description Validation Error */

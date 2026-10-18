@@ -19,11 +19,11 @@ from clientbridge.schemas.staff import (
     InviteOut,
     InvitePreviewOut,
     InviteTokenBody,
-    RoleUpdate,
     StaffPayOut,
     StaffPayUpdate,
     StaffRemove,
     StaffRemoveOut,
+    StaffUpdate,
     TeamOut,
 )
 from clientbridge.services.notifications import Notifier
@@ -96,10 +96,10 @@ async def revoke_invite(
 
 
 @router.patch("/{staff_id}", status_code=204)
-async def change_role(
-    staff_id: str, body: RoleUpdate, principal: CurrentPrincipal, db: DbSession
+async def update_member(
+    staff_id: str, body: StaffUpdate, principal: CurrentPrincipal, db: DbSession
 ) -> None:
-    await StaffService(db).change_role(principal, staff_id, body)
+    await StaffService(db).update_member(principal, staff_id, body)
 
 
 @router.post("/{staff_id}/remove", response_model=StaffRemoveOut)
