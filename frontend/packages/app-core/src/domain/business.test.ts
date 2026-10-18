@@ -92,6 +92,7 @@ const ROW = {
     postal_code: "V8W 1Y9",
     legal_phone: null,
     brand: null,
+    subject: "pet",
 };
 
 function recordingApi(reply: object): { api: ApiLike; bodies: Record<string, unknown>[] } {
@@ -121,7 +122,12 @@ describe("useBusinessForm", () => {
             expect(result.current.saved).toBe(true);
         });
         expect(bodies).toEqual([
-            { name: "Birch & Co", timezone: "America/Vancouver", billing_email: "" },
+            {
+                name: "Birch & Co",
+                timezone: "America/Vancouver",
+                billing_email: "",
+                subject: "pet",
+            },
         ]);
     });
 
@@ -161,6 +167,7 @@ describe("useOnboardingForm", () => {
         expect(result.current.taxSummary).toBeNull();
         act(() => {
             result.current.setName("Birch Studio");
+            result.current.setSubject("pet");
         });
         act(() => {
             result.current.submit();
@@ -178,7 +185,13 @@ describe("useOnboardingForm", () => {
             expect(created).toHaveBeenCalled();
         });
         expect(posted).toEqual([
-            { name: "Birch Studio", slug: "birch-studio", province: "BC", timezone: null },
+            {
+                name: "Birch Studio",
+                slug: "birch-studio",
+                province: "BC",
+                subject: "pet",
+                timezone: null,
+            },
         ]);
     });
 });
