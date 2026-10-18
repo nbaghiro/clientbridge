@@ -1,4 +1,4 @@
-"""cb0009 keeps a name only staff held on the account before dropping staff.name."""
+"""cb0015 keeps a name only staff held on the account before dropping staff.name."""
 
 import os
 import secrets
@@ -62,7 +62,7 @@ async def _seed(conn: AsyncConnection) -> None:
             )
 
 
-async def test_cb0009_moves_staff_names_to_their_accounts_and_its_downgrade_copies_back() -> None:
+async def test_cb0015_moves_staff_names_to_their_accounts_and_its_downgrade_copies_back() -> None:
     settings = get_settings()
     database = f"clientbridge_migration_{secrets.token_hex(4)}"
     url = on(settings.migration_database_url, database)
@@ -75,7 +75,7 @@ async def test_cb0009_moves_staff_names_to_their_accounts_and_its_downgrade_copi
     engine = create_async_engine(url)
     try:
         _run(env, "scripts.db_access", "roles")
-        _run(env, "alembic", "upgrade", "cb0008")
+        _run(env, "alembic", "upgrade", "cb0014")
         async with engine.begin() as conn:
             await _seed(conn)
 
@@ -83,7 +83,7 @@ async def test_cb0009_moves_staff_names_to_their_accounts_and_its_downgrade_copi
             async with engine.connect() as conn:
                 return {str(r[0]): r[1] for r in await conn.execute(text(sql))}
 
-        _run(env, "alembic", "upgrade", "cb0009")
+        _run(env, "alembic", "upgrade", "cb0015")
         assert await rows("SELECT id, name FROM users") == {
             "us_named": "Account Name",
             "us_missing": "Kept Name",
@@ -96,7 +96,7 @@ async def test_cb0009_moves_staff_names_to_their_accounts_and_its_downgrade_copi
             " WHERE table_name = 'staff' AND column_name = 'name'"
         )
         assert columns == {}
-        _run(env, "alembic", "downgrade", "cb0008")
+        _run(env, "alembic", "downgrade", "cb0014")
         assert await rows("SELECT id, name FROM staff") == {
             "st_us_named_0": "Account Name",
             "st_us_missing_0": "Kept Name",
