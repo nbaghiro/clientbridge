@@ -28,6 +28,12 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U clientbridge" --health-interval 5s
           --health-timeout 3s --health-retries 15
+      redis:
+        image: redis@sha256:4fa24486b8bcca8eec45ee0eb166edc674795e53a2b53d1a9ef263eecebaac85
+        ports: ["8703:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 3s --health-retries 15
       rustfs:
         image: rustfs/rustfs@sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c
         env:

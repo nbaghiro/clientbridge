@@ -2,14 +2,14 @@
 
 import os
 import socket
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 from urllib.parse import urlparse
 
 import pytest
 import stripe
 from tests.helpers import service_missing
 
-from clientbridge.integrations.stripe import StripeGateway
+from clientbridge.integrations.stripe import StripeGateway, close_stripe_client
 
 _MOCK_URL = os.environ.get("STRIPE_MOCK_URL", "http://localhost:8708")
 
@@ -26,7 +26,7 @@ def _reachable(url: str) -> bool:
 
 
 @pytest.fixture
-def contract_gateway() -> Iterator[StripeGateway]:
+async def contract_gateway() -> AsyncIterator[StripeGateway]:
     if not _reachable(_MOCK_URL):
         service_missing(f"stripe-mock unreachable at {_MOCK_URL}: run `make stripe-mock`")
     previous = stripe.api_base
@@ -34,4 +34,5 @@ def contract_gateway() -> Iterator[StripeGateway]:
     try:
         yield StripeGateway("sk_test_contract", "whsec_contract", "CA")
     finally:
+        await close_stripe_client()
         stripe.api_base = previous

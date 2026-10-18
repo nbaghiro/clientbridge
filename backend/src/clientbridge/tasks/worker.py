@@ -14,7 +14,7 @@ from clientbridge.integrations.expo import get_push_sender
 from clientbridge.integrations.http import close_http_client, start_http_client
 from clientbridge.integrations.resend import get_email_sender
 from clientbridge.integrations.s3 import get_file_storage
-from clientbridge.integrations.stripe import get_payment_gateway
+from clientbridge.integrations.stripe import close_stripe_client, get_payment_gateway
 from clientbridge.integrations.twilio import get_sms_sender
 from clientbridge.services.billing import run_overdue_sweep
 from clientbridge.services.bookings import (
@@ -133,6 +133,7 @@ async def startup(ctx: Context) -> None:
 
 async def shutdown(ctx: Context) -> None:
     await close_http_client()
+    await close_stripe_client()
 
 
 class WorkerSettings:

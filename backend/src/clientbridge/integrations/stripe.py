@@ -634,7 +634,6 @@ def _stripe_http_client() -> stripe.HTTPXClient:
 
 @cache
 def _stripe_client(secret_key: str, api_base: str) -> stripe.StripeClient:
-    # one client per process: each holds an HTTP connection pool that is never closed
     return stripe.StripeClient(
         secret_key,
         stripe_version=STRIPE_API_VERSION,
@@ -642,6 +641,14 @@ def _stripe_client(secret_key: str, api_base: str) -> stripe.StripeClient:
         http_client=_stripe_http_client(),
         max_network_retries=0,
     )
+
+
+async def close_stripe_client() -> None:
+    if _stripe_http_client.cache_info().currsize:
+        await _stripe_http_client().close_async()
+    _stripe_client.cache_clear()
+    _stripe_http_client.cache_clear()
+    stripe.default_http_client = None
 
 
 class StripeGateway:

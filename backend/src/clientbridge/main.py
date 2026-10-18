@@ -36,6 +36,7 @@ from clientbridge.core.errors import (
 from clientbridge.core.logs import RequestLog, configure_logging
 from clientbridge.core.uploads import UploadSizeLimit
 from clientbridge.integrations.http import close_http_client, start_http_client
+from clientbridge.integrations.stripe import close_stripe_client
 from clientbridge.services.health import unready_dependencies
 from clientbridge.sync import router as sync_router
 
@@ -48,6 +49,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         await close_http_client()
+        await close_stripe_client()
 
 
 def create_app() -> FastAPI:
