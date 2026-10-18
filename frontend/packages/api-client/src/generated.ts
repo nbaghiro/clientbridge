@@ -3915,8 +3915,6 @@ export interface components {
         BrandInput: {
             /** Logo File Id */
             logo_file_id?: string | null;
-            /** Avatar File Id */
-            avatar_file_id?: string | null;
             /** Primary */
             primary?: string | null;
             /** Tagline */
@@ -6456,8 +6454,6 @@ export interface components {
             cover_url?: string | null;
             /** Logo Url */
             logo_url?: string | null;
-            /** Avatar Url */
-            avatar_url?: string | null;
             /** Primary */
             primary?: string | null;
             /** Tagline */

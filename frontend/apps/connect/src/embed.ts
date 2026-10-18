@@ -82,7 +82,7 @@ export function useEmbedSuccess(active: boolean, widget: string): void {
 export function useEmbedBrand(page: { business_name: string; brand: PublicBrand } | null): void {
     const name = page?.business_name;
     const primary = page?.brand.primary;
-    const mark = page?.brand.avatar_url ?? page?.brand.logo_url;
+    const mark = page?.brand.logo_url;
     useEffect(() => {
         if (!isEmbedded() || name === undefined) return;
         const send = (): void => {

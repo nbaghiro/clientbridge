@@ -142,7 +142,7 @@ export function PublicLanding() {
                     <div className="mt-auto max-w-2xl">
                         <Avatar
                             name={page.business_name}
-                            src={page.brand.avatar_url ?? page.brand.logo_url}
+                            src={page.brand.logo_url}
                             color={page.brand.primary}
                             size="xl"
                             className="mb-4 !bg-surface p-1"
@@ -358,10 +358,7 @@ export function PublicLanding() {
                                                 <div className="flex items-center gap-2">
                                                     <Avatar
                                                         name={page.business_name}
-                                                        src={
-                                                            page.brand.avatar_url ??
-                                                            page.brand.logo_url
-                                                        }
+                                                        src={page.brand.logo_url}
                                                         size="sm"
                                                     />
                                                     <p className="font-semibold">{s.response}</p>

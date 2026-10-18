@@ -20,7 +20,7 @@ export function PublicStatus({
     onRetry?: () => void;
 }) {
     const loading = kind === "loading";
-    const logo = brand?.avatar_url ?? brand?.logo_url;
+    const logo = brand?.logo_url;
     return (
         <main
             style={brandStyle(brand)}

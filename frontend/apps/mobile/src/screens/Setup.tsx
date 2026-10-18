@@ -60,7 +60,7 @@ export function SetupScreen() {
                     name={business.businessName}
                     size="lg"
                     color={business.brandColor}
-                    src={business.avatarFileId ? mediaUrl(apiBaseUrl, business.avatarFileId) : null}
+                    src={business.logoFileId ? mediaUrl(apiBaseUrl, business.logoFileId) : null}
                 />
                 <Text style={styles.rowLabel}>{business.businessName}</Text>
             </View>

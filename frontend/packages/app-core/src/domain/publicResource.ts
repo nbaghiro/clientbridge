@@ -71,7 +71,6 @@ export interface PublicBrand {
     public_slug?: string | null;
     business_name?: string | null;
     cover_url?: string | null;
-    avatar_url?: string | null;
     logo_url: string | null;
     primary: string | null;
     tagline: string | null;

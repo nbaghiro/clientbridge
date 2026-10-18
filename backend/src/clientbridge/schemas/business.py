@@ -74,7 +74,6 @@ class BrandInput(BaseModel):
     """The public brand; values are validated and trimmed so clients can apply them directly."""
 
     logo_file_id: str | None = None
-    avatar_file_id: str | None = None
     primary: str | None = None
     tagline: str | None = None
     cover_url: str | None = Field(default=None, max_length=2048)

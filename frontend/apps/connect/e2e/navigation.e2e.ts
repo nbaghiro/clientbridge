@@ -316,7 +316,6 @@ test("unavailable business icons retain the default favicon", async ({ page }) =
             ...profile,
             brand: {
                 ...(profile.brand as Json),
-                avatar_url: `${api}/missing-avatar`,
                 logo_url: `${api}/missing-logo`,
             },
         })),

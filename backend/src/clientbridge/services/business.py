@@ -284,8 +284,6 @@ class BusinessService:
         if data.brand is not None:
             if data.brand.logo_file_id is not None:
                 await self._assert_logo(data.brand.logo_file_id)
-            if data.brand.avatar_file_id is not None:
-                await self._assert_logo(data.brand.avatar_file_id)
             if data.brand.public_staff_ids:
                 staff = (
                     (
@@ -301,12 +299,6 @@ class BusinessService:
                 if len({member.id for member in staff}) != len(set(data.brand.public_staff_ids)):
                     raise NotFound("public team member not found")
             merged = dict(business.brand or {})
-            logo_changed = (
-                "logo_file_id" in data.brand.model_fields_set
-                and data.brand.logo_file_id != merged.get("logo_file_id")
-            )
-            if logo_changed and "avatar_file_id" not in data.brand.model_fields_set:
-                merged.pop("avatar_file_id", None)
             for key, value in data.brand.model_dump(exclude_unset=True).items():
                 if value is None:
                     merged.pop(key, None)

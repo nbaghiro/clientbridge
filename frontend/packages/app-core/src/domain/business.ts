@@ -77,7 +77,6 @@ export const PUBLIC_PROFILE_FIELDS = PROFILE_KEYS.map((key) => ({
 }));
 
 interface Brand {
-    avatar_file_id: string;
     logo_file_id: string;
     primary: string;
     tagline: string;
@@ -86,7 +85,6 @@ interface Brand {
 }
 
 const NO_BRAND: Brand = {
-    avatar_file_id: "",
     logo_file_id: "",
     primary: "",
     tagline: "",
@@ -99,7 +97,6 @@ function parseBrand(raw: string | null): Brand {
     try {
         const b = JSON.parse(raw) as Record<string, unknown>;
         return {
-            avatar_file_id: typeof b.avatar_file_id === "string" ? b.avatar_file_id : "",
             logo_file_id: typeof b.logo_file_id === "string" ? b.logo_file_id : "",
             primary: typeof b.primary === "string" ? b.primary : "",
             tagline: typeof b.tagline === "string" ? b.tagline : "",
@@ -660,7 +657,7 @@ export function setupTasks(c: SetupCounts): SetupTask[] {
 }
 
 export interface SetupProgress {
-    avatarFileId: string | null;
+    logoFileId: string | null;
     businessName: string;
     brandColor: string | null;
     slug: string | null;
@@ -686,10 +683,7 @@ function progressOf(row: SetupCounts | undefined): SetupProgress {
     const done = steps.filter((x) => x.done).length;
     return {
         businessName: counts.name ?? "",
-        avatarFileId:
-            parseBrand(counts.brand).avatar_file_id ||
-            parseBrand(counts.brand).logo_file_id ||
-            null,
+        logoFileId: parseBrand(counts.brand).logo_file_id || null,
         brandColor: parseBrand(counts.brand).primary || null,
         slug: counts.slug,
         steps,
@@ -766,7 +760,6 @@ export interface BrandForm {
     slug: string;
     province: string | null;
     logoFileId: string;
-    avatarFileId: string;
     setLogoFileId: (id: string) => void;
     colour: string;
     setColour: (v: string) => void;
@@ -810,9 +803,8 @@ export function useBrandForm(api: ApiLike): BrandForm {
         slug: row?.slug ?? "",
         province: row?.province ?? null,
         logoFileId: current.logo_file_id,
-        avatarFileId: current.avatar_file_id || current.logo_file_id,
         setLogoFileId: (id) => {
-            edit({ logo_file_id: id, avatar_file_id: "" });
+            edit({ logo_file_id: id });
         },
         colour: current.primary || BRAND_COLOURS[1],
         setColour: (v) => {

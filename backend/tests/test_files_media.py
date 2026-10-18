@@ -60,6 +60,11 @@ async def test_logo_must_be_an_uploaded_logo_404(
     item_image = (await _image(as_owner, storage, "item", "it_bath", "image")).json()["file"]["id"]
     res = await as_owner.patch("/v1/business", json={"brand": {"logo_file_id": item_image}})
     assert res.status_code == 404
+    private_file = (await _image(as_owner, storage, "subject", "sj_bella", "photo")).json()["file"][
+        "id"
+    ]
+    rejected = await as_owner.patch("/v1/business", json={"brand": {"logo_file_id": private_file}})
+    assert rejected.status_code == 404
 
 
 async def test_staff_cannot_set_public_images_403(
@@ -83,24 +88,6 @@ async def test_client_files_are_never_served_publicly(
     file_id = (await _image(as_owner, storage, "subject", "sj_bella", "photo")).json()["file"]["id"]
     assert (await unauth.get(f"/media/{file_id}", follow_redirects=False)).status_code == 404
     assert (await unauth.get("/media/fl_nope", follow_redirects=False)).status_code == 404
-
-
-async def test_avatar_uses_an_owned_logo_and_keeps_wordmark(
-    as_owner: httpx.AsyncClient, storage: FakeFileStorage
-) -> None:
-    avatar = (await _image(as_owner, storage, "business", BIZ, "logo")).json()["file"]["id"]
-    response = await as_owner.patch("/v1/business", json={"brand": {"avatar_file_id": avatar}})
-    assert response.status_code == 200, response.text
-    brand = (await as_owner.get("/book/birchbark/services")).json()["brand"]
-    assert brand["avatar_url"].endswith(f"/media/{avatar}")
-    assert brand["logo_url"].endswith("/media/fl_logo")
-    private_file = (await _image(as_owner, storage, "subject", "sj_bella", "photo")).json()["file"][
-        "id"
-    ]
-    rejected = await as_owner.patch(
-        "/v1/business", json={"brand": {"avatar_file_id": private_file}}
-    )
-    assert rejected.status_code == 404
 
 
 async def test_cover_upload_is_public_and_used_by_customer_pages(

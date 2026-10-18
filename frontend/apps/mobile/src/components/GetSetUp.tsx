@@ -133,7 +133,7 @@ function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void 
         );
     };
 
-    const logo = brand.avatarFileId === "" ? null : mediaUrl(apiBaseUrl, brand.avatarFileId);
+    const logo = brand.logoFileId === "" ? null : mediaUrl(apiBaseUrl, brand.logoFileId);
     return (
         <Modal open onClose={onClose} size="xl">
             <View style={styles.brandSections}>

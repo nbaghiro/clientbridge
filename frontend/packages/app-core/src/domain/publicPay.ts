@@ -163,7 +163,7 @@ export function printedPublicInvoice(
         },
         {
             name: invoice.business_name,
-            avatarUrl: invoice.brand.avatar_url ?? invoice.brand.logo_url,
+            avatarUrl: invoice.brand.logo_url,
             tagline: invoice.brand.tagline,
             brandColor: invoice.brand.primary,
             email: invoice.contact_email,

@@ -91,7 +91,7 @@ function Navigation({
                 <Link to={home} className="flex min-w-0 items-center gap-2 rounded-md">
                     <Avatar
                         name={brand?.business_name ?? ""}
-                        src={brand?.avatar_url ?? brand?.logo_url}
+                        src={brand?.logo_url}
                         size="sm"
                         className="shrink-0 !bg-surface"
                     />

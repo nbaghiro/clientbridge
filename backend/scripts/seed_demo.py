@@ -10,7 +10,6 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import boto3
-import httpx
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import delete, select, text, update
@@ -19,11 +18,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
-from clientbridge.core.db import Base, SessionLocal, engine
+from clientbridge.core.db import Base, engine
 from clientbridge.core.errors import AppError
 from clientbridge.core.security import hash_token
 from clientbridge.integrations.kratos import get_identity_provider
-from clientbridge.integrations.s3 import S3_CONFIG, get_file_storage
+from clientbridge.integrations.s3 import S3_CONFIG
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import GiftCard, Item, Package, StockMovement, Subscription
@@ -115,7 +114,6 @@ def seed_identity() -> tuple[str, str]:
             tax_registered=True,
             brand={
                 "logo_file_id": "fl_logo",
-                "avatar_file_id": "fl_logo_avatar",
                 "primary": "#2E4A3F",
                 "tagline": "Calm, careful grooming on Vancouver Island.",
             },
@@ -143,18 +141,6 @@ def seed_identity() -> tuple[str, str]:
             s3_key=f"{BIZ}/demo/logo.png",
             content_type="image/png",
             size=(ASSETS / "logo.png").stat().st_size,
-        )
-    )
-    rows.append(
-        File(
-            id="fl_logo_avatar",
-            business_id=BIZ,
-            parent_type="business",
-            parent_id=BIZ,
-            purpose="logo",
-            s3_key=f"{BIZ}/demo/logo-mark.png",
-            content_type="image/png",
-            size=(ASSETS / "logo-mark.png").stat().st_size,
         )
     )
     rows.append(
@@ -2258,50 +2244,9 @@ def upload_demo_assets() -> None:
         raise RuntimeError("Demo asset upload failed; database was not reset") from exc
 
 
-async def refresh_demo_avatar() -> None:
-    path = ASSETS / "logo-mark.png"
-    key = f"{BIZ}/demo/{path.name}"
-    async with SessionLocal() as db:
-        business = await db.get(Business, BIZ)
-        if business is None or business.brand.get("logo_file_id") != "fl_logo":
-            raise SystemExit("The original demo brand is not present; no changes made.")
-        async with httpx.AsyncClient() as client:
-            response = await client.put(
-                get_file_storage().presign_upload(key, "image/png"),
-                content=path.read_bytes(),
-                headers={"Content-Type": "image/png"},
-            )
-            response.raise_for_status()
-        avatar = await db.get(File, "fl_logo_avatar")
-        if avatar is None:
-            db.add(
-                File(
-                    id="fl_logo_avatar",
-                    business_id=BIZ,
-                    parent_type="business",
-                    parent_id=BIZ,
-                    purpose="logo",
-                    s3_key=key,
-                    content_type="image/png",
-                    size=path.stat().st_size,
-                    uploaded_at=clock.now(),
-                )
-            )
-            await db.flush()
-        business.brand = {**business.brand, "avatar_file_id": "fl_logo_avatar"}
-        await db.commit()
-    await engine.dispose()
-    print("Updated the demo avatar; all other demo data was preserved.")
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--refresh-demo-avatar", action="store_true")
     parser.add_argument("--reset-demo", action="store_true")
     parser.add_argument("--as-of", type=datetime.fromisoformat)
     args = parser.parse_args()
-    asyncio.run(
-        refresh_demo_avatar()
-        if args.refresh_demo_avatar
-        else main(reset_demo=args.reset_demo, as_of=args.as_of)
-    )
+    asyncio.run(main(reset_demo=args.reset_demo, as_of=args.as_of))
