@@ -1,8 +1,12 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment happy-dom
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
+import type { ApiLike } from "../api";
 import { strings } from "../strings";
 import type { OccurrenceRow } from "../ui";
-import { removalOutcome } from "./staff";
+import { BRAND_COLOURS } from "./business";
+import { removalOutcome, useStaffProfileForm } from "./staff";
 
 const t = strings.staff.team;
 
@@ -98,5 +102,79 @@ describe("removalOutcome", () => {
                 detail: t.removedSeriesMovedState,
             },
         ]);
+    });
+});
+
+function recordingApi(fail = false): ApiLike & { patched: [string, unknown][] } {
+    const patched: [string, unknown][] = [];
+    return {
+        patched,
+        get: <T>() => Promise.resolve({} as T),
+        getText: () => Promise.resolve(""),
+        post: <T>() => Promise.resolve({} as T),
+        patch: <T>(path: string, body: unknown) => {
+            patched.push([path, body]);
+            return fail ? Promise.reject(new Error("boom")) : Promise.resolve({} as T);
+        },
+        delete: <T>() => Promise.resolve({} as T),
+    };
+}
+
+const diego = { id: "st_diego", title: "Senior Groomer", color: "#2E7A5A" };
+
+describe("useStaffProfileForm", () => {
+    it("starts from the member and offers the brand palette", () => {
+        const { result } = renderHook(() => useStaffProfileForm(recordingApi(), diego, vi.fn()));
+        expect(result.current.title).toBe("Senior Groomer");
+        expect(result.current.colour).toBe("#2E7A5A");
+        expect(result.current.colours).toBe(BRAND_COLOURS);
+        expect(result.current.dirty).toBe(false);
+    });
+
+    it("sends the trimmed title and the picked colour, then reports done", async () => {
+        const api = recordingApi();
+        const done = vi.fn();
+        const { result } = renderHook(() => useStaffProfileForm(api, diego, done));
+        act(() => {
+            result.current.setTitle("  Lead Groomer ");
+            result.current.setColour("#7D5A82");
+        });
+        expect(result.current.dirty).toBe(true);
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(done).toHaveBeenCalledOnce();
+        });
+        expect(api.patched).toEqual([
+            ["/v1/staff/st_diego", { title: "Lead Groomer", color: "#7D5A82" }],
+        ]);
+    });
+
+    it("clears a title and keeps an unset colour unset", async () => {
+        const api = recordingApi();
+        const member = { id: "st_new", title: "Bather", color: null };
+        const { result } = renderHook(() => useStaffProfileForm(api, member, vi.fn()));
+        act(() => {
+            result.current.setTitle("   ");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(api.patched).toEqual([["/v1/staff/st_new", { title: "", color: "" }]]);
+        });
+    });
+
+    it("shows the catalog error when the save fails", async () => {
+        const done = vi.fn();
+        const { result } = renderHook(() => useStaffProfileForm(recordingApi(true), diego, done));
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.error).toBe(strings.staff.team.profileError);
+        });
+        expect(done).not.toHaveBeenCalled();
     });
 });

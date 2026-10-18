@@ -802,6 +802,7 @@ test("owner: setup sections and their dialogs", async ({ page }) => {
         await openFirstRow(page);
         await main.getByRole("button", { name: /Diego Ramirez/ }).click();
         const member = page.getByRole("dialog", { name: "Diego Ramirez" });
+        await expect(member.getByRole("radiogroup", { name: t.colour })).toBeVisible();
         await cancelConfirm(
             page,
             member.getByRole("button", { name: t.remove }),
