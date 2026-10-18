@@ -4,11 +4,11 @@ set -euo pipefail
 
 baseline="$(dirname "$0")/../e2e/flow-seconds.json"
 [ -f "$1" ] || exit 0
-{ grep -oE '\[Passed\] .+ \(([0-9]+m )?[0-9]+s\)' "$1" || true; } | while IFS= read -r line; do
-    name=$(sed -E 's/^\[Passed\] (.+) \(([0-9]+m )?[0-9]+s\)$/\1/' <<< "$line")
-    minutes=$(sed -nE 's/.*\(([0-9]+)m [0-9]+s\)$/\1/p' <<< "$line")
-    seconds=$(sed -E 's/.*[( ]([0-9]+)s\)$/\1/' <<< "$line")
-    took=$(( ${minutes:-0} * 60 + seconds ))
+{ grep -oE '\[Passed\] .+ \(([0-9]+m|[0-9]+s|[0-9]+m [0-9]+s)\)' "$1" || true; } | while IFS= read -r line; do
+    name=$(sed -E 's/^\[Passed\] (.+) \([0-9ms ]+\)$/\1/' <<< "$line")
+    minutes=$(sed -nE 's/.*\(([0-9]+)m( [0-9]+s)?\)$/\1/p' <<< "$line")
+    seconds=$(sed -nE 's/.*[( ]([0-9]+)s\)$/\1/p' <<< "$line")
+    took=$(( ${minutes:-0} * 60 + ${seconds:-0} ))
     usual=$(jq -r --arg name "$name" '.[$name] // empty' "$baseline")
     if [ -z "$usual" ]; then
         echo "::warning::$name has no usual time in e2e/flow-seconds.json"
