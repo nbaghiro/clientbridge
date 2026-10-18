@@ -2,13 +2,20 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import httpx
-from sqlalchemy import select
+import pytest
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.zones import SUPPORTED_ZONES
+from clientbridge.integrations.stripe import PostalAddress
 from clientbridge.models.business import Business
-from clientbridge.services.business import after_quiet_hours, quiet_hours, reply_address
-from tests.conftest import Factory
+from clientbridge.services.business import (
+    after_quiet_hours,
+    postal_address,
+    quiet_hours,
+    reply_address,
+)
+from tests.conftest import Factory, FakePaymentGateway
 
 BIZ = "bz_birchbark"
 
@@ -204,11 +211,11 @@ async def test_a_new_address_drops_the_terminal_location_made_for_the_old_one(
     assert business is not None
     business.stripe_terminal_location_id = "tml_old"
     await db.flush()
-    same = {"brand": {"address": business.brand["address"]}}
+    same = {"street_number": "1207", "postal_code": "v8w1y9", "brand": {"address": "Elsewhere"}}
     assert (await as_owner.patch("/v1/business", json=same)).status_code == 200
     await db.refresh(business)
     assert business.stripe_terminal_location_id == "tml_old"
-    moved = {"brand": {"address": "88 Fort St, Victoria, BC V8W 1Y4"}}
+    moved = {"unit": "Suite 4"}
     assert (await as_owner.patch("/v1/business", json=moved)).status_code == 200
     await db.refresh(business)
     assert business.stripe_terminal_location_id is None
@@ -237,3 +244,140 @@ async def test_an_unknown_subject_kind_is_422(as_owner: httpx.AsyncClient) -> No
 async def test_staff_cannot_change_the_subject_kind_403(as_staff: httpx.AsyncClient) -> None:
     res = await as_staff.patch("/v1/business", json={"subject": "property"})
     assert res.status_code == 403
+
+
+async def test_owner_sets_and_clears_the_legal_address_and_phone(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    body = {
+        "unit": " Suite 4 ",
+        "street_number": "88",
+        "street_name": "Fort St",
+        "city": "Victoria",
+        "postal_code": "v8w1y4",
+        "legal_phone": "(250) 555-0199",
+    }
+    res = await as_owner.patch("/v1/business", json=body)
+    assert res.status_code == 200, res.text
+    out = res.json()
+    assert (out["unit"], out["postal_code"], out["legal_phone"]) == (
+        "Suite 4",
+        "V8W 1Y4",
+        "+12505550199",
+    )
+    res = await as_owner.patch("/v1/business", json={"unit": "", "legal_phone": ""})
+    assert res.status_code == 200, res.text
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    await db.refresh(business)
+    assert business.unit is None and business.legal_phone is None and business.street_number == "88"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"postal_code": "12345"},
+        {"postal_code": "V8W 1Y"},
+        {"legal_phone": "555-01"},
+        {"postal_code": "V\u0668W \u0661Y\u0669"},
+        {"street_name": "x" * 101},
+    ],
+)
+async def test_a_malformed_legal_address_or_phone_is_refused(
+    as_owner: httpx.AsyncClient, body: dict[str, str]
+) -> None:
+    assert (await as_owner.patch("/v1/business", json=body)).status_code == 422
+
+
+async def test_a_postal_code_outside_the_province_is_refused(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    res = await as_owner.patch("/v1/business", json={"postal_code": "M5H 2N2"})
+    assert res.status_code == 422 and res.json()["error"] == "postal_code_province_mismatch"
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    await db.refresh(business)
+    assert business.postal_code == "V8W 1Y9"
+
+
+@pytest.mark.parametrize("province", ["NU", "NT"])
+async def test_nunavut_and_the_northwest_territories_share_x_postal_codes(
+    as_owner: httpx.AsyncClient, db: AsyncSession, province: str
+) -> None:
+    await db.execute(update(Business).where(Business.id == BIZ).values(province=province))
+    await db.flush()
+    res = await as_owner.patch("/v1/business", json={"postal_code": "X0A 0H0"})
+    assert res.status_code == 200, res.text
+
+
+async def test_a_moved_plan_only_account_takes_the_new_address_to_stripe(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(stripe_account_id="acct_plan", stripe_requirements={})
+    )
+    await db.flush()
+    assert (await as_owner.patch("/v1/business", json={"name": "Renamed"})).status_code == 200
+    assert gateway.account_addresses == []
+    assert (await as_owner.patch("/v1/business", json={"unit": "Suite 4"})).status_code == 200
+    assert gateway.account_addresses == [
+        (
+            "acct_plan",
+            PostalAddress("1207 Government Street", "Victoria", "BC", "V8W 1Y9", "Suite 4"),
+        )
+    ]
+    assert (await as_owner.patch("/v1/business", json={"city": ""})).status_code == 200
+    assert len(gateway.account_addresses) == 1
+
+
+async def test_a_stripe_failure_leaves_the_address_saved(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(stripe_account_id="acct_plan", stripe_requirements={})
+    )
+    await db.flush()
+
+    async def unavailable(account_id: str, *, address: PostalAddress) -> None:
+        raise RuntimeError("stripe is unavailable")
+
+    monkeypatch.setattr(gateway, "update_account_address", unavailable)
+    body = {"name": "Renamed", "unit": "Suite 9"}
+    res = await as_owner.patch("/v1/business", json=body)
+    assert res.status_code == 200, res.text
+    business = await db.get_one(Business, BIZ)
+    await db.refresh(business)
+    assert (business.name, business.unit) == ("Renamed", "Suite 9")
+
+
+async def test_a_payments_account_keeps_its_stripe_verified_address(
+    as_owner: httpx.AsyncClient, gateway: FakePaymentGateway
+) -> None:
+    assert (await as_owner.patch("/v1/business", json={"unit": "Suite 4"})).status_code == 200
+    assert gateway.account_addresses == []
+
+
+async def test_staff_cannot_change_the_legal_address(
+    as_staff: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    res = await as_staff.patch("/v1/business", json={"city": "Toronto"})
+    assert res.status_code == 403
+    business = await db.get(Business, BIZ)
+    assert business is not None and business.city == "Victoria"
+
+
+@pytest.mark.parametrize("business_id", [BIZ, "bz_demo_second"])
+async def test_each_demo_business_has_a_complete_legal_address(
+    db: AsyncSession, business_id: str
+) -> None:
+    business = await db.get_one(Business, business_id)
+    address = postal_address(business)
+    assert address.province == "BC" and address.postal_code[0] == "V"
+    assert business.legal_phone is not None

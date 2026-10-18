@@ -109,16 +109,20 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                             onChange={form.setProvince}
                         />
                     </Field>
-                    <View style={styles.tax}>
-                        <Text style={styles.taxTitle}>
-                            {strings.business.onboarding.taxTitle(
-                                PROVINCES.find((p) => p.code === form.province)?.name ?? "",
-                            )}
-                            {": "}
-                            {form.taxSummary}
-                        </Text>
-                        <Text style={styles.taxNote}>{strings.business.onboarding.taxNone}</Text>
-                    </View>
+                    {form.taxSummary !== null ? (
+                        <View style={styles.tax}>
+                            <Text style={styles.taxTitle}>
+                                {strings.business.onboarding.taxTitle(
+                                    PROVINCES.find((p) => p.code === form.province)?.name ?? "",
+                                )}
+                                {": "}
+                                {form.taxSummary}
+                            </Text>
+                            <Text style={styles.taxNote}>
+                                {strings.business.onboarding.taxNone}
+                            </Text>
+                        </View>
+                    ) : null}
                     <Field label={strings.subjects.choiceLabel} hint={strings.subjects.choiceHelp}>
                         <Choice
                             label={strings.subjects.choiceLabel}

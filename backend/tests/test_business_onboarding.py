@@ -99,15 +99,19 @@ async def test_unauthenticated_onboard_401(api: httpx.AsyncClient) -> None:
     assert res.status_code == 401
 
 
+@pytest.mark.parametrize("province", [{"province": "XX"}, {"province": None}, {}])
 async def test_invalid_province_422(
-    api: httpx.AsyncClient, factory: Factory, identities: FakeIdentityProvider, db: AsyncSession
+    api: httpx.AsyncClient,
+    factory: Factory,
+    identities: FakeIdentityProvider,
+    db: AsyncSession,
+    province: dict[str, str | None],
 ) -> None:
     user = await factory.user()
     await _auth(api, factory, identities, user.id)
-    res = await api.post(
-        "/v1/onboarding", json={"name": "X", "slug": "bad-prov", "province": "XX", "subject": "pet"}
-    )
-    assert res.status_code == 422  # an unsupported province must be rejected, not stored
+    body = {"name": "X", "slug": "bad-prov", "subject": "pet", **province}
+    res = await api.post("/v1/onboarding", json=body)
+    assert res.status_code == 422  # an unsupported or missing province must be refused
     n = (await db.execute(text("SELECT count(*) FROM businesses WHERE slug = 'bad-prov'"))).scalar()
     assert n == 0  # and nothing partial is committed
 

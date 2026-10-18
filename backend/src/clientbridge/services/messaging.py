@@ -15,7 +15,7 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.email_layout import Brand
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
-from clientbridge.core.locale import locale_for
+from clientbridge.core.locale import locale_for, message
 from clientbridge.core.phones import e164, same_phone
 from clientbridge.core.scoping import scoped
 from clientbridge.core.zones import zone
@@ -36,7 +36,12 @@ from clientbridge.schemas.messaging import (
     MessageSend,
     ThreadOut,
 )
-from clientbridge.services.business import after_quiet_hours, quiet_hours, staff_name
+from clientbridge.services.business import (
+    after_quiet_hours,
+    postal_address,
+    quiet_hours,
+    staff_name,
+)
 from clientbridge.services.consents import (
     allows_marketing,
     latest_consents,
@@ -160,21 +165,42 @@ async def broadcast_recipients(
     return out[:_BROADCAST_CAP], len(clients) - len(out[:_BROADCAST_CAP])
 
 
+def _mailing_address(business: Business) -> str:
+    try:
+        address = postal_address(business)
+    except Unprocessable as missing:
+        raise Unprocessable(
+            "add the business legal address in Business settings before sending a broadcast",
+            code="broadcast_address_missing",
+        ) from missing
+    parts = {
+        "street": address.line1,
+        "city": address.city,
+        "province": address.province,
+        "postal_code": address.postal_code,
+    }
+    locale = locale_for(business=business)
+    if address.line2:
+        return message(locale, "broadcast.mailing_address_unit", unit=address.line2, **parts)
+    return message(locale, "broadcast.mailing_address", **parts)
+
+
 def broadcast_identity(business: Business) -> tuple[str, str]:
-    """The mailing address and a way to reach the business that every broadcast carries (CASL)."""
+    """The legal mailing address and a way to reach the business that every broadcast carries."""
     brand = business.brand or {}
 
     def text(key: str) -> str:
         value = brand.get(key)
         return value.strip() if isinstance(value, str) else ""
 
-    address = text("address")
-    if not address:
-        raise Unprocessable(
-            "add the business mailing address before sending a broadcast",
-            code="broadcast_address_missing",
-        )
-    contact = text("email") or text("phone") or text("website") or (business.billing_email or "")
+    address = _mailing_address(business)
+    contact = (
+        text("email")
+        or text("phone")
+        or (business.legal_phone or "")
+        or text("website")
+        or (business.billing_email or "")
+    )
     if not contact:
         raise Unprocessable(
             "add a business email, phone or website before sending a broadcast",

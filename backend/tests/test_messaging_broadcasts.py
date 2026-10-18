@@ -248,16 +248,23 @@ async def _brand(db: AsyncSession, **changes: object) -> None:
     await db.flush()
 
 
+async def _legal_address(db: AsyncSession, **changes: object) -> None:
+    await db.execute(update(Business).where(Business.id == BIZ).values(**changes))
+    await db.flush()
+
+
 async def test_a_broadcast_email_names_the_business_address_and_contact(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
     await _audience(db)
     now = await local_hour(db, 12)
-    await _brand(db, address="12 Main St, Victoria, BC", email="hi@birchbark.example")
+    await _brand(db, address="Downtown, by the harbour", email="hi@birchbark.example")
+    await _legal_address(db, unit="Suite 4")
     ok(await as_owner.post("/v1/broadcasts", json=_promo(channel="email", body="News")))
     await run_due_broadcasts(db, FakeSmsSender(), email, now)
     body = next(m.body for m in email.sent if m.to == "agreed@example.ca")
-    assert "12 Main St, Victoria, BC" in body and "hi@birchbark.example" in body
+    assert "Suite 4, 1207 Government Street, Victoria, BC V8W 1Y9" in body
+    assert "harbour" not in body and "hi@birchbark.example" in body
     sent = next(m for m in email.sent if m.to == "agreed@example.ca")
     assert sent.reply_to == "hi@birchbark.example" and sent.idempotency_key is not None
 
@@ -266,15 +273,17 @@ async def test_a_broadcast_without_a_mailing_address_is_refused(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await _audience(db)
-    await _brand(db, address="  ")
+    await _legal_address(db, city=None)
     res = await as_owner.post("/v1/broadcasts", json=_promo())
     assert res.status_code == 422 and res.json()["error"] == "broadcast_address_missing"
-    await _brand(db, address="12 Main St", email=None, phone=None, website=None)
-    await db.execute(update(Business).where(Business.id == BIZ).values(billing_email=None))
+    await _legal_address(db, city="Victoria", legal_phone=None, billing_email=None)
+    await _brand(db, email=None, phone=None, website=None)
     res = await as_owner.post("/v1/broadcasts", json=_promo())
     assert res.status_code == 422 and res.json()["error"] == "broadcast_contact_missing"
     count = await db.execute(select(Broadcast.id).where(Broadcast.name == "Promo"))
     assert count.first() is None
+    await _legal_address(db, legal_phone="+12505550110")
+    assert (await as_owner.post("/v1/broadcasts", json=_promo())).status_code == 200
 
 
 async def test_a_scheduled_broadcast_waits_when_its_address_is_removed(
@@ -283,7 +292,7 @@ async def test_a_scheduled_broadcast_waits_when_its_address_is_removed(
     await _audience(db)
     bid = await _scheduled(db)
     now = await local_hour(db, 12)
-    await _brand(db, address=None)
+    await _legal_address(db, street_number=None)
     assert await run_due_broadcasts(db, sms, email, now + timedelta(days=2)) == 0
     assert sms.sent == []
     assert (await db.get(Broadcast, bid)) is not None

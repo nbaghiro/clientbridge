@@ -64,6 +64,8 @@ const FAILURES: Record<string, () => string> = {
     broadcast_address_missing: () => strings.api.broadcastAddressMissing,
     broadcast_contact_missing: () => strings.api.broadcastContactMissing,
     business_address_incomplete: () => strings.api.businessAddressIncomplete,
+    postal_code_province_mismatch: () => strings.api.postalCodeProvinceMismatch,
+    province_locked: () => strings.api.provinceLocked,
     plan_required: () => strings.api.planRequired,
     seat_limit: () => strings.api.seatLimit,
     plan_active: () => strings.api.planActive,

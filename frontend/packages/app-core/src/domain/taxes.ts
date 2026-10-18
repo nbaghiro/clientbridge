@@ -2,7 +2,7 @@ import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useEffect, useMemo, useState } from "react";
 
-import { type ApiLike, newIdempotencyKey } from "../api";
+import { type ApiLike, failureMessage, newIdempotencyKey } from "../api";
 import { dateKey, wallTime, zonedDate, useBusinessZone } from "../datetime";
 import { formatList, formatMoney, formatMoneyShort, BUSINESS_CURRENCY } from "../format";
 import { type Load, useAsyncAction, useRemote } from "../hooks";
@@ -175,22 +175,29 @@ export function filingPeriod(
     return { from: day(start, 1), to: day(start + months, 0), due: day(start + months + 1, 0) };
 }
 
+// services/business.has_issued_tax: a taxed line on an issued document, or any tax ledger leg
 export const TAX_SETTINGS_SQL = `
-SELECT province, tax_registered, gst_hst_number, pst_number, filing_frequency
+SELECT province, tax_registered, gst_hst_number, pst_number, filing_frequency,
+       EXISTS (SELECT 1 FROM lines l WHERE l.tax_amount_cents > 0 AND (
+                   l.invoice_id IN (SELECT id FROM invoices WHERE status <> 'draft')
+                   OR l.estimate_id IN (SELECT id FROM estimates WHERE status <> 'draft')
+                   OR l.order_id IN (SELECT id FROM orders WHERE status <> 'void')))
+       OR EXISTS (SELECT 1 FROM entries e JOIN accounts a ON a.id = e.account_id
+                  WHERE a.category = 'tax') AS province_locked
 FROM businesses LIMIT 1`;
 
 interface TaxSettingsRow {
-    province: string | null;
+    province: ProvinceCode | null;
     tax_registered: number | null;
     gst_hst_number: string | null;
     pst_number: string | null;
     filing_frequency: string | null;
+    province_locked: number;
 }
 
 export interface TaxSettingsForm {
     load: Load;
-    province: string | null;
-    provinceName: string;
+    province: ProvinceCode | null;
     taxLines: { label: string; level: "federal" | "provincial" }[];
     hasPst: boolean;
     registration: TaxRegistration;
@@ -208,6 +215,16 @@ export interface TaxSettingsForm {
     error: string | null;
     saved: boolean;
     submit: () => void;
+    // the province picked to replace the current one, changed only after the screen confirms it
+    nextProvince: ProvinceCode | null;
+    setNextProvince: (code: ProvinceCode) => void;
+    nextProvinceName: string;
+    // once a document has charged tax the province is fixed, as the server enforces
+    provinceLocked: boolean;
+    provinceChanged: boolean;
+    provinceBusy: boolean;
+    provinceError: string | null;
+    changeProvince: () => void;
 }
 
 /** The registration switch, the numbers that print on invoices, and the next return. */
@@ -231,11 +248,14 @@ export function useTaxSettingsForm(
     const [fieldErrors, setFieldErrors] = useState<TaxSettingsForm["fieldErrors"]>({});
     const [saved, setSaved] = useState(false);
     const { busy, error, run } = useAsyncAction();
+    const provinceAction = useAsyncAction();
+    const [nextProvince, setNextProvince] = useState<ProvinceCode | null>(null);
     useEffect(() => {
         setDraft(initial);
     }, [initial]);
 
     const province = row?.province ?? null;
+    const picked = nextProvince ?? province;
     const zone = useBusinessZone();
     const lines = taxLinesFor(province, dateKey(new Date(), zone));
     const period = filingPeriod(draft.frequency, zone);
@@ -255,7 +275,6 @@ export function useTaxSettingsForm(
     return {
         load,
         province,
-        provinceName: province === null ? "" : provinceName(province),
         taxLines: lines.map((l) => ({
             label: rateLabel(l),
             level: isFederal(l.code) ? "federal" : "provincial",
@@ -306,6 +325,21 @@ export function useTaxSettingsForm(
                     },
                 },
             );
+        },
+        nextProvince,
+        setNextProvince,
+        nextProvinceName: picked === null ? "" : provinceName(picked),
+        provinceLocked: row?.province_locked === 1,
+        provinceChanged:
+            row?.province_locked !== 1 && nextProvince !== null && nextProvince !== province,
+        provinceBusy: provinceAction.busy,
+        provinceError: provinceAction.error,
+        changeProvince: () => {
+            if (row?.province_locked === 1 || nextProvince === null || nextProvince === province)
+                return;
+            provinceAction.run(() => api.patch("/v1/business", { province: nextProvince }), {
+                errorMessage: (e) => failureMessage(e, t.provinceSaveError),
+            });
         },
     };
 }

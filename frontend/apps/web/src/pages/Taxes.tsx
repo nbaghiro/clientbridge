@@ -1,6 +1,7 @@
 import {
     type ItemTaxClass,
     type ItemTaxClasses,
+    type ProvinceCode,
     type TaxSettingsForm,
     FILING_FREQUENCIES,
     PROVINCES,
@@ -34,6 +35,7 @@ import {
     Select,
     Skeleton,
     TextField,
+    confirm,
 } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
@@ -41,6 +43,19 @@ import { useOpenLink } from "../lib/links";
 
 const s = strings.taxes;
 const provinceName = (code: string): string => PROVINCES.find((p) => p.code === code)?.name ?? code;
+const PROVINCE_OPTIONS = () => PROVINCES.map((p) => ({ key: p.code, label: p.name }));
+
+function confirmProvince(form: TaxSettingsForm): void {
+    confirm({
+        title: s.provinceConfirmTitle(form.nextProvinceName),
+        message: s.provinceConfirmBody(form.nextProvinceName),
+        confirmLabel: s.provinceChange,
+    })
+        .then((ok) => {
+            if (ok) form.changeProvince();
+        })
+        .catch(() => undefined);
+}
 const grid =
     "grid grid-cols-[20px_minmax(0,2fr)_84px_150px] items-center gap-3 xl:grid-cols-[20px_minmax(0,2fr)_minmax(0,0.8fr)_84px_150px]";
 
@@ -312,13 +327,7 @@ export function Taxes() {
                                             {s.offNotice}
                                         </Notice>
                                     )}
-                                    <div className="flex items-center justify-between gap-3 rounded-md border border-line bg-bg px-3 py-2.5">
-                                        <div>
-                                            <p className="text-xs text-muted">{s.province}</p>
-                                            <p className="text-sm font-medium text-ink">
-                                                {form.provinceName}
-                                            </p>
-                                        </div>
+                                    <div className="space-y-3 rounded-md border border-line bg-bg px-3 py-2.5">
                                         <div className="flex gap-1.5">
                                             {form.taxLines.map((l) => (
                                                 <Badge
@@ -328,6 +337,32 @@ export function Taxes() {
                                                 />
                                             ))}
                                         </div>
+                                        <Select<ProvinceCode>
+                                            label={s.province}
+                                            hint={
+                                                form.provinceLocked
+                                                    ? s.provinceLocked
+                                                    : s.provinceHint
+                                            }
+                                            value={form.nextProvince ?? form.province ?? undefined}
+                                            options={PROVINCE_OPTIONS()}
+                                            onChange={form.setNextProvince}
+                                            disabled={form.provinceBusy || form.provinceLocked}
+                                        />
+                                        {form.provinceError !== null ? (
+                                            <Notice tone="danger">{form.provinceError}</Notice>
+                                        ) : null}
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            busy={form.provinceBusy}
+                                            disabled={!form.provinceChanged}
+                                            onPress={() => {
+                                                confirmProvince(form);
+                                            }}
+                                        >
+                                            {s.provinceChange}
+                                        </Button>
                                     </div>
                                     <TextField
                                         label={s.gst}

@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from clientbridge.core.mirrors import Mirror
+from clientbridge.core.phones import Phone
 from clientbridge.models.business import (
     Business,
     BusinessStatus,
@@ -18,6 +19,7 @@ from clientbridge.schemas.public import HEX_COLOR
 GST_HST_NUMBER = re.compile(r"^\d{9}RT\d{4}$")
 QST_NUMBER = re.compile(r"^\d{10}TQ\d{4}$")
 PST_NUMBER = re.compile(r"^(PST)?\d{4}\d{4}$")
+POSTAL_CODE = re.compile(r"^([A-Z][0-9][A-Z])([0-9][A-Z][0-9])$")
 
 
 def public_email(value: str | None) -> str | None:
@@ -66,6 +68,12 @@ class BusinessOut(Mirror):
     setup_dismissed_at: datetime | None
     review_hold_at: int
     google_review_url: str | None
+    unit: str | None
+    street_number: str | None
+    street_name: str | None
+    city: str | None
+    postal_code: str | None
+    legal_phone: str | None
     brand: dict[str, object]
     subject: SubjectKind | None
 
@@ -157,28 +165,52 @@ class BusinessSettingsUpdate(Mirror):
     google_review_url: str | None = Field(
         default=None, description="The Google review link shared after a good review; empty clears"
     )
+    province: ProvinceCode | None = Field(
+        default=None,
+        description="Sets the sales tax for new prices; issued documents keep the tax they charged",
+    )
+    unit: str | None = Field(default=None, max_length=20)
+    street_number: str | None = Field(default=None, max_length=20)
+    street_name: str | None = Field(default=None, max_length=100)
+    city: str | None = Field(default=None, max_length=100)
+    postal_code: str | None = Field(default=None, description="A postal code; empty clears")
+    legal_phone: Phone = Field(
+        default=None, description="The business's legal contact phone; empty clears"
+    )
     brand: BrandInput | None = None
     subject: SubjectKind | None = Field(
         default=None, description="What bookings are for besides the client; null books only them"
     )
 
+    @field_validator("unit", "street_number", "street_name", "city")
+    @classmethod
+    def _trim_address(cls, value: str | None) -> str | None:
+        return (value or "").strip() or None
+
+    @field_validator("postal_code")
+    @classmethod
+    def _check_postal_code(cls, value: str | None) -> str | None:
+        compact = re.sub(r"\s", "", value or "").upper()
+        if not compact:
+            return None
+        match = POSTAL_CODE.match(compact)
+        if match is None:
+            raise ValueError("enter the postal code like V8W 1Y9")
+        return f"{match.group(1)} {match.group(2)}"
+
     @field_validator("google_review_url")
     @classmethod
     def _check_google(cls, v: str | None) -> str | None:
-        if v is None:
-            return None
-        v = v.strip()
-        if v != "" and not v.startswith("https://"):
+        v = (v or "").strip()
+        if v and not v.startswith("https://"):
             raise ValueError("the review link must start with https://")
-        return v
+        return v or None
 
     @staticmethod
     def _tax_number(v: str | None, pattern: re.Pattern[str], example: str) -> str | None:
-        if v is None:
+        compact = re.sub(r"[\s-]", "", v or "").upper()
+        if not compact:
             return None
-        compact = re.sub(r"[\s-]", "", v).upper()
-        if compact == "":
-            return ""
         if pattern.match(compact) is None:
             raise ValueError(f"enter the number like {example}")
         return compact

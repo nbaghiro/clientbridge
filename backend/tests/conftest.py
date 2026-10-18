@@ -340,6 +340,7 @@ class FakePaymentGateway:
         self.created_accounts: list[str] = []
         self.configurations: dict[str, set[AccountConfiguration]] = {}
         self.merchant_added: list[str] = []
+        self.account_addresses: list[tuple[str, PostalAddress]] = []
         self.customer_added: list[tuple[str, PostalAddress]] = []
         self.checkouts: list[PlanCheckout] = []
         self.checkout_keys: dict[str, str] = {}
@@ -403,6 +404,9 @@ class FakePaymentGateway:
     async def add_customer_configuration(self, account_id: str, *, address: PostalAddress) -> None:
         self.customer_added.append((account_id, address))
         self.configurations.setdefault(account_id, set()).add("customer")
+
+    async def update_account_address(self, account_id: str, *, address: PostalAddress) -> None:
+        self.account_addresses.append((account_id, address))
 
     async def create_plan_checkout(
         self,

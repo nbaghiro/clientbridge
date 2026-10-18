@@ -1,6 +1,12 @@
 from fastapi import APIRouter
 
-from clientbridge.core.deps import CurrentPrincipal, CurrentUser, DbSession, FreshIdentity
+from clientbridge.core.deps import (
+    CurrentPrincipal,
+    CurrentUser,
+    DbSession,
+    FreshIdentity,
+    GatewayDep,
+)
 from clientbridge.schemas.business import BusinessOut, BusinessSettingsUpdate, OnboardBody
 from clientbridge.services.business import BusinessService, OnboardingService
 
@@ -9,9 +15,9 @@ business_router = APIRouter(prefix="/business", tags=["business"])
 
 @business_router.patch("", response_model=BusinessOut)
 async def update_business(
-    body: BusinessSettingsUpdate, principal: CurrentPrincipal, db: DbSession
+    body: BusinessSettingsUpdate, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
 ) -> BusinessOut:
-    business = await BusinessService(db, principal).update_settings(body)
+    business = await BusinessService(db, principal, gateway).update_settings(body)
     return BusinessOut.model_validate(business)
 
 

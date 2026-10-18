@@ -181,10 +181,16 @@
         "message": "This member still has upcoming visits. Choose whether to move or cancel them."
     },
     "api.broadcastAddressMissing": {
-        "message": "Add your business mailing address in Business settings before sending a broadcast. Canada's anti-spam law requires it in every broadcast."
+        "message": "Add your legal address in Business settings before sending a broadcast. Canada's anti-spam law requires a mailing address in every broadcast."
     },
     "api.broadcastContactMissing": {
         "message": "Add a business email, phone number or website in Business settings before sending a broadcast."
+    },
+    "api.provinceLocked": {
+        "message": "The province can't change after a document that charged tax has been issued."
+    },
+    "api.postalCodeProvinceMismatch": {
+        "message": "That postal code is in a different province. Check the postal code and the province."
     },
     "api.businessAddressIncomplete": {
         "message": "Add the business street address, city, province and postal code in Business settings first."
@@ -6300,6 +6306,44 @@
     "business.billingEmailPlaceholder": {
         "message": "you@example.com"
     },
+    "business.legalAddress.title": {
+        "message": "Legal address and phone"
+    },
+    "business.legalAddress.hint": {
+        "message": "Used for your plan, sales tax, card payments and the mailing address every broadcast must carry. Your public address is part of your profile in Get set up."
+    },
+    "business.legalAddress.unit": {
+        "message": "Unit or suite"
+    },
+    "business.legalAddress.streetNumber": {
+        "message": "Street number"
+    },
+    "business.legalAddress.streetName": {
+        "message": "Street name"
+    },
+    "business.legalAddress.city": {
+        "message": "City"
+    },
+    "business.legalAddress.province": {
+        "message": "Province or territory"
+    },
+    "business.legalAddress.provinceHint": {
+        "message": "It decides the sales tax you charge. Change it in Sales tax."
+    },
+    "business.legalAddress.postalCode": {
+        "message": "Postal code"
+    },
+    "business.legalAddress.postalCodePlaceholder": {
+        "message": "A1A 1A1",
+        "description": "A Canadian postal code pattern, shown as an input placeholder"
+    },
+    "business.legalAddress.legalPhone": {
+        "message": "Business phone"
+    },
+    "business.legalAddress.legalPhonePlaceholder": {
+        "message": "250-555-0123",
+        "description": "A local phone number pattern, shown as an input placeholder"
+    },
     "business.nameRequired": {
         "message": "Business name is required"
     },
@@ -6377,6 +6421,9 @@
     "business.onboarding.province": {
         "message": "Province"
     },
+    "business.onboarding.provincePlaceholder": {
+        "message": "Choose a province or territory"
+    },
     "business.onboarding.taxTitle": {
         "message": "Sales tax in {province}",
         "args": ["province"]
@@ -6404,6 +6451,9 @@
     },
     "business.onboarding.slugRequired": {
         "message": "A web address is required"
+    },
+    "business.onboarding.provinceRequired": {
+        "message": "Choose the province or territory where the business is"
     },
     "business.onboarding.createError": {
         "message": "Couldn’t create your business — that web address may be taken."
@@ -8401,6 +8451,26 @@
     },
     "taxes.province": {
         "message": "Province"
+    },
+    "taxes.provinceHint": {
+        "message": "Sets the sales tax you charge. Change it if it was picked by mistake or the business moved."
+    },
+    "taxes.provinceLocked": {
+        "message": "The province can't change after an invoice, estimate or sale that charged tax has been issued."
+    },
+    "taxes.provinceChange": {
+        "message": "Change province"
+    },
+    "taxes.provinceConfirmTitle": {
+        "message": "Change the province to {province}?",
+        "args": ["province"]
+    },
+    "taxes.provinceConfirmBody": {
+        "message": "New prices, sales and invoices will charge the sales tax of {province}. Invoices, sales and receipts already issued keep the tax they charged.",
+        "args": ["province"]
+    },
+    "taxes.provinceSaveError": {
+        "message": "We couldn't change the province. Try again."
     },
     "taxes.gst": {
         "message": "GST/HST number"
