@@ -3,26 +3,11 @@ import hashlib
 from functools import lru_cache
 
 import jwt
-from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
-
-_ph = PasswordHasher()
-
-
-def hash_password(password: str) -> str:
-    return _ph.hash(password)
-
-
-def verify_password(password: str, hashed: str) -> bool:
-    try:
-        return _ph.verify(hashed, password)
-    except VerifyMismatchError:
-        return False
 
 
 def hash_token(token: str) -> str:
