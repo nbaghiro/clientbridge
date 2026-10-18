@@ -428,6 +428,12 @@ msgstr ""
 msgid "receipt.tax"
 msgstr ""
 
+msgid "receipt.tip"
+msgstr ""
+
+msgid "receipt.tip_label"
+msgstr ""
+
 msgid "receipt.total"
 msgstr ""
 

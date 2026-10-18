@@ -8,6 +8,7 @@ from clientbridge.models.billing import Line, Order
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
+from tests.conftest import FakeEmailSender
 from tests.helpers import enable_payments, key, ok, payment, sent_invoice, settle, stripe_event
 
 BIZ = "bz_birchbark"
@@ -210,6 +211,26 @@ async def test_card_tip_settles_through_the_webhook(
     assert await _tip_journals(db, intent["payment_id"]) == {"st_diego": 500}
     status, _ = await ledger.order_state(db, await _order(db, sale["id"]))
     assert status == "paid"
+
+
+async def test_a_tipped_receipt_lists_the_tip_and_counts_it_in_the_total(
+    api: httpx.AsyncClient, as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    await enable_payments(db)
+    sale = ok(
+        await as_owner.post(
+            "/v1/orders", json={"lines": [SHAMPOO], "receipt_email": "walkin@example.ca"}
+        ),
+        201,
+    ).json()
+    intent = ok(
+        await as_owner.post(f"/v1/orders/{sale['id']}/pay", json={"tip_cents": 500}, headers=key())
+    ).json()
+    await settle(api, db, intent["payment_id"])
+    (receipt,) = [m for m in email.sent if m.to == "walkin@example.ca"]
+    assert "Your payment of $31.88" in receipt.body
+    assert "Tip  $5.00" in receipt.body
+    assert "Total  $31.88" in receipt.body
 
 
 async def test_pay_link_takes_a_tip_for_the_invoice(
