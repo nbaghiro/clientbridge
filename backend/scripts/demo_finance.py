@@ -636,24 +636,29 @@ async def _earnings(db: AsyncSession, ctx: DemoContext) -> None:
             )
 
 
+async def _stripe_held(
+    db: AsyncSession, ctx: DemoContext, before: datetime, *, available_by: datetime | None
+) -> int:
+    query = (
+        scoped(Entry, ctx.business_id)
+        .with_only_columns(func.coalesce(func.sum(Entry.amount_cents), 0))
+        .join(Account, Account.id == Entry.account_id)
+        .where(
+            Account.owner_type == "business",
+            Account.owner_id == ctx.business_id,
+            Account.category == "stripe",
+            Entry.occurred_at < before,
+        )
+    )
+    if available_by is not None:
+        query = query.where(func.coalesce(Entry.available_at, Entry.occurred_at) <= available_by)
+    return int(await db.scalar(query) or 0)
+
+
 async def seed_payouts(db: AsyncSession, ctx: DemoContext) -> None:
     for index, day in enumerate(range(-112, -6, 7)):
         arrival = ctx.at(day, 10)
-        amount = int(
-            await db.scalar(
-                scoped(Entry, ctx.business_id)
-                .with_only_columns(func.coalesce(func.sum(Entry.amount_cents), 0))
-                .join(Account, Account.id == Entry.account_id)
-                .where(
-                    Account.owner_type == "business",
-                    Account.owner_id == ctx.business_id,
-                    Account.category == "stripe",
-                    Entry.occurred_at < arrival,
-                    func.coalesce(Entry.available_at, Entry.occurred_at) <= arrival,
-                )
-            )
-            or 0
-        )
+        amount = await _stripe_held(db, ctx, arrival, available_by=arrival)
         if amount <= 0:
             continue
         payout_id = f"po_demo_{ctx.business_id}_w{index}"
@@ -670,6 +675,19 @@ async def seed_payouts(db: AsyncSession, ctx: DemoContext) -> None:
             await ledger.fail_payout(
                 db, ctx.business_id, payout_id, occurred_at=arrival + timedelta(days=1)
             )
+    # deployed demo businesses link to empty Stripe test accounts, which reconcile_ledger compares
+    swept = ctx.now - timedelta(minutes=1)
+    remaining = await _stripe_held(db, ctx, swept, available_by=None)
+    if remaining > 0:
+        await ledger.post_payout(
+            db,
+            ctx.business_id,
+            payout_id=f"po_demo_{ctx.business_id}_final",
+            amount=remaining,
+            currency="CAD",
+            arrival_at=swept,
+            occurred_at=swept,
+        )
 
 
 async def seed_finance(db: AsyncSession, ctx: DemoContext) -> None:
