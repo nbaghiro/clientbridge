@@ -34,7 +34,24 @@ function Tiers({ plan }: { plan: PlanView }) {
                     <Panel key={tier.plan} title={tier.name}>
                         <div className="space-y-3">
                             <p className="text-sm text-ink-soft">{tier.summary}</p>
-                            <p className="font-display text-2xl font-bold text-ink">{tier.price}</p>
+                            <div>
+                                {tier.anchor !== null ? (
+                                    <s
+                                        aria-label={tier.anchorLabel ?? undefined}
+                                        className="block text-sm tabular-nums text-muted"
+                                    >
+                                        {tier.anchor}
+                                    </s>
+                                ) : null}
+                                <div className="flex flex-wrap items-baseline gap-2">
+                                    <p className="font-display text-2xl font-bold tabular-nums text-ink">
+                                        {tier.price}
+                                    </p>
+                                    {tier.saving !== null ? (
+                                        <Badge label={tier.saving} intent="success" />
+                                    ) : null}
+                                </div>
+                            </div>
                             <p className="text-sm text-muted">{tier.staff}</p>
                             {tier.current ? (
                                 <Badge label={p.current} intent="success" />

@@ -12733,8 +12733,17 @@
         "args": ["price"]
     },
     "plans.perYear": {
-        "message": "{price} / year, two months free",
+        "message": "{price} / year",
         "description": "A yearly plan price; the amount is already formatted with its currency.",
+        "args": ["price"]
+    },
+    "plans.yearSaving": {
+        "message": "2 months free",
+        "description": "A badge beside a yearly plan price, next to the struck-through cost of paying monthly for a year."
+    },
+    "plans.anchorLabel": {
+        "message": "{price} a year when paid monthly",
+        "description": "Accessible name of the struck-through yearly cost of paying monthly; the amount is already formatted with its currency.",
         "args": ["price"]
     },
     "plans.monthly": {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { formatDate } from "../datetime";
+import { formatMoney } from "../format";
 import { strings } from "../strings";
 import { planAccess, planNotice, planTiers, trialDaysLeft, trialDetail } from "./plans";
 
@@ -92,5 +93,35 @@ describe("planTiers", () => {
             [false, p.switchTo(p.premium)],
             [true, p.switchTo(p.team)],
         ]);
+    });
+
+    const yearly = {
+        ...state,
+        prices: [
+            ...state.prices,
+            { plan: "premium" as const, interval: "year" as const, amount_cents: 49990 },
+            { plan: "team" as const, interval: "year" as const, amount_cents: 119988 },
+        ],
+    };
+
+    it("strikes through a year paid monthly beside a discounted yearly price", () => {
+        const [premium] = planTiers(yearly, "year");
+        const anchor = formatMoney(59988, "CAD");
+        expect(premium).toMatchObject({
+            price: p.perYear(formatMoney(49990, "CAD")),
+            anchor,
+            anchorLabel: p.anchorLabel(anchor),
+            saving: p.yearSaving,
+        });
+    });
+
+    it("shows no anchor monthly or when the yearly price saves nothing", () => {
+        const monthly = planTiers(yearly, "month").map((t) => [t.anchor, t.anchorLabel, t.saving]);
+        expect(monthly).toEqual([
+            [null, null, null],
+            [null, null, null],
+        ]);
+        const team = planTiers(yearly, "year")[1];
+        expect([team?.anchor, team?.saving]).toEqual([null, null]);
     });
 });
