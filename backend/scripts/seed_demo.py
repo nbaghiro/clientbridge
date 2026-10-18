@@ -1102,6 +1102,7 @@ def seed_online_shop() -> None:
             total_cents=3248,
             source="online",
             pickup_status="unfulfilled",
+            paid_at=at(-1, 18),
         )
     )
     rows.append(

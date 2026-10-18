@@ -43,7 +43,7 @@ export function PublicDocument({
                     <div className={`mx-auto ${max} px-4 pb-16 pt-3 sm:px-6`}>{hero}</div>
                 ) : null}
             </BusinessCover>
-            <div className={hero !== undefined ? "relative -mt-10 flex-1" : "flex-1"}>
+            <div className={hero !== undefined ? "relative z-20 -mt-10 flex-1" : "flex-1"}>
                 {children}
             </div>
             <PoweredBy />

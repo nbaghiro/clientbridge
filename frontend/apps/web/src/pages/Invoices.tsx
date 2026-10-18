@@ -270,11 +270,7 @@ function InvoiceDeskView({
                             </span>
                         </span>
                         <span className="text-right">
-                            <Money
-                                currency={BUSINESS_CURRENCY}
-                                cents={r.row.total_cents}
-                                tone="muted"
-                            />
+                            <Money currency={BUSINESS_CURRENCY} cents={r.totalCents} tone="muted" />
                         </span>
                         <span className="text-right">
                             {(r.row.balance_cents ?? 0) > 0 && r.status !== "void" ? (

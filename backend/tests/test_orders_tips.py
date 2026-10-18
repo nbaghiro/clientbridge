@@ -4,10 +4,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
-from clientbridge.models.billing import Line, Order
+from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
+from tests.conftest import FakeEmailSender
 from tests.helpers import enable_payments, key, ok, payment, sent_invoice, settle, stripe_event
 
 BIZ = "bz_birchbark"
@@ -212,6 +213,26 @@ async def test_card_tip_settles_through_the_webhook(
     assert status == "paid"
 
 
+async def test_a_tipped_receipt_lists_the_tip_and_counts_it_in_the_total(
+    api: httpx.AsyncClient, as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    await enable_payments(db)
+    sale = ok(
+        await as_owner.post(
+            "/v1/orders", json={"lines": [SHAMPOO], "receipt_email": "walkin@example.ca"}
+        ),
+        201,
+    ).json()
+    intent = ok(
+        await as_owner.post(f"/v1/orders/{sale['id']}/pay", json={"tip_cents": 500}, headers=key())
+    ).json()
+    await settle(api, db, intent["payment_id"])
+    (receipt,) = [m for m in email.sent if m.to == "walkin@example.ca"]
+    assert "Your payment of $31.88" in receipt.body
+    assert "Tip  $5.00" in receipt.body
+    assert "Total  $31.88" in receipt.body
+
+
 async def test_pay_link_takes_a_tip_for_the_invoice(
     api: httpx.AsyncClient, unauth: httpx.AsyncClient, db: AsyncSession
 ) -> None:
@@ -247,6 +268,53 @@ async def test_pay_link_takes_a_tip_for_the_invoice(
     )
     too_much = await unauth.post("/pay/tok_tip/card", json={"tip_cents": 1})
     assert too_much.status_code == 409
+
+
+async def test_a_second_tipped_instalment_receipt_counts_every_tip_on_the_invoice(
+    api: httpx.AsyncClient, unauth: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    await enable_payments(db)
+    inv = await sent_invoice(db, total=10000, pay_token="tok_two")
+    db.add(
+        Line(
+            id=new_id("line"),
+            business_id=BIZ,
+            invoice_id=inv,
+            item_id="it_groom_sm",
+            description="Full Groom",
+            unit_amount_cents=10000,
+            amount_cents=10000,
+        )
+    )
+    invoice = await db.get(Invoice, inv)
+    assert invoice is not None
+    first = Payment(
+        id=new_id("payment"),
+        business_id=BIZ,
+        client_id=invoice.client_id,
+        kind="payment",
+        invoice_id=inv,
+        amount_cents=5500,
+        tip_cents=500,
+        tip_split=[{"staff_id": "st_owner", "cents": 500}],
+        currency="CAD",
+        method="cash",
+        provider="manual",
+        status="succeeded",
+    )
+    db.add(first)
+    await db.flush()
+    await ledger.post_payment(db, first)
+    ok(await unauth.post("/pay/tok_two/card", json={"tip_cents": 1000}))
+    second = (
+        await db.execute(
+            select(Payment).where(Payment.invoice_id == inv, Payment.status == "pending")
+        )
+    ).scalar_one()
+    await settle(api, db, second.id)
+    (receipt,) = [m for m in email.sent if "Your payment of $60.00" in m.body]
+    assert "Tip  $15.00" in receipt.body
+    assert "Total  $115.00" in receipt.body
 
 
 async def test_pay_link_refuses_a_tip_larger_than_the_bill(

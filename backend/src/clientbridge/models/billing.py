@@ -124,6 +124,7 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
     )
     ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     picked_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # staff lack a ledger
     note: Mapped[str | None] = mapped_column(String)  # why a sale was held
     status_token: Mapped[str | None] = mapped_column(String, unique=True)
     receipt_token: Mapped[str | None] = mapped_column(String, unique=True)  # public receipt key

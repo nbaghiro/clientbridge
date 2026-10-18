@@ -222,6 +222,7 @@ function invoice(extra: Partial<InvoiceRow> = {}): InvoiceRow {
         total_cents: 5000,
         balance_cents: 5000,
         paid_cents: 0,
+        tip_cents: 0,
         issued_at: null,
         due_at: null,
         paid_at: null,
@@ -266,7 +267,11 @@ describe("invoice status and stats", () => {
             number: strings.billing.number(7),
             dueLabel: strings.billing.overdueBy(2),
             late: true,
+            totalCents: 5000,
         });
+        expect(listRow(invoice({ status: "paid", tip_cents: 750 }), ZONE, now).totalCents).toBe(
+            5750,
+        );
     });
 
     it("totals what is outstanding, overdue, paid in the last 30 days and still in draft", () => {

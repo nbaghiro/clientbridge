@@ -419,6 +419,12 @@ msgstr "Subtotal"
 msgid "receipt.tax"
 msgstr "{tax}  {amount}"
 
+msgid "receipt.tip"
+msgstr "Tip  {amount}"
+
+msgid "receipt.tip_label"
+msgstr "Tip"
+
 msgid "receipt.total"
 msgstr "Total  {amount}"
 

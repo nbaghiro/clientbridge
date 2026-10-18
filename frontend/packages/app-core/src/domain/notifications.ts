@@ -49,6 +49,7 @@ type NotificationKind =
     | "payment"
     | "deposit"
     | "refund"
+    | "order_new"
     | "booking_new"
     | "booking_canceled"
     | "message"
@@ -72,15 +73,22 @@ interface FeedRow {
 
 const since = (column: string): string => `${utcSql(column)} >= datetime(?)`;
 
-// Derived from synced rows, so each member only sees what their sync bucket holds. Six `since` params.
+// Derived from synced rows, so each member only sees what their sync bucket holds. Seven `since` params.
 export const NOTIFICATION_FEED_SQL = `
 SELECT 'pay-' || p.id AS id,
        CASE p.kind WHEN 'refund' THEN 'refund' WHEN 'deposit' THEN 'deposit' ELSE 'payment' END AS kind,
        COALESCE(p.paid_at, p.created_at) AS at, p.client_id, c.name AS client_name,
        p.amount_cents, NULL AS item_name, NULL AS rating, NULL AS number, NULL AS body,
        p.id AS ref_id, NULL AS starts_at
-FROM payments p LEFT JOIN clients c ON c.id = p.client_id
+FROM payments p LEFT JOIN clients c ON c.id = p.client_id LEFT JOIN orders o ON o.id = p.order_id
 WHERE p.status = 'succeeded' AND ${since("COALESCE(p.paid_at, p.created_at)")}
+  AND (p.kind <> 'payment' OR COALESCE(o.source, '') <> 'online')
+UNION ALL
+SELECT 'ord-' || o.id, 'order_new', o.paid_at, o.client_id, c.name, NULL, NULL, NULL, o.number,
+       NULL, o.id, NULL
+FROM orders o LEFT JOIN clients c ON c.id = o.client_id
+WHERE o.source = 'online' AND o.pickup_status IS NOT NULL AND o.paid_at IS NOT NULL
+  AND ${since("o.paid_at")}
 UNION ALL
 SELECT 'bk-' || b.id, 'booking_new', b.created_at, b.client_id, c.name, NULL, i.name, NULL, NULL,
        NULL, b.id, s.starts_at
@@ -123,6 +131,7 @@ const META: Record<
     payment: { category: "payments", icon: "dollar", intent: "success", link: "payments" },
     deposit: { category: "payments", icon: "dollar", intent: "success", link: "schedule" },
     refund: { category: "payments", icon: "refresh", intent: "neutral", link: "payments" },
+    order_new: { category: "payments", icon: "bag", intent: "accent", link: "orders" },
     booking_new: { category: "bookings", icon: "calendar", intent: "accent", link: "schedule" },
     booking_canceled: {
         category: "bookings",
@@ -168,6 +177,8 @@ function describeRow(row: FeedRow, zone: string): { title: string; body: string 
             return { title: n.deposit, body: n.depositBody(client, amount) };
         case "refund":
             return { title: n.refund, body: n.refundBody(client, amount) };
+        case "order_new":
+            return { title: n.orderNew, body: n.orderNewBody(client, row.number ?? 0) };
         case "booking_new":
             return { title: n.bookingNew, body: n.bookingBody(client, row.item_name ?? "", when) };
         case "booking_canceled":
@@ -230,7 +241,7 @@ export function useNotifications(viewer: Viewer | null): NotificationsView {
     const [now] = useState(() => new Date());
     const zone = useBusinessZone();
     const from = addDays(now, -FEED_DAYS, zone).toISOString();
-    const feed = useQuery<FeedRow>(NOTIFICATION_FEED_SQL, [from, from, from, from, from, from]);
+    const feed = useQuery<FeedRow>(NOTIFICATION_FEED_SQL, Array<string>(7).fill(from));
     const manager = canManagePayments(viewer?.role ?? null);
     const mine = useQuery<{ client_id: string }>(MY_CLIENTS_SQL, [viewer?.staffId ?? ""]).data;
     const [readIds, setReadIds] = useDeviceList("notifications.read", 200);

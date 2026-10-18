@@ -257,7 +257,7 @@ function InvoiceDeskView({
                                 cents={
                                     (r.row.balance_cents ?? 0) > 0
                                         ? r.row.balance_cents
-                                        : r.row.total_cents
+                                        : r.totalCents
                                 }
                                 strong
                                 tone={r.late ? "danger" : "ink"}

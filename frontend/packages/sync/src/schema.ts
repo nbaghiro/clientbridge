@@ -374,6 +374,7 @@ const orders = new Table(
         notify_sms: column.integer,
         ready_at: column.text,
         picked_up_at: column.text,
+        paid_at: column.text,
         note: column.text,
         receipt_channel: column.text,
         receipt_sent_at: column.text,

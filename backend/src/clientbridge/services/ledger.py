@@ -687,6 +687,12 @@ def tip_shares(payment: Payment) -> list[tuple[str, int]]:
     return [(str(s["staff_id"]), int(str(s["cents"]))) for s in payment.tip_split or []]
 
 
+async def document_tips(db: AsyncSession, business_id: str, subject: tuple[str, str]) -> int:
+    """Tips paid on an invoice or order, less what refunds and lost disputes returned."""
+    rows = await _rows(db, business_id, _subject_legs(*subject) & (Entry.event != "tip"))
+    return -sum(entry.amount_cents for entry, account in rows if account.category == "staff_cost")
+
+
 async def tip_returned(db: AsyncSession, original: Payment, returned: int, refund_id: str) -> int:
     """The tip's pro rata part of a refund; the last refund returns exactly what is left of it."""
     if original.tip_cents <= 0:

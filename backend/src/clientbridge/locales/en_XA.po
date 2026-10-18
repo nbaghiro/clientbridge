@@ -437,6 +437,12 @@ msgstr "[Šûƀţöţåļ~~~]"
 msgid "receipt.tax"
 msgstr "[{tax}  {amount}~]"
 
+msgid "receipt.tip"
+msgstr "[Ţîþ  {amount}~~]"
+
+msgid "receipt.tip_label"
+msgstr "[Ţîþ~~]"
+
 msgid "receipt.total"
 msgstr "[Ţöţåļ  {amount}~~~]"
 

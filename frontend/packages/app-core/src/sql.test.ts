@@ -315,6 +315,7 @@ function seed(): void {
             total_cents: 4800,
             source: "online",
             pickup_status: "ready",
+            paid_at: "2026-06-24T09:00:00Z",
         },
         {
             id: "ord_gone",
@@ -327,6 +328,7 @@ function seed(): void {
             total_cents: 100,
             source: "online",
             pickup_status: "picked_up",
+            paid_at: "2026-06-23T08:00:00Z",
         },
     ]);
     scoped("lines", [
@@ -1068,6 +1070,49 @@ describe("app-core SQL against the replica schema", () => {
             { id: "inv_3", client_email: null, paid_cents: 2000, paid_at: TS },
             { id: "inv_2", client_email: null, paid_cents: 0, paid_at: null },
         ]);
+        const on1 = (source: string): Row => ({
+            subject_type: "invoice",
+            subject_id: "inv_1",
+            source_type: "payment",
+            source_id: source,
+        });
+        const tipped = () => ({
+            invoice: pick(run("INVOICE_SQL", ["inv_1"]), "total_cents", "tip_cents"),
+            credits: pick(run("INVOICE_CREDITS_SQL", ["inv_1"]), "cents"),
+        });
+        db.run("UPDATE payments SET tip_cents = 800 WHERE id = 'pay_1'");
+        journal("j_tipc", "payment", "payment:pay_1:tip", [["a_cost", -800]], on1("pay_1"));
+        journal(
+            "j_tip",
+            "tip",
+            "tip:pay_1:st_amy",
+            [
+                ["a_cost", 800],
+                ["a_pay_amy", -800],
+            ],
+            on1("pay_1"),
+        );
+        expect(tipped()).toEqual({
+            invoice: [{ total_cents: 11200, tip_cents: 800 }],
+            credits: [{ cents: 5800 }],
+        });
+        journal("j_tipr", "refund", "refund:pay_r1:tip", [["a_cost", 800]], on1("pay_r1"));
+        journal(
+            "j_tipb",
+            "tip",
+            "tip:pay_r1:st_amy",
+            [
+                ["a_cost", -800],
+                ["a_pay_amy", 800],
+            ],
+            on1("pay_r1"),
+        );
+        expect(tipped()).toEqual({
+            invoice: [{ total_cents: 11200, tip_cents: 0 }],
+            credits: [{ cents: 5000 }],
+        });
+        db.run("DELETE FROM entries WHERE journal_id IN ('j_tipc', 'j_tip', 'j_tipr', 'j_tipb')");
+        db.run("UPDATE payments SET tip_cents = 0");
         const list = run("INVOICES_SQL").find((r) => r.id === "inv_3");
         expect(run("INVOICE_SQL", ["inv_3"])).toEqual([list]);
         expect(run("INVOICE_SQL", ["inv_missing"])).toEqual([]);
@@ -1507,7 +1552,7 @@ describe("app-core SQL against the replica schema", () => {
     });
 
     it("derives the bell from synced rows since a date", () => {
-        const since = Array<string>(6).fill("2026-06-24T00:00:00.000Z");
+        const since = Array<string>(7).fill("2026-06-24T00:00:00.000Z");
         const feed = run("NOTIFICATION_FEED_SQL", since)
             .map((r) => `${String(r.kind)}:${String(r.id)}`)
             .sort();
@@ -1516,11 +1561,14 @@ describe("app-core SQL against the replica schema", () => {
             "deposit:pay-pay_dep",
             "message:msg-m_2",
             "message:msg-m_3",
+            "order_new:ord-ord_web",
             "payment:pay-pay_1",
-            "payment:pay-pay_web",
             "refund:pay-pay_r1",
             "review:rv-rv_1",
         ]);
+        expect(run("NOTIFICATION_FEED_SQL", since).find((r) => r.id === "ord-ord_web")?.at).toBe(
+            "2026-06-24T09:00:00Z",
+        );
         expect(
             run("MY_CLIENTS_SQL", ["st_owner"])
                 .map((r) => r.client_id)

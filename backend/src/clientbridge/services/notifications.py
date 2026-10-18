@@ -507,6 +507,7 @@ def receipt_detail_lines(
     subtotal: str,
     taxes: list[tuple[str, str]],
     total: str,
+    tip: str | None = None,
 ) -> Itemised:
     text = [
         message(locale, "receipt.line", item=name, quantity=quantity, amount=amount)
@@ -520,6 +521,9 @@ def receipt_detail_lines(
     rows.append(Row(message(locale, "receipt.subtotal_label"), subtotal))
     text.extend(message(locale, "receipt.tax", tax=code, amount=amount) for code, amount in taxes)
     rows.extend(Row(code, amount) for code, amount in taxes)
+    if tip is not None:
+        text.append(message(locale, "receipt.tip", amount=tip))
+        rows.append(Row(message(locale, "receipt.tip_label"), tip))
     text.append(message(locale, "receipt.total", amount=total))
     rows.append(Row(message(locale, "receipt.total_label"), total, total=True))
     return Itemised(tuple(text), tuple(rows))
@@ -1487,6 +1491,7 @@ class Notifier:
         if not lines or document is None:
             return Itemised((), ())
         tax = await issued_tax(db, payment.business_id, lines, issued_at(document))
+        tips = await ledger.document_tips(db, payment.business_id, parent)
         cur = payment.currency
         return receipt_detail_lines(
             locale,
@@ -1503,7 +1508,8 @@ class Notifier:
                 (code, format_money(locale, cents, cur))
                 for code, cents in sorted(tax.by_jurisdiction.items())
             ],
-            format_money(locale, tax.total_cents, cur),
+            format_money(locale, tax.total_cents + tips, cur),
+            format_money(locale, tips, cur) if tips else None,
         )
 
     async def _to_contact(

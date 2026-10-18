@@ -130,6 +130,7 @@ interface Strings {
         readonly lineDiscount: (name: string) => string;
         readonly subtotal: string;
         readonly total: string;
+        readonly tip: string;
         readonly balanceDue: string;
         readonly depositApplied: string;
         readonly paymentOn: (method: string, when: string) => string;
@@ -2724,6 +2725,7 @@ interface Strings {
         readonly part_deferred: string;
         readonly part_gift_card: string;
         readonly part_deposit: string;
+        readonly part_tip: string;
         readonly part_tax: (code: string) => string;
         readonly backTo: (method: string) => string;
         readonly refundButton: (amount: string) => string;
@@ -4263,6 +4265,8 @@ interface Strings {
             readonly depositBody: (client: string, amount: string) => string;
             readonly refund: string;
             readonly refundBody: (client: string, amount: string) => string;
+            readonly orderNew: string;
+            readonly orderNewBody: (client: string, n: number) => string;
             readonly bookingNew: string;
             readonly bookingCanceled: string;
             readonly bookingBody: (client: string, item: string, when: string) => string;
