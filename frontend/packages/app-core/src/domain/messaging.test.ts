@@ -60,10 +60,10 @@ it("retries a message with the same key after an ambiguous transport failure", a
         last_message_at: null,
         unread_count: 0,
         last_body: null,
-        pet_names: null,
+        subject_names: null,
         title: "Pat",
         ago: "",
-        pets: [],
+        subjects: [],
         textsOff: false,
         channelKind: "sms",
     };
