@@ -68,6 +68,7 @@ interface FeedRow {
     body: string | null;
     ref_id: string;
     starts_at: string | null;
+    online_order: number | null;
 }
 
 const since = (column: string): string => `${utcSql(column)} >= datetime(?)`;
@@ -78,35 +79,36 @@ SELECT 'pay-' || p.id AS id,
        CASE p.kind WHEN 'refund' THEN 'refund' WHEN 'deposit' THEN 'deposit' ELSE 'payment' END AS kind,
        COALESCE(p.paid_at, p.created_at) AS at, p.client_id, c.name AS client_name,
        p.amount_cents, NULL AS item_name, NULL AS rating, NULL AS number, NULL AS body,
-       p.id AS ref_id, NULL AS starts_at
-FROM payments p LEFT JOIN clients c ON c.id = p.client_id
+       p.id AS ref_id, NULL AS starts_at,
+       p.kind = 'payment' AND o.source = 'online' AS online_order
+FROM payments p LEFT JOIN clients c ON c.id = p.client_id LEFT JOIN orders o ON o.id = p.order_id
 WHERE p.status = 'succeeded' AND ${since("COALESCE(p.paid_at, p.created_at)")}
 UNION ALL
 SELECT 'bk-' || b.id, 'booking_new', b.created_at, b.client_id, c.name, NULL, i.name, NULL, NULL,
-       NULL, b.id, s.starts_at
+       NULL, b.id, s.starts_at, NULL
 FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN items i ON i.id = s.item_id
 LEFT JOIN clients c ON c.id = b.client_id
 WHERE b.source = 'online' AND b.deleted_at IS NULL AND ${since("b.created_at")}
 UNION ALL
 SELECT 'bkc-' || b.id, 'booking_canceled', b.canceled_at, b.client_id, c.name, NULL, i.name, NULL,
-       NULL, NULL, b.id, s.starts_at
+       NULL, NULL, b.id, s.starts_at, NULL
 FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN items i ON i.id = s.item_id
 LEFT JOIN clients c ON c.id = b.client_id
 WHERE b.status = 'canceled' AND b.canceled_at IS NOT NULL AND ${since("b.canceled_at")}
 UNION ALL
 SELECT 'msg-' || m.id, 'message', m.created_at, t.client_id, c.name, NULL, NULL, NULL, NULL, m.body,
-       m.thread_id, NULL
+       m.thread_id, NULL, NULL
 FROM messages m JOIN threads t ON t.id = m.thread_id LEFT JOIN clients c ON c.id = t.client_id
 WHERE m.direction = 'in' AND ${since("m.created_at")}
 UNION ALL
 SELECT 'rv-' || r.id, 'review', COALESCE(r.submitted_at, r.created_at), r.client_id, c.name, NULL,
-       NULL, r.rating, NULL, r.body, r.id, NULL
+       NULL, r.rating, NULL, r.body, r.id, NULL, NULL
 FROM reviews r LEFT JOIN clients c ON c.id = r.client_id
 WHERE r.status IN ('submitted', 'published', 'hidden')
   AND ${since("COALESCE(r.submitted_at, r.created_at)")}
 UNION ALL
 SELECT 'inv-' || i.id, 'invoice_overdue', i.overdue_notified_at, i.client_id, c.name, NULL, NULL,
-       NULL, i.number, NULL, i.id, NULL
+       NULL, i.number, NULL, i.id, NULL, NULL
 FROM invoices i LEFT JOIN clients c ON c.id = i.client_id
 WHERE i.overdue_notified_at IS NOT NULL AND ${invoiceStatusSql("i")} = 'overdue'
   AND ${since("i.overdue_notified_at")}`;
@@ -202,6 +204,7 @@ function notificationItems(
                 id: row.id,
                 kind: row.kind,
                 ...meta,
+                ...(row.online_order === 1 ? { link: "orders" as const } : {}),
                 ...describeRow(row, zone),
                 when: stampLabel(at, zone, now),
                 at,

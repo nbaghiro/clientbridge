@@ -1528,6 +1528,11 @@ describe("app-core SQL against the replica schema", () => {
             "review:rv-rv_1",
         ]);
         expect(
+            run("NOTIFICATION_FEED_SQL", since)
+                .filter((r) => r.online_order === 1)
+                .map((r) => r.id),
+        ).toEqual(["pay-pay_web"]);
+        expect(
             run("MY_CLIENTS_SQL", ["st_owner"])
                 .map((r) => r.client_id)
                 .sort(),
