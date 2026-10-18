@@ -7,8 +7,8 @@ from typing import Literal
 import pulumi
 
 Name = Literal["prod", "staging"]
-Host = Literal["site", "app", "book", "pay", "shop", "api", "sync"]
-HOSTS: tuple[Host, ...] = ("site", "app", "book", "pay", "shop", "api", "sync")
+Host = Literal["site", "app", "admin", "book", "pay", "shop", "api", "sync"]
+HOSTS: tuple[Host, ...] = ("site", "app", "admin", "book", "pay", "shop", "api", "sync")
 
 
 @dataclass(frozen=True)

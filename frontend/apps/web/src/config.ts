@@ -4,7 +4,7 @@ const env = import.meta.env;
 const deployed = runtimeConfig();
 
 export const config = {
-    adminUrl: env.VITE_ADMIN_URL ?? "http://localhost:8711",
+    adminUrl: deployed?.adminUrl ?? env.VITE_ADMIN_URL ?? "http://localhost:8711",
     apiUrl: deployed?.apiUrl ?? env.VITE_API_URL ?? "http://localhost:8701",
     authUrl: deployed?.authUrl ?? env.VITE_AUTH_URL ?? "http://localhost:8713",
     powersyncUrl: deployed?.powersyncUrl ?? env.VITE_POWERSYNC_URL ?? "http://localhost:8704",

@@ -1275,3 +1275,14 @@ def test_each_app_ships_after_its_environment_and_one_run_at_a_time() -> None:
     # one pinned CLI, so a build and its updates compute fingerprints the same way
     pinned = {text for text in strings(called) if "eas-cli@" in text}
     assert pinned == {"eas-cli@25.0.0"}
+
+
+def test_site_contact_posts_reach_the_api(stacks: dict[str, Built]) -> None:
+    for built in stacks.values():
+        site = named(built, "kubernetes:gateway.networking.k8s.io/v1:HTTPRoute", "site")
+        contact, rest = listed(dig(site.inputs, "spec", "rules"))
+        assert dig(contact, "matches") == [
+            {"path": {"type": "Exact", "value": "/contact"}, "method": "POST"}
+        ]
+        assert dig(contact, "backendRefs") == [{"name": "api", "port": 8701}]
+        assert dig(rest, "backendRefs") == [{"name": "web", "port": 8080}]

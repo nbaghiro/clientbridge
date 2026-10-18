@@ -224,6 +224,9 @@ def backend_env(env: Environment, bucket: pulumi.Input[str]) -> list[k8s.core.v1
                 "DB_POOL_SIZE": str(DB_POOL_SIZE),
                 "DB_MAX_OVERFLOW": str(DB_MAX_OVERFLOW),
                 "EMAIL_FROM": f"Clientbridge <no-reply@{env.base_domain}>",
+                "CONTACT_TO": "hello@clientbridge.ca",
+                "PLATFORM_ADMIN_IDENTITY_IDS": pulumi.Config().get("platformAdminIdentityIds")
+                or "",
             }
         ),
         k8s.core.v1.EnvVarArgs(name="S3_BUCKET", value=bucket),

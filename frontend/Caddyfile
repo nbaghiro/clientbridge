@@ -43,13 +43,14 @@
 		path /.well-known/apple-app-site-association /.well-known/assetlinks.json
 	}
 	@site host {$SITE_HOST}
+	@admin host {$ADMIN_HOST}
 	@app host {$APP_HOST}
 	@connect host {$BOOK_HOST} {$PAY_HOST} {$SHOP_HOST}
 
 	handle /config.js {
 		header Content-Type "text/javascript; charset=utf-8"
 		header Cache-Control "no-cache"
-		respond `window.__CLIENTBRIDGE_CONFIG__ = {"baseDomain":"{$BASE_DOMAIN}","apiUrl":"{$API_URL}","authUrl":"{$AUTH_URL}","syncUrl":"{$SYNC_URL}","payUrl":"{$PAY_URL}","bookUrl":"{$BOOK_URL}","stripePublishableKey":"{$STRIPE_PUBLISHABLE_KEY}"};
+		respond `window.__CLIENTBRIDGE_CONFIG__ = {"baseDomain":"{$BASE_DOMAIN}","webUrl":"{$APP_URL}","adminUrl":"{$ADMIN_URL}","apiUrl":"{$API_URL}","authUrl":"{$AUTH_URL}","syncUrl":"{$SYNC_URL}","payUrl":"{$PAY_URL}","bookUrl":"{$BOOK_URL}","stripePublishableKey":"{$STRIPE_PUBLISHABLE_KEY}"};
 `
 	}
 
@@ -79,6 +80,13 @@ Disallow: /
 	}
 
 	handle @site {
+		@contact {
+			method POST
+			path /contact
+		}
+		handle @contact {
+			reverse_proxy {$CONTACT_UPSTREAM}
+		}
 		import unframed
 		import cache
 		root * /tmp/site
@@ -93,6 +101,11 @@ Disallow: /
 			try_files {path}/index.html {path}
 			file_server
 		}
+	}
+
+	handle @admin {
+		import unframed
+		import spa admin
 	}
 
 	handle @app {
