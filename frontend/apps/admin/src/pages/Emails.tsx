@@ -3,11 +3,12 @@ import {
     adminLabel,
     strings,
     useAdminEmailForm,
+    useAdminFilters,
     useAdminResource,
 } from "@clientbridge/app-core/public";
 import { Button, LoadFailed, Notice, Panel, Select, TextField } from "@clientbridge/ui";
 import { config } from "../config";
-import { Resource } from "../components/Records";
+import { Pagination, Records, RecordStatus, Resource, When } from "../components/Records";
 
 export function Emails() {
     const state = useAdminResource("AdminEmails", config.apiUrl, "emails");
@@ -23,6 +24,7 @@ export function Emails() {
                         options={items.map((item) => ({ key: item.key, label: item.subject }))}
                     />
                     <EmailSample key={key} sample={key} />
+                    <DeliveryHistory />
                 </>
             )}
         </Resource>
@@ -83,7 +85,7 @@ function EmailSample({ sample }: { sample: string }) {
                                 busy={form.busy}
                                 onPress={() => {
                                     if (transport === "smtp" || transport === "resend")
-                                        form.send(sample, transport, crypto.randomUUID());
+                                        form.send(sample, transport);
                                 }}
                             >
                                 {strings.admin.sendConfirm}
@@ -101,10 +103,20 @@ function EmailSample({ sample }: { sample: string }) {
                     </div>
                 ) : null}
                 {form.outcome ? (
-                    <Notice tone={form.outcome === "accepted" ? "success" : "danger"}>
-                        {form.outcome === "accepted"
+                    <Notice
+                        tone={
+                            form.outcome === "accepted" || form.outcome === "delivered"
+                                ? "success"
+                                : form.outcome === "queued" || form.outcome === "sending"
+                                  ? "info"
+                                  : "danger"
+                        }
+                    >
+                        {form.outcome === "accepted" || form.outcome === "delivered"
                             ? strings.admin.testAccepted
-                            : strings.admin.testFailed}
+                            : form.outcome === "queued" || form.outcome === "sending"
+                              ? strings.admin.testQueued
+                              : strings.admin.testFailed}
                     </Notice>
                 ) : null}
                 {configuration.data !== null && transports.length === 0 ? (
@@ -131,5 +143,47 @@ function EmailSample({ sample }: { sample: string }) {
                 )}
             </Resource>
         </>
+    );
+}
+
+function DeliveryHistory() {
+    const filters = useAdminFilters();
+    const state = useAdminResource(
+        "AdminPage_AdminDelivery_",
+        config.apiUrl,
+        `deliveries?offset=${String(filters.offset)}`,
+    );
+    return (
+        <Panel
+            title={strings.admin.deliveryHistory}
+            actions={
+                <Button variant="outline" onPress={state.refresh}>
+                    {strings.admin.refreshDeliveries}
+                </Button>
+            }
+        >
+            <Resource state={state}>
+                {(data) => (
+                    <>
+                        <Records
+                            items={data.items}
+                            columns={[
+                                {
+                                    label: strings.admin.created,
+                                    render: (row) => <When value={row.created_at} />,
+                                },
+                                { label: strings.admin.recipient, render: (row) => row.recipient },
+                                { label: strings.admin.emailSample, render: (row) => row.subject },
+                                {
+                                    label: strings.admin.status,
+                                    render: (row) => <RecordStatus value={row.state} />,
+                                },
+                            ]}
+                        />
+                        <Pagination filters={filters} hasMore={data.has_more} />
+                    </>
+                )}
+            </Resource>
+        </Panel>
     );
 }

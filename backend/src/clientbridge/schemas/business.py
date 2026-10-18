@@ -56,6 +56,7 @@ class BusinessOut(Mirror):
     filing_frequency: FilingFrequency
     setup_dismissed_at: datetime | None
     review_hold_at: int
+    staff_discount_limit_bps: int
     google_review_url: str | None
     brand: dict[str, object]
 
@@ -142,6 +143,7 @@ class BusinessSettingsUpdate(Mirror):
     setup_dismissed: bool | None = Field(
         default=None, description="Hide (true) or show (false) the Get set up list"
     )
+    staff_discount_limit_bps: int | None = Field(default=None, ge=0, le=10000)
     review_hold_at: int | None = Field(
         default=None, ge=0, le=5, description="Hold reviews rated at or below this; 0 holds none"
     )

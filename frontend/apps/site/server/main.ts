@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
     createSite,
     resendConfirmation,
-    resendContact,
+    apiContact,
     resendWaitlist,
     type WaitlistEmails,
 } from "./site.ts";
@@ -13,12 +13,10 @@ import {
 const apiKey = process.env.RESEND_API_KEY ?? "";
 const segmentId = process.env.RESEND_SEGMENT_ID ?? "";
 const from = process.env.EMAIL_FROM ?? "";
-const contactTo = process.env.CONTACT_TO ?? "";
+const apiUrl = process.env.VITE_API_URL ?? "http://localhost:8701";
 const siteUrl = (process.env.VITE_SITE_URL ?? "").replace(/\/+$/, "");
-if (!apiKey || !segmentId || !from || !contactTo || !siteUrl) {
-    throw new Error(
-        "RESEND_API_KEY, RESEND_SEGMENT_ID, EMAIL_FROM, CONTACT_TO and VITE_SITE_URL must be set",
-    );
+if (!apiKey || !segmentId || !from || !siteUrl) {
+    throw new Error("RESEND_API_KEY, RESEND_SEGMENT_ID, EMAIL_FROM and VITE_SITE_URL must be set");
 }
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -32,7 +30,7 @@ const server = createSite({
     siteUrl,
     join: resendWaitlist(apiKey, segmentId),
     confirm: resendConfirmation(apiKey, from, confirmation),
-    contact: resendContact(apiKey, from, contactTo),
+    contact: apiContact(apiUrl),
 });
 server.listen(port, () => {
     process.stdout.write(`site: serving on :${String(port)}\n`);

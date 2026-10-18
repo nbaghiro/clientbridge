@@ -177,7 +177,16 @@ Resend's records are part of the cloud stack: `clientbridge:mailRecords` in `Pul
 
 ### Twilio
 
-All businesses share one platform number per environment. Buy a Canadian SMS-capable number, set its messaging webhook ("A message comes in", HTTP POST) to `https://api.D/webhooks/sms`, and store `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_SMS_FROM` (the number in E.164, `+1…`). The webhook checks `X-Twilio-Signature` against `https://api.D` plus the path, so the URL in Twilio must match exactly. Twilio's test credentials cannot receive inbound messages, so staging uses a real number as well.
+Assign a distinct SMS-capable number to each business through the platform-admin
+`POST /admin/v1/businesses/{id}/sms` command (`{"number":"+1…"}`; `null` unassigns).
+Provision numbers in Twilio separately; the command does not buy numbers. Configure each number's
+inbound POST webhook as `https://api.D/webhooks/sms`. `TWILIO_ACCOUNT_SID` and
+`TWILIO_AUTH_TOKEN` authenticate the transport; `businesses.sms_number` determines the sender and
+inbound tenant. The bootstrap's `TWILIO_SMS_FROM` secret records its provisioned number, but does not
+assign it or act as a shared fallback. Unassigned businesses cannot request SMS verification codes.
+Retired-number audit history prevents reassignment to another business. Twilio verifies the exact
+public webhook URL, and staging requires real credentials for inbound SMS.
+
 
 ### Google OAuth
 
@@ -251,6 +260,19 @@ Rollback is a manual run with the previous digests and the `rollback` input: `gh
 After each environment deploys, `deploy-mobile.yml` ships its app from the same commit, in the same GitHub environment (so production's app waits for its own approval). For each platform in `EAS_PLATFORMS` it computes the native fingerprint with the environment's EAS variables. If a build with that fingerprint exists on the channel (finished, queued or running), it publishes the commit's bundle with `eas update`, which the app downloads on its next start and runs on the one after. Otherwise it starts `eas build` without waiting, and a store build goes on to TestFlight or Play by itself. A manual run (`gh workflow run deploy-mobile.yml --ref main -f environment=<staging|production>`) can force builds with `-f build=true`, or roll back with `-f republish_group=<id>`, which republishes an earlier update group from `eas update:list --branch <channel>` to the channel. The app falls back to the update it ran before when a new one crashes on start. A production update reaches every installed app at once; to stage one, publish it by hand with `eas update --channel production --environment production --rollout-percentage 10` and widen it with `eas update:edit`. A store build still needs review and a release in App Store Connect and Play Console, and the first Android upload to a new Play app is made by hand: until the environment's GitHub variable `PLAY_APP_READY` is `true`, the workflow builds the Android app without submitting it and says so in the run's summary.
 
 The cloud stack is never applied by CI. A change under `infra/pulumi/cloud` is applied by an administrator with `pulumi preview --stack cloud` and `pulumi up --stack cloud`.
+
+### Delivery recovery
+
+`deliveries` retains the immutable payload, current state, provider reference and safe error code.
+`queued` retries after known connection failures or rate limits; `accepted` is not proof of delivery.
+A signed provider callback can confirm delivery, including after a lost response. `ambiguous` means
+acceptance is uncertain: inspect the provider by delivery ID before any manual resend. The worker
+never blindly retries an expired send lease. Retry attempts stop after 23 hours to remain within the
+provider's idempotency window. Admin Email lab shows test-send history and exact returned status.
+
+Form migrations preserve existing answers and mark reconstructed definitions explicitly; they do not
+invent historical signatures. Evidence and delivery migrations reject destructive downgrades. Roll
+back application code only after checking schema compatibility, or apply a forward migration.
 
 ## Jobs
 

@@ -1058,3 +1058,7 @@ export function useCurrentViewer(userId: string | null): Viewer | null {
 export function useCurrentRole(userId: string | null): string | null {
     return useCurrentViewer(userId)?.role ?? null;
 }
+
+export function isManager(role: string | null): boolean {
+    return role === "owner" || role === "admin";
+}

@@ -382,3 +382,121 @@ async def test_variant_parent_must_be_a_product_in_same_tenant(
             },
         )
         assert response.status_code == status, response.text
+
+
+async def test_pending_checkouts_hold_stock_until_the_intent_is_canceled(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable(db)
+    await db.execute(
+        update(Item).where(Item.id == SHAMPOO).values(track_stock=True, stock_on_hand=1)
+    )
+    await db.commit()
+    first = await api.post(f"/book/{SLUG}/shop/orders", json=_order((SHAMPOO, 1)), headers=_key())
+    assert first.status_code == 200
+    second = await api.post(f"/book/{SLUG}/shop/orders", json=_order((SHAMPOO, 1)), headers=_key())
+    assert second.status_code == 409 and second.json()["error"] == "out_of_stock"
+    payment = (
+        await db.scalars(select(Payment).where(Payment.order_id == first.json()["order_id"]))
+    ).one()
+    payment.status = "failed"
+    await db.commit()
+    assert (
+        await api.post(f"/book/{SLUG}/shop/orders", json=_order((SHAMPOO, 1)), headers=_key())
+    ).status_code == 409
+    payment = (
+        await db.scalars(select(Payment).where(Payment.order_id == first.json()["order_id"]))
+    ).one()
+    payment.status = "canceled"
+    await db.commit()
+    assert (
+        await api.post(f"/book/{SLUG}/shop/orders", json=_order((SHAMPOO, 1)), headers=_key())
+    ).status_code == 200
+
+
+async def test_two_connections_cannot_reserve_the_same_last_unit(db: AsyncSession) -> None:
+    import asyncio
+
+    from sqlalchemy import delete
+
+    from clientbridge.core.db import SessionLocal
+    from clientbridge.core.errors import Conflict
+    from clientbridge.core.ids import new_id
+    from clientbridge.models.billing import Line, Order
+    from clientbridge.models.payments import Payment
+    from clientbridge.services.inventory import assert_parent_stock
+
+    item_id = new_id("item")
+    orders = [new_id("order"), new_id("order")]
+    entered = asyncio.Event()
+    async with SessionLocal() as setup:
+        setup.add(
+            Item(
+                id=item_id,
+                business_id=BIZ,
+                name="Last unit",
+                kind="product",
+                track_stock=True,
+                stock_on_hand=1,
+            )
+        )
+        setup.add_all(
+            [
+                Order(id=identity, business_id=BIZ, staff_id="st_owner", source="online")
+                for identity in orders
+            ]
+        )
+        await setup.flush()
+        setup.add_all(
+            [
+                Line(
+                    id=new_id("line"),
+                    business_id=BIZ,
+                    order_id=identity,
+                    item_id=item_id,
+                    description="Last unit",
+                    quantity=1,
+                )
+                for identity in orders
+            ]
+        )
+        await setup.commit()
+
+    async def checkout(identity: str, first: bool) -> bool:
+        async with SessionLocal() as session:
+            try:
+                await assert_parent_stock(session, BIZ, "order", identity)
+                if first:
+                    entered.set()
+                    await asyncio.sleep(0.1)
+                session.add(
+                    Payment(
+                        id=new_id("payment"),
+                        business_id=BIZ,
+                        order_id=identity,
+                        kind="payment",
+                        amount_cents=100,
+                        method="card",
+                        provider="stripe",
+                        status="pending",
+                    )
+                )
+                await session.commit()
+                return True
+            except Conflict as exc:
+                assert exc.code == "out_of_stock"
+                return False
+
+    async def second() -> bool:
+        await asyncio.wait_for(entered.wait(), 5)
+        return await checkout(orders[1], False)
+
+    try:
+        assert await asyncio.gather(checkout(orders[0], True), second()) == [True, False]
+    finally:
+        async with SessionLocal() as cleanup:
+            await cleanup.execute(delete(Payment).where(Payment.order_id.in_(orders)))
+            await cleanup.execute(delete(Line).where(Line.order_id.in_(orders)))
+            await cleanup.execute(delete(Order).where(Order.id.in_(orders)))
+            await cleanup.execute(delete(Item).where(Item.id == item_id))
+            await cleanup.commit()

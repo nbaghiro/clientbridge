@@ -1,5 +1,8 @@
+import re
 import secrets
-from datetime import date, datetime, timedelta
+from collections.abc import Sequence
+from datetime import date, datetime, time, timedelta
+from decimal import Decimal, InvalidOperation
 from typing import get_args
 
 from sqlalchemy import ColumnElement, and_, func, select, text
@@ -7,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
-from clientbridge.core.command import Command, PublicPrincipal, remember, replay, run_command
+from clientbridge.core.command import Command, PublicPrincipal, run_command
 from clientbridge.core.db import Base
 from clientbridge.core.errors import Conflict, NotFound, Unauthorized, Unprocessable
 from clientbridge.core.ids import new_id
@@ -37,7 +40,12 @@ from clientbridge.schemas.business import BrandInput
 from clientbridge.schemas.consents import PublicPreferences, PublicPreferencesUpdate
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
 from clientbridge.schemas.files import PublicFileComplete, PublicFileCreate, PublicFileUpload
-from clientbridge.schemas.forms import PublicFormContext, PublicFormField, PublicFormSubmit
+from clientbridge.schemas.forms import (
+    FormDefinition,
+    PublicFormContext,
+    PublicFormField,
+    PublicFormSubmit,
+)
 from clientbridge.schemas.orders import PublicReceipt, PublicReceiptPayment
 from clientbridge.schemas.payments import (
     PublicCardIntent,
@@ -273,94 +281,93 @@ class PublicBookingService:
         self, slug: str, data: PublicBookingCreate, idempotency_key: str | None = None
     ) -> PublicBookingResult:
         business = await self._business(slug)
-        if idempotency_key is not None:
-            prior = await replay(self.db, business.id, _BOOK_SCOPE, idempotency_key, data)
-            if prior is not None:
-                return PublicBookingResult.model_validate(prior)
-        assert_serving(business, clock.now())
-        item = await self._bookable_item(business.id, data.item_id)
-        if item.duration_min is None or item.duration_min <= 0:
-            raise Unprocessable("that service has no duration and can't be booked")
-        policy = policy_of(business)
-        _assert_bookable_window(policy, data.starts_at)
-        staff_id = await self._staff_for(business, item, data.staff_id, data.starts_at)
-        addons = await offered_addons(
-            self.db,
-            business.id,
-            item.id,
-            [PublicShopLine(item_id=a.item_id, quantity=a.quantity) for a in data.addons],
-        )
-        returning = ReturningService(self.db)
-        if data.subject_id is not None and data.returning_token is None:
-            raise Unauthorized("verify your email before choosing an existing pet")
-        client = (
-            await returning.resolve(business.id, data.returning_token)
-            if data.returning_token is not None
-            else await self._find_or_create_client(business.id, data.client)
-        )
-        first_visit = not await _has_booked(self.db, business.id, client.id)
-        subject_id = (
-            await returning.subject(client, data.subject_id)
-            if data.subject_id is not None
-            else await _pet(self.db, business.id, client.id, data.pet_name)
-        )
-        booking, _ = await create_booking_core(
-            self.db,
-            business.id,
-            item=item,
-            staff_id=staff_id,
-            starts_at=data.starts_at,
-            client_id=client.id,
-            source="online",
-            subject_id=subject_id,
-            dedupe_client=True,
-        )
-        if policy.approve_new_clients and first_visit:
-            booking.status = "pending"
-            booking.confirmed_at = None
-        if data.note is not None and data.note.strip() != "":
-            self.db.add(
-                Note(
-                    id=new_id("note"),
-                    business_id=business.id,
-                    parent_type="booking",
-                    parent_id=booking.id,
-                    body=data.note.strip(),
-                )
-            )
-        for product, qty in addons:
-            self.db.add(
-                Addon(
-                    id=new_id("addon"),
-                    business_id=business.id,
-                    booking_id=booking.id,
-                    staff_id=booking.staff_id,
-                    item_id=product.id,
-                    description=product.name,
-                    quantity=qty,
-                    unit_amount_cents=product.price_cents,
-                )
-            )
-        secret = await self._open_deposit(business, booking, client)
-        result = PublicBookingResult(
-            booking_id=booking.id,
-            deposit_client_secret=secret,
-            stripe_account_id=_account(business),
-            status=booking.status,
-            manage_token=booking.manage_token,
-            deposit_cents=booking.deposit_amount_cents,
-        )
-        if idempotency_key is not None:
-            remember(
+
+        async def run(cmd: Command) -> PublicBookingResult:
+            assert_serving(business, clock.now())
+            item = await self._bookable_item(business.id, data.item_id)
+            if item.duration_min is None or item.duration_min <= 0:
+                raise Unprocessable("that service has no duration and can't be booked")
+            policy = policy_of(business)
+            _assert_bookable_window(policy, data.starts_at)
+            staff_id = await self._staff_for(business, item, data.staff_id, data.starts_at)
+            addons = await offered_addons(
                 self.db,
                 business.id,
-                _BOOK_SCOPE,
-                idempotency_key,
-                data,
-                result.model_dump(mode="json"),
+                item.id,
+                [PublicShopLine(item_id=a.item_id, quantity=a.quantity) for a in data.addons],
             )
-        await self.db.commit()
-        return result
+            returning = ReturningService(self.db)
+            if data.subject_id is not None and data.returning_token is None:
+                raise Unauthorized("verify your email before choosing an existing pet")
+            client = (
+                await returning.resolve(business.id, data.returning_token)
+                if data.returning_token is not None
+                else await self._find_or_create_client(business.id, data.client)
+            )
+            first_visit = not await _has_booked(self.db, business.id, client.id)
+            subject_id = (
+                await returning.subject(client, data.subject_id)
+                if data.subject_id is not None
+                else await _pet(self.db, business.id, client.id, data.pet_name)
+            )
+            booking, _ = await create_booking_core(
+                self.db,
+                business.id,
+                item=item,
+                staff_id=staff_id,
+                starts_at=data.starts_at,
+                client_id=client.id,
+                source="online",
+                subject_id=subject_id,
+                dedupe_client=True,
+            )
+            if policy.approve_new_clients and first_visit:
+                booking.status = "pending"
+                booking.confirmed_at = None
+            if data.note is not None and data.note.strip() != "":
+                self.db.add(
+                    Note(
+                        id=new_id("note"),
+                        business_id=business.id,
+                        parent_type="booking",
+                        parent_id=booking.id,
+                        body=data.note.strip(),
+                    )
+                )
+            for product, qty in addons:
+                self.db.add(
+                    Addon(
+                        id=new_id("addon"),
+                        business_id=business.id,
+                        booking_id=booking.id,
+                        staff_id=booking.staff_id,
+                        item_id=product.id,
+                        description=product.name,
+                        quantity=qty,
+                        unit_amount_cents=product.price_cents,
+                    )
+                )
+            secret = await self._open_deposit(business, booking, client)
+            result = PublicBookingResult(
+                booking_id=booking.id,
+                deposit_client_secret=secret,
+                stripe_account_id=_account(business),
+                status=booking.status,
+                manage_token=booking.manage_token,
+                deposit_cents=booking.deposit_amount_cents,
+            )
+            cmd.record(_BOOK_SCOPE, entity_type="booking", entity_id=booking.id)
+            return result
+
+        return await run_command(
+            self.db,
+            PublicPrincipal(business.id),
+            action=_BOOK_SCOPE,
+            run=run,
+            response_model=PublicBookingResult,
+            idempotency_key=idempotency_key,
+            request=data,
+        )
 
     async def _staff_for(
         self, business: Business, item: Item, staff_id: str, starts_at: datetime
@@ -625,47 +632,46 @@ class PublicManageService:
     ) -> ManagedBooking:
         booking, slot, business = await self._locked(token)
         request = {"booking_id": booking.id, **data.model_dump(mode="json")}
-        if idempotency_key is not None and await replay(
-            self.db, business.id, _MOVE_SCOPE, idempotency_key, request
-        ):
-            return await self._view(booking, slot, business)
-        assert_serving(business, clock.now())
-        item, staff = await self._movable(booking, slot, business)
-        policy = policy_of(business)
-        _assert_bookable_window(policy, data.starts_at)
-        ends_at = data.starts_at + (slot.ends_at - slot.starts_at)
-        problem = await slot_problem(
-            self.db,
-            business.id,
-            item,
-            staff.id,
-            data.starts_at,
-            ends_at,
-            exclude=slot.id,
-            resource_id=slot.resource_id,
-        )
-        if problem is not None:
-            raise Conflict(problem.message or _UNOFFERED)
-        if await _offered(self.db, business, item, [staff.id], data.starts_at, slot.id) is None:
-            raise Conflict(_UNOFFERED, code="slot_unavailable")
-        await move_slot(self.db, business.id, slot, data.starts_at, ends_at)
-        booking.reschedule_count += 1
-        if idempotency_key is not None:
-            remember(
+
+        async def run(cmd: Command) -> ManagedBooking:
+            assert_serving(business, clock.now())
+            item, staff = await self._movable(booking, slot, business)
+            policy = policy_of(business)
+            _assert_bookable_window(policy, data.starts_at)
+            ends_at = data.starts_at + (slot.ends_at - slot.starts_at)
+            problem = await slot_problem(
                 self.db,
                 business.id,
-                _MOVE_SCOPE,
-                idempotency_key,
-                request,
-                {"booking_id": booking.id},
+                item,
+                staff.id,
+                data.starts_at,
+                ends_at,
+                exclude=slot.id,
+                resource_id=slot.resource_id,
             )
-        try:
-            await self.db.flush()
-        except IntegrityError as exc:
-            raise clash(exc) from exc
-        out = await self._view(booking, slot, business)
-        await self.db.commit()
-        return out
+            if problem is not None:
+                raise Conflict(problem.message or _UNOFFERED)
+            if await _offered(self.db, business, item, [staff.id], data.starts_at, slot.id) is None:
+                raise Conflict(_UNOFFERED, code="slot_unavailable")
+            await move_slot(self.db, business.id, slot, data.starts_at, ends_at)
+            booking.reschedule_count += 1
+            try:
+                await self.db.flush()
+            except IntegrityError as exc:
+                raise clash(exc) from exc
+            out = await self._view(booking, slot, business)
+            cmd.record(_MOVE_SCOPE, entity_type="booking", entity_id=booking.id)
+            return out
+
+        return await run_command(
+            self.db,
+            PublicPrincipal(business.id),
+            action=_MOVE_SCOPE,
+            run=run,
+            response_model=ManagedBooking,
+            idempotency_key=idempotency_key,
+            request=request,
+        )
 
     async def message(
         self, token: str, data: ManageMessage, key: str, notifier: Notifier
@@ -716,41 +722,40 @@ class PublicManageService:
     async def cancel(self, token: str, idempotency_key: str | None) -> ManageCancelResult:
         booking, slot, business = await self._locked(token)
         request = {"booking_id": booking.id}
-        if idempotency_key is not None:
-            prior = await replay(self.db, business.id, _CANCEL_SCOPE, idempotency_key, request)
-            if prior is not None:
-                return ManageCancelResult.model_validate(prior)
-        _, staff = await self._visit(booking, slot, business)
-        blocked = self._blocked(booking, slot, business, staff, "cancel")
-        if blocked is not None:
-            raise Conflict(
-                f"this visit can't be canceled online ({blocked[0]})", code="change_blocked"
+
+        async def run(cmd: Command) -> ManageCancelResult:
+            _, staff = await self._visit(booking, slot, business)
+            blocked = self._blocked(booking, slot, business, staff, "cancel")
+            if blocked is not None:
+                raise Conflict(
+                    f"this visit can't be canceled online ({blocked[0]})", code="change_blocked"
+                )
+            refunded = 0
+            if booking.deposit_status == "collected":
+                refunded = await refund_deposit(self.db, self.gateway, booking)
+            elif booking.deposit_status == "pending":
+                await cancel_open_deposits(self.db, self.gateway, booking)
+                booking.deposit_status = "none"
+            booking.status = "canceled"
+            booking.canceled_at = clock.now()
+            await release_slot(self.db, slot)
+            result = ManageCancelResult(
+                deposit=(await booking_refund_status(self.db, booking))
+                or ("refunded" if refunded > 0 else "none"),
+                refund_cents=refunded,
             )
-        refunded = 0
-        if booking.deposit_status == "collected":
-            refunded = await refund_deposit(self.db, self.gateway, booking)
-        elif booking.deposit_status == "pending":
-            await cancel_open_deposits(self.db, self.gateway, booking)
-            booking.deposit_status = "none"
-        booking.status = "canceled"
-        booking.canceled_at = clock.now()
-        await release_slot(self.db, slot)
-        result = ManageCancelResult(
-            deposit=(await booking_refund_status(self.db, booking))
-            or ("refunded" if refunded > 0 else "none"),
-            refund_cents=refunded,
+            cmd.record(_CANCEL_SCOPE, entity_type="booking", entity_id=booking.id)
+            return result
+
+        return await run_command(
+            self.db,
+            PublicPrincipal(business.id),
+            action=_CANCEL_SCOPE,
+            run=run,
+            response_model=ManageCancelResult,
+            idempotency_key=idempotency_key,
+            request=request,
         )
-        if idempotency_key is not None:
-            remember(
-                self.db,
-                business.id,
-                _CANCEL_SCOPE,
-                idempotency_key,
-                request,
-                result.model_dump(mode="json"),
-            )
-        await self.db.commit()
-        return result
 
     def _blocked(
         self, booking: Booking, slot: Slot, business: Business, staff: Staff, change: str
@@ -914,13 +919,18 @@ class PublicContractService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def _resolve(self, token: str) -> tuple[Signature, Contract, Business]:
+    async def _resolve(
+        self, token: str, *, lock: bool = False
+    ) -> tuple[Signature, Contract, Business]:
         signature = await resolve_by_token(
             self.db, Signature, Signature.token == token, "signing link not found"
         )
         contract = await self.db.get(Contract, signature.contract_id)
         if contract is None:
             raise NotFound("signing link not found")
+        if lock:
+            await self.db.refresh(contract, with_for_update=True)
+            await self.db.refresh(signature, with_for_update=True)
         business = await business_or_404(self.db, signature.business_id, "signing link not found")
         return signature, contract, business
 
@@ -932,9 +942,11 @@ class PublicContractService:
         return await self._context(signature, contract, business)
 
     async def sign(self, token: str, data: PublicContractSign, ip: str) -> PublicContractContext:
-        signature, contract, business = await self._resolve(token)
+        signature, contract, business = await self._resolve(token, lock=True)
         if signature.status != "pending":
             raise Conflict("this contract is no longer awaiting a signature")
+        if data.version != contract.version:
+            raise Conflict("the contract changed; review the current version before signing")
         if not data.agreed:
             raise Unprocessable("agree to sign electronically first")
         if data.strokes is not None and not _valid_strokes(data.strokes):
@@ -951,7 +963,7 @@ class PublicContractService:
         return await self._context(signature, contract, business)
 
     async def decline(self, token: str) -> PublicContractContext:
-        signature, contract, business = await self._resolve(token)
+        signature, contract, business = await self._resolve(token, lock=True)
         if signature.status != "pending":
             raise Conflict("this contract is no longer awaiting a signature")
         signature.status = "declined"
@@ -1021,32 +1033,21 @@ class PublicFormService:
         business = await business_or_404(self.db, response.business_id, "form link not found")
         return response, form, business
 
-    async def _fields(self, form_id: str) -> list[FormField]:
-        return list(
-            (
-                await self.db.execute(
-                    select(FormField)
-                    .where(FormField.form_id == form_id)
-                    .order_by(FormField.position)
-                )
-            )
-            .scalars()
-            .all()
-        )
-
     async def context(self, token: str) -> PublicFormContext:
-        response, form, business = await self._resolve(token)
+        response, _, business = await self._resolve(token)
         if response.status == "draft" and response.opened_at is None:
             response.opened_at = clock.now()
             await self.db.commit()
-        fields = await self._fields(form.id)
+        definition = FormDefinition.model_validate(response.definition)
+        fields = definition.fields
         return PublicFormContext(
-            form_name=form.name,
+            form_name=definition.name,
             business_name=business.name,
             brand=public_brand(business),
             timezone=business.timezone,
             completed=response.status == "submitted",
-            fields=[_field_out(f) for f in fields],
+            require_signature=definition.require_signature,
+            fields=fields,
         )
 
     async def upload(
@@ -1085,12 +1086,15 @@ class PublicFormService:
         ).scalar_one_or_none()
         if file is None:
             raise NotFound("upload not found")
-        confirm_upload(file, storage)
+        await confirm_upload(file, storage)
         await self.db.commit()
         return PublicFileComplete(file_id=file.id)
 
     async def _assert_uploaded(
-        self, response: FormResponse, fields: list[FormField], answers: dict[str, object]
+        self,
+        response: FormResponse,
+        fields: Sequence[FormField | PublicFormField],
+        answers: dict[str, object],
     ) -> None:
         """A file answer must name a finished upload attached to this response."""
         wanted = {
@@ -1114,11 +1118,21 @@ class PublicFormService:
         if wanted - uploaded:
             raise Unprocessable("an attached file has not finished uploading")
 
-    async def submit(self, token: str, data: PublicFormSubmit) -> PublicFormContext:
-        response, form, business = await self._resolve(token)
+    async def submit(self, token: str, data: PublicFormSubmit, ip: str) -> PublicFormContext:
+        response, _, business = await self._resolve(token)
+        await self.db.refresh(response, with_for_update=True)
         if response.status == "submitted":
             raise Conflict("this form was already submitted")
-        fields = await self._fields(form.id)
+        definition = FormDefinition.model_validate(response.definition)
+        fields = definition.fields
+        if definition.require_signature and data.signature is None:
+            raise Unprocessable("this form requires a signature")
+        if data.signature is not None:
+            if data.signature.strokes is not None and not _valid_strokes(data.signature.strokes):
+                raise Unprocessable("draw a signature inside the box")
+            response.signature = data.signature.model_dump(mode="json", exclude={"agreed"}) | {
+                "ip": ip
+            }
         validate_answers(fields, data.answers)
         await self._assert_uploaded(response, fields, data.answers)
         response.status = "submitted"
@@ -1126,36 +1140,81 @@ class PublicFormService:
         response.submitted_at = clock.now()
         await self.db.commit()
         return PublicFormContext(
-            form_name=form.name,
+            form_name=definition.name,
             business_name=business.name,
             brand=public_brand(business),
             timezone=business.timezone,
             completed=True,
-            fields=[_field_out(f) for f in fields],
+            require_signature=definition.require_signature,
+            fields=fields,
         )
 
 
-def validate_answers(fields: list[FormField], answers: dict[str, object]) -> None:
+def validate_answers(
+    fields: Sequence[FormField | PublicFormField], answers: dict[str, object]
+) -> None:
+    if answers.keys() - {field.name for field in fields}:
+        raise Unprocessable("answers contain an unknown field")
     for field in fields:
-        if not field.required:
-            continue
         value = answers.get(field.name)
-        if value is None or (isinstance(value, str | list) and len(value) == 0):
-            raise Unprocessable(f"missing required field: {field.name}")
+        missing = value is None or value == [] or (isinstance(value, str) and not value.strip())
+        if missing:
+            if field.required:
+                raise Unprocessable(f"missing required field: {field.name}")
+            continue
+        valid = True
+        if field.input == "checkbox":
+            valid = isinstance(value, bool) and (not field.required or value)
+        elif field.input in ("number", "currency", "rating"):
+            valid = _valid_numeric_answer(field, value)
+        elif field.input == "multiselect":
+            valid = isinstance(value, list) and all(
+                isinstance(option, str) and option in _form_options(field) for option in value
+            )
+        else:
+            valid = isinstance(value, str) and len(value) <= 40000
+            if valid and isinstance(value, str):
+                if field.input == "select":
+                    valid = value in _form_options(field)
+                elif field.input == "email":
+                    valid = re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value) is not None
+                elif field.input in ("date", "time"):
+                    try:
+                        if field.input == "date":
+                            valid = date.fromisoformat(value).isoformat() == value
+                        else:
+                            valid = time.fromisoformat(value).tzinfo is None
+                    except ValueError:
+                        valid = False
+        if not valid:
+            raise Unprocessable(f"invalid answer for field: {field.name}")
 
 
-def _field_out(field: FormField) -> PublicFormField:
-    return PublicFormField(
-        id=field.id,
-        input=field.input,
-        name=field.name,
-        label=field.label,
-        help=field.help,
-        required=field.required,
-        options=field.options,
-        validation=field.validation,
-        position=field.position,
-    )
+def _form_options(field: FormField | PublicFormField) -> set[str]:
+    return {
+        str(option.get("value", "")) if isinstance(option, dict) else str(option)
+        for option in field.options
+    }
+
+
+def _valid_numeric_answer(field: FormField | PublicFormField, value: object) -> bool:
+    if isinstance(value, bool) or not isinstance(value, str | int | float):
+        return False
+    try:
+        number = Decimal(str(value))
+    except InvalidOperation:
+        return False
+    if not number.is_finite():
+        return False
+    if field.input == "rating" and (number != number.to_integral_value() or not 1 <= number <= 5):
+        return False
+    for key, below in (("min", True), ("max", False)):
+        bound = field.validation.get(key)
+        if isinstance(bound, int | float) and (
+            (below and number < bound) or (not below and number > bound)
+        ):
+            return False
+    return True
 
 
 class PublicPayService:
@@ -1826,102 +1885,108 @@ class PublicShopService:
         account_id = _account(business)
         if account_id is None:
             raise Conflict("this shop isn't taking online payments yet", code="shop_not_ready")
-        prior = await replay(self.db, business.id, _SCOPE, idempotency_key, data)
-        if prior is not None:
-            return PublicShopOrderResult.model_validate(prior)
-        assert_serving(business, clock.now())
-        if data.pickup_from is not None:
-            await self.db.execute(
-                text("SELECT pg_advisory_xact_lock(hashtext(:scope))"),
-                {"scope": f"pickup:{business.id}"},
+
+        async def run(cmd: Command) -> PublicShopOrderResult:
+            assert_serving(business, clock.now())
+            if data.pickup_from is not None:
+                await self.db.execute(
+                    text("SELECT pg_advisory_xact_lock(hashtext(:scope))"),
+                    {"scope": f"pickup:{business.id}"},
+                )
+                available = await pickup_windows(self.db, business)
+                if not any(
+                    window.starts_at == data.pickup_from and window.ends_at == data.pickup_to
+                    for window in available
+                ):
+                    raise Conflict(
+                        "that pickup window is no longer available", code="pickup_window_taken"
+                    )
+            wanted = await online_items(self.db, business.id, data.lines)
+            for item, qty in wanted:
+                if item.track_stock and (item.stock_on_hand or 0) < qty:
+                    raise Conflict(
+                        f"only {max(item.stock_on_hand or 0, 0)} left of {item.name}",
+                        code="out_of_stock",
+                    )
+            if len({item.currency for item, _ in wanted}) > 1:
+                raise Unprocessable("one order can't mix currencies", code="mixed_currencies")
+            client = await find_or_create_by_contact(
+                self.db,
+                business.id,
+                name=data.client.name,
+                email=data.client.email,
+                phone=data.client.phone,
+                source="online_shop",
             )
-            available = await pickup_windows(self.db, business)
-            if not any(
-                window.starts_at == data.pickup_from and window.ends_at == data.pickup_to
-                for window in available
-            ):
-                raise Conflict(
-                    "that pickup window is no longer available", code="pickup_window_taken"
-                )
-        wanted = await online_items(self.db, business.id, data.lines)
-        for item, qty in wanted:
-            if item.track_stock and (item.stock_on_hand or 0) < qty:
-                raise Conflict(
-                    f"only {max(item.stock_on_hand or 0, 0)} left of {item.name}",
-                    code="out_of_stock",
-                )
-        if len({item.currency for item, _ in wanted}) > 1:
-            raise Unprocessable("one order can't mix currencies", code="mixed_currencies")
-        client = await find_or_create_by_contact(
+            order = Order(
+                id=new_id("order"),
+                business_id=business.id,
+                client_id=client.id,
+                staff_id=await self._owner_staff(business.id),
+                number=await next_order_number(self.db, business.id),
+                status="open",
+                currency=wanted[0][0].currency,
+                source="online",
+                receipt_token=secrets.token_urlsafe(32),
+                status_token=secrets.token_urlsafe(32),
+                pickup_from=data.pickup_from,
+                pickup_to=data.pickup_to,
+                note=data.note,
+                notify_sms=data.notify_sms,
+            )
+            self.db.add(order)
+            await self.db.flush()
+            lines = await replace_lines(
+                self.db,
+                business.id,
+                "order",
+                order.id,
+                [
+                    LineInput(
+                        description=item.name,
+                        quantity=qty,
+                        unit_amount_cents=item.price_cents,
+                        item_id=item.id,
+                    )
+                    for item, qty in wanted
+                ],
+            )
+            for line in lines:
+                line.for_pickup = True
+            apply_totals(order, await tax_for_lines(self.db, business.id, lines))
+            await self.db.flush()
+            _, client_secret = await open_order_card_payment(
+                self.db,
+                self.gateway,
+                account_id=account_id,
+                business_id=business.id,
+                order=order,
+                client=client,
+                amount=order.total_cents,
+                idempotency_key=idempotency_key,
+            )
+            result = PublicShopOrderResult(
+                subtotal_cents=order.subtotal_cents,
+                tax_total_cents=order.tax_total_cents,
+                order_id=order.id,
+                order_token=order.status_token,
+                total_cents=order.total_cents,
+                currency=order.currency,
+                client_secret=client_secret,
+                stripe_account_id=account_id,
+            )
+            cmd.record(_SCOPE, entity_type="order", entity_id=order.id)
+            return result
+
+        return await run_command(
             self.db,
-            business.id,
-            name=data.client.name,
-            email=data.client.email,
-            phone=data.client.phone,
-            source="online_shop",
-        )
-        order = Order(
-            id=new_id("order"),
-            business_id=business.id,
-            client_id=client.id,
-            staff_id=await self._owner_staff(business.id),
-            number=await next_order_number(self.db, business.id),
-            status="open",
-            currency=wanted[0][0].currency,
-            source="online",
-            receipt_token=secrets.token_urlsafe(32),
-            status_token=secrets.token_urlsafe(32),
-            pickup_from=data.pickup_from,
-            pickup_to=data.pickup_to,
-            note=data.note,
-            notify_sms=data.notify_sms,
-        )
-        self.db.add(order)
-        await self.db.flush()
-        lines = await replace_lines(
-            self.db,
-            business.id,
-            "order",
-            order.id,
-            [
-                LineInput(
-                    description=item.name,
-                    quantity=qty,
-                    unit_amount_cents=item.price_cents,
-                    item_id=item.id,
-                )
-                for item, qty in wanted
-            ],
-        )
-        for line in lines:
-            line.for_pickup = True
-        apply_totals(order, await tax_for_lines(self.db, business.id, lines))
-        await self.db.flush()
-        _, client_secret = await open_order_card_payment(
-            self.db,
-            self.gateway,
-            account_id=account_id,
-            business_id=business.id,
-            order=order,
-            client=client,
-            amount=order.total_cents,
+            PublicPrincipal(business.id),
+            action=_SCOPE,
+            run=run,
+            response_model=PublicShopOrderResult,
             idempotency_key=idempotency_key,
+            request=data,
         )
-        result = PublicShopOrderResult(
-            subtotal_cents=order.subtotal_cents,
-            tax_total_cents=order.tax_total_cents,
-            order_id=order.id,
-            order_token=order.status_token,
-            total_cents=order.total_cents,
-            currency=order.currency,
-            client_secret=client_secret,
-            stripe_account_id=account_id,
-        )
-        remember(
-            self.db, business.id, _SCOPE, idempotency_key, data, result.model_dump(mode="json")
-        )
-        await self.db.commit()
-        return result
 
     async def _owner_staff(self, business_id: str) -> str:
         return await owner_staff_id(self.db, business_id)

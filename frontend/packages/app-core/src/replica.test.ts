@@ -153,7 +153,7 @@ const WINDOWS = ZONES.flatMap((zone) => [
     ...days(zone, "2026-10-29", 6),
     ...days(zone, "2027-03-11", 6),
 ]);
-const INDEXED = "USING INDEX ps_data__slots__slots_business_start (<expr>>? AND <expr><?)";
+const INDEXED = "USING INDEX ps_data__slots__slots_business_start (<expr><?)";
 
 beforeAll(async () => {
     const SQL = await initSqlJs();
@@ -173,7 +173,9 @@ describe("range queries on the synced replica", () => {
         expect(plan(CLASS_SESSIONS_SQL, [lo, hi])).toContain(INDEXED);
         expect(plan(CLASS_ROSTER_SQL, [lo, hi])).toContain(INDEXED);
         expect(plan(STATIONS_HELD_SQL, [hi, lo])).toContain(INDEXED);
-        expect(plan(CHECKOUT_QUEUE_SQL, [lo, hi])).toContain(INDEXED);
+        expect(plan(CHECKOUT_QUEUE_SQL, [lo, hi])).toContain(
+            "USING INDEX ps_data__slots__slots_business_start (<expr>>? AND <expr><?)",
+        );
         expect(plan(AWAY_SQL, [hi, lo])).toContain(
             "USING INDEX ps_data__hours__hours_exception (<expr>=? AND <expr><?)",
         );

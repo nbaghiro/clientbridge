@@ -31,7 +31,7 @@ ENV BASE_DOMAIN=base.invalid \
     VITE_AUTH_URL=$VITE_AUTH_URL \
     VITE_POWERSYNC_URL=$VITE_POWERSYNC_URL \
     VITE_PAY_URL=$VITE_PAY_URL
-RUN pnpm exec turbo run build --filter=web --filter=connect --filter=site
+RUN pnpm exec turbo run build --concurrency=1 --filter=web --filter=connect --filter=site --filter=admin
 
 FROM caddy:2.11.7-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f AS prod
 RUN addgroup -S -g 10001 web && adduser -S -D -H -u 10001 -G web web
@@ -40,6 +40,7 @@ RUN apk add --no-cache libcap && setcap -r /usr/bin/caddy && apk del libcap
 ENV XDG_CONFIG_HOME=/tmp XDG_DATA_HOME=/tmp
 COPY --from=build /app/frontend/apps/site/dist /srv/site
 COPY --from=build /app/frontend/apps/web/dist /srv/web
+COPY --from=build /app/frontend/apps/admin/dist /srv/admin
 COPY --from=build /app/frontend/apps/connect/dist /srv/connect
 COPY frontend/Caddyfile /etc/caddy/Caddyfile
 COPY --chmod=755 <<'EOF' /usr/local/bin/serve
@@ -48,13 +49,16 @@ set -eu
 : "${BASE_DOMAIN:?set BASE_DOMAIN, for example clientbridge.ca}"
 export ENVIRONMENT="${ENVIRONMENT:-development}"
 export STRIPE_PUBLISHABLE_KEY="${STRIPE_PUBLISHABLE_KEY:-}"
+export CONTACT_UPSTREAM="${CONTACT_UPSTREAM:-http://api:8701}"
 export SITE_HOST="${SITE_HOST:-$BASE_DOMAIN}"
+export ADMIN_HOST="${ADMIN_HOST:-admin.$BASE_DOMAIN}"
 export APP_HOST="${APP_HOST:-app.$BASE_DOMAIN}"
 export BOOK_HOST="${BOOK_HOST:-book.$BASE_DOMAIN}"
 export PAY_HOST="${PAY_HOST:-pay.$BASE_DOMAIN}"
 export SHOP_HOST="${SHOP_HOST:-shop.$BASE_DOMAIN}"
 export SITE_URL="${SITE_URL:-https://$SITE_HOST}"
-APP_URL="${APP_URL:-https://$APP_HOST}"
+export APP_URL="${APP_URL:-https://$APP_HOST}"
+export ADMIN_URL="${ADMIN_URL:-https://$ADMIN_HOST}"
 export BOOK_URL="${BOOK_URL:-https://$BOOK_HOST}"
 export PAY_URL="${PAY_URL:-https://$PAY_HOST}"
 # Empty means the app derives them from BASE_DOMAIN; the compose app profile sets local ones.
@@ -65,7 +69,7 @@ MOBILE_APP_ID="${MOBILE_APP_ID:-}"
 APPLE_TEAM_ID="${APPLE_TEAM_ID:-}"
 ANDROID_CERT_FINGERPRINTS="${ANDROID_CERT_FINGERPRINTS:-}"
 # config.js and the association files quote these values as JSON strings
-for value in "$BASE_DOMAIN" "$API_URL" "$AUTH_URL" "$SYNC_URL" "$PAY_URL" "$BOOK_URL" "$STRIPE_PUBLISHABLE_KEY" \
+for value in "$APP_URL" "$ADMIN_URL" "$BASE_DOMAIN" "$API_URL" "$AUTH_URL" "$SYNC_URL" "$PAY_URL" "$BOOK_URL" "$STRIPE_PUBLISHABLE_KEY" \
              "$MOBILE_APP_ID" "$APPLE_TEAM_ID" "$ANDROID_CERT_FINGERPRINTS"; do
     case "$value" in *'"'* | *'\'*) echo "serve: $value holds a quote or a backslash" >&2; exit 1 ;; esac
 done

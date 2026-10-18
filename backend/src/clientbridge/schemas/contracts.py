@@ -48,6 +48,7 @@ Stroke = list[tuple[float, float]]
 
 
 class PublicContractSign(BaseModel):
+    version: int = Field(ge=1)
     typed_name: str = Field(min_length=1, max_length=120, description="The printed name")
     strokes: list[Stroke] | None = Field(
         default=None, max_length=60, description="A drawn signature as points from 0 to 1"

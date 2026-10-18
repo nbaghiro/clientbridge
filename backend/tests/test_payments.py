@@ -27,6 +27,7 @@ from tests.helpers import (
     sent_invoice,
     stripe_event,
 )
+from tests.helpers import key as retry_key
 
 BIZ = "bz_birchbark"
 STRIPE = {"Stripe-Signature": "good"}
@@ -152,7 +153,9 @@ async def test_refund_credits_the_invoice(as_owner: httpx.AsyncClient, db: Async
     await as_owner.post(
         "/webhooks/stripe", content=_pi_event("evt_r1", pi_id), headers={"Stripe-Signature": "good"}
     )
-    refunded = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund", json={})
+    refunded = await as_owner.post(
+        f"/v1/payments/{pay['payment_id']}/refund", json={}, headers=retry_key()
+    )
     assert refunded.status_code == 200
     inv = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
     assert (await ledger.invoice_state(db, inv))[0] == "refunded"
@@ -175,9 +178,13 @@ async def test_double_refund_rejected(as_owner: httpx.AsyncClient, db: AsyncSess
         "/webhooks/stripe", content=_pi_event("evt_dr", pi_id), headers={"Stripe-Signature": "good"}
     )
     assert (
-        await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund", json={})
+        await as_owner.post(
+            f"/v1/payments/{pay['payment_id']}/refund", json={}, headers=retry_key()
+        )
     ).status_code == 200
-    again = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund", json={})
+    again = await as_owner.post(
+        f"/v1/payments/{pay['payment_id']}/refund", json={}, headers=retry_key()
+    )
     assert again.status_code == 409  # a fresh-key second refund — no second real refund
 
 
@@ -371,7 +378,7 @@ async def test_refund_foreign_payment_404_by_scoping(
     )
     db.add(foreign_pay)
     await db.flush()
-    res = await as_owner.post(f"/v1/payments/{foreign_pay.id}/refund", json={})
+    res = await as_owner.post(f"/v1/payments/{foreign_pay.id}/refund", json={}, headers=retry_key())
     assert res.status_code == 404  # scoped out, not refunded across the tenant boundary
     # no refund row was created and the foreign payment is still a clean succeeded charge
     refund = (
@@ -482,3 +489,21 @@ async def test_a_foreign_currency_payout_is_refused_and_audited(
         select(Audit).where(Audit.business_id == BIZ, Audit.action == "payout.refused")
     )
     assert refused.scalar_one().changes == {"id": "po_usd", "currency": "USD", "amount_cents": 5000}
+
+
+async def test_full_invoice_payment_replays_after_balance_is_zero(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    invoice_id = await sent_invoice(db, number=99001, total=1000)
+    path = f"/v1/invoices/{invoice_id}/payments"
+    body = {"method": "cash", "amount_cents": 1000}
+    headers = {"Idempotency-Key": "full-invoice-payment-replay"}
+    first = await as_owner.post(path, json=body, headers=headers)
+    assert first.status_code == 201, first.text
+    replay = await as_owner.post(path, json=body, headers=headers)
+    assert replay.status_code == 201, replay.text
+    assert replay.json() == first.json()
+    changed = await as_owner.post(path, json=body | {"amount_cents": 500}, headers=headers)
+    assert changed.status_code == 422
+    fresh = await as_owner.post(path, json=body, headers={"Idempotency-Key": "second-payment"})
+    assert fresh.status_code == 409

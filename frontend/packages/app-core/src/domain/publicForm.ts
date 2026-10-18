@@ -23,6 +23,7 @@ export interface PublicForm {
     brand: PublicBrand;
     timezone: string;
     completed: boolean;
+    require_signature: boolean;
     fields: PublicFormField[];
 }
 
@@ -31,7 +32,11 @@ export type FormAnswer = string | string[] | boolean;
 
 interface PublicFormClient {
     getForm: (token: string) => Promise<PublicForm>;
-    submit(token: string, answers: Record<string, FormAnswer>): Promise<PublicForm>;
+    submit(
+        token: string,
+        answers: Record<string, FormAnswer>,
+        signature: { name: string; agreed: true } | null,
+    ): Promise<PublicForm>;
     upload(token: string, file: Blob): Promise<string>; // returns a file_id to store as the answer
 }
 
@@ -47,11 +52,11 @@ export function createPublicFormClient(baseUrl: string): PublicFormClient {
 
     return {
         getForm: (token) => request<PublicForm>(`/form/${encodeURIComponent(token)}`),
-        submit: (token, answers) =>
+        submit: (token, answers, signature) =>
             request<PublicForm>(`/form/${encodeURIComponent(token)}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ answers }),
+                body: JSON.stringify({ answers, signature }),
             }),
         upload: async (token, file) => {
             const meta = await request<{ file_id: string; upload_url: string }>(
@@ -108,6 +113,10 @@ interface PublicFormFill {
     status: PublicFormStatus;
     form: PublicForm | null;
     answers: Record<string, FormAnswer>;
+    signer: string;
+    setSigner: (name: string) => void;
+    agreed: boolean;
+    setAgreed: (value: boolean) => void;
     setAnswer: (name: string, value: FormAnswer) => void;
     uploadFor: (name: string, file: Blob) => void;
     submit: () => void;
@@ -124,6 +133,8 @@ export function usePublicFormFill(forms: PublicFormClient, token: string): Publi
         setData: setForm,
         retry,
     } = usePublicResource(forms.getForm, token);
+    const [signer, setSigner] = useState("");
+    const [agreed, setAgreed] = useState(false);
     const [answers, setAnswers] = useState<Record<string, FormAnswer>>({});
     const { busy, error, setError, run } = useAsyncAction();
 
@@ -149,6 +160,10 @@ export function usePublicFormFill(forms: PublicFormClient, token: string): Publi
     };
 
     const submit = (): void => {
+        if (form?.require_signature && (!signer.trim() || !agreed)) {
+            setError(strings.publicForm.signatureRequired);
+            return;
+        }
         const missing = form?.fields.find((f) => f.required && isAnswerMissing(answers[f.name]));
         if (missing !== undefined) {
             setError(strings.publicForm.answerRequired(missing.label));
@@ -156,13 +171,34 @@ export function usePublicFormFill(forms: PublicFormClient, token: string): Publi
         }
         run(
             async () => {
-                setForm(await forms.submit(token, answers));
+                setForm(
+                    await forms.submit(
+                        token,
+                        answers,
+                        form?.require_signature ? { name: signer.trim(), agreed: true } : null,
+                    ),
+                );
             },
             { errorMessage: strings.publicForm.submitAnswersError },
         );
     };
 
-    return { status, form, answers, setAnswer, uploadFor, submit, busy, error, setError, retry };
+    return {
+        status,
+        form,
+        answers,
+        signer,
+        setSigner,
+        agreed,
+        setAgreed,
+        setAnswer,
+        uploadFor,
+        submit,
+        busy,
+        error,
+        setError,
+        retry,
+    };
 }
 
 const UPLOAD_MAX_BYTES = 10 * 1024 * 1024;

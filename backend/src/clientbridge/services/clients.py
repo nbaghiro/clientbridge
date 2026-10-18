@@ -9,7 +9,7 @@ from clientbridge.core.db import Base
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.ids import new_id
-from clientbridge.core.phones import same_phone
+from clientbridge.core.phones import e164, same_phone
 from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.models.billing import Estimate, Invoice, Order
 from clientbridge.models.catalog import GiftCard, Package, Subscription
@@ -67,60 +67,86 @@ class ClientService:
         self.principal = principal
         self.biz = principal.business_id
 
-    async def create(self, data: ClientCreate) -> Client:
-        client = Client(
-            id=new_id("client"),
-            business_id=self.biz,
-            created_by=self.principal.user_id,
-            name=data.name.strip(),
-            email=data.email,
-            phone=data.phone,
-            tags=clean_tags(data.tags),
-            status=data.status,
-            custom_fields=data.custom_fields,
-            preferred_channel=data.preferred_channel,
-        )
-        self.db.add(client)
-        await self.db.flush()
-        if data.subject is not None:
-            self.db.add(
-                Subject(
-                    id=new_id("subject"),
-                    business_id=self.biz,
-                    client_id=client.id,
-                    kind=data.subject.kind,
-                    name=data.subject.name.strip(),
-                    attributes=data.subject.attributes.model_dump(mode="json", exclude_none=True),
+    async def create(self, data: ClientCreate, idempotency_key: str | None = None) -> ClientOut:
+        async def run(cmd: Command) -> ClientOut:
+            client = Client(
+                id=new_id("client"),
+                business_id=self.biz,
+                created_by=self.principal.user_id,
+                name=data.name.strip(),
+                email=data.email,
+                phone=data.phone,
+                tags=clean_tags(data.tags),
+                status=data.status,
+                custom_fields=data.custom_fields,
+                preferred_channel=data.preferred_channel,
+            )
+            self.db.add(client)
+            await self.db.flush()
+            if data.subject is not None:
+                self.db.add(
+                    Subject(
+                        id=new_id("subject"),
+                        business_id=self.biz,
+                        client_id=client.id,
+                        kind=data.subject.kind,
+                        name=data.subject.name.strip(),
+                        attributes=data.subject.attributes.model_dump(
+                            mode="json", exclude_none=True
+                        ),
+                    )
                 )
-            )
-        if data.marketing_consent:
-            await set_marketing_consent(
-                self.db, self.biz, client.id, agreed=True, recorded_by=self.principal.user_id
-            )
-        await self.db.flush()
-        await self.db.refresh(client)
-        await self.db.commit()
-        return client
+            if data.marketing_consent:
+                await set_marketing_consent(
+                    self.db, self.biz, client.id, agreed=True, recorded_by=self.principal.user_id
+                )
+            await self.db.flush()
+            await self.db.refresh(client)
+            cmd.record("client.create", entity_type="client", entity_id=client.id)
+            return ClientOut.model_validate(client)
 
-    async def update(self, client_id: str, data: ClientUpdate) -> Client:
-        client = await load_client(self.db, self.biz, client_id)
-        changes = data.model_dump(exclude_unset=True, exclude={"marketing_consent"})
-        if "tags" in changes:
-            changes["tags"] = clean_tags(data.tags or [])
-        for key, value in changes.items():
-            setattr(client, key, value)
-        if data.marketing_consent is not None:
-            await set_marketing_consent(
-                self.db,
-                self.biz,
-                client.id,
-                agreed=data.marketing_consent,
-                recorded_by=self.principal.user_id,
-            )
-        await self.db.flush()
-        await self.db.refresh(client)
-        await self.db.commit()
-        return client
+        return await run_command(
+            self.db,
+            self.principal,
+            action="client.create",
+            run=run,
+            response_model=ClientOut,
+            idempotency_key=idempotency_key,
+            request=data,
+        )
+
+    async def update(
+        self, client_id: str, data: ClientUpdate, idempotency_key: str | None = None
+    ) -> ClientOut:
+        async def run(cmd: Command) -> ClientOut:
+            client = await load_client(self.db, self.biz, client_id)
+            changes = data.model_dump(exclude_unset=True, exclude={"marketing_consent"})
+            if "tags" in changes:
+                changes["tags"] = clean_tags(data.tags or [])
+            for key, value in changes.items():
+                setattr(client, key, value)
+            if data.marketing_consent is not None:
+                await set_marketing_consent(
+                    self.db,
+                    self.biz,
+                    client.id,
+                    agreed=data.marketing_consent,
+                    recorded_by=self.principal.user_id,
+                )
+            await self.db.flush()
+            await self.db.refresh(client)
+            cmd.record("client.update", entity_type="client", entity_id=client.id)
+            return ClientOut.model_validate(client)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="client.update",
+            run=run,
+            response_model=ClientOut,
+            idempotency_key=idempotency_key,
+            request={"client_id": client_id, "data": data},
+        )
 
     async def set_archived(
         self, client_id: str, *, archived: bool, idempotency_key: str | None
@@ -222,8 +248,19 @@ class ClientService:
             raise Conflict("a client can't be merged into itself")
 
         async def run(cmd: Command) -> ClientOut:
-            kept = await load_client(self.db, self.biz, client_id)
-            gone = await load_client(self.db, self.biz, data.from_client_id)
+            locked = list(
+                await self.db.scalars(
+                    scoped(Client, self.biz, soft_delete=True)
+                    .where(Client.id.in_((client_id, data.from_client_id)))
+                    .order_by(Client.id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+            )
+            by_id = {client.id: client for client in locked}
+            if client_id not in by_id or data.from_client_id not in by_id:
+                raise NotFound("client not found")
+            kept, gone = by_id[client_id], by_id[data.from_client_id]
             await self._assert_mergeable(gone)
             for field in ("name", "phone", "email"):
                 if data.fields.get(field) == "other" or getattr(kept, field) in (None, ""):
@@ -264,6 +301,14 @@ class ClientService:
         )
 
     async def _assert_mergeable(self, gone: Client) -> None:
+        pending = await self.db.scalar(
+            scoped(Payment, self.biz)
+            .with_only_columns(Payment.id)
+            .where(Payment.client_id == gone.id)
+            .limit(1)
+        )
+        if pending is not None:
+            raise Conflict("the other record has a payment in progress or payment history")
         money = await self.db.scalar(
             select(func.count()).select_from(
                 scoped(Account, self.biz)
@@ -328,22 +373,35 @@ async def find_or_create_by_contact(
     source: str,
 ) -> Client:
     """Match a client by email or phone, else create one tagged with its source."""
+    email = email.strip().lower() if email else None
+    phone = e164(phone) if phone else None
+    contacts = sorted(value for value in (email, phone) if value)
+    for contact in contacts:
+        await db.execute(
+            select(
+                func.pg_advisory_xact_lock(
+                    func.hashtextextended(f"contact:{business_id}:{contact}", 0)
+                )
+            )
+        )
     match: list[ColumnElement[bool]] = []
     if email:
-        match.append(Client.email == email)
+        match.append(func.lower(Client.email) == email)
     if phone:
         match.append(same_phone(Client.phone, phone))
     existing = (
-        (
-            await db.execute(
-                scoped(Client, business_id, soft_delete=True).where(or_(*match)).limit(1)
+        list(
+            await db.scalars(
+                scoped(Client, business_id, soft_delete=True).where(or_(*match)).limit(2)
             )
         )
-        .scalars()
-        .first()
+        if match
+        else []
     )
-    if existing is not None:
-        return existing
+    if len(existing) > 1:
+        raise Conflict("contact details match different clients", code="contact_ambiguous")
+    if existing:
+        return existing[0]
     client = Client(
         id=new_id("client"),
         business_id=business_id,

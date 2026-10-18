@@ -30,12 +30,15 @@ interface AsyncAction {
 
 export function useAsyncAction(): AsyncAction {
     const [busy, setBusy] = useState(false);
+    const running = useRef(false);
     const [error, setError] = useState<string | null>(null);
 
     const run = (
         fn: () => Promise<unknown>,
         opts?: { onSuccess?: () => void; errorMessage?: string | ((error: unknown) => string) },
     ): void => {
+        if (running.current) return;
+        running.current = true;
         const go = async (): Promise<void> => {
             setBusy(true);
             setError(null);
@@ -50,6 +53,7 @@ export function useAsyncAction(): AsyncAction {
                         : (message ?? strings.common.somethingWrongRetry),
                 );
             } finally {
+                running.current = false;
                 setBusy(false);
             }
         };
@@ -157,20 +161,28 @@ export function useRemote<T>(load: () => Promise<T>, key = ""): Remote<T> {
     const [error, setError] = useState<Error | null>(null);
     const [isLoading, setLoading] = useState(true);
     const current = useRef(load);
+    const generation = useRef(0);
     current.current = load;
     const refresh = useCallback(async (): Promise<void> => {
+        const request = ++generation.current;
         setLoading(true);
         setError(null);
         try {
-            setData(await current.current());
+            const next = await current.current();
+            if (request === generation.current) setData(next);
         } catch (e) {
-            setError(e instanceof Error ? e : new Error(String(e)));
+            if (request === generation.current)
+                setError(e instanceof Error ? e : new Error(String(e)));
         } finally {
-            setLoading(false);
+            if (request === generation.current) setLoading(false);
         }
     }, []);
     useEffect(() => {
+        setData(null);
         refresh().catch(() => undefined);
+        return () => {
+            generation.current += 1;
+        };
     }, [refresh, key]);
     return { data, error, isLoading, refresh };
 }

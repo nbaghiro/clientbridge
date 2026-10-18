@@ -10,7 +10,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
 from clientbridge.models.documents import Form, FormField, FormResponse
 from clientbridge.models.scheduling import Booking, Slot
-from clientbridge.services.forms import run_intake_forms
+from clientbridge.services.forms import run_intake_forms, snapshot_form
 from clientbridge.services.notifications import Notifier
 from tests.conftest import (
     DownEmailSender,
@@ -110,7 +110,10 @@ async def test_edit_is_tenant_scoped(
 
 
 async def _response(db: AsyncSession) -> str:
+    form = await db.get(Form, "frm_satisfaction")
+    assert form is not None
     response = FormResponse(
+        definition=await snapshot_form(db, form),
         id=new_id("form_response"),
         business_id=BIZ,
         form_id="frm_satisfaction",

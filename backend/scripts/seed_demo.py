@@ -41,6 +41,7 @@ from clientbridge.models.scheduling import (
     Resource,
     Slot,
 )
+from clientbridge.services.forms import form_definition
 from scripts.demo_calendar import build_calendar
 from scripts.demo_catalog import add_catalog_images
 from scripts.demo_chronology import align_chronology, chronology_errors
@@ -120,6 +121,7 @@ def seed_identity() -> tuple[str, str]:
                 "tagline": "Calm, careful grooming on Vancouver Island.",
             },
             billing_email="hello@birchbarkpets.ca",
+            sms_number="+12505550999",
             stripe_account_id="acct_demo_birchbark",
             # the demo account is mid-onboarding: it can't charge yet, but it is a payments account
             stripe_requirements={
@@ -2198,6 +2200,13 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
     )
     for file in ctx.all(File):
         file.uploaded_at = now  # every demo file's bytes are uploaded before its row is written
+    forms = {form.id: form for form in ctx.all(Form)}
+    for response in ctx.all(FormResponse):
+        response.definition = form_definition(
+            forms[response.form_id],
+            [field for field in ctx.all(FormField) if field.form_id == response.form_id],
+            "reconstructed",
+        )
     errors = validate_graph(ctx) + chronology_errors(ctx)
     if errors:
         raise ValueError("Invalid demo graph: " + "; ".join(errors[:20]))

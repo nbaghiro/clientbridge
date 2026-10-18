@@ -221,27 +221,6 @@ const subscriptions = new Table(
     },
 );
 
-const gift_cards = new Table(
-    {
-        code: column.text,
-        item_id: column.text,
-        initial_cents: column.integer,
-        purchaser_client_id: column.text,
-        recipient: column.text,
-        expires_at: column.text,
-        status: column.text,
-        payment_id: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            gift_cards_business_id: ["business_id"],
-        },
-    },
-);
-
 const forms = new Table(
     {
         name: column.text,
@@ -715,6 +694,27 @@ const payment_methods = new Table(
     },
 );
 
+const gift_cards = new Table(
+    {
+        code: column.text,
+        item_id: column.text,
+        initial_cents: column.integer,
+        purchaser_client_id: column.text,
+        recipient: column.text,
+        expires_at: column.text,
+        status: column.text,
+        payment_id: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            gift_cards_business_id: ["business_id"],
+        },
+    },
+);
+
 const reviews = new Table(
     {
         client_id: column.text,
@@ -944,7 +944,6 @@ export const AppSchema = new Schema({
     items,
     packages,
     subscriptions,
-    gift_cards,
     forms,
     fields,
     contracts,
@@ -963,6 +962,7 @@ export const AppSchema = new Schema({
     inventory,
     payments,
     payment_methods,
+    gift_cards,
     reviews,
     broadcasts,
     responses,

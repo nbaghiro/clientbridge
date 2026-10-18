@@ -1,9 +1,10 @@
 import httpx
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.security import hash_password
 from clientbridge.models.business import Business, User
+from clientbridge.models.platform import Audit
 from tests.helpers import client_id, ok
 
 BIZ = "bz_birchbark"
@@ -158,3 +159,14 @@ async def test_the_pay_link_shows_discounts(
     assert page["lines"][0]["discount_cents"] == 1000
     assert (page["discount_cents"], page["discount_reason"]) == (500, "Wait")
     assert page["subtotal_cents"] == 8500
+
+
+async def test_approval_pin_changes_are_audited_without_secrets(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    ok(await as_owner.post("/v1/orders/approval-pin", json={"pin": "2468"}), 204)
+    audit = await db.scalar(select(Audit).where(Audit.action == "order.approval_pin"))
+    assert audit is not None
+    assert audit.performed_by == "us_dev" and audit.business_id == BIZ
+    assert audit.entity_id == "us_dev"
+    assert "2468" not in str(audit.changes) and "argon2" not in str(audit.changes)

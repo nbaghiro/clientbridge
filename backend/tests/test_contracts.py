@@ -17,7 +17,7 @@ from tests.helpers import client_id, new_client
 BIZ = "bz_birchbark"
 WAIVER = "con_waiver"  # seeded contract
 
-SIGN = {"typed_name": "Jane Doe", "agreed": True}
+SIGN = {"typed_name": "Jane Doe", "agreed": True, "version": 2}
 
 
 async def _a_signature(db: AsyncSession, *, contract_id: str = WAIVER) -> str:
@@ -150,3 +150,20 @@ async def test_public_get_is_rate_limited(api: httpx.AsyncClient, db: AsyncSessi
     token = await _a_signature(db)
     assert (await api.get(f"/contract/{token}")).status_code == 200
     assert (await api.get(f"/contract/{token}")).status_code == 429
+
+
+async def test_sign_rejects_a_version_the_client_has_not_seen(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    token = await _a_signature(db)
+    seen = (await api.get(f"/contract/{token}")).json()
+    contract = await db.get(Contract, WAIVER)
+    assert contract is not None
+    contract.body = "replacement terms"
+    contract.version += 1
+    await db.commit()
+    response = await api.post(f"/contract/{token}/sign", json=SIGN | {"version": seen["version"]})
+    assert response.status_code == 409
+    signature = await db.scalar(select(Signature).where(Signature.token == token))
+    assert signature is not None and signature.status == "pending"
+    assert signature.signed_body is None

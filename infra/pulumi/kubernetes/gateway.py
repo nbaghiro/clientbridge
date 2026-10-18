@@ -24,6 +24,7 @@ SYNC_TIMEOUT_SECONDS = 3600  # PowerSync streams stay open; the default 30 secon
 BACKENDS: dict[Host, tuple[str, int]] = {
     "site": ("web", WEB_PORT),
     "app": ("web", WEB_PORT),
+    "admin": ("web", WEB_PORT),
     "book": ("web", WEB_PORT),
     "pay": ("web", WEB_PORT),
     "shop": ("web", WEB_PORT),
@@ -184,6 +185,13 @@ def routes(env: Environment, provider: k8s.Provider, depends_on: list[pulumi.Res
                         }
                     ],
                     "backendRefs": [{"name": "auth", "port": AUTH_PUBLIC_PORT}],
+                }
+            )
+        if host == "site":
+            rules.append(
+                {
+                    "matches": [{"path": {"type": "Exact", "value": "/contact"}, "method": "POST"}],
+                    "backendRefs": [{"name": "api", "port": API_PORT}],
                 }
             )
         rules.append({"backendRefs": [{"name": service, "port": port}]})

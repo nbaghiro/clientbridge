@@ -152,12 +152,12 @@ async def test_twilio_posts_the_message_form_and_returns_its_sid(
 
     client_type = httpx.AsyncClient
 
-    def client(*, timeout: float, auth: tuple[str, str]) -> httpx.AsyncClient:
-        return client_type(transport=httpx.MockTransport(respond), timeout=timeout, auth=auth)
+    def client(*, timeout: float) -> httpx.AsyncClient:
+        return client_type(transport=httpx.MockTransport(respond), timeout=timeout)
 
     monkeypatch.setattr(httpx, "AsyncClient", client)
-    send = TwilioSmsSender("AC_1", "auth-token", "+15550000000").send(
-        Sms(to="+15551112222", body="Hello")
+    send = TwilioSmsSender("AC_1", "auth-token").send(
+        Sms(to="+15551112222", body="Hello", from_number="+15550000000")
     )
     if status >= 400:
         with pytest.raises(httpx.HTTPStatusError):

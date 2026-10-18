@@ -10,6 +10,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from tests.conftest import Factory
 from tests.helpers import client_id, enable_payments, stripe_event
+from tests.helpers import key as retry_key
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -175,7 +176,7 @@ async def test_refund_order_payment_reverts_order(
         await as_owner.post("/webhooks/stripe", content=settle, headers=GOOD)
     ).status_code == 200
 
-    refunded = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={})
+    refunded = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key())
     assert refunded.status_code == 200, refunded.text
     status = (
         await db.execute(select(ledger.order_status_expr()).where(Order.id == order["id"]))

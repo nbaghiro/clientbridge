@@ -14,6 +14,7 @@ from clientbridge.models.ledger import Entry
 from clientbridge.services import ledger
 from tests.conftest import BIZ, Factory, FakePaymentGateway
 from tests.helpers import card_pay, enable_payments, settle
+from tests.helpers import key as retry_key
 
 GOOD = {"Stripe-Signature": "good"}
 SHAMPOO = "it_shampoo"  # seeded product, $24.00
@@ -268,7 +269,9 @@ async def test_paid_sale_moves_stock_once_and_full_refund_restores(
     await settle(as_owner, db, str(sale["payment_id"]), "evt_stk1_again")
     assert await _stock(db, item_id) == 3
 
-    refund = await as_owner.post(f"/v1/payments/{sale['payment_id']}/refund", json={})
+    refund = await as_owner.post(
+        f"/v1/payments/{sale['payment_id']}/refund", json={}, headers=retry_key()
+    )
     assert refund.status_code == 200, refund.text
     assert await _stock(db, item_id) == 5
     moves = (
@@ -283,7 +286,7 @@ async def test_partial_refund_keeps_stock_out(
     await _track(db, SHAMPOO, 5)
     sale = await _paid_sale(as_owner, db, [await _line(SHAMPOO, 2400)], "evt_stk2")
     res = await as_owner.post(
-        f"/v1/payments/{sale['payment_id']}/refund", json={"amount_cents": 500}
+        f"/v1/payments/{sale['payment_id']}/refund", json={"amount_cents": 500}, headers=retry_key()
     )
     assert res.status_code == 200, res.text
     assert await _stock(db, SHAMPOO) == 4
@@ -337,7 +340,7 @@ async def test_refund_reverses_pending_commission(
 ) -> None:
     await _commission(db, "st_owner", 1000)
     sale = await _paid_sale(as_owner, db, [await _line(SHAMPOO, 2400)], "evt_com2")
-    await as_owner.post(f"/v1/payments/{sale['payment_id']}/refund", json={})
+    await as_owner.post(f"/v1/payments/{sale['payment_id']}/refund", json={}, headers=retry_key())
     refs = (await db.execute(select(Entry.ref).where(Entry.subject_id == sale["id"]))).scalars()
     assert any(ref.endswith(":reversal") for ref in refs)
 

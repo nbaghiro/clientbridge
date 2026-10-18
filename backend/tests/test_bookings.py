@@ -31,6 +31,7 @@ from tests.helpers import (
     provider_ref,
     stripe_event,
 )
+from tests.helpers import key as retry_key
 
 ST_OWNER = "st_owner"
 ST_PRIYA = "st_priya"  # seeded staff with no hours rows → unconfigured
@@ -830,7 +831,9 @@ async def test_refund_reverses_collected_deposit(
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
     assert booking.deposit_status == "collected"
 
-    refunded = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund", json={})
+    refunded = await as_owner.post(
+        f"/v1/payments/{pay['payment_id']}/refund", json={}, headers=retry_key()
+    )
     assert refunded.status_code == 200, refunded.text
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
     assert booking.deposit_status == "refunded"
@@ -899,12 +902,16 @@ async def test_partial_deposit_refund_stays_collected_until_the_rest(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     bid, pay_id = await _collected_deposit(as_owner, db, starts="2027-07-05T10:00:00Z")
-    part = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={"amount_cents": 500})
+    part = await as_owner.post(
+        f"/v1/payments/{pay_id}/refund", json={"amount_cents": 500}, headers=retry_key()
+    )
     assert part.status_code == 200, part.text
     assert await _deposit_status(db, bid) == "collected"
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
     assert await ledger.deposit_held(db, booking) == 1500
-    assert (await as_owner.post(f"/v1/payments/{pay_id}/refund", json={})).status_code == 200
+    assert (
+        await as_owner.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key())
+    ).status_code == 200
     assert await _deposit_status(db, bid) == "refunded"
     assert await ledger.deposit_held(db, booking) == 0
 
@@ -917,7 +924,7 @@ async def test_refunding_a_forfeited_deposit_in_full_unforfeits_it(
     await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
     assert await _deposit_status(db, bid) == "forfeited"
     revenue = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="revenue")
-    res = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={})
+    res = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key())
     assert res.status_code == 200, res.text
     assert await _deposit_status(db, bid) == "refunded"
     after = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="revenue")

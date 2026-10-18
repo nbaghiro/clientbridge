@@ -175,3 +175,7 @@ async def test_staff_cannot_bulk_change_tax_class_403(as_staff: httpx.AsyncClien
         "/v1/items/tax-class", json={"item_ids": ["it_nope"], "tax_class": "exempt"}
     )
     assert res.status_code == 403
+
+
+async def test_tax_rates_require_authentication(api: httpx.AsyncClient) -> None:
+    assert (await api.get("/v1/tax-rates")).status_code == 401

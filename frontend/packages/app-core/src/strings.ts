@@ -2079,6 +2079,11 @@ interface Strings {
             readonly mountain: string;
             readonly yukon: string;
             readonly pacific: string;
+            readonly creston: string;
+            readonly dawsonCreek: string;
+            readonly fortNelson: string;
+            readonly atikokan: string;
+            readonly blancSablon: string;
         } & Labels;
         readonly billingEmailLabel: string;
         readonly billingEmailPlaceholder: string;
@@ -2121,6 +2126,15 @@ interface Strings {
             readonly verifyFirst: string;
             readonly verifyEmail: string;
         };
+        readonly discountTitle: string;
+        readonly discountLimit: string;
+        readonly saveDiscount: string;
+        readonly approvalPin: string;
+        readonly pinHint: string;
+        readonly savePin: string;
+        readonly discountInvalid: string;
+        readonly pinInvalid: string;
+        readonly discountFailed: string;
     };
     readonly datetime: {
         readonly zoneNames: {
@@ -2132,6 +2146,11 @@ interface Strings {
             readonly mountain: string;
             readonly yukon: string;
             readonly pacific: string;
+            readonly creston: string;
+            readonly dawsonCreek: string;
+            readonly fortNelson: string;
+            readonly atikokan: string;
+            readonly blancSablon: string;
         } & Labels;
     };
     readonly hours: {
@@ -4037,6 +4056,9 @@ interface Strings {
         readonly errorBody: string;
         readonly privacy: (business: string) => string;
         readonly allDone: (business: string) => string;
+        readonly signerName: string;
+        readonly agree: (business: string) => string;
+        readonly signatureRequired: string;
     };
     readonly publicPreferences: {
         readonly title: string;
@@ -4436,6 +4458,14 @@ interface Strings {
         readonly cancel: string;
         readonly testInfo: string;
         readonly testAccepted: string;
+        readonly deliveryHistory: string;
+        readonly refreshDeliveries: string;
+        readonly valueQueued: string;
+        readonly valueSending: string;
+        readonly valueAccepted: string;
+        readonly valueDelivered: string;
+        readonly valueAmbiguous: string;
+        readonly testQueued: string;
         readonly testFailed: string;
         readonly transportUnavailable: string;
         readonly preview: string;

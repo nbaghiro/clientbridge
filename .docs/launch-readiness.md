@@ -1298,7 +1298,7 @@ QA pass:
 1. Deploy a tagged build to staging, run the QA pass of stages 1 to 6 there, and check the security headers.
 2. Take a real $1 payment in live mode and refund it.
 3. Restore last night's backup into a scratch database and open a business from it; trigger a test error on each surface and check the alert.
-4. Install from TestFlight and the Play internal track, sign in as owner and staff, add a note offline and see it reach web, and get a push for an online booking.
+4. Install from TestFlight and the Play internal track, sign in as owner and staff, edit working hours offline and see them reach web; confirm online-only commands explain that a connection is required, and get a push for an online booking.
 5. Check that the live site has no placeholders, every claim holds, and Start free creates an account.
 6. Run the final release pass: an owner day on web, a staff day on iPhone and Android, the client side on a phone, money that agrees to the cent, and changes made at once and offline that end up the same everywhere.
 

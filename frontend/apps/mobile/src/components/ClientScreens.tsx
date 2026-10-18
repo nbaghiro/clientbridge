@@ -8,7 +8,7 @@ import {
     canConsume,
     canManagePayments,
     cancelSubscription,
-    consumeSession,
+    usePackageConsumption,
     formatDate,
     isCancelable,
     packageStatusIntent,
@@ -520,7 +520,7 @@ function SubscriptionLine({ sub }: { sub: SubscriptionRow }) {
 }
 
 function PackageLine({ pkg }: { pkg: PackageRow }) {
-    const { busy, error, run } = useAsyncAction();
+    const { busy, error, consume } = usePackageConsumption(api, pkg.id);
     return (
         <View style={styles.planRow}>
             <ListRow
@@ -538,16 +538,7 @@ function PackageLine({ pkg }: { pkg: PackageRow }) {
                 }
                 trailing={
                     canConsume(pkg) ? (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            busy={busy}
-                            onPress={() => {
-                                run(() => consumeSession(api, pkg.id), {
-                                    errorMessage: strings.clients.consumeSessionError,
-                                });
-                            }}
-                        >
+                        <Button variant="outline" size="sm" busy={busy} onPress={consume}>
                             {strings.clients.consumeShort}
                         </Button>
                     ) : undefined

@@ -273,83 +273,14 @@ function Classic({ doc }: { doc: Doc }) {
     );
 }
 
-function Statement({ doc }: { doc: Doc }) {
-    return (
-        <>
-            <header
-                style={{ backgroundColor: doc.business.brandColor }}
-                className="-mx-6 -mt-6 flex flex-wrap items-center justify-between gap-4 px-6 py-6 @xl:-mx-12 @xl:-mt-12 @xl:px-12"
-            >
-                <BrandBlock doc={doc} inverse />
-                <div className="text-right text-on-data">
-                    <p className="font-display text-lg font-bold uppercase">{doc.heading}</p>
-                    <p className="text-[11px] text-on-data/75">{doc.meta[1]?.value}</p>
-                </div>
-            </header>
-            <section className="mt-8 flex flex-wrap items-stretch justify-between gap-6 rounded-lg border border-line bg-bg p-5">
-                <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                        {doc.headline.label}
-                    </p>
-                    <p className="mt-1 font-display text-4xl font-bold tabular-nums text-ink">
-                        {formatMoney(doc.headline.cents, doc.currency)}
-                    </p>
-                    <p className="mt-1 text-[11px] text-muted">{doc.deadline}</p>
-                    {doc.instructions.map((i) => (
-                        <p
-                            key={i}
-                            className="mt-2 max-w-[300px] text-[11px] leading-relaxed text-ink-soft"
-                        >
-                            {i}
-                        </p>
-                    ))}
-                </div>
-                {doc.payUrl !== null ? (
-                    <div className="flex flex-col items-center justify-center gap-1 rounded-md bg-surface px-3 py-2">
-                        <PayCode value={doc.payUrl} size={92} label={doc.labels.scanToPay} />
-                        <span className="text-[9px] uppercase tracking-wider text-muted">
-                            {doc.labels.scanToPay}
-                        </span>
-                    </div>
-                ) : null}
-            </section>
-            <div className="mt-6">
-                <Parties doc={doc} />
-            </div>
-            {doc.message !== null ? (
-                <p className="mt-5 text-[11px] italic leading-relaxed text-ink-soft">
-                    {doc.message}
-                </p>
-            ) : null}
-            <div className="mt-6">
-                <LinesTable doc={doc} />
-            </div>
-            <div className="mt-4 grid grid-cols-1 items-start gap-6 @xl:grid-cols-[1fr_270px] @xl:gap-8">
-                <div className="space-y-4">
-                    <PaymentBox doc={doc} />
-                    <TaxSummary doc={doc} />
-                </div>
-                <div>
-                    <DocTotals lines={doc.totals} currency={doc.currency} density="compact" />
-                    {doc.stamp !== null ? <Stamp text={doc.stamp} /> : null}
-                </div>
-            </div>
-        </>
-    );
-}
-
-export function PrintedDocument({
-    doc,
-    template = "classic",
-    className,
-}: WebProps<PrintedDocumentProps>) {
+export function PrintedDocument({ doc, className }: WebProps<PrintedDocumentProps>) {
     return (
         <div className={cx("@container mx-auto w-full max-w-[680px]", className)}>
             <article
                 aria-label={doc.heading}
                 className="relative flex min-h-[129.4cqw] w-full flex-col overflow-hidden rounded-sm bg-surface p-6 text-ink @xl:p-12 shadow-page"
             >
-                {template === "classic" ? <Classic doc={doc} /> : <Statement doc={doc} />}
+                <Classic doc={doc} />
                 <div className="mt-8 flex flex-1 flex-col">
                     <Footer doc={doc} />
                 </div>

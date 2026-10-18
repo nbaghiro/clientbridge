@@ -74,8 +74,31 @@ export function canConsume(pkg: PackageRow): boolean {
     return pkg.status === "active" && pkg.sessions_used < pkg.sessions_total;
 }
 
-export function consumeSession(api: ApiLike, packageId: string): Promise<PackageRow> {
-    return api.post<PackageRow>(`/v1/packages/${packageId}/consume`, {});
+export function consumeSession(
+    api: ApiLike,
+    packageId: string,
+    idempotencyKey: string,
+): Promise<PackageRow> {
+    return api.post<PackageRow>(`/v1/packages/${packageId}/consume`, {}, { idempotencyKey });
+}
+
+export function usePackageConsumption(api: ApiLike, packageId: string) {
+    const action = useAsyncAction();
+    const attempt = useRef<Attempt | null>(null);
+    return {
+        busy: action.busy,
+        error: action.error,
+        consume: () => {
+            const key = attemptKey(attempt, packageId);
+            action.run(
+                async () => {
+                    await consumeSession(api, packageId, key);
+                    attempt.current = null;
+                },
+                { errorMessage: strings.clients.consumeSessionError },
+            );
+        },
+    };
 }
 
 export interface SubscriptionRow {
@@ -482,6 +505,7 @@ export function useEntitlementDetail(
     const subjectType = r?.kind === "gift_card" ? "gift_card" : "package";
     const history = useQuery<HistoryRow>(ENTITLEMENT_HISTORY_SQL, [subjectType, r?.id ?? ""]).data;
     const { busy, error, run } = useAsyncAction();
+    const keyRef = useRef<Attempt | null>(null);
     const zone = useBusinessZone();
     if (summary === null || r === null) return null;
 
@@ -568,11 +592,18 @@ export function useEntitlementDetail(
                 if (r.payment_id !== null) openRefund(r.payment_id);
                 return;
             }
+            const key = attemptKey(keyRef, [r.id, action]);
             const call =
                 action === "use"
-                    ? () => consumeSession(api, r.id)
+                    ? () => consumeSession(api, r.id, key)
                     : () => cancelSubscription(api, r.id);
-            run(call, { errorMessage: w.actionError });
+            run(
+                async () => {
+                    await call();
+                    keyRef.current = null;
+                },
+                { errorMessage: w.actionError },
+            );
         },
     };
 }

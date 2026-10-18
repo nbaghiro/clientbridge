@@ -48,7 +48,8 @@ async def test_new_text_is_a_new_version_and_signed_copies_keep_theirs(
     assert sent["contract_version"] == old_version
     ok(
         await as_owner.post(
-            f"/contract/{sent['token']}/sign", json={"typed_name": "Pat", "agreed": True}
+            f"/contract/{sent['token']}/sign",
+            json={"typed_name": "Pat", "agreed": True, "version": 2},
         )
     )
 
@@ -108,7 +109,8 @@ async def test_resend_a_waiting_request(
     assert len(email.sent) == before + 1  # the replay does not send again
     ok(
         await as_owner.post(
-            f"/contract/{sent['token']}/sign", json={"typed_name": "Pat", "agreed": True}
+            f"/contract/{sent['token']}/sign",
+            json={"typed_name": "Pat", "agreed": True, "version": 2},
         )
     )
     assert (await as_owner.post(f"/v1/signatures/{sent['id']}/resend")).status_code == 409
@@ -158,7 +160,7 @@ async def test_opening_and_drawing_are_recorded(api: httpx.AsyncClient, db: Asyn
     await db.refresh(signature)
     assert signature.opened_at is not None
 
-    body = {"typed_name": "Pat Doe", "strokes": DRAWN, "agreed": True}
+    body = {"typed_name": "Pat Doe", "strokes": DRAWN, "agreed": True, "version": 2}
     out = ok(await api.post(f"/contract/{token}/sign", json=body)).json()
     assert (out["method"], out["typed_name"], out["status"]) == ("drawn", "Pat Doe", "signed")
     assert out["strokes"] == DRAWN and out["signer_ip"]
@@ -171,13 +173,17 @@ async def test_signing_needs_agreement_and_a_real_drawing(
 ) -> None:
     signature = await _pending(db)
     url = f"/contract/{signature.token}/sign"
-    no_consent = await api.post(url, json={"typed_name": "Pat", "agreed": False})
+    no_consent = await api.post(url, json={"typed_name": "Pat", "agreed": False, "version": 2})
     assert no_consent.status_code == 422
-    empty = await api.post(url, json={"typed_name": "Pat", "strokes": [[]], "agreed": True})
+    empty = await api.post(
+        url, json={"typed_name": "Pat", "strokes": [[]], "agreed": True, "version": 2}
+    )
     assert empty.status_code == 422
-    off_page = {"typed_name": "Pat", "strokes": [[[4.0, 0.5]]], "agreed": True}
+    off_page = {"typed_name": "Pat", "strokes": [[[4.0, 0.5]]], "agreed": True, "version": 2}
     assert (await api.post(url, json=off_page)).status_code == 422
-    assert (await api.post(url, json={"typed_name": "", "agreed": True})).status_code == 422
+    assert (
+        await api.post(url, json={"typed_name": "", "agreed": True, "version": 2})
+    ).status_code == 422
     await db.refresh(signature)
     assert signature.status == "pending"
 

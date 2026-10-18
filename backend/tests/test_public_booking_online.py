@@ -9,6 +9,7 @@ from clientbridge.core import clock
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Note, Subject
+from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Addon, Booking, Hours
 from clientbridge.services.bookings import run_reminders
 from clientbridge.services.notifications import Notifier
@@ -110,6 +111,7 @@ async def test_lead_time_and_horizon_bound_open_times_and_booking(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await _policy(db, lead_hours=48, horizon_days=7)
+    await db.commit()
     far = await api.post(f"/book/{SLUG}", json=_body())
     assert far.status_code == 409
     soon = (clock.now() + timedelta(hours=1)).isoformat()
@@ -296,3 +298,21 @@ async def test_days_name_closures_on_23_and_25_hour_days(
             params={"item_id": "it_groom_sm", "staff_id": "st_owner", "from": day.isoformat()},
         )
         assert res.json()["days"][0]["closed"] is True, day
+
+
+async def test_public_booking_records_one_audit_on_replay(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    headers = key()
+    first = await api.post(f"/book/{SLUG}", json=_body(), headers=headers)
+    assert first.status_code == 200
+    assert (await api.post(f"/book/{SLUG}", json=_body(), headers=headers)).status_code == 200
+    rows = list(
+        await db.scalars(
+            select(Audit).where(
+                Audit.entity_id == first.json()["booking_id"], Audit.action == "book.create"
+            )
+        )
+    )
+    assert len(rows) == 1
+    assert rows[0].business_id == BIZ and rows[0].performed_by is None

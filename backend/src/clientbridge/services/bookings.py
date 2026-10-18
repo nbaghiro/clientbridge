@@ -90,6 +90,7 @@ from clientbridge.services.notifications import (
     Outcome,
     business_brand,
     message_notice,
+    queued_notifier,
     reminder_message,
 )
 from clientbridge.services.payments import (
@@ -593,6 +594,10 @@ class BookingService:
                 )
                 await self.db.flush()
             cmd.record("booking.create", entity_type="booking", entity_id=booking.id)
+            if data.notify:
+                await queued_notifier(
+                    self.db, f"booking:{booking.id}", self.biz
+                ).on_booking_confirmed(self.db, booking.id)
             return await booking_out(self.db, booking, slot)
 
         return await run_command(
@@ -943,7 +948,8 @@ class BookingService:
     async def _has_open_deposit(self, booking_id: str) -> bool:
         row = (
             await self.db.execute(
-                select(Payment.id)
+                scoped(Payment, self.biz)
+                .with_only_columns(Payment.id)
                 .where(
                     Payment.booking_id == booking_id,
                     Payment.kind == "deposit",
@@ -1078,6 +1084,7 @@ class Availability:
         if duration is None or duration <= 0:
             return []
         windows = windows_on(self.hours.get(staff_id, []), on_date)
+        # unset hours read as open to within_hours; here there is no window to lay a grid over
         if not windows:
             return []
         away = self.closures + self.time_off.get(staff_id, [])

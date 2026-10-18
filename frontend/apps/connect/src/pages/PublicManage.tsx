@@ -381,7 +381,23 @@ function MovePicker({ mg }: { mg: ManageBookingFlow }) {
                 nextLabel={b.nextWeek}
             />
             <div className="min-h-[120px]">
-                {mg.slots === null ? (
+                {mg.slotsError ? (
+                    <Empty
+                        intent="danger"
+                        icon="cloudOff"
+                        message={b.slotsError}
+                        actions={
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                icon="refresh"
+                                onPress={mg.retrySlots}
+                            >
+                                {b.retry}
+                            </Button>
+                        }
+                    />
+                ) : mg.slots === null ? (
                     <Skeleton variant="line" count={3} label={b.loadingTimes} />
                 ) : mg.slots.length === 0 ? (
                     <Empty

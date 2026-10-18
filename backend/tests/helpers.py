@@ -54,6 +54,7 @@ class EnvSettings(Settings):
 
 async def text_in(api: httpx.AsyncClient, data: dict[str, str]) -> httpx.Response:
     """Post an inbound SMS signed the way Twilio signs it."""
+    data = {"To": "+12505550999", **data}
     url = f"{get_settings().api_base_url}/webhooks/sms"
     signature = twilio_signature(TWILIO_TOKEN, url, list(data.items()))
     return await api.post("/webhooks/sms", data=data, headers={"X-Twilio-Signature": signature})

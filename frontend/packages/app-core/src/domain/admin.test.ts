@@ -2,7 +2,7 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
-import { type AdminAccess, useAdminAccess, useAdminResource } from "./admin";
+import { type AdminAccess, useAdminAccess, useAdminResource, useAdminEmailForm } from "./admin";
 
 afterEach(() => {
     cleanup();
@@ -131,4 +131,64 @@ it("clears protected records when a refresh denies access", async () => {
         expect(result.current.error).toBe(403);
     });
     expect(result.current.data).toBeNull();
+});
+
+it("retries an email with the same request key and blocks simultaneous sends", async () => {
+    const requests: string[] = [];
+    vi.stubGlobal(
+        "fetch",
+        vi.fn((_url: string, init: RequestInit) => {
+            requests.push(typeof init.body === "string" ? init.body : "");
+            return requests.length === 1
+                ? Promise.reject(new TypeError("response lost"))
+                : Promise.resolve(
+                      new Response(JSON.stringify({ delivery_id: "dlv_test", state: "accepted" })),
+                  );
+        }),
+    );
+    const { result } = renderHook(() => useAdminEmailForm("http://api.test"));
+    act(() => {
+        result.current.setRecipient("test@example.ca");
+        result.current.setConfirmed(true);
+    });
+    act(() => {
+        result.current.send("receipt", "smtp");
+        result.current.send("receipt", "smtp");
+    });
+    await waitFor(() => {
+        expect(result.current.busy).toBe(false);
+    });
+    expect(requests).toHaveLength(1);
+    act(() => {
+        result.current.setConfirmed(true);
+    });
+    act(() => {
+        result.current.send("receipt", "smtp");
+    });
+    await waitFor(() => {
+        expect(result.current.outcome).toBe("accepted");
+    });
+    expect(requests[1]).toBe(requests[0]);
+});
+
+it("does not report queued mail as accepted", async () => {
+    vi.stubGlobal(
+        "fetch",
+        vi
+            .fn()
+            .mockResolvedValue(
+                new Response(JSON.stringify({ delivery_id: "dlv_test", state: "queued" })),
+            ),
+    );
+    const { result } = renderHook(() => useAdminEmailForm("http://api.test"));
+    act(() => {
+        result.current.setRecipient("test@example.ca");
+        result.current.setConfirmed(true);
+    });
+    act(() => {
+        result.current.send("receipt", "smtp");
+    });
+    await waitFor(() => {
+        expect(result.current.outcome).toBe("queued");
+    });
 });

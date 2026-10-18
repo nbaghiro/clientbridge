@@ -4,28 +4,36 @@ from urllib.parse import quote
 
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from sqlalchemy import Select, func, or_, select, text
+from sqlalchemy import Select, and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.command import Command, PublicPrincipal, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base
 from clientbridge.core.deps import assert_platform_access
-from clientbridge.core.errors import NotFound
-from clientbridge.core.ratelimit import RateLimiter
+from clientbridge.core.errors import Conflict, NotFound
+from clientbridge.core.ratelimit import RateLimiter, allow_action
 from clientbridge.core.scoping import scoped
+from clientbridge.integrations.expo import get_push_sender
 from clientbridge.integrations.identity import Identity
 from clientbridge.integrations.resend import EmailSender
+from clientbridge.integrations.twilio import get_sms_sender
+from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.clients import Client
+from clientbridge.models.documents import FormResponse, Signature
 from clientbridge.models.ledger import Account, Entry
+from clientbridge.models.messaging import Delivery, Thread
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit, Webhook
+from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.admin import (
     AdminAccessInfo,
     AdminActivity,
     AdminBusiness,
     AdminBusinessDetail,
     AdminClient,
+    AdminDelivery,
     AdminEmailConfig,
     AdminEmailPreview,
     AdminEmailResult,
@@ -38,12 +46,14 @@ from clientbridge.schemas.admin import (
     AdminPayment,
     AdminPaymentDetail,
     AdminPersonDetail,
+    AdminSmsAssignment,
     AdminUser,
     AdminWebhook,
 )
+from clientbridge.schemas.deliveries import EmailDelivery
+from clientbridge.services.deliveries import dispatch, enqueue
 
 _send_limit = RateLimiter(5, 60)
-_send_once = RateLimiter(1, 86400)
 
 
 def _scope[T: Base](model: type[T], business_id: str | None) -> Select[tuple[T]]:
@@ -274,13 +284,28 @@ class AdminService:
     ) -> AdminPage[AdminActivity]:
         query = _scope(Audit, business_id)
         if q:
-            query = query.where(
-                or_(
-                    Audit.entity_id == q,
-                    Audit.performed_by == q,
-                    Audit.action.icontains(q, autoescape=True),
-                )
-            )
+            matches = [
+                Audit.entity_id == q,
+                Audit.performed_by == q,
+                Audit.action.icontains(q, autoescape=True),
+            ]
+            if q.startswith("cl_"):
+                for model, entity in (
+                    (Booking, "booking"),
+                    (Invoice, "invoice"),
+                    (Order, "order"),
+                    (Payment, "payment"),
+                    (Signature, "signature"),
+                    (FormResponse, "form_response"),
+                    (Thread, "thread"),
+                ):
+                    related = (
+                        _scope(model, business_id)
+                        .with_only_columns(model.id)
+                        .where(model.client_id == q)
+                    )
+                    matches.append(and_(Audit.entity_type == entity, Audit.entity_id.in_(related)))
+            query = query.where(or_(*matches))
         rows = (
             await self.db.execute(
                 query.add_columns(Business.name, User.name)
@@ -381,7 +406,6 @@ class AdminService:
     ) -> AdminEmailResult:
         from dataclasses import replace
 
-        from clientbridge.core import clock
         from clientbridge.core.errors import AppError, TooManyRequests
         from clientbridge.services.email_samples import samples
 
@@ -396,22 +420,111 @@ class AdminService:
             raise AppError(
                 "email transport unavailable", code="email_transport_unavailable", status_code=503
             )
-        if not _send_limit.check(self.identity.id, clock.now().timestamp()):
+        if not await allow_action(self.identity.id, "admin-email", _send_limit):
             raise TooManyRequests("email test rate exceeded")
-        if not _send_once.check(f"{self.identity.id}:{body.request_id}", clock.now().timestamp()):
-            raise TooManyRequests("email test already requested")
         demo = replace(
             mail,
             to=str(body.recipient),
             subject=f"[TEST] {mail.subject}",
             reply_to=None,
             idempotency_key=f"admin-test/{self.identity.id}/{body.request_id}",
-            tags={"purpose": "email-preview"},
+            tags={"purpose": "email-preview", "sample": key, "actor": self.identity.id},
         )
-        try:
-            reference = await sender.send(demo)
-        except Exception as exc:
-            raise AppError(
-                "email delivery not confirmed", code="email_delivery_unconfirmed", status_code=502
-            ) from exc
-        return AdminEmailResult(delivery_id=reference)
+        identity = await enqueue(
+            self.db,
+            EmailDelivery(message=demo, transport=body.transport),
+            key=f"admin:{self.identity.id}:{body.request_id}",
+            business_id=None,
+        )
+        await self.db.commit()
+        await dispatch(
+            self.db, identity, sender, get_sms_sender(), get_push_sender(), transport_override=True
+        )
+        delivery = await self.db.get(Delivery, identity)
+        assert delivery is not None
+        return AdminEmailResult(delivery_id=identity, state=delivery.state)
+
+    async def deliveries(self, offset: int) -> AdminPage[AdminDelivery]:
+        rows = list(
+            await self.db.scalars(
+                select(Delivery)
+                .where(Delivery.key.startswith("admin:"))
+                .order_by(Delivery.created_at.desc(), Delivery.id.desc())
+                .offset(offset)
+                .limit(51)
+            )
+        )
+        items: list[AdminDelivery] = []
+        for row in rows[:50]:
+            mail = EmailDelivery.model_validate(row.payload).message
+            items.append(
+                AdminDelivery(
+                    id=row.id,
+                    business_id=row.business_id,
+                    state=row.state,
+                    created_at=row.created_at,
+                    provider_ref=row.provider_ref,
+                    error=row.error,
+                    recipient=mail.to,
+                    subject=mail.subject,
+                    actor=mail.tags.get("actor"),
+                )
+            )
+        return AdminPage(items=items, has_more=len(rows) > 50)
+
+    async def assign_sms(self, business_id: str, body: AdminSmsAssignment) -> AdminBusiness:
+        async def run(cmd: Command) -> AdminBusiness:
+            if body.number is not None:
+                await self.db.execute(
+                    select(
+                        func.pg_advisory_xact_lock(func.hashtextextended(f"sms:{body.number}", 0))
+                    )
+                )
+            business = await self.db.scalar(
+                select(Business)
+                .where(Business.id == business_id)
+                .with_for_update(key_share=True)
+                .execution_options(populate_existing=True)
+            )
+            if business is None:
+                raise NotFound("business not found")
+            if business.sms_number == body.number:
+                return AdminBusiness.model_validate(business)
+            if body.number is not None:
+                owner = await self.db.scalar(
+                    select(Business.id).where(Business.sms_number == body.number)
+                )
+                retired = await self.db.scalar(
+                    select(Audit.id)
+                    .where(
+                        Audit.action == "business.sms_assignment",
+                        Audit.business_id != business_id,
+                        or_(
+                            Audit.changes["old"].astext == body.number,
+                            Audit.changes["new"].astext == body.number,
+                        ),
+                    )
+                    .limit(1)
+                )
+                if (owner is not None and owner != business_id) or retired is not None:
+                    raise Conflict(
+                        "SMS number belongs to another business", code="sms_number_unavailable"
+                    )
+            previous = business.sms_number
+            business.sms_number = body.number
+            cmd.record(
+                "business.sms_assignment",
+                entity_type="business",
+                entity_id=business_id,
+                changes={"old": previous, "new": body.number, "identity_id": self.identity.id},
+            )
+            await self.db.flush()
+            return AdminBusiness.model_validate(business)
+
+        return await run_command(
+            self.db,
+            PublicPrincipal(business_id),
+            action="business.sms_assignment",
+            run=run,
+            response_model=AdminBusiness,
+        )

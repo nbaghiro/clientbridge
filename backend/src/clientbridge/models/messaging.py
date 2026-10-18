@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -75,4 +75,35 @@ class Broadcast(PKMixin, BusinessScoped, TimestampMixin, Base):
     )
     excluded_count: Mapped[int] = mapped_column(
         Integer, default=0, server_default="0", nullable=False
+    )
+
+
+DeliveryState = Literal["queued", "sending", "accepted", "delivered", "failed", "ambiguous"]
+
+
+class Delivery(PKMixin, Base):
+    __tablename__ = "deliveries"
+    __table_args__ = (
+        enum_check("deliveries", "state", DeliveryState),
+        Index(
+            "ix_deliveries_due", "next_at", postgresql_where=text("state IN ('queued', 'sending')")
+        ),
+        Index("ix_deliveries_business", "business_id", "created_at", "id"),
+        Index(
+            "ix_deliveries_provider",
+            "provider_ref",
+            postgresql_where=text("provider_ref IS NOT NULL"),
+        ),
+    )
+
+    business_id: Mapped[str | None] = mapped_column(ForeignKey("businesses.id"))
+    key: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    state: Mapped[DeliveryState] = mapped_column(String, default="queued", nullable=False)
+    next_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    claim: Mapped[str | None] = mapped_column(String)
+    provider_ref: Mapped[str | None] = mapped_column(String)
+    error: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )

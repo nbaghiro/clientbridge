@@ -1,5 +1,5 @@
+import asyncio
 import secrets
-import time
 from datetime import datetime, timedelta
 
 from sqlalchemy import func, select
@@ -10,7 +10,7 @@ from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role, is_manager
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
-from clientbridge.core.ratelimit import RateLimiter
+from clientbridge.core.ratelimit import RateLimiter, allow_action
 from clientbridge.core.scoping import scoped
 from clientbridge.core.security import hash_password, verify_password
 from clientbridge.integrations.stripe import PaymentGateway
@@ -38,13 +38,14 @@ from clientbridge.schemas.orders import (
 )
 from clientbridge.schemas.public import PublicPickupWindow
 from clientbridge.services import ledger
-from clientbridge.services.bookings import blocking_exception, open_windows
+from clientbridge.services.bookings import load_availability, windows_on
 from clientbridge.services.business import (
     business_tz,
     businesses_at_hour,
     merchant_account,
     postal_address,
 )
+from clientbridge.services.inventory import assert_parent_stock
 from clientbridge.services.lines import (
     apply_totals,
     discount_of,
@@ -256,6 +257,7 @@ class OrderService:
             order, due = await self._chargeable(order_id)
             if await self._has_active_payment(order.id):
                 raise Conflict("this sale already has a payment")
+            await assert_parent_stock(self.db, self.biz, "order", order.id)
             tip = await self._tip(order, data)
             amount = due + tip.cents
             if data.tendered_cents < amount:
@@ -300,15 +302,7 @@ class OrderService:
 
     async def held(self) -> list[OrderOut]:
         """Desk sales parked before payment, oldest first; staff read them here, not from sync."""
-        rows = await self.db.execute(
-            scoped(Order, self.biz)
-            .where(
-                Order.source == "pos",
-                Order.status == "open",
-                ledger.order_status_expr() == "open",
-            )
-            .order_by(Order.created_at)
-        )
+        rows = await self.db.execute(ledger.held_orders(self.biz))
         return [
             await order_out(self.db, order, await fetch_lines(self.db, self.biz, "order", order.id))
             for order in rows.scalars().all()
@@ -353,7 +347,18 @@ class OrderService:
         user = await self.db.get(User, self.principal.user_id)
         if user is None:
             raise NotFound("user not found")
-        user.pin_hash = hash_password(data.pin)
+        user.pin_hash = await asyncio.to_thread(hash_password, data.pin)
+        self.db.add(
+            Audit(
+                id=new_id("audit"),
+                business_id=self.biz,
+                performed_by=self.principal.user_id,
+                action="order.approval_pin",
+                entity_type="user",
+                entity_id=user.id,
+                changes={},
+            )
+        )
         await self.db.commit()
 
     async def set_pickup(self, order_id: str, data: OrderPickupIn) -> OrderOut:
@@ -467,7 +472,9 @@ class OrderService:
                 status_code=403,
                 code="approval_required",
             )
-        if not _pin_attempts.check(f"{self.biz}:{self.principal.staff_id}", time.monotonic()):
+        if not await allow_action(
+            f"{self.biz}:{self.principal.staff_id}", "approval-pin", _pin_attempts
+        ):
             raise AppError(
                 "too many PIN attempts, please wait a few minutes",
                 status_code=429,
@@ -484,7 +491,7 @@ class OrderService:
             )
         )
         for user_id, pin_hash in managers.tuples().all():
-            if pin_hash is not None and verify_password(pin, pin_hash):
+            if pin_hash is not None and await asyncio.to_thread(verify_password, pin, pin_hash):
                 return str(user_id)
         raise AppError("that PIN isn't right", status_code=403, code="approval_invalid")
 
@@ -541,7 +548,10 @@ class OrderService:
     async def _client(self, client_id: str) -> Client:
         row = (
             await self.db.execute(
-                scoped(Client, self.biz, soft_delete=True).where(Client.id == client_id)
+                scoped(Client, self.biz, soft_delete=True)
+                .where(Client.id == client_id)
+                .with_for_update(read=True, key_share=True)
+                .execution_options(populate_existing=True)
             )
         ).scalar_one_or_none()
         if row is None:
@@ -681,11 +691,47 @@ async def pickup_windows(db: AsyncSession, business: Business) -> list[PublicPic
         .scalars()
         .all()
     )
+    availability = await load_availability(
+        db,
+        business.id,
+        [member.id for member in staff],
+        now.date(),
+        now.date() + timedelta(days=6),
+        tz,
+        [],
+    )
+    counts = dict(
+        (
+            await db.execute(
+                scoped(Order, business.id)
+                .with_only_columns(Order.pickup_from, func.count())
+                .where(
+                    Order.source == "online",
+                    Order.status != "void",
+                    Order.pickup_from >= now,
+                    Order.pickup_from < now + timedelta(days=8),
+                    Order.pickup_status.is_not(None)
+                    | scoped(Payment, business.id)
+                    .where(
+                        Payment.order_id == Order.id,
+                        Payment.kind == "payment",
+                        Payment.status.in_(("pending", "failed")),
+                    )
+                    .exists(),
+                )
+                .group_by(Order.pickup_from)
+            )
+        )
+        .tuples()
+        .all()
+    )
+    capacity = pickup_setting(business, "pickup_capacity", 10)
     result: dict[datetime, PublicPickupWindow] = {}
     for offset in range(7):
         day = now.date() + timedelta(days=offset)
         for member in staff:
-            windows = await open_windows(db, member.id, business.id, day)
+            windows = windows_on(availability.hours.get(member.id, []), day)
+            away = availability.closures + availability.time_off.get(member.id, [])
             for start_time, end_time in windows or []:
                 start = datetime.combine(day, start_time, tzinfo=tz)
                 end = datetime.combine(day, end_time, tzinfo=tz)
@@ -694,30 +740,12 @@ async def pickup_windows(db: AsyncSession, business: Business) -> list[PublicPic
                     if (
                         start >= earliest
                         and start not in result
-                        and await blocking_exception(db, business.id, member.id, start, finish)
-                        is None
-                    ):
-                        count = await db.scalar(
-                            scoped(Order, business.id)
-                            .with_only_columns(func.count())
-                            .where(
-                                Order.source == "online",
-                                Order.status != "void",
-                                Order.pickup_from == start,
-                                (
-                                    Order.pickup_status.is_not(None)
-                                    | scoped(Payment, business.id)
-                                    .where(
-                                        Payment.order_id == Order.id,
-                                        Payment.kind == "payment",
-                                        Payment.status == "pending",
-                                    )
-                                    .exists()
-                                ),
-                            )
+                        and counts.get(start, 0) < capacity
+                        and not any(
+                            window.starts_at < finish and window.ends_at > start for window in away
                         )
-                        if (count or 0) < pickup_setting(business, "pickup_capacity", 10):
-                            result[start] = PublicPickupWindow(starts_at=start, ends_at=finish)
+                    ):
+                        result[start] = PublicPickupWindow(starts_at=start, ends_at=finish)
                     start = finish
     return sorted(result.values(), key=lambda value: value.starts_at)
 
@@ -769,7 +797,7 @@ async def run_reap_unpaid_orders(db: AsyncSession, gateway: PaymentGateway, now:
                     if (
                         payment.provider == "stripe"
                         and payment.provider_ref is not None
-                        and payment.status == "pending"
+                        and payment.status in ("pending", "failed")
                     ):
                         await gateway.cancel_payment_intent(
                             business.stripe_account_id, payment_intent_id=payment.provider_ref

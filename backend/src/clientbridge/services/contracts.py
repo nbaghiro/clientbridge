@@ -100,6 +100,7 @@ class ContractService:
         contract = await self._contract(contract_id)
 
         async def run(cmd: Command) -> ContractOut:
+            await self.db.refresh(contract, with_for_update=True)
             if data.body.strip() == contract.body.strip():
                 raise Conflict("the text hasn't changed")
             contract.body = data.body.strip()

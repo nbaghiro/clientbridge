@@ -1,6 +1,7 @@
 import re
 import secrets
 from datetime import datetime, timedelta
+from typing import Literal
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
@@ -16,6 +17,7 @@ from clientbridge.models.clients import Client
 from clientbridge.models.documents import Form, FormField, FormResponse
 from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.forms import (
+    FormDefinition,
     FormFieldIn,
     FormOut,
     FormResponseOut,
@@ -23,7 +25,8 @@ from clientbridge.schemas.forms import (
     FormSend,
     PublicFormField,
 )
-from clientbridge.services.notifications import Notifier, Outcome
+from clientbridge.services.deliveries import dispatch_scope
+from clientbridge.services.notifications import Notifier, Outcome, queued_notifier
 from clientbridge.services.plans import serving
 
 _CHOICE_INPUTS = ("select", "multiselect")
@@ -39,7 +42,7 @@ class FormService:
         self, data: FormSend, idempotency_key: str | None, notify: Notifier
     ) -> FormResponseOut:
         self._assert_admin()
-        await self._form(data.form_id)
+        form = await self._form(data.form_id)
         await self._client(data.client_id)
 
         async def run(cmd: Command) -> FormResponseOut:
@@ -48,6 +51,7 @@ class FormService:
                 business_id=self.biz,
                 form_id=data.form_id,
                 client_id=data.client_id,
+                definition=await snapshot_form(self.db, form),
                 status="draft",
                 token=secrets.token_urlsafe(16),
             )
@@ -57,11 +61,12 @@ class FormService:
             except IntegrityError as exc:
                 raise Conflict("could not mint a unique form link") from exc
             cmd.record("form.send", entity_type="form_response", entity_id=response.id)
-            # Inside the command so a same-key retry replays the response without re-notifying.
-            await notify.on_form_sent(self.db, response.id)
+            await queued_notifier(self.db, f"form:{response.id}", self.biz).on_form_sent(
+                self.db, response.id
+            )
             return _response_out(response)
 
-        return await run_command(
+        result = await run_command(
             self.db,
             self.principal,
             action="form.send",
@@ -70,6 +75,9 @@ class FormService:
             idempotency_key=idempotency_key,
             request=data,
         )
+
+        await dispatch_scope(self.db, f"form:{result.id}", notify.email, notify.sms, notify.push)
+        return result
 
     async def create_form(self, data: FormSave, idempotency_key: str | None) -> FormOut:
         self._assert_admin()
@@ -99,6 +107,7 @@ class FormService:
         self._assert_admin()
         _check_fields(data.fields)
         form = await self._form(form_id)
+        await self.db.refresh(form, with_for_update=True)
 
         async def run(cmd: Command) -> FormOut:
             _apply(form, data)
@@ -247,14 +256,16 @@ async def run_intake_forms(db: AsyncSession, notifier: Notifier, now: datetime) 
         already = select(FormResponse.client_id).where(
             FormResponse.form_id == form.id, FormResponse.client_id.is_not(None)
         )
-        returning = select(Booking.client_id).where(
-            Booking.business_id == form.business_id, Booking.created_at < now - _INTAKE_WINDOW
+        returning = (
+            scoped(Booking, form.business_id)
+            .with_only_columns(Booking.client_id)
+            .where(Booking.created_at < now - _INTAKE_WINDOW)
         )
         first_bookings = (
             await db.execute(
-                select(Booking.client_id, func.min(Booking.id))
+                scoped(Booking, form.business_id)
+                .with_only_columns(Booking.client_id, func.min(Booking.id))
                 .where(
-                    Booking.business_id == form.business_id,
                     Booking.deleted_at.is_(None),
                     Booking.status != "canceled",
                     Booking.created_at >= now - _INTAKE_WINDOW,
@@ -269,6 +280,7 @@ async def run_intake_forms(db: AsyncSession, notifier: Notifier, now: datetime) 
                 id=new_id("form_response"),
                 business_id=form.business_id,
                 form_id=form.id,
+                definition=await snapshot_form(db, form),
                 client_id=client_id,
                 parent_type="booking",
                 parent_id=booking_id,
@@ -297,3 +309,35 @@ def _response_out(response: FormResponse) -> FormResponseOut:
         token=response.token,
         submitted_at=response.submitted_at,
     )
+
+
+def form_definition(
+    form: Form, fields: list[FormField], provenance: Literal["issued", "reconstructed"] = "issued"
+) -> dict[str, object]:
+    return FormDefinition(
+        provenance=provenance,
+        name=form.name,
+        require_signature=bool(form.require_signature),
+        fields=[
+            PublicFormField(
+                id=f.id,
+                input=f.input,
+                name=f.name,
+                label=f.label,
+                help=f.help,
+                required=bool(f.required),
+                options=f.options or [],
+                validation=f.validation or {},
+                position=f.position or 0,
+            )
+            for f in sorted(fields, key=lambda f: f.position or 0)
+        ],
+    ).model_dump(mode="json")
+
+
+async def snapshot_form(db: AsyncSession, form: Form) -> dict[str, object]:
+    await db.refresh(form, with_for_update={"read": True})
+    fields = list(
+        await db.scalars(scoped(FormField, form.business_id).where(FormField.form_id == form.id))
+    )
+    return form_definition(form, fields)

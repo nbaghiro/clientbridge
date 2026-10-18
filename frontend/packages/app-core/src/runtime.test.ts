@@ -18,6 +18,8 @@ describe("runtimeConfig", () => {
     it.each(["clientbridge.ca", "staging.clientbridge.ca"])("derives every URL from %s", (base) => {
         served.__CLIENTBRIDGE_CONFIG__ = { baseDomain: base, stripePublishableKey: "pk_test_1" };
         expect(runtimeConfig()).toEqual({
+            adminUrl: `https://admin.${base}`,
+            webUrl: `https://app.${base}`,
             apiUrl: `https://api.${base}`,
             authUrl: `https://api.${base}/auth`,
             powersyncUrl: `https://sync.${base}`,
@@ -30,6 +32,8 @@ describe("runtimeConfig", () => {
     it("takes the URLs the served config names, as the local app profile does", () => {
         served.__CLIENTBRIDGE_CONFIG__ = {
             baseDomain: "localhost",
+            adminUrl: "http://admin.localhost:8751",
+            webUrl: "http://app.localhost:8751",
             apiUrl: "http://localhost:8750",
             authUrl: "http://localhost:8713",
             syncUrl: "http://localhost:8704",
@@ -38,6 +42,8 @@ describe("runtimeConfig", () => {
             stripePublishableKey: "",
         };
         expect(runtimeConfig()).toEqual({
+            adminUrl: "http://admin.localhost:8751",
+            webUrl: "http://app.localhost:8751",
             apiUrl: "http://localhost:8750",
             authUrl: "http://localhost:8713",
             powersyncUrl: "http://localhost:8704",
@@ -50,6 +56,8 @@ describe("runtimeConfig", () => {
     it("derives what the served config leaves empty, with auth under the API host", () => {
         served.__CLIENTBRIDGE_CONFIG__ = {
             baseDomain: "clientbridge.ca",
+            adminUrl: "https://admin.clientbridge.ca",
+            webUrl: "https://app.clientbridge.ca",
             apiUrl: "http://api.internal:8080",
             authUrl: "",
             syncUrl: "",
@@ -57,6 +65,8 @@ describe("runtimeConfig", () => {
             bookUrl: "",
         };
         expect(runtimeConfig()).toEqual({
+            adminUrl: "https://admin.clientbridge.ca",
+            webUrl: "https://app.clientbridge.ca",
             apiUrl: "http://api.internal:8080",
             authUrl: "http://api.internal:8080/auth",
             powersyncUrl: "https://sync.clientbridge.ca",

@@ -332,21 +332,15 @@ export const resendConfirmation =
         if (!sent.ok) throw new Error(`Resend answered ${String(sent.status)}`);
     };
 
-/** Emails a contact form message to the team; a reply goes straight to the sender. */
-export const resendContact =
-    (apiKey: string, from: string, to: string): SendContact =>
-    async ({ name, email, message }) => {
-        const sent = await fetch(`${RESEND}/emails`, {
+export const apiContact =
+    (apiUrl: string): SendContact =>
+    async (form) => {
+        const response = await fetch(`${apiUrl.replace(/\/+$/, "")}/contact`, {
             method: "POST",
-            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-                from,
-                to: [to],
-                reply_to: [email],
-                subject: `Contact form: ${name}`,
-                text: `${name} <${email}>\n\n${message}`,
-            }),
+            body: new URLSearchParams({ ...form }),
+            redirect: "manual",
             signal: AbortSignal.timeout(10_000),
         });
-        if (!sent.ok) throw new Error(`Resend answered ${String(sent.status)}`);
+        if (response.status !== 303 || response.headers.get("location") !== "/contact/thanks")
+            throw new Error("contact request failed");
     };

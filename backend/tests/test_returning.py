@@ -180,6 +180,7 @@ async def test_existing_pet_requires_proof_and_belongs_to_verified_client(
     api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
     await _client(db)
+    await db.commit()
     assert (await _book(api, subject_id="sj_luna")).status_code == 401
     challenge, code = await _request(api, email)
     verified = await _verify(api, challenge, code)
@@ -278,3 +279,18 @@ async def test_phone_validation_and_nonexistent_phone_do_not_disclose_clients(
         "profile": None,
         "token": None,
     }
+
+
+async def test_unassigned_sms_does_not_create_a_challenge(
+    api: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    from clientbridge.models.business import Business
+
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.sms_number = None
+    await db.commit()
+    response = await api.post(f"/book/{SLUG}/returning/request", json={"phone": "+16045550123"})
+    assert response.status_code == 503
+    assert list(await db.scalars(select(ReturningChallenge))) == []
+    assert sms.sent == []

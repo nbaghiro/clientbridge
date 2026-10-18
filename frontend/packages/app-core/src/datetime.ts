@@ -441,6 +441,11 @@ const ZONE_NAMES: Record<SupportedZone, () => string> = {
     "America/Edmonton": () => strings.datetime.zoneNames.mountain,
     "America/Whitehorse": () => strings.datetime.zoneNames.yukon,
     "America/Vancouver": () => strings.datetime.zoneNames.pacific,
+    "America/Creston": () => strings.datetime.zoneNames.creston,
+    "America/Dawson_Creek": () => strings.datetime.zoneNames.dawsonCreek,
+    "America/Fort_Nelson": () => strings.datetime.zoneNames.fortNelson,
+    "America/Atikokan": () => strings.datetime.zoneNames.atikokan,
+    "America/Blanc-Sablon": () => strings.datetime.zoneNames.blancSablon,
 };
 
 const isSupported = (zone: string): zone is SupportedZone => zone in ZONE_NAMES;

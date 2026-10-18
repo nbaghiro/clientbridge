@@ -307,6 +307,7 @@ class PlanSubscription:
     items: tuple[SubscribedItem, ...]
     cancel_at_period_end: bool
     trial_end: datetime | None
+    created_at: datetime | None = None
 
 
 def _moment(value: object) -> datetime | None:
@@ -348,6 +349,7 @@ def plan_subscription_from(data: dict[str, object]) -> PlanSubscription:
         items=tuple(items),
         cancel_at_period_end=data.get("cancel_at_period_end") is True,
         trial_end=_moment(data.get("trial_end")),
+        created_at=_moment(data.get("created")),
     )
 
 
@@ -626,11 +628,27 @@ def _keyed[**P, R](
 
 
 @cache
+def _stripe_http_client() -> stripe.HTTPXClient:
+    return stripe.HTTPXClient(timeout=10.0)
+
+
+@cache
 def _stripe_client(secret_key: str, api_base: str) -> stripe.StripeClient:
-    # one client per process: each holds an HTTP connection pool that is never closed
     return stripe.StripeClient(
-        secret_key, stripe_version=STRIPE_API_VERSION, base_addresses={"api": api_base}
+        secret_key,
+        stripe_version=STRIPE_API_VERSION,
+        base_addresses={"api": api_base},
+        http_client=_stripe_http_client(),
+        max_network_retries=0,
     )
+
+
+async def close_stripe_client() -> None:
+    if _stripe_http_client.cache_info().currsize:
+        await _stripe_http_client().close_async()
+    _stripe_client.cache_clear()
+    _stripe_http_client.cache_clear()
+    stripe.default_http_client = None
 
 
 class StripeGateway:
@@ -646,6 +664,8 @@ class StripeGateway:
         self.configured = bool(secret_key)
         stripe.api_key = secret_key
         stripe.api_version = STRIPE_API_VERSION
+        stripe.default_http_client = _stripe_http_client()
+        stripe.max_network_retries = 0
         self.client = _stripe_client(secret_key, stripe.api_base)
         self._webhook_secret = webhook_secret
         self._thin_webhook_secret = thin_webhook_secret

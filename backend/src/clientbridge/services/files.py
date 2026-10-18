@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 
@@ -65,7 +66,7 @@ class FileService:
                 "admin",
                 message="only an owner or admin can set public images",
             )
-        out = confirm_upload(file, self.storage)
+        out = await confirm_upload(file, self.storage)
         await self.db.commit()
         return out
 
@@ -111,10 +112,10 @@ async def mint_upload(
     return FileUpload(file=_file_out(file), upload_url=url)
 
 
-def confirm_upload(file: File, storage: FileStorage) -> FileOut:
+async def confirm_upload(file: File, storage: FileStorage) -> FileOut:
     """Mark a file uploaded once its bytes are in storage at the size it was created with."""
     if file.uploaded_at is None:
-        stored = storage.head(file.s3_key)
+        stored = await asyncio.to_thread(storage.head, file.s3_key)
         if stored is None:
             raise Conflict("the file has not finished uploading", code="upload_missing")
         if file.size is not None and stored != file.size:
@@ -132,7 +133,7 @@ async def run_prune_pending_files(db: AsyncSession, storage: FileStorage, now: d
         )
     ).all()
     for file in stale:
-        storage.delete(file.s3_key)
+        await asyncio.to_thread(storage.delete, file.s3_key)
         await db.delete(file)
     await db.commit()
     return len(stale)

@@ -45,6 +45,7 @@ from clientbridge.services.bookings import (
     RecurrenceService,
     TimeOffService,
 )
+from clientbridge.services.deliveries import dispatch_scope
 from clientbridge.services.notifications import Notifier
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
@@ -63,7 +64,7 @@ async def create_booking(
 ) -> BookingOut:
     result = await BookingService(db, principal, gateway).create(body, idempotency_key)
     if body.notify:
-        await Notifier(email, sms, push).on_booking_confirmed(db, result.id)
+        await dispatch_scope(db, f"booking:{result.id}", email, sms, push)
     return result
 
 

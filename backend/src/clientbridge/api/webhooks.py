@@ -22,6 +22,14 @@ from clientbridge.integrations.resend import valid_resend_signature
 from clientbridge.integrations.stripe import WebhookVerificationError, WebhookVersionError
 from clientbridge.integrations.twilio import valid_twilio_signature
 from clientbridge.schemas.auth import AuthEmailIn
+from clientbridge.services.deliveries import (
+    DeliveryQueue,
+    QueuedEmail,
+    QueuedPush,
+    QueuedSms,
+    dispatch,
+    dispatch_scope,
+)
 from clientbridge.services.messaging import (
     EmailEventPending,
     process_email_event,
@@ -44,12 +52,22 @@ async def stripe_webhook(
     stripe_signature: Annotated[str, Header(alias="Stripe-Signature")] = "",
 ) -> Response:
     payload = await request.body()
+    queue = DeliveryQueue(db, "stripe")
+    notifier = Notifier(QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True)
+
+    async def notify(outcome: WebhookOutcome) -> None:
+        queue.scope = f"stripe:{outcome.notify}:{outcome.target_id}"
+        queue.business_id = outcome.business_id
+        await _notify(notifier, db, outcome)
+
     try:
-        outcome = await process_stripe_event(db, gateway, payload, stripe_signature)
+        outcome = await process_stripe_event(db, gateway, payload, stripe_signature, notify)
     except (WebhookVerificationError, WebhookVersionError):
         return Response(status_code=400)
-    if outcome is not None:  # post-commit so a notify failure can't roll back the settlement
-        await _notify(Notifier(email, sms, push), db, outcome)
+    for identity in queue.ids:
+        await dispatch(db, identity, email, sms, push)
+    if outcome is not None and outcome.notify == "refund":
+        await dispatch_scope(db, f"refund:{outcome.target_id}", email, sms, push)
     return Response(status_code=200)
 
 
@@ -62,7 +80,7 @@ async def _notify(notifier: Notifier, db: DbSession, outcome: WebhookOutcome) ->
         case "payment_failed":
             await notifier.on_payment_failed(db, outcome.target_id)
         case "refund":
-            await notifier.on_refund(db, outcome.target_id)
+            pass
         case "refund_failed":
             await notifier.on_refund_failed(db, outcome.target_id)
         case "payment_disputed":
@@ -93,7 +111,11 @@ async def sms_webhook(
     if not sid:
         return Response(status_code=400)
     message_id = await process_inbound_sms(
-        db, from_phone=fields.get("From", ""), body=fields.get("Body", ""), message_sid=sid
+        db,
+        from_phone=fields.get("From", ""),
+        to_phone=fields.get("To", ""),
+        body=fields.get("Body", ""),
+        message_sid=sid,
     )
     if message_id is not None:
         await Notifier(email, sms, push).on_inbound_message(db, message_id)

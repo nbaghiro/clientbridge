@@ -828,3 +828,6 @@ msgstr "Too far out of town"
 
 msgid "admin_demo.login"
 msgstr "Sign-in code"
+
+msgid "contact.subject"
+msgstr "Contact form: {name}"

@@ -143,20 +143,6 @@
       "created_at",
       "updated_at"
     ],
-    "gift_cards": [
-      "code",
-      "item_id",
-      "initial_cents",
-      "purchaser_client_id",
-      "recipient",
-      "expires_at",
-      "status",
-      "payment_id",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
     "forms": [
       "name",
       "require_signature",
@@ -696,6 +682,20 @@
       "method",
       "signer_name",
       "strokes",
+      "id",
+      "business_id",
+      "created_at",
+      "updated_at"
+    ],
+    "gift_cards": [
+      "code",
+      "item_id",
+      "initial_cents",
+      "purchaser_client_id",
+      "recipient",
+      "expires_at",
+      "status",
+      "payment_id",
       "id",
       "business_id",
       "created_at",

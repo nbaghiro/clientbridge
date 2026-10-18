@@ -169,10 +169,16 @@ export function createSession(opts: SessionOptions): Session {
                 },
                 businessId,
             ),
-        patch: <T>(path: string, body: unknown): Promise<T> =>
+        patch: <T>(path: string, body: unknown, options?: PostOptions): Promise<T> =>
             json<T>(
                 path,
-                { method: "PATCH", headers: JSON_HEADERS, body: JSON.stringify(body) },
+                {
+                    method: "PATCH",
+                    headers: options?.idempotencyKey
+                        ? { ...JSON_HEADERS, "Idempotency-Key": options.idempotencyKey }
+                        : JSON_HEADERS,
+                    body: JSON.stringify(body),
+                },
                 businessId,
             ),
         delete: <T>(path: string): Promise<T> => json<T>(path, { method: "DELETE" }, businessId),

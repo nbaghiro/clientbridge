@@ -4,7 +4,7 @@ import {
     type WalletMethod,
     canConsume,
     cancelSubscription,
-    consumeSession,
+    usePackageConsumption,
     formatDate,
     isCancelable,
     packageStatusIntent,
@@ -179,7 +179,7 @@ function SubscriptionLine({ sub }: { sub: SubscriptionRow }) {
 }
 
 function PackageLine({ pkg }: { pkg: PackageRow }) {
-    const { busy, error, run } = useAsyncAction();
+    const { busy, error, consume } = usePackageConsumption(api, pkg.id);
     return (
         <li className="px-4 py-3 text-sm">
             <div className="flex items-center gap-2">
@@ -197,16 +197,7 @@ function PackageLine({ pkg }: { pkg: PackageRow }) {
                         intent={packageStatusIntent(pkg.status)}
                     />
                     {canConsume(pkg) ? (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            busy={busy}
-                            onPress={() => {
-                                run(() => consumeSession(api, pkg.id), {
-                                    errorMessage: strings.clients.consumeSessionError,
-                                });
-                            }}
-                        >
+                        <Button variant="outline" size="sm" busy={busy} onPress={consume}>
                             {strings.clients.consumeSession}
                         </Button>
                     ) : null}

@@ -181,11 +181,24 @@ a browser approximation; inspect actual deliveries in target email clients befor
 The waitlist confirmation is the one exception: the marketing site's server sends it, so `make gen-waitlist-email`
 writes it to `apps/site/server/waitlist-email.json` with the images the site's build serves at `/email/`.
 
+Payment settlement, refunds, booking creation, form sends, trial reminders and admin tests persist
+notification intent before commit. The delivery worker claims work with a lease, sends after commit,
+and fences completion against callbacks. Known connection failures retry; uncertain acceptance or an
+expired in-flight lease becomes `ambiguous` and is not blindly resent. Admin email history distinguishes
+provider acceptance from delivery. Other notification paths retain their existing status-marker flow.
+SMS uses the business's unique `sms_number` for outbound identity and inbound routing; a retired number
+cannot be reassigned to another business. Public abuse controls use Redis outside development.
+
+Online stock holds are derived from existing order/invoice lines and live payments, excluding lines
+already represented by sale movements. Item locks serialize competing checkouts. Cancelled intents
+release holds; stock corrections or late payment after order expiry cause recorded, keyed refunds.
+In-person negative-stock policy remains supported when it does not consume another checkout's hold.
+
 ### Jobs (`tasks/`)
 
 `tasks/worker.py` is the schedule only: one-line arq cron wrappers that open a session and call a `run_*`
 function in the concept's service. Every 15 minutes: booking reminders, reaping unpaid bookings and unpaid
-shop orders, completing past visits and sending intake forms. Every minute: due broadcasts (held during
+shop orders, completing past visits and sending intake forms. Every minute: due deliveries and broadcasts (held during
 quiet hours). Every 30 minutes: pruning used sync receipts; hourly: pruning unfinished uploads. Hourly at
 :00, each acting only for businesses whose local time is the hour named: the overdue sweep (07:00), review
 requests (08:00), pickup reminders (09:00) and trial reminders (09:00). Daily (UTC): entitlement expiry and
@@ -201,7 +214,7 @@ dependencies (`{"status": "unavailable", "failed": ["redis"]}`).
 
 ## The data model
 
-**43 tables** across the 12 domains; credentials and sessions live in the auth service's own database. Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
+**44 tables** across the 12 domains; credentials and sessions live in the auth service's own database. Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
 records every money movement and is the only place money balances are stored. The SQLAlchemy models in
 `backend/src/clientbridge/models/` are the exact-DDL source of truth; the migrations in
 `migrations/versions/` start from one baseline (squashed before launch) with increments after it.
@@ -303,12 +316,12 @@ pending/approved stage), income (`revenue`, `fee_revenue`) and expenses (`proces
 `amount_cents`, debit positive; `event` = what happened; `source_*` = what caused it; `subject_*` = the entity it
 belongs to; `ref` + `leg` unique = idempotency; the account's owner is copied on for sync slicing).
 
-**messaging (3)** — `threads` (unique per business+client+channel; the last message time and the unread
+**messaging (4)** — `threads` (unique per business+client+channel; the last message time and the unread
 count, inbound messages not yet `read`, are read from `messages`), `messages` (direction in/out,
-`broadcast_id`, `attachments`), `broadcasts` (audience JSONB + `scheduled_at`).
+`broadcast_id`, `attachments`), `broadcasts` (audience JSONB + `scheduled_at`), and server-only `deliveries` (immutable typed payload, stable key, current transport state and fenced worker claim).
 
 **documents (5)** — `forms`, `fields` (`input` is one of 17 field types), `responses` (public-link token,
-`answers` JSONB), `contracts` (template), `signatures` (public-link token; snapshots `signed_body` + captures
+`answers`, immutable issued `definition`, and optional submitted `signature` JSONB), `contracts` (template), `signatures` (public-link token; snapshots `signed_body` + captures
 `ip`; links a signature image file).
 
 **reviews (1)** — `reviews` (one row per review from request to moderation: status

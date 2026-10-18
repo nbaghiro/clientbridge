@@ -81,6 +81,8 @@ class FormResponse(PKMixin, BusinessScoped, TimestampMixin, Base):
     status: Mapped[ResponseStatus] = mapped_column(String, default="submitted", nullable=False)
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    definition: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    signature: Mapped[dict[str, object] | None] = mapped_column(JSONB)
     answers: Mapped[dict[str, object]] = mapped_column(
         JSONB, default=dict, nullable=False
     )  # keyed by field name

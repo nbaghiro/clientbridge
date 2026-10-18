@@ -27,7 +27,7 @@ from clientbridge.schemas.payments import (
     SetupIntentOut,
     TaxFilings,
 )
-from clientbridge.services.notifications import Notifier
+from clientbridge.services.deliveries import dispatch_scope
 from clientbridge.services.orders import OrderService
 from clientbridge.services.payments import PaymentService
 from clientbridge.services.remittances import RemittanceService
@@ -138,13 +138,13 @@ async def refund_payment(
     sms: SmsDep,
     push: PushDep,
     body: RefundIn,
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8)],
 ) -> RefundOut:
     out = await PaymentService(db, principal, gateway).refund_payment(
         payment_id, body.amount_cents, idempotency_key, body.reason, body.notify
     )
     if body.notify and out.status == "succeeded":
-        await Notifier(email, sms, push).on_refund(db, out.refund_id)
+        await dispatch_scope(db, f"refund:{out.refund_id}", email, sms, push)
     return out
 
 

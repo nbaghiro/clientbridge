@@ -25,6 +25,7 @@ from clientbridge.services.notifications import (
 )
 from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
 from tests.helpers import begin, card_pay, enable_payments, sent_invoice
+from tests.helpers import key as retry_key
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -285,7 +286,9 @@ async def test_refund_notifies_client(
     email.sent.clear()
     sms.sent.clear()
 
-    refund = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund", json={})
+    refund = await as_owner.post(
+        f"/v1/payments/{pay['payment_id']}/refund", json={}, headers=retry_key()
+    )
     assert refund.status_code == 200, refund.text
     assert any("refund" in m.body.lower() and "$50.00" in m.body for m in email.sent)
     assert any("refund" in m.body.lower() for m in sms.sent)
@@ -548,3 +551,26 @@ async def test_tenant_email_builders_apply_the_conventions(db: AsyncSession) -> 
     }
     alert = business_email(business, "owner@test.ca", notice)
     assert alert.reply_to is None and alert.tags == {"business": business.id}
+
+
+async def test_payment_receipt_is_durable_when_provider_cannot_connect(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from sqlalchemy import text
+
+    await enable_payments(db)
+    cid = await _client_with_contact(db, email="retry@example.ca", phone=None)
+    invoice = await sent_invoice(db, client=cid, number=9601)
+
+    async def unavailable(_: object) -> None:
+        raise httpx.ConnectError("provider unavailable")
+
+    monkeypatch.setattr(email, "send", unavailable)
+    await _pay_and_settle(as_owner, db, invoice, "evt_durable_receipt")
+    state = await db.scalar(
+        text("SELECT state FROM deliveries WHERE payload->>'channel' = 'email'")
+    )
+    assert state == "queued"

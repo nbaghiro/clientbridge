@@ -220,7 +220,10 @@ class GiftCardService:
     async def _client(self, client_id: str) -> Client:
         row = (
             await self.db.execute(
-                scoped(Client, self.biz, soft_delete=True).where(Client.id == client_id)
+                scoped(Client, self.biz, soft_delete=True)
+                .where(Client.id == client_id)
+                .with_for_update(read=True, key_share=True)
+                .execution_options(populate_existing=True)
             )
         ).scalar_one_or_none()
         if row is None:

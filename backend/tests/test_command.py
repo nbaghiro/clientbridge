@@ -349,7 +349,7 @@ async def test_two_requests_with_one_key_get_one_response(db: AsyncSession) -> N
     try:
         winner, loser = await asyncio.gather(attempt(True), attempt(False))
         assert winner.id == loser.id
-        assert len(calls) == 2  # both ran; only the winner's write survived
+        assert len(calls) == 1
         async with SessionLocal() as check:
             rows = (await check.execute(select(Client).where(Client.name == name))).scalars().all()
             assert [row.id for row in rows] == [winner.id]

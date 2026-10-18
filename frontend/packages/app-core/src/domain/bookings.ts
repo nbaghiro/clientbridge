@@ -26,7 +26,6 @@ import {
     startOfDay,
     startOfWeek,
     utcBeforeSql,
-    utcFromSql,
     utcSql,
     wallTime,
     useBusinessZone,
@@ -245,12 +244,9 @@ export function slotBookingsJoin(conditions: string): string {
     return `LEFT JOIN bookings b ON b.id IN (SELECT x.id FROM bookings x WHERE x.slot_id = s.id ${conditions})`;
 }
 
-// Visits are taken to last under a week, which lets the starts_at index bound an overlap from below.
-const VISIT_SPAN_DAYS = 7;
-
 /** Slots overlapping the instants `start` to `end` (SQL parameters), through the starts_at index. */
 export function slotOverlapSql(start: string, end: string): string {
-    return `${utcBeforeSql("s.starts_at", end)} AND ${utcFromSql("s.starts_at", start, VISIT_SPAN_DAYS)}
+    return `${utcBeforeSql("s.starts_at", end)}
   AND ${utcSql("s.starts_at")} < datetime(${end}) AND ${utcSql("s.ends_at")} > datetime(${start})`;
 }
 
@@ -761,6 +757,8 @@ export function settleMoves(
             })
             .map((e) => e.id),
     );
+    const visible = new Set(events.map((event) => event.id));
+    for (const id of Object.keys(pending)) if (!visible.has(id)) arrived.add(id);
     if (arrived.size === 0) return pending;
     return Object.fromEntries(Object.entries(pending).filter(([id]) => !arrived.has(id)));
 }
@@ -784,6 +782,7 @@ export function useMoveEvent(api: ApiLike): MoveEvent {
     const [refusal, setRefusal] = useState<string | null>(null);
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const asked = useRef<string | null>(null);
+    const moving = useRef(false);
 
     useEffect(
         () => () => {
@@ -805,18 +804,27 @@ export function useMoveEvent(api: ApiLike): MoveEvent {
         event: ScheduleEvent,
         to: PendingMove,
         onFail: (error: unknown) => void,
+        onSuccess?: () => void,
     ): void => {
         const bookingId = event.bookingId;
-        if (bookingId === null) return;
+        if (bookingId === null || moving.current) return;
+        moving.current = true;
         setPending((p) => ({ ...p, [event.id]: to }));
         api.patch(`/v1/bookings/${bookingId}`, {
             starts_at: to.start.toISOString(),
             ends_at: to.end.toISOString(),
             staff_id: to.staffId,
-        }).catch((error: unknown) => {
-            setPending((prev) => omitKey(prev, event.id));
-            onFail(error);
-        });
+        })
+            .then(() => {
+                onSuccess?.();
+            })
+            .catch((error: unknown) => {
+                setPending((prev) => omitKey(prev, event.id));
+                onFail(error);
+            })
+            .finally(() => {
+                moving.current = false;
+            });
     };
 
     return {
@@ -845,6 +853,7 @@ export function useMoveEvent(api: ApiLike): MoveEvent {
         },
         verdict,
         move: (event, plan) => {
+            if (moving.current) return;
             const key = planKey(event.id, plan);
             const refused = verdict?.key === key && !verdict.ok ? verdict.message : null;
             if (plan.problem !== null || refused !== null) {
@@ -855,11 +864,17 @@ export function useMoveEvent(api: ApiLike): MoveEvent {
                 return;
             }
             setRefusal(null);
-            setLast({ plan, event });
-            patch(event, plan, (error) => {
-                setLast(null);
-                setRefusal(moveFailure(error));
-            });
+            setLast(null);
+            patch(
+                event,
+                plan,
+                (error) => {
+                    setRefusal(moveFailure(error));
+                },
+                () => {
+                    setLast({ plan, event });
+                },
+            );
         },
         pending,
         settle,

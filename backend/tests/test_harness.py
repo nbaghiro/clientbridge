@@ -166,7 +166,8 @@ def test_one_base_domain_derives_every_public_url(
         f"https://pay.{base}",
         f"https://shop.{base}",
     ]
-    assert settings.app_origins() == [f"https://app.{base}"]
+    assert settings.admin_base_url == f"https://admin.{base}"
+    assert settings.app_origins() == [f"https://app.{base}", f"https://admin.{base}"]
     assert settings.auth_session_cookie == SESSION_COOKIE
     assert settings.auth_internal_url == f"https://api.{base}/auth"
 

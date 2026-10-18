@@ -1,6 +1,7 @@
 import secrets
 
 import httpx
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +11,7 @@ from clientbridge.core.ratelimit import RateLimiter, public_form_rate_limit
 from clientbridge.main import app
 from clientbridge.models.documents import Form, FormField, FormResponse
 from clientbridge.models.platform import File
+from clientbridge.services.forms import snapshot_form
 from tests.conftest import Factory, FakeEmailSender, FakeFileStorage
 from tests.helpers import client_id, new_client
 
@@ -18,7 +20,10 @@ SATISFACTION = "frm_satisfaction"  # seeded: required "rating", optional "commen
 
 
 async def _a_response(db: AsyncSession, *, form_id: str = SATISFACTION) -> str:
+    form = await db.get(Form, form_id)
+    assert form is not None
     response = FormResponse(
+        definition=await snapshot_form(db, form),
         id=new_id("form_response"),
         business_id=BIZ,
         form_id=form_id,
@@ -229,3 +234,127 @@ async def test_public_complete_cannot_reach_another_responses_file(
     file_id = await _upload(api, theirs)
     await _store(db, storage, file_id)
     assert (await api.post(f"/form/{mine}/upload/{file_id}/complete")).status_code == 404
+
+
+@pytest.mark.parametrize(
+    "answers",
+    [
+        {"rating": {"arbitrary": "object"}},
+        {"rating": 5, "unknown": "stored"},
+        {"rating": True},
+        {"rating": "not a number"},
+        {"rating": "   "},
+        {"rating": 999},
+    ],
+)
+async def test_form_rejects_invalid_answers(
+    api: httpx.AsyncClient, db: AsyncSession, answers: dict[str, object]
+) -> None:
+    token = await _a_response(db)
+    response = await api.post(f"/form/{token}", json={"answers": answers})
+    assert response.status_code == 422
+    stored = await db.scalar(select(FormResponse).where(FormResponse.token == token))
+    assert stored is not None and stored.status == "draft" and not stored.answers
+
+
+async def test_issued_form_keeps_its_definition_after_template_edits(
+    as_owner: httpx.AsyncClient, api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    body = {
+        "name": "Original",
+        "fields": [{"input": "text", "label": "Original question", "required": True}],
+    }
+    created = await as_owner.post("/v1/forms", json=body)
+    assert created.status_code == 201, created.text
+    form_id = created.json()["id"]
+    issued = await as_owner.post(
+        "/v1/forms/send", json={"form_id": form_id, "client_id": await client_id(db)}
+    )
+    token = issued.json()["token"]
+    first = (await api.get(f"/form/{token}")).json()
+    changed = await as_owner.patch(
+        f"/v1/forms/{form_id}",
+        json={
+            "name": "Changed",
+            "fields": [{"input": "number", "label": "New question", "required": True}],
+        },
+    )
+    assert changed.status_code == 200
+    current = (await api.get(f"/form/{token}")).json()
+    assert current["form_name"] == "Original"
+    assert current["fields"] == first["fields"]
+    result = await api.post(
+        f"/form/{token}", json={"answers": {first["fields"][0]["name"]: "Original answer"}}
+    )
+    assert result.status_code == 200, result.text
+
+
+async def test_signature_required_by_issued_form_is_enforced(
+    as_owner: httpx.AsyncClient, api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    created = await as_owner.post(
+        "/v1/forms",
+        json={
+            "name": "Consent",
+            "require_signature": True,
+            "fields": [{"input": "text", "label": "Comment"}],
+        },
+    )
+    issued = await as_owner.post(
+        "/v1/forms/send", json={"form_id": created.json()["id"], "client_id": await client_id(db)}
+    )
+    token = issued.json()["token"]
+    refused = await api.post(f"/form/{token}", json={"answers": {}})
+    assert refused.status_code == 422
+    signed = await api.post(
+        f"/form/{token}", json={"answers": {}, "signature": {"name": "Pat", "agreed": True}}
+    )
+    assert signed.status_code == 200, signed.text
+    response = await db.get(FormResponse, issued.json()["id"])
+    assert response is not None
+    await db.refresh(response)
+    assert response.signature is not None and response.signature["name"] == "Pat"
+
+
+async def test_form_delivery_survives_provider_connection_failure(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from clientbridge.core import clock
+    from clientbridge.integrations.resend import Email
+    from clientbridge.models.messaging import Delivery
+    from clientbridge.services.deliveries import run_deliveries
+    from tests.conftest import FakePushSender, FakeSmsSender
+
+    original = email.send
+
+    async def offline(_: Email) -> str | None:
+        raise httpx.ConnectError("provider unavailable")
+
+    monkeypatch.setattr(email, "send", offline)
+    response = await as_owner.post(
+        "/v1/forms/send",
+        json={
+            "form_id": SATISFACTION,
+            "client_id": await new_client(db),
+        },
+        headers={"Idempotency-Key": "form-delivery-recovery"},
+    )
+    assert response.status_code == 201
+    deliveries = list(
+        await db.scalars(
+            select(Delivery).where(Delivery.key.startswith(f"form:{response.json()['id']}:"))
+        )
+    )
+    assert deliveries and any(row.state == "queued" for row in deliveries)
+    monkeypatch.setattr(email, "send", original)
+    for row in deliveries:
+        if row.state == "queued":
+            row.next_at = clock.now()
+    await db.commit()
+    await run_deliveries(db, email, FakeSmsSender(), FakePushSender())
+    assert len(email.sent) == 1
+    await run_deliveries(db, email, FakeSmsSender(), FakePushSender())
+    assert len(email.sent) == 1

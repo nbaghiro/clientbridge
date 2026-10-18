@@ -22,6 +22,7 @@ from clientbridge.api.public import (
 from clientbridge.api.public_orders import router as public_orders_router
 from clientbridge.api.returning import router as returning_router
 from clientbridge.api.router import api_router
+from clientbridge.api.site import router as site_router
 from clientbridge.api.webhooks import router as webhooks_router
 from clientbridge.core.config import get_settings
 from clientbridge.core.cors import SplitCors
@@ -34,6 +35,8 @@ from clientbridge.core.errors import (
 )
 from clientbridge.core.logs import RequestLog, configure_logging
 from clientbridge.core.uploads import UploadSizeLimit
+from clientbridge.integrations.http import close_http_client, start_http_client
+from clientbridge.integrations.stripe import close_stripe_client
 from clientbridge.services.health import unready_dependencies
 from clientbridge.sync import router as sync_router
 
@@ -41,7 +44,12 @@ from clientbridge.sync import router as sync_router
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     configure_logging(get_settings().env)
-    yield
+    start_http_client()
+    try:
+        yield
+    finally:
+        await close_http_client()
+        await close_stripe_client()
 
 
 def create_app() -> FastAPI:
@@ -70,6 +78,7 @@ def create_app() -> FastAPI:
 
     app.include_router(sync_router)
     # Public surfaces: unauthenticated, checked by signature, token or slug instead.
+    app.include_router(site_router)
     app.include_router(webhooks_router)
     app.include_router(pay_router)
     app.include_router(payment_setup_router)

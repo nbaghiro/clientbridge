@@ -8,6 +8,7 @@ from typing import overload
 
 from pydantic import BaseModel
 from pydantic_core import to_jsonable_python
+from sqlalchemy import func, select
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -164,6 +165,16 @@ async def run_command[T: BaseModel](
         stored = await replay(db, principal.business_id, action, idempotency_key, body)
         return None if stored is None else response_model.model_validate(stored)
 
+    if idempotency_key is not None:
+        await db.execute(
+            select(
+                func.pg_advisory_xact_lock(
+                    func.hashtextextended(
+                        f"command:{principal.business_id}:{action}:{idempotency_key}", 0
+                    )
+                )
+            )
+        )
     replayed = await prior()
     if replayed is not None:
         return replayed

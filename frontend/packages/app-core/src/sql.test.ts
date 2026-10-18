@@ -959,6 +959,25 @@ function run(name: keyof typeof core, params: SqlValue[] = []): Row[] {
 }
 
 describe("app-core SQL against the replica schema", () => {
+    it("keeps visits longer than a week in an overlapping schedule window", () => {
+        db.run(
+            "UPDATE slots SET starts_at = '2026-06-01 10:00:00+00', ends_at = '2026-06-30 10:00:00+00' WHERE id = 'ss_1'",
+        );
+        const rows = all(`SELECT s.id FROM slots s WHERE ${core.slotOverlapSql("?1", "?2")}`, [
+            "2026-06-26T00:00:00Z",
+            "2026-06-27T00:00:00Z",
+        ]);
+        expect(rows.map((r) => r.id)).toContain("ss_1");
+    });
+
+    it("finds an upcoming inbox visit later on the same UTC day", () => {
+        db.run("UPDATE bookings SET status = 'confirmed' WHERE id = 'bk_1'");
+        const now = "2026-06-26T09:00:00Z";
+        expect(run("INBOX_CLIENT_SQL", [now, now, "cl_ann"])[0]?.next_at).toBe(
+            "2026-06-26 10:00:00+00",
+        );
+    });
+
     it("lists invoices with their ledger balance and status", () => {
         expect(pick(run("INVOICES_SQL"), "id", "client_name", "status", "balance_cents")).toEqual([
             { id: "inv_1", client_name: "Ann", status: "partial", balance_cents: 6200 },

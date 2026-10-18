@@ -18,6 +18,7 @@ from tests.helpers import (
     settle,
     stripe_event,
 )
+from tests.helpers import key as retry_key
 from tests.test_bookings import (
     CL_AMELIE,
     deposit_booking,
@@ -183,10 +184,14 @@ async def test_refunding_an_applied_deposit_reopens_the_invoice(
 ) -> None:
     bid, pay_id = await _collected(as_owner, db, "2027-07-04T10:00:00Z")
     inv_id = await _api_invoice(as_owner, bid)
-    partial = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={"amount_cents": 500})
+    partial = await as_owner.post(
+        f"/v1/payments/{pay_id}/refund", json={"amount_cents": 500}, headers=retry_key()
+    )
     assert partial.status_code == 409
     assert partial.json()["message"] == "a deposit applied to an invoice is refunded in full"
-    assert (await as_owner.post(f"/v1/payments/{pay_id}/refund", json={})).status_code == 200
+    assert (
+        await as_owner.post(f"/v1/payments/{pay_id}/refund", json={}, headers=retry_key())
+    ).status_code == 200
     invoice = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
     status, held, balance = await _state(db, bid, inv_id)
     assert (status, held, balance) == ("refunded", 0, invoice.total_cents)

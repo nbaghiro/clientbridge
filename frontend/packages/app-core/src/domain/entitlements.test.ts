@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { type PackageRow, canConsume, sessionsRemaining } from "./entitlements";
+import type { ApiLike } from "../api";
+
+import { type PackageRow, canConsume, consumeSession, sessionsRemaining } from "./entitlements";
 
 const pkg = (total: number, used: number, status = "active"): PackageRow => ({
     id: "pk_1",
@@ -26,4 +28,23 @@ describe("packages", () => {
         expect(canConsume(pkg(5, 0, "expired"))).toBe(false);
         expect(canConsume(pkg(5, 0, "pending"))).toBe(false);
     });
+});
+
+it("passes a stable attempt key when consuming a package session", async () => {
+    const post = vi.fn().mockResolvedValue(pkg(5, 1));
+    const api: ApiLike = { get: vi.fn(), getText: vi.fn(), post, patch: vi.fn(), delete: vi.fn() };
+    await consumeSession(api, "pk_1", "consume-attempt");
+    await consumeSession(api, "pk_1", "consume-attempt");
+    expect(post).toHaveBeenNthCalledWith(
+        1,
+        "/v1/packages/pk_1/consume",
+        {},
+        { idempotencyKey: "consume-attempt" },
+    );
+    expect(post).toHaveBeenNthCalledWith(
+        2,
+        "/v1/packages/pk_1/consume",
+        {},
+        { idempotencyKey: "consume-attempt" },
+    );
 });

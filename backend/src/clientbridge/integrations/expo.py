@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from clientbridge.core.config import get_settings
+from clientbridge.integrations.http import http_session
 
 _EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
 
@@ -32,14 +33,12 @@ class ExpoPushSender:
         self._token = access_token
 
     async def send(self, push: Push) -> None:
-        import httpx
-
         messages = [
             {"to": token, "title": push.title, "body": push.body, "data": push.data}
             for token in push.tokens
         ]
         headers = {"Authorization": f"Bearer {self._token}"} if self._token else {}
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with http_session() as client:
             response = await client.post(_EXPO_PUSH_URL, json=messages, headers=headers)
             response.raise_for_status()
 

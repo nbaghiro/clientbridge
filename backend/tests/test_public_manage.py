@@ -141,7 +141,7 @@ async def test_inside_the_cutoff_nothing_changes_online(
         .values(status="canceled")
     )
     slot.starts_at, slot.ends_at = soon, soon + timedelta(minutes=75)
-    await db.flush()
+    await db.commit()
     view = (await api.get(f"/manage/{token}")).json()
     assert view["can_cancel"] is False and view["can_move"] is False
     assert view["blocked"] == "cutoff"
@@ -173,7 +173,7 @@ async def test_blocked_reason_is_a_code_with_the_cutoff(
         .values(status="canceled")
     )
     slot.starts_at, slot.ends_at = soon, soon + timedelta(minutes=75)
-    await db.flush()
+    await db.commit()
     view = (await api.get(f"/manage/{token}")).json()
     assert view["blocked"] == "cutoff" and view["blocked_hours"] == 1
 

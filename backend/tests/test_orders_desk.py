@@ -364,3 +364,19 @@ async def test_a_visit_on_one_sale_cannot_join_another_409(
 async def test_unauth_401(unauth: httpx.AsyncClient, method: str, path: str) -> None:
     body = {"channel": "email", "to": "a@b.ca"} if method == "POST" else None
     assert (await unauth.request(method, path, json=body)).status_code == 401
+
+
+async def test_batched_held_order_filter_matches_the_ledger_state(db: AsyncSession) -> None:
+    from clientbridge.core.scoping import scoped
+
+    expected = set(
+        await db.scalars(
+            scoped(Order, BIZ)
+            .with_only_columns(Order.id)
+            .where(
+                Order.source == "pos", Order.status == "open", ledger.order_status_expr() == "open"
+            )
+        )
+    )
+    actual = {order.id for order in await db.scalars(ledger.held_orders(BIZ))}
+    assert actual == expected

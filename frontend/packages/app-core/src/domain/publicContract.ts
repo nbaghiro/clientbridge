@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useAsyncAction } from "../hooks";
 import type { SignatureStrokes } from "../ui";
 import { type PublicBrand, usePublicResource } from "./publicResource";
-import { refusal } from "../api";
+import { failedStatus, refusal } from "../api";
 
 export interface PublicContract {
     contract_name: string;
@@ -22,6 +22,7 @@ export interface PublicContract {
 }
 
 interface SignInput {
+    version: number;
     typed_name: string;
     strokes: SignatureStrokes | null;
     agreed: boolean;
@@ -129,6 +130,7 @@ export function useContractSigning(
             setAgreedRaw(v);
         },
         sign: () => {
+            if (doc === null) return;
             if (typedName.trim() === "") {
                 setProblem("name-missing");
                 return;
@@ -143,13 +145,23 @@ export function useContractSigning(
             }
             setProblem(null);
             action.run(async () => {
-                setData(
-                    await contracts.sign(token, {
-                        typed_name: typedName.trim(),
-                        strokes: mode === "draw" ? strokes : null,
-                        agreed,
-                    }),
-                );
+                try {
+                    setData(
+                        await contracts.sign(token, {
+                            version: doc.version,
+                            typed_name: typedName.trim(),
+                            strokes: mode === "draw" ? strokes : null,
+                            agreed,
+                        }),
+                    );
+                } catch (error) {
+                    if (failedStatus(error) === 409) {
+                        setAgreedRaw(false);
+                        setStrokesRaw([]);
+                        retry();
+                    }
+                    throw error;
+                }
             });
         },
         decline: () => {
@@ -159,7 +171,11 @@ export function useContractSigning(
         },
         busy: action.busy,
         error: problem ?? (action.error === null ? null : "failed"),
-        retry,
+        retry: () => {
+            setAgreedRaw(false);
+            setStrokesRaw([]);
+            retry();
+        },
     };
 }
 

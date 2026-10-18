@@ -13,6 +13,7 @@ from clientbridge.services import ledger
 from clientbridge.services.ledger import Leg
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
 from tests.helpers import enable_payments, key, settle
+from tests.helpers import key as retry_key
 
 PURCHASER = "cl_marcus"  # seeded client with a default saved card (pm_demo_5454)
 
@@ -396,7 +397,9 @@ async def test_refund_voids_settled_gift_card(
         await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
     ).scalar_one()
     assert card.status == "active"
-    refunded = await as_owner.post(f"/v1/payments/{body['payment_id']}/refund", json={})
+    refunded = await as_owner.post(
+        f"/v1/payments/{body['payment_id']}/refund", json={}, headers=retry_key()
+    )
     assert refunded.status_code == 200, refunded.text
     card = (
         await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
@@ -424,7 +427,9 @@ async def test_refund_partially_redeemed_gift_card_blocked(
     )
     assert redeemed.status_code == 200, redeemed.text
     # $20 of value already delivered → refunding the full $50 purchase must be blocked
-    refunded = await as_owner.post(f"/v1/payments/{body['payment_id']}/refund", json={})
+    refunded = await as_owner.post(
+        f"/v1/payments/{body['payment_id']}/refund", json={}, headers=retry_key()
+    )
     assert refunded.status_code == 409
 
 

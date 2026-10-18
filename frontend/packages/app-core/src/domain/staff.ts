@@ -1,3 +1,4 @@
+import { isManager } from "./auth";
 import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useEffect, useRef, useState } from "react";
@@ -460,7 +461,7 @@ export function staffName(s: {
 }
 
 export function canManageStaff(role: string | null): boolean {
-    return role === "owner" || role === "admin";
+    return isManager(role);
 }
 
 type StaffRole = "admin" | "staff" | "contractor";

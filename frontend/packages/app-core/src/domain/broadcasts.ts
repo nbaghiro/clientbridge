@@ -1,8 +1,8 @@
 import { useBusinessQuery as useQuery } from "../hooks";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
-import { type ApiLike, failureMessage, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey, failureMessage } from "../api";
 import {
     formatDate,
     formatDateTime,
@@ -332,6 +332,7 @@ export function useBroadcastDraft(api: ApiLike, seed?: BroadcastSeed): Broadcast
     const [sendAt, setSendAt] = useState("");
     const [sent, setSent] = useState<BroadcastSent | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
+    const attempt = useRef<Attempt | null>(null);
     const zone = useBusinessZone();
     const audience = useMemo(
         () => buildAudience(clients.data, consents.map, tags, channel, zone),
@@ -368,17 +369,17 @@ export function useBroadcastDraft(api: ApiLike, seed?: BroadcastSeed): Broadcast
         const count = audience.recipients.length;
         run(
             async () => {
-                const result = await api.post<BroadcastResult>(
-                    "/v1/broadcasts",
-                    {
-                        name: name.trim(),
-                        channel,
-                        body: body.trim(),
-                        audience: tags.length > 0 ? { tags } : { all: true },
-                        scheduled_at: at === null ? null : at.toISOString(),
-                    },
-                    { idempotencyKey: newIdempotencyKey() },
-                );
+                const input = {
+                    name: name.trim(),
+                    channel,
+                    body: body.trim(),
+                    audience: tags.length > 0 ? { tags } : { all: true },
+                    scheduled_at: at === null ? null : at.toISOString(),
+                };
+                const result = await api.post<BroadcastResult>("/v1/broadcasts", input, {
+                    idempotencyKey: attemptKey(attempt, input),
+                });
+                attempt.current = null;
                 setSent(sentNote(result, count, schedule, zone));
             },
             { errorMessage: (e) => failureMessage(e, b.errors.sendError) },

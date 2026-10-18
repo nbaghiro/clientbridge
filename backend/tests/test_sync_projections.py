@@ -74,6 +74,7 @@ def test_required_share_capabilities_remain_available() -> None:
 SNAPSHOT = Path(__file__).parent / "fixtures" / "sync_projections.json"
 # what owner and admin may read and nobody else: pay, tax registration and billing contacts
 OWNER_ONLY = {
+    "gift_cards": {"code"},
     "staff": {"payee", "rate_type", "rate_bps", "rate_cents", "retail_rate_bps"},
     "businesses": {"gst_hst_number", "qst_number", "pst_number", "billing_email"},
 }

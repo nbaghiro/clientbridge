@@ -453,3 +453,15 @@ async def test_a_duplicate_plan_subscription_refunds_each_paid_invoice_payment(
     monkeypatch.setattr(stripe.Refund, "create_async", refund)
     assert await gateway.refund_plan_subscription("sub_dup") == 5649
     assert refunds == [("pi_first", "plan-duplicate:pi_first")]
+
+
+async def test_shutdown_replaces_stripe_clients_and_transport() -> None:
+    first = StripeGateway("sk_test_lifecycle", "", "CA")
+    transport = stripe.default_http_client
+    await stripe_module.close_stripe_client()
+    assert stripe.default_http_client is None
+    second = StripeGateway("sk_test_lifecycle", "", "CA")
+    assert second.client is not first.client
+    assert stripe.default_http_client is not transport
+    await stripe_module.close_stripe_client()
+    await stripe_module.close_stripe_client()
