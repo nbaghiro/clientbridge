@@ -1479,7 +1479,7 @@ Not tracked yet. These are pulled in by demand once the launch stages are done.
   passkeys) returning our own results and error codes, with the Kratos mapping kept in the api-client's
   `identity.ts`, so a new provider is a new adapter and the hooks, screens and catalog stay.
 - **Platform hygiene:** retention and PII purge, metrics and tracing, blue-green deploys and rollback, more than one currency (CAD is fixed
-  on create), a decision on `custom_fields`.
+  on create), a decision on `clients.custom_fields`.
 - **Sync follow-ups:** window the money tables with balances, lifetime value and old invoice status
   served by the API, because at 50k clients the ledger screens take 3 to 12 seconds on a device;
   browser-tab coordination and native resume; sanitized sync diagnostics and retention; whether the hours

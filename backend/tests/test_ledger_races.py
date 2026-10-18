@@ -110,7 +110,7 @@ async def test_two_posts_on_one_ref_write_one_journal(
     async def post(hold: bool) -> IntegrityError | None:
         async with SessionLocal() as session:
             try:
-                await ledger.post(session, business.id, event="adjustment", ref=ref, legs=legs)
+                await ledger.post(session, business.id, event="invoice", ref=ref, legs=legs)
                 if hold:
                     started.set()
                     await _queued()

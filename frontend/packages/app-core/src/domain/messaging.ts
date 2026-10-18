@@ -111,7 +111,7 @@ export interface InboxThread extends InboxRow {
     pets: string[];
     // The client replied STOP: texts are blocked until they reply START.
     textsOff: boolean;
-    channelKind: "sms" | "email" | "chat";
+    channelKind: "sms" | "email";
 }
 
 export function resolveInboxTarget(
@@ -167,7 +167,6 @@ export function quickReplies(): { key: string; label: string; text: string }[] {
 export function channelLabel(channel: string): string {
     if (channel === "sms") return m.channelSms;
     if (channel === "email") return m.channelEmail;
-    if (channel === "chat") return m.channelChat;
     return channel;
 }
 
@@ -198,12 +197,7 @@ export function useInbox(): InboxView {
             ago: t.last_message_at === null ? "" : formatRelativeTime(t.last_message_at, zone, now),
             pets: t.pet_names === null ? [] : t.pet_names.split(", "),
             textsOff: stopped(consentFor(consents.map, t.client_id, "sms")),
-            channelKind:
-                t.channel === "email"
-                    ? ("email" as const)
-                    : t.channel === "chat"
-                      ? ("chat" as const)
-                      : ("sms" as const),
+            channelKind: t.channel === "email" ? ("email" as const) : ("sms" as const),
         }));
     }, [rows.data, consents.map, zone]);
     const filtered = useMemo(() => {

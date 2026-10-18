@@ -1206,15 +1206,7 @@ def _valid_numeric_answer(field: FormField | PublicFormField, value: object) -> 
         return False
     if not number.is_finite():
         return False
-    if field.input == "rating" and (number != number.to_integral_value() or not 1 <= number <= 5):
-        return False
-    for key, below in (("min", True), ("max", False)):
-        bound = field.validation.get(key)
-        if isinstance(bound, int | float) and (
-            (below and number < bound) or (not below and number > bound)
-        ):
-            return False
-    return True
+    return field.input != "rating" or (number == number.to_integral_value() and 1 <= number <= 5)
 
 
 class PublicPayService:

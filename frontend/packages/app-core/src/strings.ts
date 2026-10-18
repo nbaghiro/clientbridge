@@ -1712,7 +1712,6 @@ interface Strings {
         readonly title: string;
         readonly channelSms: string;
         readonly channelEmail: string;
-        readonly channelChat: string;
         readonly loading: string;
         readonly loadError: string;
         readonly unreadCount: (n: number) => string;
@@ -1889,7 +1888,6 @@ interface Strings {
             readonly online_booking: string;
             readonly reply: string;
             readonly unsubscribe: string;
-            readonly import: string;
             readonly preferences: string;
             readonly complaint: string;
         } & Labels;

@@ -17,7 +17,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from clientbridge.core.db import Base
 from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, enum_check
 
-FileParent = Literal["business", "client", "subject", "item", "signature", "form_response"]
+FileParent = Literal["business", "subject", "item", "signature", "form_response"]
 FilePurpose = Literal["logo", "image", "photo", "signature", "attachment"]
 WebhookProvider = Literal["stripe", "twilio", "resend"]
 WebhookStatus = Literal["pending", "processed", "failed"]

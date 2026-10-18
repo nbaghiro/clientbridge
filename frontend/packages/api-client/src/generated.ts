@@ -4595,7 +4595,7 @@ export interface components {
              * Parent Type
              * @enum {string}
              */
-            parent_type: "business" | "client" | "subject" | "item" | "signature" | "form_response";
+            parent_type: "business" | "subject" | "item" | "signature" | "form_response";
             /** Parent Id */
             parent_id: string;
             /** Purpose */
@@ -4615,7 +4615,7 @@ export interface components {
              * Parent Type
              * @enum {string}
              */
-            parent_type: "business" | "client" | "subject" | "item" | "signature" | "form_response";
+            parent_type: "business" | "subject" | "item" | "signature" | "form_response";
             /** Parent Id */
             parent_id: string;
             /** Purpose */
@@ -6776,10 +6776,6 @@ export interface components {
             required: boolean;
             /** Options */
             options: unknown[];
-            /** Validation */
-            validation: {
-                [key: string]: unknown;
-            };
             /** Position */
             position: number;
         };
@@ -8388,9 +8384,9 @@ export interface components {
             unread_count: number;
             /**
              * Status
-             * @enum {string}
+             * @constant
              */
-            status: "open" | "closed";
+            status: "open";
         };
         /** TimeOffCreate */
         TimeOffCreate: {

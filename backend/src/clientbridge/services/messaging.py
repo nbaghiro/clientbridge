@@ -82,7 +82,7 @@ async def unread_count(db: AsyncSession, thread: Thread) -> int:
 async def open_thread(
     db: AsyncSession, business_id: str, client_id: str, channel: Channel
 ) -> Thread:
-    # one thread per (client, channel) by unique constraint → reuse it, reopening if closed.
+    # one thread per (client, channel) by unique constraint → reuse it
     thread = (
         await db.execute(
             scoped(Thread, business_id).where(
@@ -91,7 +91,6 @@ async def open_thread(
         )
     ).scalar_one_or_none()
     if thread is not None:
-        thread.status = "open"
         return thread
     thread = Thread(
         id=new_id("thread"),

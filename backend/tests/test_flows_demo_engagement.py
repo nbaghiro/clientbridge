@@ -245,7 +245,6 @@ def test_conversations_have_distinct_times_channel_identity_and_inbox_states(
     threads, messages = engagement.all(Thread), engagement.all(Message)
     assert len({t.id for t in threads}) == len(threads)
     assert len({(t.client_id, t.channel) for t in threads}) == len(threads)
-    assert any(t.status == "closed" for t in threads)
     assert any(m.direction == "in" and m.status != "read" for m in messages)
     assert any(m.status == "failed" for m in messages)
     assert len({m.created_at for m in messages}) > 5
