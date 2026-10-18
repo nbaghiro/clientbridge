@@ -1529,9 +1529,9 @@ describe("app-core SQL against the replica schema", () => {
             "refund:pay-pay_r1",
             "review:rv-rv_1",
         ]);
-        expect(
-            run("NOTIFICATION_FEED_SQL", since).find((r) => r.id === "ord-ord_web")?.at,
-        ).toBe("2026-06-24T09:00:00Z");
+        expect(run("NOTIFICATION_FEED_SQL", since).find((r) => r.id === "ord-ord_web")?.at).toBe(
+            "2026-06-24T09:00:00Z",
+        );
         expect(
             run("MY_CLIENTS_SQL", ["st_owner"])
                 .map((r) => r.client_id)
