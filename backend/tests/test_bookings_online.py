@@ -13,9 +13,10 @@ async def test_owner_reads_the_online_booking_settings(as_owner: httpx.AsyncClie
     assert res.status_code == 200, res.text
     body = res.json()
     assert body["slug"] == "birchbark"
-    assert body["policy"]["self_service"] is True
+    assert body["policy"]["self_service"] is True and body["policy"]["approve_new_clients"]
     assert any(s["id"] == "it_groom_sm" and s["online_bookable"] for s in body["services"])
-    assert all(m["bookable_online"] for m in body["staff"])
+    online = {m["id"]: m["bookable_online"] for m in body["staff"]}
+    assert online["st_owner"] and online["st_diego"] and not online["st_admin"]
     assert body["online_30d"] >= 0
 
 

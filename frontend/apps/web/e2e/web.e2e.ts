@@ -4,8 +4,8 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 
 import { offsiteLoadFailure } from "./errors";
 
-const OWNER = "hannah@birchbarkpets.ca";
-const STAFF = "diego@birchbarkpets.ca";
+const OWNER = "hannah@birchbark.example";
+const STAFF = "diego@birchbark.example";
 const PASSWORD = "demo1234";
 // A seeded visit with a $20 deposit; opening it by link puts its day on the board.
 const DEPOSIT_BOOKING = "bk_015";

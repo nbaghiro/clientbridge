@@ -96,7 +96,6 @@ def add_scenarios(ctx: DemoContext) -> None:
                     "breed": "Mixed breed",
                     "weight_kg": 5.5,
                     "birthday": ctx.at(-120).date().isoformat(),
-                    "vaccinated": True,
                     "rabies_until": ctx.at(240).date().isoformat(),
                 },
             ),

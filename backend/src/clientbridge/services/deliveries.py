@@ -10,8 +10,10 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.emails import reserved_email
 from clientbridge.core.errors import AppError, Unprocessable
 from clientbridge.core.ids import new_id
+from clientbridge.core.phones import reserved_phone
 from clientbridge.integrations.expo import Push, PushSender
 from clientbridge.integrations.resend import Email, EmailSender, get_test_email_sender
 from clientbridge.integrations.twilio import Sms, SmsSender
@@ -90,6 +92,10 @@ async def dispatch(
         await db.commit()
         return False
     payload = DELIVERY_PAYLOAD.validate_python(row.payload)
+    if _reserved(payload):
+        row.state, row.error, row.next_at = "failed", "reserved_address", None
+        await db.commit()
+        return False
     claim = secrets.token_urlsafe(24)
     row.state, row.claim, row.next_at = "sending", claim, now + _LEASE
     key = row.id
@@ -144,6 +150,14 @@ async def dispatch(
     row.claim = None
     await db.commit()
     return state == "accepted"
+
+
+def _reserved(payload: DeliveryPayload) -> bool:
+    if isinstance(payload, EmailDelivery):
+        return reserved_email(payload.message.to)
+    if isinstance(payload, SmsDelivery):
+        return reserved_phone(payload.message.to)
+    return False
 
 
 async def run_deliveries(

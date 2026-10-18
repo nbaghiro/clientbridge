@@ -48,7 +48,7 @@ test("presentation demo: synced data loads throughout owner surfaces", async ({
             errors.push(`${String(response.status())} ${response.url()}`);
     });
     await page.goto("/");
-    await page.fill('input[type="email"]', "hannah@birchbarkpets.ca");
+    await page.fill('input[type="email"]', "hannah@birchbark.example");
     await page.fill('input[type="password"]', "demo1234");
     await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
     await expect(page).toHaveURL(/\/today$/);

@@ -25,7 +25,7 @@ test("a recorded payment holds the invoice until its new balance reaches this de
     await page.goto("/payments/invoices");
     await page
         .getByRole("textbox", { name: strings.auth.email, exact: true })
-        .fill("hannah@birchbarkpets.ca");
+        .fill("hannah@birchbark.example");
     await page.getByLabel(strings.auth.password, { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
     const main = page.getByRole("main");

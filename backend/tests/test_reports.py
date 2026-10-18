@@ -213,7 +213,7 @@ async def test_gst_hst_return_splits_tax_by_code(
     assert after["pst_cents"] - before["pst_cents"] == 700
     assert after["qst_cents"] - before["qst_cents"] == 200
     assert after["taxable_sales_cents"] - before["taxable_sales_cents"] == 16000
-    assert after["gst_hst_number"] == "84720 1539 RT0001"
+    assert after["gst_hst_number"] == "847201539RT0001"
 
 
 async def test_gst_hst_return_includes_order_sales_net_of_refunds(
@@ -313,7 +313,7 @@ async def test_gst_hst_csv_returns_text_csv(as_owner: httpx.AsyncClient) -> None
         "taxable_sales_cents",
         "gst_hst_number",
     ]
-    assert reader[1][4] == "84720 1539 RT0001"
+    assert reader[1][4] == "847201539RT0001"
 
 
 @pytest.mark.parametrize(

@@ -13,7 +13,7 @@ from tests.conftest import BIZ
 from tests.helpers import business_today, card_pay, earnings, enable_payments, key, ok, settle
 from tests.helpers import key as retry_key
 
-OWNER_BOOKING = "bk_016"  # seeded upcoming visit for st_owner (a payee)
+PAYEE_BOOKING = "bk_013"  # seeded upcoming visit for st_diego (a payee)
 
 
 async def _reports(api: httpx.AsyncClient, db: AsyncSession) -> dict[str, object]:
@@ -37,11 +37,11 @@ async def test_report_totals_follow_a_paid_visit(
     await enable_payments(db)
     before = await _reports(api, db)
 
-    inv = ok(await api.post(f"/v1/invoices/from-booking/{OWNER_BOOKING}", headers=key()), 201)
+    inv = ok(await api.post(f"/v1/invoices/from-booking/{PAYEE_BOOKING}", headers=key()), 201)
     invoice = ok(await api.post(f"/v1/invoices/{inv.json()['id']}/send")).json()
     item_id = invoice["lines"][0]["item_id"]
     await settle(api, db, await card_pay(api, db, invoice["id"]))
-    [journal] = await earnings(db, "booking", OWNER_BOOKING)
+    [journal] = await earnings(db, "booking", PAYEE_BOOKING)
     ok(await api.post("/v1/earnings/approve", json={"ids": [journal]}))
     paid = ok(await api.post("/v1/earnings/pay", json={"ids": [journal]})).json()
     earned = paid["earnings"][0]["amount_cents"]
@@ -69,7 +69,7 @@ async def test_report_totals_follow_a_paid_visit(
 
     t4a_before, t4a_after = before["t4a"], after["t4a"]
     assert isinstance(t4a_before, dict) and isinstance(t4a_after, dict)
-    assert t4a_after["st_owner"] - t4a_before.get("st_owner", 0) == earned
+    assert t4a_after["st_diego"] - t4a_before.get("st_diego", 0) == earned
 
     sales_before, sales_after = before["sales"], after["sales"]
     assert isinstance(sales_before, dict) and isinstance(sales_after, dict)

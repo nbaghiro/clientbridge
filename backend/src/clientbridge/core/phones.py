@@ -19,6 +19,12 @@ def e164(value: str) -> str | None:
     return None
 
 
+def reserved_phone(value: str) -> bool:
+    """A North American 555-0100 to 555-0199 number, which is set aside for fiction."""
+    number = e164(value)
+    return number is not None and re.fullmatch(r"\+1\d{3}55501\d{2}", number) is not None
+
+
 def _phone(value: str | None) -> str | None:
     if value is None or not value.strip():
         return None

@@ -8,7 +8,7 @@ test("payment account entrypoints preserve navigation when payment tools are off
     await page.goto("/setup/getting-paid?manage=account");
     await page
         .getByRole("textbox", { name: strings.auth.email, exact: true })
-        .fill("hannah@birchbarkpets.ca");
+        .fill("hannah@birchbark.example");
     await page.getByLabel(strings.auth.password, { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
     await expect(

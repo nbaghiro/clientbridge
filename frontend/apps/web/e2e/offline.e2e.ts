@@ -9,7 +9,7 @@ test("the production shell restores its replica offline and locks expired offlin
     await page.goto("/");
     await page
         .getByRole("textbox", { name: strings.auth.email, exact: true })
-        .fill("hannah@birchbarkpets.ca");
+        .fill("hannah@birchbark.example");
     await page.getByLabel(strings.auth.password, { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Hannah", {

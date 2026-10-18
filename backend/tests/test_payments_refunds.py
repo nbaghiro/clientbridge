@@ -587,7 +587,7 @@ def _refund_object(pi: str, status: str) -> dict[str, object]:
 async def test_a_refund_that_fails_later_retains_its_credit_note_and_tells_the_client(
     api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
-    cid = await client_id(db, email="bounced@example.com")
+    cid = await client_id(db, email="bounced@example.ca")
     inv_id = await sent_invoice(db, number=9100, total=8000)
     payment = await _settled_charge(db, "pi_bounce", client=cid)
     payment.invoice_id = inv_id

@@ -29,8 +29,8 @@ onFlowComplete:
 - takeScreenshot: password-reset
 - tapOn: "Back to sign in"
 - tapOn: "you@business.ca"
-- inputText: "diego@birchbarkpets.ca"
-- assertVisible: "diego@birchbarkpets.ca"
+- inputText: "diego@birchbark.example"
+- assertVisible: "diego@birchbark.example"
 - tapOn: "••••••••"
 - eraseText
 - inputText: "demo1234"

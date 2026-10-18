@@ -1,12 +1,24 @@
+from dataclasses import asdict
+from datetime import time, timedelta
 from uuid import NAMESPACE_URL, uuid5
 
 from clientbridge.models.base import TimestampMixin
 from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.business import Business, Staff, User
-from clientbridge.models.clients import Client
+from clientbridge.models.catalog import Item
+from clientbridge.models.clients import Client, Subject
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit, Webhook
-from scripts.demo_context import DemoContext
+from clientbridge.models.scheduling import Hours
+from scripts.demo_context import LEGAL_ADDRESSES, DemoContext
+
+SECOND = "bz_demo_second"
+# id, name, price, minutes, description
+SECOND_ITEMS = (
+    ("it_second_walk", "Dog Walk (45 min)", 3200, 45, "A neighbourhood walk, up to three dogs."),
+    ("it_second_visit", "Drop-in Visit", 2800, 30, "Feeding, fresh water and a short play."),
+    ("it_second_bath", "Quick Bath", 4000, 45, "Bath, towel and blow-dry, nails included."),
+)
 
 
 def placeholder_identity(email: str) -> str:
@@ -18,8 +30,8 @@ def build_identity(ctx: DemoContext) -> None:
     ctx.add(
         User(
             id="us_admin",
-            identity_id=placeholder_identity("admin@birchbarkpets.ca"),
-            email="admin@birchbarkpets.ca",
+            identity_id=placeholder_identity("admin@birchbark.example"),
+            email="admin@birchbark.example",
             name="Alex Chen",
         ),
         Staff(
@@ -30,24 +42,21 @@ def build_identity(ctx: DemoContext) -> None:
             title="Studio manager",
             status="active",
             payee=False,
+            bookable_online=False,
         ),
         Business(
-            id="bz_demo_second",
+            id=SECOND,
             name="Cedar Coast Pet Care",
             slug="cedar-coast-demo",
             subject="pet",
             timezone="America/Vancouver",
-            province="BC",
-            street_number="455",
-            street_name="Granville Street",
-            city="Vancouver",
-            postal_code="V6C 1T1",
-            legal_phone="+16045550120",
+            **asdict(LEGAL_ADDRESSES[SECOND]),
             status="active",
             plan="team",
-            plan_status="active",
+            plan_status="trialing",
+            trial_ends_at=ctx.now + timedelta(days=14),
             brand={
-                "tagline": "A separate demo business for tenant isolation checks.",
+                "tagline": "Dog walks and drop-in visits in downtown Vancouver.",
                 "address": "455 Granville Street, Vancouver, BC V6C 1T1",
             },
         ),
@@ -59,18 +68,63 @@ def build_identity(ctx: DemoContext) -> None:
         ),
         Staff(
             id="st_owner_second",
-            business_id="bz_demo_second",
+            business_id=SECOND,
             user_id="us_second_owner",
             role="owner",
             status="active",
             payee=False,
+            bookable_online=True,
         ),
         Client(
             id="cl_second_private",
-            business_id="bz_demo_second",
-            name="Cedar Private Client",
-            email="cedar.client@example.test",
+            business_id=SECOND,
+            name="Morgan Fraser",
+            email="morgan.f@example.test",
+            phone="+16045550150",
             status="active",
+        ),
+        Subject(
+            id="sj_second_tofu",
+            business_id=SECOND,
+            client_id="cl_second_private",
+            name="Tofu",
+            attributes={
+                "species": "dog",
+                "breed": "Shiba Inu",
+                "weight_kg": 10,
+                "temperament": "calm",
+            },
+        ),
+        *(
+            Item(
+                id=item_id,
+                business_id=SECOND,
+                created_by="us_second_owner",
+                kind="service",
+                name=name,
+                description=description,
+                price_cents=price,
+                currency="CAD",
+                tax_class="federal_only",
+                duration_min=minutes,
+                capacity=1,
+                online_bookable=True,
+                active=True,
+            )
+            for item_id, name, price, minutes, description in SECOND_ITEMS
+        ),
+        *(
+            Hours(
+                id=f"av_st_owner_second_{weekday}",
+                business_id=SECOND,
+                staff_id="st_owner_second",
+                basis="recurring",
+                weekday=weekday,
+                start_time=time(8, 0),
+                end_time=time(16, 0),
+                available=True,
+            )
+            for weekday in range(5)
         ),
     )
     for row in ctx.rows:

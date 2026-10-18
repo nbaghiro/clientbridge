@@ -4,8 +4,28 @@ from zoneinfo import ZoneInfo
 
 from clientbridge.core.db import Base
 
-DEMO_VERSION = "2026-10-08.1"
+DEMO_VERSION = "2026-10-18.1"
 BUSINESS_TIMEZONE = ZoneInfo("America/Vancouver")
+
+
+@dataclass(frozen=True)
+class LegalAddress:
+    street_number: str
+    street_name: str
+    city: str
+    province: str
+    postal_code: str
+    legal_phone: str
+
+
+LEGAL_ADDRESSES = {
+    "bz_birchbark": LegalAddress(
+        "1207", "Government Street", "Victoria", "BC", "V8W 1Y9", "+12505550110"
+    ),
+    "bz_demo_second": LegalAddress(
+        "455", "Granville Street", "Vancouver", "BC", "V6C 1T1", "+16045550120"
+    ),
+}
 
 
 @dataclass

@@ -410,7 +410,7 @@ async def test_estimate_decline_notifies_business(
     declined = await as_owner.post(f"/v1/estimates/{est['id']}/decline")
     assert declined.status_code == 200, declined.text
     assert any(
-        m.to == "hello@birchbarkpets.ca" and "declined" in m.body.lower() for m in email.sent
+        m.to == "hello@birchbark.example" and "declined" in m.body.lower() for m in email.sent
     )
 
 
@@ -454,7 +454,7 @@ async def test_estimate_accept_notifies_business(
     accepted = await as_owner.post(f"/v1/estimates/{est['id']}/accept")
     assert accepted.status_code == 200, accepted.text
     assert any(
-        m.to == "hello@birchbarkpets.ca" and "accepted" in m.body.lower() for m in email.sent
+        m.to == "hello@birchbark.example" and "accepted" in m.body.lower() for m in email.sent
     )
 
 

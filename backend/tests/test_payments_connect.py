@@ -97,7 +97,12 @@ async def _customer_only_account(db: AsyncSession, gateway: FakePaymentGateway) 
     await db.execute(
         update(Business)
         .where(Business.id == BIZ)
-        .values(stripe_account_id="acct_customer", stripe_requirements={})
+        .values(
+            stripe_account_id="acct_customer",
+            stripe_requirements={},
+            stripe_charges_enabled=False,
+            stripe_payouts_enabled=False,
+        )
     )
     await db.flush()
 
@@ -335,6 +340,8 @@ async def test_status_reads_the_mirrored_card_status(
         .values(
             stripe_account_id="acct_mirror",
             stripe_requirements={"card_status": card_status, "currently_due": []},
+            stripe_charges_enabled=False,
+            stripe_payouts_enabled=False,
         )
     )
     body = (await as_owner.get("/v1/connect/status")).json()
@@ -587,7 +594,12 @@ async def test_an_account_never_mirrored_is_not_taken_for_a_payments_account(
     await db.execute(
         update(Business)
         .where(Business.id == BIZ)
-        .values(stripe_account_id="acct_unknown", stripe_requirements={})
+        .values(
+            stripe_account_id="acct_unknown",
+            stripe_requirements={},
+            stripe_charges_enabled=False,
+            stripe_payouts_enabled=False,
+        )
     )
     body = (await as_owner.get("/v1/connect/status")).json()
     assert (body["connected"], body["kyc_status"]) == (False, "not_started")

@@ -74,7 +74,7 @@ See the [documentation index](.docs/README.md) for core references, reviews and 
 make hooks                    # install the pre-commit hook
 make install                  # backend (uv sync) + frontend (pnpm install) deps
 make up                       # local infra: postgres · powersync · redis · s3 (RustFS) (87xx ports)
-make migrate                  # apply the development schema; `make seed` adds the demo accounts
+make migrate                  # apply the development schema; `make seed` replaces the demo accounts
 
 # run (separate terminals)
 make dev-api                  # FastAPI        → http://localhost:8701
