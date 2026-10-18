@@ -46,6 +46,12 @@ export async function openAuthorizationReplica(filename: string) {
             }),
             clients: new Table({ business_id: column.text, stripe_customer_id: column.text }),
             hours: new Table({ business_id: column.text }),
+            users: new Table({
+                name: column.text,
+                email: column.text,
+                phone: column.text,
+                pin_hash: column.text,
+            }),
         }),
         database: { dbFilename: filename },
     });
