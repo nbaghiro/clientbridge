@@ -1,7 +1,7 @@
 import { strings, useSecuritySettings } from "@clientbridge/app-core";
 import { Button, Loading, Notice, Panel, TextField } from "@clientbridge/ui";
 
-import { identity } from "../lib/api";
+import { api, identity } from "../lib/api";
 import { webauthn } from "../lib/webauthn";
 
 const a = strings.auth;
@@ -9,6 +9,7 @@ const a = strings.auth;
 /** Account email and name, password, and second factors, all kept in the auth service. */
 export function Security() {
     const s = useSecuritySettings(identity, {
+        api,
         ...(webauthn ? { webauthn } : {}),
         returnTo: `${window.location.origin}/setup/security`,
         openUrl: (url) => {

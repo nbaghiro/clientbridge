@@ -376,6 +376,24 @@ describe("useSecuritySettings", () => {
         });
     }
 
+    it("reads the account back after a saved profile so the new name is stored at once", async () => {
+        const get = vi.fn(() => Promise.resolve({}));
+        const api = { get } as unknown as ApiLike;
+        const { result } = render([{ kind: "flow", flow: flow([], "success") }], settings, { api });
+        await waitFor(() => {
+            expect(result.current.ready).toBe(true);
+        });
+        act(() => {
+            result.current.setName("Pat Lee");
+        });
+        act(() => {
+            result.current.saveProfile();
+        });
+        await waitFor(() => {
+            expect(get).toHaveBeenCalledWith("/v1/me");
+        });
+    });
+
     it("confirms it's you with the saved email, not the edited one", async () => {
         const { identity, result } = render(
             [{ kind: "reauth" }, { kind: "done" }, { kind: "flow", flow: flow([], "success") }],
