@@ -11,6 +11,8 @@ import {
     strings,
     useBookingAddons,
     useBookingPhotos,
+    useDeparture,
+    useSubjectKind,
     useCollectDeposit,
     useNewMessage,
     useSavedCards,
@@ -462,6 +464,27 @@ export function BookingActionBar({
     );
 }
 
+function Departure({ event }: { event: ScheduleEvent }) {
+    const departure = useDeparture(api, event, useViewer(), useSubjectKind());
+    if (!departure.canDepart) return null;
+    return (
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface px-4 py-3">
+            <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-ink">{s.departTitle}</p>
+                <p className="mt-0.5 text-sm text-muted">{s.departBody}</p>
+            </div>
+            <Button icon="send" busy={departure.busy} onPress={departure.depart}>
+                {s.departAction}
+            </Button>
+            {departure.error !== null ? (
+                <div className="w-full">
+                    <Notice tone="danger">{departure.error}</Notice>
+                </div>
+            ) : null}
+        </div>
+    );
+}
+
 function DepositDue({ event }: { event: ScheduleEvent }) {
     const viewer = useViewer();
     const [collecting, setCollecting] = useState(false);
@@ -542,6 +565,7 @@ export function BookingBody({
             <div className={`rounded-md border border-line bg-bg px-4 ${narrow ? "py-3" : "py-1"}`}>
                 <BookingFacts detail={detail} layout={narrow ? "stack" : "inline"} />
             </div>
+            <Departure event={detail.event} />
             <DepositDue event={detail.event} />
             <BookingClient detail={detail} />
             <BookingRoster detail={detail} />

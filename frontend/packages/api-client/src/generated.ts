@@ -1287,6 +1287,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/bookings/{booking_id}/depart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Depart For Booking */
+        post: operations["depart_for_booking_v1_bookings__booking_id__depart_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bookings/{booking_id}/deposit": {
         parameters: {
             query?: never;
@@ -3815,6 +3832,8 @@ export interface components {
              * @enum {string}
              */
             deposit_status: "none" | "pending" | "collected" | "applied" | "forfeited" | "refunded";
+            /** Departed At */
+            departed_at: string | null;
             /** Checked In At */
             checked_in_at: string | null;
             /**
@@ -11238,6 +11257,41 @@ export interface operations {
         };
     };
     check_in_booking_v1_bookings__booking_id__check_in_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    depart_for_booking_v1_bookings__booking_id__depart_post: {
         parameters: {
             query?: never;
             header?: {

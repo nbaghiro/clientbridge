@@ -15,6 +15,8 @@ import {
     useAsyncAction,
     useBookingAddons,
     useBookingPhotos,
+    useDeparture,
+    useSubjectKind,
     useBookingComposer,
     useCollectDeposit,
     useNewMessage,
@@ -64,6 +66,23 @@ import { useViewer } from "../lib/auth";
 
 const c = theme.colors;
 const s = strings.bookings;
+
+function Departure({ event }: { event: ScheduleEvent }) {
+    const departure = useDeparture(api, event, useViewer(), useSubjectKind());
+    if (!departure.canDepart) return null;
+    return (
+        <View style={styles.depart}>
+            <Text style={styles.name}>{s.departTitle}</Text>
+            <Text style={styles.sub}>{s.departBody}</Text>
+            <View style={styles.dueActions}>
+                <Button grow icon="send" busy={departure.busy} onPress={departure.depart}>
+                    {s.departAction}
+                </Button>
+            </View>
+            {departure.error !== null ? <Notice tone="danger">{departure.error}</Notice> : null}
+        </View>
+    );
+}
 
 function DepositDue({ event }: { event: ScheduleEvent }) {
     const viewer = useViewer();
@@ -296,6 +315,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                     ]}
                 />
             </View>
+            <Departure event={e} />
             <DepositDue event={e} />
             {client ? (
                 <DetailSection
@@ -807,6 +827,15 @@ export function BookingComposerSheet({
 const styles = StyleSheet.create({
     body: { gap: 4 },
     photos: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    depart: {
+        gap: 4,
+        padding: 12,
+        marginBottom: 8,
+        borderRadius: theme.radius,
+        borderWidth: 1,
+        borderColor: c.border,
+        backgroundColor: c.surface,
+    },
     photo: {
         width: "31%",
         aspectRatio: 1,

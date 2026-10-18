@@ -26,6 +26,8 @@ import type { Intent } from "../ui";
 import type { Viewer } from "./auth";
 import { useInvoices } from "./billing";
 import { slotBookingsJoin, slotOverlapSql } from "./bookings";
+import { isPlace } from "./publicBooking";
+import type { SubjectKind } from "./subjects";
 import { utcSql } from "../datetime";
 import { useCatalogItems } from "./catalog";
 import { useEarnings } from "./earnings";
@@ -69,6 +71,7 @@ interface AgendaRow {
     client_phone: string | null;
     deposit_amount_cents: number | null;
     deposit_status: string | null;
+    departed_at: string | null;
     checked_in_at: string | null;
     staff_name: string | null;
     staff_title: string | null;
@@ -83,7 +86,7 @@ SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity,
        i.price_cents AS item_price_cents,
        b.id AS booking_id, b.status AS booking_status, b.price_cents, b.client_id,
        c.name AS client_name, c.phone AS client_phone,
-       b.deposit_amount_cents, b.deposit_status, b.checked_in_at,
+       b.deposit_amount_cents, b.deposit_status, b.departed_at, b.checked_in_at,
        ${staffNameSql("st")} AS staff_name, st.title AS staff_title, st.role AS staff_role, st.color AS staff_color
 FROM slots s
 JOIN items i ON i.id = s.item_id
@@ -117,6 +120,7 @@ export interface AgendaItem {
     depositDue: boolean;
     depositAmountCents: number;
     depositPaidCents: number;
+    departed: boolean;
     checkedIn: boolean;
     minutesAway: number;
     startsIn: string;
@@ -164,6 +168,7 @@ export function buildAgenda(rows: AgendaRow[], now: Date, zone: string): AgendaI
                 depositDue: !isClass && r.deposit_status === "pending",
                 depositAmountCents: r.deposit_amount_cents ?? 0,
                 depositPaidCents: isClass || !paid ? 0 : (r.deposit_amount_cents ?? 0),
+                departed: !isClass && r.departed_at !== null,
                 checkedIn: !isClass && r.checked_in_at !== null,
                 minutesAway: away,
                 startsIn: strings.today.inMinutes(Math.floor(away / 60), away % 60),
@@ -679,6 +684,7 @@ export interface TodayActions {
     busyKey: string | null;
     error: string | null;
     checkIn: (bookingId: string) => void;
+    depart: (bookingId: string) => void;
     // Sends the reminder an attention item offers (an overdue invoice is sent again).
     send: (item: AttentionItem) => void;
 }
@@ -705,6 +711,9 @@ export function useTodayActions(api: ApiLike): TodayActions {
         checkIn: (bookingId) => {
             go(bookingId, () => checkInBooking(api, bookingId));
         },
+        depart: (bookingId) => {
+            go(bookingId, () => api.post(`/v1/bookings/${bookingId}/depart`, {}));
+        },
         send: (item) => {
             if (item.refId === null || sent.has(item.key)) return;
             const id = item.refId;
@@ -719,8 +728,29 @@ export function useTodayActions(api: ApiLike): TodayActions {
     };
 }
 
-/** The one action a visit offers: check in before it starts, then checkout; nothing once done. */
-export function visitAction(item: AgendaItem): "checkIn" | "checkout" | null {
+/** A visit's one action: on my way (place businesses), check in, then checkout; none once done. */
+export function visitAction(
+    item: AgendaItem,
+    kind: SubjectKind | null = null,
+): "depart" | "checkIn" | "checkout" | null {
     if (item.state === "done" || item.state === "no_show" || item.isClass) return null;
-    return item.state === "now" || item.checkedIn ? "checkout" : "checkIn";
+    if (item.checkedIn) return "checkout";
+    if (isPlace(kind) && !item.departed) return "depart";
+    return item.state === "now" && !isPlace(kind) ? "checkout" : "checkIn";
+}
+
+/** Check-in names the client arriving, or for a site business the installer arriving on site. */
+export function arrivalWords(kind: SubjectKind | null): { action: string; done: string } {
+    return kind === "site"
+        ? { action: strings.today.arrive, done: strings.today.onSite }
+        : { action: strings.today.checkIn, done: strings.today.checkedIn };
+}
+
+/** The button label for a visit's action. */
+export function visitActionLabel(
+    action: "depart" | "checkIn" | "checkout",
+    kind: SubjectKind | null,
+): string {
+    if (action === "checkout") return strings.today.checkout;
+    return action === "depart" ? strings.today.depart : arrivalWords(kind).action;
 }

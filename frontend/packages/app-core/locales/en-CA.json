@@ -2769,6 +2769,34 @@
     "bookings.historyCheckedIn": {
         "message": "Checked in"
     },
+    "bookings.historyArrived": {
+        "message": "Arrived on site"
+    },
+    "bookings.historyDeparted": {
+        "message": "{name} set off",
+        "args": ["name"]
+    },
+    "bookings.onTheWay": {
+        "message": "On the way"
+    },
+    "bookings.arrivedOnSite": {
+        "message": "On site"
+    },
+    "bookings.arrivedAtPlace": {
+        "message": "Arrived"
+    },
+    "bookings.departTitle": {
+        "message": "On the way"
+    },
+    "bookings.departBody": {
+        "message": "Tap On my way when you leave. The client gets a text saying you're on the way."
+    },
+    "bookings.departAction": {
+        "message": "On my way"
+    },
+    "bookings.departError": {
+        "message": "Couldn't tell the client you're on the way. Please try again."
+    },
     "bookings.depositPaid": {
         "message": "{amount} paid",
         "args": ["amount"]
@@ -9224,6 +9252,18 @@
     },
     "today.checkedIn": {
         "message": "Checked in"
+    },
+    "today.arrive": {
+        "message": "Arrived"
+    },
+    "today.onSite": {
+        "message": "On site"
+    },
+    "today.depart": {
+        "message": "On my way"
+    },
+    "today.onTheWay": {
+        "message": "On the way"
     },
     "today.inMinutes": {
         "message": "{hours, plural, =0 {in {minutes, number} min} other {{minutes, plural, =0 {in {hours, number} h} other {in {hours, number} h {minutes, number} min}}}}",

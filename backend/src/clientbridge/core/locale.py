@@ -74,6 +74,12 @@ def format_day_and_time(locale: str, moment: datetime, timezone: str) -> str:
     )
 
 
+def format_time(locale: str, moment: datetime, timezone: str) -> str:
+    """A moment's time of day on the business's clock: "2:30 p.m." in en_CA."""
+    cldr = _cldr(locale)
+    return _value(locale, dates.format_time(moment, "short", tzinfo=zone(timezone), locale=cldr))
+
+
 def pseudo(text: str) -> str:
     """The en_XA form of a message: accented, about 35% longer and bracketed."""
     parts = _PLACEHOLDER.split(text)

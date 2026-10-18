@@ -2555,6 +2555,33 @@
     "bookings.historyCheckedIn": {
         "message": "[Çĥéçķéð îñ one two]"
     },
+    "bookings.historyArrived": {
+        "message": "[Åŕŕîṽéð öñ šîţé one two]"
+    },
+    "bookings.historyDeparted": {
+        "message": "[{name} šéţ öƒƒ one]"
+    },
+    "bookings.onTheWay": {
+        "message": "[Öñ ţĥé ŵåý one]"
+    },
+    "bookings.arrivedOnSite": {
+        "message": "[Öñ šîţé one]"
+    },
+    "bookings.arrivedAtPlace": {
+        "message": "[Åŕŕîṽéð one]"
+    },
+    "bookings.departTitle": {
+        "message": "[Öñ ţĥé ŵåý one]"
+    },
+    "bookings.departBody": {
+        "message": "[Ţåþ Öñ ɱý ŵåý ŵĥéñ ýöû ļéåṽé. Ţĥé çļîéñţ ĝéţš å ţéẋţ šåýîñĝ ýöû'ŕé öñ ţĥé ŵåý. one two three four five]"
+    },
+    "bookings.departAction": {
+        "message": "[Öñ ɱý ŵåý one]"
+    },
+    "bookings.departError": {
+        "message": "[Çöûļðñ'ţ ţéļļ ţĥé çļîéñţ ýöû'ŕé öñ ţĥé ŵåý. Þļéåšé ţŕý åĝåîñ. one two three four]"
+    },
     "bookings.depositPaid": {
         "message": "[{amount} þåîð one]"
     },
@@ -8605,6 +8632,18 @@
     },
     "today.checkedIn": {
         "message": "[Çĥéçķéð îñ one two]"
+    },
+    "today.arrive": {
+        "message": "[Åŕŕîṽéð one]"
+    },
+    "today.onSite": {
+        "message": "[Öñ šîţé one]"
+    },
+    "today.depart": {
+        "message": "[Öñ ɱý ŵåý one]"
+    },
+    "today.onTheWay": {
+        "message": "[Öñ ţĥé ŵåý one]"
     },
     "today.inMinutes": {
         "message": "[{hours,plural,other{{minutes,plural,other{îñ {hours, number} ĥ {minutes, number} ɱîñ} =0{îñ {hours, number} ĥ}}} =0{îñ {minutes, number} ɱîñ}} one two]"

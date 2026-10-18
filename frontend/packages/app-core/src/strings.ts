@@ -911,6 +911,15 @@ interface Strings {
         readonly historyReminderSent: string;
         readonly historyReminderDue: string;
         readonly historyCheckedIn: string;
+        readonly historyArrived: string;
+        readonly historyDeparted: (name: string) => string;
+        readonly onTheWay: string;
+        readonly arrivedOnSite: string;
+        readonly arrivedAtPlace: string;
+        readonly departTitle: string;
+        readonly departBody: string;
+        readonly departAction: string;
+        readonly departError: string;
         readonly depositPaid: (amount: string) => string;
         readonly depositDue: (amount: string) => string;
         readonly depositKept: (amount: string) => string;
@@ -3090,6 +3099,10 @@ interface Strings {
         readonly checkIn: string;
         readonly checkout: string;
         readonly checkedIn: string;
+        readonly arrive: string;
+        readonly onSite: string;
+        readonly depart: string;
+        readonly onTheWay: string;
         readonly inMinutes: (hours: number, minutes: number) => string;
         readonly endsAt: (time: string) => string;
         readonly withStaff: (name: string) => string;

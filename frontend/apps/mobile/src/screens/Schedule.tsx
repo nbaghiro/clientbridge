@@ -1,6 +1,7 @@
 import {
     type ComposerSlot,
     addDays,
+    arrivalLabel,
     blockSpan,
     eventFlags,
     eventLabelFor,
@@ -20,6 +21,7 @@ import {
     BUSINESS_CURRENCY,
     useBusinessZone,
     minutesInto,
+    useSubjectKind,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -61,6 +63,7 @@ const GUTTER = 44;
 
 export function ScheduleScreen() {
     const zone = useBusinessZone();
+    const kind = useSubjectKind();
     const viewer = useViewer();
     const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const route = useRoute<RouteProp<TabParamList, "Schedule">>();
@@ -285,7 +288,10 @@ export function ScheduleScreen() {
                                                               p.event.bookedCount,
                                                               p.event.capacity,
                                                           )
-                                                        : p.event.serviceName
+                                                        : formatParts([
+                                                              p.event.serviceName,
+                                                              arrivalLabel(p.event, kind),
+                                                          ])
                                                 }
                                                 time={formatTime(p.event.start, zone)}
                                                 intent={p.event.intent}

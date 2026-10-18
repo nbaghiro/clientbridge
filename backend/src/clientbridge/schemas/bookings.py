@@ -100,6 +100,7 @@ class BookingOut(Mirror):
     price_cents: int
     deposit_amount_cents: int
     deposit_status: DepositStatus
+    departed_at: datetime | None
     checked_in_at: datetime | None
     starts_at: datetime
     ends_at: datetime
