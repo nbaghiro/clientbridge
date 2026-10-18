@@ -315,6 +315,7 @@ function seed(): void {
             total_cents: 4800,
             source: "online",
             pickup_status: "ready",
+            paid_at: "2026-06-24T09:00:00Z",
         },
         {
             id: "ord_gone",
@@ -327,6 +328,7 @@ function seed(): void {
             total_cents: 100,
             source: "online",
             pickup_status: "picked_up",
+            paid_at: "2026-06-23T08:00:00Z",
         },
     ]);
     scoped("lines", [
@@ -1522,12 +1524,14 @@ describe("app-core SQL against the replica schema", () => {
             "deposit:pay-pay_dep",
             "message:msg-m_2",
             "message:msg-m_3",
-            "order_new:ord-ord_gone",
             "order_new:ord-ord_web",
             "payment:pay-pay_1",
             "refund:pay-pay_r1",
             "review:rv-rv_1",
         ]);
+        expect(
+            run("NOTIFICATION_FEED_SQL", since).find((r) => r.id === "ord-ord_web")?.at,
+        ).toBe("2026-06-24T09:00:00Z");
         expect(
             run("MY_CLIENTS_SQL", ["st_owner"])
                 .map((r) => r.client_id)

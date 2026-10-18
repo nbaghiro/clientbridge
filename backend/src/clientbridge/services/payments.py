@@ -2047,6 +2047,7 @@ async def sync_order(db: AsyncSession, order_id: str) -> None:
     else:
         await reverse_order_earning(db, order)
     await _sync_visits(db, order, status, paid_at)
+    order.paid_at = (order.paid_at or paid_at) if paid_at else None
     if order.source == "online":
         if status == "paid" and order.pickup_status is None and order.picked_up_at is None:
             order.pickup_status = "unfulfilled"

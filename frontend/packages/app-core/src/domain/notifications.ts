@@ -84,10 +84,11 @@ FROM payments p LEFT JOIN clients c ON c.id = p.client_id LEFT JOIN orders o ON 
 WHERE p.status = 'succeeded' AND ${since("COALESCE(p.paid_at, p.created_at)")}
   AND (p.kind <> 'payment' OR COALESCE(o.source, '') <> 'online')
 UNION ALL
-SELECT 'ord-' || o.id, 'order_new', o.created_at, o.client_id, c.name, NULL, NULL, NULL, o.number,
+SELECT 'ord-' || o.id, 'order_new', o.paid_at, o.client_id, c.name, NULL, NULL, NULL, o.number,
        NULL, o.id, NULL
 FROM orders o LEFT JOIN clients c ON c.id = o.client_id
-WHERE o.source = 'online' AND o.pickup_status IS NOT NULL AND ${since("o.created_at")}
+WHERE o.source = 'online' AND o.pickup_status IS NOT NULL AND o.paid_at IS NOT NULL
+  AND ${since("o.paid_at")}
 UNION ALL
 SELECT 'bk-' || b.id, 'booking_new', b.created_at, b.client_id, c.name, NULL, i.name, NULL, NULL,
        NULL, b.id, s.starts_at

@@ -427,6 +427,7 @@ def _journeys(ctx: DemoContext) -> None:
                 currency="CAD",
                 source="online",
                 pickup_status=status,
+                paid_at=when,
                 preparing_at=when + timedelta(minutes=20),
                 ready_at=when + timedelta(hours=1),
                 picked_up_at=when + timedelta(hours=2) if status == "picked_up" else None,

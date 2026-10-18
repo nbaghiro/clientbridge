@@ -172,6 +172,7 @@ async def test_paid_order_notifies_owner_and_client_with_pickup(
     order = await db.get(Order, body["order_id"], populate_existing=True)
     assert order is not None and (await ledger.order_state(db, order))[0] == "paid"
     assert order.pickup_status == "unfulfilled"
+    assert order.paid_at is not None
     to = {e.to: e for e in email.sent}
     assert "Online order paid" in to["o@x.ca"].subject
     assert "Collect your order" in to["shopper@example.com"].body
