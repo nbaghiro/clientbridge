@@ -788,12 +788,12 @@ class Factory:
         await self.db.flush()
         return biz
 
-    async def user(self, *, email: str | None = None) -> User:
+    async def user(self, *, email: str | None = None, name: str = "Test User") -> User:
         user = User(
             id=new_id("user"),
             identity_id=str(uuid4()),
             email=email or f"u-{new_id('user')[3:13].lower()}@test.ca",
-            name="Test User",
+            name=name,
         )
         self.db.add(user)
         await self.db.flush()

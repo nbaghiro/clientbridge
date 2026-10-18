@@ -100,7 +100,7 @@ from clientbridge.services.bookings import (
     release_slot,
     slot_problem,
 )
-from clientbridge.services.business import business_tz, local_today
+from clientbridge.services.business import business_tz, local_today, staff_names
 from clientbridge.services.catalog import deposit_cents
 from clientbridge.services.clients import find_or_create_by_contact
 from clientbridge.services.consents import (
@@ -216,11 +216,15 @@ class PublicBookingService:
         rating, reviews = await published_rating(self.db, business.id)
         tz = await business_tz(self.db, business.id)
         ids = [s.id for s in staff]
+        names = await staff_names(self.db, business.id, ids)
         return PublicBookingPage(
             business_name=business.name,
             brand=public_brand(business),
             services=[_service_out(i, images.get(i.id), ids) for i in items],
-            staff=[PublicStaff(id=s.id, name=s.name, title=s.title, color=s.color) for s in staff],
+            staff=[
+                PublicStaff(id=s.id, name=names.get(s.id), title=s.title, color=s.color)
+                for s in staff
+            ],
             addons=addons,
             stripe_account_id=_account(business),
             slug=business.slug,
@@ -855,7 +859,12 @@ class PublicManageService:
             client_name=client.name if client is not None else "",
             pet_name=pet.name if pet is not None else None,
             service=_service_out(item, images.get(item.id)),
-            staff=PublicStaff(id=staff.id, name=staff.name, title=staff.title, color=staff.color),
+            staff=PublicStaff(
+                id=staff.id,
+                name=(await staff_names(self.db, business.id, [staff.id])).get(staff.id),
+                title=staff.title,
+                color=staff.color,
+            ),
             starts_at=slot.starts_at,
             ends_at=slot.ends_at,
             status=booking.status,
@@ -1327,8 +1336,7 @@ async def _tip_names(db: AsyncSession, business_id: str, lines: list[Line]) -> l
             ids.append(staff_id)
     if not ids:
         return []
-    rows = await db.execute(scoped(Staff, business_id).where(Staff.id.in_(ids)))
-    names = {s.id: s.name for s in rows.scalars().all()}
+    names = await staff_names(db, business_id, ids)
     return [name.split()[0] for sid in ids if (name := names.get(sid))]
 
 
@@ -1507,16 +1515,7 @@ class PublicReceiptService:
         doc_lines, taxes = await public_doc_lines(self.db, order, lines)
         client = await self.db.get(Client, order.client_id) if order.client_id else None
         staff_ids = list(dict.fromkeys(ln.staff_id for ln in lines if ln.staff_id))
-        names = (
-            await self.db.execute(
-                scoped(Staff, order.business_id)
-                .with_only_columns(Staff.id, Staff.name)
-                .where(Staff.id.in_(staff_ids))
-            )
-            if staff_ids
-            else None
-        )
-        by_id = dict(names.tuples().all()) if names is not None else {}
+        by_id = await staff_names(self.db, order.business_id, staff_ids)
         payments = (
             await self.db.execute(
                 scoped(Payment, order.business_id)
@@ -1620,11 +1619,12 @@ class PublicReviewService:
     async def _visit(self, booking: Booking) -> dict[str, str | None]:
         slot = await self.db.get(Slot, booking.slot_id)
         item = await self.db.get(Item, slot.item_id) if slot is not None else None
-        staff = await self.db.get(Staff, booking.staff_id) if booking.staff_id else None
+        ids = [booking.staff_id] if booking.staff_id else []
+        staff = next(iter((await staff_names(self.db, booking.business_id, ids)).values()), None)
         pet = await self.db.get(Subject, booking.subject_id) if booking.subject_id else None
         return {
             "service": item.name if item is not None else None,
-            "staff": staff.name.split(" ")[0] if staff is not None and staff.name else None,
+            "staff": staff.split(" ")[0] if staff else None,
             "pet": pet.name if pet is not None else None,
         }
 

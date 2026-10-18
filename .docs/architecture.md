@@ -519,7 +519,10 @@ Four auto-subscribed streams and three history streams implement the read model 
 - **`staff_limited`** (staff and contractors): the business row without its tax numbers and billing
   email, and the team without pay rates or payee flags. Owner/admin read both from `business_full` with
   more columns, so a row never reaches one device with two different column sets. No bucket syncs
-  `invite_token` or the Stripe verification fields.
+  `invite_token` or the Stripe verification fields. Both streams also carry `users.id` and
+  `users.name`, and nothing else from `users`, for every user with a staff row in the business,
+  including removed members, since a member's name lives only on their account and past visits still
+  show it.
 - **`staff_self`** (per staff, sliced by `staff_id`) — a member's **own** addons, hours and recurrences,
   plus their own staff `accounts` and `entries` (earnings).
 - **`business_full`** (owner/admin only) — **all** members' addons, hours and recurrences, all financials

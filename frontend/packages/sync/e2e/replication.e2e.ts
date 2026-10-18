@@ -42,6 +42,12 @@ for (const role of ["owner", "admin", "staff", "contractor", "multi", "foreign"]
                         leakedProviders: await db.getAll(
                             "SELECT id FROM clients WHERE stripe_customer_id IS NOT NULL",
                         ),
+                        users: await db.getAll<{ id: string; name: string | null }>(
+                            "SELECT id, name FROM users ORDER BY id",
+                        ),
+                        leakedAccounts: await db.getAll(
+                            "SELECT id FROM users WHERE email IS NOT NULL OR phone IS NOT NULL",
+                        ),
                     };
                 } finally {
                     await db.disconnectAndClear();
@@ -70,6 +76,12 @@ for (const role of ["owner", "admin", "staff", "contractor", "multi", "foreign"]
         expect(rows.hours.map((row) => row.id)).toEqual(hours);
         expect(rows.leakedInvites).toEqual([]);
         expect(rows.leakedProviders).toEqual([]);
+        const team =
+            role === "foreign"
+                ? ["foreign"]
+                : ["admin", "contractor", "multi", "owner", "removed", "staff"];
+        expect(rows.users).toEqual(team.map((name) => ({ id: `us_${name}`, name })));
+        expect(rows.leakedAccounts).toEqual([]);
         for (const row of rows.privateBusiness) {
             const limited =
                 role === "staff" ||
@@ -175,6 +187,15 @@ const OWNER_ROWS = {
     orders: ["ord_first"],
     lines: ["ln_pickup"],
 };
+const FIRST_TEAM = ["us_admin", "us_contractor", "us_multi", "us_owner", "us_removed", "us_staff"];
+const EXPECTED_USERS: Record<string, string[]> = {
+    owner: FIRST_TEAM,
+    admin: FIRST_TEAM,
+    staff: FIRST_TEAM,
+    contractor: FIRST_TEAM,
+    multi: FIRST_TEAM,
+    foreign: ["us_foreign"],
+};
 const EXPECTED_ROWS: Record<string, Record<string, string[]>> = {
     owner: OWNER_ROWS,
     admin: OWNER_ROWS,
@@ -201,6 +222,15 @@ const EXPECTED_ROWS: Record<string, Record<string, string[]>> = {
 function allowed(role: string, business: string, table: string): Set<string> {
     const buckets = AUDIENCE[role]?.[business] ?? [];
     return new Set(["id", ...buckets.flatMap((bucket) => projections[bucket]?.[table] ?? [])]);
+}
+
+// a user row carries no business; it reaches a device through any business the role belongs to
+function allowedUser(role: string): Set<string> {
+    return new Set(
+        Object.keys(AUDIENCE[role] ?? {}).flatMap((business) => [
+            ...allowed(role, business, "users"),
+        ]),
+    );
 }
 
 for (const role of Object.keys(AUDIENCE)) {
@@ -241,7 +271,8 @@ for (const role of Object.keys(AUDIENCE)) {
         for (const [table, rows] of Object.entries(tables)) {
             for (const row of rows) {
                 const business = String(table === "businesses" ? row.id : row.business_id);
-                const permitted = allowed(role, business, table);
+                const permitted =
+                    table === "users" ? allowedUser(role) : allowed(role, business, table);
                 if (permitted.size === 1)
                     leaks.push(`${table}.${String(row.id)} row from ${business}`);
                 for (const [name, value] of Object.entries(row)) {
@@ -255,5 +286,6 @@ for (const role of Object.keys(AUDIENCE)) {
         for (const [table, expected] of Object.entries(EXPECTED_ROWS[role] ?? {})) {
             expect(ids(table), table).toEqual(expected);
         }
+        expect(ids("users"), "users").toEqual(EXPECTED_USERS[role]);
     });
 }

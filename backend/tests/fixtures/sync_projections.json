@@ -209,7 +209,6 @@
       "business_id",
       "user_id",
       "role",
-      "name",
       "title",
       "color",
       "status",
@@ -217,6 +216,10 @@
       "invited_at",
       "created_at",
       "updated_at"
+    ],
+    "users": [
+      "id",
+      "name"
     ],
     "orders": [
       "id",
@@ -356,7 +359,6 @@
       "business_id",
       "user_id",
       "role",
-      "name",
       "payee",
       "rate_type",
       "rate_bps",
@@ -369,6 +371,10 @@
       "invited_at",
       "created_at",
       "updated_at"
+    ],
+    "users": [
+      "id",
+      "name"
     ],
     "addons": [
       "booking_id",

@@ -3,13 +3,14 @@ import { theme } from "@clientbridge/tokens/native";
 import { Button, GoogleIcon, Loading, Notice, Panel, TextField } from "@clientbridge/ui";
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { identity, openAuthSession } from "../lib/api";
+import { api, identity, openAuthSession } from "../lib/api";
 import { getSession, keepSessionToken } from "../lib/auth";
 
 const c = theme.colors;
 const a = strings.auth;
 
 const settingsOptions = {
+    api,
     sessionToken: async () => (await getSession())?.session_token,
     openUrl: openAuthSession,
     onSessionToken: keepSessionToken,

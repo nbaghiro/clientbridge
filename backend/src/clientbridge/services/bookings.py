@@ -80,7 +80,7 @@ from clientbridge.schemas.bookings import (
     VisitPage,
 )
 from clientbridge.services import ledger
-from clientbridge.services.business import business_tz, load_staff
+from clientbridge.services.business import business_tz, load_staff, staff_name
 from clientbridge.services.catalog import deposit_cents, load_item
 from clientbridge.services.clients import load_client
 from clientbridge.services.messaging import dispatch_message, open_thread
@@ -709,7 +709,7 @@ class BookingService:
         await self._client(client_id)
         stmt = (
             scoped(Booking, self.biz, soft_delete=True)
-            .add_columns(Slot.starts_at, Slot.ends_at, Item.name, Item.color, Staff.name)
+            .add_columns(Slot.starts_at, Slot.ends_at, Item.name, Item.color, staff_name())
             .join(Slot, Slot.id == Booking.slot_id)
             .join(Item, Item.id == Slot.item_id)
             .outerjoin(Staff, Staff.id == Booking.staff_id)
@@ -1789,16 +1789,13 @@ class OnlineBookingService:
             .all()
         )
         staff = (
-            (
-                await self.db.execute(
-                    scoped(Staff, self.biz)
-                    .where(Staff.status == "active")
-                    .order_by(Staff.created_at)
-                )
+            await self.db.execute(
+                scoped(Staff, self.biz)
+                .add_columns(staff_name())
+                .where(Staff.status == "active")
+                .order_by(Staff.created_at)
             )
-            .scalars()
-            .all()
-        )
+        ).tuples()
         since = clock.now() - timedelta(days=30)
         online = (
             await self.db.execute(
@@ -1830,12 +1827,12 @@ class OnlineBookingService:
             staff=[
                 OnlineStaff(
                     id=s.id,
-                    name=s.name,
+                    name=name,
                     title=s.title,
                     color=s.color,
                     bookable_online=s.bookable_online,
                 )
-                for s in staff
+                for s, name in staff
             ],
             online_30d=int(online[0]),
             deposits_30d_cents=int(online[1]),

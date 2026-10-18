@@ -6,7 +6,7 @@ import type { Viewer } from "./auth";
 import { type SetupProgress, useSetupProgress } from "./business";
 import { invoiceStatusSql } from "./ledger";
 import { canManagePayments } from "./payments";
-import { staffName } from "./staff";
+import { staffName, staffNameSql } from "./staff";
 
 export type DestinationKey = "today" | "schedule" | "clients" | "payments" | "inbox";
 
@@ -401,7 +401,7 @@ export function roleLabel(role: string | null): string {
     }
 }
 
-export const VIEWER_STAFF_SQL = "SELECT name, title, role, color FROM staff WHERE id = ?";
+export const VIEWER_STAFF_SQL = `SELECT ${staffNameSql("staff")} AS name, title, role, color FROM staff WHERE id = ?`;
 
 export const UNREAD_MESSAGES_SQL =
     "SELECT COUNT(*) AS n FROM messages WHERE direction = 'in' AND status != 'read'";

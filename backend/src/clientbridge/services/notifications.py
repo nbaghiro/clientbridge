@@ -50,7 +50,7 @@ from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.auth import AuthEmailIn
 from clientbridge.schemas.forms import FormDefinition
 from clientbridge.services import ledger
-from clientbridge.services.business import reply_address
+from clientbridge.services.business import reply_address, staff_names
 from clientbridge.services.consents import texts_stopped
 from clientbridge.services.files import media_url
 from clientbridge.services.lines import LineParent, fetch_lines, issued_at
@@ -1409,12 +1409,13 @@ class Notifier:
             member = await db.get(Staff, staff_id)
             if business is None or member is None:
                 continue
+            name = (await staff_names(db, business.id, [member.id])).get(member.id)
             locale = locale_for(business=business)
             notice = booking_reassigned_message(
                 locale,
                 business.name,
                 [_when(locale, business, slot) for _, slot in rows],
-                member.name or member.title or message(locale, "staff.someone"),
+                name or member.title or message(locale, "staff.someone"),
             )
             await self._to_client(db, client_id, notice)
 

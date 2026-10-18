@@ -29,6 +29,7 @@ def test_sensitive_server_fields_are_not_projected() -> None:
     for table, columns in denied.items():
         assert columns.isdisjoint(projections[table]), table
     assert {"sessions", "tokens", "sync_receipts", "commands"}.isdisjoint(projections)
+    assert sorted(projections["users"]) == ["id", "name"]
 
 
 def test_new_model_column_is_excluded_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -55,10 +56,10 @@ streams:
     with:
       member: SELECT invite_token FROM staff WHERE user_id = auth.user_id()
     queries:
-      - SELECT id, name FROM staff WHERE business_id IN member
+      - SELECT id, title FROM staff WHERE business_id IN member
       - SELECT id, rate_cents FROM staff WHERE business_id IN member
 """
-    assert synced_columns(rules) == {"staff": ["id", "name", "rate_cents"]}
+    assert synced_columns(rules) == {"staff": ["id", "title", "rate_cents"]}
 
 
 def test_required_share_capabilities_remain_available() -> None:

@@ -32,7 +32,7 @@ async def seed() -> None:
                     gst_hst_number="private-tax-number",
                 )
             )
-        for role in ("owner", "admin", "staff", "contractor", "multi", "foreign"):
+        for role in ("owner", "admin", "staff", "contractor", "multi", "foreign", "removed"):
             db.add(
                 User(
                     id=f"us_{role}",
@@ -58,7 +58,6 @@ async def seed() -> None:
                     id=f"st_{role}",
                     business_id=f"bz_{business}",
                     user_id=f"us_{role}",
-                    name=role,
                     role="owner" if role in ("multi", "foreign") else role,
                     status="active",
                     rate_cents=3456,
@@ -71,9 +70,20 @@ async def seed() -> None:
                 id="st_second",
                 business_id="bz_second",
                 user_id="us_multi",
-                name="multi",
                 role="staff",
                 status="active",
+            )
+        )
+        # a former member gets no access, but their name still reaches their old business
+        db.add(
+            Staff(
+                id="st_removed",
+                business_id="bz_first",
+                user_id="us_removed",
+                role="staff",
+                status="removed",
+                rate_cents=3456,
+                rate_type="hourly",
             )
         )
         await db.flush()

@@ -23,6 +23,7 @@ import { strings } from "../strings";
 import type { Intent } from "../ui";
 import { type ChannelConsent, consentFor, smsSegments, useConsents } from "./broadcasts";
 import { useClients } from "./clients";
+import { staffNameSql } from "./staff";
 import { useReplicaLoad } from "./sync";
 
 export type Channel = "sms" | "email";
@@ -72,7 +73,7 @@ LEFT JOIN clients c ON c.id = t.client_id
 ORDER BY last_message_at DESC`;
 
 export const CONVERSATION_SQL = `
-SELECT m.id, m.direction, m.channel, m.body, m.status, m.created_at, st.name AS author
+SELECT m.id, m.direction, m.channel, m.body, m.status, m.created_at, ${staffNameSql("st")} AS author
 FROM messages m LEFT JOIN staff st ON st.user_id = m.sent_by
 WHERE m.thread_id = ? ORDER BY m.created_at`;
 

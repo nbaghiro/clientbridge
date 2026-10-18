@@ -51,6 +51,7 @@ from clientbridge.schemas.admin import (
     AdminWebhook,
 )
 from clientbridge.schemas.deliveries import EmailDelivery
+from clientbridge.services.business import staff_name
 from clientbridge.services.deliveries import dispatch, enqueue
 
 _send_limit = RateLimiter(5, 60)
@@ -92,9 +93,12 @@ class AdminService:
         row = await self.db.get(Business, business_id)
         if row is None:
             raise NotFound("business not found")
+        name = staff_name().label("name")
         staff = (
-            await self.db.scalars(scoped(Staff, business_id).order_by(Staff.name).limit(100))
-        ).all()
+            await self.db.execute(
+                scoped(Staff, business_id).add_columns(name).order_by(name, Staff.id).limit(100)
+            )
+        ).tuples()
         return AdminBusinessDetail(
             business=AdminBusiness.model_validate(row),
             staff=[
@@ -102,11 +106,11 @@ class AdminService:
                     business_id=row.id,
                     business_name=row.name,
                     user_id=s.user_id,
-                    name=s.name,
+                    name=member_name,
                     role=s.role,
                     status=s.status,
                 )
-                for s in staff
+                for s, member_name in staff
             ],
             clients=await self._count(scoped(Client, business_id, soft_delete=True)),
             payments=await self._count(scoped(Payment, business_id)),
@@ -157,7 +161,7 @@ class AdminService:
                     business_id=s.business_id,
                     business_name=name,
                     user_id=s.user_id,
-                    name=s.name,
+                    name=user.name,
                     role=s.role,
                     status=s.status,
                 )

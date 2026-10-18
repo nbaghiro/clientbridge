@@ -12,7 +12,7 @@ async function mutate(action: string): Promise<void> {
     await promisify(execFile)(python, ["-m", "scripts.sync_mutate", action], { cwd });
 }
 
-test("live downgrade, soft deletion and membership removal purge replica data", async ({
+test("live renames reach the replica; downgrade, deletion and removal purge its data", async ({
     page,
 }) => {
     test.skip(!endpoint, "Run make test-sync for disposable services");
@@ -42,21 +42,51 @@ test("live downgrade, soft deletion and membership removal purge replica data", 
                 tax: (await db.getAll("SELECT id FROM businesses WHERE gst_hst_number IS NOT NULL"))
                     .length,
                 hours: (await db.getAll("SELECT id FROM hours")).length,
+                users: (await db.getAll("SELECT id FROM users")).length,
+                owner:
+                    (
+                        await db.getOptional<{ name: string | null }>(
+                            "SELECT name FROM users WHERE id = 'us_owner'",
+                        )
+                    )?.name ?? null,
             };
         });
     try {
-        expect(await snapshot()).toMatchObject({ businesses: 1, clients: 1, tax: 1, hours: 2 });
+        expect(await snapshot()).toMatchObject({
+            businesses: 1,
+            clients: 1,
+            tax: 1,
+            hours: 2,
+            users: 6,
+            owner: "owner",
+        });
         expect((await snapshot()).pay).toBeGreaterThan(0);
-        await mutate("downgrade");
+        await mutate("rename");
         await expect
-            .poll(snapshot, { timeout: 15_000 })
-            .toEqual({ businesses: 1, clients: 1, pay: 0, tax: 0, hours: 0 });
+            .poll(async () => (await snapshot()).owner, { timeout: 15_000 })
+            .toBe("renamed");
+        await mutate("downgrade");
+        await expect.poll(snapshot, { timeout: 15_000 }).toEqual({
+            businesses: 1,
+            clients: 1,
+            pay: 0,
+            tax: 0,
+            hours: 0,
+            users: 6,
+            owner: "renamed",
+        });
         await mutate("delete_client");
         await expect.poll(async () => (await snapshot()).clients, { timeout: 15_000 }).toBe(0);
         await mutate("remove");
-        await expect
-            .poll(snapshot, { timeout: 15_000 })
-            .toEqual({ businesses: 0, clients: 0, pay: 0, tax: 0, hours: 0 });
+        await expect.poll(snapshot, { timeout: 15_000 }).toEqual({
+            businesses: 0,
+            clients: 0,
+            pay: 0,
+            tax: 0,
+            hours: 0,
+            users: 0,
+            owner: null,
+        });
     } finally {
         await page.evaluate(async () => {
             const { liveReplicas } = await import("./database");
@@ -69,5 +99,6 @@ test("live downgrade, soft deletion and membership removal purge replica data", 
         });
         await mutate("restore");
         await mutate("restore_client");
+        await mutate("restore_name");
     }
 });

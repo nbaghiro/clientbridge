@@ -782,6 +782,8 @@ export function useSecuritySettings(
         openUrl?: (url: string) => Promise<string | null>;
         /** Mobile keeps the session token a Google re-authentication hands back. */
         onSessionToken?: (sessionToken: string) => Promise<void>;
+        /** Reads the account back after a saved profile, so the new name reaches every device. */
+        api?: ApiLike;
     },
 ): SecuritySettings {
     const a = strings.auth;
@@ -884,11 +886,15 @@ export function useSecuritySettings(
         name,
         setName,
         saveProfile: () => {
-            apply(() =>
-                Promise.resolve({
-                    method: "profile",
-                    traits: { email: email.trim(), name: name.trim() },
-                }),
+            apply(
+                () =>
+                    Promise.resolve({
+                        method: "profile",
+                        traits: { email: email.trim(), name: name.trim() },
+                    }),
+                () => {
+                    options.current?.api?.get("/v1/me").catch(() => undefined);
+                },
             );
         },
         newPassword,

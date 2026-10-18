@@ -67,8 +67,14 @@ export interface TeamView {
     refresh: () => void;
 }
 
+/** A member's name from their synced account, or the address an open invite went to. */
+export function staffNameSql(alias: string): string {
+    return `COALESCE((SELECT users.name FROM users WHERE users.id = ${alias}.user_id), CASE ${alias}.status WHEN 'invited' THEN ${alias}.invite_email END)`;
+}
+
 export const TEAM_SQL = `
-SELECT id, user_id, name, title, role, color, status, invite_email, invited_at, created_at
+SELECT id, user_id, ${staffNameSql("staff")} AS name, title, role, color, status, invite_email,
+       invited_at, created_at
 FROM staff WHERE status IN ('active', 'invited') ORDER BY created_at`;
 
 interface TeamRow {
@@ -442,9 +448,9 @@ export interface StaffRow {
     invite_email: string | null;
 }
 
-const STAFF_COLS = "id, user_id, name, title, role, color, status, invite_email";
-
-export const STAFF_SQL = `SELECT ${STAFF_COLS} FROM staff WHERE status = 'active' ORDER BY role`;
+export const STAFF_SQL = `
+SELECT id, user_id, ${staffNameSql("staff")} AS name, title, role, color, status, invite_email
+FROM staff WHERE status = 'active' ORDER BY role`;
 
 export function useStaff(): StaffRow[] {
     return useQuery<StaffRow>(STAFF_SQL).data;
