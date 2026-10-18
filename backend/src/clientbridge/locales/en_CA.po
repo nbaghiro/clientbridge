@@ -169,6 +169,9 @@ msgstr "You're getting this email because you're a client of {business}."
 msgid "email.footer.company"
 msgstr "ClientBridge Inc., 3704 Lakepoint Dr, Severn, Ontario L3V 8M9, Canada"
 
+msgid "email.footer.visit_at"
+msgstr "Visit address: {address}"
+
 msgid "email.footer.separator"
 msgstr " · "
 

@@ -301,7 +301,9 @@ the visit's invoice).
 subtotal/tax/total fixed at issue, `pay_token`, `overdue_notified_at`; what is owed is the invoice's
 receivable in the ledger, and partial/paid/refunded/overdue and the paid time are read from it, through
 `ledger.invoice_status_expr()` on the server and `invoiceStatusSql` on the device), `estimates`
-(accept/decline/convert → invoice; a sent estimate past `valid_until` reads as expired), `orders`
+(accept/decline/convert → invoice; a sent estimate past `valid_until` reads as expired; an accepted,
+unconverted estimate can be booked, its chosen product lines joining the visit as `addons` at the quoted
+unit price, through `estimate_id` on `POST /v1/bookings`, owner or admin only), `orders`
 (POS/Terminal sale; stored status open/void, paid/refunded read from the ledger the same way),
 `lines` (three nullable foreign keys `estimate_id`/`invoice_id`/`order_id` with a CHECK that exactly one
 is set; `item_id`/`booking_id`, `tax_amount_cents`).

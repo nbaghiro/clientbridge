@@ -754,6 +754,11 @@
     "billing.convert": {
         "message": "Convert to invoice"
     },
+    "billing.bookVisit": {
+        "message": "{kind, select, site {Book the install} other {Book the visit}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client: pet, student, property, site, or none"
+    },
     "billing.convertTitle": {
         "message": "Convert to invoice?"
     },
@@ -2797,6 +2802,13 @@
     "bookings.departError": {
         "message": "Couldn't tell the client you're on the way. Please try again."
     },
+    "bookings.directions": {
+        "message": "Directions"
+    },
+    "bookings.directionsTo": {
+        "message": "Directions to {address}",
+        "args": ["address"]
+    },
     "bookings.depositPaid": {
         "message": "{amount} paid",
         "args": ["amount"]
@@ -2984,6 +2996,13 @@
     "bookings.composerEnds": {
         "message": "Ends {time} · {min, number} min",
         "args": ["time", "min"]
+    },
+    "bookings.composerFromEstimate": {
+        "message": "Products from estimate #{number, number, ::group-off}",
+        "args": ["number"]
+    },
+    "bookings.composerFromEstimateHint": {
+        "message": "These join the visit as add-ons, at the estimate's prices, and go on the visit's invoice."
     },
     "bookings.composerBook": {
         "message": "Book visit"
@@ -5596,7 +5615,9 @@
         "message": "Only your team sees this."
     },
     "broadcasts.namePlaceholder": {
-        "message": "Fall de-shed offer"
+        "message": "{kind, select, pet {Fall de-shed offer} student {Spring lesson openings} property {Spring cleaning openings} site {Spring system checks} other {Fall openings}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client: pet, student, property, site, or none"
     },
     "broadcasts.channelPick": {
         "message": "Send as"
@@ -5621,7 +5642,9 @@
         "message": "Message"
     },
     "broadcasts.messagePlaceholder": {
-        "message": "Book a de-shed this week and we'll add a free nail trim."
+        "message": "{kind, select, pet {Book a de-shed this week and we'll add a free nail trim.} student {Spring lesson times are open. Reply to book a spot.} property {Spring cleaning dates are open. Reply to book a visit.} site {Spring system checks are open. Reply to book a visit and we'll check each camera and the recorder.} other {New times are open this month. Reply to book.}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client: pet, student, property, site, or none"
     },
     "broadcasts.optOutSms": {
         "message": "Reply STOP to opt out."
@@ -7699,7 +7722,9 @@
         "message": "e.g. 60-minute session"
     },
     "catalog.namePlaceholderProduct": {
-        "message": "e.g. Oatmeal Shampoo (500 ml)"
+        "message": "{kind, select, pet {e.g. Oatmeal Shampoo (500 ml)} student {e.g. Grade 4 workbook} property {e.g. Microfibre cloth pack} site {e.g. 4MP turret camera} other {e.g. Gift box}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client: pet, student, property, site, or none"
     },
     "catalog.description": {
         "message": "Description"
@@ -11022,7 +11047,9 @@
         "message": "Anything we should know"
     },
     "publicBooking.notePlaceholder": {
-        "message": "Matting, nervous with dryers, allergies"
+        "message": "{kind, select, pet {Matting, nervous with dryers, allergies} student {Goals for the lesson, allergies} property {Parking, pets, rooms to focus on} site {Gate code, pets, where you'd like cameras} other {Anything we should know before your visit}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client: pet, student, property, site, or none"
     },
     "publicBooking.reachHint": {
         "message": "We text a reminder the day before. Add an email for receipts."
@@ -11813,6 +11840,9 @@
     },
     "publicManage.gettingThere": {
         "message": "Getting here"
+    },
+    "publicManage.visitPlace": {
+        "message": "Visit address"
     },
     "publicManage.payment": {
         "message": "Your payment"

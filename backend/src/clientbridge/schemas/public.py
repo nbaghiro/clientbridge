@@ -142,7 +142,12 @@ class ManagedBooking(Mirror):
     """A client's own booking, as their manage link shows it."""
 
     booking_id: str
-    address: str | None = None
+    address: str | None = Field(
+        default=None, description="Where the visit happens: the client's place, else the business"
+    )
+    at_place: bool = Field(
+        default=False, description="The address is the client's property or site"
+    )
     business_name: str
     brand: PublicBrand
     slug: str

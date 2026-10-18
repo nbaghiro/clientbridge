@@ -135,3 +135,18 @@ export function useOpenLink(): (target: ShellTarget, refId?: string | null) => v
         [nav],
     );
 }
+
+/** Opens the schedule's new-booking sheet for an accepted estimate, with its client and products. */
+export function useBookEstimate(): (estimateId: string) => void {
+    const nav = useNavigation<Nav>();
+    return useCallback(
+        (estimateId) => {
+            const tabs: RootStackParamList["Tabs"] = {
+                screen: "Schedule",
+                params: { create: Date.now(), estimate: estimateId },
+            };
+            nav.dispatch(StackActions.popTo("Tabs", tabs));
+        },
+        [nav],
+    );
+}

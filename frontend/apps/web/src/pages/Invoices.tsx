@@ -24,6 +24,8 @@ import {
     useLines,
     formatParts,
     BUSINESS_CURRENCY,
+    kindWord,
+    useSubjectKind,
 } from "@clientbridge/app-core";
 import {
     ActivityTimeline,
@@ -46,6 +48,7 @@ import {
 } from "@clientbridge/ui";
 import { cssVar } from "@clientbridge/tokens";
 import { type ReactNode, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { DocEditor } from "../components/DocEditor";
 import { DocumentPreview, type PreviewDoc } from "../components/DocumentPreview";
@@ -53,7 +56,7 @@ import { RecordPayment } from "../components/RecordPayment";
 import { config } from "../config";
 import { api, apiBaseUrl } from "../lib/api";
 import { useRole } from "../lib/auth";
-import { useLinkIntent, useOpenLink } from "../lib/links";
+import { linkPath, useLinkIntent, useOpenLink } from "../lib/links";
 
 const s = strings.billing;
 const GRID =
@@ -777,6 +780,8 @@ function EstimatePanel({
 }) {
     const rec = useEstimateRecord(id, config.payUrl);
     const act = useEstimateActions(api);
+    const navigate = useNavigate();
+    const kind = useSubjectKind();
     const letterhead = useLetterhead(apiBaseUrl);
     const [previewing, setPreviewing] = useState(false);
     if (rec === null) return null;
@@ -858,6 +863,20 @@ function EstimatePanel({
                                 }}
                             >
                                 {s.sendEstimate}
+                            </Button>
+                        ) : null}
+                        {rec.canBook ? (
+                            <Button
+                                variant="outline"
+                                icon="calendar"
+                                onPress={() => {
+                                    const done = navigate(
+                                        `${linkPath("booking")}&estimate=${encodeURIComponent(rec.row.id)}`,
+                                    );
+                                    if (done) done.catch(() => undefined);
+                                }}
+                            >
+                                {s.bookVisit(kindWord(kind))}
                             </Button>
                         ) : null}
                         {rec.canConvert ? (

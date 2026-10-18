@@ -15,6 +15,8 @@ import {
     dateKey,
     formatParts,
     useBusinessZone,
+    kindWord,
+    useSubjectKind,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -288,6 +290,7 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
 
 function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void }) {
     const zone = useBusinessZone();
+    const word = kindWord(useSubjectKind());
     const draft = useBroadcastDraft(api, seed);
     const [step, setStep] = useState<Step>("audience");
     const index = STEPS.indexOf(step);
@@ -335,7 +338,7 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
                         hint={s.nameHint}
                         value={draft.name}
                         onChange={draft.setName}
-                        placeholder={s.namePlaceholder}
+                        placeholder={s.namePlaceholder(word)}
                     />
                     <Field label={s.channelPick}>
                         <Choice
@@ -360,7 +363,7 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
                         rows={6}
                         value={draft.body}
                         onChange={draft.setBody}
-                        placeholder={s.messagePlaceholder}
+                        placeholder={s.messagePlaceholder(word)}
                         hint={
                             draft.channel === "sms"
                                 ? s.smsCount(draft.segments.chars, draft.segments.segments)

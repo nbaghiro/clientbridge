@@ -48,7 +48,7 @@ import { type Checkout, useCheckout } from "./checkout";
 import { type ClientRow, useClients } from "./clients";
 import { type Photo, bookingPhotoTarget, useFileLinks, useFileUpload } from "./files";
 import { canManagePayments } from "./payments";
-import { isPlace } from "./publicBooking";
+import { isPlace, mapsUrl, visitAddress } from "./publicBooking";
 import { type StaffRow, staffName, useStaff } from "./staff";
 import {
     type SubjectKind,
@@ -1445,12 +1445,16 @@ function seriesEvery(frequency: string, interval: number): string {
           : s.everyDays(interval);
 }
 
+export const BUSINESS_ADDRESS_SQL =
+    "SELECT json_extract(brand, '$.address') AS address FROM businesses LIMIT 1";
+
 export interface BookingDetail {
     event: ScheduleEvent;
     client: DetailClientRow | null;
     clientLine: string;
     subject: VisitSubject | null;
     subjectLine: string | null;
+    directions: { address: string; url: string } | null;
     temperament: { label: string; nervous: boolean } | null;
     tags: string[];
     notes: NoteRow[];
@@ -1483,6 +1487,8 @@ export function useBookingDetail(event: ScheduleEvent | null, now: Date): Bookin
         useQuery<SubjectDetailRow>(DETAIL_SUBJECT_SQL, [bookingId]).data.at(0),
     );
     const kind = useSubjectKind();
+    const businessAddress =
+        useQuery<{ address: string | null }>(BUSINESS_ADDRESS_SQL).data.at(0)?.address ?? null;
     const notes = useQuery<NoteRow>(DETAIL_NOTES_SQL, [bookingId, clientId]).data;
     const series = useQuery<SeriesRow>(DETAIL_SERIES_SQL, [event?.slotId ?? ""]).data.at(0);
     const roster = useQuery<RosterRow>(DETAIL_ROSTER_SQL, [
@@ -1559,6 +1565,10 @@ export function useBookingDetail(event: ScheduleEvent | null, now: Date): Bookin
             at: stamp(event.start),
             intent: "danger",
         });
+    const address =
+        event.kind === "visit"
+            ? visitAddress(kind, subject?.attributes ?? null, businessAddress)
+            : null;
     const visits = stats?.visits ?? 0;
     const last = stats?.last_visit ? parseTimestamp(stats.last_visit) : null;
     return {
@@ -1570,6 +1580,7 @@ export function useBookingDetail(event: ScheduleEvent | null, now: Date): Bookin
             last !== null ? s.lastVisit(formatDate(last, zone)) : null,
         ]),
         subject,
+        directions: address === null ? null : { address, url: mapsUrl(address) },
         subjectLine:
             subject === null ? null : subjectSummary(kind, subject.attributes, zone, now) || null,
         temperament: subject === null ? null : subjectTemperament(kind, subject.attributes),
@@ -1680,7 +1691,18 @@ export function useBookingActions(
 export interface ComposerSlot {
     staffId: string;
     start: Date;
+    // an accepted estimate to book: its client is picked and its products join as add-ons
+    estimateId?: string | undefined;
 }
+
+export const ESTIMATE_BOOKING_SQL = `
+SELECT e.client_id, e.number FROM estimates e
+WHERE e.id = ? AND e.status = 'accepted' AND e.converted_invoice_id IS NULL`;
+
+export const ESTIMATE_PRODUCTS_SQL = `
+SELECT l.id, l.description, l.quantity FROM lines l JOIN items i ON i.id = l.item_id
+WHERE l.estimate_id = ? AND i.kind = 'product' AND (COALESCE(l.optional, 0) = 0 OR l.selected = 1)
+ORDER BY l.position, l.id`;
 
 interface SubjectOption {
     id: string;
@@ -1725,6 +1747,8 @@ export interface BookingComposer {
     time: string;
     setTime: (hhmm: string) => void;
     endsLabel: string;
+    // the estimate being booked and the products it adds, which a series can't carry
+    fromEstimate: { title: string; lines: string[] } | null;
     repeat: boolean;
     setRepeat: (v: boolean) => void;
     every: number;
@@ -1839,6 +1863,14 @@ export function useBookingComposer(
     const [query, setQuery] = useState("");
     const [clientId, setClientId] = useState<string | null>(null);
     const [subjectId, setSubjectId] = useState("");
+    const estimateId = slot.estimateId ?? "";
+    const estimate =
+        useQuery<{ client_id: string; number: number | null }>(ESTIMATE_BOOKING_SQL, [estimateId])
+            .data[0] ?? null;
+    const products = useQuery<{ id: string; description: string; quantity: number }>(
+        ESTIMATE_PRODUCTS_SQL,
+        [estimateId],
+    ).data;
     const [itemId, setItemId] = useState("");
     const zone = useBusinessZone();
     const [staffId, setStaffId] = useState(slot.staffId);
@@ -1892,6 +1924,18 @@ export function useBookingComposer(
                   null,
                   target,
               );
+    const prefilled = useRef(false);
+    useEffect(() => {
+        if (prefilled.current || estimate === null) return;
+        prefilled.current = true;
+        setClientId(estimate.client_id);
+        setSubjectId(
+            kind === null
+                ? ""
+                : (allSubjects.find((p) => p.client_id === estimate.client_id)?.id ?? ""),
+        );
+    }, [estimate, kind, allSubjects]);
+    const booking = estimate !== null && client?.id === estimate.client_id;
     const verdict = check(staffId);
     const problem = item !== null && verdict.problem !== null ? verdict.message : null;
     const deposit = depositOf(item);
@@ -1925,7 +1969,13 @@ export function useBookingComposer(
         time,
         setTime,
         endsLabel: s.composerEnds(formatTime(end, zone), length),
-        repeat,
+        fromEstimate: booking
+            ? {
+                  title: s.composerFromEstimate(estimate.number ?? 0),
+                  lines: products.map((l) => strings.common.quantityOf(l.quantity, l.description)),
+              }
+            : null,
+        repeat: repeat && !booking,
         setRepeat,
         every,
         setEvery,
@@ -1951,13 +2001,14 @@ export function useBookingComposer(
                 item_id: item.id,
                 staff_id: staffId,
                 starts_at: start.toISOString(),
+                ...(booking ? { estimate_id: estimateId } : {}),
             };
             const idempotencyKey = attemptKey(key, { body, repeat, every, count, notify, note });
             let skipped = 0;
             let created = 0;
             run(
                 async () => {
-                    if (repeat) {
+                    if (repeat && !booking) {
                         const out = await api.post<{ created: number; skipped: number }>(
                             "/v1/recurrences",
                             {

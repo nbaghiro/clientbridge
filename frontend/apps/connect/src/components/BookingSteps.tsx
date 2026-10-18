@@ -294,7 +294,7 @@ export function DetailsForm({ flow }: { flow: PublicBookingFlow }) {
                 label={s.note}
                 value={f.note}
                 onChange={f.setNote}
-                placeholder={s.notePlaceholder}
+                placeholder={flow.notePlaceholder}
                 multiline
                 rows={2}
                 optional

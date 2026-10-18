@@ -360,6 +360,33 @@ async def _booked_subject(api: httpx.AsyncClient, db: AsyncSession, **extra: obj
 
 
 @pytest.mark.parametrize("kind", ["property", "site"])
+async def test_a_place_visit_points_directions_and_emails_at_the_place(
+    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, kind: str
+) -> None:
+    await _kind(db, kind)
+    body = _body(subject_name="Shop", subject_address="880 Douglas St")
+    res = await api.post(f"/book/{SLUG}", json=body, headers=key())
+    assert res.status_code == 200, res.text
+    view = (await api.get(f"/manage/{res.json()['manage_token']}")).json()
+    assert view["address"] == "880 Douglas St" and view["at_place"] is True
+    assert email.sent and "Visit address: 880 Douglas St" in (email.sent[-1].html or "")
+
+
+@pytest.mark.parametrize("kind", ["pet", "site"])
+async def test_a_visit_without_a_place_address_points_at_the_business(
+    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, kind: str
+) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    await _kind(db, kind)
+    res = await api.post(f"/book/{SLUG}", json=_body(subject_name="Shop"), headers=key())
+    assert res.status_code == 200, res.text
+    view = (await api.get(f"/manage/{res.json()['manage_token']}")).json()
+    assert view["address"] == business.brand.get("address") and view["at_place"] is False
+    assert all("Visit address" not in (m.html or "") for m in email.sent)
+
+
+@pytest.mark.parametrize("kind", ["property", "site"])
 async def test_a_place_is_matched_by_name_and_address(
     api: httpx.AsyncClient, db: AsyncSession, kind: str
 ) -> None:

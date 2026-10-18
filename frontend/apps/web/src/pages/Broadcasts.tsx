@@ -15,6 +15,8 @@ import {
     dateKey,
     formatParts,
     useBusinessZone,
+    kindWord,
+    useSubjectKind,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -395,6 +397,7 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
 
 function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void }) {
     const zone = useBusinessZone();
+    const word = kindWord(useSubjectKind());
     const draft = useBroadcastDraft(api, seed);
     const n = draft.load.hasData ? draft.audience.recipients.length : 0;
     const send = (): void => {
@@ -446,7 +449,7 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
                                     hint={s.nameHint}
                                     value={draft.name}
                                     onChange={draft.setName}
-                                    placeholder={s.namePlaceholder}
+                                    placeholder={s.namePlaceholder(word)}
                                 />
                                 <Field label={s.channelPick}>
                                     <Choice
@@ -469,7 +472,7 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
                                 rows={5}
                                 value={draft.body}
                                 onChange={draft.setBody}
-                                placeholder={s.messagePlaceholder}
+                                placeholder={s.messagePlaceholder(word)}
                                 hint={
                                     draft.channel === "sms"
                                         ? s.smsCount(draft.segments.chars, draft.segments.segments)
@@ -633,6 +636,7 @@ function AudienceSummary({ draft }: { draft: BroadcastDraft }) {
 }
 
 function MessagePreview({ draft }: { draft: BroadcastDraft }) {
+    const word = kindWord(useSubjectKind());
     if (draft.channel === "sms")
         return (
             <div className="rounded-xl border border-line bg-bg px-4 pb-4 pt-3">
@@ -645,7 +649,7 @@ function MessagePreview({ draft }: { draft: BroadcastDraft }) {
             <div className="space-y-0.5 border-b border-line bg-bg px-4 py-2.5 text-xs text-muted">
                 <div className="font-semibold text-ink-soft">{draft.business}</div>
                 <div className="truncate font-medium text-ink">
-                    {draft.name || s.namePlaceholder}
+                    {draft.name || s.namePlaceholder(word)}
                 </div>
             </div>
             <p className="whitespace-pre-wrap px-4 py-3 leading-relaxed text-ink-soft">

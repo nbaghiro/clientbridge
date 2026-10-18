@@ -184,6 +184,9 @@ msgstr ""
 msgid "email.footer.team"
 msgstr ""
 
+msgid "email.footer.visit_at"
+msgstr ""
+
 msgid "email.kind.account"
 msgstr ""
 

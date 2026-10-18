@@ -3783,6 +3783,11 @@ export interface components {
              * @default true
              */
             notify: boolean;
+            /**
+             * Estimate Id
+             * @description An accepted estimate whose product lines join the visit as add-ons
+             */
+            estimate_id?: string | null;
         };
         /** BookingMove */
         BookingMove: {
@@ -5678,8 +5683,17 @@ export interface components {
             refund_status?: string | null;
             /** Booking Id */
             booking_id: string;
-            /** Address */
+            /**
+             * Address
+             * @description Where the visit happens: the client's place, else the business
+             */
             address?: string | null;
+            /**
+             * At Place
+             * @description The address is the client's property or site
+             * @default false
+             */
+            at_place: boolean;
             /** Business Name */
             business_name: string;
             brand: components["schemas"]["PublicBrand"];

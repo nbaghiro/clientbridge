@@ -16,6 +16,8 @@ import {
     useServiceEditor,
     BUSINESS_CURRENCY,
     currencyAffix,
+    kindWord,
+    useSubjectKind,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -224,6 +226,7 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
 }
 
 function ProductFields({ ed }: { ed: ProductEditor }) {
+    const word = kindWord(useSubjectKind());
     const picker = useAsyncAction();
     const pick = (): void => {
         picker.run(
@@ -267,7 +270,7 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                 )}
             </DetailSection>
             <DetailSection title={s.sectionBasics}>
-                <BasicsFields form={ed.form} placeholder={s.namePlaceholderProduct} />
+                <BasicsFields form={ed.form} placeholder={s.namePlaceholderProduct(word)} />
                 <TextField
                     label={s.sku}
                     hint={s.skuHint}

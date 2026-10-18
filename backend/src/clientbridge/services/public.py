@@ -135,7 +135,7 @@ from clientbridge.services.payments import (
 )
 from clientbridge.services.plans import assert_serving
 from clientbridge.services.returning import ReturningService
-from clientbridge.services.subjects import new_subject
+from clientbridge.services.subjects import new_subject, place_address, visit_address
 from clientbridge.services.tax import (
     LineTax,
     TaxResult,
@@ -881,7 +881,8 @@ class PublicManageService:
         blocked, blocked_hours = cancel or move or (None, None)
         return ManagedBooking(
             refund_status=await booking_refund_status(self.db, booking),
-            address=BrandInput.model_validate(business.brand or {}).address,
+            address=visit_address(business, subject),
+            at_place=place_address(business, subject) is not None,
             booking_id=booking.id,
             business_name=business.name,
             brand=public_brand(business),

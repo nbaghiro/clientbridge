@@ -23,6 +23,8 @@ import {
     useLines,
     formatParts,
     BUSINESS_CURRENCY,
+    kindWord,
+    useSubjectKind,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { useEffect, useState } from "react";
@@ -53,7 +55,7 @@ import { RecordPayment } from "../components/RecordPayment";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import { payUrl } from "../lib/config";
-import { useOpenLink } from "../lib/links";
+import { useBookEstimate, useOpenLink } from "../lib/links";
 
 const c = theme.colors;
 const s = strings.billing;
@@ -636,6 +638,8 @@ function EstimatePanel({
     const rec = useEstimateRecord(id, payUrl);
     const act = useEstimateActions(api);
     const letterhead = useLetterhead(apiBaseUrl);
+    const bookEstimate = useBookEstimate();
+    const kind = useSubjectKind();
     const [overlay, setOverlay] = useState<"pdf" | "menu" | null>(null);
     if (rec === null) return null;
     const menu = [
@@ -647,6 +651,9 @@ function EstimatePanel({
                   { key: "decline", label: s.markDeclined, icon: "x" as const },
               ]
             : []),
+        ...(rec.canBook
+            ? [{ key: "book", label: s.bookVisit(kindWord(kind)), icon: "calendar" as const }]
+            : []),
     ];
     const pick = (key: string): void => {
         setOverlay(null);
@@ -654,6 +661,7 @@ function EstimatePanel({
         else if (key === "edit") onEdit(rec.row.id);
         else if (key === "accept") act.accept(rec);
         else if (key === "decline") act.decline(rec);
+        else if (key === "book") bookEstimate(rec.row.id);
     };
     const convert = (): void => {
         confirm({ title: s.convertTitle, message: s.convertBody, confirmLabel: s.convert })
