@@ -1,4 +1,4 @@
-import type { TabsProps } from "@clientbridge/app-core/public";
+import { type TabsProps, strings } from "@clientbridge/app-core/public";
 
 import { Badge } from "./Badge";
 import { moveFocus } from "./keys";
@@ -28,11 +28,15 @@ export function Tabs<K extends string>({
         >
             {items.map((item) => {
                 const on = item.key === active;
+                const count = item.count ?? 0;
                 return (
                     <button
                         key={item.key}
                         type="button"
                         role="tab"
+                        aria-label={
+                            count > 0 ? strings.common.labelCount(item.label, count) : undefined
+                        }
                         aria-selected={on}
                         tabIndex={on ? 0 : -1}
                         onClick={() => {
@@ -52,10 +56,10 @@ export function Tabs<K extends string>({
                                   }`
                         }
                     >
-                        {item.count !== undefined && item.count > 0 ? (
+                        {count > 0 ? (
                             <span className="inline-flex items-center gap-1.5">
                                 {item.label}
-                                <Badge label={item.count} variant="count" intent="danger" />
+                                <Badge label={count} variant="count" intent="danger" />
                             </span>
                         ) : (
                             item.label
