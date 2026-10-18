@@ -2888,6 +2888,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/files/{file_id}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** File Link */
+        get: operations["file_link_v1_files__file_id__link_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/zones": {
         parameters: {
             query?: never;
@@ -4602,7 +4619,7 @@ export interface components {
              * Parent Type
              * @enum {string}
              */
-            parent_type: "business" | "subject" | "item" | "signature" | "form_response";
+            parent_type: "business" | "subject" | "item" | "signature" | "form_response" | "booking";
             /** Parent Id */
             parent_id: string;
             /** Purpose */
@@ -4611,6 +4628,11 @@ export interface components {
             content_type?: string | null;
             /** Size */
             size?: number | null;
+        };
+        /** FileLink */
+        FileLink: {
+            /** Url */
+            url: string;
         };
         /** FileOut */
         FileOut: {
@@ -4622,7 +4644,7 @@ export interface components {
              * Parent Type
              * @enum {string}
              */
-            parent_type: "business" | "subject" | "item" | "signature" | "form_response";
+            parent_type: "business" | "subject" | "item" | "signature" | "form_response" | "booking";
             /** Parent Id */
             parent_id: string;
             /** Purpose */
@@ -14754,6 +14776,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -14809,6 +14832,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    file_link_v1_files__file_id__link_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileLink"];
                 };
             };
             /** @description Validation Error */

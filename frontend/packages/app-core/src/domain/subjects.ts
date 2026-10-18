@@ -7,6 +7,7 @@ import { useAsyncAction, useBusinessQuery as useQuery } from "../hooks";
 import type { Load } from "../hooks";
 import { strings } from "../strings";
 import type { ChoiceOption, Intent } from "../ui";
+import { type Photo, useFileLinks } from "./files";
 import { CLIENT_VISITS_SQL, type ClientVisit, type VisitRow, isAhead, toVisit } from "./clients";
 import { useReplicaLoad } from "./sync";
 
@@ -836,4 +837,22 @@ export function useSubjectForm(
             );
         },
     };
+}
+
+const SUBJECT_PHOTO_LIMIT = 12;
+
+export const SUBJECT_PHOTOS_SQL = `
+SELECT f.id FROM files f JOIN bookings b ON b.id = f.parent_id
+WHERE f.parent_type = 'booking' AND b.subject_id = ? AND b.deleted_at IS NULL
+  AND f.uploaded_at IS NOT NULL
+ORDER BY f.created_at DESC, f.id LIMIT ${String(SUBJECT_PHOTO_LIMIT)}`;
+
+/** The latest job photos taken on a subject's visits, newest first. */
+export function useSubjectPhotos(api: ApiLike, subjectId: string): Photo[] {
+    const rows = useQuery<{ id: string }>(SUBJECT_PHOTOS_SQL, [subjectId]).data;
+    const links = useFileLinks(
+        api,
+        rows.map((r) => r.id),
+    );
+    return rows.map((r) => ({ id: r.id, src: links[r.id] ?? null }));
 }

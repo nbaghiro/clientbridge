@@ -2675,6 +2675,31 @@
     "bookings.detailNotes": {
         "message": "Notes"
     },
+    "bookings.detailPhotos": {
+        "message": "Photos"
+    },
+    "bookings.photosHint": {
+        "message": "Before and after photos of the job. They also show on the client's record."
+    },
+    "bookings.photosNone": {
+        "message": "No photos yet."
+    },
+    "bookings.photoTake": {
+        "message": "Take photo"
+    },
+    "bookings.photoChoose": {
+        "message": "Choose photo"
+    },
+    "bookings.photoAdd": {
+        "message": "Add photo"
+    },
+    "bookings.photoAlt": {
+        "message": "Job photo {n, number}",
+        "args": ["n"]
+    },
+    "bookings.photoCameraDenied": {
+        "message": "Camera access is off for Clientbridge. Turn it on in Settings, or choose a photo instead."
+    },
     "bookings.detailDeposit": {
         "message": "Deposit"
     },
@@ -4877,6 +4902,9 @@
     "subjects.equipment.warrantyEnded": {
         "message": "Warranty ended {date}",
         "args": ["date"]
+    },
+    "subjects.photos": {
+        "message": "Job photos"
     },
     "clients.history.title": {
         "message": "History"

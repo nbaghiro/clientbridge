@@ -13,6 +13,7 @@ import {
     strings,
     useSubjectCards,
     useSubjectForm,
+    useSubjectPhotos,
     useBusinessZone,
 } from "@clientbridge/app-core";
 import {
@@ -34,6 +35,7 @@ import {
 import { useState } from "react";
 
 import { api } from "../lib/api";
+import { PhotoGrid } from "./BookingPanel";
 
 const s = strings.subjects;
 
@@ -281,6 +283,7 @@ export function SubjectDialog({
 
 function SubjectCardView({ card, onEdit }: { card: SubjectCard; onEdit: () => void }) {
     const zone = useBusinessZone();
+    const photos = useSubjectPhotos(api, card.subject.id);
     const alerts = card.alerts.filter((a) => a.key !== "temp");
     return (
         <article className="flex flex-col rounded-lg border border-line bg-surface shadow-card">
@@ -331,6 +334,12 @@ function SubjectCardView({ card, onEdit }: { card: SubjectCard; onEdit: () => vo
                 <div className="border-t border-line-soft px-4 py-2">
                     <h4 className="pt-1 text-xs font-semibold text-muted">{s.equipment.title}</h4>
                     <EquipmentList lines={card.equipment} />
+                </div>
+            ) : null}
+            {photos.length > 0 ? (
+                <div className="border-t border-line-soft px-4 py-3">
+                    <h4 className="pb-2 text-xs font-semibold text-muted">{s.photos}</h4>
+                    <PhotoGrid photos={photos} />
                 </div>
             ) : null}
             <dl className="mt-auto grid grid-cols-3 gap-2 border-t border-line-soft px-4 py-3 text-xs">

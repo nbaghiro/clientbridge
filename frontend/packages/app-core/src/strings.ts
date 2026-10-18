@@ -883,6 +883,14 @@ interface Strings {
         readonly detailWhen: string;
         readonly detailWith: string;
         readonly detailNotes: string;
+        readonly detailPhotos: string;
+        readonly photosHint: string;
+        readonly photosNone: string;
+        readonly photoTake: string;
+        readonly photoChoose: string;
+        readonly photoAdd: string;
+        readonly photoAlt: (n: number) => string;
+        readonly photoCameraDenied: string;
         readonly detailDeposit: string;
         readonly detailAddons: string;
         readonly detailSeries: string;
@@ -1744,6 +1752,7 @@ interface Strings {
             readonly warrantyEnds: (date: string) => string;
             readonly warrantyEnded: (date: string) => string;
         };
+        readonly photos: string;
     };
     readonly messaging: {
         readonly title: string;

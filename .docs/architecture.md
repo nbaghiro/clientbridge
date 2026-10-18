@@ -560,6 +560,11 @@ short-lived presigned S3 URL, so they have stable links for the public pages and
 upload was completed are served. Every other
 file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it into the media URL.
 
+Job photos are `files` rows on a booking (`parent_type` booking, `purpose` photo, image types only). The
+member on the booking or a manager can add one, and `GET /v1/files/{id}/link` returns a presigned download
+URL to the same people. The booking detail on web and mobile lists them, and the subject's card on the
+client record shows the latest photos from its visits.
+
 ### Payments — Stripe Connect custody
 
 - **Stripe Connect** (Accounts v2 merchants, direct charges + application fee, Stripe's automatic payouts) for

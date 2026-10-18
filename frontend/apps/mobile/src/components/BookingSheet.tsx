@@ -11,7 +11,10 @@ import {
     formatMoney,
     savedCardLabel,
     strings,
+    type Photo,
+    useAsyncAction,
     useBookingAddons,
+    useBookingPhotos,
     useBookingComposer,
     useCollectDeposit,
     useNewMessage,
@@ -48,8 +51,13 @@ import {
     Toggle,
     SearchSelect,
 } from "@clientbridge/ui";
+import {
+    launchCameraAsync,
+    launchImageLibraryAsync,
+    requestCameraPermissionsAsync,
+} from "expo-image-picker";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
@@ -110,6 +118,89 @@ function DepositDue({ event }: { event: ScheduleEvent }) {
                 </>
             )}
         </View>
+    );
+}
+
+/** Job photo thumbnails; a photo whose link is still loading shows a blank tile. */
+export function PhotoGrid({ photos }: { photos: readonly Photo[] }) {
+    return (
+        <View style={styles.photos}>
+            {photos.map((p, i) => (
+                <View key={p.id} style={styles.photo}>
+                    {p.src !== null ? (
+                        <Image
+                            source={{ uri: p.src }}
+                            style={styles.photoImage}
+                            accessibilityLabel={s.photoAlt(i + 1)}
+                        />
+                    ) : null}
+                </View>
+            ))}
+        </View>
+    );
+}
+
+function Photos({ event }: { event: ScheduleEvent }) {
+    const photos = useBookingPhotos(api, event, useViewer());
+    const picker = useAsyncAction();
+    if (photos.photos.length === 0 && !photos.canAdd) return null;
+    const pick = (camera: boolean): void => {
+        picker.run(
+            async () => {
+                if (camera && !(await requestCameraPermissionsAsync()).granted) {
+                    picker.setError(s.photoCameraDenied);
+                    return;
+                }
+                const options = { mediaTypes: ["images" as const], quality: 0.8 };
+                const result = camera
+                    ? await launchCameraAsync(options)
+                    : await launchImageLibraryAsync(options);
+                const asset = result.assets?.[0];
+                if (!asset) return;
+                const blob = await (await fetch(asset.uri)).blob();
+                photos.add(blob, asset.mimeType ?? "image/jpeg", asset.fileSize);
+            },
+            { errorMessage: strings.common.fileUploadError },
+        );
+    };
+    return (
+        <DetailSection title={s.detailPhotos}>
+            {photos.photos.length === 0 ? (
+                <Text style={styles.hint}>{s.photosNone}</Text>
+            ) : (
+                <PhotoGrid photos={photos.photos} />
+            )}
+            <Text style={styles.hint}>{s.photosHint}</Text>
+            {photos.canAdd ? (
+                <View style={styles.photoActions}>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        grow
+                        busy={photos.busy || picker.busy}
+                        onPress={() => {
+                            pick(true);
+                        }}
+                    >
+                        {s.photoTake}
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        grow
+                        disabled={photos.busy || picker.busy}
+                        onPress={() => {
+                            pick(false);
+                        }}
+                    >
+                        {s.photoChoose}
+                    </Button>
+                </View>
+            ) : null}
+            {(photos.error ?? picker.error) !== null ? (
+                <Notice tone="danger">{photos.error ?? picker.error}</Notice>
+            ) : null}
+        </DetailSection>
     );
 }
 
@@ -323,6 +414,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                     ))}
                 </DetailSection>
             ) : null}
+            {e.bookingId !== null ? <Photos event={e} /> : null}
             {e.bookingId !== null ? <Addons event={e} /> : null}
             {detail.history.length > 0 ? (
                 <DetailSection title={s.detailHistory}>
@@ -714,6 +806,16 @@ export function BookingComposerSheet({
 
 const styles = StyleSheet.create({
     body: { gap: 4 },
+    photos: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    photo: {
+        width: "31%",
+        aspectRatio: 1,
+        borderRadius: theme.radius,
+        overflow: "hidden",
+        backgroundColor: c.bg,
+    },
+    photoImage: { width: "100%", height: "100%" },
+    photoActions: { flexDirection: "row", gap: 8, marginTop: 8 },
     statusLine: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
     timing: { color: c.muted, fontSize: 13, fontWeight: "600" },
     facts: {

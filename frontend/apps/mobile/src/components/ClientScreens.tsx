@@ -26,6 +26,7 @@ import {
     useAddPaymentMethod,
     useClientHistory,
     useSubjectCards,
+    useSubjectPhotos,
     useClientWallet,
     formatParts,
     useBusinessZone,
@@ -59,6 +60,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { api } from "../lib/api";
 import { useRole, useViewer } from "../lib/auth";
 import type { RootStackParamList } from "../navigation";
+import { PhotoGrid } from "./BookingSheet";
 import { NoteSheet, SubjectSheet } from "./ClientSheets";
 import { SellPackage, StartSubscription } from "./EntitlementSales";
 
@@ -171,6 +173,7 @@ export function ClientHistoryScreen() {
 
 function SubjectCardView({ card, onPress }: { card: SubjectCard; onPress: () => void }) {
     const zone = useBusinessZone();
+    const photos = useSubjectPhotos(api, card.subject.id);
     const alerts = card.alerts.filter((a) => a.key !== "temp");
     return (
         <View style={styles.subjectCard}>
@@ -232,6 +235,12 @@ function SubjectCardView({ card, onPress }: { card: SubjectCard; onPress: () => 
                             ) : null}
                         </View>
                     ))}
+                </View>
+            ) : null}
+            {photos.length > 0 ? (
+                <View style={styles.equipment}>
+                    <Text style={styles.statLabel}>{sj.photos}</Text>
+                    <PhotoGrid photos={photos} />
                 </View>
             ) : null}
             <View style={styles.stats}>

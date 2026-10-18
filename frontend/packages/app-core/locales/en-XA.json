@@ -2471,6 +2471,30 @@
     "bookings.detailNotes": {
         "message": "[Ñöţéš one]"
     },
+    "bookings.detailPhotos": {
+        "message": "[Þĥöţöš one]"
+    },
+    "bookings.photosHint": {
+        "message": "[Ɓéƒöŕé åñð åƒţéŕ þĥöţöš öƒ ţĥé ĵöƀ. Ţĥéý åļšö šĥöŵ öñ ţĥé çļîéñţ'š ŕéçöŕð. one two three four five]"
+    },
+    "bookings.photosNone": {
+        "message": "[Ñö þĥöţöš ýéţ. one two]"
+    },
+    "bookings.photoTake": {
+        "message": "[Ţåķé þĥöţö one two]"
+    },
+    "bookings.photoChoose": {
+        "message": "[Çĥööšé þĥöţö one two]"
+    },
+    "bookings.photoAdd": {
+        "message": "[Åðð þĥöţö one]"
+    },
+    "bookings.photoAlt": {
+        "message": "[Ĵöƀ þĥöţö {n, number} one]"
+    },
+    "bookings.photoCameraDenied": {
+        "message": "[Çåɱéŕå åççéšš îš öƒƒ ƒöŕ Çļîéñţƀŕîðĝé. Ţûŕñ îţ öñ îñ Šéţţîñĝš, öŕ çĥööšé å þĥöţö îñšţéåð. one two three four five six]"
+    },
     "bookings.detailDeposit": {
         "message": "[Đéþöšîţ one]"
     },
@@ -4492,6 +4516,9 @@
     },
     "subjects.equipment.warrantyEnded": {
         "message": "[Ŵåŕŕåñţý éñðéð {date} one two]"
+    },
+    "subjects.photos": {
+        "message": "[Ĵöƀ þĥöţöš one two]"
     },
     "clients.history.title": {
         "message": "[Ĥîšţöŕý one]"

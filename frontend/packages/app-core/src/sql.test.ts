@@ -956,6 +956,43 @@ function run(name: keyof typeof core, params: SqlValue[] = []): Row[] {
 }
 
 describe("app-core SQL against the replica schema", () => {
+    it("lists a visit's uploaded photos and its subject's latest photos", () => {
+        db.run("UPDATE bookings SET subject_id = 'sj_site' WHERE id = 'bk_1'");
+        scoped("files", [
+            {
+                id: "fl_before",
+                parent_type: "booking",
+                parent_id: "bk_1",
+                purpose: "photo",
+                uploaded_at: TS,
+            },
+            {
+                id: "fl_after",
+                parent_type: "booking",
+                parent_id: "bk_1",
+                purpose: "photo",
+                created_at: "2026-06-26T10:00:00Z",
+                uploaded_at: "2026-06-26T10:00:00Z",
+            },
+            { id: "fl_unsent", parent_type: "booking", parent_id: "bk_1", purpose: "photo" },
+            {
+                id: "fl_other",
+                parent_type: "booking",
+                parent_id: "bk_4",
+                purpose: "photo",
+                uploaded_at: TS,
+            },
+        ]);
+        expect(run("BOOKING_PHOTOS_SQL", ["bk_1"]).map((r) => r.id)).toEqual([
+            "fl_before",
+            "fl_after",
+        ]);
+        expect(run("SUBJECT_PHOTOS_SQL", ["sj_site"]).map((r) => r.id)).toEqual([
+            "fl_after",
+            "fl_before",
+        ]);
+    });
+
     it("keeps visits longer than a week in an overlapping schedule window", () => {
         db.run(
             "UPDATE slots SET starts_at = '2026-06-01 10:00:00+00', ends_at = '2026-06-30 10:00:00+00' WHERE id = 'ss_1'",

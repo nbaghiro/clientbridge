@@ -46,6 +46,7 @@ import type { Viewer } from "./auth";
 import { type ItemRow, bookableItems, useCatalogItems } from "./catalog";
 import { type Checkout, useCheckout } from "./checkout";
 import { type ClientRow, useClients } from "./clients";
+import { type Photo, bookingPhotoTarget, useFileLinks, useFileUpload } from "./files";
 import { canManagePayments } from "./payments";
 import { type StaffRow, staffName, useStaff } from "./staff";
 import {
@@ -2222,5 +2223,47 @@ export function useBookingAddons(
         },
         busy,
         error,
+    };
+}
+
+export const BOOKING_PHOTOS_SQL = `
+SELECT id FROM files
+WHERE parent_type = 'booking' AND parent_id = ? AND uploaded_at IS NOT NULL
+ORDER BY created_at, id`;
+
+export interface BookingPhotos {
+    photos: Photo[];
+    canAdd: boolean;
+    busy: boolean;
+    error: string | null;
+    add: (body: Blob, contentType: string, sizeBytes?: number) => void;
+}
+
+/** Before and after photos on a visit; the member on it or a manager can add more. */
+export function useBookingPhotos(
+    api: ApiLike,
+    event: CalendarEvent,
+    viewer: Viewer | null,
+): BookingPhotos {
+    const bookingId = event.bookingId ?? "";
+    const rows = useQuery<{ id: string }>(BOOKING_PHOTOS_SQL, [bookingId]).data;
+    const links = useFileLinks(
+        api,
+        rows.map((r) => r.id),
+    );
+    const upload = useFileUpload(api);
+    const canAdd =
+        bookingId !== "" &&
+        viewer !== null &&
+        (canManagePayments(viewer.role) || viewer.staffId === event.staffId);
+    return {
+        photos: rows.map((r) => ({ id: r.id, src: links[r.id] ?? null })),
+        canAdd,
+        busy: upload.busy,
+        error: upload.error,
+        add: (body, contentType, sizeBytes) => {
+            if (!canAdd) return;
+            upload.upload(body, bookingPhotoTarget(bookingId), contentType, sizeBytes);
+        },
     };
 }

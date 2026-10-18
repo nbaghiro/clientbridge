@@ -8,14 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core import clock
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
-from clientbridge.core.deps import Principal, assert_role
+from clientbridge.core.deps import Principal, assert_can_act_as, assert_role
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.s3 import FileStorage
 from clientbridge.models.catalog import Item
 from clientbridge.models.platform import File
-from clientbridge.schemas.files import FileCreate, FileOut, FileUpload
+from clientbridge.models.scheduling import Booking
+from clientbridge.schemas.files import FileCreate, FileLink, FileOut, FileUpload
 
 _DEFAULT_CONTENT_TYPE = "application/octet-stream"
 # an upload whose bytes never arrived is removed after this long
@@ -23,7 +24,7 @@ PENDING_UPLOAD_TTL = timedelta(hours=24)
 
 
 class FileService:
-    """Logos, item images and form uploads; rows are server-minted so the S3 key can't be forged."""
+    """Logos, images, job photos and form uploads; server-minted rows keep keys unforgeable."""
 
     def __init__(self, db: AsyncSession, principal: Principal, storage: FileStorage) -> None:
         self.db = db
@@ -31,9 +32,13 @@ class FileService:
         self.storage = storage
         self.biz = principal.business_id
 
-    async def create(self, data: FileCreate) -> FileUpload:
+    async def create(self, data: FileCreate, idempotency_key: str | None = None) -> FileUpload:
         if (data.parent_type, data.purpose) in PUBLIC_MEDIA:
             await self._assert_public_parent(data)
+        if data.parent_type == "booking":
+            if data.purpose != "photo" or not (data.content_type or "").startswith("image/"):
+                raise Unprocessable("a booking takes only photos", code="invalid_request")
+            await self._visible_booking(data.parent_id)
 
         async def run(cmd: Command) -> FileUpload:
             result = await mint_upload(
@@ -50,7 +55,13 @@ class FileService:
             return result
 
         return await run_command(
-            self.db, self.principal, action="file.create", run=run, response_model=FileUpload
+            self.db,
+            self.principal,
+            action="file.create",
+            run=run,
+            response_model=FileUpload,
+            idempotency_key=idempotency_key,
+            request=data,
         )
 
     async def complete(self, file_id: str) -> FileOut:
@@ -69,6 +80,28 @@ class FileService:
         out = await confirm_upload(file, self.storage)
         await self.db.commit()
         return out
+
+    async def link(self, file_id: str) -> FileLink:
+        """A short-lived download link for a job photo on a booking the caller can see."""
+        file = (
+            await self.db.execute(
+                scoped(File, self.biz).where(File.id == file_id, File.uploaded_at.is_not(None))
+            )
+        ).scalar_one_or_none()
+        if file is None or file.parent_type != "booking":
+            raise NotFound("file not found")
+        await self._visible_booking(file.parent_id)
+        return FileLink(url=self.storage.presign_download(file.s3_key))
+
+    async def _visible_booking(self, booking_id: str) -> None:
+        booking = (
+            await self.db.execute(
+                scoped(Booking, self.biz, soft_delete=True).where(Booking.id == booking_id)
+            )
+        ).scalar_one_or_none()
+        if booking is None:
+            raise NotFound("booking not found")
+        assert_can_act_as(self.principal, booking.staff_id)
 
     async def _assert_public_parent(self, data: FileCreate) -> None:
         assert_role(
