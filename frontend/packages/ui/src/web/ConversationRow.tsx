@@ -5,7 +5,7 @@ import { Badge } from "./Badge";
 import { Icon } from "./Icon";
 import { type WebProps, cx } from "./props";
 
-const GLYPH = { sms: "phoneDevice", email: "mail", chat: "inbox" } as const;
+const GLYPH = { sms: "phoneDevice", email: "mail" } as const;
 
 export function ConversationRow({
     name,

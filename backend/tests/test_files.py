@@ -10,18 +10,17 @@ from clientbridge.core import clock
 from clientbridge.models.platform import File
 from clientbridge.services.files import run_prune_pending_files
 from tests.conftest import Factory, FakeFileStorage
-from tests.helpers import client_id
 
 BIZ = "bz_birchbark"
+PET = "sj_bella"
 
 
 async def test_create_returns_presigned_upload_url(
     as_owner: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
 ) -> None:
-    cid = await client_id(db)
     res = await as_owner.post(
         "/v1/files",
-        json={"parent_type": "client", "parent_id": cid, "content_type": "image/png", "size": 42},
+        json={"parent_type": "subject", "parent_id": PET, "content_type": "image/png", "size": 42},
     )
     assert res.status_code == 201, res.text
     body = res.json()
@@ -35,21 +34,19 @@ async def test_create_returns_presigned_upload_url(
 async def test_create_defaults_content_type(
     as_owner: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
 ) -> None:
-    cid = await client_id(db)
-    res = await as_owner.post("/v1/files", json={"parent_type": "client", "parent_id": cid})
+    res = await as_owner.post("/v1/files", json={"parent_type": "subject", "parent_id": PET})
     assert res.status_code == 201, res.text
     key = res.json()["file"]["s3_key"]
     assert (key, "application/octet-stream") in storage.uploads
 
 
 async def test_any_member_can_create(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await client_id(db)
-    res = await as_staff.post("/v1/files", json={"parent_type": "client", "parent_id": cid})
+    res = await as_staff.post("/v1/files", json={"parent_type": "subject", "parent_id": PET})
     assert res.status_code == 201, res.text
 
 
 async def test_create_requires_auth(unauth: httpx.AsyncClient) -> None:
-    res = await unauth.post("/v1/files", json={"parent_type": "client", "parent_id": "cl_x"})
+    res = await unauth.post("/v1/files", json={"parent_type": "subject", "parent_id": "sj_x"})
     assert res.status_code == 401
 
 
@@ -64,8 +61,7 @@ async def _pending(api: httpx.AsyncClient, body: dict[str, object]) -> dict[str,
 async def test_complete_confirms_the_stored_bytes_once(
     as_owner: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
 ) -> None:
-    cid = await client_id(db)
-    file = await _pending(as_owner, {"parent_type": "client", "parent_id": cid, "size": 42})
+    file = await _pending(as_owner, {"parent_type": "subject", "parent_id": PET, "size": 42})
     storage.stored[file["s3_key"]] = 42
     first = await as_owner.post(f"/v1/files/{file['id']}/complete")
     assert first.status_code == 200, first.text
@@ -77,7 +73,7 @@ async def test_complete_confirms_the_stored_bytes_once(
 async def test_complete_before_the_bytes_arrive_is_409(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    file = await _pending(as_owner, {"parent_type": "client", "parent_id": await client_id(db)})
+    file = await _pending(as_owner, {"parent_type": "subject", "parent_id": PET})
     res = await as_owner.post(f"/v1/files/{file['id']}/complete")
     assert res.status_code == 409 and res.json()["error"] == "upload_missing"
 
@@ -85,8 +81,7 @@ async def test_complete_before_the_bytes_arrive_is_409(
 async def test_complete_with_another_size_is_422(
     as_owner: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
 ) -> None:
-    cid = await client_id(db)
-    file = await _pending(as_owner, {"parent_type": "client", "parent_id": cid, "size": 42})
+    file = await _pending(as_owner, {"parent_type": "subject", "parent_id": PET, "size": 42})
     storage.stored[file["s3_key"]] = 7
     assert (await as_owner.post(f"/v1/files/{file['id']}/complete")).status_code == 422
 
@@ -175,9 +170,7 @@ async def test_storage_network_call_runs_outside_the_request_event_loop(
     storage: FakeFileStorage,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    file = await _pending(
-        as_owner, {"parent_type": "client", "parent_id": await client_id(db), "size": 42}
-    )
+    file = await _pending(as_owner, {"parent_type": "subject", "parent_id": PET, "size": 42})
     storage.stored[file["s3_key"]] = 42
     calls: list[int] = []
     original = storage.head

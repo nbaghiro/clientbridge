@@ -37,7 +37,6 @@ LAPSED_WRITES = frozenset(
         ("POST", "/v1/consents/export"),
         ("POST", "/v1/reports/export"),
         ("POST", "/v1/threads/{thread_id}/read"),
-        ("POST", "/v1/connect/onboard"),
         ("POST", "/v1/connect/session"),
         ("POST", "/v1/payments/{payment_id}/refund"),
     }

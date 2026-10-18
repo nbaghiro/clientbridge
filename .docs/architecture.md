@@ -571,7 +571,7 @@ file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it
   the business, so the application fee is our fee alone) and `losses_collector=stripe` (Stripe owns negative
   balances, as Stripe recommends for direct charges). Both responsibilities are fixed at creation. With those
   values Stripe collects KYC itself (`requirements_collector=stripe`): onboarding is the embedded
-  `account_onboarding` component or a v2 account link, and the platform cannot accept the terms for the
+  `account_onboarding` component, and the platform cannot accept the terms for the
   business. The merchant configuration requests `card_payments` and `link_payments`; `acss_debit_payments`
   is requested when a business first asks for a bank authorization. Every payment call (PaymentIntents,
   refunds, customers, setup intents, mandates, prices, subscriptions, balance, Terminal) stays on `/v1`

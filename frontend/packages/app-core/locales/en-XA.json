@@ -4811,9 +4811,6 @@
     "messaging.channelEmail": {
         "message": "[Éɱåîļ one]"
     },
-    "messaging.channelChat": {
-        "message": "[Çĥåţ one]"
-    },
     "messaging.loading": {
         "message": "[Ļöåðîñĝ çöñṽéŕšåţîöñš one two]"
     },
@@ -5296,9 +5293,6 @@
     },
     "broadcasts.sources.unsubscribe": {
         "message": "[Ûñšûƀšçŕîƀé ļîñķ one two]"
-    },
-    "broadcasts.sources.import": {
-        "message": "[Îɱþöŕţ one]"
     },
     "broadcasts.sources.preferences": {
         "message": "[Þŕéƒéŕéñçéš þåĝé one two]"

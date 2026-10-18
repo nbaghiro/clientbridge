@@ -928,7 +928,6 @@ def seed_appointments() -> None:
                 confirmed_at=at(d - 1, 12) if status in {"confirmed", "completed"} else None,
                 completed_at=at(d, h + 1) if status == "completed" else None,
                 canceled_at=at(d - 1, 9) if status == "canceled" else None,
-                custom_fields={"booked_via": "app"},
             )
         )
         if status == "completed":
@@ -1609,7 +1608,6 @@ def seed_coverage() -> None:
                 deposit_amount_cents=1400,
                 deposit_status="collected" if j == 0 else "pending",
                 confirmed_at=at(1, 12),
-                custom_fields={"class": "puppy_social"},
             )
         )
     rows.append(
@@ -1657,7 +1655,6 @@ def seed_coverage() -> None:
             confirmed_at=at(-10, 12),
             completed_at=at(-9, 15),
             invoice_id="inv_1099",
-            custom_fields={},
         )
     )
     rows.append(
@@ -1875,58 +1872,6 @@ def seed_coverage() -> None:
             provider_ref="pi_demo_sub_david",
             status="succeeded",
             paid_at=at(-6, 6),
-        )
-    )
-
-    rows.append(
-        Thread(
-            id="th_chat",
-            business_id=BIZ,
-            client_id="cl_sophie",
-            channel="chat",
-            status="open",
-        )
-    )
-    rows.append(
-        Message(
-            id="msg_chat",
-            business_id=BIZ,
-            thread_id="th_chat",
-            direction="in",
-            channel="chat",
-            body="Hi! Does Mochi need a bath before the puppy class?",
-            status="read",
-        )
-    )
-
-    rows.append(
-        Review(
-            id="rv_low",
-            submitted_at=at(-7, 18),
-            business_id=BIZ,
-            client_id="cl_david",
-            booking_id="bk_008",
-            rating=2,
-            body="Groom was fine but I waited 20 minutes past my slot.",
-            response="So sorry about the wait, David — we've adjusted the schedule.",
-            responded_at=at(-6, 10),
-            sent_to_google=False,
-            status="published",
-        )
-    )
-    rows.append(
-        Review(
-            id="rv_hidden",
-            submitted_at=at(-5, 18),
-            business_id=BIZ,
-            client_id="cl_olivia",
-            booking_id="bk_refund",
-            rating=1,
-            body="[flagged as spam]",
-            response=None,
-            responded_at=None,
-            sent_to_google=False,
-            status="hidden",
         )
     )
 
@@ -2178,7 +2123,6 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
     add_finance_scenarios(ctx)
     build_calendar(ctx)
     prepare_finance(ctx)
-    rows[:] = [r for r in rows if not isinstance(r, (Thread, Message, Review))]
     build_identity(ctx)
     build_engagement(ctx)
     align_chronology(ctx)

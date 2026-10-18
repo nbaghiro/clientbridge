@@ -36,8 +36,6 @@ async def test_sign_up_onboard_invite_and_accept(
         201,
     ).json()
     assert business["slug"] == "flow-studio" and business["province"] == "ON"
-    rates = ok(await api.get("/v1/tax-rates")).json()
-    assert [(r["jurisdiction"], r["rate_bps"]) for r in rates] == [("HST", 1300)]
 
     client = ok(await api.post("/v1/clients", json={"name": "First Client"}), 201).json()
     invite = ok(

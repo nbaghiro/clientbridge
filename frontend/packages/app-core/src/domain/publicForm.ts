@@ -13,7 +13,6 @@ export interface PublicFormField {
     help: string | null;
     required: boolean;
     options: unknown[];
-    validation: Record<string, unknown>;
     position: number;
 }
 

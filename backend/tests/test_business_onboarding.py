@@ -4,6 +4,7 @@ import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.services.tax import rates_for_business
 from tests.conftest import Factory, FakeIdentityProvider, session_token
 
 
@@ -36,12 +37,12 @@ async def test_onboard_creates_business_owner_and_taxes(
     assert owner.name == user.name  # the owner's name syncs to the team on their staff row
 
     # An exact ordered list, so a duplicated or missing rate fails
-    rates = (await api.get("/v1/tax-rates")).json()
-    assert [(r["jurisdiction"], r["rate_bps"]) for r in rates] == [("GST", 500), ("PST", 700)]
+    rates = await rates_for_business(db, biz["id"])
+    assert [(r.jurisdiction, r.rate_bps) for r in rates] == [("GST", 500), ("PST", 700)]
 
 
 async def test_onboard_province_drives_taxes(
-    api: httpx.AsyncClient, factory: Factory, identities: FakeIdentityProvider
+    api: httpx.AsyncClient, factory: Factory, identities: FakeIdentityProvider, db: AsyncSession
 ) -> None:
     user = await factory.user()
     await _auth(api, factory, identities, user.id)
@@ -49,8 +50,8 @@ async def test_onboard_province_drives_taxes(
         "/v1/onboarding", json={"name": "ON Biz", "slug": "on-biz", "province": "ON"}
     )
     assert res.status_code == 201
-    rates = (await api.get("/v1/tax-rates")).json()
-    assert [(r["jurisdiction"], r["rate_bps"]) for r in rates] == [("HST", 1300)]
+    rates = await rates_for_business(db, res.json()["id"])
+    assert [(r.jurisdiction, r.rate_bps) for r in rates] == [("HST", 1300)]
 
 
 async def test_onboard_owner_can_access_their_team(

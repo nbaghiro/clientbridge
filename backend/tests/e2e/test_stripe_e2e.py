@@ -31,10 +31,6 @@ async def test_fresh_v2_account_reports_kyc_requirements(live_gateway: StripeGat
     assert status.details_submitted is False
     owed = [*status.currently_due, *status.eventually_due, *status.past_due]
     assert any(code.startswith(TERMS_REQUIREMENT) for code in owed)
-    url = await live_gateway.create_account_link(
-        account_id, refresh_url="https://x.test/refresh", return_url="https://x.test/return"
-    )
-    assert url.startswith("https://")
 
 
 async def test_pad_capability_request_is_accepted(

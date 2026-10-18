@@ -70,15 +70,11 @@ class TaxComponent:
 
 @dataclass(frozen=True)
 class ProvinceRate:
-    """One sales-tax component (e.g. BC PST 7%) — what the tax engine and `/v1/tax-rates` use."""
+    """One sales-tax component (e.g. BC PST 7%) — what the tax engine uses."""
 
     jurisdiction: str
     province: str
     rate: Decimal
-
-    @property
-    def id(self) -> str:
-        return f"{self.province}_{self.jurisdiction}"  # synthetic key for the API/UI list
 
     @property
     def rate_bps(self) -> int:

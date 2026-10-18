@@ -44,7 +44,6 @@ class PublicFormField(Mirror):
     help: str | None
     required: bool
     options: list[object]
-    validation: dict[str, object]
     position: int
 
 

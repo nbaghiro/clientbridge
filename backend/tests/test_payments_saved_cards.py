@@ -326,7 +326,7 @@ async def test_foreign_client_and_method_404_by_scoping(
     assert (await as_owner.post(f"/v1/payments/methods/{pm.id}/default")).status_code == 404
     card = await as_owner.post(f"/v1/payments/setup-intent/{other_client.id}")
     assert card.status_code == 404
-    bank = await as_owner.post(f"/v1/payments/pad-setup-intent/{other_client.id}")
+    bank = await as_owner.post(f"/v1/payments/pad-links/{other_client.id}")
     assert bank.status_code == 404
     assert (await db.get(PaymentMethod, pm.id, populate_existing=True)) is not None
 

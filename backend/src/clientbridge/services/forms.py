@@ -152,7 +152,6 @@ class FormService:
             row.help = (data.help or "").strip() or None
             row.required = data.required
             row.options = _options(data)
-            row.validation = {}
             row.position = position
             out.append(row)
         await self.db.flush()
@@ -225,7 +224,6 @@ def _form_out(form: Form, fields: list[FormField]) -> FormOut:
                 help=f.help,
                 required=f.required,
                 options=f.options,
-                validation=f.validation,
                 position=f.position,
             )
             for f in fields
@@ -327,7 +325,6 @@ def form_definition(
                 help=f.help,
                 required=bool(f.required),
                 options=f.options or [],
-                validation=f.validation or {},
                 position=f.position or 0,
             )
             for f in sorted(fields, key=lambda f: f.position or 0)

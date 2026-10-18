@@ -60,7 +60,7 @@ async def test_unbalanced_journal_is_rejected(db: AsyncSession) -> None:
         await ledger.post(
             db,
             BIZ,
-            event="adjustment",
+            event="invoice",
             ref="t:bad",
             legs=[Leg("client", "cl_x", "receivable", 100), Leg("business", BIZ, "revenue", -99)],
         )
@@ -186,7 +186,7 @@ async def test_database_rejects_an_unbalanced_journal(db: AsyncSession) -> None:
                 text(
                     "INSERT INTO entries (id, business_id, journal_id, account_id, owner_type, "
                     "owner_id, amount_cents, currency, event, ref, leg, meta) VALUES ('ent_x', :b, "
-                    "'jrn_x', :a, 'client', 'cl_x', 5, 'CAD', 'adjustment', 't:raw', 0, '{}')"
+                    "'jrn_x', :a, 'client', 'cl_x', 5, 'CAD', 'invoice', 't:raw', 0, '{}')"
                 ),
                 {"b": BIZ, "a": account},
             )

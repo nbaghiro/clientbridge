@@ -217,8 +217,6 @@ def _conversations(ctx: DemoContext) -> None:
                 "Happy to help plan your next visit. Let us know which service you need.",
                 when,
             )
-        if client_id == "cl_marcus":
-            thread.status = "closed"
     thread = _thread(ctx, "cl_olivia", "sms", ctx.now - timedelta(hours=2))
     _message(
         ctx,
@@ -359,7 +357,6 @@ def _documents(ctx: DemoContext) -> None:
                 label=label,
                 required=required,
                 options=options,
-                validation={},
                 position=position,
                 created_at=created,
                 updated_at=created,
@@ -393,7 +390,6 @@ def _documents(ctx: DemoContext) -> None:
                 label=label,
                 required=name == "rating",
                 options=[],
-                validation={},
                 position=position,
                 created_at=created,
                 updated_at=created,

@@ -280,7 +280,6 @@ export function useFormEditor(
                 help: f.help.trim() || null,
                 required: f.required,
                 options: f.options.filter((o) => o.trim().length > 0),
-                validation: {},
                 position: i,
             })),
         [fields],

@@ -5169,9 +5169,6 @@
     "messaging.channelEmail": {
         "message": "Email"
     },
-    "messaging.channelChat": {
-        "message": "Chat"
-    },
     "messaging.loading": {
         "message": "Loading conversations"
     },
@@ -5681,9 +5678,6 @@
     },
     "broadcasts.sources.unsubscribe": {
         "message": "Unsubscribe link"
-    },
-    "broadcasts.sources.import": {
-        "message": "Import"
     },
     "broadcasts.sources.preferences": {
         "message": "Preferences page"

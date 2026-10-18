@@ -15,7 +15,7 @@ from sqlalchemy import (
     String,
     Time,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
 from clientbridge.core.db import Base
@@ -91,7 +91,6 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     reschedule_count: Mapped[int] = mapped_column(
         Integer, default=0, server_default="0", nullable=False
     )
-    custom_fields: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
 
 
 class Hours(PKMixin, BusinessScoped, TimestampMixin, Base):

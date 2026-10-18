@@ -9,8 +9,8 @@ from clientbridge.core.db import Base
 from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, enum_check
 from clientbridge.models.clients import Channel
 
-ThreadChannel = Literal["sms", "email", "chat"]
-ThreadStatus = Literal["open", "closed"]
+ThreadChannel = Literal["sms", "email"]
+ThreadStatus = Literal["open"]
 Direction = Literal["in", "out"]
 MessageStatus = Literal["draft", "queued", "sent", "delivered", "read", "failed"]
 BroadcastStatus = Literal["draft", "scheduled", "sending", "sent", "canceled"]

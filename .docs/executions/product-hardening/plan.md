@@ -474,7 +474,7 @@ Historical evidence: `models/scheduling.py:142`; `core/zones.py:11-20`; `scripts
 
 Historical evidence: `api/payments.py:38-45`, `:81`; `models/clients.py:41`
 
-**Current resolution (deliberate scope retained):** Admin person detail now reads Client.user_id. Public API routes remain supported even where the app chooses a hosted setup flow; absence of one frontend caller is not proof of dead API.
+**Current resolution (addressed):** Admin person detail now reads Client.user_id. The two test-only routes were removed together with `GET /v1/tax-rates`, which also had no client caller.
 
 ### L19
 
@@ -482,7 +482,7 @@ Missing unit tests for the `hooks.ts` helpers, the `public*` hook logic and `fil
 
 Historical evidence: `hooks.ts`; `backend/tests/test_catalog.py:72`
 
-**Current resolution (implemented / regression retained):** Added hook races, public contract/form/day failures, file storage checks and anonymous tax-rate regression; existing integration coverage retained.
+**Current resolution (implemented / regression retained):** Added hook races, public contract/form/day failures, file storage checks; existing integration coverage retained.
 
 ### L20
 

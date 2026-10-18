@@ -43,7 +43,6 @@ EntryEvent = Literal[
     "earning",
     "approval",
     "staff_payment",
-    "adjustment",
     "reversal",
     "tip",
 ]

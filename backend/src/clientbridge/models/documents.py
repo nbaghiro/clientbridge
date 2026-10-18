@@ -59,7 +59,6 @@ class FormField(PKMixin, BusinessScoped, TimestampMixin, Base):
     help: Mapped[str | None] = mapped_column(String)
     required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     options: Mapped[list[object]] = mapped_column(JSONB, default=list, nullable=False)
-    validation: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
     position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
 

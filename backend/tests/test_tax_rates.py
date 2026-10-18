@@ -59,8 +59,11 @@ def test_each_province_charges_its_published_rates(province: str) -> None:
     assert sum(r.rate for r in rates) == Decimal(COMBINED[province])
 
 
-def test_api_rates_round_qst_to_whole_basis_points() -> None:
-    assert [(r.id, r.rate_bps) for r in rates_on("QC", TODAY)] == [("QC_GST", 500), ("QC_QST", 998)]
+def test_rates_round_qst_to_whole_basis_points() -> None:
+    assert [(r.jurisdiction, r.rate_bps) for r in rates_on("QC", TODAY)] == [
+        ("GST", 500),
+        ("QST", 998),
+    ]
 
 
 def test_nova_scotia_hst_dropped_to_14_on_april_1_2025() -> None:

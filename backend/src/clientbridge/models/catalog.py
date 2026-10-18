@@ -14,7 +14,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
 from clientbridge.core.db import Base
@@ -105,7 +105,6 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
     addon_for: Mapped[list[str]] = mapped_column(
         ARRAY(String), default=list, server_default="{}", nullable=False
     )
-    custom_fields: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
 
 
 class Package(PKMixin, BusinessScoped, TimestampMixin, Base):
