@@ -3,10 +3,11 @@ from uuid import uuid4
 
 import pytest
 from scripts.demo_validate import validate_database, validate_graph
-from scripts.seed_demo import build_demo, validate_seed_target
+from scripts.seed_demo import build_demo, refresh_demo_settings, validate_seed_target
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
+from clientbridge.models.business import Business
 from clientbridge.models.clients import Consent
 from clientbridge.models.scheduling import Booking, Slot
 from tests.conftest import BIZ
@@ -61,6 +62,39 @@ async def test_seed_reset_preserves_unrelated_accounts(owner_db: AsyncSession) -
     assert await db.scalar(select(Business.id).where(Business.id == outsider.id)) == outsider.id
     assert await db.scalar(select(User.id).where(User.id == user.id)) == user.id
     assert await db.scalar(select(Business.id).where(Business.id == BIZ)) is None
+
+
+async def test_reseeding_refreshes_only_the_demo_business_settings(db: AsyncSession) -> None:
+    second = await db.get(Business, "bz_demo_second")
+    assert second is not None
+    second.street_number = second.street_name = second.city = second.postal_code = None
+    second.legal_phone = second.subject = second.plan = None
+    second.plan_status = "trialing"
+    second.name = "Renamed by a tester"
+    await db.flush()
+    ctx = build_demo()
+    changed = await refresh_demo_settings(db, ctx)
+    assert set(changed) == {
+        f"bz_demo_second.{field}"
+        for field in (
+            "street_number",
+            "street_name",
+            "city",
+            "postal_code",
+            "legal_phone",
+            "subject",
+            "plan",
+            "plan_status",
+        )
+    }
+    assert (second.street_name, second.postal_code, second.subject) == (
+        "Granville Street",
+        "V6C 1T1",
+        "pet",
+    )
+    assert (second.plan, second.plan_status) == ("team", "active")
+    assert second.name == "Renamed by a tester"
+    assert await refresh_demo_settings(db, ctx) == []
 
 
 @pytest.mark.parametrize(

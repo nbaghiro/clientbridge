@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from typing import cast
 
 import pytest
+from scripts.seed_demo import build_demo, refresh_demo_settings
 from scripts.stripe_setup import (
     DEMO_BUSINESSES,
     DEMO_TAG,
@@ -730,3 +731,22 @@ def test_linking_runs_only_on_dev_or_staging_with_a_test_key() -> None:
         "ENV is 'prod'; linking runs only with ENV=dev or ENV=staging"
     ]
     assert link_problems("staging", "sk_live_1") == ["STRIPE_SECRET_KEY is not a test-mode key"]
+
+
+async def test_reseeding_fills_the_address_the_terminal_location_needs(db: AsyncSession) -> None:
+    for biz in DEMO_BUSINESSES:
+        business = await db.get(Business, biz.id)
+        assert business is not None
+        business.street_number = business.street_name = business.city = None
+        business.postal_code = business.legal_phone = business.subject = None
+    await db.flush()
+
+    async def blocked() -> list[str]:
+        linker = Linker(Stripe(FakeCli(), None), db, apply=False)
+        for biz in DEMO_BUSINESSES:
+            await linker.business(biz, ACCOUNT)
+        return [s.target for s in linker.steps if s.action == "blocked"]
+
+    assert await blocked() == [f"terminal location for {biz.id}" for biz in DEMO_BUSINESSES]
+    await refresh_demo_settings(db, build_demo())
+    assert await blocked() == []

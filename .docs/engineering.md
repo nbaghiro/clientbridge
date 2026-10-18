@@ -472,7 +472,7 @@ Production and staging setup of the sending domain, API key and webhook is in [o
 
 ## The demo / QA account
 
-Demo accounts are normal tenants in the main local `clientbridge` database, using the standard servers and provider integrations. `make seed` adds them when absent; `make demo-reset` refreshes only the seeded accounts and preserves unrelated tenants. `make demo-check` validates their scenario and ledger. There is no demo runtime mode or separate presentation database.
+Demo accounts are normal tenants in the main local `clientbridge` database, using the standard servers and provider integrations. `make seed` adds them when absent and otherwise brings their required business settings (legal address and phone, subject, plan) to the seed's values; `make demo-reset` refreshes only the seeded accounts and preserves unrelated tenants. `make demo-check` validates their scenario and ledger. There is no demo runtime mode or separate presentation database.
 
 | Login                         | Role                                                 |
 | ----------------------------- | ---------------------------------------------------- |

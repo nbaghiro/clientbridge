@@ -1,4 +1,4 @@
-"""Build and validate an isolated demo, replacing existing demo rows only with --reset-demo."""
+"""Build and validate an isolated demo; an existing one keeps its rows unless --reset-demo."""
 
 from __future__ import annotations
 
@@ -58,6 +58,19 @@ STAGING_DATABASE = "staging_clientbridge"
 rows: list[Base] = []
 EARNING_STAGE: dict[str, str] = {}  # booking id -> how far its groomer's earning has gone
 PACKAGE_USED = {"pkg_marcus": 2, "pkg_grace": 5, "pkg_sophie": 4}
+# business settings the app requires, brought to the seed's values on an existing demo
+DEMO_SETTINGS = (
+    "province",
+    "unit",
+    "street_number",
+    "street_name",
+    "city",
+    "postal_code",
+    "legal_phone",
+    "subject",
+    "plan",
+    "plan_status",
+)
 
 
 def at(days_offset: float, hour: int = 9, minute: int = 0) -> datetime:
@@ -2175,6 +2188,20 @@ async def purge_businesses(
     await session.execute(text("ALTER TABLE entries ENABLE TRIGGER entries_append_only"))
 
 
+async def refresh_demo_settings(session: AsyncSession, ctx: DemoContext) -> list[str]:
+    changed: list[str] = []
+    for seeded in ctx.all(Business):
+        business = await session.get(Business, seeded.id)
+        if business is None:
+            continue
+        for field in DEMO_SETTINGS:
+            if getattr(business, field) != getattr(seeded, field):
+                setattr(business, field, getattr(seeded, field))
+                changed.append(f"{business.id}.{field}")
+    await session.flush()
+    return changed
+
+
 async def link_identities(ctx: DemoContext) -> None:
     """Every demo user signs in with the demo password and a verified email."""
     identities = get_identity_provider()
@@ -2200,7 +2227,12 @@ async def main(*, reset_demo: bool = False, as_of: datetime | None = None) -> No
         business_ids = [row.id for row in ctx.all(Business)]
         exists = await session.scalar(select(Business.id).where(Business.id.in_(business_ids)))
         if exists and not reset_demo:
-            print("Demo accounts already exist; use --reset-demo to refresh only those accounts.")
+            changed = await refresh_demo_settings(session, ctx)
+            await session.commit()
+            await owner.dispose()
+            summary = ", ".join(changed) or "none changed"
+            print(f"Demo accounts already exist; refreshed their settings ({summary}).")
+            print("Use --reset-demo to replace the rest of their rows.")
             return
         await replace_demo_rows(session, ctx)
         for cls in INSERT_ORDER:

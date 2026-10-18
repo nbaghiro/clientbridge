@@ -1,4 +1,4 @@
-"""Staging's demo Job after migrate: seed the demo businesses when absent, then link Stripe."""
+"""Staging's demo Job after migrate: seed or refresh the demo businesses, then link Stripe."""
 
 import pulumi
 import pulumi_kubernetes as k8s
@@ -7,7 +7,7 @@ from kubernetes import migrate, settings, sidecar
 
 NAME = "seed"
 DEADLINE_SECONDS = 900
-# seed_demo adds the demo businesses only when they are missing; the link reruns harmlessly
+# seed_demo sets the address the Terminal location needs before the link, which reruns harmlessly
 COMMAND = (
     "/bin/sh",
     "-c",
