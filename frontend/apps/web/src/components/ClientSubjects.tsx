@@ -1,8 +1,11 @@
 import {
+    type EquipmentLine,
     type SubjectCard,
     type SubjectForm,
     type SubjectKind,
     type SubjectRow,
+    EQUIPMENT_FIELDS,
+    EQUIPMENT_MAX,
     SUBJECT_ICON,
     formatDate,
     kindWord,
@@ -104,7 +107,111 @@ function SubjectFields({ form }: { form: SubjectForm }) {
                     </div>
                 );
             })}
+            {form.equipment !== null ? (
+                <div className="sm:col-span-2">
+                    <EquipmentFields form={form} equipment={form.equipment} />
+                </div>
+            ) : null}
         </div>
+    );
+}
+
+/** A site's installed devices, one group of fields per device. */
+function EquipmentFields({
+    form,
+    equipment,
+}: {
+    form: SubjectForm;
+    equipment: NonNullable<SubjectForm["equipment"]>;
+}) {
+    const zone = useBusinessZone();
+    return (
+        <section className="space-y-3 border-t border-line-soft pt-4">
+            <div>
+                <h3 className="font-display text-base font-bold text-ink">{s.equipment.title}</h3>
+                <p className="text-sm text-muted">{s.equipment.hint}</p>
+            </div>
+            {equipment.map((device, i) => (
+                <div key={i} className="rounded-lg border border-line p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                        <span className="text-sm font-semibold text-ink">
+                            {s.equipment.item(i + 1)}
+                        </span>
+                        <Button
+                            size="sm"
+                            variant="quiet"
+                            label={s.equipment.remove}
+                            icon={<Icon name="trash" size={14} />}
+                            onPress={() => {
+                                form.removeEquipment(i);
+                            }}
+                        >
+                            {s.equipment.remove}
+                        </Button>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        {EQUIPMENT_FIELDS.map((f) => {
+                            const error = form.errors[`equipment.${String(i)}.${f.key}`];
+                            return f.type === "date" ? (
+                                <DateField
+                                    key={f.key}
+                                    zone={zone}
+                                    label={f.label}
+                                    optional
+                                    value={device[f.key]}
+                                    onChange={(v) => {
+                                        form.setEquipment(i, f.key, v);
+                                    }}
+                                    error={error}
+                                />
+                            ) : (
+                                <TextField
+                                    key={f.key}
+                                    label={f.label}
+                                    optional={f.key !== "model"}
+                                    value={device[f.key]}
+                                    placeholder={f.placeholder}
+                                    onChange={(v) => {
+                                        form.setEquipment(i, f.key, v);
+                                    }}
+                                    error={error}
+                                />
+                            );
+                        })}
+                    </div>
+                </div>
+            ))}
+            {equipment.length < EQUIPMENT_MAX ? (
+                <Button
+                    variant="outline"
+                    icon={<Icon name="plus" size={16} />}
+                    onPress={form.addEquipment}
+                >
+                    {s.equipment.add}
+                </Button>
+            ) : null}
+        </section>
+    );
+}
+
+/** A site's devices on its card, each with its warranty. */
+function EquipmentList({ lines }: { lines: readonly EquipmentLine[] }) {
+    return (
+        <ul className="divide-y divide-line-soft">
+            {lines.map((line) => (
+                <li key={line.key} className="flex items-start gap-3 py-2">
+                    <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-ink">{line.model}</p>
+                        {line.detail !== "" ? (
+                            <p className="truncate text-xs text-muted">{line.detail}</p>
+                        ) : null}
+                    </div>
+                    {line.warranty !== null ? (
+                        <Badge label={line.warranty} intent={line.intent} />
+                    ) : null}
+                </li>
+            ))}
+        </ul>
     );
 }
 
@@ -219,6 +326,12 @@ function SubjectCardView({ card, onEdit }: { card: SubjectCard; onEdit: () => vo
                         </li>
                     ))}
                 </ul>
+            ) : null}
+            {card.equipment.length > 0 ? (
+                <div className="border-t border-line-soft px-4 py-2">
+                    <h4 className="pt-1 text-xs font-semibold text-muted">{s.equipment.title}</h4>
+                    <EquipmentList lines={card.equipment} />
+                </div>
             ) : null}
             <dl className="mt-auto grid grid-cols-3 gap-2 border-t border-line-soft px-4 py-3 text-xs">
                 <div>

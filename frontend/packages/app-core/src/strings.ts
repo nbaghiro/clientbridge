@@ -1711,6 +1711,38 @@ interface Strings {
                 readonly pets: string;
                 readonly petsPlaceholder: string;
             } & Labels;
+            readonly site: {
+                readonly building: string;
+                readonly buildings: (building: string) => string;
+                readonly internet: string;
+                readonly internetPlaceholder: string;
+                readonly recorder: string;
+                readonly recorderPlaceholder: string;
+                readonly pets: string;
+                readonly petsPlaceholder: string;
+                readonly accessPlaceholder: string;
+            };
+        };
+        readonly devices: (count: number) => string;
+        readonly equipment: {
+            readonly title: string;
+            readonly hint: string;
+            readonly add: string;
+            readonly remove: string;
+            readonly item: (n: number) => string;
+            readonly model: string;
+            readonly modelPlaceholder: string;
+            readonly location: string;
+            readonly locationPlaceholder: string;
+            readonly serial: string;
+            readonly installedOn: string;
+            readonly warrantyUntil: string;
+            readonly modelRequired: string;
+            readonly tooLong: (max: number) => string;
+            readonly serialShort: (serial: string) => string;
+            readonly installed: (date: string) => string;
+            readonly warrantyEnds: (date: string) => string;
+            readonly warrantyEnded: (date: string) => string;
         };
     };
     readonly messaging: {
@@ -3653,7 +3685,7 @@ interface Strings {
         readonly subjectRequired: (kind: string) => string;
         readonly address: string;
         readonly addressPlaceholder: string;
-        readonly addressRequired: string;
+        readonly addressRequired: (kind: string) => string;
         readonly summary: string;
         readonly dueNow: string;
         readonly dueAtVisit: string;

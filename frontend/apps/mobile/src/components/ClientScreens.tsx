@@ -212,6 +212,28 @@ function SubjectCardView({ card, onPress }: { card: SubjectCard; onPress: () => 
                     </Text>
                 </View>
             ))}
+            {card.equipment.length > 0 ? (
+                <View style={styles.equipment}>
+                    <Text style={styles.statLabel}>{sj.equipment.title}</Text>
+                    {card.equipment.map((line) => (
+                        <View key={line.key} style={styles.device}>
+                            <View style={styles.deviceText}>
+                                <Text style={styles.statValue} numberOfLines={1}>
+                                    {line.model}
+                                </Text>
+                                {line.detail !== "" ? (
+                                    <Text style={styles.statLabel} numberOfLines={1}>
+                                        {line.detail}
+                                    </Text>
+                                ) : null}
+                            </View>
+                            {line.warranty !== null ? (
+                                <Badge label={line.warranty} intent={line.intent} />
+                            ) : null}
+                        </View>
+                    ))}
+                </View>
+            ) : null}
             <View style={styles.stats}>
                 <Stat label={sj.visits} value={String(card.visits)} />
                 <Stat
@@ -670,6 +692,15 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
     },
     stat: { flex: 1, minWidth: 0 },
+    equipment: {
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: c.border,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        gap: 8,
+    },
+    device: { flexDirection: "row", alignItems: "center", gap: 8 },
+    deviceText: { flex: 1, minWidth: 0 },
     statLabel: { color: c.muted, fontSize: 11 },
     statValue: { color: c.ink, fontSize: 13, fontWeight: "600", marginTop: 2 },
     warn: {

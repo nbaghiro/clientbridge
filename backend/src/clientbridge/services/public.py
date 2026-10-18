@@ -19,7 +19,7 @@ from clientbridge.core.scoping import scoped
 from clientbridge.integrations.s3 import FileStorage
 from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
-from clientbridge.models.business import Business, Staff
+from clientbridge.models.business import PLACE_KINDS, Business, Staff
 from clientbridge.models.catalog import BOOKABLE_KINDS, Item
 from clientbridge.models.clients import Channel, Client, Note, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
@@ -567,8 +567,8 @@ def _assert_subject_fields(business: Business, data: PublicBookingCreate) -> Non
     named = bool((data.subject_name or "").strip())
     if business.subject is None and (named or data.subject_address is not None):
         raise Unprocessable("this business books only the client", code="no_subjects")
-    if data.subject_address is not None and business.subject != "property":
-        raise Unprocessable("only a property business takes an address", code="no_subjects")
+    if data.subject_address is not None and business.subject not in PLACE_KINDS:
+        raise Unprocessable("only a property or site business takes an address", code="no_subjects")
 
 
 def _same_place(stored: object, given: str) -> bool:
@@ -585,7 +585,7 @@ async def _subject(
     name: str | None,
     address: str | None,
 ) -> str | None:
-    """The client's subject of that name (and a property's address), filed when first booked."""
+    """The client's subject of that name (and a place's address), filed when first booked."""
     if name is None or name.strip() == "":
         return None
     clean = name.strip()
@@ -602,7 +602,7 @@ async def _subject(
         .all()
     )
     found = named[0] if named else None
-    if business.subject == "property" and place:
+    if business.subject in PLACE_KINDS and place:
         found = next(
             (s for s in named if _same_place(s.attributes.get("address"), place)),
             next((s for s in named if not s.attributes.get("address")), None),

@@ -2887,9 +2887,9 @@
         "message": "Client"
     },
     "bookings.composerClientSearch": {
-        "message": "{kind, select, pet {Search clients or pets} student {Search clients or students} property {Search clients or properties} other {Search clients}}",
+        "message": "{kind, select, pet {Search clients or pets} student {Search clients or students} property {Search clients or properties} site {Search clients or sites} other {Search clients}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "bookings.composerService": {
         "message": "Service"
@@ -3086,9 +3086,9 @@
         "message": "New"
     },
     "recurrences.search": {
-        "message": "{kind, select, pet {Search client, pet or service} student {Search client, student or service} property {Search client, property or service} other {Search client or service}}",
+        "message": "{kind, select, pet {Search client, pet or service} student {Search client, student or service} property {Search client, property or service} site {Search client, site or service} other {Search client or service}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "recurrences.filterAll": {
         "message": "All"
@@ -3180,9 +3180,9 @@
         "message": "Instead of a message per visit. Reminders still go out before each one."
     },
     "recurrences.subject": {
-        "message": "{kind, select, pet {Pet: {name}} student {Student: {name}} property {Property: {name}} other {{name}}}",
+        "message": "{kind, select, pet {Pet: {name}} student {Student: {name}} property {Property: {name}} site {Site: {name}} other {{name}}}",
         "args": ["kind", "name"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "recurrences.dates": {
         "message": "Dates"
@@ -3514,9 +3514,9 @@
         "message": "Nervous around other dogs"
     },
     "classes.addPlaceholder": {
-        "message": "{kind, select, pet {Add a client or pet} student {Add a client or student} property {Add a client or property} other {Add a client}}",
+        "message": "{kind, select, pet {Add a client or pet} student {Add a client or student} property {Add a client or property} site {Add a client or site} other {Add a client}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "classes.added": {
         "message": "{name} is booked into this class.",
@@ -4205,9 +4205,9 @@
         "message": "Consume"
     },
     "clients.record.searchPlaceholder": {
-        "message": "{kind, select, pet {Search name, phone, email or pet} student {Search name, phone, email or student} property {Search name, phone, email or address} other {Search name, phone or email}}",
+        "message": "{kind, select, pet {Search name, phone, email or pet} student {Search name, phone, email or student} property {Search name, phone, email or address} site {Search name, phone, email or address} other {Search name, phone or email}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "clients.record.emptyTitle": {
         "message": "No clients yet"
@@ -4491,19 +4491,19 @@
         "message": "Archiving keeps every booking, invoice and payment."
     },
     "subjects.many": {
-        "message": "{kind, select, pet {Pets} student {Students} property {Properties} other {Details}}",
+        "message": "{kind, select, pet {Pets} student {Students} property {Properties} site {Sites} other {Details}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.one": {
-        "message": "{kind, select, pet {Pet} student {Student} property {Property} other {Detail}}",
+        "message": "{kind, select, pet {Pet} student {Student} property {Property} site {Site} other {Detail}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.add": {
-        "message": "{kind, select, pet {Add pet} student {Add student} property {Add property} other {Add}}",
+        "message": "{kind, select, pet {Add pet} student {Add student} property {Add property} site {Add site} other {Add}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.edit": {
         "message": "Edit"
@@ -4513,42 +4513,42 @@
         "args": ["name"]
     },
     "subjects.remove": {
-        "message": "{kind, select, pet {Remove pet} student {Remove student} property {Remove property} other {Remove}}",
+        "message": "{kind, select, pet {Remove pet} student {Remove student} property {Remove property} site {Remove site} other {Remove}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.removeTitle": {
         "message": "Remove {name}?",
         "args": ["name"]
     },
     "subjects.removeBody": {
-        "message": "{kind, select, pet {Past bookings and invoices keep the pet's name. It won't be offered for new bookings.} student {Past bookings and invoices keep the student's name. They won't be offered for new bookings.} property {Past bookings and invoices keep the property's name. It won't be offered for new bookings.} other {Past bookings and invoices keep the name. It won't be offered for new bookings.}}",
+        "message": "{kind, select, pet {Past bookings and invoices keep the pet's name. It won't be offered for new bookings.} student {Past bookings and invoices keep the student's name. They won't be offered for new bookings.} property {Past bookings and invoices keep the property's name. It won't be offered for new bookings.} site {Past bookings and invoices keep the site's name. It won't be offered for new bookings.} other {Past bookings and invoices keep the name. It won't be offered for new bookings.}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.removeConfirm": {
         "message": "Remove"
     },
     "subjects.removeError": {
-        "message": "{kind, select, pet {Couldn't remove this pet. Please try again.} student {Couldn't remove this student. Please try again.} property {Couldn't remove this property. Please try again.} other {Couldn't remove this. Please try again.}}",
+        "message": "{kind, select, pet {Couldn't remove this pet. Please try again.} student {Couldn't remove this student. Please try again.} property {Couldn't remove this property. Please try again.} site {Couldn't remove this site. Please try again.} other {Couldn't remove this. Please try again.}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.nameLabel": {
         "message": "Name"
     },
     "subjects.nameRequired": {
-        "message": "{kind, select, pet {Give the pet a name.} student {Add the student's name.} property {Give the property a name, like Home or Cottage.} other {Add a name.}}",
+        "message": "{kind, select, pet {Give the pet a name.} student {Add the student's name.} property {Give the property a name, like Home or Cottage.} site {Give the site a name, like Home or Main office.} other {Add a name.}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.dateInvalid": {
         "message": "Use the format YYYY-MM-DD."
     },
     "subjects.save": {
-        "message": "{kind, select, pet {Save pet} student {Save student} property {Save property} other {Save}}",
+        "message": "{kind, select, pet {Save pet} student {Save student} property {Save property} site {Save site} other {Save}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.saveShort": {
         "message": "Save"
@@ -4557,9 +4557,9 @@
         "message": "Saving…"
     },
     "subjects.saveError": {
-        "message": "{kind, select, pet {Couldn't save this pet. Please try again.} student {Couldn't save this student. Please try again.} property {Couldn't save this property. Please try again.} other {Couldn't save this. Please try again.}}",
+        "message": "{kind, select, pet {Couldn't save this pet. Please try again.} student {Couldn't save this student. Please try again.} property {Couldn't save this property. Please try again.} site {Couldn't save this site. Please try again.} other {Couldn't save this. Please try again.}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.visits": {
         "message": "Visits"
@@ -4574,54 +4574,54 @@
         "message": "Nothing booked"
     },
     "subjects.noneTitle": {
-        "message": "{kind, select, pet {No pets yet} student {No students yet} property {No properties yet} other {Nothing added yet}}",
+        "message": "{kind, select, pet {No pets yet} student {No students yet} property {No properties yet} site {No sites yet} other {Nothing added yet}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.noneBody": {
-        "message": "{kind, select, pet {Add one so bookings and invoices name the right animal.} student {Add one so bookings and invoices name the right student.} property {Add one so bookings and invoices name the right address.} other {Add one so bookings and invoices name it.}}",
+        "message": "{kind, select, pet {Add one so bookings and invoices name the right animal.} student {Add one so bookings and invoices name the right student.} property {Add one so bookings and invoices name the right address.} site {Add one so bookings and invoices name the right address, and so its equipment has a place to live.} other {Add one so bookings and invoices name it.}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.none": {
-        "message": "{kind, select, pet {No pets yet.} student {No students yet.} property {No properties yet.} other {Nothing added yet.}}",
+        "message": "{kind, select, pet {No pets yet.} student {No students yet.} property {No properties yet.} site {No sites yet.} other {Nothing added yet.}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.loading": {
-        "message": "{kind, select, pet {Loading pets} student {Loading students} property {Loading properties} other {Loading}}",
+        "message": "{kind, select, pet {Loading pets} student {Loading students} property {Loading properties} site {Loading sites} other {Loading}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.loadError": {
-        "message": "{kind, select, pet {Couldn't load pets} student {Couldn't load students} property {Couldn't load properties} other {Couldn't load}}",
+        "message": "{kind, select, pet {Couldn't load pets} student {Couldn't load students} property {Couldn't load properties} site {Couldn't load sites} other {Couldn't load}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.first": {
-        "message": "{kind, select, pet {First pet} student {First student} property {First property} other {First entry}}",
+        "message": "{kind, select, pet {First pet} student {First student} property {First property} site {First site} other {First entry}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.firstHint": {
-        "message": "{kind, select, pet {You can add more pets from the record.} student {You can add more students from the record.} property {You can add more properties from the record.} other {You can add more from the record.}}",
+        "message": "{kind, select, pet {You can add more pets from the record.} student {You can add more students from the record.} property {You can add more properties from the record.} site {You can add more sites from the record.} other {You can add more from the record.}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.firstName": {
-        "message": "{kind, select, pet {Pet's name} student {Student's name} property {Property name} other {Name}}",
+        "message": "{kind, select, pet {Pet's name} student {Student's name} property {Property name} site {Site name} other {Name}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.firstNamePlaceholder": {
-        "message": "{kind, select, pet {Bella} student {Maya} property {Home} other {}}",
+        "message": "{kind, select, pet {Bella} student {Maya} property {Home} site {Home} other {}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.firstDetailPlaceholder": {
-        "message": "{kind, select, pet {Goldendoodle} student {Grade 4} property {12 Arbutus Lane} other {}}",
+        "message": "{kind, select, pet {Goldendoodle} student {Grade 4} property {12 Arbutus Lane} site {880 Douglas St} other {}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.choiceLabel": {
         "message": "What do clients book for?"
@@ -4630,14 +4630,14 @@
         "message": "Bookings and client records ask for this. You can change it later in business settings."
     },
     "subjects.choice": {
-        "message": "{kind, select, pet {Pets} student {Students} property {Properties} other {Only the client}}",
+        "message": "{kind, select, pet {Pets} student {Students} property {Properties} site {Sites} other {Only the client}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.choiceHint": {
-        "message": "{kind, select, pet {Grooming, daycare and boarding} student {Tutoring and lessons} property {Cleaning and home services} other {Salons, fitness, wellness and photography}}",
+        "message": "{kind, select, pet {Grooming, daycare and boarding} student {Tutoring and lessons} property {Cleaning and home services} site {Security, alarm and AV installs} other {Salons, fitness, wellness and photography}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "subjects.choiceRequired": {
         "message": "Choose what clients book for."
@@ -4646,9 +4646,9 @@
         "message": "Change what clients book for?"
     },
     "subjects.changeBody": {
-        "message": "{from, select, pet {{count, plural, one {# pet} other {# pets}}} student {{count, plural, one {# student} other {# students}}} property {{count, plural, one {# property} other {# properties}}} other {{count, plural, one {# saved name} other {# saved names}}}} on client records {to, select, pet {will be shown as pets} student {will be shown as students} property {will be shown as properties} other {will be hidden from bookings and records}}. Their details are kept.",
+        "message": "{from, select, pet {{count, plural, one {# pet} other {# pets}}} student {{count, plural, one {# student} other {# students}}} property {{count, plural, one {# property} other {# properties}}} site {{count, plural, one {# site} other {# sites}}} other {{count, plural, one {# saved name} other {# saved names}}}} on client records {to, select, pet {will be shown as pets} student {will be shown as students} property {will be shown as properties} site {will be shown as sites} other {will be hidden from bookings and records}}. Their details are kept.",
         "args": ["from", "to", "count"],
-        "description": "from and to are the old and new kind: pet, student, property, or none"
+        "description": "from and to are the old and new kind: pet, student, property, site, site, or none"
     },
     "subjects.changeConfirm": {
         "message": "Change"
@@ -4785,6 +4785,99 @@
     "subjects.fields.property.petsPlaceholder": {
         "message": "A friendly cat"
     },
+    "subjects.fields.site.building": {
+        "message": "Building"
+    },
+    "subjects.fields.site.buildings": {
+        "message": "{building, select, house {House} townhouse {Townhouse} apartment {Apartment} retail {Retail} office {Office} warehouse {Warehouse} other {{building}}}",
+        "args": ["building"],
+        "description": "building is the stored building type of a site: house, townhouse, apartment, retail, office or warehouse"
+    },
+    "subjects.fields.site.internet": {
+        "message": "Internet"
+    },
+    "subjects.fields.site.internetPlaceholder": {
+        "message": "Provider and where the router is"
+    },
+    "subjects.fields.site.recorder": {
+        "message": "Recorder location"
+    },
+    "subjects.fields.site.recorderPlaceholder": {
+        "message": "Basement closet"
+    },
+    "subjects.fields.site.pets": {
+        "message": "Pets on site"
+    },
+    "subjects.fields.site.petsPlaceholder": {
+        "message": "A dog in the back yard"
+    },
+    "subjects.fields.site.accessPlaceholder": {
+        "message": "Gate code, alarm panel, parking, who lets you in"
+    },
+    "subjects.devices": {
+        "message": "{count, plural, one {# device} other {# devices}}",
+        "args": ["count"]
+    },
+    "subjects.equipment.title": {
+        "message": "Equipment"
+    },
+    "subjects.equipment.hint": {
+        "message": "Installed devices, with serial numbers and warranty dates."
+    },
+    "subjects.equipment.add": {
+        "message": "Add device"
+    },
+    "subjects.equipment.remove": {
+        "message": "Remove device"
+    },
+    "subjects.equipment.item": {
+        "message": "Device {n, number}",
+        "args": ["n"]
+    },
+    "subjects.equipment.model": {
+        "message": "Model"
+    },
+    "subjects.equipment.modelPlaceholder": {
+        "message": "4MP turret camera"
+    },
+    "subjects.equipment.location": {
+        "message": "Location"
+    },
+    "subjects.equipment.locationPlaceholder": {
+        "message": "Front door"
+    },
+    "subjects.equipment.serial": {
+        "message": "Serial number"
+    },
+    "subjects.equipment.installedOn": {
+        "message": "Installed on"
+    },
+    "subjects.equipment.warrantyUntil": {
+        "message": "Warranty until"
+    },
+    "subjects.equipment.modelRequired": {
+        "message": "Add the model, or remove this device."
+    },
+    "subjects.equipment.tooLong": {
+        "message": "Keep this under {max, number} characters.",
+        "args": ["max"]
+    },
+    "subjects.equipment.serialShort": {
+        "message": "S/N {serial}",
+        "args": ["serial"]
+    },
+    "subjects.equipment.installed": {
+        "message": "Installed {date}",
+        "args": ["date"]
+    },
+    "subjects.equipment.warrantyEnds": {
+        "message": "Warranty until {date}",
+        "args": ["date"]
+    },
+    "subjects.equipment.warrantyEnded": {
+        "message": "Warranty ended {date}",
+        "args": ["date"]
+    },
     "clients.history.title": {
         "message": "History"
     },
@@ -4808,9 +4901,9 @@
         "args": ["label", "n"]
     },
     "clients.history.notePlaceholder": {
-        "message": "{kind, select, pet {Add a note about this client or a pet} student {Add a note about this client or a student} property {Add a note about this client or a property} other {Add a note about this client}}",
+        "message": "{kind, select, pet {Add a note about this client or a pet} student {Add a note about this client or a student} property {Add a note about this client or a property} site {Add a note about this client or a site} other {Add a note about this client}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "clients.history.noteRequired": {
         "message": "Write something first."
@@ -5140,9 +5233,9 @@
         "args": ["n"]
     },
     "clients.tidy.moves.subjects": {
-        "message": "{kind, select, pet {Pets: {names}} student {Students: {names}} property {Properties: {names}} other {Also: {names}}}",
+        "message": "{kind, select, pet {Pets: {names}} student {Students: {names}} property {Properties: {names}} site {Sites: {names}} other {Also: {names}}}",
         "args": ["kind", "names"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "clients.tidy.moves.messages": {
         "message": "{n, plural, one {# message} other {# messages}}",
@@ -5157,9 +5250,9 @@
         "args": ["bookings"]
     },
     "clients.tidy.footprintWith": {
-        "message": "{bookings, plural, one {# booking} other {# bookings}} · {kind, select, pet {{count, plural, one {# pet} other {# pets}}} student {{count, plural, one {# student} other {# students}}} property {{count, plural, one {# property} other {# properties}}} other {{count, plural, one {# more} other {# more}}}}",
+        "message": "{bookings, plural, one {# booking} other {# bookings}} · {kind, select, pet {{count, plural, one {# pet} other {# pets}}} student {{count, plural, one {# student} other {# students}}} property {{count, plural, one {# property} other {# properties}}} site {{count, plural, one {# site} other {# sites}}} other {{count, plural, one {# more} other {# more}}}}",
         "args": ["kind", "bookings", "count"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "clients.tidy.created": {
         "message": "Added {when}",
@@ -5252,9 +5345,9 @@
         "args": ["name"]
     },
     "messaging.searchPlaceholder": {
-        "message": "{kind, select, pet {Search name, pet or message} student {Search name, student or message} property {Search name, property or message} other {Search name or message}}",
+        "message": "{kind, select, pet {Search name, pet or message} student {Search name, student or message} property {Search name, property or message} site {Search name, site or message} other {Search name or message}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "messaging.filters.all": {
         "message": "All"
@@ -10630,9 +10723,9 @@
         "message": "Been here before?"
     },
     "publicReturning.intro": {
-        "message": "{kind, select, pet {Verify your email or phone to find your pets and last visit.} student {Verify your email or phone to find your students and last visit.} property {Verify your email or phone to find your properties and last visit.} other {Verify your email or phone to find your last visit.}}",
+        "message": "{kind, select, pet {Verify your email or phone to find your pets and last visit.} student {Verify your email or phone to find your students and last visit.} property {Verify your email or phone to find your properties and last visit.} site {Verify your email or phone to find your sites and last visit.} other {Verify your email or phone to find your last visit.}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "publicReturning.email": {
         "message": "Email"
@@ -10669,14 +10762,14 @@
         "message": "Book the usual"
     },
     "publicReturning.choose": {
-        "message": "{kind, select, pet {Choose a pet} student {Choose a student} property {Choose a property} other {Choose one}}",
+        "message": "{kind, select, pet {Choose a pet} student {Choose a student} property {Choose a property} site {Choose a site} other {Choose one}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "publicReturning.newSubject": {
-        "message": "{kind, select, pet {Add a different pet} student {Add a different student} property {Add a different property} other {Add another}}",
+        "message": "{kind, select, pet {Add a different pet} student {Add a different student} property {Add a different property} site {Add a different site} other {Add another}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "publicReturning.contactRequired": {
         "message": "Enter your email address or phone number."
@@ -10707,9 +10800,9 @@
         "message": "I've been here before"
     },
     "publicBooking.guided.returningBody": {
-        "message": "{kind, select, pet {Verify your details to find your pets and last visit.} student {Verify your details to find your students and last visit.} property {Verify your details to find your properties and last visit.} other {Verify your details to find your last visit.}}",
+        "message": "{kind, select, pet {Verify your details to find your pets and last visit.} student {Verify your details to find your students and last visit.} property {Verify your details to find your properties and last visit.} site {Verify your details to find your sites and last visit.} other {Verify your details to find your last visit.}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "publicBooking.guided.different": {
         "message": "Book something different"
@@ -10848,14 +10941,14 @@
         "message": "you@example.com"
     },
     "publicBooking.subject": {
-        "message": "{kind, select, pet {Pet's name} student {Student's name} property {Property name} other {Name}}",
+        "message": "{kind, select, pet {Pet's name} student {Student's name} property {Property name} site {Site name} other {Name}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "publicBooking.subjectPlaceholder": {
-        "message": "{kind, select, pet {Who's coming in?} student {Who's the lesson for?} property {Home, cottage or office} other {}}",
+        "message": "{kind, select, pet {Who's coming in?} student {Who's the lesson for?} property {Home, cottage or office} site {Home, shop or office} other {}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "publicBooking.note": {
         "message": "Anything we should know"
@@ -10879,9 +10972,9 @@
         "message": "That phone number doesn't look right. Use 10 digits, or + and the country code."
     },
     "publicBooking.subjectRequired": {
-        "message": "{kind, select, pet {Add your pet's name.} student {Add the student's name.} property {Give the property a name, like Home.} other {Add a name.}}",
+        "message": "{kind, select, pet {Add your pet's name.} student {Add the student's name.} property {Give the property a name, like Home.} site {Give the site a name, like Home.} other {Add a name.}}",
         "args": ["kind"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "publicBooking.address": {
         "message": "Address"
@@ -10890,7 +10983,9 @@
         "message": "12 Arbutus Lane, Victoria"
     },
     "publicBooking.addressRequired": {
-        "message": "Add the property's address."
+        "message": "{kind, select, site {Add the site's address.} other {Add the property's address.}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client: property or site"
     },
     "publicBooking.summary": {
         "message": "Your visit"
@@ -12269,9 +12364,9 @@
         "args": ["businessName"]
     },
     "publicReview.promptSubject": {
-        "message": "{kind, select, pet {How was {name}'s visit?} student {How was {name}'s lesson?} property {How did the visit to {name} go?} other {How was the visit for {name}?}}",
+        "message": "{kind, select, pet {How was {name}'s visit?} student {How was {name}'s lesson?} property {How did the visit to {name} go?} site {How did the visit to {name} go?} other {How was the visit for {name}?}}",
         "args": ["kind", "name"],
-        "description": "kind is what the business books besides the client: pet, student, property, or none"
+        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
     },
     "publicReview.context": {
         "message": "{service} with {staff}",

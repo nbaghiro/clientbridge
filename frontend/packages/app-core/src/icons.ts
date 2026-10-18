@@ -93,6 +93,7 @@ export const SUBJECT_ICON: Record<SubjectKind, IconName> = {
     pet: "paw",
     student: "user",
     property: "building",
+    site: "shield",
 };
 
 export const ICON_SPECS: Record<IconName, IconPrimitive[]> = {

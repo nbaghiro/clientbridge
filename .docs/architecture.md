@@ -263,7 +263,7 @@ shown after it.
 ### Tables by domain
 
 **business (3)** — `businesses` (all Stripe-Connect/KYC mirror fields + Canadian tax fields + `slug` + brand
-JSONB + `subject`, what a booking names besides the client: pet, student or property, NULL when the
+JSONB + `subject`, what a booking names besides the client: pet, student, property or site, NULL when the
 business books only the client), `users` (one per auth identity via unique `identity_id`; `email` copied from the auth service, `last_seen_at`), `staff` (user↔business, `role`
 owner/admin/staff/contractor, payout config `payee`/`rate_type` with the rate in `rate_bps` (percent) or
 `rate_cents` (fixed or hourly), one membership per user per business, pending invites via

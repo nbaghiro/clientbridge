@@ -12,12 +12,12 @@ import { useReplicaLoad } from "./sync";
 
 const s = strings.subjects;
 
-export type SubjectKind = "pet" | "student" | "property";
+export type SubjectKind = "pet" | "student" | "property" | "site";
 
 /** A business's answer to what it books: one of the kinds, or "none" for only the client. */
 export type SubjectChoice = SubjectKind | "none";
 
-const KINDS: readonly SubjectKind[] = ["pet", "student", "property"];
+const KINDS: readonly SubjectKind[] = ["pet", "student", "property", "site"];
 
 export function asSubjectKind(value: string | null | undefined): SubjectKind | null {
     return KINDS.find((k) => k === value) ?? null;
@@ -32,9 +32,9 @@ export function kindOf(choice: SubjectChoice): SubjectKind | null {
     return choice === "none" ? null : choice;
 }
 
-/** The four answers to what clients book for, each with the trades it suits. */
+/** The answers to what clients book for, each with the trades it suits. */
 export function subjectChoices(): ChoiceOption<SubjectChoice>[] {
-    return (["pet", "student", "property", "none"] as const).map((key) => ({
+    return (["pet", "student", "property", "site", "none"] as const).map((key) => ({
         key,
         label: s.choice(key),
         hint: s.choiceHint(key),
@@ -320,22 +320,220 @@ const PROPERTY_FIELDS: readonly SubjectField[] = [
     },
 ];
 
+const BUILDINGS = ["house", "townhouse", "apartment", "retail", "office", "warehouse"] as const;
+
+const SITE_FIELDS: readonly SubjectField[] = [
+    ADDRESS,
+    {
+        key: "building",
+        get label() {
+            return s.fields.site.building;
+        },
+        type: "choice",
+        options: BUILDINGS.map((b) => option(b, () => s.fields.site.buildings(b))),
+    },
+    {
+        key: "internet",
+        get label() {
+            return s.fields.site.internet;
+        },
+        type: "text",
+        get placeholder() {
+            return s.fields.site.internetPlaceholder;
+        },
+        half: true,
+    },
+    {
+        key: "recorder_location",
+        get label() {
+            return s.fields.site.recorder;
+        },
+        type: "text",
+        get placeholder() {
+            return s.fields.site.recorderPlaceholder;
+        },
+        half: true,
+    },
+    {
+        key: "pets",
+        get label() {
+            return s.fields.site.pets;
+        },
+        type: "text",
+        get placeholder() {
+            return s.fields.site.petsPlaceholder;
+        },
+    },
+    {
+        key: "access",
+        get label() {
+            return s.fields.property.access;
+        },
+        type: "longtext",
+        get placeholder() {
+            return s.fields.site.accessPlaceholder;
+        },
+    },
+];
+
 // One schema per kind; the form and the card render from it, so a kind needs no screens of its own.
 const SUBJECT_FIELDS: Record<SubjectKind, readonly SubjectField[]> = {
     pet: PET_FIELDS,
     student: STUDENT_FIELDS,
     property: PROPERTY_FIELDS,
+    site: SITE_FIELDS,
 };
 
 const LEAD_FIELD: Record<SubjectKind, SubjectField> = {
     pet: BREED,
     student: GRADE,
     property: ADDRESS,
+    site: ADDRESS,
 };
 
 /** The one detail asked for beside the name when a new client brings their first subject. */
 export function leadField(kind: SubjectKind): SubjectField {
     return LEAD_FIELD[kind];
+}
+
+const EQUIPMENT_KEYS = ["model", "serial", "location", "installed_on", "warranty_until"] as const;
+
+type EquipmentKey = (typeof EQUIPMENT_KEYS)[number];
+
+type EquipmentDraft = Record<EquipmentKey, string>;
+
+interface EquipmentField {
+    key: EquipmentKey;
+    label: string;
+    type: "text" | "date";
+    placeholder?: string | undefined;
+}
+
+/** The fields of one installed device, in the order a site's equipment form asks for them. */
+export const EQUIPMENT_FIELDS: readonly EquipmentField[] = [
+    {
+        key: "model",
+        get label() {
+            return s.equipment.model;
+        },
+        type: "text",
+        get placeholder() {
+            return s.equipment.modelPlaceholder;
+        },
+    },
+    {
+        key: "location",
+        get label() {
+            return s.equipment.location;
+        },
+        type: "text",
+        get placeholder() {
+            return s.equipment.locationPlaceholder;
+        },
+    },
+    {
+        key: "serial",
+        get label() {
+            return s.equipment.serial;
+        },
+        type: "text",
+    },
+    {
+        key: "installed_on",
+        get label() {
+            return s.equipment.installedOn;
+        },
+        type: "date",
+    },
+    {
+        key: "warranty_until",
+        get label() {
+            return s.equipment.warrantyUntil;
+        },
+        type: "date",
+    },
+];
+
+/** The most devices one site holds, matching the API's limit. */
+export const EQUIPMENT_MAX = 100;
+
+const EQUIPMENT_LENGTH: Record<EquipmentKey, number> = {
+    model: 80,
+    serial: 80,
+    location: 80,
+    installed_on: 10,
+    warranty_until: 10,
+};
+
+const DATE_KEYS: ReadonlySet<EquipmentKey> = new Set(["installed_on", "warranty_until"]);
+
+const blankEquipment = (): EquipmentDraft => ({
+    model: "",
+    serial: "",
+    location: "",
+    installed_on: "",
+    warranty_until: "",
+});
+
+/** A site's stored equipment list as drafts; entries that are not objects are dropped. */
+function storedEquipment(attributes: Record<string, unknown>): EquipmentDraft[] {
+    const list = attributes.equipment;
+    if (!Array.isArray(list)) return [];
+    return list
+        .filter((e): e is Record<string, unknown> => typeof e === "object" && e !== null)
+        .map((e) => ({
+            model: text(e.model),
+            serial: text(e.serial),
+            location: text(e.location),
+            installed_on: text(e.installed_on),
+            warranty_until: text(e.warranty_until),
+        }));
+}
+
+export interface EquipmentLine {
+    key: string;
+    model: string;
+    detail: string;
+    warranty: string | null;
+    intent: Intent;
+}
+
+const WARRANTY_SOON_DAYS = 60;
+
+/** One line per installed device, with its warranty and whether it has ended or ends soon. */
+export function equipmentLines(
+    attributes: Record<string, unknown>,
+    zone: string,
+    now: Date = new Date(),
+): EquipmentLine[] {
+    return storedEquipment(attributes).map((e, i) => {
+        const installed = e.installed_on === "" ? null : readDate(e.installed_on, zone);
+        const until = e.warranty_until === "" ? null : readDate(e.warranty_until, zone);
+        const days = until === null ? null : (until.getTime() - now.getTime()) / 86_400_000;
+        return {
+            key: `${String(i)}-${e.model}`,
+            model: e.model,
+            detail: formatParts([
+                e.location,
+                e.serial === "" ? "" : s.equipment.serialShort(e.serial),
+                installed === null ? "" : s.equipment.installed(formatDate(installed, zone)),
+            ]),
+            warranty:
+                until === null || days === null
+                    ? null
+                    : days < 0
+                      ? s.equipment.warrantyEnded(formatDate(until, zone))
+                      : s.equipment.warrantyEnds(formatDate(until, zone)),
+            intent:
+                days === null
+                    ? "neutral"
+                    : days < 0
+                      ? "danger"
+                      : days < WARRANTY_SOON_DAYS
+                        ? "warning"
+                        : "success",
+        };
+    });
 }
 
 function ageYears(birthday: string, now: Date, zone: string): number | null {
@@ -366,6 +564,15 @@ export function subjectSummary(
     if (kind === "property") {
         const rooms = Number(text(attributes.rooms));
         return formatParts([text(attributes.address), rooms > 0 ? s.rooms(rooms) : ""]);
+    }
+    if (kind === "site") {
+        const building = text(attributes.building);
+        const devices = storedEquipment(attributes).length;
+        return formatParts([
+            text(attributes.address),
+            building === "" ? "" : s.fields.site.buildings(building),
+            devices > 0 ? s.devices(devices) : "",
+        ]);
     }
     return "";
 }
@@ -411,6 +618,7 @@ function subjectAlerts(
 export interface SubjectCard {
     subject: SubjectRow;
     line: string;
+    equipment: EquipmentLine[];
     temperament: { label: string; nervous: boolean } | null;
     alerts: SubjectAlert[];
     visits: number;
@@ -431,6 +639,7 @@ function subjectCard(
     return {
         subject,
         line: subjectSummary(kind, subject.attributes, zone, now),
+        equipment: kind === "site" ? equipmentLines(subject.attributes, zone, now) : [],
         temperament: subjectTemperament(kind, subject.attributes),
         alerts: subjectAlerts(kind, subject.attributes, now, zone),
         visits: done.length,
@@ -464,6 +673,11 @@ export interface SubjectForm {
     setName: (v: string) => void;
     values: Record<string, string>;
     setValue: (key: string, v: string) => void;
+    /** A site's installed devices; null for kinds that keep no equipment list. */
+    equipment: EquipmentDraft[] | null;
+    addEquipment: () => void;
+    setEquipment: (index: number, key: EquipmentKey, v: string) => void;
+    removeEquipment: (index: number) => void;
     errors: Record<string, string>;
     busy: boolean;
     error: string | null;
@@ -491,6 +705,9 @@ export function useSubjectForm(
     const fields = kind === null ? [] : SUBJECT_FIELDS[kind];
     const [name, setNameRaw] = useState(subject?.name ?? "");
     const [edits, setEdits] = useState<Record<string, string>>({});
+    const [devices, setDevices] = useState<EquipmentDraft[] | null>(null);
+    const equipment =
+        kind === "site" ? (devices ?? storedEquipment(subject?.attributes ?? {})) : null;
     // edits sit over the stored values, so a kind that syncs after the first render still fills in
     const values = { ...storedValues(fields, subject), ...edits };
     const [tried, setTried] = useState(false);
@@ -513,6 +730,18 @@ export function useSubjectForm(
                     e[f.key] = s.fields.property.roomsInvalid;
             }
         }
+        (equipment ?? []).forEach((d, i) => {
+            if (EQUIPMENT_KEYS.every((k) => d[k].trim() === "")) return;
+            if (d.model.trim() === "")
+                e[`equipment.${String(i)}.model`] = s.equipment.modelRequired;
+            for (const k of EQUIPMENT_KEYS) {
+                const v = d[k].trim();
+                if (v.length > EQUIPMENT_LENGTH[k])
+                    e[`equipment.${String(i)}.${k}`] = s.equipment.tooLong(EQUIPMENT_LENGTH[k]);
+                else if (DATE_KEYS.has(k) && v !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(v))
+                    e[`equipment.${String(i)}.${k}`] = s.dateInvalid;
+            }
+        });
         return e;
     };
 
@@ -520,6 +749,7 @@ export function useSubjectForm(
         setTried(true);
         if (Object.keys(check()).length > 0) return;
         const known = new Set(fields.map((f) => f.key));
+        if (equipment !== null) known.add("equipment");
         const kept = Object.fromEntries(
             Object.entries(subject?.attributes ?? {}).filter(([k]) => !known.has(k)),
         );
@@ -529,7 +759,20 @@ export function useSubjectForm(
                 .filter(([, v]) => v !== "")
                 .map(([f, v]) => [f.key, f.type === "number" ? parseNumber(v) : v]),
         );
-        const attributes = { ...kept, ...typed };
+        const devicesTyped = (equipment ?? [])
+            .map((d) =>
+                Object.fromEntries(
+                    EQUIPMENT_KEYS.map((k) => [k, d[k].trim()] as const).filter(
+                        ([, v]) => v !== "",
+                    ),
+                ),
+            )
+            .filter((d) => Object.keys(d).length > 0);
+        const attributes = {
+            ...kept,
+            ...typed,
+            ...(devicesTyped.length > 0 ? { equipment: devicesTyped } : {}),
+        };
         run(
             async () => {
                 if (subject === null) {
@@ -563,6 +806,20 @@ export function useSubjectForm(
         setValue: (key, v) => {
             setEdits((x) => ({ ...x, [key]: v }));
             setError(null);
+        },
+        equipment,
+        addEquipment: () => {
+            if (equipment === null || equipment.length >= EQUIPMENT_MAX) return;
+            setDevices([...equipment, blankEquipment()]);
+        },
+        setEquipment: (index, key, v) => {
+            if (equipment === null) return;
+            setDevices(equipment.map((d, i) => (i === index ? { ...d, [key]: v } : d)));
+            setError(null);
+        },
+        removeEquipment: (index) => {
+            if (equipment === null) return;
+            setDevices(equipment.filter((_, i) => i !== index));
         },
         errors: tried ? check() : {},
         busy,

@@ -4066,7 +4066,7 @@ export interface components {
                 [key: string]: unknown;
             };
             /** Subject */
-            subject: ("pet" | "student" | "property") | null;
+            subject: ("pet" | "student" | "property" | "site") | null;
         };
         /** BusinessSettingsUpdate */
         BusinessSettingsUpdate: {
@@ -4132,7 +4132,7 @@ export interface components {
              * Subject
              * @description What bookings are for besides the client; null books only them
              */
-            subject?: ("pet" | "student" | "property") | null;
+            subject?: ("pet" | "student" | "property" | "site") | null;
         };
         /** CheckoutOut */
         CheckoutOut: {
@@ -5647,7 +5647,7 @@ export interface components {
             /** Client Name */
             client_name: string;
             /** Subject */
-            subject?: ("pet" | "student" | "property") | null;
+            subject?: ("pet" | "student" | "property" | "site") | null;
             /** Subject Name */
             subject_name: string | null;
             service: components["schemas"]["PublicService"];
@@ -5844,7 +5844,7 @@ export interface components {
              * Subject
              * @description What bookings are for besides the client; null books only them
              */
-            subject: ("pet" | "student" | "property") | null;
+            subject: ("pet" | "student" | "property" | "site") | null;
         };
         /** OnlineBookingOut */
         OnlineBookingOut: {
@@ -6401,7 +6401,7 @@ export interface components {
             subject_name?: string | null;
             /**
              * Subject Address
-             * @description A new property's address, for property businesses
+             * @description A new property's or site's address, for property and site businesses
              */
             subject_address?: string | null;
             /** Note */
@@ -6456,7 +6456,7 @@ export interface components {
              * Subject
              * @description What a booking names besides the client; null asks for nothing
              */
-            subject?: ("pet" | "student" | "property") | null;
+            subject?: ("pet" | "student" | "property" | "site") | null;
         };
         /** PublicBookingResult */
         PublicBookingResult: {
@@ -7102,7 +7102,7 @@ export interface components {
              * Subject
              * @description What a booking names besides the client; null asks for nothing
              */
-            subject?: ("pet" | "student" | "property") | null;
+            subject?: ("pet" | "student" | "property" | "site") | null;
             /** Cover Url */
             cover_url?: string | null;
             /** About */
@@ -7231,7 +7231,7 @@ export interface components {
             /** First Name */
             first_name?: string | null;
             /** Subject */
-            subject?: ("pet" | "student" | "property") | null;
+            subject?: ("pet" | "student" | "property" | "site") | null;
             /** Subject Name */
             subject_name?: string | null;
             /** Service */

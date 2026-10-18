@@ -204,7 +204,7 @@ class PublicBookingCreate(BaseModel):
     subject_address: str | None = Field(
         default=None,
         max_length=200,
-        description="A new property's address, for property businesses",
+        description="A new property's or site's address, for property and site businesses",
     )
     note: str | None = Field(default=None, max_length=1000)
 

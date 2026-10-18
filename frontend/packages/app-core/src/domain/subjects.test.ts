@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { zonedDate } from "../datetime";
 import { formatParts } from "../format";
 import { strings } from "../strings";
-import { leadField, subjectSummary, subjectTemperament } from "./subjects";
+import { equipmentLines, leadField, subjectSummary, subjectTemperament } from "./subjects";
 
 const ZONE = "America/Vancouver";
 const NOW = zonedDate(2026, 10, 7, 12, 0, ZONE);
@@ -30,6 +30,7 @@ describe("subjectSummary", () => {
         expect(subjectSummary("property", attributes, ZONE, NOW)).toBe(
             formatParts(["12 Pine St", s.rooms(3)]),
         );
+        expect(subjectSummary("site", attributes, ZONE, NOW)).toBe("12 Pine St");
         expect(subjectSummary(null, attributes, ZONE, NOW)).toBe("");
     });
 
@@ -55,5 +56,39 @@ describe("leadField", () => {
         expect(leadField("pet").key).toBe("breed");
         expect(leadField("student").key).toBe("grade");
         expect(leadField("property").key).toBe("address");
+        expect(leadField("site").key).toBe("address");
+    });
+});
+
+describe("a site", () => {
+    const site = {
+        address: "880 Douglas St",
+        building: "retail",
+        equipment: [
+            { model: "4MP turret", location: "Front door", warranty_until: "2026-11-01" },
+            {
+                model: "Recorder",
+                serial: "NV-1",
+                installed_on: "2024-05-02",
+                warranty_until: "2026-01-31",
+            },
+            { model: "Doorbell", warranty_until: "2029-04-12" },
+            { model: "Switch" },
+            "not a device",
+        ],
+    };
+
+    it("sums up its address, building and device count", () => {
+        expect(subjectSummary("site", site, ZONE, NOW)).toBe(
+            formatParts(["880 Douglas St", s.fields.site.buildings("retail"), s.devices(4)]),
+        );
+    });
+
+    it("lists each device with its warranty, flagging ended and soon-ending ones", () => {
+        const lines = equipmentLines(site, ZONE, NOW);
+        expect(lines.map((l) => l.intent)).toEqual(["warning", "danger", "success", "neutral"]);
+        expect(lines[0]?.detail).toBe("Front door");
+        expect(lines[1]?.detail).toContain(s.equipment.serialShort("NV-1"));
+        expect(lines[3]?.warranty).toBeNull();
     });
 });

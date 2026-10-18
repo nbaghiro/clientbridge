@@ -376,7 +376,8 @@ describe("detailErrors", () => {
 
     it("asks a property business for a new property's address", () => {
         const named = { ...filled, subjectName: "Cottage" };
-        expect(detailErrors(named, "property", false).address).toBe(s.addressRequired);
+        expect(detailErrors(named, "property", false).address).toBe(s.addressRequired("property"));
+        expect(detailErrors(named, "site", false).address).toBe(s.addressRequired("site"));
         expect(detailErrors(named, "property", true).address).toBeNull();
         expect(detailErrors(named, "student", false).address).toBeNull();
         expect(
