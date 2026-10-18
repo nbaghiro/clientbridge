@@ -6554,6 +6554,24 @@
     "staff.team.saving": {
         "message": "[Šåṽîñĝ… one]"
     },
+    "staff.team.profile": {
+        "message": "[Ţîţļé åñð çöļöûŕ one two]"
+    },
+    "staff.team.title": {
+        "message": "[Ţîţļé one]"
+    },
+    "staff.team.titleHint": {
+        "message": "[Šĥöŵñ ûñðéŕ ţĥéîŕ ñåɱé öñ ţĥé çåļéñðåŕ åñð ţĥé ƀööķîñĝ þåĝé one two three four]"
+    },
+    "staff.team.titlePlaceholder": {
+        "message": "[é.ĝ. Šéñîöŕ Ĝŕööɱéŕ one two]"
+    },
+    "staff.team.colour": {
+        "message": "[Çåļéñðåŕ çöļöûŕ one two]"
+    },
+    "staff.team.profileError": {
+        "message": "[Çöûļðñ'ţ šåṽé ţĥîš ɱéɱƀéŕ'š ţîţļé åñð çöļöûŕ one two three]"
+    },
     "staff.team.remove": {
         "message": "[Ŕéɱöṽé ƒŕöɱ ţéåɱ one two]"
     },

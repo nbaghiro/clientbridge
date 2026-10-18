@@ -4,6 +4,7 @@ import {
     type InviteTeammatesForm,
     type MemberRole,
     type RemovalChoice,
+    STAFF_TITLE_MAX,
     type StaffPayRow,
     type TeamInvite,
     type TeamMember,
@@ -17,6 +18,7 @@ import {
     useStaffPay,
     useRemoveMember,
     useStaffPayForm,
+    useStaffProfileForm,
     useSeatCost,
     useTeam,
 } from "@clientbridge/app-core";
@@ -31,6 +33,7 @@ import {
     DetailView,
     Empty,
     FactList,
+    Field,
     Icon,
     KeyValueList,
     ListPage,
@@ -42,6 +45,7 @@ import {
     Select,
     Skeleton,
     StatusPill,
+    SwatchPicker,
     TextField,
     Toggle,
 } from "@clientbridge/ui";
@@ -196,6 +200,45 @@ function PaySection({ row }: { row: StaffPayRow }) {
                 {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
                 <div>
                     <Button variant="outline" size="sm" onPress={form.submit} busy={form.busy}>
+                        {form.busy ? strings.common.saving : strings.common.save}
+                    </Button>
+                </div>
+            </div>
+        </DetailSection>
+    );
+}
+
+function ProfileSection({ member }: { member: TeamMember }) {
+    const form = useStaffProfileForm(api, member, () => undefined);
+    return (
+        <DetailSection title={t.profile}>
+            <div className="flex flex-col gap-3">
+                <TextField
+                    label={t.title}
+                    hint={t.titleHint}
+                    value={form.title}
+                    onChange={form.setTitle}
+                    placeholder={t.titlePlaceholder}
+                    maxLength={STAFF_TITLE_MAX}
+                    optional
+                />
+                <Field label={t.colour}>
+                    <SwatchPicker
+                        label={t.colour}
+                        colours={form.colours}
+                        value={form.colour}
+                        onChange={form.setColour}
+                    />
+                </Field>
+                {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
+                <div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onPress={form.submit}
+                        busy={form.busy}
+                        disabled={!form.dirty}
+                    >
                         {form.busy ? strings.common.saving : strings.common.save}
                     </Button>
                 </div>
@@ -369,6 +412,7 @@ function MemberDetail({
                     </p>
                 )}
             </DetailSection>
+            {team.canManage ? <ProfileSection member={member} /> : null}
             {team.canManage && pay !== undefined ? <PaySection row={pay} /> : null}
             {editable ? (
                 <DetailSection>

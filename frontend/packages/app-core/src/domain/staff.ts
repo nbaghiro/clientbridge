@@ -9,6 +9,7 @@ import { formatMoney, formatNumber, formatParts, parseNumber, BUSINESS_CURRENCY 
 import { type Load, useAsyncAction, useRemote } from "../hooks";
 import type { Fact, Intent, OccurrenceRow } from "../ui";
 import type { Viewer } from "./auth";
+import { BRAND_COLOURS } from "./business";
 import { useReplicaLoad } from "./sync";
 import { strings } from "../strings";
 import { type ApiLike, type Attempt, failedCode, failureMessage, sendAttempt } from "../api";
@@ -210,6 +211,48 @@ export function useTeam(api: ApiLike, viewer: Viewer | null): TeamView {
         },
         refresh: () => {
             remote.refresh().catch(() => undefined);
+        },
+    };
+}
+
+export const STAFF_TITLE_MAX = 60;
+
+interface StaffProfileForm {
+    title: string;
+    setTitle: (v: string) => void;
+    colour: string;
+    setColour: (v: string) => void;
+    colours: readonly string[];
+    dirty: boolean;
+    busy: boolean;
+    error: string | null;
+    submit: () => void;
+}
+
+/** Owner and admin only; the server enforces it. An empty title clears it. */
+export function useStaffProfileForm(
+    api: ApiLike,
+    member: { id: string; title: string | null; color: string | null },
+    onDone: () => void,
+): StaffProfileForm {
+    const [title, setTitle] = useState(member.title ?? "");
+    const [colour, setColour] = useState(member.color ?? "");
+    const { busy, error, run } = useAsyncAction();
+    const dirty = title.trim() !== (member.title ?? "") || colour !== (member.color ?? "");
+    return {
+        title,
+        setTitle,
+        colour,
+        setColour,
+        colours: BRAND_COLOURS,
+        dirty,
+        busy,
+        error,
+        submit: () => {
+            run(() => api.patch(`/v1/staff/${member.id}`, { title: title.trim(), color: colour }), {
+                onSuccess: onDone,
+                errorMessage: strings.staff.team.profileError,
+            });
         },
     };
 }

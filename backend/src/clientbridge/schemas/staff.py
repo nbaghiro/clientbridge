@@ -1,13 +1,16 @@
+import re
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from clientbridge.core.mirrors import Mirror
 from clientbridge.models.business import RateType, Staff, StaffRole, StaffStatus
 from clientbridge.schemas.bookings import Problem
 
 MemberRole = Literal["admin", "staff", "contractor"]
+# six-digit hex, because native clients derive tints and shades from #RRGGBB
+STAFF_COLOR = re.compile(r"^#[0-9a-fA-F]{6}\Z")
 
 
 class InviteBody(Mirror):
@@ -71,10 +74,31 @@ class StaffPayOut(Mirror):
     retail_rate_bps: int | None
 
 
-class RoleUpdate(Mirror):
+class StaffUpdate(Mirror):
     mirrors = Staff
 
-    role: MemberRole
+    role: MemberRole | None = None
+    title: str | None = Field(
+        default=None, max_length=60, description="Shown under the name; an empty string clears it"
+    )
+    color: str | None = Field(
+        default=None, description="A #RRGGBB colour for the calendar; an empty string clears it"
+    )
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def _trim_title(cls, v: object) -> object:
+        return v.strip() if isinstance(v, str) else v
+
+    @field_validator("color")
+    @classmethod
+    def _check_color(cls, v: str | None) -> str | None:
+        v = (v or "").strip()
+        if v == "":
+            return None
+        if STAFF_COLOR.match(v) is None:
+            raise ValueError("colour must be a hex value like #3F5E80")
+        return v.upper()
 
 
 class TeamMember(Mirror):

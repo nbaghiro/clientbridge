@@ -2322,8 +2322,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Change Role */
-        patch: operations["change_role_v1_staff__staff_id__patch"];
+        /** Update Member */
+        patch: operations["update_member_v1_staff__staff_id__patch"];
         trace?: never;
     };
     "/v1/staff/{staff_id}/remove": {
@@ -7980,14 +7980,6 @@ export interface components {
             /** Google Review Url */
             google_review_url: string;
         };
-        /** RoleUpdate */
-        RoleUpdate: {
-            /**
-             * Role
-             * @enum {string}
-             */
-            role: "admin" | "staff" | "contractor";
-        };
         /** RosterAction */
         RosterAction: {
             /**
@@ -8143,6 +8135,21 @@ export interface components {
             series_moved: components["schemas"]["MovedSeries"][];
             /** Series Ended */
             series_ended: string[];
+        };
+        /** StaffUpdate */
+        StaffUpdate: {
+            /** Role */
+            role?: ("admin" | "staff" | "contractor") | null;
+            /**
+             * Title
+             * @description Shown under the name; an empty string clears it
+             */
+            title?: string | null;
+            /**
+             * Color
+             * @description A #RRGGBB colour for the calendar; an empty string clears it
+             */
+            color?: string | null;
         };
         /** SubjectCreate */
         SubjectCreate: {
@@ -13492,7 +13499,7 @@ export interface operations {
             };
         };
     };
-    change_role_v1_staff__staff_id__patch: {
+    update_member_v1_staff__staff_id__patch: {
         parameters: {
             query?: never;
             header?: {
@@ -13507,7 +13514,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RoleUpdate"];
+                "application/json": components["schemas"]["StaffUpdate"];
             };
         };
         responses: {

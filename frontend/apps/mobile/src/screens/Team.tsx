@@ -4,6 +4,7 @@ import {
     type InviteTeammatesForm,
     type MemberRole,
     type RemovalChoice,
+    STAFF_TITLE_MAX,
     type StaffPayRow,
     type TeamInvite,
     type TeamMember,
@@ -17,6 +18,7 @@ import {
     useStaffPay,
     useRemoveMember,
     useStaffPayForm,
+    useStaffProfileForm,
     useTeam,
     formatParts,
     formatList,
@@ -32,6 +34,7 @@ import {
     DetailView,
     Empty,
     FactList,
+    Field,
     Icon,
     KeyValueList,
     ListRow,
@@ -41,6 +44,7 @@ import {
     OccurrenceList,
     Select,
     Skeleton,
+    SwatchPicker,
     TextField,
     Toggle,
 } from "@clientbridge/ui";
@@ -179,6 +183,42 @@ function PaySection({ row }: { row: StaffPayRow }) {
             {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
             <View style={styles.gapSm}>
                 <Button variant="outline" onPress={form.submit} busy={form.busy}>
+                    {strings.common.save}
+                </Button>
+            </View>
+        </DetailSection>
+    );
+}
+
+function ProfileSection({ member }: { member: TeamMember }) {
+    const form = useStaffProfileForm(api, member, () => undefined);
+    return (
+        <DetailSection title={t.profile}>
+            <TextField
+                label={t.title}
+                hint={t.titleHint}
+                value={form.title}
+                onChange={form.setTitle}
+                placeholder={t.titlePlaceholder}
+                maxLength={STAFF_TITLE_MAX}
+                optional
+            />
+            <Field label={t.colour}>
+                <SwatchPicker
+                    label={t.colour}
+                    colours={form.colours}
+                    value={form.colour}
+                    onChange={form.setColour}
+                />
+            </Field>
+            {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
+            <View style={styles.gapSm}>
+                <Button
+                    variant="outline"
+                    onPress={form.submit}
+                    busy={form.busy}
+                    disabled={!form.dirty}
+                >
                     {strings.common.save}
                 </Button>
             </View>
@@ -350,6 +390,7 @@ function MemberSheet({
                     <Text style={styles.small}>{t.roleAccess[member.role]}</Text>
                 )}
             </DetailSection>
+            {team.canManage ? <ProfileSection member={member} /> : null}
             {team.canManage && pay !== undefined ? <PaySection row={pay} /> : null}
             {editable ? (
                 <DetailSection>

@@ -2347,6 +2347,12 @@ interface Strings {
             readonly changeRole: string;
             readonly saveRole: string;
             readonly saving: string;
+            readonly profile: string;
+            readonly title: string;
+            readonly titleHint: string;
+            readonly titlePlaceholder: string;
+            readonly colour: string;
+            readonly profileError: string;
             readonly remove: string;
             readonly removeTitle: (name: string) => string;
             readonly removeBody: string;

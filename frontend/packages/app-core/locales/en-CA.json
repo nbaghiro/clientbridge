@@ -7049,6 +7049,24 @@
     "staff.team.saving": {
         "message": "Saving…"
     },
+    "staff.team.profile": {
+        "message": "Title and colour"
+    },
+    "staff.team.title": {
+        "message": "Title"
+    },
+    "staff.team.titleHint": {
+        "message": "Shown under their name on the calendar and the booking page"
+    },
+    "staff.team.titlePlaceholder": {
+        "message": "e.g. Senior Groomer"
+    },
+    "staff.team.colour": {
+        "message": "Calendar colour"
+    },
+    "staff.team.profileError": {
+        "message": "Couldn't save this member's title and colour"
+    },
     "staff.team.remove": {
         "message": "Remove from team"
     },
