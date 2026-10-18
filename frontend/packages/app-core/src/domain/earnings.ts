@@ -8,7 +8,7 @@ import { formatMoney, formatParts, BUSINESS_CURRENCY } from "../format";
 import { dateKey, parseTimestamp, useBusinessZone } from "../datetime";
 import type { Intent } from "../ui";
 import { strings } from "../strings";
-import { staffName } from "./staff";
+import { staffName, staffNameSql } from "./staff";
 import { useReplicaLoad } from "./sync";
 
 interface EarningRow {
@@ -68,12 +68,12 @@ export function useEarnings(): EarningRow[] {
 }
 
 export const PAYEES_SQL = `
-SELECT s.id, s.name, s.title, s.role, s.color, s.payee, s.rate_type, s.rate_bps, s.rate_cents,
+SELECT s.id, ${staffNameSql("s")} AS name, s.title, s.role, s.color, s.payee, s.rate_type, s.rate_bps, s.rate_cents,
        s.retail_rate_bps
 FROM staff s WHERE s.status = 'active'
   AND (s.payee = 1 OR EXISTS (SELECT 1 FROM entries e WHERE e.owner_type = 'staff'
                               AND e.owner_id = s.id AND e.event IN ('earning', 'tip')))
-ORDER BY COALESCE(s.name, s.title, s.role) COLLATE NOCASE`;
+ORDER BY COALESCE(${staffNameSql("s")}, s.title, s.role) COLLATE NOCASE`;
 
 interface PayeeRow {
     id: string;

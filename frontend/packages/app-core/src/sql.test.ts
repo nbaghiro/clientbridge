@@ -794,7 +794,8 @@ function scheduleRows(): void {
     db.run("DELETE FROM notes WHERE id IN ('nt_1', 'nt_2', 'nt_3')");
     db.run("DELETE FROM bookings WHERE id = 'bk_future'");
     db.run("DELETE FROM slots WHERE id = 'ss_future'");
-    scoped("staff", [{ id: "st_cara", role: "staff", status: "active", name: "Cara" }]);
+    insert("users", [{ id: "us_cara", name: "Cara" }]);
+    scoped("staff", [{ id: "st_cara", user_id: "us_cara", role: "staff", status: "active" }]);
     scoped("subjects", [
         {
             id: "sj_rex",
@@ -1471,6 +1472,37 @@ describe("app-core SQL against the replica schema", () => {
         expect(
             pick(run("SETUP_PROGRESS_SQL"), "services", "hours", "team", "stripe", "slug"),
         ).toEqual([{ services: 1, hours: 1, team: 3, stripe: 0, slug: null }]);
+    });
+
+    it("names members from their synced account and open invites by their email", () => {
+        insert("users", [
+            { id: "us_owner", name: "Hana" },
+            { id: "us_other", name: "Elsewhere" },
+        ]);
+        insert("staff", [
+            {
+                id: "st_other",
+                business_id: "bz_2",
+                user_id: "us_other",
+                role: "owner",
+                status: "active",
+                created_at: TS,
+            },
+        ]);
+        const team = () => pick(run("TEAM_SQL"), "id", "name");
+        expect(team()).toEqual([
+            { id: "st_owner", name: "Hana" },
+            { id: "st_amy", name: null },
+            { id: "st_new", name: "new@birch.test" },
+        ]);
+        db.run("UPDATE users SET name = 'Hana Lee' WHERE id = 'us_owner'");
+        expect(team()[0]).toEqual({ id: "st_owner", name: "Hana Lee" });
+        expect(run("VIEWER_STAFF_SQL", ["st_owner"])[0]?.name).toBe("Hana Lee");
+        const day = ["2026-06-27T00:00:00.000Z", "2026-06-26T00:00:00.000Z"];
+        expect(pick(run("AGENDA_SQL", day), "slot_id", "staff_name")).toEqual([
+            { slot_id: "ss_1", staff_name: "Hana Lee" },
+        ]);
+        expect(run("STAFF_SQL").map((r) => r.name)).not.toContain("Elsewhere");
     });
 
     it("derives the bell from synced rows since a date", () => {

@@ -13,7 +13,7 @@ import { invoiceStatusSql } from "./ledger";
 import { utcSql } from "../datetime";
 import { type CreateAction, type ShellTarget, createActionsFor } from "./navigation";
 import { canManagePayments } from "./payments";
-import { staffName } from "./staff";
+import { staffName, staffNameSql } from "./staff";
 import { useDeviceList, useReplicaLoad } from "./sync";
 
 export type SearchKind = "actions" | "clients" | "bookings" | "invoices" | "items";
@@ -46,7 +46,7 @@ export const SEARCH_CLIENTS_SQL =
 // Param: the start of today (ISO); earlier visits are found through the client.
 export const SEARCH_BOOKINGS_SQL = `
 SELECT b.id, s.starts_at, i.name AS item_name, i.color AS item_color, c.name AS client_name,
-       st.name AS staff_name, st.title AS staff_title, st.role AS staff_role
+       ${staffNameSql("st")} AS staff_name, st.title AS staff_title, st.role AS staff_role
 FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN items i ON i.id = s.item_id
 LEFT JOIN clients c ON c.id = b.client_id LEFT JOIN staff st ON st.id = b.staff_id
 WHERE b.deleted_at IS NULL AND b.status != 'canceled' AND ${utcSql("s.starts_at")} >= datetime(?)

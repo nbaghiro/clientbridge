@@ -335,7 +335,6 @@ const staff = new Table(
         rate_bps: column.integer,
         rate_cents: column.integer,
         retail_rate_bps: column.integer,
-        name: column.text,
         title: column.text,
         color: column.text,
         status: column.text,
@@ -350,6 +349,10 @@ const staff = new Table(
         },
     },
 );
+
+const users = new Table({
+    name: column.text,
+});
 
 const orders = new Table(
     {
@@ -927,6 +930,7 @@ export const AppSchema = new Schema({
     threads,
     businesses,
     staff,
+    users,
     orders,
     lines,
     addons,

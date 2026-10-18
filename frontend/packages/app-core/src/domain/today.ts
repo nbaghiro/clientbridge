@@ -33,7 +33,7 @@ import { useThreads } from "./messaging";
 import { type usePaymentNotices, useAccountNotices } from "./gettingPaid";
 import { canManagePayments, isRefundRow } from "./payments";
 import { useReviews } from "./reviews";
-import { staffName, useStaff } from "./staff";
+import { staffName, staffNameSql, useStaff } from "./staff";
 import { useReplicaLoad } from "./sync";
 import { type ShellTarget, VIEWER_STAFF_SQL } from "./navigation";
 
@@ -84,7 +84,7 @@ SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity,
        b.id AS booking_id, b.status AS booking_status, b.price_cents, b.client_id,
        c.name AS client_name, c.phone AS client_phone,
        b.deposit_amount_cents, b.deposit_status, b.checked_in_at,
-       st.name AS staff_name, st.title AS staff_title, st.role AS staff_role, st.color AS staff_color
+       ${staffNameSql("st")} AS staff_name, st.title AS staff_title, st.role AS staff_role, st.color AS staff_color
 FROM slots s
 JOIN items i ON i.id = s.item_id
 ${slotBookingsJoin("AND x.deleted_at IS NULL AND x.status != 'canceled'")}

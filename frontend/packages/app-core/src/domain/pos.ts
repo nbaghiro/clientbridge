@@ -44,7 +44,7 @@ import { type Checkout, NEW_CARD, useCheckout } from "./checkout";
 import { orderStatusSql } from "./ledger";
 import { canManagePayments, creditNoteNumber, type SavedCardRow, savedCardLabel } from "./payments";
 import { discountReason, saleNumber } from "./printing";
-import { staffName } from "./staff";
+import { staffName, staffNameSql } from "./staff";
 import { useReplicaLoad } from "./sync";
 import { asTaxClass, type DocRate, ratesOn, useTaxSetup } from "./taxes";
 
@@ -686,7 +686,8 @@ interface SaleStaffRow {
 }
 
 export const SALE_STAFF_SQL = `
-SELECT id, name, title, role, color FROM staff WHERE status = 'active' ORDER BY name COLLATE NOCASE`;
+SELECT id, ${staffNameSql("staff")} AS name, title, role, color FROM staff WHERE status = 'active'
+ORDER BY name COLLATE NOCASE`;
 
 /** Who did each line gets the tip by line value, unless the desk gives it all to one person. */
 export function tipShares(
@@ -1404,7 +1405,7 @@ export const VISIT_STATE: Record<VisitState, { label: string; intent: Intent }> 
 };
 
 export const CHECKOUT_QUEUE_SQL = `
-SELECT b.id AS booking_id, b.client_id, c.name AS client_name, b.staff_id, st.name AS staff_name,
+SELECT b.id AS booking_id, b.client_id, c.name AS client_name, b.staff_id, ${staffNameSql("st")} AS staff_name,
        st.title AS staff_title, st.role AS staff_role, st.color AS staff_color, s.starts_at, s.ends_at,
        b.price_cents, b.deposit_status, b.deposit_amount_cents, b.order_id, b.charged_at,
        s.item_id, i.name AS item_name, i.kind AS item_kind, i.tax_class, i.color AS item_color,

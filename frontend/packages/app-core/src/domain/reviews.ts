@@ -10,6 +10,7 @@ import { strings } from "../strings";
 import type { Intent } from "../ui";
 import { useClients } from "./clients";
 import { useReplicaLoad } from "./sync";
+import { staffNameSql } from "./staff";
 
 export interface ReviewRow {
     id: string;
@@ -33,7 +34,7 @@ export interface ReviewRow {
 export const REVIEWS_SQL = `
 SELECT r.id, r.client_id, r.booking_id, r.rating, r.body, r.response, r.responded_at,
        r.sent_to_google, r.status, r.created_at, r.submitted_at, c.name AS client_name,
-       i.name AS service, st.name AS staff_name, p.name AS pet_name, sl.starts_at AS visit_at
+       i.name AS service, ${staffNameSql("st")} AS staff_name, p.name AS pet_name, sl.starts_at AS visit_at
 FROM reviews r
 LEFT JOIN clients c ON c.id = r.client_id
 LEFT JOIN bookings b ON b.id = r.booking_id

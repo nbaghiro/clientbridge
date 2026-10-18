@@ -25,6 +25,7 @@ import { invoiceStatusSql, orderStatusSql } from "./ledger";
 import { useReplicaLoad } from "./sync";
 import { asTaxClass, type DocRate, isFederal, lineTax, useTaxSetup } from "./taxes";
 import { taxName, taxList, taxRateLabel } from "./printing";
+import { staffNameSql } from "./staff";
 
 const s = strings.catalog;
 
@@ -161,7 +162,7 @@ GROUP BY l.item_id`;
 export const STOCK_MOVES_SQL = `
 SELECT m.id, m.item_id, i.name AS item_name, m.reason, m.quantity, m.note, m.created_at,
        o.source AS order_source, l.invoice_id AS invoice_id,
-       COALESCE(sb.name, sb.title, so.name, so.title) AS by_name
+       COALESCE(${staffNameSql("sb")}, sb.title, ${staffNameSql("so")}, so.title) AS by_name
 FROM inventory m
 JOIN items i ON i.id = m.item_id
 LEFT JOIN staff sb ON sb.user_id = m.created_by

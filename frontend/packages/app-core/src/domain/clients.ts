@@ -46,6 +46,7 @@ import {
 } from "./payments";
 import { useNow } from "./bookings";
 import { useReplicaLoad } from "./sync";
+import { staffNameSql } from "./staff";
 
 const s = strings.clients;
 
@@ -265,7 +266,8 @@ const cleanTag = (t: string): string => t.trim().toLowerCase().replace(/\s+/g, "
 
 export const CLIENT_VISITS_SQL = `
 SELECT b.id, b.status, b.subject_id, b.staff_id, b.deposit_amount_cents, b.deposit_status,
-       s.starts_at, s.ends_at, i.name AS item_name, i.color AS item_color, st.name AS staff_name
+       s.starts_at, s.ends_at, i.name AS item_name, i.color AS item_color,
+       ${staffNameSql("st")} AS staff_name
 FROM bookings b
 JOIN slots s ON s.id = b.slot_id
 LEFT JOIN items i ON i.id = s.item_id
@@ -375,7 +377,7 @@ export function petSummary(pet: SubjectRow): string {
 
 export const CLIENT_NOTES_SQL = `
 SELECT n.id, n.parent_type, n.parent_id, n.body, n.pinned, n.created_by, n.created_at,
-       st.id AS author_staff_id, st.name AS author_name, sj.name AS subject_name
+       st.id AS author_staff_id, ${staffNameSql("st")} AS author_name, sj.name AS subject_name
 FROM notes n
 LEFT JOIN subjects sj ON n.parent_type = 'subject' AND sj.id = n.parent_id
 LEFT JOIN staff st ON st.user_id = n.created_by
@@ -651,7 +653,7 @@ function validateDraft(d: ClientDraft): DraftErrors {
 }
 
 export const CLIENT_CONSENT_SQL = `
-SELECT cn.status, cn.created_at, st.name AS recorded_by_name
+SELECT cn.status, cn.created_at, ${staffNameSql("st")} AS recorded_by_name
 FROM consents cn LEFT JOIN staff st ON st.user_id = cn.recorded_by
 WHERE cn.client_id = ? AND cn.channel = 'sms'
 ORDER BY cn.created_at DESC LIMIT 1`;
