@@ -124,6 +124,9 @@ msgstr ""
 msgid "consent_csv.status"
 msgstr ""
 
+msgid "contact.subject"
+msgstr ""
+
 msgid "contract.action"
 msgstr ""
 

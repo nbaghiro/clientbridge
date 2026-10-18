@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from clientbridge.core.mirrors import Mirror
+from clientbridge.core.phones import Phone
 from clientbridge.models.business import (
     Business,
     BusinessStatus,
@@ -14,6 +15,7 @@ from clientbridge.models.business import (
     User,
 )
 from clientbridge.models.clients import Client, ClientStatus
+from clientbridge.models.messaging import Delivery, DeliveryState
 from clientbridge.models.payments import (
     DisputeStatus,
     Payment,
@@ -38,6 +40,7 @@ class AdminBusiness(Mirror):
     status: BusinessStatus
     timezone: str
     billing_email: str | None
+    sms_number: str | None
     plan: Plan | None
     plan_status: PlanStatus
     trial_ends_at: datetime
@@ -216,4 +219,22 @@ class AdminEmailSend(BaseModel):
 
 
 class AdminEmailResult(BaseModel):
-    delivery_id: str | None
+    delivery_id: str
+    state: DeliveryState
+
+
+class AdminDelivery(Mirror):
+    mirrors = Delivery
+    id: str
+    business_id: str | None
+    state: DeliveryState
+    created_at: datetime
+    provider_ref: str | None
+    error: str | None
+    recipient: str
+    subject: str
+    actor: str | None
+
+
+class AdminSmsAssignment(BaseModel):
+    number: Phone = Field(max_length=32)

@@ -121,6 +121,7 @@ class Settings(BaseSettings):
     # Outreach channels; empty credentials select the no-op console senders.
     resend_api_key: str = ""
     resend_webhook_secret: str = ""  # signs /webhooks/email (Svix)
+    contact_to: str = "hello@clientbridge.ca"
     email_from: str = ""
     # dev transport (Mailpit unless set, "" turns it off); when set it takes precedence over Resend
     smtp_url: str | None = None

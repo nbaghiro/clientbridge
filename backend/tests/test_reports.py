@@ -18,6 +18,7 @@ from clientbridge.services.business import business_tz
 from clientbridge.services.ledger import Leg
 from clientbridge.services.tax import TaxResult
 from tests.helpers import client_id, enable_payments, settle
+from tests.helpers import key as retry_key
 
 BIZ = "bz_birchbark"
 WIDE = "start=2000-01-01&end=2100-01-01"
@@ -391,7 +392,7 @@ async def test_sales_by_item_report(as_owner: httpx.AsyncClient, db: AsyncSessio
     await enable_payments(db)
     await _paid_shampoo_sale(as_owner, db, 3, "evt_rep1")
     sale = await _paid_shampoo_sale(as_owner, db, 1, "evt_rep2")
-    await as_owner.post(f"/v1/payments/{sale['payment_id']}/refund", json={})
+    await as_owner.post(f"/v1/payments/{sale['payment_id']}/refund", json={}, headers=retry_key())
     order = await db.get(Order, sale["id"])
     assert order is not None
     _, paid_at = await ledger.order_state(db, order)

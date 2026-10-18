@@ -24,6 +24,7 @@ from tests.helpers import (
     settle,
     stripe_event,
 )
+from tests.helpers import key as retry_key
 
 AMELIE = "cl_amelie"
 MARCUS = "cl_marcus"
@@ -101,7 +102,11 @@ async def test_estimate_to_invoice_partial_pay_and_refund(
     assert partial.paid_at is None
 
     refund = ok(
-        await api.post(f"/v1/payments/{intent['payment_id']}/refund", json={"amount_cents": 2000})
+        await api.post(
+            f"/v1/payments/{intent['payment_id']}/refund",
+            json={"amount_cents": 2000},
+            headers=retry_key(),
+        )
     )
     assert refund.json()["status"] == "succeeded"
     refunded = await invoice(db, converted["id"])
@@ -118,8 +123,8 @@ async def test_estimate_to_invoice_partial_pay_and_refund(
     assert (paid.status, paid.balance_cents, paid.amount_paid_cents) == ("paid", 0, 9200)
     assert paid.paid_at is not None
 
-    ok(await api.post(f"/v1/payments/{rest['payment_id']}/refund", json={}))
-    ok(await api.post(f"/v1/payments/{intent['payment_id']}/refund", json={}))
+    ok(await api.post(f"/v1/payments/{rest['payment_id']}/refund", json={}, headers=retry_key()))
+    ok(await api.post(f"/v1/payments/{intent['payment_id']}/refund", json={}, headers=retry_key()))
     back = await invoice(db, converted["id"])
     assert (back.status, back.amount_paid_cents) == ("refunded", 0)
 

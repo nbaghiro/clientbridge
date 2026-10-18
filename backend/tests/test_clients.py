@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Message, Thread
 from tests.conftest import STAFF_USER, Factory, FakeIdentityProvider, session_token
 from tests.helpers import key
@@ -38,12 +39,16 @@ async def test_update_missing_returns_404(as_owner: httpx.AsyncClient) -> None:
     assert res.status_code == 404
 
 
-async def test_foreign_client_404_by_scoping(as_owner: httpx.AsyncClient, factory: Factory) -> None:
+async def test_foreign_client_404_by_scoping(
+    as_owner: httpx.AsyncClient, factory: Factory, db: AsyncSession
+) -> None:
     other = await factory.business()
     foreign = await factory.client(business=other)
-    patch = await as_owner.patch(f"/v1/clients/{foreign.id}", json={"name": "Taken"})
+    foreign_id = foreign.id
+    await db.commit()
+    patch = await as_owner.patch(f"/v1/clients/{foreign_id}", json={"name": "Taken"})
     assert patch.status_code == 404
-    assert (await as_owner.post(f"/v1/clients/{foreign.id}/restore")).status_code == 404
+    assert (await as_owner.post(f"/v1/clients/{foreign_id}/restore")).status_code == 404
 
 
 async def test_create_with_first_pet_consent_and_channel(
@@ -360,3 +365,80 @@ async def _audits(db: AsyncSession, action: str, client_id: str) -> int:
         {"a": action, "i": client_id},
     )
     return int(count or 0)
+
+
+async def test_create_replays_the_same_client_for_a_retried_attempt(
+    as_owner: httpx.AsyncClient,
+) -> None:
+    headers = {"Idempotency-Key": "client-create-retry"}
+    body = {"name": "Retry client", "email": "retry@example.com"}
+    first = await as_owner.post("/v1/clients", json=body, headers=headers)
+    assert first.status_code == 201
+    replay = await as_owner.post("/v1/clients", json=body, headers=headers)
+    assert replay.status_code == 201
+    assert replay.json() == first.json()
+    changed = await as_owner.post("/v1/clients", json=body | {"name": "Other"}, headers=headers)
+    assert changed.status_code == 422
+
+
+async def test_client_update_replays_without_overwriting_a_later_edit(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    headers = {"Idempotency-Key": "client-update-replay"}
+    original = await as_owner.patch(
+        "/v1/clients/cl_amelie", json={"name": "First edit"}, headers=headers
+    )
+    assert original.status_code == 200
+    assert (
+        await as_owner.patch("/v1/clients/cl_amelie", json={"name": "Later edit"})
+    ).status_code == 200
+    replayed = await as_owner.patch(
+        "/v1/clients/cl_amelie", json={"name": "First edit"}, headers=headers
+    )
+    assert replayed.json() == original.json()
+    row = await db.get(Client, "cl_amelie", populate_existing=True)
+    assert row is not None and row.name == "Later edit"
+
+
+async def test_public_contact_matching_refuses_two_different_clients(db: AsyncSession) -> None:
+    from clientbridge.core.errors import Conflict
+    from clientbridge.services.clients import find_or_create_by_contact
+
+    first = await db.get(Client, "cl_amelie")
+    second = await db.get(Client, "cl_marcus")
+    assert first is not None and second is not None
+    first.email, second.phone = "ambiguous@example.ca", "+16045550111"
+    await db.flush()
+    with pytest.raises(Conflict, match="contact"):
+        await find_or_create_by_contact(
+            db, BIZ, name="Ambiguous", email=first.email, phone=second.phone, source="book"
+        )
+
+
+async def test_merge_refuses_pending_money_even_before_ledger_posting(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    from clientbridge.core.ids import new_id
+    from clientbridge.models.payments import Payment
+    from tests.helpers import new_client
+
+    gone = await new_client(db)
+    db.add(
+        Payment(
+            id=new_id("payment"),
+            business_id=BIZ,
+            client_id=gone,
+            kind="payment",
+            amount_cents=100,
+            status="pending",
+            method="card",
+            provider="stripe",
+        )
+    )
+    await db.commit()
+    response = await as_owner.post(
+        "/v1/clients/cl_grace/merge", json={"from_client_id": gone}, headers=key()
+    )
+    assert response.status_code == 409
+    client = await db.get(Client, gone)
+    assert client is not None and client.deleted_at is None

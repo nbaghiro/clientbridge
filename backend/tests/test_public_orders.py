@@ -3,6 +3,7 @@ from datetime import timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
+import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -173,8 +174,9 @@ async def test_pending_refund_blocks_cancellation_and_preparation(
     assert refund.status == "pending" and refund.credit_note is None and refund.paid_at is None
 
 
+@pytest.mark.parametrize("failed", [False, True])
 async def test_unpaid_order_expires_only_after_intent_cancellation(
-    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, failed: bool
 ) -> None:
     await enable_payments(db)
     response = await api.post(
@@ -190,6 +192,9 @@ async def test_unpaid_order_expires_only_after_intent_cancellation(
     order.created_at = clock.now() - timedelta(hours=1)
     payment = (await db.execute(select(Payment).where(Payment.order_id == order.id))).scalar_one()
     assert payment.provider_ref is not None
+    if failed:
+        payment.status = "failed"
+        await db.flush()
     gateway.confirmed.add(payment.provider_ref)
     assert await run_reap_unpaid_orders(db, gateway, clock.now()) == 0
     assert order.status == "open"
@@ -226,3 +231,95 @@ async def test_ready_order_reminder_sent_once_and_respects_alert_choice(
     assert len(email.sent) == 1 and sms.sent == []
     assert await run_pickup_reminders(db, notifier, morning) == 0
     assert len(email.sent) == 1
+
+
+async def test_late_settlement_of_a_void_order_is_recorded_and_refunded(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    response = await api.post(
+        "/book/birchbark/shop/orders",
+        headers={"Idempotency-Key": uuid.uuid4().hex},
+        json={
+            "client": {"name": "Late", "email": "late@example.com"},
+            "lines": [{"item_id": "it_shampoo", "quantity": 1}],
+        },
+    )
+    order = await db.get(Order, response.json()["order_id"])
+    assert order is not None
+    payment = (await db.scalars(select(Payment).where(Payment.order_id == order.id))).one()
+    order.status, payment.status = "void", "canceled"
+    await db.commit()
+    await settle(api, db, payment.id, "evt_late_void_payment")
+    await db.refresh(payment)
+    refunds = list(await db.scalars(select(Payment).where(Payment.parent_payment_id == payment.id)))
+    assert payment.status == "succeeded"
+    assert len(refunds) == 1 and refunds[0].amount_cents == payment.amount_cents
+    assert refunds[0].status == "succeeded" and refunds[0].credit_note is not None
+    assert order.pickup_status is None
+    await settle(api, db, payment.id, "evt_late_void_replay")
+    assert (
+        len(list(await db.scalars(select(Payment).where(Payment.parent_payment_id == payment.id))))
+        == 1
+    )
+
+
+async def test_pickup_windows_use_a_bounded_number_of_queries(db: AsyncSession) -> None:
+    from sqlalchemy import event
+
+    from clientbridge.core.db import engine
+    from clientbridge.models.business import Business
+    from clientbridge.services.orders import pickup_windows
+    from tests.conftest import BIZ
+
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    statements: list[str] = []
+
+    def count(statement: str) -> None:
+        statements.append(statement)
+
+    def before(*args: object) -> None:
+        statement = args[2]
+        assert isinstance(statement, str)
+        count(statement)
+
+    event.listen(engine.sync_engine, "before_cursor_execute", before)
+    try:
+        assert await pickup_windows(db, business)
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", before)
+    assert len(statements) <= 6, len(statements)
+
+
+async def test_stock_corrected_after_checkout_refunds_without_fulfilling(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    from clientbridge.models.catalog import Item
+
+    await enable_payments(db)
+    product = await db.get(Item, "it_shampoo")
+    assert product is not None
+    product.track_stock, product.stock_on_hand = True, 1
+    await db.commit()
+    response = await api.post(
+        "/book/birchbark/shop/orders",
+        headers={"Idempotency-Key": uuid.uuid4().hex},
+        json={
+            "client": {"name": "Corrected", "email": "corrected@example.ca"},
+            "lines": [{"item_id": product.id, "quantity": 1}],
+        },
+    )
+    assert response.status_code == 200
+    payment = (
+        await db.scalars(select(Payment).where(Payment.order_id == response.json()["order_id"]))
+    ).one()
+    product.stock_on_hand = 0
+    await db.commit()
+    await settle(api, db, payment.id)
+    refunds = list(await db.scalars(select(Payment).where(Payment.parent_payment_id == payment.id)))
+    assert len(refunds) == 1 and refunds[0].status == "succeeded"
+    await db.refresh(product)
+    assert product.stock_on_hand == 0
+    order = await db.get(Order, payment.order_id)
+    assert order is not None and order.status == "void" and order.pickup_status is None

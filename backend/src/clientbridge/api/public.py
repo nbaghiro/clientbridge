@@ -170,9 +170,9 @@ async def public_form_context(token: str, db: DbSession, _: FormRateLimited) -> 
 
 @form_router.post("/{token}", response_model=PublicFormContext)
 async def public_form_submit(
-    token: str, body: PublicFormSubmit, db: DbSession, _: FormRateLimited
+    token: str, body: PublicFormSubmit, request: Request, db: DbSession, _: FormRateLimited
 ) -> PublicFormContext:
-    return await PublicFormService(db).submit(token, body)
+    return await PublicFormService(db).submit(token, body, requester_ip(request))
 
 
 @form_router.post("/{token}/upload", response_model=PublicFileUpload)

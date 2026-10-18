@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.zones import SUPPORTED_ZONES
 from clientbridge.models.business import Business
 from clientbridge.services.business import after_quiet_hours, quiet_hours, reply_address
+from tests.conftest import STAFF_USER, FakeIdentityProvider, session_token
 
 BIZ = "bz_birchbark"
 
@@ -211,3 +212,21 @@ async def test_a_new_address_drops_the_terminal_location_made_for_the_old_one(
     assert (await as_owner.patch("/v1/business", json=moved)).status_code == 200
     await db.refresh(business)
     assert business.stripe_terminal_location_id is None
+
+
+async def test_discount_limit_is_configurable_only_by_a_manager(
+    as_owner: httpx.AsyncClient, identities: FakeIdentityProvider, db: AsyncSession
+) -> None:
+    path = "/v1/business"
+    assert (
+        await as_owner.patch(
+            path,
+            json={"staff_discount_limit_bps": 2000},
+            headers={"X-Session-Token": await session_token(identities, db, STAFF_USER)},
+        )
+    ).status_code == 403
+    response = await as_owner.patch(path, json={"staff_discount_limit_bps": 2000})
+    assert response.status_code == 200
+    await db.refresh(await db.get_one(Business, BIZ))
+    assert (await db.get_one(Business, BIZ)).staff_discount_limit_bps == 2000
+    assert (await as_owner.patch(path, json={"staff_discount_limit_bps": 10001})).status_code == 422

@@ -133,6 +133,9 @@ msgstr "[šöûŕçé~~~]"
 msgid "consent_csv.status"
 msgstr "[šţåţûš~~~]"
 
+msgid "contact.subject"
+msgstr "[Çöñţåçţ ƒöŕɱ: {name}~~~~~]"
+
 msgid "contract.action"
 msgstr "[Ŕéṽîéŵ åñð šîĝñ~~~~~~]"
 

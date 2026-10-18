@@ -55,13 +55,15 @@ async def test_contract_is_sent_and_signed(
     assert context["status"] == "pending" and context["body"]
     signed = ok(
         await api.post(
-            f"/contract/{sent['token']}/sign", json={"typed_name": "Flow Signer", "agreed": True}
+            f"/contract/{sent['token']}/sign",
+            json={"typed_name": "Flow Signer", "agreed": True, "version": context["version"]},
         )
     ).json()
     assert signed["status"] == "signed"
     assert ok(await api.get(f"/contract/{sent['token']}")).json()["status"] == "signed"
     again = await api.post(
-        f"/contract/{sent['token']}/sign", json={"typed_name": "Twice", "agreed": True}
+        f"/contract/{sent['token']}/sign",
+        json={"typed_name": "Twice", "agreed": True, "version": context["version"]},
     )
     assert again.status_code == 409
 

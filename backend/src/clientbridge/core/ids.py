@@ -33,6 +33,7 @@ PREFIXES: dict[str, str] = {
     "journal": "jrn",
     "thread": "th",
     "message": "msg",
+    "delivery": "dlv",
     "broadcast": "bro",
     "form": "frm",
     "form_field": "ff",

@@ -9,6 +9,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from tests.conftest import Factory
 from tests.helpers import business_balance, client_id, enable_payments, key, ok, owner_balance
+from tests.helpers import key as retry_key
 
 PKG_ITEM = "it_pkg5"
 PKG_TAXED = 21000
@@ -93,10 +94,14 @@ async def test_cash_package_refund_is_by_hand_and_voids_it(
         201,
     ).json()
     part = await as_owner.post(
-        f"/v1/payments/{out['payment_id']}/refund", json={"amount_cents": 100}
+        f"/v1/payments/{out['payment_id']}/refund", json={"amount_cents": 100}, headers=retry_key()
     )
     assert part.status_code == 409
-    done = ok(await as_owner.post(f"/v1/payments/{out['payment_id']}/refund", json={})).json()
+    done = ok(
+        await as_owner.post(
+            f"/v1/payments/{out['payment_id']}/refund", json={}, headers=retry_key()
+        )
+    ).json()
     assert done["credit_note"].startswith("CN-P-")
     pkg = (await db.execute(select(Package).where(Package.id == out["package_id"]))).scalar_one()
     await db.refresh(pkg)

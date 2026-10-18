@@ -1,6 +1,8 @@
 from datetime import timedelta
+from threading import get_ident
 
 import httpx
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -165,3 +167,26 @@ async def test_stale_pending_uploads_are_pruned_with_their_bytes(
     )
     assert remaining == {"fl_recent", "fl_kept"}
     assert storage.deleted == [f"{BIZ}/fl_stale"]
+
+
+async def test_storage_network_call_runs_outside_the_request_event_loop(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    storage: FakeFileStorage,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    file = await _pending(
+        as_owner, {"parent_type": "client", "parent_id": await client_id(db), "size": 42}
+    )
+    storage.stored[file["s3_key"]] = 42
+    calls: list[int] = []
+    original = storage.head
+
+    def head(key: str) -> int | None:
+        calls.append(get_ident())
+        return original(key)
+
+    monkeypatch.setattr(storage, "head", head)
+    response = await as_owner.post(f"/v1/files/{file['id']}/complete")
+    assert response.status_code == 200
+    assert len(calls) == 1 and calls[0] != get_ident()

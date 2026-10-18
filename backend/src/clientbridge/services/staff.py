@@ -347,19 +347,22 @@ class StaffService:
 
     async def release_seat(self, business_id: str, gateway: PaymentGateway) -> None:
         """Lower a Premium seat count after a member leaves; run_sync_seats retries a failure."""
-        business = await self.db.get(Business, business_id)
-        if business is None:
-            return
         try:
+            business = await self._locked_business(business_id)
             seats = await plans.billed_seats(self.db, business_id, clock.now())
             await plans.sync_seats(gateway, business, seats)
+            await self.db.commit()
         except Exception:
+            await self.db.rollback()
             _log.exception("seat release failed for %s", business_id)
 
     async def _locked_business(self, business_id: str) -> Business:
         business = (
             await self.db.execute(
-                select(Business).where(Business.id == business_id).with_for_update()
+                select(Business)
+                .where(Business.id == business_id)
+                .with_for_update(key_share=True)
+                .execution_options(populate_existing=True)
             )
         ).scalar_one_or_none()
         if business is None:

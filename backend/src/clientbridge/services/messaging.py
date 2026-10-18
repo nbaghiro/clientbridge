@@ -23,7 +23,7 @@ from clientbridge.integrations.resend import EmailSender
 from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.clients import Channel, Client
-from clientbridge.models.messaging import Broadcast, Message, Thread
+from clientbridge.models.messaging import Broadcast, Delivery, Message, Thread
 from clientbridge.models.platform import Webhook, WebhookStatus
 from clientbridge.schemas.messaging import (
     BroadcastOut,
@@ -126,7 +126,9 @@ async def dispatch_message(
     """Hand the message to its channel adapter and record the outcome on the row, never raising."""
     try:
         if channel == "sms":
-            message.provider_ref = await sms.send(Sms(to=to, body=notice.body))
+            message.provider_ref = await sms.send(
+                Sms(to=to, body=notice.body, from_number=business.sms_number)
+            )
         else:
             message.provider_ref = await email.send(
                 client_email(business, brand, to, notice, message=message)
@@ -279,53 +281,31 @@ async def _send_broadcast(
     return True
 
 
-async def _last_text_at(db: AsyncSession, business_id: str, client_id: str) -> datetime | None:
-    sent = await db.execute(
-        scoped(Message, business_id)
-        .with_only_columns(func.max(Message.created_at))
-        .join(Thread, Thread.id == Message.thread_id)
-        .where(
-            Thread.client_id == client_id,
-            Message.direction == "out",
-            Message.channel == "sms",
+async def route_inbound_sms(db: AsyncSession, number: str, destination: str) -> Client | None:
+    business_id = await db.scalar(select(Business.id).where(Business.sms_number == destination))
+    if business_id is None:
+        return None
+    clients = list(
+        await db.scalars(
+            scoped(Client, business_id, soft_delete=True)
+            .where(same_phone(Client.phone, number))
+            .limit(2)
         )
     )
-    return sent.scalar_one()
-
-
-async def route_inbound_sms(db: AsyncSession, number: str) -> Client | None:
-    """The client whose business most recently texted this number; None when no one did or a tie."""
-    candidates = (
-        await db.execute(
-            select(Client.business_id, Client.id).where(
-                same_phone(Client.phone, number), Client.deleted_at.is_(None)
-            )
-        )
-    ).all()
-    latest: list[tuple[datetime, str, str]] = []
-    for business_id, client_id in candidates:
-        at = await _last_text_at(db, business_id, client_id)
-        if at is not None:
-            latest.append((at, business_id, client_id))
-    latest.sort(reverse=True)
-    if not latest or (len(latest) > 1 and latest[0][0] == latest[1][0]):
-        return None
-    _, business_id, client_id = latest[0]
-    return (
-        await db.execute(scoped(Client, business_id).where(Client.id == client_id))
-    ).scalar_one()
+    return clients[0] if len(clients) == 1 else None
 
 
 async def process_inbound_sms(
-    db: AsyncSession, *, from_phone: str, body: str, message_sid: str
+    db: AsyncSession, *, from_phone: str, to_phone: str, body: str, message_sid: str
 ) -> str | None:
-    """Record an inbound SMS on the thread of the business that last texted the sender."""
+    """Route a signed inbound SMS only within the destination number's business."""
     event_id = f"twilio_{message_sid}"
     seen = (await db.execute(select(Webhook.id).where(Webhook.id == event_id))).scalar_one_or_none()
     if seen is not None:
         return None
     number = e164(from_phone)
-    client = await route_inbound_sms(db, number) if number is not None else None
+    destination = e164(to_phone)
+    client = await route_inbound_sms(db, number, destination) if number and destination else None
     keyword = body.strip().upper()
     message_id: str | None = None
     if client is not None:
@@ -352,6 +332,7 @@ async def process_inbound_sms(
             event="sms.inbound",
             payload={
                 "from": number or from_phone,
+                "to": destination,
                 "matched": client is not None,
                 "business_id": client.business_id if client is not None else None,
                 "opt_out": keyword in STOP_WORDS,
@@ -751,8 +732,42 @@ async def process_email_event(db: AsyncSession, *, svix_id: str, payload: bytes)
         message = await _email_message(db, email_id)
     if message is None and message_id and _is_recent(event.created_at):
         raise EmailEventPending(message_id)
+    delivery = None
+    if tags.get("delivery"):
+        delivery = await db.scalar(
+            select(Delivery)
+            .where(Delivery.id == tags["delivery"])
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if delivery is None and _is_recent(event.created_at):
+            raise EmailEventPending(tags["delivery"])
+    elif email_id:
+        delivery = await db.scalar(
+            select(Delivery)
+            .where(Delivery.provider_ref == email_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
     clients: list[Client] = []
     changed = False
+    if (
+        delivery is not None
+        and delivery.payload.get("channel") == "email"
+        and delivery.provider_ref in (None, email_id)
+    ):
+        if event.type == "email.delivered" and delivery.state != "failed":
+            delivery.state, delivery.error = "delivered", None
+            changed = True
+        elif event.type in _EMAIL_FAILURES or event.type == "email.complained":
+            delivery.state, delivery.error = "failed", event.type
+            changed = True
+        elif event.type == "email.sent" and delivery.state in ("queued", "sending", "ambiguous"):
+            delivery.state, delivery.error = "accepted", None
+            changed = True
+        if changed:
+            delivery.provider_ref = email_id or delivery.provider_ref
+            delivery.next_at, delivery.claim = None, None
     if message is not None:
         heard_before = message.provider_ref is not None
         if not heard_before and email_id:  # the send timed out after Resend had accepted it
@@ -785,7 +800,7 @@ async def process_email_event(db: AsyncSession, *, svix_id: str, payload: bytes)
         "email_id": email_id or None,
         "to": address,
         "detail": detail,
-        "matched": message is not None or bool(clients),
+        "matched": message is not None or delivery is not None or bool(clients),
         "business_id": business_id,
     }
     if not await _record_event(db, event_id, event=event.type, payload=summary, status="processed"):

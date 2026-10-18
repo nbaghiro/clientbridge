@@ -41,13 +41,14 @@ from clientbridge.models.billing import Estimate, Invoice, Order
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import GiftCard, Subscription
 from clientbridge.models.clients import Client
-from clientbridge.models.documents import Contract, Form, FormResponse, Signature
+from clientbridge.models.documents import Contract, FormResponse, Signature
 from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Device, DevicePlatform, File
 from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.auth import AuthEmailIn
+from clientbridge.schemas.forms import FormDefinition
 from clientbridge.services import ledger
 from clientbridge.services.business import reply_address
 from clientbridge.services.consents import texts_stopped
@@ -1015,7 +1016,10 @@ async def _visits_by_client(
 class Notifier:
     """Sends every event to its channels; one channel failing never blocks the others."""
 
-    def __init__(self, email: EmailSender, sms: SmsSender, push: PushSender) -> None:
+    def __init__(
+        self, email: EmailSender, sms: SmsSender, push: PushSender, *, raise_errors: bool = False
+    ) -> None:
+        self.raise_errors = raise_errors
         self.email = email
         self.sms = sms
         self.push = push
@@ -1310,7 +1314,11 @@ class Notifier:
             brand = await business_brand(db, business)
             await self._safe(self.email.send(client_email(business, brand, card.recipient, notice)))
         else:
-            await self._safe(self.sms.send(Sms(to=card.recipient, body=notice.body)))
+            await self._safe(
+                self.sms.send(
+                    Sms(to=card.recipient, body=notice.body, from_number=business.sms_number)
+                )
+            )
 
     async def on_booking_reminder(self, db: AsyncSession, booking_id: str) -> Outcome:
         booking = await db.get(Booking, booking_id)
@@ -1433,12 +1441,16 @@ class Notifier:
         response = await db.get(FormResponse, form_response_id)
         if response is None:
             return Outcome.SKIPPED
-        form = await db.get(Form, response.form_id)
         business = await db.get(Business, response.business_id)
-        if form is None or business is None:
+        if business is None:
             return Outcome.SKIPPED
         link = f"{get_settings().connect_base_url}/form/{response.token}"
-        notice = form_sent_message(locale_for(business=business), business.name, form.name, link)
+        notice = form_sent_message(
+            locale_for(business=business),
+            business.name,
+            FormDefinition.model_validate(response.definition).name,
+            link,
+        )
         return await self._to_client(db, response.client_id, notice)
 
     async def on_contract_sent(self, db: AsyncSession, signature_id: str) -> None:
@@ -1507,7 +1519,15 @@ class Notifier:
             await self._safe(self.email.send(client_email(business, brand, email, notice)))
         number = e164(phone) if phone else None
         if number:
-            await self._safe(self.sms.send(Sms(to=number, body=notice.body)))
+            await self._safe(
+                self.sms.send(
+                    Sms(
+                        to=number,
+                        body=notice.body,
+                        from_number=business.sms_number if business else None,
+                    )
+                )
+            )
 
     async def _to_client(
         self,
@@ -1523,20 +1543,29 @@ class Notifier:
         client = await db.get(Client, client_id)
         if client is None:
             return Outcome.SKIPPED
+        business = await db.get(Business, client.business_id)
         sent: list[bool] = []
-        if client.email and channel != "sms":
-            business = await db.get(Business, client.business_id)
-            if business is not None:
-                brand = await business_brand(db, business)
-                mail = client_email(business, brand, client.email, notice, client=client)
-                sent.append(await self._safe(self.email.send(mail)))
+        if client.email and channel != "sms" and business is not None:
+            brand = await business_brand(db, business)
+            mail = client_email(business, brand, client.email, notice, client=client)
+            sent.append(await self._safe(self.email.send(mail)))
         number = e164(client.phone) if client.phone else None
         if (
             number
             and channel != "email"
             and not await texts_stopped(db, client.business_id, client.id)
         ):
-            sent.append(await self._safe(self.sms.send(Sms(to=number, body=notice.body))))
+            sent.append(
+                await self._safe(
+                    self.sms.send(
+                        Sms(
+                            to=number,
+                            body=notice.body,
+                            from_number=business.sms_number if business else None,
+                        )
+                    )
+                )
+            )
         if not sent:
             return Outcome.SKIPPED
         # one channel reaching the client counts, so a retry never repeats the channel that worked
@@ -1565,6 +1594,8 @@ class Notifier:
         try:
             await awaitable
         except Exception:
+            if self.raise_errors:
+                raise
             _log.exception("outreach channel send failed")
             return False
         return True
@@ -1629,3 +1660,10 @@ async def run_prune_devices(db: AsyncSession, now: datetime) -> int:
         await db.delete(device)
     await db.commit()
     return len(devices)
+
+
+def queued_notifier(db: AsyncSession, scope: str, business_id: str) -> Notifier:
+    from clientbridge.services.deliveries import DeliveryQueue, QueuedEmail, QueuedPush, QueuedSms
+
+    queue = DeliveryQueue(db, scope, business_id)
+    return Notifier(QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True)

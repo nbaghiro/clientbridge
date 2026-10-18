@@ -1,11 +1,12 @@
 import hashlib
 import logging
 import secrets
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, time, timedelta
 from typing import Literal
 
-from sqlalchemy import func, select
+from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -88,7 +89,7 @@ from clientbridge.services.earnings import (
     reverse_earnings,
     reverse_order_earning,
 )
-from clientbridge.services.inventory import sync_parent_stock
+from clientbridge.services.inventory import assert_parent_stock, sync_parent_stock
 from clientbridge.services.ledger import BUSINESS_CURRENCY
 from clientbridge.services.lines import allocate, apply_totals
 from clientbridge.services.tax import tax_for_amount, tax_within
@@ -115,6 +116,7 @@ class WebhookOutcome:
 
     notify: WebhookNotice
     target_id: str
+    business_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -254,9 +256,6 @@ class PaymentService:
         self._assert_admin()
         business = await self._business()
         invoice = await self._invoice(invoice_id)
-        balance = await assert_payable(self.db, invoice)
-        if data.amount_cents > balance:
-            raise Conflict("that is more than the invoice still owes")
         if data.tendered_cents is not None and (
             data.method != "cash" or data.tendered_cents < data.amount_cents
         ):
@@ -278,6 +277,7 @@ class PaymentService:
 
         async def run(cmd: Command) -> InvoicePaymentOut:
             await _assert_room(self.db, invoice, data.amount_cents)
+            await assert_parent_stock(self.db, self.biz, "invoice", invoice.id)
             payment = Payment(
                 id=new_id("payment"),
                 business_id=self.biz,
@@ -550,7 +550,6 @@ class PaymentService:
         if not by_hand and (business.stripe_account_id is None or payment.provider_ref is None):
             raise Conflict("payment has no connected charge to refund")
         account_id = business.stripe_account_id
-        provider_ref = payment.provider_ref
 
         async def run(cmd: Command) -> RefundOut:
             await self.db.execute(
@@ -586,50 +585,21 @@ class PaymentService:
                 raise Conflict("invalid refund amount")
             if whole_only and (refunded > 0 or amount != payment.amount_cents):
                 raise Conflict(whole_only)
-            status: PaymentStatus = "succeeded"
-            provider: PaymentProvider = "manual"
-            ref: str | None = None
-            if not by_hand:
-                assert account_id is not None and provider_ref is not None
-                attempt_key = hash_token(idempotency_key) if idempotency_key else str(attempts)
-                result = await self.gateway.refund(
-                    account_id,
-                    payment_intent_id=provider_ref,
-                    amount_cents=amount,
-                    idempotency_key=f"refund_{payment.id}_{attempt_key}",
-                )
-                status, provider, ref = refund_status(result.status), "stripe", result.id
-            refund = Payment(
-                id=new_id("payment"),
-                business_id=self.biz,
-                client_id=payment.client_id,
-                kind="refund",
-                parent_payment_id=payment.id,
-                invoice_id=payment.invoice_id,
-                order_id=payment.order_id,
-                booking_id=payment.booking_id,
-                amount_cents=amount,
-                currency=payment.currency,
-                method=payment.method,
-                provider=provider,
-                provider_ref=ref,
-                status=status,
-                paid_at=clock.now() if status == "succeeded" else None,
+            attempt_key = hash_token(idempotency_key) if idempotency_key else str(attempts)
+            refund = await create_refund(
+                self.db,
+                self.gateway,
+                payment,
+                account_id,
+                amount,
+                key=f"refund_{payment.id}_{attempt_key}",
                 reason=reason,
-                refund_notify=notify,
-                credit_note=await next_credit_note(self.db, payment)
-                if status == "succeeded"
-                else None,
+                notify=notify,
             )
-            self.db.add(refund)
-            try:
-                await self.db.flush()
-            except IntegrityError as exc:
-                raise Conflict("another refund on this document is saving, please retry") from exc
-            if status == "succeeded":
-                await _apply_refund(self.db, refund, payment)
             cmd.record("payment.refund", entity_type="payment", entity_id=refund.id)
-            return RefundOut(refund_id=refund.id, status=status, credit_note=refund.credit_note)
+            return RefundOut(
+                refund_id=refund.id, status=refund.status, credit_note=refund.credit_note
+            )
 
         return await run_command(
             self.db,
@@ -729,7 +699,12 @@ class PaymentService:
 
     async def _locked_business(self) -> Business:
         row = (
-            await self.db.execute(select(Business).where(Business.id == self.biz).with_for_update())
+            await self.db.execute(
+                select(Business)
+                .where(Business.id == self.biz)
+                .with_for_update(key_share=True)
+                .execution_options(populate_existing=True)
+            )
         ).scalar_one_or_none()
         if row is None:
             raise NotFound("business not found")
@@ -752,7 +727,10 @@ class PaymentService:
     async def _client(self, client_id: str) -> Client:
         row = (
             await self.db.execute(
-                scoped(Client, self.biz, soft_delete=True).where(Client.id == client_id)
+                scoped(Client, self.biz, soft_delete=True)
+                .where(Client.id == client_id)
+                .with_for_update(read=True, key_share=True)
+                .execution_options(populate_existing=True)
             )
         ).scalar_one_or_none()
         if row is None:
@@ -936,6 +914,10 @@ async def resolve_tip(
 async def _assert_room(db: AsyncSession, invoice: Invoice, amount: int) -> None:
     """Reject a charge that would overpay the invoice given pending payments; locks the invoice."""
     await db.execute(select(Invoice.id).where(Invoice.id == invoice.id).with_for_update())
+    await db.refresh(invoice)
+    balance = await assert_payable(db, invoice)
+    if amount > balance:
+        raise Conflict("that is more than the invoice still owes")
     pending = (
         await db.execute(
             select(func.coalesce(func.sum(Payment.amount_cents - Payment.tip_cents), 0)).where(
@@ -1075,6 +1057,7 @@ async def open_card_payment(
     supersede: bool = False,
 ) -> tuple[Payment, str]:
     """Open a card PaymentIntent and pending Payment for an invoice; the caller commits."""
+    await assert_parent_stock(db, business_id, "invoice", invoice.id)
     tip = tip or NO_TIP
     customer_id = await ensure_customer(db, gateway, account_id, client)
     if payment_method is not None:
@@ -1291,6 +1274,7 @@ async def open_order_card_payment(
     due: int | None = None,
 ) -> tuple[Payment, str]:
     """Open a card PaymentIntent for a sale; the caller commits."""
+    await assert_parent_stock(db, business_id, "order", order.id)
     tip = tip or NO_TIP
     customer_id = await ensure_customer(db, gateway, account_id, client) if client else None
     if payment_method is not None:
@@ -1351,6 +1335,7 @@ async def open_terminal_payment(
     due: int | None = None,
 ) -> tuple[Payment, str]:
     """Open a Terminal PaymentIntent and pending Payment for a sale; the caller commits."""
+    await assert_parent_stock(db, business_id, "order", order.id)
     tip = tip or NO_TIP
     # the card is read at the reader after the intent exists, so the domestic rate applies
     fee = application_fee_cents(
@@ -1418,8 +1403,76 @@ async def _credit_document(db: AsyncSession, payment: Payment) -> str:
     return f"P-{payment.id[-6:].upper()}"
 
 
+async def create_refund(
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    payment: Payment,
+    account_id: str | None,
+    amount: int,
+    *,
+    key: str,
+    reason: str | None = None,
+    notify: bool = True,
+) -> Payment:
+    status: PaymentStatus = "succeeded"
+    provider: PaymentProvider = "manual"
+    reference: str | None = None
+    if not refunded_by_hand(payment):
+        if account_id is None or payment.provider_ref is None:
+            raise Conflict("payment has no connected charge to refund")
+        result = await gateway.refund(
+            account_id,
+            payment_intent_id=payment.provider_ref,
+            amount_cents=amount,
+            idempotency_key=key,
+        )
+        status, provider, reference = refund_status(result.status), "stripe", result.id
+        existing = await db.scalar(
+            scoped(Payment, payment.business_id).where(
+                Payment.provider_ref == reference, Payment.kind == "refund"
+            )
+        )
+        if existing is not None:
+            if existing.parent_payment_id != payment.id or existing.amount_cents != amount:
+                raise Conflict("refund does not match the original payment")
+            return existing
+    refund = Payment(
+        id=new_id("payment"),
+        business_id=payment.business_id,
+        client_id=payment.client_id,
+        kind="refund",
+        parent_payment_id=payment.id,
+        invoice_id=payment.invoice_id,
+        order_id=payment.order_id,
+        booking_id=payment.booking_id,
+        amount_cents=amount,
+        currency=payment.currency,
+        method=payment.method,
+        provider=provider,
+        provider_ref=reference,
+        status=status,
+        paid_at=clock.now() if status == "succeeded" else None,
+        reason=reason,
+        refund_notify=notify,
+        credit_note=await next_credit_note(db, payment) if status == "succeeded" else None,
+    )
+    db.add(refund)
+    await db.flush()
+    if status == "succeeded":
+        await _apply_refund(db, refund, payment)
+    return refund
+
+
 async def next_credit_note(db: AsyncSession, payment: Payment) -> str:
     """The number the next refund against this payment's invoice or sale gets."""
+    document = await _credit_document(db, payment)
+    await db.execute(
+        select(
+            func.pg_advisory_xact_lock(
+                func.hashtextextended(f"credit:{payment.business_id}:{document}", 0)
+            )
+        )
+    )
     if payment.invoice_id is not None:
         same = Payment.invoice_id == payment.invoice_id
     elif payment.order_id is not None:
@@ -1429,7 +1482,11 @@ async def next_credit_note(db: AsyncSession, payment: Payment) -> str:
     issued = (
         await db.execute(
             scoped(Payment, payment.business_id)
-            .with_only_columns(func.count())
+            .with_only_columns(
+                func.coalesce(
+                    func.max(cast(func.split_part(Payment.credit_note, "-", -1), Integer)), 0
+                )
+            )
             .where(same, Payment.kind == "refund", Payment.credit_note.is_not(None))
         )
     ).scalar_one()
@@ -1437,7 +1494,11 @@ async def next_credit_note(db: AsyncSession, payment: Payment) -> str:
 
 
 async def process_stripe_event(
-    db: AsyncSession, gateway: PaymentGateway, payload: bytes, signature: str
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    payload: bytes,
+    signature: str,
+    notify: Callable[[WebhookOutcome], Awaitable[None]] | None = None,
 ) -> WebhookOutcome | None:
     """Verify, dedupe and apply a Stripe webhook; returns the notification to send after commit."""
     event = gateway.verify_webhook(payload, signature)
@@ -1463,6 +1524,19 @@ async def process_stripe_event(
     try:
         async with transaction(db):
             outcome = await _dispatch(db, gateway, event)
+            if outcome is not None and notify is not None:
+                model = (
+                    GiftCard
+                    if outcome.notify == "gift_card_issued"
+                    else Subscription
+                    if outcome.notify in ("subscription_past_due", "subscription_canceled")
+                    else Payment
+                )
+                target = await db.get(model, outcome.target_id)
+                if target is None:
+                    raise NotFound("notification source not found")
+                outcome = replace(outcome, business_id=target.business_id)
+                await notify(outcome)
             record.status = "processed"
             record.processed_at = clock.now()
             record.payload = None
@@ -1575,7 +1649,6 @@ async def _reconcile_refund(db: AsyncSession, data: dict[str, object]) -> Webhoo
         if refund.status == "succeeded":
             if status in ("failed", "canceled"):
                 refund.status = status
-                refund.credit_note = None
                 await _unapply_refund(db, refund, payment)
                 return WebhookOutcome("refund_failed", refund.id)
             return None
@@ -1604,7 +1677,7 @@ async def _reconcile_refund(db: AsyncSession, data: dict[str, object]) -> Webhoo
         await db.flush()
         return None
     refund.paid_at = _stamp(data, "created") or clock.now()
-    refund.credit_note = await next_credit_note(db, payment)
+    refund.credit_note = refund.credit_note or await next_credit_note(db, payment)
     await db.flush()
     await _apply_refund(db, refund, payment)
     return WebhookOutcome("refund", refund.id)
@@ -1814,14 +1887,58 @@ async def _settle_payment(
                 return None
             _assert_not_ours(intent)
             return None
-    if payment.status not in ("pending", "failed"):
+    order = None
+    if payment.order_id is not None:
+        order = await db.scalar(
+            scoped(Order, payment.business_id)
+            .where(Order.id == payment.order_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    expired_order = order is not None and order.status == "void"
+    if payment.status not in ("pending", "failed") and not (
+        expired_order and payment.status == "canceled"
+    ):
         return None
+    if order is not None and order.source == "online" and not expired_order:
+        try:
+            await assert_parent_stock(db, payment.business_id, "order", order.id)
+        except Conflict as exc:
+            if exc.code != "out_of_stock":
+                raise
+            order.status, expired_order = "void", True
     fees = await _fees(db, gateway, payment.business_id, intent_id)
     payment.status = "succeeded"
     payment.paid_at = occurred_at or clock.now()
     await db.flush()
     await ledger.post_payment(db, payment, available_at=fees.available_at)
     await ledger.post_fees(db, payment, fees)
+    if expired_order:
+        account_id = await db.scalar(
+            select(Business.stripe_account_id).where(Business.id == payment.business_id)
+        )
+        refund = await create_refund(
+            db,
+            gateway,
+            payment,
+            account_id,
+            payment.amount_cents,
+            key=f"expired-order:{payment.id}",
+            reason="expired_order",
+        )
+        db.add(
+            Audit(
+                id=new_id("audit"),
+                business_id=payment.business_id,
+                action="payment.late_order_refund",
+                entity_type="payment",
+                entity_id=payment.id,
+                changes={"refund_id": refund.id, "status": refund.status},
+            )
+        )
+        await db.flush()
+        return None
+
     await _sync_parent(db, payment)
     if payment.booking_id is not None and payment.kind == "deposit":
         await _settle_booking_deposit(db, gateway, payment.booking_id)
@@ -1857,6 +1974,13 @@ async def _apply_refund(db: AsyncSession, refund: Payment, payment: Payment) -> 
     await _sync_parent(db, payment)
     if await _fully_refunded(db, payment):
         await _reverse_entitlement(db, payment)
+    from clientbridge.services.deliveries import DeliveryQueue, QueuedEmail, QueuedPush, QueuedSms
+    from clientbridge.services.notifications import Notifier
+
+    queue = DeliveryQueue(db, f"refund:{refund.id}", refund.business_id)
+    await Notifier(
+        QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True
+    ).on_refund(db, refund.id)
 
 
 async def _unapply_refund(db: AsyncSession, refund: Payment, payment: Payment) -> None:
@@ -2548,31 +2672,15 @@ async def refund_deposit(db: AsyncSession, gateway: PaymentGateway, booking: Boo
             .with_only_columns(func.count())
             .where(Payment.parent_payment_id == payment.id, Payment.kind == "refund")
         )
-        result = await gateway.refund(
+        refund = await create_refund(
+            db,
+            gateway,
+            payment,
             business.stripe_account_id,
-            payment_intent_id=payment.provider_ref,
-            amount_cents=left,
-            idempotency_key=f"refund_{payment.id}_{attempts or 0}",
+            left,
+            key=f"refund_{payment.id}_{attempts or 0}",
         )
-        refund = Payment(
-            id=new_id("payment"),
-            business_id=booking.business_id,
-            client_id=payment.client_id,
-            kind="refund",
-            parent_payment_id=payment.id,
-            booking_id=booking.id,
-            amount_cents=left,
-            currency=payment.currency,
-            method=payment.method,
-            provider="stripe",
-            provider_ref=result.id,
-            status=refund_status(result.status),
-            paid_at=clock.now() if result.status == "succeeded" else None,
-        )
-        db.add(refund)
-        await db.flush()
         if refund.status == "succeeded":
-            await _apply_refund(db, refund, payment)
             total += left
     return total
 
@@ -2613,34 +2721,15 @@ async def refund_online_order(db: AsyncSession, gateway: PaymentGateway, order: 
             .with_only_columns(func.count())
             .where(Payment.parent_payment_id == payment.id, Payment.kind == "refund")
         )
-        result = await gateway.refund(
+        refund = await create_refund(
+            db,
+            gateway,
+            payment,
             business.stripe_account_id,
-            payment_intent_id=payment.provider_ref,
-            amount_cents=left,
-            idempotency_key=f"refund_{payment.id}_{attempts or 0}",
+            left,
+            key=f"refund_{payment.id}_{attempts or 0}",
         )
-        refund = Payment(
-            id=new_id("payment"),
-            business_id=order.business_id,
-            client_id=payment.client_id,
-            kind="refund",
-            parent_payment_id=payment.id,
-            order_id=order.id,
-            amount_cents=left,
-            currency=payment.currency,
-            method=payment.method,
-            provider="stripe",
-            provider_ref=result.id,
-            status=refund_status(result.status),
-            paid_at=clock.now() if result.status == "succeeded" else None,
-            credit_note=await next_credit_note(db, payment)
-            if result.status == "succeeded"
-            else None,
-        )
-        db.add(refund)
-        await db.flush()
         if refund.status == "succeeded":
-            await _apply_refund(db, refund, payment)
             total += left
     return total
 

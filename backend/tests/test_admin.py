@@ -2,9 +2,12 @@ from dataclasses import replace
 
 import httpx
 import pytest
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
-from tests.conftest import FakeEmailSender, FakeIdentityProvider
+from clientbridge.models.platform import Audit
+from tests.conftest import Factory, FakeEmailSender, FakeIdentityProvider
 from tests.test_auth import fresh
 
 
@@ -217,9 +220,15 @@ async def test_admin_email_preview_and_send(
     assert email.sent[0].to == "operator@example.com"
     assert email.sent[0].subject.startswith("[TEST]")
     assert email.sent[0].images
+    history = await api.get("/admin/v1/deliveries", headers=admin_headers)
+    assert history.status_code == 200
+    assert history.json()["items"][0]["id"] == response.json()["delivery_id"]
+    assert history.json()["items"][0]["recipient"] == body["recipient"]
+    assert history.json()["items"][0]["state"] == "accepted"
+    assert (await api.get("/admin/v1/deliveries")).status_code == 401
     assert (
         await api.post("/admin/v1/emails/invoice/send", headers=admin_headers, json=body)
-    ).status_code == 429
+    ).status_code == 200
     assert len(email.sent) == 1
     assert (
         await api.post(
@@ -273,3 +282,66 @@ async def test_operations_reports_migration_head(
     operations = response.json()
     assert operations["expected_revision"]
     assert operations["database_revision"] == operations["expected_revision"]
+
+
+async def test_sms_assignment_is_normalized_audited_and_cannot_cross_businesses(
+    api: httpx.AsyncClient, admin_headers: dict[str, str], db: AsyncSession, factory: Factory
+) -> None:
+    other = await factory.business()
+    path = "/admin/v1/businesses/bz_birchbark/sms"
+    assert (await api.post(path, json={"number": "+12505550123"})).status_code == 401
+    result = await api.post(path, json={"number": "250-555-0123"}, headers=admin_headers)
+    assert result.status_code == 200
+    assert result.json()["sms_number"] == "+12505550123"
+    assert (await api.post(path, json={"number": None}, headers=admin_headers)).status_code == 200
+    assert (
+        await api.post(
+            f"/admin/v1/businesses/{other.id}/sms",
+            json={"number": "+12505550123"},
+            headers=admin_headers,
+        )
+    ).status_code == 409
+    assert (
+        await api.post(path, json={"number": "+12505550123"}, headers=admin_headers)
+    ).status_code == 200
+    audits = list(await db.scalars(select(Audit).where(Audit.action == "business.sms_assignment")))
+    assert len(audits) == 3
+    assert audits[0].changes["new"] == "+12505550123"
+    assert (
+        await api.post(path, json={"number": "invalid"}, headers=admin_headers)
+    ).status_code == 422
+
+
+async def test_client_activity_includes_related_records_and_keeps_business_scope(
+    api: httpx.AsyncClient, db: AsyncSession, admin_headers: dict[str, str]
+) -> None:
+    from clientbridge.core.ids import new_id
+    from clientbridge.models.scheduling import Booking
+
+    booking = (await db.scalars(select(Booking).where(Booking.client_id == "cl_amelie"))).first()
+    assert booking is not None
+    identity = new_id("audit")
+    db.add(
+        Audit(
+            id=identity,
+            business_id=booking.business_id,
+            action="booking.test",
+            entity_type="booking",
+            entity_id=booking.id,
+            changes={},
+        )
+    )
+    await db.commit()
+    response = await api.get(
+        "/admin/v1/activity",
+        params={"q": "cl_amelie", "business_id": booking.business_id},
+        headers=admin_headers,
+    )
+    assert response.status_code == 200
+    assert identity in {item["id"] for item in response.json()["items"]}
+    other = await api.get(
+        "/admin/v1/activity",
+        params={"q": "cl_amelie", "business_id": "missing"},
+        headers=admin_headers,
+    )
+    assert other.json()["items"] == []

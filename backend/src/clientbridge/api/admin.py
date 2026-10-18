@@ -12,6 +12,7 @@ from clientbridge.schemas.admin import (
     AdminBusiness,
     AdminBusinessDetail,
     AdminClient,
+    AdminDelivery,
     AdminEmail,
     AdminEmailConfig,
     AdminEmailPreview,
@@ -24,6 +25,7 @@ from clientbridge.schemas.admin import (
     AdminPaymentDetail,
     AdminPersonDetail,
     AdminSession,
+    AdminSmsAssignment,
     AdminUser,
 )
 from clientbridge.services.admin import AdminService
@@ -148,3 +150,15 @@ async def send_email(
     admin: Service, key: str, body: AdminEmailSend, sender: TestSender
 ) -> AdminEmailResult:
     return await admin.send_email(key, body, sender)
+
+
+@router.get("/deliveries")
+async def deliveries(
+    admin: Service, offset: Annotated[int, Query(ge=0, le=10000)] = 0
+) -> AdminPage[AdminDelivery]:
+    return await admin.deliveries(offset)
+
+
+@router.post("/businesses/{business_id}/sms")
+async def assign_sms(admin: Service, business_id: str, body: AdminSmsAssignment) -> AdminBusiness:
+    return await admin.assign_sms(business_id, body)

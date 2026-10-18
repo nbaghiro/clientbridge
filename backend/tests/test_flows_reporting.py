@@ -11,6 +11,7 @@ from clientbridge.models.clients import Client
 from clientbridge.models.payments import PaymentMethod
 from tests.conftest import BIZ
 from tests.helpers import business_today, card_pay, earnings, enable_payments, key, ok, settle
+from tests.helpers import key as retry_key
 
 OWNER_BOOKING = "bk_016"  # seeded upcoming visit for st_owner (a payee)
 
@@ -127,6 +128,12 @@ async def test_dashboard_figures_follow_an_invoice(
     assert paid["gst_hst_set_aside_cents"] - start["gst_hst_set_aside_cents"] == 1200
     assert paid["gst_hst_filing_due"] == start["gst_hst_filing_due"]
 
-    ok(await api.post(f"/v1/payments/{rest['payment_id']}/refund", json={"amount_cents": 1000}))
+    ok(
+        await api.post(
+            f"/v1/payments/{rest['payment_id']}/refund",
+            json={"amount_cents": 1000},
+            headers=retry_key(),
+        )
+    )
     refunded = ok(await api.get("/v1/dashboard/summary")).json()
     assert refunded["today_revenue_cents"] - start["today_revenue_cents"] == 10200

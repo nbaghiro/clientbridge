@@ -1,6 +1,6 @@
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,8 +9,9 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
-from clientbridge.models.billing import Line
+from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.catalog import Item, StockMovement
+from clientbridge.models.payments import Payment
 from clientbridge.schemas.catalog import ItemOut, RestockIn
 from clientbridge.services.lines import LineParent, parent_fk
 
@@ -158,3 +159,69 @@ async def _locked_item(db: AsyncSession, business_id: str, item_id: str) -> Item
         .execution_options(populate_existing=True)
     )
     return rows.scalar_one_or_none()
+
+
+async def assert_parent_stock(
+    db: AsyncSession, business_id: str, parent: LineParent, parent_id: str
+) -> None:
+    model = Order if parent == "order" else Invoice
+    document = await db.scalar(
+        scoped(model, business_id).where(model.id == parent_id).with_for_update()
+    )
+    strict = isinstance(document, Order) and document.source == "online"
+    sold = select(StockMovement.line_id).where(
+        StockMovement.reason == "sale", StockMovement.line_id.is_not(None)
+    )
+    lines = list(
+        await db.scalars(
+            scoped(Line, business_id).where(
+                parent_fk(parent) == parent_id, Line.item_id.is_not(None), ~Line.id.in_(sold)
+            )
+        )
+    )
+    wanted: dict[str, int] = {}
+    for line in lines:
+        if line.item_id is not None:
+            units = int(Decimal(str(line.quantity)).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+            wanted[line.item_id] = wanted.get(line.item_id, 0) + max(units, 0)
+    items = list(
+        await db.scalars(
+            scoped(Item, business_id)
+            .where(Item.id.in_(wanted), Item.track_stock.is_(True))
+            .order_by(Item.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    )
+    if not items:
+        return
+    active = (
+        scoped(Payment, business_id)
+        .where(
+            Payment.kind == "payment",
+            Payment.status.in_(("pending", "failed", "succeeded")),
+            or_(Payment.order_id == Line.order_id, Payment.invoice_id == Line.invoice_id),
+        )
+        .exists()
+    )
+    held = dict(
+        (
+            await db.execute(
+                scoped(Line, business_id)
+                .with_only_columns(Line.item_id, func.sum(func.round(Line.quantity)))
+                .where(
+                    Line.item_id.in_(wanted),
+                    ~Line.id.in_(sold),
+                    active,
+                    or_(parent_fk(parent).is_(None), parent_fk(parent) != parent_id),
+                )
+                .group_by(Line.item_id)
+            )
+        )
+        .tuples()
+        .all()
+    )
+    for item in items:
+        available = (item.stock_on_hand or 0) - int(held.get(item.id, 0))
+        if (strict or int(held.get(item.id, 0)) > 0) and wanted[item.id] > available:
+            raise Conflict("not enough stock available for this sale", code="out_of_stock")

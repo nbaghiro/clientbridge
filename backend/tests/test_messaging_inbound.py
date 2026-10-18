@@ -21,7 +21,6 @@ PHONE = "+15145551111"
 
 
 async def _client_with_phone(db: AsyncSession, phone: str = PHONE) -> str:
-    # A fresh client: a seeded one may already have been texted, which changes the routing.
     client = Client(
         id=new_id("client"),
         business_id=BIZ,
@@ -69,17 +68,23 @@ async def test_a_number_stored_as_typed_still_matches(
     assert msg is not None and msg.business_id == BIZ
 
 
-async def test_a_shared_phone_routes_to_the_most_recent_sender(
+async def test_shared_phone_routes_by_destination_even_when_the_other_business_texted_last(
     api: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
     ours = await _client_with_phone(db)
     rival = await factory.business(name="Rival Texts")
+    rival.sms_number = "+12505550888"
     theirs = await factory.client(business=rival)
     theirs.phone = PHONE
     now = clock.now()
     await texted(db, ours, at=now - timedelta(days=2))
     await texted(db, theirs.id, business_id=rival.id, at=now - timedelta(hours=1))
-    ok(await text_in(api, {"From": PHONE, "Body": "Yes please", "MessageSid": "SM_rival"}))
+    ok(
+        await text_in(
+            api,
+            {"From": PHONE, "To": "+12505550888", "Body": "Yes please", "MessageSid": "SM_rival"},
+        )
+    )
     msg = await _inbound(db, "SM_rival")
     assert msg is not None and msg.business_id == rival.id
 
@@ -94,17 +99,22 @@ async def test_stop_applies_only_to_the_business_it_was_routed_to(
 ) -> None:
     ours = await _client_with_phone(db)
     rival = await factory.business(name="Rival Stop")
+    rival.sms_number = "+12505550888"
     theirs = await factory.client(business=rival)
     theirs.phone = PHONE
     now = clock.now()
     await texted(db, ours, at=now - timedelta(days=1))
     await texted(db, theirs.id, business_id=rival.id, at=now)
-    ok(await text_in(api, {"From": PHONE, "Body": "STOP", "MessageSid": "SM_stop"}))
+    ok(
+        await text_in(
+            api, {"From": PHONE, "To": "+12505550888", "Body": "STOP", "MessageSid": "SM_stop"}
+        )
+    )
     assert await texts_stopped(db, rival.id, theirs.id)
     assert not await texts_stopped(db, BIZ, ours)
 
 
-async def test_a_number_no_business_texted_is_recorded_unmatched(
+async def test_a_number_without_an_assigned_destination_is_recorded_unmatched(
     api: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
     await _client_with_phone(db)
@@ -112,14 +122,18 @@ async def test_a_number_no_business_texted_is_recorded_unmatched(
     theirs = await factory.client(business=rival)
     theirs.phone = PHONE
     await db.flush()
-    ok(await text_in(api, {"From": PHONE, "Body": "STOP", "MessageSid": "SM_nobody"}))
+    ok(
+        await text_in(
+            api, {"From": PHONE, "To": "+12505550000", "Body": "STOP", "MessageSid": "SM_nobody"}
+        )
+    )
     assert await _inbound(db, "SM_nobody") is None
     row = await _webhook(db, "SM_nobody")
     assert summary(row)["matched"] is False and summary(row)["opt_out"] is True
     assert not await texts_stopped(db, rival.id, theirs.id)
 
 
-async def test_a_tie_between_businesses_is_not_guessed(
+async def test_equal_send_times_do_not_make_destination_routing_ambiguous(
     api: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
     ours = await _client_with_phone(db)
@@ -130,8 +144,9 @@ async def test_a_tie_between_businesses_is_not_guessed(
     await texted(db, ours, at=at)
     await texted(db, theirs.id, business_id=rival.id, at=at)
     ok(await text_in(api, {"From": PHONE, "Body": "hi", "MessageSid": "SM_tie"}))
-    assert await _inbound(db, "SM_tie") is None
-    assert summary(await _webhook(db, "SM_tie"))["matched"] is False
+    incoming = await _inbound(db, "SM_tie")
+    assert incoming is not None and incoming.business_id == BIZ
+    assert summary(await _webhook(db, "SM_tie"))["matched"] is True
 
 
 async def test_a_redelivery_is_recorded_once(api: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -199,6 +214,7 @@ async def test_a_routed_reply_alerts_only_that_business_staff(
 ) -> None:
     ours = await _client_with_phone(db)
     rival = await factory.business(name="Rival Alerts")
+    rival.sms_number = "+12505550888"
     owner = await factory.user()
     await factory.staff(business=rival, user=owner)
     theirs = await factory.client(business=rival, name="Rival Client")
@@ -217,7 +233,12 @@ async def test_a_routed_reply_alerts_only_that_business_staff(
     )
     await texted(db, ours, at=clock.now() - timedelta(days=1))
     await texted(db, theirs.id, business_id=rival.id)
-    ok(await text_in(api, {"From": PHONE, "Body": "See you at 3", "MessageSid": "SM_push"}))
+    ok(
+        await text_in(
+            api,
+            {"From": PHONE, "To": "+12505550888", "Body": "See you at 3", "MessageSid": "SM_push"},
+        )
+    )
     [alert] = push.sent
     msg = await _inbound(db, "SM_push")
     assert msg is not None
@@ -232,7 +253,11 @@ async def test_an_unmatched_or_repeated_text_alerts_no_one(
     cid = await _client_with_phone(db)
     db.add(Device(id="dvt_quiet", business_id=BIZ, user_id="us_dev", token="T", platform="ios"))
     await db.flush()
-    ok(await text_in(api, {"From": PHONE, "Body": "hi", "MessageSid": "SM_nomatch"}))
+    ok(
+        await text_in(
+            api, {"From": PHONE, "To": "+15145559999", "Body": "hi", "MessageSid": "SM_nomatch"}
+        )
+    )
     assert push.sent == []
     await texted(db, cid)
     payload = {"From": PHONE, "Body": "x" * 300, "MessageSid": "SM_once"}
@@ -240,3 +265,22 @@ async def test_an_unmatched_or_repeated_text_alerts_no_one(
     ok(await text_in(api, payload))
     assert len(push.sent) == 1 and push.sent[0].body.endswith("…")
     assert len(push.sent[0].body) < 160
+
+
+async def test_unassigned_destination_never_routes_to_the_last_sender(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await _client_with_phone(db)
+    await texted(db, cid)
+    ok(
+        await text_in(
+            api,
+            {
+                "From": PHONE,
+                "To": "+15145559999",
+                "Body": "Private reply",
+                "MessageSid": "SM_unassigned",
+            },
+        )
+    )
+    assert await _inbound(db, "SM_unassigned") is None

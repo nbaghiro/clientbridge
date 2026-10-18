@@ -1,5 +1,7 @@
 """Nightly reconciliation: the ledger's Stripe balance against Stripe's, per connected account."""
 
+import httpx
+import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -78,3 +80,26 @@ async def test_cached_balances_match_their_entries(
         select(Audit).where(Audit.business_id == BIZ, Audit.action == "ledger.cache_drift")
     )
     assert rows.scalars().all() == []
+
+
+async def test_one_provider_failure_does_not_skip_other_businesses(
+    db: AsyncSession, gateway: FakePaymentGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await _connect(db, BIZ, "acct_unavailable")
+    other = await Factory(db).business()
+    other.stripe_account_id = "acct_available"
+    other_id = other.id
+    other.stripe_requirements = {"card_status": "active"}
+    await db.commit()
+    await db.refresh(other)
+    assert other.stripe_account_id == "acct_available"
+    assert other.stripe_requirements == {"card_status": "active"}
+
+    async def balance(account_id: str, *, currency: str) -> int:
+        if account_id == "acct_unavailable":
+            raise httpx.ConnectError("provider unavailable")
+        return 999
+
+    monkeypatch.setattr(gateway, "get_balance_cents", balance)
+    assert await run_reconcile_ledger(db, gateway) >= 1
+    assert len(await _drifts(db, other_id)) == 1

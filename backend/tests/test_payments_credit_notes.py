@@ -24,6 +24,7 @@ from tests.helpers import (
     sent_invoice,
     settle,
 )
+from tests.helpers import key as retry_key
 
 
 async def _taxed_card_payment(
@@ -94,7 +95,7 @@ async def test_refund_without_notice_sends_nothing(
     _, pay = await _taxed_card_payment(as_owner, db, 9812)
     email.sent.clear()
     body = {"reason": "duplicate", "notify": False}
-    ok(await as_owner.post(f"/v1/payments/{pay}/refund", json=body))
+    ok(await as_owner.post(f"/v1/payments/{pay}/refund", json=body, headers=retry_key()))
     assert not any("Refund" in m.subject for m in email.sent)
 
 
@@ -117,7 +118,9 @@ async def test_cash_payment_is_refunded_by_hand(
 
     out = ok(
         await as_owner.post(
-            f"/v1/payments/{paid['payment_id']}/refund", json={"amount_cents": 1000}
+            f"/v1/payments/{paid['payment_id']}/refund",
+            json={"amount_cents": 1000},
+            headers=retry_key(),
         )
     ).json()
     refund = await payment(db, out["refund_id"])
@@ -153,7 +156,7 @@ async def test_preview_rejects_a_bad_amount_and_reports_blocks(
     _, pay = await _taxed_card_payment(as_owner, db, 9814)
     res = await as_owner.get(f"/v1/payments/{pay}/refund-preview?amount_cents=99999")
     assert res.status_code == 409
-    ok(await as_owner.post(f"/v1/payments/{pay}/refund", json={}))
+    ok(await as_owner.post(f"/v1/payments/{pay}/refund", json={}, headers=retry_key()))
     done = ok(await as_owner.get(f"/v1/payments/{pay}/refund-preview")).json()
     assert done["blocked"] == "this payment was already refunded"
     assert done["parts"] == []
@@ -165,7 +168,9 @@ async def test_preview_rejects_a_bad_amount_and_reports_blocks(
 
 async def test_bad_reason_is_refused(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     _, pay = await _taxed_card_payment(as_owner, db, 9815)
-    res = await as_owner.post(f"/v1/payments/{pay}/refund", json={"reason": "because"})
+    res = await as_owner.post(
+        f"/v1/payments/{pay}/refund", json={"reason": "because"}, headers=retry_key()
+    )
     assert res.status_code == 422
 
 
@@ -190,7 +195,9 @@ async def test_staff_cannot_preview_or_refund(
 ) -> None:
     pay = await _card_payment(db)
     assert (await as_staff.get(f"/v1/payments/{pay}/refund-preview")).status_code == 403
-    assert (await as_staff.post(f"/v1/payments/{pay}/refund", json={})).status_code == 403
+    assert (
+        await as_staff.post(f"/v1/payments/{pay}/refund", json={}, headers=retry_key())
+    ).status_code == 403
 
 
 async def test_unauthenticated_cannot_preview(unauth: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -216,7 +223,9 @@ async def test_foreign_payment_is_not_found(
     db.add(foreign)
     await db.flush()
     assert (await as_owner.get(f"/v1/payments/{foreign.id}/refund-preview")).status_code == 404
-    assert (await as_owner.post(f"/v1/payments/{foreign.id}/refund", json={})).status_code == 404
+    assert (
+        await as_owner.post(f"/v1/payments/{foreign.id}/refund", json={}, headers=retry_key())
+    ).status_code == 404
 
 
 async def test_same_key_refunds_once(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:

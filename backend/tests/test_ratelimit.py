@@ -69,3 +69,20 @@ def test_keys_are_independent() -> None:
     assert rl.check("a", 0.0) is True
     assert rl.check("b", 0.0) is True
     assert rl.check("a", 0.1) is False
+
+
+async def test_deployed_limit_is_shared_between_api_processes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import secrets
+
+    from clientbridge.core import ratelimit
+    from clientbridge.core.errors import TooManyRequests
+
+    monkeypatch.setattr(get_settings(), "env", "staging")
+    request = _request({}, (f"test-{secrets.token_hex(12)}", 0))
+    monkeypatch.setattr(ratelimit, "_public_pay_limiter", RateLimiter(limit=1, window_s=60))
+    await ratelimit.public_pay_rate_limit(request)
+    monkeypatch.setattr(ratelimit, "_public_pay_limiter", RateLimiter(limit=1, window_s=60))
+    with pytest.raises(TooManyRequests):
+        await ratelimit.public_pay_rate_limit(request)

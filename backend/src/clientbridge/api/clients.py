@@ -21,10 +21,12 @@ IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
 
 @router.post("", response_model=ClientOut, status_code=201)
 async def create_client(
-    body: ClientCreate, principal: CurrentPrincipal, db: DbSession
+    body: ClientCreate,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    idempotency_key: IdempotencyKey = None,
 ) -> ClientOut:
-    client = await ClientService(db, principal).create(body)
-    return ClientOut.model_validate(client)
+    return await ClientService(db, principal).create(body, idempotency_key)
 
 
 @router.post("/archive", response_model=BulkResult)
@@ -49,10 +51,13 @@ async def tag_clients(
 
 @router.patch("/{client_id}", response_model=ClientOut)
 async def update_client(
-    client_id: str, body: ClientUpdate, principal: CurrentPrincipal, db: DbSession
+    client_id: str,
+    body: ClientUpdate,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    idempotency_key: IdempotencyKey = None,
 ) -> ClientOut:
-    client = await ClientService(db, principal).update(client_id, body)
-    return ClientOut.model_validate(client)
+    return await ClientService(db, principal).update(client_id, body, idempotency_key)
 
 
 @router.post("/{client_id}/archive", response_model=ClientOut)

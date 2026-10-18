@@ -8,7 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.config import get_settings
-from clientbridge.core.errors import NotFound, TooManyRequests, Unauthorized, Unprocessable
+from clientbridge.core.errors import (
+    AppError,
+    NotFound,
+    TooManyRequests,
+    Unauthorized,
+    Unprocessable,
+)
 from clientbridge.core.ids import new_id
 from clientbridge.core.locale import locale_for
 from clientbridge.core.phones import e164, same_phone
@@ -58,6 +64,10 @@ class ReturningService:
         if address is None:
             raise Unprocessable("enter a valid phone number with country code")
         channel = "email" if data.email is not None else "sms"
+        if channel == "sms" and business.sms_number is None:
+            raise AppError(
+                "business has no assigned SMS number", code="sms_unassigned", status_code=503
+            )
         destination = _digest(f"{channel}:{address}")
         now = clock.now()
         await self.db.execute(
@@ -115,7 +125,7 @@ class ReturningService:
             brand = await business_brand(self.db, business)
             await sender.send(client_email(business, brand, address, notice))
         else:
-            await sms.send(Sms(to=address, body=notice.body))
+            await sms.send(Sms(to=address, body=notice.body, from_number=business.sms_number))
         return ReturningChallengeOut(challenge_id=challenge_id)
 
     async def verify(self, slug: str, data: ReturningVerify) -> ReturningVerified:

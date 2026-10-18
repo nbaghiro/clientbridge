@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints
 
@@ -48,12 +48,26 @@ class PublicFormField(Mirror):
     position: int
 
 
+class FormDefinition(BaseModel):
+    provenance: Literal["issued", "reconstructed"]
+    name: str
+    require_signature: bool
+    fields: list[PublicFormField]
+
+
+class FormSignature(BaseModel):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+    agreed: Literal[True]
+    strokes: list[list[tuple[float, float]]] | None = Field(default=None, max_length=60)
+
+
 class PublicFormContext(BaseModel):
     form_name: str
     business_name: str
     brand: PublicBrand
     timezone: str = Field(description="The business's IANA time zone, which its times are shown in")
     completed: bool
+    require_signature: bool
     fields: list[PublicFormField]
 
 
@@ -61,6 +75,7 @@ class PublicFormSubmit(Mirror):
     mirrors = FormResponse
 
     answers: dict[str, object]
+    signature: FormSignature | None = None
 
 
 class FormFieldIn(Mirror):

@@ -7,7 +7,7 @@ from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
-from clientbridge.core.command import Command, run_command
+from clientbridge.core.command import Command, request_hash, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
@@ -35,6 +35,13 @@ from clientbridge.services.business import (
     apply_account_status,
     businesses_at_hour,
     postal_address,
+)
+from clientbridge.services.deliveries import (
+    DeliveryQueue,
+    QueuedEmail,
+    QueuedPush,
+    QueuedSms,
+    dispatch,
 )
 from clientbridge.services.notifications import Notifier, plan_link
 
@@ -280,7 +287,11 @@ class PlanService:
     async def _business(self, *, lock: bool = False) -> Business:
         query = select(Business).where(Business.id == self.principal.business_id)
         business = (
-            await self.db.execute(query.with_for_update() if lock else query)
+            await self.db.execute(
+                query.with_for_update(key_share=True).execution_options(populate_existing=True)
+                if lock
+                else query
+            )
         ).scalar_one_or_none()
         if business is None:
             raise NotFound("business not found")
@@ -329,12 +340,19 @@ class PlanService:
             business = await self._business(lock=True)
         else:
             await self.gateway.add_customer_configuration(account_id, address=address)
-        attempt = _key(idempotency_key)
+        left = business.trial_ends_at - now
+        carry = plan_access(business, now) == "trial" and left >= _CHECKOUT_TRIAL_MIN
+        parameters = request_hash(
+            {
+                "choice": choice,
+                "seats": seats,
+                "trial_end": business.trial_ends_at if carry else None,
+            }
+        )
+        attempt = f"{_key(idempotency_key)}:{parameters}"
         # two tabs or a retry without a key would otherwise open two subscriptions
         if await self.gateway.close_plan_checkouts(account_id, keep=attempt):
             raise Conflict("the business already has a plan; change it instead", code="plan_active")
-        left = business.trial_ends_at - now
-        carry = plan_access(business, now) == "trial" and left >= _CHECKOUT_TRIAL_MIN
         url = await self.gateway.create_plan_checkout(
             account_id,
             # Checkout takes one interval, so a yearly plan gets its monthly seats once it exists
@@ -418,7 +436,10 @@ async def apply_subscription_event(
         return
     business = (
         await db.execute(
-            select(Business).where(Business.stripe_account_id == account).with_for_update()
+            select(Business)
+            .where(Business.stripe_account_id == account)
+            .with_for_update(key_share=True)
+            .execution_options(populate_existing=True)
         )
     ).scalar_one_or_none()
     if business is None:
@@ -439,7 +460,14 @@ async def apply_subscription_event(
             if duplicate.status in _ENDED:
                 return
             # the business already pays through another subscription; this one would bill twice
-            refunded = await gateway.refund_plan_subscription(subscription_id)
+            active = await gateway.get_plan_subscription(current)
+            refunded = 0
+            if (
+                duplicate.created_at is not None
+                and active.created_at is not None
+                and duplicate.created_at >= active.created_at
+            ):
+                refunded = await gateway.refund_plan_subscription(subscription_id)
             await gateway.cancel_plan_subscription(subscription_id)
             _log.warning(
                 "%s already has plan subscription %s; cancelled %s and refunded %d cents",
@@ -450,6 +478,10 @@ async def apply_subscription_event(
             )
             return
     sub = await gateway.get_plan_subscription(subscription_id)
+    if current is not None and current != subscription_id and sub.status in _LIVE:
+        previous = await gateway.get_plan_subscription(current)
+        if previous.status not in _ENDED:
+            await gateway.cancel_plan_subscription(current)
     business.stripe_subscription_id = subscription_id
     status = _STRIPE_STATUS.get(sub.status)
     trialing = plan_access(business, clock.now()) == "trial"
@@ -466,22 +498,36 @@ async def apply_subscription_event(
 
 async def run_sync_seats(db: AsyncSession, gateway: PaymentGateway, now: datetime) -> int:
     """Set every Premium subscription's seats to the current count; catches expired invites."""
-    businesses = (
-        await db.execute(
-            select(Business).where(
+    identities = list(
+        await db.scalars(
+            select(Business.id).where(
                 Business.plan == "premium",
                 Business.plan_status.in_(_LIVE),
                 Business.stripe_subscription_id.is_not(None),
             )
         )
-    ).scalars()
+    )
+    await db.commit()
     synced = 0
-    for business in businesses:
+    for identity in identities:
         try:
-            await sync_seats(gateway, business, await billed_seats(db, business.id, now))
-            synced += 1
+            business = await db.scalar(
+                select(Business)
+                .where(Business.id == identity)
+                .with_for_update(key_share=True)
+                .execution_options(populate_existing=True)
+            )
+            if (
+                business is not None
+                and business.plan == "premium"
+                and business.plan_status in _LIVE
+            ):
+                await sync_seats(gateway, business, await billed_seats(db, business.id, now))
+                synced += 1
+            await db.commit()
         except Exception:
-            _log.exception("seat sync failed for %s", business.id)
+            await db.rollback()
+            _log.exception("seat sync failed for %s", identity)
     return synced
 
 
@@ -501,6 +547,16 @@ async def run_trial_reminders(db: AsyncSession, notifier: Notifier, now: datetim
             last_day = False
         else:
             continue
-        await notifier.on_trial_ending(db, business.id, last_day=last_day)
-        sent += 1
+        queue = DeliveryQueue(
+            db,
+            f"trial:{business.id}:{business.trial_ends_at.isoformat()}:{today.isoformat()}",
+            business.id,
+        )
+        queued = Notifier(
+            QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True
+        )
+        await queued.on_trial_ending(db, business.id, last_day=last_day)
+        await db.commit()
+        for identity in queue.ids:
+            sent += await dispatch(db, identity, notifier.email, notifier.sms, notifier.push)
     return sent

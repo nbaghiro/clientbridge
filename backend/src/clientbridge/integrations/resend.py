@@ -16,6 +16,7 @@ import httpx
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.email_layout import InlineImage
+from clientbridge.integrations.http import http_session
 
 _RESEND_URL = "https://api.resend.com/emails"
 _SIGNATURE_WINDOW = timedelta(minutes=5)
@@ -84,7 +85,7 @@ class ResendEmailSender:
         }
         if email.idempotency_key:
             headers["Idempotency-Key"] = email.idempotency_key
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with http_session() as client:
             response = await self._post(client, payload, headers)
             response.raise_for_status()
             body = response.json()

@@ -27,6 +27,7 @@ TABLE_POLICIES: Mapping[str, TablePolicy] = MappingProxyType(
         "commands": TablePolicy("tenant", "business_id", "platform"),
         "consents": TablePolicy("tenant", "business_id", "clients"),
         "contracts": TablePolicy("tenant", "business_id", "documents"),
+        "deliveries": TablePolicy("operational", "business_id", "messaging"),
         "devices": TablePolicy("tenant", "business_id", "platform"),
         "entries": TablePolicy("tenant", "business_id", "ledger"),
         "estimates": TablePolicy("tenant", "business_id", "billing"),
@@ -79,7 +80,10 @@ def table_policy_errors(
         )
         if policy.tenant_key != tenant_key:
             errors.append(f"{name}: expected tenant key {tenant_key!r}")
-        if (policy.scope == "tenant") != (tenant_key is not None):
+        tenant_owned = tenant_key is not None and (
+            tenant_key not in table.c or not table.c[tenant_key].nullable
+        )
+        if (policy.scope == "tenant") != tenant_owned:
             errors.append(f"{name}: scope disagrees with tenant columns")
         if name == "users" and policy.scope != "identity":
             errors.append(f"{name}: identity scope required")
@@ -92,7 +96,7 @@ def table_policy_errors(
                 errors.append(f"{name}: missing tenant key {tenant_key!r}")
                 continue
             column = table.c[tenant_key]
-            if column.nullable:
+            if column.nullable and policy.scope != "operational":
                 errors.append(f"{name}: tenant key must be non-null")
             if tenant_key == "id" and not column.primary_key:
                 errors.append(f"{name}: tenant root key must be primary")

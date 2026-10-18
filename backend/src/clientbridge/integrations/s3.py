@@ -1,5 +1,6 @@
 """Object storage adapter (S3); presigning is local, so the methods are sync."""
 
+from functools import cache
 from typing import Protocol
 
 import boto3
@@ -75,6 +76,7 @@ class S3Storage:
         self._client.delete_object(Bucket=self._bucket, Key=key)
 
 
+@cache
 def get_file_storage() -> FileStorage:
     s = get_settings()
     return S3Storage(

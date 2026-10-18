@@ -1,7 +1,7 @@
 import json
 import pathlib
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
@@ -9,16 +9,19 @@ import httpx
 import pytest
 from fastapi import APIRouter
 from fastapi.routing import APIRoute
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.api.plans import LAPSED_WRITES
 from clientbridge.core import clock
+from clientbridge.core.db import engine
 from clientbridge.core.errors import Unprocessable
+from clientbridge.core.ids import new_id
 from clientbridge.integrations.stripe import PlanItem, PlanSubscription
 from clientbridge.main import app
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Subscription
+from clientbridge.models.clients import Client
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking
 from clientbridge.services import plans
@@ -36,6 +39,7 @@ from tests.conftest import (
     subscribed,
 )
 from tests.helpers import STRIPE, key, local_hour, ok
+from tests.helpers import key as retry_key
 
 BIZ = "bz_birchbark"
 ACCOUNT = "acct_paying"
@@ -93,6 +97,7 @@ def _sub(
         ),
         cancel_at_period_end=False,
         trial_end=None,
+        created_at=clock.now(),
     )
 
 
@@ -675,7 +680,7 @@ async def test_a_lapsed_business_can_complete_its_address_refund_and_manage_paym
     await _trial(db, -timedelta(days=1))
     address = {"brand": {"address": "88 Fort St, Victoria, BC V8W 1Y4"}}
     assert (await as_owner.patch("/v1/business", json=address)).status_code == 200
-    refund = await as_owner.post("/v1/payments/pay_missing/refund", json={})
+    refund = await as_owner.post("/v1/payments/pay_missing/refund", json={}, headers=retry_key())
     assert refund.status_code != 402
     session = await as_owner.post("/v1/connect/session", json={"component": "payouts"})
     assert session.status_code != 402
@@ -773,3 +778,97 @@ async def test_a_trial_reminder_without_a_billing_email_goes_to_the_active_owner
     await factory.staff(business=business, user=heir, role="owner")
     await Notifier(email, sms, push).on_trial_ending(db, BIZ, last_day=True)
     assert [m.to for m in email.sent] == ["new-owner@test.ca"]
+
+
+async def test_replacement_cancels_the_lapsed_subscription_without_refunding_history(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _subscribed(db, gateway, PlanItem("team_month"), status="unpaid")
+    await _set(db, plan_status="lapsed")
+    gateway.plan_subscriptions["sub_replacement"] = _sub(
+        PlanItem("team_month"), sub_id="sub_replacement"
+    )
+    await _deliver(api, _event("customer.subscription.created", "sub_replacement"))
+    assert gateway.canceled_plan_subscriptions == [SUB]
+    assert gateway.refunded_plan_subscriptions == []
+    await _deliver(api, _event("customer.subscription.updated", SUB))
+    assert gateway.refunded_plan_subscriptions == []
+    assert (await _business(db)).stripe_subscription_id == "sub_replacement"
+
+
+async def test_plan_lock_does_not_block_unrelated_business_inserts(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _set(db, plan="team", plan_status="active", stripe_subscription_id=SUB)
+    gateway.plan_subscriptions[SUB] = _sub(PlanItem("team_month"))
+    original = gateway.set_plan_items
+
+    async def inspect_lock(
+        subscription_id: str, *, items: Sequence[PlanItem], idempotency_key: str
+    ) -> PlanSubscription:
+        async with engine.connect() as connection, connection.begin():
+            await connection.execute(text("SET LOCAL lock_timeout = '200ms'"))
+            async with AsyncSession(
+                bind=connection, join_transaction_mode="create_savepoint"
+            ) as other:
+                other.add(Client(id=new_id("client"), business_id=BIZ, name="Concurrent client"))
+                await other.flush()
+                await other.rollback()
+        return await original(subscription_id, items=items, idempotency_key=idempotency_key)
+
+    monkeypatch.setattr(gateway, "set_plan_items", inspect_lock)
+    response = await as_owner.post(
+        "/v1/plan/change", json={"plan": "premium", "interval": "month"}, headers=key()
+    )
+    assert response.status_code == 200, response.text
+
+
+async def test_trial_reminder_job_replay_does_not_send_twice(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    now = await local_hour(db, 9)
+    await _trial(db, timedelta(hours=5), billing_email="owner@birchbark.test")
+    notifier = Notifier(email, sms, push)
+    assert await run_trial_reminders(db, notifier, now) == 1
+    assert await run_trial_reminders(db, notifier, now) == 0
+    assert len(email.sent) == 1
+
+
+async def test_checkout_changes_provider_attempt_when_choice_changes_with_same_key(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _trial(db, timedelta(days=5))
+    headers = key()
+    first = ok(
+        await as_owner.post(
+            "/v1/plan/checkout", json={"plan": "team", "interval": "month"}, headers=headers
+        )
+    ).json()
+    second = ok(
+        await as_owner.post(
+            "/v1/plan/checkout", json={"plan": "team", "interval": "year"}, headers=headers
+        )
+    ).json()
+    assert first["url"] != second["url"]
+    assert len(gateway.checkouts) == 2
+    assert first["url"] in gateway.expired_checkouts
+
+
+async def test_previous_live_subscription_is_cancelled_without_refunding_its_history(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _subscribed(db, gateway, PlanItem("team_month"))
+    gateway.plan_subscriptions[SUB] = replace(
+        gateway.plan_subscriptions[SUB], created_at=clock.now()
+    )
+    gateway.plan_subscriptions["sub_previous"] = replace(
+        _sub(PlanItem("team_month"), sub_id="sub_previous"),
+        created_at=clock.now() - timedelta(days=90),
+    )
+    await _deliver(api, _event("customer.subscription.updated", "sub_previous"))
+    assert gateway.canceled_plan_subscriptions == ["sub_previous"]
+    assert gateway.refunded_plan_subscriptions == []
+    assert (await _business(db)).stripe_subscription_id == SUB

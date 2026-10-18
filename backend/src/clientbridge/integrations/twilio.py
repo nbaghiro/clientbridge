@@ -7,9 +7,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-import httpx
-
 from clientbridge.core.config import get_settings
+from clientbridge.core.errors import AppError
+from clientbridge.integrations.http import http_session
 
 _TWILIO_API = "https://api.twilio.com/2010-04-01"
 
@@ -18,6 +18,7 @@ _TWILIO_API = "https://api.twilio.com/2010-04-01"
 class Sms:
     to: str
     body: str
+    from_number: str | None = None
 
 
 class SmsSender(Protocol):
@@ -32,16 +33,19 @@ class ConsoleSmsSender:
 
 
 class TwilioSmsSender:
-    def __init__(self, account_sid: str, auth_token: str, from_number: str) -> None:
+    def __init__(self, account_sid: str, auth_token: str) -> None:
         self._sid = account_sid
         self._auth = auth_token
-        self._from = from_number
 
     async def send(self, sms: Sms) -> str | None:
+        if sms.from_number is None:
+            raise AppError(
+                "business has no assigned SMS number", code="sms_unassigned", status_code=503
+            )
         url = f"{_TWILIO_API}/Accounts/{self._sid}/Messages.json"
-        form = {"To": sms.to, "From": self._from, "Body": sms.body}
-        async with httpx.AsyncClient(timeout=10.0, auth=(self._sid, self._auth)) as client:
-            response = await client.post(url, data=form)
+        form = {"To": sms.to, "From": sms.from_number, "Body": sms.body}
+        async with http_session() as client:
+            response = await client.post(url, data=form, auth=(self._sid, self._auth))
             response.raise_for_status()
             body = response.json()
             sid = body.get("sid") if isinstance(body, dict) else None
@@ -50,8 +54,8 @@ class TwilioSmsSender:
 
 def get_sms_sender() -> SmsSender:
     s = get_settings()
-    if s.twilio_account_sid and s.twilio_auth_token and s.twilio_sms_from:
-        return TwilioSmsSender(s.twilio_account_sid, s.twilio_auth_token, s.twilio_sms_from)
+    if s.twilio_account_sid and s.twilio_auth_token:
+        return TwilioSmsSender(s.twilio_account_sid, s.twilio_auth_token)
     return ConsoleSmsSender()
 
 

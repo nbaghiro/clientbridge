@@ -17,6 +17,7 @@ from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger
 from clientbridge.services.consents import prefs_token
+from clientbridge.services.forms import snapshot_form
 
 BIZ = "bz_birchbark"
 
@@ -53,6 +54,7 @@ async def _form_draft(db: AsyncSession, client_id: str) -> str:
         return found.token
     form = (await db.execute(select(Form).where(Form.business_id == BIZ).limit(1))).scalar_one()
     response = FormResponse(
+        definition=await snapshot_form(db, form),
         id=new_id("form_response"),
         business_id=BIZ,
         form_id=form.id,

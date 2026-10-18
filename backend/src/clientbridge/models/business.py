@@ -65,6 +65,7 @@ class Business(PKMixin, TimestampMixin, Base):
     google_review_url: Mapped[str | None] = mapped_column(String)
     brand: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
     billing_email: Mapped[str | None] = mapped_column(String)
+    sms_number: Mapped[str | None] = mapped_column(String, unique=True)
     stripe_account_id: Mapped[str | None] = mapped_column(String)
     stripe_terminal_location_id: Mapped[str | None] = mapped_column(
         String

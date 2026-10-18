@@ -505,6 +505,13 @@ class BillingService:
         return await fetch_lines(self.db, self.biz, parent, parent_id)
 
     async def _next_number(self, model: type[Invoice] | type[Estimate]) -> int:
+        await self.db.execute(
+            select(
+                func.pg_advisory_xact_lock(
+                    func.hashtextextended(f"number:{self.biz}:{model.__tablename__}", 0)
+                )
+            )
+        )
         sub = scoped(model, self.biz).subquery()
         current = (await self.db.execute(select(func.max(sub.c.number)))).scalar_one_or_none()
         return (current or 0) + 1
@@ -512,7 +519,10 @@ class BillingService:
     async def _client(self, client_id: str) -> Client:
         row = (
             await self.db.execute(
-                scoped(Client, self.biz, soft_delete=True).where(Client.id == client_id)
+                scoped(Client, self.biz, soft_delete=True)
+                .where(Client.id == client_id)
+                .with_for_update(read=True, key_share=True)
+                .execution_options(populate_existing=True)
             )
         ).scalar_one_or_none()
         if row is None:

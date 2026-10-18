@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import ColumnElement, and_, case, func, or_, select, tuple_
+from sqlalchemy import ColumnElement, Select, and_, case, func, or_, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute, aliased
@@ -443,14 +443,68 @@ async def order_deposit_applied(db: AsyncSession, order: Order) -> int:
 
 def order_status_expr() -> ColumnElement[str]:
     """An order stores only open/void; whether it is paid or refunded comes from the ledger."""
-    paid = _collected_expr("order", Order.id)
-    covered = paid + _deposit_applied_expr(Order.id)
-    refunded = _refunded_expr("order", Order.id)
+    return _order_status(
+        _collected_expr("order", Order.id),
+        _deposit_applied_expr(Order.id),
+        _refunded_expr("order", Order.id),
+    )
+
+
+def _order_status(
+    paid: ColumnElement[int], applied: ColumnElement[int], refunded: ColumnElement[bool]
+) -> ColumnElement[str]:
+    covered = paid + applied
     return case(
         (Order.status == "void", "void"),
         (and_(paid <= 0, refunded), "refunded"),
         (and_(covered > 0, or_(covered >= Order.total_cents, refunded)), "paid"),
         else_="open",
+    )
+
+
+def held_orders(business_id: str) -> Select[tuple[Order]]:
+    cash = (
+        scoped(Entry, business_id)
+        .join(Account, Account.id == Entry.account_id)
+        .with_only_columns(
+            Entry.subject_id.label("order_id"),
+            func.sum(Entry.amount_cents).label("paid"),
+            func.bool_or(Entry.event.in_(("refund", "dispute"))).label("refunded"),
+        )
+        .where(
+            Entry.subject_type == "order",
+            _settled(),
+            Account.category.in_(_CASH_CATEGORIES),
+            Entry.event.in_(_MONEY_BACK_EVENTS),
+        )
+        .group_by(Entry.subject_id)
+        .subquery()
+    )
+    deposits = (
+        scoped(Entry, business_id)
+        .join(Account, Account.id == Entry.account_id)
+        .join(Payment, Payment.id == Entry.source_id)
+        .with_only_columns(Payment.order_id, func.sum(Entry.amount_cents).label("applied"))
+        .where(
+            Entry.source_type == "payment",
+            Entry.event == "payment",
+            Account.category == "deposit",
+            Payment.order_id.is_not(None),
+        )
+        .group_by(Payment.order_id)
+        .subquery()
+    )
+    status = _order_status(
+        func.coalesce(cash.c.paid, 0),
+        func.coalesce(deposits.c.applied, 0),
+        func.coalesce(cash.c.refunded, False),
+    )
+    return (
+        scoped(Order, business_id)
+        .outerjoin(cash, cash.c.order_id == Order.id)
+        .outerjoin(deposits, deposits.c.order_id == Order.id)
+        .where(Order.source == "pos", Order.status == "open", status == "open")
+        .order_by(Order.created_at)
     )
 
 
@@ -1239,24 +1293,34 @@ def _drift(business_id: str, action: str, changes: dict[str, object]) -> Audit:
 
 async def run_reconcile_ledger(db: AsyncSession, gateway: PaymentGateway) -> int:
     """Check every cached balance against its entries and every connected account against Stripe."""
-    businesses = (await db.execute(select(Business))).scalars().all()
+    ids = list(await db.scalars(select(Business.id).order_by(Business.id)))
     drifted = 0
-    for business in businesses:
-        stale = await stale_accounts(db, business.id)
-        if stale:
-            drifted += 1
-            db.add(_drift(business.id, "ledger.cache_drift", {"account_ids": stale}))
-        account_id = merchant_account(business)
-        if account_id is None:
-            continue
-        ours = await balance(
-            db, business.id, owner_type="business", owner_id=business.id, category="stripe"
-        )
-        theirs = await gateway.get_balance_cents(account_id, currency=BUSINESS_CURRENCY)
-        if ours != theirs:
-            drifted += 1
-            db.add(
-                _drift(business.id, "ledger.drift", {"ledger_cents": ours, "stripe_cents": theirs})
-            )
-    await db.commit()
+    for identity in ids:
+        try:
+            business = await db.get(Business, identity)
+            if business is None:
+                continue
+            found = 0
+            stale = await stale_accounts(db, identity)
+            if stale:
+                found += 1
+                db.add(_drift(identity, "ledger.cache_drift", {"account_ids": stale}))
+            account_id = merchant_account(business)
+            if account_id is not None:
+                ours = await balance(
+                    db, identity, owner_type="business", owner_id=identity, category="stripe"
+                )
+                theirs = await gateway.get_balance_cents(account_id, currency=BUSINESS_CURRENCY)
+                if ours != theirs:
+                    found += 1
+                    db.add(
+                        _drift(
+                            identity, "ledger.drift", {"ledger_cents": ours, "stripe_cents": theirs}
+                        )
+                    )
+            await db.commit()
+            drifted += found
+        except Exception:
+            await db.rollback()
+            _log.exception("ledger reconciliation failed for %s", identity)
     return drifted

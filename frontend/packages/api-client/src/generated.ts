@@ -75,6 +75,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/contact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Contact */
+        post: operations["submit_contact_contact_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/webhooks/stripe": {
         parameters: {
             query?: never;
@@ -3231,6 +3248,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/v1/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Deliveries */
+        get: operations["deliveries_admin_v1_deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/businesses/{business_id}/sms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Assign Sms */
+        post: operations["assign_sms_admin_v1_businesses__business_id__sms_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3315,6 +3366,8 @@ export interface components {
             timezone: string;
             /** Billing Email */
             billing_email: string | null;
+            /** Sms Number */
+            sms_number: string | null;
             /** Plan */
             plan: ("premium" | "team") | null;
             /**
@@ -3374,6 +3427,33 @@ export interface components {
              */
             created_at: string;
         };
+        /** AdminDelivery */
+        AdminDelivery: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "queued" | "sending" | "accepted" | "delivered" | "failed" | "ambiguous";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Provider Ref */
+            provider_ref: string | null;
+            /** Error */
+            error: string | null;
+            /** Recipient */
+            recipient: string;
+            /** Subject */
+            subject: string;
+            /** Actor */
+            actor: string | null;
+        };
         /** AdminEmail */
         AdminEmail: {
             /** Key */
@@ -3400,7 +3480,12 @@ export interface components {
         /** AdminEmailResult */
         AdminEmailResult: {
             /** Delivery Id */
-            delivery_id: string | null;
+            delivery_id: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "queued" | "sending" | "accepted" | "delivered" | "failed" | "ambiguous";
         };
         /** AdminEmailSend */
         AdminEmailSend: {
@@ -3516,6 +3601,13 @@ export interface components {
             /** Has More */
             has_more: boolean;
         };
+        /** AdminPage[AdminDelivery] */
+        AdminPage_AdminDelivery_: {
+            /** Items */
+            items: components["schemas"]["AdminDelivery"][];
+            /** Has More */
+            has_more: boolean;
+        };
         /** AdminPage[AdminPayment] */
         AdminPage_AdminPayment_: {
             /** Items */
@@ -3615,6 +3707,11 @@ export interface components {
         AdminSession: {
             /** Identity Id */
             identity_id: string;
+        };
+        /** AdminSmsAssignment */
+        AdminSmsAssignment: {
+            /** Number */
+            number: string | null;
         };
         /** AdminUser */
         AdminUser: {
@@ -4032,6 +4129,8 @@ export interface components {
             setup_dismissed_at: string | null;
             /** Review Hold At */
             review_hold_at: number;
+            /** Staff Discount Limit Bps */
+            staff_discount_limit_bps: number;
             /** Google Review Url */
             google_review_url: string | null;
             /** Brand */
@@ -4065,6 +4164,8 @@ export interface components {
              * @description Hide (true) or show (false) the Get set up list
              */
             setup_dismissed?: boolean | null;
+            /** Staff Discount Limit Bps */
+            staff_discount_limit_bps?: number | null;
             /**
              * Review Hold At
              * @description Hold reviews rated at or below this; 0 holds none
@@ -4770,6 +4871,21 @@ export interface components {
             form_id: string;
             /** Client Id */
             client_id: string;
+        };
+        /** FormSignature */
+        FormSignature: {
+            /** Name */
+            name: string;
+            /**
+             * Agreed
+             * @constant
+             */
+            agreed: true;
+            /** Strokes */
+            strokes?: [
+                number,
+                number
+            ][][] | null;
         };
         /** GiftCardOut */
         GiftCardOut: {
@@ -6474,6 +6590,8 @@ export interface components {
         };
         /** PublicContractSign */
         PublicContractSign: {
+            /** Version */
+            version: number;
             /**
              * Typed Name
              * @description The printed name
@@ -6692,6 +6810,8 @@ export interface components {
             timezone: string;
             /** Completed */
             completed: boolean;
+            /** Require Signature */
+            require_signature: boolean;
             /** Fields */
             fields: components["schemas"]["PublicFormField"][];
         };
@@ -6727,6 +6847,7 @@ export interface components {
             answers: {
                 [key: string]: unknown;
             };
+            signature?: components["schemas"]["FormSignature"] | null;
         };
         /** PublicInvoice */
         PublicInvoice: {
@@ -8592,6 +8713,26 @@ export interface operations {
             };
         };
     };
+    submit_contact_contact_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     stripe_webhook_webhooks_stripe_post: {
         parameters: {
             query?: never;
@@ -10262,6 +10403,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -10375,6 +10517,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -12514,8 +12657,8 @@ export interface operations {
     refund_payment_v1_payments__payment_id__refund_post: {
         parameters: {
             query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
+            header: {
+                "Idempotency-Key": string;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -15437,6 +15580,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminEmailResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deliveries_admin_v1_deliveries_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+            };
+            header?: {
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPage_AdminDelivery_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_sms_admin_v1_businesses__business_id__sms_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-session-token"?: string;
+            };
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminSmsAssignment"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBusiness"];
                 };
             };
             /** @description Validation Error */

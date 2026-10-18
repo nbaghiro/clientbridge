@@ -19,6 +19,7 @@ from tests.helpers import (
     package,
     settle,
 )
+from tests.helpers import key as retry_key
 
 SHAMPOO = "it_shampoo"  # $24 product
 BATH = "it_bath"  # $45 service
@@ -79,7 +80,7 @@ async def test_pos_sale_moves_stock_pays_commission_and_refunds(
     assert await _stock(db, SHAMPOO) == opening_stock + 3
     assert await earnings(db, "order", sale["id"]) == [commission]
 
-    ok(await api.post(f"/v1/payments/{charge['payment_id']}/refund", json={}))
+    ok(await api.post(f"/v1/payments/{charge['payment_id']}/refund", json={}, headers=retry_key()))
     refunded = await order(db, sale["id"])
     assert (refunded.status, refunded.amount_paid_cents) == ("refunded", 0)
     assert await _stock(db, SHAMPOO) == opening_stock + 5

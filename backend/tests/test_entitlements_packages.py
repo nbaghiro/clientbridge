@@ -12,6 +12,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from tests.conftest import BIZ, Factory, FakePaymentGateway
 from tests.helpers import client_id, enable_payments, key, provider_ref, settle, stripe_event
+from tests.helpers import key as retry_key
 
 PKG_ITEM = "it_pkg5"  # seeded package item: price $200, session_count = 5, GST+PST taxable
 PKG_TAXED = 21000  # $200 + GST 5%; animal services are PST exempt
@@ -277,7 +278,9 @@ async def test_refund_cancels_settled_package(
     await settle(as_owner, db, body["payment_id"], "evt_pkg_refund")
     pkg = (await db.execute(select(Package).where(Package.id == body["package_id"]))).scalar_one()
     assert pkg.status == "active"
-    refunded = await as_owner.post(f"/v1/payments/{body['payment_id']}/refund", json={})
+    refunded = await as_owner.post(
+        f"/v1/payments/{body['payment_id']}/refund", json={}, headers=retry_key()
+    )
     assert refunded.status_code == 200, refunded.text
     pkg = (await db.execute(select(Package).where(Package.id == body["package_id"]))).scalar_one()
     assert pkg.status == "canceled"

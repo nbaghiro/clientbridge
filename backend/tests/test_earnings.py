@@ -20,6 +20,7 @@ from clientbridge.services.earnings import ensure_earnings, load_earning
 from clientbridge.services.ledger import Leg
 from tests.conftest import Factory, book_invoice
 from tests.helpers import card_pay
+from tests.helpers import key as retry_key
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -239,7 +240,9 @@ async def test_refund_reverses_pending_earning(
     booking_id, inv_id, payment_id = await _paid_booking(as_owner, db)
     [journal] = await _journals(db, booking_id)
     assert await _payable(db, "st_diego", "pending") == pending - 6000
-    assert (await as_owner.post(f"/v1/payments/{payment_id}/refund", json={})).status_code == 200
+    assert (
+        await as_owner.post(f"/v1/payments/{payment_id}/refund", json={}, headers=retry_key())
+    ).status_code == 200
     earning = await load_earning(db, BIZ, journal)
     assert earning is not None and earning.status == "reversed"
     assert await _payable(db, "st_diego", "pending") == pending
@@ -261,7 +264,9 @@ async def test_refund_leaves_approved_earning(
     [journal] = await _journals(db, booking_id)
     approved = await as_owner.post("/v1/earnings/approve", json={"ids": [journal]})
     assert approved.status_code == 200
-    assert (await as_owner.post(f"/v1/payments/{payment_id}/refund", json={})).status_code == 200
+    assert (
+        await as_owner.post(f"/v1/payments/{payment_id}/refund", json={}, headers=retry_key())
+    ).status_code == 200
     earning = await load_earning(db, BIZ, journal)
     assert earning is not None and earning.status == "approved"
 

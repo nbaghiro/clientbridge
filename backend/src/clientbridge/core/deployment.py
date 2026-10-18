@@ -24,6 +24,7 @@ def public_urls(base_domain: str) -> dict[str, str]:
         "api_base_url": f"https://api.{base_domain}",
         "auth_public_url": f"https://api.{base_domain}/auth",
         "web_base_url": f"https://app.{base_domain}",
+        "admin_base_url": f"https://admin.{base_domain}",
         "connect_base_url": f"https://book.{base_domain}",
         "pay_base_url": f"https://pay.{base_domain}",
         # the marketing site, which also serves the images every email shows

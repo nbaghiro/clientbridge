@@ -17,6 +17,11 @@ SUPPORTED_ZONES = (
     "America/Edmonton",
     "America/Whitehorse",
     "America/Vancouver",
+    "America/Creston",
+    "America/Dawson_Creek",
+    "America/Fort_Nelson",
+    "America/Atikokan",
+    "America/Blanc-Sablon",
 )
 TZDATA_VERSION = version("tzdata")
 FIRST_YEAR = 2000
