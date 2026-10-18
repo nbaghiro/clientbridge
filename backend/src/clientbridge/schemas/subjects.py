@@ -42,11 +42,35 @@ class PropertyAttributes(BaseModel):
     pets: str | None = None
 
 
+Building = Literal["house", "townhouse", "apartment", "retail", "office", "warehouse"]
+
+
+class Equipment(BaseModel):
+    model: str = Field(min_length=1, max_length=80)
+    serial: str | None = Field(default=None, max_length=80)
+    location: str | None = Field(default=None, max_length=80)
+    installed_on: date | None = None
+    warranty_until: date | None = None
+
+
+class SiteAttributes(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    address: str | None = Field(default=None, max_length=200)
+    building: Building | None = None
+    access: str | None = Field(default=None, max_length=1000)
+    pets: str | None = Field(default=None, max_length=200)
+    internet: str | None = Field(default=None, max_length=200)
+    recorder_location: str | None = Field(default=None, max_length=200)
+    equipment: list[Equipment] | None = Field(default=None, max_length=100)
+
+
 # keys another kind uses are kept unvalidated, so changing the business's kind loses nothing
 ATTRIBUTES: dict[SubjectKind, type[BaseModel]] = {
     "pet": PetAttributes,
     "student": StudentAttributes,
     "property": PropertyAttributes,
+    "site": SiteAttributes,
 }
 
 

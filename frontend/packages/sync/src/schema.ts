@@ -854,6 +854,7 @@ const bookings = new Table(
         deposit_amount_cents: column.integer,
         deposit_status: column.text,
         confirmed_at: column.text,
+        departed_at: column.text,
         checked_in_at: column.text,
         order_id: column.text,
         charged_at: column.text,

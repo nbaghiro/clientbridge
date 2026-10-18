@@ -1,4 +1,4 @@
-import { confirm } from "@clientbridge/ui";
+import { Backdrop, confirm } from "@clientbridge/ui";
 import {
     DESTINATIONS,
     mediaUrl,
@@ -377,29 +377,33 @@ function ShellBody({
                 </div>
             </aside>
 
-            <main className="relative flex-1 overflow-y-auto">
-                {notice !== null ? (
-                    <div className="sticky top-0 z-10">
-                        <SyncBanner
-                            state={notice.state}
-                            title={notice.title}
-                            detail={notice.detail}
-                            action={
-                                onDiscardSync
-                                    ? {
-                                          label: strings.sync.discardRejected,
-                                          onPress: onDiscardSync,
-                                      }
-                                    : notice.retry
-                                      ? { label: strings.sync.retry, onPress: onRetrySync }
-                                      : undefined
-                            }
-                        />
-                    </div>
-                ) : null}
-                <PlanBanner />
-                <Outlet />
-            </main>
+            <div className="relative isolate flex min-w-0 flex-1">
+                {/* Outside the scrolling area, so the art stays in the window's corner. */}
+                <Backdrop corner="bottomRight" />
+                <main className="relative flex-1 overflow-y-auto">
+                    {notice !== null ? (
+                        <div className="sticky top-0 z-10">
+                            <SyncBanner
+                                state={notice.state}
+                                title={notice.title}
+                                detail={notice.detail}
+                                action={
+                                    onDiscardSync
+                                        ? {
+                                              label: strings.sync.discardRejected,
+                                              onPress: onDiscardSync,
+                                          }
+                                        : notice.retry
+                                          ? { label: strings.sync.retry, onPress: onRetrySync }
+                                          : undefined
+                                }
+                            />
+                        </div>
+                    ) : null}
+                    <PlanBanner />
+                    <Outlet />
+                </main>
+            </div>
         </div>
     );
 }

@@ -33,7 +33,7 @@ Start G1 and G2 from tasks.json. Build contract types/recording fakes while Goog
 
 The user expanded scope to remove internal feedback entirely and explicitly approved the concrete cleanup on 2026-10-18. Changes remove the public form and embed, local review actions, public testimonials/ratings, review notifications and client timeline feedback. Invitations link directly to the saved Google URL, carry booking identity and remain visible as request history. Demo fixtures, marketing copy, product docs, design mockups and tests are updated.
 
-Migration cb0019 copies rows with actual request timestamps into `review_requests`, preserving IDs and tenant/client/booking references; it drops `reviews` and `businesses.review_hold_at`, and deletes old review command replay payloads. Unrequested feedback is not fabricated into invitation history. The downgrade refuses to pretend deleted feedback can be recovered; restoring it requires a backup. API/sync contracts and message catalogs are regenerated. No live database or cloud changes have been made.
+Migration cb0022 copies rows with actual request timestamps into `review_requests`, preserving IDs and tenant/client/booking references; it drops `reviews` and `businesses.review_hold_at`, and deletes old review command replay payloads. Unrequested feedback is not fabricated into invitation history. The downgrade refuses to pretend deleted feedback can be recovered; restoring it requires a backup. API/sync contracts and message catalogs are regenerated. No live database or cloud changes have been made.
 
 Focused validation: 55 backend tests and 59 frontend tests passed. The commit hook enforces formatting, lint/type checks, generated-contract consistency, backend coverage, frontend timezone tests and infrastructure tests on the exact staged tree; final results are recorded in PR #39. GBP OAuth, review reads/replies, Pulumi provisioning and reliable queued invitation delivery remain planned work, not shipped capabilities.
 
@@ -67,3 +67,7 @@ All paths use `/v1/reviews/google`; they supersede the draft plan's alternate ro
 OAuth callback registration must use a fixed backend HTTPS callback and a fixed completion destination; mobile completion destination is `clientbridge://reviews/google`. Web opens a dedicated authorization window. Do not accept caller-supplied redirect URLs. Google review payloads use `review_id`, reviewer `{display_name,anonymous}`, `star_rating`, `comment`, create/update timestamps and nullable reply `{comment,update_time}`.
 
 Focused validation for this slice: 33 backend tests and 12 shared view-model tests passed. Backend lint/type/structure checks and all 11 frontend package type checks passed. Full staged-tree pre-commit results are recorded in PR #39; browser/device flows require CI and live Google verification remains outstanding.
+
+## Main branch conflict resolution
+
+Merged `origin/main` through `cfc44acf`, preserving the Google-first screens and the newer searchable client picker with person media. Regenerated API, locale and sync outputs from the merged sources. Renumbered the approved, undeployed internal-review cleanup to `cb0022` after `cb0021` because main now owns `cb0019`–`cb0021`; the cleanup data operations and rollback behavior are unchanged. No live database was modified.

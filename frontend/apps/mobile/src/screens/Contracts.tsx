@@ -63,16 +63,18 @@ export function Contracts() {
         <ScrollView contentContainerStyle={styles.body}>
             <View style={styles.top}>
                 <Text style={styles.subtitle}>{s.subtitle}</Text>
-                <Button
-                    style={{ alignSelf: "center" }}
-                    size="sm"
-                    icon="plus"
-                    onPress={() => {
-                        setAdding(true);
-                    }}
-                >
-                    {s.newContract}
-                </Button>
+                {library.load.hasData && library.contracts.length === 0 ? null : (
+                    <Button
+                        style={{ alignSelf: "center" }}
+                        size="sm"
+                        icon="plus"
+                        onPress={() => {
+                            setAdding(true);
+                        }}
+                    >
+                        {s.newContract}
+                    </Button>
+                )}
             </View>
             <Loaded load={library.load} loading={s.loading} failed={s.loadError}>
                 {library.contracts.length === 0 ? (
@@ -81,6 +83,17 @@ export function Contracts() {
                         icon="note"
                         message={s.noContractsTitle}
                         body={s.noContractsBody}
+                        actions={
+                            <Button
+                                size="sm"
+                                icon="plus"
+                                onPress={() => {
+                                    setAdding(true);
+                                }}
+                            >
+                                {s.newContract}
+                            </Button>
+                        }
                     />
                 ) : (
                     <View style={styles.list}>
@@ -137,14 +150,7 @@ function ContractDetail({
     return (
         <ScrollView contentContainerStyle={styles.body}>
             <View style={styles.nav}>
-                <Button
-                    style={{ alignSelf: "center" }}
-                    variant="link"
-                    icon="chevronLeft"
-                    onPress={onBack}
-                >
-                    {s.templates}
-                </Button>
+                <IconButton icon="chevronLeft" label={s.templates} onPress={onBack} />
                 <Button
                     style={{ alignSelf: "center" }}
                     size="sm"

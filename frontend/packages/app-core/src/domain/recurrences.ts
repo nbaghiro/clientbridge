@@ -28,7 +28,8 @@ import {
 import { firstName } from "../format";
 import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import type { Intent, OccurrenceRow } from "../ui";
+import { itemMedia, personMedia } from "./files";
+import type { Intent, OccurrenceRow, SelectOption } from "../ui";
 import type { Viewer } from "./auth";
 import {
     type Availability,
@@ -238,14 +239,14 @@ interface OccurrenceView extends SeriesOccurrence {
 export interface SeriesComposer {
     clientId: string;
     setClientId: (id: string) => void;
-    clientOptions: { key: string; label: string }[];
+    clientOptions: SelectOption<string>[];
     subjectHint: string | null;
     itemId: string;
     setItemId: (id: string) => void;
-    serviceOptions: { key: string; label: string }[];
+    serviceOptions: SelectOption<string>[];
     staffId: string;
     setStaffId: (id: string) => void;
-    staffOptions: { key: string; label: string }[];
+    staffOptions: SelectOption<string>[];
     firstDay: string;
     setFirstDay: (key: string) => void;
     time: string;
@@ -375,14 +376,22 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
         setClientId,
         clientOptions: clients
             .filter((c) => c.status === "active")
-            .map((c) => ({ key: c.id, label: c.name })),
+            .map((c) => ({
+                key: c.id,
+                label: c.name,
+                media: personMedia(c.name),
+            })),
         subjectHint: subject === null ? null : s.subject(kindWord(kind), subject.name),
         itemId,
         setItemId,
-        serviceOptions: services.map((i) => ({ key: i.id, label: i.name })),
+        serviceOptions: services.map((i) => ({ key: i.id, label: i.name, media: itemMedia(i) })),
         staffId,
         setStaffId,
-        staffOptions: staffChoices.map((x) => ({ key: x.id, label: staffName(x) })),
+        staffOptions: staffChoices.map((x) => ({
+            key: x.id,
+            label: staffName(x),
+            media: personMedia(staffName(x), x.color),
+        })),
         firstDay,
         setFirstDay,
         time,

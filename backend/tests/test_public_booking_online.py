@@ -327,11 +327,12 @@ async def _kind(db: AsyncSession, kind: str | None) -> None:
     await db.flush()
 
 
-async def test_a_property_booking_files_a_new_property_with_its_address(
-    api: httpx.AsyncClient, db: AsyncSession
+@pytest.mark.parametrize("kind", ["property", "site"])
+async def test_a_place_booking_files_a_new_place_with_its_address(
+    api: httpx.AsyncClient, db: AsyncSession, kind: str
 ) -> None:
-    await _kind(db, "property")
-    assert (await api.get(f"/book/{SLUG}/services")).json()["subject"] == "property"
+    await _kind(db, kind)
+    assert (await api.get(f"/book/{SLUG}/services")).json()["subject"] == kind
     body = _body(subject_name="Cottage", subject_address=" 4 Elm Rd ")
     first = await api.post(f"/book/{SLUG}", json=body, headers=key())
     assert first.status_code == 200, first.text
@@ -357,10 +358,11 @@ async def _booked_subject(api: httpx.AsyncClient, db: AsyncSession, **extra: obj
     return subject
 
 
-async def test_a_property_is_matched_by_name_and_address(
-    api: httpx.AsyncClient, db: AsyncSession
+@pytest.mark.parametrize("kind", ["property", "site"])
+async def test_a_place_is_matched_by_name_and_address(
+    api: httpx.AsyncClient, db: AsyncSession, kind: str
 ) -> None:
-    await _kind(db, "property")
+    await _kind(db, kind)
     home = await _booked_subject(api, db, subject_name="Home", subject_address="4 Elm Rd")
     other = await _booked_subject(api, db, subject_name="home", subject_address="9 Oak Ave")
     again = await _booked_subject(api, db, subject_name="Home", subject_address="  4  ELM rd ")
@@ -394,6 +396,7 @@ async def test_a_booking_named_after_a_deleted_pet_files_a_new_one(
         (None, {"subject_name": "Rex"}),
         (None, {"subject_address": "4 Elm Rd"}),
         ("pet", {"subject_name": "Rex", "subject_address": "4 Elm Rd"}),
+        ("student", {"subject_name": "Maya", "subject_address": "4 Elm Rd"}),
     ],
 )
 async def test_subject_fields_a_business_does_not_take_are_refused_422(

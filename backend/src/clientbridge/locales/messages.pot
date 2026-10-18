@@ -40,6 +40,21 @@ msgstr ""
 msgid "booking_confirmed.subject"
 msgstr ""
 
+msgid "booking_departed.body"
+msgstr ""
+
+msgid "booking_departed.body_now"
+msgstr ""
+
+msgid "booking_departed.heading"
+msgstr ""
+
+msgid "booking_departed.someone"
+msgstr ""
+
+msgid "booking_departed.subject"
+msgstr ""
+
 msgid "booking_reassigned.body"
 msgstr ""
 

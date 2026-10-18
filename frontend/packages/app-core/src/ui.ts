@@ -181,9 +181,18 @@ export interface TextFieldProps {
     maxLength?: number | undefined;
 }
 
+// The picture beside an option: a person's initials or photo, or an item's photo on its colour.
+export interface OptionMedia {
+    kind: "person" | "item";
+    name: string;
+    src?: string | null | undefined;
+    color?: string | null | undefined;
+}
+
 export interface SelectOption<K extends string> {
     key: K;
     label: string;
+    media?: OptionMedia | undefined;
     // Secondary text at the end of the row in the open list: "45 min · $45.00".
     detail?: string | undefined;
     // Options sharing a group sit under one heading, in the order the groups first appear.
@@ -206,9 +215,14 @@ export interface SelectProps<K extends string> {
     // A search box over the list; on by default for long lists.
     searchable?: boolean | undefined;
     size?: "sm" | "md" | "lg" | undefined;
+    // "surface" when the field sits straight on the page background rather than inside a panel.
+    surface?: "bg" | "surface" | undefined;
     width?: "full" | "auto" | undefined;
     disabled?: boolean | undefined;
 }
+
+// A Select whose box takes typing: the list narrows as you type and the arrow keys still move through it.
+export type SearchSelectProps<K extends string> = SelectProps<K>;
 
 interface PickerFieldProps {
     label?: string | undefined;
@@ -377,7 +391,7 @@ export interface TabsProps<K extends string> {
     onSelect: (key: K) => void;
     // Names the tab list for screen readers.
     label?: string | undefined;
-    // "underline" is the page tab bar; "pill" is a row of filled segments (a view switch).
+    // "underline" is the page tab bar; "pill" is a view switch drawn like a segmented Choice.
     variant?: "underline" | "pill" | undefined;
     // Mobile only: false drops the side padding when the parent already has it.
     inset?: boolean | undefined;
@@ -457,6 +471,11 @@ export interface PageHeaderProps {
     actions?: ReactNode | undefined;
     // A tab row or filters under the title.
     children?: ReactNode | undefined;
+}
+
+// The faint contour art in a corner behind a page; purely decorative.
+export interface BackdropProps {
+    corner?: "topRight" | "bottomRight" | undefined;
 }
 
 export interface AvatarProps {

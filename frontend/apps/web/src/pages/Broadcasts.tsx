@@ -122,18 +122,20 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
             .catch(() => undefined);
     };
 
+    const none = home.load.hasData && home.broadcasts.length === 0;
+    const compose = (): void => {
+        onCompose({ name: "", body: "", tags: [], channel: "sms" });
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between gap-4">
                 <p className="text-sm text-muted">{s.subtitle}</p>
-                <Button
-                    icon="plus"
-                    onPress={() => {
-                        onCompose({ name: "", body: "", tags: [], channel: "sms" });
-                    }}
-                >
-                    {s.newBroadcast}
-                </Button>
+                {none ? null : (
+                    <Button size="sm" icon="plus" onPress={compose}>
+                        {s.newBroadcast}
+                    </Button>
+                )}
             </div>
             {actions.error !== null ? <Notice tone="danger">{actions.error}</Notice> : null}
             {actions.exported !== null ? (
@@ -141,39 +143,52 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
             ) : null}
             <Loaded load={home.load} loading={s.loading} failed={s.loadError}>
                 <div className="space-y-6">
-                    <div className="grid grid-cols-3 gap-4">
-                        <Stat
-                            label={s.reachText}
-                            value={String(home.reach.sms)}
-                            hint={s.reachOf(home.reach.total)}
-                        />
-                        <Stat
-                            label={s.reachEmail}
-                            value={String(home.reach.email)}
-                            hint={s.reachOf(home.reach.total)}
-                        />
-                        <Stat
-                            label={s.reachOut}
-                            value={String(home.reach.optedOut)}
-                            tone={home.reach.optedOut > 0 ? "danger" : "ink"}
-                            hint={s.reachOf(home.reach.total)}
-                        />
-                    </div>
+                    {home.reach.total === 0 ? null : (
+                        <div className="grid grid-cols-3 gap-4">
+                            <Stat
+                                label={s.reachText}
+                                value={String(home.reach.sms)}
+                                hint={s.reachOf(home.reach.total)}
+                            />
+                            <Stat
+                                label={s.reachEmail}
+                                value={String(home.reach.email)}
+                                hint={s.reachOf(home.reach.total)}
+                            />
+                            <Stat
+                                label={s.reachOut}
+                                value={String(home.reach.optedOut)}
+                                tone={home.reach.optedOut > 0 ? "danger" : "ink"}
+                                hint={s.reachOf(home.reach.total)}
+                            />
+                        </div>
+                    )}
                     <ListPage
                         head={
-                            <div className={grid}>
-                                <span>{s.colBroadcast}</span>
-                                <span>{s.colAudience}</span>
-                                <span>{s.colResult}</span>
-                                <span className="text-right">{s.colWhen}</span>
-                            </div>
+                            none ? undefined : (
+                                <div className={grid}>
+                                    <span>{s.colBroadcast}</span>
+                                    <span>{s.colAudience}</span>
+                                    <span>{s.colResult}</span>
+                                    <span className="text-right">{s.colWhen}</span>
+                                </div>
+                            )
                         }
                         rows={home.broadcasts}
                         rowKey={(x) => x.id}
                         onRowPress={(x) => {
                             setOpenId(x.id);
                         }}
-                        empty={s.noBroadcasts}
+                        empty={{
+                            message: s.noBroadcasts,
+                            body: s.noBroadcastsBody,
+                            icon: "send",
+                            actions: (
+                                <Button size="sm" icon="plus" onPress={compose}>
+                                    {s.newBroadcast}
+                                </Button>
+                            ),
+                        }}
                         renderRow={(x) => (
                             <div className={grid}>
                                 <div className="min-w-0">
@@ -225,77 +240,82 @@ function BroadcastsHome({ onCompose }: { onCompose: (seed: BroadcastSeed) => voi
                             </div>
                         )}
                     />
-                    <div className="grid gap-6 lg:grid-cols-2">
-                        <Panel
-                            title={s.optOutsTitle}
-                            subtitle={s.optOutsSubtitle}
-                            flush
-                            actions={
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    busy={actions.busy}
-                                    onPress={actions.exportLog}
-                                >
-                                    {s.exportLog}
-                                </Button>
-                            }
-                        >
-                            {home.optOuts.length === 0 ? (
-                                <Empty message={s.noOptOuts} />
-                            ) : (
-                                <ul className="divide-y divide-line-soft">
-                                    {home.optOuts.map((o) => (
-                                        <li
-                                            key={`${o.clientId}-${o.channel}`}
-                                            className="flex items-center gap-3 px-4 py-2.5"
-                                        >
-                                            <Avatar name={o.name} size="sm" />
-                                            <div className="min-w-0 flex-1">
-                                                <div className="truncate text-sm font-medium text-ink">
-                                                    {o.name}
+                    {home.reach.total === 0 ? null : (
+                        <div className="grid gap-6 lg:grid-cols-2">
+                            <Panel
+                                title={s.optOutsTitle}
+                                subtitle={s.optOutsSubtitle}
+                                flush
+                                actions={
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        busy={actions.busy}
+                                        onPress={actions.exportLog}
+                                    >
+                                        {s.exportLog}
+                                    </Button>
+                                }
+                            >
+                                {home.optOuts.length === 0 ? (
+                                    <Empty message={s.noOptOuts} />
+                                ) : (
+                                    <ul className="divide-y divide-line-soft">
+                                        {home.optOuts.map((o) => (
+                                            <li
+                                                key={`${o.clientId}-${o.channel}`}
+                                                className="flex items-center gap-3 px-4 py-2.5"
+                                            >
+                                                <Avatar name={o.name} size="sm" />
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="truncate text-sm font-medium text-ink">
+                                                        {o.name}
+                                                    </div>
+                                                    <div className="truncate text-xs text-muted">
+                                                        {s.consentSource(
+                                                            o.source,
+                                                            dateOf(o.at, zone),
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <div className="truncate text-xs text-muted">
-                                                    {s.consentSource(o.source, dateOf(o.at, zone))}
+                                                <StatusPill
+                                                    status={s.consentChannel[o.channel]}
+                                                    intent="danger"
+                                                />
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </Panel>
+                            <Panel title={s.impliedTitle} subtitle={s.impliedSubtitle} flush>
+                                {home.implied.length === 0 ? (
+                                    <Empty message={s.noImplied} />
+                                ) : (
+                                    <ul className="divide-y divide-line-soft">
+                                        {home.implied.map((o) => (
+                                            <li
+                                                key={`${o.clientId}-${o.channel}`}
+                                                className="flex items-center gap-3 px-4 py-2.5"
+                                            >
+                                                <Avatar name={o.name} size="sm" />
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="truncate text-sm font-medium text-ink">
+                                                        {o.name}
+                                                    </div>
+                                                    <div className="truncate text-xs text-muted">
+                                                        {formatParts([
+                                                            s.consentChannel[o.channel],
+                                                            s.endsOn(dateOf(o.expires, zone)),
+                                                        ])}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <StatusPill
-                                                status={s.consentChannel[o.channel]}
-                                                intent="danger"
-                                            />
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </Panel>
-                        <Panel title={s.impliedTitle} subtitle={s.impliedSubtitle} flush>
-                            {home.implied.length === 0 ? (
-                                <Empty message={s.noImplied} />
-                            ) : (
-                                <ul className="divide-y divide-line-soft">
-                                    {home.implied.map((o) => (
-                                        <li
-                                            key={`${o.clientId}-${o.channel}`}
-                                            className="flex items-center gap-3 px-4 py-2.5"
-                                        >
-                                            <Avatar name={o.name} size="sm" />
-                                            <div className="min-w-0 flex-1">
-                                                <div className="truncate text-sm font-medium text-ink">
-                                                    {o.name}
-                                                </div>
-                                                <div className="truncate text-xs text-muted">
-                                                    {formatParts([
-                                                        s.consentChannel[o.channel],
-                                                        s.endsOn(dateOf(o.expires, zone)),
-                                                    ])}
-                                                </div>
-                                            </div>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </Panel>
-                    </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </Panel>
+                        </div>
+                    )}
                 </div>
             </Loaded>
             {open !== null ? (

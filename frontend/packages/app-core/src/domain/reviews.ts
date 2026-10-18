@@ -5,6 +5,8 @@ import { formatDate, parseTimestamp, useBusinessZone } from "../datetime";
 import { formatParts, formatRating } from "../format";
 import { type Load, useAsyncAction, useBusinessQuery as useQuery } from "../hooks";
 import { strings } from "../strings";
+import type { SelectOption } from "../ui";
+import { personMedia } from "./files";
 import { useClients } from "./clients";
 import { useReplicaLoad } from "./sync";
 
@@ -36,7 +38,7 @@ export interface ReviewQueue {
     requests: ReviewRequestRow[];
     suggestions: { bookingId: string; clientId: string; clientName: string; visit: string }[];
     canRequest: boolean;
-    clientOptions: { key: string; label: string }[];
+    clientOptions: SelectOption<string>[];
 }
 
 export function useReviewQueue(canRequest: boolean): ReviewQueue {
@@ -61,7 +63,11 @@ export function useReviewQueue(canRequest: boolean): ReviewQueue {
             visit: formatParts([s.service, formatDate(parseTimestamp(s.completed_at), zone)]),
         })),
         canRequest,
-        clientOptions: clients.map((c) => ({ key: c.id, label: c.name })),
+        clientOptions: clients.map((c) => ({
+            key: c.id,
+            label: c.name,
+            media: personMedia(c.name),
+        })),
     };
 }
 

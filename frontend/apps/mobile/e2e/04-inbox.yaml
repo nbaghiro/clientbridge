@@ -41,7 +41,7 @@ name: Owner inbox surfaces
 - takeScreenshot: form-settings
 - swipe:
       from:
-          text: "Forms"
+          text: "Broadcasts"
       direction: LEFT
 - tapOn: "Contracts"
 - assertVisible: "Policies and agreements clients sign online."

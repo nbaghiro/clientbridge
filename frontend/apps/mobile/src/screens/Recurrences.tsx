@@ -18,6 +18,7 @@ import {
     Badge,
     Button,
     Choice,
+    DateField,
     Empty,
     Icon,
     ListRow,
@@ -26,10 +27,10 @@ import {
     Notice,
     OccurrenceList,
     SearchField,
+    SearchSelect,
     Skeleton,
     Stepper,
     Toggle,
-    DateField,
 } from "@clientbridge/ui";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
@@ -73,40 +74,47 @@ export function RecurrencesScreen() {
             contentContainerStyle={styles.body}
             keyboardShouldPersistTaps="handled"
         >
-            <View style={styles.headRow}>
-                <Text style={styles.muted}>{s.listSubtitle(list.counts.all)}</Text>
-                <Button
-                    style={{ alignSelf: "center" }}
-                    size="sm"
-                    icon="plus"
-                    onPress={() => {
-                        setComposing(true);
-                    }}
-                >
-                    {s.newShort}
-                </Button>
-            </View>
-            <SearchField
-                value={list.q}
-                onChange={list.setQ}
-                placeholder={s.search(kindWord(kind))}
-            />
-            <Choice
-                label={s.filterAll}
-                options={[
-                    { key: "all", label: s.filterAll },
-                    {
-                        key: "attention",
-                        label: formatParts([s.filterAttention, String(list.counts.attention)]),
-                    },
-                    {
-                        key: "ending",
-                        label: formatParts([s.filterEnding, String(list.counts.ending)]),
-                    },
-                ]}
-                value={list.filter}
-                onChange={list.setFilter}
-            />
+            {list.load.state === "empty" ? null : (
+                <>
+                    <View style={styles.headRow}>
+                        <Text style={styles.muted}>{s.listSubtitle(list.counts.all)}</Text>
+                        <Button
+                            style={{ alignSelf: "center" }}
+                            size="sm"
+                            icon="plus"
+                            onPress={() => {
+                                setComposing(true);
+                            }}
+                        >
+                            {s.newShort}
+                        </Button>
+                    </View>
+                    <SearchField
+                        value={list.q}
+                        onChange={list.setQ}
+                        placeholder={s.search(kindWord(kind))}
+                    />
+                    <Choice
+                        label={s.filterAll}
+                        options={[
+                            { key: "all", label: s.filterAll },
+                            {
+                                key: "attention",
+                                label: formatParts([
+                                    s.filterAttention,
+                                    String(list.counts.attention),
+                                ]),
+                            },
+                            {
+                                key: "ending",
+                                label: formatParts([s.filterEnding, String(list.counts.ending)]),
+                            },
+                        ]}
+                        value={list.filter}
+                        onChange={list.setFilter}
+                    />
+                </>
+            )}
             {list.load.state === "loading" ? (
                 <Skeleton variant="row" count={5} label={s.loading} />
             ) : list.load.state === "error" ? (
@@ -442,18 +450,17 @@ function SeriesComposer({ onDone }: { onDone: () => void }) {
                 </Button>
                 <Text style={styles.title}>{s.newTitle}</Text>
                 <Text style={styles.muted}>{s.newSubtitle}</Text>
-                <Text style={styles.label}>{s.client}</Text>
-                <Choice
+                <SearchSelect
                     label={s.client}
+                    placeholder={s.pickClient}
                     options={f.clientOptions}
                     value={f.clientId}
                     onChange={f.setClientId}
                 />
                 {f.subjectHint !== null ? <Text style={styles.muted}>{f.subjectHint}</Text> : null}
-                <Text style={styles.label}>{s.service}</Text>
-                <Choice
+                <SearchSelect
                     label={s.service}
-                    layout="cards"
+                    placeholder={s.pickService}
                     options={f.serviceOptions}
                     value={f.itemId}
                     onChange={f.setItemId}

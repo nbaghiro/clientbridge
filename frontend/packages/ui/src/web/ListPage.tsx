@@ -47,7 +47,11 @@ export function ListPage<T, K extends string = string>({
                     <div className="flex max-w-full flex-wrap items-center gap-3">
                         {accessory}
                         {action !== undefined ? (
-                            <Button onPress={action.onPress} icon={<Icon name="plus" size={16} />}>
+                            <Button
+                                size="sm"
+                                onPress={action.onPress}
+                                icon={<Icon name="plus" size={16} />}
+                            >
                                 {action.label}
                             </Button>
                         ) : null}
@@ -55,24 +59,26 @@ export function ListPage<T, K extends string = string>({
                 </header>
             ) : null}
 
-            {segments !== undefined ? (
-                <div className="mt-5">
-                    <Choice
-                        layout="segmented"
-                        options={segments.items}
-                        value={segments.active}
-                        onChange={segments.onSelect}
-                    />
-                </div>
-            ) : null}
-
-            {search !== undefined ? (
-                <div className="mt-4">
-                    <SearchField
-                        value={search.value}
-                        onChange={search.onChange}
-                        placeholder={search.placeholder}
-                    />
+            {segments !== undefined || search !== undefined ? (
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                    {segments !== undefined ? (
+                        <Choice
+                            layout="segmented"
+                            options={segments.items}
+                            value={segments.active}
+                            onChange={segments.onSelect}
+                        />
+                    ) : (
+                        <span />
+                    )}
+                    {search !== undefined ? (
+                        <SearchField
+                            className="w-full sm:w-72"
+                            value={search.value}
+                            onChange={search.onChange}
+                            placeholder={search.placeholder}
+                        />
+                    ) : null}
                 </div>
             ) : null}
 

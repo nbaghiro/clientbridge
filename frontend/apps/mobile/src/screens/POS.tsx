@@ -94,57 +94,62 @@ function VisitCard({
     const st = VISIT_STATE[v.state];
     return (
         <View style={[styles.visit, onTicket ? styles.visitOn : null]}>
-            <View style={styles.row}>
-                <Text style={styles.soft}>
-                    <Text style={styles.strong}>{formatTime(v.start, zone)}</Text>{" "}
-                    {d.endsAt(formatTime(v.end, zone))}
+            <View style={styles.time}>
+                <Text style={styles.strong} numberOfLines={1}>
+                    {formatTime(v.start, zone)}
                 </Text>
-                <StatusPill style={{ alignSelf: "center" }} status={st.label} intent={st.intent} />
+                <Text style={styles.note} numberOfLines={1}>
+                    {formatTime(v.end, zone)}
+                </Text>
             </View>
-            <Text style={styles.name}>{v.clientName}</Text>
-            <Text style={styles.soft}>
-                {formatParts([
-                    v.staffName,
-                    v.itemName,
-                    formatMoney(v.priceCents, BUSINESS_CURRENCY),
-                ])}
-            </Text>
-            {v.depositCents > 0 ? (
-                <Text style={styles.ok}>
-                    {d.depositCredit(formatMoney(v.depositCents, BUSINESS_CURRENCY))}
+            <View style={styles.grow}>
+                <Text style={styles.name} numberOfLines={1}>
+                    {v.clientName}
                 </Text>
-            ) : null}
-            {v.state === "paid" ? null : onTicket ? (
+                <Text style={styles.note} numberOfLines={1}>
+                    {formatParts([
+                        v.itemName,
+                        formatMoney(v.priceCents, BUSINESS_CURRENCY),
+                        v.depositCents > 0
+                            ? d.depositCredit(formatMoney(v.depositCents, BUSINESS_CURRENCY))
+                            : null,
+                    ])}
+                </Text>
+            </View>
+            {onTicket ? (
                 <Text style={styles.accent}>{d.onTicket}</Text>
+            ) : v.state === "upcoming" ? (
+                <StatusPill style={{ alignSelf: "center" }} status={st.label} intent={st.intent} />
             ) : (
-                <View style={styles.left}>
-                    <Button size="sm" variant="outline" onPress={onCheckOut}>
-                        {d.checkOut}
-                    </Button>
-                </View>
+                <Button style={{ alignSelf: "center" }} size="sm" onPress={onCheckOut}>
+                    {d.checkOut}
+                </Button>
             )}
         </View>
     );
 }
 
-const PLAN_KINDS: { key: WalletKind; label: string }[] = [
+const PLAN_KINDS: { key: WalletKind; label: string; icon: "tag" | "box" | "repeat" }[] = [
     {
         key: "gift_card",
         get label() {
             return d.sellGiftCard;
         },
+        icon: "tag",
     },
     {
         key: "package",
         get label() {
             return d.sellPackage;
         },
+        icon: "box",
     },
     {
         key: "membership",
         get label() {
             return d.sellMembership;
         },
+        icon: "repeat",
     },
 ];
 
@@ -163,53 +168,65 @@ function Register({
     const [selling, setSelling] = useState<WalletKind | null>(null);
     const onTicket = (id: string): number =>
         sale.lines.filter((l) => l.itemId === id).reduce((n, l) => n + l.quantity, 0);
+    const waiting = queue.visits.filter((v) => v.state !== "paid");
+    const noCatalog = catalog.load.state === "empty";
     return (
         <View style={styles.screen}>
-            <ScrollView contentContainerStyle={styles.body}>
-                <View style={styles.row}>
-                    <Text style={styles.title}>{d.newSaleTitle}</Text>
-                    <Button
-                        style={{ alignSelf: "center" }}
-                        size="sm"
-                        variant="outline"
-                        onPress={sale.newSale}
-                    >
-                        {d.walkInSale}
-                    </Button>
+            {noCatalog ? null : (
+                <View style={styles.tools}>
+                    <SearchField
+                        value={catalog.q}
+                        onChange={catalog.setQ}
+                        placeholder={d.searchShort}
+                    />
+                    <Choice
+                        layout="segmented"
+                        label={d.addExtras}
+                        options={catalog.filters}
+                        value={catalog.filter}
+                        onChange={catalog.setFilter}
+                    />
                 </View>
-                <Text style={styles.heading}>{d.todaysVisits}</Text>
-                {queue.load.state === "loading" ? (
-                    <Skeleton variant="row" count={3} label={d.loadingVisits} />
-                ) : queue.load.state === "error" ? (
+            )}
+            <ScrollView contentContainerStyle={styles.body}>
+                {queue.load.state === "error" ? (
                     <LoadFailed message={d.visitsError} body={d.catalogErrorBody} />
-                ) : queue.visits.every((v) => v.state === "paid") ? (
-                    <Empty message={d.noVisits} />
-                ) : (
-                    queue.visits.map((v) => (
-                        <VisitCard
-                            key={v.bookingId}
-                            v={v}
-                            onTicket={sale.hasVisit(v.bookingId)}
-                            onCheckOut={() => {
-                                sale.addVisit(v);
-                            }}
-                        />
-                    ))
-                )}
-                <Text style={styles.heading}>{d.addExtras}</Text>
-                <SearchField
-                    value={catalog.q}
-                    onChange={catalog.setQ}
-                    placeholder={d.searchShort}
-                />
-                <Choice
-                    label={d.addExtras}
-                    options={catalog.filters}
-                    value={catalog.filter}
-                    onChange={catalog.setFilter}
-                />
+                ) : waiting.length > 0 ? (
+                    <>
+                        <Text style={styles.heading}>{d.todaysVisits}</Text>
+                        <View style={styles.visits}>
+                            {waiting.map((v) => (
+                                <VisitCard
+                                    key={v.bookingId}
+                                    v={v}
+                                    onTicket={sale.hasVisit(v.bookingId)}
+                                    onCheckOut={() => {
+                                        sale.addVisit(v);
+                                    }}
+                                />
+                            ))}
+                        </View>
+                    </>
+                ) : null}
                 {catalog.load.state === "loading" ? (
                     <Skeleton variant="row" count={2} label={d.loadingCatalog} />
+                ) : noCatalog ? (
+                    <Empty
+                        variant="card"
+                        icon="box"
+                        message={catalog.empty}
+                        body={d.noItemsBody}
+                        actions={
+                            <Button
+                                size="sm"
+                                onPress={() => {
+                                    openLink("catalog");
+                                }}
+                            >
+                                {d.addCatalog}
+                            </Button>
+                        }
+                    />
                 ) : catalog.items.length === 0 ? (
                     <Empty message={catalog.empty} />
                 ) : (
@@ -236,22 +253,26 @@ function Register({
                         })}
                     </View>
                 )}
-                <Text style={styles.heading}>{d.alsoSell}</Text>
-                <Text style={styles.note}>{d.alsoSellHint}</Text>
-                <View style={styles.wrap}>
-                    {PLAN_KINDS.map((k) => (
-                        <Button
-                            key={k.key}
-                            size="sm"
-                            variant="outline"
-                            onPress={() => {
-                                setSelling(k.key);
-                            }}
-                        >
-                            {k.label}
-                        </Button>
-                    ))}
-                </View>
+                {noCatalog ? null : (
+                    <View style={styles.plans}>
+                        <Text style={styles.note}>{d.alsoSell}</Text>
+                        <View style={styles.wrap}>
+                            {PLAN_KINDS.map((k) => (
+                                <Button
+                                    key={k.key}
+                                    size="sm"
+                                    variant="quiet"
+                                    icon={k.icon}
+                                    onPress={() => {
+                                        setSelling(k.key);
+                                    }}
+                                >
+                                    {k.label}
+                                </Button>
+                            ))}
+                        </View>
+                    </View>
+                )}
             </ScrollView>
             {sale.isEmpty ? null : (
                 <View style={styles.bar}>
@@ -308,30 +329,44 @@ const styles = StyleSheet.create({
     wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     left: { flexDirection: "row" },
     grow: { flex: 1 },
-    title: { color: c.ink, fontSize: 24, fontWeight: "700" },
     heading: {
         color: c.muted,
         fontSize: 11,
         fontWeight: "600",
         letterSpacing: 0.6,
-        marginTop: 8,
         textTransform: "uppercase",
     },
-    name: { color: c.ink, fontSize: 16, fontWeight: "600" },
+    name: { color: c.ink, fontSize: 15, fontWeight: "600" },
     strong: { color: c.ink, fontSize: 14, fontWeight: "600" },
-    soft: { color: c.inkSoft, fontSize: 14 },
     note: { color: c.muted, fontSize: 12 },
-    ok: { color: c.okFg, fontSize: 13, fontWeight: "600" },
-    accent: { color: c.accent, fontSize: 14, fontWeight: "600" },
-    visit: {
-        gap: 4,
-        padding: 14,
+    accent: { color: c.accent, fontSize: 13, fontWeight: "600" },
+    tools: {
+        gap: 10,
+        paddingHorizontal: 16,
+        paddingTop: 8,
+        paddingBottom: 12,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: c.border,
+    },
+    time: { width: 72 },
+    visits: {
         borderRadius: theme.radius,
         borderWidth: 1,
         borderColor: c.border,
         backgroundColor: c.surface,
+        overflow: "hidden",
     },
-    visitOn: { borderColor: c.accent, backgroundColor: c.accentWeak },
+    visit: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: c.borderSoft,
+    },
+    visitOn: { backgroundColor: c.accentWeak },
+    plans: { gap: 6, marginTop: 4 },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     cell: { width: "48%" },
     bar: {

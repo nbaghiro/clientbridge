@@ -29,6 +29,7 @@ import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
+import { useOpenLink } from "../lib/links";
 
 const c = theme.colors;
 const s = strings.classes;
@@ -36,6 +37,7 @@ const s = strings.classes;
 /** Upcoming class sessions with their seats, and the selected session's roster at the door. */
 export function ClassesScreen() {
     const board = useClassBoard(api);
+    const openLink = useOpenLink();
     const roster = board.roster;
     const [messaging, setMessaging] = useState(false);
     const [body, setBody] = useState("");
@@ -62,6 +64,16 @@ export function ClassesScreen() {
                     icon="users"
                     message={s.emptyClasses}
                     body={s.emptyClassesBody}
+                    actions={
+                        <Button
+                            size="sm"
+                            onPress={() => {
+                                openLink("catalog");
+                            }}
+                        >
+                            {strings.pos.desk.addCatalog}
+                        </Button>
+                    }
                 />
             ) : (
                 <>

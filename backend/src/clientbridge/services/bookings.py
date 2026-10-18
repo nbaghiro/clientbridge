@@ -131,6 +131,7 @@ async def booking_out(db: AsyncSession, booking: Booking, slot: Slot) -> Booking
         price_cents=booking.price_cents,
         deposit_amount_cents=booking.deposit_amount_cents,
         deposit_status=booking.deposit_status,
+        departed_at=booking.departed_at,
         checked_in_at=booking.checked_in_at,
         starts_at=slot.starts_at,
         ends_at=slot.ends_at,
@@ -793,6 +794,32 @@ class BookingService:
             self.db,
             self.principal,
             action="booking.check_in",
+            run=run,
+            response_model=BookingOut,
+        )
+
+    async def depart(self, booking_id: str) -> BookingOut:
+        """Record that the member set off and text the client; setting off again sends nothing."""
+        booking = await self._booking(booking_id)
+        self._assert_can_act_as(booking.staff_id)
+        if booking.status in _TERMINAL:
+            raise Conflict(f"a {booking.status} booking can't be started")
+        slot = await self._slot(booking.slot_id)
+
+        async def run(cmd: Command) -> BookingOut:
+            if booking.departed_at is None:
+                booking.departed_at = clock.now()
+                await self.db.flush()
+                cmd.record("booking.depart", entity_type="booking", entity_id=booking.id)
+                await queued_notifier(
+                    self.db, f"booking:{booking.id}:depart", self.biz
+                ).on_booking_departed(self.db, booking.id)
+            return await booking_out(self.db, booking, slot)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="booking.depart",
             run=run,
             response_model=BookingOut,
         )

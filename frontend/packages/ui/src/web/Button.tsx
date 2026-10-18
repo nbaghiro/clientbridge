@@ -14,9 +14,9 @@ const VARIANT: Record<ControlTone, Record<ButtonVariant, string>> = {
         primary:
             "rounded-md bg-accent font-semibold text-accent-ink hover:bg-accent/90 hover:text-accent-ink",
         outline:
-            "rounded-md border border-line font-medium text-ink-soft hover:bg-bg hover:text-ink",
+            "rounded-md border border-line bg-surface font-medium text-ink-soft hover:bg-bg hover:text-ink",
         quiet: "rounded-md font-medium text-ink-soft hover:bg-bg hover:text-ink",
-        danger: "rounded-md border border-danger font-medium text-danger hover:bg-danger hover:text-surface",
+        danger: "rounded-md border border-danger bg-surface font-medium text-danger hover:bg-danger hover:text-surface",
         link: "font-medium text-accent hover:text-accent-strong hover:underline",
     },
     inverse: {

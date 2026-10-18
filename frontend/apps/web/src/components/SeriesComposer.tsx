@@ -9,16 +9,17 @@ import {
 import {
     Button,
     Choice,
+    DateField,
     Empty,
     Icon,
     Notice,
     OccurrenceList,
     PageHeader,
     Panel,
+    SearchSelect,
     Select,
     Stepper,
     Toggle,
-    DateField,
 } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
@@ -67,17 +68,19 @@ export function SeriesComposer({ onDone }: { onDone?: () => void }) {
             <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
                 <div className="space-y-6">
                     <Panel>
-                        <Select
+                        <SearchSelect
                             label={s.client}
                             value={f.clientId}
-                            options={[{ key: "", label: s.pickClient }, ...f.clientOptions]}
+                            placeholder={s.pickClient}
+                            options={f.clientOptions}
                             onChange={f.setClientId}
                             hint={f.subjectHint ?? undefined}
                         />
-                        <Select
+                        <SearchSelect
                             label={s.service}
                             value={f.itemId}
-                            options={[{ key: "", label: s.pickService }, ...f.serviceOptions]}
+                            placeholder={s.pickService}
+                            options={f.serviceOptions}
                             onChange={f.setItemId}
                         />
                         <Select

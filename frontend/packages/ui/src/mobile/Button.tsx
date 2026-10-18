@@ -92,7 +92,7 @@ const BOX = StyleSheet.create({
     primary: { backgroundColor: c.accent },
     outline: { borderWidth: 1, borderColor: c.border, backgroundColor: c.surface },
     quiet: {},
-    danger: { borderWidth: 1, borderColor: c.danFg },
+    danger: { borderWidth: 1, borderColor: c.danFg, backgroundColor: c.surface },
     link: {},
 });
 

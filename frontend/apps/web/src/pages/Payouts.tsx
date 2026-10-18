@@ -4,6 +4,7 @@ import {
     payoutStatusIntent,
     strings,
     usePayouts,
+    useSetupProgress,
     usePaymentAccount,
     formatParts,
     BUSINESS_CURRENCY,
@@ -25,12 +26,16 @@ import {
 } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
+import { useOpenLink } from "../lib/links";
 
 const s = strings.payouts;
 
 export function Payouts() {
     const p = usePayouts();
     const account = usePaymentAccount(api);
+    const setup = useSetupProgress();
+    const openLink = useOpenLink();
+    const connected = setup.steps.find((x) => x.key === "stripe")?.done ?? false;
     const sel = p.selected;
     if (account.props !== null) return <PaymentAccount {...account.props} />;
 
@@ -48,6 +53,25 @@ export function Payouts() {
                 message={s.loadError}
                 onRetry={p.load.retry}
                 retrying={p.load.retrying}
+            />
+        );
+    if (p.load.state === "empty" && !connected)
+        return (
+            <Empty
+                variant="card"
+                icon="bank"
+                message={strings.business.getSetUp.tasks.stripe.label}
+                body={strings.business.getSetUp.fresh.stripe}
+                actions={
+                    <Button
+                        size="sm"
+                        onPress={() => {
+                            openLink("gettingPaid");
+                        }}
+                    >
+                        {strings.business.getSetUp.start}
+                    </Button>
+                }
             />
         );
     if (p.load.state === "empty")

@@ -1,4 +1,4 @@
-"""Subjects on a client (pets, students, properties): add, edit, remove."""
+"""Subjects on a client (pets, students, properties, sites): add, edit, remove."""
 
 import httpx
 import pytest
@@ -94,6 +94,27 @@ async def _kind(owner: httpx.AsyncClient, kind: str | None) -> None:
     [
         ("student", {"birthday": "2015-09-01", "grade": "Grade 4", "school": "Oak Bay"}),
         ("property", {"address": "12 Pine St", "rooms": 3, "access": "Lockbox 4411"}),
+        (
+            "site",
+            {
+                "address": "880 Douglas St",
+                "building": "retail",
+                "access": "Gate code 4411",
+                "pets": "None",
+                "internet": "Telus fibre, router in the back office",
+                "recorder_location": "Server closet",
+                "equipment": [
+                    {
+                        "model": "4MP turret",
+                        "serial": "TR-0042",
+                        "location": "Front door",
+                        "installed_on": "2026-04-12",
+                        "warranty_until": "2028-04-12",
+                    },
+                    {"model": "8-channel recorder"},
+                ],
+            },
+        ),
     ],
 )
 async def test_each_kind_stores_its_own_details(
@@ -110,7 +131,17 @@ async def test_each_kind_stores_its_own_details(
 
 @pytest.mark.parametrize(
     ("kind", "attributes"),
-    [("student", {"birthday": "soon"}), ("property", {"rooms": -1}), ("property", {"rooms": "x"})],
+    [
+        ("student", {"birthday": "soon"}),
+        ("property", {"rooms": -1}),
+        ("property", {"rooms": "x"}),
+        ("site", {"building": "castle"}),
+        ("site", {"equipment": [{"serial": "no model"}]}),
+        ("site", {"equipment": [{"model": "Turret", "warranty_until": "soon"}]}),
+        ("site", {"equipment": [{"model": "x" * 81}]}),
+        ("site", {"equipment": [{"model": "Turret"}] * 101}),
+        ("site", {"address": "x" * 201}),
+    ],
 )
 async def test_invalid_details_for_the_kind_422(
     as_owner: httpx.AsyncClient, kind: str, attributes: dict[str, object]

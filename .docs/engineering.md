@@ -375,7 +375,7 @@ Locally `BASE_DOMAIN` stays unset, so the API keeps its localhost URLs from `.en
 is 0 (the socket peer is the client) and logs are plain text; the web and Connect dev servers serve an empty
 `config.js` and read their `VITE_*` URLs. A deployed API sets `ENV` (`staging` or `prod`) and `BASE_DOMAIN`,
 and refuses to start when a required setting is missing or a set URL disagrees with the base domain. Its
-logs are one JSON object per line, and the probes are `/health` (liveness) and `/ready` (database and Redis).
+logs are one JSON object per line, and the probes are `/health` (liveness) and `/ready` (the database).
 `DB_POOL_SIZE` and `DB_MAX_OVERFLOW` size the engine's pool per process (`core/db.py`); they default to
 SQLAlchemy's own 5 and 10, and deployed environments lower them (see [operations](operations.md#plain-settings)).
 

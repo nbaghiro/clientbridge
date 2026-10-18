@@ -28,6 +28,7 @@ from clientbridge.core.locale import (
     format_day_and_time,
     format_money,
     format_number,
+    format_time,
     locale_for,
     message,
     plural,
@@ -829,6 +830,24 @@ def booking_reassigned_message(
     )
 
 
+def booking_departed_message(
+    locale: str, business_name: str, member: str, arrival: str | None
+) -> Notice:
+    body = (
+        message(
+            locale, "booking_departed.body", member=member, business=business_name, time=arrival
+        )
+        if arrival is not None
+        else message(locale, "booking_departed.body_now", member=member, business=business_name)
+    )
+    return _visit_plain(
+        locale,
+        message(locale, "booking_departed.subject", member=member, business=business_name),
+        body,
+        message(locale, "booking_departed.heading"),
+    )
+
+
 def booking_requested_message(locale: str, business_name: str, when: str) -> Notice:
     return _visit_plain(
         locale,
@@ -1347,6 +1366,23 @@ class Notifier:
             locale, business.name, when, _manage_link(business, booking)
         )
         await self._to_client(db, booking.client_id, notice)
+
+    async def on_booking_departed(self, db: AsyncSession, booking_id: str) -> None:
+        """Text the client that their member is on the way, with the arrival time still ahead."""
+        booking = await db.get(Booking, booking_id)
+        if booking is None or booking.staff_id is None:
+            return
+        slot = await db.get(Slot, booking.slot_id)
+        business = await db.get(Business, booking.business_id)
+        if slot is None or business is None:
+            return
+        locale = locale_for(business=business)
+        name = (await staff_names(db, business.id, [booking.staff_id])).get(booking.staff_id)
+        member = name.split()[0] if name else message(locale, "booking_departed.someone")
+        ahead = slot.starts_at > clock.now()
+        arrival = format_time(locale, slot.starts_at, business.timezone) if ahead else None
+        notice = booking_departed_message(locale, business.name, member, arrival)
+        await self._to_client(db, booking.client_id, notice, channel="sms")
 
     async def on_booking_rescheduled(self, db: AsyncSession, booking_id: str) -> None:
         await self._visit_notice(db, booking_id, booking_rescheduled_message)

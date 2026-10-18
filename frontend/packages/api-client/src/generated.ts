@@ -1269,6 +1269,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/bookings/{booking_id}/depart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Depart For Booking */
+        post: operations["depart_for_booking_v1_bookings__booking_id__depart_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bookings/{booking_id}/deposit": {
         parameters: {
             query?: never;
@@ -2819,6 +2836,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/files/{file_id}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** File Link */
+        get: operations["file_link_v1_files__file_id__link_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/zones": {
         parameters: {
             query?: never;
@@ -3729,6 +3763,8 @@ export interface components {
              * @enum {string}
              */
             deposit_status: "none" | "pending" | "collected" | "applied" | "forfeited" | "refunded";
+            /** Departed At */
+            departed_at: string | null;
             /** Checked In At */
             checked_in_at: string | null;
             /**
@@ -3995,7 +4031,7 @@ export interface components {
                 [key: string]: unknown;
             };
             /** Subject */
-            subject: ("pet" | "student" | "property") | null;
+            subject: ("pet" | "student" | "property" | "site") | null;
         };
         /** BusinessSettingsUpdate */
         BusinessSettingsUpdate: {
@@ -4056,7 +4092,7 @@ export interface components {
              * Subject
              * @description What bookings are for besides the client; null books only them
              */
-            subject?: ("pet" | "student" | "property") | null;
+            subject?: ("pet" | "student" | "property" | "site") | null;
         };
         /** CheckoutOut */
         CheckoutOut: {
@@ -4526,7 +4562,7 @@ export interface components {
              * Parent Type
              * @enum {string}
              */
-            parent_type: "business" | "subject" | "item" | "signature" | "form_response";
+            parent_type: "business" | "subject" | "item" | "signature" | "form_response" | "booking";
             /** Parent Id */
             parent_id: string;
             /** Purpose */
@@ -4535,6 +4571,11 @@ export interface components {
             content_type?: string | null;
             /** Size */
             size?: number | null;
+        };
+        /** FileLink */
+        FileLink: {
+            /** Url */
+            url: string;
         };
         /** FileOut */
         FileOut: {
@@ -4546,7 +4587,7 @@ export interface components {
              * Parent Type
              * @enum {string}
              */
-            parent_type: "business" | "subject" | "item" | "signature" | "form_response";
+            parent_type: "business" | "subject" | "item" | "signature" | "form_response" | "booking";
             /** Parent Id */
             parent_id: string;
             /** Purpose */
@@ -5594,7 +5635,7 @@ export interface components {
             /** Client Name */
             client_name: string;
             /** Subject */
-            subject?: ("pet" | "student" | "property") | null;
+            subject?: ("pet" | "student" | "property" | "site") | null;
             /** Subject Name */
             subject_name: string | null;
             service: components["schemas"]["PublicService"];
@@ -5791,7 +5832,7 @@ export interface components {
              * Subject
              * @description What bookings are for besides the client; null books only them
              */
-            subject: ("pet" | "student" | "property") | null;
+            subject: ("pet" | "student" | "property" | "site") | null;
         };
         /** OnlineBookingOut */
         OnlineBookingOut: {
@@ -6348,7 +6389,7 @@ export interface components {
             subject_name?: string | null;
             /**
              * Subject Address
-             * @description A new property's address, for property businesses
+             * @description A new property's or site's address, for property and site businesses
              */
             subject_address?: string | null;
             /** Note */
@@ -6393,7 +6434,7 @@ export interface components {
              * Subject
              * @description What a booking names besides the client; null asks for nothing
              */
-            subject?: ("pet" | "student" | "property") | null;
+            subject?: ("pet" | "student" | "property" | "site") | null;
         };
         /** PublicBookingResult */
         PublicBookingResult: {
@@ -7029,7 +7070,7 @@ export interface components {
              * Subject
              * @description What a booking names besides the client; null asks for nothing
              */
-            subject?: ("pet" | "student" | "property") | null;
+            subject?: ("pet" | "student" | "property" | "site") | null;
             /** Cover Url */
             cover_url?: string | null;
             /** About */
@@ -10995,6 +11036,41 @@ export interface operations {
             };
         };
     };
+    depart_for_booking_v1_bookings__booking_id__depart_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     collect_deposit_v1_bookings__booking_id__deposit_post: {
         parameters: {
             query?: {
@@ -14388,6 +14464,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
@@ -14443,6 +14520,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    file_link_v1_files__file_id__link_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path: {
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileLink"];
                 };
             };
             /** @description Validation Error */

@@ -207,8 +207,10 @@ zone and `locale_for(...)` its text renders in), and each is idempotent via a st
 The worker evaluates cron times in UTC (`timezone = UTC`) whatever the host's zone.
 
 `GET /health` is the liveness check and touches nothing; `GET /ready` (`services/health.py`) runs
-`SELECT 1` and a Redis `PING` concurrently with a two-second timeout each and answers 503 with the failed
-dependencies (`{"status": "unavailable", "failed": ["redis"]}`).
+`SELECT 1` with a two-second timeout and answers 503 when it fails
+(`{"status": "unavailable", "failed": ["database"]}`). Redis is not part of readiness: only the public
+rate limits and the worker use it, so an outage answers 503 on the rate-limited public routes and
+restarts the worker without taking the API out of the load balancer.
 
 ---
 
@@ -261,7 +263,7 @@ shown after it.
 ### Tables by domain
 
 **business (3)** — `businesses` (all Stripe-Connect/KYC mirror fields + Canadian tax fields + `slug` + brand
-JSONB + `subject`, what a booking names besides the client: pet, student or property, NULL when the
+JSONB + `subject`, what a booking names besides the client: pet, student, property or site, NULL when the
 business books only the client), `users` (one per auth identity via unique `identity_id`; `email` copied from the auth service, `last_seen_at`), `staff` (user↔business, `role`
 owner/admin/staff/contractor, payout config `payee`/`rate_type` with the rate in `rate_bps` (percent) or
 `rate_cents` (fixed or hourly), one membership per user per business, pending invites via
@@ -284,7 +286,9 @@ by line and reason; `items.stock_on_hand` is the running total).
 **scheduling (6)** — `slots` (the calendar event: capacity-bearing block; appointment = capacity 1, class
 = capacity N; seats taken are counted from its live bookings; `recurrence_id`), `bookings` _(soft-del)_ (client↔slot via `slot_id`; denormalized
 `staff_id`; status pending→confirmed→completed/canceled/no_show, or waitlisted on a full class until a seat is given; `source`; deposit terms (the deposit's
-state is derived from the ledger, and a deposit is due when `deposit_amount_cents > 0`); `reminded_at`),
+state is derived from the ledger, and a deposit is due when `deposit_amount_cents > 0`); `reminded_at`;
+`departed_at`, set once by `POST /v1/bookings/{id}/depart` ("On my way", which texts the client), and
+`checked_in_at`, the client arriving or, for a property or site business, the member arriving),
 `hours` (per-staff working hours: `basis` recurring weekday or one-off date, `available`; `basis`
 exception is time off for one member, or a closure for everyone when `staff_id` is null, with
 `starts_at`/`ends_at` and a `reason`, written only through `/v1/time-off`), `recurrences` (recurrence rule with `frequency` day/week/month, the same words
@@ -555,6 +559,11 @@ uploaded by an owner or admin. `GET /media/{file_id}` serves only those two kind
 short-lived presigned S3 URL, so they have stable links for the public pages and the apps. Only files whose
 upload was completed are served. Every other
 file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it into the media URL.
+
+Job photos are `files` rows on a booking (`parent_type` booking, `purpose` photo, image types only). The
+member on the booking or a manager can add one, and `GET /v1/files/{id}/link` returns a presigned download
+URL to the same people. The booking detail on web and mobile lists them, and the subject's card on the
+client record shows the latest photos from its visits.
 
 ### Payments — Stripe Connect custody
 

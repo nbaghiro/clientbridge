@@ -16,6 +16,7 @@ import {
     Notice,
     Panel,
     Select,
+    SearchSelect,
     Stars,
     TextField,
 } from "@clientbridge/ui";
@@ -425,10 +426,11 @@ function RequestReviewDialog({ queue, onClose }: { queue: ReviewQueue; onClose: 
             <h2 className="font-display text-lg font-bold text-ink">{s.requestTitle}</h2>
             <p className="mt-1 text-sm text-muted">{s.requestBody}</p>
             <div className="mt-4 space-y-3">
-                <Select
+                <SearchSelect
                     label={s.requestClient}
                     value={clientId}
-                    options={[{ key: "", label: s.chooseClient }, ...queue.clientOptions]}
+                    placeholder={s.chooseClient}
+                    options={queue.clientOptions}
                     onChange={setClientId}
                 />
                 {sent ? <Notice tone="success">{s.requestSent(name)}</Notice> : null}

@@ -38,7 +38,7 @@ import {
     Notice,
     PageHeader,
     SearchField,
-    Select,
+    SearchSelect,
     Tabs,
     TextField,
 } from "@clientbridge/ui";
@@ -107,6 +107,7 @@ function Messages() {
     const [composing, setComposing] = useState<string | null>(null);
     const [sentTo, setSentTo] = useState<string | null>(null);
     const open = inbox.threads.find((t) => t.id === picked) ?? null;
+    const nothingYet = inbox.load.hasData && inbox.threads.length === 0;
     useLinkIntent({
         onCreate: () => {
             setComposing("");
@@ -119,78 +120,142 @@ function Messages() {
     });
 
     return (
-        <div className="flex min-h-0 flex-1">
-            <aside className="flex w-[300px] shrink-0 flex-col border-r border-line bg-surface">
-                <header className="space-y-3 border-b border-line px-4 pb-3 pt-4">
-                    <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs text-muted">{s.unreadCount(inbox.unread)}</p>
+        <div
+            className={
+                nothingYet ? "min-h-0 flex-1 overflow-y-auto px-8 py-6" : "flex min-h-0 flex-1 p-5"
+            }
+        >
+            {nothingYet ? (
+                <Empty
+                    variant="card"
+                    icon="inbox"
+                    message={s.noThreadsTitle}
+                    body={s.noThreadsBody}
+                    actions={
                         <Button
-                            size="sm"
-                            icon="edit"
                             onPress={() => {
                                 setSentTo(null);
                                 setComposing("");
                             }}
                         >
-                            {s.newShort}
+                            {s.newMessageTitle}
                         </Button>
-                    </div>
-                    <SearchField
-                        value={inbox.q}
-                        onChange={inbox.setQ}
-                        placeholder={s.searchPlaceholder(kindWord(kind))}
-                    />
-                    <Choice
-                        label={s.filterLabel}
-                        options={INBOX_FILTERS}
-                        value={inbox.filter}
-                        onChange={inbox.setFilter}
-                    />
-                </header>
-                <nav aria-label={s.title} className="flex-1 overflow-y-auto">
-                    {sentTo !== null ? (
-                        <div className="p-3">
-                            <Notice tone="success">{s.sentNew(sentTo)}</Notice>
-                        </div>
-                    ) : null}
-                    <Loaded load={inbox.load} loading={s.loading} failed={s.loadError} rows={6}>
-                        {inbox.filtered.length === 0 ? (
-                            <Empty
-                                message={
-                                    inbox.threads.length === 0 ? s.noThreads : s.noThreadsFiltered
-                                }
-                            />
-                        ) : (
-                            inbox.filtered.map((t) => (
-                                <ConversationRow
-                                    key={t.id}
-                                    name={t.title}
-                                    preview={t.last_body ?? ""}
-                                    at={t.ago}
-                                    unread={t.unread_count}
-                                    channel={t.channelKind}
-                                    channelLabel={channelLabel(t.channel)}
-                                    selected={t.id === picked}
-                                    tag={rowFlag(t)}
-                                    onPress={() => {
-                                        setPicked(t.id);
-                                    }}
-                                />
-                            ))
-                        )}
-                    </Loaded>
-                </nav>
-            </aside>
-            {open !== null ? (
-                <Thread key={open.id} thread={open} details={details} onDetails={setDetails} />
+                    }
+                />
             ) : (
-                <section className="flex flex-1 items-center justify-center bg-bg">
-                    {inbox.load.hasData ? (
-                        <Empty
-                            message={inbox.threads.length === 0 ? s.noThreads : s.selectThread}
+                <div className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-line bg-surface shadow-card">
+                    <aside className="flex w-[300px] shrink-0 flex-col border-r border-line bg-surface">
+                        <header className="space-y-3 border-b border-line px-4 pb-3 pt-4">
+                            <div className="flex items-center justify-between gap-2">
+                                <p className="text-xs text-muted">{s.unreadCount(inbox.unread)}</p>
+                                <Button
+                                    size="sm"
+                                    icon="edit"
+                                    onPress={() => {
+                                        setSentTo(null);
+                                        setComposing("");
+                                    }}
+                                >
+                                    {s.newShort}
+                                </Button>
+                            </div>
+                            <SearchField
+                                value={inbox.q}
+                                onChange={inbox.setQ}
+                                placeholder={s.searchPlaceholder(kindWord(kind))}
+                            />
+                            <Choice
+                                label={s.filterLabel}
+                                options={INBOX_FILTERS}
+                                value={inbox.filter}
+                                onChange={inbox.setFilter}
+                            />
+                        </header>
+                        <nav aria-label={s.title} className="flex-1 overflow-y-auto">
+                            {sentTo !== null ? (
+                                <div className="p-3">
+                                    <Notice tone="success">{s.sentNew(sentTo)}</Notice>
+                                </div>
+                            ) : null}
+                            <Loaded
+                                load={inbox.load}
+                                loading={s.loading}
+                                failed={s.loadError}
+                                rows={6}
+                            >
+                                {inbox.filtered.length === 0 ? (
+                                    <Empty message={s.noThreadsFiltered} />
+                                ) : (
+                                    inbox.filtered.map((t) => (
+                                        <ConversationRow
+                                            key={t.id}
+                                            name={t.title}
+                                            preview={t.last_body ?? ""}
+                                            at={t.ago}
+                                            unread={t.unread_count}
+                                            channel={t.channelKind}
+                                            channelLabel={channelLabel(t.channel)}
+                                            selected={t.id === picked}
+                                            tag={rowFlag(t)}
+                                            onPress={() => {
+                                                setPicked(t.id);
+                                            }}
+                                        />
+                                    ))
+                                )}
+                            </Loaded>
+                        </nav>
+                    </aside>
+                    {open !== null ? (
+                        <Thread
+                            key={open.id}
+                            thread={open}
+                            details={details}
+                            onDetails={setDetails}
                         />
-                    ) : null}
-                </section>
+                    ) : (
+                        // No conversation opens on its own: someone may be looking at the screen too.
+                        <section className="flex flex-1 items-center justify-center bg-bg/60">
+                            {inbox.load.hasData ? (
+                                <div className="pb-16">
+                                    {
+                                        <Empty
+                                            icon="inbox"
+                                            message={s.selectThread}
+                                            body={s.unreadCount(inbox.unread)}
+                                            actions={
+                                                <>
+                                                    {inbox.unread > 0 &&
+                                                    inbox.filter !== "unread" ? (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onPress={() => {
+                                                                inbox.setFilter("unread");
+                                                            }}
+                                                        >
+                                                            {s.showUnread}
+                                                        </Button>
+                                                    ) : null}
+                                                    <Button
+                                                        size="sm"
+                                                        icon="edit"
+                                                        onPress={() => {
+                                                            setSentTo(null);
+                                                            setComposing("");
+                                                        }}
+                                                    >
+                                                        {s.newMessageTitle}
+                                                    </Button>
+                                                </>
+                                            }
+                                        />
+                                    }
+                                </div>
+                            ) : null}
+                        </section>
+                    )}
+                </div>
             )}
             {composing !== null ? (
                 <NewMessageDialog
@@ -485,10 +550,11 @@ function NewMessageDialog({
         <Modal open onClose={onClose}>
             <h2 className="mb-4 font-display text-lg font-bold text-ink">{s.newMessageTitle}</h2>
             <div className="space-y-3">
-                <Select
+                <SearchSelect
                     label={s.clientLabel}
                     value={msg.clientId}
-                    options={[{ key: "", label: s.chooseClient }, ...msg.clients]}
+                    placeholder={s.chooseClient}
+                    options={msg.clients}
                     onChange={msg.setClientId}
                 />
                 <Choice

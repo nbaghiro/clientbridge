@@ -9,7 +9,17 @@ import {
     useBusinessZone,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { Avatar, Badge, Button, Modal, Notice, Select, Stars, TextField } from "@clientbridge/ui";
+import {
+    Avatar,
+    Badge,
+    Button,
+    Modal,
+    Notice,
+    Select,
+    SearchSelect,
+    Stars,
+    TextField,
+} from "@clientbridge/ui";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
@@ -379,10 +389,11 @@ function RequestReviewSheet({ queue, onClose }: { queue: ReviewQueue; onClose: (
             <View style={styles.sheet}>
                 <Text style={styles.sheetTitle}>{s.requestTitle}</Text>
                 <Text style={styles.sheetBody}>{s.requestBody}</Text>
-                <Select
+                <SearchSelect
                     label={s.requestClient}
                     value={clientId}
-                    options={[{ key: "", label: s.chooseClient }, ...queue.clientOptions]}
+                    placeholder={s.chooseClient}
+                    options={queue.clientOptions}
                     onChange={setClientId}
                 />
                 {sent ? <Notice tone="success">{s.requestSent(name)}</Notice> : null}

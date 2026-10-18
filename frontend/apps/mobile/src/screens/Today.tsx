@@ -1,6 +1,7 @@
 import {
     bookingPageUrl,
     canManagePayments,
+    firstRunLayout,
     formatMoney,
     strings,
     useNotifications,
@@ -15,21 +16,22 @@ import { StatusBar } from "expo-status-bar";
 import { type ReactNode, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button, Empty, Notice } from "@clientbridge/ui";
+import { Backdrop, Button, Empty, Notice } from "@clientbridge/ui";
 
 import { DebugOverlay } from "../components/DebugOverlay";
 import {
     AgendaRows,
     AttentionList,
-    GettingStarted,
     KpiSummary,
     KpiSummaryLoading,
     NextActions,
     NextCard,
     PaymentsSummary,
     QuietDay,
+    QuietSchedule,
     RowsLoading,
     Section,
+    SetupGuide,
     TodayFailed,
     TodayHeader,
 } from "../components/TodayParts";
@@ -57,6 +59,7 @@ export function TodayScreen() {
 
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
+            <Backdrop />
             <StatusBar style="dark" />
             {viewer === null ? null : canManagePayments(viewer.role) ? (
                 <OwnerToday bell={notifications.unread} onSecretTap={onSecretTap} />
@@ -86,7 +89,13 @@ function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
     const setup = useSetupProgress();
     const bookingLink = setup.slug === null ? null : bookingPageUrl(bookUrl, setup.slug);
     const loading = load.state === "loading";
-    const firstRun = load.hasData && view.agenda.length === 0 && !setup.complete;
+    const layout = firstRunLayout(
+        view.agenda.length,
+        owner.moneyLoad.state === "ready" ? owner.money : null,
+        setup,
+    );
+    const firstRun = load.hasData && layout.guide;
+    const figures = !(firstRun && !layout.money);
     const focus = view.current ?? view.next;
     const later = view.agenda.filter((a) => a !== focus && a.state !== "done");
 
@@ -109,7 +118,8 @@ function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                             </Notice>
                         </View>
                     ) : null}
-                    {loading ? (
+                    {firstRun ? <SetupGuide setup={setup} /> : null}
+                    {!figures ? null : loading ? (
                         <KpiSummaryLoading />
                     ) : (
                         <KpiSummary
@@ -134,19 +144,20 @@ function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                             </NextCard>
                         </Section>
                     )}
-                    <PaymentsSummary owner={owner} />
-                    {firstRun ? <GettingStarted setup={setup} /> : null}
-                    <Section title={t.needsYou}>
-                        {loading ? (
-                            <RowsLoading count={3} />
-                        ) : (
-                            <AttentionList
-                                items={view.attention}
-                                actions={actions}
-                                empty={t.allClear}
-                            />
-                        )}
-                    </Section>
+                    {figures ? <PaymentsSummary owner={owner} /> : null}
+                    {firstRun && view.attention.length === 0 ? null : (
+                        <Section title={t.needsYou}>
+                            {loading ? (
+                                <RowsLoading count={3} />
+                            ) : (
+                                <AttentionList
+                                    items={view.attention}
+                                    actions={actions}
+                                    empty={t.allClear}
+                                />
+                            )}
+                        </Section>
+                    )}
                     <Section
                         title={t.restOfDay}
                         action={
@@ -163,6 +174,8 @@ function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                     >
                         {loading ? (
                             <RowsLoading />
+                        ) : firstRun ? (
+                            <QuietSchedule bookingLink={bookingLink} />
                         ) : later.length === 0 ? (
                             <QuietDay bookingLink={bookingLink} />
                         ) : (

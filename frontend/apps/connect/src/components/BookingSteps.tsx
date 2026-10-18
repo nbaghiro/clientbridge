@@ -4,6 +4,7 @@ import {
     type PublicBookingFlow,
     durationLabel,
     icsFor,
+    isPlace,
     strings,
     formatParts,
     formatMoney,
@@ -259,7 +260,7 @@ export function DetailsForm({ flow }: { flow: PublicBookingFlow }) {
                         error={flow.errors.subject}
                     />
                 ) : null}
-                {flow.kind === "property" && flow.subjectId === null ? (
+                {isPlace(flow.kind) && flow.subjectId === null ? (
                     <TextField
                         label={s.address}
                         value={f.subjectAddress}

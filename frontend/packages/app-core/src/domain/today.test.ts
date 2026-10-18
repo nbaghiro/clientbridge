@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAgenda, greeting, visitAction } from "./today";
+import { strings } from "../strings";
+import {
+    arrivalWords,
+    buildAgenda,
+    firstRunLayout,
+    greeting,
+    visitAction,
+    visitActionLabel,
+} from "./today";
 
 const ZONE = "America/Vancouver";
 
@@ -22,6 +30,7 @@ const row = (over: Record<string, unknown>) => ({
     client_phone: null,
     deposit_amount_cents: 2000,
     deposit_status: "collected",
+    departed_at: null,
     checked_in_at: null,
     staff_name: "Hannah Wong",
     staff_title: null,
@@ -116,10 +125,68 @@ describe("buildAgenda", () => {
     });
 });
 
+describe("a visit at the client's place", () => {
+    const now = new Date("2026-10-06T15:00:00Z");
+    const [ahead] = buildAgenda([row({})], now, ZONE);
+    const [onTheWay] = buildAgenda([row({ departed_at: "2026-10-06T15:40:00Z" })], now, ZONE);
+    const [arrived] = buildAgenda(
+        [row({ departed_at: "2026-10-06T15:40:00Z", checked_in_at: "2026-10-06T15:58:00Z" })],
+        now,
+        ZONE,
+    );
+
+    it("is set off for, then arrived at, then checked out", () => {
+        expect(ahead && visitAction(ahead, "site")).toBe("depart");
+        expect(onTheWay && visitAction(onTheWay, "site")).toBe("checkIn");
+        expect(arrived && visitAction(arrived, "site")).toBe("checkout");
+        expect(ahead && visitAction(ahead, "pet")).toBe("checkIn");
+    });
+
+    it("names arriving on site for a site business and checking in for the others", () => {
+        expect(arrivalWords("site").done).toBe(strings.today.onSite);
+        expect(visitActionLabel("checkIn", "site")).toBe(strings.today.arrive);
+        expect(visitActionLabel("checkIn", "property")).toBe(strings.today.checkIn);
+        expect(visitActionLabel("depart", "site")).toBe(strings.today.depart);
+    });
+});
+
 describe("greeting", () => {
     it("greets by the time of day and first name", () => {
         expect(greeting(9, "Hannah Wong")).toBe("Good morning, Hannah");
         expect(greeting(13, "Diego")).toBe("Good afternoon, Diego");
         expect(greeting(19, "")).toBe("Good evening");
+    });
+});
+
+describe("firstRunLayout", () => {
+    const quiet = {
+        collectedCents: 0,
+        paymentCount: 0,
+        awaitingCents: 0,
+        awaitingCount: 0,
+        setAsideCents: 0,
+        filingDue: null,
+        filingDays: null,
+    };
+
+    it("leads with the guide on a new account and hides the empty figures", () => {
+        expect(firstRunLayout(0, quiet, { complete: false })).toEqual({
+            guide: true,
+            money: false,
+        });
+    });
+
+    it("keeps the usual Today once money is moving, even with setup left", () => {
+        const open = { ...quiet, awaitingCents: 4500, awaitingCount: 1 };
+        expect(firstRunLayout(0, open, { complete: false })).toEqual({
+            guide: false,
+            money: true,
+        });
+    });
+
+    it("keeps the usual Today with visits booked, setup finished or figures still loading", () => {
+        expect(firstRunLayout(2, quiet, { complete: false }).guide).toBe(false);
+        expect(firstRunLayout(0, quiet, { complete: true }).guide).toBe(false);
+        expect(firstRunLayout(0, null, { complete: false }).guide).toBe(false);
     });
 });

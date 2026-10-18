@@ -1,4 +1,5 @@
 import { useBusinessQuery as useQuery } from "../hooks";
+import { personMedia } from "./files";
 
 import { useMemo, useRef, useState } from "react";
 
@@ -15,7 +16,7 @@ import {
     BUSINESS_CURRENCY,
 } from "../format";
 import type { IconName } from "../icons";
-import type { DocTotalLine, Intent, TimelineEntry } from "../ui";
+import type { DocTotalLine, Intent, SelectOption, TimelineEntry } from "../ui";
 import { strings } from "../strings";
 import { docRates, priceDoc } from "./billing";
 import {
@@ -635,7 +636,7 @@ export interface EntitlementSaleForm {
     setRecipient: (v: string) => void;
     clientId: string;
     setClientId: (id: string) => void;
-    clientOptions: { key: string; label: string }[];
+    clientOptions: SelectOption<string>[];
     methods: CheckoutMethod[];
     checkout: Checkout;
     needsCard: boolean;
@@ -811,7 +812,11 @@ export function useEntitlementSaleForm(
         setRecipient,
         clientId,
         setClientId,
-        clientOptions: clients.map((c) => ({ key: c.id, label: c.name })),
+        clientOptions: clients.map((c) => ({
+            key: c.id,
+            label: c.name,
+            media: personMedia(c.name),
+        })),
         methods,
         checkout,
         needsCard: kind === "membership" && clientId !== "" && saved.length === 0,

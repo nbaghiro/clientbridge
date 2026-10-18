@@ -13,7 +13,6 @@ import {
     BUSINESS_CURRENCY,
     useBusinessZone,
     currencyAffix,
-    smallSupplierLimit,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -37,6 +36,7 @@ import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
+import { useOpenLink } from "../lib/links";
 
 const s = strings.remittances;
 const c = theme.colors;
@@ -44,6 +44,7 @@ const c = theme.colors;
 export function Remittances() {
     const zone = useBusinessZone();
     const t = useTaxFilings(api);
+    const openLink = useOpenLink();
     const due = t.nextDue;
     const [recording, setRecording] = useState<FilingPeriod | null>(null);
     const [flash, setFlash] = useState<string | null>(null);
@@ -60,11 +61,22 @@ export function Remittances() {
                         onRetry={t.load.retry}
                         retrying={t.load.retrying}
                     />
-                ) : !t.registered && t.periods.length === 0 ? (
+                ) : t.taxOff ? (
                     <Empty
                         variant="card"
                         icon="building"
-                        message={s.notRegistered(smallSupplierLimit())}
+                        message={strings.business.getSetUp.tasks.tax.label}
+                        body={strings.business.getSetUp.fresh.tax}
+                        actions={
+                            <Button
+                                size="sm"
+                                onPress={() => {
+                                    openLink("taxes");
+                                }}
+                            >
+                                {strings.business.getSetUp.start}
+                            </Button>
+                        }
                     />
                 ) : t.load.state === "empty" ? (
                     <Empty

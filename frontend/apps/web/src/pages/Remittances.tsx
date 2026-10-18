@@ -35,6 +35,7 @@ import {
 import { useState } from "react";
 
 import { api } from "../lib/api";
+import { useOpenLink } from "../lib/links";
 
 const s = strings.remittances;
 
@@ -53,6 +54,7 @@ export function Remittances() {
     const due = t.nextDue;
     const [recording, setRecording] = useState<FilingPeriod | null>(null);
     const [flash, setFlash] = useState<string | null>(null);
+    const openLink = useOpenLink();
     const csv = useReportFile(
         api,
         due === null ? { start: "", end: "" } : { start: due.start, end: due.end },
@@ -75,9 +77,24 @@ export function Remittances() {
                 retrying={t.load.retrying}
             />
         );
-    if (!t.registered && t.periods.length === 0)
+    if (t.taxOff || (!t.registered && t.periods.length === 0))
         return (
-            <Empty variant="card" icon="building" message={s.notRegistered(smallSupplierLimit())} />
+            <Empty
+                variant="card"
+                icon="building"
+                message={strings.business.getSetUp.tasks.tax.label}
+                body={s.notRegistered(smallSupplierLimit())}
+                actions={
+                    <Button
+                        size="sm"
+                        onPress={() => {
+                            openLink("taxes");
+                        }}
+                    >
+                        {strings.business.getSetUp.start}
+                    </Button>
+                }
+            />
         );
     if (t.load.state === "empty")
         return (

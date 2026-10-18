@@ -70,26 +70,30 @@ export function Earnings() {
                 ) : (
                     <>
                         <Text style={ui.note}>{s.subtitle}</Text>
-                        <Panel>
-                            <View style={styles.stats}>
-                                <Stat
-                                    currency={BUSINESS_CURRENCY}
-                                    label={s.toApprove}
-                                    cents={e.totals.pendingCents}
-                                />
-                                <Stat
-                                    currency={BUSINESS_CURRENCY}
-                                    label={s.toPay}
-                                    cents={e.totals.approvedCents}
-                                />
-                                <Stat
-                                    currency={BUSINESS_CURRENCY}
-                                    label={s.paidYtd}
-                                    cents={e.totals.paidYtdCents}
-                                    tone="success"
-                                />
-                            </View>
-                        </Panel>
+                        {e.totals.pendingCents === 0 &&
+                        e.totals.approvedCents === 0 &&
+                        e.totals.paidYtdCents === 0 ? null : (
+                            <Panel>
+                                <View style={styles.stats}>
+                                    <Stat
+                                        currency={BUSINESS_CURRENCY}
+                                        label={s.toApprove}
+                                        cents={e.totals.pendingCents}
+                                    />
+                                    <Stat
+                                        currency={BUSINESS_CURRENCY}
+                                        label={s.toPay}
+                                        cents={e.totals.approvedCents}
+                                    />
+                                    <Stat
+                                        currency={BUSINESS_CURRENCY}
+                                        label={s.paidYtd}
+                                        cents={e.totals.paidYtdCents}
+                                        tone="success"
+                                    />
+                                </View>
+                            </Panel>
+                        )}
                         <Panel flush>
                             {e.payees.map((p) => (
                                 <ListRow

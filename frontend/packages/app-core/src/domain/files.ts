@@ -1,4 +1,5 @@
-import { useState } from "react";
+import type { OptionMedia } from "../ui";
+import { useEffect, useMemo, useState } from "react";
 
 import { isConnectionFailure, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
@@ -50,9 +51,85 @@ async function putToPresignedUrl(
     }
 }
 
+let mediaBase: string | null = null;
+
+/** Set once at startup, so view-models can give option pictures a link without the API address. */
+export function setMediaBase(apiBase: string): void {
+    mediaBase = apiBase;
+}
+
+function mediaSrc(fileId: string | null): string | null {
+    return mediaBase === null ? null : mediaUrl(mediaBase, fileId);
+}
+
+export function personMedia(name: string, color: string | null = null): OptionMedia {
+    return { kind: "person", name, color };
+}
+
+export function itemMedia(item: {
+    name: string;
+    color: string | null;
+    image_file_id: string | null;
+}): OptionMedia {
+    return { kind: "item", name: item.name, color: item.color, src: mediaSrc(item.image_file_id) };
+}
+
 /** The stable public link for a business logo or item image (`GET /media/{id}` on the API). */
 export function mediaUrl(apiBase: string, fileId: string | null): string | null {
     return fileId === null ? null : `${apiBase.replace(/\/$/, "")}/media/${fileId}`;
+}
+
+/** A private photo and its download link, once loaded. */
+export interface Photo {
+    id: string;
+    src: string | null;
+}
+
+export function bookingPhotoTarget(bookingId: string): UploadTarget {
+    return { parentType: "booking", parentId: bookingId, purpose: "photo" };
+}
+
+// presigned links last an hour on the API, so a cached one is refreshed well before it lapses
+const LINK_TTL_MS = 30 * 60_000;
+const links = new Map<string, { url: string; at: number }>();
+
+/** Download links for private photos, by file id; a file appears once its link has loaded. */
+export function useFileLinks(api: ApiLike, fileIds: readonly string[]): Record<string, string> {
+    const key = fileIds.join(",");
+    const ids = useMemo(() => (key === "" ? [] : key.split(",")), [key]);
+    const [, setLoaded] = useState(0);
+    useEffect(() => {
+        let live = true;
+        const now = Date.now();
+        const missing = ids.filter((id) => {
+            const cached = links.get(id);
+            return cached === undefined || now - cached.at > LINK_TTL_MS;
+        });
+        if (missing.length === 0) return;
+        Promise.all(
+            missing.map((id) =>
+                api
+                    .get<{ url: string }>(`/v1/files/${id}/link`)
+                    .then((r) => {
+                        links.set(id, { url: r.url, at: Date.now() });
+                    })
+                    .catch(() => undefined),
+            ),
+        )
+            .then(() => {
+                if (live) setLoaded((n) => n + 1);
+            })
+            .catch(() => undefined);
+        return () => {
+            live = false;
+        };
+    }, [api, ids]);
+    return Object.fromEntries(
+        ids.flatMap((id) => {
+            const cached = links.get(id);
+            return cached === undefined ? [] : [[id, cached.url] as const];
+        }),
+    );
 }
 
 export function logoTarget(businessId: string): UploadTarget {

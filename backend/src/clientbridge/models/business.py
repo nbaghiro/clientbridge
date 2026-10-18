@@ -28,7 +28,9 @@ StaffStatus = Literal["active", "invited", "removed"]
 RateType = Literal["percent", "fixed", "hourly"]
 Plan = Literal["premium", "team"]
 PlanStatus = Literal["trialing", "active", "past_due", "lapsed"]
-SubjectKind = Literal["pet", "student", "property"]
+SubjectKind = Literal["pet", "student", "property", "site"]
+# kinds whose subject is a place, so a booking for one goes to its address
+PLACE_KINDS: frozenset[SubjectKind] = frozenset({"property", "site"})
 
 TRIAL_DAYS = 14
 POSTAL_CODE_CHECK = "postal_code ~ '^[A-Z][0-9][A-Z] [0-9][A-Z][0-9]$'"

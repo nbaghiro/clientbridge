@@ -10,6 +10,9 @@ import {
     savedCardLabel,
     strings,
     useBookingAddons,
+    useBookingPhotos,
+    useDeparture,
+    useSubjectKind,
     useCollectDeposit,
     useNewMessage,
     useSavedCards,
@@ -33,7 +36,7 @@ import {
     StatusPill,
     TextField,
 } from "@clientbridge/ui";
-import { useState } from "react";
+import { type ChangeEvent, useRef, useState } from "react";
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
@@ -199,6 +202,67 @@ function BookingNotes({ detail }: { detail: BookingDetail }) {
                 ))}
             </div>
         </DetailSection>
+    );
+}
+
+function BookingPhotos({ event }: { event: ScheduleEvent }) {
+    const photos = useBookingPhotos(api, event, useViewer());
+    const input = useRef<HTMLInputElement>(null);
+    if (photos.photos.length === 0 && !photos.canAdd) return null;
+    const onPick = (e: ChangeEvent<HTMLInputElement>): void => {
+        const file = e.target.files?.[0];
+        if (file !== undefined) photos.add(file, file.type || "image/jpeg", file.size);
+        e.target.value = "";
+    };
+    return (
+        <DetailSection
+            title={s.detailPhotos}
+            action={
+                photos.canAdd ? (
+                    <Button
+                        size="sm"
+                        variant="quiet"
+                        icon="image"
+                        busy={photos.busy}
+                        onPress={() => {
+                            input.current?.click();
+                        }}
+                    >
+                        {s.photoAdd}
+                    </Button>
+                ) : undefined
+            }
+        >
+            {photos.photos.length === 0 ? (
+                <p className="text-sm text-muted">{s.photosNone}</p>
+            ) : (
+                <PhotoGrid photos={photos.photos} />
+            )}
+            <p className="mt-1.5 text-xs text-muted">{s.photosHint}</p>
+            {photos.error !== null ? <Notice tone="danger">{photos.error}</Notice> : null}
+            <input ref={input} type="file" accept="image/*" hidden onChange={onPick} />
+        </DetailSection>
+    );
+}
+
+/** Thumbnails that open the full photo; a photo whose link is still loading shows a blank tile. */
+export function PhotoGrid({ photos }: { photos: readonly { id: string; src: string | null }[] }) {
+    return (
+        <ul className="grid grid-cols-3 gap-2">
+            {photos.map((p, i) => (
+                <li key={p.id} className="aspect-square overflow-hidden rounded-md bg-bg">
+                    {p.src !== null ? (
+                        <a href={p.src} target="_blank" rel="noreferrer">
+                            <img
+                                src={p.src}
+                                alt={s.photoAlt(i + 1)}
+                                className="h-full w-full object-cover"
+                            />
+                        </a>
+                    ) : null}
+                </li>
+            ))}
+        </ul>
     );
 }
 
@@ -400,6 +464,27 @@ export function BookingActionBar({
     );
 }
 
+function Departure({ event }: { event: ScheduleEvent }) {
+    const departure = useDeparture(api, event, useViewer(), useSubjectKind());
+    if (!departure.canDepart) return null;
+    return (
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface px-4 py-3">
+            <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-ink">{s.departTitle}</p>
+                <p className="mt-0.5 text-sm text-muted">{s.departBody}</p>
+            </div>
+            <Button icon="send" busy={departure.busy} onPress={departure.depart}>
+                {s.departAction}
+            </Button>
+            {departure.error !== null ? (
+                <div className="w-full">
+                    <Notice tone="danger">{departure.error}</Notice>
+                </div>
+            ) : null}
+        </div>
+    );
+}
+
 function DepositDue({ event }: { event: ScheduleEvent }) {
     const viewer = useViewer();
     const [collecting, setCollecting] = useState(false);
@@ -480,10 +565,12 @@ export function BookingBody({
             <div className={`rounded-md border border-line bg-bg px-4 ${narrow ? "py-3" : "py-1"}`}>
                 <BookingFacts detail={detail} layout={narrow ? "stack" : "inline"} />
             </div>
+            <Departure event={detail.event} />
             <DepositDue event={detail.event} />
             <BookingClient detail={detail} />
             <BookingRoster detail={detail} />
             <BookingNotes detail={detail} />
+            {detail.event.bookingId !== null ? <BookingPhotos event={detail.event} /> : null}
             {detail.event.bookingId !== null ? <BookingAddons event={detail.event} /> : null}
             <BookingHistory detail={detail} />
         </>

@@ -1,5 +1,5 @@
 import { strings, useSendToClient } from "@clientbridge/app-core";
-import { Button, Modal, Notice, Select } from "@clientbridge/ui";
+import { Button, Modal, Notice, SearchSelect } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
@@ -23,10 +23,11 @@ export function SendToClientDialog({
             <h2 className="font-display text-lg font-bold text-ink">{title}</h2>
             <p className="mt-1 text-sm text-muted">{s.sendBody}</p>
             <div className="mt-4 space-y-3">
-                <Select
+                <SearchSelect
                     label={s.client}
                     value={send.clientId}
-                    options={[{ key: "", label: s.chooseClient }, ...send.clients]}
+                    placeholder={s.chooseClient}
+                    options={send.clients}
                     onChange={send.setClientId}
                 />
                 {send.sentTo !== null ? (

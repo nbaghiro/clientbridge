@@ -370,6 +370,11 @@ export function bookingFailure(error: unknown, fallback: string): string {
     return failedStatus(error) === 409 ? s.slotTaken : failureMessage(error, fallback);
 }
 
+/** Kinds whose subject is a place, so a booking for one goes to its address. */
+export function isPlace(kind: SubjectKind | null): boolean {
+    return kind === "property" || kind === "site";
+}
+
 type BookingStep = "service" | "time" | "extras" | "details" | "pay" | "done";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -391,8 +396,8 @@ export function detailErrors(
         email: d.email.trim() !== "" && !EMAIL.test(d.email.trim()) ? s.emailInvalid : null,
         subject: kind !== null && d.subjectName.trim() === "" ? s.subjectRequired(kind) : null,
         address:
-            kind === "property" && !existingSubject && d.subjectAddress.trim() === ""
-                ? s.addressRequired
+            kind !== null && isPlace(kind) && !existingSubject && d.subjectAddress.trim() === ""
+                ? s.addressRequired(kind)
                 : null,
     };
 }
@@ -638,7 +643,7 @@ export function usePublicBookingFlow(
                 phone: normalizePhone(phone),
             },
             subjectName: kind === null ? "" : subjectName.trim(),
-            subjectAddress: kind === "property" && subjectId === null ? subjectAddress.trim() : "",
+            subjectAddress: isPlace(kind) && subjectId === null ? subjectAddress.trim() : "",
             returningToken,
             subjectId: kind === null ? null : subjectId,
             note: note.trim(),

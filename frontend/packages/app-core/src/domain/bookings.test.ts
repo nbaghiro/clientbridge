@@ -7,6 +7,7 @@ import {
     type ScheduleEvent,
     actorsFor,
     applyPending,
+    arrivalLabel,
     blockSpan,
     buildAvailability,
     canCollectDeposit,
@@ -80,6 +81,7 @@ function event(id: string, start: Date, end: Date, extra: Partial<ScheduleEvent>
         bufferAfterMin: 0,
         addonCount: 0,
         note: null,
+        departedAt: null,
         checkedIn: false,
         bookedAt: null,
         remindedAt: null,
@@ -660,5 +662,22 @@ describe("closing a visit", () => {
         const closed = lifecycleOf(event("a", at(10), at(11), { status: "completed" }), at(9));
         expect(closed.notStartedNote).toBeNull();
         expect(closed.canComplete || closed.canCancel).toBe(false);
+    });
+});
+
+describe("arrivalLabel", () => {
+    const start = zonedDate(2026, 10, 7, 10, 0, "America/Vancouver");
+    const end = zonedDate(2026, 10, 7, 11, 0, "America/Vancouver");
+    const left = new Date(start.getTime() - 20 * 60_000);
+
+    it("says a visit to a place is on the way, then arrived, and says nothing for other kinds", () => {
+        expect(arrivalLabel(event("a", start, end), "site")).toBeNull();
+        expect(arrivalLabel(event("b", start, end, { departedAt: left }), "site")).toBe(
+            strings.bookings.onTheWay,
+        );
+        const here = event("c", start, end, { departedAt: left, checkedIn: true });
+        expect(arrivalLabel(here, "site")).toBe(strings.bookings.arrivedOnSite);
+        expect(arrivalLabel(here, "property")).toBe(strings.bookings.arrivedAtPlace);
+        expect(arrivalLabel(here, "pet")).toBeNull();
     });
 });

@@ -18,7 +18,7 @@ def _run(env: dict[str, str], *args: str) -> None:
     subprocess.run([sys.executable, "-m", *args], env=env, check=True, stdout=sys.stderr)
 
 
-async def test_cb0019_preserves_requests_and_removes_feedback() -> None:
+async def test_cb0022_preserves_requests_and_removes_feedback() -> None:
     settings = get_settings()
     database = f"clientbridge_migration_{secrets.token_hex(4)}"
     url = on(settings.migration_database_url, database)
@@ -31,7 +31,7 @@ async def test_cb0019_preserves_requests_and_removes_feedback() -> None:
     engine = create_async_engine(url)
     try:
         _run(env, "scripts.db_access", "roles")
-        _run(env, "alembic", "upgrade", "cb0018")
+        _run(env, "alembic", "upgrade", "cb0021")
         async with engine.begin() as conn:
             await conn.execute(
                 text(
@@ -66,7 +66,7 @@ async def test_cb0019_preserves_requests_and_removes_feedback() -> None:
                     ),
                     {"scope": scope},
                 )
-        _run(env, "alembic", "upgrade", "cb0019")
+        _run(env, "alembic", "upgrade", "cb0022")
         async with engine.connect() as conn:
             rows = (
                 await conn.execute(text("SELECT id, client_id, requested_at FROM review_requests"))
@@ -88,7 +88,7 @@ async def test_cb0019_preserves_requests_and_removes_feedback() -> None:
             remaining = (await conn.execute(text("SELECT scope FROM commands"))).scalars().all()
             assert remaining == ["client.create"]
         with pytest.raises(subprocess.CalledProcessError):
-            _run(env, "alembic", "downgrade", "cb0018")
+            _run(env, "alembic", "downgrade", "cb0021")
     finally:
         await engine.dispose()
         await admin(f"DROP DATABASE IF EXISTS {quote(database)} WITH (FORCE)")

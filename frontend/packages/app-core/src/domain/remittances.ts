@@ -167,6 +167,8 @@ export interface TaxFilings {
     provincialLabel: string | null;
     provincialRate: string;
     registered: boolean;
+    // Sales tax is off and nothing was ever collected or filed, so there is no return to show.
+    taxOff: boolean;
     gstNumber: string | null;
     refresh: () => void;
 }
@@ -207,6 +209,11 @@ export function useTaxFilings(api: ApiLike): TaxFilings {
                 ? ""
                 : `${String(data.provincial_rate_bps / 100)}%`,
         registered: data?.registered ?? false,
+        taxOff:
+            data !== null &&
+            !data.registered &&
+            data.federal_set_aside_cents + data.provincial_set_aside_cents === 0 &&
+            periods.every((p) => p.status !== "filed"),
         gstNumber: data?.gst_hst_number ?? null,
         refresh: () => {
             remote.refresh().catch(() => undefined);

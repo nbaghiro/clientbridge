@@ -5,6 +5,7 @@ import {
     useAsyncAction,
     usePayouts,
     usePaymentAccount,
+    useSetupProgress,
     formatParts,
     BUSINESS_CURRENCY,
 } from "@clientbridge/app-core";
@@ -31,6 +32,7 @@ import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
 import { publicWebUrl } from "../lib/config";
+import { useOpenLink } from "../lib/links";
 
 const s = strings.payouts;
 const c = theme.colors;
@@ -38,6 +40,9 @@ const c = theme.colors;
 export function Payouts() {
     const p = usePayouts();
     const account = usePaymentAccount(api);
+    const setup = useSetupProgress();
+    const connected = setup.steps.find((x) => x.key === "stripe")?.done ?? false;
+    const openLink = useOpenLink();
     const web = useAsyncAction();
     const manageOnWeb = (): void => {
         web.run(
@@ -51,6 +56,30 @@ export function Payouts() {
     const [open, setOpen] = useState(false);
     const sel = p.selected;
     if (account.props !== null) return <PaymentAccount {...account.props} />;
+    if (p.load.state === "empty" && !connected) {
+        return (
+            <View style={styles.screen}>
+                <ScrollView contentContainerStyle={styles.page}>
+                    <Empty
+                        variant="card"
+                        icon="bank"
+                        message={strings.business.getSetUp.tasks.stripe.label}
+                        body={strings.business.getSetUp.fresh.stripe}
+                        actions={
+                            <Button
+                                size="sm"
+                                onPress={() => {
+                                    openLink("gettingPaid");
+                                }}
+                            >
+                                {strings.business.getSetUp.start}
+                            </Button>
+                        }
+                    />
+                </ScrollView>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.screen}>

@@ -1,7 +1,10 @@
 import {
     type ClientListRow,
     type ClientSelection,
+    type SubjectForm,
     type SubjectRow,
+    EQUIPMENT_FIELDS,
+    EQUIPMENT_MAX,
     canManagePayments,
     strings,
     useClientEditor,
@@ -369,6 +372,9 @@ export function SubjectSheet({
                     />
                 );
             })}
+            {form.equipment !== null ? (
+                <EquipmentFields form={form} equipment={form.equipment} />
+            ) : null}
             {form.error !== null ? (
                 <Notice tone="danger" banner>
                     {form.error}
@@ -382,6 +388,71 @@ export function SubjectSheet({
                 </View>
             ) : null}
         </Modal>
+    );
+}
+
+/** A site's installed devices, one group of fields per device. */
+function EquipmentFields({
+    form,
+    equipment,
+}: {
+    form: SubjectForm;
+    equipment: NonNullable<SubjectForm["equipment"]>;
+}) {
+    const zone = useBusinessZone();
+    return (
+        <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{sj.equipment.title}</Text>
+            <Text style={styles.hint}>{sj.equipment.hint}</Text>
+            {equipment.map((device, i) => (
+                <View key={i} style={styles.device}>
+                    <View style={styles.row}>
+                        <Text style={[styles.value, styles.grow]}>{sj.equipment.item(i + 1)}</Text>
+                        <Button
+                            variant="link"
+                            onPress={() => {
+                                form.removeEquipment(i);
+                            }}
+                        >
+                            {sj.equipment.remove}
+                        </Button>
+                    </View>
+                    {EQUIPMENT_FIELDS.map((f) => {
+                        const error = form.errors[`equipment.${String(i)}.${f.key}`];
+                        return f.type === "date" ? (
+                            <DateField
+                                key={f.key}
+                                zone={zone}
+                                label={f.label}
+                                optional
+                                value={device[f.key]}
+                                onChange={(v) => {
+                                    form.setEquipment(i, f.key, v);
+                                }}
+                                error={error}
+                            />
+                        ) : (
+                            <TextField
+                                key={f.key}
+                                label={f.label}
+                                optional={f.key !== "model"}
+                                value={device[f.key]}
+                                placeholder={f.placeholder}
+                                onChange={(v) => {
+                                    form.setEquipment(i, f.key, v);
+                                }}
+                                error={error}
+                            />
+                        );
+                    })}
+                </View>
+            ))}
+            {equipment.length < EQUIPMENT_MAX ? (
+                <Button variant="outline" full onPress={form.addEquipment}>
+                    {sj.equipment.add}
+                </Button>
+            ) : null}
+        </View>
     );
 }
 
@@ -642,6 +713,13 @@ const styles = StyleSheet.create({
     sectionTitle: { color: c.ink, fontSize: 15, fontWeight: "700" },
     hint: { color: c.muted, fontSize: 12, lineHeight: 17 },
     danger: { marginTop: 24, gap: 4 },
+    device: {
+        marginTop: 12,
+        padding: 12,
+        borderRadius: theme.radius,
+        borderWidth: 1,
+        borderColor: c.border,
+    },
     label: {
         color: c.muted,
         fontSize: 12,

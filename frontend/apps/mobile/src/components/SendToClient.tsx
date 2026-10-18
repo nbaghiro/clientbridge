@@ -1,6 +1,6 @@
 import { strings, useSendToClient } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { Button, Modal, Notice, Select } from "@clientbridge/ui";
+import { Button, Modal, Notice, SearchSelect } from "@clientbridge/ui";
 import { StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
@@ -26,10 +26,11 @@ export function SendToClientSheet({
             <View style={styles.sheet}>
                 <Text style={styles.title}>{title}</Text>
                 <Text style={styles.body}>{s.sendBody}</Text>
-                <Select
+                <SearchSelect
                     label={s.client}
                     value={send.clientId}
-                    options={[{ key: "", label: s.chooseClient }, ...send.clients]}
+                    placeholder={s.chooseClient}
+                    options={send.clients}
                     onChange={send.setClientId}
                 />
                 {send.sentTo !== null ? (

@@ -28,7 +28,7 @@ export function Stat({
             className={cx(
                 large
                     ? "rounded-lg border border-line bg-surface p-5 shadow-card"
-                    : "rounded-md border border-line bg-bg p-4",
+                    : "rounded-md border border-line bg-surface p-4",
                 className,
             )}
         >

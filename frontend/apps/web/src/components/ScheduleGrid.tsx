@@ -25,29 +25,28 @@ import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
 import {
     type PointerEvent as ReactPointerEvent,
     type ReactNode,
-    type RefObject,
     useLayoutEffect,
     useRef,
     useState,
 } from "react";
+import { SummaryStrip } from "./Workspace";
 
 const s = strings.bookings;
 
-export const GUTTER_PX = 56;
+export const GUTTER_PX = 68;
 
 /** Fits the hour height to the space the grid has, never below `min` (then the grid scrolls). */
 export function useHourHeight(
     hours: number,
     min = 52,
-    max = 84,
-): [RefObject<HTMLDivElement | null>, number] {
-    const ref = useRef<HTMLDivElement>(null);
+): [(el: HTMLDivElement | null) => void, number] {
+    // A callback ref, since the grid mounts only after the board has loaded.
+    const [el, setEl] = useState<HTMLDivElement | null>(null);
     const [px, setPx] = useState(64);
     useLayoutEffect(() => {
-        const el = ref.current;
         if (!el) return undefined;
         const measure = (): void => {
-            setPx(Math.max(min, Math.min(max, (el.clientHeight - 8) / hours)));
+            setPx(Math.max(min, (el.clientHeight - 8) / hours));
         };
         measure();
         const ro = new ResizeObserver(measure);
@@ -55,8 +54,8 @@ export function useHourHeight(
         return () => {
             ro.disconnect();
         };
-    }, [hours, min, max]);
-    return [ref, px];
+    }, [el, hours, min]);
+    return [setEl, px];
 }
 
 export function useWide(query = "(min-width: 1280px)"): boolean {
@@ -74,6 +73,29 @@ export function useWide(query = "(min-width: 1280px)"): boolean {
     return wide;
 }
 
+/** The header every Schedule view shares, so the view switch and New booking never move. */
+export function ScheduleHeader({
+    children,
+    views,
+    onNew,
+}: {
+    children: ReactNode;
+    views: ReactNode;
+    onNew: () => void;
+}) {
+    return (
+        <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line px-5 py-3">
+            <div className="flex min-w-0 items-center gap-2">{children}</div>
+            <div className="flex items-center gap-2">
+                {views}
+                <Button size="sm" icon="plus" onPress={onNew}>
+                    {s.newBooking}
+                </Button>
+            </div>
+        </header>
+    );
+}
+
 export function CalendarToolbar({
     board,
     onNew,
@@ -84,38 +106,30 @@ export function CalendarToolbar({
     leading?: ReactNode;
 }) {
     return (
-        <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line px-5 py-3">
-            <div className="flex min-w-0 items-center gap-2">
-                <Button variant="outline" size="sm" onPress={board.goToday}>
-                    {s.today}
-                </Button>
-                <div className="flex items-center">
-                    <IconButton
-                        size="sm"
-                        label={s.prev}
-                        icon="chevronLeft"
-                        onPress={() => {
-                            board.shift(-1);
-                        }}
-                    />
-                    <IconButton
-                        size="sm"
-                        label={s.next}
-                        icon="chevronRight"
-                        onPress={() => {
-                            board.shift(1);
-                        }}
-                    />
-                </div>
-                <h1 className="truncate font-display text-lg font-bold text-ink">{board.label}</h1>
+        <ScheduleHeader views={leading} onNew={onNew}>
+            <Button variant="outline" size="sm" onPress={board.goToday}>
+                {s.today}
+            </Button>
+            <div className="flex items-center">
+                <IconButton
+                    size="sm"
+                    label={s.prev}
+                    icon="chevronLeft"
+                    onPress={() => {
+                        board.shift(-1);
+                    }}
+                />
+                <IconButton
+                    size="sm"
+                    label={s.next}
+                    icon="chevronRight"
+                    onPress={() => {
+                        board.shift(1);
+                    }}
+                />
             </div>
-            <div className="flex items-center gap-2">
-                {leading}
-                <Button size="sm" icon="plus" onPress={onNew}>
-                    {s.newBooking}
-                </Button>
-            </div>
-        </header>
+            <h1 className="truncate font-display text-lg font-bold text-ink">{board.label}</h1>
+        </ScheduleHeader>
     );
 }
 
@@ -135,16 +149,7 @@ export function DaySummaryBar({
         },
         { label: s.chairTime, value: s.utilization(summary.utilization) },
     ].map((it) => (waiting ? { ...it, value: s.dash } : it));
-    return (
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-b border-line bg-bg/60 px-5 py-2 text-sm">
-            {items.map((it) => (
-                <span key={it.label} className="flex items-baseline gap-1.5">
-                    <span className="text-xs text-muted">{it.label}</span>
-                    <span className="font-semibold text-ink">{it.value}</span>
-                </span>
-            ))}
-        </div>
-    );
+    return <SummaryStrip items={items} />;
 }
 
 const LEGEND = [

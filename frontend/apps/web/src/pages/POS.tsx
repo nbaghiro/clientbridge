@@ -29,7 +29,6 @@ import {
     ItemTile,
     LoadFailed,
     Modal,
-    Panel,
     SearchField,
     Skeleton,
     StatusPill,
@@ -41,6 +40,7 @@ import { useSearchParams } from "react-router-dom";
 import { SellEntitlement } from "../components/EntitlementSales";
 import { SalesBoard, SalesHistory } from "../components/SaleOrders";
 import { PaySheet, TicketPanel } from "../components/SaleTicket";
+import { Workspace } from "../components/Workspace";
 import { api, apiBaseUrl } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
@@ -69,8 +69,12 @@ export function POS() {
     };
 
     return (
-        <div className="space-y-5">
-            <Tabs items={views} active={view} onSelect={show} variant="pill" label={d.title} />
+        <Workspace
+            className="h-[calc(100vh-13rem)] min-h-[560px]"
+            header={
+                <Tabs items={views} active={view} onSelect={show} variant="pill" label={d.title} />
+            }
+        >
             {view === "register" ? (
                 <Register sale={sale} />
             ) : view === "board" ? (
@@ -78,7 +82,7 @@ export function POS() {
             ) : (
                 <SalesHistory onResume={resume} />
             )}
-        </div>
+        </Workspace>
     );
 }
 
@@ -171,134 +175,118 @@ function Register({ sale }: { sale: SaleTicket }) {
     const [selling, setSelling] = useState<WalletKind | null>(null);
     const onTicket = (id: string): number =>
         sale.lines.filter((l) => l.itemId === id).reduce((n, l) => n + l.quantity, 0);
+    const waiting = queue.visits.filter((v) => v.state !== "paid");
+    const noCatalog = catalog.load.state === "empty";
 
     return (
-        <div className="flex items-start gap-6">
-            <section className="min-w-0 flex-1 space-y-8">
-                <div className="flex items-start justify-between gap-4">
-                    <h2 className="font-display text-xl font-bold text-ink">{d.newSaleTitle}</h2>
-                    <Button variant="outline" icon="user" onPress={sale.newSale}>
-                        {d.walkInSale}
-                    </Button>
-                </div>
-                <Panel flush title={d.todaysVisits} subtitle={d.todaysVisitsHint}>
-                    {queue.load.state === "loading" ? (
-                        <Skeleton variant="row" count={4} label={d.loadingVisits} />
-                    ) : queue.load.state === "error" ? (
-                        <LoadFailed message={d.visitsError} body={d.catalogErrorBody} />
-                    ) : queue.visits.every((v) => v.state === "paid") ? (
-                        <Empty message={d.noVisits} />
-                    ) : (
-                        <div className="divide-y divide-line-soft">
-                            {queue.visits.map((v) => (
-                                <VisitRow
-                                    key={v.bookingId}
-                                    v={v}
-                                    onTicket={sale.hasVisit(v.bookingId)}
-                                    onCheckOut={() => {
-                                        sale.addVisit(v);
-                                    }}
-                                />
-                            ))}
-                        </div>
-                    )}
-                </Panel>
-
-                <div>
-                    <div className="flex flex-wrap items-end justify-between gap-4">
-                        <h2 className="font-display text-base font-bold text-ink">{d.addExtras}</h2>
-                        <div className="w-64">
-                            <SearchField
-                                value={catalog.q}
-                                onChange={catalog.setQ}
-                                placeholder={d.searchShort}
-                            />
-                        </div>
-                    </div>
-                    <div className="mt-3">
+        <div className="flex min-h-0 flex-1">
+            <section className="flex min-w-0 flex-1 flex-col">
+                {noCatalog ? null : (
+                    <div className="flex flex-wrap items-center gap-3 border-b border-line-soft px-5 py-3">
+                        <SearchField
+                            className="min-w-48 flex-1"
+                            value={catalog.q}
+                            onChange={catalog.setQ}
+                            placeholder={d.searchShort}
+                        />
                         <Choice
+                            layout="segmented"
                             label={d.addExtras}
                             options={catalog.filters}
                             value={catalog.filter}
                             onChange={catalog.setFilter}
                         />
                     </div>
-                    <div className="mt-3">
-                        {catalog.load.state === "loading" ? (
-                            <Skeleton variant="row" count={3} label={d.loadingCatalog} />
-                        ) : catalog.items.length === 0 ? (
-                            <Empty
-                                variant="card"
-                                icon="box"
-                                message={catalog.empty}
-                                {...(catalog.q === ""
-                                    ? {
-                                          body: d.noItemsBody,
-                                          actions: (
-                                              <Button
-                                                  variant="outline"
-                                                  size="sm"
-                                                  onPress={() => {
-                                                      openLink("catalog");
-                                                  }}
-                                              >
-                                                  {d.addCatalog}
-                                              </Button>
-                                          ),
-                                      }
-                                    : {})}
-                            />
-                        ) : (
-                            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                                {catalog.items.map((item) => {
-                                    const out = saleTileOut(item);
-                                    return (
-                                        <ItemTile
-                                            currency={BUSINESS_CURRENCY}
-                                            key={item.id}
-                                            name={item.name}
-                                            imageSrc={mediaUrl(apiBaseUrl, item.image_file_id)}
-                                            color={item.color}
-                                            cents={item.price_cents}
-                                            meta={saleTileMeta(item)}
-                                            count={onTicket(item.id)}
-                                            tag={
-                                                out
-                                                    ? { label: d.outOfStock, intent: "danger" }
-                                                    : null
-                                            }
-                                            onPress={() => {
-                                                sale.addItem(item);
-                                            }}
-                                        />
-                                    );
-                                })}
+                )}
+                <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-5">
+                    {queue.load.state === "error" ? (
+                        <LoadFailed message={d.visitsError} body={d.catalogErrorBody} />
+                    ) : waiting.length > 0 ? (
+                        <section className="space-y-2">
+                            <div className="flex items-baseline justify-between gap-3">
+                                <h2 className="text-sm font-semibold text-ink">{d.todaysVisits}</h2>
+                                <p className="text-xs text-muted">{d.todaysVisitsHint}</p>
                             </div>
-                        )}
-                    </div>
+                            <div className="divide-y divide-line-soft overflow-hidden rounded-lg border border-line">
+                                {waiting.map((v) => (
+                                    <VisitRow
+                                        key={v.bookingId}
+                                        v={v}
+                                        onTicket={sale.hasVisit(v.bookingId)}
+                                        onCheckOut={() => {
+                                            sale.addVisit(v);
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                        </section>
+                    ) : null}
+                    {catalog.load.state === "loading" ? (
+                        <Skeleton variant="row" count={3} label={d.loadingCatalog} />
+                    ) : catalog.items.length === 0 ? (
+                        <Empty
+                            icon="box"
+                            message={catalog.empty}
+                            {...(catalog.q === ""
+                                ? {
+                                      body: d.noItemsBody,
+                                      actions: (
+                                          <Button
+                                              size="sm"
+                                              onPress={() => {
+                                                  openLink("catalog");
+                                              }}
+                                          >
+                                              {d.addCatalog}
+                                          </Button>
+                                      ),
+                                  }
+                                : {})}
+                        />
+                    ) : (
+                        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-4">
+                            {catalog.items.map((item) => {
+                                const out = saleTileOut(item);
+                                return (
+                                    <ItemTile
+                                        currency={BUSINESS_CURRENCY}
+                                        key={item.id}
+                                        name={item.name}
+                                        imageSrc={mediaUrl(apiBaseUrl, item.image_file_id)}
+                                        color={item.color}
+                                        cents={item.price_cents}
+                                        meta={saleTileMeta(item)}
+                                        count={onTicket(item.id)}
+                                        tag={out ? { label: d.outOfStock, intent: "danger" } : null}
+                                        onPress={() => {
+                                            sale.addItem(item);
+                                        }}
+                                    />
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface px-4 py-3">
-                    <div>
-                        <p className="text-sm font-semibold text-ink">{d.alsoSell}</p>
-                        <p className="text-xs text-muted">{d.alsoSellHint}</p>
+                {noCatalog ? null : (
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line-soft px-5 py-2.5">
+                        <span className="text-xs text-muted">{d.alsoSell}</span>
+                        <div className="flex flex-wrap gap-1">
+                            {PLAN_KINDS.map((k) => (
+                                <Button
+                                    key={k.key}
+                                    size="sm"
+                                    variant="quiet"
+                                    icon={k.icon}
+                                    onPress={() => {
+                                        setSelling(k.key);
+                                    }}
+                                >
+                                    {k.label}
+                                </Button>
+                            ))}
+                        </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        {PLAN_KINDS.map((k) => (
-                            <Button
-                                key={k.key}
-                                size="sm"
-                                variant="outline"
-                                icon={k.icon}
-                                onPress={() => {
-                                    setSelling(k.key);
-                                }}
-                            >
-                                {k.label}
-                            </Button>
-                        ))}
-                    </div>
-                </div>
+                )}
             </section>
 
             <TicketPanel

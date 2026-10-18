@@ -10,6 +10,10 @@ import {
     strings,
     useFlash,
     visitAction,
+    visitActionLabel,
+    arrivalWords,
+    useSubjectKind,
+    formatList,
     formatParts,
     BUSINESS_CURRENCY,
     useBusinessZone,
@@ -18,10 +22,10 @@ import {
     Avatar,
     Badge,
     Button,
-    Checklist,
     Empty,
     Icon,
     ListRow,
+    Meter,
     Panel,
     Skeleton,
     StatusPill,
@@ -69,8 +73,11 @@ export function KpiStripLoading() {
 }
 
 function StateTag({ item }: { item: AgendaItem }) {
+    const kind = useSubjectKind();
     if (item.checkedIn && item.state !== "done")
-        return <StatusPill status={t.checkedIn} intent="success" />;
+        return <StatusPill status={arrivalWords(kind).done} intent="success" />;
+    if (item.departed && item.state !== "done")
+        return <StatusPill status={t.onTheWay} intent="accent" />;
     if (item.state === "now") return <StatusPill status={t.stateNow} intent="success" />;
     if (item.state === "next")
         return <StatusPill status={formatParts([t.stateNext, item.startsIn])} intent="accent" />;
@@ -81,7 +88,8 @@ function StateTag({ item }: { item: AgendaItem }) {
 
 function VisitButton({ item, actions }: { item: AgendaItem; actions: TodayActions }) {
     const openLink = useOpenLink();
-    const action = visitAction(item);
+    const kind = useSubjectKind();
+    const action = visitAction(item, kind);
     if (action === "checkout")
         return (
             <Button
@@ -93,7 +101,11 @@ function VisitButton({ item, actions }: { item: AgendaItem; actions: TodayAction
                 {t.checkout}
             </Button>
         );
-    if (action === "checkIn" && item.state === "next" && item.bookingId !== null) {
+    if (
+        (action === "depart" || action === "checkIn") &&
+        (item.state === "next" || item.departed) &&
+        item.bookingId !== null
+    ) {
         const id = item.bookingId;
         return (
             <Button
@@ -101,10 +113,11 @@ function VisitButton({ item, actions }: { item: AgendaItem; actions: TodayAction
                 variant="outline"
                 busy={actions.busyKey === id}
                 onPress={() => {
-                    actions.checkIn(id);
+                    if (action === "depart") actions.depart(id);
+                    else actions.checkIn(id);
                 }}
             >
-                {t.checkIn}
+                {visitActionLabel(action, kind)}
             </Button>
         );
     }
@@ -404,30 +417,115 @@ export function FilingCard({
 }
 
 /** A new business's first days: what is left before clients can book, each with a way in. */
-export function GettingStarted({ setup }: { setup: SetupProgress }) {
+/** A new account's main card: the next step first, the rest compact, finished steps on one line. */
+export function SetupGuide({ setup }: { setup: SetupProgress }) {
     const openLink = useOpenLink();
+    const pending = setup.steps.filter((x) => !x.done);
+    const done = setup.steps.filter((x) => x.done);
+    const [next, ...later] = pending;
+    return (
+        <section className="overflow-hidden rounded-lg border border-line bg-surface shadow-card">
+            <header className="px-6 pt-5">
+                <div className="flex items-baseline justify-between gap-4">
+                    <h2 className="font-display text-lg font-bold text-ink">
+                        {strings.business.getSetUp.gettingStarted}
+                    </h2>
+                    <span className="text-sm text-muted">
+                        {strings.business.getSetUp.progress(setup.done, setup.total)}
+                    </span>
+                </div>
+                <div className="mt-3">
+                    <Meter
+                        value={setup.done}
+                        max={setup.total}
+                        label={strings.business.getSetUp.progress(setup.done, setup.total)}
+                        labelPosition="hidden"
+                    />
+                </div>
+            </header>
+            {next !== undefined ? (
+                <div className="mx-6 mt-5 flex flex-wrap items-center gap-4 rounded-lg border border-accent-line bg-accent-weak/50 p-5">
+                    <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-accent">{t.guideNext}</p>
+                        <p className="mt-1 text-base font-semibold text-ink">{next.label}</p>
+                        <p className="mt-0.5 text-sm text-muted">{next.hint}</p>
+                    </div>
+                    <Button
+                        onPress={() => {
+                            openLink(next.target);
+                        }}
+                    >
+                        {strings.business.getSetUp.start}
+                    </Button>
+                </div>
+            ) : null}
+            {later.length > 0 ? (
+                <ul className="mt-3 divide-y divide-line-soft px-6">
+                    {later.map((x) => (
+                        <li key={x.key} className="flex items-center gap-4 py-3.5">
+                            <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-ink">{x.label}</p>
+                                <p className="mt-0.5 text-xs text-muted">{x.hint}</p>
+                            </div>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onPress={() => {
+                                    openLink(x.target);
+                                }}
+                            >
+                                {strings.business.getSetUp.start}
+                            </Button>
+                        </li>
+                    ))}
+                </ul>
+            ) : null}
+            {done.length > 0 ? (
+                <p className="mt-3 flex items-start gap-2 border-t border-line-soft px-6 py-4 text-sm text-muted">
+                    <Icon name="check" size={16} className="mt-0.5 shrink-0 text-success" />
+                    {t.guideDone(formatList(done.map((x) => x.label)))}
+                </p>
+            ) : (
+                <div className="h-5" />
+            )}
+        </section>
+    );
+}
+
+/** The day's schedule while nothing has been booked yet: one line and the booking link. */
+export function QuietSchedule({ bookingLink }: { bookingLink: string | null }) {
+    const openLink = useOpenLink();
+    const [copied, flash] = useFlash();
     return (
         <Panel
-            title={strings.business.getSetUp.gettingStarted}
-            subtitle={strings.business.getSetUp.progress(setup.done, setup.total)}
+            title={t.schedule}
+            actions={
+                <Button
+                    size="sm"
+                    variant="link"
+                    onPress={() => {
+                        openLink("schedule");
+                    }}
+                >
+                    {t.openSchedule}
+                </Button>
+            }
         >
-            <Checklist
-                label={strings.business.getSetUp.gettingStarted}
-                items={setup.steps.map((x) => ({
-                    key: x.key,
-                    label: x.label,
-                    hint: x.hint,
-                    done: x.done,
-                    action: x.done
-                        ? undefined
-                        : {
-                              label: strings.business.getSetUp.start,
-                              onPress: () => {
-                                  openLink(x.target);
-                              },
-                          },
-                }))}
-            />
+            <p className="text-sm text-muted">{t.guideNothingToday}</p>
+            {bookingLink === null ? null : (
+                <Button
+                    className="mt-3"
+                    size="sm"
+                    variant="outline"
+                    icon={copied ? "check" : "link"}
+                    onPress={() => {
+                        navigator.clipboard.writeText(bookingLink).catch(() => undefined);
+                        flash();
+                    }}
+                >
+                    {copied ? t.linkCopied : t.shareBookingPage}
+                </Button>
+            )}
         </Panel>
     );
 }
