@@ -243,3 +243,62 @@ Follow-up full gate: `make check` passed (2,128 backend tests, 93.31% branch-awa
 498 frontend tests plus timezone reruns; 102 infrastructure tests). The separate Stripe contract suite
 passed 35 tests and the payout browser scenario passed with a video. These results do not clear the
 remaining schema, sandbox or complete-checklist coverage blockers.
+
+## Sandbox automation implementation — 2026-10-18
+
+`make test-stripe-qa` now selects 13 provider/API scenarios, creates a fresh application database,
+and fails on missing prerequisites, an empty selection, skips, assertion failures or cleanup errors.
+This is partial automation, not full checklist completion. The live scenarios have not yet passed
+against ready, reserved merchants. Authentication and notification transports remain test boundaries;
+these scenarios do not prove browser, native or email delivery behavior.
+
+| Scenario file / test | Checklist coverage contributed |
+| --- | --- |
+| `backend/tests/e2e/test_stripe_e2e.py`: fresh v2 account | SET-03 onboarding requirements |
+| Same: PAD capability and scoped setup | COL-07 setup only; no debit settlement |
+| Same: Terminal intent | Terminal intent contract only; no reader collection |
+| Same: declined card | COL-02 provider decline mapping |
+| Same: subscription period | COL-08 creation/period contract only; no renewal lifecycle |
+| Same: Customer rename retry and cross-account isolation | SET-02 customer identity and isolation |
+| `backend/tests/e2e/test_payments_e2e.py`: invoice replay/refunds | COL-01, REC-01/04/08 payment, signed duplicate delivery, partial/full refunds and ledger net |
+| Same: decline then retry | COL-02 failure/retry without false settlement |
+| Same: withheld webhook | REC-05/06 repair primitive for one owned charge; not the global job |
+| Same: external refund | REC-02/04 external refund delivery and duplicate protection |
+| Same: cross-business refund | SET-04 tenant isolation at the application API and provider |
+
+The executable test names in `results.json` are the precise evidence inventory; the checklist mapping
+above describes contributions, not completion of an entire ID. Full checklist variants remain in
+[payments.md](payments.md). There are no new browser recordings from these API scenarios.
+
+Local setup requires `STRIPE_TEST_PLATFORM`, `STRIPE_TEST_CONNECTED_ACCOUNT`,
+`STRIPE_TEST_OTHER_ACCOUNT` and `STRIPE_TEST_SECRET_KEY`. Both distinct merchants must settle in CAD,
+have charges and payouts enabled, and carry `metadata.clientbridge_qa=payments`. Reserve dedicated
+merchants before applying that metadata. A local developer can use the existing CLI key without printing
+or copying it: `make test-stripe-qa STRIPE_QA_ARGS="--profile clientbridge --preflight"`, then omit
+`--preflight` to execute. The account/platform variables are still required. CI forbids CLI profiles.
+
+`.github/workflows/stripe-qa.yml` adds a main-only manual workflow with a `stripe-sandbox` environment,
+a constant concurrency group, pinned CLI download checksum and disposable local services. Configure
+the key as an environment secret and the three IDs as environment variables. Configure environment
+protection in GitHub before enabling it; the workflow file alone does not create protection. It uploads
+only sanitized test names/statuses/commit, retaining artifacts for seven days. Raw JUnit and Stripe
+listener output are not uploaded. The workflow has not been executed remotely yet.
+
+The relay verifies genuine CLI signatures, accepts only the run's account and owned payment objects,
+and retains original bytes/signatures for the application webhook. It preserves events arriving out of
+order. Tests clean up their owned Customers, intents, clocks and prices in teardown. This cleanup does
+not yet recover from a killed process; a durable object manifest and interrupted-run recovery remain
+required before unattended scheduling. Local file locking does not coordinate with GitHub: use separate
+local merchants while CI owns its pair.
+
+Still required: live execution and fixes from it; interrupted-run cleanup; actual browser/admin/native
+flows and recordings; payout schedule editing and funded payout contents/report assertions; booking,
+orders, entitlements, PAD, dispute, membership renewal and platform billing lifecycles; complete
+per-variant mapping and job recovery isolation. Checkpoint/transit schema decisions remain separate
+product blockers. Do not interpret successful harness tests or ordinary `make check` as live E2E passes.
+
+Validation for the sandbox harness increment: 17 harness regressions passed; the live suite collected
+13 tests. `make check` passed with 2,145 backend tests (93.31% coverage), 498 frontend tests plus
+timezone reruns, and 102 infrastructure tests. The read-only CLI-profile preflight rejected the
+existing demo merchant as not reserved for QA. No live financial scenarios were executed. These
+results validate the harness and baseline regression suite, not all 35 checklist groups.
