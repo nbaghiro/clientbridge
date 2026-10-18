@@ -86,11 +86,7 @@ def validate_graph(ctx: DemoContext) -> list[str]:
         ):
             errors.append(f"{slot.id}: over capacity")
         for other in active[index + 1 :]:
-            if (
-                slot.staff_id != other.staff_id
-                and slot.resource_id != other.resource_id
-                and not slot_pets[slot.id] & slot_pets[other.id]
-            ):
+            if slot.staff_id != other.staff_id and not slot_pets[slot.id] & slot_pets[other.id]:
                 continue
             left, right = items[slot.item_id], items[other.item_id]
             if slot.starts_at - timedelta(
@@ -100,7 +96,7 @@ def validate_graph(ctx: DemoContext) -> list[str]:
             ) and other.starts_at - timedelta(
                 minutes=right.buffer_before_min or 0
             ) < slot.ends_at + timedelta(minutes=left.buffer_after_min or 0):
-                errors.append(f"{slot.id}/{other.id}: staff, resource or pet conflict")
+                errors.append(f"{slot.id}/{other.id}: staff or pet conflict")
     for recurrence in ctx.all(Recurrence):
         occurrences = [s for s in slots.values() if s.recurrence_id == recurrence.id]
         if recurrence.count and len(occurrences) != recurrence.count:

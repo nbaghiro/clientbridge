@@ -3714,7 +3714,7 @@ export interface components {
             /** Ok */
             ok: boolean;
             /** Problem */
-            problem?: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "resource" | "class") | null;
+            problem?: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class") | null;
             /**
              * Reason
              * @description The closure or time-off reason
@@ -3736,8 +3736,6 @@ export interface components {
              * Format: date-time
              */
             starts_at: string;
-            /** Resource Id */
-            resource_id?: string | null;
             /** Subject Id */
             subject_id?: string | null;
             /**
@@ -3766,11 +3764,6 @@ export interface components {
              * @description Moves the visit to another member
              */
             staff_id?: string | null;
-            /**
-             * Resource Id
-             * @description Room or station; set to change it
-             */
-            resource_id?: string | null;
         };
         /** BookingOut */
         BookingOut: {
@@ -3832,11 +3825,6 @@ export interface components {
              * @description Moves the visit to another member
              */
             staff_id?: string | null;
-            /**
-             * Resource Id
-             * @description Room or station; set to change it
-             */
-            resource_id?: string | null;
             /** Status */
             status?: ("confirmed" | "completed" | "canceled" | "no_show") | null;
         };
@@ -5478,7 +5466,7 @@ export interface components {
              */
             starts_at: string;
             /** Problem */
-            problem: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "resource" | "class") | null;
+            problem: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "class") | null;
             /** Message */
             message: string | null;
         };
@@ -7492,8 +7480,6 @@ export interface components {
              * @description End on this date; set count or until
              */
             until?: string | null;
-            /** Resource Id */
-            resource_id?: string | null;
             /** Subject Id */
             subject_id?: string | null;
             /** Exceptions */

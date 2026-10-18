@@ -16,7 +16,7 @@ import {
 import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
-import { type ScheduleEvent, slotBookingsJoin, slotOverlapSql, useNow } from "./bookings";
+import { slotOverlapSql, useNow } from "./bookings";
 import { temperamentLabel } from "./clients";
 import { staffName, useStaff } from "./staff";
 import { useReplicaLoad } from "./sync";
@@ -31,7 +31,6 @@ interface SessionRow {
     staff_id: string;
     item_name: string;
     item_color: string | null;
-    room: string | null;
 }
 
 interface RosterRow {
@@ -50,8 +49,8 @@ interface RosterRow {
 
 export const CLASS_SESSIONS_SQL = `
 SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.capacity, s.staff_id,
-       i.name AS item_name, i.color AS item_color, r.name AS room
-FROM slots s JOIN items i ON i.id = s.item_id LEFT JOIN resources r ON r.id = s.resource_id
+       i.name AS item_name, i.color AS item_color
+FROM slots s JOIN items i ON i.id = s.item_id
 WHERE s.capacity > 1 AND s.status != 'canceled' AND ${slotOverlapSql("?1", "?2")}
 ORDER BY s.starts_at`;
 
@@ -80,7 +79,6 @@ interface ClassSession {
     day: string;
     time: string;
     staffName: string;
-    roomName: string;
     capacity: number;
     booked: number;
     waitlist: number;
@@ -221,7 +219,6 @@ export function useClassBoard(api: ApiLike): ClassBoard {
             day: relativeDay(start, zone),
             time: formatTimeRange(start, end, zone),
             staffName: member ? staffName(member) : "",
-            roomName: r.room ?? "",
             capacity: r.capacity,
             booked,
             waitlist,
@@ -385,109 +382,5 @@ export function useClassBoard(api: ApiLike): ClassBoard {
                   error,
               }
             : null,
-    };
-}
-
-interface StationRow {
-    id: string;
-    name: string;
-    category: string;
-    active: number;
-}
-
-interface HeldRow {
-    slot_id: string;
-    resource_id: string;
-    starts_at: string;
-    ends_at: string;
-    pet_name: string | null;
-    client_name: string | null;
-    item_name: string;
-}
-
-export const STATIONS_SQL =
-    "SELECT id, name, category, active FROM resources ORDER BY name COLLATE NOCASE";
-
-export const STATIONS_HELD_SQL = `
-SELECT s.id AS slot_id, s.resource_id, s.starts_at, s.ends_at, sj.name AS pet_name,
-       c.name AS client_name, i.name AS item_name
-FROM slots s JOIN items i ON i.id = s.item_id
-${slotBookingsJoin("AND x.deleted_at IS NULL AND x.status != 'canceled'")}
-LEFT JOIN clients c ON c.id = b.client_id
-LEFT JOIN subjects sj ON sj.id = b.subject_id
-WHERE s.resource_id IS NOT NULL AND s.status != 'canceled' AND ${slotOverlapSql("?2", "?1")}
-ORDER BY s.starts_at, s.id`;
-
-interface StationChoice {
-    key: string;
-    label: string;
-    hint: string;
-    disabled: boolean;
-}
-
-export interface StationPicker {
-    options: StationChoice[];
-    value: string;
-    setValue: (id: string) => void;
-    changed: boolean;
-    save: () => void;
-    busy: boolean;
-    error: string | null;
-}
-
-/** Stations for one visit: a taken one says who has it then; picking one moves the visit onto it. */
-export function useStationPicker(
-    api: ApiLike,
-    visit: ScheduleEvent,
-    onSaved: () => void,
-): StationPicker {
-    const zone = useBusinessZone();
-    const stations = useQuery<StationRow>(STATIONS_SQL).data;
-    const held = useQuery<HeldRow>(STATIONS_HELD_SQL, [
-        visit.end.toISOString(),
-        visit.start.toISOString(),
-    ]).data;
-    const [value, setValue] = useState(visit.resourceId ?? "");
-    const { busy, error, run } = useAsyncAction();
-    const options = stations
-        .filter((r) => r.category !== "room" && (r.active === 1 || r.id === visit.resourceId))
-        .map((r) => {
-            const clash = held.find((h) => h.resource_id === r.id && h.slot_id !== visit.slotId);
-            const start = clash ? parseTimestamp(clash.starts_at) : null;
-            const end = clash ? parseTimestamp(clash.ends_at) : null;
-            return {
-                key: r.id,
-                label: r.name,
-                hint:
-                    clash && start && end
-                        ? s.takenBy(
-                              clash.pet_name ?? clash.client_name ?? clash.item_name,
-                              formatTimeRange(start, end, zone),
-                          )
-                        : s.freeThen,
-                disabled: clash !== undefined,
-            };
-        });
-    return {
-        options,
-        value,
-        setValue,
-        changed: value !== (visit.resourceId ?? ""),
-        save: () => {
-            if (visit.bookingId === null) return;
-            const bookingId = visit.bookingId;
-            run(
-                () =>
-                    api.patch(`/v1/bookings/${bookingId}`, {
-                        resource_id: value === "" ? null : value,
-                    }),
-                {
-                    onSuccess: onSaved,
-                    errorMessage: s.stationError,
-                },
-            );
-        },
-        busy,
-        error,
     };
 }

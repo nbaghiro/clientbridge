@@ -19,7 +19,6 @@ PREFIXES: dict[str, str] = {
     "booking": "bk",
     "addon": "bka",
     "hours": "av",
-    "resource": "rs",
     "recurrence": "sch",
     "invoice": "inv",
     "estimate": "est",

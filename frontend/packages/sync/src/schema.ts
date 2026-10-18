@@ -87,23 +87,6 @@ const consents = new Table(
     },
 );
 
-const resources = new Table(
-    {
-        name: column.text,
-        category: column.text,
-        capacity: column.integer,
-        active: column.integer,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            resources_business_id: ["business_id"],
-        },
-    },
-);
-
 const hours = new Table(
     {
         staff_id: column.text,
@@ -838,7 +821,6 @@ const slots = new Table(
     {
         item_id: column.text,
         staff_id: column.text,
-        resource_id: column.text,
         recurrence_id: column.text,
         starts_at: column.text,
         ends_at: column.text,
@@ -934,7 +916,6 @@ export const AppSchema = new Schema({
     subjects,
     notes,
     consents,
-    resources,
     hours,
     items,
     packages,

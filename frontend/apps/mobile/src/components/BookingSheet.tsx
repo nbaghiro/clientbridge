@@ -17,7 +17,6 @@ import {
     useNewMessage,
     useReschedule,
     useSavedCards,
-    useStationPicker,
     formatParts,
     formatList,
     temperamentLabel,
@@ -55,7 +54,6 @@ import { useViewer } from "../lib/auth";
 
 const c = theme.colors;
 const s = strings.bookings;
-const k = strings.classes;
 
 function DepositDue({ event }: { event: ScheduleEvent }) {
     const viewer = useViewer();
@@ -165,47 +163,6 @@ function Addons({ event }: { event: ScheduleEvent }) {
     );
 }
 
-function Station({ event }: { event: ScheduleEvent }) {
-    const [saved, setSaved] = useState(false);
-    const picker = useStationPicker(api, event, () => {
-        setSaved(true);
-    });
-    if (event.kind !== "visit" || event.bookingId === null || picker.options.length === 0)
-        return null;
-    if (event.status !== "confirmed" && event.status !== "pending") return null;
-    return (
-        <DetailSection title={k.pickTitle}>
-            <Text style={styles.hint}>{k.pickSubtitle}</Text>
-            <Choice
-                layout="cards"
-                label={k.pickTitle}
-                options={[
-                    { key: "", label: s.stationNone },
-                    ...picker.options.map((o) => ({
-                        key: o.key,
-                        label: o.label,
-                        hint: o.hint,
-                        disabled: o.disabled,
-                    })),
-                ]}
-                value={picker.value}
-                onChange={(key) => {
-                    setSaved(false);
-                    picker.setValue(key);
-                }}
-            />
-            {picker.changed && !saved ? (
-                <View style={styles.invoice}>
-                    <Button size="sm" busy={picker.busy} onPress={picker.save}>
-                        {k.saveStation}
-                    </Button>
-                </View>
-            ) : null}
-            {picker.error !== null ? <Notice tone="danger">{picker.error}</Notice> : null}
-        </DetailSection>
-    );
-}
-
 export function BookingBody({ detail }: { detail: BookingDetail }) {
     const zone = useBusinessZone();
     const e = detail.event;
@@ -231,9 +188,6 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                             value: `${formatFullDate(e.start, zone)}\n${e.timeLabel}`,
                         },
                         { label: s.detailWith, value: e.staffName },
-                        ...(e.resourceName !== null
-                            ? [{ label: s.detailWhere, value: e.resourceName }]
-                            : []),
                         ...(detail.depositLine !== null
                             ? [
                                   {
@@ -363,7 +317,6 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                 </DetailSection>
             ) : null}
             {e.bookingId !== null ? <Addons event={e} /> : null}
-            <Station event={e} />
             {detail.history.length > 0 ? (
                 <DetailSection title={s.detailHistory}>
                     <ActivityTimeline entries={detail.history} />

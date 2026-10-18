@@ -42,7 +42,6 @@ from clientbridge.models.scheduling import (
     MonthlyBy,
     Recurrence,
     RecurrenceFrequency,
-    Resource,
     Slot,
     Weekday,
 )
@@ -102,8 +101,7 @@ from clientbridge.services.payments import (
 )
 from clientbridge.services.plans import serving
 
-_OVERLAP = "that staff member is already booked at that time"
-_RESOURCE_BUSY = "that resource is already booked at that time"
+OVERLAP = "that staff member is already booked at that time"
 _OUTSIDE_HOURS = "outside the provider's available hours"
 _CLASS_FULL = "that class is full"
 _CLOSED = "the business is closed then"
@@ -200,27 +198,7 @@ async def assert_free(
     exclude: str | None = None,
 ) -> None:
     if await conflicting_slot(db, business_id, item, staff_id, starts_at, ends_at, exclude):
-        raise Conflict(_OVERLAP)
-
-
-async def conflicting_resource(
-    db: AsyncSession,
-    business_id: str,
-    resource_id: str,
-    starts_at: datetime,
-    ends_at: datetime,
-    exclude: str | None = None,
-) -> bool:
-    """Whether a live slot already holds this resource over the window."""
-    q = scoped(Slot, business_id).where(
-        Slot.resource_id == resource_id,
-        Slot.status != "canceled",
-        Slot.starts_at < ends_at,
-        Slot.ends_at > starts_at,
-    )
-    if exclude is not None:
-        q = q.where(Slot.id != exclude)
-    return (await db.execute(q.limit(1))).first() is not None
+        raise Conflict(OVERLAP)
 
 
 async def open_class_slot(
@@ -282,7 +260,6 @@ async def slot_problem(
     ends_at: datetime,
     *,
     exclude: str | None = None,
-    resource_id: str | None = None,
 ) -> BookingCheck | None:
     """Why a visit can't take this window, most fundamental reason first; None when it can."""
     away = await blocking_exception(db, business_id, staff_id, starts_at, ends_at)
@@ -293,11 +270,7 @@ async def slot_problem(
     if not await is_within_hours(db, staff_id, business_id, starts_at, ends_at):
         return _verdict("off_hours", _OUTSIDE_HOURS)
     if await conflicting_slot(db, business_id, item, staff_id, starts_at, ends_at, exclude):
-        return _verdict("overlap", _OVERLAP)
-    if resource_id is not None and await conflicting_resource(
-        db, business_id, resource_id, starts_at, ends_at, exclude
-    ):
-        return _verdict("resource", _RESOURCE_BUSY)
+        return _verdict("overlap", OVERLAP)
     return None
 
 
@@ -311,7 +284,6 @@ async def create_booking_core(
     client_id: str,
     source: str,
     subject_id: str | None = None,
-    resource_id: str | None = None,
     recurrence_id: str | None = None,
     dedupe_client: bool = False,
 ) -> tuple[Booking, Slot]:
@@ -334,16 +306,11 @@ async def create_booking_core(
                 raise Conflict(_CLASS_FULL)
     if slot is None:
         await assert_free(db, business_id, item, staff_id, starts_at, ends_at)
-        if resource_id is not None and await conflicting_resource(
-            db, business_id, resource_id, starts_at, ends_at
-        ):
-            raise Conflict(_RESOURCE_BUSY)
         slot = Slot(
             id=new_id("slot"),
             business_id=business_id,
             item_id=item.id,
             staff_id=staff_id,
-            resource_id=resource_id,
             recurrence_id=recurrence_id,
             starts_at=starts_at,
             ends_at=ends_at,
@@ -355,7 +322,7 @@ async def create_booking_core(
             # the exclusion constraint backstops a concurrent overlapping insert
             await db.flush()
         except IntegrityError as exc:
-            raise clash(exc) from exc
+            raise Conflict(OVERLAP) from exc
     deposit = deposit_cents(item) if item.deposit_type != "none" else 0
     booking = Booking(
         id=new_id("booking"),
@@ -376,13 +343,6 @@ async def create_booking_core(
     db.add(booking)
     await db.flush()
     return booking, slot
-
-
-def clash(exc: IntegrityError) -> Conflict:
-    """The conflict a slot exclusion constraint reports, told apart by the constraint's name."""
-    if "excl_slots_resource_overlap" in str(exc.orig):
-        return Conflict(_RESOURCE_BUSY)
-    return Conflict(_OVERLAP)
 
 
 async def move_slot(
@@ -420,17 +380,6 @@ async def lock_bookings(
         .execution_options(populate_existing=True)
     )
     return list(rows)
-
-
-async def load_resource(db: AsyncSession, business_id: str, resource_id: str) -> Resource:
-    row = (
-        await db.execute(scoped(Resource, business_id).where(Resource.id == resource_id))
-    ).scalar_one_or_none()
-    if row is None:
-        raise NotFound("room or station not found")
-    if not row.active:
-        raise Conflict("that room or station is switched off for new bookings")
-    return row
 
 
 async def assert_subject(
@@ -566,8 +515,6 @@ class BookingService:
         await self._staff(data.staff_id)
         if data.subject_id is not None:
             await assert_subject(self.db, self.biz, data.subject_id, data.client_id)
-        if data.resource_id is not None:
-            await load_resource(self.db, self.biz, data.resource_id)
 
         async def run(cmd: Command) -> BookingOut:
             booking, slot = await create_booking_core(
@@ -579,7 +526,6 @@ class BookingService:
                 client_id=data.client_id,
                 source="manual",
                 subject_id=data.subject_id,
-                resource_id=data.resource_id,
             )
             if data.note is not None and data.note.strip() != "":
                 self.db.add(
@@ -638,7 +584,7 @@ class BookingService:
                 if booking.status in _TERMINAL and data.status != booking.status:
                     raise Conflict(f"a {booking.status} booking can't be modified")
             if target is not None:
-                staff_id, starts_at, ends_at, resource_id = target
+                staff_id, starts_at, ends_at = target
                 await lock_staff(self.db, self.biz, slot.staff_id, staff_id)
                 await lock_bookings(self.db, self.biz, [booking.id])
                 await self.db.refresh(slot)
@@ -653,12 +599,11 @@ class BookingService:
                     starts_at,
                     ends_at,
                     exclude=slot.id,
-                    resource_id=resource_id,
                 )
                 if problem is not None:
-                    raise Conflict(problem.message or _OVERLAP)
+                    raise Conflict(problem.message or OVERLAP)
                 await move_slot(self.db, self.biz, slot, starts_at, ends_at)
-                slot.staff_id, slot.resource_id = staff_id, resource_id
+                slot.staff_id = staff_id
                 if booking.staff_id != staff_id:
                     booking.staff_id = staff_id
                     await self.db.execute(
@@ -669,7 +614,7 @@ class BookingService:
                 try:
                     await self.db.flush()
                 except IntegrityError as exc:
-                    raise clash(exc) from exc
+                    raise Conflict(OVERLAP) from exc
                 cmd.record("booking.reschedule", entity_type="booking", entity_id=booking.id)
             if data.status is not None and data.status != booking.status:
                 booking.status = data.status
@@ -717,7 +662,7 @@ class BookingService:
         if not self._moves(data, slot):
             return BookingCheck(ok=True)
         try:
-            staff_id, starts_at, ends_at, resource_id = await self._target(data, slot)
+            staff_id, starts_at, ends_at = await self._target(data, slot)
         except Conflict as exc:
             return _verdict("class" if exc.message == _CLASS_MOVE else "past", exc.message)
         item = await self._item(slot.item_id, require_active=False)
@@ -729,7 +674,6 @@ class BookingService:
             starts_at,
             ends_at,
             exclude=slot.id,
-            resource_id=resource_id,
         )
         return problem or BookingCheck(ok=True)
 
@@ -738,13 +682,10 @@ class BookingService:
             data.starts_at is not None
             or data.ends_at is not None
             or (data.staff_id is not None and data.staff_id != slot.staff_id)
-            or ("resource_id" in data.model_fields_set and data.resource_id != slot.resource_id)
         )
 
-    async def _target(
-        self, data: BookingMove, slot: Slot
-    ) -> tuple[str, datetime, datetime, str | None]:
-        """The member, window and room a move lands on, validated before any check runs."""
+    async def _target(self, data: BookingMove, slot: Slot) -> tuple[str, datetime, datetime]:
+        """The member and window a move lands on, validated before any check runs."""
         staff_id = data.staff_id or slot.staff_id
         if staff_id != slot.staff_id:
             self._assert_can_act_as(staff_id)
@@ -759,12 +700,7 @@ class BookingService:
             raise Unprocessable("a visit must end at least five minutes after it starts")
         if starts_at != slot.starts_at and starts_at < clock.now():
             raise Conflict(_PAST)
-        resource_id = (
-            data.resource_id if "resource_id" in data.model_fields_set else slot.resource_id
-        )
-        if resource_id is not None and resource_id != slot.resource_id:
-            await load_resource(self.db, self.biz, resource_id)
-        return staff_id, starts_at, ends_at, resource_id
+        return staff_id, starts_at, ends_at
 
     async def visits(
         self, client_id: str, before: datetime, before_id: str | None, limit: int
@@ -1282,8 +1218,6 @@ class RecurrenceService:
 
         if data.subject_id is not None:
             await assert_subject(self.db, self.biz, data.subject_id, data.client_id)
-        if data.resource_id is not None:
-            await load_resource(self.db, self.biz, data.resource_id)
 
         base = data.starts_at
         # Re-localize the wall-clock time per date, so occurrences keep their time across DST.
@@ -1345,7 +1279,6 @@ class RecurrenceService:
                             client_id=data.client_id,
                             source="manual",
                             subject_id=data.subject_id,
-                            resource_id=data.resource_id,
                             recurrence_id=recurrence.id,
                         )
                     created += 1
@@ -1426,7 +1359,6 @@ class RecurrenceService:
                         starts_at,
                         ends_at,
                         exclude=slot.id,
-                        resource_id=slot.resource_id,
                     )
                 )
                 if problem is not None:

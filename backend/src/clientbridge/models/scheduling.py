@@ -26,7 +26,6 @@ BookingStatus = Literal["pending", "confirmed", "completed", "canceled", "no_sho
 BookingSource = Literal["online", "manual"]
 DepositStatus = Literal["none", "pending", "collected", "applied", "forfeited", "refunded"]
 HoursBasis = Literal["recurring", "date", "exception"]
-ResourceCategory = Literal["room", "station", "equipment"]
 RecurrenceFrequency = Literal["day", "week", "month"]
 RecurrenceStatus = Literal["active", "ended", "canceled"]
 MonthlyBy = Literal["date", "weekday"]
@@ -43,7 +42,6 @@ class Slot(PKMixin, BusinessScoped, TimestampMixin, Base):
 
     item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)
     staff_id: Mapped[str] = mapped_column(ForeignKey("staff.id"), nullable=False)
-    resource_id: Mapped[str | None] = mapped_column(ForeignKey("resources.id"))
     recurrence_id: Mapped[str | None] = mapped_column(ForeignKey("recurrences.id"))
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -136,22 +134,6 @@ class Hours(PKMixin, BusinessScoped, TimestampMixin, Base):
     starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exception only
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reason: Mapped[str | None] = mapped_column(String)
-
-
-class Resource(PKMixin, BusinessScoped, TimestampMixin, Base):
-    __tablename__ = "resources"
-    __table_args__ = (
-        enum_check("resources", "category", ResourceCategory),
-        CheckConstraint("capacity > 0", name="ck_resources_capacity"),
-    )
-
-    name: Mapped[str] = mapped_column(String, nullable=False)
-    category: Mapped[ResourceCategory] = mapped_column(String, nullable=False)
-    capacity: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
-    # an inactive room or station keeps its bookings and is offered for no new ones
-    active: Mapped[bool] = mapped_column(
-        Boolean, default=True, server_default="true", nullable=False
-    )
 
 
 class Recurrence(PKMixin, BusinessScoped, TimestampMixin, Base):

@@ -71,7 +71,6 @@ export interface CalendarEvent {
     depositAmountCents: number;
     depositStatus: string;
     itemId: string;
-    resourceId: string | null;
     // The service's buffers, which the server counts as part of the visit when checking overlaps.
     bufferBeforeMin: number;
     bufferAfterMin: number;
@@ -188,7 +187,6 @@ export interface ScheduleEvent extends CalendarEvent {
     staffColor: string | null;
     source: EventSource;
     seriesId: string | null;
-    resourceName: string | null;
     addonCount: number;
     note: string | null;
     checkedIn: boolean;
@@ -214,8 +212,6 @@ interface EventRow {
     capacity: number;
     slot_status: string;
     recurrence_id: string | null;
-    resource_id: string | null;
-    resource_name: string | null;
     item_id: string;
     item_name: string;
     item_color: string | null;
@@ -253,7 +249,7 @@ export function slotOverlapSql(start: string, end: string): string {
 // One row per visit; a class session (capacity over one) is one row with its seats counted.
 export const EVENTS_SQL = `
 SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.status AS slot_status,
-       s.recurrence_id, s.resource_id, r.name AS resource_name,
+       s.recurrence_id,
        i.id AS item_id, i.name AS item_name, i.color AS item_color, i.price_cents AS item_price,
        i.buffer_before_min, i.buffer_after_min,
        (SELECT COUNT(*) FROM bookings x WHERE x.slot_id = s.id
@@ -269,7 +265,6 @@ JOIN items i ON i.id = s.item_id
 ${slotBookingsJoin("AND s.capacity <= 1 AND x.deleted_at IS NULL AND x.status != 'canceled'")}
 LEFT JOIN clients c ON c.id = b.client_id
 LEFT JOIN subjects sj ON sj.id = b.subject_id
-LEFT JOIN resources r ON r.id = s.resource_id
 WHERE s.status != 'canceled' AND ${slotOverlapSql("?2", "?1")}
 ORDER BY s.starts_at`;
 
@@ -312,8 +307,6 @@ function enrich(r: EventRow, staff: Map<string, StaffRow>, now: Date, zone: stri
         staffColor: member?.color ?? null,
         source: r.source === "online" ? "online" : "staff",
         seriesId: r.recurrence_id,
-        resourceId: r.resource_id,
-        resourceName: r.resource_name,
         addonCount: r.addon_count,
         note: r.note,
         checkedIn: r.checked_in_at !== null,
@@ -356,7 +349,7 @@ function useActiveStaff(): ActiveStaff {
     }, [staff]);
 }
 
-/** Every visit between two times, with client, pet, series, station and add-on count. */
+/** Every visit between two times, with client, pet, series and add-on count. */
 export function useScheduleEvents(
     start: Date,
     end: Date,
@@ -545,8 +538,7 @@ export function buildAvailability(hours: HoursRow[], away: AwayRow[], zone: stri
     };
 }
 
-type MoveProblem =
-    "overlap" | "off_hours" | "time_off" | "closed" | "past" | "resource" | "full" | null;
+type MoveProblem = "overlap" | "off_hours" | "time_off" | "closed" | "past" | "full" | null;
 
 /** The service being placed: its buffers widen the overlap check and a class with seats is joined. */
 export interface SlotItem {
@@ -558,7 +550,6 @@ export interface SlotItem {
 
 export interface SlotTarget {
     item?: SlotItem | null;
-    resourceId?: string | null;
 }
 
 export const slotItemOf = (item: ItemRow): SlotItem => ({
@@ -640,9 +631,6 @@ export function slotProblem(
             !joinable(e),
     );
     if (clash) return { problem: "overlap", message: s.problemOverlap(who) };
-    const room = target.resourceId ?? null;
-    if (room !== null && live.some((e) => e.resourceId === room && e.start < end && e.end > start))
-        return { problem: "resource", message: s.problemRoom };
     return { problem: null, message: "" };
 }
 
@@ -669,7 +657,6 @@ export function planMove(
             ? { problem: "past" as const, message: s.problemPast }
             : slotProblem(ctx.avail, ctx.events, ctx.staff, staffId, start, end, event.id, {
                   item: eventItem(event),
-                  resourceId: event.resourceId,
               });
     const message =
         found.problem !== null
@@ -715,8 +702,6 @@ function verdictMessage(v: ServerVerdict, who: string): string {
             return s.problemClosed(v.reason ?? "");
         case "past":
             return s.problemPast;
-        case "resource":
-            return s.problemRoom;
         case "class":
             return s.problemClass;
         default:

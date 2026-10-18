@@ -67,11 +67,7 @@ def test_demo_calendar_is_consistent_at_different_seed_dates(anchor: str) -> Non
     pet_sets = {s.id: {b.subject_id for b in bookings if b.slot_id == s.id} for s in active}
     for index, left in enumerate(active):
         for right in active[index + 1 :]:
-            if (
-                left.staff_id != right.staff_id
-                and left.resource_id != right.resource_id
-                and not pet_sets[left.id] & pet_sets[right.id]
-            ):
+            if left.staff_id != right.staff_id and not pet_sets[left.id] & pet_sets[right.id]:
                 continue
             li, ri = items[left.item_id], items[right.item_id]
             assert left.ends_at + timedelta(

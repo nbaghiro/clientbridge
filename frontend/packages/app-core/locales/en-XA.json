@@ -2405,9 +2405,6 @@
     "bookings.problemPast": {
         "message": "[Ţĥåţ ţîɱé ĥåš þåššéð one two]"
     },
-    "bookings.problemRoom": {
-        "message": "[Ţĥåţ ŕööɱ öŕ šţåţîöñ îš ţåķéñ ţĥéñ one two three]"
-    },
     "bookings.problemClassFull": {
         "message": "[Ţĥåţ çļåšš îš ƒûļļ one two]"
     },
@@ -2473,9 +2470,6 @@
     },
     "bookings.detailWith": {
         "message": "[Ŵîţĥ one]"
-    },
-    "bookings.detailWhere": {
-        "message": "[Šţåţîöñ one]"
     },
     "bookings.detailNotes": {
         "message": "[Ñöţéš one]"
@@ -2843,9 +2837,6 @@
     "bookings.railNothingNext": {
         "message": "[Ñö ɱöŕé ṽîšîţš ţöðåý. one two]"
     },
-    "bookings.stationNone": {
-        "message": "[Ñö šţåţîöñ one two]"
-    },
     "recurrences.newTitle": {
         "message": "[Ñéŵ ŕéþéåţîñĝ ƀööķîñĝ one two]"
     },
@@ -3191,9 +3182,6 @@
     "classes.with": {
         "message": "{when} · {name}"
     },
-    "classes.withRoom": {
-        "message": "{when} · {name} · {room}"
-    },
     "classes.roster": {
         "message": "[Ŕöšţéŕ one]"
     },
@@ -3298,24 +3286,6 @@
     },
     "classes.startsLater": {
         "message": "[Çĥéçķ-îñ öþéñš öñ ţĥé ðåý öƒ ţĥé çļåšš. one two three]"
-    },
-    "classes.pickTitle": {
-        "message": "[Šţåţîöñ ƒöŕ ţĥîš ṽîšîţ one two]"
-    },
-    "classes.pickSubtitle": {
-        "message": "[Ţåķéñ šţåţîöñš šĥöŵ ŵĥö ĥåš ţĥéɱ åţ ţĥåţ ţîɱé. one two three]"
-    },
-    "classes.takenBy": {
-        "message": "{pet} · {time}"
-    },
-    "classes.freeThen": {
-        "message": "[Ƒŕéé ţĥéñ one]"
-    },
-    "classes.saveStation": {
-        "message": "[Šåṽé šţåţîöñ one two]"
-    },
-    "classes.stationError": {
-        "message": "[Çöûļðñ'ţ šåṽé ţĥé šţåţîöñ. Þļéåšé ţŕý åĝåîñ. one two three]"
     },
     "reminders.subtitle": {
         "message": "[Ŵĥåţ çļîéñţš ĥéåŕ ƀéƒöŕé å ṽîšîţ, åñð çļöšîñĝ ṽîšîţš ŵĥéñ ţĥé ðåý îš öṽéŕ. one two three four five]"

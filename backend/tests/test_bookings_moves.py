@@ -1,13 +1,13 @@
 from datetime import UTC, datetime
 
 import httpx
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Note
-from clientbridge.models.scheduling import Addon, Booking, Resource, Slot
+from clientbridge.models.scheduling import Addon, Booking, Slot
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakeSmsSender
 from tests.helpers import begin, client_id
 
@@ -224,13 +224,10 @@ async def test_unauth_cannot_check(unauth: httpx.AsyncClient) -> None:
     assert res.status_code == 401
 
 
-async def test_unknown_member_or_room_404(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_unknown_member_404(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     bid = await _book(as_owner, db, ST_PRIYA, "2027-03-01T18:00:00Z")
     assert (
         await as_owner.patch(f"/v1/bookings/{bid}", json={"staff_id": "st_missing"})
-    ).status_code == 404
-    assert (
-        await as_owner.patch(f"/v1/bookings/{bid}", json={"resource_id": "rs_missing"})
     ).status_code == 404
     assert (await as_owner.post("/v1/bookings/bk_missing/check", json={})).status_code == 404
 
@@ -248,21 +245,6 @@ async def test_closed_visit_cannot_be_moved_or_checked(
         f"/v1/bookings/{bid}/check", json={"starts_at": "2027-03-02T18:00:00Z"}
     )
     assert check.status_code == 409
-
-
-async def test_room_clash_is_refused(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _book(as_owner, db, ST_OWNER, "2027-03-01T18:00:00Z", resource_id="rs_bath")
-    bid = await _book(as_owner, db, ST_PRIYA, "2027-03-01T18:00:00Z")
-    check = await as_owner.post(f"/v1/bookings/{bid}/check", json={"resource_id": "rs_bath"})
-    assert check.json()["problem"] == "resource"
-    res = await as_owner.patch(f"/v1/bookings/{bid}", json={"resource_id": "rs_bath"})
-    assert res.status_code == 409
-    ok = await as_owner.patch(f"/v1/bookings/{bid}", json={"resource_id": "rs_station_b"})
-    assert ok.status_code == 200
-    assert (await _slot(db, bid)).resource_id == "rs_station_b"
-    cleared = await as_owner.patch(f"/v1/bookings/{bid}", json={"resource_id": None})
-    assert cleared.status_code == 200
-    assert (await _slot(db, bid)).resource_id is None
 
 
 async def test_class_session_is_not_handed_to_another_member(
@@ -362,32 +344,3 @@ async def test_note_is_kept_and_confirmation_can_be_skipped(
     await _book(as_owner, db, ST_PRIYA, "2027-03-01T22:00:00Z", note="  ")
     notes = await db.execute(select(Note.id).where(Note.parent_type == "booking"))
     assert len(notes.scalars().all()) == 1
-
-
-async def test_switched_off_room_blocks_new_visits(
-    as_owner: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    await db.execute(update(Resource).where(Resource.id == "rs_station_a").values(active=False))
-    await db.flush()
-    booked = await as_owner.post(
-        "/v1/bookings",
-        json={
-            "client_id": await client_id(db),
-            "item_id": "it_bath",
-            "staff_id": ST_PRIYA,
-            "starts_at": "2027-03-01T18:00:00Z",
-            "resource_id": "rs_station_a",
-        },
-    )
-    assert booked.status_code == 409
-
-
-async def test_another_business_room_404(
-    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
-) -> None:
-    other = await factory.business(name="Rival Co")
-    db.add(Resource(id="rs_rival", business_id=other.id, name="Rival table", category="station"))
-    await db.flush()
-    bid = await _book(as_owner, db, ST_PRIYA, "2027-03-01T18:00:00Z")
-    res = await as_owner.patch(f"/v1/bookings/{bid}", json={"resource_id": "rs_rival"})
-    assert res.status_code == 404

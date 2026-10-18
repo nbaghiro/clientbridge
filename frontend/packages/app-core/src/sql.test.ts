@@ -804,10 +804,6 @@ function scheduleRows(): void {
             attributes: '{"breed":"Lab"}',
         },
     ]);
-    scoped("resources", [
-        { id: "rs_tub", name: "Tub", category: "station", capacity: 1, active: 1 },
-        { id: "rs_room", name: "Room", category: "room", capacity: 6, active: 1 },
-    ]);
     scoped("recurrences", [
         {
             id: "sch_1",
@@ -825,7 +821,6 @@ function scheduleRows(): void {
             id: "ss_c1",
             item_id: "it_cut",
             staff_id: "st_cara",
-            resource_id: "rs_tub",
             recurrence_id: "sch_1",
             starts_at: "2027-01-05T17:00:00Z",
             ends_at: "2027-01-05T18:00:00Z",
@@ -846,7 +841,6 @@ function scheduleRows(): void {
             id: "ss_k",
             item_id: "it_cut",
             staff_id: "st_cara",
-            resource_id: "rs_room",
             starts_at: "2027-01-06T17:00:00Z",
             ends_at: "2027-01-06T18:00:00Z",
             capacity: 2,
@@ -1867,7 +1861,6 @@ describe("app-core SQL against the replica schema", () => {
                 "slot_id",
                 "booking_id",
                 "pet_name",
-                "resource_name",
                 "recurrence_id",
                 "booked_count",
                 "note",
@@ -1877,7 +1870,6 @@ describe("app-core SQL against the replica schema", () => {
                 slot_id: "ss_c1",
                 booking_id: "bk_c1",
                 pet_name: "Rex",
-                resource_name: "Tub",
                 recurrence_id: "sch_1",
                 booked_count: 1,
                 note: "Nervous",
@@ -1886,7 +1878,6 @@ describe("app-core SQL against the replica schema", () => {
                 slot_id: "ss_k",
                 booking_id: null,
                 pet_name: null,
-                resource_name: "Room",
                 recurrence_id: null,
                 booked_count: 1,
                 note: null,
@@ -1964,17 +1955,16 @@ describe("app-core SQL against the replica schema", () => {
         expect(visits.filter((v) => v.status === "completed")).toHaveLength(1);
     });
 
-    it("reads class rosters, stations, reminders and add-on offers", () => {
+    it("reads class rosters, reminders and add-on offers", () => {
         scheduleRows();
         expect(
             pick(
                 run("CLASS_SESSIONS_SQL", ["2027-01-01T00:00:00.000Z", "2027-02-01T00:00:00.000Z"]),
                 "slot_id",
                 "capacity",
-                "room",
                 "item_name",
             ),
-        ).toEqual([{ slot_id: "ss_k", capacity: 2, room: "Room", item_name: "Cut" }]);
+        ).toEqual([{ slot_id: "ss_k", capacity: 2, item_name: "Cut" }]);
         expect(
             run("CLASS_SESSIONS_SQL", ["2027-01-07T00:00:00.000Z", "2027-02-01T00:00:00.000Z"]),
         ).toEqual([]);
@@ -1995,12 +1985,6 @@ describe("app-core SQL against the replica schema", () => {
             { id: "cl_ann", pet_name: "Rex" },
             { id: "cl_ben", pet_name: null },
         ]);
-        expect(run("STATIONS_SQL").map((r) => r.id)).toEqual(["rs_room", "rs_tub"]);
-        expect(
-            run("STATIONS_HELD_SQL", ["2027-01-05T17:30:00.000Z", "2027-01-05T17:00:00.000Z"]).map(
-                (r) => r.resource_id,
-            ),
-        ).toEqual(["rs_tub"]);
         expect(run("REMINDERS_SENT_SQL", ["2027-01-01T00:00:00.000Z"])).toEqual([{ sent: 1 }]);
         insert("items", [
             {

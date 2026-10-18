@@ -48,7 +48,7 @@ from clientbridge.schemas.staff import (
 )
 from clientbridge.services import plans
 from clientbridge.services.bookings import (
-    clash,
+    OVERLAP,
     lock_bookings,
     lock_staff,
     release_slot,
@@ -557,7 +557,6 @@ class StaffService:
                 slot.starts_at,
                 slot.ends_at,
                 exclude=slot.id,
-                resource_id=slot.resource_id,
             )
             if problem is None:
                 try:
@@ -571,11 +570,11 @@ class StaffService:
                             .values(staff_id=candidate.id)
                         )
                         await self.db.flush()
-                except IntegrityError as exc:
+                except IntegrityError:
                     await self.db.refresh(slot)
                     for booking in bookings:
                         await self.db.refresh(booking)
-                    problem = BookingCheck(ok=False, problem="overlap", message=clash(exc).message)
+                    problem = BookingCheck(ok=False, problem="overlap", message=OVERLAP)
                 else:
                     return candidate.id, None
             first = first or problem

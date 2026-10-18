@@ -2604,9 +2604,6 @@
     "bookings.problemPast": {
         "message": "That time has passed"
     },
-    "bookings.problemRoom": {
-        "message": "That room or station is taken then"
-    },
     "bookings.problemClassFull": {
         "message": "That class is full"
     },
@@ -2676,9 +2673,6 @@
     },
     "bookings.detailWith": {
         "message": "With"
-    },
-    "bookings.detailWhere": {
-        "message": "Station"
     },
     "bookings.detailNotes": {
         "message": "Notes"
@@ -3075,9 +3069,6 @@
     "bookings.railNothingNext": {
         "message": "No more visits today."
     },
-    "bookings.stationNone": {
-        "message": "No station"
-    },
     "recurrences.newTitle": {
         "message": "New repeating booking"
     },
@@ -3454,10 +3445,6 @@
         "message": "{when} · {name}",
         "args": ["when", "name"]
     },
-    "classes.withRoom": {
-        "message": "{when} · {name} · {room}",
-        "args": ["when", "name", "room"]
-    },
     "classes.roster": {
         "message": "Roster"
     },
@@ -3567,25 +3554,6 @@
     },
     "classes.startsLater": {
         "message": "Check-in opens on the day of the class."
-    },
-    "classes.pickTitle": {
-        "message": "Station for this visit"
-    },
-    "classes.pickSubtitle": {
-        "message": "Taken stations show who has them at that time."
-    },
-    "classes.takenBy": {
-        "message": "{pet} · {time}",
-        "args": ["pet", "time"]
-    },
-    "classes.freeThen": {
-        "message": "Free then"
-    },
-    "classes.saveStation": {
-        "message": "Save station"
-    },
-    "classes.stationError": {
-        "message": "Couldn't save the station. Please try again."
     },
     "reminders.subtitle": {
         "message": "What clients hear before a visit, and closing visits when the day is over."

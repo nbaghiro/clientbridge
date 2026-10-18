@@ -155,11 +155,7 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
                     <Icon name="users" size={24} color={c.inkSoft} />
                     <View style={styles.flex}>
                         <Text style={styles.className}>{x.name}</Text>
-                        <Text style={styles.muted}>
-                            {x.roomName === ""
-                                ? s.with(x.when, x.staffName)
-                                : s.withRoom(x.when, x.staffName, x.roomName)}
-                        </Text>
+                        <Text style={styles.muted}>{s.with(x.when, x.staffName)}</Text>
                     </View>
                 </View>
                 <View style={styles.meterBig}>
