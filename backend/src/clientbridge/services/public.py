@@ -657,7 +657,7 @@ class PublicManageService:
             try:
                 await self.db.flush()
             except IntegrityError as exc:
-                raise clash(exc) from exc
+                raise Conflict(OVERLAP) from exc
             out = await self._view(booking, slot, business)
             cmd.record(_MOVE_SCOPE, entity_type="booking", entity_id=booking.id)
             return out
