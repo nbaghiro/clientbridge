@@ -5731,6 +5731,13 @@ export interface components {
              */
             net_cents: number;
         };
+        /** MovedSeries */
+        MovedSeries: {
+            /** Recurrence Id */
+            recurrence_id: string;
+            /** Staff Id */
+            staff_id: string;
+        };
         /** NoteCreate */
         NoteCreate: {
             /**
@@ -8133,7 +8140,7 @@ export interface components {
              */
             left: components["schemas"]["LeftVisit"][];
             /** Series Moved */
-            series_moved: string[];
+            series_moved: components["schemas"]["MovedSeries"][];
             /** Series Ended */
             series_ended: string[];
         };

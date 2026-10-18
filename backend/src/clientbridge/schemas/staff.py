@@ -131,9 +131,14 @@ class LeftVisit(BaseModel):
     message: str | None
 
 
+class MovedSeries(BaseModel):
+    recurrence_id: str
+    staff_id: str
+
+
 class StaffRemoveOut(BaseModel):
     moved: list[str]
     canceled: list[str]
     left: list[LeftVisit] = Field(description="Visits no member could take, left in place")
-    series_moved: list[str]
+    series_moved: list[MovedSeries]
     series_ended: list[str]
