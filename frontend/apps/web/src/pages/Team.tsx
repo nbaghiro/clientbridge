@@ -30,6 +30,7 @@ import {
     DetailSection,
     DetailView,
     Empty,
+    FactList,
     Icon,
     KeyValueList,
     ListPage,
@@ -214,25 +215,30 @@ function RemoveDialog({
     onClose: () => void;
     onRemoved: () => void;
 }) {
-    const removal = useRemoveMember(api, member, team.members, () => {
+    const finish = () => {
         team.refresh();
         onRemoved();
-    });
-    if (removal.left !== null) {
+    };
+    const removal = useRemoveMember(api, member, team.members, finish);
+    const outcome = removal.outcome;
+    if (outcome !== null) {
         return (
-            <Modal onClose={onRemoved} size="lg">
+            <Modal onClose={finish} size="lg">
                 <div className="space-y-4">
                     <div>
                         <h2 className="font-display text-xl font-bold text-ink">
-                            {t.removeLeftTitle(member.name)}
+                            {t.removedTitle(member.name)}
                         </h2>
-                        <p className="mt-1 text-sm text-muted">
-                            {t.removeLeftBody(removal.left.length)}
-                        </p>
+                        <p className="mt-1 text-sm text-muted">{outcome.body}</p>
                     </div>
-                    <OccurrenceList rows={removal.left} label={t.removeFuture} />
+                    {outcome.series.length > 0 ? (
+                        <FactList facts={outcome.series} label={t.removedSeries} />
+                    ) : null}
+                    {outcome.left.length > 0 ? (
+                        <OccurrenceList rows={outcome.left} label={t.removeFuture} />
+                    ) : null}
                     <div className="flex justify-end">
-                        <Button onPress={onRemoved}>{strings.common.done}</Button>
+                        <Button onPress={finish}>{strings.common.done}</Button>
                     </div>
                 </div>
             </Modal>

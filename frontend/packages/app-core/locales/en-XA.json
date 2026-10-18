@@ -6605,11 +6605,29 @@
     "staff.team.removeLeftState": {
         "message": "[Ñöţ ɱöṽéð one]"
     },
-    "staff.team.removeLeftTitle": {
+    "staff.team.removedTitle": {
         "message": "[{name} ŵåš ŕéɱöṽéð one two]"
     },
     "staff.team.removeLeftBody": {
         "message": "[{count,plural,one{# ṽîšîţ ĥåð ñö ƒŕéé ɱéɱƀéŕ, šö îţ šţåýš öñ ţĥé çåļéñðåŕ. Ṁöṽé îţ ƒŕöɱ ţĥé šçĥéðûļé.} other{# ṽîšîţš ĥåð ñö ƒŕéé ɱéɱƀéŕ, šö ţĥéý šţåý öñ ţĥé çåļéñðåŕ. Ṁöṽé ţĥéɱ ƒŕöɱ ţĥé šçĥéðûļé.}} one two three four five six seven eight nine ten]"
+    },
+    "staff.team.removedSeriesMoved": {
+        "message": "[{count,plural,one{# ŕéþéåţîñĝ šéŕîéš ɱöṽéð ŵîţĥ îţš ṽîšîţš.} other{# ŕéþéåţîñĝ šéŕîéš ɱöṽéð ŵîţĥ ţĥéîŕ ṽîšîţš.}} one two three four five six]"
+    },
+    "staff.team.removedSeriesEnded": {
+        "message": "[{count,plural,one{# ŕéþéåţîñĝ šéŕîéš éñðéð åñð ƀööķš ñö ñéŵ ṽîšîţš.} other{# ŕéþéåţîñĝ šéŕîéš éñðéð åñð ƀööķ ñö ñéŵ ṽîšîţš.}} one two three four five six]"
+    },
+    "staff.team.removedSeries": {
+        "message": "[Ŕéþéåţîñĝ šéŕîéš one two]"
+    },
+    "staff.team.removedSeriesNowWith": {
+        "message": "[Ñöŵ ŵîţĥ {name} one]"
+    },
+    "staff.team.removedSeriesMovedState": {
+        "message": "[Ṁöṽéð one]"
+    },
+    "staff.team.removedSeriesEndedState": {
+        "message": "[Éñðéð one]"
     },
     "staff.team.ownerNote": {
         "message": "[Ţĥé öŵñéŕ'š ŕöļé çåñ'ţ ƀé çĥåñĝéð ĥéŕé. one two three]"
