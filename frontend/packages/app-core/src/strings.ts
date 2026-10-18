@@ -4265,6 +4265,8 @@ interface Strings {
             readonly depositBody: (client: string, amount: string) => string;
             readonly refund: string;
             readonly refundBody: (client: string, amount: string) => string;
+            readonly orderNew: string;
+            readonly orderNewBody: (client: string, n: number) => string;
             readonly bookingNew: string;
             readonly bookingCanceled: string;
             readonly bookingBody: (client: string, item: string, when: string) => string;

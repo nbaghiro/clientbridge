@@ -1513,7 +1513,7 @@ describe("app-core SQL against the replica schema", () => {
     });
 
     it("derives the bell from synced rows since a date", () => {
-        const since = Array<string>(6).fill("2026-06-24T00:00:00.000Z");
+        const since = Array<string>(7).fill("2026-06-24T00:00:00.000Z");
         const feed = run("NOTIFICATION_FEED_SQL", since)
             .map((r) => `${String(r.kind)}:${String(r.id)}`)
             .sort();
@@ -1522,16 +1522,12 @@ describe("app-core SQL against the replica schema", () => {
             "deposit:pay-pay_dep",
             "message:msg-m_2",
             "message:msg-m_3",
+            "order_new:ord-ord_gone",
+            "order_new:ord-ord_web",
             "payment:pay-pay_1",
-            "payment:pay-pay_web",
             "refund:pay-pay_r1",
             "review:rv-rv_1",
         ]);
-        expect(
-            run("NOTIFICATION_FEED_SQL", since)
-                .filter((r) => r.online_order === 1)
-                .map((r) => r.id),
-        ).toEqual(["pay-pay_web"]);
         expect(
             run("MY_CLIENTS_SQL", ["st_owner"])
                 .map((r) => r.client_id)
