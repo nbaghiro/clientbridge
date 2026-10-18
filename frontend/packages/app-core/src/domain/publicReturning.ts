@@ -188,7 +188,8 @@ function applyReturning(
 ): void {
     if (!verified.profile || !verified.token) return;
     const profile = verified.profile;
-    const subject = profile.subjects.find((x) => x.id === subjectId);
+    const subject =
+        booking.kind === null ? undefined : profile.subjects.find((x) => x.id === subjectId);
     booking.fields.setName(profile.name);
     booking.fields.setEmail(profile.email ?? "");
     booking.fields.setPhone(profile.phone ?? "");

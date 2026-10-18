@@ -342,11 +342,56 @@ async def test_a_property_booking_files_a_new_property_with_its_address(
     assert place.attributes == {"address": "4 Elm Rd"}
 
 
+async def _booked_subject(api: httpx.AsyncClient, db: AsyncSession, **extra: object) -> Subject:
+    slots = await api.get(
+        f"/book/{SLUG}/slots",
+        params={"item_id": "it_groom_sm", "staff_id": "st_owner", "date": TUESDAY},
+    )
+    starts = slots.json()["slots"][0]["starts_at"]
+    res = await api.post(f"/book/{SLUG}", json={**_body(starts), **extra}, headers=key())
+    assert res.status_code == 200, res.text
+    booking = await db.get(Booking, res.json()["booking_id"])
+    assert booking is not None and booking.subject_id is not None
+    subject = await db.get(Subject, booking.subject_id)
+    assert subject is not None
+    return subject
+
+
+async def test_a_property_is_matched_by_name_and_address(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _kind(db, "property")
+    home = await _booked_subject(api, db, subject_name="Home", subject_address="4 Elm Rd")
+    other = await _booked_subject(api, db, subject_name="home", subject_address="9 Oak Ave")
+    again = await _booked_subject(api, db, subject_name="Home", subject_address="  4  ELM rd ")
+    assert other.id != home.id and other.client_id == home.client_id
+    assert other.attributes == {"address": "9 Oak Ave"}
+    assert again.id == home.id and home.attributes == {"address": "4 Elm Rd"}
+
+
+async def test_a_property_without_an_address_takes_the_first_one_booked(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _kind(db, "property")
+    cabin = await _booked_subject(api, db, subject_name="Cabin")
+    filled = await _booked_subject(api, db, subject_name="Cabin", subject_address="1 Lake Rd")
+    assert filled.id == cabin.id and cabin.attributes == {"address": "1 Lake Rd"}
+
+
+async def test_a_booking_named_after_a_deleted_pet_files_a_new_one(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    gone = await _booked_subject(api, db, subject_name="Biscuit")
+    gone.deleted_at = clock.now()
+    await db.flush()
+    fresh = await _booked_subject(api, db, subject_name="Biscuit")
+    assert fresh.id != gone.id and fresh.deleted_at is None
+
+
 @pytest.mark.parametrize(
     ("kind", "extra"),
     [
         (None, {"subject_name": "Rex"}),
-        (None, {"subject_id": "sj_rex", "returning_token": "t"}),
         (None, {"subject_address": "4 Elm Rd"}),
         ("pet", {"subject_name": "Rex", "subject_address": "4 Elm Rd"}),
     ],

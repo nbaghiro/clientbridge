@@ -2,11 +2,12 @@ import re
 from datetime import timedelta
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.ids import new_id
+from clientbridge.models.business import Business
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.returning import ReturningChallenge
 from clientbridge.models.scheduling import Booking, Slot
@@ -172,6 +173,48 @@ async def test_verified_booking_binds_client_and_pet_not_forged_contact(
         starts_at=slot.starts_at.isoformat(),
     )
     assert replay.json()["booking_id"] == booking.id
+
+
+async def test_client_only_business_books_a_returning_client_without_their_old_pet(
+    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    client = await _client(db)
+    pet = Subject(id=new_id("subject"), business_id=BIZ, client_id=client.id, name="Old pet")
+    db.add(pet)
+    await db.execute(update(Business).where(Business.id == BIZ).values(subject=None))
+    await db.flush()
+    challenge, code = await _request(api, email)
+    verified = await _verify(api, challenge, code)
+    booked = await _book(api, returning_token=verified.json()["token"], subject_id=pet.id)
+    assert booked.status_code == 200, booked.text
+    booking = await db.get(Booking, booked.json()["booking_id"])
+    assert booking is not None and booking.client_id == client.id
+    assert booking.subject_id is None
+
+
+async def test_a_deleted_pet_cannot_be_booked_by_its_id(
+    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    client = await _client(db)
+    pet = Subject(
+        id=new_id("subject"),
+        business_id=BIZ,
+        client_id=client.id,
+        name="Gone pet",
+        deleted_at=clock.now(),
+    )
+    db.add(pet)
+    await db.flush()
+    gone = pet.id
+    online = select(func.count()).select_from(Booking).where(Booking.client_id == client.id)
+    before = await db.scalar(online)
+    challenge, code = await _request(api, email)
+    verified = await _verify(api, challenge, code)
+    booked = await _book(api, returning_token=verified.json()["token"], subject_id=gone)
+    assert booked.status_code == 422
+    assert await db.scalar(online) == before
+    profile = verified.json()["profile"]
+    assert gone not in {s["id"] for s in profile["subjects"]}
 
 
 async def test_existing_pet_requires_proof_and_belongs_to_verified_client(

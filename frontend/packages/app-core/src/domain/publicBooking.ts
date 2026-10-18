@@ -642,7 +642,7 @@ export function usePublicBookingFlow(
             subjectName: kind === null ? "" : subjectName.trim(),
             subjectAddress: kind === "property" && subjectId === null ? subjectAddress.trim() : "",
             returningToken,
-            subjectId,
+            subjectId: kind === null ? null : subjectId,
             note: note.trim(),
             addons: addonLines.map((l) => ({
                 itemId: l.addon.id,

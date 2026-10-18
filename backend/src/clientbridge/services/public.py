@@ -304,7 +304,9 @@ class PublicBookingService:
             )
             _assert_subject_fields(business, data)
             returning = ReturningService(self.db)
-            if data.subject_id is not None and data.returning_token is None:
+            # A client-only business ignores the subject a returning client last booked with.
+            chosen = data.subject_id if business.subject is not None else None
+            if chosen is not None and data.returning_token is None:
                 raise Unauthorized("verify your email before choosing an existing subject")
             client = (
                 await returning.resolve(business.id, data.returning_token)
@@ -313,10 +315,10 @@ class PublicBookingService:
             )
             first_visit = not await _has_booked(self.db, business.id, client.id)
             subject_id = (
-                await returning.subject(client, data.subject_id)
-                if data.subject_id is not None
+                await returning.subject(client, chosen)
+                if chosen is not None
                 else await _subject(
-                    self.db, business.id, client.id, data.subject_name, data.subject_address
+                    self.db, business, client.id, data.subject_name, data.subject_address
                 )
             )
             booking, _ = await create_booking_core(
@@ -562,37 +564,54 @@ async def _has_booked(db: AsyncSession, business_id: str, client_id: str) -> boo
 
 
 def _assert_subject_fields(business: Business, data: PublicBookingCreate) -> None:
-    sent = data.subject_id is not None or bool((data.subject_name or "").strip())
-    if business.subject is None and (sent or data.subject_address is not None):
+    named = bool((data.subject_name or "").strip())
+    if business.subject is None and (named or data.subject_address is not None):
         raise Unprocessable("this business books only the client", code="no_subjects")
     if data.subject_address is not None and business.subject != "property":
         raise Unprocessable("only a property business takes an address", code="no_subjects")
 
 
+def _same_place(stored: object, given: str) -> bool:
+    return (
+        isinstance(stored, str)
+        and " ".join(stored.split()).casefold() == " ".join(given.split()).casefold()
+    )
+
+
 async def _subject(
-    db: AsyncSession, business_id: str, client_id: str, name: str | None, address: str | None
+    db: AsyncSession,
+    business: Business,
+    client_id: str,
+    name: str | None,
+    address: str | None,
 ) -> str | None:
-    """The client's subject of that name, added to their file the first time it is booked."""
+    """The client's subject of that name (and a property's address), filed when first booked."""
     if name is None or name.strip() == "":
         return None
     clean = name.strip()
     place = (address or "").strip()
-    found = (
+    named = (
         (
             await db.execute(
-                scoped(Subject, business_id).where(
-                    Subject.client_id == client_id, func.lower(Subject.name) == clean.lower()
-                )
+                scoped(Subject, business.id, soft_delete=True)
+                .where(Subject.client_id == client_id, func.lower(Subject.name) == clean.lower())
+                .order_by(Subject.created_at, Subject.id)
             )
         )
         .scalars()
-        .first()
+        .all()
     )
+    found = named[0] if named else None
+    if business.subject == "property" and place:
+        found = next(
+            (s for s in named if _same_place(s.attributes.get("address"), place)),
+            next((s for s in named if not s.attributes.get("address")), None),
+        )
     if found is not None:
         if place and not found.attributes.get("address"):
             found.attributes = {**found.attributes, "address": place}
         return found.id
-    subject = await new_subject(db, business_id, client_id, clean, {"address": place or None})
+    subject = await new_subject(db, business.id, client_id, clean, {"address": place or None})
     db.add(subject)
     await db.flush()
     return subject.id
