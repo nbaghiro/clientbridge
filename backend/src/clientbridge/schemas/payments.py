@@ -18,11 +18,6 @@ class ConnectSessionOut(BaseModel):
     client_secret: str
 
 
-class OnboardingLink(BaseModel):
-    url: str
-    charges_enabled: bool
-
-
 class ConnectStatus(BaseModel):
     connected: bool
     charges_enabled: bool

@@ -463,9 +463,6 @@ class PaymentGateway(Protocol):
         """Swap the plan price and set the seat quantity, prorating the difference."""
         ...
 
-    async def create_account_link(
-        self, account_id: str, *, refresh_url: str, return_url: str
-    ) -> str: ...
     async def create_account_session(self, account_id: str, component: ConnectComponent) -> str: ...
 
     async def register_payment_domains(self, account_id: str, domains: Sequence[str]) -> None:
@@ -880,24 +877,6 @@ class StripeGateway:
             idempotency_key=f"{idempotency_key}:{digest}",
         )
         return plan_subscription_from(updated.to_dict())
-
-    @_keyed
-    async def create_account_link(
-        self, account_id: str, *, refresh_url: str, return_url: str
-    ) -> str:
-        link = await self.client.v2.core.account_links.create_async(
-            {
-                "account": account_id,
-                "use_case": {
-                    "type": "account_onboarding",
-                    "account_onboarding": {
-                        "refresh_url": refresh_url,
-                        "return_url": return_url,
-                    },
-                },
-            }
-        )
-        return str(link.url)
 
     @_keyed
     async def create_account_session(self, account_id: str, component: ConnectComponent) -> str:

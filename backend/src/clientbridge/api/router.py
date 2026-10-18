@@ -24,7 +24,6 @@ from clientbridge.api import (
     reviews,
     staff,
     subjects,
-    tax,
     zones,
 )
 from clientbridge.api.plans import PlanWritable
@@ -53,7 +52,6 @@ api_router.include_router(payments.terminal_router)
 api_router.include_router(entitlements.gift_cards_router)
 api_router.include_router(entitlements.packages_router)
 api_router.include_router(entitlements.subscriptions_router)
-api_router.include_router(tax.router)
 api_router.include_router(business.onboarding_router)
 api_router.include_router(staff.router)
 api_router.include_router(hours.router)

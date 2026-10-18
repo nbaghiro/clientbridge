@@ -1,4 +1,4 @@
-"""Catalog (items) endpoints + the business tax-rates list, against the seeded DB."""
+"""Catalog (items) endpoints, against the seeded DB."""
 
 import httpx
 import pytest
@@ -66,17 +66,6 @@ async def test_foreign_item_404_by_scoping(
     assert after.price_cents == 1000 and after.active is True  # no cross-tenant mutation leaked
     restock = await as_owner.post(f"/v1/items/{item.id}/restock", json={"quantity": 5})
     assert restock.status_code == 404
-
-
-async def test_tax_rates_list(as_owner: httpx.AsyncClient) -> None:
-    res = await as_owner.get("/v1/tax-rates")
-    assert res.status_code == 200, res.text
-    rates = res.json()
-    assert len(rates) >= 1
-    assert {r["jurisdiction"] for r in rates} <= {"GST", "HST", "PST", "QST"}
-    assert all(r["rate_bps"] > 0 for r in rates)
-    # the derived rate carries a populated synthetic id (province_jurisdiction) + province
-    assert all(r["id"] == f"{r['province']}_{r['jurisdiction']}" for r in rates)
 
 
 async def test_staff_cannot_write_catalog(as_staff: httpx.AsyncClient) -> None:
@@ -175,7 +164,3 @@ async def test_staff_cannot_bulk_change_tax_class_403(as_staff: httpx.AsyncClien
         "/v1/items/tax-class", json={"item_ids": ["it_nope"], "tax_class": "exempt"}
     )
     assert res.status_code == 403
-
-
-async def test_tax_rates_require_authentication(api: httpx.AsyncClient) -> None:
-    assert (await api.get("/v1/tax-rates")).status_code == 401

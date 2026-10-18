@@ -16,7 +16,6 @@ from clientbridge.schemas.payments import (
     ConnectSessionOut,
     ConnectStatus,
     DetachResult,
-    OnboardingLink,
     PaymentMethodOut,
     PaymentSetupLinkOut,
     RefundIn,
@@ -33,16 +32,6 @@ from clientbridge.services.payments import PaymentService
 from clientbridge.services.remittances import RemittanceService
 
 connect_router = APIRouter(prefix="/connect", tags=["connect"])
-
-
-@connect_router.post("/onboard", response_model=OnboardingLink)
-async def onboard(
-    principal: CurrentPrincipal,
-    db: DbSession,
-    gateway: GatewayDep,
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-) -> OnboardingLink:
-    return await PaymentService(db, principal, gateway).start_onboarding(idempotency_key)
 
 
 @connect_router.post("/session", response_model=ConnectSessionOut)
@@ -76,17 +65,6 @@ async def setup_card(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> SetupIntentOut:
     return await PaymentService(db, principal, gateway).start_card_setup(client_id, idempotency_key)
-
-
-@payments_router.post("/pad-setup-intent/{client_id}", response_model=SetupIntentOut)
-async def setup_pad(
-    client_id: str,
-    principal: CurrentPrincipal,
-    db: DbSession,
-    gateway: GatewayDep,
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-) -> SetupIntentOut:
-    return await PaymentService(db, principal, gateway).start_pad_setup(client_id, idempotency_key)
 
 
 @payments_router.post("/pad-links/{client_id}", response_model=PaymentSetupLinkOut)

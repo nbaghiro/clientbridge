@@ -35,45 +35,35 @@ async def _reset_account(db: AsyncSession) -> None:
     await db.flush()
 
 
-async def test_onboard_creates_account_and_link(
+async def _onboard(client: httpx.AsyncClient) -> httpx.Response:
+    return await client.post("/v1/connect/session", json={"component": "onboarding"})
+
+
+async def test_onboarding_creates_the_account(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await _reset_account(db)
-    res = await as_owner.post("/v1/connect/onboard")
+    res = await _onboard(as_owner)
     assert res.status_code == 200, res.text
-    body = res.json()
-    assert body["url"].startswith("https://connect.stripe.test/")
-    assert body["charges_enabled"] is False
     acct = (
         await db.execute(select(Business.stripe_account_id).where(Business.id == BIZ))
     ).scalar_one()
     assert acct is not None and acct.startswith("acct_fake")
 
 
-async def test_onboard_reuses_existing_account(
+async def test_onboarding_reuses_existing_account(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await _reset_account(db)
-    await as_owner.post("/v1/connect/onboard")
+    await _onboard(as_owner)
     first = (
         await db.execute(select(Business.stripe_account_id).where(Business.id == BIZ))
     ).scalar_one()
-    await as_owner.post("/v1/connect/onboard")
+    await _onboard(as_owner)
     second = (
         await db.execute(select(Business.stripe_account_id).where(Business.id == BIZ))
     ).scalar_one()
-    assert first == second  # a second onboard reuses the connected account, not a new one
-
-
-async def test_onboard_idempotent_key_replays(
-    as_owner: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    await _reset_account(db)
-    headers = {"Idempotency-Key": "onb-1"}
-    first = await as_owner.post("/v1/connect/onboard", headers=headers)
-    second = await as_owner.post("/v1/connect/onboard", headers=headers)
-    assert first.status_code == 200 and second.status_code == 200
-    assert first.json() == second.json()
+    assert first == second
 
 
 async def test_status(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -90,9 +80,9 @@ async def test_status(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     assert body["kyc_status"] in {"not_started", "pending", "restricted", "enabled", "disabled"}
 
 
-async def test_onboard_seeds_kyc_state(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_onboarding_seeds_kyc_state(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await _reset_account(db)
-    await as_owner.post("/v1/connect/onboard")
+    await _onboard(as_owner)
     biz = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
     # the fake get_account returns a freshly-created account → not_started + what Stripe still wants
     assert kyc_status(biz) == "not_started"
@@ -112,33 +102,24 @@ async def _customer_only_account(db: AsyncSession, gateway: FakePaymentGateway) 
     await db.flush()
 
 
-async def test_onboard_adds_payments_to_an_account_that_only_pays_for_its_plan(
+async def test_embedded_onboarding_reuses_an_account_that_only_pays_for_its_plan(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     await _customer_only_account(db, gateway)
     assert (await as_owner.get("/v1/connect/status")).json()["kyc_status"] == "not_started"
-    res = await as_owner.post("/v1/connect/onboard")
+    payments = await as_owner.post("/v1/connect/session", json={"component": "payments"})
+    assert payments.status_code == 409 and gateway.merchant_added == []
+    res = await _onboard(as_owner)
     assert res.status_code == 200, res.text
     assert gateway.created_accounts == [] and gateway.merchant_added == ["acct_customer"]
+    assert gateway.account_sessions == [("acct_customer", "onboarding")]
     biz = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
     assert biz.stripe_account_id == "acct_customer"
     assert biz.stripe_requirements["card_status"] == "restricted"
     audits = (await db.execute(select(Audit.action).where(Audit.entity_id == BIZ))).scalars()
     assert "connect.merchant_added" in set(audits)
-    await as_owner.post("/v1/connect/onboard")
+    await _onboard(as_owner)
     assert gateway.merchant_added == ["acct_customer"]
-
-
-async def test_embedded_onboarding_reuses_an_account_that_only_pays_for_its_plan(
-    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
-) -> None:
-    await _customer_only_account(db, gateway)
-    payments = await as_owner.post("/v1/connect/session", json={"component": "payments"})
-    assert payments.status_code == 409 and gateway.merchant_added == []
-    res = await as_owner.post("/v1/connect/session", json={"component": "onboarding"})
-    assert res.status_code == 200, res.text
-    assert gateway.created_accounts == [] and gateway.merchant_added == ["acct_customer"]
-    assert gateway.account_sessions == [("acct_customer", "onboarding")]
 
 
 async def test_onboarding_registers_the_payment_domains_on_the_account(
@@ -149,14 +130,10 @@ async def test_onboarding_registers_the_payment_domains_on_the_account(
 ) -> None:
     await _reset_account(db)
     monkeypatch.setattr(get_settings(), "base_domain", "staging.clientbridge.ca")
-    res = await as_owner.post("/v1/connect/onboard")
-    assert res.status_code == 200, res.text
+    session = await _onboard(as_owner)
+    assert session.status_code == 200, session.text
     (account,) = gateway.created_accounts
     hosts = {f"{h}.staging.clientbridge.ca" for h in ("app", "book", "pay", "shop")}
-    assert gateway.payment_domains == {account: hosts}
-    gateway.payment_domains.clear()
-    session = await as_owner.post("/v1/connect/session", json={"component": "onboarding"})
-    assert session.status_code == 200, session.text
     assert gateway.payment_domains == {account: hosts}
     gateway.payment_domains.clear()
     await as_owner.post("/v1/connect/session", json={"component": "payments"})
@@ -168,18 +145,8 @@ async def test_local_onboarding_registers_no_payment_domain(
 ) -> None:
     await _reset_account(db)
     assert get_settings().base_domain == ""
-    assert (await as_owner.post("/v1/connect/onboard")).status_code == 200
+    assert (await _onboard(as_owner)).status_code == 200
     assert gateway.payment_domains == {}
-
-
-async def test_staff_cannot_onboard(as_staff: httpx.AsyncClient) -> None:
-    res = await as_staff.post("/v1/connect/onboard")
-    assert res.status_code == 403
-
-
-async def test_unauth_cannot_onboard(unauth: httpx.AsyncClient) -> None:
-    res = await unauth.post("/v1/connect/onboard")
-    assert res.status_code == 401
 
 
 FIXTURES = Path(__file__).parent / "fixtures" / "stripe"
@@ -596,7 +563,7 @@ async def test_two_onboardings_at_once_create_one_account(db: AsyncSession) -> N
 
     async def onboard() -> None:
         async with SessionLocal() as session:
-            await PaymentService(session, principal, gateway).start_onboarding(None)
+            await PaymentService(session, principal, gateway).account_session("onboarding")
 
     try:
         first = asyncio.create_task(onboard())

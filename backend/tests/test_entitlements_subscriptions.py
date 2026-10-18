@@ -342,28 +342,6 @@ async def test_cancel_cross_tenant_404(
     assert res.status_code == 404
 
 
-async def test_staff_pad_setup_requires_client_link(
-    as_owner: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    await enable_payments(db)
-    cid = await client_id(db)
-    res = await as_owner.post(f"/v1/payments/pad-setup-intent/{cid}")
-    assert res.status_code == 409, res.text
-    assert "authorization link" in res.json()["message"]
-
-
-async def test_pad_setup_requires_onboarding(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id=None))
-    await db.flush()
-    cid = await client_id(db)
-    assert (await as_owner.post(f"/v1/payments/pad-setup-intent/{cid}")).status_code == 409
-
-
-async def test_staff_cannot_pad_setup(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await client_id(db)
-    assert (await as_staff.post(f"/v1/payments/pad-setup-intent/{cid}")).status_code == 403
-
-
 async def test_acss_debit_records_bank_eft_mandate(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:

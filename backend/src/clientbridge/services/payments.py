@@ -64,7 +64,6 @@ from clientbridge.schemas.payments import (
     DetachResult,
     InvoicePaymentIn,
     InvoicePaymentOut,
-    OnboardingLink,
     PaymentMethodOut,
     PaymentSetupLinkOut,
     PublicCredit,
@@ -131,33 +130,6 @@ class PaymentService:
         self.principal = principal
         self.biz = principal.business_id
         self.gateway = gateway
-
-    async def start_onboarding(self, idempotency_key: str | None) -> OnboardingLink:
-        self._assert_admin()
-        settings = get_settings()
-
-        async def run(cmd: Command) -> OnboardingLink:
-            # the lock makes a concurrent onboarding or plan Checkout reuse this account
-            business = await self._locked_business()
-            account_id = await self._ensure_merchant(business, cmd)
-            await self._register_domains(account_id)
-            url = await self.gateway.create_account_link(
-                account_id,
-                refresh_url=f"{settings.web_base_url}/setup/getting-paid?refresh=1",
-                return_url=f"{settings.web_base_url}/setup/getting-paid?done=1",
-            )
-            cmd.record("connect.onboard", entity_type="business", entity_id=business.id)
-            return OnboardingLink(url=url, charges_enabled=business.stripe_charges_enabled)
-
-        return await run_command(
-            self.db,
-            self.principal,
-            action="connect.onboard",
-            run=run,
-            response_model=OnboardingLink,
-            idempotency_key=idempotency_key,
-            request={},
-        )
 
     async def account_session(self, component: ConnectComponent) -> ConnectSessionOut:
         self._assert_admin()
@@ -390,13 +362,6 @@ class PaymentService:
             idempotency_key=idempotency_key,
             request={"client_id": client_id},
         )
-
-    async def start_pad_setup(
-        self, client_id: str, idempotency_key: str | None = None
-    ) -> SetupIntentOut:
-        self._assert_admin()
-        await self._client(client_id)
-        raise Conflict("create a bank authorization link and ask the client to complete it")
 
     async def create_pad_link(self, client_id: str) -> PaymentSetupLinkOut:
         self._assert_admin()

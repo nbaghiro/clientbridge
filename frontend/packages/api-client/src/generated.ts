@@ -1730,23 +1730,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/connect/onboard": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Onboard */
-        post: operations["onboard_v1_connect_onboard_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/connect/session": {
         parameters: {
             query?: never;
@@ -1792,23 +1775,6 @@ export interface paths {
         put?: never;
         /** Setup Card */
         post: operations["setup_card_v1_payments_setup_intent__client_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/payments/pad-setup-intent/{client_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Setup Pad */
-        post: operations["setup_pad_v1_payments_pad_setup_intent__client_id__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2218,23 +2184,6 @@ export interface paths {
         put?: never;
         /** Cancel Subscription */
         post: operations["cancel_subscription_v1_subscriptions__subscription_id__cancel_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/tax-rates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Tax Rates */
-        get: operations["list_tax_rates_v1_tax_rates_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5879,13 +5828,6 @@ export interface components {
             /** Timezone */
             timezone?: string | null;
         };
-        /** OnboardingLink */
-        OnboardingLink: {
-            /** Url */
-            url: string;
-            /** Charges Enabled */
-            charges_enabled: boolean;
-        };
         /** OnlineBookingOut */
         OnlineBookingOut: {
             /** Slug */
@@ -8397,17 +8339,6 @@ export interface components {
              * @description Newest first
              */
             periods: components["schemas"]["FilingPeriod"][];
-        };
-        /** TaxRateOut */
-        TaxRateOut: {
-            /** Id */
-            id: string;
-            /** Jurisdiction */
-            jurisdiction: string;
-            /** Province */
-            province: string;
-            /** Rate Bps */
-            rate_bps: number;
         };
         /** TeamMember */
         TeamMember: {
@@ -12340,40 +12271,6 @@ export interface operations {
             };
         };
     };
-    onboard_v1_connect_onboard_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
-                "x-business-id"?: string;
-                "x-expected-user"?: string;
-                "x-session-token"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OnboardingLink"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     account_session_v1_connect_session_post: {
         parameters: {
             query?: never;
@@ -12445,42 +12342,6 @@ export interface operations {
         };
     };
     setup_card_v1_payments_setup_intent__client_id__post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
-                "x-business-id"?: string;
-                "x-expected-user"?: string;
-                "x-session-token"?: string;
-            };
-            path: {
-                client_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SetupIntentOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    setup_pad_v1_payments_pad_setup_intent__client_id__post: {
         parameters: {
             query?: never;
             header?: {
@@ -13424,39 +13285,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SubscriptionOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_tax_rates_v1_tax_rates_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-business-id"?: string;
-                "x-expected-user"?: string;
-                "x-session-token"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TaxRateOut"][];
                 };
             };
             /** @description Validation Error */

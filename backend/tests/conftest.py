@@ -458,11 +458,6 @@ class FakePaymentGateway:
         self._plan_changes[idempotency_key] = updated
         return updated
 
-    async def create_account_link(
-        self, account_id: str, *, refresh_url: str, return_url: str
-    ) -> str:
-        return f"https://connect.stripe.test/{account_id}"
-
     async def create_account_session(self, account_id: str, component: ConnectComponent) -> str:
         self.account_sessions.append((account_id, component))
         return f"session_secret_{len(self.account_sessions)}"
