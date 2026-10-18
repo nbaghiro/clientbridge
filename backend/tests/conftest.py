@@ -20,7 +20,13 @@ from clientbridge.core.deps import (
     get_twilio_auth_token,
 )
 from clientbridge.core.emails import normalize_email
-from clientbridge.core.errors import CardDeclined, Conflict, PaymentActionRequired, Unauthorized
+from clientbridge.core.errors import (
+    CardDeclined,
+    Conflict,
+    NotFound,
+    PaymentActionRequired,
+    Unauthorized,
+)
 from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import (
     public_booking_rate_limit,
@@ -55,8 +61,10 @@ from clientbridge.integrations.stripe import (
     SetupIntentResult,
     SetupIntentState,
     StripeResource,
+    StripeTransaction,
     SubscribedItem,
     SubscriptionResult,
+    TransactionPage,
     WebhookVerificationError,
     event_from,
     get_payment_gateway,
@@ -374,6 +382,7 @@ class FakePaymentGateway:
         self.location_addresses: list[PostalAddress] = []
         self.accounts: dict[str, ConnectAccount] = {}  # per-account get_account() results
         self.account_status: ConnectAccount | None = None  # override get_account() in a test
+        self.payout_transaction_calls: list[tuple[str, str, str | None]] = []
         self.pending_fees: set[str] = set()
         self.charges: dict[str, tuple[int, int]] = {}  # intent id -> (amount, application fee)
         self.payouts: dict[str, list[dict[str, object]]] = {}
@@ -526,9 +535,22 @@ class FakePaymentGateway:
     async def list_payouts(self, account_id: str) -> list[dict[str, object]]:
         return self.payouts.get(account_id, [])
 
+    async def payout_transactions(
+        self, account_id: str, payout_id: str, after: str | None
+    ) -> TransactionPage:
+        self.payout_transaction_calls.append((account_id, payout_id, after))
+        rows = [
+            StripeTransaction.model_validate(row) for row in self.transactions.get(payout_id, [])
+        ]
+        start = next((i + 1 for i, row in enumerate(rows) if row.id == after), 0)
+        page = rows[start : start + 24]
+        return TransactionPage(page, page[-1].id if start + 24 < len(rows) else None)
+
     async def retrieve(
         self, account_id: str | None, resource: StripeResource, identity: str
     ) -> dict[str, object]:
+        if resource == "payout" and (account_id, resource, identity) not in self.objects:
+            raise NotFound("payout not found")
         return self.objects[(account_id, resource, identity)]
 
     async def create_customer(

@@ -12,9 +12,11 @@ from types import CoroutineType
 from typing import Concatenate, Literal, Protocol, cast
 
 import stripe
+from pydantic import BaseModel, ConfigDict, ValidationError
 from stripe.params import (
     AccountSessionCreateParamsComponents,
     AccountSessionCreateParamsComponentsAccountManagementFeatures,
+    BalanceTransactionListParams,
     CustomerCreateParams,
     PaymentIntentCreateParams,
     SubscriptionModifyParamsItem,
@@ -35,8 +37,10 @@ from stripe.params.v2.core import (
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import (
+    AppError,
     CardDeclined,
     Conflict,
+    NotFound,
     PaymentActionRequired,
     PaymentsNotConfigured,
 )
@@ -461,6 +465,25 @@ StripeResource = Literal[
 ]
 
 
+class StripeTransaction(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    id: str
+    amount: int
+    fee: int
+    net: int
+    currency: str
+    type: str
+    source: str | None
+    created: int
+
+
+@dataclass(frozen=True)
+class TransactionPage:
+    transactions: list[StripeTransaction]
+    next_cursor: str | None
+
+
 class PaymentGateway(Protocol):
     async def create_connected_account(
         self,
@@ -530,6 +553,10 @@ class PaymentGateway(Protocol):
     ) -> list[GatewayEvent]: ...
 
     async def list_payouts(self, account_id: str) -> list[dict[str, object]]: ...
+
+    async def payout_transactions(
+        self, account_id: str, payout_id: str, after: str | None
+    ) -> TransactionPage: ...
 
     async def retrieve(
         self, account_id: str | None, resource: StripeResource, identity: str
@@ -1022,7 +1049,10 @@ class StripeGateway:
     @_keyed
     async def recent_events(self, account_id: str | None, since: datetime) -> list[GatewayEvent]:
         result = await stripe.Event.list_async(
-            stripe_account=account_id, created={"gte": int(since.timestamp())}, limit=100
+            stripe_account=account_id,
+            created={"gte": int(since.timestamp())},
+            delivery_success=False,
+            limit=100,
         )
         return [
             replace(event_from(cast(dict[str, object], row.to_dict())), account=account_id)
@@ -1033,6 +1063,29 @@ class StripeGateway:
     async def list_payouts(self, account_id: str) -> list[dict[str, object]]:
         result = await stripe.Payout.list_async(stripe_account=account_id, limit=24)
         return [cast(dict[str, object], row.to_dict()) for row in result.data]
+
+    @_keyed
+    async def payout_transactions(
+        self, account_id: str, payout_id: str, after: str | None
+    ) -> TransactionPage:
+        params: BalanceTransactionListParams = {
+            "stripe_account": account_id,
+            "payout": payout_id,
+            "limit": 24,
+        }
+        if after is not None:
+            params["starting_after"] = after
+        try:
+            result = await stripe.BalanceTransaction.list_async(**params)
+        except stripe.InvalidRequestError as exc:
+            raise Conflict("payout transactions unavailable for this cursor") from exc
+        try:
+            rows = [StripeTransaction.model_validate(row.to_dict()) for row in result.data]
+        except ValidationError as exc:
+            raise AppError(
+                "invalid payout transactions", status_code=502, code="provider_unavailable"
+            ) from exc
+        return TransactionPage(rows, rows[-1].id if result.has_more and rows else None)
 
     @_keyed
     async def retrieve(
@@ -1054,7 +1107,12 @@ class StripeGateway:
             case "dispute":
                 value = await stripe.Dispute.retrieve_async(identity, stripe_account=account_id)
             case "payout":
-                value = await stripe.Payout.retrieve_async(identity, stripe_account=account_id)
+                try:
+                    value = await stripe.Payout.retrieve_async(identity, stripe_account=account_id)
+                except stripe.InvalidRequestError as exc:
+                    if _missing(exc):
+                        raise NotFound("payout not found") from exc
+                    raise
             case "invoice":
                 value = await stripe.Invoice.retrieve_async(identity, stripe_account=account_id)
             case "setup_intent":

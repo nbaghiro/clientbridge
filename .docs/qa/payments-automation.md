@@ -177,22 +177,22 @@ References: [Stripe Connect testing](https://docs.stripe.com/connect/testing),
 
 ## Review follow-up
 
-Implementation status after the first review-fix batch (2026-10-18):
+Implementation status after the review-fix follow-ups (2026-10-18):
 
 | Finding                                                 | Status                                         | Regression / next action                                                                                                                      |
 | ------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | Listed event version mismatch and stale outcome         | Fixed                                          | `test_payments_recovery.py`: old-version success/failure snapshots retrieve the current successful payment and its actual charge date.        |
-| Transient recovery timing                               | Fixed in event and unresolved-payment recovery | Fees unavailable defer without failing the job; the next run settles once. Extend the same deferred-work semantics to bounded reconciliation. |
+| Transient recovery timing                               | Implemented across recovery and source reconciliation | Fees unavailable defer without failing the job; the next run retries. Durable deferred-source checkpoints remain outstanding. |
 | Customer creation parameter drift                       | Fixed                                          | `test_payments_gateway.py`: rename retries use identical create parameters and update the same Customer separately.                           |
 | Old recovery receipts                                   | Fixed for routine notifications                | Old charges settle without receipt delivery; recent recovery still queues delivery. Gift-card issuance is preserved.                          |
 | Unbounded payout history read                           | Capped                                         | Adapter reads the latest 24 payouts. A full history/detail pagination feature remains separate.                                               |
 | Circular ledger/payment dependency                      | Fixed                                          | Payments owns repair orchestration; ledger owns journal operations.                                                                           |
 | Standalone Stripe fees                                  | Fixed for `stripe_fee` transactions            | Debit and credit transactions post once by provider transaction ID.                                                                           |
 | Bounded reconciliation, event replay and pending sweeps | Pending schema approval / implementation       | Durable checkpoints, fair batches, unresolved-source retries and method-aware retry windows.                                                  |
-| Drift acknowledgement and consolidated alerts           | Pending                                        | Use reviewed source fingerprints and append-only audit decisions; acknowledgement does not change the ledger.                                 |
-| Orphan and PAD refund completeness                      | Pending                                        | Account for orphan charge/refund/returned fees and verify PAD source formats with sandbox evidence.                                           |
+| Drift acknowledgement and consolidated alerts | Implemented; regression gate passed | Existing append-only audits deduplicate unchanged findings, record platform-admin acknowledgement and reopen changed/resolved findings. Removed duplicate aggregate alert; no balancing journal or schema addition. |
+| Orphan and PAD refund completeness | Regression implemented; sandbox evidence pending | Audited orphan charges/refunds/returned fees journal once without recognizing a sale. `pyr_` sources supported; actual PAD refund format still needs sandbox verification. |
 | Payout transit accounting                               | Pending schema approval / implementation       | Add the transit category, then correct journals/reports and test ordering, failures and historical repair.                                    |
-| Payout contents and adapter result validation           | Pending                                        | Typed, bounded automatic-payout details; explicit unsupported/manual states and malformed-response errors.                                    |
+| Payout contents and adapter result validation | Implemented; regression gate passed | Typed automatic-payout transactions, 24-row cursor pages, tenant/role gates and explicit pending/manual states; web/mobile share the hook. Malformed payout responses return 502. |
 
 Do not treat this branch as merge-ready until these remaining findings are resolved and the full gate
 is rerun. The schema proposals are a server-only `checkpoints` table and the `transit` account-category
@@ -209,3 +209,37 @@ Validation for this batch: `make check` passed with 2,113 backend tests (93.41% 
 contract suite passed 34 tests against stripe-mock. Old-version replay, stale receipt, Customer retry
 and standalone fee regressions were observed failing before their fixes. These results do not represent
 a live sandbox payout or completion of the remaining review items.
+
+
+## Follow-up execution evidence — 2026-10-18
+
+The follow-up adds `GET /v1/connect/payouts/{id}/transactions?after=...` and the platform-only
+`POST /admin/v1/businesses/{business_id}/drift/{finding_id}/acknowledge` (body: `reason`).
+Acknowledgements preserve money and the original finding; changing its amounts or transaction IDs
+creates a new finding. Only identical, acknowledged findings stop alerting. Successful repair records
+resolution. Event recovery filters failed/pending webhook deliveries; the fallback payment sweep is
+limited to pending payments created in the past 30 days. Durable/fair batching remains outstanding.
+
+Targeted backend regression: 101 tests passed across payment recovery, ledger jobs/drift and admin.
+Stripe-mock contracts: 35 passed. The added browser test in `paymentAccount.e2e.ts` passed through
+real app login and rendering, covering payout-detail pagination, previous-page navigation and clearing
+stale contents on switching to manual payouts. It intercepts the payout HTTP responses, so this is
+browser regression evidence, **not** a real Stripe/application E2E sign-off. Enable `E2E_RECORD=1`
+when running web Playwright to save videos for passing tests as well as failures.
+
+No checklist group is declared fully covered by this follow-up. All 35 IDs and every variant in
+`payments.md` remain the release inventory. The dedicated sandbox accounts, signed webhook isolation,
+full real-app recordings, provider lifecycle coverage and native/hardware checks are still required.
+The pending schema decisions prevent final reconciliation/restart and payout-report assertions from
+being implemented against the intended final model. Do not merge based on the partial evidence above.
+
+The demo account readiness recheck still reports `charges_enabled=false` and `payouts_enabled=false`
+for both merchants. A passing browser recording is saved locally at
+`.scratchpad/stripe-review/payout-contents.webm`; its payout responses are controlled fixtures.
+Remaining implementation work also includes generic retrieved-object typing/validation and complete
+payout history/30-day totals, in addition to the checkpoint and transit schema-dependent work.
+
+Follow-up full gate: `make check` passed (2,128 backend tests, 93.31% branch-aware coverage;
+498 frontend tests plus timezone reruns; 102 infrastructure tests). The separate Stripe contract suite
+passed 35 tests and the payout browser scenario passed with a video. These results do not clear the
+remaining schema, sandbox or complete-checklist coverage blockers.

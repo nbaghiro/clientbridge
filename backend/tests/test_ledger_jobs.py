@@ -21,7 +21,9 @@ async def _connect(db: AsyncSession, business_id: str, account: str) -> None:
 
 async def _drifts(db: AsyncSession, business_id: str) -> list[Audit]:
     rows = await db.execute(
-        select(Audit).where(Audit.business_id == business_id, Audit.action == "ledger.drift")
+        select(Audit).where(
+            Audit.business_id == business_id, Audit.action == "ledger.transaction_drift"
+        )
     )
     return list(rows.scalars().all())
 
@@ -43,11 +45,18 @@ async def test_mismatch_is_audited_with_both_figures(
     db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     await _connect(db, BIZ, "acct_recon_off")
-    ours = await _ledger_stripe(db)
-    gateway.balance_cents = ours + 1234
-    assert await run_reconcile_payments(db, gateway) >= 1
+    gateway.transactions["acct_recon_off"] = [
+        {"id": "txn_missing", "source": None, "net": -1234, "currency": "cad"}
+    ]
+    assert await run_reconcile_payments(db, gateway) == 1
     (drift,) = await _drifts(db, BIZ)
-    assert drift.changes == {"ledger_cents": ours, "stripe_cents": ours + 1234}
+    assert drift.changes == {
+        "source": "txn_missing",
+        "transaction_ids": ["txn_missing"],
+        "ledger_cents": 0,
+        "stripe_cents": -1234,
+    }
+    assert list(await db.scalars(select(Audit).where(Audit.action == "ledger.drift"))) == []
 
 
 async def test_unconnected_business_is_skipped(
@@ -95,11 +104,11 @@ async def test_one_provider_failure_does_not_skip_other_businesses(
     assert other.stripe_account_id == "acct_available"
     assert other.stripe_requirements == {"card_status": "active"}
 
-    async def balance(account_id: str, *, currency: str) -> int:
+    async def transactions(account_id: str) -> list[dict[str, object]]:
         if account_id == "acct_unavailable":
             raise httpx.ConnectError("provider unavailable")
-        return 999
+        return [{"id": "txn_missing", "source": None, "net": -999, "currency": "cad"}]
 
-    monkeypatch.setattr(gateway, "get_balance_cents", balance)
+    monkeypatch.setattr(gateway, "balance_transactions", transactions)
     assert await run_reconcile_payments(db, gateway) >= 1
     assert len(await _drifts(db, other_id)) == 1

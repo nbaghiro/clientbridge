@@ -1296,3 +1296,34 @@ async def post_stripe_fee(
         occurred_at=occurred_at,
     )
     return ref
+
+
+async def post_orphan(
+    db: AsyncSession,
+    business_id: str,
+    transaction_id: str,
+    intent_id: str,
+    amount: int,
+    processing_fee: int,
+    application_fee: int,
+    occurred_at: datetime,
+) -> str:
+    ref = f"orphan:{transaction_id}"
+    await post(
+        db,
+        business_id,
+        event="payment" if amount > 0 else "refund",
+        ref=ref,
+        legs=[
+            Leg("business", business_id, "stripe", amount - processing_fee - application_fee),
+            Leg("business", business_id, "payable", -amount, code="orphan"),
+            Leg("business", business_id, "processing_fee", processing_fee),
+            Leg("business", business_id, "platform_fee", application_fee),
+            Leg("platform", PLATFORM, "stripe", application_fee),
+            Leg("platform", PLATFORM, "fee_revenue", -application_fee),
+        ],
+        source=("stripe_transaction", transaction_id),
+        subject=("payment_intent", intent_id),
+        occurred_at=occurred_at,
+    )
+    return ref

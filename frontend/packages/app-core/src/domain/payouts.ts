@@ -8,6 +8,7 @@ import { type Load } from "../hooks";
 import { strings } from "../strings";
 import { addDays, formatShortDay, parseTimestamp, useBusinessZone } from "../datetime";
 import type { Intent } from "../ui";
+import { formatMoney, formatParts } from "../format";
 import { utcFromSql, utcSql } from "../datetime";
 import { useReplicaLoad } from "./sync";
 
@@ -100,6 +101,100 @@ function chargeDescription(row: ChargeRow): string {
     return strings.payouts.prepaidCharge;
 }
 
+interface PayoutContentsRow {
+    id: string;
+    source: string | null;
+    kind: string;
+    amount_cents: number;
+    fee_cents: number;
+    net_cents: number;
+    currency: string;
+    occurred_at: string;
+}
+
+interface PayoutContentsResponse {
+    status: "available" | "pending" | "unavailable";
+    transactions: PayoutContentsRow[];
+    next_cursor: string | null;
+}
+
+interface PayoutContents {
+    load: Load;
+    status: PayoutContentsResponse["status"];
+    rows: { id: string; title: string; detail: string; net: string }[];
+    next: (() => void) | null;
+    previous: (() => void) | null;
+}
+
+function usePayoutContents(
+    api: ApiLike,
+    businessId: string | null,
+    payoutId: string | null,
+): PayoutContents {
+    const scope = `${businessId ?? ""}:${payoutId ?? ""}`;
+    const [paging, setPaging] = useState<{ scope: string; cursors: string[] }>({
+        scope,
+        cursors: [],
+    });
+    const cursors = paging.scope === scope ? paging.cursors : [];
+    const cursor = cursors.at(-1);
+    const key = `${scope}:${cursor ?? ""}`;
+    const remote = useRemote(
+        async () => ({
+            key,
+            body:
+                businessId === null || payoutId === null
+                    ? null
+                    : await api.get<PayoutContentsResponse>(
+                          `/v1/connect/payouts/${payoutId}/transactions${cursor === undefined ? "" : `?after=${encodeURIComponent(cursor)}`}`,
+                      ),
+        }),
+        key,
+    );
+    const data = remote.data?.key === key ? remote.data.body : null;
+    const load = useReplicaLoad(
+        [
+            {
+                ...remote,
+                isLoading: remote.isLoading || (remote.error === null && remote.data?.key !== key),
+            },
+        ],
+        false,
+    );
+    const nextCursor = data?.next_cursor;
+    return {
+        load,
+        status: data?.status ?? "pending",
+        rows: (data?.transactions ?? []).map((row) => ({
+            id: row.id,
+            title:
+                row.kind === "charge" || row.kind === "payment"
+                    ? strings.payouts.transactionCharge
+                    : row.kind === "refund" || row.kind === "payment_refund"
+                      ? strings.payouts.transactionRefund
+                      : row.kind === "stripe_fee"
+                        ? strings.payouts.transactionFee
+                        : strings.payouts.transactionOther,
+            detail: formatParts([
+                formatMoney(row.amount_cents, row.currency),
+                strings.payouts.transactionFees(formatMoney(row.fee_cents, row.currency)),
+            ]),
+            net: formatMoney(row.net_cents, row.currency),
+        })),
+        next: nextCursor
+            ? () => {
+                  setPaging({ scope, cursors: [...cursors, nextCursor] });
+              }
+            : null,
+        previous:
+            cursors.length > 0
+                ? () => {
+                      setPaging({ scope, cursors: cursors.slice(0, -1) });
+                  }
+                : null,
+    };
+}
+
 export interface Payouts {
     load: Load;
     payouts: PayoutView[];
@@ -110,6 +205,7 @@ export interface Payouts {
     feesCents: number;
     charges: ChargeView[];
     feesPending: number;
+    contents: PayoutContents;
 }
 
 /** Stripe payouts to the bank and the recent card charges with their fees, from the ledger. */
@@ -134,6 +230,8 @@ export function usePayouts(api: ApiLike): Payouts {
         status: p.status,
         when: payoutWhen(p, zone),
     }));
+    const selected = views.find((p) => p.id === selectedId) ?? views[0] ?? null;
+    const contents = usePayoutContents(api, businessId, selected?.id ?? null);
     const chargeViews = charges.data.map((c) => ({
         id: c.id,
         client: c.client_name ?? strings.payouts.walkIn,
@@ -151,7 +249,8 @@ export function usePayouts(api: ApiLike): Payouts {
     return {
         load,
         payouts: views,
-        selected: views.find((p) => p.id === selectedId) ?? views[0] ?? null,
+        selected,
+        contents,
         select: setSelectedId,
         balanceCents: balance.data[0]?.cents ?? 0,
         depositedCents: views

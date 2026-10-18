@@ -529,3 +529,23 @@ Provider references: [embedded payouts](https://docs.stripe.com/connect/supporte
 [payout schedules](https://docs.stripe.com/connect/manage-payout-schedule),
 [webhooks](https://docs.stripe.com/webhooks), [event history](https://docs.stripe.com/api/events/list),
 and [balance transactions](https://docs.stripe.com/api/balance_transactions/list).
+
+
+### Source findings and payout details
+
+Automatic payouts expose bounded, cursor-paged transaction details through
+`GET /v1/connect/payouts/{payout_id}/transactions?after=txn_...`. The service checks owner/admin
+access and retrieves both payout and transactions in the current business's connected account.
+Pending reconciliation and manual payouts have explicit states; manual payouts do not receive an
+invented transaction allocation. Web and mobile render the same app-core view model.
+
+Source mismatches are append-only audit findings. Repeated identical findings reuse their original
+record. A platform administrator can acknowledge one with a reason through
+`POST /admin/v1/businesses/{business_id}/drift/{finding_id}/acknowledge`; this changes no ledger entries.
+A changed mismatch creates a fresh finding; a repaired source records resolution. The nightly job
+reports source findings and cache corruption, without a second all-time aggregate alert for the same
+source mismatch. Transient `retry_later` responses defer reconciliation until the next run.
+
+Audited orphan collections and their refunds post to an orphan payable, with processor and application
+fees taken from the provider balance transactions. They create no sale revenue or product entitlement.
+Unknown fee types and inconsistent provider amounts remain errors rather than balancing adjustments.

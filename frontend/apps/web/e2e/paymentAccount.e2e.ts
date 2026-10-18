@@ -47,3 +47,79 @@ test("payment account entrypoints preserve navigation when payment tools are off
     ).toBeVisible();
     await page.getByRole("button", { name: strings.paymentAccount.close, exact: true }).click();
 });
+
+test("payout contents paginate and clear when switching to a manual payout", async ({ page }) => {
+    const created = new Date().toISOString();
+    await page.route("**/v1/connect/payouts", async (route) => {
+        await route.fulfill({
+            json: [
+                {
+                    id: "po_auto",
+                    amount_cents: 1200,
+                    status: "paid",
+                    occurred_at: created,
+                    arrival_at: created,
+                },
+                {
+                    id: "po_manual",
+                    amount_cents: 3400,
+                    status: "pending",
+                    occurred_at: created,
+                    arrival_at: null,
+                },
+            ],
+        });
+    });
+    await page.route("**/v1/connect/payouts/*/transactions*", async (route) => {
+        const url = new URL(route.request().url());
+        if (url.pathname.includes("po_manual")) {
+            await route.fulfill({
+                json: { status: "unavailable", transactions: [], next_cursor: null },
+            });
+            return;
+        }
+        const next = url.searchParams.has("after");
+        await route.fulfill({
+            json: {
+                status: "available",
+                next_cursor: next ? null : "txn_first",
+                transactions: [
+                    {
+                        id: next ? "txn_second" : "txn_first",
+                        source: null,
+                        kind: next ? "refund" : "charge",
+                        amount_cents: next ? -500 : 2000,
+                        fee_cents: 0,
+                        net_cents: next ? -500 : 2000,
+                        currency: "CAD",
+                        occurred_at: created,
+                    },
+                ],
+            },
+        });
+    });
+    await page.goto("/payments/payouts");
+    await page
+        .getByRole("textbox", { name: strings.auth.email, exact: true })
+        .fill("hannah@birchbarkpets.ca");
+    await page.getByLabel(strings.auth.password, { exact: true }).fill("demo1234");
+    await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
+    await expect(page.getByText(strings.payouts.contentsTitle, { exact: true })).toBeVisible({
+        timeout: 60_000,
+    });
+    await expect(page.getByText(strings.payouts.transactionCharge, { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: strings.payouts.contentsNext, exact: true }).click();
+    await expect(page.getByText(strings.payouts.transactionRefund, { exact: true })).toBeVisible();
+    await expect(
+        page.getByText(strings.payouts.transactionCharge, { exact: true }),
+    ).not.toBeVisible();
+    await page.getByRole("button", { name: strings.payouts.contentsPrevious, exact: true }).click();
+    await expect(page.getByText(strings.payouts.transactionCharge, { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: /34[.]00/ }).click();
+    await expect(
+        page.getByText(strings.payouts.contentsUnavailable, { exact: true }),
+    ).toBeVisible();
+    await expect(
+        page.getByText(strings.payouts.transactionCharge, { exact: true }),
+    ).not.toBeVisible();
+});

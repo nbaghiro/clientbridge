@@ -13,6 +13,8 @@ from clientbridge.schemas.admin import (
     AdminBusinessDetail,
     AdminClient,
     AdminDelivery,
+    AdminDriftAcknowledgement,
+    AdminDriftResult,
     AdminEmail,
     AdminEmailConfig,
     AdminEmailPreview,
@@ -162,3 +164,10 @@ async def deliveries(
 @router.post("/businesses/{business_id}/sms")
 async def assign_sms(admin: Service, business_id: str, body: AdminSmsAssignment) -> AdminBusiness:
     return await admin.assign_sms(business_id, body)
+
+
+@router.post("/businesses/{business_id}/drift/{finding_id}/acknowledge")
+async def acknowledge_drift(
+    admin: Service, business_id: str, finding_id: str, body: AdminDriftAcknowledgement
+) -> AdminDriftResult:
+    return await admin.acknowledge_drift(business_id, finding_id, body)

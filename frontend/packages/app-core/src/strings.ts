@@ -3384,7 +3384,6 @@ interface Strings {
         readonly arrived: (when: string) => string;
         readonly returned: (when: string) => string;
         readonly payoutRef: string;
-        readonly settledNotice: string;
         readonly returnedNotice: string;
         readonly chargesTitle: string;
         readonly chargesHint: string;
@@ -3406,6 +3405,17 @@ interface Strings {
         readonly loadError: string;
         readonly loading: string;
         readonly expected: (when: string) => string;
+        readonly contentsTitle: string;
+        readonly contentsPending: string;
+        readonly contentsUnavailable: string;
+        readonly contentsEmpty: string;
+        readonly contentsNext: string;
+        readonly contentsPrevious: string;
+        readonly transactionCharge: string;
+        readonly transactionRefund: string;
+        readonly transactionFee: string;
+        readonly transactionOther: string;
+        readonly transactionFees: (amount: string) => string;
     };
     readonly auth: {
         readonly invalidCredentials: string;

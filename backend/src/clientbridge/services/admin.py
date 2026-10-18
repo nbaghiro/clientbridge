@@ -34,6 +34,8 @@ from clientbridge.schemas.admin import (
     AdminBusinessDetail,
     AdminClient,
     AdminDelivery,
+    AdminDriftAcknowledgement,
+    AdminDriftResult,
     AdminEmailConfig,
     AdminEmailPreview,
     AdminEmailResult,
@@ -531,4 +533,37 @@ class AdminService:
             action="business.sms_assignment",
             run=run,
             response_model=AdminBusiness,
+        )
+
+    async def acknowledge_drift(
+        self, business_id: str, finding_id: str, body: AdminDriftAcknowledgement
+    ) -> AdminDriftResult:
+        async def run(cmd: Command) -> AdminDriftResult:
+            finding = await self.db.scalar(
+                scoped(Audit, business_id)
+                .where(Audit.id == finding_id, Audit.action == "ledger.transaction_drift")
+                .with_for_update()
+            )
+            if finding is None:
+                raise NotFound("drift finding not found")
+            existing = await self.db.scalar(
+                scoped(Audit, business_id)
+                .where(Audit.entity_id == finding_id, Audit.action == "ledger.drift_acknowledged")
+                .limit(1)
+            )
+            if existing is None:
+                cmd.record(
+                    "ledger.drift_acknowledged",
+                    entity_type="audit",
+                    entity_id=finding_id,
+                    changes={"reason": body.reason.strip(), "identity_id": self.identity.id},
+                )
+            return AdminDriftResult(finding_id=finding_id)
+
+        return await run_command(
+            self.db,
+            PublicPrincipal(business_id),
+            action="ledger.drift_acknowledged",
+            run=run,
+            response_model=AdminDriftResult,
         )

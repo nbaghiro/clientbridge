@@ -213,9 +213,44 @@ export function Payouts() {
                                 {sel.ref !== null ? (
                                     <KeyValueList rows={[{ label: s.payoutRef, value: sel.ref }]} />
                                 ) : null}
-                                <Notice tone="info" banner>
-                                    {s.settledNotice}
-                                </Notice>
+                                <Panel flush title={s.contentsTitle}>
+                                    {p.contents.load.state === "loading" ? (
+                                        <Skeleton variant="row" count={3} label={s.loading} />
+                                    ) : p.contents.load.state === "error" ? (
+                                        <LoadFailed
+                                            message={s.loadError}
+                                            onRetry={p.contents.load.retry}
+                                            retrying={p.contents.load.retrying}
+                                        />
+                                    ) : p.contents.status !== "available" ? (
+                                        <Notice tone="info" banner>
+                                            {p.contents.status === "pending"
+                                                ? s.contentsPending
+                                                : s.contentsUnavailable}
+                                        </Notice>
+                                    ) : p.contents.rows.length === 0 ? (
+                                        <Empty message={s.contentsEmpty} />
+                                    ) : (
+                                        p.contents.rows.map((row) => (
+                                            <ListRow
+                                                key={row.id}
+                                                title={row.title}
+                                                detail={row.detail}
+                                                meta={row.net}
+                                            />
+                                        ))
+                                    )}
+                                    {p.contents.previous !== null ? (
+                                        <Button variant="outline" onPress={p.contents.previous}>
+                                            {s.contentsPrevious}
+                                        </Button>
+                                    ) : null}
+                                    {p.contents.next !== null ? (
+                                        <Button variant="outline" onPress={p.contents.next}>
+                                            {s.contentsNext}
+                                        </Button>
+                                    ) : null}
+                                </Panel>
                             </div>
                         </Panel>
                     ) : null}

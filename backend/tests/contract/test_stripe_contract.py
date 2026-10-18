@@ -212,3 +212,9 @@ async def test_lists_events(contract_gateway: StripeGateway) -> None:
 
 async def test_finds_invoice_from_payment(contract_gateway: StripeGateway) -> None:
     assert await contract_gateway.invoice_for_payment(ACCT, "pi_contract") is not None
+
+
+async def test_lists_payout_transactions(contract_gateway: StripeGateway) -> None:
+    page = await contract_gateway.payout_transactions(ACCT, "po_contract", None)
+    assert page.transactions
+    assert all(row.net == row.amount - row.fee for row in page.transactions)

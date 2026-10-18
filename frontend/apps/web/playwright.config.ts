@@ -14,6 +14,7 @@ export default defineConfig({
     use: {
         viewport: { width: 1440, height: 900 },
         trace: "retain-on-failure",
+        video: process.env.E2E_RECORD === "1" ? "on" : "off",
         screenshot: "only-on-failure",
         ...(process.env.CI ? {} : { channel: "chrome" }),
     },

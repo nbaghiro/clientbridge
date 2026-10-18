@@ -51,6 +51,23 @@ class PayoutOut(BaseModel):
     status: Literal["pending", "in_transit", "paid", "failed", "canceled"]
 
 
+class PayoutTransactionOut(BaseModel):
+    id: str
+    source: str | None
+    kind: str
+    amount_cents: int
+    fee_cents: int
+    net_cents: int
+    currency: str
+    occurred_at: datetime
+
+
+class PayoutContentsOut(BaseModel):
+    status: Literal["available", "pending", "unavailable"]
+    transactions: list[PayoutTransactionOut] = Field(default_factory=list)
+    next_cursor: str | None = None
+
+
 class SetupIntentOut(BaseModel):
     client_secret: str
     stripe_account_id: str

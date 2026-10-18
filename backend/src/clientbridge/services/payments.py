@@ -35,6 +35,7 @@ from clientbridge.integrations.stripe import (
     PaymentGateway,
     PriceTerms,
     StripeResource,
+    StripeTransaction,
     WebhookVersionError,
     period_timestamp,
 )
@@ -68,7 +69,9 @@ from clientbridge.schemas.payments import (
     InvoicePaymentOut,
     PaymentMethodOut,
     PaymentSetupLinkOut,
+    PayoutContentsOut,
     PayoutOut,
+    PayoutTransactionOut,
     PublicCredit,
     PublicPaymentSetup,
     RefundOut,
@@ -236,19 +239,60 @@ class PaymentService:
         if account is None:
             return []
         rows = await self.gateway.list_payouts(account)
-        return [
-            PayoutOut.model_validate(
-                {
-                    "id": row["id"],
-                    "amount_cents": row["amount"],
-                    "arrival_at": _stamp(row, "arrival_date"),
-                    "occurred_at": _stamp(row, "created"),
-                    "status": row["status"],
-                }
-            )
-            for row in rows
-            if row.get("currency") == BUSINESS_CURRENCY.lower()
-        ]
+        try:
+            return [
+                PayoutOut.model_validate(
+                    {
+                        "id": row["id"],
+                        "amount_cents": row["amount"],
+                        "arrival_at": _stamp(row, "arrival_date"),
+                        "occurred_at": _stamp(row, "created"),
+                        "status": row["status"],
+                    }
+                )
+                for row in rows
+                if row.get("currency") == BUSINESS_CURRENCY.lower()
+            ]
+        except (KeyError, ValueError, OverflowError, OSError) as exc:
+            raise AppError(
+                "invalid payout response", status_code=502, code="provider_unavailable"
+            ) from exc
+
+    async def payout_contents(self, payout_id: str, after: str | None) -> PayoutContentsOut:
+        self._assert_admin()
+        account = merchant_account(await self._business())
+        if account is None:
+            raise NotFound("connected account not found")
+        payout = await self.gateway.retrieve(account, "payout", payout_id)
+        if not isinstance(payout.get("automatic"), bool) or payout.get(
+            "reconciliation_status"
+        ) not in ("completed", "in_progress", "not_applicable"):
+            raise AppError("invalid payout response", status_code=502, code="provider_unavailable")
+        if (
+            payout.get("automatic") is not True
+            or payout.get("reconciliation_status") == "not_applicable"
+        ):
+            return PayoutContentsOut(status="unavailable")
+        if payout.get("reconciliation_status") != "completed":
+            return PayoutContentsOut(status="pending")
+        page = await self.gateway.payout_transactions(account, payout_id, after)
+        return PayoutContentsOut(
+            status="available",
+            next_cursor=page.next_cursor,
+            transactions=[
+                PayoutTransactionOut(
+                    id=row.id,
+                    source=row.source,
+                    kind=row.type,
+                    amount_cents=row.amount,
+                    fee_cents=row.fee,
+                    net_cents=row.net,
+                    currency=row.currency.upper(),
+                    occurred_at=datetime.fromtimestamp(row.created, UTC),
+                )
+                for row in page.transactions
+            ],
+        )
 
     async def record_invoice_payment(
         self, invoice_id: str, data: InvoicePaymentIn, idempotency_key: str | None
@@ -2229,9 +2273,9 @@ async def _refund_orphan(
     if account_id is None or not isinstance(amount, int) or amount <= 0:
         return
     refunded = await db.execute(
-        select(Audit.id).where(
-            Audit.action == "payment.orphan_refunded", Audit.entity_id == intent_id
-        )
+        scoped(Audit, business_id)
+        .with_only_columns(Audit.id)
+        .where(Audit.action == "payment.orphan_refunded", Audit.entity_id == intent_id)
     )
     if refunded.scalar_one_or_none() is not None:
         return
@@ -3105,7 +3149,8 @@ async def run_recover_payments(db: AsyncSession, gateway: PaymentGateway) -> int
         await db.scalars(
             select(Payment.id).where(
                 Payment.provider == "stripe",
-                Payment.status.in_(("pending", "failed")),
+                Payment.status == "pending",
+                Payment.created_at >= clock.now() - timedelta(days=30),
                 Payment.provider_ref.is_not(None),
             )
         )
@@ -3200,7 +3245,7 @@ async def recover_stripe_source(
         )
         if payment is not None:
             refs = [f"payment:{payment.id}", f"fee:{payment.id}"]
-    elif source.startswith("re_"):
+    elif source.startswith(("re_", "pyr_")):
         refund = await gateway.retrieve(account_id, "refund", source)
         outcome = await _reconcile_refund(db, refund)
         payment = await db.scalar(
@@ -3268,6 +3313,118 @@ def _drift(business_id: str, action: str, changes: dict[str, object]) -> Audit:
     )
 
 
+async def _source_drift(
+    db: AsyncSession, business_id: str, source: str, changes: dict[str, object] | None
+) -> int:
+    await db.execute(
+        select(
+            func.pg_advisory_xact_lock(func.hashtextextended(f"drift:{business_id}:{source}", 0))
+        )
+    )
+    previous = await db.scalar(
+        scoped(Audit, business_id)
+        .where(Audit.action == "ledger.transaction_drift", Audit.entity_id == source)
+        .order_by(Audit.id.desc())
+        .limit(1)
+    )
+    resolved = (
+        await db.scalar(
+            scoped(Audit, business_id)
+            .where(Audit.action == "ledger.drift_resolved", Audit.entity_id == previous.id)
+            .limit(1)
+        )
+        if previous is not None
+        else None
+    )
+    if changes is None:
+        if previous is not None and resolved is None:
+            db.add(
+                Audit(
+                    id=new_id("audit"),
+                    business_id=business_id,
+                    action="ledger.drift_resolved",
+                    entity_type="audit",
+                    entity_id=previous.id,
+                    changes={},
+                )
+            )
+        return 0
+    if previous is not None and previous.changes == changes and resolved is None:
+        acknowledged = await db.scalar(
+            scoped(Audit, business_id)
+            .where(Audit.action == "ledger.drift_acknowledged", Audit.entity_id == previous.id)
+            .limit(1)
+        )
+        return int(acknowledged is None)
+    finding = _drift(business_id, "ledger.transaction_drift", changes)
+    finding.entity_type = "stripe_source"
+    finding.entity_id = source
+    db.add(finding)
+    return 1
+
+
+async def _orphan_transactions(
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    business_id: str,
+    account_id: str,
+    source: str,
+    transactions: list[dict[str, object]],
+) -> list[str]:
+    resource: StripeResource
+    if source.startswith(("ch_", "py_")):
+        resource = "charge"
+    elif source.startswith(("re_", "pyr_")):
+        resource = "refund"
+    else:
+        return []
+    obj = await gateway.retrieve(account_id, resource, source)
+    intent = obj.get("payment_intent")
+    if not isinstance(intent, str):
+        return []
+    audit = await db.scalar(
+        scoped(Audit, business_id).where(
+            Audit.action == "payment.orphan_refunded",
+            Audit.entity_id == intent,
+        )
+    )
+    if audit is None:
+        return []
+    refs = []
+    for raw in transactions:
+        row = StripeTransaction.model_validate(raw)
+        if row.currency != BUSINESS_CURRENCY.lower():
+            raise ValueError("orphan transaction currency does not match business")
+        details = raw.get("fee_details")
+        if not isinstance(details, list):
+            raise ValueError("orphan transaction has no fee breakdown")
+        processing, application = 0, 0
+        for fee in details:
+            if not isinstance(fee, dict) or not isinstance(fee.get("amount"), int):
+                raise ValueError("invalid orphan transaction fee")
+            if fee.get("type") == "application_fee":
+                application += int(fee["amount"])
+            elif fee.get("type") in ("stripe_fee", "payment_method_passthrough_fee", "tax"):
+                processing += int(fee["amount"])
+            else:
+                raise ValueError("unsupported orphan transaction fee")
+        if processing + application != row.fee or row.amount - row.fee != row.net:
+            raise ValueError("orphan transaction fees do not reconcile")
+        refs.append(
+            await ledger.post_orphan(
+                db,
+                business_id,
+                row.id,
+                intent,
+                row.amount,
+                processing,
+                application,
+                datetime.fromtimestamp(row.created, UTC),
+            )
+        )
+    return refs
+
+
 async def reconcile_stripe_transactions(
     db: AsyncSession, gateway: PaymentGateway, business_id: str, account_id: str
 ) -> int:
@@ -3297,6 +3454,10 @@ async def reconcile_stripe_transactions(
                 refs = await recover_stripe_source(
                     db, gateway, business_id, account_id, source, occurred_at
                 )
+            if not refs:
+                refs = await _orphan_transactions(
+                    db, gateway, business_id, account_id, source, transactions
+                )
             expected = sum(
                 net
                 for row in transactions
@@ -3314,23 +3475,22 @@ async def reconcile_stripe_transactions(
                 )
                 .with_only_columns(func.coalesce(func.sum(Entry.amount_cents), 0))
             )
-            if not refs or actual != expected:
-                drifted += 1
-                db.add(
-                    _drift(
-                        business_id,
-                        "ledger.transaction_drift",
-                        {
-                            "source": source,
-                            "transaction_ids": [row.get("id") for row in transactions],
-                            "ledger_cents": int(actual or 0),
-                            "stripe_cents": expected,
-                        },
-                    )
-                )
+            changes: dict[str, object] | None = (
+                {
+                    "source": source,
+                    "transaction_ids": [row.get("id") for row in transactions],
+                    "ledger_cents": int(actual or 0),
+                    "stripe_cents": expected,
+                }
+                if not refs or actual != expected
+                else None
+            )
+            drifted += await _source_drift(db, business_id, source, changes)
             await db.commit()
-        except Exception:
+        except Exception as exc:
             await db.rollback()
+            if isinstance(exc, AppError) and exc.code == "retry_later":
+                continue
             drifted += 1
             db.add(_drift(business_id, "ledger.transaction_failed", {"source": source}))
             await db.commit()
@@ -3339,7 +3499,7 @@ async def reconcile_stripe_transactions(
 
 
 async def run_reconcile_payments(db: AsyncSession, gateway: PaymentGateway) -> int:
-    """Check every cached balance against its entries and every connected account against Stripe."""
+    """Repair provider sources and check journal and cached balances."""
     ids = list(await db.scalars(select(Business.id).order_by(Business.id)))
     drifted = 0
     for identity in ids:
@@ -3355,18 +3515,6 @@ async def run_reconcile_payments(db: AsyncSession, gateway: PaymentGateway) -> i
             if stale:
                 found += 1
                 db.add(_drift(identity, "ledger.cache_drift", {"account_ids": stale}))
-            if account_id is not None:
-                ours = await ledger.balance(
-                    db, identity, owner_type="business", owner_id=identity, category="stripe"
-                )
-                theirs = await gateway.get_balance_cents(account_id, currency=BUSINESS_CURRENCY)
-                if ours != theirs:
-                    found += 1
-                    db.add(
-                        _drift(
-                            identity, "ledger.drift", {"ledger_cents": ours, "stripe_cents": theirs}
-                        )
-                    )
             await db.commit()
             drifted += found
         except Exception:
