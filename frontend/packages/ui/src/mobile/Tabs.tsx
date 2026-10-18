@@ -1,7 +1,8 @@
-import type { TabsProps } from "@clientbridge/app-core";
+import { type TabsProps, strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
 
+import { Badge } from "./Badge";
 import type { NativeProps } from "./props";
 
 export function Tabs<K extends string>({
@@ -27,7 +28,11 @@ export function Tabs<K extends string>({
                 <Pressable
                     key={item.key}
                     accessibilityRole="tab"
-                    accessibilityLabel={item.label}
+                    accessibilityLabel={
+                        item.count !== undefined && item.count > 0
+                            ? strings.common.labelCount(item.label, item.count)
+                            : item.label
+                    }
                     accessibilityState={{ selected: item.key === active }}
                     style={
                         pill
@@ -46,6 +51,14 @@ export function Tabs<K extends string>({
                     >
                         {item.label}
                     </Text>
+                    {item.count !== undefined && item.count > 0 ? (
+                        <Badge
+                            label={item.count}
+                            variant="count"
+                            intent="danger"
+                            style={styles.count}
+                        />
+                    ) : null}
                 </Pressable>
             ))}
         </ScrollView>
@@ -60,13 +73,24 @@ const styles = StyleSheet.create({
         borderBottomWidth: StyleSheet.hairlineWidth,
     },
     row: { paddingHorizontal: 20, gap: 22 },
-    tab: { paddingTop: 6, paddingBottom: 10, borderBottomWidth: 2, borderColor: "transparent" },
+    tab: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        paddingTop: 6,
+        paddingBottom: 10,
+        borderBottomWidth: 2,
+        borderColor: "transparent",
+    },
     tabOn: { borderColor: theme.colors.accent },
     label: { color: theme.colors.muted, fontSize: 14, fontWeight: "600" },
     labelOn: { color: theme.colors.ink },
     pillBar: { flexGrow: 0, flexShrink: 0 },
     pillRow: { paddingHorizontal: 20, paddingVertical: 4, gap: 8 },
     pill: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
         paddingHorizontal: 14,
         paddingVertical: 7,
         borderRadius: 999,
@@ -77,4 +101,5 @@ const styles = StyleSheet.create({
     pillOn: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
     pillLabelOn: { color: theme.colors.accentInk },
     flush: { paddingHorizontal: 0 },
+    count: { alignSelf: "center" },
 });

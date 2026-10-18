@@ -2444,11 +2444,17 @@ export function useRegisterCatalog(): RegisterCatalog {
 
 export type SalesView = "register" | "board" | "history";
 
+export const OPEN_PICKUPS_SQL = `SELECT COUNT(*) AS n FROM orders
+WHERE source = 'online' AND pickup_status IS NOT NULL AND pickup_status != 'picked_up'`;
+
 /** The Sales tab's views; history reads paid sales from the ledger, which staff replicas don't hold. */
-export function salesViewsFor(role: string | null): { key: SalesView; label: string }[] {
+export function useSalesViews(
+    role: string | null,
+): { key: SalesView; label: string; count?: number }[] {
+    const open = useQuery<{ n: number }>(OPEN_PICKUPS_SQL).data[0]?.n ?? 0;
     return [
         { key: "register", label: d.newSaleTitle },
-        { key: "board", label: d.ordersTitle },
+        { key: "board", label: d.ordersTitle, count: open },
         ...(canManagePayments(role) ? [{ key: "history" as const, label: d.history }] : []),
     ];
 }

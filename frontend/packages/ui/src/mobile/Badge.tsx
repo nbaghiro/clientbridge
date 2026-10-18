@@ -1,5 +1,5 @@
 import type { BadgeProps } from "@clientbridge/app-core";
-import { INTENT_COLORS } from "@clientbridge/tokens";
+import { INTENT_COLORS, ON_DATA } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -15,8 +15,17 @@ export function Badge({
 }: NativeProps<BadgeProps>) {
     if (variant === "count") {
         return (
-            <View style={[styles.count, style]} accessibilityRole="text">
-                <Text style={styles.countText}>{label}</Text>
+            <View
+                style={[
+                    styles.count,
+                    intent !== "accent" && { backgroundColor: c[INTENT_COLORS[intent].line] },
+                    style,
+                ]}
+                accessibilityRole="text"
+            >
+                <Text style={[styles.countText, intent !== "accent" && { color: ON_DATA }]}>
+                    {label}
+                </Text>
             </View>
         );
     }

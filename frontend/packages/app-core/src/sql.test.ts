@@ -1547,6 +1547,7 @@ describe("app-core SQL against the replica schema", () => {
             { id: "ord_gone", pickup_status: "picked_up" },
             { id: "ord_web", pickup_status: "ready" },
         ]);
+        expect(run("OPEN_PICKUPS_SQL")).toEqual([{ n: 1 }]);
         expect(pick(run("PICKUP_LINES_SQL"), "id", "order_id")).toEqual([
             { id: "ln_3", order_id: "ord_web" },
         ]);

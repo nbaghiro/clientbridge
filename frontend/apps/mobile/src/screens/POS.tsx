@@ -10,12 +10,12 @@ import {
     mediaUrl,
     saleTileMeta,
     saleTileOut,
-    salesViewsFor,
     strings,
     useCatalogItems,
     useCheckoutQueue,
     useRegisterCatalog,
     useSale,
+    useSalesViews,
     formatParts,
     BUSINESS_CURRENCY,
     useBusinessZone,
@@ -55,7 +55,7 @@ export function POS() {
         platform: "mobile",
     });
     const items = useCatalogItems();
-    const views = salesViewsFor(role);
+    const views = useSalesViews(role);
     const [view, setView] = useState<SalesView>("register");
     const [ticketOpen, setTicketOpen] = useState(false);
     const resume = (order: OrderOut): void => {

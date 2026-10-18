@@ -371,7 +371,8 @@ export interface ConfirmOptions {
 }
 
 export interface TabsProps<K extends string> {
-    items: readonly { key: K; label: string }[];
+    // A count above zero shows as a red badge: work waiting behind that tab.
+    items: readonly { key: K; label: string; count?: number | undefined }[];
     active: K;
     onSelect: (key: K) => void;
     // Names the tab list for screen readers.
