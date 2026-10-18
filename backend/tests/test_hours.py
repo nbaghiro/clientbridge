@@ -20,7 +20,7 @@ from clientbridge.schemas.hours import HoursWeekBody
 from clientbridge.services.bookings import BookingService
 from clientbridge.services.hours import HoursService
 from tests.conftest import BIZ, OWNER_USER, FakePaymentGateway
-from tests.helpers import client_id
+from tests.helpers import client_id, delete_bookings
 
 OWNER = Principal(user_id=OWNER_USER, business_id=BIZ, staff_id="st_owner", role="owner")
 
@@ -306,17 +306,13 @@ async def test_a_booking_racing_an_hours_change_is_refused_or_stranded(db: Async
             assert isinstance(result, Conflict) or stranded == [result], lag
     finally:
         async with SessionLocal() as cleanup:
-            slots = list(
-                await cleanup.scalars(select(Booking.slot_id).where(Booking.id.in_(booked)))
-            )
-            await cleanup.execute(delete(Booking).where(Booking.id.in_(booked)))
-            await cleanup.execute(delete(Slot).where(Slot.id.in_(slots)))
+            await delete_bookings(cleanup, booked)
             await cleanup.execute(
                 delete(SyncReceipt).where(
                     SyncReceipt.operation_id.in_([str(b.request.operation_id) for b in bodies])
                 )
             )
-            await cleanup.execute(delete(Audit).where(Audit.entity_id.in_(members + booked)))
+            await cleanup.execute(delete(Audit).where(Audit.entity_id.in_(members)))
             await cleanup.execute(delete(Hours).where(Hours.staff_id.in_(members)))
             await cleanup.execute(delete(Staff).where(Staff.id.in_(members)))
             await cleanup.commit()

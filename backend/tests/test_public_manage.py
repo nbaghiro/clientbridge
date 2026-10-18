@@ -20,7 +20,7 @@ from clientbridge.schemas.public import (
 )
 from clientbridge.services.public import PublicBookingService, PublicManageService
 from tests.conftest import BIZ, FakeEmailSender, FakePaymentGateway, FakePushSender
-from tests.helpers import deposit_payment, enable_payments, key, settle
+from tests.helpers import delete_bookings, deposit_payment, enable_payments, key, settle
 
 SLUG = "birchbark"
 
@@ -495,11 +495,10 @@ async def test_two_connections_rescheduling_at_the_limit_move_the_visit_once(
     finally:
         async with SessionLocal() as cleanup:
             clients = list(await cleanup.scalars(select(Client.id).where(Client.email == email)))
-            slots = list(
-                await cleanup.scalars(select(Booking.slot_id).where(Booking.client_id.in_(clients)))
+            bookings = list(
+                await cleanup.scalars(select(Booking.id).where(Booking.client_id.in_(clients)))
             )
-            await cleanup.execute(delete(Booking).where(Booking.client_id.in_(clients)))
-            await cleanup.execute(delete(Slot).where(Slot.id.in_(slots)))
+            await delete_bookings(cleanup, bookings)
             await cleanup.execute(delete(Client).where(Client.id.in_(clients)))
             await cleanup.commit()
 

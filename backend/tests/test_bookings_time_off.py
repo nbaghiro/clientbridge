@@ -13,11 +13,11 @@ from clientbridge.core.errors import Conflict
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
 from clientbridge.models.platform import Audit
-from clientbridge.models.scheduling import Booking, Hours, Slot
+from clientbridge.models.scheduling import Hours
 from clientbridge.schemas.bookings import BookingCreate, TimeOffCreate
 from clientbridge.services.bookings import BookingService, TimeOffService, open_slots
 from tests.conftest import BIZ, OWNER_USER, Factory, FakePaymentGateway
-from tests.helpers import client_id, key
+from tests.helpers import client_id, delete_bookings, key
 
 ST_OWNER = "st_owner"
 ST_DIEGO = "st_diego"
@@ -385,11 +385,7 @@ async def test_a_booking_racing_new_time_off_is_refused_or_reported(
             assert isinstance(result, Conflict) or result in affected, lag
     finally:
         async with SessionLocal() as cleanup:
-            slots = list(
-                await cleanup.scalars(select(Booking.slot_id).where(Booking.id.in_(booked)))
-            )
-            await cleanup.execute(delete(Booking).where(Booking.id.in_(booked)))
-            await cleanup.execute(delete(Slot).where(Slot.id.in_(slots)))
+            await delete_bookings(cleanup, booked)
             await cleanup.execute(delete(Hours).where(Hours.id.in_(away_ids)))
-            await cleanup.execute(delete(Audit).where(Audit.entity_id.in_(away_ids + booked)))
+            await cleanup.execute(delete(Audit).where(Audit.entity_id.in_(away_ids)))
             await cleanup.commit()

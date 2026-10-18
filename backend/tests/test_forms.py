@@ -354,7 +354,12 @@ async def test_form_delivery_survives_provider_connection_failure(
         if row.state == "queued":
             row.next_at = clock.now()
     await db.commit()
+    ours = {row.id for row in deliveries}
+
+    def delivered() -> int:
+        return sum(m.tags.get("delivery") in ours for m in email.sent)
+
     await run_deliveries(db, email, FakeSmsSender(), FakePushSender())
-    assert len(email.sent) == 1
+    assert delivered() == 1
     await run_deliveries(db, email, FakeSmsSender(), FakePushSender())
-    assert len(email.sent) == 1
+    assert delivered() == 1

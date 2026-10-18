@@ -10,7 +10,7 @@ from typing import NoReturn
 import httpx
 import pytest
 from pydantic_settings import SettingsConfigDict
-from sqlalchemy import select, text, update
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
@@ -23,9 +23,9 @@ from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Package
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Entry
-from clientbridge.models.messaging import Message, Thread
+from clientbridge.models.messaging import Delivery, Message, Thread
 from clientbridge.models.payments import Payment
-from clientbridge.models.platform import Webhook
+from clientbridge.models.platform import Audit, Webhook
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.billing import InvoiceOut
 from clientbridge.schemas.bookings import BookingOut
@@ -415,3 +415,15 @@ async def removed(db: AsyncSession, table: str, row_id: str) -> bool:
     if soft:
         return await column(db, table, row_id, "deleted_at") is not None
     return await column(db, table, row_id, "id") is None
+
+
+async def delete_bookings(session: AsyncSession, booking_ids: list[str]) -> None:
+    """Remove committed bookings with everything they wrote: slots, audits and deliveries."""
+    slots = list(await session.scalars(select(Booking.slot_id).where(Booking.id.in_(booking_ids))))
+    for booking_id in booking_ids:
+        await session.execute(
+            delete(Delivery).where(Delivery.key.startswith(f"booking:{booking_id}:"))
+        )
+    await session.execute(delete(Audit).where(Audit.entity_id.in_(booking_ids)))
+    await session.execute(delete(Booking).where(Booking.id.in_(booking_ids)))
+    await session.execute(delete(Slot).where(Slot.id.in_(slots)))
