@@ -4296,6 +4296,8 @@ interface Strings {
         readonly teamStaff: string;
         readonly perMonth: (price: string) => string;
         readonly perYear: (price: string) => string;
+        readonly yearSaving: string;
+        readonly anchorLabel: (price: string) => string;
         readonly monthly: string;
         readonly yearly: string;
         readonly choose: (plan: string) => string;

@@ -119,6 +119,10 @@ interface PlanTierView {
     name: string;
     summary: string;
     price: string;
+    // the struck-through cost of a year paid monthly, shown only on a discounted yearly price
+    anchor: string | null;
+    anchorLabel: string | null;
+    saving: string | null;
     staff: string;
     current: boolean;
     // null when the business has nothing to buy, as on a complimentary plan
@@ -147,13 +151,37 @@ export interface PlanView {
     error: string | null;
 }
 
+function centsOf(
+    state: Pick<PlanState, "prices">,
+    plan: PlanTier | null,
+    interval: PlanInterval,
+): number | null {
+    return (
+        state.prices.find((r) => r.plan === plan && r.interval === interval)?.amount_cents ?? null
+    );
+}
+
 function priceOf(
     state: Pick<PlanState, "prices" | "currency">,
     plan: PlanTier | null,
     interval: PlanInterval,
 ): string {
-    const row = state.prices.find((r) => r.plan === plan && r.interval === interval);
-    return row === undefined ? "" : formatMoney(row.amount_cents, state.currency);
+    const cents = centsOf(state, plan, interval);
+    return cents === null ? "" : formatMoney(cents, state.currency);
+}
+
+function yearAnchor(
+    state: Pick<PlanState, "prices" | "currency">,
+    plan: PlanTier,
+    interval: PlanInterval,
+): Pick<PlanTierView, "anchor" | "anchorLabel" | "saving"> {
+    const month = centsOf(state, plan, "month");
+    const year = centsOf(state, plan, "year");
+    if (interval !== "year" || month === null || year === null || month * 12 <= year) {
+        return { anchor: null, anchorLabel: null, saving: null };
+    }
+    const anchor = formatMoney(month * 12, state.currency);
+    return { anchor, anchorLabel: p.anchorLabel(anchor), saving: p.yearSaving };
 }
 
 function tierName(plan: PlanTier): string {
@@ -175,6 +203,7 @@ export function planTiers(
             interval === "month"
                 ? p.perMonth(priceOf(state, plan, "month"))
                 : p.perYear(priceOf(state, plan, "year")),
+        ...yearAnchor(state, plan, interval),
         staff: plan === "premium" ? p.premiumStaff(priceOf(state, null, "month")) : p.teamStaff,
         current:
             state.plan === plan &&

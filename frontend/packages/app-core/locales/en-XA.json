@@ -11979,7 +11979,13 @@
         "message": "[{price} / ɱöñţĥ one]"
     },
     "plans.perYear": {
-        "message": "[{price} / ýéåŕ, ţŵö ɱöñţĥš ƒŕéé one two]"
+        "message": "[{price} / ýéåŕ one]"
+    },
+    "plans.yearSaving": {
+        "message": "[2 ɱöñţĥš ƒŕéé one two]"
+    },
+    "plans.anchorLabel": {
+        "message": "[{price} å ýéåŕ ŵĥéñ þåîð ɱöñţĥļý one two]"
     },
     "plans.monthly": {
         "message": "[Ṁöñţĥļý one]"
