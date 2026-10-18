@@ -1068,6 +1068,12 @@ describe("app-core SQL against the replica schema", () => {
             { id: "inv_3", client_email: null, paid_cents: 2000, paid_at: TS },
             { id: "inv_2", client_email: null, paid_cents: 0, paid_at: null },
         ]);
+        db.run("UPDATE payments SET tip_cents = 800 WHERE id IN ('pay_1', 'pay_r1')");
+        expect(pick(run("INVOICE_SQL", ["inv_1"]), "total_cents", "tip_cents")).toEqual([
+            { total_cents: 11200, tip_cents: 800 },
+        ]);
+        expect(pick(run("INVOICE_CREDITS_SQL", ["inv_1"]), "cents")).toEqual([{ cents: 5800 }]);
+        db.run("UPDATE payments SET tip_cents = 0");
         const list = run("INVOICES_SQL").find((r) => r.id === "inv_3");
         expect(run("INVOICE_SQL", ["inv_3"])).toEqual([list]);
         expect(run("INVOICE_SQL", ["inv_missing"])).toEqual([]);

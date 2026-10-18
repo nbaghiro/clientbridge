@@ -217,6 +217,7 @@ export function partLabel(part: RefundPart): string {
     if (part.category === "deferred") return s.part_deferred;
     if (part.category === "gift_card") return s.part_gift_card;
     if (part.category === "deposit") return s.part_deposit;
+    if (part.category === "staff_cost") return s.part_tip;
     return s.part_revenue;
 }
 

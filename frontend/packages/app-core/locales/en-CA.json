@@ -391,6 +391,10 @@
     "billing.total": {
         "message": "Total"
     },
+    "billing.tip": {
+        "message": "Tip",
+        "description": "A tip the client added on top of an invoice"
+    },
     "billing.balanceDue": {
         "message": "Balance due"
     },
@@ -8164,6 +8168,10 @@
     },
     "refunds.part_deposit": {
         "message": "Deposit"
+    },
+    "refunds.part_tip": {
+        "message": "Tip",
+        "description": "The share of a refund that returns the client's tip"
     },
     "refunds.part_tax": {
         "message": "{code}",

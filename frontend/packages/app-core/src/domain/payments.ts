@@ -35,11 +35,12 @@ export interface PaymentRow {
     reference: string | null;
     note: string | null;
     tendered_cents: number | null;
+    tip_cents: number;
 }
 
 export const INVOICE_PAYMENTS_SQL = `
 SELECT id, kind, parent_payment_id, amount_cents, currency, status, method, created_at, paid_at,
-       reference, note, tendered_cents
+       reference, note, tendered_cents, tip_cents
 FROM payments WHERE invoice_id = ? ORDER BY created_at`;
 
 export function useInvoicePayments(invoiceId: string): PaymentRow[] {

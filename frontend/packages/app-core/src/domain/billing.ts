@@ -75,6 +75,8 @@ export interface InvoiceRow {
     total_cents: number | null;
     balance_cents: number | null;
     paid_cents: number | null;
+    // tips the client added on top, which the invoice total and its balance leave out
+    tip_cents: number;
     currency: string;
     issued_at: string | null;
     due_at: string | null;
@@ -137,6 +139,8 @@ SELECT i.id, i.client_id, c.name AS client_name, c.email AS client_email, c.phon
        (SELECT MAX(pe.occurred_at) FROM entries pe JOIN accounts pa ON pa.id = pe.account_id
         WHERE pa.category = 'receivable' AND pe.subject_type = 'invoice' AND pe.subject_id = i.id
           AND pe.amount_cents < 0 AND ${settledSql("pe")}) AS paid_at,
+       (SELECT COALESCE(SUM(tp.tip_cents), 0) FROM payments tp
+        WHERE tp.invoice_id = i.id AND tp.kind = 'payment' AND tp.status = 'succeeded') AS tip_cents,
        i.currency, i.issued_at, i.due_at, i.voided_at, i.pay_token, i.notes, i.created_at
 FROM invoices i
 LEFT JOIN clients c ON c.id = i.client_id`;
@@ -173,7 +177,10 @@ WHERE a.category = 'tax' AND e.ref = ?
 GROUP BY a.code ORDER BY a.code`;
 
 export const INVOICE_CREDITS_SQL = `
-SELECT e.id, e.event, -e.amount_cents AS cents, e.occurred_at, p.method
+SELECT e.id, e.event,
+       -e.amount_cents + CASE WHEN e.event = 'payment' THEN COALESCE(p.tip_cents, 0) ELSE 0 END
+         AS cents,
+       e.occurred_at, p.method
 FROM entries e
 JOIN accounts a ON a.id = e.account_id
 LEFT JOIN payments p ON e.source_type = 'payment' AND p.id = e.source_id
@@ -434,6 +441,7 @@ interface InvoiceListRow {
     issuedLabel: string;
     dueLabel: string;
     late: boolean;
+    totalCents: number;
 }
 
 function inSegment(seg: InvoiceSegment, r: InvoiceListRow): boolean {
@@ -464,6 +472,7 @@ export function listRow(row: InvoiceRow, zone: string, now: Date = new Date()): 
         issuedLabel: row.issued_at === null ? s.dash : shortDate(row.issued_at, zone),
         dueLabel: dueLabel(row, status, now, zone),
         late: daysOverdue(row, zone, now) > 0,
+        totalCents: (row.total_cents ?? 0) + row.tip_cents,
     };
 }
 
@@ -690,7 +699,15 @@ export function useInvoiceRecord(id: string | null, payBase: string): InvoiceRec
             cents: t.cents,
             kind: "tax",
         })),
-        { key: "total", label: s.total, cents: row.total_cents ?? 0, kind: "total" },
+        ...(row.tip_cents > 0
+            ? [{ key: "tip", label: s.tip, cents: row.tip_cents, kind: "tax" } as const]
+            : []),
+        {
+            key: "total",
+            label: s.total,
+            cents: (row.total_cents ?? 0) + row.tip_cents,
+            kind: "total",
+        },
         ...credits.map((c): DocTotalLine => ({
             key: c.id,
             label:
@@ -932,6 +949,16 @@ export function printedReceipt(
             taxes: rec.taxes,
             totals: [
                 { key: "total", label: p.forInvoice, cents: r.total_cents ?? 0, kind: "subtotal" },
+                ...(pay.payment.tip_cents > 0
+                    ? [
+                          {
+                              key: "tip",
+                              label: s.tip,
+                              cents: pay.payment.tip_cents,
+                              kind: "tax",
+                          } as const,
+                      ]
+                    : []),
                 { key: "paid", label: p.amountPaid, cents: pay.amountCents, kind: "credit" },
                 {
                     key: "balance",

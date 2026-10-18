@@ -44,6 +44,7 @@ describe("refunds", () => {
         expect(partLabel({ category: "deferred", code: "", cents: 1 })).toBe(s.part_deferred);
         expect(partLabel({ category: "gift_card", code: "", cents: 1 })).toBe(s.part_gift_card);
         expect(partLabel({ category: "deposit", code: "", cents: 1 })).toBe(s.part_deposit);
+        expect(partLabel({ category: "staff_cost", code: "", cents: 1 })).toBe(s.part_tip);
         expect(partLabel({ category: "revenue", code: "", cents: 1 })).toBe(s.part_revenue);
         expect(partLabel({ category: "anything", code: "", cents: 1 })).toBe(s.part_revenue);
     });

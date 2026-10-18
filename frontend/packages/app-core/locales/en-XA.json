@@ -347,6 +347,9 @@
     "billing.total": {
         "message": "[Ţöţåļ one]"
     },
+    "billing.tip": {
+        "message": "[Ţîþ one]"
+    },
     "billing.balanceDue": {
         "message": "[Ɓåļåñçé ðûé one two]"
     },
@@ -7606,6 +7609,9 @@
     },
     "refunds.part_deposit": {
         "message": "[Đéþöšîţ one]"
+    },
+    "refunds.part_tip": {
+        "message": "[Ţîþ one]"
     },
     "refunds.part_tax": {
         "message": "{code}"
