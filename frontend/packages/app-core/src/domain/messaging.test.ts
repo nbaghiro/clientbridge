@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { resolveInboxTarget } from "./messaging";
+// @vitest-environment happy-dom
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ApiLike } from "../api";
+import { type InboxThread, resolveInboxTarget, useThreadComposer } from "./messaging";
 
 const threads = [
     { id: "sms-1", client_id: "client-1" },
@@ -36,4 +39,59 @@ describe("inbox navigation", () => {
         });
         expect(resolveInboxTarget(threads, {})).toEqual({ threadId: null, clientId: null });
     });
+});
+
+afterEach(cleanup);
+
+it("retries a message with the same key after an ambiguous transport failure", async () => {
+    const post = vi
+        .fn()
+        .mockRejectedValueOnce(new TypeError("lost response"))
+        .mockResolvedValue({});
+    const api: ApiLike = { get: vi.fn(), getText: vi.fn(), post, patch: vi.fn(), delete: vi.fn() };
+    const thread: InboxThread = {
+        id: "th_1",
+        client_id: "cl_1",
+        channel: "sms",
+        status: "open",
+        client_name: "Pat",
+        phone: null,
+        email: null,
+        last_message_at: null,
+        unread_count: 0,
+        last_body: null,
+        pet_names: null,
+        title: "Pat",
+        ago: "",
+        pets: [],
+        textsOff: false,
+        channelKind: "sms",
+    };
+    const { result } = renderHook(() => useThreadComposer(api, thread));
+    act(() => {
+        result.current.setBody("Hello");
+    });
+    act(() => {
+        result.current.submit();
+    });
+    await waitFor(() => {
+        expect(result.current.error).not.toBeNull();
+    });
+    act(() => {
+        result.current.submit();
+    });
+    await waitFor(() => {
+        expect(result.current.body).toBe("");
+    });
+    expect(post.mock.calls[1]).toEqual(post.mock.calls[0]);
+    act(() => {
+        result.current.setBody("Hello");
+    });
+    act(() => {
+        result.current.submit();
+    });
+    await waitFor(() => {
+        expect(post).toHaveBeenCalledTimes(3);
+    });
+    expect(post.mock.calls[2]?.[2]).not.toEqual(post.mock.calls[0]?.[2]);
 });

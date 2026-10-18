@@ -1,6 +1,7 @@
+import { attemptKey, type Attempt } from "../api";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type AdminAccess = "loading" | "allowed" | "denied" | "signedOut" | "unavailable";
 
@@ -159,9 +160,13 @@ export function useAdminEmailForm(base: string) {
     const [recipient, setRecipient] = useState("");
     const [confirmed, setConfirmed] = useState(false);
     const [busy, setBusy] = useState(false);
-    const [outcome, setOutcome] = useState<"accepted" | "failed" | null>(null);
-    const send = (key: string, transport: "smtp" | "resend", requestId: string) => {
-        if (busy || !confirmed) return;
+    const [outcome, setOutcome] = useState<AdminSchemas["AdminEmailResult"]["state"] | null>(null);
+    const attempt = useRef<Attempt | null>(null);
+    const sending = useRef(false);
+    const send = (key: string, transport: "smtp" | "resend") => {
+        if (sending.current || !confirmed) return;
+        sending.current = true;
+        const requestId = attemptKey(attempt, { key, transport, recipient });
         setBusy(true);
         setOutcome(null);
         adminRequest(base, `emails/${encodeURIComponent(key)}/send`, {
@@ -170,14 +175,18 @@ export function useAdminEmailForm(base: string) {
             request_id: requestId,
         })
             .then(
-                () => {
-                    setOutcome("accepted");
+                (data) => {
+                    const result = data as AdminSchemas["AdminEmailResult"];
+                    setOutcome(result.state);
+                    if (result.state === "accepted" || result.state === "delivered")
+                        attempt.current = null;
                 },
                 () => {
                     setOutcome("failed");
                 },
             )
             .finally(() => {
+                sending.current = false;
                 setBusy(false);
                 setConfirmed(false);
             })
@@ -188,6 +197,11 @@ export function useAdminEmailForm(base: string) {
 
 export function adminLabel(value: string): string {
     const labels: Record<string, string> = {
+        queued: strings.admin.valueQueued,
+        sending: strings.admin.valueSending,
+        accepted: strings.admin.valueAccepted,
+        delivered: strings.admin.valueDelivered,
+        ambiguous: strings.admin.valueAmbiguous,
         active: strings.admin.valueActive,
         closed: strings.admin.valueClosed,
         trialing: strings.admin.valueTrialing,
@@ -225,9 +239,11 @@ export function adminLabel(value: string): string {
 }
 
 export function adminStatusIntent(status: string): Intent {
-    if (["active", "succeeded", "processed"].includes(status)) return "success";
+    if (["active", "succeeded", "processed", "accepted", "delivered"].includes(status))
+        return "success";
     if (["failed", "past_due"].includes(status)) return "danger";
-    if (["pending", "invited", "trialing"].includes(status)) return "warning";
+    if (["pending", "invited", "trialing", "queued", "sending", "ambiguous"].includes(status))
+        return "warning";
     return "neutral";
 }
 export function groupAdminActivity(items: AdminSchemas["AdminActivity"][]) {

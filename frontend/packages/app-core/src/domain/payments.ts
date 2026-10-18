@@ -1,3 +1,4 @@
+import { isManager } from "./auth";
 import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useRef, useState } from "react";
@@ -52,7 +53,7 @@ export function isRefundRow(payment: { kind: string }): boolean {
 
 /** Only owners and admins may issue refunds (matches the backend's payment role gate). */
 export function canManagePayments(role: string | null): boolean {
-    return role === "owner" || role === "admin";
+    return isManager(role);
 }
 
 /** `base` is the one pay host (pay.clientbridge.ca in production) each app is configured with. */

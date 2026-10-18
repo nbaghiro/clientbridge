@@ -1,4 +1,6 @@
 interface RuntimeConfig {
+    readonly adminUrl: string;
+    readonly webUrl: string;
     readonly apiUrl: string;
     readonly authUrl: string;
     readonly powersyncUrl: string;
@@ -8,6 +10,8 @@ interface RuntimeConfig {
 }
 
 interface ServedConfig {
+    readonly adminUrl?: unknown;
+    readonly webUrl?: unknown;
     readonly baseDomain?: unknown;
     readonly apiUrl?: unknown;
     readonly authUrl?: unknown;
@@ -29,6 +33,8 @@ export function runtimeConfig(): RuntimeConfig | null {
     if (served === undefined || base === undefined) return null;
     const apiUrl = given(served.apiUrl) ?? `https://api.${base}`;
     return {
+        adminUrl: given(served.adminUrl) ?? `https://admin.${base}`,
+        webUrl: given(served.webUrl) ?? `https://app.${base}`,
         apiUrl,
         // the auth service is routed under the API host unless the served config names it
         authUrl: given(served.authUrl) ?? `${apiUrl}/auth`,

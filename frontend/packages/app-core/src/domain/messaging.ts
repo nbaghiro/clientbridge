@@ -2,9 +2,9 @@ import { historyStart } from "@clientbridge/sync";
 
 import { useBusinessQuery as useQuery } from "../hooks";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { type ApiLike, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey } from "../api";
 import {
     formatDate,
     formatDateTime,
@@ -15,6 +15,7 @@ import {
     relativeDay,
     sameDay,
     useBusinessZone,
+    utcSql,
 } from "../datetime";
 import { formatParts, formatPhone } from "../format";
 import { isConnectionFailure, type Load, useAsyncAction } from "../hooks";
@@ -82,12 +83,12 @@ SELECT c.id, c.name, c.email, c.phone,
        (SELECT SUM(a.balance_cents) FROM accounts a WHERE a.owner_type = 'client'
           AND a.owner_id = c.id AND a.category = 'receivable') AS balance_cents,
        (SELECT sl.starts_at FROM bookings b JOIN slots sl ON sl.id = b.slot_id
-        WHERE b.client_id = c.id AND b.status IN ('pending', 'confirmed') AND sl.starts_at > ?
-        ORDER BY sl.starts_at LIMIT 1) AS next_at,
+        WHERE b.client_id = c.id AND b.status IN ('pending', 'confirmed') AND ${utcSql("sl.starts_at")} > datetime(?)
+        ORDER BY ${utcSql("sl.starts_at")} LIMIT 1) AS next_at,
        (SELECT i.name FROM bookings b JOIN slots sl ON sl.id = b.slot_id
         JOIN items i ON i.id = sl.item_id
-        WHERE b.client_id = c.id AND b.status IN ('pending', 'confirmed') AND sl.starts_at > ?
-        ORDER BY sl.starts_at LIMIT 1) AS next_service
+        WHERE b.client_id = c.id AND b.status IN ('pending', 'confirmed') AND ${utcSql("sl.starts_at")} > datetime(?)
+        ORDER BY ${utcSql("sl.starts_at")} LIMIT 1) AS next_service
 FROM clients c WHERE c.id = ?`;
 
 interface InboxRow {
@@ -438,8 +439,9 @@ export function useMarkThreadRead(
 function sendMessage(
     api: ApiLike,
     input: { client_id: string; channel: Channel; body: string },
+    attempt: { current: Attempt | null },
 ): Promise<unknown> {
-    return api.post("/v1/messages", input, { idempotencyKey: newIdempotencyKey() });
+    return api.post("/v1/messages", input, { idempotencyKey: attemptKey(attempt, input) });
 }
 
 export interface ThreadComposer {
@@ -462,6 +464,7 @@ export function useThreadComposer(api: ApiLike, thread: InboxThread): ThreadComp
     );
     const [body, setBody] = useState("");
     const { busy, error, setError, run } = useAsyncAction();
+    const attempt = useRef<Attempt | null>(null);
     const smsBlocked = thread.textsOff && channel === "sms";
     const canSend = !smsBlocked && body.trim().length > 0;
     return {
@@ -478,13 +481,18 @@ export function useThreadComposer(api: ApiLike, thread: InboxThread): ThreadComp
             if (!canSend) return;
             run(
                 () =>
-                    sendMessage(api, {
-                        client_id: thread.client_id,
-                        channel,
-                        body: body.trim(),
-                    }),
+                    sendMessage(
+                        api,
+                        {
+                            client_id: thread.client_id,
+                            channel,
+                            body: body.trim(),
+                        },
+                        attempt,
+                    ),
                 {
                     onSuccess: () => {
+                        attempt.current = null;
                         setBody("");
                     },
                     errorMessage: m.sendError,
@@ -524,6 +532,7 @@ export function useNewMessage(
     const [channel, setChannel] = useState<Channel>("sms");
     const [body, setBody] = useState("");
     const { busy, error, setError, run } = useAsyncAction();
+    const attempt = useRef<Attempt | null>(null);
     const sms = consentFor(consents.map, clientId, "sms");
     const smsBlocked = channel === "sms" && stopped(sms);
     return {
@@ -553,13 +562,18 @@ export function useNewMessage(
             }
             if (smsBlocked) return;
             const name = clients.find((c) => c.id === clientId)?.name ?? "";
-            run(() => sendMessage(api, { client_id: clientId, channel, body: body.trim() }), {
-                onSuccess: () => {
-                    setBody("");
-                    onSent({ clientId, name });
+            run(
+                () =>
+                    sendMessage(api, { client_id: clientId, channel, body: body.trim() }, attempt),
+                {
+                    onSuccess: () => {
+                        attempt.current = null;
+                        setBody("");
+                        onSent({ clientId, name });
+                    },
+                    errorMessage: m.sendError,
                 },
-                errorMessage: m.sendError,
-            });
+            );
         },
     };
 }

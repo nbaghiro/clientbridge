@@ -40,7 +40,15 @@ import {
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { type RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import { useEffect, useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+    FlatList,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
 
 import { Loaded } from "../components/Loaded";
 import { api } from "../lib/api";
@@ -170,40 +178,44 @@ function Messages() {
                 active={inbox.filter}
                 onSelect={inbox.setFilter}
             />
-            <ScrollView style={styles.flex} contentContainerStyle={styles.listContent}>
-                {sentTo !== null ? (
-                    <View style={styles.pad}>
-                        <Notice tone="success">{s.sentNew(sentTo)}</Notice>
-                    </View>
-                ) : null}
-                <Loaded load={inbox.load} loading={s.loading} failed={s.loadError} rows={6}>
-                    {inbox.filtered.length === 0 ? (
+            <Loaded load={inbox.load} loading={s.loading} failed={s.loadError} rows={6}>
+                <FlatList
+                    style={styles.flex}
+                    contentContainerStyle={styles.listContent}
+                    data={inbox.filtered}
+                    keyExtractor={(thread) => thread.id}
+                    ListHeaderComponent={
+                        sentTo === null ? null : (
+                            <View style={styles.pad}>
+                                <Notice tone="success">{s.sentNew(sentTo)}</Notice>
+                            </View>
+                        )
+                    }
+                    ListEmptyComponent={
                         <Empty
                             message={inbox.threads.length === 0 ? s.noThreads : s.noThreadsFiltered}
                         />
-                    ) : (
-                        inbox.filtered.map((t) => (
-                            <ConversationRow
-                                key={t.id}
-                                name={t.title}
-                                preview={t.last_body ?? ""}
-                                at={t.ago}
-                                unread={t.unread_count}
-                                channel={t.channelKind}
-                                channelLabel={channelLabel(t.channel)}
-                                tag={
-                                    t.textsOff
-                                        ? { label: s.textsOffShort, intent: "danger" }
-                                        : undefined
-                                }
-                                onPress={() => {
-                                    setOpenId(t.id);
-                                }}
-                            />
-                        ))
+                    }
+                    renderItem={({ item: t }) => (
+                        <ConversationRow
+                            name={t.title}
+                            preview={t.last_body ?? ""}
+                            at={t.ago}
+                            unread={t.unread_count}
+                            channel={t.channelKind}
+                            channelLabel={channelLabel(t.channel)}
+                            tag={
+                                t.textsOff
+                                    ? { label: s.textsOffShort, intent: "danger" }
+                                    : undefined
+                            }
+                            onPress={() => {
+                                setOpenId(t.id);
+                            }}
+                        />
                     )}
-                </Loaded>
-            </ScrollView>
+                />
+            </Loaded>
             {composing !== null ? (
                 <NewMessageSheet
                     clientId={composing}

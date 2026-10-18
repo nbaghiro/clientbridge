@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment happy-dom
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
     dateKey,
@@ -11,6 +13,8 @@ import {
 } from "../datetime";
 import { strings } from "../strings";
 import {
+    usePublicBookingFlow,
+    useManageBooking,
     bookingFailure,
     draftDay,
     groupSlots,
@@ -220,5 +224,134 @@ describe("booking a time", () => {
             code: "idempotency_key_reused",
         });
         expect(bookingFailure(reused, s.bookError)).toBe(strings.api.idempotencyKeyReused);
+    });
+});
+
+afterEach(cleanup);
+
+it("shows a failed availability load and retries without presenting it as an empty week", async () => {
+    const client: Parameters<typeof usePublicBookingFlow>[0] = {
+        getServices: vi.fn().mockResolvedValue({
+            business_name: "Demo",
+            brand: { logo_url: null, primary: null, tagline: null },
+            services: [
+                {
+                    id: "service",
+                    name: "Visit",
+                    description: null,
+                    duration_min: 60,
+                    price_cents: 1000,
+                    currency: "CAD",
+                    deposit_required: false,
+                    deposit_amount_cents: 0,
+                    image_url: null,
+                    kind: "service",
+                    category: null,
+                    color: null,
+                    staff_ids: [],
+                },
+            ],
+            staff: [],
+            addons: [],
+            stripe_account_id: null,
+            slug: "demo",
+            now: "2026-10-13T17:00:00Z",
+            timezone: ZONE,
+            policy: null,
+            rating: null,
+            review_count: 0,
+        }),
+        getDays: vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue([]),
+        getSlots: vi.fn().mockResolvedValue([]),
+        book: vi.fn(),
+    };
+    const { result } = renderHook(() =>
+        usePublicBookingFlow(client, "demo", { itemId: "service" }),
+    );
+    await waitFor(() => {
+        expect(result.current.slotsError).toBe(true);
+    });
+    act(() => {
+        result.current.retrySlots();
+    });
+    await waitFor(() => {
+        expect(client.getDays).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+        expect(result.current.slotsError).toBe(false);
+    });
+});
+
+it.each(["days", "slots"])("shows and retries a failed manage %s request", async (failed) => {
+    const client: Parameters<typeof useManageBooking>[0] = {
+        getBooking: vi.fn().mockResolvedValue({
+            booking_id: "booking",
+            business_name: "Demo",
+            brand: { logo_url: null, primary: null, tagline: null },
+            slug: "demo",
+            client_name: "Pat",
+            pet_name: null,
+            service: {
+                id: "service",
+                name: "Visit",
+                description: null,
+                duration_min: 60,
+                price_cents: 1000,
+                currency: "CAD",
+                deposit_required: false,
+                deposit_amount_cents: 0,
+                image_url: null,
+                kind: "service",
+                category: null,
+                color: null,
+                staff_ids: [],
+            },
+            staff: { id: "staff", name: "Pat", title: null, color: null },
+            starts_at: "2026-10-15T17:00:00Z",
+            ends_at: "2026-10-15T18:00:00Z",
+            status: "confirmed",
+            deposit_cents: 0,
+            deposit_status: "none",
+            addons: [],
+            reschedules_used: 0,
+            policy: {
+                self_service: true,
+                cancel_cutoff_hours: 24,
+                reschedule_cutoff_hours: 24,
+                max_reschedules: 3,
+            },
+            now: "2026-10-13T17:00:00Z",
+            timezone: ZONE,
+            can_move: true,
+            can_cancel: true,
+            blocked: null,
+            blocked_hours: null,
+        }),
+        getDays: vi.fn().mockResolvedValue([]),
+        getSlots: vi.fn().mockResolvedValue([]),
+        message: vi.fn(),
+        reschedule: vi.fn(),
+        cancel: vi.fn(),
+    };
+    const request = failed === "days" ? client.getDays : client.getSlots;
+    vi.mocked(request).mockRejectedValueOnce(new Error("offline"));
+    const { result } = renderHook(() => useManageBooking(client, "token"));
+    await waitFor(() => {
+        expect(result.current.booking).not.toBeNull();
+    });
+    act(() => {
+        result.current.setMode("move");
+    });
+    await waitFor(() => {
+        expect(result.current.slotsError).toBe(true);
+    });
+    act(() => {
+        result.current.retrySlots();
+    });
+    await waitFor(() => {
+        expect(request).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+        expect(result.current.slotsError).toBe(false);
     });
 });

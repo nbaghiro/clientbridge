@@ -2,9 +2,9 @@ import { historyStart } from "@clientbridge/sync";
 
 import { useBusinessQuery as useQuery } from "../hooks";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
-import { type ApiLike, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey } from "../api";
 import {
     dateKey,
     formatDate,
@@ -710,6 +710,7 @@ export function useClientEditor(
     const [tried, setTried] = useState(false);
     const [ignored, setIgnored] = useState(false);
     const { busy, error, setError, run } = useAsyncAction();
+    const attempt = useRef<Attempt | null>(null);
     const set = <K extends keyof ClientDraft>(key: K, value: ClientDraft[K]): void => {
         setDraft((d) => ({ ...d, [key]: value }));
         setError(null);
@@ -736,7 +737,7 @@ export function useClientEditor(
         run(
             async () => {
                 if (client === null) {
-                    const saved = await api.post<{ id: string }>("/v1/clients", {
+                    const input = {
                         ...body,
                         marketing_consent: draft.consent,
                         subject:
@@ -747,16 +748,24 @@ export function useClientEditor(
                                       name: petName,
                                       attributes: { breed: blankToNull(draft.petBreed) },
                                   },
+                    };
+                    const saved = await api.post<{ id: string }>("/v1/clients", input, {
+                        idempotencyKey: attemptKey(attempt, input),
                     });
+                    attempt.current = null;
                     onSaved(saved.id);
                     return;
                 }
-                await api.patch(`/v1/clients/${client.id}`, {
+                const input = {
                     ...body,
                     ...(draft.consent === initial.consent
                         ? {}
                         : { marketing_consent: draft.consent }),
+                };
+                await api.patch(`/v1/clients/${client.id}`, input, {
+                    idempotencyKey: attemptKey(attempt, [client.id, input]),
                 });
+                attempt.current = null;
                 onSaved(client.id);
             },
             { errorMessage: s.edit.saveError },
@@ -765,7 +774,7 @@ export function useClientEditor(
 
     const lifecycle = (path: "archive" | "restore", message: string): void => {
         if (client === null) return;
-        const key = newIdempotencyKey();
+        const key = attemptKey(attempt, [client.id, path]);
         run(() => api.post(`/v1/clients/${client.id}/${path}`, {}, { idempotencyKey: key }), {
             errorMessage: message,
         });
@@ -1688,6 +1697,8 @@ export function useClientSelection(api: ApiLike, rows: readonly ClientListRow[])
     const [pending, setPending] = useState<Record<string, boolean>>({});
     const [extra, setExtra] = useState<string[]>([]);
     const [done, setDone] = useState<string | null>(null);
+    const tagAttempt = useRef<Attempt | null>(null);
+    const archiveAttempt = useRef<Attempt | null>(null);
     const tagging = useAsyncAction();
     const archiving = useAsyncAction();
     const directory = tagDirectory(rows);
@@ -1740,13 +1751,14 @@ export function useClientSelection(api: ApiLike, rows: readonly ClientListRow[])
         apply: () => {
             const ids = selected;
             const set = pending;
-            const key = newIdempotencyKey();
+            const key = attemptKey(tagAttempt, { client_ids: ids, set });
             tagging.run(
                 () =>
                     api.post("/v1/clients/tags", { client_ids: ids, set }, { idempotencyKey: key }),
                 {
                     errorMessage: s.tidy.tagError,
                     onSuccess: () => {
+                        tagAttempt.current = null;
                         reset(s.tidy.tagsUpdated(ids.length));
                     },
                 },
@@ -1754,12 +1766,13 @@ export function useClientSelection(api: ApiLike, rows: readonly ClientListRow[])
         },
         archive: () => {
             const ids = selected;
-            const key = newIdempotencyKey();
+            const key = attemptKey(archiveAttempt, { client_ids: ids });
             archiving.run(
                 () => api.post("/v1/clients/archive", { client_ids: ids }, { idempotencyKey: key }),
                 {
                     errorMessage: s.tidy.archiveError,
                     onSuccess: () => {
+                        archiveAttempt.current = null;
                         reset(s.tidy.archived(ids.length));
                     },
                 },
@@ -1821,6 +1834,7 @@ export function useClientMerge(
     b: ClientListRow,
     onMerged: (keptName: string) => void,
 ): ClientMerge {
+    const attempt = useRef<Attempt | null>(null);
     const zone = useBusinessZone();
     const [keep, setKeepRaw] = useState<Side>("a");
     const [picks, setPicks] = useState<Partial<Record<MergeField, Side>>>({});
@@ -1893,7 +1907,7 @@ export function useClientMerge(
         busy,
         error,
         submit: () => {
-            const key = newIdempotencyKey();
+            const key = attemptKey(attempt, [kept.id, gone.id, fields, keep]);
             run(
                 () =>
                     api.post(
@@ -1909,6 +1923,7 @@ export function useClientMerge(
                 {
                     errorMessage: s.tidy.mergeError,
                     onSuccess: () => {
+                        attempt.current = null;
                         onMerged(keptName);
                     },
                 },

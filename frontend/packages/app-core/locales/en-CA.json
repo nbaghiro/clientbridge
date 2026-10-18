@@ -13175,6 +13175,87 @@
     "admin.testAccepted": {
         "message": "Test accepted by the configured mail transport."
     },
+    "admin.deliveryHistory": {
+        "message": "Test delivery history"
+    },
+    "admin.refreshDeliveries": {
+        "message": "Refresh deliveries"
+    },
+    "admin.valueQueued": {
+        "message": "Queued"
+    },
+    "admin.valueSending": {
+        "message": "Sending"
+    },
+    "admin.valueAccepted": {
+        "message": "Accepted"
+    },
+    "admin.valueDelivered": {
+        "message": "Delivered"
+    },
+    "admin.valueAmbiguous": {
+        "message": "Unconfirmed"
+    },
+    "datetime.zoneNames.creston": {
+        "message": "Creston"
+    },
+    "datetime.zoneNames.dawsonCreek": {
+        "message": "Dawson Creek"
+    },
+    "datetime.zoneNames.fortNelson": {
+        "message": "Fort Nelson"
+    },
+    "datetime.zoneNames.atikokan": {
+        "message": "Atikokan"
+    },
+    "datetime.zoneNames.blancSablon": {
+        "message": "Blanc-Sablon"
+    },
+    "business.timeZones.creston": {
+        "message": "Creston"
+    },
+    "business.timeZones.dawsonCreek": {
+        "message": "Dawson Creek"
+    },
+    "business.timeZones.fortNelson": {
+        "message": "Fort Nelson"
+    },
+    "business.timeZones.atikokan": {
+        "message": "Atikokan"
+    },
+    "business.timeZones.blancSablon": {
+        "message": "Blanc-Sablon"
+    },
+    "business.discountTitle": {
+        "message": "Discount approvals"
+    },
+    "business.discountLimit": {
+        "message": "Staff discount limit (%)"
+    },
+    "business.saveDiscount": {
+        "message": "Save discount limit"
+    },
+    "business.approvalPin": {
+        "message": "Your approval PIN"
+    },
+    "business.pinHint": {
+        "message": "Use four digits to approve staff discounts above the limit."
+    },
+    "business.savePin": {
+        "message": "Set approval PIN"
+    },
+    "business.discountInvalid": {
+        "message": "Enter a percentage from 0 to 100."
+    },
+    "business.pinInvalid": {
+        "message": "Enter a four-digit PIN."
+    },
+    "business.discountFailed": {
+        "message": "Could not save discount settings."
+    },
+    "admin.testQueued": {
+        "message": "Test queued for delivery. Check delivery history for its status."
+    },
     "admin.testFailed": {
         "message": "Delivery could not be confirmed. Check the mail provider before trying again."
     },
@@ -13312,5 +13393,15 @@
     },
     "admin.searchBusiness": {
         "message": "Business name, slug or ID"
+    },
+    "publicForm.signerName": {
+        "message": "Full legal name"
+    },
+    "publicForm.agree": {
+        "message": "I confirm these answers and agree to sign this form electronically with {business}.",
+        "args": ["business"]
+    },
+    "publicForm.signatureRequired": {
+        "message": "Enter your full name and agree to sign this form."
     }
 }

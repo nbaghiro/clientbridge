@@ -10,7 +10,6 @@ export function LoadFailed({
     body = strings.ui.loadFailedBody,
     onRetry,
     retrying = false,
-    retryLabel = strings.ui.retry,
     variant = "inline",
     className,
 }: WebProps<LoadFailedProps>) {
@@ -33,7 +32,7 @@ export function LoadFailed({
                                 busy={retrying}
                                 onPress={onRetry}
                             >
-                                {retrying ? strings.ui.retrying : retryLabel}
+                                {retrying ? strings.ui.retrying : strings.ui.retry}
                             </Button>
                         ) : null}
                         {actions}

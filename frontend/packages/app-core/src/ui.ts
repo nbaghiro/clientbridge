@@ -102,7 +102,6 @@ export interface LoadFailedProps {
     // Without it the state shows no button (nothing on the screen can retry).
     onRetry?: (() => void) | undefined;
     retrying?: boolean | undefined;
-    retryLabel?: string | undefined;
     variant?: "inline" | "card" | "page" | undefined;
 }
 
@@ -438,7 +437,7 @@ export interface StatusPillProps {
     intent: Intent;
 }
 
-// Bank (PAD) mandates are web only, so mobile ignores allowBank.
+// Mobile collects bank authorization through the client’s Connect setup link.
 export interface PaymentMethodFormProps {
     flow: AddPaymentMethod;
     allowBank: boolean;
@@ -870,9 +869,6 @@ export interface ImagePickerProps {
     label: string;
     hint?: string | undefined;
     onPick: () => void;
-    // Mobile only: a second source (the library when onPick takes a photo).
-    onPickAlt?: (() => void) | undefined;
-    altLabel?: string | undefined;
     onRemove?: (() => void) | undefined;
     removeLabel?: string | undefined;
     busy?: boolean | undefined;
@@ -1008,8 +1004,6 @@ export interface PrintedDoc {
 
 export interface PrintedDocumentProps {
     doc: PrintedDoc;
-    // "classic" is a letterhead with the lines first; "statement" leads with the amount and how to pay.
-    template?: "classic" | "statement" | undefined;
 }
 
 // A scannable code for a pay or accept link, drawn from the URL.

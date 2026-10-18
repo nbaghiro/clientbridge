@@ -408,6 +408,12 @@ describe("the day board", () => {
         expect(settleMoves({}, arrived)).toEqual({});
     });
 
+    it("drops a pending move when the visit leaves the visible replica window", () => {
+        expect(settleMoves({ a: { start: at(13), end: at(14), staffId: "st_amy" } }, [])).toEqual(
+            {},
+        );
+    });
+
     it("says a move failed for want of a connection, not because the time was taken", () => {
         expect(moveFailure(new TypeError("Failed to fetch"))).toBe(s.moveOffline);
         expect(moveFailure(Object.assign(new Error("409"), { status: 409 }))).toBe(

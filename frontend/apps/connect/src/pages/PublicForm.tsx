@@ -5,7 +5,7 @@ import {
     useFormUploads,
     usePublicFormFill,
 } from "@clientbridge/app-core/public";
-import { Button, FormQuestion, Icon, Notice } from "@clientbridge/ui";
+import { Button, FormQuestion, Icon, Notice, TextField, Toggle } from "@clientbridge/ui";
 import { useParams } from "react-router-dom";
 
 import { DocumentLetter } from "../components/PublicDocument";
@@ -114,6 +114,21 @@ export function PublicForm() {
                         selectPlaceholder={s.selectPlaceholder}
                     />
                 ))}
+                {form.require_signature ? (
+                    <div className="space-y-4 border-t border-line pt-5">
+                        <TextField
+                            label={s.signerName}
+                            value={fill.signer}
+                            onChange={fill.setSigner}
+                            autoComplete="name"
+                        />
+                        <Toggle
+                            label={s.agree(form.business_name)}
+                            value={fill.agreed}
+                            onChange={fill.setAgreed}
+                        />
+                    </div>
+                ) : null}
             </div>
         </DocumentLetter>
     );

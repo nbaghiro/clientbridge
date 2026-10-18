@@ -405,6 +405,7 @@ export function usePublicBookingFlow(
     const [weekFrom, setWeekFrom] = useState<string | null>(null);
     const [date, setDate] = useState<string | null>(null);
     const [days, setDays] = useState<DayOpenings[] | null>(null);
+    const [daysError, setDaysError] = useState(false);
     const [slots, setSlots] = useState<OpenSlot[] | null>(null);
     const [slotsError, setSlotsError] = useState(false);
     const [reload, setReload] = useState(0);
@@ -469,13 +470,14 @@ export function usePublicBookingFlow(
         if (itemId === "" || status !== "ready") return;
         let live = true;
         setDays(null);
+        setDaysError(false);
         client
             .getDays(slug, { itemId, staffId, from, days: 7 })
             .then((d) => {
                 if (live) setDays(d);
             })
             .catch(() => {
-                if (live) setDays([]);
+                if (live) setDaysError(true);
             });
         return () => {
             live = false;
@@ -733,7 +735,7 @@ export function usePublicBookingFlow(
         setDate,
         dateLabel: day === null ? "" : dayLabel(day, today, zone),
         slots,
-        slotsError,
+        slotsError: slotsError || daysError,
         retrySlots: () => {
             setReload((n) => n + 1);
         },
@@ -962,7 +964,9 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
     const [from, setFrom] = useState<string | null>(null);
     const [date, setDate] = useState<string | null>(null);
     const [days, setDays] = useState<DayOpenings[] | null>(null);
+    const [daysError, setDaysError] = useState(false);
     const [slots, setSlots] = useState<OpenSlot[] | null>(null);
+    const [slotsError, setSlotsError] = useState(false);
     const [reload, setReload] = useState(0);
     const [pick, setPick] = useState("");
     const [refund, setRefund] = useState<number | null>(null);
@@ -984,13 +988,15 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
     useEffect(() => {
         if (mode !== "move") return;
         let on = true;
+        setDays(null);
+        setDaysError(false);
         client
             .getDays(token, { from: weekFrom, days: 7 })
             .then((d) => {
                 if (on) setDays(d);
             })
             .catch(() => {
-                if (on) setDays([]);
+                if (on) setDaysError(true);
             });
         return () => {
             on = false;
@@ -1001,6 +1007,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
         if (mode !== "move") return;
         let on = true;
         setSlots(null);
+        setSlotsError(false);
         setPick("");
         client
             .getSlots(token, { date: day })
@@ -1008,7 +1015,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
                 if (on) setSlots(x);
             })
             .catch(() => {
-                if (on) setSlots([]);
+                if (on) setSlotsError(true);
             });
         return () => {
             on = false;
@@ -1132,6 +1139,10 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
         setDate,
         dateLabel: dayLabel(day, today, zone),
         slots,
+        slotsError: slotsError || daysError,
+        retrySlots: () => {
+            setReload((n) => n + 1);
+        },
         slotGroups: groupSlots(slots ?? [], zone),
         pick,
         setPick,

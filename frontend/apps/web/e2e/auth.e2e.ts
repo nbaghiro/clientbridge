@@ -391,3 +391,11 @@ test("an invitee who verifies from the emailed link in a new tab lands back on t
         await cleanup();
     }
 });
+
+test("auth errors offer a clean return to sign in", async ({ page }) => {
+    await page.goto("/auth-error");
+    await expect(page.getByRole("heading", { name: strings.auth.errorTitle })).toBeVisible();
+    await page.getByRole("button", { name: strings.auth.backToSignIn }).click();
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.getByRole("heading", { name: strings.auth.signInTitle })).toBeVisible();
+});

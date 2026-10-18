@@ -1983,5 +1983,355 @@
         "zone": "America/Vancouver",
         "at": 1909162800000,
         "wall": "2030-07-01T12:00"
+    },
+    {
+        "zone": "America/Creston",
+        "at": 1704135600000,
+        "wall": "2024-01-01T12:00"
+    },
+    {
+        "zone": "America/Creston",
+        "at": 1719860400000,
+        "wall": "2024-07-01T12:00"
+    },
+    {
+        "zone": "America/Creston",
+        "at": 1735758000000,
+        "wall": "2025-01-01T12:00"
+    },
+    {
+        "zone": "America/Creston",
+        "at": 1751396400000,
+        "wall": "2025-07-01T12:00"
+    },
+    {
+        "zone": "America/Creston",
+        "at": 1767294000000,
+        "wall": "2026-01-01T12:00"
+    },
+    {
+        "zone": "America/Creston",
+        "at": 1782932400000,
+        "wall": "2026-07-01T12:00"
+    },
+    {
+        "zone": "America/Creston",
+        "at": 1798830000000,
+        "wall": "2027-01-01T12:00"
+    },
+    {
+        "zone": "America/Creston",
+        "at": 1814468400000,
+        "wall": "2027-07-01T12:00"
+    },
+    {
+        "zone": "America/Creston",
+        "at": 1830366000000,
+        "wall": "2028-01-01T12:00"
+    },
+    {
+        "zone": "America/Creston",
+        "at": 1846090800000,
+        "wall": "2028-07-01T12:00"
+    },
+    {
+        "zone": "America/Creston",
+        "at": 1861988400000,
+        "wall": "2029-01-01T12:00"
+    },
+    {
+        "zone": "America/Creston",
+        "at": 1877626800000,
+        "wall": "2029-07-01T12:00"
+    },
+    {
+        "zone": "America/Creston",
+        "at": 1893524400000,
+        "wall": "2030-01-01T12:00"
+    },
+    {
+        "zone": "America/Creston",
+        "at": 1909162800000,
+        "wall": "2030-07-01T12:00"
+    },
+    {
+        "zone": "America/Dawson_Creek",
+        "at": 1704135600000,
+        "wall": "2024-01-01T12:00"
+    },
+    {
+        "zone": "America/Dawson_Creek",
+        "at": 1719860400000,
+        "wall": "2024-07-01T12:00"
+    },
+    {
+        "zone": "America/Dawson_Creek",
+        "at": 1735758000000,
+        "wall": "2025-01-01T12:00"
+    },
+    {
+        "zone": "America/Dawson_Creek",
+        "at": 1751396400000,
+        "wall": "2025-07-01T12:00"
+    },
+    {
+        "zone": "America/Dawson_Creek",
+        "at": 1767294000000,
+        "wall": "2026-01-01T12:00"
+    },
+    {
+        "zone": "America/Dawson_Creek",
+        "at": 1782932400000,
+        "wall": "2026-07-01T12:00"
+    },
+    {
+        "zone": "America/Dawson_Creek",
+        "at": 1798830000000,
+        "wall": "2027-01-01T12:00"
+    },
+    {
+        "zone": "America/Dawson_Creek",
+        "at": 1814468400000,
+        "wall": "2027-07-01T12:00"
+    },
+    {
+        "zone": "America/Dawson_Creek",
+        "at": 1830366000000,
+        "wall": "2028-01-01T12:00"
+    },
+    {
+        "zone": "America/Dawson_Creek",
+        "at": 1846090800000,
+        "wall": "2028-07-01T12:00"
+    },
+    {
+        "zone": "America/Dawson_Creek",
+        "at": 1861988400000,
+        "wall": "2029-01-01T12:00"
+    },
+    {
+        "zone": "America/Dawson_Creek",
+        "at": 1877626800000,
+        "wall": "2029-07-01T12:00"
+    },
+    {
+        "zone": "America/Dawson_Creek",
+        "at": 1893524400000,
+        "wall": "2030-01-01T12:00"
+    },
+    {
+        "zone": "America/Dawson_Creek",
+        "at": 1909162800000,
+        "wall": "2030-07-01T12:00"
+    },
+    {
+        "zone": "America/Fort_Nelson",
+        "at": 1704135600000,
+        "wall": "2024-01-01T12:00"
+    },
+    {
+        "zone": "America/Fort_Nelson",
+        "at": 1719860400000,
+        "wall": "2024-07-01T12:00"
+    },
+    {
+        "zone": "America/Fort_Nelson",
+        "at": 1735758000000,
+        "wall": "2025-01-01T12:00"
+    },
+    {
+        "zone": "America/Fort_Nelson",
+        "at": 1751396400000,
+        "wall": "2025-07-01T12:00"
+    },
+    {
+        "zone": "America/Fort_Nelson",
+        "at": 1767294000000,
+        "wall": "2026-01-01T12:00"
+    },
+    {
+        "zone": "America/Fort_Nelson",
+        "at": 1782932400000,
+        "wall": "2026-07-01T12:00"
+    },
+    {
+        "zone": "America/Fort_Nelson",
+        "at": 1798830000000,
+        "wall": "2027-01-01T12:00"
+    },
+    {
+        "zone": "America/Fort_Nelson",
+        "at": 1814468400000,
+        "wall": "2027-07-01T12:00"
+    },
+    {
+        "zone": "America/Fort_Nelson",
+        "at": 1830366000000,
+        "wall": "2028-01-01T12:00"
+    },
+    {
+        "zone": "America/Fort_Nelson",
+        "at": 1846090800000,
+        "wall": "2028-07-01T12:00"
+    },
+    {
+        "zone": "America/Fort_Nelson",
+        "at": 1861988400000,
+        "wall": "2029-01-01T12:00"
+    },
+    {
+        "zone": "America/Fort_Nelson",
+        "at": 1877626800000,
+        "wall": "2029-07-01T12:00"
+    },
+    {
+        "zone": "America/Fort_Nelson",
+        "at": 1893524400000,
+        "wall": "2030-01-01T12:00"
+    },
+    {
+        "zone": "America/Fort_Nelson",
+        "at": 1909162800000,
+        "wall": "2030-07-01T12:00"
+    },
+    {
+        "zone": "America/Atikokan",
+        "at": 1704128400000,
+        "wall": "2024-01-01T12:00"
+    },
+    {
+        "zone": "America/Atikokan",
+        "at": 1719853200000,
+        "wall": "2024-07-01T12:00"
+    },
+    {
+        "zone": "America/Atikokan",
+        "at": 1735750800000,
+        "wall": "2025-01-01T12:00"
+    },
+    {
+        "zone": "America/Atikokan",
+        "at": 1751389200000,
+        "wall": "2025-07-01T12:00"
+    },
+    {
+        "zone": "America/Atikokan",
+        "at": 1767286800000,
+        "wall": "2026-01-01T12:00"
+    },
+    {
+        "zone": "America/Atikokan",
+        "at": 1782925200000,
+        "wall": "2026-07-01T12:00"
+    },
+    {
+        "zone": "America/Atikokan",
+        "at": 1798822800000,
+        "wall": "2027-01-01T12:00"
+    },
+    {
+        "zone": "America/Atikokan",
+        "at": 1814461200000,
+        "wall": "2027-07-01T12:00"
+    },
+    {
+        "zone": "America/Atikokan",
+        "at": 1830358800000,
+        "wall": "2028-01-01T12:00"
+    },
+    {
+        "zone": "America/Atikokan",
+        "at": 1846083600000,
+        "wall": "2028-07-01T12:00"
+    },
+    {
+        "zone": "America/Atikokan",
+        "at": 1861981200000,
+        "wall": "2029-01-01T12:00"
+    },
+    {
+        "zone": "America/Atikokan",
+        "at": 1877619600000,
+        "wall": "2029-07-01T12:00"
+    },
+    {
+        "zone": "America/Atikokan",
+        "at": 1893517200000,
+        "wall": "2030-01-01T12:00"
+    },
+    {
+        "zone": "America/Atikokan",
+        "at": 1909155600000,
+        "wall": "2030-07-01T12:00"
+    },
+    {
+        "zone": "America/Blanc-Sablon",
+        "at": 1704124800000,
+        "wall": "2024-01-01T12:00"
+    },
+    {
+        "zone": "America/Blanc-Sablon",
+        "at": 1719849600000,
+        "wall": "2024-07-01T12:00"
+    },
+    {
+        "zone": "America/Blanc-Sablon",
+        "at": 1735747200000,
+        "wall": "2025-01-01T12:00"
+    },
+    {
+        "zone": "America/Blanc-Sablon",
+        "at": 1751385600000,
+        "wall": "2025-07-01T12:00"
+    },
+    {
+        "zone": "America/Blanc-Sablon",
+        "at": 1767283200000,
+        "wall": "2026-01-01T12:00"
+    },
+    {
+        "zone": "America/Blanc-Sablon",
+        "at": 1782921600000,
+        "wall": "2026-07-01T12:00"
+    },
+    {
+        "zone": "America/Blanc-Sablon",
+        "at": 1798819200000,
+        "wall": "2027-01-01T12:00"
+    },
+    {
+        "zone": "America/Blanc-Sablon",
+        "at": 1814457600000,
+        "wall": "2027-07-01T12:00"
+    },
+    {
+        "zone": "America/Blanc-Sablon",
+        "at": 1830355200000,
+        "wall": "2028-01-01T12:00"
+    },
+    {
+        "zone": "America/Blanc-Sablon",
+        "at": 1846080000000,
+        "wall": "2028-07-01T12:00"
+    },
+    {
+        "zone": "America/Blanc-Sablon",
+        "at": 1861977600000,
+        "wall": "2029-01-01T12:00"
+    },
+    {
+        "zone": "America/Blanc-Sablon",
+        "at": 1877616000000,
+        "wall": "2029-07-01T12:00"
+    },
+    {
+        "zone": "America/Blanc-Sablon",
+        "at": 1893513600000,
+        "wall": "2030-01-01T12:00"
+    },
+    {
+        "zone": "America/Blanc-Sablon",
+        "at": 1909152000000,
+        "wall": "2030-07-01T12:00"
     }
 ]

@@ -328,3 +328,16 @@ test("unavailable business icons retain the default favicon", async ({ page }) =
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.locator('link[rel="icon"]').first()).toHaveAttribute("href", "/favicon.ico");
 });
+
+test("bank setup rejects a missing link and removes provider secrets from the URL", async ({
+    page,
+}) => {
+    await page.goto(
+        "/payment-method?setup_intent_client_secret=secret&setup_intent=seti_test&redirect_status=succeeded",
+    );
+    await expect(
+        page.getByRole("heading", { name: strings.checkout.bankSetupTitle }),
+    ).toBeVisible();
+    await expect(page.getByText(strings.checkout.bankSetupUnavailable)).toBeVisible();
+    await expect(page).toHaveURL(/\/payment-method$/);
+});

@@ -98,7 +98,11 @@ function Clients({ business }: { business: string }) {
                                     label: strings.admin.name,
                                     render: (c) => (
                                         <>
-                                            <span className="font-medium">{c.name}</span>
+                                            <RecordLink
+                                                to={`/activity?business_id=${c.business_id}&q=${c.id}`}
+                                            >
+                                                {c.name}
+                                            </RecordLink>
                                             <div>
                                                 <Identifier value={c.id} />
                                             </div>

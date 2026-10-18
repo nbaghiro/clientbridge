@@ -16,8 +16,6 @@ export function ImagePicker({
     label,
     hint,
     onPick,
-    onPickAlt,
-    altLabel,
     onRemove,
     removeLabel,
     busy = false,
@@ -60,17 +58,6 @@ export function ImagePicker({
                     >
                         {label}
                     </Button>
-                    {onPickAlt !== undefined && altLabel !== undefined ? (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onPress={onPickAlt}
-                            disabled={busy}
-                            style={styles.action}
-                        >
-                            {altLabel}
-                        </Button>
-                    ) : null}
                 </View>
                 {src !== null && onRemove !== undefined ? (
                     <Button size="sm" variant="link" onPress={onRemove}>

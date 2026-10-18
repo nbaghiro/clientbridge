@@ -1,3 +1,4 @@
+import { isManager } from "./auth";
 import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -26,7 +27,7 @@ import {
 } from "../format";
 import { type Load, useAsyncAction, useLoad, useRemote } from "../hooks";
 import { strings } from "../strings";
-import { type ApiLike, type Attempt, attemptKey, newIdempotencyKey } from "../api";
+import { type ApiLike, type Attempt, attemptKey } from "../api";
 import type { ConfirmOptions, DocTotalLine, Intent, PrintedDocTax } from "../ui";
 import {
     type DiscountKind,
@@ -604,7 +605,7 @@ export const DISCOUNT_LIMIT_SQL = "SELECT staff_discount_limit_bps FROM business
 
 function useDiscountLimit(role: string | null): number | null {
     const row = useQuery<{ staff_discount_limit_bps: number | null }>(DISCOUNT_LIMIT_SQL).data[0];
-    if (role === "owner" || role === "admin") return null;
+    if (isManager(role)) return null;
     return row?.staff_discount_limit_bps ?? 1500;
 }
 
@@ -1004,6 +1005,8 @@ export function useSale(
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
     const keyRef = useRef<Attempt | null>(null);
+    const paymentAttempt = useRef<Attempt | null>(null);
+    const savedAttempt = useRef<{ body: string; order: OrderOut } | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     const receiptAction = useAsyncAction();
 
@@ -1039,6 +1042,8 @@ export function useSale(
 
     const reset = (): void => {
         keyRef.current = null;
+        paymentAttempt.current = null;
+        savedAttempt.current = null;
         setLines([]);
         setClientIdState(null);
         setSaleDiscountState(null);
@@ -1062,12 +1067,15 @@ export function useSale(
 
     const save = async (note?: string | null): Promise<OrderOut> => {
         const body = saleBody({ clientId, lines, saleDiscount, pin: approvalPin, note });
+        const fingerprint = JSON.stringify(body);
+        if (savedAttempt.current?.body === fingerprint) return savedAttempt.current.order;
         const out = await saveSale(
             api,
             order?.id ?? null,
             body,
             attemptKey(keyRef, [order?.id ?? null, body]),
         );
+        savedAttempt.current = { body: fingerprint, order: out };
         setOrder(out);
         return out;
     };
@@ -1096,7 +1104,14 @@ export function useSale(
                     const out = await api.post<CashResult>(
                         `/v1/orders/${saved_.id}/cash`,
                         { ...tipPart, tendered_cents: cash ?? 0 },
-                        { idempotencyKey: newIdempotencyKey() },
+                        {
+                            idempotencyKey: attemptKey(paymentAttempt, [
+                                saved_.id,
+                                use,
+                                tipPart,
+                                cash,
+                            ]),
+                        },
                     );
                     setPaidCents(out.amount_cents);
                     setChangeGiven(out.change_cents);
@@ -1107,7 +1122,14 @@ export function useSale(
                     const out = await api.post<CheckoutResult>(
                         `/v1/orders/${saved_.id}/checkout`,
                         tipPart,
-                        { idempotencyKey: newIdempotencyKey() },
+                        {
+                            idempotencyKey: attemptKey(paymentAttempt, [
+                                saved_.id,
+                                use,
+                                tipPart,
+                                cash,
+                            ]),
+                        },
                     );
                     setPaidCents(amount);
                     setTerminal({ orderId: saved_.id, clientSecret: out.client_secret });
@@ -2110,7 +2132,7 @@ export function useSaleDetail(
                           totalCents: row.total_cents,
                       },
                   );
-        const manager = role === "owner" || role === "admin";
+        const manager = isManager(role);
         const lastPaid = [...pays].reverse().find((p) => p.kind === "payment") ?? null;
         const splits: { staff_id: string; cents: number }[] =
             lastPaid?.tip_split != null
@@ -2227,6 +2249,7 @@ export function useSaleActions(
     const { busy, error, setError, run } = useAsyncAction();
     const [busyKey, setBusyKey] = useState<SaleActionKey | null>(null);
     const [done, setDone] = useState<string | null>(null);
+    const refundAttempt = useRef<Attempt | null>(null);
     const ask = (options: ConfirmOptions, then: () => void): void => {
         confirmFn(options)
             .then((ok) => {
@@ -2239,6 +2262,7 @@ export function useSaleActions(
         setDone(null);
         run(fn, {
             onSuccess: () => {
+                if (key === "refund") refundAttempt.current = null;
                 setBusyKey(null);
                 setDone(message);
             },
@@ -2307,7 +2331,12 @@ export function useSaleActions(
                                 api.post(
                                     `/v1/payments/${paymentId}/refund`,
                                     { amount_cents: cents, notify: true },
-                                    { idempotencyKey: newIdempotencyKey() },
+                                    {
+                                        idempotencyKey: attemptKey(refundAttempt, [
+                                            paymentId,
+                                            cents,
+                                        ]),
+                                    },
                                 ),
                             d.refundDone(formatMoney(cents, BUSINESS_CURRENCY), note),
                         );

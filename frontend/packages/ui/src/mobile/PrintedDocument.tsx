@@ -105,48 +105,21 @@ function Lines({ doc }: { doc: Doc }) {
     );
 }
 
-export function PrintedDocument({
-    doc,
-    template = "classic",
-    style,
-}: NativeProps<PrintedDocumentProps>) {
-    const statement = template === "statement";
+export function PrintedDocument({ doc, style }: NativeProps<PrintedDocumentProps>) {
     return (
         <View style={[styles.paper, style]} accessibilityLabel={doc.heading}>
-            {statement ? (
-                <View style={[styles.band, { backgroundColor: doc.business.brandColor }]}>
-                    <Brand doc={doc} inverse />
-                    <Text style={[styles.bandTitle, styles.inverse]}>{doc.heading}</Text>
-                </View>
-            ) : (
-                <>
-                    <View style={styles.headRow}>
-                        <Brand doc={doc} />
-                        <View style={styles.right}>
-                            <Text style={[styles.title, { color: doc.business.brandColor }]}>
-                                {doc.title}
-                            </Text>
-                            <Text style={styles.small}>{doc.reference}</Text>
-                        </View>
-                    </View>
-                    <View style={[styles.rule, { backgroundColor: doc.business.brandColor }]} />
-                </>
-            )}
-
-            {statement ? (
-                <View style={styles.headline}>
-                    <View style={styles.flex}>
-                        <Text style={styles.cap}>{doc.headline.label}</Text>
-                        <Text style={styles.big}>
-                            {formatMoney(doc.headline.cents, doc.currency)}
+            <>
+                <View style={styles.headRow}>
+                    <Brand doc={doc} />
+                    <View style={styles.right}>
+                        <Text style={[styles.title, { color: doc.business.brandColor }]}>
+                            {doc.title}
                         </Text>
-                        <Text style={styles.small}>{doc.deadline}</Text>
+                        <Text style={styles.small}>{doc.reference}</Text>
                     </View>
-                    {doc.payUrl !== null ? (
-                        <PayCode value={doc.payUrl} size={64} label={doc.labels.scanToPay} />
-                    ) : null}
                 </View>
-            ) : null}
+                <View style={[styles.rule, { backgroundColor: doc.business.brandColor }]} />
+            </>
 
             <Parties doc={doc} />
             <Meta doc={doc} />
@@ -169,7 +142,7 @@ export function PrintedDocument({
                     <Text style={styles.small}>{doc.payment.at}</Text>
                 </View>
             ) : null}
-            {!statement && doc.instructions.length > 0 ? (
+            {doc.instructions.length > 0 ? (
                 <View style={[styles.box, styles.payRow]}>
                     <View style={styles.flex}>
                         <Text style={styles.cap}>{doc.labels.howToPay}</Text>
