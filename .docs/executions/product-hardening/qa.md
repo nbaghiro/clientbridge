@@ -21,7 +21,7 @@ Use disposable demo data and provider test mode. Real email tests require an exp
 - Existing form definitions are marked reconstructed; no historical signature is invented.
 - Inspect existing pending checkouts before enabling stock enforcement against production data.
 - Unknown delivery acceptance is never blindly retried. Resolve ambiguous sends against provider records.
-- Append-only audit triggers and additional growth indexes are separate concrete schema decisions. Gift-card split tender and resource management are separate product capabilities.
+- Append-only audit triggers and additional growth indexes are separate concrete schema decisions. Gift-card split tender is a separate product capability.
 
 ## Verification results, 18 October 2026
 

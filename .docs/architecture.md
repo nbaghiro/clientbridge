@@ -243,8 +243,8 @@ records every money movement and is the only place money balances are stored. Th
   (`bookings → packages → payments → bookings`) is broken with `use_alter=True`.
 - **JSONB** for lightweight config (brand, custom_fields, attributes, audience, answers, changes,
   requirements); **never** for queried business data.
-- **Concurrency invariants live in SQL:** GiST exclusion constraints stop double-booking a staff member or
-  a resource; partial-unique indexes enforce business rules (one active/paused subscription per client+item,
+- **Concurrency invariants live in SQL:** a GiST exclusion constraint stops double-booking a staff
+  member; partial-unique indexes enforce business rules (one active/paused subscription per client+item,
   one open review request per booking).
 
 ### ID prefixes
@@ -253,7 +253,7 @@ Prefixes predate the table renames and are kept so existing ids stay valid; the 
 shown after it.
 `bz_`businesses `us_`users `st_`staff · `cl_`clients `sj_`subjects `nt_`notes `cns_`consents · `it_`items `pkg_`packages
 `sub_`subscriptions `gc_`gift_cards `stk_`inventory · `ses_`slots `bk_`bookings `bka_`addons `av_`hours
-`rs_`resources `sch_`recurrences · `inv_`invoices `est_`estimates `ord_`orders `ln_`lines · `pay_`payments
+`sch_`recurrences · `inv_`invoices `est_`estimates `ord_`orders `ln_`lines · `pay_`payments
 `pm_`payment_methods `psl_`payment_setup_links `acc_`accounts `ent_`entries `jrn_`journal · `th_`threads `msg_`messages `bro_`broadcasts
 · `frm_`forms `ff_`fields `fr_`responses `con_`contracts `sig_`signatures · `rv_`reviews (requests merged in from the old `review_requests` keep `rvr_`)
 · `fl_`files `aud_`audits `wh_`webhooks `dvt_`devices `idk_`commands `sur_`sync_receipts · `rtc_`returning_challenges
@@ -285,8 +285,7 @@ by line and reason; `items.stock_on_hand` is the running total).
 state is derived from the ledger, and a deposit is due when `deposit_amount_cents > 0`); `reminded_at`),
 `hours` (per-staff working hours: `basis` recurring weekday or one-off date, `available`; `basis`
 exception is time off for one member, or a closure for everyone when `staff_id` is null, with
-`starts_at`/`ends_at` and a `reason`, written only through `/v1/time-off`), `resources`
-(`category` room/station/equipment, `capacity`, and `active`, which keeps existing bookings but offers it for no new ones), `recurrences` (recurrence rule with `frequency` day/week/month, the same words
+`starts_at`/`ends_at` and a `reason`, written only through `/v1/time-off`), `recurrences` (recurrence rule with `frequency` day/week/month, the same words
 items use, and `monthly_by` date or weekday → expands to slots/bookings; dates can be skipped or shifted
 when booking, and `PATCH /v1/recurrences/{id}` moves one, the following or all upcoming visits while
 `/cancel` ends the series and refunds paid deposits), `addons` (products a client added to a visit when booking; they join
@@ -355,7 +354,7 @@ invites · `entries.subject_type`/`source_type` = any money event on any entity 
 `signatures` `parent_type` and `audits.entity_type` generalize the rest. `kind` is used only on `items`,
 `payments` and `subjects`; other discriminators carry a name that says what they mean (`hours.basis`,
 `fields.input`, `payment_methods.method`, `entries.event`, `webhooks.event`, `accounts.category`,
-`resources.category`, `files.purpose`).
+`files.purpose`).
 
 > **Why this shape:** the model is a pragmatic "mostly-lean" blend chosen over an option-by-option review —
 > maximally consolidated (shared `lines`/`payments` across documents, one `items(kind)`, one `slots` for 1:1 + group)
@@ -529,8 +528,8 @@ Four auto-subscribed streams and three history streams implement the read model 
   slots and bookings, and every member's slots and bookings for owner/admin, each limited to the months
   the device subscribes (see the history window above).
 
-`business_shared` also carries pets (`subjects`), `notes`, `resources` and closures (hours rows with no
-`staff_id`), so every member's calendar can name the pet, the room and the day the business is shut;
+`business_shared` also carries pets (`subjects`), `notes` and closures (hours rows with no
+`staff_id`), so every member's calendar can name the pet and the day the business is shut;
 `recurrences` follow their member like slots do.
 
 Device read scope: staff = `business_shared` + `staff_limited` + `staff_self` + `history_shared` +

@@ -227,15 +227,6 @@
       "status": "pending"
     },
     {
-      "id": "G10",
-      "side": "both",
-      "title": "Resources",
-      "covers": [
-        "design.md"
-      ],
-      "status": "pending"
-    },
-    {
       "id": "G11",
       "side": "both",
       "title": "Rolling recurrences",

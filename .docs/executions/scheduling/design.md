@@ -450,9 +450,9 @@ Each task starts only after its schema change, if any, is approved. Within a tas
 - G7. Device range prefilters and shorter ranges. (Gap 7, devices.) Independent of the server tasks and can run in parallel with them.
 - G8. Hours model: split days, midnight ends, date overrides, buffers inside hours, default step. Schema: hours CHECKs and the date-row conversion. (Gap 6.)
 - G9. Service-to-staff mapping and least-booked choice for "any". Schema: `items.staff_ids`. (Gap 2, part.)
-- G10. Resource management, service pools and removing `resources.capacity`. Schema: `items.resource_ids`, drop `resources.capacity`. (Gap 2, part.)
+- G10. Dropped: the resources concept (rooms and stations) was removed from the product, so there is nothing to pool or manage. (Gap 2, part.)
 - G11. Rolling recurrence generation with occurrence identity and skipped dates. Schema: recurrence columns, `slots.recurrence_date`, unique index. (Gap 8.)
-- G12. Class timetables and sessions, booking into sessions only, waitlist and auto-promotion. Schema: `recurrences.resource_id`, `recurrences.capacity`. Depends on G6, G10 and G11. (Gap 1.)
+- G12. Class timetables and sessions, booking into sessions only, waitlist and auto-promotion. Schema: `recurrences.capacity`. Depends on G6 and G11. (Gap 1.)
 - G13. Local wall times on slots, the re-anchor job and local strings on Connect, and the device zone check. Schema: `slots.local_starts_at`. Best done after G11 so generated slots write the column from the start. (Gap 9.)
 
 Each task ends with the full gate for its side, `make gen-api` and `make gen-sync-schema` when the contract or sync rules change, and a review of `sync_projections.json` when a stream gains columns. The milestone audit from `CLAUDE.md` runs after G5, G10 and G13.

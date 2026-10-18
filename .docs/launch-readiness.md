@@ -32,7 +32,7 @@ This file is the source of truth for every ticket. Each story below has its full
 | 3. Book and complete a visit    | Staff hours, time off and closures                             | CLI-20 | M    |
 | 3. Book and complete a visit    | Calendar: create, move, cancel, complete, no-show              | CLI-21 | M    |
 | 3. Book and complete a visit    | Recurring bookings                                             | CLI-22 | M    |
-| 3. Book and complete a visit    | Classes, rooms and stations                                    | CLI-23 | M    |
+| 3. Book and complete a visit    | Classes                                                        | CLI-23 | M    |
 | 3. Book and complete a visit    | Reminders and end-of-day completion                            | CLI-24 | S    |
 | 3. Book and complete a visit    | Booking page with deposits and embedding                       | CLI-25 | S    |
 | 3. Book and complete a visit    | Booking add-ons                                                | CLI-26 | S    |
@@ -492,7 +492,7 @@ QA pass:
 1. Set a staff member's hours to Tuesday to Saturday, 10 to 4, add a day off and close the business on a holiday; the booking page offers only open times.
 2. Book from the calendar, drag the visit to a new time, and try to double-book the same person: refused.
 3. Create a weekly series of 6 across a daylight-saving change, move it to another weekday, then cancel it.
-4. Fill a class of 6 online: the 7th is refused and the roster lists all six; a second booking on the same station is refused.
+4. Fill a class of 6 online: the 7th is refused and the roster lists all six.
 5. As a new client on a phone, book a service with a shampoo add-on and a deposit paid with card 4242; the booking shows on web and the staff phone with the deposit collected. Repeat inside an embedded page.
 6. Set reminders to 2 hours before and book for later today: the reminder arrives with the right time and address.
 7. From the confirmation link, reschedule; cancel inside the cut-off (refused) and outside it (the slot opens and the deposit follows the policy).
@@ -514,7 +514,7 @@ Size: M · Area: Scheduling
 
 **To do:**
 
-- The remaining scheduling design work tracked in `.docs/executions/scheduling/plan.md` (late-cancel policy, hours model, service-to-staff mapping, resources, rolling recurrences, class timetables, local wall times).
+- The remaining scheduling design work tracked in `.docs/executions/scheduling/plan.md` (late-cancel policy, hours model, service-to-staff mapping, rolling recurrences, class timetables, local wall times).
 
 **QA:**
 
@@ -534,7 +534,7 @@ Size: M · Area: Scheduling
 
 **Flow:** Staff book, move and cancel visits, then mark each one completed or a no-show.
 
-**Built:** Day, week, month, staff and agenda views on web (day and agenda on mobile), create, drag to reschedule, cancel, double-booking checks for staff and stations; Complete and No-show on web and mobile, refused before the visit starts.
+**Built:** Day, week, month, staff and agenda views on web (day and agenda on mobile), create, drag to reschedule, cancel, double-booking checks for staff; Complete and No-show on web and mobile, refused before the visit starts.
 
 **To do:**
 
@@ -573,29 +573,26 @@ Size: M · Area: Scheduling
 
 **Depends on:** Calendar: create, move, cancel, complete, no-show (CLI-21)
 
-### Classes, rooms and stations (CLI-23)
+### Classes (CLI-23)
 
 Size: M · Area: Scheduling
 
-**When this is done:** Classes and rooms run without touching the database.
+**When this is done:** Classes run without touching the database.
 
 **Surfaces:** Backend, web, iPhone and Android
 
-**Flow:** A business runs group classes with a capacity and books shared rooms or stations without clashes.
+**Flow:** A business runs group classes with a capacity.
 
-**Built:** Class capacity and seat counts in the booking engine; rooms and stations checked for clashes.
+**Built:** Class capacity and seat counts in the booking engine.
 
 **To do:**
 
-- Manage rooms and stations.
-- Pick a room or station on a booking.
 - A class roster.
 
 **QA:**
 
 1. Create a class of 6, book 6 online; the 7th is refused.
 2. Open the roster: all six listed.
-3. Book two services on the same station at once: the second is refused.
 
 **Depends on:** Calendar: create, move, cancel, complete, no-show (CLI-21)
 
