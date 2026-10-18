@@ -12,3 +12,5 @@ Each execution that is planned or in progress owns its plan and progress so unre
 | Platform admin | [Plan](platform-admin/plan.md), [task queue](platform-admin/tasks.json), [progress](platform-admin/progress.md). |
 
 Use a new folder for a separate execution. Record tested behavior, remaining work and snapshot-specific evidence in its progress document; keep reusable system decisions in the main docs.
+
+- [Product hardening](product-hardening/plan.md) — fixes on `hardening/product-invariants`; [finding disposition](product-hardening/disposition.md) and [QA checklist](product-hardening/qa.md).
