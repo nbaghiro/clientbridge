@@ -1,5 +1,6 @@
 import {
     type ItemTaxClass,
+    type ProvinceCode,
     FILING_FREQUENCIES,
     PROVINCES,
     TAX_CLASS_KEYS,
@@ -33,6 +34,7 @@ import {
     Select,
     Skeleton,
     TextField,
+    confirm,
 } from "@clientbridge/ui";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -109,18 +111,40 @@ export function TaxesScreen() {
                         </View>
                     )}
                     <View style={styles.province}>
-                        <View style={styles.flex}>
-                            <Text style={styles.small}>{s.province}</Text>
-                            <Text style={styles.value}>{form.provinceName}</Text>
+                        <View style={styles.badges}>
+                            {form.taxLines.map((l) => (
+                                <Badge key={l.label} label={l.label} intent="neutral" />
+                            ))}
                         </View>
-                        {form.taxLines.map((l) => (
-                            <Badge
-                                style={{ alignSelf: "center" }}
-                                key={l.label}
-                                label={l.label}
-                                intent="neutral"
-                            />
-                        ))}
+                        <Select<ProvinceCode>
+                            label={s.province}
+                            hint={form.provinceLocked ? s.provinceLocked : s.provinceHint}
+                            value={form.nextProvince ?? form.province ?? undefined}
+                            options={PROVINCES.map((p) => ({ key: p.code, label: p.name }))}
+                            onChange={form.setNextProvince}
+                            disabled={form.provinceBusy || form.provinceLocked}
+                        />
+                        {form.provinceError !== null ? (
+                            <Notice tone="danger">{form.provinceError}</Notice>
+                        ) : null}
+                        <Button
+                            variant="outline"
+                            busy={form.provinceBusy}
+                            disabled={!form.provinceChanged}
+                            onPress={() => {
+                                confirm({
+                                    title: s.provinceConfirmTitle(form.nextProvinceName),
+                                    message: s.provinceConfirmBody(form.nextProvinceName),
+                                    confirmLabel: s.provinceChange,
+                                })
+                                    .then((ok) => {
+                                        if (ok) form.changeProvince();
+                                    })
+                                    .catch(() => undefined);
+                            }}
+                        >
+                            {s.provinceChange}
+                        </Button>
                     </View>
                     <TextField
                         label={s.gst}
@@ -319,10 +343,9 @@ const styles = StyleSheet.create({
     flush: { paddingVertical: 0 },
     gap: { marginTop: 10 },
     flex: { flex: 1, minWidth: 0 },
+    badges: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
     province: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
+        gap: 10,
         marginTop: 14,
         padding: 12,
         borderRadius: theme.radius,
@@ -331,7 +354,6 @@ const styles = StyleSheet.create({
         borderColor: c.border,
     },
     small: { color: c.muted, fontSize: 12, lineHeight: 17 },
-    value: { color: c.ink, fontSize: 15, fontWeight: "600" },
     title: { color: c.ink, fontSize: 16, fontWeight: "700", marginBottom: 4 },
     section: { color: c.ink, fontSize: 17, fontWeight: "700", marginTop: 6, marginBottom: 2 },
     exRow: {

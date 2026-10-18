@@ -4049,6 +4049,18 @@ export interface components {
             review_hold_at: number;
             /** Google Review Url */
             google_review_url: string | null;
+            /** Unit */
+            unit: string | null;
+            /** Street Number */
+            street_number: string | null;
+            /** Street Name */
+            street_name: string | null;
+            /** City */
+            city: string | null;
+            /** Postal Code */
+            postal_code: string | null;
+            /** Legal Phone */
+            legal_phone: string | null;
             /** Brand */
             brand: {
                 [key: string]: unknown;
@@ -4092,6 +4104,29 @@ export interface components {
              * @description The Google review link shared after a good review; empty clears
              */
             google_review_url?: string | null;
+            /**
+             * Province
+             * @description Sets the sales tax for new prices; issued documents keep the tax they charged
+             */
+            province?: ("AB" | "BC" | "MB" | "NB" | "NL" | "NS" | "NT" | "NU" | "ON" | "PE" | "QC" | "SK" | "YT") | null;
+            /** Unit */
+            unit?: string | null;
+            /** Street Number */
+            street_number?: string | null;
+            /** Street Name */
+            street_name?: string | null;
+            /** City */
+            city?: string | null;
+            /**
+             * Postal Code
+             * @description A postal code; empty clears
+             */
+            postal_code?: string | null;
+            /**
+             * Legal Phone
+             * @description The business's legal contact phone; empty clears
+             */
+            legal_phone?: string | null;
             brand?: components["schemas"]["BrandInput"] | null;
             /**
              * Subject

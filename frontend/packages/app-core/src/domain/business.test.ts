@@ -1,6 +1,15 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment happy-dom
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
-import { bookingPageUrl, setupTasks } from "./business";
+import type { ApiLike } from "../api";
+import { bookingPageUrl, setupTasks, useBusinessForm, useOnboardingForm } from "./business";
+
+const replica = vi.hoisted(() => ({ rows: [] as unknown[] }));
+vi.mock("../hooks", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../hooks")>()),
+    useBusinessQuery: () => ({ data: replica.rows }),
+}));
 
 type Counts = Parameters<typeof setupTasks>[0];
 
@@ -65,5 +74,111 @@ describe("bookingPageUrl", () => {
         expect(bookingPageUrl("https://book.example.ca/", "birch")).toBe(
             "https://book.example.ca/b/birch/book",
         );
+    });
+});
+
+const ROW = {
+    id: "bz_1",
+    name: "Birch Studio",
+    timezone: "America/Vancouver",
+    billing_email: null,
+    gst_hst_number: null,
+    qst_number: null,
+    province: "BC",
+    unit: null,
+    street_number: "1207",
+    street_name: "Government Street",
+    city: "Victoria",
+    postal_code: "V8W 1Y9",
+    legal_phone: null,
+    brand: null,
+};
+
+function recordingApi(reply: object): { api: ApiLike; bodies: Record<string, unknown>[] } {
+    const bodies: Record<string, unknown>[] = [];
+    const patch = (_path: string, body: unknown) => {
+        bodies.push(body as Record<string, unknown>);
+        return Promise.resolve(reply);
+    };
+    return { api: { patch } as unknown as ApiLike, bodies };
+}
+
+describe("useBusinessForm", () => {
+    it("leaves the address out of a save that did not touch it", async () => {
+        replica.rows = [ROW];
+        const { api, bodies } = recordingApi(ROW);
+        const { result } = renderHook(() => useBusinessForm(api));
+        await waitFor(() => {
+            expect(result.current.fields).not.toBeNull();
+        });
+        act(() => {
+            result.current.set("name", "Birch & Co");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.saved).toBe(true);
+        });
+        expect(bodies).toEqual([
+            { name: "Birch & Co", timezone: "America/Vancouver", billing_email: "" },
+        ]);
+    });
+
+    it("sends only the changed address field and shows the value the server stored", async () => {
+        replica.rows = [ROW];
+        const { api, bodies } = recordingApi({ ...ROW, postal_code: "V8W 1Y4" });
+        const { result } = renderHook(() => useBusinessForm(api));
+        await waitFor(() => {
+            expect(result.current.fields).not.toBeNull();
+        });
+        act(() => {
+            result.current.set("postal_code", "v8w1y4");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(result.current.fields?.postal_code).toBe("V8W 1Y4");
+        });
+        expect(bodies[0]).toMatchObject({ postal_code: "v8w1y4" });
+        expect(Object.keys(bodies[0] ?? {})).not.toContain("city");
+    });
+});
+
+describe("useOnboardingForm", () => {
+    it("starts with no province and will not create a business until one is chosen", async () => {
+        const posted: unknown[] = [];
+        const api = {
+            post: (_path: string, body: unknown) => {
+                posted.push(body);
+                return Promise.resolve({ id: "bz_new" });
+            },
+        } as unknown as ApiLike;
+        const created = vi.fn();
+        const { result } = renderHook(() => useOnboardingForm(api, created));
+        expect(result.current.province).toBeNull();
+        expect(result.current.taxSummary).toBeNull();
+        act(() => {
+            result.current.setName("Birch Studio");
+        });
+        act(() => {
+            result.current.submit();
+        });
+        expect(result.current.error).toBe("Choose the province or territory where the business is");
+        expect(posted).toEqual([]);
+        act(() => {
+            result.current.setProvince("BC");
+        });
+        expect(result.current.taxSummary).toBe("GST 5% + PST 7%");
+        act(() => {
+            result.current.submit();
+        });
+        await waitFor(() => {
+            expect(created).toHaveBeenCalled();
+        });
+        expect(posted).toEqual([
+            { name: "Birch Studio", slug: "birch-studio", province: "BC", timezone: null },
+        ]);
     });
 });

@@ -69,6 +69,8 @@ interface Strings {
         readonly staffHasFutureWork: string;
         readonly broadcastAddressMissing: string;
         readonly broadcastContactMissing: string;
+        readonly provinceLocked: string;
+        readonly postalCodeProvinceMismatch: string;
         readonly businessAddressIncomplete: string;
         readonly planRequired: string;
         readonly seatLimit: string;
@@ -2088,6 +2090,20 @@ interface Strings {
         } & Labels;
         readonly billingEmailLabel: string;
         readonly billingEmailPlaceholder: string;
+        readonly legalAddress: {
+            readonly title: string;
+            readonly hint: string;
+            readonly unit: string;
+            readonly streetNumber: string;
+            readonly streetName: string;
+            readonly city: string;
+            readonly province: string;
+            readonly provinceHint: string;
+            readonly postalCode: string;
+            readonly postalCodePlaceholder: string;
+            readonly legalPhone: string;
+            readonly legalPhonePlaceholder: string;
+        } & Labels;
         readonly nameRequired: string;
         readonly saveError: string;
         readonly onboarding: {
@@ -2114,6 +2130,7 @@ interface Strings {
             readonly slugPrefix: (host: string) => string;
             readonly slugPlaceholder: string;
             readonly province: string;
+            readonly provincePlaceholder: string;
             readonly taxTitle: (province: string) => string;
             readonly taxNone: string;
             readonly creating: string;
@@ -2123,6 +2140,7 @@ interface Strings {
             readonly notYouSignOut: string;
             readonly nameRequired: string;
             readonly slugRequired: string;
+            readonly provinceRequired: string;
             readonly createError: string;
             readonly verifyFirst: string;
             readonly verifyEmail: string;
@@ -2807,6 +2825,12 @@ interface Strings {
         readonly regSmallHint: string;
         readonly offNotice: string;
         readonly province: string;
+        readonly provinceHint: string;
+        readonly provinceLocked: string;
+        readonly provinceChange: string;
+        readonly provinceConfirmTitle: (province: string) => string;
+        readonly provinceConfirmBody: (province: string) => string;
+        readonly provinceSaveError: string;
         readonly gst: string;
         readonly gstHint: string;
         readonly gstInvalid: string;

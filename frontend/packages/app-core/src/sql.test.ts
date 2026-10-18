@@ -1787,8 +1787,29 @@ describe("app-core SQL against the replica schema", () => {
                 gst_hst_number: "123456789RT0001",
                 pst_number: "PST12345678",
                 filing_frequency: "quarterly",
+                province_locked: 1,
             },
         ]);
+        const locked = () => run("TAX_SETTINGS_SQL")[0]?.province_locked;
+        db.run("SAVEPOINT untaxed");
+        db.run(
+            "DELETE FROM entries WHERE account_id IN (SELECT id FROM accounts WHERE category = 'tax')",
+        );
+        db.run("UPDATE lines SET tax_amount_cents = 0");
+        expect(locked()).toBe(0);
+        db.run("UPDATE lines SET tax_amount_cents = 100 WHERE id = 'ln_1'");
+        db.run("UPDATE invoices SET status = 'draft' WHERE id = 'inv_1'");
+        expect(locked()).toBe(0);
+        db.run("UPDATE invoices SET status = 'void' WHERE id = 'inv_1'");
+        expect(locked()).toBe(1);
+        db.run("UPDATE lines SET tax_amount_cents = 0");
+        db.run("UPDATE lines SET tax_amount_cents = 100 WHERE id = 'ln_3'");
+        expect(locked()).toBe(1);
+        db.run("UPDATE orders SET status = 'void' WHERE id = 'ord_web'");
+        expect(locked()).toBe(0);
+        db.run("ROLLBACK TO untaxed");
+        db.run("RELEASE untaxed");
+        expect(locked()).toBe(1);
         expect(run("TAXABLE_ITEMS_SQL")).toEqual([
             {
                 id: "it_pkg",

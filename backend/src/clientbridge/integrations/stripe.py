@@ -435,6 +435,10 @@ class PaymentGateway(Protocol):
         """Let an account pay for its plan; the address is used only when it has none yet."""
         ...
 
+    async def update_account_address(self, account_id: str, *, address: PostalAddress) -> None:
+        """Replace the account's business address, which Stripe Tax places its plan by."""
+        ...
+
     async def create_plan_checkout(
         self,
         account_id: str,
@@ -737,6 +741,11 @@ class StripeGateway:
         # an onboarded account already has the address its owner verified
         if not has_identity_address(account.to_dict()):
             body["identity"] = {"business_details": {"address": address_params(address)}}
+        await self.client.v2.core.accounts.update_async(account_id, cast(AccountUpdateParams, body))
+
+    @_keyed
+    async def update_account_address(self, account_id: str, *, address: PostalAddress) -> None:
+        body = {"identity": {"business_details": {"address": address_params(address)}}}
         await self.client.v2.core.accounts.update_async(account_id, cast(AccountUpdateParams, body))
 
     async def _prices(self, keys: Sequence[str]) -> dict[str, PlanPriceRef]:

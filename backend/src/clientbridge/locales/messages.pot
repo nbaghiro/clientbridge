@@ -94,6 +94,12 @@ msgstr ""
 msgid "broadcast.email"
 msgstr ""
 
+msgid "broadcast.mailing_address"
+msgstr ""
+
+msgid "broadcast.mailing_address_unit"
+msgstr ""
+
 msgid "broadcast.sms"
 msgstr ""
 

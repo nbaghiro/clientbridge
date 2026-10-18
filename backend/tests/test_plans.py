@@ -296,7 +296,7 @@ async def test_checkout_replays_with_the_same_key(
 async def test_checkout_needs_the_business_address_for_tax(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _trial(db, timedelta(days=5), brand={})
+    await _trial(db, timedelta(days=5), street_number=None)
     res = await as_owner.post("/v1/plan/checkout", json={"plan": "team", "interval": "month"})
     assert res.status_code == 422 and res.json()["error"] == "business_address_incomplete"
     assert gateway.checkouts == []
@@ -678,7 +678,7 @@ async def test_a_lapsed_business_can_complete_its_address_refund_and_manage_paym
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await _trial(db, -timedelta(days=1))
-    address = {"brand": {"address": "88 Fort St, Victoria, BC V8W 1Y4"}}
+    address = {"street_number": "88", "street_name": "Fort St", "postal_code": "V8W 1Y4"}
     assert (await as_owner.patch("/v1/business", json=address)).status_code == 200
     refund = await as_owner.post("/v1/payments/pay_missing/refund", json={}, headers=retry_key())
     assert refund.status_code != 402

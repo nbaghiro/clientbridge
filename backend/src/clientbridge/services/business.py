@@ -1,9 +1,9 @@
-import re
+import logging
 from collections.abc import Iterable
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import ColumnElement, case, func, select
+from sqlalchemy import ColumnElement, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
@@ -12,79 +12,57 @@ from clientbridge.core.errors import Conflict, Forbidden, NotFound, Unprocessabl
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.core.zones import SUPPORTED_ZONES, zone
-from clientbridge.integrations.stripe import ConnectAccount, PostalAddress
+from clientbridge.integrations.stripe import ConnectAccount, PaymentGateway, PostalAddress
+from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, ProvinceCode, Staff, User
-from clientbridge.models.platform import File
+from clientbridge.models.ledger import Account, Entry
+from clientbridge.models.platform import Audit, File
 from clientbridge.schemas.business import BusinessSettingsUpdate, OnboardBody, public_email
 
-_POSTAL_CODE = re.compile(r"\b([A-Z]\d[A-Z])\s?(\d[A-Z]\d)\b", re.IGNORECASE)
-_COUNTRY = ("canada", "ca")
-# a unit or street line: a number, #, or a unit word, which a city name never starts with
-_UNIT = re.compile(r"(#|\d|(apt|apartment|app|appartement|unit|suite|bureau|ste)\b)", re.I)
-_PROVINCES: dict[str, ProvinceCode] = {
-    "alberta": "AB",
-    "british columbia": "BC",
-    "manitoba": "MB",
-    "new brunswick": "NB",
-    "newfoundland and labrador": "NL",
-    "nova scotia": "NS",
-    "northwest territories": "NT",
-    "nunavut": "NU",
-    "ontario": "ON",
-    "prince edward island": "PE",
-    "quebec": "QC",
-    "québec": "QC",
-    "saskatchewan": "SK",
-    "yukon": "YT",
+_log = logging.getLogger(__name__)
+
+_ADDRESS = ("unit", "street_number", "street_name", "city", "province", "postal_code")
+# columns that cannot be emptied, so an explicit null leaves them as they are
+_KEPT_ON_NULL = ("province", "review_hold_at", "filing_frequency", "tax_registered")
+# Canada Post assigns each postal code's first letter to one province or territory
+_POSTAL_PROVINCES: dict[str, tuple[ProvinceCode, ...]] = {
+    "A": ("NL",),
+    "B": ("NS",),
+    "C": ("PE",),
+    "E": ("NB",),
+    "G": ("QC",),
+    "H": ("QC",),
+    "J": ("QC",),
+    "K": ("ON",),
+    "L": ("ON",),
+    "M": ("ON",),
+    "N": ("ON",),
+    "P": ("ON",),
+    "R": ("MB",),
+    "S": ("SK",),
+    "T": ("AB",),
+    "V": ("BC",),
+    "X": ("NT", "NU"),
+    "Y": ("YT",),
 }
 
 
 def postal_address(business: Business) -> PostalAddress:
-    """The business's street address from its brand, or 422 naming what Terminal still needs."""
-    brand = business.brand or {}
-    raw = brand.get("address")
-    text = raw.strip() if isinstance(raw, str) else ""
-    codes = list(_POSTAL_CODE.finditer(text))
-    province = business.province
-    if not text or not codes or province is None:
-        raise Unprocessable(
-            "add the business street address, city, province and postal code in Business "
-            "settings before taking in-person card payments",
-            code="business_address_incomplete",
-        )
-    postal = codes[-1]
-    rest = f"{text[: postal.start()]},{text[postal.end() :]}"
-    parts = [p.strip() for p in re.split(r"[,\n]", rest) if p.strip()]
-    if parts and parts[-1].lower() in _COUNTRY:
-        parts.pop()
-    if parts:
-        named = parts[-1].rsplit(" ", 1)
-        tail = named[-1].upper()
-        whole = _PROVINCES.get(parts[-1].lower())
-        if whole is not None or tail in _PROVINCES.values():
-            if (whole or tail) != province:
-                raise Unprocessable(
-                    "the business address is in a different province than the business",
-                    code="business_address_incomplete",
-                )
-            if whole is None:
-                parts[-1] = named[0].strip() if len(named) > 1 else ""
-                parts = [p for p in parts if p]
-            elif len(parts) > 2 and not _UNIT.match(parts[-2]):
-                parts.pop()
-            # otherwise the full name is the city, as in "Apt 2, Québec" or "Rue X, Québec"
-    if len(parts) < 2:
+    """The business's legal street address, or 422 when a part Stripe needs is missing."""
+    number, street, city = business.street_number, business.street_name, business.city
+    province, postal_code = business.province, business.postal_code
+    if not number or not street or not city or province is None or postal_code is None:
         raise Unprocessable(
             "add the business street address, city, province and postal code in Business "
             "settings before taking in-person card payments",
             code="business_address_incomplete",
         )
     return PostalAddress(
-        line1=parts[0],
-        line2=", ".join(parts[1:-1]) or None,
-        city=parts[-1],
+        line1=f"{number} {street}",
+        line2=business.unit,
+        city=city,
         province=province,
-        postal_code=f"{postal.group(1)} {postal.group(2)}".upper(),
+        postal_code=postal_code,
     )
 
 
@@ -236,10 +214,66 @@ def apply_account_status(business: Business, status: ConnectAccount) -> None:
     }
 
 
+def _assert_postal_code_in_province(business: Business) -> None:
+    code, province = business.postal_code, business.province
+    if (
+        code is not None
+        and province is not None
+        and province not in _POSTAL_PROVINCES.get(code[0], ())
+    ):
+        raise Unprocessable(
+            "the postal code is not in the business's province",
+            code="postal_code_province_mismatch",
+        )
+
+
+async def has_issued_tax(db: AsyncSession, business_id: str) -> bool:
+    """Whether any issued document charged tax: such tax is fixed in its province's codes."""
+    issued = or_(
+        Line.invoice_id.in_(
+            scoped(Invoice, business_id)
+            .with_only_columns(Invoice.id)
+            .where(Invoice.status != "draft")
+        ),
+        Line.estimate_id.in_(
+            scoped(Estimate, business_id)
+            .with_only_columns(Estimate.id)
+            .where(Estimate.status != "draft")
+        ),
+        Line.order_id.in_(
+            scoped(Order, business_id).with_only_columns(Order.id).where(Order.status != "void")
+        ),
+    )
+    taxed_line = scoped(Line, business_id).where(Line.tax_amount_cents > 0, issued).exists()
+    tax_leg = (
+        scoped(Entry, business_id)
+        .join(Account, Account.id == Entry.account_id)
+        .where(Account.category == "tax")
+        .exists()
+    )
+    return bool(await db.scalar(select(or_(taxed_line, tax_leg))))
+
+
 class BusinessService:
-    def __init__(self, db: AsyncSession, principal: Principal) -> None:
+    def __init__(self, db: AsyncSession, principal: Principal, gateway: PaymentGateway) -> None:
         self.db = db
         self.principal = principal
+        self.gateway = gateway
+
+    async def _move_plan_account(self, business: Business) -> None:
+        """Give a plan-only Stripe account the new address so its plan is taxed where it now is."""
+        # a payments account's address was verified in Stripe onboarding and changes there
+        if business.stripe_account_id is None or has_merchant(business):
+            return
+        try:
+            address = postal_address(business)
+        except Unprocessable:
+            return
+        try:
+            await self.gateway.update_account_address(business.stripe_account_id, address=address)
+        except Exception:
+            # the settings stay saved; Stripe keeps the old address until the next change
+            _log.exception("stripe address update failed for %s", business.id)
 
     async def _assert_logo(self, file_id: str) -> None:
         logo = (
@@ -266,19 +300,24 @@ class BusinessService:
         business = await self.db.get(Business, self.principal.business_id)
         if business is None:
             raise NotFound("business not found")
+        previous_province = business.province
         fields = data.model_dump(exclude_unset=True, exclude={"brand", "setup_dismissed"})
+        located = [getattr(business, key) for key in _ADDRESS]
         if "timezone" in fields:
             valid_timezone(data.timezone)
-        for key, value in fields.items():
-            if value is None and key in ("review_hold_at", "filing_frequency", "tax_registered"):
-                continue
-            cleared = value == "" and key in (
-                "gst_hst_number",
-                "qst_number",
-                "pst_number",
-                "google_review_url",
+        if (
+            data.province is not None
+            and data.province != business.province
+            and await has_issued_tax(self.db, business.id)
+        ):
+            raise Conflict(
+                "the province cannot change once a document has charged tax",
+                code="province_locked",
             )
-            setattr(business, key, None if cleared else value)
+        for key, value in fields.items():
+            if value is not None or key not in _KEPT_ON_NULL:
+                setattr(business, key, value)
+        _assert_postal_code_in_province(business)
         if data.setup_dismissed is not None:
             business.setup_dismissed_at = clock.now() if data.setup_dismissed else None
         if data.brand is not None:
@@ -304,13 +343,28 @@ class BusinessService:
                     merged.pop(key, None)
                 else:
                     merged[key] = value
-            if merged.get("address") != (business.brand or {}).get("address"):
-                # the Terminal location holds the old address; the next reader session mints one
-                business.stripe_terminal_location_id = None
             business.brand = merged
+        if business.province != previous_province:
+            self.db.add(
+                Audit(
+                    id=new_id("audit"),
+                    business_id=business.id,
+                    performed_by=self.principal.user_id,
+                    action="business.province",
+                    entity_type="business",
+                    entity_id=business.id,
+                    changes={"old": previous_province, "new": business.province},
+                )
+            )
+        moved = [getattr(business, key) for key in _ADDRESS] != located
+        if moved:
+            # the Terminal location holds the old address; the next reader session mints one
+            business.stripe_terminal_location_id = None
         await self.db.flush()
         await self.db.refresh(business)
         await self.db.commit()
+        if moved:
+            await self._move_plan_account(business)
         return business
 
 

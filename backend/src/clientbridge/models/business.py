@@ -32,6 +32,8 @@ PlanStatus = Literal["trialing", "active", "past_due", "lapsed"]
 SubjectKind = Literal["pet", "student", "property"]
 
 TRIAL_DAYS = 14
+POSTAL_CODE_CHECK = "postal_code ~ '^[A-Z][0-9][A-Z] [0-9][A-Z][0-9]$'"
+LEGAL_PHONE_CHECK = "legal_phone ~ '^\\+[1-9][0-9]{6,14}$'"
 
 
 def trial_end() -> datetime:
@@ -49,12 +51,21 @@ class Business(PKMixin, TimestampMixin, Base):
         enum_check("businesses", "plan_status", PlanStatus),
         enum_check("businesses", "subject", SubjectKind, nullable=True),
         CheckConstraint("review_hold_at BETWEEN 0 AND 5", name="ck_businesses_review_hold_at"),
+        CheckConstraint(POSTAL_CODE_CHECK, name="ck_businesses_postal_code"),
+        CheckConstraint(LEGAL_PHONE_CHECK, name="ck_businesses_legal_phone"),
     )
 
     name: Mapped[str] = mapped_column(String, nullable=False)
     slug: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     timezone: Mapped[str] = mapped_column(String, default="America/Toronto", nullable=False)
     province: Mapped[ProvinceCode | None] = mapped_column(String)
+    # the legal address and phone, kept apart from the public profile in `brand`
+    unit: Mapped[str | None] = mapped_column(String)
+    street_number: Mapped[str | None] = mapped_column(String)
+    street_name: Mapped[str | None] = mapped_column(String)
+    city: Mapped[str | None] = mapped_column(String)
+    postal_code: Mapped[str | None] = mapped_column(String)
+    legal_phone: Mapped[str | None] = mapped_column(String)
     gst_hst_number: Mapped[str | None] = mapped_column(String)
     qst_number: Mapped[str | None] = mapped_column(String)
     tax_registered: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

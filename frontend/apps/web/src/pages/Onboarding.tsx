@@ -67,23 +67,26 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                     />
                     <Select
                         label={strings.business.onboarding.province}
-                        value={form.province}
+                        value={form.province ?? undefined}
+                        placeholder={strings.business.onboarding.provincePlaceholder}
                         options={PROVINCES.map((p) => ({ key: p.code, label: p.name }))}
                         onChange={form.setProvince}
                         size="lg"
                     />
-                    <div className="rounded-md border border-line bg-surface px-3 py-2.5">
-                        <p className="text-sm font-medium text-ink">
-                            {strings.business.onboarding.taxTitle(
-                                PROVINCES.find((p) => p.code === form.province)?.name ?? "",
-                            )}
-                            {": "}
-                            {form.taxSummary}
-                        </p>
-                        <p className="mt-0.5 text-xs text-muted">
-                            {strings.business.onboarding.taxNone}
-                        </p>
-                    </div>
+                    {form.taxSummary !== null ? (
+                        <div className="rounded-md border border-line bg-surface px-3 py-2.5">
+                            <p className="text-sm font-medium text-ink">
+                                {strings.business.onboarding.taxTitle(
+                                    PROVINCES.find((p) => p.code === form.province)?.name ?? "",
+                                )}
+                                {": "}
+                                {form.taxSummary}
+                            </p>
+                            <p className="mt-0.5 text-xs text-muted">
+                                {strings.business.onboarding.taxNone}
+                            </p>
+                        </div>
+                    ) : null}
                     <Field label={strings.subjects.choiceLabel} hint={strings.subjects.choiceHelp}>
                         <Choice
                             label={strings.subjects.choiceLabel}

@@ -103,6 +103,12 @@ msgstr ""
 "Çöñţåçţ: {contact}\n"
 "Ûñšûƀšçŕîƀé öŕ çĥåñĝé ŵĥåţ ýöû ĝéţ: {link}~~~~~~~~~~~~~~~~~~]"
 
+msgid "broadcast.mailing_address"
+msgstr "[{street}, {city}, {province} {postal_code}~~]"
+
+msgid "broadcast.mailing_address_unit"
+msgstr "[{unit}, {street}, {city}, {province} {postal_code}~~~]"
+
 msgid "broadcast.sms"
 msgstr "[{business}: {body} Ŕéþļý {keyword} ţö öþţ öûţ.~~~~~~~~]"
 

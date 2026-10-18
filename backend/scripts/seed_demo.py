@@ -110,6 +110,11 @@ def seed_identity() -> tuple[str, str]:
             slug="birchbark",
             timezone="America/Vancouver",
             province="BC",
+            street_number="1207",
+            street_name="Government Street",
+            city="Victoria",
+            postal_code="V8W 1Y9",
+            legal_phone="+12505550110",
             gst_hst_number="84720 1539 RT0001",
             tax_registered=True,
             brand={

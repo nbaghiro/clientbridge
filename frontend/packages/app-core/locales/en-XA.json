@@ -156,10 +156,16 @@
         "message": "[Ţĥîš ɱéɱƀéŕ šţîļļ ĥåš ûþçöɱîñĝ ṽîšîţš. Çĥööšé ŵĥéţĥéŕ ţö ɱöṽé öŕ çåñçéļ ţĥéɱ. one two three four five]"
     },
     "api.broadcastAddressMissing": {
-        "message": "[Åðð ýöûŕ ƀûšîñéšš ɱåîļîñĝ åððŕéšš îñ Ɓûšîñéšš šéţţîñĝš ƀéƒöŕé šéñðîñĝ å ƀŕöåðçåšţ. Çåñåðå'š åñţî-šþåɱ ļåŵ ŕéǫûîŕéš îţ îñ éṽéŕý ƀŕöåðçåšţ. one two three four five six seven eight nine]"
+        "message": "[Åðð ýöûŕ ļéĝåļ åððŕéšš îñ Ɓûšîñéšš šéţţîñĝš ƀéƒöŕé šéñðîñĝ å ƀŕöåðçåšţ. Çåñåðå'š åñţî-šþåɱ ļåŵ ŕéǫûîŕéš å ɱåîļîñĝ åððŕéšš îñ éṽéŕý ƀŕöåðçåšţ. one two three four five six seven eight nine]"
     },
     "api.broadcastContactMissing": {
         "message": "[Åðð å ƀûšîñéšš éɱåîļ, þĥöñé ñûɱƀéŕ öŕ ŵéƀšîţé îñ Ɓûšîñéšš šéţţîñĝš ƀéƒöŕé šéñðîñĝ å ƀŕöåðçåšţ. one two three four five six seven]"
+    },
+    "api.provinceLocked": {
+        "message": "[Ţĥé þŕöṽîñçé çåñ'ţ çĥåñĝé åƒţéŕ å ðöçûɱéñţ ţĥåţ çĥåŕĝéð ţåẋ ĥåš ƀééñ îššûéð. one two three four five]"
+    },
+    "api.postalCodeProvinceMismatch": {
+        "message": "[Ţĥåţ þöšţåļ çöðé îš îñ å ðîƒƒéŕéñţ þŕöṽîñçé. Çĥéçķ ţĥé þöšţåļ çöðé åñð ţĥé þŕöṽîñçé. one two three four five six]"
     },
     "api.businessAddressIncomplete": {
         "message": "[Åðð ţĥé ƀûšîñéšš šţŕééţ åððŕéšš, çîţý, þŕöṽîñçé åñð þöšţåļ çöðé îñ Ɓûšîñéšš šéţţîñĝš ƒîŕšţ. one two three four five six]"
@@ -5840,6 +5846,42 @@
     "business.billingEmailPlaceholder": {
         "message": "[ýöû@éẋåɱþļé.çöɱ one two]"
     },
+    "business.legalAddress.title": {
+        "message": "[Ļéĝåļ åððŕéšš åñð þĥöñé one two]"
+    },
+    "business.legalAddress.hint": {
+        "message": "[Ûšéð ƒöŕ ýöûŕ þļåñ, šåļéš ţåẋ, çåŕð þåýɱéñţš åñð ţĥé ɱåîļîñĝ åððŕéšš éṽéŕý ƀŕöåðçåšţ ɱûšţ çåŕŕý. Ýöûŕ þûƀļîç åððŕéšš îš þåŕţ öƒ ýöûŕ þŕöƒîļé îñ Ĝéţ šéţ ûþ. one two three four five six seven eight nine]"
+    },
+    "business.legalAddress.unit": {
+        "message": "[Ûñîţ öŕ šûîţé one two]"
+    },
+    "business.legalAddress.streetNumber": {
+        "message": "[Šţŕééţ ñûɱƀéŕ one two]"
+    },
+    "business.legalAddress.streetName": {
+        "message": "[Šţŕééţ ñåɱé one two]"
+    },
+    "business.legalAddress.city": {
+        "message": "[Çîţý one]"
+    },
+    "business.legalAddress.province": {
+        "message": "[Þŕöṽîñçé öŕ ţéŕŕîţöŕý one two]"
+    },
+    "business.legalAddress.provinceHint": {
+        "message": "[Îţ ðéçîðéš ţĥé šåļéš ţåẋ ýöû çĥåŕĝé. Çĥåñĝé îţ îñ Šåļéš ţåẋ. one two three four]"
+    },
+    "business.legalAddress.postalCode": {
+        "message": "[Þöšţåļ çöðé one two]"
+    },
+    "business.legalAddress.postalCodePlaceholder": {
+        "message": "[Å1Å 1Å1 one]"
+    },
+    "business.legalAddress.legalPhone": {
+        "message": "[Ɓûšîñéšš þĥöñé one two]"
+    },
+    "business.legalAddress.legalPhonePlaceholder": {
+        "message": "250-555-0123"
+    },
     "business.nameRequired": {
         "message": "[Ɓûšîñéšš ñåɱé îš ŕéǫûîŕéð one two three]"
     },
@@ -5915,6 +5957,9 @@
     "business.onboarding.province": {
         "message": "[Þŕöṽîñçé one]"
     },
+    "business.onboarding.provincePlaceholder": {
+        "message": "[Çĥööšé å þŕöṽîñçé öŕ ţéŕŕîţöŕý one two three]"
+    },
     "business.onboarding.taxTitle": {
         "message": "[Šåļéš ţåẋ îñ {province} one two]"
     },
@@ -5941,6 +5986,9 @@
     },
     "business.onboarding.slugRequired": {
         "message": "[Å ŵéƀ åððŕéšš îš ŕéǫûîŕéð one two three]"
+    },
+    "business.onboarding.provinceRequired": {
+        "message": "[Çĥööšé ţĥé þŕöṽîñçé öŕ ţéŕŕîţöŕý ŵĥéŕé ţĥé ƀûšîñéšš îš one two three four]"
     },
     "business.onboarding.createError": {
         "message": "[Çöûļðñ’ţ çŕéåţé ýöûŕ ƀûšîñéšš — ţĥåţ ŵéƀ åððŕéšš ɱåý ƀé ţåķéñ. one two three four]"
@@ -7825,6 +7873,24 @@
     },
     "taxes.province": {
         "message": "[Þŕöṽîñçé one]"
+    },
+    "taxes.provinceHint": {
+        "message": "[Šéţš ţĥé šåļéš ţåẋ ýöû çĥåŕĝé. Çĥåñĝé îţ îƒ îţ ŵåš þîçķéð ƀý ɱîšţåķé öŕ ţĥé ƀûšîñéšš ɱöṽéð. one two three four five six]"
+    },
+    "taxes.provinceLocked": {
+        "message": "[Ţĥé þŕöṽîñçé çåñ'ţ çĥåñĝé åƒţéŕ åñ îñṽöîçé, éšţîɱåţé öŕ šåļé ţĥåţ çĥåŕĝéð ţåẋ ĥåš ƀééñ îššûéð. one two three four five six]"
+    },
+    "taxes.provinceChange": {
+        "message": "[Çĥåñĝé þŕöṽîñçé one two]"
+    },
+    "taxes.provinceConfirmTitle": {
+        "message": "[Çĥåñĝé ţĥé þŕöṽîñçé ţö {province}? one two]"
+    },
+    "taxes.provinceConfirmBody": {
+        "message": "[Ñéŵ þŕîçéš, šåļéš åñð îñṽöîçéš ŵîļļ çĥåŕĝé ţĥé šåļéš ţåẋ öƒ {province}. Îñṽöîçéš, šåļéš åñð ŕéçéîþţš åļŕéåðý îššûéð ķééþ ţĥé ţåẋ ţĥéý çĥåŕĝéð. one two three four five six seven eight]"
+    },
+    "taxes.provinceSaveError": {
+        "message": "[Ŵé çöûļðñ'ţ çĥåñĝé ţĥé þŕöṽîñçé. Ţŕý åĝåîñ. one two three]"
     },
     "taxes.gst": {
         "message": "[ĜŠŢ/ĤŠŢ ñûɱƀéŕ one two]"

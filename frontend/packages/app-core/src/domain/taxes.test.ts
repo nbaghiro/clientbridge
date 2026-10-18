@@ -1,18 +1,31 @@
 // @vitest-environment happy-dom
-import { renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import parity from "../taxes.cases.json" with { type: "json" };
 import { docRates, priceDoc } from "./billing";
-import { asTaxClass, filingPeriod, ratesOn, taxExample, taxSummary, useTaxSetup } from "./taxes";
+import {
+    asTaxClass,
+    filingPeriod,
+    ratesOn,
+    taxExample,
+    taxSummary,
+    useTaxSettingsForm,
+    useTaxSetup,
+} from "./taxes";
 import { type ReactNode, createElement } from "react";
 
+import type { ApiLike } from "../api";
 import { BusinessZoneContext, dateKey, zonedDate } from "../datetime";
 
 const replica = vi.hoisted(() => ({ rows: [] as unknown[] }));
 vi.mock("../hooks", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../hooks")>()),
     useBusinessQuery: () => ({ data: replica.rows }),
+}));
+vi.mock("./sync", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("./sync")>()),
+    useReplicaLoad: () => ({ state: "ready" }),
 }));
 
 const ZONE = "America/Vancouver";
@@ -164,5 +177,68 @@ describe("useTaxSetup", () => {
         const { result } = renderHook(() => useTaxSetup(), { wrapper });
         expect(result.current.ready).toBe(true);
         expect(result.current.rates.map((r) => r.code)).toEqual(["GST", "PST"]);
+    });
+});
+
+describe("useTaxSettingsForm", () => {
+    it("changes only the province, and only once one different from the current is picked", async () => {
+        const wrapper = ({ children }: { children: ReactNode }) =>
+            createElement(BusinessZoneContext.Provider, { value: ZONE }, children);
+        replica.rows = [
+            { province: "ON", tax_registered: 1, filing_frequency: "annual", province_locked: 0 },
+        ];
+        const bodies: unknown[] = [];
+        const api = {
+            get: () => Promise.resolve({ tax_collected_cents: 0 }),
+            patch: (_path: string, body: unknown) => {
+                bodies.push(body);
+                return Promise.resolve({});
+            },
+        } as unknown as ApiLike;
+        const names: Record<string, string> = { ON: "Ontario", BC: "British Columbia" };
+        const { result } = renderHook(() => useTaxSettingsForm(api, (c) => names[c] ?? c), {
+            wrapper,
+        });
+        expect(result.current.provinceChanged).toBe(false);
+        act(() => {
+            result.current.setNextProvince("ON");
+        });
+        expect(result.current.provinceChanged).toBe(false);
+        act(() => {
+            result.current.setNextProvince("BC");
+        });
+        expect(result.current.provinceChanged).toBe(true);
+        expect(result.current.nextProvinceName).toBe("British Columbia");
+        act(() => {
+            result.current.changeProvince();
+        });
+        await waitFor(() => {
+            expect(result.current.provinceBusy).toBe(false);
+        });
+        expect(bodies).toEqual([{ province: "BC" }]);
+        expect(result.current.provinceError).toBeNull();
+    });
+});
+
+describe("useTaxSettingsForm when a taxed document exists", () => {
+    it("keeps the province locked and sends nothing", () => {
+        const wrapper = ({ children }: { children: ReactNode }) =>
+            createElement(BusinessZoneContext.Provider, { value: ZONE }, children);
+        replica.rows = [{ province: "ON", tax_registered: 1, province_locked: 1 }];
+        const patch = vi.fn(() => Promise.resolve({}));
+        const api = {
+            get: () => Promise.resolve({ tax_collected_cents: 0 }),
+            patch,
+        } as unknown as ApiLike;
+        const { result } = renderHook(() => useTaxSettingsForm(api, (c) => c), { wrapper });
+        expect(result.current.provinceLocked).toBe(true);
+        act(() => {
+            result.current.setNextProvince("BC");
+        });
+        expect(result.current.provinceChanged).toBe(false);
+        act(() => {
+            result.current.changeProvince();
+        });
+        expect(patch).not.toHaveBeenCalled();
     });
 });

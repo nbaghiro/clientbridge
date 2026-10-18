@@ -25,11 +25,41 @@ interface BusinessRow {
     billing_email: string | null;
     gst_hst_number: string | null;
     qst_number: string | null;
+    province: ProvinceCode | null;
+    unit: string | null;
+    street_number: string | null;
+    street_name: string | null;
+    city: string | null;
+    postal_code: string | null;
+    legal_phone: string | null;
     brand: string | null; // JSON text in the replica: {logo_file_id?, primary?, tagline?}
     subject: string | null;
 }
 
-interface BusinessFields {
+type AddressKey = "unit" | "street_number" | "street_name" | "city" | "postal_code" | "legal_phone";
+const ADDRESS_KEYS: readonly AddressKey[] = [
+    "unit",
+    "street_number",
+    "street_name",
+    "city",
+    "postal_code",
+    "legal_phone",
+];
+type Located = Pick<BusinessFields, AddressKey>;
+type LocatedRow = Pick<BusinessRow, AddressKey>;
+
+function located(row: LocatedRow): Located {
+    return {
+        unit: row.unit ?? "",
+        street_number: row.street_number ?? "",
+        street_name: row.street_name ?? "",
+        city: row.city ?? "",
+        postal_code: row.postal_code ?? "",
+        legal_phone: row.legal_phone ?? "",
+    };
+}
+
+interface BusinessFields extends Record<AddressKey, string> {
     name: string;
     timezone: string;
     billing_email: string;
@@ -172,8 +202,71 @@ export const BUSINESS_TEXT_FIELDS: {
     },
 ];
 
+export const BUSINESS_ADDRESS_FIELDS: {
+    key: AddressKey;
+    label: string;
+    placeholder?: string;
+    type: "text" | "tel";
+    autoComplete?: string;
+}[] = [
+    {
+        key: "unit",
+        get label() {
+            return strings.business.legalAddress.unit;
+        },
+        type: "text",
+        autoComplete: "address-line2",
+    },
+    {
+        key: "street_number",
+        get label() {
+            return strings.business.legalAddress.streetNumber;
+        },
+        type: "text",
+    },
+    {
+        key: "street_name",
+        get label() {
+            return strings.business.legalAddress.streetName;
+        },
+        type: "text",
+    },
+    {
+        key: "city",
+        get label() {
+            return strings.business.legalAddress.city;
+        },
+        type: "text",
+        autoComplete: "address-level2",
+    },
+    {
+        key: "postal_code",
+        get label() {
+            return strings.business.legalAddress.postalCode;
+        },
+        get placeholder() {
+            return strings.business.legalAddress.postalCodePlaceholder;
+        },
+        type: "text",
+        autoComplete: "postal-code",
+    },
+    {
+        key: "legal_phone",
+        get label() {
+            return strings.business.legalAddress.legalPhone;
+        },
+        get placeholder() {
+            return strings.business.legalAddress.legalPhonePlaceholder;
+        },
+        type: "tel",
+        autoComplete: "tel",
+    },
+];
+
 interface BusinessForm {
     fields: BusinessFields | null; // null until the synced business row loads
+    /** The province's name, shown here and changed in Sales tax, since it sets the tax charged. */
+    province: string;
     subject: SubjectChoice | null;
     setSubject: (choice: SubjectChoice) => void;
     // set when saving changes the kind of subjects that client records already hold
@@ -189,7 +282,7 @@ interface BusinessForm {
 }
 
 export const BUSINESS_SQL =
-    "SELECT id, name, timezone, billing_email, gst_hst_number, qst_number, brand, subject FROM businesses LIMIT 1";
+    "SELECT id, name, timezone, billing_email, gst_hst_number, qst_number, province, unit, street_number, street_name, city, postal_code, legal_phone, brand, subject FROM businesses LIMIT 1";
 
 /** The saved row flows back through sync, so the form shows the server's values on the next render. */
 export function useBusinessForm(api: ApiLike): BusinessForm {
@@ -201,11 +294,13 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
     const loadedBrand = useRef<Brand>(NO_BRAND);
     const subjectCount = useQuery<{ n: number }>(SUBJECT_COUNT_SQL).data[0]?.n ?? 0;
     const stored = row === null ? null : kindWord(asSubjectKind(row.subject));
+    const loadedAddress = useRef<Located | null>(null);
 
     useEffect(() => {
         if (row !== null && fields === null) {
             const brand = parseBrand(row.brand);
             loadedBrand.current = brand;
+            loadedAddress.current = located(row);
             setFields({
                 name: row.name,
                 timezone: row.timezone,
@@ -213,6 +308,7 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
                 logo_file_id: brand.logo_file_id,
                 primary: brand.primary,
                 tagline: brand.tagline,
+                ...loadedAddress.current,
             });
             setSubjectState(kindWord(asSubjectKind(row.subject)));
         }
@@ -229,17 +325,34 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
             setError(strings.business.nameRequired);
             return;
         }
-        // Send `brand` only when it changed; the brand panel in Get set up owns it.
-        const { logo_file_id, primary, tagline, ...text } = fields;
+        const { logo_file_id, primary, tagline, name, timezone, billing_email } = fields;
+        // Send `brand` and address fields only when they changed, so a stale form cannot erase them.
         const b = loadedBrand.current;
         const brandChanged =
             logo_file_id !== b.logo_file_id || primary !== b.primary || tagline !== b.tagline;
         const brand = { logo_file_id: logo_file_id || null, primary, tagline };
-        const kind = subject === null ? {} : { subject: kindOf(subject) };
-        const body = brandChanged ? { ...text, ...kind, brand } : { ...text, ...kind };
-        run(() => api.patch("/v1/business", body), {
+        const address = loadedAddress.current;
+        const moved = ADDRESS_KEYS.filter((key) => fields[key] !== address?.[key]);
+        const body = {
+            name,
+            timezone,
+            billing_email,
+            ...Object.fromEntries(moved.map((key) => [key, fields[key]])),
+            ...(subject === null ? {} : { subject: kindOf(subject) }),
+            ...(brandChanged ? { brand } : {}),
+        };
+        let updated: LocatedRow | null = null;
+        const save = async (): Promise<void> => {
+            updated = await api.patch<LocatedRow>("/v1/business", body);
+        };
+        run(save, {
             onSuccess: () => {
                 loadedBrand.current = { ...b, logo_file_id, primary, tagline }; // now what's on the server
+                if (updated !== null) {
+                    const saved = located(updated);
+                    loadedAddress.current = saved;
+                    setFields((f) => (f === null ? f : { ...f, ...saved }));
+                }
                 setSaved(true);
             },
             errorMessage: (e) => failureMessage(e, strings.business.saveError),
@@ -251,8 +364,11 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
             ? mediaUrl(apiBase, fields.logo_file_id)
             : null;
 
+    const province = PROVINCES.find((p) => p.code === row?.province)?.name ?? "";
+
     return {
         fields,
+        province,
         subject,
         setSubject: (choice) => {
             setSaved(false);
@@ -463,12 +579,13 @@ interface OnboardingForm {
     setName: (v: string) => void;
     slug: string;
     setSlug: (v: string) => void;
-    province: ProvinceCode;
+    // no default, so the owner always picks the province that sets their sales tax
+    province: ProvinceCode | null;
     setProvince: (v: ProvinceCode) => void;
     subject: SubjectChoice | null;
     setSubject: (v: SubjectChoice) => void;
     // "GST 5% + PST 7%": the taxes the new business will charge in its province
-    taxSummary: string;
+    taxSummary: string | null;
     busy: boolean;
     error: string | null;
     needsVerification: boolean;
@@ -485,7 +602,7 @@ export function useOnboardingForm(
     const [name, setNameState] = useState("");
     const [slug, setSlugState] = useState("");
     const [slugEdited, setSlugEdited] = useState(false);
-    const [province, setProvince] = useState<ProvinceCode>("ON");
+    const [province, setProvince] = useState<ProvinceCode | null>(null);
     const [subject, setSubject] = useState<SubjectChoice | null>(null);
     // Stays true across retries so the verify step keeps one code instead of mailing a new one.
     const [needsVerification, setNeedsVerification] = useState(false);
@@ -508,6 +625,10 @@ export function useOnboardingForm(
         }
         if (slug.length === 0) {
             setError(strings.business.onboarding.slugRequired);
+            return;
+        }
+        if (province === null) {
+            setError(strings.business.onboarding.provinceRequired);
             return;
         }
         if (subject === null) {
@@ -541,7 +662,8 @@ export function useOnboardingForm(
             setSubject(v);
             setError(null);
         },
-        taxSummary: taxSummary(province, dateKey(new Date(), NEW_BUSINESS_ZONE)),
+        taxSummary:
+            province === null ? null : taxSummary(province, dateKey(new Date(), NEW_BUSINESS_ZONE)),
         busy,
         error,
         needsVerification,
