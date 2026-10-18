@@ -31,13 +31,13 @@ import {
     Notice,
     SearchField,
     Skeleton,
-    Stat,
     confirm,
 } from "@clientbridge/ui";
 import { useState } from "react";
 
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
+import { SummaryStrip } from "./Workspace";
 
 const d = strings.pos.desk;
 
@@ -104,15 +104,25 @@ export function SalesBoard({ onResume }: { onResume: (order: OrderOut) => void }
     const manager = canManagePayments(useRole());
     const [open, setOpen] = useState<string | null>(null);
     if (board.load.state === "loading")
-        return <Skeleton variant="row" count={4} label={d.loadingOrders} />;
+        return (
+            <div className="p-5">
+                <Skeleton variant="row" count={4} label={d.loadingOrders} />
+            </div>
+        );
     if (board.load.state === "error")
-        return <LoadFailed variant="card" message={d.ordersError} onRetry={board.refresh} />;
+        return (
+            <div className="p-5">
+                <LoadFailed message={d.ordersError} onRetry={board.refresh} />
+            </div>
+        );
     return (
-        <div className="space-y-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
             {board.done !== null ? <Notice tone="success">{board.done}</Notice> : null}
             {board.error !== null ? <Notice tone="danger">{board.error}</Notice> : null}
             {board.isEmpty ? (
-                <Empty variant="card" icon="bag" message={d.ordersEmpty} body={d.ordersEmptyBody} />
+                <div className="pt-16">
+                    <Empty icon="bag" message={d.ordersEmpty} body={d.ordersEmptyBody} />
+                </div>
             ) : (
                 <div className="grid gap-4 lg:grid-cols-3">
                     {board.columns.map((col) => (
@@ -190,117 +200,121 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
             .catch(() => undefined);
     };
     const t = history.today;
+    const none = history.load.state !== "loading" && history.days.length === 0 && history.q === "";
     return (
-        <div className="space-y-5">
-            {history.load.state === "loading" ? (
-                <Skeleton variant="stat" count={4} columns={4} label={d.loadingSales} />
-            ) : history.load.state === "error" ? null : (
-                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                    <Stat
-                        currency={BUSINESS_CURRENCY}
-                        label={d.todaySales}
-                        cents={t.salesCents}
-                        hint={d.todayCount(t.count)}
-                    />
-                    <Stat currency={BUSINESS_CURRENCY} label={d.todayTips} cents={t.tipsCents} />
-                    <Stat
-                        currency={BUSINESS_CURRENCY}
-                        label={d.todayDiscounts}
-                        cents={t.discountsCents}
-                    />
-                    <Stat
-                        currency={BUSINESS_CURRENCY}
-                        label={d.todayAverage}
-                        cents={t.averageCents}
-                    />
-                </div>
-            )}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-                <Choice
-                    layout="segmented"
-                    label={d.history}
-                    options={history.filters}
-                    value={history.filter}
-                    onChange={history.setFilter}
+        <div className="flex min-h-0 flex-1 flex-col">
+            {history.load.state === "ready" && !none ? (
+                <SummaryStrip
+                    items={[
+                        {
+                            label: d.todaySales,
+                            value: formatMoney(t.salesCents, BUSINESS_CURRENCY),
+                        },
+                        { label: d.todayTips, value: formatMoney(t.tipsCents, BUSINESS_CURRENCY) },
+                        {
+                            label: d.todayDiscounts,
+                            value: formatMoney(t.discountsCents, BUSINESS_CURRENCY),
+                        },
+                        {
+                            label: d.todayAverage,
+                            value: formatMoney(t.averageCents, BUSINESS_CURRENCY),
+                        },
+                    ]}
                 />
-                <div className="w-80">
+            ) : null}
+            {none ? null : (
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line-soft px-5 py-3">
+                    <Choice
+                        layout="segmented"
+                        label={d.history}
+                        options={history.filters}
+                        value={history.filter}
+                        onChange={history.setFilter}
+                    />
                     <SearchField
+                        className="w-full sm:w-80"
                         value={history.q}
                         onChange={history.setQ}
                         placeholder={d.historySearch}
                     />
                 </div>
-            </div>
-            {history.load.state === "loading" ? (
-                <Skeleton variant="row" count={6} label={d.loadingSales} />
-            ) : history.load.state === "error" ? (
-                <LoadFailed variant="card" message={d.salesError} />
-            ) : history.days.length === 0 ? (
-                <Empty
-                    variant="card"
-                    icon="receipt"
-                    message={history.q === "" ? d.historyEmptyTitle : history.empty}
-                    {...(history.q === "" ? { body: history.empty } : {})}
-                />
-            ) : (
-                history.days.map((day) => (
-                    <section key={day.key}>
-                        <div className="mb-2 flex items-baseline justify-between px-1">
-                            <h3 className="text-sm font-semibold text-ink">{day.label}</h3>
-                            <span className="text-xs text-muted">
-                                {d.dayTotal(
-                                    day.count,
-                                    formatMoney(day.totalCents, BUSINESS_CURRENCY),
-                                )}
-                            </span>
-                        </div>
-                        <div className="divide-y divide-line-soft overflow-hidden rounded-lg border border-line bg-surface">
-                            {day.rows.map((r) => (
-                                <ListRow
-                                    key={r.id}
-                                    selected={open === r.id}
-                                    leading={
-                                        <span className="w-20 shrink-0">
-                                            <span className="block text-sm font-medium text-ink">
-                                                {formatTime(r.at, zone)}
-                                            </span>
-                                            <span className="block text-xs text-muted">
-                                                {r.number}
-                                            </span>
-                                        </span>
-                                    }
-                                    title={
-                                        <span className="flex items-center gap-2">
-                                            {r.clientName}
-                                            {r.source === "online" ? (
-                                                <Badge label={d.sourceOnline} intent="accent" />
-                                            ) : null}
-                                            {r.status !== "paid" ? (
-                                                <Badge label={r.statusLabel} intent={r.intent} />
-                                            ) : null}
-                                        </span>
-                                    }
-                                    label={strings.common.labelValue(r.number, r.clientName)}
-                                    detail={r.summary}
-                                    meta={
-                                        <span className="flex items-center gap-6">
-                                            <span className="hidden w-32 truncate text-sm text-muted lg:block">
-                                                {r.methodLabel}
-                                            </span>
-                                            <span className="w-20 text-right text-sm font-semibold tabular-nums text-ink">
-                                                {formatMoney(r.totalCents, BUSINESS_CURRENCY)}
-                                            </span>
-                                        </span>
-                                    }
-                                    onPress={() => {
-                                        setOpen(r.id);
-                                    }}
-                                />
-                            ))}
-                        </div>
-                    </section>
-                ))
             )}
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+                {history.load.state === "loading" ? (
+                    <Skeleton variant="row" count={6} label={d.loadingSales} />
+                ) : history.load.state === "error" ? (
+                    <LoadFailed message={d.salesError} />
+                ) : history.days.length === 0 ? (
+                    <div className="pt-16">
+                        <Empty
+                            icon="receipt"
+                            message={history.q === "" ? d.historyEmptyTitle : history.empty}
+                            {...(history.q === "" ? { body: history.empty } : {})}
+                        />
+                    </div>
+                ) : (
+                    history.days.map((day) => (
+                        <section key={day.key}>
+                            <div className="mb-2 flex items-baseline justify-between px-1">
+                                <h3 className="text-sm font-semibold text-ink">{day.label}</h3>
+                                <span className="text-xs text-muted">
+                                    {d.dayTotal(
+                                        day.count,
+                                        formatMoney(day.totalCents, BUSINESS_CURRENCY),
+                                    )}
+                                </span>
+                            </div>
+                            <div className="divide-y divide-line-soft overflow-hidden rounded-lg border border-line bg-surface">
+                                {day.rows.map((r) => (
+                                    <ListRow
+                                        key={r.id}
+                                        selected={open === r.id}
+                                        leading={
+                                            <span className="w-20 shrink-0">
+                                                <span className="block text-sm font-medium text-ink">
+                                                    {formatTime(r.at, zone)}
+                                                </span>
+                                                <span className="block text-xs text-muted">
+                                                    {r.number}
+                                                </span>
+                                            </span>
+                                        }
+                                        title={
+                                            <span className="flex items-center gap-2">
+                                                {r.clientName}
+                                                {r.source === "online" ? (
+                                                    <Badge label={d.sourceOnline} intent="accent" />
+                                                ) : null}
+                                                {r.status !== "paid" ? (
+                                                    <Badge
+                                                        label={r.statusLabel}
+                                                        intent={r.intent}
+                                                    />
+                                                ) : null}
+                                            </span>
+                                        }
+                                        label={strings.common.labelValue(r.number, r.clientName)}
+                                        detail={r.summary}
+                                        meta={
+                                            <span className="flex items-center gap-6">
+                                                <span className="hidden w-32 truncate text-sm text-muted lg:block">
+                                                    {r.methodLabel}
+                                                </span>
+                                                <span className="w-20 text-right text-sm font-semibold tabular-nums text-ink">
+                                                    {formatMoney(r.totalCents, BUSINESS_CURRENCY)}
+                                                </span>
+                                            </span>
+                                        }
+                                        onPress={() => {
+                                            setOpen(r.id);
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                        </section>
+                    ))
+                )}
+            </div>
             <SalePanel
                 id={open}
                 onClose={() => {

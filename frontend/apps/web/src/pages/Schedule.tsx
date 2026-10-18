@@ -289,15 +289,6 @@ export function Schedule() {
                                                         icon="calendar"
                                                         message={s.emptyDayTitle}
                                                         body={s.emptyDayWeb}
-                                                        actions={
-                                                            <Button
-                                                                size="sm"
-                                                                icon="plus"
-                                                                onPress={openNew}
-                                                            >
-                                                                {s.newBooking}
-                                                            </Button>
-                                                        }
                                                     />
                                                 ) : (
                                                     <Empty

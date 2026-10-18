@@ -1,4 +1,5 @@
 import { isManager } from "./auth";
+import { personMedia } from "./files";
 import { useBusinessQuery as useQuery } from "../hooks";
 
 import { useEffect, useRef, useState } from "react";
@@ -7,7 +8,7 @@ import { formatShortDay, formatTime, parseTimestamp, useBusinessZone, utcSql } f
 import { formatMoney, formatNumber, formatParts, parseNumber, BUSINESS_CURRENCY } from "../format";
 
 import { type Load, useAsyncAction, useRemote } from "../hooks";
-import type { Fact, Intent, OccurrenceRow } from "../ui";
+import type { Fact, Intent, OccurrenceRow, SelectOption } from "../ui";
 import type { Viewer } from "./auth";
 import { BRAND_COLOURS } from "./business";
 import { useReplicaLoad } from "./sync";
@@ -368,7 +369,7 @@ interface RemoveMemberView {
     setChoice: (choice: RemovalChoice) => void;
     taker: string;
     setTaker: (id: string) => void;
-    takers: { key: string; label: string }[];
+    takers: SelectOption<string>[];
     busy: boolean;
     error: string | null;
     outcome: RemovalOutcome | null;
@@ -434,7 +435,13 @@ export function useRemoveMember(
         setTaker,
         takers: [
             { key: ANY_MEMBER, label: t.removeAnyone },
-            ...members.filter((m) => m.id !== member.id).map((m) => ({ key: m.id, label: m.name })),
+            ...members
+                .filter((m) => m.id !== member.id)
+                .map((m) => ({
+                    key: m.id,
+                    label: m.name,
+                    media: personMedia(m.name, m.color),
+                })),
         ],
         busy,
         error,

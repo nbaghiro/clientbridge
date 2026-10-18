@@ -30,20 +30,21 @@ import { theme } from "@clientbridge/tokens/native";
 import {
     ActionMenu,
     Avatar,
+    Backdrop,
     Badge,
     Button,
     Checkbox,
-    confirm,
     DetailSection,
     DetailView,
-    Modal,
     KeyValueList,
     ListPage,
     ListRow,
     LoadFailed,
+    Modal,
     Notice,
     Skeleton,
     StatusPill,
+    confirm,
 } from "@clientbridge/ui";
 import { type RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -105,19 +106,21 @@ export function ClientsScreen() {
             .catch(() => undefined);
     };
     const notice = merged !== null ? t.merged(merged) : sel.done;
+    const nothingYet = dir.load.state === "empty";
 
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
+            <Backdrop />
             <ListPage<ClientListRow, ClientSegment>
                 title={selecting && n > 0 ? t.selected(n) : strings.clients.title}
                 summary={
-                    dir.load.hasData && !selecting
+                    dir.load.hasData && !selecting && !nothingYet
                         ? strings.clients.edit.listSummary(dir.counts.active, dir.counts.archived)
                         : undefined
                 }
                 accessory={
                     <View style={styles.accessory}>
-                        {dir.load.ready ? (
+                        {dir.load.ready && !nothingYet ? (
                             <Button
                                 style={{ alignSelf: "center" }}
                                 size="sm"
@@ -133,7 +136,7 @@ export function ClientsScreen() {
                     </View>
                 }
                 action={
-                    selecting
+                    selecting || nothingYet
                         ? undefined
                         : {
                               label: strings.clients.addShort,
@@ -143,7 +146,7 @@ export function ClientsScreen() {
                           }
                 }
                 segments={
-                    dir.load.ready && !selecting
+                    dir.load.ready && !selecting && !nothingYet
                         ? {
                               items: [
                                   {
@@ -163,7 +166,7 @@ export function ClientsScreen() {
                         : undefined
                 }
                 search={
-                    dir.load.ready
+                    dir.load.ready && !nothingYet
                         ? {
                               value: dir.q,
                               onChange: dir.setQ,
@@ -192,8 +195,23 @@ export function ClientsScreen() {
                     else setOpenId(cl.id);
                 }}
                 empty={
-                    dir.load.state === "empty"
-                        ? { icon: "clients", message: r.emptyTitle, body: r.emptyBody }
+                    nothingYet
+                        ? {
+                              icon: "clients",
+                              message: r.emptyTitle,
+                              body: r.emptyBody,
+                              actions: (
+                                  <Button
+                                      size="sm"
+                                      icon="plus"
+                                      onPress={() => {
+                                          setSheet({ kind: "client", id: null });
+                                      }}
+                                  >
+                                      {strings.clients.add}
+                                  </Button>
+                              ),
+                          }
                         : dir.segment === "archived" && dir.q === ""
                           ? strings.clients.edit.emptyArchived
                           : strings.clients.emptySearch

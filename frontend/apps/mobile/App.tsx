@@ -84,9 +84,9 @@ function Tabs() {
             screenOptions={{ headerShown: false }}
         >
             <Tab.Screen name="Today" component={TodayScreen} />
-            <Tab.Screen name="Schedule" component={ScheduleScreen} />
-            <Tab.Screen name="Clients" component={ClientsScreen} />
             <Tab.Screen name="Inbox" component={InboxScreen} />
+            <Tab.Screen name="Clients" component={ClientsScreen} />
+            <Tab.Screen name="Schedule" component={ScheduleScreen} />
         </Tab.Navigator>
     );
 }

@@ -22,7 +22,9 @@ export function Tabs<K extends string>({
             }}
             className={cx(
                 "flex max-w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-                pill ? "gap-2 text-sm" : "gap-6 pb-px text-sm font-medium",
+                pill
+                    ? "w-fit gap-0.5 rounded-md bg-surface2 p-0.5 text-sm"
+                    : "gap-6 pb-px text-sm font-medium",
                 className,
             )}
         >
@@ -44,10 +46,10 @@ export function Tabs<K extends string>({
                         }}
                         className={
                             pill
-                                ? `shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 font-medium transition ${
+                                ? `shrink-0 whitespace-nowrap rounded px-3 py-1 font-medium transition ${
                                       on
-                                          ? "border-accent bg-accent text-accent-ink"
-                                          : "border-line bg-surface text-ink-soft hover:bg-bg hover:text-ink"
+                                          ? "bg-surface text-ink shadow-[0_1px_2px_rgba(20,25,30,0.12)]"
+                                          : "text-muted hover:text-ink"
                                   }`
                                 : `-mb-px shrink-0 whitespace-nowrap border-b-2 pb-3 pt-1 transition ${
                                       on

@@ -15,7 +15,7 @@ import {
     Field,
     Icon,
     Notice,
-    Select,
+    SearchSelect,
     TextField,
 } from "@clientbridge/ui";
 
@@ -112,10 +112,11 @@ function SaleFields({
                 </Field>
             )}
             {pickClient ? (
-                <Select
+                <SearchSelect
                     label={w.client}
                     value={form.clientId}
-                    options={[{ key: "", label: w.chooseClient }, ...form.clientOptions]}
+                    placeholder={w.chooseClient}
+                    options={form.clientOptions}
                     onChange={form.setClientId}
                 />
             ) : null}

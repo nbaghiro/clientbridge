@@ -12,11 +12,13 @@ import {
     formatParts,
     BUSINESS_CURRENCY,
     useBusinessZone,
+    itemMedia,
 } from "@clientbridge/app-core";
 import {
     Avatar,
     Button,
     Choice,
+    DateField,
     DateStrip,
     Empty,
     IconButton,
@@ -24,13 +26,13 @@ import {
     Modal,
     Notice,
     SearchField,
+    SearchSelect,
     Select,
     Skeleton,
     Stepper,
     TextField,
     TimeSlotPicker,
     Toggle,
-    DateField,
 } from "@clientbridge/ui";
 import type { SubmitEvent } from "react";
 
@@ -134,13 +136,14 @@ export function BookingComposer({
                     ) : null}
                 </section>
 
-                <Select
+                <SearchSelect
                     label={s.composerService}
                     placeholder={s.composerServicePlaceholder}
                     value={form.item?.id ?? ""}
                     options={form.services.map((i) => ({
                         key: i.id,
                         label: i.name,
+                        media: itemMedia(i),
                         detail: formatParts([
                             strings.catalog.minutes(i.duration_min ?? 60),
                             formatMoney(i.price_cents ?? 0, BUSINESS_CURRENCY),

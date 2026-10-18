@@ -3,6 +3,7 @@ import {
     type TodayActions,
     bookingPageUrl,
     canManagePayments,
+    firstRunLayout,
     formatMoney,
     formatPhone,
     strings,
@@ -33,10 +34,11 @@ import { Fragment, type ReactNode } from "react";
 import {
     AttentionPanel,
     FilingCard,
-    GettingStarted,
     KpiStrip,
     KpiStripLoading,
+    QuietSchedule,
     SchedulePanel,
+    SetupGuide,
     TeamPanel,
 } from "../components/TodayParts";
 import { config } from "../config";
@@ -121,7 +123,12 @@ function OwnerTodayPage() {
     const setup = useSetupProgress();
     const bookingLink = setup.slug === null ? null : bookingPageUrl(config.bookUrl, setup.slug);
     const { load, view, money, moneyLoad } = today;
-    const firstRun = load.hasData && view.agenda.length === 0 && !setup.complete;
+    const layout = firstRunLayout(
+        view.agenda.length,
+        moneyLoad.state === "ready" ? money : null,
+        setup,
+    );
+    const firstRun = load.hasData && layout.guide;
     const loading = load.state === "loading";
 
     return (
@@ -178,37 +185,56 @@ function OwnerTodayPage() {
                 </div>
             ) : (
                 <>
-                    <div className="mt-6">
-                        {loading ? <KpiStripLoading /> : <MoneyStrip today={today} />}
-                    </div>
-                    <div className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-                        <SchedulePanel
-                            view={view}
-                            actions={actions}
-                            loading={loading}
-                            bookingLink={bookingLink}
-                        />
-                        <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-1">
-                            {firstRun ? <GettingStarted setup={setup} /> : null}
-                            <AttentionPanel
-                                title={t.needsYou}
-                                items={view.attention}
-                                actions={actions}
-                                loading={loading}
-                                empty={t.allClear}
-                            />
-                            <div className="space-y-6">
-                                {loading || moneyLoad.state !== "ready" ? null : (
-                                    <FilingCard
-                                        setAsideCents={money.setAsideCents}
-                                        filingDue={money.filingDue}
-                                        filingDays={money.filingDays}
+                    {firstRun && !layout.money ? null : (
+                        <div className="mt-6">
+                            {loading ? <KpiStripLoading /> : <MoneyStrip today={today} />}
+                        </div>
+                    )}
+                    {firstRun ? (
+                        <div className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+                            <SetupGuide setup={setup} />
+                            <div className="grid gap-6">
+                                <QuietSchedule bookingLink={bookingLink} />
+                                {view.attention.length > 0 ? (
+                                    <AttentionPanel
+                                        title={t.needsYou}
+                                        items={view.attention}
+                                        actions={actions}
+                                        loading={loading}
+                                        empty={t.allClear}
                                     />
-                                )}
-                                <TeamPanel team={view.team} />
+                                ) : null}
                             </div>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="mt-6 space-y-6">
+                            <SchedulePanel
+                                view={view}
+                                actions={actions}
+                                loading={loading}
+                                bookingLink={bookingLink}
+                            />
+                            <div className="grid grid-cols-2 items-start gap-6">
+                                <AttentionPanel
+                                    title={t.needsYou}
+                                    items={view.attention}
+                                    actions={actions}
+                                    loading={loading}
+                                    empty={t.allClear}
+                                />
+                                <div className="space-y-6">
+                                    {loading || moneyLoad.state !== "ready" ? null : (
+                                        <FilingCard
+                                            setAsideCents={money.setAsideCents}
+                                            filingDue={money.filingDue}
+                                            filingDays={money.filingDays}
+                                        />
+                                    )}
+                                    <TeamPanel team={view.team} />
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </>
             )}
         </div>

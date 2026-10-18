@@ -12,7 +12,7 @@ const DEPOSIT_BOOKING = "bk_015";
 
 const PAYMENTS_TABS = {
     invoices: strings.billing.newInvoice,
-    sales: strings.pos.desk.todaysVisits,
+    sales: strings.pos.desk.ticket,
     "gift-cards": strings.entitlements.walletTitle,
     refunds: strings.refunds.paymentsTitle,
     "staff-pay": strings.earnings.selectAll,
@@ -169,7 +169,7 @@ test("owner: shell, today, create menu, search, notifications and account menu",
     await walk.step("today", async () => {
         await expect(main.getByText(strings.today.schedule)).toBeVisible();
         await expect(main.getByText(strings.today.needsYou)).toBeVisible();
-        await expect(main.getByText(strings.today.booked)).toBeVisible();
+        await expect(main.getByText(strings.today.booked, { exact: true })).toBeVisible();
         await main.getByRole("button", { name: strings.today.openSchedule }).click();
         await expect(page).toHaveURL(/\/schedule$/);
         await sidebar.getByRole("link", { name: n.today }).click();
@@ -205,7 +205,7 @@ test("owner: shell, today, create menu, search, notifications and account menu",
     await walk.step("create: sale", async () => {
         await create(c.sale.label);
         await expect(page).toHaveURL(/\/payments\/sales$/);
-        await expect(main.getByText(strings.pos.desk.todaysVisits)).toBeVisible();
+        await expect(main.getByText(strings.pos.desk.ticket, { exact: true })).toBeVisible();
     });
     for (const [key, path] of [
         ["invoice", /\/payments\/invoices$/],
@@ -293,7 +293,8 @@ test("owner: schedule, booking panel, classes and repeat visits", async ({ page 
         const composer = page.getByRole("form", { name: b.newBooking });
         await expect(composer).toBeVisible();
         const service = composer.getByRole("combobox", { name: b.composerService });
-        await expect(service).toHaveText(b.composerServicePlaceholder);
+        await expect(service).toHaveValue("");
+        await expect(service).toHaveAttribute("placeholder", b.composerServicePlaceholder);
         await service.click();
         const services = page.getByRole("listbox", { name: b.composerService });
         await expect(services.getByRole("option").first()).toBeVisible();
@@ -305,7 +306,7 @@ test("owner: schedule, booking panel, classes and repeat visits", async ({ page 
         await page.keyboard.press("Enter");
         await expect(services).toBeHidden();
         await expect(service).toBeFocused();
-        await expect(service).not.toHaveText(b.composerServicePlaceholder);
+        await expect(service).not.toHaveValue("");
         const date = composer.getByRole("button", { name: b.composerDate });
         const picked = (await date.textContent()) ?? "";
         await date.click();
@@ -608,7 +609,7 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
     const d = strings.pos.desk;
     await walk.step("sales: ticket, discount and charge", async () => {
         await navigate(page, "/payments/sales");
-        await expect(main.getByText(d.todaysVisits)).toBeVisible();
+        await expect(main.getByText(d.ticket, { exact: true })).toBeVisible();
         await main.locator("div.grid").last().getByRole("button").first().click();
         const ticket = page.getByRole("complementary", { name: d.ticket });
         await ticket.getByRole("button", { name: d.addDiscount, exact: true }).click();
@@ -734,7 +735,9 @@ test("owner: inbox messages, reviews, broadcasts, forms and contracts", async ({
     await walk.step("contracts: new, signed copy, send and edit text", async () => {
         await navigate(page, "/inbox?segment=contracts");
         await openAndClose(page, strings.contracts.newContract);
+        await main.getByRole("tab", { name: strings.contracts.signatures }).click();
         await openAndClose(page, strings.contracts.signedCopy);
+        await main.getByRole("tab", { name: strings.contracts.text }).click();
         await main.getByRole("button", { name: strings.contracts.send }).click();
         await expect(
             page.getByRole("dialog", { name: prefixOf(strings.contracts.sendTitle) }),
@@ -1047,7 +1050,7 @@ test("staff: payments, inbox and setup show only what staff can use", async ({ p
     await walk.step("payments: owner-only links land on sales", async () => {
         for (const tab of Object.keys(PAYMENTS_TABS).filter((x) => x !== "sales")) {
             await navigate(page, `/payments/${tab}`, "/payments/sales");
-            await expect(main.getByText(d.todaysVisits)).toBeVisible();
+            await expect(main.getByText(d.ticket, { exact: true })).toBeVisible();
         }
     });
 

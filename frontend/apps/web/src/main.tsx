@@ -1,5 +1,5 @@
 import React from "react";
-import { activeLocale, setPseudoLocale } from "@clientbridge/app-core";
+import { activeLocale, setMediaBase, setPseudoLocale } from "@clientbridge/app-core";
 import { configureStripe } from "@clientbridge/ui";
 import ReactDOM from "react-dom/client";
 import { AdminLogin } from "./AdminLogin";
@@ -11,6 +11,7 @@ const root = document.getElementById("root");
 if (!root) throw new Error("missing #root");
 
 configureStripe(config.stripePublishableKey);
+setMediaBase(config.apiUrl);
 
 const render = (): void => {
     document.documentElement.lang = activeLocale();

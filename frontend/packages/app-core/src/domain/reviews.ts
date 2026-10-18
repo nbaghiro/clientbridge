@@ -1,4 +1,5 @@
 import { useBusinessQuery as useQuery } from "../hooks";
+import { personMedia } from "./files";
 
 import { useMemo, useState } from "react";
 
@@ -7,7 +8,7 @@ import { formatDate, parseTimestamp, useBusinessZone } from "../datetime";
 import { firstName, formatParts, formatRating } from "../format";
 import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import type { Intent } from "../ui";
+import type { Intent, SelectOption } from "../ui";
 import { useClients } from "./clients";
 import { useReplicaLoad } from "./sync";
 import { staffNameSql } from "./staff";
@@ -136,7 +137,7 @@ export interface ReviewQueue {
     distribution: { stars: number; count: number }[];
     googleUrl: string | null;
     holdLow: boolean;
-    clientOptions: { key: string; label: string }[];
+    clientOptions: SelectOption<string>[];
 }
 
 export function useReviewQueue(): ReviewQueue {
@@ -183,7 +184,11 @@ export function useReviewQueue(): ReviewQueue {
         })),
         googleUrl: settings?.google_review_url ?? null,
         holdLow: (settings?.review_hold_at ?? DEFAULT_HOLD) > 0,
-        clientOptions: clients.map((c) => ({ key: c.id, label: c.name })),
+        clientOptions: clients.map((c) => ({
+            key: c.id,
+            label: c.name,
+            media: personMedia(c.name),
+        })),
     };
 }
 

@@ -67,20 +67,26 @@ export function Earnings() {
     return (
         <div>
             <p className="text-sm text-muted">{s.subtitle}</p>
-            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Stat
-                    currency={BUSINESS_CURRENCY}
-                    label={s.toApprove}
-                    cents={e.totals.pendingCents}
-                />
-                <Stat currency={BUSINESS_CURRENCY} label={s.toPay} cents={e.totals.approvedCents} />
-                <Stat
-                    currency={BUSINESS_CURRENCY}
-                    label={s.paidYtd}
-                    cents={e.totals.paidYtdCents}
-                    tone="success"
-                />
-            </div>
+            {e.totals.pendingCents + e.totals.approvedCents + e.totals.paidYtdCents === 0 ? null : (
+                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <Stat
+                        currency={BUSINESS_CURRENCY}
+                        label={s.toApprove}
+                        cents={e.totals.pendingCents}
+                    />
+                    <Stat
+                        currency={BUSINESS_CURRENCY}
+                        label={s.toPay}
+                        cents={e.totals.approvedCents}
+                    />
+                    <Stat
+                        currency={BUSINESS_CURRENCY}
+                        label={s.paidYtd}
+                        cents={e.totals.paidYtdCents}
+                        tone="success"
+                    />
+                </div>
+            )}
 
             <div className="mt-6 grid gap-6 xl:grid-cols-[300px_1fr]">
                 <div className="self-start">

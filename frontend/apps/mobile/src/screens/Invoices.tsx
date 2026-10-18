@@ -168,14 +168,26 @@ function InvoiceDeskView({
         <View style={styles.screen}>
             <ListPage<(typeof desk.rows)[number], InvoiceSegment>
                 summary={desk.summary}
-                action={{
-                    label: s.newInvoice,
-                    onPress: () => {
-                        compose(null);
-                    },
-                }}
-                segments={{ items: desk.segments, active: desk.segment, onSelect: desk.setSegment }}
-                search={{ value: desk.q, onChange: desk.setQ, placeholder: s.search }}
+                action={
+                    desk.nothingYet
+                        ? undefined
+                        : {
+                              label: s.newInvoice,
+                              onPress: () => {
+                                  compose(null);
+                              },
+                          }
+                }
+                segments={
+                    desk.nothingYet
+                        ? undefined
+                        : { items: desk.segments, active: desk.segment, onSelect: desk.setSegment }
+                }
+                search={
+                    desk.nothingYet
+                        ? undefined
+                        : { value: desk.q, onChange: desk.setQ, placeholder: s.search }
+                }
                 banner={
                     desk.nothingYet || desk.load.state === "error" ? undefined : (
                         <View style={styles.stats}>
@@ -525,14 +537,26 @@ function EstimateDeskView({
         <View style={styles.screen}>
             <ListPage<(typeof desk.rows)[number], EstimateSegment>
                 summary={desk.summary}
-                action={{
-                    label: s.newEstimate,
-                    onPress: () => {
-                        compose(null);
-                    },
-                }}
-                segments={{ items: desk.segments, active: desk.segment, onSelect: desk.setSegment }}
-                search={{ value: desk.q, onChange: desk.setQ, placeholder: s.search }}
+                action={
+                    desk.nothingYet
+                        ? undefined
+                        : {
+                              label: s.newEstimate,
+                              onPress: () => {
+                                  compose(null);
+                              },
+                          }
+                }
+                segments={
+                    desk.nothingYet
+                        ? undefined
+                        : { items: desk.segments, active: desk.segment, onSelect: desk.setSegment }
+                }
+                search={
+                    desk.nothingYet
+                        ? undefined
+                        : { value: desk.q, onChange: desk.setQ, placeholder: s.search }
+                }
                 rows={desk.rows}
                 rowKey={(r) => r.row.id}
                 onRowPress={(r) => {

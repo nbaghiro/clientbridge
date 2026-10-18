@@ -2411,12 +2411,14 @@ function inRegisterFilter(item: ItemRow, f: RegisterFilter): boolean {
 /** The add-ons and retail grid under today's visits, with a kind switch and search. */
 export function useRegisterCatalog(): RegisterCatalog {
     const rows = useQuery<ItemRow>(ITEMS_SQL);
-    const [filter, setFilter] = useState<RegisterFilter>("retail");
+    const [picked, setFilter] = useState<RegisterFilter | null>(null);
     const [q, setQ] = useState("");
     const sellable = useMemo(() => sellableItems(rows.data), [rows.data]);
     const t = q.trim().toLowerCase();
     const count = (f: RegisterFilter): number =>
         sellable.filter((i) => inRegisterFilter(i, f)).length;
+    // Retail first, unless the business sells no products yet.
+    const filter = picked ?? (count("retail") > 0 ? "retail" : "all");
     const items = sellable.filter(
         (i) =>
             inRegisterFilter(i, filter) &&

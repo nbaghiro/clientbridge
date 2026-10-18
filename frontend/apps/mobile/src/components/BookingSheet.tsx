@@ -22,6 +22,7 @@ import {
     BUSINESS_CURRENCY,
     useBusinessZone,
     kindWord,
+    itemMedia,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -45,6 +46,7 @@ import {
     TextField,
     TimeSlotPicker,
     Toggle,
+    SearchSelect,
 } from "@clientbridge/ui";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
@@ -610,19 +612,19 @@ export function BookingComposerSheet({
                     />
                 ) : null}
 
-                <Text style={styles.label}>{s.composerService}</Text>
-                <Choice
+                <SearchSelect
                     label={s.composerService}
-                    layout="cards"
+                    placeholder={s.composerServicePlaceholder}
                     options={form.services.map((i) => ({
                         key: i.id,
                         label: i.name,
-                        hint: formatParts([
+                        media: itemMedia(i),
+                        detail: formatParts([
                             strings.catalog.minutes(i.duration_min ?? 60),
                             formatMoney(i.price_cents ?? 0, BUSINESS_CURRENCY),
                         ]),
                     }))}
-                    value={form.item?.id ?? null}
+                    value={form.item?.id ?? ""}
                     onChange={form.setItemId}
                 />
 

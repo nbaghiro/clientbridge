@@ -45,7 +45,7 @@ import {
     confirm,
 } from "@clientbridge/ui";
 import { cssVar } from "@clientbridge/tokens";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import { DocEditor } from "../components/DocEditor";
 import { DocumentPreview, type PreviewDoc } from "../components/DocumentPreview";
@@ -80,44 +80,47 @@ export function Invoices() {
         params.get("doc") === "estimates" ? "estimates" : "invoices",
     );
 
+    const switcher = (
+        <Choice<DocKind>
+            layout="segmented"
+            label={s.invoices}
+            options={[
+                { key: "invoices", label: s.invoices },
+                { key: "estimates", label: s.estimates },
+            ]}
+            value={doc}
+            onChange={(k) => {
+                setDoc(k);
+                setOpenId(null);
+            }}
+        />
+    );
+
     return (
         <div>
-            <Choice<DocKind>
-                layout="segmented"
-                label={s.invoices}
-                options={[
-                    { key: "invoices", label: s.invoices },
-                    { key: "estimates", label: s.estimates },
-                ]}
-                value={doc}
-                onChange={(k) => {
-                    setDoc(k);
-                    setOpenId(null);
-                }}
-            />
-            <div className="mt-6">
-                {doc === "invoices" ? (
-                    <InvoiceDeskView
-                        openId={openId}
-                        setOpenId={setOpenId}
-                        compose={(id) => {
-                            setComposing({ kind: "invoice", id });
-                        }}
-                    />
-                ) : (
-                    <EstimateDeskView
-                        openId={openId}
-                        setOpenId={setOpenId}
-                        compose={(id) => {
-                            setComposing({ kind: "estimate", id });
-                        }}
-                        openInvoice={(id) => {
-                            setDoc("invoices");
-                            setOpenId(id);
-                        }}
-                    />
-                )}
-            </div>
+            {doc === "invoices" ? (
+                <InvoiceDeskView
+                    switcher={switcher}
+                    openId={openId}
+                    setOpenId={setOpenId}
+                    compose={(id) => {
+                        setComposing({ kind: "invoice", id });
+                    }}
+                />
+            ) : (
+                <EstimateDeskView
+                    switcher={switcher}
+                    openId={openId}
+                    setOpenId={setOpenId}
+                    compose={(id) => {
+                        setComposing({ kind: "estimate", id });
+                    }}
+                    openInvoice={(id) => {
+                        setDoc("invoices");
+                        setOpenId(id);
+                    }}
+                />
+            )}
             {composing !== null ? (
                 <Composer
                     composing={composing}
@@ -149,11 +152,34 @@ function Composer({
     return <DocEditor kind={composing.kind} draft={docDraft(row, lines)} onClose={onClose} />;
 }
 
+// The tab's one row of controls: which documents, how many, and the way to start a new one.
+function DeskBar({
+    switcher,
+    summary,
+    action,
+}: {
+    switcher: ReactNode;
+    summary: string | undefined;
+    action: ReactNode;
+}) {
+    return (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+            {switcher}
+            <div className="flex items-center gap-4">
+                {summary !== undefined ? <p className="text-sm text-muted">{summary}</p> : null}
+                {action}
+            </div>
+        </div>
+    );
+}
+
 function InvoiceDeskView({
+    switcher,
     openId,
     setOpenId,
     compose,
 }: {
+    switcher: ReactNode;
     openId: string | null;
     setOpenId: (id: string | null) => void;
     compose: (id: string | null) => void;
@@ -168,17 +194,23 @@ function InvoiceDeskView({
 
     return (
         <div className="@container space-y-6">
-            <div className="flex items-center justify-between gap-4">
-                <p className="text-sm text-muted">{desk.summary}</p>
-                <Button
-                    icon="plus"
-                    onPress={() => {
-                        compose(null);
-                    }}
-                >
-                    {s.newInvoice}
-                </Button>
-            </div>
+            <DeskBar
+                switcher={switcher}
+                summary={desk.summary}
+                action={
+                    desk.nothingYet ? null : (
+                        <Button
+                            size="sm"
+                            icon="plus"
+                            onPress={() => {
+                                compose(null);
+                            }}
+                        >
+                            {s.newInvoice}
+                        </Button>
+                    )
+                }
+            />
             {desk.load.state === "error" || desk.nothingYet ? undefined : (
                 <div className="grid grid-cols-2 gap-3 @4xl:grid-cols-4">
                     <Stat
@@ -206,17 +238,27 @@ function InvoiceDeskView({
                 </div>
             )}
             <ListPage<(typeof desk.rows)[number], InvoiceSegment>
-                segments={{ items: desk.segments, active: desk.segment, onSelect: desk.setSegment }}
-                search={{ value: desk.q, onChange: desk.setQ, placeholder: s.search }}
+                segments={
+                    desk.nothingYet
+                        ? undefined
+                        : { items: desk.segments, active: desk.segment, onSelect: desk.setSegment }
+                }
+                search={
+                    desk.nothingYet
+                        ? undefined
+                        : { value: desk.q, onChange: desk.setQ, placeholder: s.search }
+                }
                 head={
-                    <div className={GRID}>
-                        <span>{s.colNumber}</span>
-                        <span>{s.colClient}</span>
-                        <span>{s.colIssued}</span>
-                        <span>{s.colStatus}</span>
-                        <span className="text-right">{s.colTotal}</span>
-                        <span className="text-right">{s.colBalance}</span>
-                    </div>
+                    desk.nothingYet ? undefined : (
+                        <div className={GRID}>
+                            <span>{s.colNumber}</span>
+                            <span>{s.colClient}</span>
+                            <span>{s.colIssued}</span>
+                            <span>{s.colStatus}</span>
+                            <span className="text-right">{s.colTotal}</span>
+                            <span className="text-right">{s.colBalance}</span>
+                        </div>
+                    )
                 }
                 rows={desk.rows}
                 rowKey={(r) => r.row.id}
@@ -603,11 +645,13 @@ function PaymentLine({
 }
 
 function EstimateDeskView({
+    switcher,
     openId,
     setOpenId,
     compose,
     openInvoice,
 }: {
+    switcher: ReactNode;
     openId: string | null;
     setOpenId: (id: string | null) => void;
     compose: (id: string | null) => void;
@@ -616,23 +660,43 @@ function EstimateDeskView({
     const desk = useEstimateDesk();
     return (
         <div>
-            <ListPage<(typeof desk.rows)[number], EstimateSegment>
+            <DeskBar
+                switcher={switcher}
                 summary={desk.summary}
-                action={{
-                    label: s.newEstimate,
-                    onPress: () => {
-                        compose(null);
-                    },
-                }}
-                segments={{ items: desk.segments, active: desk.segment, onSelect: desk.setSegment }}
-                search={{ value: desk.q, onChange: desk.setQ, placeholder: s.search }}
+                action={
+                    desk.nothingYet ? null : (
+                        <Button
+                            size="sm"
+                            icon="plus"
+                            onPress={() => {
+                                compose(null);
+                            }}
+                        >
+                            {s.newEstimate}
+                        </Button>
+                    )
+                }
+            />
+            <ListPage<(typeof desk.rows)[number], EstimateSegment>
+                segments={
+                    desk.nothingYet
+                        ? undefined
+                        : { items: desk.segments, active: desk.segment, onSelect: desk.setSegment }
+                }
+                search={
+                    desk.nothingYet
+                        ? undefined
+                        : { value: desk.q, onChange: desk.setQ, placeholder: s.search }
+                }
                 head={
-                    <div className={EST_GRID}>
-                        <span>{s.colNumber}</span>
-                        <span>{s.colClient}</span>
-                        <span>{s.colStatus}</span>
-                        <span className="text-right">{s.colTotal}</span>
-                    </div>
+                    desk.nothingYet ? undefined : (
+                        <div className={EST_GRID}>
+                            <span>{s.colNumber}</span>
+                            <span>{s.colClient}</span>
+                            <span>{s.colStatus}</span>
+                            <span className="text-right">{s.colTotal}</span>
+                        </div>
+                    )
                 }
                 rows={desk.rows}
                 rowKey={(r) => r.row.id}

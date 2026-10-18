@@ -19,6 +19,12 @@ export const DESTINATIONS: { key: DestinationKey; label: string }[] = [
         },
     },
     {
+        key: "inbox",
+        get label() {
+            return strings.navigation.inbox;
+        },
+    },
+    {
         key: "schedule",
         get label() {
             return strings.navigation.schedule;
@@ -34,12 +40,6 @@ export const DESTINATIONS: { key: DestinationKey; label: string }[] = [
         key: "payments",
         get label() {
             return strings.navigation.payments;
-        },
-    },
-    {
-        key: "inbox",
-        get label() {
-            return strings.navigation.inbox;
         },
     },
 ];

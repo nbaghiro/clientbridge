@@ -1,4 +1,5 @@
 import {
+    type OptionMedia,
     type SelectOption,
     type SelectProps,
     strings,
@@ -16,8 +17,10 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import { Avatar } from "./Avatar";
 import { Labelled, fieldClass } from "./Field";
 import { Icon } from "./Icon";
+import { ItemImage } from "./ItemImage";
 import { usePopover } from "./popover";
 import { type WebProps, type WithRef, cx, mergeRefs } from "./props";
 
@@ -32,6 +35,15 @@ interface Section<K extends string> {
     options: SelectOption<K>[];
 }
 
+/** An option's picture: a person's avatar, or an item's photo on its colour. */
+export function OptionLead({ media }: { media: OptionMedia }) {
+    return media.kind === "person" ? (
+        <Avatar name={media.name} src={media.src} color={media.color} size="sm" />
+    ) : (
+        <ItemImage name={media.name} src={media.src ?? null} color={media.color} size={28} />
+    );
+}
+
 function sections<K extends string>(options: readonly SelectOption<K>[]): Section<K>[] {
     const out: Section<K>[] = [];
     for (const o of options) {
@@ -42,7 +54,7 @@ function sections<K extends string>(options: readonly SelectOption<K>[]): Sectio
     return out;
 }
 
-function matches(o: SelectOption<string>, needle: string): boolean {
+export function matches(o: SelectOption<string>, needle: string): boolean {
     return (
         o.label.toLowerCase().includes(needle) ||
         (o.detail?.toLowerCase().includes(needle) ?? false) ||
@@ -50,10 +62,112 @@ function matches(o: SelectOption<string>, needle: string): boolean {
     );
 }
 
+interface OptionListProps<K extends string> {
+    id: string;
+    listId: string;
+    label: string | undefined;
+    options: readonly SelectOption<K>[];
+    // How many options there are before filtering, to tell "no options" from "no matches".
+    total: number;
+    value: K | undefined;
+    active: K | null;
+    optionId: (key: K) => string;
+    onActive: (key: K) => void;
+    onPick: (option: SelectOption<K>) => void;
+}
+
+/** The open list of a Select or SearchSelect: grouped rows with pictures, the active row and a check. */
+export function OptionList<K extends string>({
+    id,
+    listId,
+    label,
+    options,
+    total,
+    value,
+    active,
+    optionId,
+    onActive,
+    onPick,
+    ref,
+}: OptionListProps<K> & WithRef<HTMLDivElement>) {
+    return (
+        <div
+            ref={ref}
+            id={listId}
+            role="listbox"
+            aria-label={label}
+            tabIndex={-1}
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]"
+        >
+            {options.length === 0 ? (
+                <p className="px-3 py-5 text-center text-sm text-muted">
+                    {total === 0 ? strings.ui.noOptions : strings.ui.noMatches}
+                </p>
+            ) : (
+                sections(options).map((s, si) => {
+                    const rows = s.options.map((o) => {
+                        const selected = o.key === value;
+                        const isActive = o.key === active;
+                        return (
+                            <div
+                                key={o.key}
+                                id={optionId(o.key)}
+                                role="option"
+                                aria-selected={selected}
+                                aria-disabled={o.disabled === true || undefined}
+                                onMouseDown={(e) => {
+                                    e.preventDefault();
+                                }}
+                                onMouseMove={() => {
+                                    if (o.disabled !== true && !isActive) onActive(o.key);
+                                }}
+                                onClick={() => {
+                                    onPick(o);
+                                }}
+                                className={`mx-1 flex items-center gap-3 rounded-md px-2.5 py-2 text-sm ${
+                                    o.disabled === true
+                                        ? "cursor-default text-muted opacity-60"
+                                        : `cursor-pointer ${isActive ? "bg-bg" : ""}`
+                                } ${selected ? "font-semibold text-ink" : "text-ink-soft"}`}
+                            >
+                                {o.media !== undefined ? <OptionLead media={o.media} /> : null}
+                                <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                                {o.detail !== undefined ? (
+                                    <span className="shrink-0 text-xs font-normal text-muted">
+                                        {o.detail}
+                                    </span>
+                                ) : null}
+                                <span className="flex w-4 shrink-0 justify-end text-accent">
+                                    {selected ? <Icon name="check" size={15} /> : null}
+                                </span>
+                            </div>
+                        );
+                    });
+                    if (s.group === undefined) return rows;
+                    const headId = `${id}-g${String(si)}`;
+                    return (
+                        <div key={headId} role="group" aria-labelledby={headId}>
+                            <div
+                                id={headId}
+                                role="presentation"
+                                className="px-3.5 pb-1 pt-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted"
+                            >
+                                {s.group}
+                            </div>
+                            {rows}
+                        </div>
+                    );
+                })
+            )}
+        </div>
+    );
+}
+
 // The trigger box of a field that opens a picker: a text field's look, with a glyph at the end.
 export function PickerTrigger({
     id,
     size,
+    surface = "bg",
     width,
     open,
     invalid,
@@ -64,6 +178,7 @@ export function PickerTrigger({
 }: {
     id: string;
     size: "sm" | "md" | "lg";
+    surface?: "bg" | "surface" | undefined;
     width: "full" | "auto";
     open: boolean;
     invalid: boolean;
@@ -79,7 +194,7 @@ export function PickerTrigger({
             type="button"
             aria-invalid={invalid || undefined}
             className={cx(
-                fieldClass(size, "bg", width),
+                fieldClass(size, surface, width),
                 `relative flex min-w-0 items-center text-start focus-visible:border-accent focus-visible:shadow-[0_0_0_3px_var(--accent-weak)] ${ICON_ROOM[size]} ${open ? "border-accent shadow-[0_0_0_3px_var(--accent-weak)]" : ""} ${width === "auto" ? "min-w-32" : ""}`,
             )}
         >
@@ -107,6 +222,7 @@ export function Select<K extends string>({
     placeholder,
     searchable,
     size = "md",
+    surface,
     width,
     disabled = false,
     className,
@@ -302,81 +418,19 @@ export function Select<K extends string>({
                               />
                           </div>
                       ) : null}
-                      <div
+                      <OptionList
                           ref={list}
-                          id={listId}
-                          role="listbox"
-                          aria-label={describe}
-                          tabIndex={-1}
-                          className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]"
-                      >
-                          {shown.length === 0 ? (
-                              <p className="px-3 py-5 text-center text-sm text-muted">
-                                  {options.length === 0
-                                      ? strings.ui.noOptions
-                                      : strings.ui.noMatches}
-                              </p>
-                          ) : (
-                              sections(shown).map((s, si) => {
-                                  const rows = s.options.map((o) => {
-                                      const selected = o.key === value;
-                                      const isActive = o.key === active;
-                                      return (
-                                          <div
-                                              key={o.key}
-                                              id={optionId(o.key)}
-                                              role="option"
-                                              aria-selected={selected}
-                                              aria-disabled={o.disabled === true || undefined}
-                                              onMouseDown={(e) => {
-                                                  e.preventDefault();
-                                              }}
-                                              onMouseMove={() => {
-                                                  if (o.disabled !== true && !isActive)
-                                                      setActive(o.key);
-                                              }}
-                                              onClick={() => {
-                                                  pick(o);
-                                              }}
-                                              className={`mx-1 flex items-center gap-3 rounded-md px-2.5 py-2 text-sm ${
-                                                  o.disabled === true
-                                                      ? "cursor-default text-muted opacity-60"
-                                                      : `cursor-pointer ${isActive ? "bg-bg" : ""}`
-                                              } ${selected ? "font-semibold text-ink" : "text-ink-soft"}`}
-                                          >
-                                              <span className="min-w-0 flex-1 truncate">
-                                                  {o.label}
-                                              </span>
-                                              {o.detail !== undefined ? (
-                                                  <span className="shrink-0 text-xs font-normal text-muted">
-                                                      {o.detail}
-                                                  </span>
-                                              ) : null}
-                                              <span className="flex w-4 shrink-0 justify-end text-accent">
-                                                  {selected ? (
-                                                      <Icon name="check" size={15} />
-                                                  ) : null}
-                                              </span>
-                                          </div>
-                                      );
-                                  });
-                                  if (s.group === undefined) return rows;
-                                  const headId = `${id}-g${String(si)}`;
-                                  return (
-                                      <div key={headId} role="group" aria-labelledby={headId}>
-                                          <div
-                                              id={headId}
-                                              role="presentation"
-                                              className="px-3.5 pb-1 pt-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted"
-                                          >
-                                              {s.group}
-                                          </div>
-                                          {rows}
-                                      </div>
-                                  );
-                              })
-                          )}
-                      </div>
+                          id={id}
+                          listId={listId}
+                          label={describe}
+                          options={shown}
+                          total={options.length}
+                          value={value}
+                          active={active}
+                          optionId={optionId}
+                          onActive={setActive}
+                          onPick={pick}
+                      />
                   </div>,
                   host,
               );
@@ -395,6 +449,7 @@ export function Select<K extends string>({
                 ref={triggerRef}
                 id={id}
                 size={size}
+                surface={surface}
                 width={width ?? (size === "sm" ? "auto" : "full")}
                 open={open}
                 invalid={error !== undefined && error !== null}
@@ -419,7 +474,14 @@ export function Select<K extends string>({
                         close(false);
                 }}
             >
-                {chosen?.label ?? placeholder ?? strings.ui.choose}
+                {chosen?.media !== undefined ? (
+                    <span className="flex min-w-0 items-center gap-2">
+                        <OptionLead media={chosen.media} />
+                        <span className="truncate">{chosen.label}</span>
+                    </span>
+                ) : (
+                    (chosen?.label ?? placeholder ?? strings.ui.choose)
+                )}
             </PickerTrigger>
             {menu}
         </Labelled>

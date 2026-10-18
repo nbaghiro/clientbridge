@@ -72,7 +72,7 @@ SELECT c.id, c.name,
           ORDER BY sj.name LIMIT 1) AS subject_name
 FROM clients c WHERE c.status = 'active' ORDER BY c.name COLLATE NOCASE`;
 
-interface ClassSession {
+export interface ClassSession {
     slotId: string;
     name: string;
     color: string | null;
@@ -160,6 +160,7 @@ export function rosterStatus(r: RosterRow): RosterStatus {
 
 interface ClassBoard {
     sessions: ClassSession[];
+    summary: readonly { label: string; value: string }[];
     selected: string | null;
     select: (slotId: string) => void;
     roster: ClassRoster | null;
@@ -262,8 +263,20 @@ export function useClassBoard(api: ApiLike): ClassBoard {
     const t = query.trim().toLowerCase();
     const load = useReplicaLoad([sessionsQ, rosterQ], sessions.length === 0);
 
+    const seats = sessions.reduce((n, x) => n + x.capacity, 0);
+    const booked = sessions.reduce((n, x) => n + x.booked, 0);
+    const waiting = sessions.reduce((n, x) => n + x.waitlist, 0);
+
     return {
         sessions,
+        summary: [
+            { label: s.summaryRange, value: s.summaryCount(sessions.length) },
+            {
+                label: s.summarySeats,
+                value: seats === 0 ? strings.bookings.dash : s.seatsBooked(booked, seats),
+            },
+            { label: s.waitlist, value: s.summaryWaiting(waiting) },
+        ],
         selected: current,
         select: (id) => {
             setSelected(id);

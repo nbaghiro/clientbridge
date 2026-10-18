@@ -1,5 +1,6 @@
 import {
     type IconName,
+    type OptionMedia,
     type SelectOption,
     type SelectProps,
     strings,
@@ -9,14 +10,25 @@ import { theme } from "@clientbridge/tokens/native";
 import { type ReactNode, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { Avatar } from "./Avatar";
 import { Choice } from "./Choice";
 import { Extras, FIELD_SIZE, Label, fieldStyles } from "./Field";
 import { Icon } from "./Icon";
+import { ItemImage } from "./ItemImage";
 import { Modal } from "./Modal";
 import type { NativeProps } from "./props";
 import { SearchField } from "./SearchField";
 
 const c = theme.colors;
+
+/** An option's picture: a person's avatar, or an item's photo on its colour. */
+function OptionLead({ media }: { media: OptionMedia }) {
+    return media.kind === "person" ? (
+        <Avatar name={media.name} src={media.src} color={media.color} size="sm" />
+    ) : (
+        <ItemImage name={media.name} src={media.src ?? null} color={media.color} size={28} />
+    );
+}
 
 // Above this many options the sheet starts with a search box; at or below it, plain options are chips.
 const SEARCH_AFTER = 6;
@@ -28,6 +40,8 @@ export function PickerTrigger({
     placeholder,
     icon,
     size,
+    media,
+    surface = "bg",
     open,
     disabled,
     invalid,
@@ -38,6 +52,8 @@ export function PickerTrigger({
     placeholder: boolean;
     icon: IconName;
     size: "sm" | "md" | "lg";
+    media?: OptionMedia | undefined;
+    surface?: "bg" | "surface" | undefined;
     open: boolean;
     disabled: boolean;
     invalid: boolean;
@@ -53,6 +69,7 @@ export function PickerTrigger({
             onPress={onPress}
             style={({ pressed }) => [
                 fieldStyles.input,
+                surface === "surface" && fieldStyles.onBg,
                 FIELD_SIZE[size],
                 styles.trigger,
                 (open || pressed) && styles.open,
@@ -60,6 +77,7 @@ export function PickerTrigger({
                 disabled && fieldStyles.disabled,
             ]}
         >
+            {media !== undefined ? <OptionLead media={media} /> : null}
             <Text
                 style={[
                     styles.text,
@@ -97,6 +115,7 @@ function Row<K extends string>({
                 off && styles.rowOff,
             ]}
         >
+            {option.media !== undefined ? <OptionLead media={option.media} /> : null}
             <Text style={[styles.rowLabel, selected && styles.rowChosen]} numberOfLines={1}>
                 {option.label}
             </Text>
@@ -112,7 +131,12 @@ function Row<K extends string>({
     );
 }
 
-export function Select<K extends string>({
+export function Select<K extends string>(props: NativeProps<SelectProps<K>>) {
+    return <SelectSheet {...props} searchFirst={false} />;
+}
+
+/** Select's body; `searchFirst` always opens a sheet with its search box focused (SearchSelect). */
+export function SelectSheet<K extends string>({
     label,
     name,
     hint,
@@ -124,9 +148,11 @@ export function Select<K extends string>({
     placeholder,
     searchable,
     size = "md",
+    surface,
     disabled = false,
     style,
-}: NativeProps<SelectProps<K>>) {
+    searchFirst,
+}: NativeProps<SelectProps<K>> & { searchFirst: boolean }) {
     const [value, setValue] = useControllable<K | undefined>(
         valueProp,
         defaultValue ?? (placeholder === undefined ? options[0]?.key : undefined),
@@ -139,8 +165,12 @@ export function Select<K extends string>({
     };
     const plain = options.every((o) => o.detail === undefined && o.group === undefined);
     const sheet =
-        options.length > SEARCH_AFTER || placeholder !== undefined || searchable === true || !plain;
-    const withSearch = searchable ?? options.length > SEARCH_AFTER;
+        searchFirst ||
+        options.length > SEARCH_AFTER ||
+        placeholder !== undefined ||
+        searchable === true ||
+        !plain;
+    const withSearch = searchFirst || (searchable ?? options.length > SEARCH_AFTER);
     const chosen = options.find((o) => o.key === value);
     const needle = q.trim().toLowerCase();
     const shown =
@@ -185,9 +215,11 @@ export function Select<K extends string>({
                 <PickerTrigger
                     label={label ?? name ?? placeholder}
                     text={chosen?.label ?? placeholder ?? strings.ui.choose}
+                    media={chosen?.media}
                     placeholder={chosen === undefined}
                     icon="chevronDown"
                     size={size}
+                    surface={surface}
                     open={open}
                     disabled={disabled}
                     invalid={error !== undefined && error !== null}
@@ -225,6 +257,7 @@ export function Select<K extends string>({
                             value={q}
                             onChange={setQ}
                             placeholder={strings.ui.searchOptions}
+                            autoFocus={searchFirst}
                         />
                     ) : null}
                     <View style={styles.list}>

@@ -103,41 +103,60 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
             })
             .catch(() => undefined);
     };
+    const compose = (): void => {
+        onCompose({ name: "", body: "", tags: [], channel: "sms" });
+    };
+    const nothingYet = home.load.hasData && home.broadcasts.length === 0;
+    // No one to reach yet: the reach figures and the consent lists would all read zero.
+    const noAudience =
+        home.reach.sms === 0 &&
+        home.reach.email === 0 &&
+        home.reach.optedOut === 0 &&
+        home.optOuts.length === 0 &&
+        home.implied.length === 0;
     return (
         <ScrollView contentContainerStyle={styles.body}>
             <View style={styles.top}>
                 <Text style={styles.subtitle}>{s.subtitle}</Text>
-                <Button
-                    style={{ alignSelf: "center" }}
-                    size="sm"
-                    icon="plus"
-                    onPress={() => {
-                        onCompose({ name: "", body: "", tags: [], channel: "sms" });
-                    }}
-                >
-                    {s.newBroadcast}
-                </Button>
+                {nothingYet ? null : (
+                    <Button style={{ alignSelf: "center" }} size="sm" icon="plus" onPress={compose}>
+                        {s.newBroadcast}
+                    </Button>
+                )}
             </View>
             {actions.error !== null ? <Notice tone="danger">{actions.error}</Notice> : null}
             {actions.exported !== null ? <Notice tone="success">{s.exportShared}</Notice> : null}
             <Loaded load={home.load} loading={s.loading} failed={s.loadError}>
-                <View style={styles.stats}>
-                    <View style={styles.flex}>
-                        <Stat label={s.reachText} value={String(home.reach.sms)} />
+                {noAudience ? null : (
+                    <View style={styles.stats}>
+                        <View style={styles.flex}>
+                            <Stat size="lg" label={s.reachText} value={String(home.reach.sms)} />
+                        </View>
+                        <View style={styles.flex}>
+                            <Stat size="lg" label={s.reachEmail} value={String(home.reach.email)} />
+                        </View>
+                        <View style={styles.flex}>
+                            <Stat
+                                size="lg"
+                                label={s.reachOut}
+                                value={String(home.reach.optedOut)}
+                                tone={home.reach.optedOut > 0 ? "danger" : "ink"}
+                            />
+                        </View>
                     </View>
-                    <View style={styles.flex}>
-                        <Stat label={s.reachEmail} value={String(home.reach.email)} />
-                    </View>
-                    <View style={styles.flex}>
-                        <Stat
-                            label={s.reachOut}
-                            value={String(home.reach.optedOut)}
-                            tone={home.reach.optedOut > 0 ? "danger" : "ink"}
-                        />
-                    </View>
-                </View>
+                )}
                 {home.broadcasts.length === 0 ? (
-                    <Empty message={s.noBroadcasts} />
+                    <Empty
+                        variant="card"
+                        icon="send"
+                        message={s.noBroadcasts}
+                        body={s.noBroadcastsBody}
+                        actions={
+                            <Button size="sm" icon="plus" onPress={compose}>
+                                {s.newBroadcast}
+                            </Button>
+                        }
+                    />
                 ) : (
                     <View style={styles.list}>
                         {home.broadcasts.map((x) => (
@@ -158,53 +177,57 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                         ))}
                     </View>
                 )}
-                <View style={styles.sectionHead}>
-                    <Text style={styles.sectionTitle}>{s.optOutsTitle}</Text>
-                    <Button
-                        style={{ alignSelf: "center" }}
-                        size="sm"
-                        variant="outline"
-                        busy={actions.busy}
-                        onPress={actions.exportLog}
-                    >
-                        {s.exportLog}
-                    </Button>
-                </View>
-                <Text style={styles.meta}>{s.optOutsSubtitle}</Text>
-                {home.optOuts.length === 0 ? <Empty message={s.noOptOuts} /> : null}
-                {home.optOuts.map((o) => (
-                    <View key={`${o.clientId}-${o.channel}`} style={styles.row}>
-                        <Avatar name={o.name} size="sm" />
-                        <View style={styles.flex}>
-                            <Text style={styles.rowName}>{o.name}</Text>
-                            <Text style={styles.meta}>
-                                {s.consentSource(o.source, dateOf(o.at, zone))}
-                            </Text>
+                {noAudience ? null : (
+                    <>
+                        <View style={styles.sectionHead}>
+                            <Text style={styles.sectionTitle}>{s.optOutsTitle}</Text>
+                            <Button
+                                style={{ alignSelf: "center" }}
+                                size="sm"
+                                variant="outline"
+                                busy={actions.busy}
+                                onPress={actions.exportLog}
+                            >
+                                {s.exportLog}
+                            </Button>
                         </View>
-                        <StatusPill
-                            style={{ alignSelf: "center" }}
-                            status={s.consentChannel[o.channel]}
-                            intent="danger"
-                        />
-                    </View>
-                ))}
-                <Text style={[styles.sectionTitle, styles.gapTop]}>{s.impliedTitle}</Text>
-                <Text style={styles.meta}>{s.impliedSubtitle}</Text>
-                {home.implied.length === 0 ? <Empty message={s.noImplied} /> : null}
-                {home.implied.map((o) => (
-                    <View key={`${o.clientId}-${o.channel}`} style={styles.row}>
-                        <Avatar name={o.name} size="sm" />
-                        <View style={styles.flex}>
-                            <Text style={styles.rowName}>{o.name}</Text>
-                            <Text style={styles.meta}>
-                                {formatParts([
-                                    s.consentChannel[o.channel],
-                                    s.endsOn(dateOf(o.expires, zone)),
-                                ])}
-                            </Text>
-                        </View>
-                    </View>
-                ))}
+                        <Text style={styles.meta}>{s.optOutsSubtitle}</Text>
+                        {home.optOuts.length === 0 ? <Empty message={s.noOptOuts} /> : null}
+                        {home.optOuts.map((o) => (
+                            <View key={`${o.clientId}-${o.channel}`} style={styles.row}>
+                                <Avatar name={o.name} size="sm" />
+                                <View style={styles.flex}>
+                                    <Text style={styles.rowName}>{o.name}</Text>
+                                    <Text style={styles.meta}>
+                                        {s.consentSource(o.source, dateOf(o.at, zone))}
+                                    </Text>
+                                </View>
+                                <StatusPill
+                                    style={{ alignSelf: "center" }}
+                                    status={s.consentChannel[o.channel]}
+                                    intent="danger"
+                                />
+                            </View>
+                        ))}
+                        <Text style={[styles.sectionTitle, styles.gapTop]}>{s.impliedTitle}</Text>
+                        <Text style={styles.meta}>{s.impliedSubtitle}</Text>
+                        {home.implied.length === 0 ? <Empty message={s.noImplied} /> : null}
+                        {home.implied.map((o) => (
+                            <View key={`${o.clientId}-${o.channel}`} style={styles.row}>
+                                <Avatar name={o.name} size="sm" />
+                                <View style={styles.flex}>
+                                    <Text style={styles.rowName}>{o.name}</Text>
+                                    <Text style={styles.meta}>
+                                        {formatParts([
+                                            s.consentChannel[o.channel],
+                                            s.endsOn(dateOf(o.expires, zone)),
+                                        ])}
+                                    </Text>
+                                </View>
+                            </View>
+                        ))}
+                    </>
+                )}
             </Loaded>
             {open !== null ? (
                 <Modal

@@ -25,6 +25,7 @@ import {
     ImagePicker,
     ItemImage,
     Notice,
+    SearchSelect,
     Select,
     TextField,
     Toggle,
@@ -368,7 +369,7 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                 </div>
             </DetailSection>
             <DetailSection title={s.sectionShop}>
-                <Select
+                <SearchSelect
                     label={s.variantParent}
                     value={v.variantParentId ?? ""}
                     options={ed.parentOptions}
@@ -432,11 +433,12 @@ function PlanFields({ ed }: { ed: PlanEditor }) {
                 <div className="space-y-3">
                     {v.kind === "package" ? (
                         <>
-                            <Select
+                            <SearchSelect
                                 label={s.covers}
                                 hint={s.coversHint}
                                 value={v.coversItemId}
-                                options={[{ key: "", label: s.chooseService }, ...ed.coverOptions]}
+                                placeholder={s.chooseService}
+                                options={ed.coverOptions}
                                 onChange={(x) => {
                                     set("coversItemId", x);
                                 }}
