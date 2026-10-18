@@ -21,7 +21,7 @@ This file is the source of truth for every ticket. Each story below has its full
 | 1. Get set up                   | Tax registration and per-item tax classes                      | CLI-9  | M    |
 | 1. Get set up                   | Plan subscription, trial and billing                           | CLI-10 | L    |
 | 2. Load clients and the catalog | Client records: add, edit, archive, search                     | CLI-11 | S    |
-| 2. Load clients and the catalog | Pets and other subjects on clients                             | CLI-12 | M    |
+| 2. Load clients and the catalog | Pets, students and properties on clients                       | CLI-12 | M    |
 | 2. Load clients and the catalog | Notes and client history timeline                              | CLI-13 | M    |
 | 2. Load clients and the catalog | Saved cards and bank accounts                                  | CLI-14 | S    |
 | 2. Load clients and the catalog | Tags and duplicate merging                                     | CLI-15 | M    |
@@ -286,28 +286,43 @@ Size: S · Area: Clients
 
 **Depends on:** nothing
 
-### Pets and other subjects on clients (CLI-12)
+### Pets, students and properties on clients (CLI-12)
 
 Size: M · Area: Clients
 
-**When this is done:** Staff always know which pet a visit is for.
+**When this is done:** Staff always know which pet, student or property a visit is for.
 
-**Surfaces:** Backend, web, iPhone and Android
+**Surfaces:** Backend, web, iPhone, Android and Connect
 
-**Flow:** Staff record a client's pets (or vehicles, children) with details, and the pet shows on its bookings.
+**Flow:** The owner chooses at onboarding what clients book for: pets, students, properties, or only the
+client. Staff record each client's subjects with that kind's details, and the subject shows on its
+bookings. An owner or admin can change the kind later in business settings; existing subjects and their
+details are kept, and the app asks for confirmation with a count first. A business that books only the
+client shows no subject fields anywhere.
 
-**Built:** Subjects with kind and attributes in the data, synced to devices; seeded demo pets.
+**Built:** `businesses.subject` (pet, student, property or NULL) synced to devices; per-kind details
+validated on the server (pet: species, breed, weight, birthday, sex, temperament, coat, allergies, vet,
+rabies vaccine, style; student: birthday, grade, school, allergies; property: address, rooms, access,
+pets); add, edit and remove from the client record on web and mobile; the subject picker in the booking
+composer, series and classes; Connect asks for the subject's name, and a property business also asks for
+the address of a new property; seeded demo pets.
 
 **To do:**
 
-- Add, edit and remove subjects from the client record.
-- Pick the subject when booking; show it on the booking and the invoice line.
+- Show the subject on the invoice line.
 
 **QA:**
 
 1. Add a dog with breed, weight and temperament to a client.
 2. Book the dog; the groomer sees the dog on the booking on their phone.
-3. Invoice the visit; the line names the dog.
+3. Onboard a property business; add a property with an address and access notes; book it online from
+   Connect with a new property name and address, and check the property and address on the client record.
+4. Onboard a student business; add a student with a grade and school; check the booking composer offers
+   the student.
+5. Change the pet business to properties; confirm the count, and check the existing pets still show
+   with their details kept.
+6. Onboard a business that books only the client; check that no subject fields show on the client
+   record, the booking composer or Connect.
 
 **Depends on:** Client records: add, edit, archive, search (CLI-11)
 
