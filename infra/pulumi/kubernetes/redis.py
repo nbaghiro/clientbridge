@@ -1,4 +1,4 @@
-"""Redis for the job queue only: no persistence, and no eviction, so no queued job is dropped."""
+"""Redis for the arq job queue and the public rate limits: no persistence, and no eviction."""
 
 import pulumi_kubernetes as k8s
 

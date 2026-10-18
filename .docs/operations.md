@@ -297,13 +297,13 @@ The worker runs one replica per environment on Spot pods, with the schedule in `
 | `sync_plan_seats`        | 05:00                                  | Seat counts on plan subscriptions are a day stale; the next run corrects them.                                                                                                               |
 | `send_trial_reminders`   | hourly at :00, for businesses at 09:00 | Same as the overdue sweep: 09:00 local the next day.                                                                                                                                         |
 
-The worker's liveness probe runs `arq --check`, which fails when the worker has not refreshed its health key in Redis within arq's `health_check_interval` (an hour by default), so a hung worker is restarted. After a Redis restart the key is gone until the worker's next refresh, so the probe may restart a healthy worker once. The cron schedule assumes one worker replica; do not scale it up. Redis has no persistence, so queued jobs are lost when its pod restarts, which is safe because every job here is a cron run that the next tick repeats.
+The worker's liveness probe runs `arq --check`, which fails when the worker has not refreshed its health key in Redis within `health_check_interval` (60 seconds in `WorkerSettings`; arq's default is an hour), so a hung worker is restarted. After a Redis restart the key is gone until the worker's next refresh, so the probe may restart a healthy worker once. The cron schedule assumes one worker replica; do not scale it up. Redis has no persistence, so queued jobs are lost when its pod restarts, which is safe because every job here is a cron run that the next tick repeats.
 
 ## Health checks and alerts
 
 | Check                | What it does                                                                                                                       |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| API probes           | Startup and liveness on `/health` (touches nothing), readiness on `/ready` (`SELECT 1` and a Redis `PING`, 503 naming what failed) |
+| API probes           | Startup and liveness on `/health` (touches nothing), readiness on `/ready` (`SELECT 1`, 503 naming what failed; Redis is left out so its outage affects only the rate-limited public routes and the worker) |
 | Auth probes          | `/health/ready` and `/health/alive` on the public port                                                                             |
 | PowerSync probes     | `/probes/startup`, `/probes/readiness`, `/probes/liveness`                                                                         |
 | Web probes           | `/robots.txt`, which Caddy answers for any host                                                                                    |

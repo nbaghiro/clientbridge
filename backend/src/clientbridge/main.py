@@ -68,7 +68,7 @@ def create_app() -> FastAPI:
         return {"status": "ok", "env": settings.env}
 
     async def ready() -> JSONResponse:
-        failed = await unready_dependencies(engine, get_settings().redis_url)
+        failed = await unready_dependencies(engine)
         if failed:
             return JSONResponse({"status": "unavailable", "failed": failed}, status_code=503)
         return JSONResponse({"status": "ready"})
