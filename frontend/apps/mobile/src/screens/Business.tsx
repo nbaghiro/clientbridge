@@ -1,13 +1,23 @@
 import {
     BUSINESS_TEXT_FIELDS,
     strings,
+    subjectChoices,
     timeZoneOptions,
     useBusinessForm,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import type { ReactNode } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Button, Loading, Notice, Select, TextField } from "@clientbridge/ui";
+import {
+    Button,
+    Choice,
+    confirm,
+    Field,
+    Loading,
+    Notice,
+    Select,
+    TextField,
+} from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
@@ -16,6 +26,21 @@ const c = theme.colors;
 export function Business({ footer }: { footer?: ReactNode }) {
     const form = useBusinessForm(api);
     const fields = form.fields;
+    const save = (): void => {
+        if (form.subjectChange === null) {
+            form.submit();
+            return;
+        }
+        confirm({
+            title: strings.subjects.changeTitle,
+            message: form.subjectChange,
+            confirmLabel: strings.subjects.changeConfirm,
+        })
+            .then((ok) => {
+                if (ok) form.submit();
+            })
+            .catch(() => undefined);
+    };
 
     if (fields === null) {
         return <Loading />;
@@ -56,12 +81,21 @@ export function Business({ footer }: { footer?: ReactNode }) {
                     }}
                     size="lg"
                 />
+                <Field label={strings.subjects.choiceLabel} hint={strings.subjects.choiceHelp}>
+                    <Choice
+                        label={strings.subjects.choiceLabel}
+                        layout="cards"
+                        options={subjectChoices()}
+                        value={form.subject}
+                        onChange={form.setSubject}
+                    />
+                </Field>
 
                 {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
                 {form.saved ? <Notice tone="success">{strings.common.saved}</Notice> : null}
 
                 <View style={styles.submitGap}>
-                    <Button size="lg" full onPress={form.submit} busy={form.busy}>
+                    <Button size="lg" full onPress={save} busy={form.busy}>
                         {strings.common.save}
                     </Button>
                 </View>

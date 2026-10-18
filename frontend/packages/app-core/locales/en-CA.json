@@ -4614,6 +4614,36 @@
         "args": ["kind"],
         "description": "kind is what the business books besides the client: pet, student, property, or none"
     },
+    "subjects.choiceLabel": {
+        "message": "What do clients book for?"
+    },
+    "subjects.choiceHelp": {
+        "message": "Bookings and client records ask for this. You can change it later in business settings."
+    },
+    "subjects.choice": {
+        "message": "{kind, select, pet {Pets} student {Students} property {Properties} other {Only the client}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client: pet, student, property, or none"
+    },
+    "subjects.choiceHint": {
+        "message": "{kind, select, pet {Grooming, daycare and boarding} student {Tutoring and lessons} property {Cleaning and home services} other {Salons, fitness, wellness and photography}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client: pet, student, property, or none"
+    },
+    "subjects.choiceRequired": {
+        "message": "Choose what clients book for."
+    },
+    "subjects.changeTitle": {
+        "message": "Change what clients book for?"
+    },
+    "subjects.changeBody": {
+        "message": "{from, select, pet {{count, plural, one {# pet} other {# pets}}} student {{count, plural, one {# student} other {# students}}} property {{count, plural, one {# property} other {# properties}}} other {{count, plural, one {# saved name} other {# saved names}}}} on client records {to, select, pet {will be shown as pets} student {will be shown as students} property {will be shown as properties} other {will be hidden from bookings and records}}. Their details are kept.",
+        "args": ["from", "to", "count"],
+        "description": "from and to are the old and new kind: pet, student, property, or none"
+    },
+    "subjects.changeConfirm": {
+        "message": "Change"
+    },
     "subjects.age": {
         "message": "{years, plural, =0 {Under 1 yr} other {# yr}}",
         "args": ["years"]

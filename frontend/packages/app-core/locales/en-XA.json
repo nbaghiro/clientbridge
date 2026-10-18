@@ -4310,6 +4310,30 @@
     "subjects.firstDetailPlaceholder": {
         "message": "[{kind,select,other{} pet{Ĝöļðéñðööðļé} property{12 Åŕƀûţûš Ļåñé} student{Ĝŕåðé 4}} one two three]"
     },
+    "subjects.choiceLabel": {
+        "message": "[Ŵĥåţ ðö çļîéñţš ƀööķ ƒöŕ? one two]"
+    },
+    "subjects.choiceHelp": {
+        "message": "[Ɓööķîñĝš åñð çļîéñţ ŕéçöŕðš åšķ ƒöŕ ţĥîš. Ýöû çåñ çĥåñĝé îţ ļåţéŕ îñ ƀûšîñéšš šéţţîñĝš. one two three four five six]"
+    },
+    "subjects.choice": {
+        "message": "[{kind,select,other{Öñļý ţĥé çļîéñţ} pet{Þéţš} property{Þŕöþéŕţîéš} student{Šţûðéñţš}} one two three]"
+    },
+    "subjects.choiceHint": {
+        "message": "[{kind,select,other{Šåļöñš, ƒîţñéšš, ŵéļļñéšš åñð þĥöţöĝŕåþĥý} pet{Ĝŕööɱîñĝ, ðåýçåŕé åñð ƀöåŕðîñĝ} property{Çļéåñîñĝ åñð ĥöɱé šéŕṽîçéš} student{Ţûţöŕîñĝ åñð ļéššöñš}} one two three four five six seven eight]"
+    },
+    "subjects.choiceRequired": {
+        "message": "[Çĥööšé ŵĥåţ çļîéñţš ƀööķ ƒöŕ. one two three]"
+    },
+    "subjects.changeTitle": {
+        "message": "[Çĥåñĝé ŵĥåţ çļîéñţš ƀööķ ƒöŕ? one two three]"
+    },
+    "subjects.changeBody": {
+        "message": "[{from,select,other{{count,plural,one{# šåṽéð ñåɱé} other{# šåṽéð ñåɱéš}}} pet{{count,plural,one{# þéţ} other{# þéţš}}} property{{count,plural,one{# þŕöþéŕţý} other{# þŕöþéŕţîéš}}} student{{count,plural,one{# šţûðéñţ} other{# šţûðéñţš}}}} öñ çļîéñţ ŕéçöŕðš {to,select,other{ŵîļļ ƀé ĥîððéñ ƒŕöɱ ƀööķîñĝš åñð ŕéçöŕðš} pet{ŵîļļ ƀé šĥöŵñ åš þéţš} property{ŵîļļ ƀé šĥöŵñ åš þŕöþéŕţîéš} student{ŵîļļ ƀé šĥöŵñ åš šţûðéñţš}}. Ţĥéîŕ ðéţåîļš åŕé ķéþţ. one two three four five six seven eight nine ten one two three four]"
+    },
+    "subjects.changeConfirm": {
+        "message": "[Çĥåñĝé one]"
+    },
     "subjects.age": {
         "message": "[{years,plural,other{# ýŕ} =0{Ûñðéŕ 1 ýŕ}} one two]"
     },

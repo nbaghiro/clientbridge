@@ -42,6 +42,9 @@ class OnboardBody(Mirror):
     slug: str
     province: ProvinceCode
     timezone: str | None = None
+    subject: SubjectKind | None = Field(
+        description="What bookings are for besides the client; null books only them"
+    )
 
 
 class BusinessOut(Mirror):

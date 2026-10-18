@@ -7,13 +7,16 @@ import { useAsyncAction, useBusinessQuery as useQuery } from "../hooks";
 import type { Load } from "../hooks";
 import type { IconName } from "../icons";
 import { strings } from "../strings";
-import type { Intent } from "../ui";
+import type { ChoiceOption, Intent } from "../ui";
 import { CLIENT_VISITS_SQL, type ClientVisit, type VisitRow, isAhead, toVisit } from "./clients";
 import { useReplicaLoad } from "./sync";
 
 const s = strings.subjects;
 
 export type SubjectKind = "pet" | "student" | "property";
+
+/** A business's answer to what it books: one of the kinds, or "none" for only the client. */
+export type SubjectChoice = SubjectKind | "none";
 
 const KINDS: readonly SubjectKind[] = ["pet", "student", "property"];
 
@@ -23,14 +26,29 @@ export const SUBJECT_ICON: Record<SubjectKind, IconName> = {
     property: "building",
 };
 
-function asSubjectKind(value: string | null | undefined): SubjectKind | null {
+export function asSubjectKind(value: string | null | undefined): SubjectKind | null {
     return KINDS.find((k) => k === value) ?? null;
 }
 
 /** The catalog's select value for a kind; "none" picks the wording for a business without one. */
-export function kindWord(kind: SubjectKind | null): string {
+export function kindWord(kind: SubjectKind | null): SubjectChoice {
     return kind ?? "none";
 }
+
+export function kindOf(choice: SubjectChoice): SubjectKind | null {
+    return choice === "none" ? null : choice;
+}
+
+/** The four answers to what clients book for, each with the trades it suits. */
+export function subjectChoices(): ChoiceOption<SubjectChoice>[] {
+    return (["pet", "student", "property", "none"] as const).map((key) => ({
+        key,
+        label: s.choice(key),
+        hint: s.choiceHint(key),
+    }));
+}
+
+export const SUBJECT_COUNT_SQL = "SELECT COUNT(*) AS n FROM subjects WHERE deleted_at IS NULL";
 
 export const SUBJECT_KIND_SQL = "SELECT subject FROM businesses LIMIT 1";
 

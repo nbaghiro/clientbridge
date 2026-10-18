@@ -5798,6 +5798,11 @@ export interface components {
             province: "AB" | "BC" | "MB" | "NB" | "NL" | "NS" | "NT" | "NU" | "ON" | "PE" | "QC" | "SK" | "YT";
             /** Timezone */
             timezone?: string | null;
+            /**
+             * Subject
+             * @description What bookings are for besides the client; null books only them
+             */
+            subject: ("pet" | "student" | "property") | null;
         };
         /** OnlineBookingOut */
         OnlineBookingOut: {

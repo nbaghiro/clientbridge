@@ -1668,6 +1668,7 @@ describe("app-core SQL against the replica schema", () => {
             "bk_1",
         ]);
         expect(run("CLIENT_SUBJECTS_SQL", ["cl_ann"]).map((r) => r.id)).toEqual(["sj_rex"]);
+        expect(run("SUBJECT_COUNT_SQL")).toEqual([{ n: 1 }]);
         expect(
             pick(
                 run("CLIENT_NOTES_SQL", ["cl_ann", "cl_ann"]),

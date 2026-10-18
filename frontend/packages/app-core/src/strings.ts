@@ -1669,6 +1669,14 @@ interface Strings {
         readonly firstName: (kind: string) => string;
         readonly firstNamePlaceholder: (kind: string) => string;
         readonly firstDetailPlaceholder: (kind: string) => string;
+        readonly choiceLabel: string;
+        readonly choiceHelp: string;
+        readonly choice: (kind: string) => string;
+        readonly choiceHint: (kind: string) => string;
+        readonly choiceRequired: string;
+        readonly changeTitle: string;
+        readonly changeBody: (from: string, to: string, count: number) => string;
+        readonly changeConfirm: string;
         readonly age: (years: number) => string;
         readonly weight: (kg: number) => string;
         readonly rooms: (rooms: number) => string;

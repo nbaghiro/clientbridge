@@ -265,7 +265,12 @@ async def test_onboarding_needs_a_verified_email(
     token = await session_token(identities, factory.db, user.id, verified=False)
     res = await api.post(
         "/v1/onboarding",
-        json={"name": "Unverified Studio", "slug": "unverified-studio", "province": "BC"},
+        json={
+            "name": "Unverified Studio",
+            "slug": "unverified-studio",
+            "province": "BC",
+            "subject": None,
+        },
         headers={"X-Session-Token": token},
     )
     assert res.status_code == 403 and res.json()["error"] == "email_unverified"
@@ -305,7 +310,9 @@ async def test_verification_sensitive_checks_skip_the_session_cache(
     headers = {"X-Session-Token": await session_token(identities, factory.db, user.id)}
     await api.get("/v1/me", headers=headers)
     await api.post(
-        "/v1/onboarding", json={"name": "F", "slug": "fresh-ck", "province": "ON"}, headers=headers
+        "/v1/onboarding",
+        json={"name": "F", "slug": "fresh-ck", "province": "ON", "subject": None},
+        headers=headers,
     )
     await api.post("/v1/staff/invites/accept", json={"token": "nope"}, headers=headers)
     assert identities.fresh_reads == 3

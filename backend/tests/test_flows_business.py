@@ -31,7 +31,8 @@ async def test_sign_up_onboard_invite_and_accept(
 
     business = ok(
         await api.post(
-            "/v1/onboarding", json={"name": "Flow Studio", "slug": "flow-studio", "province": "ON"}
+            "/v1/onboarding",
+            json={"name": "Flow Studio", "slug": "flow-studio", "province": "ON", "subject": None},
         ),
         201,
     ).json()
