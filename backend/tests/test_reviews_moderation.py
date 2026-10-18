@@ -30,7 +30,7 @@ async def _request(db: AsyncSession, *, booking_id: str | None = None) -> str:
 async def _visit(db: AsyncSession) -> str:
     cid = await client_id(db)
     item = (await db.execute(select(Item).where(Item.business_id == BIZ).limit(1))).scalar_one()
-    pet = Subject(id=new_id("subject"), business_id=BIZ, client_id=cid, kind="pet", name="Biscuit")
+    pet = Subject(id=new_id("subject"), business_id=BIZ, client_id=cid, name="Biscuit")
     slot = Slot(
         id=new_id("slot"),
         business_id=BIZ,
@@ -101,7 +101,8 @@ async def test_hold_setting_zero_publishes_everything(
 async def test_public_context_names_the_visit(api: httpx.AsyncClient, db: AsyncSession) -> None:
     token = await _request(db, booking_id=await _visit(db))
     body = ok(await api.get(f"/review/{token}")).json()
-    assert body["pet"] == "Biscuit" and body["service"] and body["first_name"]
+    assert body["subject_name"] == "Biscuit" and body["subject"] == "pet"
+    assert body["service"] and body["first_name"]
     assert body["staff"] is not None
 
 

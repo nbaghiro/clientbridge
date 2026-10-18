@@ -420,7 +420,7 @@ test("owner: schedule, booking panel, classes and repeat visits", async ({ page 
     walk.expectNoErrors();
 });
 
-test("owner: clients, records, notes, pets, wallet and merge", async ({ page }) => {
+test("owner: clients, records, notes, subjects, wallet and merge", async ({ page }) => {
     const walk = await signIn(page, OWNER);
     const { main } = walk;
     const r = strings.clients.record;
@@ -483,7 +483,7 @@ test("owner: clients, records, notes, pets, wallet and merge", async ({ page }) 
     });
 
     await walk.step("record pages", async () => {
-        for (const view of ["history", "pets", "payment-methods"]) {
+        for (const view of ["history", "subjects", "payment-methods"]) {
             await navigate(page, `/clients/cl_amelie/${view}`);
             await expect(page.getByRole("heading", { name: "Amélie Tremblay" })).toBeVisible();
         }
@@ -497,9 +497,9 @@ test("owner: clients, records, notes, pets, wallet and merge", async ({ page }) 
         await escapeDialog(page);
     });
 
-    await walk.step("pets: add pet", async () => {
-        await navigate(page, "/clients/cl_marcus/pets");
-        await openAndClose(page, strings.clients.pets.addPet);
+    await walk.step("subjects: add", async () => {
+        await navigate(page, "/clients/cl_marcus/subjects");
+        await openAndClose(page, strings.subjects.add("pet"));
     });
 
     await walk.step("wallet: method actions", async () => {
@@ -1015,8 +1015,8 @@ test("staff: today, schedule and clients", async ({ page }) => {
     await walk.step("clients: record pages", async () => {
         await navigate(page, "/clients/cl_amelie/history");
         await expect(page.getByRole("heading", { name: "Amélie Tremblay" })).toBeVisible();
-        await navigate(page, "/clients/cl_amelie/pets");
-        await openAndClose(page, strings.clients.pets.addPet);
+        await navigate(page, "/clients/cl_amelie/subjects");
+        await openAndClose(page, strings.subjects.add("pet"));
         await navigate(page, "/clients/cl_amelie/payment-methods");
         await expect(main.getByText(strings.clients.wallet.onlyManagers)).toBeVisible();
         await expect(

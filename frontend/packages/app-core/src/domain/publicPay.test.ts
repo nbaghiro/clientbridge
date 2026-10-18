@@ -241,7 +241,7 @@ describe("printed documents in the pseudo-locale", () => {
             ...doc.totals.map((t) => t.label),
             doc.headline.label,
             ...[l.from, l.item, l.qty, l.price, l.tax, l.amount, l.taxSummary, l.howToPay],
-            ...[l.scanToPay, l.paymentMethod, l.page, l.taxBase("1"), l.forPet("Rex")],
+            ...[l.scanToPay, l.paymentMethod, l.page, l.taxBase("1"), l.forSubject("Rex")],
             l.qtyTimes(2, "3"),
         ];
         expect(copy.filter((text) => /[A-Za-z]/.test(text) && !text.startsWith("["))).toEqual([]);

@@ -254,7 +254,7 @@ describe("a booked series", () => {
             booking_id: status === null ? null : id,
             status,
             deposit_status: null,
-            pet_name: null,
+            subject_name: null,
         };
         return v;
     };
@@ -293,7 +293,7 @@ describe("a booked series", () => {
         expect(summary).toMatchObject({
             id: "sch_1",
             clientName: "Ann",
-            petName: "Rex",
+            subjectName: "Rex",
             serviceName: "Groom",
             staffName: "Amy Lee",
             progress: s.progress(2, 5),

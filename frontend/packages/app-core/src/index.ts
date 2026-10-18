@@ -11,6 +11,7 @@ export * from "./debug";
 export * from "./domain/auth";
 export * from "./domain/business";
 export * from "./domain/clients";
+export * from "./domain/subjects";
 export * from "./domain/catalog";
 export * from "./domain/today";
 export * from "./domain/staff";

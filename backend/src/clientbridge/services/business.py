@@ -341,6 +341,7 @@ class OnboardingService:
             slug=data.slug,
             province=data.province,
             timezone=valid_timezone(data.timezone or "America/Toronto"),
+            subject=data.subject,
         )
         self.db.add(biz)
         await self.db.flush()  # insert the business first so the Staff FK resolves

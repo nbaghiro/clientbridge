@@ -36,7 +36,7 @@ import { GetSetUpScreen } from "./src/components/GetSetUp";
 import { TaxesScreen } from "./src/screens/Taxes";
 import {
     ClientHistoryScreen,
-    ClientPetsScreen,
+    ClientSubjectsScreen,
     ClientWalletScreen,
 } from "./src/components/ClientScreens";
 import { InboxScreen } from "./src/screens/Inbox";
@@ -313,9 +313,11 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                                     options={({ route }) => ({ title: route.params.name })}
                                 />
                                 <RootStack.Screen
-                                    name="ClientPets"
-                                    component={ClientPetsScreen}
-                                    options={{ title: strings.clients.pets.pets }}
+                                    name="ClientSubjects"
+                                    component={ClientSubjectsScreen}
+                                    options={({ route }) => ({
+                                        title: strings.subjects.many(route.params.kind),
+                                    })}
                                 />
                                 <RootStack.Screen
                                     name="ClientWallet"

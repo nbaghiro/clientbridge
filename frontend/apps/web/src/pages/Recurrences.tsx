@@ -7,6 +7,8 @@ import {
     useSeriesRecord,
     formatParts,
     useBusinessZone,
+    kindWord,
+    useSubjectKind,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -58,6 +60,7 @@ const SCOPES: { key: ChangeScope; label: string }[] = [
 
 export function Recurrences() {
     const list = useSeriesList();
+    const kind = useSubjectKind();
     const [picked, setPicked] = useState<string | null>(null);
     const [composing, setComposing] = useState(false);
     useLinkIntent({
@@ -90,7 +93,11 @@ export function Recurrences() {
                         </Button>
                     </div>
                     <ScheduleViews active="series" />
-                    <SearchField value={list.q} onChange={list.setQ} placeholder={s.search} />
+                    <SearchField
+                        value={list.q}
+                        onChange={list.setQ}
+                        placeholder={s.search(kindWord(kind))}
+                    />
                     <Choice
                         label={s.filterAll}
                         options={[
@@ -163,7 +170,7 @@ export function Recurrences() {
                                             }
                                         />
                                     }
-                                    title={formatParts([r.petName, r.clientName])}
+                                    title={formatParts([r.subjectName, r.clientName])}
                                     detail={formatParts([r.pattern, r.nextLabel])}
                                     meta={
                                         r.attention > 0 ? (
@@ -228,7 +235,7 @@ function Record({ id }: { id: string }) {
                 <div className="min-w-0">
                     <p className="text-sm text-muted">{r.serviceName}</p>
                     <h2 className="font-display text-xl font-bold text-ink">
-                        {formatParts([r.petName, r.clientName])}
+                        {formatParts([r.subjectName, r.clientName])}
                     </h2>
                     <p className="mt-1 flex items-center gap-2 text-sm text-ink-soft">
                         <Icon name="repeat" size={15} />

@@ -2,6 +2,7 @@ import {
     PROVINCES,
     bookingHost,
     strings,
+    subjectChoices,
     useOnboardingForm,
     useVerificationForm,
 } from "@clientbridge/app-core";
@@ -118,6 +119,15 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                         </Text>
                         <Text style={styles.taxNote}>{strings.business.onboarding.taxNone}</Text>
                     </View>
+                    <Field label={strings.subjects.choiceLabel} hint={strings.subjects.choiceHelp}>
+                        <Choice
+                            label={strings.subjects.choiceLabel}
+                            layout="cards"
+                            options={subjectChoices()}
+                            value={form.subject}
+                            onChange={form.setSubject}
+                        />
+                    </Field>
 
                     {form.error ? <Notice tone="danger">{form.error}</Notice> : null}
                     {form.needsVerification ? <VerifyEmail /> : null}

@@ -67,7 +67,7 @@ SELECT t.id, t.client_id, t.channel, t.status, c.name AS client_name, c.phone, c
        (SELECT m.body FROM messages m WHERE m.thread_id = t.id ORDER BY m.created_at DESC LIMIT 1)
            AS last_body,
        (SELECT GROUP_CONCAT(s.name, ', ') FROM subjects s WHERE s.client_id = t.client_id)
-           AS pet_names
+           AS subject_names
 FROM threads t
 LEFT JOIN clients c ON c.id = t.client_id
 ORDER BY last_message_at DESC`;
@@ -77,10 +77,10 @@ SELECT m.id, m.direction, m.channel, m.body, m.status, m.created_at, ${staffName
 FROM messages m LEFT JOIN staff st ON st.user_id = m.sent_by
 WHERE m.thread_id = ? ORDER BY m.created_at`;
 
-// The client beside a thread: contact, pets, what they owe and their next visit after `?`.
+// The client beside a thread: contact, subjects, what they owe and their next visit after `?`.
 export const INBOX_CLIENT_SQL = `
 SELECT c.id, c.name, c.email, c.phone,
-       (SELECT GROUP_CONCAT(s.name, ', ') FROM subjects s WHERE s.client_id = c.id) AS pet_names,
+       (SELECT GROUP_CONCAT(s.name, ', ') FROM subjects s WHERE s.client_id = c.id) AS subject_names,
        (SELECT SUM(a.balance_cents) FROM accounts a WHERE a.owner_type = 'client'
           AND a.owner_id = c.id AND a.category = 'receivable') AS balance_cents,
        (SELECT sl.starts_at FROM bookings b JOIN slots sl ON sl.id = b.slot_id
@@ -103,13 +103,13 @@ interface InboxRow {
     last_message_at: string | null;
     unread_count: number;
     last_body: string | null;
-    pet_names: string | null;
+    subject_names: string | null;
 }
 
 export interface InboxThread extends InboxRow {
     title: string;
     ago: string;
-    pets: string[];
+    subjects: string[];
     // The client replied STOP: texts are blocked until they reply START.
     textsOff: boolean;
     channelKind: "sms" | "email";
@@ -196,7 +196,7 @@ export function useInbox(): InboxView {
             ...t,
             title: t.client_name ?? formatPhone(t.phone),
             ago: t.last_message_at === null ? "" : formatRelativeTime(t.last_message_at, zone, now),
-            pets: t.pet_names === null ? [] : t.pet_names.split(", "),
+            subjects: t.subject_names === null ? [] : t.subject_names.split(", "),
             textsOff: stopped(consentFor(consents.map, t.client_id, "sms")),
             channelKind: t.channel === "email" ? ("email" as const) : ("sms" as const),
         }));
@@ -209,7 +209,7 @@ export function useInbox(): InboxView {
                     (filter === "unread" && t.unread_count > 0) ||
                     t.channel === filter) &&
                 (term === "" ||
-                    [t.title, t.last_body ?? "", ...t.pets].some((v) =>
+                    [t.title, t.last_body ?? "", ...t.subjects].some((v) =>
                         v.toLowerCase().includes(term),
                     )),
         );
@@ -249,7 +249,7 @@ interface ClientContextRow {
     name: string;
     email: string | null;
     phone: string | null;
-    pet_names: string | null;
+    subject_names: string | null;
     balance_cents: number | null;
     next_at: string | null;
     next_service: string | null;

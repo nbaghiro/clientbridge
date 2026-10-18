@@ -391,7 +391,7 @@ async def assert_subject(
         .where(Subject.id == subject_id, Subject.client_id == client_id)
     )
     if found is None:
-        raise NotFound("pet not found")
+        raise NotFound("subject not found")
 
 
 async def release_slot(db: AsyncSession, slot: Slot) -> None:

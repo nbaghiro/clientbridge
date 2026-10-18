@@ -7,6 +7,7 @@ import {
     strings,
     useManageBooking,
     formatParts,
+    SUBJECT_ICON,
 } from "@clientbridge/app-core/public";
 import {
     ActionTile,
@@ -321,9 +322,14 @@ function BookingFacts({ mg }: { mg: ManageBookingFlow }) {
                   },
               ]
             : []),
-        v.pet_name !== null
-            ? { key: "what", icon: "paw", title: v.pet_name, detail: what }
-            : { key: "what", icon: "paw", title: what },
+        v.subject_name !== null
+            ? {
+                  key: "what",
+                  icon: v.subject === null ? "tag" : SUBJECT_ICON[v.subject],
+                  title: v.subject_name,
+                  detail: what,
+              }
+            : { key: "what", icon: "tag", title: what },
         { key: "where", icon: "pin", title: v.business_name },
     ];
     return (

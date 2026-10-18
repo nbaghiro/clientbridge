@@ -12,7 +12,6 @@ import {
     formatShortDay,
     formatTime,
     parseTimestamp,
-    readDate,
     relativeDay,
     zonedDate,
     useBusinessZone,
@@ -24,7 +23,6 @@ import {
     formatParts,
     formatPhone,
     normalizePhone,
-    parseNumber,
     phoneDigits,
     BUSINESS_CURRENCY,
 } from "../format";
@@ -45,17 +43,21 @@ import {
     setDefaultCard,
 } from "./payments";
 import { useNow } from "./bookings";
+import {
+    CLIENT_SUBJECTS_SQL,
+    type SubjectDbRow,
+    type SubjectField,
+    type SubjectKind,
+    type SubjectRow,
+    kindWord,
+    leadField,
+    toSubject,
+    useSubjectKind,
+} from "./subjects";
 import { useReplicaLoad } from "./sync";
 import { staffNameSql } from "./staff";
 
 const s = strings.clients;
-
-const PET_TEMPERAMENTS = ["calm", "friendly", "energetic", "anxious", "reactive"];
-
-/** A stored temperament (an English word) shown through the catalog; unknown values as stored. */
-export function temperamentLabel(value: string): string {
-    return s.pets.temperaments[value] ?? value;
-}
 
 // Active clients for pickers (booking, sale, invoice, message): archived ones are left out.
 export interface ClientRow {
@@ -114,18 +116,6 @@ function parseTags(raw: string | null): string[] {
     }
 }
 
-function parseObject(raw: string | null): Record<string, unknown> {
-    if (raw === null || raw === "") return {};
-    try {
-        const parsed: unknown = JSON.parse(raw);
-        return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
-            ? (parsed as Record<string, unknown>)
-            : {};
-    } catch {
-        return {};
-    }
-}
-
 const fold = (v: string): string => v.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
 
 const nextVisitSql = (clientExpr: string): string => `(SELECT s.starts_at FROM bookings b
@@ -138,7 +128,7 @@ const DIRECTORY_SELECT = `
 SELECT c.id, c.name, c.email, c.phone, c.status, c.tags, c.preferred_channel, c.archived_at,
        c.created_at, ${clientValueSql("c.id")} AS lifetime_value_cents,
        (SELECT group_concat(sj.name, ', ') FROM subjects sj
-          WHERE sj.client_id = c.id AND sj.deleted_at IS NULL) AS pet_names,
+          WHERE sj.client_id = c.id AND sj.deleted_at IS NULL) AS subject_names,
        ${nextVisitSql("c.id")} AS next_visit_at,
        (SELECT SUM(a.balance_cents) FROM accounts a WHERE a.owner_type = 'client'
           AND a.owner_id = c.id AND a.category = 'receivable') AS balance_cents
@@ -159,7 +149,7 @@ interface DirectoryRow {
     archived_at: string | null;
     created_at: string;
     lifetime_value_cents: number | null;
-    pet_names: string | null;
+    subject_names: string | null;
     next_visit_at: string | null;
     balance_cents: number | null;
 }
@@ -174,7 +164,7 @@ export interface ClientListRow {
     archivedAt: Date | null;
     tags: string[];
     channel: ContactChannel;
-    pets: string;
+    subjects: string;
     next: Date | null;
     balanceCents: number;
     lifetimeCents: number | null;
@@ -194,7 +184,7 @@ function toListRow(r: DirectoryRow): ClientListRow {
         archivedAt: r.archived_at === null ? null : parseTimestamp(r.archived_at),
         tags: parseTags(r.tags),
         channel: r.preferred_channel === "email" ? "email" : "sms",
-        pets: r.pet_names ?? "",
+        subjects: r.subject_names ?? "",
         next: r.next_visit_at === null ? null : parseTimestamp(r.next_visit_at),
         balanceCents: r.balance_cents ?? 0,
         lifetimeCents: r.lifetime_value_cents,
@@ -202,7 +192,7 @@ function toListRow(r: DirectoryRow): ClientListRow {
     };
 }
 
-/** Search by name, any phone format, email or pet name. */
+/** Search by name, any phone format, email or subject name. */
 function matchesClient(row: ClientListRow, q: string): boolean {
     const t = fold(q);
     if (t === "") return true;
@@ -211,7 +201,7 @@ function matchesClient(row: ClientListRow, q: string): boolean {
         fold(row.name).includes(t) ||
         (row.email ?? "").toLowerCase().includes(t) ||
         (digits.length >= 3 && phoneDigits(row.phone).includes(digits)) ||
-        fold(row.pets).includes(t) ||
+        fold(row.subjects).includes(t) ||
         row.tags.some((tag) => tag.includes(t))
     );
 }
@@ -229,7 +219,7 @@ interface ClientDirectory {
     counts: Record<ClientSegment, number>;
 }
 
-/** The client list: Active and Archived, searched by name, phone, email, pet or tag. */
+/** The client list: Active and Archived, searched by name, phone, email, subject or tag. */
 export function useClientDirectory(): ClientDirectory {
     const now = useNow().toISOString();
     const query = useQuery<DirectoryRow>(CLIENT_DIRECTORY_SQL, [now]);
@@ -275,7 +265,7 @@ LEFT JOIN staff st ON st.id = b.staff_id
 WHERE b.client_id = ? AND b.deleted_at IS NULL
 ORDER BY ${utcSql("s.starts_at")} DESC`;
 
-interface VisitRow {
+export interface VisitRow {
     id: string;
     status: string;
     subject_id: string | null;
@@ -289,7 +279,7 @@ interface VisitRow {
     staff_name: string | null;
 }
 
-interface ClientVisit {
+export interface ClientVisit {
     id: string;
     status: string;
     subjectId: string | null;
@@ -302,7 +292,7 @@ interface ClientVisit {
     depositStatus: string;
 }
 
-function toVisit(r: VisitRow): ClientVisit {
+export function toVisit(r: VisitRow): ClientVisit {
     return {
         id: r.id,
         status: r.status,
@@ -318,7 +308,7 @@ function toVisit(r: VisitRow): ClientVisit {
 }
 
 // Booked and not finished yet, so a visit under way still counts as coming up.
-function isAhead(v: ClientVisit, now: Date = new Date()): boolean {
+export function isAhead(v: ClientVisit, now: Date = new Date()): boolean {
     return v.end > now && (v.status === "confirmed" || v.status === "pending");
 }
 
@@ -334,45 +324,6 @@ export function visitPill(
     return paid
         ? { label: s.record.depositPaid(amount), intent: "success" }
         : { label: s.record.depositDue(amount), intent: "warning" };
-}
-
-export const CLIENT_SUBJECTS_SQL = `
-SELECT id, client_id, kind, name, attributes, created_at FROM subjects
-WHERE client_id = ? AND deleted_at IS NULL ORDER BY created_at, name`;
-
-interface SubjectDbRow {
-    id: string;
-    client_id: string;
-    kind: string;
-    name: string;
-    attributes: string | null;
-    created_at: string;
-}
-
-export interface SubjectRow {
-    id: string;
-    clientId: string;
-    kind: string;
-    name: string;
-    attributes: Record<string, unknown>;
-}
-
-function toSubject(r: SubjectDbRow): SubjectRow {
-    return {
-        id: r.id,
-        clientId: r.client_id,
-        kind: r.kind,
-        name: r.name,
-        attributes: parseObject(r.attributes),
-    };
-}
-
-const text = (v: unknown): string =>
-    typeof v === "string" ? v : typeof v === "number" ? String(v) : "";
-
-export function petSummary(pet: SubjectRow): string {
-    const weight = Number(text(pet.attributes.weight_kg));
-    return formatParts([text(pet.attributes.breed), weight > 0 ? s.pets.weight(weight) : ""]);
 }
 
 export const CLIENT_NOTES_SQL = `
@@ -404,7 +355,7 @@ export interface ClientNote {
     pinned: boolean;
     at: Date;
     author: string;
-    pet: string | null;
+    subjectName: string | null;
     subjectId: string | null;
     mine: boolean;
 }
@@ -417,7 +368,7 @@ function toNote(r: NoteDbRow, viewerStaffId: string | null): ClientNote {
         pinned: r.pinned === 1,
         at: parseTimestamp(r.created_at),
         author: mine ? s.history.you : (r.author_name ?? s.history.teammate),
-        pet: r.subject_name,
+        subjectName: r.subject_name,
         subjectId: r.parent_type === "subject" ? r.parent_id : null,
         mine,
     };
@@ -509,7 +460,7 @@ function toPlan(r: PlanDbRow, zone: string): ClientPlan {
 
 export interface ClientRecord {
     client: ClientListRow;
-    pets: SubjectRow[];
+    subjects: SubjectRow[];
     notes: ClientNote[];
     upcoming: ClientVisit[];
     lastVisitAt: Date | null;
@@ -543,7 +494,7 @@ function useEarlierVisits(api: ApiLike, clientId: string): EarlierVisits | null 
     ).data;
 }
 
-/** One client's record: facts, pets, what is booked, notes and how they pay. */
+/** One client's record: facts, subjects, what is booked, notes and how they pay. */
 export function useClientRecord(
     api: ApiLike,
     clientId: string | null,
@@ -573,7 +524,7 @@ export function useClientRecord(
         );
         return {
             client: toListRow(row),
-            pets: subjects.data.map(toSubject),
+            subjects: subjects.data.map(toSubject),
             notes: notes.data.map((n) => toNote(n, viewerStaffId)),
             upcoming: all.filter((v) => isAhead(v, now)).reverse(),
             lastVisitAt:
@@ -636,8 +587,8 @@ interface ClientDraft {
     channel: ContactChannel;
     tags: string[];
     consent: boolean;
-    petName: string;
-    petBreed: string;
+    subjectName: string;
+    subjectDetail: string;
 }
 
 type DraftErrors = Partial<Record<"name" | "phone" | "email" | "contact", string>>;
@@ -676,6 +627,7 @@ export interface ClientEditor {
     archive: () => void;
     restore: () => void;
     tagSuggestions: TagCount[];
+    firstSubject: { kind: SubjectKind; detail: SubjectField } | null;
 }
 
 function draftFor(client: ClientListRow | null, consent: boolean): ClientDraft {
@@ -686,8 +638,8 @@ function draftFor(client: ClientListRow | null, consent: boolean): ClientDraft {
         channel: client?.channel ?? "sms",
         tags: client?.tags ?? [],
         consent,
-        petName: "",
-        petBreed: "",
+        subjectName: "",
+        subjectDetail: "",
     };
 }
 
@@ -700,6 +652,7 @@ export function useClientEditor(
 ): ClientEditor {
     const client = directory.find((c) => c.id === clientId) ?? null;
     const zone = useBusinessZone();
+    const kind = useSubjectKind();
     const consentRow = useQuery<{
         status: string;
         created_at: string;
@@ -735,7 +688,7 @@ export function useClientEditor(
             preferred_channel: draft.channel,
             tags: draft.tags,
         };
-        const petName = draft.petName.trim();
+        const subjectName = draft.subjectName.trim();
         run(
             async () => {
                 if (client === null) {
@@ -743,12 +696,13 @@ export function useClientEditor(
                         ...body,
                         marketing_consent: draft.consent,
                         subject:
-                            petName === ""
+                            kind === null || subjectName === ""
                                 ? null
                                 : {
-                                      kind: "pet",
-                                      name: petName,
-                                      attributes: { breed: blankToNull(draft.petBreed) },
+                                      name: subjectName,
+                                      attributes: {
+                                          [leadField(kind).key]: blankToNull(draft.subjectDetail),
+                                      },
                                   },
                     };
                     const saved = await api.post<{ id: string }>("/v1/clients", input, {
@@ -818,352 +772,7 @@ export function useClientEditor(
             lifecycle("restore", s.edit.restoreError);
         },
         tagSuggestions: tags.filter((t) => !draft.tags.includes(t.tag)),
-    };
-}
-
-type SubjectFieldType = "text" | "number" | "date" | "choice" | "longtext";
-
-interface SubjectField {
-    key: string;
-    label: string;
-    type: SubjectFieldType;
-    options?: readonly { key: string; label: string }[] | undefined;
-    unit?: string | undefined;
-    placeholder?: string | undefined;
-    half?: boolean | undefined;
-}
-
-// One schema per subject kind; the form and the card render from it, so other kinds need no new screens.
-const PET_FIELDS: readonly SubjectField[] = [
-    {
-        key: "species",
-        get label() {
-            return s.pets.speciesLabel;
-        },
-        type: "choice",
-        options: [
-            {
-                key: "dog",
-                get label() {
-                    return s.pets.dog;
-                },
-            },
-            {
-                key: "cat",
-                get label() {
-                    return s.pets.cat;
-                },
-            },
-            {
-                key: "other",
-                get label() {
-                    return s.pets.other;
-                },
-            },
-        ],
-    },
-    {
-        key: "breed",
-        get label() {
-            return s.pets.breedLabel;
-        },
-        type: "text",
-        half: true,
-    },
-    {
-        key: "weight_kg",
-        get label() {
-            return s.pets.weightLabel;
-        },
-        type: "number",
-        get unit() {
-            return s.pets.weightUnit;
-        },
-        half: true,
-    },
-    {
-        key: "birthday",
-        get label() {
-            return s.pets.birthdayLabel;
-        },
-        type: "date",
-        half: true,
-    },
-    {
-        key: "sex",
-        get label() {
-            return s.pets.sexLabel;
-        },
-        type: "choice",
-        options: [
-            {
-                key: "female",
-                get label() {
-                    return s.pets.female;
-                },
-            },
-            {
-                key: "male",
-                get label() {
-                    return s.pets.male;
-                },
-            },
-        ],
-        half: true,
-    },
-    {
-        key: "temperament",
-        get label() {
-            return s.pets.temperamentLabel;
-        },
-        type: "choice",
-        options: PET_TEMPERAMENTS.map((t) => ({
-            key: t,
-            get label() {
-                return temperamentLabel(t);
-            },
-        })),
-    },
-    {
-        key: "coat",
-        get label() {
-            return s.pets.coatLabel;
-        },
-        type: "text",
-        half: true,
-    },
-    {
-        key: "allergies",
-        get label() {
-            return s.pets.allergiesLabel;
-        },
-        type: "text",
-        get placeholder() {
-            return s.pets.allergiesPlaceholder;
-        },
-        half: true,
-    },
-    {
-        key: "vet",
-        get label() {
-            return s.pets.vetLabel;
-        },
-        type: "text",
-        half: true,
-    },
-    {
-        key: "rabies_until",
-        get label() {
-            return s.pets.rabiesLabel;
-        },
-        type: "date",
-        half: true,
-    },
-    {
-        key: "style",
-        get label() {
-            return s.pets.styleLabel;
-        },
-        type: "longtext",
-        get placeholder() {
-            return s.pets.stylePlaceholder;
-        },
-    },
-];
-
-function ageYears(birthday: string, now: Date, zone: string): number | null {
-    const b = readDate(birthday, zone);
-    if (Number.isNaN(b.getTime())) return null;
-    const born = dateKey(b, zone);
-    const today = dateKey(now, zone);
-    const years = Number(today.slice(0, 4)) - Number(born.slice(0, 4));
-    return today.slice(5) < born.slice(5) ? years - 1 : years;
-}
-
-interface PetAlert {
-    key: string;
-    label: string;
-    intent: Intent;
-}
-
-function petAlerts(pet: SubjectRow, now: Date, zone: string): PetAlert[] {
-    const out: PetAlert[] = [];
-    const temperament = text(pet.attributes.temperament);
-    if (temperament === "anxious" || temperament === "reactive")
-        out.push({
-            key: "temp",
-            label: s.pets.temperamentAlert(temperamentLabel(temperament)),
-            intent: "warning",
-        });
-    const allergies = text(pet.attributes.allergies);
-    if (allergies !== "")
-        out.push({ key: "allergy", label: s.pets.allergy(allergies), intent: "danger" });
-    const rabies = text(pet.attributes.rabies_until);
-    if (rabies !== "") {
-        const days = (readDate(rabies, zone).getTime() - now.getTime()) / 86_400_000;
-        if (days < 0) out.push({ key: "rabies", label: s.pets.rabiesExpired, intent: "danger" });
-        else if (days < 45)
-            out.push({
-                key: "rabies",
-                label: s.pets.rabiesSoon(formatDate(readDate(rabies, zone), zone)),
-                intent: "warning",
-            });
-    }
-    return out;
-}
-
-export interface PetCard {
-    pet: SubjectRow;
-    line: string;
-    temperament: string | null;
-    alerts: PetAlert[];
-    visits: number;
-    lastVisit: Date | null;
-    next: Date | null;
-}
-
-/** A pet's card: who they are, what to watch for and their visits (bookings name the pet). */
-function petCard(
-    pet: SubjectRow,
-    visits: readonly ClientVisit[],
-    zone: string,
-    now: Date = new Date(),
-): PetCard {
-    const own = visits.filter((v) => v.subjectId === pet.id);
-    const done = own.filter((v) => v.status === "completed");
-    const ahead = own.filter((v) => isAhead(v, now)).sort((a, b) => +a.start - +b.start);
-    const birthday = text(pet.attributes.birthday);
-    const age = birthday === "" ? null : ageYears(birthday, now, zone);
-    const weight = Number(text(pet.attributes.weight_kg));
-    const temperament = text(pet.attributes.temperament);
-    return {
-        pet,
-        line: formatParts([
-            text(pet.attributes.breed),
-            age === null ? "" : s.pets.age(age),
-            weight > 0 ? s.pets.weight(weight) : "",
-        ]),
-        temperament: temperament === "" ? null : temperamentLabel(temperament),
-        alerts: petAlerts(pet, now, zone),
-        visits: done.length,
-        lastVisit: done[0]?.start ?? null,
-        next: ahead[0]?.start ?? null,
-    };
-}
-
-export function useClientPets(clientId: string): { load: Load; cards: PetCard[] } {
-    const subjects = useQuery<SubjectDbRow>(CLIENT_SUBJECTS_SQL, [clientId]);
-    const visits = useQuery<VisitRow>(CLIENT_VISITS_SQL, [clientId]);
-    const zone = useBusinessZone();
-    const cards = useMemo(() => {
-        const all = visits.data.map(toVisit);
-        return subjects.data.map((r) => petCard(toSubject(r), all, zone));
-    }, [subjects.data, visits.data, zone]);
-    return { load: useReplicaLoad([subjects, visits], cards.length === 0), cards };
-}
-
-export interface SubjectForm {
-    mode: "add" | "edit";
-    fields: readonly SubjectField[];
-    name: string;
-    setName: (v: string) => void;
-    values: Record<string, string>;
-    setValue: (key: string, v: string) => void;
-    errors: Record<string, string>;
-    busy: boolean;
-    error: string | null;
-    submit: () => void;
-    remove: () => void;
-}
-
-function valuesFor(pet: SubjectRow | null): Record<string, string> {
-    if (pet === null) return { species: "dog" };
-    return Object.fromEntries(PET_FIELDS.map((f) => [f.key, text(pet.attributes[f.key])]));
-}
-
-/** Add or edit one pet from the per-kind schema; unknown details already on the pet are kept. */
-export function useSubjectForm(
-    api: ApiLike,
-    clientId: string,
-    pet: SubjectRow | null,
-    onDone: () => void,
-): SubjectForm {
-    const [name, setNameRaw] = useState(pet?.name ?? "");
-    const [values, setValues] = useState<Record<string, string>>(() => valuesFor(pet));
-    const [tried, setTried] = useState(false);
-    const { busy, error, setError, run } = useAsyncAction();
-
-    const check = (): Record<string, string> => {
-        const e: Record<string, string> = {};
-        if (name.trim() === "") e.name = s.pets.nameRequired;
-        const w = values.weight_kg ?? "";
-        const kg = parseNumber(w) ?? NaN;
-        if (w !== "" && !(kg > 0 && kg < 200)) e.weight_kg = s.pets.weightInvalid;
-        for (const key of ["birthday", "rabies_until"]) {
-            const v = values[key] ?? "";
-            if (v !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(v)) e[key] = s.pets.dateInvalid;
-        }
-        return e;
-    };
-
-    const submit = (): void => {
-        setTried(true);
-        if (Object.keys(check()).length > 0) return;
-        const known = new Set(PET_FIELDS.map((f) => f.key));
-        const kept = Object.fromEntries(
-            Object.entries(pet?.attributes ?? {}).filter(([k]) => !known.has(k)),
-        );
-        const typed = Object.fromEntries(
-            Object.entries(values)
-                .filter(([, v]) => v.trim() !== "")
-                .map(([k, v]) => [k, k === "weight_kg" ? parseNumber(v) : v.trim()]),
-        );
-        const attributes = { ...kept, ...typed };
-        run(
-            async () => {
-                if (pet === null) {
-                    await api.post("/v1/subjects", {
-                        client_id: clientId,
-                        kind: "pet",
-                        name: name.trim(),
-                        attributes,
-                    });
-                } else {
-                    await api.patch(`/v1/subjects/${pet.id}`, { name: name.trim(), attributes });
-                }
-                onDone();
-            },
-            { errorMessage: s.pets.saveError },
-        );
-    };
-
-    return {
-        mode: pet === null ? "add" : "edit",
-        fields: PET_FIELDS,
-        name,
-        setName: (v) => {
-            setNameRaw(v);
-            setError(null);
-        },
-        values,
-        setValue: (key, v) => {
-            setValues((x) => ({ ...x, [key]: v }));
-            setError(null);
-        },
-        errors: tried ? check() : {},
-        busy,
-        error,
-        submit,
-        remove: () => {
-            if (pet === null) return;
-            run(
-                async () => {
-                    await api.delete(`/v1/subjects/${pet.id}`);
-                    onDone();
-                },
-                { errorMessage: s.pets.removeError },
-            );
-        },
+        firstSubject: client === null && kind !== null ? { kind, detail: leadField(kind) } : null,
     };
 }
 
@@ -1270,7 +879,7 @@ export interface NoteComposer {
     submit: () => void;
 }
 
-/** Note box: who or which pet it is about, and whether it is pinned to every booking. */
+/** Note box: the client or which subject it is about, and whether it is pinned to every booking. */
 export function useNoteComposer(
     api: ApiLike,
     clientId: string,
@@ -1360,12 +969,12 @@ export interface ClientHistory {
     total: number;
     notes: ClientNote[];
     pinned: ClientNote[];
-    pets: SubjectRow[];
+    subjects: SubjectRow[];
 }
 
-function visitLabel(v: ClientVisit, pets: readonly SubjectRow[]): string {
-    const pet = pets.find((p) => p.id === v.subjectId)?.name ?? null;
-    return pet === null ? v.service : s.history.visit(v.service, pet);
+function visitLabel(v: ClientVisit, subjects: readonly SubjectRow[]): string {
+    const name = subjects.find((x) => x.id === v.subjectId)?.name ?? null;
+    return name === null ? v.service : s.history.visit(v.service, name);
 }
 
 /** Every visit, invoice, payment, message, review and note for one client, newest first. */
@@ -1398,7 +1007,7 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
     );
     const [months, setMonths] = useState(3);
     const [filter, setFilter] = useState<ClientHistoryFilter>("all");
-    const pets = useMemo(() => subjects.data.map(toSubject), [subjects.data]);
+    const subjectRows = useMemo(() => subjects.data.map(toSubject), [subjects.data]);
     const noteRows = useMemo(
         () => notes.data.map((n) => toNote(n, viewerStaffId)),
         [notes.data, viewerStaffId],
@@ -1409,7 +1018,7 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
         const out: HistoryEntry[] = [];
         const ahead: HistoryEntry[] = [];
         for (const v of visits.data.map(toVisit)) {
-            const label = visitLabel(v, pets);
+            const label = visitLabel(v, subjectRows);
             if (isAhead(v, now)) {
                 ahead.push(
                     entry("booked", {
@@ -1516,14 +1125,22 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
                     at: n.at,
                     label: n.pinned ? s.history.pinnedNote : s.history.note,
                     quote: n.body,
-                    detail: formatParts([n.author, n.pet]),
+                    detail: formatParts([n.author, n.subjectName]),
                 }),
             );
         return {
             all: out.sort((a, b) => +b.at - +a.at),
             upcoming: ahead.sort((a, b) => +a.at - +b.at),
         };
-    }, [visits.data, invoices.data, payments.data, messages.data, reviews.data, noteRows, pets]);
+    }, [
+        visits.data,
+        invoices.data,
+        payments.data,
+        messages.data,
+        reviews.data,
+        noteRows,
+        subjectRows,
+    ]);
 
     const load = useReplicaLoad(
         [visits, notes, invoices, payments, messages],
@@ -1562,7 +1179,7 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
         total: all.length,
         notes: noteRows,
         pinned: noteRows.filter((n) => n.pinned),
-        pets,
+        subjects: subjectRows,
     };
 }
 
@@ -1792,8 +1409,8 @@ export const CLIENT_FOOTPRINT_SQL = `
 SELECT c.id,
        (SELECT COUNT(*) FROM bookings b WHERE b.client_id = c.id AND b.deleted_at IS NULL) AS bookings,
        (SELECT group_concat(sj.name, ', ') FROM subjects sj
-          WHERE sj.client_id = c.id AND sj.deleted_at IS NULL) AS pets,
-       (SELECT COUNT(*) FROM subjects sj WHERE sj.client_id = c.id AND sj.deleted_at IS NULL) AS pet_count,
+          WHERE sj.client_id = c.id AND sj.deleted_at IS NULL) AS subject_names,
+       (SELECT COUNT(*) FROM subjects sj WHERE sj.client_id = c.id AND sj.deleted_at IS NULL) AS subject_count,
        (SELECT COUNT(*) FROM messages m JOIN threads t ON t.id = m.thread_id WHERE t.client_id = c.id) AS messages,
        (SELECT COUNT(*) FROM notes n WHERE n.parent_type = 'client' AND n.parent_id = c.id) AS notes,
        (SELECT COUNT(*) FROM accounts a WHERE a.owner_type = 'client' AND a.owner_id = c.id) AS money,
@@ -1803,8 +1420,8 @@ FROM clients c WHERE c.id IN (?, ?)`;
 interface FootprintRow {
     id: string;
     bookings: number;
-    pets: string | null;
-    pet_count: number;
+    subject_names: string | null;
+    subject_count: number;
     messages: number;
     notes: number;
     money: number;
@@ -1838,6 +1455,8 @@ export function useClientMerge(
 ): ClientMerge {
     const attempt = useRef<Attempt | null>(null);
     const zone = useBusinessZone();
+    const kind = useSubjectKind();
+    const word = kindWord(kind);
     const [keep, setKeepRaw] = useState<Side>("a");
     const [picks, setPicks] = useState<Partial<Record<MergeField, Side>>>({});
     const { busy, error, run } = useAsyncAction();
@@ -1867,7 +1486,9 @@ export function useClientMerge(
             ? []
             : [
                   f.bookings > 0 ? s.tidy.moves.bookings(f.bookings) : null,
-                  f.pets !== null && f.pets !== "" ? s.tidy.moves.pets(f.pets) : null,
+                  f.subject_names !== null && f.subject_names !== ""
+                      ? s.tidy.moves.subjects(word, f.subject_names)
+                      : null,
                   f.messages > 0 ? s.tidy.moves.messages(f.messages) : null,
                   f.notes > 0 ? s.tidy.moves.notes(f.notes) : null,
               ].filter((x): x is string => x !== null);
@@ -1885,7 +1506,11 @@ export function useClientMerge(
             client: c,
             hint: formatParts([
                 s.tidy.created(formatDate(c.since, zone)),
-                p === undefined ? "" : s.tidy.footprint(p.bookings, p.pet_count),
+                p === undefined
+                    ? ""
+                    : kind !== null && p.subject_count > 0
+                      ? s.tidy.footprintWith(word, p.bookings, p.subject_count)
+                      : s.tidy.footprint(p.bookings),
             ]),
         };
     };

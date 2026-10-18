@@ -17,8 +17,8 @@ import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
 import { slotOverlapSql, useNow } from "./bookings";
-import { temperamentLabel } from "./clients";
 import { staffName, useStaff } from "./staff";
+import { parseAttributes, subjectSummary, subjectTemperament, useSubjectKind } from "./subjects";
 import { useReplicaLoad } from "./sync";
 
 const s = strings.classes;
@@ -40,8 +40,8 @@ interface RosterRow {
     client_name: string;
     client_phone: string | null;
     client_email: string | null;
-    pet_name: string | null;
-    pet_attributes: string | null;
+    subject_name: string | null;
+    subject_attributes: string | null;
     status: string;
     checked_in_at: string | null;
     deposit_status: string;
@@ -56,7 +56,7 @@ ORDER BY s.starts_at`;
 
 export const CLASS_ROSTER_SQL = `
 SELECT b.id AS booking_id, b.slot_id, b.client_id, c.name AS client_name, c.phone AS client_phone,
-       c.email AS client_email, sj.name AS pet_name, sj.attributes AS pet_attributes, b.status,
+       c.email AS client_email, sj.name AS subject_name, sj.attributes AS subject_attributes, b.status,
        b.checked_in_at, b.deposit_status
 FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN clients c ON c.id = b.client_id
 LEFT JOIN subjects sj ON sj.id = b.subject_id
@@ -65,8 +65,11 @@ WHERE s.capacity > 1 AND b.status != 'canceled' AND b.deleted_at IS NULL
 ORDER BY b.created_at`;
 
 export const CLASS_CLIENTS_SQL = `
-SELECT c.id, c.name, (SELECT sj.id FROM subjects sj WHERE sj.client_id = c.id ORDER BY sj.name LIMIT 1) AS pet_id,
-       (SELECT sj.name FROM subjects sj WHERE sj.client_id = c.id ORDER BY sj.name LIMIT 1) AS pet_name
+SELECT c.id, c.name,
+       (SELECT sj.id FROM subjects sj WHERE sj.client_id = c.id AND sj.deleted_at IS NULL
+          ORDER BY sj.name LIMIT 1) AS subject_id,
+       (SELECT sj.name FROM subjects sj WHERE sj.client_id = c.id AND sj.deleted_at IS NULL
+          ORDER BY sj.name LIMIT 1) AS subject_name
 FROM clients c WHERE c.status = 'active' ORDER BY c.name COLLATE NOCASE`;
 
 interface ClassSession {
@@ -94,8 +97,8 @@ export interface RosterEntry {
     key: string;
     clientId: string;
     clientName: string;
-    petName: string;
-    petDetail: string;
+    subjectName: string;
+    subjectDetail: string;
     status: RosterStatus;
     statusLabel: string;
     intent: Intent;
@@ -114,7 +117,7 @@ export interface ClassRoster {
     checkInAll: () => void;
     query: string;
     setQuery: (q: string) => void;
-    matches: { clientId: string; name: string; pet: string; petId: string | null }[];
+    matches: { clientId: string; name: string; subjectName: string; subjectId: string | null }[];
     add: (clientId: string) => void;
     notice: string | null;
     started: boolean;
@@ -155,19 +158,6 @@ export function rosterStatus(r: RosterRow): RosterStatus {
     return r.checked_in_at !== null ? "checked_in" : "confirmed";
 }
 
-function attributes(raw: string | null): { breed: string | null; temperament: string | null } {
-    try {
-        const parsed: unknown = raw === null ? {} : JSON.parse(raw);
-        const o = (parsed ?? {}) as Record<string, unknown>;
-        return {
-            breed: typeof o.breed === "string" ? o.breed : null,
-            temperament: typeof o.temperament === "string" ? o.temperament : null,
-        };
-    } catch {
-        return { breed: null, temperament: null };
-    }
-}
-
 interface ClassBoard {
     sessions: ClassSession[];
     selected: string | null;
@@ -190,9 +180,10 @@ export function useClassBoard(api: ApiLike): ClassBoard {
     const clients = useQuery<{
         id: string;
         name: string;
-        pet_id: string | null;
-        pet_name: string | null;
+        subject_id: string | null;
+        subject_name: string | null;
     }>(CLASS_CLIENTS_SQL).data;
+    const kind = useSubjectKind();
     const staff = useStaff();
     const [selected, setSelected] = useState<string | null>(null);
     const [query, setQuery] = useState("");
@@ -237,25 +228,23 @@ export function useClassBoard(api: ApiLike): ClassBoard {
     const session = sessions.find((x) => x.slotId === current) ?? null;
     const mine = roster.filter((b) => b.slot_id === current);
     const entry = (r: RosterRow): RosterEntry => {
-        const attrs = attributes(r.pet_attributes);
+        const attrs = parseAttributes(r.subject_attributes);
+        const temperament = subjectTemperament(kind, attrs);
         const status = rosterStatus(r);
         return {
             key: r.booking_id,
             clientId: r.client_id,
             clientName: r.client_name,
-            petName: r.pet_name ?? r.client_name,
-            petDetail: formatParts([
-                attrs.breed,
-                attrs.temperament && temperamentLabel(attrs.temperament),
+            subjectName: r.subject_name ?? r.client_name,
+            subjectDetail: formatParts([
+                subjectSummary(kind, attrs, zone),
+                temperament?.label ?? "",
             ]),
             status,
             statusLabel: STATUS[status].label,
             intent: STATUS[status].intent,
             paid: r.deposit_status !== "pending",
-            note:
-                attrs.temperament === "anxious" || attrs.temperament === "skittish"
-                    ? s.gentleNote
-                    : null,
+            note: temperament?.nervous === true ? s.gentleNote : null,
         };
     };
     const act = (
@@ -346,17 +335,20 @@ export function useClassBoard(api: ApiLike): ClassBoard {
                                 .map((c) => ({
                                     clientId: c.id,
                                     name: c.name,
-                                    pet: c.pet_name ?? "",
-                                    petId: c.pet_id,
+                                    subjectName: kind === null ? "" : (c.subject_name ?? ""),
+                                    subjectId: kind === null ? null : c.subject_id,
                                 }))
                                 .filter((m) =>
-                                    [m.name, m.pet].some((v) => v.toLowerCase().includes(t)),
+                                    [m.name, m.subjectName].some((v) =>
+                                        v.toLowerCase().includes(t),
+                                    ),
                                 )
                                 .slice(0, 4),
                   add: (clientId) => {
                       if (current === null) return;
                       const c = clients.find((x) => x.id === clientId);
-                      const label = c?.pet_name ?? c?.name ?? "";
+                      const subjectId = kind === null ? null : (c?.subject_id ?? null);
+                      const label = (subjectId === null ? null : c?.subject_name) ?? c?.name ?? "";
                       setQuery("");
                       run(
                           async () => {
@@ -364,7 +356,7 @@ export function useClassBoard(api: ApiLike): ClassBoard {
                                   `/v1/classes/${current}/roster`,
                                   {
                                       client_id: clientId,
-                                      subject_id: c?.pet_id ?? null,
+                                      subject_id: subjectId,
                                   },
                               );
                               setNotice(

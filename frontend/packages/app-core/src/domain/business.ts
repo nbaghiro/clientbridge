@@ -15,6 +15,7 @@ import { useStaff, staffName } from "./staff";
 import { useReplicaLoad, useSyncStatus } from "./sync";
 import { SUPPORTED_ZONES, type SupportedZone } from "../zones";
 import { dateKey } from "../datetime";
+import { type SubjectChoice, SUBJECT_COUNT_SQL, asSubjectKind, kindOf, kindWord } from "./subjects";
 import { taxSummary } from "./taxes";
 
 interface BusinessRow {
@@ -25,6 +26,7 @@ interface BusinessRow {
     gst_hst_number: string | null;
     qst_number: string | null;
     brand: string | null; // JSON text in the replica: {logo_file_id?, primary?, tagline?}
+    subject: string | null;
 }
 
 interface BusinessFields {
@@ -175,6 +177,10 @@ export const BUSINESS_TEXT_FIELDS: {
 
 interface BusinessForm {
     fields: BusinessFields | null; // null until the synced business row loads
+    subject: SubjectChoice | null;
+    setSubject: (choice: SubjectChoice) => void;
+    // set when saving changes the kind of subjects that client records already hold
+    subjectChange: string | null;
     businessId: string | null;
     /** The logo to preview: the uploaded file's media link, else a logo set by URL before uploads. */
     logoSrc: (apiBase: string) => string | null;
@@ -186,15 +192,18 @@ interface BusinessForm {
 }
 
 export const BUSINESS_SQL =
-    "SELECT id, name, timezone, billing_email, gst_hst_number, qst_number, brand FROM businesses LIMIT 1";
+    "SELECT id, name, timezone, billing_email, gst_hst_number, qst_number, brand, subject FROM businesses LIMIT 1";
 
 /** The saved row flows back through sync, so the form shows the server's values on the next render. */
 export function useBusinessForm(api: ApiLike): BusinessForm {
     const row = useQuery<BusinessRow>(BUSINESS_SQL).data[0] ?? null;
     const { busy, error, setError, run } = useAsyncAction();
     const [fields, setFields] = useState<BusinessFields | null>(null);
+    const [subject, setSubjectState] = useState<SubjectChoice | null>(null);
     const [saved, setSaved] = useState(false);
     const loadedBrand = useRef<Brand>(NO_BRAND);
+    const subjectCount = useQuery<{ n: number }>(SUBJECT_COUNT_SQL).data[0]?.n ?? 0;
+    const stored = row === null ? null : kindWord(asSubjectKind(row.subject));
 
     useEffect(() => {
         if (row !== null && fields === null) {
@@ -208,6 +217,7 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
                 primary: brand.primary,
                 tagline: brand.tagline,
             });
+            setSubjectState(kindWord(asSubjectKind(row.subject)));
         }
     }, [row, fields]);
 
@@ -228,7 +238,8 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
         const brandChanged =
             logo_file_id !== b.logo_file_id || primary !== b.primary || tagline !== b.tagline;
         const brand = { logo_file_id: logo_file_id || null, primary, tagline };
-        const body = brandChanged ? { ...text, brand } : text;
+        const kind = subject === null ? {} : { subject: kindOf(subject) };
+        const body = brandChanged ? { ...text, ...kind, brand } : { ...text, ...kind };
         run(() => api.patch("/v1/business", body), {
             onSuccess: () => {
                 loadedBrand.current = { ...b, logo_file_id, primary, tagline }; // now what's on the server
@@ -243,7 +254,25 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
             ? mediaUrl(apiBase, fields.logo_file_id)
             : null;
 
-    return { fields, businessId: row?.id ?? null, logoSrc, set, busy, error, saved, submit };
+    return {
+        fields,
+        subject,
+        setSubject: (choice) => {
+            setSaved(false);
+            setSubjectState(choice);
+        },
+        subjectChange:
+            subject !== null && stored !== null && subject !== stored && subjectCount > 0
+                ? strings.subjects.changeBody(stored, subject, subjectCount)
+                : null,
+        businessId: row?.id ?? null,
+        logoSrc,
+        set,
+        busy,
+        error,
+        saved,
+        submit,
+    };
 }
 
 export const BUSINESS_ID_SQL = "SELECT id FROM businesses LIMIT 1";
@@ -398,6 +427,7 @@ interface OnboardInput {
     name: string;
     slug: string;
     province: ProvinceCode;
+    subject: SubjectChoice;
     timezone?: string;
 }
 
@@ -416,6 +446,7 @@ function onboard(api: ApiLike, input: OnboardInput): Promise<Business> {
         name: input.name.trim(),
         slug: input.slug.trim(),
         province: input.province,
+        subject: kindOf(input.subject),
         timezone: input.timezone ?? null,
     });
 }
@@ -437,6 +468,8 @@ interface OnboardingForm {
     setSlug: (v: string) => void;
     province: ProvinceCode;
     setProvince: (v: ProvinceCode) => void;
+    subject: SubjectChoice | null;
+    setSubject: (v: SubjectChoice) => void;
     // "GST 5% + PST 7%": the taxes the new business will charge in its province
     taxSummary: string;
     busy: boolean;
@@ -456,6 +489,7 @@ export function useOnboardingForm(
     const [slug, setSlugState] = useState("");
     const [slugEdited, setSlugEdited] = useState(false);
     const [province, setProvince] = useState<ProvinceCode>("ON");
+    const [subject, setSubject] = useState<SubjectChoice | null>(null);
     // Stays true across retries so the verify step keeps one code instead of mailing a new one.
     const [needsVerification, setNeedsVerification] = useState(false);
     const { busy, error, setError, run } = useAsyncAction();
@@ -479,9 +513,13 @@ export function useOnboardingForm(
             setError(strings.business.onboarding.slugRequired);
             return;
         }
+        if (subject === null) {
+            setError(strings.subjects.choiceRequired);
+            return;
+        }
         run(
             async () => {
-                onCreated(await onboard(api, { name, slug, province }));
+                onCreated(await onboard(api, { name, slug, province, subject }));
             },
             {
                 errorMessage: (e) => {
@@ -501,6 +539,11 @@ export function useOnboardingForm(
         setSlug,
         province,
         setProvince,
+        subject,
+        setSubject: (v) => {
+            setSubject(v);
+            setError(null);
+        },
         taxSummary: taxSummary(province, dateKey(new Date(), NEW_BUSINESS_ZONE)),
         busy,
         error,

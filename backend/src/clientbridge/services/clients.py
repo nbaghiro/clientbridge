@@ -30,6 +30,7 @@ from clientbridge.schemas.clients import (
     ClientUpdate,
 )
 from clientbridge.services.consents import set_marketing_consent
+from clientbridge.services.subjects import new_subject
 
 MANAGERS = ("owner", "admin")
 
@@ -69,8 +70,16 @@ class ClientService:
 
     async def create(self, data: ClientCreate, idempotency_key: str | None = None) -> ClientOut:
         async def run(cmd: Command) -> ClientOut:
+            client_id = new_id("client")
+            subject = (
+                None
+                if data.subject is None
+                else await new_subject(
+                    self.db, self.biz, client_id, data.subject.name, data.subject.attributes
+                )
+            )
             client = Client(
-                id=new_id("client"),
+                id=client_id,
                 business_id=self.biz,
                 created_by=self.principal.user_id,
                 name=data.name.strip(),
@@ -83,19 +92,8 @@ class ClientService:
             )
             self.db.add(client)
             await self.db.flush()
-            if data.subject is not None:
-                self.db.add(
-                    Subject(
-                        id=new_id("subject"),
-                        business_id=self.biz,
-                        client_id=client.id,
-                        kind=data.subject.kind,
-                        name=data.subject.name.strip(),
-                        attributes=data.subject.attributes.model_dump(
-                            mode="json", exclude_none=True
-                        ),
-                    )
-                )
+            if subject is not None:
+                self.db.add(subject)
             if data.marketing_consent:
                 await set_marketing_consent(
                     self.db, self.biz, client.id, agreed=True, recorded_by=self.principal.user_id

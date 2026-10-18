@@ -29,6 +29,7 @@ StaffStatus = Literal["active", "invited", "removed"]
 RateType = Literal["percent", "fixed", "hourly"]
 Plan = Literal["premium", "team"]
 PlanStatus = Literal["trialing", "active", "past_due", "lapsed"]
+SubjectKind = Literal["pet", "student", "property"]
 
 TRIAL_DAYS = 14
 
@@ -46,6 +47,7 @@ class Business(PKMixin, TimestampMixin, Base):
         enum_check("businesses", "filing_frequency", FilingFrequency),
         enum_check("businesses", "plan", Plan, nullable=True),
         enum_check("businesses", "plan_status", PlanStatus),
+        enum_check("businesses", "subject", SubjectKind, nullable=True),
         CheckConstraint("review_hold_at BETWEEN 0 AND 5", name="ck_businesses_review_hold_at"),
     )
 
@@ -93,6 +95,8 @@ class Business(PKMixin, TimestampMixin, Base):
         DateTime(timezone=True), default=trial_end, nullable=False
     )
     stripe_subscription_id: Mapped[str | None] = mapped_column(String)
+    # what a booking is for besides the client; NULL books only the client
+    subject: Mapped[SubjectKind | None] = mapped_column(String)
 
 
 class User(PKMixin, TimestampMixin, Base):

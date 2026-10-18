@@ -10,7 +10,6 @@ from clientbridge.models.base import BusinessScoped, PKMixin, SoftDelete, Timest
 
 ClientStatus = Literal["active", "inactive"]
 Channel = Literal["sms", "email"]
-SubjectKind = Literal["pet", "vehicle", "child", "property"]
 NoteParent = Literal["client", "subject", "booking"]
 ConsentStatus = Literal["granted", "implied", "withdrawn"]
 ConsentSource = Literal[
@@ -53,13 +52,9 @@ class Client(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
 
 class Subject(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     __tablename__ = "subjects"
-    __table_args__ = (
-        enum_check("subjects", "kind", SubjectKind),
-        Index("ix_subjects_business_client", "business_id", "client_id"),
-    )
+    __table_args__ = (Index("ix_subjects_business_client", "business_id", "client_id"),)
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
-    kind: Mapped[SubjectKind] = mapped_column(String, nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     attributes: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
 

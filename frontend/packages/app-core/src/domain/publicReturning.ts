@@ -8,7 +8,7 @@ interface ReturningProfile {
     name: string;
     email: string | null;
     phone: string | null;
-    pets: { id: string; name: string }[];
+    subjects: { id: string; name: string }[];
     last_visit: {
         item_id: string;
         staff_id: string;
@@ -88,7 +88,7 @@ export function useReturningClient(
         applyReturning(
             booking,
             verified,
-            verified.profile.last_visit?.subject_id ?? verified.profile.pets[0]?.id ?? null,
+            verified.profile.last_visit?.subject_id ?? verified.profile.subjects[0]?.id ?? null,
         );
     }, [booking, verified]);
     const reset = (): void => {
@@ -173,7 +173,7 @@ export function useReturningClient(
             const visit = verified?.profile?.last_visit;
             if (visit && booking) booking.selectUsual(visit.item_id, visit.staff_id);
         },
-        choosePet: (id: string) => {
+        chooseSubject: (id: string) => {
             if (booking && verified) applyReturning(booking, verified, id || null);
         },
         profile: verified?.profile ?? null,
@@ -184,14 +184,14 @@ export function useReturningClient(
 function applyReturning(
     booking: PublicBookingFlow,
     verified: ReturningVerified,
-    petId: string | null,
+    subjectId: string | null,
 ): void {
     if (!verified.profile || !verified.token) return;
     const profile = verified.profile;
-    const pet = profile.pets.find((pet) => pet.id === petId);
+    const subject = profile.subjects.find((x) => x.id === subjectId);
     booking.fields.setName(profile.name);
     booking.fields.setEmail(profile.email ?? "");
     booking.fields.setPhone(profile.phone ?? "");
-    booking.fields.setPetName(pet?.name ?? "");
-    booking.setReturning({ token: verified.token, subjectId: pet?.id ?? null });
+    booking.fields.setSubjectName(subject?.name ?? "");
+    booking.setReturning({ token: verified.token, subjectId: subject?.id ?? null });
 }

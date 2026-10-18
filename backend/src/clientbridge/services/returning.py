@@ -28,9 +28,9 @@ from clientbridge.models.returning import ReturningChallenge
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.returning import (
     ReturningChallengeOut,
-    ReturningPet,
     ReturningProfile,
     ReturningRequest,
+    ReturningSubject,
     ReturningVerified,
     ReturningVerify,
     ReturningVisit,
@@ -208,23 +208,19 @@ class ReturningService:
                 scoped(Subject, client.business_id, soft_delete=True).where(
                     Subject.id == subject_id,
                     Subject.client_id == client.id,
-                    Subject.kind == "pet",
                 )
             )
         ).scalar_one_or_none()
         if subject is None:
-            raise Unprocessable("that pet is not available for this booking")
+            raise Unprocessable("that subject is not available for this booking")
         return subject.id
 
     async def _profile(self, client: Client) -> ReturningProfile:
-        pets = (
+        subjects = (
             (
                 await self.db.execute(
                     scoped(Subject, client.business_id, soft_delete=True)
-                    .where(
-                        Subject.client_id == client.id,
-                        Subject.kind == "pet",
-                    )
+                    .where(Subject.client_id == client.id)
                     .order_by(Subject.name)
                 )
             )
@@ -267,6 +263,6 @@ class ReturningService:
             name=client.name,
             email=client.email,
             phone=client.phone,
-            pets=[ReturningPet(id=p.id, name=p.name) for p in pets],
+            subjects=[ReturningSubject(id=x.id, name=x.name) for x in subjects],
             last_visit=last,
         )

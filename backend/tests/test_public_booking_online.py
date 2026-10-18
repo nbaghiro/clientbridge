@@ -2,7 +2,8 @@ from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
-from sqlalchemy import select, update
+import pytest
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
@@ -48,6 +49,7 @@ async def test_page_carries_policy_clock_staff_and_offers(api: httpx.AsyncClient
     assert "st_owner" in service["staff_ids"]
     assert {a["id"] for a in page["addons"]} == {"it_shampoo", "it_brush"}
     assert page["review_count"] >= 0
+    assert page["subject"] == "pet"
 
 
 async def test_hidden_staff_and_unoffered_products_drop_off_the_page(
@@ -122,12 +124,12 @@ async def test_lead_time_and_horizon_bound_open_times_and_booking(
     assert res.json()["slots"] == []
 
 
-async def test_booking_keeps_pet_note_and_returns_a_manage_link(
+async def test_booking_keeps_subject_note_and_returns_a_manage_link(
     api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
     res = await api.post(
         f"/book/{SLUG}",
-        json=_body(staff="any", pet_name=" Biscuit ", note="Nervous with dryers"),
+        json=_body(staff="any", subject_name=" Biscuit ", note="Nervous with dryers"),
     )
     assert res.status_code == 200, res.text
     body = res.json()
@@ -139,6 +141,8 @@ async def test_booking_keeps_pet_note_and_returns_a_manage_link(
     note = (await db.execute(select(Note.body).where(Note.parent_id == booking.id))).scalar_one()
     assert note == "Nervous with dryers"
     assert f"/m/{body['manage_token']}" in email.sent[-1].body
+    view = (await api.get(f"/manage/{body['manage_token']}")).json()
+    assert view["subject"] == "pet" and view["subject_name"] == "Biscuit"
 
 
 async def test_new_clients_wait_for_approval_when_asked(
@@ -316,3 +320,57 @@ async def test_public_booking_records_one_audit_on_replay(
     )
     assert len(rows) == 1
     assert rows[0].business_id == BIZ and rows[0].performed_by is None
+
+
+async def _kind(db: AsyncSession, kind: str | None) -> None:
+    await db.execute(update(Business).where(Business.id == BIZ).values(subject=kind))
+    await db.flush()
+
+
+async def test_a_property_booking_files_a_new_property_with_its_address(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _kind(db, "property")
+    assert (await api.get(f"/book/{SLUG}/services")).json()["subject"] == "property"
+    body = _body(subject_name="Cottage", subject_address=" 4 Elm Rd ")
+    first = await api.post(f"/book/{SLUG}", json=body, headers=key())
+    assert first.status_code == 200, first.text
+    booking = await db.get(Booking, first.json()["booking_id"])
+    assert booking is not None and booking.subject_id is not None
+    place = await db.get(Subject, booking.subject_id)
+    assert place is not None and place.name == "Cottage"
+    assert place.attributes == {"address": "4 Elm Rd"}
+
+
+@pytest.mark.parametrize(
+    ("kind", "extra"),
+    [
+        (None, {"subject_name": "Rex"}),
+        (None, {"subject_id": "sj_rex", "returning_token": "t"}),
+        (None, {"subject_address": "4 Elm Rd"}),
+        ("pet", {"subject_name": "Rex", "subject_address": "4 Elm Rd"}),
+    ],
+)
+async def test_subject_fields_a_business_does_not_take_are_refused_422(
+    api: httpx.AsyncClient, db: AsyncSession, kind: str | None, extra: dict[str, str]
+) -> None:
+    await _kind(db, kind)
+    online = select(func.count()).select_from(Booking).where(Booking.source == "online")
+    before = await db.scalar(online)
+    res = await api.post(f"/book/{SLUG}", json=_body(**extra))
+    assert res.status_code == 422
+    assert res.json()["error"] == "no_subjects"
+    assert await db.scalar(online) == before
+
+
+async def test_a_business_without_subjects_books_only_the_client(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _kind(db, None)
+    assert (await api.get(f"/book/{SLUG}/services")).json()["subject"] is None
+    res = await api.post(f"/book/{SLUG}", json=_body(subject_name="  "))
+    assert res.status_code == 200, res.text
+    booking = await db.get(Booking, res.json()["booking_id"])
+    assert booking is not None and booking.subject_id is None
+    view = (await api.get(f"/manage/{res.json()['manage_token']}")).json()
+    assert view["subject"] is None and view["subject_name"] is None

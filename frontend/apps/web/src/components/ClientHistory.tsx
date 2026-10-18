@@ -3,11 +3,13 @@ import {
     type NoteComposer as Composer,
     type SubjectRow,
     formatRelativeTime,
+    kindWord,
     strings,
     toTimeline,
     useClientHistory,
     useNoteComposer,
     useBusinessZone,
+    useSubjectKind,
 } from "@clientbridge/app-core";
 import {
     ActivityTimeline,
@@ -33,8 +35,16 @@ import { useViewer } from "../lib/auth";
 
 const s = strings.clients.history;
 
-/** Note box with who or which pet it is about, and whether it is pinned to every booking. */
-function NoteComposer({ composer: c, pets }: { composer: Composer; pets: readonly SubjectRow[] }) {
+/** Note box with the client or which subject it is about, and whether it is pinned to every booking. */
+function NoteComposer({
+    composer: c,
+    subjects,
+}: {
+    composer: Composer;
+    subjects: readonly SubjectRow[];
+}) {
+    const kind = useSubjectKind();
+    const placeholder = s.notePlaceholder(kindWord(kind));
     return (
         <form
             onSubmit={(e) => {
@@ -46,20 +56,20 @@ function NoteComposer({ composer: c, pets }: { composer: Composer; pets: readonl
             <TextField
                 multiline
                 rows={3}
-                name={s.notePlaceholder}
+                name={placeholder}
                 value={c.body}
                 onChange={c.setBody}
-                placeholder={s.notePlaceholder}
+                placeholder={placeholder}
                 surface="bg"
             />
             <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-                {pets.length > 0 ? (
+                {kind !== null && subjects.length > 0 ? (
                     <Field label={s.about}>
                         <Choice
                             label={s.about}
                             options={[
                                 { key: "client", label: s.aboutClient },
-                                ...pets.map((p) => ({ key: p.id, label: p.name })),
+                                ...subjects.map((x) => ({ key: x.id, label: x.name })),
                             ]}
                             value={c.about}
                             onChange={c.setAbout}
@@ -89,11 +99,11 @@ function NoteComposer({ composer: c, pets }: { composer: Composer; pets: readonl
 /** The same note box in a dialog, for adding a note from the client record. */
 export function NoteDialog({
     clientId,
-    pets,
+    subjects,
     onClose,
 }: {
     clientId: string;
-    pets: readonly SubjectRow[];
+    subjects: readonly SubjectRow[];
     onClose: () => void;
 }) {
     const composer = useNoteComposer(api, clientId, onClose);
@@ -102,7 +112,7 @@ export function NoteDialog({
             <h2 className="mb-4 font-display text-lg font-bold text-ink">
                 {strings.clients.record.addNoteTitle}
             </h2>
-            <NoteComposer composer={composer} pets={pets} />
+            <NoteComposer composer={composer} subjects={subjects} />
             <div className="mt-4 flex justify-end">
                 <Button variant="quiet" onPress={onClose}>
                     {strings.common.cancel}
@@ -139,7 +149,7 @@ export function ClientHistory({ clientId, aside }: { clientId: string; aside?: R
                 ) : null}
                 {h.load.hasData ? (
                     <Panel>
-                        <NoteComposer composer={composer} pets={h.pets} />
+                        <NoteComposer composer={composer} subjects={h.subjects} />
                     </Panel>
                 ) : null}
                 {h.load.state === "empty" ? (
@@ -207,8 +217,8 @@ export function ClientHistory({ clientId, aside }: { clientId: string; aside?: R
                                             n.author,
                                             formatRelativeTime(n.at.toISOString(), zone, now),
                                         )}
-                                        {n.pet !== null ? (
-                                            <Badge label={n.pet} intent="neutral" />
+                                        {n.subjectName !== null ? (
+                                            <Badge label={n.subjectName} intent="neutral" />
                                         ) : null}
                                     </span>
                                 </li>

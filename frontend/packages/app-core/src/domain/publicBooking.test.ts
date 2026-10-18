@@ -16,6 +16,7 @@ import {
     usePublicBookingFlow,
     useManageBooking,
     bookingFailure,
+    detailErrors,
     draftDay,
     groupSlots,
     horizonDay,
@@ -260,6 +261,7 @@ it("shows a failed availability load and retries without presenting it as an emp
             policy: null,
             rating: null,
             review_count: 0,
+            subject: null,
         }),
         getDays: vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue([]),
         getSlots: vi.fn().mockResolvedValue([]),
@@ -290,7 +292,8 @@ it.each(["days", "slots"])("shows and retries a failed manage %s request", async
             brand: { logo_url: null, primary: null, tagline: null },
             slug: "demo",
             client_name: "Pat",
-            pet_name: null,
+            subject: null,
+            subject_name: null,
             service: {
                 id: "service",
                 name: "Visit",
@@ -353,5 +356,31 @@ it.each(["days", "slots"])("shows and retries a failed manage %s request", async
     });
     await waitFor(() => {
         expect(result.current.slotsError).toBe(false);
+    });
+});
+
+describe("detailErrors", () => {
+    const filled = {
+        name: "Robin",
+        phone: "",
+        email: "robin@example.com",
+        subjectName: "",
+        subjectAddress: "",
+    };
+
+    it("asks for the subject only when the business books one", () => {
+        expect(detailErrors(filled, null, false).subject).toBeNull();
+        expect(detailErrors(filled, "pet", false).subject).toBe(s.subjectRequired("pet"));
+        expect(detailErrors({ ...filled, subjectName: "Pepper" }, "pet", false).subject).toBeNull();
+    });
+
+    it("asks a property business for a new property's address", () => {
+        const named = { ...filled, subjectName: "Cottage" };
+        expect(detailErrors(named, "property", false).address).toBe(s.addressRequired);
+        expect(detailErrors(named, "property", true).address).toBeNull();
+        expect(detailErrors(named, "student", false).address).toBeNull();
+        expect(
+            detailErrors({ ...named, subjectAddress: "4 Elm Rd" }, "property", false).address,
+        ).toBeNull();
     });
 });

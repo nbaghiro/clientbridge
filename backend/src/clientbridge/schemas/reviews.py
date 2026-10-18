@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from clientbridge.core.mirrors import Mirror
+from clientbridge.models.business import SubjectKind
 from clientbridge.models.clients import Channel
 from clientbridge.models.reviews import Review, ReviewStatus
 from clientbridge.schemas.public import PublicBrand
@@ -54,7 +55,8 @@ class PublicReviewContext(BaseModel):
     completed: bool
     rating: int | None = None
     first_name: str | None = None
-    pet: str | None = None
+    subject: SubjectKind | None = None
+    subject_name: str | None = None
     service: str | None = None
     staff: str | None = None
     google_review_url: str | None = Field(

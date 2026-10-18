@@ -20,6 +20,8 @@ import {
     quickReplies,
     BUSINESS_CURRENCY,
     useBusinessZone,
+    kindWord,
+    useSubjectKind,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -99,6 +101,7 @@ const rowFlag = (t: InboxThread): { label: string; intent: "danger" } | undefine
 
 function Messages() {
     const inbox = useInbox();
+    const kind = useSubjectKind();
     const [picked, setPicked] = useState<string | null>(null);
     const [details, setDetails] = useState(false);
     const [composing, setComposing] = useState<string | null>(null);
@@ -135,7 +138,7 @@ function Messages() {
                     <SearchField
                         value={inbox.q}
                         onChange={inbox.setQ}
-                        placeholder={s.searchPlaceholder}
+                        placeholder={s.searchPlaceholder(kindWord(kind))}
                     />
                     <Choice
                         label={s.filterLabel}
@@ -375,6 +378,7 @@ function ContextPanel({
     conversation: Conversation;
 }) {
     const zone = useBusinessZone();
+    const kind = useSubjectKind();
     const openLink = useOpenLink();
     const client = conversation.client;
     const balance = client?.balance_cents ?? 0;
@@ -412,7 +416,14 @@ function ContextPanel({
             </div>
             <KeyValueList
                 rows={[
-                    { label: s.pets, value: client?.pet_names ?? "—" },
+                    ...(kind === null
+                        ? []
+                        : [
+                              {
+                                  label: strings.subjects.many(kind),
+                                  value: client?.subject_names ?? "—",
+                              },
+                          ]),
                     {
                         label: s.balance,
                         value:

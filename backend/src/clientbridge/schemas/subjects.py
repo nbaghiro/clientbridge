@@ -4,12 +4,11 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from clientbridge.core.mirrors import Mirror
-from clientbridge.models.clients import Subject, SubjectKind
+from clientbridge.models.business import SubjectKind
+from clientbridge.models.clients import Subject
 
 
-class SubjectAttributes(BaseModel):
-    """The typed details of a subject; keys a kind doesn't use stay empty, unknown keys are kept."""
-
+class PetAttributes(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     species: Literal["dog", "cat", "other"] | None = None
@@ -25,20 +24,47 @@ class SubjectAttributes(BaseModel):
     style: str | None = None
 
 
+class StudentAttributes(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    birthday: date | None = None
+    grade: str | None = Field(default=None, max_length=40)
+    school: str | None = None
+    allergies: str | None = None
+
+
+class PropertyAttributes(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    address: str | None = Field(default=None, max_length=200)
+    rooms: int | None = Field(default=None, ge=0, le=100)
+    access: str | None = None
+    pets: str | None = None
+
+
+# keys another kind uses are kept unvalidated, so changing the business's kind loses nothing
+ATTRIBUTES: dict[SubjectKind, type[BaseModel]] = {
+    "pet": PetAttributes,
+    "student": StudentAttributes,
+    "property": PropertyAttributes,
+}
+
+
 class SubjectCreate(Mirror):
     mirrors = Subject
 
     client_id: str
-    kind: SubjectKind = "pet"
     name: str = Field(min_length=1)
-    attributes: SubjectAttributes = Field(default_factory=SubjectAttributes)
+    attributes: dict[str, object] = Field(
+        default_factory=dict, description="Validated against the business's subject kind"
+    )
 
 
 class SubjectUpdate(Mirror):
     mirrors = Subject
 
     name: str | None = Field(default=None, min_length=1)
-    attributes: SubjectAttributes | None = None
+    attributes: dict[str, object] | None = None
 
 
 class SubjectOut(Mirror):
@@ -48,7 +74,6 @@ class SubjectOut(Mirror):
     id: str
     business_id: str
     client_id: str
-    kind: SubjectKind
     name: str
     attributes: dict[str, object]
     created_at: datetime

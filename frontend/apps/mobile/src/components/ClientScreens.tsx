@@ -1,7 +1,7 @@
 import {
     type ClientHistoryFilter,
     type PackageRow,
-    type PetCard,
+    type SubjectCard,
     type SubjectRow,
     type SubscriptionRow,
     type WalletMethod,
@@ -25,10 +25,11 @@ import {
     toTimeline,
     useAddPaymentMethod,
     useClientHistory,
-    useClientPets,
+    useSubjectCards,
     useClientWallet,
     formatParts,
     useBusinessZone,
+    SUBJECT_ICON,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -58,12 +59,12 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { api } from "../lib/api";
 import { useRole, useViewer } from "../lib/auth";
 import type { RootStackParamList } from "../navigation";
-import { NoteSheet, PetSheet } from "./ClientSheets";
+import { NoteSheet, SubjectSheet } from "./ClientSheets";
 import { SellPackage, StartSubscription } from "./EntitlementSales";
 
 const c = theme.colors;
 const h = strings.clients.history;
-const p = strings.clients.pets;
+const sj = strings.subjects;
 const w = strings.clients.wallet;
 
 /** One client's history: pinned notes, a note box, and the timeline by month with filters. */
@@ -158,7 +159,7 @@ export function ClientHistoryScreen() {
             {composing ? (
                 <NoteSheet
                     clientId={clientId}
-                    pets={hist.pets}
+                    subjects={hist.subjects}
                     onClose={() => {
                         setComposing(false);
                     }}
@@ -168,26 +169,24 @@ export function ClientHistoryScreen() {
     );
 }
 
-function PetCardView({ card, onPress }: { card: PetCard; onPress: () => void }) {
+function SubjectCardView({ card, onPress }: { card: SubjectCard; onPress: () => void }) {
     const zone = useBusinessZone();
     const alerts = card.alerts.filter((a) => a.key !== "temp");
     return (
-        <View style={styles.petCard}>
+        <View style={styles.subjectCard}>
             <ListRow
-                leading={<Avatar name={card.pet.name} size="lg" />}
-                title={card.pet.name}
+                leading={<Avatar name={card.subject.name} size="lg" />}
+                title={card.subject.name}
                 detail={card.line}
                 meta={
                     card.temperament !== null ? (
                         <Badge
-                            label={card.temperament}
-                            intent={
-                                card.alerts.some((a) => a.key === "temp") ? "warning" : "neutral"
-                            }
+                            label={card.temperament.label}
+                            intent={card.temperament.nervous ? "warning" : "neutral"}
                         />
                     ) : undefined
                 }
-                label={p.editNamed(card.pet.name)}
+                label={sj.editNamed(card.subject.name)}
                 onPress={onPress}
             />
             {alerts.map((a) => (
@@ -214,9 +213,9 @@ function PetCardView({ card, onPress }: { card: PetCard; onPress: () => void }) 
                 </View>
             ))}
             <View style={styles.stats}>
-                <Stat label={p.visits} value={String(card.visits)} />
+                <Stat label={sj.visits} value={String(card.visits)} />
                 <Stat
-                    label={p.lastVisit}
+                    label={sj.lastVisit}
                     value={
                         card.lastVisit === null
                             ? strings.clients.dash
@@ -224,8 +223,8 @@ function PetCardView({ card, onPress }: { card: PetCard; onPress: () => void }) 
                     }
                 />
                 <Stat
-                    label={p.nextVisit}
-                    value={card.next === null ? p.nothingBooked : relativeDay(card.next, zone)}
+                    label={sj.nextVisit}
+                    value={card.next === null ? sj.nothingBooked : relativeDay(card.next, zone)}
                 />
             </View>
         </View>
@@ -243,33 +242,37 @@ function Stat({ label, value }: { label: string; value: string }) {
     );
 }
 
-/** A client's pets as cards; tapping one opens its sheet. */
-export function ClientPetsScreen() {
-    const { clientId } = useRoute<RouteProp<RootStackParamList, "ClientPets">>().params;
-    const { load, cards } = useClientPets(clientId);
-    const [editing, setEditing] = useState<{ pet: SubjectRow | null } | null>(null);
+/** A client's subjects as cards; tapping one opens its sheet. */
+export function ClientSubjectsScreen() {
+    const { clientId, kind } = useRoute<RouteProp<RootStackParamList, "ClientSubjects">>().params;
+    const { load, cards } = useSubjectCards(clientId);
+    const [editing, setEditing] = useState<{ subject: SubjectRow | null } | null>(null);
     return (
         <View style={styles.screen}>
             <ScrollView contentContainerStyle={styles.body}>
                 {load.state === "loading" ? (
-                    <Skeleton variant="row" count={3} label={p.loading} />
+                    <Skeleton variant="row" count={3} label={sj.loading(kind)} />
                 ) : null}
                 {load.state === "error" ? (
                     <LoadFailed
-                        message={p.loadError}
+                        message={sj.loadError(kind)}
                         onRetry={load.retry}
                         retrying={load.retrying}
                     />
                 ) : null}
                 {load.hasData && cards.length === 0 ? (
-                    <Empty icon="paw" message={p.noPetsTitle} body={p.noPetsBody} />
+                    <Empty
+                        icon={SUBJECT_ICON[kind]}
+                        message={sj.noneTitle(kind)}
+                        body={sj.noneBody(kind)}
+                    />
                 ) : null}
                 {cards.map((card) => (
-                    <PetCardView
-                        key={card.pet.id}
+                    <SubjectCardView
+                        key={card.subject.id}
                         card={card}
                         onPress={() => {
-                            setEditing({ pet: card.pet });
+                            setEditing({ subject: card.subject });
                         }}
                     />
                 ))}
@@ -277,20 +280,20 @@ export function ClientPetsScreen() {
                     <Button
                         full
                         variant="outline"
-                        icon="paw"
+                        icon={SUBJECT_ICON[kind]}
                         onPress={() => {
-                            setEditing({ pet: null });
+                            setEditing({ subject: null });
                         }}
                     >
-                        {p.addPet}
+                        {sj.add(kind)}
                     </Button>
                 ) : null}
             </ScrollView>
             {editing !== null ? (
-                <PetSheet
-                    key={editing.pet?.id ?? "new"}
+                <SubjectSheet
+                    key={editing.subject?.id ?? "new"}
                     clientId={clientId}
-                    pet={editing.pet}
+                    subject={editing.subject}
                     onClose={() => {
                         setEditing(null);
                     }}
@@ -641,7 +644,7 @@ const styles = StyleSheet.create({
         padding: 14,
     },
     cardAccent: { borderColor: c.accentLine },
-    petCard: {
+    subjectCard: {
         backgroundColor: c.surface,
         borderRadius: theme.radius + 2,
         borderWidth: 1,

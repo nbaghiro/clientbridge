@@ -1,8 +1,14 @@
-import { PROVINCES, bookingHost, strings, useOnboardingForm } from "@clientbridge/app-core";
+import {
+    PROVINCES,
+    bookingHost,
+    strings,
+    subjectChoices,
+    useOnboardingForm,
+} from "@clientbridge/app-core";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { Button, Lockup, Logo, Notice, Select, TextField } from "@clientbridge/ui";
+import { Button, Choice, Field, Lockup, Logo, Notice, Select, TextField } from "@clientbridge/ui";
 import { config } from "../config";
 import { api } from "../lib/api";
 
@@ -78,6 +84,15 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                             {strings.business.onboarding.taxNone}
                         </p>
                     </div>
+                    <Field label={strings.subjects.choiceLabel} hint={strings.subjects.choiceHelp}>
+                        <Choice
+                            label={strings.subjects.choiceLabel}
+                            layout="cards"
+                            options={subjectChoices()}
+                            value={form.subject}
+                            onChange={form.setSubject}
+                        />
+                    </Field>
 
                     {form.error ? <Notice tone="danger">{form.error}</Notice> : null}
                     {form.needsVerification ? (

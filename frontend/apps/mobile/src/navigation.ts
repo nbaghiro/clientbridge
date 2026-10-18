@@ -1,4 +1,4 @@
-import type { InboxSegmentKey, PaymentsTabKey } from "@clientbridge/app-core";
+import type { InboxSegmentKey, PaymentsTabKey, SubjectKind } from "@clientbridge/app-core";
 import type { NavigatorScreenParams } from "@react-navigation/native";
 
 export type TabParamList = {
@@ -32,7 +32,7 @@ export type RootStackParamList = {
     GetSetUp: undefined;
     Taxes: undefined;
     ClientHistory: { clientId: string; name: string };
-    ClientPets: { clientId: string; name: string };
+    ClientSubjects: { clientId: string; name: string; kind: SubjectKind };
     ClientWallet: { clientId: string; name: string };
     Classes: undefined;
     Recurrences: undefined;

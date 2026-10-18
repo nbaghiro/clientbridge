@@ -130,6 +130,7 @@ def seed_identity() -> tuple[str, str]:
             status="active",
             plan="team",
             plan_status="active",
+            subject="pet",
         )
     )
     rows.append(
@@ -752,7 +753,6 @@ def seed_clients(owner: str) -> None:
                     id=pid,
                     business_id=BIZ,
                     client_id=cid,
-                    kind="pet",
                     name=pname,
                     attributes={
                         "breed": breed,

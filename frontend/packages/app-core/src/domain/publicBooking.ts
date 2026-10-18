@@ -38,6 +38,7 @@ import {
     writePublicDraft,
     usePublicResource,
 } from "./publicResource";
+import type { SubjectKind } from "./subjects";
 
 const s = strings.publicBooking;
 const m = strings.publicManage;
@@ -106,6 +107,7 @@ interface PublicBookingPage {
     policy: PublicPolicy | null;
     rating: number | null;
     review_count: number;
+    subject: SubjectKind | null;
 }
 
 interface OpenSlot {
@@ -137,7 +139,8 @@ interface BookingInput {
     staffId: string;
     startsAt: string;
     client: { name: string; email: string | null; phone: string | null };
-    petName: string;
+    subjectName: string;
+    subjectAddress: string;
     note: string;
     addons: { itemId: string; quantity: number }[];
 }
@@ -195,7 +198,8 @@ export function createPublicBookingClient(baseUrl: string): PublicBookingClient 
                     staff_id: input.staffId,
                     starts_at: input.startsAt,
                     client: input.client,
-                    pet_name: input.petName || null,
+                    subject_name: input.subjectName || null,
+                    subject_address: input.subjectAddress || null,
                     returning_token: input.returningToken ?? null,
                     subject_id: input.subjectId ?? null,
                     note: input.note || null,
@@ -372,6 +376,29 @@ type BookingStep = "service" | "time" | "extras" | "details" | "pay" | "done";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** The details step's problems; the subject is asked for only when the business books one. */
+export function detailErrors(
+    d: { name: string; phone: string; email: string; subjectName: string; subjectAddress: string },
+    kind: SubjectKind | null,
+    existingSubject: boolean,
+): Record<"name" | "contact" | "email" | "subject" | "address", string | null> {
+    return {
+        name: d.name.trim() === "" ? s.nameRequired : null,
+        contact:
+            d.phone.trim() === "" && d.email.trim() === ""
+                ? s.contactRequired
+                : d.phone.trim() !== "" && normalizePhone(d.phone) === null
+                  ? s.phoneInvalid
+                  : null,
+        email: d.email.trim() !== "" && !EMAIL.test(d.email.trim()) ? s.emailInvalid : null,
+        subject: kind !== null && d.subjectName.trim() === "" ? s.subjectRequired(kind) : null,
+        address:
+            kind === "property" && !existingSubject && d.subjectAddress.trim() === ""
+                ? s.addressRequired
+                : null,
+    };
+}
+
 const firstOf = (name: string | null): string => (name ?? "").split(" ")[0] ?? "";
 
 /** The whole public booking flow: service, who and when, details with suggested extras, deposit. */
@@ -386,6 +413,7 @@ export function usePublicBookingFlow(
     },
 ) {
     const { status, data: page } = usePublicResource(client.getServices, slug);
+    const kind = page?.subject ?? null;
     // Until the page loads nothing is shown, so the visitor's own zone stands in.
     const zone = page?.timezone ?? deviceZone();
     const today = page?.now ? page.now.slice(0, 10) : dateKey(new Date(), zone);
@@ -414,7 +442,8 @@ export function usePublicBookingFlow(
     const [name, setName] = useState(draft.name ?? "");
     const [phone, setPhone] = useState(draft.phone ?? "");
     const [email, setEmail] = useState(draft.email ?? "");
-    const [petName, setPetName] = useState(draft.petName ?? "");
+    const [subjectName, setSubjectName] = useState(draft.subjectName ?? "");
+    const [subjectAddress, setSubjectAddress] = useState(draft.subjectAddress ?? "");
     const [returningToken, setReturningToken] = useState<string | null>(null);
     const [subjectId, setSubjectId] = useState<string | null>(null);
     const [note, setNote] = useState(draft.note ?? "");
@@ -428,9 +457,34 @@ export function usePublicBookingFlow(
         writePublicDraft(
             storage,
             draftKey,
-            result ? null : { itemId, staffId, startsAt, name, phone, email, petName, note },
+            result
+                ? null
+                : {
+                      itemId,
+                      staffId,
+                      startsAt,
+                      name,
+                      phone,
+                      email,
+                      subjectName,
+                      subjectAddress,
+                      note,
+                  },
         );
-    }, [storage, draftKey, result, itemId, staffId, startsAt, name, phone, email, petName, note]);
+    }, [
+        storage,
+        draftKey,
+        result,
+        itemId,
+        staffId,
+        startsAt,
+        name,
+        phone,
+        email,
+        subjectName,
+        subjectAddress,
+        note,
+    ]);
 
     const clearReturning = (): void => {
         setReturningToken(null);
@@ -532,17 +586,11 @@ export function usePublicBookingFlow(
     const currency = service?.currency ?? BUSINESS_CURRENCY;
     const slot = slots?.find((x) => x.starts_at === startsAt) ?? null;
 
-    const errors = {
-        name: name.trim() === "" ? s.nameRequired : null,
-        contact:
-            phone.trim() === "" && email.trim() === ""
-                ? s.contactRequired
-                : phone.trim() !== "" && normalizePhone(phone) === null
-                  ? s.phoneInvalid
-                  : null,
-        email: email.trim() !== "" && !EMAIL.test(email.trim()) ? s.emailInvalid : null,
-        pet: petName.trim() === "" ? s.petRequired : null,
-    };
+    const errors = detailErrors(
+        { name, phone, email, subjectName, subjectAddress },
+        kind,
+        subjectId !== null,
+    );
     const detailsOk = Object.values(errors).every((x) => x === null);
     const order: BookingStep[] = [
         "service",
@@ -591,7 +639,8 @@ export function usePublicBookingFlow(
                 email: email.trim() || null,
                 phone: normalizePhone(phone),
             },
-            petName: petName.trim(),
+            subjectName: kind === null ? "" : subjectName.trim(),
+            subjectAddress: kind === "property" && subjectId === null ? subjectAddress.trim() : "",
             returningToken,
             subjectId,
             note: note.trim(),
@@ -801,16 +850,24 @@ export function usePublicBookingFlow(
                 setEmail(value);
                 clearReturning();
             },
-            petName,
-            setPetName: (value: string): void => {
-                setPetName(value);
+            subjectName,
+            setSubjectName: (value: string): void => {
+                setSubjectName(value);
                 setSubjectId(null);
+                key.current = null;
+            },
+            subjectAddress,
+            setSubjectAddress: (value: string): void => {
+                setSubjectAddress(value);
                 key.current = null;
             },
             note,
             setNote,
         },
-        errors: touched ? errors : { name: null, contact: null, email: null, pet: null },
+        kind,
+        errors: touched
+            ? errors
+            : { name: null, contact: null, email: null, subject: null, address: null },
         totals: {
             service: formatMoney(serviceCents, currency),
             addons: formatMoney(addonsCents, currency),
@@ -862,7 +919,8 @@ interface ManagedBooking {
     brand: PublicBrand;
     slug: string;
     client_name: string;
-    pet_name: string | null;
+    subject: SubjectKind | null;
+    subject_name: string | null;
     service: PublicService;
     staff: PublicStaff;
     starts_at: string;

@@ -1,11 +1,14 @@
 import {
-    type PetCard,
+    type SubjectCard,
     type SubjectForm,
+    type SubjectKind,
     type SubjectRow,
+    SUBJECT_ICON,
     formatDate,
+    kindWord,
     relativeDay,
     strings,
-    useClientPets,
+    useSubjectCards,
     useSubjectForm,
     useBusinessZone,
 } from "@clientbridge/app-core";
@@ -29,7 +32,7 @@ import { useState } from "react";
 
 import { api } from "../lib/api";
 
-const s = strings.clients.pets;
+const s = strings.subjects;
 
 /** Renders a subject's fields from its kind's schema, so other kinds need no new form. */
 function SubjectFields({ form }: { form: SubjectForm }) {
@@ -105,21 +108,22 @@ function SubjectFields({ form }: { form: SubjectForm }) {
     );
 }
 
-/** Add or edit one pet in a dialog, from the pet cards or the client record. */
-export function PetDialog({
+/** Add or edit one subject in a dialog, from the subject cards or the client record. */
+export function SubjectDialog({
     clientId,
-    pet,
+    subject,
     onClose,
 }: {
     clientId: string;
-    pet: SubjectRow | null;
+    subject: SubjectRow | null;
     onClose: () => void;
 }) {
-    const form = useSubjectForm(api, clientId, pet, onClose);
+    const form = useSubjectForm(api, clientId, subject, onClose);
+    const word = kindWord(form.kind);
     const askRemove = (): void => {
         confirm({
             title: s.removeTitle(form.name),
-            message: s.removeBody,
+            message: s.removeBody(word),
             confirmLabel: s.removeConfirm,
             destructive: true,
         })
@@ -137,7 +141,7 @@ export function PetDialog({
                 }}
             >
                 <h2 className="font-display text-lg font-bold text-ink">
-                    {form.mode === "add" ? s.addPet : s.editNamed(form.name)}
+                    {form.mode === "add" ? s.add(word) : s.editNamed(form.name)}
                 </h2>
                 <div className="-mx-6 mt-4 max-h-[calc(100vh-13rem)] overflow-y-auto px-6 pb-1">
                     <SubjectFields form={form} />
@@ -152,7 +156,7 @@ export function PetDialog({
                 <div className="mt-5 flex items-center gap-2 border-t border-line-soft pt-4">
                     {form.mode === "edit" ? (
                         <Button variant="quiet" onPress={askRemove}>
-                            {s.removePet}
+                            {s.remove(word)}
                         </Button>
                     ) : null}
                     <span className="flex-1" />
@@ -160,7 +164,7 @@ export function PetDialog({
                         {strings.common.cancel}
                     </Button>
                     <Button submit busy={form.busy}>
-                        {form.busy ? s.saving : s.save}
+                        {form.busy ? s.saving : s.save(word)}
                     </Button>
                 </div>
             </form>
@@ -168,26 +172,22 @@ export function PetDialog({
     );
 }
 
-function PetCardView({ card, onEdit }: { card: PetCard; onEdit: () => void }) {
+function SubjectCardView({ card, onEdit }: { card: SubjectCard; onEdit: () => void }) {
     const zone = useBusinessZone();
     const alerts = card.alerts.filter((a) => a.key !== "temp");
     return (
         <article className="flex flex-col rounded-lg border border-line bg-surface shadow-card">
             <div className="flex items-start gap-3 p-4">
-                <Avatar name={card.pet.name} size="lg" />
+                <Avatar name={card.subject.name} size="lg" />
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                         <h3 className="truncate font-display text-base font-bold text-ink">
-                            {card.pet.name}
+                            {card.subject.name}
                         </h3>
                         {card.temperament !== null ? (
                             <Badge
-                                label={card.temperament}
-                                intent={
-                                    card.alerts.some((a) => a.key === "temp")
-                                        ? "warning"
-                                        : "neutral"
-                                }
+                                label={card.temperament.label}
+                                intent={card.temperament.nervous ? "warning" : "neutral"}
                             />
                         ) : null}
                     </div>
@@ -197,7 +197,7 @@ function PetCardView({ card, onEdit }: { card: PetCard; onEdit: () => void }) {
                     size="sm"
                     variant="quiet"
                     onPress={onEdit}
-                    label={s.editNamed(card.pet.name)}
+                    label={s.editNamed(card.subject.name)}
                     icon={<Icon name="edit" size={15} />}
                 >
                     {s.edit}
@@ -244,55 +244,59 @@ function PetCardView({ card, onEdit }: { card: PetCard; onEdit: () => void }) {
     );
 }
 
-/** A client's pets as cards, each edited in a dialog. */
-export function ClientPets({ clientId }: { clientId: string }) {
-    const { load, cards } = useClientPets(clientId);
-    const [editing, setEditing] = useState<{ pet: SubjectRow | null } | null>(null);
+/** A client's subjects as cards, each edited in a dialog. */
+export function ClientSubjects({ clientId, kind }: { clientId: string; kind: SubjectKind }) {
+    const { load, cards } = useSubjectCards(clientId);
+    const [editing, setEditing] = useState<{ subject: SubjectRow | null } | null>(null);
     const add = (): void => {
-        setEditing({ pet: null });
+        setEditing({ subject: null });
     };
 
     return (
         <section className="space-y-4">
             <div className="flex items-center justify-between">
-                <h2 className="font-display text-lg font-bold text-ink">{s.pets}</h2>
+                <h2 className="font-display text-lg font-bold text-ink">{s.many(kind)}</h2>
                 <Button icon={<Icon name="plus" size={16} />} onPress={add}>
-                    {s.addPet}
+                    {s.add(kind)}
                 </Button>
             </div>
             {load.state === "loading" ? (
-                <Skeleton variant="row" count={2} label={s.loading} />
+                <Skeleton variant="row" count={2} label={s.loading(kind)} />
             ) : null}
             {load.state === "error" ? (
-                <LoadFailed message={s.loadError} onRetry={load.retry} retrying={load.retrying} />
+                <LoadFailed
+                    message={s.loadError(kind)}
+                    onRetry={load.retry}
+                    retrying={load.retrying}
+                />
             ) : null}
             {load.hasData && cards.length === 0 ? (
                 <Empty
                     variant="card"
-                    icon="paw"
-                    message={s.noPetsTitle}
-                    body={s.noPetsBody}
-                    actions={<Button onPress={add}>{s.addPet}</Button>}
+                    icon={SUBJECT_ICON[kind]}
+                    message={s.noneTitle(kind)}
+                    body={s.noneBody(kind)}
+                    actions={<Button onPress={add}>{s.add(kind)}</Button>}
                 />
             ) : null}
             {cards.length > 0 ? (
                 <div className="grid items-start gap-4 md:grid-cols-2">
                     {cards.map((card) => (
-                        <PetCardView
-                            key={card.pet.id}
+                        <SubjectCardView
+                            key={card.subject.id}
                             card={card}
                             onEdit={() => {
-                                setEditing({ pet: card.pet });
+                                setEditing({ subject: card.subject });
                             }}
                         />
                     ))}
                 </div>
             ) : null}
             {editing !== null ? (
-                <PetDialog
-                    key={editing.pet?.id ?? "new"}
+                <SubjectDialog
+                    key={editing.subject?.id ?? "new"}
                     clientId={clientId}
-                    pet={editing.pet}
+                    subject={editing.subject}
                     onClose={() => {
                         setEditing(null);
                     }}

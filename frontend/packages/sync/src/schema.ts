@@ -32,7 +32,6 @@ const clients = new Table(
 const subjects = new Table(
     {
         client_id: column.text,
-        kind: column.text,
         name: column.text,
         attributes: column.text,
         business_id: column.text,
@@ -316,6 +315,7 @@ const businesses = new Table(
         plan: column.text,
         plan_status: column.text,
         trial_ends_at: column.text,
+        subject: column.text,
     },
     {
         indexes: {

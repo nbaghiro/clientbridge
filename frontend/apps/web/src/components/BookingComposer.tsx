@@ -8,6 +8,7 @@ import {
     useBookingComposer,
     useReschedule,
     formatList,
+    kindWord,
     formatParts,
     BUSINESS_CURRENCY,
     useBusinessZone,
@@ -100,7 +101,7 @@ export function BookingComposer({
                             <SearchField
                                 value={form.query}
                                 onChange={form.setQuery}
-                                placeholder={s.composerClientSearch}
+                                placeholder={s.composerClientSearch(kindWord(form.kind))}
                                 autoFocus
                             />
                             {form.matches.length === 0 ? (
@@ -113,7 +114,7 @@ export function BookingComposer({
                                             density="compact"
                                             leading={<Avatar name={m.client.name} size="sm" />}
                                             title={m.client.name}
-                                            detail={formatList(m.pets, "unit")}
+                                            detail={formatList(m.subjects, "unit")}
                                             onPress={() => {
                                                 form.pickClient(m.client.id);
                                             }}
@@ -123,12 +124,12 @@ export function BookingComposer({
                             )}
                         </>
                     )}
-                    {form.pets.length > 1 ? (
+                    {form.kind !== null && form.subjects.length > 1 ? (
                         <Choice
-                            label={s.composerPet}
-                            options={form.pets.map((p) => ({ key: p.id, label: p.name }))}
-                            value={form.petId}
-                            onChange={form.setPetId}
+                            label={strings.subjects.one(form.kind)}
+                            options={form.subjects.map((x) => ({ key: x.id, label: x.name }))}
+                            value={form.subjectId}
+                            onChange={form.setSubjectId}
                         />
                     ) : null}
                 </section>

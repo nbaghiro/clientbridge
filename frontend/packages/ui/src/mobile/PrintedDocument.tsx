@@ -85,7 +85,7 @@ function Lines({ doc }: { doc: Doc }) {
                         <Text style={styles.strong}>{line.description}</Text>
                         <Text style={styles.small}>
                             {formatParts([
-                                line.subject !== null ? l.forPet(line.subject) : null,
+                                line.subject !== null ? l.forSubject(line.subject) : null,
                                 l.qtyTimes(
                                     line.quantity,
                                     formatMoney(line.unitCents, doc.currency),

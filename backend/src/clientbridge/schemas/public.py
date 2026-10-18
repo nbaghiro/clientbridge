@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from clientbridge.core.mirrors import Mirror
 from clientbridge.core.phones import Phone
-from clientbridge.models.business import Staff
+from clientbridge.models.business import Staff, SubjectKind
 from clientbridge.models.catalog import Item, ItemKind
 from clientbridge.models.scheduling import Booking, BookingStatus, DepositStatus
 
@@ -99,6 +99,9 @@ class PublicBookingPage(BaseModel):
     policy: PublicPolicy | None = None
     rating: float | None = Field(default=None, description="Average of published reviews")
     review_count: int = 0
+    subject: SubjectKind | None = Field(
+        default=None, description="What a booking names besides the client; null asks for nothing"
+    )
 
 
 class PublicSlot(BaseModel):
@@ -145,7 +148,8 @@ class ManagedBooking(Mirror):
     brand: PublicBrand
     slug: str
     client_name: str
-    pet_name: str | None
+    subject: SubjectKind | None = None
+    subject_name: str | None
     service: PublicService
     staff: PublicStaff
     starts_at: datetime
@@ -197,7 +201,12 @@ class PublicBookingCreate(BaseModel):
     starts_at: datetime
     client: PublicBookingClient
     addons: list[PublicAddonIn] = Field(default_factory=list, max_length=10)
-    pet_name: str | None = Field(default=None, max_length=60)
+    subject_name: str | None = Field(default=None, max_length=60)
+    subject_address: str | None = Field(
+        default=None,
+        max_length=200,
+        description="A new property's address, for property businesses",
+    )
     note: str | None = Field(default=None, max_length=1000)
 
 

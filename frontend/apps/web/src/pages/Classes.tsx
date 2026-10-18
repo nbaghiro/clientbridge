@@ -5,6 +5,8 @@ import {
     useClassBoard,
     formatParts,
     firstName,
+    kindWord,
+    useSubjectKind,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -221,6 +223,7 @@ function MessageClass({
 }
 
 function RosterPanel({ roster }: { roster: ClassRoster }) {
+    const kind = useSubjectKind();
     const x = roster.session;
     return (
         <section className="overflow-hidden rounded-lg border border-line bg-surface shadow-card">
@@ -255,7 +258,7 @@ function RosterPanel({ roster }: { roster: ClassRoster }) {
                     <SearchField
                         value={roster.query}
                         onChange={roster.setQuery}
-                        placeholder={s.addPlaceholder}
+                        placeholder={s.addPlaceholder(kindWord(kind))}
                     />
                     {roster.matches.length > 0 ? (
                         <div className="absolute inset-x-0 top-full z-10 mt-1 overflow-hidden rounded-md border border-line bg-surface shadow-card">
@@ -264,9 +267,16 @@ function RosterPanel({ roster }: { roster: ClassRoster }) {
                                     key={m.clientId}
                                     density="compact"
                                     leading={
-                                        <Avatar name={m.pet === "" ? m.name : m.pet} size="sm" />
+                                        <Avatar
+                                            name={m.subjectName === "" ? m.name : m.subjectName}
+                                            size="sm"
+                                        />
                                     }
-                                    title={m.pet === "" ? m.name : formatParts([m.pet, m.name])}
+                                    title={
+                                        m.subjectName === ""
+                                            ? m.name
+                                            : formatParts([m.subjectName, m.name])
+                                    }
                                     meta={x.full ? s.waitlist : s.add}
                                     onPress={() => {
                                         roster.add(m.clientId);
@@ -326,10 +336,10 @@ function RosterPanel({ roster }: { roster: ClassRoster }) {
                                 <span className="w-5 text-right text-xs tabular-nums text-muted">
                                     {i + 1}
                                 </span>
-                                <Avatar name={w.petName} size="sm" />
+                                <Avatar name={w.subjectName} size="sm" />
                                 <span className="min-w-0 flex-1">
                                     <span className="block truncate text-sm font-medium text-ink">
-                                        {w.petName}
+                                        {w.subjectName}
                                         {strings.common.separator}
                                         <span className="font-normal text-muted">
                                             {w.clientName}
@@ -362,16 +372,16 @@ function RosterPanel({ roster }: { roster: ClassRoster }) {
 function Attendee({ a, roster }: { a: RosterEntry; roster: ClassRoster }) {
     return (
         <li className="flex items-center gap-3 px-5 py-3">
-            <Avatar name={a.petName} />
+            <Avatar name={a.subjectName} />
             <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-2 truncate text-sm">
-                    <span className="font-semibold text-ink">{a.petName}</span>
-                    {a.petName !== a.clientName ? (
+                    <span className="font-semibold text-ink">{a.subjectName}</span>
+                    {a.subjectName !== a.clientName ? (
                         <span className="truncate text-muted">{a.clientName}</span>
                     ) : null}
                 </p>
                 <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted">
-                    <span className="truncate">{a.petDetail}</span>
+                    <span className="truncate">{a.subjectDetail}</span>
                     {a.note !== null ? <Badge label={a.note} intent="warning" /> : null}
                     {a.paid ? null : <Badge label={s.unpaid} intent="danger" />}
                 </p>

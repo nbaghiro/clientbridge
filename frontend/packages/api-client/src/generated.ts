@@ -4055,6 +4055,8 @@ export interface components {
             brand: {
                 [key: string]: unknown;
             };
+            /** Subject */
+            subject: ("pet" | "student" | "property") | null;
         };
         /** BusinessSettingsUpdate */
         BusinessSettingsUpdate: {
@@ -4093,6 +4095,11 @@ export interface components {
              */
             google_review_url?: string | null;
             brand?: components["schemas"]["BrandInput"] | null;
+            /**
+             * Subject
+             * @description What bookings are for besides the client; null books only them
+             */
+            subject?: ("pet" | "student" | "property") | null;
         };
         /** CheckoutOut */
         CheckoutOut: {
@@ -4686,15 +4693,12 @@ export interface components {
         };
         /** FirstSubject */
         FirstSubject: {
-            /**
-             * Kind
-             * @default pet
-             * @enum {string}
-             */
-            kind: "pet" | "vehicle" | "child" | "property";
             /** Name */
             name: string;
-            attributes?: components["schemas"]["SubjectAttributes"];
+            /** Attributes */
+            attributes?: {
+                [key: string]: unknown;
+            };
         };
         /** FormFieldIn */
         FormFieldIn: {
@@ -5609,8 +5613,10 @@ export interface components {
             slug: string;
             /** Client Name */
             client_name: string;
-            /** Pet Name */
-            pet_name: string | null;
+            /** Subject */
+            subject?: ("pet" | "student" | "property") | null;
+            /** Subject Name */
+            subject_name: string | null;
             service: components["schemas"]["PublicService"];
             staff: components["schemas"]["PublicStaff"];
             /**
@@ -5794,6 +5800,11 @@ export interface components {
             province: "AB" | "BC" | "MB" | "NB" | "NL" | "NS" | "NT" | "NU" | "ON" | "PE" | "QC" | "SK" | "YT";
             /** Timezone */
             timezone?: string | null;
+            /**
+             * Subject
+             * @description What bookings are for besides the client; null books only them
+             */
+            subject: ("pet" | "student" | "property") | null;
         };
         /** OnlineBookingOut */
         OnlineBookingOut: {
@@ -6346,8 +6357,13 @@ export interface components {
             client: components["schemas"]["PublicBookingClient"];
             /** Addons */
             addons?: components["schemas"]["PublicAddonIn"][];
-            /** Pet Name */
-            pet_name?: string | null;
+            /** Subject Name */
+            subject_name?: string | null;
+            /**
+             * Subject Address
+             * @description A new property's address, for property businesses
+             */
+            subject_address?: string | null;
             /** Note */
             note?: string | null;
         };
@@ -6396,6 +6412,11 @@ export interface components {
              * @default 0
              */
             review_count: number;
+            /**
+             * Subject
+             * @description What a booking names besides the client; null asks for nothing
+             */
+            subject?: ("pet" | "student" | "property") | null;
         };
         /** PublicBookingResult */
         PublicBookingResult: {
@@ -7039,6 +7060,11 @@ export interface components {
              * @default 0
              */
             review_count: number;
+            /**
+             * Subject
+             * @description What a booking names besides the client; null asks for nothing
+             */
+            subject?: ("pet" | "student" | "property") | null;
             /** Cover Url */
             cover_url?: string | null;
             /** About */
@@ -7166,8 +7192,10 @@ export interface components {
             rating?: number | null;
             /** First Name */
             first_name?: string | null;
-            /** Pet */
-            pet?: string | null;
+            /** Subject */
+            subject?: ("pet" | "student" | "property") | null;
+            /** Subject Name */
+            subject_name?: string | null;
             /** Service */
             service?: string | null;
             /** Staff */
@@ -7809,13 +7837,6 @@ export interface components {
             /** Challenge Id */
             challenge_id: string;
         };
-        /** ReturningPet */
-        ReturningPet: {
-            /** Id */
-            id: string;
-            /** Name */
-            name: string;
-        };
         /** ReturningProfile */
         ReturningProfile: {
             /** Name */
@@ -7824,8 +7845,8 @@ export interface components {
             email: string | null;
             /** Phone */
             phone: string | null;
-            /** Pets */
-            pets: components["schemas"]["ReturningPet"][];
+            /** Subjects */
+            subjects: components["schemas"]["ReturningSubject"][];
             last_visit: components["schemas"]["ReturningVisit"] | null;
         };
         /** ReturningRequest */
@@ -7834,6 +7855,13 @@ export interface components {
             email?: string | null;
             /** Phone */
             phone?: string | null;
+        };
+        /** ReturningSubject */
+        ReturningSubject: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
         };
         /** ReturningVerified */
         ReturningVerified: {
@@ -8113,49 +8141,19 @@ export interface components {
             /** Series Ended */
             series_ended: string[];
         };
-        /**
-         * SubjectAttributes
-         * @description The typed details of a subject; keys a kind doesn't use stay empty, unknown keys are kept.
-         */
-        SubjectAttributes: {
-            /** Species */
-            species?: ("dog" | "cat" | "other") | null;
-            /** Breed */
-            breed?: string | null;
-            /** Weight Kg */
-            weight_kg?: number | null;
-            /** Birthday */
-            birthday?: string | null;
-            /** Sex */
-            sex?: ("female" | "male") | null;
-            /** Temperament */
-            temperament?: string | null;
-            /** Coat */
-            coat?: string | null;
-            /** Allergies */
-            allergies?: string | null;
-            /** Vet */
-            vet?: string | null;
-            /** Rabies Until */
-            rabies_until?: string | null;
-            /** Style */
-            style?: string | null;
-        } & {
-            [key: string]: unknown;
-        };
         /** SubjectCreate */
         SubjectCreate: {
             /** Client Id */
             client_id: string;
-            /**
-             * Kind
-             * @default pet
-             * @enum {string}
-             */
-            kind: "pet" | "vehicle" | "child" | "property";
             /** Name */
             name: string;
-            attributes?: components["schemas"]["SubjectAttributes"];
+            /**
+             * Attributes
+             * @description Validated against the business's subject kind
+             */
+            attributes?: {
+                [key: string]: unknown;
+            };
         };
         /** SubjectOut */
         SubjectOut: {
@@ -8165,11 +8163,6 @@ export interface components {
             business_id: string;
             /** Client Id */
             client_id: string;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "pet" | "vehicle" | "child" | "property";
             /** Name */
             name: string;
             /** Attributes */
@@ -8191,7 +8184,10 @@ export interface components {
         SubjectUpdate: {
             /** Name */
             name?: string | null;
-            attributes?: components["schemas"]["SubjectAttributes"] | null;
+            /** Attributes */
+            attributes?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** SubscriptionCreate */
         SubscriptionCreate: {

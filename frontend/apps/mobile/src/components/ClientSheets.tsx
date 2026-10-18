@@ -10,6 +10,8 @@ import {
     useSubjectForm,
     formatParts,
     useBusinessZone,
+    kindWord,
+    useSubjectKind,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -35,7 +37,7 @@ import { useRole } from "../lib/auth";
 
 const c = theme.colors;
 const e = strings.clients.edit;
-const p = strings.clients.pets;
+const sj = strings.subjects;
 const h = strings.clients.history;
 const t = strings.clients.tidy;
 
@@ -235,27 +237,27 @@ export function ClientEditorSheet({
                     }}
                 />
             </View>
-            {editor.mode === "add" ? (
+            {editor.firstSubject !== null ? (
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>{e.petSection}</Text>
-                    <Text style={styles.hint}>{e.petSectionHint}</Text>
+                    <Text style={styles.sectionTitle}>{sj.first(editor.firstSubject.kind)}</Text>
+                    <Text style={styles.hint}>{sj.firstHint(editor.firstSubject.kind)}</Text>
                     <TextField
-                        label={e.petName}
+                        label={sj.firstName(editor.firstSubject.kind)}
                         optional
-                        value={draft.petName}
+                        value={draft.subjectName}
                         onChange={(v) => {
-                            set("petName", v);
+                            set("subjectName", v);
                         }}
-                        placeholder={e.petNamePlaceholder}
+                        placeholder={sj.firstNamePlaceholder(editor.firstSubject.kind)}
                     />
                     <TextField
-                        label={e.petBreed}
+                        label={editor.firstSubject.detail.label}
                         optional
-                        value={draft.petBreed}
+                        value={draft.subjectDetail}
                         onChange={(v) => {
-                            set("petBreed", v);
+                            set("subjectDetail", v);
                         }}
-                        placeholder={e.petBreedPlaceholder}
+                        placeholder={sj.firstDetailPlaceholder(editor.firstSubject.kind)}
                     />
                 </View>
             ) : null}
@@ -276,23 +278,24 @@ export function ClientEditorSheet({
     );
 }
 
-/** Add or edit one pet in a sheet, from the pet list or the client record. */
-export function PetSheet({
+/** Add or edit one subject in a sheet, from the subject list or the client record. */
+export function SubjectSheet({
     clientId,
-    pet,
+    subject,
     onClose,
 }: {
     clientId: string;
-    pet: SubjectRow | null;
+    subject: SubjectRow | null;
     onClose: () => void;
 }) {
     const zone = useBusinessZone();
-    const form = useSubjectForm(api, clientId, pet, onClose);
+    const form = useSubjectForm(api, clientId, subject, onClose);
+    const word = kindWord(form.kind);
     const askRemove = (): void => {
         confirm({
-            title: p.removeTitle(form.name),
-            message: p.removeBody,
-            confirmLabel: p.removeConfirm,
+            title: sj.removeTitle(form.name),
+            message: sj.removeBody(word),
+            confirmLabel: sj.removeConfirm,
             destructive: true,
         })
             .then((ok) => {
@@ -303,14 +306,14 @@ export function PetSheet({
     return (
         <Modal open onClose={onClose} size="xl">
             <SheetHeader
-                title={form.mode === "add" ? p.addPet : p.editPet}
+                title={form.mode === "add" ? sj.add(word) : sj.editNamed(form.name)}
                 onCancel={onClose}
-                action={p.saveShort}
+                action={sj.saveShort}
                 onAction={form.submit}
                 busy={form.busy}
             />
             <TextField
-                label={p.nameLabel}
+                label={sj.nameLabel}
                 required
                 value={form.name}
                 onChange={form.setName}
@@ -374,7 +377,7 @@ export function PetSheet({
             {form.mode === "edit" ? (
                 <View style={styles.danger}>
                     <Button variant="danger" full onPress={askRemove}>
-                        {p.removePet}
+                        {sj.remove(word)}
                     </Button>
                 </View>
             ) : null}
@@ -382,17 +385,19 @@ export function PetSheet({
     );
 }
 
-/** The note text, which pet it is about and whether it is pinned, in a sheet. */
+/** The note text, which subject it is about and whether it is pinned, in a sheet. */
 export function NoteSheet({
     clientId,
-    pets,
+    subjects,
     onClose,
 }: {
     clientId: string;
-    pets: readonly SubjectRow[];
+    subjects: readonly SubjectRow[];
     onClose: () => void;
 }) {
     const comp = useNoteComposer(api, clientId, onClose);
+    const kind = useSubjectKind();
+    const placeholder = h.notePlaceholder(kindWord(kind));
     return (
         <Modal open onClose={onClose} size="xl">
             <SheetHeader
@@ -406,19 +411,19 @@ export function NoteSheet({
             <TextField
                 multiline
                 rows={3}
-                name={h.notePlaceholder}
+                name={placeholder}
                 value={comp.body}
                 onChange={comp.setBody}
-                placeholder={h.notePlaceholder}
+                placeholder={placeholder}
                 autoFocus
             />
-            {pets.length > 0 ? (
+            {kind !== null && subjects.length > 0 ? (
                 <Field label={h.about}>
                     <Choice
                         label={h.about}
                         options={[
                             { key: "client", label: h.aboutClient },
-                            ...pets.map((pet) => ({ key: pet.id, label: pet.name })),
+                            ...subjects.map((x) => ({ key: x.id, label: x.name })),
                         ]}
                         value={comp.about}
                         onChange={comp.setAbout}

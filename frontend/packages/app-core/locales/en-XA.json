@@ -1148,8 +1148,8 @@
     "printing.paidStamp": {
         "message": "[Þåîð one]"
     },
-    "printing.forPet": {
-        "message": "[ƒöŕ {pet} one]"
+    "printing.forSubject": {
+        "message": "[ƒöŕ {name} one]"
     },
     "printing.reference": {
         "message": "#{number}"
@@ -2664,10 +2664,7 @@
         "message": "[Çļîéñţ one]"
     },
     "bookings.composerClientSearch": {
-        "message": "[Šéåŕçĥ çļîéñţš öŕ þéţš one two]"
-    },
-    "bookings.composerPet": {
-        "message": "[Þéţ one]"
+        "message": "[{kind,select,other{Šéåŕçĥ çļîéñţš} pet{Šéåŕçĥ çļîéñţš öŕ þéţš} property{Šéåŕçĥ çļîéñţš öŕ þŕöþéŕţîéš} student{Šéåŕçĥ çļîéñţš öŕ šţûðéñţš}} one two three four five six seven]"
     },
     "bookings.composerService": {
         "message": "[Šéŕṽîçé one]"
@@ -2697,7 +2694,7 @@
         "message": "[Ñöţé ƒöŕ ţĥé ţéåɱ one two]"
     },
     "bookings.composerNotePlaceholder": {
-        "message": "[Åñýţĥîñĝ ţĥé ĝŕööɱéŕ šĥöûļð ķñöŵ one two three]"
+        "message": "[Åñýţĥîñĝ ţĥé ţéåɱ šĥöûļð ķñöŵ one two three]"
     },
     "bookings.composerConfirm": {
         "message": "[Šéñð ţĥé çļîéñţ å çöñƒîŕɱåţîöñ one two three]"
@@ -2856,7 +2853,7 @@
         "message": "[Ñéŵ one]"
     },
     "recurrences.search": {
-        "message": "[Šéåŕçĥ çļîéñţ, þéţ öŕ šéŕṽîçé one two three]"
+        "message": "[{kind,select,other{Šéåŕçĥ çļîéñţ öŕ šéŕṽîçé} pet{Šéåŕçĥ çļîéñţ, þéţ öŕ šéŕṽîçé} property{Šéåŕçĥ çļîéñţ, þŕöþéŕţý öŕ šéŕṽîçé} student{Šéåŕçĥ çļîéñţ, šţûðéñţ öŕ šéŕṽîçé}} one two three four five six seven eight]"
     },
     "recurrences.filterAll": {
         "message": "[Åļļ one]"
@@ -2945,8 +2942,8 @@
     "recurrences.oneConfirmationHint": {
         "message": "[Îñšţéåð öƒ å ɱéššåĝé þéŕ ṽîšîţ. Ŕéɱîñðéŕš šţîļļ ĝö öûţ ƀéƒöŕé éåçĥ öñé. one two three four five]"
     },
-    "recurrences.pet": {
-        "message": "[Þéţ: {name} one]"
+    "recurrences.subject": {
+        "message": "[{kind,select,other{{name}} pet{Þéţ: {name}} property{Þŕöþéŕţý: {name}} student{Šţûðéñţ: {name}}} one two]"
     },
     "recurrences.dates": {
         "message": "[Đåţéš one]"
@@ -3108,7 +3105,7 @@
         "message": "[Ŵĥåţ çĥåñĝéš one two]"
     },
     "recurrences.noChange": {
-        "message": "[Þîçķ å ñéŵ ðåý, ţîɱé öŕ ĝŕööɱéŕ ţö šéé ŵĥåţ ɱöṽéš. one two three four]"
+        "message": "[Þîçķ å ñéŵ ðåý, ţîɱé öŕ ţéåɱ ɱéɱƀéŕ ţö šéé ŵĥåţ ɱöṽéš. one two three four]"
     },
     "recurrences.changeSummary": {
         "message": "[{n,plural,one{# ṽîšîţ ɱöṽéš} other{# ṽîšîţš ɱöṽé}} ţö {day} åţ {time} ŵîţĥ {who}.{conflicts,plural,one{ # çļåšĥéš åñð ŵîļļ ƀé ļéƒţ ŵĥéŕé îţ îš.} other{ # çļåšĥ åñð ŵîļļ ƀé ļéƒţ ŵĥéŕé îţ îš.} =0{}} one two three four five six seven]"
@@ -3237,7 +3234,7 @@
         "message": "[Ñéŕṽöûš åŕöûñð öţĥéŕ ðöĝš one two three]"
     },
     "classes.addPlaceholder": {
-        "message": "[Åðð å çļîéñţ öŕ þéţ one two]"
+        "message": "[{kind,select,other{Åðð å çļîéñţ} pet{Åðð å çļîéñţ öŕ þéţ} property{Åðð å çļîéñţ öŕ þŕöþéŕţý} student{Åðð å çļîéñţ öŕ šţûðéñţ}} one two three four five]"
     },
     "classes.added": {
         "message": "[{name} îš ƀööķéð îñţö ţĥîš çļåšš. one two three]"
@@ -3441,7 +3438,7 @@
         "message": "[Ñö ƒöŕɱš ýéţ one two]"
     },
     "forms.empty": {
-        "message": "[Šţåŕţ ŵîţĥ å ñéŵ çļîéñţ îñţåķé: þéţ ðéţåîļš, ṽåççîñåţîöñš åñð åñ éɱéŕĝéñçý çöñţåçţ. one two three four five six]"
+        "message": "[Šţåŕţ ŵîţĥ å ñéŵ çļîéñţ îñţåķé: çöñţåçţ ðéţåîļš, þŕéƒéŕéñçéš åñð åñ éɱéŕĝéñçý çöñţåçţ. one two three four five six]"
     },
     "forms.fields": {
         "message": "[{n,plural,one{# ǫûéšţîöñ} other{# ǫûéšţîöñš}} one two]"
@@ -3894,7 +3891,7 @@
         "message": "[Çöñšûɱé one]"
     },
     "clients.record.searchPlaceholder": {
-        "message": "[Šéåŕçĥ ñåɱé, þĥöñé, éɱåîļ öŕ þéţ one two three]"
+        "message": "[{kind,select,other{Šéåŕçĥ ñåɱé, þĥöñé öŕ éɱåîļ} pet{Šéåŕçĥ ñåɱé, þĥöñé, éɱåîļ öŕ þéţ} property{Šéåŕçĥ ñåɱé, þĥöñé, éɱåîļ öŕ åððŕéšš} student{Šéåŕçĥ ñåɱé, þĥöñé, éɱåîļ öŕ šţûðéñţ}} one two three four five six seven eight]"
     },
     "clients.record.emptyTitle": {
         "message": "[Ñö çļîéñţš ýéţ one two]"
@@ -3904,9 +3901,6 @@
     },
     "clients.record.colClient": {
         "message": "[Çļîéñţ one]"
-    },
-    "clients.record.colPets": {
-        "message": "[Þéţš one]"
     },
     "clients.record.colNext": {
         "message": "[Ñéẋţ ṽîšîţ one two]"
@@ -3934,12 +3928,6 @@
     },
     "clients.record.since": {
         "message": "[Çļîéñţ šîñçé one two]"
-    },
-    "clients.record.pets": {
-        "message": "[Þéţš one]"
-    },
-    "clients.record.addPet": {
-        "message": "[Åðð þéţ one]"
     },
     "clients.record.upcoming": {
         "message": "[Ûþçöɱîñĝ one]"
@@ -4004,9 +3992,6 @@
     "clients.record.noNotes": {
         "message": "[Ñö ñöţéš ýéţ. one two]"
     },
-    "clients.record.noPets": {
-        "message": "[Ñö þéţš ýéţ. one two]"
-    },
     "clients.record.loadingRecord": {
         "message": "[Ļöåðîñĝ ţĥé ŕéçöŕð one two]"
     },
@@ -4015,9 +4000,6 @@
     },
     "clients.record.editShort": {
         "message": "[Éðîţ one]"
-    },
-    "clients.record.editPetNamed": {
-        "message": "[Éðîţ {name} one]"
     },
     "clients.record.addNoteTitle": {
         "message": "[Åðð å ñöţé one]"
@@ -4081,24 +4063,6 @@
     },
     "clients.edit.consentRecorded": {
         "message": "[Åĝŕééð {when}, ŕéçöŕðéð ƀý {who} one two]"
-    },
-    "clients.edit.petSection": {
-        "message": "[Ƒîŕšţ þéţ one]"
-    },
-    "clients.edit.petSectionHint": {
-        "message": "[Ýöû çåñ åðð ɱöŕé þéţš ƒŕöɱ ţĥé ŕéçöŕð. one two three]"
-    },
-    "clients.edit.petName": {
-        "message": "[Þéţ'š ñåɱé one]"
-    },
-    "clients.edit.petNamePlaceholder": {
-        "message": "[Ɓéļļå one]"
-    },
-    "clients.edit.petBreed": {
-        "message": "[Ɓŕééð one]"
-    },
-    "clients.edit.petBreedPlaceholder": {
-        "message": "[Ĝöļðéñðööðļé one two]"
     },
     "clients.edit.nameRequired": {
         "message": "[Éñţéŕ ţĥé çļîéñţ'š ñåɱé. one two]"
@@ -4196,173 +4160,248 @@
     "clients.edit.dangerHint": {
         "message": "[Åŕçĥîṽîñĝ ķééþš éṽéŕý ƀööķîñĝ, îñṽöîçé åñð þåýɱéñţ. one two three four]"
     },
-    "clients.pets.pets": {
-        "message": "[Þéţš one]"
+    "subjects.many": {
+        "message": "[{kind,select,other{Đéţåîļš} pet{Þéţš} property{Þŕöþéŕţîéš} student{Šţûðéñţš}} one two three]"
     },
-    "clients.pets.addPet": {
-        "message": "[Åðð þéţ one]"
+    "subjects.one": {
+        "message": "[{kind,select,other{Đéţåîļ} pet{Þéţ} property{Þŕöþéŕţý} student{Šţûðéñţ}} one two three]"
     },
-    "clients.pets.editPet": {
-        "message": "[Éðîţ þéţ one]"
+    "subjects.add": {
+        "message": "[{kind,select,other{Åðð} pet{Åðð þéţ} property{Åðð þŕöþéŕţý} student{Åðð šţûðéñţ}} one two three]"
     },
-    "clients.pets.editNamed": {
-        "message": "[Éðîţ {name} one]"
-    },
-    "clients.pets.removePet": {
-        "message": "[Ŕéɱöṽé þéţ one two]"
-    },
-    "clients.pets.removeTitle": {
-        "message": "[Ŕéɱöṽé {name}? one]"
-    },
-    "clients.pets.removeBody": {
-        "message": "[Þåšţ ƀööķîñĝš åñð îñṽöîçéš ķééþ ţĥé þéţ'š ñåɱé. Îţ ŵöñ'ţ ƀé öƒƒéŕéð ƒöŕ ñéŵ ƀööķîñĝš. one two three four five six]"
-    },
-    "clients.pets.removeConfirm": {
-        "message": "[Ŕéɱöṽé one]"
-    },
-    "clients.pets.removeError": {
-        "message": "[Çöûļðñ'ţ ŕéɱöṽé ţĥîš þéţ. Þļéåšé ţŕý åĝåîñ. one two three]"
-    },
-    "clients.pets.nameLabel": {
-        "message": "[Ñåɱé one]"
-    },
-    "clients.pets.nameRequired": {
-        "message": "[Ĝîṽé ţĥé þéţ å ñåɱé. one two]"
-    },
-    "clients.pets.speciesLabel": {
-        "message": "[Šþéçîéš one]"
-    },
-    "clients.pets.dog": {
-        "message": "[Đöĝ one]"
-    },
-    "clients.pets.cat": {
-        "message": "[Çåţ one]"
-    },
-    "clients.pets.other": {
-        "message": "[Öţĥéŕ one]"
-    },
-    "clients.pets.breedLabel": {
-        "message": "[Ɓŕééð one]"
-    },
-    "clients.pets.weightLabel": {
-        "message": "[Ŵéîĝĥţ one]"
-    },
-    "clients.pets.weightUnit": {
-        "message": "[ķĝ one]"
-    },
-    "clients.pets.weightInvalid": {
-        "message": "[Éñţéŕ å ŵéîĝĥţ îñ ķîļöĝŕåɱš, ļîķé 22 öŕ 6.5. one two three]"
-    },
-    "clients.pets.dateInvalid": {
-        "message": "[Ûšé ţĥé ƒöŕɱåţ ÝÝÝÝ-ṀṀ-ĐĐ. one two]"
-    },
-    "clients.pets.birthdayLabel": {
-        "message": "[Ɓîŕţĥðåý one]"
-    },
-    "clients.pets.sexLabel": {
-        "message": "[Šéẋ one]"
-    },
-    "clients.pets.female": {
-        "message": "[Ƒéɱåļé one]"
-    },
-    "clients.pets.male": {
-        "message": "[Ṁåļé one]"
-    },
-    "clients.pets.temperamentLabel": {
-        "message": "[Ţéɱþéŕåɱéñţ one two]"
-    },
-    "clients.pets.temperaments.calm": {
-        "message": "[çåļɱ one]"
-    },
-    "clients.pets.temperaments.friendly": {
-        "message": "[ƒŕîéñðļý one]"
-    },
-    "clients.pets.temperaments.energetic": {
-        "message": "[éñéŕĝéţîç one two]"
-    },
-    "clients.pets.temperaments.anxious": {
-        "message": "[åñẋîöûš one]"
-    },
-    "clients.pets.temperaments.reactive": {
-        "message": "[ŕéåçţîṽé one]"
-    },
-    "clients.pets.coatLabel": {
-        "message": "[Çöåţ one]"
-    },
-    "clients.pets.allergiesLabel": {
-        "message": "[Åļļéŕĝîéš one two]"
-    },
-    "clients.pets.allergiesPlaceholder": {
-        "message": "[Þŕöðûçţš öŕ ţŕéåţš ţö åṽöîð one two three]"
-    },
-    "clients.pets.vetLabel": {
-        "message": "[Ṽéţ çļîñîç one two]"
-    },
-    "clients.pets.rabiesLabel": {
-        "message": "[Ŕåƀîéš ṽåççîñé ṽåļîð ûñţîļ one two three]"
-    },
-    "clients.pets.styleLabel": {
-        "message": "[Ĝŕööɱîñĝ šţýļé one two]"
-    },
-    "clients.pets.stylePlaceholder": {
-        "message": "[Ĥöŵ ţĥéý ļîķé ţĥé çûţ, îñ ýöûŕ ŵöŕðš one two three]"
-    },
-    "clients.pets.save": {
-        "message": "[Šåṽé þéţ one]"
-    },
-    "clients.pets.saveShort": {
-        "message": "[Šåṽé one]"
-    },
-    "clients.pets.saving": {
-        "message": "[Šåṽîñĝ… one]"
-    },
-    "clients.pets.saveError": {
-        "message": "[Çöûļðñ'ţ šåṽé ţĥîš þéţ. Þļéåšé ţŕý åĝåîñ. one two three]"
-    },
-    "clients.pets.edit": {
+    "subjects.edit": {
         "message": "[Éðîţ one]"
     },
-    "clients.pets.age": {
-        "message": "[{years,plural,other{# ýŕ} =0{Ûñðéŕ 1 ýŕ}} one two]"
+    "subjects.editNamed": {
+        "message": "[Éðîţ {name} one]"
     },
-    "clients.pets.weight": {
-        "message": "[{kg, number} ķĝ one]"
+    "subjects.remove": {
+        "message": "[{kind,select,other{Ŕéɱöṽé} pet{Ŕéɱöṽé þéţ} property{Ŕéɱöṽé þŕöþéŕţý} student{Ŕéɱöṽé šţûðéñţ}} one two three four]"
     },
-    "clients.pets.allergy": {
-        "message": "[Åļļéŕĝîç: {what} one]"
+    "subjects.removeTitle": {
+        "message": "[Ŕéɱöṽé {name}? one]"
     },
-    "clients.pets.temperamentAlert": {
-        "message": "[Ţéɱþéŕåɱéñţ: {t} one two]"
+    "subjects.removeBody": {
+        "message": "[{kind,select,other{Þåšţ ƀööķîñĝš åñð îñṽöîçéš ķééþ ţĥé ñåɱé. Îţ ŵöñ'ţ ƀé öƒƒéŕéð ƒöŕ ñéŵ ƀööķîñĝš.} pet{Þåšţ ƀööķîñĝš åñð îñṽöîçéš ķééþ ţĥé þéţ'š ñåɱé. Îţ ŵöñ'ţ ƀé öƒƒéŕéð ƒöŕ ñéŵ ƀööķîñĝš.} property{Þåšţ ƀööķîñĝš åñð îñṽöîçéš ķééþ ţĥé þŕöþéŕţý'š ñåɱé. Îţ ŵöñ'ţ ƀé öƒƒéŕéð ƒöŕ ñéŵ ƀööķîñĝš.} student{Þåšţ ƀööķîñĝš åñð îñṽöîçéš ķééþ ţĥé šţûðéñţ'š ñåɱé. Ţĥéý ŵöñ'ţ ƀé öƒƒéŕéð ƒöŕ ñéŵ ƀööķîñĝš.}} one two three four five six seven eight nine ten one two three four five six seven eight nine ten]"
     },
-    "clients.pets.rabiesExpired": {
-        "message": "[Ŕåƀîéš ṽåççîñé éẋþîŕéð one two]"
+    "subjects.removeConfirm": {
+        "message": "[Ŕéɱöṽé one]"
     },
-    "clients.pets.rabiesSoon": {
-        "message": "[Ŕåƀîéš ṽåççîñé éẋþîŕéš {when} one two]"
+    "subjects.removeError": {
+        "message": "[{kind,select,other{Çöûļðñ'ţ ŕéɱöṽé ţĥîš. Þļéåšé ţŕý åĝåîñ.} pet{Çöûļðñ'ţ ŕéɱöṽé ţĥîš þéţ. Þļéåšé ţŕý åĝåîñ.} property{Çöûļðñ'ţ ŕéɱöṽé ţĥîš þŕöþéŕţý. Þļéåšé ţŕý åĝåîñ.} student{Çöûļðñ'ţ ŕéɱöṽé ţĥîš šţûðéñţ. Þļéåšé ţŕý åĝåîñ.}} one two three four five six seven eight nine ten one]"
     },
-    "clients.pets.visits": {
+    "subjects.nameLabel": {
+        "message": "[Ñåɱé one]"
+    },
+    "subjects.nameRequired": {
+        "message": "[{kind,select,other{Åðð å ñåɱé.} pet{Ĝîṽé ţĥé þéţ å ñåɱé.} property{Ĝîṽé ţĥé þŕöþéŕţý å ñåɱé, ļîķé Ĥöɱé öŕ Çöţţåĝé.} student{Åðð ţĥé šţûðéñţ'š ñåɱé.}} one two three four five six seven]"
+    },
+    "subjects.dateInvalid": {
+        "message": "[Ûšé ţĥé ƒöŕɱåţ ÝÝÝÝ-ṀṀ-ĐĐ. one two]"
+    },
+    "subjects.save": {
+        "message": "[{kind,select,other{Šåṽé} pet{Šåṽé þéţ} property{Šåṽé þŕöþéŕţý} student{Šåṽé šţûðéñţ}} one two three]"
+    },
+    "subjects.saveShort": {
+        "message": "[Šåṽé one]"
+    },
+    "subjects.saving": {
+        "message": "[Šåṽîñĝ… one]"
+    },
+    "subjects.saveError": {
+        "message": "[{kind,select,other{Çöûļðñ'ţ šåṽé ţĥîš. Þļéåšé ţŕý åĝåîñ.} pet{Çöûļðñ'ţ šåṽé ţĥîš þéţ. Þļéåšé ţŕý åĝåîñ.} property{Çöûļðñ'ţ šåṽé ţĥîš þŕöþéŕţý. Þļéåšé ţŕý åĝåîñ.} student{Çöûļðñ'ţ šåṽé ţĥîš šţûðéñţ. Þļéåšé ţŕý åĝåîñ.}} one two three four five six seven eight nine ten]"
+    },
+    "subjects.visits": {
         "message": "[Ṽîšîţš one]"
     },
-    "clients.pets.lastVisit": {
+    "subjects.lastVisit": {
         "message": "[Ļåšţ ṽîšîţ one two]"
     },
-    "clients.pets.nextVisit": {
+    "subjects.nextVisit": {
         "message": "[Ñéẋţ ṽîšîţ one two]"
     },
-    "clients.pets.nothingBooked": {
+    "subjects.nothingBooked": {
         "message": "[Ñöţĥîñĝ ƀööķéð one two]"
     },
-    "clients.pets.noPetsTitle": {
-        "message": "[Ñö þéţš ýéţ one two]"
+    "subjects.noneTitle": {
+        "message": "[{kind,select,other{Ñöţĥîñĝ åððéð ýéţ} pet{Ñö þéţš ýéţ} property{Ñö þŕöþéŕţîéš ýéţ} student{Ñö šţûðéñţš ýéţ}} one two three four five]"
     },
-    "clients.pets.noPetsBody": {
-        "message": "[Åðð öñé šö ƀööķîñĝš åñð îñṽöîçéš ñåɱé ţĥé ŕîĝĥţ åñîɱåļ. one two three four]"
+    "subjects.noneBody": {
+        "message": "[{kind,select,other{Åðð öñé šö ƀööķîñĝš åñð îñṽöîçéš ñåɱé îţ.} pet{Åðð öñé šö ƀööķîñĝš åñð îñṽöîçéš ñåɱé ţĥé ŕîĝĥţ åñîɱåļ.} property{Åðð öñé šö ƀööķîñĝš åñð îñṽöîçéš ñåɱé ţĥé ŕîĝĥţ åððŕéšš.} student{Åðð öñé šö ƀööķîñĝš åñð îñṽöîçéš ñåɱé ţĥé ŕîĝĥţ šţûðéñţ.}} one two three four five six seven eight nine ten one two three]"
     },
-    "clients.pets.loading": {
-        "message": "[Ļöåðîñĝ þéţš one two]"
+    "subjects.none": {
+        "message": "[{kind,select,other{Ñöţĥîñĝ åððéð ýéţ.} pet{Ñö þéţš ýéţ.} property{Ñö þŕöþéŕţîéš ýéţ.} student{Ñö šţûðéñţš ýéţ.}} one two three four five]"
     },
-    "clients.pets.loadError": {
-        "message": "[Çöûļðñ'ţ ļöåð þéţš one two]"
+    "subjects.loading": {
+        "message": "[{kind,select,other{Ļöåðîñĝ} pet{Ļöåðîñĝ þéţš} property{Ļöåðîñĝ þŕöþéŕţîéš} student{Ļöåðîñĝ šţûðéñţš}} one two three four]"
+    },
+    "subjects.loadError": {
+        "message": "[{kind,select,other{Çöûļðñ'ţ ļöåð} pet{Çöûļðñ'ţ ļöåð þéţš} property{Çöûļðñ'ţ ļöåð þŕöþéŕţîéš} student{Çöûļðñ'ţ ļöåð šţûðéñţš}} one two three four five six]"
+    },
+    "subjects.first": {
+        "message": "[{kind,select,other{Ƒîŕšţ éñţŕý} pet{Ƒîŕšţ þéţ} property{Ƒîŕšţ þŕöþéŕţý} student{Ƒîŕšţ šţûðéñţ}} one two three four]"
+    },
+    "subjects.firstHint": {
+        "message": "[{kind,select,other{Ýöû çåñ åðð ɱöŕé ƒŕöɱ ţĥé ŕéçöŕð.} pet{Ýöû çåñ åðð ɱöŕé þéţš ƒŕöɱ ţĥé ŕéçöŕð.} property{Ýöû çåñ åðð ɱöŕé þŕöþéŕţîéš ƒŕöɱ ţĥé ŕéçöŕð.} student{Ýöû çåñ åðð ɱöŕé šţûðéñţš ƒŕöɱ ţĥé ŕéçöŕð.}} one two three four five six seven eight nine ten]"
+    },
+    "subjects.firstName": {
+        "message": "[{kind,select,other{Ñåɱé} pet{Þéţ'š ñåɱé} property{Þŕöþéŕţý ñåɱé} student{Šţûðéñţ'š ñåɱé}} one two three]"
+    },
+    "subjects.firstNamePlaceholder": {
+        "message": "[{kind,select,other{} pet{Ɓéļļå} property{Ĥöɱé} student{Ṁåýå}} one two]"
+    },
+    "subjects.firstDetailPlaceholder": {
+        "message": "[{kind,select,other{} pet{Ĝöļðéñðööðļé} property{12 Åŕƀûţûš Ļåñé} student{Ĝŕåðé 4}} one two three]"
+    },
+    "subjects.choiceLabel": {
+        "message": "[Ŵĥåţ ðö çļîéñţš ƀööķ ƒöŕ? one two]"
+    },
+    "subjects.choiceHelp": {
+        "message": "[Ɓööķîñĝš åñð çļîéñţ ŕéçöŕðš åšķ ƒöŕ ţĥîš. Ýöû çåñ çĥåñĝé îţ ļåţéŕ îñ ƀûšîñéšš šéţţîñĝš. one two three four five six]"
+    },
+    "subjects.choice": {
+        "message": "[{kind,select,other{Öñļý ţĥé çļîéñţ} pet{Þéţš} property{Þŕöþéŕţîéš} student{Šţûðéñţš}} one two three]"
+    },
+    "subjects.choiceHint": {
+        "message": "[{kind,select,other{Šåļöñš, ƒîţñéšš, ŵéļļñéšš åñð þĥöţöĝŕåþĥý} pet{Ĝŕööɱîñĝ, ðåýçåŕé åñð ƀöåŕðîñĝ} property{Çļéåñîñĝ åñð ĥöɱé šéŕṽîçéš} student{Ţûţöŕîñĝ åñð ļéššöñš}} one two three four five six seven eight]"
+    },
+    "subjects.choiceRequired": {
+        "message": "[Çĥööšé ŵĥåţ çļîéñţš ƀööķ ƒöŕ. one two three]"
+    },
+    "subjects.changeTitle": {
+        "message": "[Çĥåñĝé ŵĥåţ çļîéñţš ƀööķ ƒöŕ? one two three]"
+    },
+    "subjects.changeBody": {
+        "message": "[{from,select,other{{count,plural,one{# šåṽéð ñåɱé} other{# šåṽéð ñåɱéš}}} pet{{count,plural,one{# þéţ} other{# þéţš}}} property{{count,plural,one{# þŕöþéŕţý} other{# þŕöþéŕţîéš}}} student{{count,plural,one{# šţûðéñţ} other{# šţûðéñţš}}}} öñ çļîéñţ ŕéçöŕðš {to,select,other{ŵîļļ ƀé ĥîððéñ ƒŕöɱ ƀööķîñĝš åñð ŕéçöŕðš} pet{ŵîļļ ƀé šĥöŵñ åš þéţš} property{ŵîļļ ƀé šĥöŵñ åš þŕöþéŕţîéš} student{ŵîļļ ƀé šĥöŵñ åš šţûðéñţš}}. Ţĥéîŕ ðéţåîļš åŕé ķéþţ. one two three four five six seven eight nine ten one two three four]"
+    },
+    "subjects.changeConfirm": {
+        "message": "[Çĥåñĝé one]"
+    },
+    "subjects.age": {
+        "message": "[{years,plural,other{# ýŕ} =0{Ûñðéŕ 1 ýŕ}} one two]"
+    },
+    "subjects.weight": {
+        "message": "[{kg, number} ķĝ one]"
+    },
+    "subjects.rooms": {
+        "message": "[{rooms,plural,one{# ŕööɱ} other{# ŕööɱš}} one two]"
+    },
+    "subjects.allergy": {
+        "message": "[Åļļéŕĝîç: {what} one]"
+    },
+    "subjects.temperamentAlert": {
+        "message": "[Ţéɱþéŕåɱéñţ: {t} one two]"
+    },
+    "subjects.rabiesExpired": {
+        "message": "[Ŕåƀîéš ṽåççîñé éẋþîŕéð one two]"
+    },
+    "subjects.rabiesSoon": {
+        "message": "[Ŕåƀîéš ṽåççîñé éẋþîŕéš {when} one two]"
+    },
+    "subjects.fields.birthday": {
+        "message": "[Ɓîŕţĥðåý one]"
+    },
+    "subjects.fields.allergies": {
+        "message": "[Åļļéŕĝîéš one two]"
+    },
+    "subjects.fields.pet.species": {
+        "message": "[Šþéçîéš one]"
+    },
+    "subjects.fields.pet.dog": {
+        "message": "[Đöĝ one]"
+    },
+    "subjects.fields.pet.cat": {
+        "message": "[Çåţ one]"
+    },
+    "subjects.fields.pet.other": {
+        "message": "[Öţĥéŕ one]"
+    },
+    "subjects.fields.pet.breed": {
+        "message": "[Ɓŕééð one]"
+    },
+    "subjects.fields.pet.weight": {
+        "message": "[Ŵéîĝĥţ one]"
+    },
+    "subjects.fields.pet.weightUnit": {
+        "message": "[ķĝ one]"
+    },
+    "subjects.fields.pet.weightInvalid": {
+        "message": "[Éñţéŕ å ŵéîĝĥţ îñ ķîļöĝŕåɱš, ļîķé 22 öŕ 6.5. one two three]"
+    },
+    "subjects.fields.pet.sex": {
+        "message": "[Šéẋ one]"
+    },
+    "subjects.fields.pet.female": {
+        "message": "[Ƒéɱåļé one]"
+    },
+    "subjects.fields.pet.male": {
+        "message": "[Ṁåļé one]"
+    },
+    "subjects.fields.pet.temperament": {
+        "message": "[Ţéɱþéŕåɱéñţ one two]"
+    },
+    "subjects.fields.pet.temperaments.calm": {
+        "message": "[çåļɱ one]"
+    },
+    "subjects.fields.pet.temperaments.friendly": {
+        "message": "[ƒŕîéñðļý one]"
+    },
+    "subjects.fields.pet.temperaments.energetic": {
+        "message": "[éñéŕĝéţîç one two]"
+    },
+    "subjects.fields.pet.temperaments.anxious": {
+        "message": "[åñẋîöûš one]"
+    },
+    "subjects.fields.pet.temperaments.reactive": {
+        "message": "[ŕéåçţîṽé one]"
+    },
+    "subjects.fields.pet.coat": {
+        "message": "[Çöåţ one]"
+    },
+    "subjects.fields.pet.allergiesPlaceholder": {
+        "message": "[Þŕöðûçţš öŕ ţŕéåţš ţö åṽöîð one two three]"
+    },
+    "subjects.fields.pet.vet": {
+        "message": "[Ṽéţ çļîñîç one two]"
+    },
+    "subjects.fields.pet.rabies": {
+        "message": "[Ŕåƀîéš ṽåççîñé ṽåļîð ûñţîļ one two three]"
+    },
+    "subjects.fields.pet.style": {
+        "message": "[Ĝŕööɱîñĝ šţýļé one two]"
+    },
+    "subjects.fields.pet.stylePlaceholder": {
+        "message": "[Ĥöŵ ţĥéý ļîķé ţĥé çûţ, îñ ýöûŕ ŵöŕðš one two three]"
+    },
+    "subjects.fields.student.grade": {
+        "message": "[Ĝŕåðé öŕ ļéṽéļ one two]"
+    },
+    "subjects.fields.student.gradePlaceholder": {
+        "message": "[Ĝŕåðé 4 one]"
+    },
+    "subjects.fields.student.school": {
+        "message": "[Šçĥööļ one]"
+    },
+    "subjects.fields.property.address": {
+        "message": "[Åððŕéšš one]"
+    },
+    "subjects.fields.property.rooms": {
+        "message": "[Ŕööɱš one]"
+    },
+    "subjects.fields.property.roomsInvalid": {
+        "message": "[Éñţéŕ å ŵĥöļé ñûɱƀéŕ öƒ ŕööɱš, ļîķé 3. one two three]"
+    },
+    "subjects.fields.property.access": {
+        "message": "[Åççéšš one]"
+    },
+    "subjects.fields.property.accessPlaceholder": {
+        "message": "[Ļöçķƀöẋ çöðé, þåŕķîñĝ, åļåŕɱ, ŵĥö ļéţš ýöû îñ one two three]"
+    },
+    "subjects.fields.property.pets": {
+        "message": "[Þéţš îñ ţĥé ĥöɱé one two]"
+    },
+    "subjects.fields.property.petsPlaceholder": {
+        "message": "[Å ƒŕîéñðļý çåţ one two]"
     },
     "clients.history.title": {
         "message": "[Ĥîšţöŕý one]"
@@ -4386,7 +4425,7 @@
         "message": "{label} {n}"
     },
     "clients.history.notePlaceholder": {
-        "message": "[Åðð å ñöţé åƀöûţ ţĥîš çļîéñţ öŕ å þéţ one two three]"
+        "message": "[{kind,select,other{Åðð å ñöţé åƀöûţ ţĥîš çļîéñţ} pet{Åðð å ñöţé åƀöûţ ţĥîš çļîéñţ öŕ å þéţ} property{Åðð å ñöţé åƀöûţ ţĥîš çļîéñţ öŕ å þŕöþéŕţý} student{Åðð å ñöţé åƀöûţ ţĥîš çļîéñţ öŕ å šţûðéñţ}} one two three four five six seven eight nine]"
     },
     "clients.history.noteRequired": {
         "message": "[Ŵŕîţé šöɱéţĥîñĝ ƒîŕšţ. one two]"
@@ -4467,7 +4506,7 @@
         "message": "[Å ţéåɱɱåţé one two]"
     },
     "clients.history.visit": {
-        "message": "{service} · {pet}"
+        "message": "{service} · {name}"
     },
     "clients.history.canceled": {
         "message": "[Çåñçéļéð one]"
@@ -4691,8 +4730,8 @@
     "clients.tidy.moves.bookings": {
         "message": "[{n,plural,one{# ƀööķîñĝ} other{# ƀööķîñĝš}} one two]"
     },
-    "clients.tidy.moves.pets": {
-        "message": "[Þéţš: {names} one]"
+    "clients.tidy.moves.subjects": {
+        "message": "[{kind,select,other{Åļšö: {names}} pet{Þéţš: {names}} property{Þŕöþéŕţîéš: {names}} student{Šţûðéñţš: {names}}} one two three]"
     },
     "clients.tidy.moves.messages": {
         "message": "[{n,plural,one{# ɱéššåĝé} other{# ɱéššåĝéš}} one two]"
@@ -4701,7 +4740,10 @@
         "message": "[{n,plural,one{# ñöţé} other{# ñöţéš}} one two]"
     },
     "clients.tidy.footprint": {
-        "message": "[{bookings,plural,one{# ƀööķîñĝ} other{# ƀööķîñĝš}} · {pets,plural,one{# þéţ} other{# þéţš}} one two three]"
+        "message": "[{bookings,plural,one{# ƀööķîñĝ} other{# ƀööķîñĝš}} one two]"
+    },
+    "clients.tidy.footprintWith": {
+        "message": "[{bookings,plural,one{# ƀööķîñĝ} other{# ƀööķîñĝš}} · {kind,select,other{{count,plural,one{# ɱöŕé} other{# ɱöŕé}}} pet{{count,plural,one{# þéţ} other{# þéţš}}} property{{count,plural,one{# þŕöþéŕţý} other{# þŕöþéŕţîéš}}} student{{count,plural,one{# šţûðéñţ} other{# šţûðéñţš}}}} one two three four five]"
     },
     "clients.tidy.created": {
         "message": "[Åððéð {when} one]"
@@ -4788,7 +4830,7 @@
         "message": "[Šéñţ ţö {name}. Ţĥéîŕ ŕéþļý ŵîļļ šĥöŵ ûþ ĥéŕé. one two three]"
     },
     "messaging.searchPlaceholder": {
-        "message": "[Šéåŕçĥ ñåɱé, þéţ öŕ ɱéššåĝé one two three]"
+        "message": "[{kind,select,other{Šéåŕçĥ ñåɱé öŕ ɱéššåĝé} pet{Šéåŕçĥ ñåɱé, þéţ öŕ ɱéššåĝé} property{Šéåŕçĥ ñåɱé, þŕöþéŕţý öŕ ɱéššåĝé} student{Šéåŕçĥ ñåɱé, šţûðéñţ öŕ ɱéššåĝé}} one two three four five six seven]"
     },
     "messaging.filters.all": {
         "message": "[Åļļ one]"
@@ -4897,9 +4939,6 @@
     },
     "messaging.book": {
         "message": "[Ɓööķ one]"
-    },
-    "messaging.pets": {
-        "message": "[Þéţš one]"
     },
     "messaging.nextVisit": {
         "message": "[Ñéẋţ ṽîšîţ one two]"
@@ -5718,7 +5757,7 @@
         "message": "[Ţåĝļîñé one]"
     },
     "business.getSetUp.taglinePlaceholder": {
-        "message": "[Ĝéñţļé ĝŕööɱîñĝ, ĥåþþý þéţš. one two three]"
+        "message": "[Çåļɱ, çåŕéƒûļ ŵöŕķ, çļöšé ţö ĥöɱé. one two three]"
     },
     "business.getSetUp.save": {
         "message": "[Šåṽé ƀŕåñð one two]"
@@ -5739,7 +5778,7 @@
         "message": "[Ɓûšîñéšš ñåɱé one two]"
     },
     "business.namePlaceholder": {
-        "message": "[Ɓîŕçĥ Ɓåŕķ Þéţ Çåŕé one two]"
+        "message": "[Ɓîŕçĥ Ɓåŕķ Šţûðîö one two]"
     },
     "business.timezoneLabel": {
         "message": "[Ţîɱé žöñé one]"
@@ -5859,7 +5898,7 @@
         "message": "[Ɓûšîñéšš ñåɱé one two]"
     },
     "business.onboarding.businessNamePlaceholder": {
-        "message": "[Ɓîŕçĥ Ɓåŕķ Þéţ Çåŕé one two]"
+        "message": "[Ɓîŕçĥ Ɓåŕķ Šţûðîö one two]"
     },
     "business.onboarding.webAddress": {
         "message": "[Ŵéƀ åððŕéšš one two]"
@@ -6891,7 +6930,7 @@
         "message": "[Ñåɱé one]"
     },
     "catalog.namePlaceholderService": {
-        "message": "[é.ĝ. Ƒûļļ Ĝŕööɱ: Šɱåļļ Đöĝ one two]"
+        "message": "[é.ĝ. 60-ɱîñûţé šéššîöñ one two]"
     },
     "catalog.namePlaceholderProduct": {
         "message": "[é.ĝ. Öåţɱéåļ Šĥåɱþöö (500 ɱļ) one two]"
@@ -7224,7 +7263,7 @@
         "message": "[Šûþþļîéŕ one]"
     },
     "catalog.supplierPlaceholder": {
-        "message": "[é.ĝ. Çöåšţåļ Þéţ Šûþþļý one two]"
+        "message": "[é.ĝ. Çöåšţåļ Šûþþļý Çö. one two]"
     },
     "catalog.reference": {
         "message": "[Þåçķîñĝ šļîþ öŕ ÞÖ one two]"
@@ -9771,7 +9810,7 @@
         "message": "[Ɓééñ ĥéŕé ƀéƒöŕé? one two]"
     },
     "publicReturning.intro": {
-        "message": "[Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ þéţš åñð ļåšţ ṽîšîţ. one two three four]"
+        "message": "[{kind,select,other{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ ļåšţ ṽîšîţ.} pet{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ þéţš åñð ļåšţ ṽîšîţ.} property{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ þŕöþéŕţîéš åñð ļåšţ ṽîšîţ.} student{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ šţûðéñţš åñð ļåšţ ṽîšîţ.}} one two three four five six seven eight nine ten one two three four five]"
     },
     "publicReturning.email": {
         "message": "[Éɱåîļ one]"
@@ -9806,11 +9845,11 @@
     "publicReturning.usual": {
         "message": "[Ɓööķ ţĥé ûšûåļ one two]"
     },
-    "publicReturning.choosePet": {
-        "message": "[Çĥööšé å þéţ one two]"
+    "publicReturning.choose": {
+        "message": "[{kind,select,other{Çĥööšé öñé} pet{Çĥööšé å þéţ} property{Çĥööšé å þŕöþéŕţý} student{Çĥööšé å šţûðéñţ}} one two three four]"
     },
-    "publicReturning.newPet": {
-        "message": "[Åðð å ðîƒƒéŕéñţ þéţ one two]"
+    "publicReturning.newSubject": {
+        "message": "[{kind,select,other{Åðð åñöţĥéŕ} pet{Åðð å ðîƒƒéŕéñţ þéţ} property{Åðð å ðîƒƒéŕéñţ þŕöþéŕţý} student{Åðð å ðîƒƒéŕéñţ šţûðéñţ}} one two three four five six]"
     },
     "publicReturning.contactRequired": {
         "message": "[Éñţéŕ ýöûŕ éɱåîļ åððŕéšš öŕ þĥöñé ñûɱƀéŕ. one two three]"
@@ -9840,7 +9879,7 @@
         "message": "[Î'ṽé ƀééñ ĥéŕé ƀéƒöŕé one two]"
     },
     "publicBooking.guided.returningBody": {
-        "message": "[Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ þéţš åñð ļåšţ ṽîšîţ. one two three four]"
+        "message": "[{kind,select,other{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ ļåšţ ṽîšîţ.} pet{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ þéţš åñð ļåšţ ṽîšîţ.} property{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ þŕöþéŕţîéš åñð ļåšţ ṽîšîţ.} student{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ šţûðéñţš åñð ļåšţ ṽîšîţ.}} one two three four five six seven eight nine ten one two three]"
     },
     "publicBooking.guided.different": {
         "message": "[Ɓööķ šöɱéţĥîñĝ ðîƒƒéŕéñţ one two three]"
@@ -9971,11 +10010,11 @@
     "publicBooking.emailPlaceholder": {
         "message": "[ýöû@éẋåɱþļé.çöɱ one two]"
     },
-    "publicBooking.pet": {
-        "message": "[Þéţ'š ñåɱé one]"
+    "publicBooking.subject": {
+        "message": "[{kind,select,other{Ñåɱé} pet{Þéţ'š ñåɱé} property{Þŕöþéŕţý ñåɱé} student{Šţûðéñţ'š ñåɱé}} one two three]"
     },
-    "publicBooking.petPlaceholder": {
-        "message": "[Ŵĥö'š çöɱîñĝ îñ? one two]"
+    "publicBooking.subjectPlaceholder": {
+        "message": "[{kind,select,other{} pet{Ŵĥö'š çöɱîñĝ îñ?} property{Ĥöɱé, çöţţåĝé öŕ öƒƒîçé} student{Ŵĥö'š ţĥé ļéššöñ ƒöŕ?}} one two three four]"
     },
     "publicBooking.note": {
         "message": "[Åñýţĥîñĝ ŵé šĥöûļð ķñöŵ one two]"
@@ -9998,8 +10037,17 @@
     "publicBooking.phoneInvalid": {
         "message": "[Ţĥåţ þĥöñé ñûɱƀéŕ ðöéšñ'ţ ļööķ ŕîĝĥţ. Ûšé 10 ðîĝîţš, öŕ + åñð ţĥé çöûñţŕý çöðé. one two three four five]"
     },
-    "publicBooking.petRequired": {
-        "message": "[Åðð ýöûŕ þéţ'š ñåɱé. one two]"
+    "publicBooking.subjectRequired": {
+        "message": "[{kind,select,other{Åðð å ñåɱé.} pet{Åðð ýöûŕ þéţ'š ñåɱé.} property{Ĝîṽé ţĥé þŕöþéŕţý å ñåɱé, ļîķé Ĥöɱé.} student{Åðð ţĥé šţûðéñţ'š ñåɱé.}} one two three four five six]"
+    },
+    "publicBooking.address": {
+        "message": "[Åððŕéšš one]"
+    },
+    "publicBooking.addressPlaceholder": {
+        "message": "[12 Åŕƀûţûš Ļåñé, Ṽîçţöŕîå one two]"
+    },
+    "publicBooking.addressRequired": {
+        "message": "[Åðð ţĥé þŕöþéŕţý'š åððŕéšš. one two three]"
     },
     "publicBooking.summary": {
         "message": "[Ýöûŕ ṽîšîţ one two]"
@@ -10071,9 +10119,9 @@
         "message": "[Ţĥé šţûðîö çöñƒîŕɱš ñéŵ çļîéñţš ƒîŕšţ. Ýöû'ļļ ĥéåŕ ƀåçķ åƀöûţ {when}. one two three four]"
     },
     "publicBooking.doneBody": {
-        "message": "[{pet} îš ƀööķéð ƒöŕ {when}. Å çöñƒîŕɱåţîöñ îš öñ îţš ŵåý. one two three]"
+        "message": "[{name} îš ƀööķéð ƒöŕ {when}. Å çöñƒîŕɱåţîöñ îš öñ îţš ŵåý. one two three]"
     },
-    "publicBooking.doneNoPet": {
+    "publicBooking.doneNoSubject": {
         "message": "[Ýöû'ŕé ƀööķéð ƒöŕ {when}. Å çöñƒîŕɱåţîöñ îš öñ îţš ŵåý. one two three]"
     },
     "publicBooking.addToCalendar": {
@@ -11306,8 +11354,8 @@
     "publicReview.prompt": {
         "message": "[Ĥöŵ ŵåš ýöûŕ ṽîšîţ ţö {businessName}? one two]"
     },
-    "publicReview.promptPet": {
-        "message": "[Ĥöŵ ŵåš {pet}''š ṽîšîţ? one two]"
+    "publicReview.promptSubject": {
+        "message": "[{kind,select,other{Ĥöŵ ŵåš ţĥé ṽîšîţ ƒöŕ {name}?} pet{Ĥöŵ ŵåš {name}''š ṽîšîţ?} property{Ĥöŵ ðîð ţĥé ṽîšîţ ţö {name} ĝö?} student{Ĥöŵ ŵåš {name}''š ļéššöñ?}} one two three four five]"
     },
     "publicReview.context": {
         "message": "[{service} ŵîţĥ {staff} one]"

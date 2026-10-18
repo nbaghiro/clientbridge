@@ -261,12 +261,14 @@ shown after it.
 ### Tables by domain
 
 **business (3)** — `businesses` (all Stripe-Connect/KYC mirror fields + Canadian tax fields + `slug` + brand
-JSONB), `users` (one per auth identity via unique `identity_id`; `email` copied from the auth service, `last_seen_at`), `staff` (user↔business, `role`
+JSONB + `subject`, what a booking names besides the client: pet, student or property, NULL when the
+business books only the client), `users` (one per auth identity via unique `identity_id`; `email` copied from the auth service, `last_seen_at`), `staff` (user↔business, `role`
 owner/admin/staff/contractor, payout config `payee`/`rate_type` with the rate in `rate_bps` (percent) or
 `rate_cents` (fixed or hourly), one membership per user per business, pending invites via
 `status=invited` + hashed `invite_token`).
 
-**clients (4)** — `clients` _(soft-del)_ (`tags[]`, `status`, `custom_fields`, `stripe_customer_id`), `subjects` _(soft-del)_ (pet/vehicle/child/property, `attributes` JSONB), `notes` (polymorphic
+**clients (4)** — `clients` _(soft-del)_ (`tags[]`, `status`, `custom_fields`, `stripe_customer_id`), `subjects` _(soft-del)_ (no kind of their own: the business's `subject` says what they are, and
+`attributes` JSONB holds that kind's details, validated per kind in `schemas/subjects.py` with unknown keys kept), `notes` (polymorphic
 `parent_type`/`parent_id` over client/subject/booking, `created_by`), `consents` (one row per change to a
 client's marketing consent on a channel, with its `source`; the newest row holds, and an SMS STOP from the
 client can only be lifted by the client's own START).
@@ -351,8 +353,8 @@ destination, code and session, attempts and expiry; server-only).
 `lines` one FK per document (estimate/invoice/order, exactly one set) · `payments` nullable over invoice/booking/order + `kind`/
 `method` · `items.kind` = whole catalog · `slots` = every calendar block · `staff` = staff +
 invites · `entries.subject_type`/`source_type` = any money event on any entity · `notes`/`files`/`responses`/
-`signatures` `parent_type` and `audits.entity_type` generalize the rest. `kind` is used only on `items`,
-`payments` and `subjects`; other discriminators carry a name that says what they mean (`hours.basis`,
+`signatures` `parent_type` and `audits.entity_type` generalize the rest. `kind` is used only on `items`
+and `payments`; other discriminators carry a name that says what they mean (`hours.basis`,
 `fields.input`, `payment_methods.method`, `entries.event`, `webhooks.event`, `accounts.category`,
 `files.purpose`).
 
@@ -531,8 +533,9 @@ Four auto-subscribed streams and three history streams implement the read model 
   slots and bookings, and every member's slots and bookings for owner/admin, each limited to the months
   the device subscribes (see the history window above).
 
-`business_shared` also carries pets (`subjects`), `notes` and closures (hours rows with no
-`staff_id`), so every member's calendar can name the pet and the day the business is shut;
+`business_shared` also carries `subjects` (pets, students or properties, as the business's `subject` says),
+`notes` and closures (hours rows with no `staff_id`), so every member's calendar can name the subject and
+the day the business is shut;
 `recurrences` follow their member like slots do.
 
 Device read scope: staff = `business_shared` + `staff_limited` + `staff_self` + `history_shared` +

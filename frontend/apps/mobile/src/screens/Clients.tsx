@@ -9,9 +9,11 @@ import {
     formatRelativeTime,
     formatTime,
     formatWeekday,
+    kindWord,
     nextVisitLabel,
-    petSummary,
     savedCardLabel,
+    subjectSummary,
+    subjectTemperament,
     strings,
     useClientDirectory,
     useClientRecord,
@@ -20,9 +22,9 @@ import {
     visitPill,
     formatParts,
     formatList,
-    temperamentLabel,
     BUSINESS_CURRENCY,
     useBusinessZone,
+    useSubjectKind,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -53,7 +55,7 @@ import {
     ClientEditorSheet,
     MergeSheet,
     NoteSheet,
-    PetSheet,
+    SubjectSheet,
     TagSheet,
 } from "../components/ClientSheets";
 import { api } from "../lib/api";
@@ -67,13 +69,14 @@ const t = strings.clients.tidy;
 
 type Sheet =
     | { kind: "client"; id: string | null }
-    | { kind: "pet"; clientId: string; pet: SubjectRow | null }
-    | { kind: "note"; clientId: string; pets: readonly SubjectRow[] }
+    | { kind: "subject"; clientId: string; subject: SubjectRow | null }
+    | { kind: "note"; clientId: string; subjects: readonly SubjectRow[] }
     | { kind: "merge"; a: ClientListRow; b: ClientListRow }
     | { kind: "tags" };
 
 export function ClientsScreen() {
     const zone = useBusinessZone();
+    const kind = useSubjectKind();
     const dir = useClientDirectory();
     const manager = canManagePayments(useRole());
     const [openId, setOpenId] = useState<string | null>(null);
@@ -161,7 +164,11 @@ export function ClientsScreen() {
                 }
                 search={
                     dir.load.ready
-                        ? { value: dir.q, onChange: dir.setQ, placeholder: r.searchPlaceholder }
+                        ? {
+                              value: dir.q,
+                              onChange: dir.setQ,
+                              placeholder: r.searchPlaceholder(kindWord(kind)),
+                          }
                         : undefined
                 }
                 banner={
@@ -212,7 +219,7 @@ export function ClientsScreen() {
                                 {selecting
                                     ? formatParts([cl.phoneLabel, formatList(cl.tags, "unit")])
                                     : formatParts([
-                                          cl.pets,
+                                          kind === null ? null : cl.subjects,
                                           cl.next === null ? null : nextVisitLabel(cl.next, zone),
                                       ]) || cl.phoneLabel}
                             </Text>
@@ -309,11 +316,11 @@ export function ClientsScreen() {
                         }}
                     />
                 ) : null}
-                {sheet?.kind === "pet" ? (
-                    <PetSheet
-                        key={sheet.pet?.id ?? "new"}
+                {sheet?.kind === "subject" ? (
+                    <SubjectSheet
+                        key={sheet.subject?.id ?? "new"}
                         clientId={sheet.clientId}
-                        pet={sheet.pet}
+                        subject={sheet.subject}
                         onClose={() => {
                             setSheet(null);
                         }}
@@ -322,7 +329,7 @@ export function ClientsScreen() {
                 {sheet?.kind === "note" ? (
                     <NoteSheet
                         clientId={sheet.clientId}
-                        pets={sheet.pets}
+                        subjects={sheet.subjects}
                         onClose={() => {
                             setSheet(null);
                         }}
@@ -371,7 +378,7 @@ function NoteLine({ note, manager }: { note: ClientNote; manager: boolean }) {
                         note.author,
                         formatRelativeTime(note.at.toISOString(), zone),
                     ),
-                    note.pet,
+                    note.subjectName,
                     note.pinned ? r.pinned : null,
                 ])}
                 label={note.body}
@@ -438,6 +445,7 @@ function RecordSheet({
     onSheet: (s: Sheet) => void;
 }) {
     const zone = useBusinessZone();
+    const kind = useSubjectKind();
     const viewer = useViewer();
     const { load, record } = useClientRecord(api, clientId, viewer?.staffId ?? null);
     const nav = useNavigation<Nav>();
@@ -461,7 +469,7 @@ function RecordSheet({
     }
     const cl = record.client;
     const now = new Date();
-    const push = (screen: "ClientHistory" | "ClientPets" | "ClientWallet"): void => {
+    const push = (screen: "ClientHistory" | "ClientWallet"): void => {
         onClose();
         nav.navigate(screen, { clientId: cl.id, name: cl.name });
     };
@@ -472,7 +480,7 @@ function RecordSheet({
             subtitle={formatParts([
                 cl.phoneLabel,
                 formatList(
-                    record.pets.map((pet) => pet.name),
+                    record.subjects.map((x) => x.name),
                     "unit",
                 ),
             ])}
@@ -590,60 +598,67 @@ function RecordSheet({
                     />
                 </View>
             </View>
-            <DetailSection
-                title={r.pets}
-                action={
-                    <Button
-                        size="sm"
-                        variant="link"
-                        onPress={() => {
-                            onSheet({ kind: "pet", clientId: cl.id, pet: null });
-                        }}
-                    >
-                        {r.addPet}
-                    </Button>
-                }
-            >
-                {record.pets.length === 0 ? <Text style={styles.muted}>{r.noPets}</Text> : null}
-                {record.pets.map((pet) => (
-                    <View key={pet.id} style={styles.rowCard}>
-                        <ListRow
-                            density="compact"
-                            leading={<Avatar name={pet.name} size="sm" />}
-                            title={pet.name}
-                            detail={petSummary(pet)}
-                            meta={
-                                typeof pet.attributes.temperament === "string" ? (
-                                    <Badge
-                                        label={temperamentLabel(pet.attributes.temperament)}
-                                        intent={
-                                            pet.attributes.temperament === "anxious" ||
-                                            pet.attributes.temperament === "reactive"
-                                                ? "warning"
-                                                : "neutral"
-                                        }
-                                    />
-                                ) : undefined
-                            }
-                            label={r.editPetNamed(pet.name)}
+            {kind !== null ? (
+                <DetailSection
+                    title={strings.subjects.many(kind)}
+                    action={
+                        <Button
+                            size="sm"
+                            variant="link"
                             onPress={() => {
-                                onSheet({ kind: "pet", clientId: cl.id, pet });
+                                onSheet({ kind: "subject", clientId: cl.id, subject: null });
                             }}
-                        />
-                    </View>
-                ))}
-                {record.pets.length > 0 ? (
-                    <Button
-                        size="sm"
-                        variant="link"
-                        onPress={() => {
-                            push("ClientPets");
-                        }}
-                    >
-                        {strings.clients.pets.pets}
-                    </Button>
-                ) : null}
-            </DetailSection>
+                        >
+                            {strings.subjects.add(kind)}
+                        </Button>
+                    }
+                >
+                    {record.subjects.length === 0 ? (
+                        <Text style={styles.muted}>{strings.subjects.none(kind)}</Text>
+                    ) : null}
+                    {record.subjects.map((subject) => {
+                        const temperament = subjectTemperament(kind, subject.attributes);
+                        return (
+                            <View key={subject.id} style={styles.rowCard}>
+                                <ListRow
+                                    density="compact"
+                                    leading={<Avatar name={subject.name} size="sm" />}
+                                    title={subject.name}
+                                    detail={subjectSummary(kind, subject.attributes, zone)}
+                                    meta={
+                                        temperament !== null ? (
+                                            <Badge
+                                                label={temperament.label}
+                                                intent={temperament.nervous ? "warning" : "neutral"}
+                                            />
+                                        ) : undefined
+                                    }
+                                    label={strings.subjects.editNamed(subject.name)}
+                                    onPress={() => {
+                                        onSheet({ kind: "subject", clientId: cl.id, subject });
+                                    }}
+                                />
+                            </View>
+                        );
+                    })}
+                    {record.subjects.length > 0 ? (
+                        <Button
+                            size="sm"
+                            variant="link"
+                            onPress={() => {
+                                onClose();
+                                nav.navigate("ClientSubjects", {
+                                    clientId: cl.id,
+                                    name: cl.name,
+                                    kind,
+                                });
+                            }}
+                        >
+                            {strings.subjects.many(kind)}
+                        </Button>
+                    ) : null}
+                </DetailSection>
+            ) : null}
             <DetailSection title={r.upcoming}>
                 {record.upcoming.length === 0 ? (
                     <Text style={styles.muted}>{r.noUpcoming}</Text>
@@ -690,7 +705,7 @@ function RecordSheet({
                         size="sm"
                         variant="link"
                         onPress={() => {
-                            onSheet({ kind: "note", clientId: cl.id, pets: record.pets });
+                            onSheet({ kind: "note", clientId: cl.id, subjects: record.subjects });
                         }}
                     >
                         {r.addNote}

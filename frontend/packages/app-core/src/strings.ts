@@ -421,7 +421,7 @@ interface Strings {
         readonly qstNo: (n: string) => string;
         readonly scanToPay: string;
         readonly paidStamp: string;
-        readonly forPet: (pet: string) => string;
+        readonly forSubject: (name: string) => string;
         readonly reference: (number: string) => string;
         readonly saleNumber: (n: number) => string;
         readonly receiptNumber: (invoice: string, n: number) => string;
@@ -947,8 +947,7 @@ interface Strings {
         readonly startsIn: (label: string) => string;
         readonly composerTitle: string;
         readonly composerClient: string;
-        readonly composerClientSearch: string;
-        readonly composerPet: string;
+        readonly composerClientSearch: (kind: string) => string;
         readonly composerService: string;
         readonly composerServicePlaceholder: string;
         readonly composerWith: string;
@@ -1013,7 +1012,7 @@ interface Strings {
         readonly listSubtitle: (n: number) => string;
         readonly newSeries: string;
         readonly newShort: string;
-        readonly search: string;
+        readonly search: (kind: string) => string;
         readonly filterAll: string;
         readonly filterAttention: string;
         readonly filterEnding: string;
@@ -1043,7 +1042,7 @@ interface Strings {
         readonly lastDate: string;
         readonly oneConfirmation: string;
         readonly oneConfirmationHint: string;
-        readonly pet: (name: string) => string;
+        readonly subject: (kind: string, name: string) => string;
         readonly dates: string;
         readonly datesHint: string;
         readonly patternWeekly: (n: number, day: string, time: string) => string;
@@ -1148,7 +1147,7 @@ interface Strings {
         readonly promoteFull: string;
         readonly unpaid: string;
         readonly gentleNote: string;
-        readonly addPlaceholder: string;
+        readonly addPlaceholder: (kind: string) => string;
         readonly added: (name: string) => string;
         readonly addedWaitlist: (name: string) => string;
         readonly messageClass: string;
@@ -1387,11 +1386,10 @@ interface Strings {
         readonly consumeSession: string;
         readonly consumeShort: string;
         readonly record: {
-            readonly searchPlaceholder: string;
+            readonly searchPlaceholder: (kind: string) => string;
             readonly emptyTitle: string;
             readonly emptyBody: string;
             readonly colClient: string;
-            readonly colPets: string;
             readonly colNext: string;
             readonly colBalance: string;
             readonly colTags: string;
@@ -1401,8 +1399,6 @@ interface Strings {
             readonly visits: string;
             readonly balance: string;
             readonly since: string;
-            readonly pets: string;
-            readonly addPet: string;
             readonly upcoming: string;
             readonly lastVisit: (when: string) => string;
             readonly notes: string;
@@ -1424,11 +1420,9 @@ interface Strings {
             readonly depositDue: (amount: string) => string;
             readonly depositPaid: (amount: string) => string;
             readonly noNotes: string;
-            readonly noPets: string;
             readonly loadingRecord: string;
             readonly loadError: string;
             readonly editShort: string;
-            readonly editPetNamed: (name: string) => string;
             readonly addNoteTitle: string;
             readonly back: string;
             readonly goneBody: string;
@@ -1452,12 +1446,6 @@ interface Strings {
             readonly consentLabel: string;
             readonly consentHint: string;
             readonly consentRecorded: (when: string, who: string) => string;
-            readonly petSection: string;
-            readonly petSectionHint: string;
-            readonly petName: string;
-            readonly petNamePlaceholder: string;
-            readonly petBreed: string;
-            readonly petBreedPlaceholder: string;
             readonly nameRequired: string;
             readonly contactRequired: string;
             readonly emailInvalid: string;
@@ -1491,66 +1479,6 @@ interface Strings {
             readonly emptyArchived: string;
             readonly dangerHint: string;
         };
-        readonly pets: {
-            readonly pets: string;
-            readonly addPet: string;
-            readonly editPet: string;
-            readonly editNamed: (name: string) => string;
-            readonly removePet: string;
-            readonly removeTitle: (name: string) => string;
-            readonly removeBody: string;
-            readonly removeConfirm: string;
-            readonly removeError: string;
-            readonly nameLabel: string;
-            readonly nameRequired: string;
-            readonly speciesLabel: string;
-            readonly dog: string;
-            readonly cat: string;
-            readonly other: string;
-            readonly breedLabel: string;
-            readonly weightLabel: string;
-            readonly weightUnit: string;
-            readonly weightInvalid: string;
-            readonly dateInvalid: string;
-            readonly birthdayLabel: string;
-            readonly sexLabel: string;
-            readonly female: string;
-            readonly male: string;
-            readonly temperamentLabel: string;
-            readonly temperaments: {
-                readonly calm: string;
-                readonly friendly: string;
-                readonly energetic: string;
-                readonly anxious: string;
-                readonly reactive: string;
-            } & Labels;
-            readonly coatLabel: string;
-            readonly allergiesLabel: string;
-            readonly allergiesPlaceholder: string;
-            readonly vetLabel: string;
-            readonly rabiesLabel: string;
-            readonly styleLabel: string;
-            readonly stylePlaceholder: string;
-            readonly save: string;
-            readonly saveShort: string;
-            readonly saving: string;
-            readonly saveError: string;
-            readonly edit: string;
-            readonly age: (years: number) => string;
-            readonly weight: (kg: number) => string;
-            readonly allergy: (what: string) => string;
-            readonly temperamentAlert: (t: string) => string;
-            readonly rabiesExpired: string;
-            readonly rabiesSoon: (when: string) => string;
-            readonly visits: string;
-            readonly lastVisit: string;
-            readonly nextVisit: string;
-            readonly nothingBooked: string;
-            readonly noPetsTitle: string;
-            readonly noPetsBody: string;
-            readonly loading: string;
-            readonly loadError: string;
-        };
         readonly history: {
             readonly title: string;
             readonly filterAll: string;
@@ -1559,7 +1487,7 @@ interface Strings {
             readonly filterMessages: string;
             readonly filterNotes: string;
             readonly withCount: (label: string, n: string) => string;
-            readonly notePlaceholder: string;
+            readonly notePlaceholder: (kind: string) => string;
             readonly noteRequired: string;
             readonly pin: string;
             readonly pinHint: string;
@@ -1586,7 +1514,7 @@ interface Strings {
             readonly since: (when: string) => string;
             readonly you: string;
             readonly teammate: string;
-            readonly visit: (service: string, pet: string) => string;
+            readonly visit: (service: string, name: string) => string;
             readonly canceled: string;
             readonly noShow: string;
             readonly invoiceDrafted: (n: string) => string;
@@ -1666,11 +1594,12 @@ interface Strings {
             readonly nothingMoves: string;
             readonly moves: {
                 readonly bookings: (n: number) => string;
-                readonly pets: (names: string) => string;
+                readonly subjects: (kind: string, names: string) => string;
                 readonly messages: (n: number) => string;
                 readonly notes: (n: number) => string;
             };
-            readonly footprint: (bookings: number, pets: number) => string;
+            readonly footprint: (bookings: number) => string;
+            readonly footprintWith: (kind: string, bookings: number, count: number) => string;
             readonly created: (when: string) => string;
             readonly same: string;
             readonly none: string;
@@ -1689,6 +1618,99 @@ interface Strings {
             readonly merged: (name: string) => string;
         };
     };
+    readonly subjects: {
+        readonly many: (kind: string) => string;
+        readonly one: (kind: string) => string;
+        readonly add: (kind: string) => string;
+        readonly edit: string;
+        readonly editNamed: (name: string) => string;
+        readonly remove: (kind: string) => string;
+        readonly removeTitle: (name: string) => string;
+        readonly removeBody: (kind: string) => string;
+        readonly removeConfirm: string;
+        readonly removeError: (kind: string) => string;
+        readonly nameLabel: string;
+        readonly nameRequired: (kind: string) => string;
+        readonly dateInvalid: string;
+        readonly save: (kind: string) => string;
+        readonly saveShort: string;
+        readonly saving: string;
+        readonly saveError: (kind: string) => string;
+        readonly visits: string;
+        readonly lastVisit: string;
+        readonly nextVisit: string;
+        readonly nothingBooked: string;
+        readonly noneTitle: (kind: string) => string;
+        readonly noneBody: (kind: string) => string;
+        readonly none: (kind: string) => string;
+        readonly loading: (kind: string) => string;
+        readonly loadError: (kind: string) => string;
+        readonly first: (kind: string) => string;
+        readonly firstHint: (kind: string) => string;
+        readonly firstName: (kind: string) => string;
+        readonly firstNamePlaceholder: (kind: string) => string;
+        readonly firstDetailPlaceholder: (kind: string) => string;
+        readonly choiceLabel: string;
+        readonly choiceHelp: string;
+        readonly choice: (kind: string) => string;
+        readonly choiceHint: (kind: string) => string;
+        readonly choiceRequired: string;
+        readonly changeTitle: string;
+        readonly changeBody: (from: string, to: string, count: number) => string;
+        readonly changeConfirm: string;
+        readonly age: (years: number) => string;
+        readonly weight: (kg: number) => string;
+        readonly rooms: (rooms: number) => string;
+        readonly allergy: (what: string) => string;
+        readonly temperamentAlert: (t: string) => string;
+        readonly rabiesExpired: string;
+        readonly rabiesSoon: (when: string) => string;
+        readonly fields: {
+            readonly birthday: string;
+            readonly allergies: string;
+            readonly pet: {
+                readonly species: string;
+                readonly dog: string;
+                readonly cat: string;
+                readonly other: string;
+                readonly breed: string;
+                readonly weight: string;
+                readonly weightUnit: string;
+                readonly weightInvalid: string;
+                readonly sex: string;
+                readonly female: string;
+                readonly male: string;
+                readonly temperament: string;
+                readonly temperaments: {
+                    readonly calm: string;
+                    readonly friendly: string;
+                    readonly energetic: string;
+                    readonly anxious: string;
+                    readonly reactive: string;
+                } & Labels;
+                readonly coat: string;
+                readonly allergiesPlaceholder: string;
+                readonly vet: string;
+                readonly rabies: string;
+                readonly style: string;
+                readonly stylePlaceholder: string;
+            };
+            readonly student: {
+                readonly grade: string;
+                readonly gradePlaceholder: string;
+                readonly school: string;
+            } & Labels;
+            readonly property: {
+                readonly address: string;
+                readonly rooms: string;
+                readonly roomsInvalid: string;
+                readonly access: string;
+                readonly accessPlaceholder: string;
+                readonly pets: string;
+                readonly petsPlaceholder: string;
+            } & Labels;
+        };
+    };
     readonly messaging: {
         readonly title: string;
         readonly channelSms: string;
@@ -1704,7 +1726,7 @@ interface Strings {
         readonly smsBlockedNew: string;
         readonly sendMessage: string;
         readonly sentNew: (name: string) => string;
-        readonly searchPlaceholder: string;
+        readonly searchPlaceholder: (kind: string) => string;
         readonly filters: {
             readonly all: string;
             readonly unread: string;
@@ -1745,7 +1767,6 @@ interface Strings {
         readonly details: string;
         readonly openRecord: string;
         readonly book: string;
-        readonly pets: string;
         readonly nextVisit: string;
         readonly nothingBooked: string;
         readonly balance: string;
@@ -3506,7 +3527,7 @@ interface Strings {
     };
     readonly publicReturning: {
         readonly title: string;
-        readonly intro: string;
+        readonly intro: (kind: string) => string;
         readonly email: string;
         readonly sms: string;
         readonly contact: string;
@@ -3518,8 +3539,8 @@ interface Strings {
         readonly missing: string;
         readonly welcome: (name: string) => string;
         readonly usual: string;
-        readonly choosePet: string;
-        readonly newPet: string;
+        readonly choose: (kind: string) => string;
+        readonly newSubject: (kind: string) => string;
         readonly contactRequired: string;
         readonly codeRequired: string;
         readonly requestError: string;
@@ -3532,7 +3553,7 @@ interface Strings {
             readonly first: string;
             readonly firstBody: string;
             readonly returning: string;
-            readonly returningBody: string;
+            readonly returningBody: (kind: string) => string;
             readonly different: string;
             readonly continueNew: string;
         };
@@ -3577,8 +3598,8 @@ interface Strings {
         readonly phonePlaceholder: string;
         readonly email: string;
         readonly emailPlaceholder: string;
-        readonly pet: string;
-        readonly petPlaceholder: string;
+        readonly subject: (kind: string) => string;
+        readonly subjectPlaceholder: (kind: string) => string;
         readonly note: string;
         readonly notePlaceholder: string;
         readonly reachHint: string;
@@ -3586,7 +3607,10 @@ interface Strings {
         readonly contactRequired: string;
         readonly emailInvalid: string;
         readonly phoneInvalid: string;
-        readonly petRequired: string;
+        readonly subjectRequired: (kind: string) => string;
+        readonly address: string;
+        readonly addressPlaceholder: string;
+        readonly addressRequired: string;
         readonly summary: string;
         readonly dueNow: string;
         readonly dueAtVisit: string;
@@ -3610,8 +3634,8 @@ interface Strings {
         readonly doneTitle: string;
         readonly pendingTitle: string;
         readonly pendingBody: (when: string) => string;
-        readonly doneBody: (pet: string, when: string) => string;
-        readonly doneNoPet: (when: string) => string;
+        readonly doneBody: (name: string, when: string) => string;
+        readonly doneNoSubject: (when: string) => string;
         readonly addToCalendar: string;
         readonly calendarTitle: (service: string, business: string) => string;
         readonly manage: string;
@@ -4062,7 +4086,7 @@ interface Strings {
     };
     readonly publicReview: {
         readonly prompt: (businessName: string) => string;
-        readonly promptPet: (pet: string) => string;
+        readonly promptSubject: (kind: string, name: string) => string;
         readonly context: (service: string, staff: string) => string;
         readonly ratingLabel: string;
         readonly ratingWords: readonly [string, string, string, string, string, string];

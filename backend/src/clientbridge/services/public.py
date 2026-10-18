@@ -135,6 +135,7 @@ from clientbridge.services.payments import (
 )
 from clientbridge.services.plans import assert_serving
 from clientbridge.services.returning import ReturningService
+from clientbridge.services.subjects import new_subject
 from clientbridge.services.tax import (
     LineTax,
     TaxResult,
@@ -233,6 +234,7 @@ class PublicBookingService:
             policy=_policy_out(policy_of(business)),
             rating=rating,
             review_count=reviews,
+            subject=business.subject,
         )
 
     async def next_openings(self, slug: str, item_ids: list[str]) -> PublicNextOpenings:
@@ -300,9 +302,10 @@ class PublicBookingService:
                 item.id,
                 [PublicShopLine(item_id=a.item_id, quantity=a.quantity) for a in data.addons],
             )
+            _assert_subject_fields(business, data)
             returning = ReturningService(self.db)
             if data.subject_id is not None and data.returning_token is None:
-                raise Unauthorized("verify your email before choosing an existing pet")
+                raise Unauthorized("verify your email before choosing an existing subject")
             client = (
                 await returning.resolve(business.id, data.returning_token)
                 if data.returning_token is not None
@@ -312,7 +315,9 @@ class PublicBookingService:
             subject_id = (
                 await returning.subject(client, data.subject_id)
                 if data.subject_id is not None
-                else await _pet(self.db, business.id, client.id, data.pet_name)
+                else await _subject(
+                    self.db, business.id, client.id, data.subject_name, data.subject_address
+                )
             )
             booking, _ = await create_booking_core(
                 self.db,
@@ -556,11 +561,22 @@ async def _has_booked(db: AsyncSession, business_id: str, client_id: str) -> boo
     return found.first() is not None
 
 
-async def _pet(db: AsyncSession, business_id: str, client_id: str, name: str | None) -> str | None:
-    """The client's pet of that name, added to their file the first time it is booked."""
+def _assert_subject_fields(business: Business, data: PublicBookingCreate) -> None:
+    sent = data.subject_id is not None or bool((data.subject_name or "").strip())
+    if business.subject is None and (sent or data.subject_address is not None):
+        raise Unprocessable("this business books only the client", code="no_subjects")
+    if data.subject_address is not None and business.subject != "property":
+        raise Unprocessable("only a property business takes an address", code="no_subjects")
+
+
+async def _subject(
+    db: AsyncSession, business_id: str, client_id: str, name: str | None, address: str | None
+) -> str | None:
+    """The client's subject of that name, added to their file the first time it is booked."""
     if name is None or name.strip() == "":
         return None
     clean = name.strip()
+    place = (address or "").strip()
     found = (
         (
             await db.execute(
@@ -573,18 +589,13 @@ async def _pet(db: AsyncSession, business_id: str, client_id: str, name: str | N
         .first()
     )
     if found is not None:
+        if place and not found.attributes.get("address"):
+            found.attributes = {**found.attributes, "address": place}
         return found.id
-    pet = Subject(
-        id=new_id("subject"),
-        business_id=business_id,
-        client_id=client_id,
-        kind="pet",
-        name=clean,
-        attributes={},
-    )
-    db.add(pet)
+    subject = await new_subject(db, business_id, client_id, clean, {"address": place or None})
+    db.add(subject)
     await db.flush()
-    return pet.id
+    return subject.id
 
 
 _MOVE_SCOPE = "manage.move"
@@ -834,7 +845,7 @@ class PublicManageService:
     async def _view(self, booking: Booking, slot: Slot, business: Business) -> ManagedBooking:
         item, staff = await self._visit(booking, slot, business)
         client = await self.db.get(Client, booking.client_id)
-        pet = await self.db.get(Subject, booking.subject_id) if booking.subject_id else None
+        subject = await self.db.get(Subject, booking.subject_id) if booking.subject_id else None
         addons = (
             (
                 await self.db.execute(
@@ -857,7 +868,8 @@ class PublicManageService:
             brand=public_brand(business),
             slug=business.slug,
             client_name=client.name if client is not None else "",
-            pet_name=pet.name if pet is not None else None,
+            subject=business.subject,
+            subject_name=subject.name if subject is not None else None,
             service=_service_out(item, images.get(item.id)),
             staff=PublicStaff(
                 id=staff.id,
@@ -1613,6 +1625,7 @@ class PublicReviewService:
             first_name=client.name.split(" ")[0] if client is not None else None,
             google_review_url=business.google_review_url if published else None,
             published=published,
+            subject=business.subject,
             **(await self._visit(booking) if booking is not None else {}),
         )
 
@@ -1621,11 +1634,11 @@ class PublicReviewService:
         item = await self.db.get(Item, slot.item_id) if slot is not None else None
         ids = [booking.staff_id] if booking.staff_id else []
         staff = next(iter((await staff_names(self.db, booking.business_id, ids)).values()), None)
-        pet = await self.db.get(Subject, booking.subject_id) if booking.subject_id else None
+        subject = await self.db.get(Subject, booking.subject_id) if booking.subject_id else None
         return {
             "service": item.name if item is not None else None,
             "staff": staff.split(" ")[0] if staff else None,
-            "pet": pet.name if pet is not None else None,
+            "subject_name": subject.name if subject is not None else None,
         }
 
 

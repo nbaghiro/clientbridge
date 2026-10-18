@@ -32,7 +32,7 @@ import type { Intent, OccurrenceRow } from "../ui";
 import type { Viewer } from "./auth";
 import {
     type Availability,
-    CLIENT_PETS_SQL,
+    CLIENT_SUBJECT_OPTIONS_SQL,
     type CalendarEvent,
     type SlotItem,
     type SlotTarget,
@@ -47,6 +47,7 @@ import {
 import { bookableItems, useCatalogItems } from "./catalog";
 import { useClients } from "./clients";
 import { type StaffRow, staffName, useStaff } from "./staff";
+import { kindWord, useSubjectKind } from "./subjects";
 import { useReplicaLoad } from "./sync";
 
 const s = strings.recurrences;
@@ -238,7 +239,7 @@ export interface SeriesComposer {
     clientId: string;
     setClientId: (id: string) => void;
     clientOptions: { key: string; label: string }[];
-    petName: string | null;
+    subjectHint: string | null;
     itemId: string;
     setItemId: (id: string) => void;
     serviceOptions: { key: string; label: string }[];
@@ -297,7 +298,10 @@ function useSeriesContext(first: Date, last: Date): Ctx & { sources: { isLoading
 /** A new series with its dates laid out as you type; every clash gets a suggested time or a skip. */
 export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesComposer {
     const clients = useClients();
-    const pets = useQuery<{ id: string; client_id: string; name: string }>(CLIENT_PETS_SQL).data;
+    const kind = useSubjectKind();
+    const subjects = useQuery<{ id: string; client_id: string; name: string }>(
+        CLIENT_SUBJECT_OPTIONS_SQL,
+    ).data;
     const services = bookableItems(useCatalogItems()).filter((i) => i.kind === "service");
     const staffRows = useStaff().filter((x) => x.status === "active");
     const staffChoices = actorsFor(staffRows, viewer);
@@ -359,7 +363,7 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
     const first = occurrences[0];
     const last = occurrences.at(-1);
     const clientName = clients.find((c) => c.id === clientId)?.name ?? "";
-    const pet = pets.find((p) => p.client_id === clientId) ?? null;
+    const subject = kind === null ? null : (subjects.find((p) => p.client_id === clientId) ?? null);
     const reset = (): void => {
         setDone(null);
         setChoices({});
@@ -372,7 +376,7 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
         clientOptions: clients
             .filter((c) => c.status === "active")
             .map((c) => ({ key: c.id, label: c.name })),
-        petName: pet?.name ?? null,
+        subjectHint: subject === null ? null : s.subject(kindWord(kind), subject.name),
         itemId,
         setItemId,
         serviceOptions: services.map((i) => ({ key: i.id, label: i.name })),
@@ -420,7 +424,7 @@ export function useSeriesComposer(api: ApiLike, viewer: Viewer | null): SeriesCo
                 client_id: clientId,
                 item_id: itemId,
                 staff_id: staffId,
-                subject_id: pet?.id ?? null,
+                subject_id: subject?.id ?? null,
                 starts_at: start.toISOString(),
                 frequency,
                 interval: Math.max(1, interval),
@@ -488,7 +492,7 @@ interface SeriesVisitRow {
     booking_id: string | null;
     status: string | null;
     deposit_status: string | null;
-    pet_name: string | null;
+    subject_name: string | null;
 }
 
 export const SERIES_SQL = `
@@ -499,7 +503,7 @@ FROM recurrences r JOIN items i ON i.id = r.item_id JOIN clients c ON c.id = r.c
 
 export const SERIES_VISITS_SQL = `
 SELECT s.id AS slot_id, s.recurrence_id, s.starts_at, s.ends_at, s.staff_id, b.id AS booking_id,
-       b.status, b.deposit_status, sj.name AS pet_name
+       b.status, b.deposit_status, sj.name AS subject_name
 FROM slots s JOIN recurrences r ON r.id = s.recurrence_id AND r.client_id IS NOT NULL
 ${slotBookingsJoin("AND x.deleted_at IS NULL")}
 LEFT JOIN subjects sj ON sj.id = b.subject_id
@@ -515,7 +519,7 @@ interface SeriesDate extends SeriesOccurrence {
 interface SeriesSummary {
     id: string;
     clientName: string;
-    petName: string;
+    subjectName: string;
     serviceName: string;
     serviceColor: string | null;
     staffId: string;
@@ -575,7 +579,7 @@ export function summarize(
     dates: SeriesDate[],
     staff: Map<string, StaffRow>,
     now: Date,
-    petName: string,
+    subjectName: string,
     zone: string,
 ): SeriesSummary {
     const live = dates.filter((d) => d.status !== "canceled");
@@ -588,7 +592,7 @@ export function summarize(
     return {
         id: row.id,
         clientName: row.client_name ?? "",
-        petName,
+        subjectName,
         serviceName: row.item_name,
         serviceColor: row.item_color,
         staffId: row.staff_id ?? "",
@@ -659,9 +663,10 @@ export function useSeriesList(): SeriesList {
         .filter((r) => r.status !== "canceled")
         .map((r) => {
             const dates = datesOf(r, visits, ctx);
-            const pet =
-                visits.find((v) => v.recurrence_id === r.id && v.pet_name !== null)?.pet_name ?? "";
-            return summarize(r, dates, ctx.staff, ctx.now, pet, ctx.avail.zone);
+            const subject =
+                visits.find((v) => v.recurrence_id === r.id && v.subject_name !== null)
+                    ?.subject_name ?? "";
+            return summarize(r, dates, ctx.staff, ctx.now, subject, ctx.avail.zone);
         })
         .filter((r) => r.next !== null);
     const t = q.trim().toLowerCase();
@@ -674,7 +679,7 @@ export function useSeriesList(): SeriesList {
             .filter(
                 (r) =>
                     t === "" ||
-                    [r.clientName, r.petName, r.serviceName].some((v) =>
+                    [r.clientName, r.subjectName, r.serviceName].some((v) =>
                         v.toLowerCase().includes(t),
                     ),
             )
@@ -772,14 +777,15 @@ export function useSeriesRecord(
     });
     const conflicts = preview.filter((o) => o.status === "conflict").length;
     const member = ctx.staff.get(who);
-    const pet =
-        visits.find((v) => v.recurrence_id === row.id && v.pet_name !== null)?.pet_name ?? "";
+    const subject =
+        visits.find((v) => v.recurrence_id === row.id && v.subject_name !== null)?.subject_name ??
+        "";
     const hasDeposit = row.deposit_type !== "none";
     const fromKey = upcoming[0] ? dateKey(upcoming[0].start, zone) : null;
     const weekdayIndex = (Number(wd) + 6) % 7;
 
     return {
-        summary: summarize(row, dates, ctx.staff, ctx.now, pet, zone),
+        summary: summarize(row, dates, ctx.staff, ctx.now, subject, zone),
         dates: canceled
             ? dates.map((d) => (d.past ? d : { ...d, status: "canceled" as const }))
             : dates,
