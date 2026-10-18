@@ -919,15 +919,11 @@ async def business_or_404(db: AsyncSession, business_id: str, message: str) -> B
 
 def public_brand(business: Business) -> PublicBrand:
     brand = BrandInput.model_validate(business.brand or {})
-    logo_url = media_url(brand.logo_file_id) if brand.logo_file_id is not None else None
     return PublicBrand(
         public_slug=business.slug if business.status != "closed" else None,
         business_name=business.name,
         cover_url=brand.cover_url,
-        logo_url=logo_url,
-        avatar_url=(
-            media_url(brand.avatar_file_id) if brand.avatar_file_id is not None else logo_url
-        ),
+        logo_url=media_url(brand.logo_file_id) if brand.logo_file_id is not None else None,
         primary=brand.primary,
         tagline=brand.tagline,
     )

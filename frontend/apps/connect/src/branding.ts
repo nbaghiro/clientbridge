@@ -39,22 +39,10 @@ async function tiledIcon(url: string): Promise<string | null> {
     return tileIcon(await createImageBitmap(await response.blob()));
 }
 
-async function firstIcon(urls: string[]): Promise<string | null> {
-    for (const url of urls) {
-        const href = await tiledIcon(url).catch(() => null);
-        if (href !== null) return href;
-    }
-    return null;
-}
-
 export function useBusinessFavicon(brand?: PublicBrand | null): void {
-    const avatar = brand?.avatar_url;
     const logo = brand?.logo_url;
     useEffect(() => {
-        const candidates = [
-            ...new Set([avatar, logo].filter((url): url is string => Boolean(url))),
-        ];
-        if (!candidates.length) return;
+        if (!logo) return;
         const icons = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="icon"]'));
         const previous = icons.map((icon) => ({
             icon,
@@ -70,7 +58,7 @@ export function useBusinessFavicon(brand?: PublicBrand | null): void {
                 icon.removeAttribute("sizes");
             }
         };
-        firstIcon(candidates)
+        tiledIcon(logo)
             .then((href) => {
                 if (live && href !== null) apply(href);
             })
@@ -84,5 +72,5 @@ export function useBusinessFavicon(brand?: PublicBrand | null): void {
                 }
             }
         };
-    }, [avatar, logo]);
+    }, [logo]);
 }

@@ -22,7 +22,6 @@ class PublicBrand(BaseModel):
     cover_url: str | None = None
 
     logo_url: str | None = None
-    avatar_url: str | None = None
     primary: str | None = None
     tagline: str | None = None
 
