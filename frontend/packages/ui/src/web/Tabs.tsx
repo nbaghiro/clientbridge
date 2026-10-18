@@ -1,5 +1,6 @@
 import type { TabsProps } from "@clientbridge/app-core/public";
 
+import { Badge } from "./Badge";
 import { moveFocus } from "./keys";
 import { type WebProps, cx } from "./props";
 
@@ -51,7 +52,14 @@ export function Tabs<K extends string>({
                                   }`
                         }
                     >
-                        {item.label}
+                        {item.count !== undefined && item.count > 0 ? (
+                            <span className="inline-flex items-center gap-1.5">
+                                {item.label}
+                                <Badge label={item.count} variant="count" intent="danger" />
+                            </span>
+                        ) : (
+                            item.label
+                        )}
                     </button>
                 );
             })}

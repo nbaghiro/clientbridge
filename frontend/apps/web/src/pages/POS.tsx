@@ -10,12 +10,12 @@ import {
     mediaUrl,
     saleTileMeta,
     saleTileOut,
-    salesViewsFor,
     strings,
     useCatalogItems,
     useCheckoutQueue,
     useRegisterCatalog,
     useSale,
+    useSalesViews,
     formatParts,
     BUSINESS_CURRENCY,
     useBusinessZone,
@@ -56,7 +56,7 @@ export function POS() {
         platform: "web",
     });
     const items = useCatalogItems();
-    const views = salesViewsFor(role);
+    const views = useSalesViews(role);
     const [params, setParams] = useSearchParams();
     const asked = params.get("view");
     const view: SalesView = views.some((v) => v.key === asked) ? (asked as SalesView) : "register";
