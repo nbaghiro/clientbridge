@@ -26,6 +26,7 @@ import {
     IconButton,
     KeyValueList,
     Money,
+    Skeleton,
     Stars,
     StatusPill,
 } from "@clientbridge/ui";
@@ -48,12 +49,14 @@ function RailSection({
     count,
     active,
     onOpen,
+    loading,
     children,
 }: {
     title: string;
     count?: number;
     active: boolean;
     onOpen: () => void;
+    loading: string | null;
     children: ReactNode;
 }) {
     return (
@@ -79,7 +82,7 @@ function RailSection({
                     />
                 )}
             </div>
-            {children}
+            {loading !== null ? <Skeleton variant="line" count={3} label={loading} /> : children}
         </section>
     );
 }
@@ -88,7 +91,13 @@ function ReviewsTeaser({ area, active, onOpen }: TeaserProps) {
     const queue = useReviewQueue();
     const latest = queue.all[0];
     return (
-        <RailSection title={area.label} count={queue.held.length} active={active} onOpen={onOpen}>
+        <RailSection
+            title={area.label}
+            count={queue.held.length}
+            active={active}
+            onOpen={onOpen}
+            loading={queue.load.state === "loading" ? strings.reviews.loading : null}
+        >
             {queue.count === 0 ? (
                 <p className="text-sm text-muted">{strings.reviews.noReviewsTitle}</p>
             ) : (
@@ -134,7 +143,12 @@ function BroadcastsTeaser({ area, active, onOpen }: TeaserProps) {
     const last = home.broadcasts[0];
     const b = strings.broadcasts;
     return (
-        <RailSection title={area.label} active={active} onOpen={onOpen}>
+        <RailSection
+            title={area.label}
+            active={active}
+            onOpen={onOpen}
+            loading={home.load.state === "loading" ? b.loading : null}
+        >
             <div className="space-y-2">
                 {last === undefined ? (
                     <p className="text-sm text-muted">{b.noBroadcasts}</p>
@@ -182,7 +196,13 @@ function FormsTeaser({ area, active, onOpen }: TeaserProps) {
     const waiting = library.forms.filter((f) => f.waiting > 0);
     const total = waiting.reduce((n, f) => n + f.waiting, 0);
     return (
-        <RailSection title={area.label} count={total} active={active} onOpen={onOpen}>
+        <RailSection
+            title={area.label}
+            count={total}
+            active={active}
+            onOpen={onOpen}
+            loading={library.load.state === "loading" ? strings.forms.loading : null}
+        >
             <p className="text-sm text-muted">{s.rail.formsWaiting(total)}</p>
             <WaitingList
                 rows={waiting.slice(0, SHOWN).map((f) => ({
@@ -200,7 +220,13 @@ function ContractsTeaser({ area, active, onOpen }: TeaserProps) {
     const waiting = library.contracts.filter((c) => c.waiting > 0);
     const total = waiting.reduce((n, c) => n + c.waiting, 0);
     return (
-        <RailSection title={area.label} count={total} active={active} onOpen={onOpen}>
+        <RailSection
+            title={area.label}
+            count={total}
+            active={active}
+            onOpen={onOpen}
+            loading={library.load.state === "loading" ? strings.contracts.loading : null}
+        >
             <p className="text-sm text-muted">{s.rail.signaturesWaiting(total)}</p>
             <WaitingList
                 rows={waiting.slice(0, SHOWN).map((c) => ({

@@ -216,7 +216,12 @@ function Register({ sale }: { sale: SaleTicket }) {
                     </section>
                 ) : null}
                 {catalog.load.state === "loading" ? (
-                    <Skeleton variant="row" count={3} label={d.loadingCatalog} />
+                    <Skeleton
+                        variant="tile"
+                        count={8}
+                        label={d.loadingCatalog}
+                        className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-4"
+                    />
                 ) : catalog.items.length === 0 ? (
                     <Empty
                         variant="card"

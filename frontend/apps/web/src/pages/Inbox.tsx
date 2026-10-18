@@ -30,6 +30,7 @@ import {
     Notice,
     SearchField,
     SearchSelect,
+    Skeleton,
     Tabs,
     TextField,
 } from "@clientbridge/ui";
@@ -186,9 +187,13 @@ function Messages({
                                     <h1 className="font-display text-lg font-bold text-ink">
                                         {s.title}
                                     </h1>
-                                    <p className="text-xs text-muted">
-                                        {s.unreadCount(inbox.unread)}
-                                    </p>
+                                    {inbox.load.hasData ? (
+                                        <p className="text-xs text-muted">
+                                            {s.unreadCount(inbox.unread)}
+                                        </p>
+                                    ) : (
+                                        <Skeleton variant="line" label={s.loading} />
+                                    )}
                                 </div>
                                 <Button
                                     size="sm"
@@ -223,7 +228,8 @@ function Messages({
                                 load={inbox.load}
                                 loading={s.loading}
                                 failed={s.loadError}
-                                rows={6}
+                                rows={8}
+                                flush
                             >
                                 {inbox.filtered.length === 0 ? (
                                     <Empty message={s.noThreadsFiltered} />

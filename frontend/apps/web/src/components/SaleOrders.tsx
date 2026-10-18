@@ -104,7 +104,17 @@ export function SalesBoard({ onResume }: { onResume: (order: OrderOut) => void }
     const manager = canManagePayments(useRole());
     const [open, setOpen] = useState<string | null>(null);
     if (board.load.state === "loading")
-        return <Skeleton variant="row" count={4} label={d.loadingOrders} />;
+        return (
+            <div className="grid gap-4 lg:grid-cols-3">
+                {[0, 1, 2].map((i) => (
+                    <div key={i} className="rounded-lg bg-surface2 p-3 pt-[60px]">
+                        <div className="rounded-lg border border-line bg-surface">
+                            <Skeleton variant="row" count={2 - (i % 2)} label={d.loadingOrders} />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
     if (board.load.state === "error")
         return <LoadFailed message={d.ordersError} onRetry={board.refresh} />;
     return (
@@ -224,7 +234,11 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
             )}
             <div className="space-y-5">
                 {history.load.state === "loading" ? (
-                    <Skeleton variant="row" count={6} label={d.loadingSales} />
+                    <section className="pt-7">
+                        <div className="overflow-hidden rounded-lg border border-line bg-surface shadow-card">
+                            <Skeleton variant="row" count={6} label={d.loadingSales} />
+                        </div>
+                    </section>
                 ) : history.load.state === "error" ? (
                     <LoadFailed message={d.salesError} />
                 ) : history.days.length === 0 ? (

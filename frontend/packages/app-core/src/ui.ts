@@ -1068,8 +1068,8 @@ export interface OccurrenceListProps {
 }
 
 export interface SkeletonProps {
-    // "row": avatar and two lines; "stat": a label and a figure; "line": one bar.
-    variant: "row" | "stat" | "line";
+    // "row": avatar and two lines; "stat": a label and a figure; "line": one bar; "tile": a catalog tile.
+    variant: "row" | "stat" | "line" | "tile";
     count?: number | undefined;
     // Lays the placeholders out side by side, e.g. a row of stats.
     columns?: 2 | 3 | 4 | undefined;

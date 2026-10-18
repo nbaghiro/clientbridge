@@ -40,6 +40,21 @@ export function Skeleton({
                         </span>
                         <span className={`h-3 w-12 ${bar}`} />
                     </div>
+                ) : variant === "tile" ? (
+                    <div
+                        key={i}
+                        className="flex h-[134px] flex-col rounded-lg border border-line bg-surface p-3"
+                    >
+                        <span className={`h-9 w-9 rounded-md ${bar}`} />
+                        <span
+                            className={`mt-3 block h-3 ${bar}`}
+                            style={{ width: `${String(64 - ((i * 11) % 26))}%` }}
+                        />
+                        <span className="mt-auto flex items-center justify-between">
+                            <span className={`h-2.5 w-16 ${bar}`} />
+                            <span className={`h-3 w-12 ${bar}`} />
+                        </span>
+                    </div>
                 ) : variant === "stat" ? (
                     <div key={i} className="space-y-2.5 px-5 py-4">
                         <span className={`block h-2.5 w-20 ${bar}`} />
