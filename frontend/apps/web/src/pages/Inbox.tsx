@@ -264,43 +264,9 @@ function Messages({
                         />
                     ) : (
                         // No conversation opens on its own: someone may be looking at the screen too.
-                        <section className="flex flex-1 items-center justify-center bg-bg/60">
+                        <section className="flex flex-1 items-center justify-center bg-bg/60 pb-16">
                             {inbox.load.hasData ? (
-                                <div className="pb-16">
-                                    {
-                                        <Empty
-                                            icon="inbox"
-                                            message={s.selectThread}
-                                            body={s.unreadCount(inbox.unread)}
-                                            actions={
-                                                <>
-                                                    {inbox.unread > 0 &&
-                                                    inbox.filter !== "unread" ? (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onPress={() => {
-                                                                inbox.setFilter("unread");
-                                                            }}
-                                                        >
-                                                            {s.showUnread}
-                                                        </Button>
-                                                    ) : null}
-                                                    <Button
-                                                        size="sm"
-                                                        icon="edit"
-                                                        onPress={() => {
-                                                            setSentTo(null);
-                                                            setComposing("");
-                                                        }}
-                                                    >
-                                                        {s.newMessageTitle}
-                                                    </Button>
-                                                </>
-                                            }
-                                        />
-                                    }
-                                </div>
+                                <Empty icon="inbox" message={s.selectThread} />
                             ) : null}
                         </section>
                     )}

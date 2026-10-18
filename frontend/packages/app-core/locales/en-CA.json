@@ -5277,9 +5277,6 @@
     "messaging.selectThread": {
         "message": "Choose a conversation to read and reply."
     },
-    "messaging.showUnread": {
-        "message": "Show unread"
-    },
     "messaging.thread.automatic": {
         "message": "Automatic"
     },

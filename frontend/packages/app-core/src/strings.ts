@@ -1738,7 +1738,6 @@ interface Strings {
         readonly noThreadsTitle: string;
         readonly noThreadsBody: string;
         readonly selectThread: string;
-        readonly showUnread: string;
         readonly thread: {
             readonly automatic: string;
             readonly showEarlier: string;
