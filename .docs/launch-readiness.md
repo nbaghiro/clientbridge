@@ -702,7 +702,7 @@ QA pass:
 
 1. Ring up a groom and a shampoo for a client, and a walk-in sale with no client.
 2. Pay on web with card 4242 and email the receipt; on a real phone take Tap to Pay with a credit card and an Interac card; a declined card leaves the sale open with a clear message.
-3. Add a 15% tip to a $100 groom (no tax on the tip), and discount one line 10% and the sale $5; totals and tax match a hand calculation, and staff are refused over their limit.
+3. Add a 15% tip to a $100 groom (no tax on the tip), and discount one line 10% and the sale $5; totals and tax match a hand calculation.
 4. Write an estimate on a phone, send, accept and convert it: the invoice keeps the lines, discount and tax.
 5. Create an invoice from a completed booking, send it and pay it through the link in a private window; void another; record $20 cash on a $50 invoice and charge the rest to the saved card.
 6. Each email has a matching PDF; download the invoice, estimate and receipt PDFs from a phone.
@@ -856,13 +856,13 @@ Size: M · Area: Front desk sales and orders
 
 - Line and whole-document discounts as a percentage or amount, with a reason.
 - Tax after the discount; discounts on documents, receipts and reports.
-- A discount limit for staff.
+- Staff apply any discount without approval.
 
 **QA:**
 
 1. Discount one line 10% and the whole sale $5: totals and tax match a hand calculation.
 2. Convert a discounted estimate: the discount carries to the invoice.
-3. As staff, go over the limit: refused.
+3. As staff, discount a sale 50%: it is applied without an approval step.
 
 **Depends on:** Sales with services and products (CLI-29); Invoices: create, send, void, pay link (CLI-35)
 
