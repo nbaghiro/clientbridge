@@ -4,6 +4,7 @@ import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import { type PublicBrand, usePublicResource } from "./publicResource";
 import { refusal } from "../api";
+import type { SubjectKind } from "./subjects";
 
 interface PublicReviewContext {
     business_name: string;
@@ -11,7 +12,8 @@ interface PublicReviewContext {
     completed: boolean;
     rating: number | null;
     first_name: string | null;
-    pet: string | null;
+    subject: SubjectKind | null;
+    subject_name: string | null;
     service: string | null;
     staff: string | null;
     google_review_url: string | null;

@@ -9873,7 +9873,7 @@
         "message": "[Ɓééñ ĥéŕé ƀéƒöŕé? one two]"
     },
     "publicReturning.intro": {
-        "message": "[Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ þéţš åñð ļåšţ ṽîšîţ. one two three four]"
+        "message": "[{kind,select,other{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ ļåšţ ṽîšîţ.} pet{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ þéţš åñð ļåšţ ṽîšîţ.} property{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ þŕöþéŕţîéš åñð ļåšţ ṽîšîţ.} student{Ṽéŕîƒý ýöûŕ éɱåîļ öŕ þĥöñé ţö ƒîñð ýöûŕ šţûðéñţš åñð ļåšţ ṽîšîţ.}} one two three four five six seven eight nine ten one two three four five]"
     },
     "publicReturning.email": {
         "message": "[Éɱåîļ one]"
@@ -9908,11 +9908,11 @@
     "publicReturning.usual": {
         "message": "[Ɓööķ ţĥé ûšûåļ one two]"
     },
-    "publicReturning.choosePet": {
-        "message": "[Çĥööšé å þéţ one two]"
+    "publicReturning.choose": {
+        "message": "[{kind,select,other{Çĥööšé öñé} pet{Çĥööšé å þéţ} property{Çĥööšé å þŕöþéŕţý} student{Çĥööšé å šţûðéñţ}} one two three four]"
     },
-    "publicReturning.newPet": {
-        "message": "[Åðð å ðîƒƒéŕéñţ þéţ one two]"
+    "publicReturning.newSubject": {
+        "message": "[{kind,select,other{Åðð åñöţĥéŕ} pet{Åðð å ðîƒƒéŕéñţ þéţ} property{Åðð å ðîƒƒéŕéñţ þŕöþéŕţý} student{Åðð å ðîƒƒéŕéñţ šţûðéñţ}} one two three four five six]"
     },
     "publicReturning.contactRequired": {
         "message": "[Éñţéŕ ýöûŕ éɱåîļ åððŕéšš öŕ þĥöñé ñûɱƀéŕ. one two three]"
@@ -9942,7 +9942,7 @@
         "message": "[Î'ṽé ƀééñ ĥéŕé ƀéƒöŕé one two]"
     },
     "publicBooking.guided.returningBody": {
-        "message": "[Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ þéţš åñð ļåšţ ṽîšîţ. one two three four]"
+        "message": "[{kind,select,other{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ ļåšţ ṽîšîţ.} pet{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ þéţš åñð ļåšţ ṽîšîţ.} property{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ þŕöþéŕţîéš åñð ļåšţ ṽîšîţ.} student{Ṽéŕîƒý ýöûŕ ðéţåîļš ţö ƒîñð ýöûŕ šţûðéñţš åñð ļåšţ ṽîšîţ.}} one two three four five six seven eight nine ten one two three]"
     },
     "publicBooking.guided.different": {
         "message": "[Ɓööķ šöɱéţĥîñĝ ðîƒƒéŕéñţ one two three]"
@@ -10073,11 +10073,11 @@
     "publicBooking.emailPlaceholder": {
         "message": "[ýöû@éẋåɱþļé.çöɱ one two]"
     },
-    "publicBooking.pet": {
-        "message": "[Þéţ'š ñåɱé one]"
+    "publicBooking.subject": {
+        "message": "[{kind,select,other{Ñåɱé} pet{Þéţ'š ñåɱé} property{Þŕöþéŕţý ñåɱé} student{Šţûðéñţ'š ñåɱé}} one two three]"
     },
-    "publicBooking.petPlaceholder": {
-        "message": "[Ŵĥö'š çöɱîñĝ îñ? one two]"
+    "publicBooking.subjectPlaceholder": {
+        "message": "[{kind,select,other{} pet{Ŵĥö'š çöɱîñĝ îñ?} property{Ĥöɱé, çöţţåĝé öŕ öƒƒîçé} student{Ŵĥö'š ţĥé ļéššöñ ƒöŕ?}} one two three four]"
     },
     "publicBooking.note": {
         "message": "[Åñýţĥîñĝ ŵé šĥöûļð ķñöŵ one two]"
@@ -10100,8 +10100,17 @@
     "publicBooking.phoneInvalid": {
         "message": "[Ţĥåţ þĥöñé ñûɱƀéŕ ðöéšñ'ţ ļööķ ŕîĝĥţ. Ûšé 10 ðîĝîţš, öŕ + åñð ţĥé çöûñţŕý çöðé. one two three four five]"
     },
-    "publicBooking.petRequired": {
-        "message": "[Åðð ýöûŕ þéţ'š ñåɱé. one two]"
+    "publicBooking.subjectRequired": {
+        "message": "[{kind,select,other{Åðð å ñåɱé.} pet{Åðð ýöûŕ þéţ'š ñåɱé.} property{Ĝîṽé ţĥé þŕöþéŕţý å ñåɱé, ļîķé Ĥöɱé.} student{Åðð ţĥé šţûðéñţ'š ñåɱé.}} one two three four five six]"
+    },
+    "publicBooking.address": {
+        "message": "[Åððŕéšš one]"
+    },
+    "publicBooking.addressPlaceholder": {
+        "message": "[12 Åŕƀûţûš Ļåñé, Ṽîçţöŕîå one two]"
+    },
+    "publicBooking.addressRequired": {
+        "message": "[Åðð ţĥé þŕöþéŕţý'š åððŕéšš. one two three]"
     },
     "publicBooking.summary": {
         "message": "[Ýöûŕ ṽîšîţ one two]"
@@ -10173,9 +10182,9 @@
         "message": "[Ţĥé šţûðîö çöñƒîŕɱš ñéŵ çļîéñţš ƒîŕšţ. Ýöû'ļļ ĥéåŕ ƀåçķ åƀöûţ {when}. one two three four]"
     },
     "publicBooking.doneBody": {
-        "message": "[{pet} îš ƀööķéð ƒöŕ {when}. Å çöñƒîŕɱåţîöñ îš öñ îţš ŵåý. one two three]"
+        "message": "[{name} îš ƀööķéð ƒöŕ {when}. Å çöñƒîŕɱåţîöñ îš öñ îţš ŵåý. one two three]"
     },
-    "publicBooking.doneNoPet": {
+    "publicBooking.doneNoSubject": {
         "message": "[Ýöû'ŕé ƀööķéð ƒöŕ {when}. Å çöñƒîŕɱåţîöñ îš öñ îţš ŵåý. one two three]"
     },
     "publicBooking.addToCalendar": {
@@ -11408,8 +11417,8 @@
     "publicReview.prompt": {
         "message": "[Ĥöŵ ŵåš ýöûŕ ṽîšîţ ţö {businessName}? one two]"
     },
-    "publicReview.promptPet": {
-        "message": "[Ĥöŵ ŵåš {pet}''š ṽîšîţ? one two]"
+    "publicReview.promptSubject": {
+        "message": "[{kind,select,other{Ĥöŵ ŵåš ţĥé ṽîšîţ ƒöŕ {name}?} pet{Ĥöŵ ŵåš {name}''š ṽîšîţ?} property{Ĥöŵ ðîð ţĥé ṽîšîţ ţö {name} ĝö?} student{Ĥöŵ ŵåš {name}''š ļéššöñ?}} one two three four five]"
     },
     "publicReview.context": {
         "message": "[{service} ŵîţĥ {staff} one]"

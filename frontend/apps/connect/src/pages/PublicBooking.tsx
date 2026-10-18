@@ -9,6 +9,7 @@ import {
     usePublicBookingFlow,
     formatList,
     formatRating,
+    SUBJECT_ICON,
 } from "@clientbridge/app-core/public";
 import {
     Button,
@@ -404,14 +405,23 @@ function GuidedBooking({
                                         size="lg"
                                         title={g.first}
                                         subtitle={g.firstBody}
-                                        leading={<Icon name="paw" size={24} />}
+                                        leading={
+                                            <Icon
+                                                name={
+                                                    flow.kind === null
+                                                        ? "calendar"
+                                                        : SUBJECT_ICON[flow.kind]
+                                                }
+                                                size={24}
+                                            />
+                                        }
                                         trailing={<Icon name="chevronRight" size={18} />}
                                         onPress={begin}
                                     />
                                     <OptionCard
                                         size="lg"
                                         title={g.returning}
-                                        subtitle={g.returningBody}
+                                        subtitle={g.returningBody(flow.kind ?? "none")}
                                         leading={<Icon name="user" size={24} />}
                                         trailing={<Icon name="chevronRight" size={18} />}
                                         onPress={() => {
@@ -524,16 +534,16 @@ function ReturningPanel({
                             {t.usual}
                         </Button>
                     ) : null}
-                    {profile.pets.length ? (
+                    {flow.kind !== null && profile.subjects.length ? (
                         <Choice
-                            label={t.choosePet}
+                            label={t.choose(flow.kind)}
                             layout="chips"
                             value={flow.subjectId ?? ""}
                             options={[
-                                ...profile.pets.map((pet) => ({ key: pet.id, label: pet.name })),
-                                { key: "", label: t.newPet },
+                                ...profile.subjects.map((x) => ({ key: x.id, label: x.name })),
+                                { key: "", label: t.newSubject(flow.kind) },
                             ]}
-                            onChange={r.choosePet}
+                            onChange={r.chooseSubject}
                         />
                     ) : null}
                     <Button variant="quiet" size="sm" onPress={r.reset}>
@@ -544,7 +554,9 @@ function ReturningPanel({
                 <p className="mt-2 text-sm text-muted">{t.missing}</p>
             ) : (
                 <details className="mt-2" open={expanded || undefined}>
-                    <summary className="cursor-pointer text-sm text-accent">{t.intro}</summary>
+                    <summary className="cursor-pointer text-sm text-accent">
+                        {t.intro(flow.kind ?? "none")}
+                    </summary>
                     <div className="mt-3 space-y-3">
                         {r.stage === "contact" ? (
                             <>

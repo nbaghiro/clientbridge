@@ -5,7 +5,6 @@ import { dateKey, formatDate, readDate, useBusinessZone } from "../datetime";
 import { formatParts, parseNumber } from "../format";
 import { useAsyncAction, useBusinessQuery as useQuery } from "../hooks";
 import type { Load } from "../hooks";
-import type { IconName } from "../icons";
 import { strings } from "../strings";
 import type { ChoiceOption, Intent } from "../ui";
 import { CLIENT_VISITS_SQL, type ClientVisit, type VisitRow, isAhead, toVisit } from "./clients";
@@ -19,12 +18,6 @@ export type SubjectKind = "pet" | "student" | "property";
 export type SubjectChoice = SubjectKind | "none";
 
 const KINDS: readonly SubjectKind[] = ["pet", "student", "property"];
-
-export const SUBJECT_ICON: Record<SubjectKind, IconName> = {
-    pet: "paw",
-    student: "user",
-    property: "building",
-};
 
 export function asSubjectKind(value: string | null | undefined): SubjectKind | null {
     return KINDS.find((k) => k === value) ?? null;

@@ -74,7 +74,7 @@ async def test_mailbox_proof_reveals_only_verified_profile(
     profile = response.json()["profile"]
     assert profile["name"] == client.name
     assert profile["email"] == ADDRESS
-    assert profile["pets"]
+    assert profile["subjects"]
     assert "custom_fields" not in profile
     assert response.json()["token"]
     assert stored.session_hash != response.json()["token"]

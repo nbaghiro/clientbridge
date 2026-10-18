@@ -10493,7 +10493,9 @@
         "message": "Been here before?"
     },
     "publicReturning.intro": {
-        "message": "Verify your email or phone to find your pets and last visit."
+        "message": "{kind, select, pet {Verify your email or phone to find your pets and last visit.} student {Verify your email or phone to find your students and last visit.} property {Verify your email or phone to find your properties and last visit.} other {Verify your email or phone to find your last visit.}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client: pet, student, property, or none"
     },
     "publicReturning.email": {
         "message": "Email"
@@ -10529,11 +10531,15 @@
     "publicReturning.usual": {
         "message": "Book the usual"
     },
-    "publicReturning.choosePet": {
-        "message": "Choose a pet"
+    "publicReturning.choose": {
+        "message": "{kind, select, pet {Choose a pet} student {Choose a student} property {Choose a property} other {Choose one}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client: pet, student, property, or none"
     },
-    "publicReturning.newPet": {
-        "message": "Add a different pet"
+    "publicReturning.newSubject": {
+        "message": "{kind, select, pet {Add a different pet} student {Add a different student} property {Add a different property} other {Add another}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client: pet, student, property, or none"
     },
     "publicReturning.contactRequired": {
         "message": "Enter your email address or phone number."
@@ -10564,7 +10570,9 @@
         "message": "I've been here before"
     },
     "publicBooking.guided.returningBody": {
-        "message": "Verify your details to find your pets and last visit."
+        "message": "{kind, select, pet {Verify your details to find your pets and last visit.} student {Verify your details to find your students and last visit.} property {Verify your details to find your properties and last visit.} other {Verify your details to find your last visit.}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client: pet, student, property, or none"
     },
     "publicBooking.guided.different": {
         "message": "Book something different"
@@ -10702,11 +10710,15 @@
     "publicBooking.emailPlaceholder": {
         "message": "you@example.com"
     },
-    "publicBooking.pet": {
-        "message": "Pet's name"
+    "publicBooking.subject": {
+        "message": "{kind, select, pet {Pet's name} student {Student's name} property {Property name} other {Name}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client: pet, student, property, or none"
     },
-    "publicBooking.petPlaceholder": {
-        "message": "Who's coming in?"
+    "publicBooking.subjectPlaceholder": {
+        "message": "{kind, select, pet {Who's coming in?} student {Who's the lesson for?} property {Home, cottage or office} other {}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client: pet, student, property, or none"
     },
     "publicBooking.note": {
         "message": "Anything we should know"
@@ -10729,8 +10741,19 @@
     "publicBooking.phoneInvalid": {
         "message": "That phone number doesn't look right. Use 10 digits, or + and the country code."
     },
-    "publicBooking.petRequired": {
-        "message": "Add your pet's name."
+    "publicBooking.subjectRequired": {
+        "message": "{kind, select, pet {Add your pet's name.} student {Add the student's name.} property {Give the property a name, like Home.} other {Add a name.}}",
+        "args": ["kind"],
+        "description": "kind is what the business books besides the client: pet, student, property, or none"
+    },
+    "publicBooking.address": {
+        "message": "Address"
+    },
+    "publicBooking.addressPlaceholder": {
+        "message": "12 Arbutus Lane, Victoria"
+    },
+    "publicBooking.addressRequired": {
+        "message": "Add the property's address."
     },
     "publicBooking.summary": {
         "message": "Your visit"
@@ -10807,10 +10830,10 @@
         "args": ["when"]
     },
     "publicBooking.doneBody": {
-        "message": "{pet} is booked for {when}. A confirmation is on its way.",
-        "args": ["pet", "when"]
+        "message": "{name} is booked for {when}. A confirmation is on its way.",
+        "args": ["name", "when"]
     },
-    "publicBooking.doneNoPet": {
+    "publicBooking.doneNoSubject": {
         "message": "You're booked for {when}. A confirmation is on its way.",
         "args": ["when"]
     },
@@ -12108,9 +12131,10 @@
         "message": "How was your visit to {businessName}?",
         "args": ["businessName"]
     },
-    "publicReview.promptPet": {
-        "message": "How was {pet}'s visit?",
-        "args": ["pet"]
+    "publicReview.promptSubject": {
+        "message": "{kind, select, pet {How was {name}'s visit?} student {How was {name}'s lesson?} property {How did the visit to {name} go?} other {How was the visit for {name}?}}",
+        "args": ["kind", "name"],
+        "description": "kind is what the business books besides the client: pet, student, property, or none"
     },
     "publicReview.context": {
         "message": "{service} with {staff}",

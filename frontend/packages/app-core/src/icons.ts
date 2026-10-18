@@ -1,3 +1,5 @@
+import type { SubjectKind } from "./domain/subjects";
+
 // Icon geometry shared by web and mobile; each platform draws it with its own SVG components.
 
 export type IconPrimitive =
@@ -86,6 +88,12 @@ export type IconName =
     | "printer"
     | "pushpin"
     | "minus";
+
+export const SUBJECT_ICON: Record<SubjectKind, IconName> = {
+    pet: "paw",
+    student: "user",
+    property: "building",
+};
 
 export const ICON_SPECS: Record<IconName, IconPrimitive[]> = {
     today: [

@@ -250,13 +250,25 @@ export function DetailsForm({ flow }: { flow: PublicBookingFlow }) {
                     autoComplete="name"
                     error={flow.errors.name}
                 />
-                <TextField
-                    label={s.pet}
-                    value={f.petName}
-                    onChange={f.setPetName}
-                    placeholder={s.petPlaceholder}
-                    error={flow.errors.pet}
-                />
+                {flow.kind !== null ? (
+                    <TextField
+                        label={s.subject(flow.kind)}
+                        value={f.subjectName}
+                        onChange={f.setSubjectName}
+                        placeholder={s.subjectPlaceholder(flow.kind)}
+                        error={flow.errors.subject}
+                    />
+                ) : null}
+                {flow.kind === "property" && flow.subjectId === null ? (
+                    <TextField
+                        label={s.address}
+                        value={f.subjectAddress}
+                        onChange={f.setSubjectAddress}
+                        placeholder={s.addressPlaceholder}
+                        autoComplete="street-address"
+                        error={flow.errors.address}
+                    />
+                ) : null}
                 <TextField
                     label={s.phone}
                     type="tel"
@@ -339,7 +351,7 @@ export function DoneCard({
     flow: PublicBookingFlow;
     onManage: (() => void) | null;
 }) {
-    const pet = flow.fields.petName.trim();
+    const subject = flow.kind === null ? "" : flow.fields.subjectName.trim();
     const when = (flow.when ?? "").replace(/\.$/, "");
     const pending = flow.result?.status === "pending";
     return (
@@ -353,7 +365,11 @@ export function DoneCard({
                 {pending ? s.pendingTitle : s.doneTitle}
             </h1>
             <p className="mx-auto mt-2 max-w-sm text-sm text-muted first-letter:uppercase">
-                {pending ? s.pendingBody(when) : pet ? s.doneBody(pet, when) : s.doneNoPet(when)}
+                {pending
+                    ? s.pendingBody(when)
+                    : subject
+                      ? s.doneBody(subject, when)
+                      : s.doneNoSubject(when)}
             </p>
             <div className="mx-auto mt-5 max-w-sm rounded-lg border border-line bg-bg p-4 text-left">
                 <FactList facts={visitFacts(flow)} label={s.summary} />

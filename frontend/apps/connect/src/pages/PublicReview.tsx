@@ -41,7 +41,11 @@ export function PublicReview() {
         <DocumentLetter
             brand={ctx.brand}
             businessName={ctx.business_name}
-            title={ctx.pet !== null ? s.promptPet(ctx.pet) : s.prompt(ctx.business_name)}
+            title={
+                ctx.subject_name !== null
+                    ? s.promptSubject(ctx.subject ?? "none", ctx.subject_name)
+                    : s.prompt(ctx.business_name)
+            }
             subtitle={
                 ctx.service === null
                     ? ""

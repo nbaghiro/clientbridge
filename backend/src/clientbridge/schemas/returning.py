@@ -23,7 +23,7 @@ class ReturningVerify(BaseModel):
     code: str = Field(pattern=r"^\d{6}$")
 
 
-class ReturningPet(BaseModel):
+class ReturningSubject(BaseModel):
     id: str
     name: str
 
@@ -39,7 +39,7 @@ class ReturningProfile(BaseModel):
     name: str
     email: str | None
     phone: str | None
-    pets: list[ReturningPet]
+    subjects: list[ReturningSubject]
     last_visit: ReturningVisit | None
 
 

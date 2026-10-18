@@ -101,7 +101,8 @@ async def test_hold_setting_zero_publishes_everything(
 async def test_public_context_names_the_visit(api: httpx.AsyncClient, db: AsyncSession) -> None:
     token = await _request(db, booking_id=await _visit(db))
     body = ok(await api.get(f"/review/{token}")).json()
-    assert body["pet"] == "Biscuit" and body["service"] and body["first_name"]
+    assert body["subject_name"] == "Biscuit" and body["subject"] == "pet"
+    assert body["service"] and body["first_name"]
     assert body["staff"] is not None
 
 

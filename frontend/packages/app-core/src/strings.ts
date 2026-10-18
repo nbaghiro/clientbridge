@@ -3538,7 +3538,7 @@ interface Strings {
     };
     readonly publicReturning: {
         readonly title: string;
-        readonly intro: string;
+        readonly intro: (kind: string) => string;
         readonly email: string;
         readonly sms: string;
         readonly contact: string;
@@ -3550,8 +3550,8 @@ interface Strings {
         readonly missing: string;
         readonly welcome: (name: string) => string;
         readonly usual: string;
-        readonly choosePet: string;
-        readonly newPet: string;
+        readonly choose: (kind: string) => string;
+        readonly newSubject: (kind: string) => string;
         readonly contactRequired: string;
         readonly codeRequired: string;
         readonly requestError: string;
@@ -3564,7 +3564,7 @@ interface Strings {
             readonly first: string;
             readonly firstBody: string;
             readonly returning: string;
-            readonly returningBody: string;
+            readonly returningBody: (kind: string) => string;
             readonly different: string;
             readonly continueNew: string;
         };
@@ -3609,8 +3609,8 @@ interface Strings {
         readonly phonePlaceholder: string;
         readonly email: string;
         readonly emailPlaceholder: string;
-        readonly pet: string;
-        readonly petPlaceholder: string;
+        readonly subject: (kind: string) => string;
+        readonly subjectPlaceholder: (kind: string) => string;
         readonly note: string;
         readonly notePlaceholder: string;
         readonly reachHint: string;
@@ -3618,7 +3618,10 @@ interface Strings {
         readonly contactRequired: string;
         readonly emailInvalid: string;
         readonly phoneInvalid: string;
-        readonly petRequired: string;
+        readonly subjectRequired: (kind: string) => string;
+        readonly address: string;
+        readonly addressPlaceholder: string;
+        readonly addressRequired: string;
         readonly summary: string;
         readonly dueNow: string;
         readonly dueAtVisit: string;
@@ -3642,8 +3645,8 @@ interface Strings {
         readonly doneTitle: string;
         readonly pendingTitle: string;
         readonly pendingBody: (when: string) => string;
-        readonly doneBody: (pet: string, when: string) => string;
-        readonly doneNoPet: (when: string) => string;
+        readonly doneBody: (name: string, when: string) => string;
+        readonly doneNoSubject: (when: string) => string;
         readonly addToCalendar: string;
         readonly calendarTitle: (service: string, business: string) => string;
         readonly manage: string;
@@ -4091,7 +4094,7 @@ interface Strings {
     };
     readonly publicReview: {
         readonly prompt: (businessName: string) => string;
-        readonly promptPet: (pet: string) => string;
+        readonly promptSubject: (kind: string, name: string) => string;
         readonly context: (service: string, staff: string) => string;
         readonly ratingLabel: string;
         readonly ratingWords: readonly [string, string, string, string, string, string];

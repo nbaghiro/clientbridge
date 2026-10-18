@@ -64,7 +64,7 @@ test("a client books a visit online and opens the manage link", async ({ page })
     await page.getByRole("button", { name: b.continue }).first().click();
     await expect(page.getByRole("heading", { name: b.stepDetails, level: 2 })).toBeVisible();
     await page.getByRole("textbox", { name: b.name }).fill("Robin Test");
-    await page.getByRole("textbox", { name: b.pet }).fill("Pepper");
+    await page.getByRole("textbox", { name: b.subject("pet") }).fill("Pepper");
     await page.getByRole("textbox", { name: b.phone }).fill("2505550199");
     await page.getByRole("textbox", { name: new RegExp(`^${b.email}`) }).fill("robin@example.com");
     await page.getByRole("button", { name: b.confirmAndPay("$27.50") }).click();
@@ -115,7 +115,7 @@ test("anyone books with any member, and a refused or unreachable booking reads a
     };
     await pickTime();
     await page.getByRole("textbox", { name: b.name }).fill("Robin Test");
-    await page.getByRole("textbox", { name: b.pet }).fill("Pepper");
+    await page.getByRole("textbox", { name: b.subject("pet") }).fill("Pepper");
     await page.getByRole("textbox", { name: b.phone }).fill("2505550199");
     const sent: { staff_id?: string }[] = [];
     let attempt = 0;
