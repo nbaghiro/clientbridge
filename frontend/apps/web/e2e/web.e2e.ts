@@ -395,7 +395,7 @@ test("owner: schedule, booking panel, classes and repeat visits", async ({ page 
 
     await walk.step("repeat visits: new series", async () => {
         await navigate(page, "/schedule/series");
-        await openAndClose(page, exactly(strings.recurrences.newShort));
+        await openAndClose(page, exactly(strings.recurrences.newSeries));
     });
 
     const rs = strings.recurrences;
@@ -994,7 +994,7 @@ test("staff: today, schedule and clients", async ({ page }) => {
         ).toBeVisible();
         await views.getByRole("button", { name: b.viewSeries }).click();
         await expect(page).toHaveURL(/\/schedule\/series$/);
-        await openAndClose(page, exactly(strings.recurrences.newShort));
+        await openAndClose(page, exactly(strings.recurrences.newSeries));
     });
 
     await walk.step("clients: add, record and notes", async () => {
