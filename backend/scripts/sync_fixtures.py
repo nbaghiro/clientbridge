@@ -74,7 +74,7 @@ async def seed() -> None:
                 status="active",
             )
         )
-        # a former member's account stays off every device
+        # a former member gets no access, but their name still reaches their old business
         db.add(
             Staff(
                 id="st_removed",

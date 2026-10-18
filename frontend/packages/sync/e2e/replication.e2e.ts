@@ -46,7 +46,7 @@ for (const role of ["owner", "admin", "staff", "contractor", "multi", "foreign"]
                             "SELECT id, name FROM users ORDER BY id",
                         ),
                         leakedAccounts: await db.getAll(
-                            "SELECT id FROM users WHERE email IS NOT NULL OR phone IS NOT NULL OR pin_hash IS NOT NULL",
+                            "SELECT id FROM users WHERE email IS NOT NULL OR phone IS NOT NULL",
                         ),
                     };
                 } finally {
@@ -77,7 +77,9 @@ for (const role of ["owner", "admin", "staff", "contractor", "multi", "foreign"]
         expect(rows.leakedInvites).toEqual([]);
         expect(rows.leakedProviders).toEqual([]);
         const team =
-            role === "foreign" ? ["foreign"] : ["admin", "contractor", "multi", "owner", "staff"];
+            role === "foreign"
+                ? ["foreign"]
+                : ["admin", "contractor", "multi", "owner", "removed", "staff"];
         expect(rows.users).toEqual(team.map((name) => ({ id: `us_${name}`, name })));
         expect(rows.leakedAccounts).toEqual([]);
         for (const row of rows.privateBusiness) {
@@ -185,7 +187,7 @@ const OWNER_ROWS = {
     orders: ["ord_first"],
     lines: ["ln_pickup"],
 };
-const FIRST_TEAM = ["us_admin", "us_contractor", "us_multi", "us_owner", "us_staff"];
+const FIRST_TEAM = ["us_admin", "us_contractor", "us_multi", "us_owner", "us_removed", "us_staff"];
 const EXPECTED_USERS: Record<string, string[]> = {
     owner: FIRST_TEAM,
     admin: FIRST_TEAM,

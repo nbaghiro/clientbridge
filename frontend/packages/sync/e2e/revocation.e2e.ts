@@ -57,7 +57,7 @@ test("live renames reach the replica; downgrade, deletion and removal purge its 
             clients: 1,
             tax: 1,
             hours: 2,
-            users: 5,
+            users: 6,
             owner: "owner",
         });
         expect((await snapshot()).pay).toBeGreaterThan(0);
@@ -72,7 +72,7 @@ test("live renames reach the replica; downgrade, deletion and removal purge its 
             pay: 0,
             tax: 0,
             hours: 0,
-            users: 5,
+            users: 6,
             owner: "renamed",
         });
         await mutate("delete_client");

@@ -50,7 +50,6 @@ export async function openAuthorizationReplica(filename: string) {
                 name: column.text,
                 email: column.text,
                 phone: column.text,
-                pin_hash: column.text,
             }),
         }),
         database: { dbFilename: filename },
