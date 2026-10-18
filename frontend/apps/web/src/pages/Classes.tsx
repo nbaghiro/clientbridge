@@ -231,11 +231,7 @@ function RosterPanel({ roster }: { roster: ClassRoster }) {
                         <h2 className="truncate font-display text-lg font-bold text-ink">
                             {x.name}
                         </h2>
-                        <p className="truncate text-sm text-muted">
-                            {x.roomName === ""
-                                ? s.with(x.when, x.staffName)
-                                : s.withRoom(x.when, x.staffName, x.roomName)}
-                        </p>
+                        <p className="truncate text-sm text-muted">{s.with(x.when, x.staffName)}</p>
                     </div>
                 </div>
                 <div className="w-48">

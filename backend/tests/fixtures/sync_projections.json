@@ -51,16 +51,6 @@
       "created_at",
       "updated_at"
     ],
-    "resources": [
-      "name",
-      "category",
-      "capacity",
-      "active",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
     "hours": [
       "staff_id",
       "basis",
@@ -716,7 +706,6 @@
     "slots": [
       "item_id",
       "staff_id",
-      "resource_id",
       "recurrence_id",
       "starts_at",
       "ends_at",
@@ -759,7 +748,6 @@
     "slots": [
       "item_id",
       "staff_id",
-      "resource_id",
       "recurrence_id",
       "starts_at",
       "ends_at",

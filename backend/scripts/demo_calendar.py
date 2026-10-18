@@ -4,7 +4,7 @@ from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.payments import Payment
-from clientbridge.models.scheduling import Booking, Hours, Resource, Slot
+from clientbridge.models.scheduling import Booking, Hours, Slot
 from scripts.demo_context import BUSINESS_TIMEZONE, DemoContext
 
 FIRST_NAMES = ("Alex", "Jordan", "Taylor", "Casey", "Morgan", "Robin", "Jamie", "Avery")
@@ -88,15 +88,6 @@ def build_calendar(ctx: DemoContext) -> None:
                 updated_at=ctx.at(-220),
             ),
         )
-    ctx.add(
-        Resource(
-            id="rs_class",
-            business_id=ctx.business_id,
-            name="Training room",
-            category="room",
-            capacity=6,
-        )
-    )
     for weekday in range(1, 6):
         template = ctx.get(Hours, f"av_st_owner_{weekday}")
         ctx.add(
@@ -211,15 +202,6 @@ def _allocate(ctx: DemoContext, items: dict[str, Item]) -> None:
             item.buffer_before_min or 0,
             item.buffer_after_min or 0,
         )
-        slot.resource_id = (
-            "rs_class"
-            if slot.capacity > 1
-            else "rs_bath"
-            if slot.staff_id == "st_priya"
-            else "rs_station_b"
-            if slot.staff_id == "st_diego"
-            else "rs_station_a"
-        )
         past = any(b.status in {"completed", "no_show"} for b in linked)
         candidate = slot.starts_at.astimezone(BUSINESS_TIMEZONE)
         if not past and candidate <= ctx.now:
@@ -265,11 +247,7 @@ def _allocate(ctx: DemoContext, items: dict[str, Item]) -> None:
                 for h in hours
             )
             conflict = any(
-                (
-                    other.staff_id == slot.staff_id
-                    or other.resource_id == slot.resource_id
-                    or pets & other_pets
-                )
+                (other.staff_id == slot.staff_id or pets & other_pets)
                 and start - timedelta(minutes=before) < other.ends_at + timedelta(minutes=oa)
                 and end + timedelta(minutes=after) > other.starts_at - timedelta(minutes=ob)
                 for other, other_pets, ob, oa in occupied

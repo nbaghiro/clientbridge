@@ -70,7 +70,6 @@ function visit(id: string, start: Date, end: Date, status = "confirmed"): Calend
         depositAmountCents: 0,
         depositStatus: "none",
         itemId: "it_groom",
-        resourceId: null,
         bufferBeforeMin: 0,
         bufferAfterMin: 0,
     };

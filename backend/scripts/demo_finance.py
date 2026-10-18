@@ -46,7 +46,6 @@ def add_finance_scenarios(ctx: DemoContext) -> None:
                     business_id=ctx.business_id,
                     item_id="it_bath",
                     staff_id="st_priya",
-                    resource_id="rs_bath",
                     starts_at=start,
                     ends_at=start + timedelta(minutes=45),
                     capacity=1,

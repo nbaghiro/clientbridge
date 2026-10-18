@@ -91,36 +91,6 @@ async def test_double_book_conflicts(as_owner: httpx.AsyncClient, db: AsyncSessi
     assert n == 1
 
 
-async def test_resource_double_book_conflicts(
-    as_owner: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    # a resource (room/equipment) can't be held by two overlapping slots, even across staff
-    client_id, item_id = await _client_and_item(db)
-    held = Slot(
-        id=new_id("slot"),
-        business_id=BIZ,
-        item_id=item_id,
-        staff_id="st_diego",
-        resource_id="rs_station_a",
-        starts_at=datetime(2027, 3, 1, 9, tzinfo=UTC),
-        ends_at=datetime(2027, 3, 1, 12, tzinfo=UTC),
-        capacity=1,
-        status="scheduled",
-    )
-    db.add(held)
-    await db.flush()
-    # st_owner is free + available at 10:00, but Station A is taken → a resource conflict, not staff
-    clash = _body(client_id, item_id, "2027-03-01T10:00:00Z") | {"resource_id": "rs_station_a"}
-    res = await as_owner.post("/v1/bookings", json=clash)
-    assert res.status_code == 409, res.text
-    assert "resource" in res.text.lower()  # the resource message, not the staff-overlap one
-    # same resource at a non-overlapping time, and a free resource at the clash time, both succeed
-    later = _body(client_id, item_id, "2027-03-01T14:00:00Z") | {"resource_id": "rs_station_a"}
-    assert (await as_owner.post("/v1/bookings", json=later)).status_code == 201, "non-overlap ok"
-    other = _body(client_id, item_id, "2027-03-01T10:00:00Z") | {"resource_id": "rs_station_b"}
-    assert (await as_owner.post("/v1/bookings", json=other)).status_code == 201, "free resource ok"
-
-
 async def test_cancel_frees_the_slot(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     client_id, item_id = await _client_and_item(db)
     body = _body(client_id, item_id, "2027-03-03T18:00:00Z")
@@ -1306,7 +1276,7 @@ async def test_a_second_cancel_is_a_no_op_with_no_second_notice(
     assert len(email.sent) == sent + 1
 
 
-async def test_a_concurrent_resource_clash_names_the_resource(db: AsyncSession) -> None:
+async def test_a_concurrent_unlocked_insert_reports_the_staff_overlap(db: AsyncSession) -> None:
     import asyncio
 
     from clientbridge.core.db import SessionLocal
@@ -1315,9 +1285,30 @@ async def test_a_concurrent_resource_clash_names_the_resource(db: AsyncSession) 
 
     start = datetime(2027, 5, 4, 17, tzinfo=UTC)
     inserted = asyncio.Event()
-    made: list[str] = []
+    held = new_id("slot")
+    made: list[str] = [held]
 
-    async def book(staff_id: str, client: str) -> Conflict | None:
+    async def hold() -> None:
+        async with SessionLocal() as session:
+            session.add(
+                Slot(
+                    id=held,
+                    business_id=BIZ,
+                    item_id="it_nails",
+                    staff_id=ST_OWNER,
+                    starts_at=start,
+                    ends_at=start + timedelta(minutes=30),
+                    capacity=1,
+                    status="scheduled",
+                )
+            )
+            await session.flush()
+            inserted.set()
+            await asyncio.sleep(0.5)
+            await session.commit()
+
+    async def book() -> Conflict | None:
+        await inserted.wait()
         async with SessionLocal() as session:
             item = await session.get(Item, "it_nails")
             assert item is not None
@@ -1326,28 +1317,23 @@ async def test_a_concurrent_resource_clash_names_the_resource(db: AsyncSession) 
                     session,
                     BIZ,
                     item=item,
-                    staff_id=staff_id,
+                    staff_id=ST_OWNER,
                     starts_at=start,
-                    client_id=client,
+                    client_id=CL_AMELIE,
                     source="manual",
-                    resource_id="rs_station_a",
                 )
             except Conflict as exc:
                 return exc
             made.extend([booking.id, slot.id])
-            inserted.set()
-            await asyncio.sleep(0.5)
             await session.commit()
             return None
 
-    async def second() -> Conflict | None:
-        await inserted.wait()
-        return await book("st_diego", "cl_marcus")
-
     try:
-        first, clash = await asyncio.gather(book(ST_OWNER, CL_AMELIE), second())
-        assert first is None
-        assert clash is not None and clash.message == "that resource is already booked at that time"
+        _, clash = await asyncio.gather(hold(), book())
+        assert (
+            clash is not None
+            and clash.message == "that staff member is already booked at that time"
+        )
     finally:
         async with SessionLocal() as cleanup:
             await cleanup.execute(delete(Booking).where(Booking.id.in_(made)))

@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { addDays, parseDateKey, parseTimestamp } from "./datetime";
 import { AWAY_SQL, EVENTS_SQL } from "./domain/bookings";
-import { CLASS_ROSTER_SQL, CLASS_SESSIONS_SQL, STATIONS_HELD_SQL } from "./domain/classes";
+import { CLASS_ROSTER_SQL, CLASS_SESSIONS_SQL } from "./domain/classes";
 import { FEES_SINCE_SQL } from "./domain/payouts";
 import { CHECKOUT_QUEUE_SQL } from "./domain/pos";
 import { AGENDA_SQL } from "./domain/today";
@@ -56,7 +56,6 @@ function seed(): void {
     put("items", "it_cut", { ...biz, name: "Cut", kind: "service", price_cents: 100 });
     put("items", "it_class", { ...biz, name: "Class", kind: "service", price_cents: 100 });
     put("clients", "cl_ann", { ...biz, name: "Ann", status: "active" });
-    put("resources", "rs_tub", { ...biz, name: "Tub" });
     put("accounts", "ac_fee", { ...biz, owner_type: "business", category: "processing_fee" });
     BLOCKS.forEach((origin, block) => {
         for (let i = 0; i < PER_BLOCK; i++) {
@@ -77,7 +76,6 @@ function seed(): void {
                 capacity: kind ? 4 : 1,
                 status: n % 17 === 0 ? "canceled" : "scheduled",
                 item_id: kind ? "it_class" : "it_cut",
-                resource_id: n % 7 === 0 ? "rs_tub" : null,
             });
             put("bookings", `bk_${String(n)}`, {
                 ...biz,
@@ -172,7 +170,6 @@ describe("range queries on the synced replica", () => {
         expect(plan(AGENDA_SQL, [hi, lo])).toContain(INDEXED);
         expect(plan(CLASS_SESSIONS_SQL, [lo, hi])).toContain(INDEXED);
         expect(plan(CLASS_ROSTER_SQL, [lo, hi])).toContain(INDEXED);
-        expect(plan(STATIONS_HELD_SQL, [hi, lo])).toContain(INDEXED);
         expect(plan(CHECKOUT_QUEUE_SQL, [lo, hi])).toContain(
             "USING INDEX ps_data__slots__slots_business_start (<expr>>? AND <expr><?)",
         );
@@ -198,7 +195,6 @@ describe("range queries on the synced replica", () => {
             end: instant(s.ends_at),
             live: s.status !== "canceled",
             classSession: Number(s.capacity) > 1,
-            held: s.resource_id !== null,
         }));
         const bookings = new Map(table("bookings").map((b) => [String(b.slot_id), b.status]));
         let crossing = 0;
@@ -214,9 +210,6 @@ describe("range queries on the synced replica", () => {
             );
             expect(sorted(ids(all(CLASS_SESSIONS_SQL, [lo, hi]), "slot_id"))).toEqual(
                 sorted(overlap.filter((s) => s.classSession).map((s) => s.id)),
-            );
-            expect(sorted(ids(all(STATIONS_HELD_SQL, [hi, lo]), "slot_id"))).toEqual(
-                sorted(overlap.filter((s) => s.held).map((s) => s.id)),
             );
             const starting = slots.filter(
                 (s) => s.start >= from && s.start < to && bookings.get(s.id) !== "canceled",

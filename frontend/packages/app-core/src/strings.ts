@@ -861,7 +861,6 @@ interface Strings {
         readonly problemTimeOff: (who: string, why: string) => string;
         readonly problemClosed: (why: string) => string;
         readonly problemPast: string;
-        readonly problemRoom: string;
         readonly problemClassFull: string;
         readonly problemClass: string;
         readonly moved: (when: string) => string;
@@ -884,7 +883,6 @@ interface Strings {
         readonly waitlist: string;
         readonly detailWhen: string;
         readonly detailWith: string;
-        readonly detailWhere: string;
         readonly detailNotes: string;
         readonly detailDeposit: string;
         readonly detailAddons: string;
@@ -1007,7 +1005,6 @@ interface Strings {
         readonly groupTeam: string;
         readonly railJump: string;
         readonly railNothingNext: string;
-        readonly stationNone: string;
     };
     readonly recurrences: {
         readonly newTitle: string;
@@ -1133,7 +1130,6 @@ interface Strings {
         readonly add: string;
         readonly checkedIn: (n: number, of: number) => string;
         readonly with: (when: string, name: string) => string;
-        readonly withRoom: (when: string, name: string, room: string) => string;
         readonly roster: string;
         readonly waitlist: string;
         readonly waitlistHint: string;
@@ -1169,12 +1165,6 @@ interface Strings {
         readonly emptyClassesBody: string;
         readonly rosterError: string;
         readonly startsLater: string;
-        readonly pickTitle: string;
-        readonly pickSubtitle: string;
-        readonly takenBy: (pet: string, time: string) => string;
-        readonly freeThen: string;
-        readonly saveStation: string;
-        readonly stationError: string;
     };
     readonly reminders: {
         readonly subtitle: string;

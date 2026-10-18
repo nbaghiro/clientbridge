@@ -87,8 +87,8 @@ from clientbridge.schemas.reviews import PublicReviewContext, PublicReviewSubmit
 from clientbridge.services import ledger
 from clientbridge.services.billing import estimate_status
 from clientbridge.services.bookings import (
+    OVERLAP,
     Availability,
-    clash,
     create_booking_core,
     load_availability,
     local_day,
@@ -647,7 +647,6 @@ class PublicManageService:
                 data.starts_at,
                 ends_at,
                 exclude=slot.id,
-                resource_id=slot.resource_id,
             )
             if problem is not None:
                 raise Conflict(problem.message or _UNOFFERED)
@@ -658,7 +657,7 @@ class PublicManageService:
             try:
                 await self.db.flush()
             except IntegrityError as exc:
-                raise clash(exc) from exc
+                raise Conflict(OVERLAP) from exc
             out = await self._view(booking, slot, business)
             cmd.record(_MOVE_SCOPE, entity_type="booking", entity_id=booking.id)
             return out

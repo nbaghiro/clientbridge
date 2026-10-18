@@ -27,7 +27,6 @@ class BookingCreate(Mirror):
     item_id: str
     staff_id: str
     starts_at: datetime
-    resource_id: str | None = None
     subject_id: str | None = None
     note: str | None = Field(default=None, max_length=2000, description="Kept as a booking note")
     notify: bool = Field(default=True, description="Send the client a confirmation")
@@ -37,7 +36,6 @@ class BookingMove(BaseModel):
     starts_at: datetime | None = None
     ends_at: datetime | None = Field(default=None, description="A new end resizes the visit")
     staff_id: str | None = Field(default=None, description="Moves the visit to another member")
-    resource_id: str | None = Field(default=None, description="Room or station; set to change it")
 
 
 class BookingPatch(BookingMove, Mirror):
@@ -46,7 +44,7 @@ class BookingPatch(BookingMove, Mirror):
     status: Literal["confirmed", "completed", "canceled", "no_show"] | None = None
 
 
-Problem = Literal["past", "closed", "time_off", "off_hours", "overlap", "resource", "class"]
+Problem = Literal["past", "closed", "time_off", "off_hours", "overlap", "class"]
 
 
 class BookingCheck(BaseModel):
@@ -174,7 +172,6 @@ class RecurrenceCreate(Mirror):
     )
     count: int | None = Field(default=None, description="End after this many; set count or until")
     until: date | None = Field(default=None, description="End on this date; set count or until")
-    resource_id: str | None = None
     subject_id: str | None = None
     exceptions: list[RecurrenceException] = Field(default_factory=list, max_length=60)
     confirmation: Literal["series", "each", "none"] = Field(

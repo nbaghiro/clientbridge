@@ -13,7 +13,6 @@ import {
     useCollectDeposit,
     useNewMessage,
     useSavedCards,
-    useStationPicker,
     formatParts,
     temperamentLabel,
     BUSINESS_CURRENCY,
@@ -95,9 +94,6 @@ function BookingFacts({ detail, layout }: { detail: BookingDetail; layout: "inli
                         </span>
                     ),
                 },
-                ...(e.resourceName !== null
-                    ? [{ label: s.detailWhere, value: e.resourceName }]
-                    : []),
                 ...(detail.depositLine !== null
                     ? [
                           {
@@ -302,47 +298,6 @@ function BookingHistory({ detail }: { detail: BookingDetail }) {
     );
 }
 
-function StationPicker({ event }: { event: ScheduleEvent }) {
-    const [saved, setSaved] = useState(false);
-    const picker = useStationPicker(api, event, () => {
-        setSaved(true);
-    });
-    if (event.kind !== "visit" || event.bookingId === null || picker.options.length === 0)
-        return null;
-    if (event.status !== "confirmed" && event.status !== "pending") return null;
-    return (
-        <DetailSection title={c.pickTitle}>
-            <p className="mb-2 text-xs text-muted">{c.pickSubtitle}</p>
-            <Choice
-                layout="cards"
-                label={c.pickTitle}
-                options={[
-                    { key: "", label: s.stationNone },
-                    ...picker.options.map((o) => ({
-                        key: o.key,
-                        label: o.label,
-                        hint: o.hint,
-                        disabled: o.disabled,
-                    })),
-                ]}
-                value={picker.value}
-                onChange={(k) => {
-                    setSaved(false);
-                    picker.setValue(k);
-                }}
-            />
-            {picker.changed && !saved ? (
-                <div className="mt-2 flex justify-end">
-                    <Button size="sm" busy={picker.busy} onPress={picker.save}>
-                        {c.saveStation}
-                    </Button>
-                </div>
-            ) : null}
-            {picker.error !== null ? <Notice tone="danger">{picker.error}</Notice> : null}
-        </DetailSection>
-    );
-}
-
 /** Lifecycle buttons with the consequence spelled out in place before a no-show or cancel goes through. */
 export function BookingActionBar({
     actions,
@@ -526,7 +481,6 @@ export function BookingBody({
             <BookingRoster detail={detail} />
             <BookingNotes detail={detail} />
             {detail.event.bookingId !== null ? <BookingAddons event={detail.event} /> : null}
-            <StationPicker event={detail.event} />
             <BookingHistory detail={detail} />
         </>
     );

@@ -466,7 +466,7 @@ No API creates resources; the zone list lacks the non-DST areas of BC and Quebec
 
 Historical evidence: `models/scheduling.py:142`; `core/zones.py:11-20`; `scripts/db_access.py:71`, `:128`
 
-**Current resolution (addressed; follow-up retained):** Missing Canadian zones added; admin has bounded audit/client-related activity reads. Resource management is separate product scope; append-only audit triggers need concrete approval as required by the plan.
+**Current resolution (addressed; follow-up retained):** Missing Canadian zones added; admin has bounded audit/client-related activity reads. Resources were removed from the product, so no resources API is needed; append-only audit triggers need concrete approval as required by the plan.
 
 ### L18
 
@@ -613,9 +613,9 @@ These are not silently closed as fixed:
 - **L3:** Deposit lookup now uses scoped(). A booking_id index requires a concrete measured schema proposal, not an automatic model change.
 - **L8:** Intake tenant queries now use scoped(). Cross-tenant job indexes require production-shaped EXPLAIN evidence and separate schema approval.
 - **L13:** Mobile inbox uses FlatList. SQL pagination/search redesign remains a measured-growth follow-up; no silent row cap hides old conversations.
-- **L17:** Missing Canadian zones added; admin has bounded audit/client-related activity reads. Resource management is separate product scope; append-only audit triggers need concrete approval as required by the plan.
+- **L17:** Missing Canadian zones added; admin has bounded audit/client-related activity reads. Resources were removed from the product, so no resources API is needed; append-only audit triggers need concrete approval as required by the plan.
 
-Additional schema approval is required before adding indexes or append-only triggers. Gift-card tender and resource CRUD need a separate product design. Manual device/provider QA remains part of the handoff; passing browser tests does not claim native or live-provider validation.
+Additional schema approval is required before adding indexes or append-only triggers. Gift-card tender needs a separate product design. Manual device/provider QA remains part of the handoff; passing browser tests does not claim native or live-provider validation.
 
 The existing sync fixes (`ec3fd669`) and admin foundation (`6baf5ed7`) are retained and verified rather than reimplemented. Admin activity projects recorded audits and related entities; it does not fabricate missing history. Delivery acceptance differs from delivery confirmation, and uncertain provider acceptance is not retried blindly.
 

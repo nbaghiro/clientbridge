@@ -142,7 +142,6 @@ export function problemAt(
             const clash = overlaps.find((e) => e.status !== "no_show") ?? overlaps[0];
             return s.taken(name, clash ? formatTime(clash.start, zone) : "");
         }
-        case "resource":
         case "full":
             return found.message;
         default:

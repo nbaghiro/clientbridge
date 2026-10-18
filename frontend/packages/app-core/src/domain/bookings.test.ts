@@ -76,10 +76,8 @@ function event(id: string, start: Date, end: Date, extra: Partial<ScheduleEvent>
         staffColor: null,
         source: "staff",
         seriesId: null,
-        resourceId: null,
         bufferBeforeMin: 0,
         bufferAfterMin: 0,
-        resourceName: null,
         addonCount: 0,
         note: null,
         checkedIn: false,
@@ -303,7 +301,7 @@ describe("slotProblem and planMove", () => {
         expect(check(at(6), at(7), null, "st_bo").problem).toBeNull();
     });
 
-    it("mirrors the server: buffers, rooms, joining a class with seats and the same-day end", () => {
+    it("mirrors the server: buffers, other members, joining a class with seats and the same-day end", () => {
         const groom = { id: "it_groom", capacity: 1, bufferBeforeMin: 0, bufferAfterMin: 15 };
         const yoga = { id: "it_yoga", capacity: 4, bufferBeforeMin: 0, bufferAfterMin: 0 };
         const session = {
@@ -314,7 +312,7 @@ describe("slotProblem and planMove", () => {
         };
         const taken = [
             event("bk_1", at(10), at(11), { bufferAfterMin: 15 }),
-            event("bk_room", at(13), at(14), { staffId: "st_bo", resourceId: "rs_tub" }),
+            event("bk_bo", at(13), at(14), { staffId: "st_bo" }),
             event("cls", at(15), at(16), { ...session, capacity: 4, bookedCount: 3 }),
             event("full", at(16), at(17), { ...session, capacity: 2, bookedCount: 2 }),
         ];
@@ -330,11 +328,8 @@ describe("slotProblem and planMove", () => {
             problem: "overlap",
             message: s.problemOverlap("Amy"),
         });
-        expect(check(at(13, 30), at(14), { resourceId: "rs_tub" })).toEqual({
-            problem: "resource",
-            message: s.problemRoom,
-        });
-        expect(check(at(13, 30), at(14), { resourceId: "rs_sink" }).problem).toBeNull();
+        expect(check(at(13, 30), at(14)).problem).toBeNull();
+        expect(check(at(13, 30), at(14), {}, "st_bo").problem).toBe("overlap");
         expect(check(at(15), at(16), { item: yoga }).problem).toBeNull();
         expect(check(at(15), at(16), { item: groom }).problem).toBe("overlap");
         expect(check(at(16), at(17), { item: yoga })).toEqual({

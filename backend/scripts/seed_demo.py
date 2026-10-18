@@ -38,7 +38,6 @@ from clientbridge.models.scheduling import (
     Booking,
     Hours,
     Recurrence,
-    Resource,
     Slot,
 )
 from clientbridge.services.forms import form_definition
@@ -791,14 +790,7 @@ def seed_clients(owner: str) -> None:
             )
 
 
-def seed_resources_hours() -> None:
-    rows.append(
-        Resource(id="rs_station_a", business_id=BIZ, name="Grooming Station A", category="station")
-    )
-    rows.append(
-        Resource(id="rs_station_b", business_id=BIZ, name="Grooming Station B", category="station")
-    )
-    rows.append(Resource(id="rs_bath", business_id=BIZ, name="Bath Bay", category="room"))
+def seed_hours() -> None:
     # recurring weekly hours Tue-Sat 9-17 for both groomers
     for member in ("st_owner", "st_diego"):
         for weekday in (1, 2, 3, 4, 5):  # Tue..Sat
@@ -895,9 +887,6 @@ def seed_appointments() -> None:
                 business_id=BIZ,
                 item_id=item_id,
                 staff_id=member,
-                resource_id="rs_bath"
-                if "bath" in item_id or "nails" in item_id
-                else "rs_station_a",
                 starts_at=at(d, h),
                 ends_at=at(d, h) + timedelta(minutes=dur),
                 capacity=1,
@@ -1581,7 +1570,6 @@ def seed_coverage() -> None:
             business_id=BIZ,
             item_id="it_puppy",
             staff_id="st_owner",
-            resource_id="rs_station_b",
             starts_at=at(4, 11),
             ends_at=at(4, 11) + timedelta(minutes=60),
             capacity=6,
@@ -1633,7 +1621,6 @@ def seed_coverage() -> None:
             business_id=BIZ,
             item_id="it_groom_sm",
             staff_id="st_diego",
-            resource_id="rs_station_a",
             starts_at=at(-9, 14),
             ends_at=at(-9, 14) + timedelta(minutes=60),
             capacity=1,
@@ -1884,7 +1871,6 @@ INSERT_ORDER = [
     Client,
     Consent,
     Item,
-    Resource,
     Form,
     Contract,
     Broadcast,
@@ -1918,7 +1904,7 @@ INSERT_ORDER = [
 
 
 FILLER_ITEMS = ["it_groom_sm", "it_bath", "it_nails", "it_deshed", "it_cat"]
-FILLER_STAFF = {"st_owner": "rs_station_a", "st_diego": "rs_station_b", "st_priya": "rs_bath"}
+FILLER_STAFF = ["st_owner", "st_diego", "st_priya"]
 
 
 def _working_hours(member: str, day: date) -> tuple[time, time] | None:
@@ -1939,12 +1925,10 @@ def seed_calendar_filler() -> None:
     rng = random.Random(7)
     INV_SEQ[0] = max(INV_SEQ[0], 1100)  # above the hand-numbered invoices
     pairs = sorted({(client, pet) for *_, client, pet, _ in APPTS})
-    busy = [
-        (r.staff_id, r.resource_id, r.starts_at, r.ends_at) for r in rows if isinstance(r, Slot)
-    ]
+    busy = [(r.staff_id, r.starts_at, r.ends_at) for r in rows if isinstance(r, Slot)]
     n = 0
     for d in range(-120, 31):
-        for member, resource in FILLER_STAFF.items():
+        for member in FILLER_STAFF:
             hours = _working_hours(member, at(d).astimezone(now.tzinfo).date())
             if hours is None:
                 continue
@@ -1966,10 +1950,8 @@ def seed_calendar_filler() -> None:
                         (start, start + timedelta(minutes=dur))
                         for start in (at(d, h, m) for h, m in options)
                         if not any(
-                            (staff == member or res == resource)
-                            and start < e
-                            and b < start + timedelta(minutes=dur)
-                            for staff, res, b, e in busy
+                            staff == member and start < e and b < start + timedelta(minutes=dur)
+                            for staff, b, e in busy
                         )
                     ),
                     None,
@@ -1977,7 +1959,7 @@ def seed_calendar_filler() -> None:
                 if slot is None:
                     continue
                 start, end = slot
-                busy.append((member, resource, start, end))
+                busy.append((member, start, end))
                 client, pet = rng.choice(pairs)
                 done = end < now
                 status = "completed" if done else "pending" if rng.random() < 0.2 else "confirmed"
@@ -1989,7 +1971,6 @@ def seed_calendar_filler() -> None:
                         business_id=BIZ,
                         item_id=item_id,
                         staff_id=member,
-                        resource_id=resource,
                         starts_at=start,
                         ends_at=end,
                         capacity=1,
@@ -2053,7 +2034,6 @@ def seed_client_series() -> None:
                 business_id=BIZ,
                 item_id="it_groom_sm",
                 staff_id="st_owner",
-                resource_id="rs_station_a",
                 recurrence_id="sch_mochi",
                 starts_at=start,
                 ends_at=end,
@@ -2104,7 +2084,7 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
     owner, _ = seed_identity()
     seed_items(owner)
     seed_clients(owner)
-    seed_resources_hours()
+    seed_hours()
     seed_catalog_instances()
     seed_lapsed_entitlements()
     seed_payment_methods()
