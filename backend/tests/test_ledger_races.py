@@ -64,36 +64,55 @@ async def throwaway(db: AsyncSession) -> AsyncIterator[Throwaway]:
     await owner.dispose()
 
 
-async def _queued() -> None:
-    """Hold on until another session waits on a lock this test holds, instead of a fixed sleep."""
-    async with SessionLocal() as probe:
-        # a loaded machine can take seconds to start the second session, so allow up to 30
-        for _ in range(3000):
-            waiting = await probe.execute(
-                text(
-                    "SELECT count(*) FROM pg_stat_activity"
-                    " WHERE datname = current_database() AND wait_event_type = 'Lock'"
-                )
-            )
-            if waiting.scalar_one():
-                return
-            await asyncio.sleep(0.01)
-    raise AssertionError("the second writer never queued behind the first")
-
-
 async def _journals(session: AsyncSession, ref: str) -> int:
     rows = await session.execute(select(Entry.journal_id).where(Entry.ref == ref))
     return len(set(rows.scalars().all()))
 
 
-async def _second_after[T](
-    started: asyncio.Event, first: Callable[[], Awaitable[T]], second: Callable[[], Awaitable[T]]
-) -> tuple[T, T]:
-    async def late() -> T:
-        await started.wait()
-        return await second()
+async def _pid(session: AsyncSession) -> int:
+    return (await session.execute(text("SELECT pg_backend_pid()"))).scalar_one()
 
-    return await asyncio.gather(first(), late())
+
+class Race[T]:
+    """The first writer keeps its lock until Postgres reports the second blocked on its backend."""
+
+    def __init__(self) -> None:
+        self._first_pid: asyncio.Future[int] = asyncio.get_running_loop().create_future()
+        self._second_pid: asyncio.Future[int] = asyncio.get_running_loop().create_future()
+        self._second: asyncio.Task[T] | None = None
+
+    async def hold(self, session: AsyncSession) -> None:
+        first_pid = await _pid(session)
+        self._first_pid.set_result(first_pid)
+        second = self._second
+        assert second is not None
+        async with SessionLocal() as probe:
+            while not second.done():
+                if self._second_pid.done():
+                    blocked = await probe.execute(
+                        text("SELECT :first = ANY(pg_blocking_pids(:second))"),
+                        {"first": first_pid, "second": self._second_pid.result()},
+                    )
+                    if blocked.scalar_one():
+                        return
+                await asyncio.sleep(0.01)
+        second.result()
+        raise AssertionError("the second writer finished without queueing behind the first")
+
+    async def join(self, session: AsyncSession) -> None:
+        await self._first_pid
+        self._second_pid.set_result(await _pid(session))
+
+    async def run(
+        self, first: Callable[[], Awaitable[T]], second: Callable[[], Awaitable[T]]
+    ) -> tuple[T, T]:
+        self._second = asyncio.ensure_future(second())
+        try:
+            winner = await first()
+        except BaseException:
+            self._second.cancel()
+            raise
+        return winner, await self._second
 
 
 async def test_two_posts_on_one_ref_write_one_journal(
@@ -105,21 +124,22 @@ async def test_two_posts_on_one_ref_write_one_journal(
         Leg("client", client.id, "receivable", 100),
         Leg("business", business.id, "revenue", -100),
     ]
-    started = asyncio.Event()
+    race = Race[IntegrityError | None]()
 
-    async def post(hold: bool) -> IntegrityError | None:
+    async def post(first: bool) -> IntegrityError | None:
         async with SessionLocal() as session:
             try:
+                if not first:
+                    await race.join(session)
                 await ledger.post(session, business.id, event="invoice", ref=ref, legs=legs)
-                if hold:
-                    started.set()
-                    await _queued()
+                if first:
+                    await race.hold(session)
                 await session.commit()
             except IntegrityError as exc:
                 return exc
             return None
 
-    winner, loser = await _second_after(started, lambda: post(True), lambda: post(False))
+    winner, loser = await race.run(lambda: post(True), lambda: post(False))
     assert winner is None and loser is not None
     async with SessionLocal() as check:
         assert await _journals(check, ref) == 1
@@ -160,24 +180,25 @@ async def test_two_redemptions_of_one_card_cannot_overspend_it(
         )
         await session.commit()
         card_id = card.id
-    started = asyncio.Event()
+    race = Race[Conflict | None]()
 
-    async def redeem(hold: bool) -> Conflict | None:
+    async def redeem(first: bool) -> Conflict | None:
         async with SessionLocal() as session:
             service = GiftCardService(session, principal, FakePaymentGateway())
             try:
-                if hold:  # take the card's row lock first, then keep it while the other arrives
+                if first:
                     await session.execute(
                         select(GiftCard.id).where(GiftCard.id == card_id).with_for_update()
                     )
-                    started.set()
-                    await _queued()
+                    await race.hold(session)
+                else:
+                    await race.join(session)
                 await service.redeem_gift_card(GiftCardRedeem(code=code, amount_cents=700))
             except Conflict as exc:
                 return exc
             return None
 
-    first, second = await _second_after(started, lambda: redeem(True), lambda: redeem(False))
+    first, second = await race.run(lambda: redeem(True), lambda: redeem(False))
     assert first is None
     assert second is not None and second.message == "invalid redemption amount"
     async with SessionLocal() as check:
@@ -222,24 +243,25 @@ async def test_two_consumes_of_a_one_session_package_use_it_once(
         )
         await session.commit()
         package_id = package.id
-    started = asyncio.Event()
+    race = Race[Conflict | None]()
 
-    async def consume(hold: bool) -> Conflict | None:
+    async def consume(first: bool) -> Conflict | None:
         async with SessionLocal() as session:
             service = PackageService(session, principal, FakePaymentGateway())
             try:
-                if hold:
+                if first:
                     await session.execute(
                         select(Package.id).where(Package.id == package_id).with_for_update()
                     )
-                    started.set()
-                    await _queued()
+                    await race.hold(session)
+                else:
+                    await race.join(session)
                 await service.consume_session(package_id)
             except Conflict as exc:
                 return exc
             return None
 
-    first, second = await _second_after(started, lambda: consume(True), lambda: consume(False))
+    first, second = await race.run(lambda: consume(True), lambda: consume(False))
     assert first is None and second is not None
     async with SessionLocal() as check:
         used = await check.get(Package, package_id)
