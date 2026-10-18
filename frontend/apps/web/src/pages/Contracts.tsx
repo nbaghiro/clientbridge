@@ -21,14 +21,14 @@ import {
     ActivityTimeline,
     Avatar,
     Button,
-    Choice,
     ContractDocument,
     Empty,
     IconButton,
+    ListRow,
     Modal,
     Notice,
-    Panel,
     StatusPill,
+    Tabs,
     TextField,
 } from "@clientbridge/ui";
 import { useState } from "react";
@@ -57,12 +57,6 @@ export function Contracts() {
 
     return (
         <div>
-            <div className="flex items-center justify-between gap-4 pb-5">
-                <p className="text-sm text-muted">{s.subtitle}</p>
-                <Button variant="outline" icon="plus" onPress={add}>
-                    {s.newContract}
-                </Button>
-            </div>
             <Loaded load={library.load} loading={s.loading} failed={s.loadError}>
                 {active === null ? (
                     <Empty
@@ -73,22 +67,33 @@ export function Contracts() {
                         actions={<Button onPress={add}>{s.newContract}</Button>}
                     />
                 ) : (
-                    <>
-                        <Choice
-                            layout="cards"
-                            label={s.templates}
-                            value={active.contract.id}
-                            onChange={setPicked}
-                            options={library.contracts.map((x) => ({
-                                key: x.contract.id,
-                                label: x.contract.name,
-                                hint: formatParts([
-                                    s.versionShort(x.contract.version),
-                                    s.signedCount(x.signed),
-                                    s.waitingCount(x.waiting),
-                                ]),
-                            }))}
-                        />
+                    <div className="flex h-[calc(100vh-12rem)] min-h-[560px] overflow-hidden rounded-xl border border-line bg-surface shadow-card">
+                        <aside className="flex w-[280px] shrink-0 flex-col border-r border-line">
+                            <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
+                                <h2 className="text-sm font-semibold text-ink">{s.templates}</h2>
+                                <Button size="sm" variant="quiet" icon="plus" onPress={add}>
+                                    {s.newContract}
+                                </Button>
+                            </div>
+                            <ul className="min-h-0 flex-1 divide-y divide-line-soft overflow-y-auto">
+                                {library.contracts.map((x) => (
+                                    <li key={x.contract.id}>
+                                        <ListRow
+                                            title={x.contract.name}
+                                            selected={x.contract.id === active.contract.id}
+                                            onPress={() => {
+                                                setPicked(x.contract.id);
+                                            }}
+                                            detail={formatParts([
+                                                s.versionShort(x.contract.version),
+                                                s.signedCount(x.signed),
+                                                s.waitingCount(x.waiting),
+                                            ])}
+                                        />
+                                    </li>
+                                ))}
+                            </ul>
+                        </aside>
                         <ContractDetail
                             key={`${active.contract.id}:${String(active.contract.version)}`}
                             summary={active}
@@ -97,7 +102,7 @@ export function Contracts() {
                                 setSending(true);
                             }}
                         />
-                    </>
+                    </div>
                 )}
             </Loaded>
             {adding ? (
@@ -136,6 +141,7 @@ function ContractDetail({
 }) {
     const zone = useBusinessZone();
     const [editing, setEditing] = useState(false);
+    const [view, setView] = useState<"text" | "signatures">("text");
     const [viewing, setViewing] = useState<SignatureRequest | null>(null);
     const draft = useContractDraft(api, summary.contract, () => {
         setEditing(false);
@@ -146,16 +152,34 @@ function ContractDetail({
         c.updated_at === null ? null : s.updated(formatDate(parseTimestamp(c.updated_at), zone));
 
     return (
-        <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-            <section className="min-w-0">
-                <div className="mb-2 flex items-center justify-between">
-                    <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
-                        {s.text}
-                    </h2>
-                    {editing ? null : (
+        <div className="flex min-w-0 flex-1 flex-col">
+            <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-5 py-3">
+                <div className="min-w-0 flex-1">
+                    <h2 className="truncate font-display text-lg font-bold text-ink">{c.name}</h2>
+                    <p className="truncate text-xs text-muted">
+                        {formatParts([
+                            s.version(c.version),
+                            updated,
+                            s.signedCount(summary.signed),
+                            s.waitingCount(summary.waiting),
+                        ])}
+                    </p>
+                </div>
+                <Tabs
+                    variant="pill"
+                    label={c.name}
+                    items={[
+                        { key: "text", label: s.text },
+                        { key: "signatures", label: s.signatures },
+                    ]}
+                    active={view}
+                    onSelect={setView}
+                />
+                <div className="flex items-center gap-2">
+                    {view === "text" && !editing ? (
                         <Button
-                            variant="link"
                             size="sm"
+                            variant="outline"
                             icon="edit"
                             onPress={() => {
                                 setEditing(true);
@@ -163,145 +187,162 @@ function ContractDetail({
                         >
                             {s.editText}
                         </Button>
-                    )}
+                    ) : null}
+                    <Button size="sm" icon="send" onPress={onSend}>
+                        {s.send}
+                    </Button>
                 </div>
-                {editing ? (
-                    <div className="space-y-3 rounded-lg border border-line bg-surface p-5 shadow-card">
-                        <TextField
-                            label={s.text}
-                            multiline
-                            rows={16}
-                            value={draft.body}
-                            onChange={draft.setBody}
-                            surface="surface"
-                        />
-                        <Notice tone="info" banner>
-                            {s.versionNotice(draft.nextVersion)}
-                        </Notice>
-                        {draft.failed ? <Notice tone="danger">{s.publishError}</Notice> : null}
-                        <div className="flex justify-end gap-2">
-                            <Button
-                                variant="quiet"
-                                onPress={() => {
-                                    setEditing(false);
-                                }}
-                            >
-                                {s.cancel}
-                            </Button>
-                            <Button
-                                onPress={draft.publish}
-                                busy={draft.busy}
-                                disabled={!draft.changed}
-                            >
-                                {draft.busy ? s.publishing : s.publish(draft.nextVersion)}
-                            </Button>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="max-h-[38rem] overflow-y-auto rounded-md">
-                        <ContractDocument
-                            density="compact"
-                            issuer={issuer}
-                            title={c.name}
-                            meta={formatParts([s.version(c.version), updated])}
-                            clauses={contractClauses(c.body)}
-                        />
-                    </div>
-                )}
-            </section>
-            <section className="min-w-0">
-                <Panel
-                    flush
-                    title={s.signatures}
-                    subtitle={formatParts([
-                        s.signedCount(summary.signed),
-                        s.waitingCount(summary.waiting),
-                    ])}
-                    actions={
-                        <Button size="sm" icon="send" onPress={onSend}>
-                            {s.send}
-                        </Button>
-                    }
-                >
-                    {summary.requests.length === 0 ? <Empty message={s.noSignatures} /> : null}
-                    <ul className="divide-y divide-line-soft">
-                        {summary.requests.map((r) => {
-                            const waiting = r.state === "pending" || r.state === "opened";
-                            const name = r.client_name ?? "";
-                            return (
-                                <li key={r.id} className="flex items-center gap-3 px-4 py-3">
-                                    <Avatar name={name} size="sm" />
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-2">
-                                            <span className="truncate text-sm font-medium text-ink">
-                                                {name}
-                                            </span>
-                                            {r.version !== c.version ? (
-                                                <span className="text-xs text-muted">
-                                                    {s.versionShort(r.version)}
-                                                </span>
-                                            ) : null}
-                                        </div>
-                                        <div className="truncate text-xs text-muted">
-                                            {signatureActivity(r, zone)}
-                                        </div>
-                                    </div>
-                                    {r.state === "signed" ? (
+            </header>
+            <div className="min-h-0 flex-1 overflow-y-auto bg-bg/40">
+                <div className="mx-auto max-w-3xl px-6 py-6">
+                    {view === "text" ? (
+                        <>
+                            {editing ? (
+                                <div className="space-y-3 rounded-lg border border-line bg-surface p-5 shadow-card">
+                                    <TextField
+                                        label={s.text}
+                                        multiline
+                                        rows={16}
+                                        value={draft.body}
+                                        onChange={draft.setBody}
+                                        surface="surface"
+                                    />
+                                    <Notice tone="info" banner>
+                                        {s.versionNotice(draft.nextVersion)}
+                                    </Notice>
+                                    {draft.failed ? (
+                                        <Notice tone="danger">{s.publishError}</Notice>
+                                    ) : null}
+                                    <div className="flex justify-end gap-2">
                                         <Button
-                                            variant="link"
-                                            size="sm"
-                                            icon="receipt"
+                                            variant="quiet"
                                             onPress={() => {
-                                                setViewing(r);
+                                                setEditing(false);
                                             }}
                                         >
-                                            {s.signedCopy}
+                                            {s.cancel}
                                         </Button>
-                                    ) : (
-                                        <StatusPill
-                                            status={s.status[r.state]}
-                                            intent={signatureIntent(r.state)}
-                                        />
-                                    )}
-                                    {waiting ? (
-                                        <div className="flex gap-0.5">
-                                            <IconButton
-                                                icon={actions.copiedId === r.id ? "check" : "copy"}
-                                                label={
-                                                    actions.copiedId === r.id
-                                                        ? s.copied
-                                                        : s.copyLink
-                                                }
-                                                onPress={() => {
-                                                    actions.copy(r);
-                                                }}
-                                            />
-                                            <IconButton
-                                                icon={actions.resent.has(r.id) ? "check" : "send"}
-                                                label={
-                                                    actions.resent.has(r.id) ? s.resent : s.resend
-                                                }
-                                                disabled={
-                                                    actions.busyId === r.id ||
-                                                    actions.resent.has(r.id)
-                                                }
-                                                onPress={() => {
-                                                    actions.resend(r);
-                                                }}
-                                            />
-                                        </div>
-                                    ) : null}
-                                </li>
-                            );
-                        })}
-                    </ul>
-                    {actions.error !== null ? (
-                        <div className="px-4 pb-3">
-                            <Notice tone="danger">{actions.error}</Notice>
+                                        <Button
+                                            onPress={draft.publish}
+                                            busy={draft.busy}
+                                            disabled={!draft.changed}
+                                        >
+                                            {draft.busy
+                                                ? s.publishing
+                                                : s.publish(draft.nextVersion)}
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="max-h-[38rem] overflow-y-auto rounded-md">
+                                    <ContractDocument
+                                        density="compact"
+                                        issuer={issuer}
+                                        title={c.name}
+                                        meta={formatParts([s.version(c.version), updated])}
+                                        clauses={contractClauses(c.body)}
+                                    />
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <div className="overflow-hidden rounded-lg border border-line bg-surface">
+                            {summary.requests.length === 0 ? (
+                                <Empty message={s.noSignatures} />
+                            ) : null}
+                            <ul className="divide-y divide-line-soft">
+                                {summary.requests.map((r) => {
+                                    const waiting = r.state === "pending" || r.state === "opened";
+                                    const name = r.client_name ?? "";
+                                    return (
+                                        <li
+                                            key={r.id}
+                                            className="flex items-center gap-3 px-4 py-3"
+                                        >
+                                            <Avatar name={name} size="sm" />
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="truncate text-sm font-medium text-ink">
+                                                        {name}
+                                                    </span>
+                                                    {r.version !== c.version ? (
+                                                        <span className="text-xs text-muted">
+                                                            {s.versionShort(r.version)}
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                                <div className="truncate text-xs text-muted">
+                                                    {signatureActivity(r, zone)}
+                                                </div>
+                                            </div>
+                                            {r.state === "signed" ? (
+                                                <Button
+                                                    variant="link"
+                                                    size="sm"
+                                                    icon="receipt"
+                                                    onPress={() => {
+                                                        setViewing(r);
+                                                    }}
+                                                >
+                                                    {s.signedCopy}
+                                                </Button>
+                                            ) : (
+                                                <StatusPill
+                                                    status={s.status[r.state]}
+                                                    intent={signatureIntent(r.state)}
+                                                />
+                                            )}
+                                            {waiting ? (
+                                                <div className="flex gap-0.5">
+                                                    <IconButton
+                                                        icon={
+                                                            actions.copiedId === r.id
+                                                                ? "check"
+                                                                : "copy"
+                                                        }
+                                                        label={
+                                                            actions.copiedId === r.id
+                                                                ? s.copied
+                                                                : s.copyLink
+                                                        }
+                                                        onPress={() => {
+                                                            actions.copy(r);
+                                                        }}
+                                                    />
+                                                    <IconButton
+                                                        icon={
+                                                            actions.resent.has(r.id)
+                                                                ? "check"
+                                                                : "send"
+                                                        }
+                                                        label={
+                                                            actions.resent.has(r.id)
+                                                                ? s.resent
+                                                                : s.resend
+                                                        }
+                                                        disabled={
+                                                            actions.busyId === r.id ||
+                                                            actions.resent.has(r.id)
+                                                        }
+                                                        onPress={() => {
+                                                            actions.resend(r);
+                                                        }}
+                                                    />
+                                                </div>
+                                            ) : null}
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                            {actions.error !== null ? (
+                                <div className="px-4 pb-3">
+                                    <Notice tone="danger">{actions.error}</Notice>
+                                </div>
+                            ) : null}
                         </div>
-                    ) : null}
-                </Panel>
-            </section>
+                    )}
+                </div>
+            </div>
             {viewing !== null ? (
                 <SignedCopyDialog
                     request={viewing}

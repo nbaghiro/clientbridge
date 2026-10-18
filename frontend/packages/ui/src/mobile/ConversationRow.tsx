@@ -40,7 +40,9 @@ export function ConversationRow({
                     <Text style={[styles.at, bold && styles.atUnread]}>{at}</Text>
                 </View>
                 <View style={styles.bottom}>
-                    <Icon name={GLYPH[channel]} size={14} color={c.muted} />
+                    <View style={styles.glyph}>
+                        <Icon name={GLYPH[channel]} size={14} color={c.muted} />
+                    </View>
                     <Text style={[styles.preview, bold && styles.previewUnread]} numberOfLines={2}>
                         {preview}
                     </Text>
@@ -62,6 +64,7 @@ const styles = StyleSheet.create({
         gap: 12,
         paddingVertical: 12,
         paddingHorizontal: 20,
+        backgroundColor: c.surface,
         borderBottomColor: c.borderSoft,
         borderBottomWidth: StyleSheet.hairlineWidth,
     },
@@ -73,6 +76,8 @@ const styles = StyleSheet.create({
     at: { color: c.muted, fontSize: 13 },
     atUnread: { color: c.accent, fontWeight: "600" },
     bottom: { flexDirection: "row", alignItems: "flex-start", gap: 6, marginTop: 3 },
+    // As tall as one line of the preview, so the glyph centres on the first line.
+    glyph: { height: 19, justifyContent: "center" },
     preview: { flex: 1, color: c.muted, fontSize: 14, lineHeight: 19 },
     previewUnread: { color: c.inkSoft },
     flag: { flexDirection: "row", marginTop: 6 },

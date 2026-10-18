@@ -1,4 +1,5 @@
 import { historyStart } from "@clientbridge/sync";
+import { personMedia } from "./files";
 
 import { useBusinessQuery as useQuery } from "../hooks";
 
@@ -20,7 +21,7 @@ import {
 import { formatParts, formatPhone } from "../format";
 import { isConnectionFailure, type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import type { Intent } from "../ui";
+import type { Intent, SelectOption } from "../ui";
 import { type ChannelConsent, consentFor, smsSegments, useConsents } from "./broadcasts";
 import { useClients } from "./clients";
 import { staffNameSql } from "./staff";
@@ -501,7 +502,7 @@ export function useThreadComposer(api: ApiLike, thread: InboxThread): ThreadComp
 }
 
 interface NewMessage {
-    clients: { key: string; label: string }[];
+    clients: SelectOption<string>[];
     clientId: string;
     setClientId: (id: string) => void;
     channel: Channel;
@@ -531,7 +532,11 @@ export function useNewMessage(
     const sms = consentFor(consents.map, clientId, "sms");
     const smsBlocked = channel === "sms" && stopped(sms);
     return {
-        clients: clients.map((c) => ({ key: c.id, label: c.name })),
+        clients: clients.map((c) => ({
+            key: c.id,
+            label: c.name,
+            media: personMedia(c.name),
+        })),
         clientId,
         setClientId: (id) => {
             setClientIdRaw(id);

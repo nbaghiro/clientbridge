@@ -26,7 +26,7 @@ import {
     DurationBar,
     ImagePicker,
     Notice,
-    Select,
+    SearchSelect,
     TextField,
     Toggle,
 } from "@clientbridge/ui";
@@ -340,7 +340,7 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                 {ed.sold30 > 0 ? <Text style={styles.hint}>{s.sold30(ed.sold30)}</Text> : null}
             </DetailSection>
             <DetailSection title={s.sectionShop}>
-                <Select
+                <SearchSelect
                     label={s.variantParent}
                     value={v.variantParentId ?? ""}
                     options={ed.parentOptions}

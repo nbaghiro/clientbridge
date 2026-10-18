@@ -62,26 +62,28 @@ export function GiftCards() {
         <ScrollView contentContainerStyle={styles.page}>
             <View style={styles.head}>
                 <Text style={ui.note}>{w.subtitle}</Text>
-                <View style={styles.row}>
-                    <Button
-                        style={{ alignSelf: "center" }}
-                        grow
-                        onPress={() => {
-                            setMode("sell");
-                        }}
-                    >
-                        {w.sellNew}
-                    </Button>
-                    <Button
-                        style={{ alignSelf: "center" }}
-                        variant="outline"
-                        onPress={() => {
-                            setMode("redeem");
-                        }}
-                    >
-                        {g.redeem}
-                    </Button>
-                </View>
+                {wallet.load.state === "empty" ? null : (
+                    <View style={styles.row}>
+                        <Button
+                            style={{ alignSelf: "center" }}
+                            grow
+                            onPress={() => {
+                                setMode("sell");
+                            }}
+                        >
+                            {w.sellNew}
+                        </Button>
+                        <Button
+                            style={{ alignSelf: "center" }}
+                            variant="outline"
+                            onPress={() => {
+                                setMode("redeem");
+                            }}
+                        >
+                            {g.redeem}
+                        </Button>
+                    </View>
+                )}
             </View>
             {wallet.load.state === "loading" ? (
                 <Skeleton variant="row" count={3} label={w.walletTitle} />
@@ -93,7 +95,22 @@ export function GiftCards() {
                     retrying={wallet.load.retrying}
                 />
             ) : wallet.load.state === "empty" ? (
-                <Empty variant="card" icon="box" message={w.emptyTitle} body={w.empty} />
+                <Empty
+                    variant="card"
+                    icon="box"
+                    message={w.emptyTitle}
+                    body={w.empty}
+                    actions={
+                        <Button
+                            size="sm"
+                            onPress={() => {
+                                setMode("sell");
+                            }}
+                        >
+                            {w.sellNew}
+                        </Button>
+                    }
+                />
             ) : (
                 <>
                     <Choice

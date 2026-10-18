@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAgenda, greeting, visitAction } from "./today";
+import { buildAgenda, firstRunLayout, greeting, visitAction } from "./today";
 
 const ZONE = "America/Vancouver";
 
@@ -121,5 +121,38 @@ describe("greeting", () => {
         expect(greeting(9, "Hannah Wong")).toBe("Good morning, Hannah");
         expect(greeting(13, "Diego")).toBe("Good afternoon, Diego");
         expect(greeting(19, "")).toBe("Good evening");
+    });
+});
+
+describe("firstRunLayout", () => {
+    const quiet = {
+        collectedCents: 0,
+        paymentCount: 0,
+        awaitingCents: 0,
+        awaitingCount: 0,
+        setAsideCents: 0,
+        filingDue: null,
+        filingDays: null,
+    };
+
+    it("leads with the guide on a new account and hides the empty figures", () => {
+        expect(firstRunLayout(0, quiet, { complete: false })).toEqual({
+            guide: true,
+            money: false,
+        });
+    });
+
+    it("keeps the usual Today once money is moving, even with setup left", () => {
+        const open = { ...quiet, awaitingCents: 4500, awaitingCount: 1 };
+        expect(firstRunLayout(0, open, { complete: false })).toEqual({
+            guide: false,
+            money: true,
+        });
+    });
+
+    it("keeps the usual Today with visits booked, setup finished or figures still loading", () => {
+        expect(firstRunLayout(2, quiet, { complete: false }).guide).toBe(false);
+        expect(firstRunLayout(0, quiet, { complete: true }).guide).toBe(false);
+        expect(firstRunLayout(0, null, { complete: false }).guide).toBe(false);
     });
 });

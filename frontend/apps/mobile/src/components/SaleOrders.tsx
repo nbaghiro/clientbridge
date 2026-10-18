@@ -147,26 +147,45 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
     const history = useSalesHistory();
     const [open, setOpen] = useState<string | null>(null);
     const t = history.today;
+    const none = history.load.state !== "loading" && history.days.length === 0 && history.q === "";
     return (
         <View style={styles.stack}>
-            {history.load.state === "ready" || history.load.state === "empty" ? (
+            {history.load.state === "ready" && !none ? (
                 <View style={styles.stats}>
-                    <Stat
-                        currency={BUSINESS_CURRENCY}
-                        label={d.todaySales}
-                        cents={t.salesCents}
-                        hint={d.todayCount(t.count)}
-                    />
-                    <Stat currency={BUSINESS_CURRENCY} label={d.todayTips} cents={t.tipsCents} />
+                    <View style={styles.grow}>
+                        <Stat
+                            size="lg"
+                            currency={BUSINESS_CURRENCY}
+                            label={d.todaySales}
+                            cents={t.salesCents}
+                            hint={d.todayCount(t.count)}
+                        />
+                    </View>
+                    <View style={styles.grow}>
+                        <Stat
+                            size="lg"
+                            currency={BUSINESS_CURRENCY}
+                            label={d.todayTips}
+                            cents={t.tipsCents}
+                        />
+                    </View>
                 </View>
             ) : null}
-            <Choice
-                label={d.history}
-                options={history.filters}
-                value={history.filter}
-                onChange={history.setFilter}
-            />
-            <SearchField value={history.q} onChange={history.setQ} placeholder={d.historySearch} />
+            {none ? null : (
+                <>
+                    <Choice
+                        label={d.history}
+                        options={history.filters}
+                        value={history.filter}
+                        onChange={history.setFilter}
+                    />
+                    <SearchField
+                        value={history.q}
+                        onChange={history.setQ}
+                        placeholder={d.historySearch}
+                    />
+                </>
+            )}
             {history.load.state === "loading" ? (
                 <Skeleton variant="row" count={6} label={d.loadingSales} />
             ) : history.load.state === "error" ? (
@@ -176,6 +195,7 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
                     variant="card"
                     icon="receipt"
                     message={history.q === "" ? d.historyEmptyTitle : history.empty}
+                    {...(history.q === "" ? { body: history.empty } : {})}
                 />
             ) : (
                 history.days.map((day) => (
@@ -344,6 +364,7 @@ function SalePanel({
 }
 
 const styles = StyleSheet.create({
+    grow: { flex: 1 },
     stack: { gap: 12 },
     row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
     stats: { flexDirection: "row", gap: 12 },

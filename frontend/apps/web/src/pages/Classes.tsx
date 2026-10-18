@@ -1,5 +1,6 @@
 import {
     type ClassRoster,
+    type ClassSession,
     type RosterEntry,
     strings,
     useClassBoard,
@@ -19,130 +20,127 @@ import {
     Meter,
     Modal,
     Notice,
-    PageHeader,
     SearchField,
     Skeleton,
     StatusPill,
     TextField,
 } from "@clientbridge/ui";
+import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
 import { useState } from "react";
 
+import { ScheduleHeader } from "../components/ScheduleGrid";
 import { ScheduleViews } from "../components/ScheduleViews";
+import { SummaryStrip } from "../components/Workspace";
 import { api } from "../lib/api";
+import { useOpenLink } from "../lib/links";
 
 const s = strings.classes;
 
 export function Classes() {
     const board = useClassBoard(api);
     const roster = board.roster;
+    const open = useOpenLink();
     const [messaging, setMessaging] = useState(false);
     const [sent, setSent] = useState<string | null>(null);
+    const days = groupByDay(board.sessions);
 
     return (
-        <div className="mx-auto max-w-6xl space-y-6 px-8 py-8">
-            <PageHeader
-                title={s.title}
-                subtitle={s.subtitle}
-                actions={
-                    <>
-                        <ScheduleViews active="classes" />
-                        <Button
-                            variant="outline"
-                            disabled={roster === null}
-                            onPress={() => {
-                                setSent(null);
-                                setMessaging(true);
-                            }}
-                        >
-                            {s.messageClass}
-                        </Button>
-                    </>
-                }
-            />
-            {sent !== null ? <Notice tone="success">{sent}</Notice> : null}
-            {board.load.state === "loading" ? (
-                <div className="rounded-lg border border-line bg-surface p-5 shadow-card">
-                    <Skeleton variant="row" count={4} label={s.loading} />
-                </div>
-            ) : board.load.state === "error" ? (
-                <LoadFailed
-                    variant="card"
-                    message={s.loadError}
-                    onRetry={board.load.retry}
-                    retrying={board.load.retrying}
-                />
-            ) : board.sessions.length === 0 ? (
-                <Empty
-                    variant="card"
-                    icon="users"
-                    message={s.emptyClasses}
-                    body={s.emptyClassesBody}
-                />
-            ) : (
-                <div className="grid items-start gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
-                    <nav
-                        aria-label={s.upcoming}
-                        className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-1"
+        <div className="flex h-full min-h-[600px]">
+            <section className="flex min-w-0 flex-1 flex-col p-5">
+                <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-card">
+                    <ScheduleHeader
+                        views={<ScheduleViews active="classes" />}
+                        onNew={() => {
+                            open("booking");
+                        }}
                     >
-                        <h2 className="col-span-full text-xs font-semibold uppercase tracking-wide text-muted">
-                            {s.upcoming}
-                        </h2>
-                        {board.sessions.map((x) => {
-                            const on = x.slotId === board.selected;
-                            return (
-                                <button
-                                    key={x.slotId}
-                                    type="button"
-                                    aria-current={on || undefined}
-                                    onClick={() => {
-                                        board.select(x.slotId);
-                                    }}
-                                    className={`w-full rounded-lg border p-3.5 text-left transition ${
-                                        on
-                                            ? "border-accent bg-accent-weak"
-                                            : "border-line bg-surface hover:bg-bg"
-                                    }`}
-                                >
-                                    <span className="block truncate text-sm font-semibold text-ink">
-                                        {formatParts([x.day, x.name])}
-                                    </span>
-                                    <span className="mt-0.5 block truncate text-xs text-muted">
-                                        {formatParts([x.time, firstName(x.staffName)])}
-                                    </span>
-                                    <span className="mt-2.5 block">
-                                        <Meter
-                                            units
+                        <h1 className="truncate font-display text-lg font-bold text-ink">
+                            {s.title}
+                        </h1>
+                    </ScheduleHeader>
+                    {board.load.hasData && board.sessions.length === 0 ? null : (
+                        <SummaryStrip items={board.summary} />
+                    )}
+                    {sent !== null ? (
+                        <Notice tone="success" banner className="rounded-none">
+                            {sent}
+                        </Notice>
+                    ) : null}
+                    {board.load.state === "loading" ? (
+                        <div className="min-h-0 flex-1 p-5">
+                            <Skeleton variant="row" count={4} label={s.loading} />
+                        </div>
+                    ) : board.load.state === "error" ? (
+                        <div className="min-h-0 flex-1 p-5">
+                            <LoadFailed
+                                message={s.loadError}
+                                onRetry={board.load.retry}
+                                retrying={board.load.retrying}
+                            />
+                        </div>
+                    ) : board.sessions.length === 0 ? (
+                        <div className="flex min-h-0 flex-1 items-start justify-center bg-bg/40 pt-24">
+                            <div className="w-[360px] rounded-lg bg-surface shadow-card">
+                                <Empty
+                                    variant="card"
+                                    icon="users"
+                                    message={s.emptyClasses}
+                                    body={s.emptyClassesBody}
+                                    actions={
+                                        <Button
                                             size="sm"
-                                            labelPosition="hidden"
-                                            value={x.booked}
-                                            max={x.capacity}
-                                            overflow={x.waitlist}
-                                            intent={x.full ? "warning" : "accent"}
-                                            label={s.seatsBooked(x.booked, x.capacity)}
-                                        />
-                                    </span>
-                                    <span
-                                        className={`mt-1.5 block text-xs font-medium ${
-                                            x.full
-                                                ? "text-warn"
-                                                : x.booked === 0
-                                                  ? "text-muted"
-                                                  : "text-accent"
-                                        }`}
-                                    >
-                                        {x.seatsLabel}
-                                    </span>
-                                </button>
-                            );
-                        })}
-                    </nav>
-                    {roster === null ? (
-                        <Empty message={s.emptyRoster} />
+                                            variant="outline"
+                                            onPress={() => {
+                                                open("catalog");
+                                            }}
+                                        >
+                                            {strings.pos.desk.addCatalog}
+                                        </Button>
+                                    }
+                                />
+                            </div>
+                        </div>
                     ) : (
-                        <RosterPanel roster={roster} />
+                        <div className="flex min-h-0 flex-1">
+                            <nav
+                                aria-label={s.upcoming}
+                                className="w-72 shrink-0 overflow-y-auto border-r border-line"
+                            >
+                                {days.map((group) => (
+                                    <div key={group.day}>
+                                        <h2 className="sticky top-0 z-10 border-b border-line-soft bg-head px-4 py-1.5 text-xs font-semibold text-muted">
+                                            {group.day}
+                                        </h2>
+                                        {group.sessions.map((x) => (
+                                            <SessionRow
+                                                key={x.slotId}
+                                                x={x}
+                                                on={x.slotId === board.selected}
+                                                onPress={() => {
+                                                    board.select(x.slotId);
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                ))}
+                            </nav>
+                            <div className="min-w-0 flex-1 overflow-y-auto">
+                                {roster === null ? (
+                                    <Empty message={s.emptyRoster} />
+                                ) : (
+                                    <RosterPanel
+                                        roster={roster}
+                                        onMessage={() => {
+                                            setSent(null);
+                                            setMessaging(true);
+                                        }}
+                                    />
+                                )}
+                            </div>
+                        </div>
                     )}
                 </div>
-            )}
+            </section>
             {messaging && roster !== null ? (
                 <Modal
                     size="sm"
@@ -168,6 +166,73 @@ export function Classes() {
                 </Modal>
             ) : null}
         </div>
+    );
+}
+
+function groupByDay(
+    sessions: readonly ClassSession[],
+): { day: string; sessions: ClassSession[] }[] {
+    const groups: { day: string; sessions: ClassSession[] }[] = [];
+    for (const x of sessions) {
+        const last = groups.at(-1);
+        if (last?.day === x.day) last.sessions.push(x);
+        else groups.push({ day: x.day, sessions: [x] });
+    }
+    return groups;
+}
+
+// Laid out like a calendar card: a status bar on the left and the service colour as a dot.
+function SessionRow({ x, on, onPress }: { x: ClassSession; on: boolean; onPress: () => void }) {
+    const tone = INTENT_COLORS[x.intent];
+    return (
+        <button
+            type="button"
+            aria-current={on || undefined}
+            onClick={onPress}
+            className={`flex w-full gap-3 border-b border-line-soft px-4 py-3 text-left transition ${
+                on ? "bg-accent-weak" : "hover:bg-bg"
+            }`}
+        >
+            <span
+                aria-hidden
+                className="w-[3px] shrink-0 self-stretch rounded-full"
+                style={{ backgroundColor: cssVar(tone.line) }}
+            />
+            <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5">
+                    {x.color !== null ? (
+                        <span
+                            aria-hidden
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: x.color }}
+                        />
+                    ) : null}
+                    <span className="truncate text-sm font-semibold text-ink">{x.name}</span>
+                </span>
+                <span className="mt-0.5 block truncate text-xs text-muted">
+                    {formatParts([x.time, firstName(x.staffName)])}
+                </span>
+                <span className="mt-2 block">
+                    <Meter
+                        units
+                        size="sm"
+                        labelPosition="hidden"
+                        value={x.booked}
+                        max={x.capacity}
+                        overflow={x.waitlist}
+                        intent={x.full ? "warning" : "accent"}
+                        label={s.seatsBooked(x.booked, x.capacity)}
+                    />
+                </span>
+                <span
+                    className={`mt-1.5 block text-xs font-medium ${
+                        x.full ? "text-warn" : x.booked === 0 ? "text-muted" : "text-accent"
+                    }`}
+                >
+                    {x.seatsLabel}
+                </span>
+            </span>
+        </button>
     );
 }
 
@@ -222,11 +287,11 @@ function MessageClass({
     );
 }
 
-function RosterPanel({ roster }: { roster: ClassRoster }) {
+function RosterPanel({ roster, onMessage }: { roster: ClassRoster; onMessage: () => void }) {
     const kind = useSubjectKind();
     const x = roster.session;
     return (
-        <section className="overflow-hidden rounded-lg border border-line bg-surface shadow-card">
+        <section>
             <header className="flex flex-wrap items-start justify-between gap-4 border-b border-line px-5 py-4">
                 <div className="flex min-w-0 items-center gap-3">
                     <Icon name="users" size={24} className="shrink-0 text-ink-soft" />
@@ -237,19 +302,24 @@ function RosterPanel({ roster }: { roster: ClassRoster }) {
                         <p className="truncate text-sm text-muted">{s.with(x.when, x.staffName)}</p>
                     </div>
                 </div>
-                <div className="w-48">
-                    <Meter
-                        units
-                        labelPosition="below"
-                        value={x.booked}
-                        max={x.capacity}
-                        overflow={x.waitlist}
-                        intent={x.full ? "warning" : "accent"}
-                        label={formatParts([
-                            s.seatsBooked(x.booked, x.capacity),
-                            s.checkedIn(x.checkedIn, x.booked),
-                        ])}
-                    />
+                <div className="flex items-start gap-4">
+                    <div className="w-48">
+                        <Meter
+                            units
+                            labelPosition="below"
+                            value={x.booked}
+                            max={x.capacity}
+                            overflow={x.waitlist}
+                            intent={x.full ? "warning" : "accent"}
+                            label={formatParts([
+                                s.seatsBooked(x.booked, x.capacity),
+                                s.checkedIn(x.checkedIn, x.booked),
+                            ])}
+                        />
+                    </div>
+                    <Button variant="outline" size="sm" onPress={onMessage}>
+                        {s.messageClass}
+                    </Button>
                 </div>
             </header>
 

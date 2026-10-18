@@ -419,7 +419,7 @@ export function TicketPanel({ sale, onCharge }: { sale: SaleTicket; onCharge: ()
     const [discounting, setDiscounting] = useState(false);
     return (
         <aside
-            className="sticky top-6 flex max-h-[calc(100vh-8rem)] w-[340px] shrink-0 flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-card xl:w-[380px]"
+            className="flex w-[340px] shrink-0 flex-col border-l border-line bg-surface xl:w-[380px]"
             aria-label={d.ticket}
         >
             <div className="flex items-center justify-between border-b border-line px-5 py-3.5">

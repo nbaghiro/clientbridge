@@ -24,7 +24,7 @@ import {
     Modal,
     Notice,
     RatingDistribution,
-    Select,
+    SearchSelect,
     Stars,
     StatusPill,
     TextField,
@@ -57,9 +57,11 @@ export function Reviews() {
             <ScrollView contentContainerStyle={styles.body}>
                 <View style={styles.top}>
                     <Text style={styles.subtitle}>{s.subtitle}</Text>
-                    <Button style={{ alignSelf: "center" }} size="sm" icon="send" onPress={ask}>
-                        {s.ask}
-                    </Button>
+                    {queue.load.state === "empty" ? null : (
+                        <Button style={{ alignSelf: "center" }} size="sm" icon="send" onPress={ask}>
+                            {s.ask}
+                        </Button>
+                    )}
                 </View>
                 <Loaded load={queue.load} loading={s.loading} failed={s.loadError}>
                     {queue.load.state === "empty" ? (
@@ -422,10 +424,11 @@ function RequestReviewSheet({ queue, onClose }: { queue: ReviewQueue; onClose: (
             <View style={styles.sheet}>
                 <Text style={styles.sheetTitle}>{s.requestTitle}</Text>
                 <Text style={styles.sheetBody}>{s.requestBody}</Text>
-                <Select
+                <SearchSelect
                     label={s.requestClient}
                     value={clientId}
-                    options={[{ key: "", label: s.chooseClient }, ...queue.clientOptions]}
+                    placeholder={s.chooseClient}
+                    options={queue.clientOptions}
                     onChange={setClientId}
                 />
                 {sent ? <Notice tone="success">{s.requestSent(name)}</Notice> : null}

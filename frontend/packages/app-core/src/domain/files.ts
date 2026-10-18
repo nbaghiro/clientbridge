@@ -1,3 +1,4 @@
+import type { OptionMedia } from "../ui";
 import { useState } from "react";
 
 import { isConnectionFailure, useAsyncAction } from "../hooks";
@@ -48,6 +49,29 @@ async function putToPresignedUrl(
     if (!res.ok) {
         throw new Error(`upload failed (${res.status})`);
     }
+}
+
+let mediaBase: string | null = null;
+
+/** Set once at startup, so view-models can give option pictures a link without the API address. */
+export function setMediaBase(apiBase: string): void {
+    mediaBase = apiBase;
+}
+
+function mediaSrc(fileId: string | null): string | null {
+    return mediaBase === null ? null : mediaUrl(mediaBase, fileId);
+}
+
+export function personMedia(name: string, color: string | null = null): OptionMedia {
+    return { kind: "person", name, color };
+}
+
+export function itemMedia(item: {
+    name: string;
+    color: string | null;
+    image_file_id: string | null;
+}): OptionMedia {
+    return { kind: "item", name: item.name, color: item.color, src: mediaSrc(item.image_file_id) };
 }
 
 /** The stable public link for a business logo or item image (`GET /media/{id}` on the API). */

@@ -113,23 +113,28 @@ function ClientList() {
     const ids = dir.rows.map((c) => c.id);
     const allOn = ids.length > 0 && ids.every((id) => sel.isSelected(id));
 
+    const none = dir.load.hasData && dir.counts.active + dir.counts.archived === 0;
     return (
         <div className="mx-auto max-w-6xl px-8 py-8">
             <ListPage<ClientListRow, ClientSegment>
                 title={strings.clients.title}
                 summary={
-                    dir.load.hasData
+                    dir.load.hasData && !none
                         ? strings.clients.edit.listSummary(dir.counts.active, dir.counts.archived)
                         : undefined
                 }
-                action={{
-                    label: strings.clients.add,
-                    onPress: () => {
-                        setDialog({ kind: "client", id: null });
-                    },
-                }}
+                action={
+                    none
+                        ? undefined
+                        : {
+                              label: strings.clients.add,
+                              onPress: () => {
+                                  setDialog({ kind: "client", id: null });
+                              },
+                          }
+                }
                 accessory={
-                    dir.load.ready ? (
+                    dir.load.ready && !none ? (
                         <Button
                             variant={selecting ? "outline" : "quiet"}
                             icon="check"
@@ -143,7 +148,7 @@ function ClientList() {
                     ) : undefined
                 }
                 segments={
-                    dir.load.ready
+                    dir.load.ready && !none
                         ? {
                               items: [
                                   {
@@ -163,7 +168,7 @@ function ClientList() {
                         : undefined
                 }
                 search={
-                    dir.load.ready
+                    dir.load.ready && !none
                         ? {
                               value: dir.q,
                               onChange: dir.setQ,
@@ -185,26 +190,28 @@ function ClientList() {
                 }
                 onRetry={dir.load.retry}
                 head={
-                    <div className={grid}>
-                        {selecting ? (
-                            <Checkbox
-                                label={t.selectAll}
-                                hideLabel
-                                value={allOn}
-                                mixed={!allOn && sel.selected.length > 0}
-                                onChange={() => {
-                                    if (sel.selected.length > 0) sel.clear();
-                                    else sel.setAll(ids);
-                                }}
-                            />
-                        ) : null}
-                        <span>{r.colClient}</span>
-                        {kind !== null ? <span>{strings.subjects.many(kind)}</span> : null}
-                        <span>{selecting ? r.colTags : r.colNext}</span>
-                        {manager && !selecting ? (
-                            <span className="text-right">{r.colBalance}</span>
-                        ) : null}
-                    </div>
+                    none ? undefined : (
+                        <div className={grid}>
+                            {selecting ? (
+                                <Checkbox
+                                    label={t.selectAll}
+                                    hideLabel
+                                    value={allOn}
+                                    mixed={!allOn && sel.selected.length > 0}
+                                    onChange={() => {
+                                        if (sel.selected.length > 0) sel.clear();
+                                        else sel.setAll(ids);
+                                    }}
+                                />
+                            ) : null}
+                            <span>{r.colClient}</span>
+                            {kind !== null ? <span>{strings.subjects.many(kind)}</span> : null}
+                            <span>{selecting ? r.colTags : r.colNext}</span>
+                            {manager && !selecting ? (
+                                <span className="text-right">{r.colBalance}</span>
+                            ) : null}
+                        </div>
+                    )
                 }
                 rows={dir.rows}
                 rowKey={(c) => c.id}

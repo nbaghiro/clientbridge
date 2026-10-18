@@ -82,6 +82,7 @@ export function Business({ footer }: { footer?: ReactNode }) {
                         form.set("timezone", v);
                     }}
                     size="lg"
+                    surface="surface"
                 />
                 <Field label={strings.subjects.choiceLabel} hint={strings.subjects.choiceHelp}>
                     <Choice

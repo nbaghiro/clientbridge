@@ -1,3 +1,5 @@
+import type { SelectOption } from "../ui";
+import { personMedia } from "./files";
 import { isStorageFull } from "./sync";
 import { discardRejectedHours, enqueueHours, strandedKey, type WeekDay } from "@clientbridge/sync";
 import { useBusinessQuery as useQuery } from "../hooks";
@@ -791,7 +793,7 @@ interface TimeOffForm {
     // "" closes the whole business.
     staffId: string;
     setStaffId: (id: string) => void;
-    staffOptions: { key: string; label: string }[];
+    staffOptions: SelectOption<string>[];
     length: AwayLength;
     setLength: (l: AwayLength) => void;
     from: string;
@@ -871,7 +873,11 @@ export function useTimeOffForm(
         staffId,
         setStaffId,
         staffOptions: [
-            ...members.map((m) => ({ key: m.id, label: staffName(m) })),
+            ...members.map((m) => ({
+                key: m.id,
+                label: staffName(m),
+                media: personMedia(staffName(m), m.color),
+            })),
             ...(manager ? [{ key: "", label: s.wholeBusiness }] : []),
         ],
         length,

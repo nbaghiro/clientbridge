@@ -64,23 +64,27 @@ export function GiftCards() {
                     <h2 className="font-display text-xl font-bold text-ink">{w.walletTitle}</h2>
                     <p className="mt-0.5 text-sm text-muted">{w.subtitle}</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button
-                        variant="outline"
-                        onPress={() => {
-                            setMode("redeem");
-                        }}
-                    >
-                        {w.redeemGift}
-                    </Button>
-                    <Button
-                        onPress={() => {
-                            setMode("sell");
-                        }}
-                    >
-                        {w.sellNew}
-                    </Button>
-                </div>
+                {wallet.load.state === "empty" ? null : (
+                    <div className="flex gap-2">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onPress={() => {
+                                setMode("redeem");
+                            }}
+                        >
+                            {w.redeemGift}
+                        </Button>
+                        <Button
+                            size="sm"
+                            onPress={() => {
+                                setMode("sell");
+                            }}
+                        >
+                            {w.sellNew}
+                        </Button>
+                    </div>
+                )}
             </div>
             {wallet.load.state === "loading" ? (
                 <Skeleton variant="row" count={3} label={w.walletTitle} />

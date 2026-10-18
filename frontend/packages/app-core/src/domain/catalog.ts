@@ -18,9 +18,9 @@ import {
 } from "../format";
 import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import { type DurationSegment, type Intent, type TimelineEntry } from "../ui";
+import { type DurationSegment, type Intent, type SelectOption, type TimelineEntry } from "../ui";
 import { utcSql } from "../datetime";
-import { useFileUpload } from "./files";
+import { itemMedia, useFileUpload } from "./files";
 import { invoiceStatusSql, orderStatusSql } from "./ledger";
 import { useReplicaLoad } from "./sync";
 import { asTaxClass, type DocRate, isFederal, lineTax, useTaxSetup } from "./taxes";
@@ -821,7 +821,7 @@ interface ProductPhoto {
 }
 
 export interface ProductEditor extends Taxed {
-    parentOptions: { key: string; label: string }[];
+    parentOptions: SelectOption<string>[];
     margin: MarginFacts | null;
     photo: ProductPhoto;
     sold30: number;
@@ -850,7 +850,11 @@ export function useProductEditor(
                         !product.variant_parent_id &&
                         product.id !== item?.id,
                 )
-                .map((product) => ({ key: product.id, label: product.name })),
+                .map((product) => ({
+                    key: product.id,
+                    label: product.name,
+                    media: itemMedia(product),
+                })),
         ],
         margin: marginFacts(form.values.price, form.values.cost),
         sold30: item === null ? 0 : (sold.get(item.id) ?? 0),
@@ -880,7 +884,7 @@ interface PlanFacts {
 }
 
 export interface PlanEditor extends Taxed {
-    coverOptions: { key: string; label: string }[];
+    coverOptions: SelectOption<string>[];
     giftChoices: number[];
     toggleGiftAmount: (cents: number) => void;
     facts: PlanFacts;
@@ -945,6 +949,7 @@ export function usePlanEditor(
         coverOptions: services.map((i) => ({
             key: i.id,
             label: formatParts([i.name, formatMoney(i.price_cents, BUSINESS_CURRENCY)]),
+            media: itemMedia(i),
         })),
         giftChoices: [...new Set([...GIFT_CHOICES, ...v.giftAmounts])].sort((a, b) => a - b),
         toggleGiftAmount: (cents) => {

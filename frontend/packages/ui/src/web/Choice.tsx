@@ -9,7 +9,7 @@ import { type WebProps, cx } from "./props";
 
 const GROUP = {
     chips: "flex flex-wrap gap-2",
-    segmented: "inline-flex self-start rounded-md border border-line bg-surface p-1 text-sm",
+    segmented: "inline-flex self-start rounded-md bg-surface2 p-0.5 text-sm",
     cards: "grid gap-2 sm:grid-cols-2",
     tiles: "grid gap-2",
 } as const;
@@ -18,8 +18,10 @@ const COLS = { 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-4", 5: "grid-co
 
 function optionClass(layout: keyof typeof GROUP, on: boolean, lg: boolean): string {
     if (layout === "segmented") {
-        return `rounded px-3.5 py-1.5 font-medium transition disabled:opacity-50 ${
-            on ? "bg-accent text-accent-ink" : "text-ink-soft hover:bg-bg hover:text-ink"
+        return `rounded px-3 py-1 font-medium transition disabled:opacity-50 ${
+            on
+                ? "bg-surface text-ink shadow-[0_1px_2px_rgba(20,25,30,0.12)]"
+                : "text-muted hover:text-ink"
         }`;
     }
     if (layout === "cards") {
@@ -38,9 +40,9 @@ function optionClass(layout: keyof typeof GROUP, on: boolean, lg: boolean): stri
                 : "border-line bg-surface text-ink hover:border-accent-line hover:bg-bg hover:text-ink"
         }`;
     }
-    return `rounded-full border px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 ${
+    return `rounded-full border px-3 py-1 text-sm font-medium transition disabled:opacity-50 ${
         on
-            ? "border-accent bg-accent text-accent-ink"
+            ? "border-accent-line bg-accent-weak text-accent-strong"
             : "border-line bg-surface text-ink-soft hover:bg-bg hover:text-ink"
     }`;
 }

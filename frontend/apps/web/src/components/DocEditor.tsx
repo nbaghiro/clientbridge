@@ -13,6 +13,7 @@ import {
     formatParts,
     BUSINESS_CURRENCY,
     currencyAffix,
+    personMedia,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -25,6 +26,7 @@ import {
     Modal,
     Notice,
     PrintedDocument,
+    SearchSelect,
     Select,
     StatusPill,
     TextField,
@@ -422,14 +424,12 @@ function ClientPicker({
         );
     }
     return (
-        <Select
+        <SearchSelect
             label={s.client}
             value={value}
             error={error}
-            options={[
-                { key: "", label: s.chooseClient },
-                ...clients.map((x) => ({ key: x.id, label: x.name })),
-            ]}
+            placeholder={s.chooseClient}
+            options={clients.map((x) => ({ key: x.id, label: x.name, media: personMedia(x.name) }))}
             onChange={onChange}
         />
     );

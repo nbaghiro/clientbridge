@@ -85,16 +85,18 @@ function FormList({ onOpen }: { onOpen: (id: string) => void }) {
         <ScrollView contentContainerStyle={styles.body}>
             <View style={styles.top}>
                 <Text style={styles.subtitle}>{s.subtitle}</Text>
-                <Button
-                    style={{ alignSelf: "center" }}
-                    size="sm"
-                    icon="plus"
-                    onPress={() => {
-                        onOpen(NEW_FORM);
-                    }}
-                >
-                    {s.newForm}
-                </Button>
+                {library.load.hasData && library.forms.length === 0 ? null : (
+                    <Button
+                        style={{ alignSelf: "center" }}
+                        size="sm"
+                        icon="plus"
+                        onPress={() => {
+                            onOpen(NEW_FORM);
+                        }}
+                    >
+                        {s.newForm}
+                    </Button>
+                )}
             </View>
             <Loaded load={library.load} loading={s.loading} failed={s.loadError}>
                 {library.forms.length === 0 ? (
@@ -105,6 +107,8 @@ function FormList({ onOpen }: { onOpen: (id: string) => void }) {
                         body={s.empty}
                         actions={
                             <Button
+                                size="sm"
+                                icon="plus"
                                 onPress={() => {
                                     onOpen(NEW_FORM);
                                 }}
@@ -175,23 +179,20 @@ function Editor({
     return (
         <View style={styles.screen}>
             <View style={styles.nav}>
-                <Button
-                    style={{ alignSelf: "center" }}
-                    variant="link"
-                    icon="chevronLeft"
-                    onPress={onBack}
-                >
-                    {s.library}
-                </Button>
+                <IconButton icon="chevronLeft" label={s.library} onPress={onBack} />
                 <View style={styles.navActions}>
                     {formId !== NEW_FORM && !editor.dirty ? (
-                        <IconButton
+                        <Button
+                            style={{ alignSelf: "center" }}
+                            size="sm"
+                            variant="outline"
                             icon="send"
-                            label={s.send}
                             onPress={() => {
                                 setSending(true);
                             }}
-                        />
+                        >
+                            {s.send}
+                        </Button>
                     ) : null}
                     <Button
                         style={{ alignSelf: "center" }}

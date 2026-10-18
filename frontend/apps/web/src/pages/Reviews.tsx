@@ -25,7 +25,7 @@ import {
     Notice,
     Panel,
     RatingDistribution,
-    Select,
+    SearchSelect,
     Stars,
     StatusPill,
     TextField,
@@ -57,9 +57,11 @@ export function Reviews() {
         <div>
             <div className="flex items-center justify-between gap-4 pb-5">
                 <p className="text-sm text-muted">{s.subtitle}</p>
-                <Button icon="send" onPress={ask}>
-                    {s.requestReview}
-                </Button>
+                {queue.load.state === "empty" ? null : (
+                    <Button size="sm" icon="send" onPress={ask}>
+                        {s.requestReview}
+                    </Button>
+                )}
             </div>
             {asking ? (
                 <RequestReviewDialog
@@ -483,10 +485,11 @@ function RequestReviewDialog({ queue, onClose }: { queue: ReviewQueue; onClose: 
             <h2 className="font-display text-lg font-bold text-ink">{s.requestTitle}</h2>
             <p className="mt-1 text-sm text-muted">{s.requestBody}</p>
             <div className="mt-4 space-y-3">
-                <Select
+                <SearchSelect
                     label={s.requestClient}
                     value={clientId}
-                    options={[{ key: "", label: s.chooseClient }, ...queue.clientOptions]}
+                    placeholder={s.chooseClient}
+                    options={queue.clientOptions}
                     onChange={setClientId}
                 />
                 {sent ? <Notice tone="success">{s.requestSent(name)}</Notice> : null}

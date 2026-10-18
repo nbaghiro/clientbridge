@@ -24,15 +24,16 @@ import {
 import { theme } from "@clientbridge/tokens/native";
 import {
     Avatar,
+    Backdrop,
     Button,
     CalendarEventCard,
     DateStrip,
     DetailView,
-    Modal,
     Empty,
     Icon,
     IconButton,
     LoadFailed,
+    Modal,
     Notice,
     Skeleton,
 } from "@clientbridge/ui";
@@ -94,6 +95,7 @@ export function ScheduleScreen() {
 
     return (
         <SafeAreaView edges={["top"]} style={styles.screen}>
+            <Backdrop />
             <View style={styles.head}>
                 <View style={styles.flex}>
                     <Text style={styles.title} accessibilityRole="header">
@@ -197,11 +199,6 @@ export function ScheduleScreen() {
                                     icon="calendar"
                                     message={s.emptyDayTitle}
                                     body={s.emptyDay}
-                                    actions={
-                                        <Button size="sm" onPress={openNew}>
-                                            {s.newBooking}
-                                        </Button>
-                                    }
                                 />
                             ) : (
                                 <Empty

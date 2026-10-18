@@ -52,7 +52,7 @@ export function ListPage<T, K extends string = string>({
                                 accessibilityRole="button"
                                 accessibilityLabel={action.label}
                             >
-                                <Icon name="plus" size={16} color={c.accentInk} />
+                                <Icon name="plus" size={14} color={c.accentInk} />
                                 <Text style={styles.actionText}>{action.label}</Text>
                             </Pressable>
                         ) : null}
@@ -114,10 +114,10 @@ export function ListPage<T, K extends string = string>({
                         <Empty {...empty} />
                     )
                 }
-                renderItem={({ item }) =>
+                renderItem={({ item, index }) =>
                     onRowPress !== undefined ? (
                         <Pressable
-                            style={styles.row}
+                            style={[styles.row, index === 0 && styles.first]}
                             accessibilityRole="button"
                             onPress={() => {
                                 onRowPress(item);
@@ -126,7 +126,9 @@ export function ListPage<T, K extends string = string>({
                             {renderRow(item)}
                         </Pressable>
                     ) : (
-                        <View style={styles.row}>{renderRow(item)}</View>
+                        <View style={[styles.row, index === 0 && styles.first]}>
+                            {renderRow(item)}
+                        </View>
                     )
                 }
             />
@@ -152,13 +154,13 @@ const styles = StyleSheet.create({
     action: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 6,
+        gap: 5,
         backgroundColor: c.accent,
         borderRadius: theme.radius,
-        paddingHorizontal: 13,
-        paddingVertical: 9,
+        paddingHorizontal: 11,
+        paddingVertical: 6,
     },
-    actionText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
+    actionText: { color: c.accentInk, fontSize: 13, fontWeight: "600" },
     searchWrap: { marginHorizontal: 20, marginTop: 10, marginBottom: 8 },
     list: { paddingHorizontal: 20, paddingBottom: 24 },
     head: { paddingTop: 8 },
@@ -171,9 +173,14 @@ const styles = StyleSheet.create({
         paddingBottom: 4,
     },
     banner: { paddingTop: 4, paddingBottom: 8 },
+    // Rows run edge to edge on the card colour, past the list's side padding.
     row: {
         paddingVertical: 11,
-        borderBottomColor: c.border,
+        paddingHorizontal: 20,
+        marginHorizontal: -20,
+        backgroundColor: c.surface,
+        borderBottomColor: c.borderSoft,
         borderBottomWidth: StyleSheet.hairlineWidth,
     },
+    first: { borderTopColor: c.borderSoft, borderTopWidth: StyleSheet.hairlineWidth },
 });

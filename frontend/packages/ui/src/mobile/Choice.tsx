@@ -1,4 +1,5 @@
 import { type ChoiceProps, useControllable } from "@clientbridge/app-core";
+import { SHADOW } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -72,7 +73,12 @@ export function Choice<K extends string>({
                         }}
                         style={[
                             box,
-                            on && (layout === "cards" ? styles.cardOn : styles.on),
+                            on &&
+                                (layout === "cards"
+                                    ? styles.cardOn
+                                    : layout === "segmented"
+                                      ? styles.segmentOn
+                                      : styles.chipOn),
                             o.disabled === true && styles.off,
                         ]}
                     >
@@ -80,7 +86,13 @@ export function Choice<K extends string>({
                             style={[
                                 styles.text,
                                 layout === "cards" && styles.cardText,
-                                on && (layout === "cards" ? styles.cardTextOn : styles.textOn),
+                                layout === "segmented" && styles.segmentText,
+                                on &&
+                                    (layout === "cards"
+                                        ? styles.cardTextOn
+                                        : layout === "segmented"
+                                          ? styles.segmentTextOn
+                                          : styles.chipTextOn),
                             ]}
                             numberOfLines={layout === "cards" ? undefined : 1}
                         >
@@ -88,7 +100,7 @@ export function Choice<K extends string>({
                         </Text>
                         {o.hint !== undefined ? (
                             <Text
-                                style={[styles.hint, on && layout !== "cards" && styles.textOn]}
+                                style={[styles.hint, on && layout === "chips" && styles.chipTextOn]}
                                 numberOfLines={layout === "cards" ? undefined : 1}
                             >
                                 {o.hint}
@@ -106,25 +118,31 @@ const styles = StyleSheet.create({
     bar: {
         flexWrap: "nowrap",
         alignSelf: "flex-start",
-        gap: 4,
-        padding: 3,
+        gap: 2,
+        padding: 2,
         borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        backgroundColor: c.surface,
+        backgroundColor: c.surface2,
     },
     cards: { gap: 8 },
     chip: {
         paddingHorizontal: 12,
-        paddingVertical: 7,
+        paddingVertical: 6,
         borderRadius: 999,
         backgroundColor: c.surface,
         borderWidth: 1,
         borderColor: c.border,
         maxWidth: "100%",
     },
-    segment: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: theme.radius - 2 },
-    on: { backgroundColor: c.accent, borderColor: c.accent },
+    chipOn: { backgroundColor: c.accentWeak, borderColor: c.accentLine },
+    segment: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: theme.radius - 2 },
+    segmentOn: {
+        backgroundColor: c.surface,
+        shadowColor: SHADOW,
+        shadowOpacity: 0.12,
+        shadowRadius: 2,
+        shadowOffset: { width: 0, height: 1 },
+        elevation: 1,
+    },
     card: {
         padding: 14,
         borderRadius: theme.radius,
@@ -135,7 +153,9 @@ const styles = StyleSheet.create({
     cardOn: { borderColor: c.accent, backgroundColor: c.accentWeak },
     off: { opacity: 0.5 },
     text: { color: c.inkSoft, fontSize: 13, fontWeight: "600" },
-    textOn: { color: c.accentInk },
+    chipTextOn: { color: c.accentStrong },
+    segmentText: { color: c.muted },
+    segmentTextOn: { color: c.ink },
     cardText: { color: c.ink, fontSize: 15 },
     cardTextOn: { color: c.accentStrong },
     hint: { color: c.muted, fontSize: 12, marginTop: 2 },

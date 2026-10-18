@@ -16,12 +16,12 @@ import { theme } from "@clientbridge/tokens/native";
 import {
     Badge,
     Button,
-    Checklist,
     Empty,
     Icon,
     IconButton,
     ListRow,
     LoadFailed,
+    Meter,
     Skeleton,
     StatusPill,
 } from "@clientbridge/ui";
@@ -474,33 +474,89 @@ export function AgendaRows({
 }
 
 /** A new business's first days: what is left before clients can book, each with a way in. */
-export function GettingStarted({ setup }: { setup: SetupProgress }) {
+/** A new account's lead section: the next step first, the rest compact, finished steps on one line. */
+export function SetupGuide({ setup }: { setup: SetupProgress }) {
     const openLink = useOpenLink();
+    const pending = setup.steps.filter((x) => !x.done);
+    const done = setup.steps.filter((x) => x.done);
+    const [next, ...later] = pending;
+    const progress = strings.business.getSetUp.progress(setup.done, setup.total);
     return (
         <Section title={strings.business.getSetUp.gettingStarted}>
-            <View style={[styles.card, styles.pad]}>
-                <Text style={styles.stepsDone}>
-                    {strings.business.getSetUp.progress(setup.done, setup.total)}
-                </Text>
-                <Checklist
-                    label={strings.business.getSetUp.gettingStarted}
-                    items={setup.steps.map((x) => ({
-                        key: x.key,
-                        label: x.label,
-                        hint: x.hint,
-                        done: x.done,
-                        action: x.done
-                            ? undefined
-                            : {
-                                  label: strings.business.getSetUp.start,
-                                  onPress: () => {
-                                      openLink(x.target);
-                                  },
-                              },
-                    }))}
-                />
+            <View style={styles.card}>
+                <View style={styles.guideHead}>
+                    <Text style={styles.stepsDone}>{progress}</Text>
+                    <Meter
+                        value={setup.done}
+                        max={setup.total}
+                        label={progress}
+                        labelPosition="hidden"
+                    />
+                </View>
+                {next !== undefined ? (
+                    <View style={styles.guideNext}>
+                        <Text style={styles.guideEyebrow}>{t.guideNext}</Text>
+                        <Text style={styles.guideTitle}>{next.label}</Text>
+                        <Text style={styles.guideHint}>{next.hint}</Text>
+                        <Button
+                            style={styles.guideStart}
+                            size="sm"
+                            onPress={() => {
+                                openLink(next.target);
+                            }}
+                        >
+                            {strings.business.getSetUp.start}
+                        </Button>
+                    </View>
+                ) : null}
+                {later.map((x) => (
+                    <View key={x.key} style={[styles.guideRow, styles.divider]}>
+                        <View style={styles.flex}>
+                            <Text style={styles.guideRowTitle}>{x.label}</Text>
+                            <Text style={styles.guideHint}>{x.hint}</Text>
+                        </View>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onPress={() => {
+                                openLink(x.target);
+                            }}
+                        >
+                            {strings.business.getSetUp.start}
+                        </Button>
+                    </View>
+                ))}
+                {done.length > 0 ? (
+                    <View style={[styles.guideRow, styles.divider]}>
+                        <Icon name="check" size={16} color={c.success} />
+                        <Text style={[styles.guideHint, styles.flex]}>
+                            {t.guideDone(formatList(done.map((x) => x.label)))}
+                        </Text>
+                    </View>
+                ) : null}
             </View>
         </Section>
+    );
+}
+
+/** The day while nothing has been booked yet: one line and the booking link. */
+export function QuietSchedule({ bookingLink }: { bookingLink: string | null }) {
+    return (
+        <View style={[styles.card, styles.pad]}>
+            <Text style={styles.guideHint}>{t.guideNothingToday}</Text>
+            {bookingLink === null ? null : (
+                <Button
+                    style={styles.guideStart}
+                    size="sm"
+                    variant="outline"
+                    onPress={() => {
+                        Share.share({ message: bookingLink }).catch(() => undefined);
+                    }}
+                >
+                    {t.shareLink}
+                </Button>
+            )}
+        </View>
     );
 }
 
@@ -592,5 +648,27 @@ const styles = StyleSheet.create({
     agendaSub: { color: c.muted, fontSize: 13, marginTop: 1 },
     muted: { color: c.muted },
     pad: { padding: 14 },
-    stepsDone: { color: c.muted, fontSize: 13, marginBottom: 6 },
+    stepsDone: { color: c.muted, fontSize: 13, marginBottom: 8 },
+    guideHead: { padding: 14 },
+    guideNext: {
+        marginHorizontal: 14,
+        marginBottom: 14,
+        padding: 14,
+        borderRadius: theme.radius,
+        borderWidth: 1,
+        borderColor: c.accentLine,
+        backgroundColor: c.accentWeak,
+    },
+    guideEyebrow: { color: c.accent, fontSize: 12, fontWeight: "700" },
+    guideTitle: { color: c.ink, fontSize: 16, fontWeight: "700", marginTop: 4 },
+    guideHint: { color: c.muted, fontSize: 13, marginTop: 2, lineHeight: 18 },
+    guideStart: { alignSelf: "flex-start", marginTop: 12 },
+    guideRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+    },
+    guideRowTitle: { color: c.ink, fontSize: 15, fontWeight: "600" },
 });

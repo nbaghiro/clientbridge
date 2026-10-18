@@ -1286,9 +1286,6 @@
     "pos.desk.alsoSell": {
         "message": "[Ĝîƒţ çåŕðš åñð þļåñš one two]"
     },
-    "pos.desk.alsoSellHint": {
-        "message": "[Ţĥéšé ĥåṽé ţĥéîŕ öŵñ çĥéçķöûţ. one two three]"
-    },
     "pos.desk.sellGiftCard": {
         "message": "[Ĝîƒţ çåŕð one]"
     },
@@ -1393,12 +1390,6 @@
     },
     "pos.desk.addExtras": {
         "message": "[Åðð-öñš åñð ŕéţåîļ one two]"
-    },
-    "pos.desk.noVisits": {
-        "message": "[Ñö ƀööķéð ṽîšîţš ļéƒţ ţöðåý. one two three]"
-    },
-    "pos.desk.walkInSale": {
-        "message": "[Ŵåļķ-îñ šåļé one two]"
     },
     "pos.desk.payTitle": {
         "message": "[Ţåķé þåýɱéñţ one two]"
@@ -1837,9 +1828,6 @@
     },
     "pos.desk.loadingTicket": {
         "message": "[Ļöåðîñĝ ţĥé šåļé one two]"
-    },
-    "pos.desk.loadingVisits": {
-        "message": "[Ļöåðîñĝ ţöðåý'š ṽîšîţš one two]"
     },
     "pos.desk.loadingSales": {
         "message": "[Ļöåðîñĝ šåļéš one two]"
@@ -3167,6 +3155,18 @@
     "classes.upcoming": {
         "message": "[Çöɱîñĝ ûþ one]"
     },
+    "classes.summaryRange": {
+        "message": "[Ñéẋţ 3 ŵééķš one two]"
+    },
+    "classes.summaryCount": {
+        "message": "[{n,plural,one{# çļåšš} other{# çļåššéš}} one two]"
+    },
+    "classes.summarySeats": {
+        "message": "[Šéåţš one]"
+    },
+    "classes.summaryWaiting": {
+        "message": "[{n,plural,one{# çļîéñţ} other{# çļîéñţš} =0{Ñö öñé}} one two]"
+    },
     "classes.full": {
         "message": "[Ƒûļļ one]"
     },
@@ -3469,9 +3469,6 @@
     },
     "forms.draft": {
         "message": "[Đŕåƒţ one]"
-    },
-    "forms.selectForm": {
-        "message": "[Çĥööšé å ƒöŕɱ one two]"
     },
     "forms.formName": {
         "message": "[Ƒöŕɱ ñåɱé one]"
@@ -4856,14 +4853,20 @@
     "messaging.filterLabel": {
         "message": "[Šĥöŵ one]"
     },
-    "messaging.noThreads": {
-        "message": "[Ñö çöñṽéŕšåţîöñš ýéţ. Ŵĥéñ å çļîéñţ ŕéþļîéš ţö å ţéẋţ öŕ åñ éɱåîļ, îţ ļåñðš ĥéŕé. one two three four five]"
-    },
     "messaging.noThreadsFiltered": {
         "message": "[Ñöţĥîñĝ ɱåţçĥéš. Ţŕý åñöţĥéŕ ƒîļţéŕ öŕ šéåŕçĥ. one two three four]"
     },
+    "messaging.noThreadsTitle": {
+        "message": "[Ñö çöñṽéŕšåţîöñš ýéţ one two]"
+    },
+    "messaging.noThreadsBody": {
+        "message": "[Ŵĥéñ å çļîéñţ ŕéþļîéš ţö å ţéẋţ öŕ åñ éɱåîļ, îţ ļåñðš ĥéŕé. one two three four]"
+    },
     "messaging.selectThread": {
         "message": "[Çĥööšé å çöñṽéŕšåţîöñ ţö ŕéåð åñð ŕéþļý. one two three]"
+    },
+    "messaging.showUnread": {
+        "message": "[Šĥöŵ ûñŕéåð one two]"
     },
     "messaging.thread.automatic": {
         "message": "[Åûţöɱåţîç one two]"
@@ -5235,7 +5238,10 @@
         "message": "[Ñöţ šéñţ one]"
     },
     "broadcasts.noBroadcasts": {
-        "message": "[Ñö ƀŕöåðçåšţš ýéţ. Šéñð ýöûŕ ƒîŕšţ öñé ţö ļéţ çļîéñţš ķñöŵ åƀöûţ ĥöûŕš, öƒƒéŕš öŕ ñéŵ šéŕṽîçéš. one two three four five six]"
+        "message": "[Ñö ƀŕöåðçåšţš ýéţ one two]"
+    },
+    "broadcasts.noBroadcastsBody": {
+        "message": "[Šéñð ýöûŕ ƒîŕšţ öñé ţö ļéţ çļîéñţš ķñöŵ åƀöûţ ĥöûŕš, öƒƒéŕš öŕ ñéŵ šéŕṽîçéš. one two three four five]"
     },
     "broadcasts.optOutsTitle": {
         "message": "[Öþţ-öûţš one]"
@@ -8434,6 +8440,15 @@
     },
     "today.teamCount": {
         "message": "[{n,plural,one{# ƀööķîñĝ} other{# ƀööķîñĝš}} one two]"
+    },
+    "today.guideNext": {
+        "message": "[Ñéẋţ šţéþ one]"
+    },
+    "today.guideDone": {
+        "message": "[Đöñé: {steps} one]"
+    },
+    "today.guideNothingToday": {
+        "message": "[Ñöţĥîñĝ ƀööķéð ţöðåý. one two]"
     },
     "today.quietTitle": {
         "message": "[Å ǫûîéţ ðåý one two]"

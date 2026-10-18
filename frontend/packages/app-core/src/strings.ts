@@ -472,7 +472,6 @@ interface Strings {
             readonly minutes: (n: number) => string;
             readonly noResults: string;
             readonly alsoSell: string;
-            readonly alsoSellHint: string;
             readonly sellGiftCard: string;
             readonly sellPackage: string;
             readonly sellMembership: string;
@@ -508,8 +507,6 @@ interface Strings {
             readonly onTicket: string;
             readonly depositCredit: (money: string) => string;
             readonly addExtras: string;
-            readonly noVisits: string;
-            readonly walkInSale: string;
             readonly payTitle: string;
             readonly payFor: (client: string) => string;
             readonly howPaying: string;
@@ -653,7 +650,6 @@ interface Strings {
             readonly details: string;
             readonly loadingCatalog: string;
             readonly loadingTicket: string;
-            readonly loadingVisits: string;
             readonly loadingSales: string;
             readonly loadingOrders: string;
             readonly catalogErrorBody: string;
@@ -1125,6 +1121,10 @@ interface Strings {
         readonly title: string;
         readonly subtitle: string;
         readonly upcoming: string;
+        readonly summaryRange: string;
+        readonly summaryCount: (n: number) => string;
+        readonly summarySeats: string;
+        readonly summaryWaiting: (n: number) => string;
         readonly full: string;
         readonly fullWaiting: (n: number) => string;
         readonly seatsLeft: (n: number) => string;
@@ -1230,7 +1230,6 @@ interface Strings {
         readonly sendsOnBooking: string;
         readonly sendsManually: string;
         readonly draft: string;
-        readonly selectForm: string;
         readonly formName: string;
         readonly questions: string;
         readonly emptyFields: string;
@@ -1737,9 +1736,11 @@ interface Strings {
             readonly email: string;
         } & Labels;
         readonly filterLabel: string;
-        readonly noThreads: string;
         readonly noThreadsFiltered: string;
+        readonly noThreadsTitle: string;
+        readonly noThreadsBody: string;
         readonly selectThread: string;
+        readonly showUnread: string;
         readonly thread: {
             readonly automatic: string;
             readonly showEarlier: string;
@@ -1876,6 +1877,7 @@ interface Strings {
         readonly optOutsCount: (n: number) => string;
         readonly notSent: string;
         readonly noBroadcasts: string;
+        readonly noBroadcastsBody: string;
         readonly optOutsTitle: string;
         readonly optOutsSubtitle: string;
         readonly noOptOuts: string;
@@ -3029,6 +3031,9 @@ interface Strings {
         readonly team: string;
         readonly teamOff: string;
         readonly teamCount: (n: number) => string;
+        readonly guideNext: string;
+        readonly guideDone: (steps: string) => string;
+        readonly guideNothingToday: string;
         readonly quietTitle: string;
         readonly quietBody: string;
         readonly shareBookingPage: string;

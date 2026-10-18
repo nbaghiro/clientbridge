@@ -24,18 +24,20 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
+    Backdrop,
     Badge,
     Button,
     Choice,
     ConversationRow,
     Empty,
+    IconButton,
     KeyValueList,
     MessageBubble,
     Modal,
     Money,
     Notice,
     SearchField,
-    Select,
+    SearchSelect,
     Tabs,
     TextField,
 } from "@clientbridge/ui";
@@ -80,6 +82,7 @@ export function InboxScreen() {
 
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
+            <Backdrop />
             <Text style={styles.inboxTitle} accessibilityRole="header">
                 {strings.navigation.inbox}
             </Text>
@@ -196,7 +199,10 @@ function Messages() {
                     }
                     ListEmptyComponent={
                         <Empty
-                            message={inbox.threads.length === 0 ? s.noThreads : s.noThreadsFiltered}
+                            message={
+                                inbox.threads.length === 0 ? s.noThreadsTitle : s.noThreadsFiltered
+                            }
+                            {...(inbox.threads.length === 0 ? { body: s.noThreadsBody } : {})}
                         />
                     }
                     renderItem={({ item: t }) => (
@@ -251,14 +257,7 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack: () => voi
             behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
             <View style={styles.threadHead}>
-                <Button
-                    style={{ alignSelf: "center" }}
-                    variant="link"
-                    icon="chevronLeft"
-                    onPress={onBack}
-                >
-                    {s.back}
-                </Button>
+                <IconButton icon="chevronLeft" label={s.back} onPress={onBack} />
                 <Text style={[styles.threadTitle, styles.flex]} numberOfLines={1}>
                     {thread.title}
                 </Text>
@@ -484,10 +483,11 @@ function NewMessageSheet({
         <Modal open size="xl" onClose={onClose}>
             <ScrollView contentContainerStyle={styles.gap} keyboardShouldPersistTaps="handled">
                 <Text style={styles.threadTitle}>{s.newMessageTitle}</Text>
-                <Select
+                <SearchSelect
                     label={s.clientLabel}
                     value={msg.clientId}
-                    options={[{ key: "", label: s.chooseClient }, ...msg.clients]}
+                    placeholder={s.chooseClient}
+                    options={msg.clients}
                     onChange={msg.setClientId}
                 />
                 <Choice
@@ -545,7 +545,11 @@ const styles = StyleSheet.create({
     },
     meta: { color: c.muted, fontSize: 13, lineHeight: 18 },
     pad: { paddingHorizontal: 16, paddingTop: 8 },
-    listContent: { paddingBottom: 24 },
+    listContent: {
+        paddingBottom: 24,
+        borderTopColor: c.borderSoft,
+        borderTopWidth: StyleSheet.hairlineWidth,
+    },
     threadHead: {
         flexDirection: "row",
         alignItems: "center",

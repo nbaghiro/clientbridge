@@ -1,4 +1,5 @@
 import { useBusinessQuery as useQuery } from "../hooks";
+import { personMedia } from "./files";
 
 import { useMemo, useState } from "react";
 
@@ -7,7 +8,7 @@ import { useClients } from "./clients";
 import { type PublicFormField, optionPair } from "./publicForm";
 import { useReplicaLoad } from "./sync";
 import { strings } from "../strings";
-import type { Intent } from "../ui";
+import type { Intent, SelectOption } from "../ui";
 import { type ApiLike, newIdempotencyKey } from "../api";
 
 const FIELD_TYPE_LABEL: Record<string, string> = {
@@ -408,7 +409,7 @@ export function useFormEditor(
 }
 
 export interface SendToClient {
-    clients: { key: string; label: string }[];
+    clients: SelectOption<string>[];
     clientId: string;
     setClientId: (id: string) => void;
     busy: boolean;
@@ -428,7 +429,11 @@ export function useSendToClient(
     const [sentTo, setSentTo] = useState<string | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     return {
-        clients: clients.map((c) => ({ key: c.id, label: c.name })),
+        clients: clients.map((c) => ({
+            key: c.id,
+            label: c.name,
+            media: personMedia(c.name),
+        })),
         clientId,
         setClientId: (id) => {
             setClientIdRaw(id);

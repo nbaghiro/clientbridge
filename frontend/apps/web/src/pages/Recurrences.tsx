@@ -70,10 +70,13 @@ export function Recurrences() {
         onOpen: setPicked,
     });
     const openId = picked ?? list.rows[0]?.id ?? null;
+    const none = list.load.state === "empty";
 
     return (
         <div className="flex h-full">
-            <section className="flex w-[300px] shrink-0 flex-col border-r border-line bg-surface xl:w-[380px]">
+            <section
+                className={`flex flex-col border-r border-line bg-surface ${none ? "flex-1" : "w-[300px] shrink-0 xl:w-[380px]"}`}
+            >
                 <header className="space-y-3 border-b border-line px-5 pb-4 pt-6">
                     <div className="flex items-center justify-between gap-3">
                         <div>
@@ -82,41 +85,50 @@ export function Recurrences() {
                             </h1>
                             <p className="text-sm text-muted">{s.listSubtitle(list.counts.all)}</p>
                         </div>
-                        <Button
-                            size="sm"
-                            icon="plus"
-                            onPress={() => {
-                                setComposing(true);
-                            }}
-                        >
-                            {s.newShort}
-                        </Button>
+                        {none ? null : (
+                            <Button
+                                size="sm"
+                                icon="plus"
+                                onPress={() => {
+                                    setComposing(true);
+                                }}
+                            >
+                                {s.newShort}
+                            </Button>
+                        )}
                     </div>
                     <ScheduleViews active="series" />
-                    <SearchField
-                        value={list.q}
-                        onChange={list.setQ}
-                        placeholder={s.search(kindWord(kind))}
-                    />
-                    <Choice
-                        label={s.filterAll}
-                        options={[
-                            { key: "all", label: s.filterAll },
-                            {
-                                key: "attention",
-                                label: formatParts([
-                                    s.filterAttention,
-                                    String(list.counts.attention),
-                                ]),
-                            },
-                            {
-                                key: "ending",
-                                label: formatParts([s.filterEnding, String(list.counts.ending)]),
-                            },
-                        ]}
-                        value={list.filter}
-                        onChange={list.setFilter}
-                    />
+                    {none ? null : (
+                        <>
+                            <SearchField
+                                value={list.q}
+                                onChange={list.setQ}
+                                placeholder={s.search(kindWord(kind))}
+                            />
+                            <Choice
+                                label={s.filterAll}
+                                options={[
+                                    { key: "all", label: s.filterAll },
+                                    {
+                                        key: "attention",
+                                        label: formatParts([
+                                            s.filterAttention,
+                                            String(list.counts.attention),
+                                        ]),
+                                    },
+                                    {
+                                        key: "ending",
+                                        label: formatParts([
+                                            s.filterEnding,
+                                            String(list.counts.ending),
+                                        ]),
+                                    },
+                                ]}
+                                value={list.filter}
+                                onChange={list.setFilter}
+                            />
+                        </>
+                    )}
                 </header>
                 <div className="flex-1 overflow-y-auto">
                     {list.load.state === "loading" ? (
@@ -131,8 +143,8 @@ export function Recurrences() {
                                 retrying={list.load.retrying}
                             />
                         </div>
-                    ) : list.load.state === "empty" ? (
-                        <div className="p-5">
+                    ) : none ? (
+                        <div className="mx-auto max-w-md p-5 pt-16">
                             <Empty
                                 icon="repeat"
                                 message={s.emptyListTitle}
@@ -193,15 +205,17 @@ export function Recurrences() {
                     )}
                 </div>
             </section>
-            <section className="min-w-0 flex-1 overflow-y-auto">
-                {openId === null || !list.load.hasData ? (
-                    <div className="flex h-full items-center justify-center">
-                        <Empty message={s.selectSeries} />
-                    </div>
-                ) : (
-                    <Record key={openId} id={openId} />
-                )}
-            </section>
+            {none ? null : (
+                <section className="min-w-0 flex-1 overflow-y-auto">
+                    {openId === null || !list.load.hasData ? (
+                        <div className="flex h-full items-center justify-center">
+                            <Empty message={s.selectSeries} />
+                        </div>
+                    ) : (
+                        <Record key={openId} id={openId} />
+                    )}
+                </section>
+            )}
             {composing ? (
                 <Modal
                     size="xl"

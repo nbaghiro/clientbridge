@@ -8,7 +8,16 @@ import {
     currencyAffix,
 } from "@clientbridge/app-core";
 import { StyleSheet, View } from "react-native";
-import { Button, ChargeSheet, Choice, DocTotals, Field, Notice, TextField } from "@clientbridge/ui";
+import {
+    Button,
+    ChargeSheet,
+    Choice,
+    DocTotals,
+    Field,
+    Notice,
+    SearchSelect,
+    TextField,
+} from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
@@ -112,13 +121,13 @@ function SaleFields({
                 </Field>
             )}
             {pickClient ? (
-                <Field label={w.client}>
-                    <Choice
-                        options={form.clientOptions}
-                        value={form.clientId}
-                        onChange={form.setClientId}
-                    />
-                </Field>
+                <SearchSelect
+                    label={w.client}
+                    placeholder={w.chooseClient}
+                    options={form.clientOptions}
+                    value={form.clientId}
+                    onChange={form.setClientId}
+                />
             ) : null}
             {form.needsCard ? <Notice tone="info">{w.membershipNeedsCard}</Notice> : null}
             <DocTotals currency={BUSINESS_CURRENCY} lines={form.lines} density="compact" />
