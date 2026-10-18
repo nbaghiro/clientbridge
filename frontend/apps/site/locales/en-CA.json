@@ -1725,7 +1725,7 @@
         "message": "Deposits on long colour appointments"
     },
     "trades.salons.bookings.list.2": {
-        "message": "Rooms for lashes, brows or waxing booked as a resource"
+        "message": "Lash, brow and waxing services, each with its own length"
     },
     "trades.salons.bookings.list.3": {
         "message": "Book the next visit before the client leaves"
@@ -1746,7 +1746,7 @@
         "message": "Stylist"
     },
     "trades.salons.schedule.columns.2.0": {
-        "message": "Room 2"
+        "message": "Mia"
     },
     "trades.salons.schedule.columns.2.1": {
         "message": "Lashes and brows"
@@ -2490,7 +2490,7 @@
         "message": "Piano"
     },
     "trades.tutoring.schedule.columns.2.0": {
-        "message": "Room 1"
+        "message": "Ms. Ortiz"
     },
     "trades.tutoring.schedule.columns.2.1": {
         "message": "Group classes"
@@ -2709,13 +2709,13 @@
         "message": "therapists and practitioners"
     },
     "trades.wellness.oneLine": {
-        "message": "Practitioners, treatment rooms, intake forms and treatment packages."
+        "message": "Practitioners, intake forms and treatment packages."
     },
     "trades.wellness.h1": {
-        "message": "Treatments, rooms and intake forms, booked together."
+        "message": "Treatments and intake forms, booked together."
     },
     "trades.wellness.lede": {
-        "message": "Each booking shows the practitioner and the treatment room, new clients fill in their intake form before the first visit, and every paid visit ends with a receipt by email."
+        "message": "Each booking shows the practitioner and the treatment, new clients fill in their intake form before the first visit, and every paid visit ends with a receipt by email."
     },
     "trades.wellness.photo.alt": {
         "message": "A massage therapist working on a client's shoulder beside a large window"
@@ -2730,16 +2730,16 @@
         "message": "Helen Brooks"
     },
     "trades.wellness.heroCard.detail": {
-        "message": "Massage, 60 min · Mon 11:00 · Room 2"
+        "message": "Massage, 60 min · Mon 11:00 with Jonah"
     },
     "trades.wellness.heroCard.pill.text": {
         "message": "Intake form signed"
     },
     "trades.wellness.bookings.title": {
-        "message": "Each treatment on the schedule, with its room."
+        "message": "Each practitioner has their own column on the schedule."
     },
     "trades.wellness.bookings.body": {
-        "message": "Set up your treatment rooms as resources, and each booking shows which room it is in alongside the practitioner. Treatments of different lengths are separate services with their own price, and a buffer after each one leaves time to turn the room over."
+        "message": "Each practitioner has their own hours and treatments, and each booking shows who it is with. Treatments of different lengths are separate services with their own price, and a buffer after each one leaves time to turn the room over."
     },
     "trades.wellness.bookings.list.0": {
         "message": "Treatments of 30, 60 or 90 minutes"
@@ -2748,7 +2748,7 @@
         "message": "Turnover time after each treatment"
     },
     "trades.wellness.bookings.list.2": {
-        "message": "Rooms shown on the schedule"
+        "message": "Hours and days off for each practitioner"
     },
     "trades.wellness.bookings.list.3": {
         "message": "Repeat visits for regular clients"
@@ -2757,22 +2757,22 @@
         "message": "Monday, October 5"
     },
     "trades.wellness.schedule.columns.0.0": {
-        "message": "Room 1"
-    },
-    "trades.wellness.schedule.columns.0.1": {
         "message": "Leah"
     },
-    "trades.wellness.schedule.columns.1.0": {
-        "message": "Room 2"
+    "trades.wellness.schedule.columns.0.1": {
+        "message": "Massage therapist"
     },
-    "trades.wellness.schedule.columns.1.1": {
+    "trades.wellness.schedule.columns.1.0": {
         "message": "Jonah"
     },
+    "trades.wellness.schedule.columns.1.1": {
+        "message": "Massage therapist"
+    },
     "trades.wellness.schedule.columns.2.0": {
-        "message": "Room 3"
+        "message": "Priya"
     },
     "trades.wellness.schedule.columns.2.1": {
-        "message": "Leah, Priya"
+        "message": "Massage therapist"
     },
     "trades.wellness.schedule.events.0.title": {
         "message": "Marie Dubois"
@@ -2946,7 +2946,7 @@
         "message": "Mon Oct 5, 11:00"
     },
     "trades.wellness.record.upcoming.0.what": {
-        "message": "Massage, 60 min · Room 2"
+        "message": "Massage, 60 min"
     },
     "trades.wellness.record.upcoming.0.with": {
         "message": "Jonah"
@@ -2955,7 +2955,7 @@
         "message": "Mon Oct 19, 11:00"
     },
     "trades.wellness.record.upcoming.1.what": {
-        "message": "Massage, 60 min · Room 2"
+        "message": "Massage, 60 min"
     },
     "trades.wellness.record.upcoming.1.with": {
         "message": "Jonah"
