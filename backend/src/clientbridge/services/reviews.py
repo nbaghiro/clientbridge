@@ -1,8 +1,5 @@
-import secrets
 from datetime import datetime, timedelta
 
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
@@ -13,14 +10,9 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
-from clientbridge.models.reviews import REVIEW_OPEN, REVIEW_SUBMITTED, Review, ReviewStatus
+from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking
-from clientbridge.schemas.reviews import (
-    ReviewLinkOut,
-    ReviewOut,
-    ReviewRequestCreate,
-    ReviewShareOut,
-)
+from clientbridge.schemas.reviews import ReviewRequestCreate, ReviewRequestOut
 from clientbridge.services.business import businesses_at_hour
 from clientbridge.services.notifications import Notifier
 from clientbridge.services.plans import plan_access
@@ -28,16 +20,12 @@ from clientbridge.services.plans import plan_access
 
 def build_review_request(
     business_id: str, client_id: str, booking_id: str | None, now: datetime
-) -> Review:
-    """A requested review with a unique token."""
-    return Review(
-        id=new_id("review"),
+) -> ReviewRequest:
+    return ReviewRequest(
+        id=new_id("review_request"),
         business_id=business_id,
         client_id=client_id,
         booking_id=booking_id,
-        channel="email",
-        token=secrets.token_urlsafe(16),
-        status="requested",
         requested_at=now,
     )
 
@@ -50,190 +38,77 @@ class ReviewService:
 
     async def request_review(
         self, data: ReviewRequestCreate, idempotency_key: str | None, notify: Notifier
-    ) -> ReviewLinkOut:
-        self._assert_admin()
-        await self._client(data.client_id)
-        if data.booking_id is not None:
-            await self._booking(data.booking_id)
-            await self._assert_no_open_request(data.booking_id)
+    ) -> ReviewRequestOut:
+        assert_role(self.principal, "owner", "admin", message="only managers can request reviews")
 
-        async def run(cmd: Command) -> ReviewLinkOut:
+        async def run(cmd: Command) -> ReviewRequestOut:
+            business = await self.db.get(Business, self.biz)
+            if business is None or not business.google_review_url:
+                raise Conflict("add your Google review link before requesting reviews")
+            client = await self.db.scalar(
+                scoped(Client, self.biz, soft_delete=True).where(Client.id == data.client_id)
+            )
+            if client is None:
+                raise NotFound("client not found")
+            if data.booking_id is not None:
+                booking = await self.db.scalar(
+                    scoped(Booking, self.biz, soft_delete=True)
+                    .where(Booking.id == data.booking_id)
+                    .with_for_update()
+                )
+                if booking is None or booking.client_id != data.client_id:
+                    raise NotFound("booking not found")
+                if booking.status != "completed":
+                    raise Conflict("only a completed booking can be requested")
+                existing = await self.db.scalar(
+                    scoped(ReviewRequest, self.biz)
+                    .where(ReviewRequest.booking_id == booking.id)
+                    .limit(1)
+                )
+                if existing is not None:
+                    raise Conflict("a review was already requested for that booking")
             request = build_review_request(self.biz, data.client_id, data.booking_id, clock.now())
             self.db.add(request)
-            try:
-                await self.db.flush()  # the partial unique index backstops a concurrent request
-            except IntegrityError as exc:
-                raise Conflict("a review request for that booking is already open") from exc
-            cmd.record("review.request", entity_type="review", entity_id=request.id)
-            # Inside the command so a same-key retry replays the response without re-notifying.
+            await self.db.flush()
+            cmd.record("review.request", entity_type="review_request", entity_id=request.id)
             await notify.on_review_requested(self.db, request.id)
-            return _request_out(request)
+            return ReviewRequestOut.model_validate(request, from_attributes=True)
 
         return await run_command(
             self.db,
             self.principal,
             action="review.request",
             run=run,
-            response_model=ReviewLinkOut,
+            response_model=ReviewRequestOut,
             idempotency_key=idempotency_key,
             request=data,
         )
 
-    async def respond_to_review(self, review_id: str, response: str) -> ReviewOut:
-        self._assert_admin()
-        review = await self._review(review_id)
-
-        async def run(cmd: Command) -> ReviewOut:
-            review.response = response
-            review.responded_at = clock.now()
-            await self.db.flush()
-            cmd.record("review.respond", entity_type="review", entity_id=review.id)
-            return _review_out(review)
-
-        return await run_command(
-            self.db, self.principal, action="review.respond", run=run, response_model=ReviewOut
-        )
-
-    async def hide_review(self, review_id: str) -> ReviewOut:
-        return await self._set_status(review_id, "hidden", "review.hide")
-
-    async def publish_review(self, review_id: str) -> ReviewOut:
-        return await self._set_status(review_id, "published", "review.publish")
-
-    async def share(self, review_id: str) -> ReviewShareOut:
-        self._assert_admin()
-        review = await self._review(review_id)
-        business = await self.db.get(Business, self.biz)
-        link = business.google_review_url if business is not None else None
-        if link is None:
-            raise Conflict("add your Google review link before sharing reviews")
-        if review.status != "published":
-            raise Conflict("only a published review can be shared")
-
-        async def run(cmd: Command) -> ReviewShareOut:
-            review.sent_to_google = True
-            await self.db.flush()
-            cmd.record("review.share", entity_type="review", entity_id=review.id)
-            return ReviewShareOut(review=_review_out(review), google_review_url=link)
-
-        return await run_command(
-            self.db, self.principal, action="review.share", run=run, response_model=ReviewShareOut
-        )
-
-    async def _set_status(self, review_id: str, status: ReviewStatus, action: str) -> ReviewOut:
-        self._assert_admin()
-        review = await self._review(review_id)
-
-        async def run(cmd: Command) -> ReviewOut:
-            review.status = status
-            await self.db.flush()
-            cmd.record(action, entity_type="review", entity_id=review.id)
-            return _review_out(review)
-
-        return await run_command(
-            self.db, self.principal, action=action, run=run, response_model=ReviewOut
-        )
-
-    def _assert_admin(self) -> None:
-        assert_role(
-            self.principal, "owner", "admin", message="only an owner or admin can manage reviews"
-        )
-
-    async def _client(self, client_id: str) -> Client:
-        row = (
-            await self.db.execute(
-                scoped(Client, self.biz, soft_delete=True).where(Client.id == client_id)
-            )
-        ).scalar_one_or_none()
-        if row is None:
-            raise NotFound("client not found")
-        return row
-
-    async def _booking(self, booking_id: str) -> Booking:
-        row = (
-            await self.db.execute(
-                scoped(Booking, self.biz, soft_delete=True).where(Booking.id == booking_id)
-            )
-        ).scalar_one_or_none()
-        if row is None:
-            raise NotFound("booking not found")
-        return row
-
-    async def _assert_no_open_request(self, booking_id: str) -> None:
-        existing = (
-            await self.db.execute(
-                scoped(Review, self.biz)
-                .where(Review.booking_id == booking_id, Review.status.in_(REVIEW_OPEN))
-                .limit(1)
-            )
-        ).scalar_one_or_none()
-        if existing is not None:
-            raise Conflict("a review request for that booking is already open")
-
-    async def _review(self, review_id: str) -> Review:
-        row = (
-            await self.db.execute(
-                scoped(Review, self.biz).where(
-                    Review.id == review_id, Review.status.in_(REVIEW_SUBMITTED)
-                )
-            )
-        ).scalar_one_or_none()
-        if row is None:
-            raise NotFound("review not found")
-        return row
-
-
-def _request_out(request: Review) -> ReviewLinkOut:
-    assert request.token is not None
-    return ReviewLinkOut(**_review_out(request).model_dump(), token=request.token)
-
-
-def _review_out(review: Review) -> ReviewOut:
-    return ReviewOut(
-        id=review.id,
-        business_id=review.business_id,
-        client_id=review.client_id,
-        booking_id=review.booking_id,
-        rating=review.rating,
-        body=review.body,
-        response=review.response,
-        responded_at=review.responded_at,
-        sent_to_google=review.sent_to_google,
-        status=review.status,
-        channel=review.channel,
-        requested_at=review.requested_at,
-        submitted_at=review.submitted_at,
-    )
-
-
-_REQUEST_WINDOW = timedelta(days=7)
-_REVIEW_HOUR = 8
-
 
 async def run_review_requests(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
-    """Send one review request per booking completed in the last 7 days, at 8 a.m. business time."""
-    requested = select(Review.booking_id).where(Review.booking_id.is_not(None))
-    bookings = [
-        booking
-        for business in await businesses_at_hour(db, now, _REVIEW_HOUR)
-        if plan_access(business, now) != "lapsed"
-        for booking in (
-            await db.execute(
-                scoped(Booking, business.id, soft_delete=True).where(
-                    Booking.status == "completed",
-                    Booking.completed_at.is_not(None),
-                    Booking.completed_at >= now - _REQUEST_WINDOW,
-                    Booking.completed_at <= now,
-                    Booking.id.not_in(requested),
-                )
-            )
-        ).scalars()
-    ]
     requests = []
-    for booking in bookings:
-        request = build_review_request(booking.business_id, booking.client_id, booking.id, now)
-        db.add(request)
-        requests.append(request)
+    for business in await businesses_at_hour(db, now, 8):
+        if plan_access(business, now) == "lapsed" or not business.google_review_url:
+            continue
+        requested = (
+            scoped(ReviewRequest, business.id)
+            .with_only_columns(ReviewRequest.booking_id)
+            .where(ReviewRequest.booking_id.is_not(None))
+        )
+        bookings = await db.scalars(
+            scoped(Booking, business.id, soft_delete=True)
+            .where(
+                Booking.status == "completed",
+                Booking.completed_at >= now - timedelta(days=7),
+                Booking.completed_at <= now,
+                Booking.id.not_in(requested),
+            )
+            .with_for_update(skip_locked=True)
+        )
+        for booking in bookings:
+            request = build_review_request(business.id, booking.client_id, booking.id, now)
+            db.add(request)
+            requests.append(request)
     await db.flush()
     for request in requests:
         await notifier.on_review_requested(db, request.id)

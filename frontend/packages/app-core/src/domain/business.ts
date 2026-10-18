@@ -4,7 +4,7 @@ import { usePowerSync, useQuery as useGlobalQuery } from "@powersync/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { type Load, useAsyncAction, useLoad } from "../hooks";
-import { BUSINESS_CURRENCY, formatList, formatMoney, formatParts, formatRating } from "../format";
+import { BUSINESS_CURRENCY, formatList, formatMoney, formatParts } from "../format";
 import { strings } from "../strings";
 import { type ApiLike, failedCode, failureMessage } from "../api";
 import type { ChoiceOption, Fact, SelectOption } from "../ui";
@@ -991,9 +991,6 @@ SELECT id, name, description, duration_min, price_cents, deposit_type, deposit_v
 WHERE active = 1 AND online_bookable = 1 AND kind IN ('service', 'class')
 ORDER BY name COLLATE NOCASE`;
 
-export const PREVIEW_RATING_SQL = `
-SELECT AVG(rating) AS average, COUNT(*) AS n FROM reviews WHERE status = 'published'`;
-
 interface PreviewItem {
     id: string;
     name: string;
@@ -1009,7 +1006,6 @@ export interface BookingPreview {
     selected: string | null;
     select: (id: string) => void;
     facts: Fact[];
-    rating: string | null;
 }
 
 // The same deposit the server asks for at booking (services/catalog.deposit_cents).
@@ -1020,10 +1016,9 @@ function previewDeposit(i: PreviewItem): number {
         : Math.round((i.price_cents * i.deposit_value) / 100);
 }
 
-/** The booking page's first step from the replica: the bookable services, a pick and the rating. */
+/** The booking page's first step from the replica: the bookable services and a pick. */
 export function useBookingPreview(limit: number): BookingPreview {
     const items = useQuery<PreviewItem>(BOOKING_PREVIEW_SQL).data.slice(0, limit);
-    const rating = useQuery<{ average: number | null; n: number }>(PREVIEW_RATING_SQL).data[0];
     const [selected, setSelected] = useState<string | null>(null);
     const chosen = items.find((i) => i.id === selected) ?? null;
     const b = strings.publicBooking;
@@ -1056,10 +1051,6 @@ export function useBookingPreview(limit: number): BookingPreview {
                               : {}),
                       },
                   ],
-        rating:
-            rating?.average === null || rating === undefined || rating.n === 0
-                ? null
-                : b.reviews(formatRating(rating.average), rating.n),
     };
 }
 

@@ -42,7 +42,6 @@ class RateLimiter:
 _PER_MINUTE = get_settings().public_rate_limit()
 _public_contact_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 _public_pay_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
-_public_review_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 _public_form_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 _public_contract_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
 _public_booking_limiter = RateLimiter(limit=_PER_MINUTE, window_s=60.0)
@@ -94,12 +93,6 @@ async def public_pay_rate_limit(request: Request) -> None:
     """Cap how fast one IP hits the unauthenticated pay endpoints (they mint Stripe objects)."""
     if not await _allowed(request, "pay", _public_pay_limiter):
         raise TooManyRequests("too many payment attempts — please wait a moment")
-
-
-async def public_review_rate_limit(request: Request) -> None:
-    """Cap how fast one IP hits the unauthenticated review endpoints (token probing + writes)."""
-    if not await _allowed(request, "review", _public_review_limiter):
-        raise TooManyRequests("too many requests — please wait a moment")
 
 
 async def public_form_rate_limit(request: Request) -> None:

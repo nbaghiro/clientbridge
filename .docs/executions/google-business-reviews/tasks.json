@@ -14,7 +14,9 @@
     {
       "id": "G1",
       "title": "Confirm Google project access and OAuth requirements",
-      "depends_on": ["G0"],
+      "depends_on": [
+        "G0"
+      ],
       "status": "pending",
       "owner": "Operator",
       "acceptance": "Record project number, GBP approval/quota, dedicated clients, consent state and callback configuration; no secrets in evidence."
@@ -22,7 +24,9 @@
     {
       "id": "G2",
       "title": "Finalize and approve concrete schema",
-      "depends_on": ["G0"],
+      "depends_on": [
+        "G0"
+      ],
       "status": "pending",
       "owner": "Owner and implementer",
       "acceptance": "Approve exact fields/constraints, request defaults, duplicate-handling plan, retention and rollback before editing models."
@@ -30,7 +34,9 @@
     {
       "id": "G3",
       "title": "Implement gateway contract and recording fakes",
-      "depends_on": ["G0"],
+      "depends_on": [
+        "G0"
+      ],
       "status": "pending",
       "owner": "Backend",
       "acceptance": "Typed account/location/review/reply/token/notification operations; byte limits, pagination and redacted error cases covered."
@@ -38,7 +44,9 @@
     {
       "id": "G4",
       "title": "Provision gated cloud resources and runtime configuration",
-      "depends_on": ["G1"],
+      "depends_on": [
+        "G1"
+      ],
       "status": "pending",
       "owner": "Infrastructure",
       "acceptance": "Pulumi mocks, IAM/disabled-mode tests, reviewed staging preview, secret population and feature-off deployment succeed."
@@ -46,7 +54,9 @@
     {
       "id": "G5",
       "title": "Implement approved operational schema",
-      "depends_on": ["G2"],
+      "depends_on": [
+        "G2"
+      ],
       "status": "pending",
       "owner": "Backend",
       "acceptance": "Migration/grants/tenancy/concurrency/restore tests pass; no Google content or credentials in client projections."
@@ -54,7 +64,11 @@
     {
       "id": "G6",
       "title": "Implement OAuth and location lifecycle",
-      "depends_on": ["G3", "G4", "G5"],
+      "depends_on": [
+        "G3",
+        "G4",
+        "G5"
+      ],
       "status": "pending",
       "owner": "Backend and clients",
       "acceptance": "Connect/select/refresh/reconnect/disconnect work with actor and tenant binding on web and mobile; ciphertext and token rotation verified."
@@ -62,7 +76,9 @@
     {
       "id": "G7",
       "title": "Implement bounded online Google review reads",
-      "depends_on": ["G6"],
+      "depends_on": [
+        "G6"
+      ],
       "status": "pending",
       "owner": "Backend and clients",
       "acceptance": "Pagination and supplied totals work; cache eviction/expiry/logout/disconnect leave no persisted client content."
@@ -70,7 +86,9 @@
     {
       "id": "G8",
       "title": "Implement explicit reply commands and reconciliation",
-      "depends_on": ["G7"],
+      "depends_on": [
+        "G7"
+      ],
       "status": "pending",
       "owner": "Backend and clients",
       "acceptance": "Create/edit/delete succeed with byte validation, stale-state handling, independent-session concurrency and ambiguous-outcome readback."
@@ -78,23 +96,35 @@
     {
       "id": "G9",
       "title": "Implement account-aware notifications and polling",
-      "depends_on": ["G6", "G7"],
+      "depends_on": [
+        "G6",
+        "G7"
+      ],
       "status": "pending",
       "owner": "Backend and infrastructure",
       "acceptance": "Authenticated push, durable dedup, DLQ, existing-topic conflict, shared-account lifecycle and polling fallback pass."
     },
     {
       "id": "G10",
-      "title": "Fix requests and remove sentiment-gated Google invitations",
-      "depends_on": ["G2", "G5"],
+      "title": "Add reliable invitation delivery and scheduling controls",
+      "depends_on": [
+        "G2",
+        "G5"
+      ],
       "status": "pending",
       "owner": "Backend and clients",
-      "acceptance": "Neutral Google action, accurate privacy wording, transactional per-channel delivery, booking dedup/resend, scheduling settings and empty-state fixes pass."
+      "acceptance": "Direct Google invitations, transactional per-channel delivery, booking dedup/resend and scheduling settings pass. Internal feedback collection remains removed."
     },
     {
       "id": "G11",
       "title": "Complete release gates and controlled live pilot",
-      "depends_on": ["G1", "G4", "G8", "G9", "G10"],
+      "depends_on": [
+        "G1",
+        "G4",
+        "G8",
+        "G9",
+        "G10"
+      ],
       "status": "pending",
       "owner": "Owner and implementer",
       "acceptance": "make check and browser/mobile gates pass; authorized real-profile smoke, token expiry, cache purge, rollback and monitoring drills recorded."
@@ -102,7 +132,9 @@
     {
       "id": "G12",
       "title": "Roll out and publish durable operating guidance",
-      "depends_on": ["G11"],
+      "depends_on": [
+        "G11"
+      ],
       "status": "pending",
       "owner": "Operator",
       "acceptance": "Read then write allowlist rollout, alert ownership and support instructions verified; archive execution after durable docs updated."

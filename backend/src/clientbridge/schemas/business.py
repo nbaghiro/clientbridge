@@ -66,7 +66,6 @@ class BusinessOut(Mirror):
     tax_registered: bool
     filing_frequency: FilingFrequency
     setup_dismissed_at: datetime | None
-    review_hold_at: int
     google_review_url: str | None
     unit: str | None
     street_number: str | None
@@ -159,11 +158,8 @@ class BusinessSettingsUpdate(Mirror):
     setup_dismissed: bool | None = Field(
         default=None, description="Hide (true) or show (false) the Get set up list"
     )
-    review_hold_at: int | None = Field(
-        default=None, ge=0, le=5, description="Hold reviews rated at or below this; 0 holds none"
-    )
     google_review_url: str | None = Field(
-        default=None, description="The Google review link shared after a good review; empty clears"
+        default=None, description="The Google review link sent in invitations; empty clears"
     )
     province: ProvinceCode | None = Field(
         default=None,

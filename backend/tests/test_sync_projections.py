@@ -23,7 +23,6 @@ def test_sensitive_server_fields_are_not_projected() -> None:
         "payment_methods": {"provider_ref"},
         "subscriptions": {"provider_ref"},
         "messages": {"provider_ref"},
-        "reviews": {"token"},
         "responses": {"token"},
     }
     for table, columns in denied.items():

@@ -11,7 +11,6 @@ from clientbridge.core.ratelimit import (
     public_form_rate_limit,
     public_pay_rate_limit,
     public_prefs_rate_limit,
-    public_review_rate_limit,
     requester_ip,
 )
 from clientbridge.schemas.billing import (
@@ -51,7 +50,6 @@ from clientbridge.schemas.public import (
     PublicSlots,
 )
 from clientbridge.schemas.public_profiles import PublicNextOpenings, PublicProfile
-from clientbridge.schemas.reviews import PublicReviewContext, PublicReviewSubmit
 from clientbridge.services.files import public_media_location
 from clientbridge.services.notifications import Notifier
 from clientbridge.services.payments import PublicPaymentSetupService
@@ -64,7 +62,6 @@ from clientbridge.services.public import (
     PublicPayService,
     PublicPreferencesService,
     PublicReceiptService,
-    PublicReviewService,
     PublicShopService,
 )
 from clientbridge.services.public_profiles import PublicProfilesService
@@ -72,7 +69,6 @@ from clientbridge.services.public_profiles import PublicProfilesService
 pay_router = APIRouter(prefix="/pay", tags=["public-pay"])
 
 RateLimited = Annotated[None, Depends(public_pay_rate_limit)]
-ReviewRateLimited = Annotated[None, Depends(public_review_rate_limit)]
 FormRateLimited = Annotated[None, Depends(public_form_rate_limit)]
 ContractRateLimited = Annotated[None, Depends(public_contract_rate_limit)]
 BookingRateLimited = Annotated[None, Depends(public_booking_rate_limit)]
@@ -141,23 +137,6 @@ async def public_estimate_decline(
     result = await PublicEstimateService(db).decline(token, data)
     await Notifier(email, sms, push).on_estimate_answered(db, token)
     return result
-
-
-review_router = APIRouter(prefix="/review", tags=["public-review"])
-
-
-@review_router.get("/{token}", response_model=PublicReviewContext)
-async def public_review_context(
-    token: str, db: DbSession, _: ReviewRateLimited
-) -> PublicReviewContext:
-    return await PublicReviewService(db).context(token)
-
-
-@review_router.post("/{token}", response_model=PublicReviewContext)
-async def public_review_submit(
-    token: str, body: PublicReviewSubmit, db: DbSession, _: ReviewRateLimited
-) -> PublicReviewContext:
-    return await PublicReviewService(db).submit(token, body)
 
 
 form_router = APIRouter(prefix="/form", tags=["public-form"])

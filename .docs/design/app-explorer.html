@@ -266,7 +266,6 @@
       <button class="tab scrtab" data-scr="c-pay">Pay</button>
       <button class="tab scrtab" data-scr="c-form">Form</button>
       <button class="tab scrtab" data-scr="c-contract">Contract</button>
-      <button class="tab scrtab" data-scr="c-review">Review</button>
     </div>
     <span class="barnote">theme × screen · provider + customer</span>
   </div>
@@ -332,7 +331,6 @@
                       <div style="padding:6px 16px 12px">
                         <div class="tline"><span class="tdot" style="background:var(--ok-bg);color:var(--ok-fg)">✓</span><div><div class="nm" style="font-size:12.5px">Card payment · $95.20</div><div class="sb">from Amélie Tremblay · 9:42a</div></div></div>
                         <div class="tline"><span class="tdot">＋</span><div><div class="nm" style="font-size:12.5px">New booking confirmed</div><div class="sb">Noah Bélanger · Puppy's First · 2:00p</div></div></div>
-                        <div class="tline"><span class="tdot" style="background:var(--warn-bg);color:var(--warn-fg)">★</span><div><div class="nm" style="font-size:12.5px">5-star review</div><div class="sb">Riley Khan · "So gentle with Cooper"</div></div></div>
                       </div>
                     </section>
                   </div>
@@ -555,32 +553,10 @@
 
               <!-- REVIEWS -->
               <div class="wscr" data-scr="reviews">
-                <div class="stats">
-                  <div class="stat"><div class="l">Average rating</div><div class="v">4.8 ★</div><div class="t">42 reviews</div></div>
-                  <div class="stat"><div class="l">This month</div><div class="v">12</div><div class="t"><svg class="ic" style="width:11px;height:11px;display:inline;stroke-width:2.5"><use href="#i-up"/></svg> 3</div></div>
-                  <div class="stat"><div class="l">Response rate</div><div class="v">92%</div><div class="t flat">owner replies</div></div>
-                  <div class="stat"><div class="l">Requests sent</div><div class="v">34</div><div class="t flat">SMS + email</div></div>
-                </div>
-                <div class="cols">
-                  <section class="card">
-                    <div class="card-h"><h3>Recent reviews</h3><span class="s">newest first</span></div>
-                    <div style="padding:4px 16px 10px">
-                      <div class="tline" style="align-items:flex-start"><div class="av" style="width:32px;height:32px;background:#B26A12;font-size:11px">RK</div><div style="flex:1"><div class="row" style="justify-content:space-between"><div class="nm" style="font-size:13px">Riley Khan</div><span style="color:var(--warn-fg);font-size:12px">★★★★★</span></div><div class="sb" style="margin-top:3px">"So gentle with Cooper — best groom he's had."</div><div class="row" style="gap:6px;margin-top:6px"><span class="badge b-ok">Published</span><span class="badge b-muted">Replied</span></div></div></div>
-                      <div class="tline" style="align-items:flex-start"><div class="av" style="width:32px;height:32px;background:#1A6B5F;font-size:11px">AT</div><div style="flex:1"><div class="row" style="justify-content:space-between"><div class="nm" style="font-size:13px">Amélie Tremblay</div><span style="color:var(--warn-fg);font-size:12px">★★★★★</span></div><div class="sb" style="margin-top:3px">"Bella looks amazing every time. Sent to Google ✓"</div><div class="row" style="gap:6px;margin-top:6px"><span class="badge b-ok">Published</span></div></div></div>
-                      <div class="tline" style="align-items:flex-start"><div class="av" style="width:32px;height:32px;background:#1A6B5F;font-size:11px">DO</div><div style="flex:1"><div class="row" style="justify-content:space-between"><div class="nm" style="font-size:13px">Daniel Okafor</div><span style="color:var(--muted);font-size:12px">★★★☆☆</span></div><div class="sb" style="margin-top:3px">"Great groom, but the wait was long."</div><div class="row" style="gap:6px;margin-top:6px"><span class="badge b-warn"><span class="dot" style="background:var(--warn-fg)"></span>Held — respond before publish</span></div></div></div>
-                    </div>
-                  </section>
-                  <section class="card">
-                    <div class="card-h"><h3>Request a review</h3></div>
-                    <div style="padding:12px 16px">
-                      <div class="sb" style="color:var(--muted);margin-bottom:9px">Completed today · not yet asked</div>
-                      <div class="row" style="justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-soft)"><div class="who"><div class="av" style="width:28px;height:28px;background:#1A6B5F;font-size:10px">AT</div><div><div class="nm">Amélie Tremblay</div><div class="sb">Bella · 9:00a</div></div></div><button class="btn btn-primary btn-sm">Ask</button></div>
-                      <div class="row" style="justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-soft)"><div class="who"><div class="av" style="width:28px;height:28px;background:#7C5AA6;font-size:10px">SR</div><div><div class="nm">Sofia Russo</div><div class="sb">Luna · 3:30p</div></div></div><button class="btn btn-primary btn-sm">Ask</button></div>
-                      <div class="sb" style="color:var(--muted);margin:12px 0 7px">Pending · request sent</div>
-                      <div class="row" style="justify-content:space-between;padding:6px 0"><div class="nm" style="font-size:12.5px">Noah Bélanger · Max</div><span class="badge b-muted">Opened · 2d</span></div>
-                    </div>
-                  </section>
-                </div>
+                <section class="card">
+                  <div class="card-h"><h3>Google review invitations</h3></div>
+                  <div style="padding:16px"><p>Save your Google review link, then invite clients after completed appointments.</p><p>Request history records invitations. Clients leave reviews directly on Google.</p><button class="btn btn-primary">Request a review</button></div>
+                </section>
               </div>
 
               <!-- GIFT CARDS -->
@@ -832,7 +808,7 @@
               <div style="text-align:center;margin-bottom:18px">
                 <div class="av" style="width:54px;height:54px;margin:0 auto;background:var(--accent);color:var(--accent-ink);border-radius:17px;font-size:22px">🐾</div>
                 <div style="font-family:var(--font-display);font-size:21px;font-weight:var(--h2-weight);margin-top:10px;color:var(--ink)">Birchbark Pet Studio</div>
-                <div class="sb">Victoria, BC · ★ 4.8 (42 reviews)</div>
+                <div class="sb">Victoria, BC</div>
               </div>
 
               <div class="cscr on" data-scr="c-landing">
@@ -899,14 +875,7 @@
                 <div class="row" style="gap:8px;margin-top:12px"><button class="btn btn-out" style="flex:1;justify-content:center">Decline</button><button class="btn btn-primary" style="flex:1;justify-content:center">Agree &amp; sign</button></div>
               </div>
 
-              <div class="cscr" data-scr="c-review">
-                <p style="text-align:center;font-family:var(--font-display);font-size:19px;color:var(--ink);margin:4px 0">How was Bella's visit?</p>
-                <p class="sb" style="text-align:center;color:var(--muted);margin:0 0 16px">Full Groom with Diego · Jun 24</p>
-                <div class="row" style="justify-content:center;gap:9px;font-size:30px;color:var(--warn-fg);margin-bottom:16px">★ ★ ★ ★ <span style="color:var(--border)">★</span></div>
-                <div class="cfield" style="min-height:68px">She was so calm and looks wonderful — thank you!</div>
-                <div class="row" style="gap:9px;margin-top:12px;font-size:12px;color:var(--ink-soft)"><span style="background:var(--accent);width:16px;height:16px;border-radius:5px;display:inline-block"></span> Also share on Google</div>
-                <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:14px">Submit review</button>
-              </div>
+
 
             </div>
           </div>
@@ -954,7 +923,7 @@
 
   // switching
   const stage=document.getElementById("stage");
-  const titles={dashboard:["Wednesday · June 24","Today","app.clientbridge.ca/today"],calendar:["June 22 – 28","Calendar","app.clientbridge.ca/calendar"],clients:["Birchbark Pet Studio · 428 clients","Clients","app.clientbridge.ca/clients"],invoice:["Invoice · INV-2026-0148","Get paid","app.clientbridge.ca/invoices/0148"],inbox:["Conversations · 2 unread","Inbox","app.clientbridge.ca/inbox"],catalog:["9 items · services · packages · retail","Catalog","app.clientbridge.ca/catalog"],pos:["Register · Tap to Pay","Point of sale","app.clientbridge.ca/pos"],payouts:["Staff earnings · Q2","Payouts","app.clientbridge.ca/payouts"],reports:["Income · GST/HST · T4A","Reports","app.clientbridge.ca/reports"],reviews:["4.8 ★ · 42 reviews","Reviews","app.clientbridge.ca/reviews"],giftcards:["14 active cards","Gift Cards","app.clientbridge.ca/gift-cards"],team:["3 members · 1 invite","Team","app.clientbridge.ca/team"],scheduling:["Availability · Diego","Scheduling","app.clientbridge.ca/scheduling"],settings:["Tax · Payments · Brand","Settings","app.clientbridge.ca/settings/tax"],client:["Client profile","The bridge","app.clientbridge.ca/clients/marcus"],"c-landing":["","","connect.clientbridge.ca/b/birchbark"],"c-book":["","","connect.clientbridge.ca/book/birchbark"],"c-pay":["","","connect.clientbridge.ca/pay/inv-1148"],"c-form":["","","connect.clientbridge.ca/form/new-pet-intake"],"c-contract":["","","connect.clientbridge.ca/contract/waiver"],"c-review":["","","connect.clientbridge.ca/review/bella"]};
+  const titles={dashboard:["Wednesday · June 24","Today","app.clientbridge.ca/today"],calendar:["June 22 – 28","Calendar","app.clientbridge.ca/calendar"],clients:["Birchbark Pet Studio · 428 clients","Clients","app.clientbridge.ca/clients"],invoice:["Invoice · INV-2026-0148","Get paid","app.clientbridge.ca/invoices/0148"],inbox:["Conversations · 2 unread","Inbox","app.clientbridge.ca/inbox"],catalog:["9 items · services · packages · retail","Catalog","app.clientbridge.ca/catalog"],pos:["Register · Tap to Pay","Point of sale","app.clientbridge.ca/pos"],payouts:["Staff earnings · Q2","Payouts","app.clientbridge.ca/payouts"],reports:["Income · GST/HST · T4A","Reports","app.clientbridge.ca/reports"],reviews:["Google invitations","Reviews","app.clientbridge.ca/reviews"],giftcards:["14 active cards","Gift Cards","app.clientbridge.ca/gift-cards"],team:["3 members · 1 invite","Team","app.clientbridge.ca/team"],scheduling:["Availability · Diego","Scheduling","app.clientbridge.ca/scheduling"],settings:["Tax · Payments · Brand","Settings","app.clientbridge.ca/settings/tax"],client:["Client profile","The bridge","app.clientbridge.ca/clients/marcus"],"c-landing":["","","connect.clientbridge.ca/b/birchbark"],"c-book":["","","connect.clientbridge.ca/book/birchbark"],"c-pay":["","","connect.clientbridge.ca/pay/inv-1148"],"c-form":["","","connect.clientbridge.ca/form/new-pet-intake"],"c-contract":["","","connect.clientbridge.ca/contract/waiver"]};
   document.querySelectorAll(".themetab").forEach(b=>b.onclick=()=>{
     document.querySelectorAll(".themetab").forEach(x=>x.classList.toggle("on",x===b));
     stage.querySelector(".desktop").parentElement; // noop

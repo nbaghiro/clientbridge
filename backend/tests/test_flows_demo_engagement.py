@@ -11,7 +11,7 @@ from clientbridge.models.clients import Client, Consent, Subject
 from clientbridge.models.documents import Contract, FormField, FormResponse, Signature
 from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.models.platform import File
-from clientbridge.models.reviews import Review
+from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.business import BrandInput
 from clientbridge.services.consents import allows_marketing
@@ -258,22 +258,14 @@ def test_conversations_have_distinct_times_channel_identity_and_inbox_states(
     assert "Saturday October 10" in (reminder.body or "")
 
 
-def test_reviews_follow_completed_visits_and_hold_low_feedback(engagement: DemoContext) -> None:
-    reviews = [r for r in engagement.all(Review) if r.booking_id]
-    assert len({r.booking_id for r in reviews}) == len(reviews) == 8
-    for review in reviews:
-        booking = engagement.get(Booking, review.booking_id or "")
+def test_review_invitations_follow_completed_visits(engagement: DemoContext) -> None:
+    requests = [r for r in engagement.all(ReviewRequest) if r.booking_id]
+    assert len({r.booking_id for r in requests}) == len(requests) == 8
+    for request in requests:
+        booking = engagement.get(Booking, request.booking_id or "")
         slot = engagement.get(Slot, booking.slot_id)
-        assert review.client_id == booking.client_id and booking.status == "completed"
-        assert review.requested_at is not None and review.submitted_at is not None
-        assert slot.ends_at < review.requested_at < review.submitted_at <= engagement.now
-        if review.responded_at:
-            assert review.submitted_at < review.responded_at <= engagement.now
-        assert "Careful Groom" in (review.body or "")
-    held = engagement.get(Review, "rv_7")
-    assert held.rating == 2 and held.status == "submitted" and not held.sent_to_google
-    assert "parking" in (engagement.get(Review, "rv_3").response or "")
-    assert "Miso" in (engagement.get(Review, "rv_6").response or "")
+        assert request.client_id == booking.client_id and booking.status == "completed"
+        assert slot.ends_at < request.requested_at <= engagement.now
 
 
 def test_public_profile_uses_brand_contract_and_only_active_team(engagement: DemoContext) -> None:

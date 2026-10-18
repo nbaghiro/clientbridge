@@ -27,7 +27,6 @@ _KEPT_ON_NULL = (
     "name",
     "timezone",
     "province",
-    "review_hold_at",
     "filing_frequency",
     "tax_registered",
 )

@@ -5,13 +5,11 @@ from clientbridge.core.errors import NotFound
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.business import Business
-from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Hours
 from clientbridge.schemas.business import BrandInput
 from clientbridge.schemas.public_profiles import (
     PublicProfile,
     PublicProfileHours,
-    PublicProfileReview,
 )
 from clientbridge.services.public import PublicBookingService
 
@@ -29,18 +27,6 @@ class PublicProfilesService:
             raise NotFound("business not found")
         page = await self.booking.page(slug)
         brand = BrandInput.model_validate(business.brand or {})
-        reviews = (
-            (
-                await self.db.execute(
-                    scoped(Review, business.id)
-                    .where(Review.status == "published")
-                    .order_by(Review.submitted_at.desc(), Review.id)
-                    .limit(6)
-                )
-            )
-            .scalars()
-            .all()
-        )
         hours = (
             (
                 await self.db.execute(
@@ -80,16 +66,5 @@ class PublicProfilesService:
             website=brand.website,
             neighbourhood=brand.neighbourhood,
             gallery_urls=brand.gallery_urls,
-            reviews=[
-                PublicProfileReview(
-                    id=row.id,
-                    rating=row.rating,
-                    body=row.body,
-                    response=row.response,
-                    submitted_at=row.submitted_at,
-                )
-                for row in reviews
-                if row.rating is not None
-            ],
             hours=merged,
         )

@@ -45,7 +45,7 @@ from clientbridge.models.documents import Contract, FormResponse, Signature
 from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Device, DevicePlatform, File
-from clientbridge.models.reviews import Review
+from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.auth import AuthEmailIn
 from clientbridge.schemas.forms import FormDefinition
@@ -1432,13 +1432,13 @@ class Notifier:
                 await self.on_series_booked(db, [b.id for b, _ in rows], "canceled")
 
     async def on_review_requested(self, db: AsyncSession, review_id: str) -> None:
-        review = await db.get(Review, review_id)
-        if review is None or review.token is None:
+        review = await db.get(ReviewRequest, review_id)
+        if review is None:
             return
         business = await db.get(Business, review.business_id)
-        if business is None:
+        if business is None or not business.google_review_url:
             return
-        link = f"{get_settings().connect_base_url}/review/{review.token}"
+        link = business.google_review_url
         notice = review_requested_message(locale_for(business=business), business.name, link)
         await self._to_client(db, review.client_id, notice)
 

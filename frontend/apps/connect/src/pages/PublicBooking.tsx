@@ -8,7 +8,6 @@ import {
     durationLabel,
     usePublicBookingFlow,
     formatList,
-    formatRating,
     SUBJECT_ICON,
 } from "@clientbridge/app-core/public";
 import {
@@ -32,7 +31,7 @@ import {
     SuggestedExtras,
     WhenPicker,
 } from "../components/BookingSteps";
-import { brandStyle, PublicPage, Rating } from "../components/PublicPage";
+import { brandStyle, PublicPage } from "../components/PublicPage";
 import { PublicStatus } from "../components/PublicStatus";
 import { StepCard, StepLayout, SummaryBar, SummaryPanel } from "../components/StepLayout";
 import { config } from "../config";
@@ -71,13 +70,6 @@ export function PublicBooking() {
         return <PublicStatus kind="notFound" title={s.notFoundTitle} body={s.notFoundBody} />;
     if (flow.status === "error" || page === null)
         return <PublicStatus kind="error" title={s.errorTitle} body={s.errorBody} />;
-
-    const rating =
-        page.rating !== null && page.review_count > 0 ? (
-            <span className="hidden sm:block">
-                <Rating label={s.reviews(formatRating(page.rating), page.review_count)} />
-            </span>
-        ) : null;
 
     if (flow.step === "done") {
         const token = flow.result?.manage_token ?? null;
@@ -140,7 +132,6 @@ export function PublicBooking() {
                         {s.title}
                     </h1>
                     <div className="flex items-center gap-4">
-                        {rating}
                         <span className="hidden items-center gap-1.5 text-xs text-muted sm:flex">
                             <Icon name="lock" size={13} />
                             {s.secureBooking}

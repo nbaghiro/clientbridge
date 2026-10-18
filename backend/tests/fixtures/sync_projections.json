@@ -349,7 +349,6 @@
       "qst_number",
       "pst_number",
       "filing_frequency",
-      "review_hold_at",
       "google_review_url",
       "brand",
       "stripe_account_id",
@@ -621,23 +620,6 @@
       "id",
       "business_id"
     ],
-    "reviews": [
-      "client_id",
-      "booking_id",
-      "channel",
-      "status",
-      "requested_at",
-      "submitted_at",
-      "rating",
-      "body",
-      "response",
-      "responded_at",
-      "sent_to_google",
-      "id",
-      "business_id",
-      "created_at",
-      "updated_at"
-    ],
     "broadcasts": [
       "created_by",
       "name",
@@ -696,6 +678,15 @@
       "expires_at",
       "status",
       "payment_id",
+      "id",
+      "business_id",
+      "created_at",
+      "updated_at"
+    ],
+    "review_requests": [
+      "client_id",
+      "booking_id",
+      "requested_at",
       "id",
       "business_id",
       "created_at",

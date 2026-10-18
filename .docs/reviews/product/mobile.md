@@ -2,7 +2,7 @@
 
 Reviewed October 8, 2026. This is the native counterpart to the [whole-product map](web-and-connect.md). It describes the current implementation, including embedded tabs, record views, editors, sheets, native integrations and incomplete paths. It is an implementation inventory, not a claim that every action has passed a device test.
 
-There is **one provider mobile application**, built for iOS and Android from [Expo configuration](../../../frontend/apps/mobile/app.config.ts). There are not separate iOS and Android feature implementations or a native client-facing Connect app. Public booking, payment, forms, contracts, reviews and self-service links still lead to the browser-based Connect product. The mobile tree contains **32 screen modules, 20 composition modules and seven platform adapter modules**. A module is not one surface: Payments contains eight areas; Inbox contains five; client details open additional stack screens and sheets.
+There is **one provider mobile application**, built for iOS and Android from [Expo configuration](../../../frontend/apps/mobile/app.config.ts). There are not separate iOS and Android feature implementations or a native client-facing Connect app. Public booking, payment, forms, contracts and self-service links still lead to the browser-based Connect product. The mobile tree contains **32 screen modules, 20 composition modules and seven platform adapter modules**. A module is not one surface: Payments contains eight areas; Inbox contains five; client details open additional stack screens and sheets.
 
 Mobile navigation now uses Today, Schedule, Clients and Inbox around the raised Create button. Payments opens as a stack screen from the Today summary shortcut or View payments in the Create sheet, retaining the originating screen on Back. Inbox preserves its selected section and conversation across bottom-tab switches; message notifications target their exact thread, and client message shortcuts open a draft when no thread exists.
 
@@ -31,7 +31,7 @@ The [navigation types](../../../frontend/apps/mobile/src/navigation.ts) and [roo
 
 The root stack additionally registers Search, Notifications, Payments, Setup, GetSetUp, Taxes, Business, Services, Team, GettingPaid, ClientHistory, ClientPets, ClientWallet, OnlineBooking, Reminders, Classes and Recurrences. Login and onboarding are conditional roots, not stack routes. Payments and Inbox switch their subareas in place; they are not individual navigation routes. Most record details are bottom sheets; message threads and repeating-booking records replace the body of their parent screen.
 
-Today has Search, Notifications and Setup controls and a Payments shortcut beneath its summary cards. Inbox is a permanent bottom tab with an unread-message badge; the old Clients-header shortcut is removed. Create → Message, search, client actions and message/review notifications also reach Inbox. Explicit message targets are consumed once so switching sections cannot reopen a canceled draft.
+Today has Search, Notifications and Setup controls and a Payments shortcut beneath its summary cards. Inbox is a permanent bottom tab with an unread-message badge; the old Clients-header shortcut is removed. Create → Message, search, client actions and message notifications also reach Inbox. Explicit message targets are consumed once so switching sections cannot reopen a canceled draft.
 
 [useOpenLink](../../../frontend/apps/mobile/src/lib/links.ts) translates shared shell targets into native routes. That translation currently loses some meaning:
 
@@ -63,7 +63,7 @@ Google calls the explicit unavailable handler; it is not a functioning native OA
 
 [Today](../../../frontend/apps/mobile/src/screens/Today.tsx) chooses `useOwnerToday` or `useStaffToday` by payment-management capability. [TodayParts](../../../frontend/apps/mobile/src/components/TodayParts.tsx) renders the header, horizontal KPI cards, next/current booking, agenda, attention list, getting-started checklist and quiet-day state.
 
-The owner view combines replica-backed agenda data with separately loaded server money aggregates: booked visits, still to collect, collected money and invoices awaiting payment. Loading and retry states are independent. Current/next cards expose booking lifecycle, checkout and messaging actions; “Needs you” links to overdue invoices, reviews, stock, tax and staff-pay work. The rest-of-day list and empty/setup states adapt to the available data. The staff version shows the person's next client, earnings, hours, tomorrow and messages rather than the business-wide management dashboard.
+The owner view combines replica-backed agenda data with separately loaded server money aggregates: booked visits, still to collect, collected money and invoices awaiting payment. Loading and retry states are independent. Current/next cards expose booking lifecycle, checkout and messaging actions; “Needs you” links to overdue invoices, stock, tax and staff-pay work. The rest-of-day list and empty/setup states adapt to the available data. The staff version shows the person's next client, earnings, hours, tomorrow and messages rather than the business-wide management dashboard.
 
 The offline banner appears here after a replica has synced; it is not a persistent banner across every tab. Five taps on the date within 1.5 seconds open [DebugOverlay](../../../frontend/apps/mobile/src/components/DebugOverlay.tsx). That gesture is wired without an explicit `__DEV__` guard in the current screen. The overlay exposes sync/replica diagnostics; assess that production exposure separately from the ordinary product navigation.
 
@@ -155,7 +155,7 @@ New message is a native sheet with client, channel and body. Thread details open
 
 ### Reviews
 
-[Reviews](../../../frontend/apps/mobile/src/screens/Reviews.tsx) combines distributions, moderation filters, review records, suggested/edited replies, publish/hide, Google sharing and client messaging. Settings include low-rating handling and the Google review URL. Suggested recent visits and a request sheet initiate review invitations. Native `Linking` opens external review URLs.
+[Reviews](../../../frontend/apps/mobile/src/screens/Reviews.tsx) manages the Google review URL, recent completed-appointment suggestions and invitation history. Invitations send clients directly to Google. Internal collection, moderation, local replies and ratings have been removed.
 
 ### Broadcasts
 

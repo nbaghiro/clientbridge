@@ -18,7 +18,7 @@ from clientbridge.models.documents import FormResponse, Signature
 from clientbridge.models.ledger import Account
 from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod
-from clientbridge.models.reviews import Review
+from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Recurrence
 from clientbridge.schemas.clients import (
     BulkResult,
@@ -43,7 +43,7 @@ CLIENT_REFS: tuple[tuple[type[Base], str], ...] = (
     (Order, "client_id"),
     (Payment, "client_id"),
     (Subject, "client_id"),
-    (Review, "client_id"),
+    (ReviewRequest, "client_id"),
     (FormResponse, "client_id"),
     (Signature, "client_id"),
     (Package, "client_id"),

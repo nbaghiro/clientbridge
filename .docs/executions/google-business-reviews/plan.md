@@ -1,20 +1,20 @@
 # Google Business Profile reviews implementation plan
 
-Status: ready for implementation planning review. Research checked 2026-10-18 against official Google and Pulumi documentation. This branch contains the execution plan, not a deployed integration. Follow [tasks](tasks.json), [schema proposal](schema.md), and [progress](progress.md).
+Status: ready for implementation planning review. Research checked 2026-10-18 against official Google and Pulumi documentation. This branch contains the execution plan and internal collection removal, not a deployed Google API integration. Follow [tasks](tasks.json), [schema proposal](schema.md), and [progress](progress.md).
 
-Build a Google connection that lets an owner choose their business location, read its Google reviews, publish and manage replies, and send neutral review invitations after appointments. Keep Google content separate from Clientbridge feedback. Provision supporting cloud resources with the existing Python Pulumi program; Google API access approval and OAuth configuration remain explicit operator tasks.
+Build a Google connection that lets an owner choose their business location, read its Google reviews, publish and manage replies, and send neutral review invitations after appointments. Remove Clientbridge feedback collection entirely; retain invitation history separately from Google content. Provision supporting cloud resources with the existing Python Pulumi program; Google API access approval and OAuth configuration remain explicit operator tasks.
 
 ## Scope and product decisions
 
 - First release: one Google location per Clientbridge business, with account/location selection, reconnect/disconnect, paginated review viewing, Google-provided rating/count, explicit reply create/edit/delete, refresh status, background invalidation and appointment invitations. Different businesses may select different locations from one Google account. Reject a location already actively bound to another business in the same environment.
-- Maintain separate Google and Clientbridge feedback tabs and totals. Never fabricate client or booking matches from Google reviewer names. Google content stays online-only in the first release; internal reviews retain their existing PowerSync behavior.
-- Offer the Google invitation independently of internal rating or moderation, before any internal feedback submission. Keep optional private feedback separate. No incentives, suggested positive ratings, automatic customer review creation, or automatic owner replies.
+- Keep Google review reads online-only and invitation history synced. Remove internal feedback collection, approval, publication, replies and public testimonials. Never fabricate client or booking matches from Google reviewer names.
+- Send neutral invitations directly to Google. There is no internal rating or feedback form. No incentives, suggested positive ratings, automatic customer review creation, or automatic owner replies.
 - Use Google-supplied review links where available, with the existing manually configured link as a clearly labelled fallback. A link click means a visit to Google, not a posted review or a conversion. Do not match an invitation to a public review without a reliable identifier; Google does not provide that attribution in these APIs.
 - Exclude listing editing, profile creation/claiming/verification, agency APIs, AI replies, review deletion, public Google testimonial widgets, exports, sentiment analysis, historical rating analytics and multi-location rollups. These would need separate product and policy decisions.
 
-Google prohibits selectively soliciting positive reviews. The existing published-only Google prompt must change before this integration launches. [Google Maps contribution policy](https://support.google.com/contributionpolicy/answer/7400114?hl=en)
+Google prohibits selectively soliciting positive reviews. The cleanup in this branch removes the former published-only Google prompt. [Google Maps contribution policy](https://support.google.com/contributionpolicy/answer/7400114?hl=en)
 
-## Current repository baseline
+## Original repository audit (before removal)
 
 | Area                   | Existing code and consequence                                                                                                                                                                                                  |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -151,13 +151,13 @@ Use periodic refresh for active connections and manual refresh with throttling. 
 
 On disconnect, remove only this location's association. Clear the account's notification setting only when no active local bindings remain and the remote setting still equals ours. Never restore a stale previous vendor setting over a newer change. Revoke credentials when safe for the OAuth grant, document that revocation can affect other connections sharing that Google authorization, and provide local unlink even when Google is unavailable. Cleanup/revocation failure becomes a visible retryable operation.
 
-### Appointment requests and internal feedback fixes
+### Appointment invitations
 
 - Preserve appointment identity for manual suggestions and automatic requests; validate that booking and client belong together and that the visit is eligible. Use one normal request per booking, with explicit resend handling rather than duplicate rows.
 - Queue each channel atomically with the request using existing delivery infrastructure. Show queued/accepted/failed/ambiguous separately from link-open/submission states, respect existing SMS stop controls, and inspect email consent/suppression rules before enabling automated outreach. Provider acceptance is not recipient delivery.
 - Add an automation enabled setting, local send hour (default current 8 a.m.) and minimum post-completion delay (default next eligible morning). Preserve the current seven-day catch-up bound; add a proposed 30-day client cooldown across bookings to avoid frequent-visitor spam. Freeze the final defaults in schema approval and test timezone/DST behavior.
 - Render Google settings even with zero reviews. Correct the unchanged-link save behavior. Remove the owner-facing share-as-posted action and badge. Existing `sent_to_google` values cannot be backfilled as verified Google posts.
-- Offer the same Google action for every rating and without requiring internal submission. Replace absolute privacy promises with accurate disclosure for internal testimonials, or keep explicitly private feedback permanently private. This release keeps existing testimonial moderation and clearly discloses its public publication possibility before submission.
+- Remove the internal form, tokens, moderation settings/actions, local replies, testimonials, ratings, alerts, embeds and all corresponding contracts and fixtures. Keep only request identity and timestamps; the cleanup migration requires explicit data-deletion approval.
 
 ## Quotas and operational behavior
 
@@ -188,4 +188,4 @@ Feature flags independently control connect, read, write and notifications. Ship
 
 Launch requires recorded API access and OAuth publication/verification status, passing live smoke tests, alerts owned, operational runbooks and explicit schema approval. No fixed delivery date depends on unapproved Google access.
 
-Rollback disables new connections/writes/notifications, drains or cancels outstanding operations, purges Google cache and restores the internal-feedback experience. Keep credentials encrypted only as required for authorized cleanup, then revoke/delete on disconnect. Do not drop schema or destroy topics/keys as an application rollback. Inspect current remote notification settings before changing them. Move durable operating guidance into operations.md and architecture.md when complete.
+Rollback disables new connections/writes/notifications, drains or cancels outstanding operations, purges Google cache and retains the direct Google-link invitation experience. Internal feedback collection must not be restored. Keep credentials encrypted only as required for authorized cleanup, then revoke/delete on disconnect. Do not drop schema or destroy topics/keys as an application rollback. Inspect current remote notification settings before changing them. Move durable operating guidance into operations.md and architecture.md when complete.

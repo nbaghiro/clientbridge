@@ -38,8 +38,6 @@ it("books a returning client with subjects at a client-only business without a s
             now: "2026-10-13T17:00:00Z",
             timezone: "America/Vancouver",
             policy: null,
-            rating: null,
-            review_count: 0,
             subject: null,
         }),
         getDays: vi.fn().mockResolvedValue([]),

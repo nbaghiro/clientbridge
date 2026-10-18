@@ -9,7 +9,6 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
-    SmallInteger,
     String,
     UniqueConstraint,
     Uuid,
@@ -50,7 +49,6 @@ class Business(PKMixin, TimestampMixin, Base):
         enum_check("businesses", "plan", Plan, nullable=True),
         enum_check("businesses", "plan_status", PlanStatus),
         enum_check("businesses", "subject", SubjectKind, nullable=True),
-        CheckConstraint("review_hold_at BETWEEN 0 AND 5", name="ck_businesses_review_hold_at"),
         CheckConstraint(POSTAL_CODE_CHECK, name="ck_businesses_postal_code"),
         CheckConstraint(LEGAL_PHONE_CHECK, name="ck_businesses_legal_phone"),
     )
@@ -71,10 +69,6 @@ class Business(PKMixin, TimestampMixin, Base):
     tax_registered: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     pst_number: Mapped[str | None] = mapped_column(String)
     setup_dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    # reviews rated at or below this wait for the owner before they show; 0 publishes everything
-    review_hold_at: Mapped[int] = mapped_column(
-        SmallInteger, default=3, server_default="3", nullable=False
-    )
     google_review_url: Mapped[str | None] = mapped_column(String)
     brand: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
     billing_email: Mapped[str | None] = mapped_column(String)

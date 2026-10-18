@@ -1,62 +1,16 @@
 from datetime import datetime
-from typing import Literal
 
-from sqlalchemy import (
-    Boolean,
-    CheckConstraint,
-    DateTime,
-    ForeignKey,
-    Index,
-    SmallInteger,
-    String,
-    UniqueConstraint,
-    text,
-)
+from sqlalchemy import DateTime, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column
 
 from clientbridge.core.db import Base
-from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, enum_check
-from clientbridge.models.clients import Channel
-
-ReviewStatus = Literal["requested", "opened", "submitted", "published", "hidden"]
+from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin
 
 
-REVIEW_OPEN: tuple[ReviewStatus, ...] = ("requested", "opened")
-REVIEW_SUBMITTED: tuple[ReviewStatus, ...] = ("submitted", "published", "hidden")
-
-
-class Review(PKMixin, BusinessScoped, TimestampMixin, Base):
-    """One row per review, from its request (when one was sent) through submission and review."""
-
-    __tablename__ = "reviews"
-    __table_args__ = (
-        CheckConstraint("rating BETWEEN 1 AND 5", name="ck_reviews_rating"),
-        CheckConstraint(
-            "status IN ('requested', 'opened') OR rating IS NOT NULL",
-            name="ck_reviews_submitted_rating",
-        ),
-        enum_check("reviews", "status", ReviewStatus),
-        enum_check("reviews", "channel", Channel),
-        UniqueConstraint("token", name="uq_reviews_token"),
-        Index("ix_reviews_status_created", "business_id", "status", "created_at"),
-        Index(
-            "uq_reviews_open_booking",
-            "business_id",
-            "booking_id",
-            unique=True,
-            postgresql_where=text("status IN ('requested', 'opened') AND booking_id IS NOT NULL"),
-        ),
-    )
+class ReviewRequest(PKMixin, BusinessScoped, TimestampMixin, Base):
+    __tablename__ = "review_requests"
+    __table_args__ = (Index("ix_review_requests_booking", "business_id", "booking_id"),)
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
     booking_id: Mapped[str | None] = mapped_column(ForeignKey("bookings.id"))
-    channel: Mapped[Channel | None] = mapped_column(String)
-    token: Mapped[str | None] = mapped_column(String)  # public review-link key (server-minted)
-    status: Mapped[ReviewStatus] = mapped_column(String, default="requested", nullable=False)
-    requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    rating: Mapped[int | None] = mapped_column(SmallInteger)
-    body: Mapped[str | None] = mapped_column(String)
-    response: Mapped[str | None] = mapped_column(String)
-    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    sent_to_google: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

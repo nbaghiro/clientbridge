@@ -31,7 +31,7 @@ from clientbridge.models.documents import Contract, Form, FormField, FormRespons
 from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import Audit, File, Webhook
-from clientbridge.models.reviews import Review
+from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import (
     Addon,
     Booking,
@@ -1898,7 +1898,7 @@ INSERT_ORDER = [
     Line,
     StockMovement,
     Payment,
-    Review,
+    ReviewRequest,
     File,
     Audit,
     Webhook,

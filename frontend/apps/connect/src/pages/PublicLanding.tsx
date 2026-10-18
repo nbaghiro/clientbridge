@@ -5,20 +5,9 @@ import {
     serviceSummary,
     strings,
     usePublicProfile,
-    formatRating,
     formatClock,
 } from "@clientbridge/app-core/public";
-import {
-    Avatar,
-    ActionTile,
-    Button,
-    Icon,
-    ItemImage,
-    OptionCard,
-    Notice,
-    Stars,
-    Panel,
-} from "@clientbridge/ui";
+import { Avatar, ActionTile, Button, ItemImage, OptionCard, Notice } from "@clientbridge/ui";
 import { useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -152,12 +141,6 @@ export function PublicLanding() {
                         </h1>
                         {page.brand.tagline ? (
                             <p className="mt-3 text-lg text-muted">{page.brand.tagline}</p>
-                        ) : null}
-                        {page.rating !== null && page.review_count > 0 ? (
-                            <p className="mt-4 flex items-center gap-2 text-sm">
-                                <Icon name="star" size={16} />
-                                {s.rating(formatRating(page.rating), page.review_count)}
-                            </p>
                         ) : null}
                         <div className="mt-6 flex flex-col gap-3 min-[400px]:flex-row min-[400px]:flex-wrap">
                             {hasServices ? (
@@ -320,63 +303,6 @@ export function PublicLanding() {
                             </div>
                         </section>
                     ) : null}
-                    {page.review_count > 0 ? (
-                        <section id="reviews" className="scroll-mt-40">
-                            <h2 className="mb-2 font-display text-2xl font-bold">{s.reviews}</h2>
-                            {page.rating !== null ? (
-                                <Panel className="mb-4 !bg-surface p-1">
-                                    <div className="flex flex-wrap items-center gap-4">
-                                        <p className="font-display text-4xl font-bold tabular-nums">
-                                            {formatRating(page.rating)}
-                                        </p>
-                                        <div className="space-y-1">
-                                            <Stars value={Math.round(page.rating)} />
-                                            <p className="text-sm text-muted">
-                                                {s.rating(
-                                                    formatRating(page.rating),
-                                                    page.review_count,
-                                                )}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </Panel>
-                            ) : null}
-                            <div className="grid items-start gap-4 sm:grid-cols-2">
-                                {page.reviews.slice(0, 4).map((review) => (
-                                    <Panel key={review.id}>
-                                        <div className="flex flex-wrap items-center justify-between gap-2">
-                                            <p className="text-sm font-semibold">{s.reviewer}</p>
-                                            <Stars value={review.rating} size="sm" />
-                                        </div>
-                                        {review.body ? (
-                                            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed">
-                                                {review.body}
-                                            </p>
-                                        ) : null}
-                                        {review.response ? (
-                                            <div className="mt-4 border-t border-line-soft pt-3 text-sm">
-                                                <div className="flex items-center gap-2">
-                                                    <Avatar
-                                                        name={page.business_name}
-                                                        src={page.brand.logo_url}
-                                                        size="sm"
-                                                    />
-                                                    <p className="font-semibold">{s.response}</p>
-                                                </div>
-                                                <p className="mt-1 whitespace-pre-wrap text-muted">
-                                                    {review.response}
-                                                </p>
-                                            </div>
-                                        ) : null}
-                                    </Panel>
-                                ))}
-                            </div>
-                        </section>
-                    ) : null}
-                    <section id="visit" className="scroll-mt-40 md:hidden">
-                        <h2 className="mb-4 font-display text-2xl font-bold">{s.visit}</h2>
-                        {contact}
-                    </section>
                     {page.policy ? (
                         <section id="policies" className="scroll-mt-40">
                             <h2 className="mb-4 font-display text-2xl font-bold">{s.policies}</h2>

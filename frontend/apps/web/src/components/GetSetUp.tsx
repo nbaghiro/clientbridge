@@ -104,12 +104,6 @@ function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null
                         <p className="truncate text-xs text-muted">{brand.tagline}</p>
                     ) : null}
                 </div>
-                {preview.rating !== null ? (
-                    <span className="flex shrink-0 items-center gap-1.5 text-xs text-ink-soft">
-                        <Icon name="star" size={13} />
-                        {preview.rating}
-                    </span>
-                ) : null}
             </header>
             <div className="px-4 py-5">
                 <p className="font-display text-lg font-bold text-ink">{b.chooseService}</p>

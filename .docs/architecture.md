@@ -8,7 +8,7 @@ for _what's left_ see the launch stories and the after-launch list in
 Clientbridge is a **local-first, all-in-one business OS** for solo and small service providers —
 bookings, clients, catalog, invoicing, payments, messaging, forms, reviews, staff payout-splits — with
 Canadian tax built in. All user-facing copy is centralized in one place. The customer-facing layer
-(booking, pay, forms, contracts, reviews) is branded **Connect**.
+(booking, pay, forms, contracts) is branded **Connect**.
 
 ---
 
@@ -42,7 +42,7 @@ secrets, cross-tenant — must be a **command**, never unvalidated replica CRUD.
 | 1   | **Sync-read**        | PowerSync streams each device its authorized rows into local SQLite                                                                         | Sync Streams                                                  | calendar, clients, invoices on-device                    |
 | 2   | **Offline command**  | Local-only durable intent → typed `/v1` command → authoritative replication                                                                 | Auth session + service role/tenant checks + expected revision | edit working hours                                       |
 | 3   | **Command / RPC**    | FastAPI `POST/PATCH/DELETE` under `/v1/*`, wrapped in `run_command` (atomic + audited + idempotent) → writes Postgres → flows back via sync | Auth session + role                                           | book a slot, issue an invoice, take a payment            |
-| 4   | **Webhook / public** | inbound provider callbacks + unauthenticated public pages                                                                                   | signature / token / slug                                      | Stripe/SMS/email webhooks; book/pay/form/contract/review |
+| 4   | **Webhook / public** | inbound provider callbacks + unauthenticated public pages                                                                                   | signature / token / slug                                      | Stripe/SMS/email webhooks; book/pay/form/contract |
 | 5   | **Job**              | arq background work on Redis                                                                                                                | system                                                        | reminders, reap-unpaid, broadcasts, overdue sweep        |
 
 **Decision rule** — where does a new operation go?
@@ -138,7 +138,7 @@ with the subclass's HTTP status, and a request that fails validation as `invalid
 | `security.py`   | SHA-256 opaque-token hashing (invites) · the PowerSync token (HS256 or RS256 + a JWKS endpoint for prod).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `ids.py`        | Prefixed-ULID PKs (`bz_…`, `bk_…`), time-sortable.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `errors.py`     | `AppError` taxonomy → HTTP status (`NotFound` 404, `Conflict` 409, `CardDeclined` 402, `TooManyRequests` 429…).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `ratelimit.py`  | In-process sliding-window limiters, one per worker process, for the seven public groups (pay, review, form, contract, booking, which the shop and returning-client checks share, preferences and invite preview): 30 requests a minute from one address each, 1000 with `ENV=dev`. The address is the `X-Forwarded-For` entry `TRUSTED_PROXY_HOPS` from the right (2 behind Google's load balancer, 0 locally, where the socket peer is used), so a client cannot pick its own key; the contract signer IP comes from the same function. The desk discount PIN has its own limiter in `services/orders.py` (5 tries per 5 minutes).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `ratelimit.py`  | In-process sliding-window limiters, one per worker process, for the six public groups (pay, form, contract, booking, which the shop and returning-client checks share, preferences and invite preview): 30 requests a minute from one address each, 1000 with `ENV=dev`. The address is the `X-Forwarded-For` entry `TRUSTED_PROXY_HOPS` from the right (2 behind Google's load balancer, 0 locally, where the socket peer is used), so a client cannot pick its own key; the contract signer IP comes from the same function. The desk discount PIN has its own limiter in `services/orders.py` (5 tries per 5 minutes).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `logs.py`       | Logging, configured once at startup by the API lifespan and the worker's `on_startup`: INFO and above to stdout, plain text with `ENV=dev` and one JSON object per line otherwise (`time`, `level`, `severity`, `logger`, `message`, `exception` and any `extra` fields). `RequestLog` writes one line per request with the method, the route template (so public tokens stay out of the logs), the status and the duration, in place of uvicorn's access log.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `db.py`         | Async engine + `SessionLocal` + the `Base` model metadata.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
@@ -245,7 +245,7 @@ records every money movement and is the only place money balances are stored. Th
   requirements); **never** for queried business data.
 - **Concurrency invariants live in SQL:** a GiST exclusion constraint stops double-booking a staff
   member; partial-unique indexes enforce business rules (one active/paused subscription per client+item,
-  one open review request per booking).
+  one invitation per booking enforced by the service).
 
 ### ID prefixes
 
@@ -255,7 +255,7 @@ shown after it.
 `sub_`subscriptions `gc_`gift_cards `stk_`inventory · `ses_`slots `bk_`bookings `bka_`addons `av_`hours
 `sch_`recurrences · `inv_`invoices `est_`estimates `ord_`orders `ln_`lines · `pay_`payments
 `pm_`payment_methods `psl_`payment_setup_links `acc_`accounts `ent_`entries `jrn_`journal · `th_`threads `msg_`messages `bro_`broadcasts
-· `frm_`forms `ff_`fields `fr_`responses `con_`contracts `sig_`signatures · `rv_`reviews (requests merged in from the old `review_requests` keep `rvr_`)
+· `frm_`forms `ff_`fields `fr_`responses `con_`contracts `sig_`signatures · `rrq_`review requests (preserved historical invitation IDs remain unchanged)
 · `fl_`files `aud_`audits `wh_`webhooks `dvt_`devices `idk_`commands `sur_`sync_receipts · `rtc_`returning_challenges
 
 ### Tables by domain
@@ -325,13 +325,11 @@ count, inbound messages not yet `read`, are read from `messages`), `messages` (d
 `answers`, immutable issued `definition`, and optional submitted `signature` JSONB), `contracts` (template), `signatures` (public-link token; snapshots `signed_body` + captures
 `ip`; links a signature image file).
 
-**reviews (1)** — `reviews` (one row per review from request to moderation: status
-requested → opened → submitted → published/hidden; `channel` and the unique public-link `token` when a
-request was sent, `requested_at`/`submitted_at`; `rating` 1–5 and `body` stay null until submitted, with a
-CHECK that a submitted review has a rating; partial-unique one open request per booking; `sent_to_google`;
-the apps compute the published average from the synced rows). A review submitted on the public page is
-published straight away unless its rating is at or below the business's `review_hold_at`, in which case it
-waits as `submitted` until the owner publishes or hides it.
+**reviews (1)** — `review_requests` records the business, client, optional completed booking,
+and request timestamp. Invitations link directly to `businesses.google_review_url`; businesses without
+a link are skipped. Booking requests serialize on the booking row and reject repeated invitations.
+No internal feedback, public review form, ratings, publication controls or local replies exist.
+Google Business Profile API reads and replies are planned separately.
 
 **platform (6)** — `files` (S3 key, `purpose` logo/image/photo/signature/attachment), `audits` (activity
 feed, written only by the app; server-only), `webhooks` (inbound provider events, `event` = the provider's event name;
@@ -528,7 +526,7 @@ Four auto-subscribed streams and three history streams implement the read model 
 - **`staff_self`** (per staff, sliced by `staff_id`) — a member's **own** addons, hours and recurrences,
   plus their own staff `accounts` and `entries` (earnings).
 - **`business_full`** (owner/admin only) — **all** members' addons, hours and recurrences, all financials
-  (including the whole ledger), reviews, broadcasts, form responses and signatures.
+  (including the whole ledger), review requests, broadcasts, form responses and signatures.
 - **`history_shared`**, **`history_self`**, **`history_full`**: messages for every member, a member's own
   slots and bookings, and every member's slots and bookings for owner/admin, each limited to the months
   the device subscribes (see the history window above).
@@ -951,7 +949,7 @@ Props follow one vocabulary, so a caller can guess a prop without opening the fi
 | `KeyValueList`                                                      | labelled facts, inline or stacked in columns                                                                            |
 | `LineItem`                                                          | one line of a sale with quantity, discount, tag and remove                                                              |
 | `ListPage`, `ListRow`, `OccurrenceList`                             | a list page with segments, search and rows; one row with a glyph or leading slot; the dates of a series with clashes    |
-| `Meter`, `ProgressSteps`, `RatingDistribution`                      | how much of something is used; where a flow is; how ratings spread                                                      |
+| `Meter`, `ProgressSteps`                      | how much of something is used; where a flow is                                                      |
 | `Modal`, `confirm()` / `ConfirmHost`                                | a dialog (bottom sheet on mobile); a yes/no question, the system alert on mobile                                        |
 | `Money`, `Stat`, `Stars`, `Stepper`                                 | amounts, a labelled figure, a rating to show or pick, and a quantity control                                            |
 | `Notice`                                                            | a danger, success or info line, or a filled box                                                                         |
@@ -966,7 +964,7 @@ Item images and the business logo are `files` rows served through the public `/m
 
 ### Connect — the customer app (PowerSync-free, embeddable)
 
-The public surfaces (book/pay/form/contract/review + a per-business landing) live in their own lean Vite app
+The public surfaces (book/pay/form/contract + a per-business landing) live in their own lean Vite app
 (`apps/connect`, :8709) that imports **only** `@clientbridge/app-core/public` — no PowerSync, no api-client.
 Each `public*` domain is a `createPublicXClient(baseUrl)` factory doing plain `fetch` against token/slug-
 authed endpoints (the URL is the only credential). `apps/connect/public/embed.js` is the host-side iframe

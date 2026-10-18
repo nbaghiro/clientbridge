@@ -688,17 +688,14 @@ test("owner: inbox messages, reviews, broadcasts, forms and contracts", async ({
         await escapeDialog(page);
     });
 
-    await walk.step("reviews: request and reply", async () => {
+    await walk.step("reviews: Google link and request", async () => {
         await navigate(page, "/inbox?segment=reviews");
+        await page
+            .getByLabel(strings.reviews.googleUrl, { exact: true })
+            .fill("https://g.page/r/example/review");
+        await page.getByRole("button", { name: exactly(strings.reviews.saveLink) }).click();
+        await expect(page.getByText(strings.reviews.linkSaved)).toBeVisible();
         await openAndClose(page, exactly(strings.reviews.requestReview));
-        await main
-            .getByRole("button", { name: strings.reviews.reply, exact: true })
-            .first()
-            .click();
-        await main.getByRole("button", { name: strings.reviews.cancel, exact: true }).click();
-        await expect(
-            main.getByRole("button", { name: strings.reviews.cancel, exact: true }),
-        ).toBeHidden();
     });
 
     await walk.step("broadcasts: compose and detail", async () => {

@@ -4,12 +4,10 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
-from clientbridge.core.ids import new_id
-from clientbridge.models.reviews import Review
-from tests.conftest import BIZ, Factory
+from tests.conftest import Factory
 
 
-async def test_profile_publishes_opted_in_team_and_only_public_reviews(
+async def test_profile_publishes_opted_in_team_without_internal_reviews(
     api: httpx.AsyncClient, as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     updated = await as_owner.patch(
@@ -26,20 +24,6 @@ async def test_profile_publishes_opted_in_team_and_only_public_reviews(
         },
     )
     assert updated.status_code == 200, updated.text
-    published_id = new_id("review")
-    for status, row_id in [("published", published_id), ("hidden", new_id("review"))]:
-        db.add(
-            Review(
-                id=row_id,
-                business_id=BIZ,
-                client_id="cl_amelie",
-                status=status,
-                rating=5,
-                body=f"{status} review",
-                submitted_at=clock.now(),
-            )
-        )
-    await db.flush()
     response = await api.get("/book/birchbark/profile")
     assert response.status_code == 200, response.text
     data = response.json()
@@ -48,9 +32,7 @@ async def test_profile_publishes_opted_in_team_and_only_public_reviews(
     assert data["gallery_urls"] == ["https://example.test/room.jpg"]
     assert [person["id"] for person in data["staff"]] == ["st_owner"]
     assert data["hours"]
-    assert any(review["id"] == published_id for review in data["reviews"])
-    assert all(review["body"] != "hidden review" for review in data["reviews"])
-    assert all("client_id" not in review and "token" not in review for review in data["reviews"])
+    assert "reviews" not in data and "rating" not in data and "review_count" not in data
 
 
 async def test_profile_opt_in_is_scoped_and_owner_only(
@@ -65,7 +47,6 @@ async def test_profile_opt_in_is_scoped_and_owner_only(
     )
     assert response.status_code == 404
     assert (await api.get("/book/missing/profile")).status_code == 404
-    assert (await api.get(f"/book/{other.slug}/profile")).json()["reviews"] == []
     assert (await api.get(f"/book/{other.slug}/profile")).json()["staff"] == []
 
 

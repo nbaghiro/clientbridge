@@ -259,8 +259,6 @@ it("shows a failed availability load and retries without presenting it as an emp
             now: "2026-10-13T17:00:00Z",
             timezone: ZONE,
             policy: null,
-            rating: null,
-            review_count: 0,
             subject: null,
         }),
         getDays: vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue([]),

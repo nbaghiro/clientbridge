@@ -96,8 +96,6 @@ class PublicBookingPage(BaseModel):
     now: datetime | None = Field(default=None, description="The business's clock, in its zone")
     timezone: str = Field(description="The business's IANA time zone, which its times are shown in")
     policy: PublicPolicy | None = None
-    rating: float | None = Field(default=None, description="Average of published reviews")
-    review_count: int = 0
     subject: SubjectKind | None = Field(
         default=None, description="What a booking names besides the client; null asks for nothing"
     )

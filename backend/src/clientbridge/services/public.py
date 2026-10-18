@@ -26,7 +26,6 @@ from clientbridge.models.documents import Contract, Form, FormField, FormRespons
 from clientbridge.models.messaging import Message
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import File
-from clientbridge.models.reviews import REVIEW_OPEN, Review
 from clientbridge.models.scheduling import Addon, Booking, Slot
 from clientbridge.schemas.billing import (
     LineInput,
@@ -83,7 +82,6 @@ from clientbridge.schemas.public import (
     PublicStaff,
 )
 from clientbridge.schemas.public_profiles import PublicNextOpenings, PublicServiceOpening
-from clientbridge.schemas.reviews import PublicReviewContext, PublicReviewSubmit
 from clientbridge.services import ledger
 from clientbridge.services.billing import estimate_status
 from clientbridge.services.bookings import (
@@ -214,7 +212,6 @@ class PublicBookingService:
         staff = await self._online_staff(business.id)
         images = await item_images(self.db, business.id, [i.id for i in items])
         addons = await addon_items(self.db, business.id)
-        rating, reviews = await published_rating(self.db, business.id)
         tz = await business_tz(self.db, business.id)
         ids = [s.id for s in staff]
         names = await staff_names(self.db, business.id, ids)
@@ -232,8 +229,6 @@ class PublicBookingService:
             now=clock.now().astimezone(tz),
             timezone=business.timezone,
             policy=_policy_out(policy_of(business)),
-            rating=rating,
-            review_count=reviews,
             subject=business.subject,
         )
 
@@ -542,18 +537,6 @@ async def open_days(
             )
         )
     return out
-
-
-async def published_rating(db: AsyncSession, business_id: str) -> tuple[float | None, int]:
-    row = (
-        await db.execute(
-            scoped(Review, business_id)
-            .where(Review.status == "published")
-            .with_only_columns(func.avg(Review.rating), func.count(Review.id))
-        )
-    ).one()
-    count = int(row[1])
-    return (round(float(row[0]), 1) if count > 0 and row[0] is not None else None), count
 
 
 async def _has_booked(db: AsyncSession, business_id: str, client_id: str) -> bool:
@@ -1589,72 +1572,6 @@ class PublicReceiptService:
             tip_cents=sum(r.tip_cents for r in rows if r.kind == "payment"),
             payments=rows,
         )
-
-
-class PublicReviewService:
-    """Public reviews; the review token is the only credential."""
-
-    def __init__(self, db: AsyncSession) -> None:
-        self.db = db
-
-    async def _resolve(self, token: str) -> tuple[Review, Business]:
-        review = await resolve_by_token(
-            self.db, Review, Review.token == token, "review link not found"
-        )
-        return review, await business_or_404(self.db, review.business_id, "review link not found")
-
-    async def context(self, token: str) -> PublicReviewContext:
-        review, business = await self._resolve(token)
-        if review.status == "requested":
-            review.status = "opened"
-            await self.db.commit()
-        return await self._context(review, business)
-
-    async def submit(self, token: str, data: PublicReviewSubmit) -> PublicReviewContext:
-        review, business = await self._resolve(token)
-        # Lock the row so a second concurrent submit sees the first and gets a 409.
-        review = (
-            await self.db.execute(select(Review).where(Review.id == review.id).with_for_update())
-        ).scalar_one()
-        if review.status not in REVIEW_OPEN:
-            raise Conflict("this review was already submitted")
-        now = clock.now()
-        review.rating = data.rating
-        review.body = data.body
-        review.submitted_at = now
-        review.status = "submitted" if data.rating <= business.review_hold_at else "published"
-        if review.requested_at is None:
-            review.requested_at = now
-        await self.db.commit()
-        return await self._context(review, business)
-
-    async def _context(self, review: Review, business: Business) -> PublicReviewContext:
-        client = await self.db.get(Client, review.client_id)
-        booking = await self.db.get(Booking, review.booking_id) if review.booking_id else None
-        published = review.status == "published"
-        return PublicReviewContext(
-            business_name=business.name,
-            brand=public_brand(business),
-            completed=review.status not in REVIEW_OPEN,
-            rating=review.rating,
-            first_name=client.name.split(" ")[0] if client is not None else None,
-            google_review_url=business.google_review_url if published else None,
-            published=published,
-            subject=business.subject,
-            **(await self._visit(booking) if booking is not None else {}),
-        )
-
-    async def _visit(self, booking: Booking) -> dict[str, str | None]:
-        slot = await self.db.get(Slot, booking.slot_id)
-        item = await self.db.get(Item, slot.item_id) if slot is not None else None
-        ids = [booking.staff_id] if booking.staff_id else []
-        staff = next(iter((await staff_names(self.db, booking.business_id, ids)).values()), None)
-        subject = await self.db.get(Subject, booking.subject_id) if booking.subject_id else None
-        return {
-            "service": item.name if item is not None else None,
-            "staff": staff.split(" ")[0] if staff else None,
-            "subject_name": subject.name if subject is not None else None,
-        }
 
 
 class PublicPreferencesService:

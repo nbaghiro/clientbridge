@@ -1,19 +1,61 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment happy-dom
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, expect, it, vi } from "vitest";
+import type { ApiLike } from "../api";
+import { type ReviewQueue, useReviewSettings, useRequestReview } from "./reviews";
 
-import { formatAverageRating, roundedRating } from "./reviews";
+afterEach(cleanup);
 
-describe("average rating", () => {
-    it("shows one decimal, zero when there are no reviews", () => {
-        expect(formatAverageRating(null)).toBe("0.0");
-        expect(formatAverageRating(5)).toBe("5.0");
-        expect(formatAverageRating(4.66)).toBe("4.7");
-        expect(formatAverageRating(4.04)).toBe("4.0");
+const queue: ReviewQueue = {
+    load: { state: "ready", ready: true, hasData: true, retrying: false, retry: vi.fn() },
+    requests: [],
+    suggestions: [],
+    clientOptions: [],
+    googleUrl: "https://g.page/r/example/review",
+};
+const post = vi.fn().mockResolvedValue({});
+const patch = vi.fn().mockResolvedValue({});
+const api: ApiLike = {
+    get: vi.fn(),
+    getText: vi.fn(),
+    post,
+    patch,
+    delete: vi.fn(),
+};
+
+it("preserves an untouched saved Google URL and permits explicit clearing", async () => {
+    const { result } = renderHook(() => useReviewSettings(api, queue));
+    act(() => {
+        result.current.saveGoogleUrl();
     });
-
-    it("rounds to whole stars, half up", () => {
-        expect(roundedRating(null)).toBe(0);
-        expect(roundedRating(4.49)).toBe(4);
-        expect(roundedRating(4.5)).toBe(5);
-        expect(roundedRating(1.2)).toBe(1);
+    await waitFor(() => {
+        expect(result.current.savedGoogle).toBe(true);
     });
+    expect(patch).toHaveBeenLastCalledWith("/v1/business", {
+        google_review_url: queue.googleUrl,
+    });
+    act(() => {
+        result.current.setGoogleUrl("");
+    });
+    act(() => {
+        result.current.saveGoogleUrl();
+    });
+    await waitFor(() => {
+        expect(result.current.savedGoogle).toBe(true);
+    });
+    expect(patch).toHaveBeenLastCalledWith("/v1/business", { google_review_url: "" });
+});
+
+it("associates an invitation with the completed booking without fabricating feedback", async () => {
+    const { result } = renderHook(() => useRequestReview(api));
+    act(() => {
+        result.current.request("cl_1", "bk_1");
+    });
+    await waitFor(() => {
+        expect(result.current.sent.has("bk_1")).toBe(true);
+    });
+    expect(result.current.sent.has("cl_1")).toBe(false);
+    expect(post.mock.lastCall?.[0]).toBe("/v1/reviews/request");
+    expect(post.mock.lastCall?.[1]).toEqual({ client_id: "cl_1", booking_id: "bk_1" });
+    expect(post.mock.lastCall?.[2]).toHaveProperty("idempotencyKey");
 });

@@ -609,16 +609,16 @@ msgid "returning_code.subject"
 msgstr "Your booking verification code for {business}"
 
 msgid "review.action"
-msgstr "Leave a review"
+msgstr "Review on Google"
 
 msgid "review_requested.body"
-msgstr "Thanks for choosing {business}! Leave a review: {link}"
+msgstr "Thanks for choosing {business}! Leave a review on Google: {link}"
 
 msgid "review_requested.heading"
 msgstr "How was your visit?"
 
 msgid "review_requested.lead"
-msgstr "Thanks for choosing {business}. Leaving a review takes a minute and helps others find them."
+msgstr "Thanks for choosing {business}. You can leave a review on Google to share your experience."
 
 msgid "review_requested.subject"
 msgstr "How was your visit to {business}?"

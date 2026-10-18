@@ -1,5 +1,5 @@
 // Generated from src/embedLoader.ts by `make gen-strings`. Use: <script src=".../embed.js" async></script>
-// then <connect-booking slug="…"> or <connect-pay|form|contract|review token="…">; each fires connect:success.
+// then <connect-booking slug="…"> or <connect-pay|form|contract token="…">; each fires connect:success.
 (function () {
     "use strict";
     const TYPES = {
@@ -7,7 +7,6 @@
         "connect-pay": { widget: "pay", path: "/i/", attr: "token" },
         "connect-form": { widget: "form", path: "/form/", attr: "token" },
         "connect-contract": { widget: "contract", path: "/contract/", attr: "token" },
-        "connect-review": { widget: "review", path: "/review/", attr: "token" },
     };
     const DRAWER_STYLE = `
     :host { --brand:#202b34; --brand-ink:#fff; font:14px system-ui,sans-serif; color:#202b34; }
@@ -319,7 +318,6 @@
             pay: "Pay",
             form: "Complete form",
             contract: "Review & sign",
-            review: "Leave a review",
         },
         close: "Close",
     });

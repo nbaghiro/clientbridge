@@ -53,7 +53,6 @@ type NotificationKind =
     | "booking_new"
     | "booking_canceled"
     | "message"
-    | "review"
     | "invoice_overdue";
 
 interface FeedRow {
@@ -64,7 +63,6 @@ interface FeedRow {
     client_name: string | null;
     amount_cents: number | null;
     item_name: string | null;
-    rating: number | null;
     number: number | null;
     body: string | null;
     ref_id: string;
@@ -73,48 +71,42 @@ interface FeedRow {
 
 const since = (column: string): string => `${utcSql(column)} >= datetime(?)`;
 
-// Derived from synced rows, so each member only sees what their sync bucket holds. Seven `since` params.
+// Derived from synced rows, so each member only sees what their sync bucket holds. Six `since` params.
 export const NOTIFICATION_FEED_SQL = `
 SELECT 'pay-' || p.id AS id,
        CASE p.kind WHEN 'refund' THEN 'refund' WHEN 'deposit' THEN 'deposit' ELSE 'payment' END AS kind,
        COALESCE(p.paid_at, p.created_at) AS at, p.client_id, c.name AS client_name,
-       p.amount_cents, NULL AS item_name, NULL AS rating, NULL AS number, NULL AS body,
+       p.amount_cents, NULL AS item_name, NULL AS number, NULL AS body,
        p.id AS ref_id, NULL AS starts_at
 FROM payments p LEFT JOIN clients c ON c.id = p.client_id LEFT JOIN orders o ON o.id = p.order_id
 WHERE p.status = 'succeeded' AND ${since("COALESCE(p.paid_at, p.created_at)")}
   AND (p.kind <> 'payment' OR COALESCE(o.source, '') <> 'online')
 UNION ALL
-SELECT 'ord-' || o.id, 'order_new', o.paid_at, o.client_id, c.name, NULL, NULL, NULL, o.number,
+SELECT 'ord-' || o.id, 'order_new', o.paid_at, o.client_id, c.name, NULL, NULL, o.number,
        NULL, o.id, NULL
 FROM orders o LEFT JOIN clients c ON c.id = o.client_id
 WHERE o.source = 'online' AND o.pickup_status IS NOT NULL AND o.paid_at IS NOT NULL
   AND ${since("o.paid_at")}
 UNION ALL
-SELECT 'bk-' || b.id, 'booking_new', b.created_at, b.client_id, c.name, NULL, i.name, NULL, NULL,
+SELECT 'bk-' || b.id, 'booking_new', b.created_at, b.client_id, c.name, NULL, i.name, NULL,
        NULL, b.id, s.starts_at
 FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN items i ON i.id = s.item_id
 LEFT JOIN clients c ON c.id = b.client_id
 WHERE b.source = 'online' AND b.deleted_at IS NULL AND ${since("b.created_at")}
 UNION ALL
 SELECT 'bkc-' || b.id, 'booking_canceled', b.canceled_at, b.client_id, c.name, NULL, i.name, NULL,
-       NULL, NULL, b.id, s.starts_at
+       NULL, b.id, s.starts_at
 FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN items i ON i.id = s.item_id
 LEFT JOIN clients c ON c.id = b.client_id
 WHERE b.status = 'canceled' AND b.canceled_at IS NOT NULL AND ${since("b.canceled_at")}
 UNION ALL
-SELECT 'msg-' || m.id, 'message', m.created_at, t.client_id, c.name, NULL, NULL, NULL, NULL, m.body,
+SELECT 'msg-' || m.id, 'message', m.created_at, t.client_id, c.name, NULL, NULL, NULL, m.body,
        m.thread_id, NULL
 FROM messages m JOIN threads t ON t.id = m.thread_id LEFT JOIN clients c ON c.id = t.client_id
 WHERE m.direction = 'in' AND ${since("m.created_at")}
 UNION ALL
-SELECT 'rv-' || r.id, 'review', COALESCE(r.submitted_at, r.created_at), r.client_id, c.name, NULL,
-       NULL, r.rating, NULL, r.body, r.id, NULL
-FROM reviews r LEFT JOIN clients c ON c.id = r.client_id
-WHERE r.status IN ('submitted', 'published', 'hidden')
-  AND ${since("COALESCE(r.submitted_at, r.created_at)")}
-UNION ALL
 SELECT 'inv-' || i.id, 'invoice_overdue', i.overdue_notified_at, i.client_id, c.name, NULL, NULL,
-       NULL, i.number, NULL, i.id, NULL
+       i.number, NULL, i.id, NULL
 FROM invoices i LEFT JOIN clients c ON c.id = i.client_id
 WHERE i.overdue_notified_at IS NOT NULL AND ${invoiceStatusSql("i")} = 'overdue'
   AND ${since("i.overdue_notified_at")}`;
@@ -122,7 +114,7 @@ WHERE i.overdue_notified_at IS NOT NULL AND ${invoiceStatusSql("i")} = 'overdue'
 export const MY_CLIENTS_SQL =
     "SELECT DISTINCT client_id FROM bookings WHERE staff_id = ? AND deleted_at IS NULL";
 
-type NotificationCategory = "bookings" | "payments" | "messages" | "reviews";
+type NotificationCategory = "bookings" | "payments" | "messages";
 
 const META: Record<
     NotificationKind,
@@ -140,7 +132,6 @@ const META: Record<
         link: "schedule",
     },
     message: { category: "messages", icon: "inbox", intent: "accent", link: "inbox" },
-    review: { category: "reviews", icon: "star", intent: "warning", link: "reviews" },
     invoice_overdue: { category: "payments", icon: "receipt", intent: "danger", link: "invoice" },
 };
 
@@ -188,11 +179,6 @@ function describeRow(row: FeedRow, zone: string): { title: string; body: string 
             };
         case "message":
             return { title: n.message(client), body: row.body ?? "" };
-        case "review":
-            return {
-                title: n.review(row.rating ?? 0),
-                body: row.body ? n.reviewBody(client, row.body) : client,
-            };
         default:
             return { title: n.overdue(row.number ?? 0), body: n.overdueBody(client) };
     }
@@ -241,7 +227,7 @@ export function useNotifications(viewer: Viewer | null): NotificationsView {
     const [now] = useState(() => new Date());
     const zone = useBusinessZone();
     const from = addDays(now, -FEED_DAYS, zone).toISOString();
-    const feed = useQuery<FeedRow>(NOTIFICATION_FEED_SQL, Array<string>(7).fill(from));
+    const feed = useQuery<FeedRow>(NOTIFICATION_FEED_SQL, Array<string>(6).fill(from));
     const manager = canManagePayments(viewer?.role ?? null);
     const mine = useQuery<{ client_id: string }>(MY_CLIENTS_SQL, [viewer?.staffId ?? ""]).data;
     const [readIds, setReadIds] = useDeviceList("notifications.read", 200);

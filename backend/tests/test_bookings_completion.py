@@ -8,7 +8,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
 from clientbridge.models.platform import Audit
-from clientbridge.models.reviews import Review
+from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, BookingStatus, Slot
 from clientbridge.services.bookings import run_complete_past_bookings
 from clientbridge.services.notifications import Notifier
@@ -116,10 +116,14 @@ async def test_a_visit_left_open_yesterday_is_completed_and_asked_for_a_review(
     [audit] = await _audits(db, visit.id)
     assert audit.action == "booking.auto_complete" and audit.performed_by is None
     # review requests go out at 8 a.m. in the business's zone (Vancouver, UTC-8 in January)
+    business = await db.get(Business, visit.business_id)
+    assert business is not None
+    business.google_review_url = "https://g.page/r/example/review"
+    await db.flush()
     eight_am = NEXT_MORNING.replace(hour=16)
     assert await run_review_requests(db, Notifier(email, sms, push), eight_am) == 1
-    review = await db.scalar(select(Review).where(Review.booking_id == visit.id))
-    assert review is not None and review.status == "requested"
+    review = await db.scalar(select(ReviewRequest).where(ReviewRequest.booking_id == visit.id))
+    assert review is not None and review.requested_at == eight_am
 
 
 async def test_a_pending_visit_never_approved_is_canceled_without_a_notice(
