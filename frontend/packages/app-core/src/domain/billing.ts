@@ -127,6 +127,14 @@ interface LineRow {
     discount_reason?: string | null;
 }
 
+// a tip's staff_cost contra, less what refunds and lost disputes returned (tip journals excluded)
+function netTipSql(where: string): string {
+    return `COALESCE((SELECT -SUM(te.amount_cents) FROM entries te
+        JOIN accounts ta ON ta.id = te.account_id
+        WHERE ta.category = 'staff_cost' AND te.event <> 'tip' AND ${settledSql("te")}
+          AND ${where}), 0)`;
+}
+
 const INVOICE_SELECT = `
 SELECT i.id, i.client_id, c.name AS client_name, c.email AS client_email, c.phone AS client_phone,
        i.number, ${invoiceStatusSql("i")} AS status,
@@ -139,8 +147,7 @@ SELECT i.id, i.client_id, c.name AS client_name, c.email AS client_email, c.phon
        (SELECT MAX(pe.occurred_at) FROM entries pe JOIN accounts pa ON pa.id = pe.account_id
         WHERE pa.category = 'receivable' AND pe.subject_type = 'invoice' AND pe.subject_id = i.id
           AND pe.amount_cents < 0 AND ${settledSql("pe")}) AS paid_at,
-       (SELECT COALESCE(SUM(tp.tip_cents), 0) FROM payments tp
-        WHERE tp.invoice_id = i.id AND tp.kind = 'payment' AND tp.status = 'succeeded') AS tip_cents,
+       ${netTipSql("te.subject_type = 'invoice' AND te.subject_id = i.id")} AS tip_cents,
        i.currency, i.issued_at, i.due_at, i.voided_at, i.pay_token, i.notes, i.created_at
 FROM invoices i
 LEFT JOIN clients c ON c.id = i.client_id`;
@@ -178,8 +185,10 @@ GROUP BY a.code ORDER BY a.code`;
 
 export const INVOICE_CREDITS_SQL = `
 SELECT e.id, e.event,
-       -e.amount_cents + CASE WHEN e.event = 'payment' THEN COALESCE(p.tip_cents, 0) ELSE 0 END
-         AS cents,
+       -e.amount_cents + CASE WHEN e.event = 'payment' THEN ${netTipSql(
+           `te.source_type = 'payment' AND (te.source_id = p.id OR te.source_id IN
+              (SELECT rp.id FROM payments rp WHERE rp.parent_payment_id = p.id))`,
+       )} ELSE 0 END AS cents,
        e.occurred_at, p.method
 FROM entries e
 JOIN accounts a ON a.id = e.account_id

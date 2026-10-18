@@ -1070,11 +1070,48 @@ describe("app-core SQL against the replica schema", () => {
             { id: "inv_3", client_email: null, paid_cents: 2000, paid_at: TS },
             { id: "inv_2", client_email: null, paid_cents: 0, paid_at: null },
         ]);
-        db.run("UPDATE payments SET tip_cents = 800 WHERE id IN ('pay_1', 'pay_r1')");
-        expect(pick(run("INVOICE_SQL", ["inv_1"]), "total_cents", "tip_cents")).toEqual([
-            { total_cents: 11200, tip_cents: 800 },
-        ]);
-        expect(pick(run("INVOICE_CREDITS_SQL", ["inv_1"]), "cents")).toEqual([{ cents: 5800 }]);
+        const on1 = (source: string): Row => ({
+            subject_type: "invoice",
+            subject_id: "inv_1",
+            source_type: "payment",
+            source_id: source,
+        });
+        const tipped = () => ({
+            invoice: pick(run("INVOICE_SQL", ["inv_1"]), "total_cents", "tip_cents"),
+            credits: pick(run("INVOICE_CREDITS_SQL", ["inv_1"]), "cents"),
+        });
+        db.run("UPDATE payments SET tip_cents = 800 WHERE id = 'pay_1'");
+        journal("j_tipc", "payment", "payment:pay_1:tip", [["a_cost", -800]], on1("pay_1"));
+        journal(
+            "j_tip",
+            "tip",
+            "tip:pay_1:st_amy",
+            [
+                ["a_cost", 800],
+                ["a_pay_amy", -800],
+            ],
+            on1("pay_1"),
+        );
+        expect(tipped()).toEqual({
+            invoice: [{ total_cents: 11200, tip_cents: 800 }],
+            credits: [{ cents: 5800 }],
+        });
+        journal("j_tipr", "refund", "refund:pay_r1:tip", [["a_cost", 800]], on1("pay_r1"));
+        journal(
+            "j_tipb",
+            "tip",
+            "tip:pay_r1:st_amy",
+            [
+                ["a_cost", -800],
+                ["a_pay_amy", 800],
+            ],
+            on1("pay_r1"),
+        );
+        expect(tipped()).toEqual({
+            invoice: [{ total_cents: 11200, tip_cents: 0 }],
+            credits: [{ cents: 5000 }],
+        });
+        db.run("DELETE FROM entries WHERE journal_id IN ('j_tipc', 'j_tip', 'j_tipr', 'j_tipb')");
         db.run("UPDATE payments SET tip_cents = 0");
         const list = run("INVOICES_SQL").find((r) => r.id === "inv_3");
         expect(run("INVOICE_SQL", ["inv_3"])).toEqual([list]);
