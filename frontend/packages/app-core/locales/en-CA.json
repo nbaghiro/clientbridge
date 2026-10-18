@@ -5789,7 +5789,7 @@
         "message": "The send wasn't canceled. Try again."
     },
     "reviews.subtitle": {
-        "message": "Ask clients to leave a review directly on Google. This page tracks invitations, not Google reviews."
+        "message": "Read and reply to Google reviews, and invite clients to review your business on Google."
     },
     "reviews.loading": {
         "message": "Loading reviews"
@@ -5827,27 +5827,6 @@
     },
     "reviews.noRequests": {
         "message": "No review invitations yet."
-    },
-    "reviews.googleUrl": {
-        "message": "Google review link"
-    },
-    "reviews.googleUrlHint": {
-        "message": "Clients open this link to write their review on Google."
-    },
-    "reviews.googleUrlPlaceholder": {
-        "message": "https://g.page/r/…/review"
-    },
-    "reviews.googleUrlInvalid": {
-        "message": "The link must start with https://"
-    },
-    "reviews.saveLink": {
-        "message": "Save link"
-    },
-    "reviews.linkSaved": {
-        "message": "Saved"
-    },
-    "reviews.settingsError": {
-        "message": "The review settings didn't save. Try again."
     },
     "reviews.askTitle": {
         "message": "Ask for a review"
@@ -13287,7 +13266,155 @@
     "publicForm.signatureRequired": {
         "message": "Enter your full name and agree to sign this form."
     },
-    "reviews.linkRequired": {
-        "message": "Save your Google review link before sending invitations."
+    "reviews.retry": {
+        "message": "Try again"
+    },
+    "reviews.unavailable": {
+        "message": "Google Business Profile connections are not available yet. Please try again later."
+    },
+    "reviews.connectTitle": {
+        "message": "Connect your Google Business Profile"
+    },
+    "reviews.connectBody": {
+        "message": "Sign in with the Google account that manages your business, then choose a location to read reviews, reply publicly, and request new reviews."
+    },
+    "reviews.reconnectBody": {
+        "message": "Your Google connection needs attention. Sign in again to access reviews and send invitations."
+    },
+    "reviews.connect": {
+        "message": "Connect Google Business Profile"
+    },
+    "reviews.reconnect": {
+        "message": "Reconnect Google"
+    },
+    "reviews.authorizationWaiting": {
+        "message": "Finish signing in with Google in the authorization window."
+    },
+    "reviews.chooseProfile": {
+        "message": "Choose your business profile"
+    },
+    "reviews.chooseProfileBody": {
+        "message": "Choose the Google account and verified location whose reviews you want to manage."
+    },
+    "reviews.googleAccount": {
+        "message": "Google account"
+    },
+    "reviews.chooseAccount": {
+        "message": "Choose an account"
+    },
+    "reviews.noAccounts": {
+        "message": "No managed Google accounts were found. Check that you signed in with the account that manages your Business Profile."
+    },
+    "reviews.moreAccounts": {
+        "message": "Load more accounts"
+    },
+    "reviews.googleLocation": {
+        "message": "Business location"
+    },
+    "reviews.chooseLocation": {
+        "message": "Choose a location"
+    },
+    "reviews.noLocations": {
+        "message": "No locations were found in this account. Choose another account or check your access in Google Business Profile."
+    },
+    "reviews.moreLocations": {
+        "message": "Load more locations"
+    },
+    "reviews.useLocation": {
+        "message": "Use this location"
+    },
+    "reviews.attribution": {
+        "message": "Reviews from Google"
+    },
+    "reviews.refresh": {
+        "message": "Refresh reviews"
+    },
+    "reviews.noGoogleReviews": {
+        "message": "This Google Business Profile has no reviews yet."
+    },
+    "reviews.ratingOnly": {
+        "message": "Rating without a written review"
+    },
+    "reviews.ownerReply": {
+        "message": "Your public reply"
+    },
+    "reviews.editReply": {
+        "message": "Edit reply"
+    },
+    "reviews.reply": {
+        "message": "Reply"
+    },
+    "reviews.moreReviews": {
+        "message": "Load more reviews"
+    },
+    "reviews.requestsLoading": {
+        "message": "Loading review invitations"
+    },
+    "reviews.invitationUnavailable": {
+        "message": "Google has not supplied a review link for this location. Invitations are unavailable."
+    },
+    "reviews.disconnect": {
+        "message": "Disconnect Google"
+    },
+    "reviews.replyTitle": {
+        "message": "Reply on Google"
+    },
+    "reviews.replyPublic": {
+        "message": "Your reply will be published publicly on Google on behalf of your business."
+    },
+    "reviews.replyText": {
+        "message": "Reply"
+    },
+    "reviews.replyPending": {
+        "message": "Waiting for Google to confirm your reply."
+    },
+    "reviews.publishReply": {
+        "message": "Publish reply"
+    },
+    "reviews.deleteReply": {
+        "message": "Delete reply"
+    },
+    "reviews.disconnectBody": {
+        "message": "Disconnect this Google Business Profile? Access to reviews and new review invitations will stop. Your reviews and replies remain on Google."
+    },
+    "reviews.deleteReplyBody": {
+        "message": "Delete your public reply from Google? The client’s review will remain."
+    },
+    "reviews.confirm": {
+        "message": "Confirm"
+    },
+    "reviews.accessDenied": {
+        "message": "Google denied access. Check your Business Profile permissions and that the location is verified."
+    },
+    "reviews.rateLimited": {
+        "message": "Google is receiving too many requests. Please try again later."
+    },
+    "reviews.staleReply": {
+        "message": "This reply changed on Google. Refresh reviews before editing it again."
+    },
+    "reviews.googleError": {
+        "message": "Could not load or update Google reviews. Please try again."
+    },
+    "reviews.replyInvalid": {
+        "message": "Enter a reply of no more than 4,096 UTF-8 bytes."
+    },
+    "reviews.replyFailed": {
+        "message": "Google could not publish this change. Your draft is still here."
+    },
+    "reviews.replyUncertain": {
+        "message": "The change has not been confirmed. Refresh to check Google before trying again."
+    },
+    "reviews.authorizationExpired": {
+        "message": "Google authorization timed out. Please connect again."
+    },
+    "reviews.noRating": {
+        "message": "No rating"
+    },
+    "reviews.anonymous": {
+        "message": "Google reviewer"
+    },
+    "reviews.googleSummary": {
+        "message": "{rating} · {count, plural, one {# Google review} other {# Google reviews}}",
+        "args": ["rating", "count"]
     }
 }

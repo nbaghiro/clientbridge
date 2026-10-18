@@ -46,12 +46,12 @@ name: Inbox tabs and payment access
       id: tab-inbox
 - assertVisible: "Client details"
 - tapOn: "Reviews"
-- assertVisible: "Ask clients to leave a review directly on Google.*"
+- assertVisible: "Read and reply to Google reviews.*"
 - tapOn:
       id: tab-today
 - tapOn:
       id: tab-inbox
-- assertVisible: "Ask clients to leave a review directly on Google.*"
+- assertVisible: "Read and reply to Google reviews.*"
 - tapOn: "Create"
 - tapOn: "Message"
 - assertVisible: "New message"

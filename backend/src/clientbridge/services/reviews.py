@@ -12,7 +12,11 @@ from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking
-from clientbridge.schemas.reviews import ReviewRequestCreate, ReviewRequestOut
+from clientbridge.schemas.reviews import (
+    GoogleReviewAvailability,
+    ReviewRequestCreate,
+    ReviewRequestOut,
+)
 from clientbridge.services.business import businesses_at_hour
 from clientbridge.services.notifications import Notifier
 from clientbridge.services.plans import plan_access
@@ -35,6 +39,12 @@ class ReviewService:
         self.db = db
         self.principal = principal
         self.biz = principal.business_id
+
+    def google_status(self) -> GoogleReviewAvailability:
+        assert_role(
+            self.principal, "owner", "admin", message="only managers can manage Google reviews"
+        )
+        return GoogleReviewAvailability()
 
     async def request_review(
         self, data: ReviewRequestCreate, idempotency_key: str | None, notify: Notifier

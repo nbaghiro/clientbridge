@@ -24,7 +24,7 @@ name: Owner inbox surfaces
 - takeScreenshot: message-composer
 - tapOn: "Cancel"
 - tapOn: "Reviews"
-- assertVisible: "Ask clients to leave a review directly on Google.*"
+- assertVisible: "Read and reply to Google reviews.*"
 - takeScreenshot: reviews
 - tapOn: "Broadcasts"
 - assertVisible: "Send news and offers to clients who agreed to hear from you."

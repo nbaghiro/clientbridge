@@ -5,10 +5,20 @@ import {
     strings,
     useRequestReview,
     useReviewQueue,
-    useReviewSettings,
+    useGoogleReviews,
     useBusinessZone,
 } from "@clientbridge/app-core";
-import { Avatar, Badge, Button, Modal, Notice, Panel, Select, TextField } from "@clientbridge/ui";
+import {
+    Avatar,
+    Badge,
+    Button,
+    Modal,
+    Notice,
+    Panel,
+    Select,
+    Stars,
+    TextField,
+} from "@clientbridge/ui";
 import { useState } from "react";
 import { Loaded } from "../components/Loaded";
 import { api } from "../lib/api";
@@ -16,50 +26,312 @@ const s = strings.reviews;
 const dateOf = (value: string, zone: string): string => formatDate(parseTimestamp(value), zone);
 
 export function Reviews() {
-    const queue = useReviewQueue();
-    const settings = useReviewSettings(api, queue);
+    const google = useGoogleReviews(api);
+    const queue = useReviewQueue(google.canRequest);
     const [asking, setAsking] = useState(false);
+    const connect = () => {
+        const popup = window.open("about:blank", "google-business", "width=600,height=760");
+        google.connect(
+            "web",
+            (url) => {
+                if (popup === null) throw new Error("authorization window blocked");
+                popup.location.href = url;
+            },
+            () => {
+                popup?.close();
+            },
+        );
+    };
     return (
         <div className="space-y-5">
             <p className="text-sm text-muted">{s.subtitle}</p>
-            <Loaded load={queue.load} loading={s.loading} failed={s.loadError}>
+            {google.loading ? <Notice tone="info">{s.loading}</Notice> : null}
+            {google.error !== null ? <Notice tone="danger">{google.error}</Notice> : null}
+            {!google.loading && google.error !== null && google.busy === null ? (
+                <Button onPress={google.refresh}>{s.retry}</Button>
+            ) : null}
+            {google.connection?.state === "unavailable" ? (
+                <Notice tone="info">{s.unavailable}</Notice>
+            ) : null}
+            {google.connection?.state === "disconnected" ||
+            google.connection?.state === "reconnect_required" ? (
                 <Panel>
-                    <div className="space-y-4">
-                        <TextField
-                            label={s.googleUrl}
-                            hint={s.googleUrlHint}
-                            value={settings.googleUrl}
-                            onChange={settings.setGoogleUrl}
-                            onSubmit={settings.saveGoogleUrl}
-                            placeholder={s.googleUrlPlaceholder}
-                            type="url"
-                        />
-                        <Button size="sm" busy={settings.busy} onPress={settings.saveGoogleUrl}>
-                            {s.saveLink}
+                    <div className="space-y-3">
+                        <h2 className="text-lg font-semibold text-ink">{s.connectTitle}</h2>
+                        <p className="text-sm text-muted">
+                            {google.connection.state === "reconnect_required"
+                                ? s.reconnectBody
+                                : s.connectBody}
+                        </p>
+                        <Button busy={google.busy === "connect"} onPress={connect}>
+                            {google.connection.state === "reconnect_required"
+                                ? s.reconnect
+                                : s.connect}
                         </Button>
-                        {settings.savedGoogle ? (
-                            <Notice tone="success">{s.linkSaved}</Notice>
-                        ) : null}
-                        {settings.error !== null ? (
-                            <Notice tone="danger">{settings.error}</Notice>
-                        ) : null}
                     </div>
                 </Panel>
-                {queue.googleUrl === null ? <Notice tone="info">{s.linkRequired}</Notice> : null}
+            ) : null}
+            {google.busy === "connect" ? (
+                <Panel>
+                    <p className="mb-3 text-sm text-muted">{s.authorizationWaiting}</p>
+                    <Button variant="outline" onPress={google.cancelConnect}>
+                        {s.cancel}
+                    </Button>
+                </Panel>
+            ) : null}
+            {google.connection?.state === "selecting" ? (
+                <Panel>
+                    <div className="space-y-4">
+                        <h2 className="text-lg font-semibold text-ink">{s.chooseProfile}</h2>
+                        <p className="text-sm text-muted">{s.chooseProfileBody}</p>
+                        <Select
+                            label={s.googleAccount}
+                            value={google.account}
+                            disabled={google.busy !== null}
+                            options={[
+                                { key: "", label: s.chooseAccount },
+                                ...google.accountOptions,
+                            ]}
+                            onChange={google.chooseAccount}
+                        />
+                        {google.accountOptions.length === 0 && !google.loading ? (
+                            <Notice tone="info">{s.noAccounts}</Notice>
+                        ) : null}
+                        {google.moreAccounts ? (
+                            <Button
+                                variant="outline"
+                                busy={google.busy === "accounts"}
+                                onPress={google.loadAccounts}
+                            >
+                                {s.moreAccounts}
+                            </Button>
+                        ) : null}
+                        {google.account !== "" ? (
+                            <Select
+                                label={s.googleLocation}
+                                value={google.location}
+                                disabled={google.busy !== null}
+                                options={[
+                                    { key: "", label: s.chooseLocation },
+                                    ...google.locationOptions,
+                                ]}
+                                onChange={google.setLocation}
+                            />
+                        ) : null}
+                        {google.account !== "" &&
+                        google.locationOptions.length === 0 &&
+                        google.busy === null ? (
+                            <Notice tone="info">{s.noLocations}</Notice>
+                        ) : null}
+                        {google.moreLocations ? (
+                            <Button
+                                variant="outline"
+                                busy={google.busy === "locations"}
+                                onPress={google.loadLocations}
+                            >
+                                {s.moreLocations}
+                            </Button>
+                        ) : null}
+                        <Button
+                            disabled={google.location === "" || google.busy !== null}
+                            busy={google.busy === "select"}
+                            onPress={google.selectLocation}
+                        >
+                            {s.useLocation}
+                        </Button>
+                    </div>
+                </Panel>
+            ) : null}
+            {google.connected ? (
+                <>
+                    <Panel>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h2 className="text-lg font-semibold text-ink">
+                                    {google.connection?.location?.title}
+                                </h2>
+                                <p className="text-sm text-muted">{google.summary}</p>
+                                <p className="text-xs text-muted">{s.attribution}</p>
+                            </div>
+                            <Button
+                                variant="outline"
+                                disabled={google.busy !== null}
+                                onPress={google.refresh}
+                            >
+                                {s.refresh}
+                            </Button>
+                        </div>
+                    </Panel>
+                    {google.reviews.length === 0 ? (
+                        <Notice tone="info">{s.noGoogleReviews}</Notice>
+                    ) : null}
+                    {google.reviews.map((review) => (
+                        <Panel key={review.review_id}>
+                            <div className="space-y-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <h3 className="font-semibold text-ink">{review.author}</h3>
+                                    <Stars value={review.stars} />
+                                </div>
+                                <p className="text-xs text-muted">{review.date}</p>
+                                {review.comment ? (
+                                    <p className="whitespace-pre-wrap text-sm text-ink">
+                                        {review.comment}
+                                    </p>
+                                ) : (
+                                    <p className="text-sm text-muted">{s.ratingOnly}</p>
+                                )}
+                                {review.reply ? (
+                                    <div className="rounded-md bg-bg p-3">
+                                        <p className="mb-1 text-xs font-semibold text-muted">
+                                            {s.ownerReply}
+                                        </p>
+                                        <p className="whitespace-pre-wrap text-sm text-ink">
+                                            {review.reply.comment}
+                                        </p>
+                                    </div>
+                                ) : null}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={google.busy !== null}
+                                    onPress={() => {
+                                        google.editReply(review);
+                                    }}
+                                >
+                                    {review.reply ? s.editReply : s.reply}
+                                </Button>
+                            </div>
+                        </Panel>
+                    ))}
+                    {google.moreReviews ? (
+                        <Button
+                            variant="outline"
+                            busy={google.busy === "more"}
+                            onPress={google.loadMore}
+                        >
+                            {s.moreReviews}
+                        </Button>
+                    ) : null}
+                    <Loaded load={queue.load} loading={s.requestsLoading} failed={s.loadError}>
+                        <Button
+                            icon="send"
+                            disabled={!google.canRequest}
+                            onPress={() => {
+                                setAsking(true);
+                            }}
+                        >
+                            {s.requestReview}
+                        </Button>
+                        {!google.canRequest ? (
+                            <Notice tone="info">{s.invitationUnavailable}</Notice>
+                        ) : null}
+                        <Panel>
+                            <AskPanel queue={queue} />
+                        </Panel>
+                    </Loaded>
+                </>
+            ) : null}
+            {google.connection !== null &&
+            !["unavailable", "disconnected"].includes(google.connection.state) ? (
                 <Button
-                    icon="send"
-                    disabled={queue.googleUrl === null}
+                    variant="outline"
+                    disabled={google.busy !== null}
                     onPress={() => {
-                        setAsking(true);
+                        google.setConfirm("disconnect");
                     }}
                 >
-                    {s.requestReview}
+                    {s.disconnect}
                 </Button>
-                <Panel>
-                    <AskPanel queue={queue} />
-                </Panel>
-            </Loaded>
-            {asking ? (
+            ) : null}
+            {google.reply !== null ? (
+                <Modal open onClose={google.closeReply}>
+                    <div className="space-y-4">
+                        <h2 className="text-lg font-semibold text-ink">{s.replyTitle}</h2>
+                        <p className="text-sm text-muted">{s.replyPublic}</p>
+                        <TextField
+                            label={s.replyText}
+                            multiline
+                            value={google.comment}
+                            disabled={google.busy === "reply"}
+                            onChange={google.setComment}
+                        />
+                        {google.error !== null ? (
+                            <Notice tone="danger">{google.error}</Notice>
+                        ) : null}
+                        {google.pendingReply ? <Notice tone="info">{s.replyPending}</Notice> : null}
+                        <div className="flex flex-wrap gap-2">
+                            <Button
+                                busy={google.busy === "reply"}
+                                disabled={google.comment.trim() === ""}
+                                onPress={google.sendReply}
+                            >
+                                {s.publishReply}
+                            </Button>
+                            {google.reply.reply ? (
+                                <Button
+                                    variant="outline"
+                                    disabled={google.busy !== null}
+                                    onPress={() => {
+                                        google.setConfirm("deleteReply");
+                                    }}
+                                >
+                                    {s.deleteReply}
+                                </Button>
+                            ) : null}
+                            <Button
+                                variant="outline"
+                                disabled={google.busy === "reply"}
+                                onPress={google.closeReply}
+                            >
+                                {s.cancel}
+                            </Button>
+                        </div>
+                        {google.confirm === "deleteReply" ? (
+                            <>
+                                <Notice tone="info">{s.deleteReplyBody}</Notice>
+                                <Button busy={google.busy !== null} onPress={google.deleteReply}>
+                                    {s.confirm}
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    disabled={google.busy !== null}
+                                    onPress={() => {
+                                        google.setConfirm(null);
+                                    }}
+                                >
+                                    {s.cancel}
+                                </Button>
+                            </>
+                        ) : null}
+                    </div>
+                </Modal>
+            ) : null}
+            {google.confirm === "disconnect" ? (
+                <Modal
+                    open
+                    onClose={() => {
+                        if (google.busy === null) google.setConfirm(null);
+                    }}
+                >
+                    <div className="space-y-4">
+                        <h2 className="text-lg font-semibold text-ink">{s.disconnect}</h2>
+                        <p className="text-sm text-ink">{s.disconnectBody}</p>
+                        <Button busy={google.busy !== null} onPress={google.disconnect}>
+                            {s.confirm}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            disabled={google.busy !== null}
+                            onPress={() => {
+                                google.setConfirm(null);
+                            }}
+                        >
+                            {s.cancel}
+                        </Button>
+                    </div>
+                </Modal>
+            ) : null}
+            {asking && google.canRequest ? (
                 <RequestReviewDialog
                     queue={queue}
                     onClose={() => {
@@ -101,7 +373,7 @@ function AskPanel({ queue }: { queue: ReviewQueue }) {
                                         size="sm"
                                         variant="outline"
                                         busy={req.busyId === x.bookingId}
-                                        disabled={queue.googleUrl === null}
+                                        disabled={!queue.canRequest}
                                         onPress={() => {
                                             req.request(x.clientId, x.bookingId);
                                         }}
@@ -167,7 +439,7 @@ function RequestReviewDialog({ queue, onClose }: { queue: ReviewQueue; onClose: 
                     </Button>
                     <Button
                         icon="send"
-                        disabled={clientId === "" || sent || queue.googleUrl === null}
+                        disabled={clientId === "" || sent || !queue.canRequest}
                         busy={req.busyId === clientId}
                         onPress={() => {
                             req.request(clientId);

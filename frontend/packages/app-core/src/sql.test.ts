@@ -1362,7 +1362,6 @@ describe("app-core SQL against the replica schema", () => {
             { id: "rrq_1", client_name: "Ann" },
             { id: "rrq_2", client_name: "Ann" },
         ]);
-        expect(run("REVIEW_SETTINGS_SQL")).toEqual([{ google_review_url: null }]);
     });
 
     it("suggests recent visits nobody has been asked about", () => {

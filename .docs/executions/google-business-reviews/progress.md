@@ -6,7 +6,7 @@
 - Base: `origin/main` at `dd35920e`.
 - Branch: `feat/google-business-reviews`.
 - Worktree: `/Users/naib/Documents/code/clientbridge-google-reviews`.
-- Scope of this PR: researched Google integration plan plus removal of internal review collection, with an approved cleanup migration. No live database, cloud deployment or external profile changes.
+- Scope of this PR: researched Google integration plan plus removal of internal review collection, with an approved cleanup migration and Google-first web/mobile UI. No live database, cloud deployment or external profile changes.
 - Official Google API, OAuth, policy and Pub/Sub documentation and Pulumi OAuth resource documentation are linked beside the relevant decisions in [plan](plan.md).
 - Repository audit covered reviews, public feedback, delivery boundaries, shared web/mobile hooks, Pulumi service enablement, secrets, workload identities and deployment configuration.
 
@@ -18,7 +18,7 @@
 | GBP Basic API Access                | Not verified; no approval evidence in this planning change                           | Confirm eligible profile and apply/check approval for the intended project  |
 | OAuth clients and publishing        | Existing credentials belong to sign-in; dedicated GBP setup not verified             | Create clients, record callback/consent/verification status without secrets |
 | Google account notification setting | No live account queried                                                              | Inspect with the customer's consent before configuring a topic              |
-| Google integration schema approval | Still proposed; separate from the approved internal collection removal | Approve concrete Google operational schema before implementation |
+| Google integration schema approval  | Still proposed; separate from the approved internal collection removal               | Approve concrete Google operational schema before implementation            |
 | Live pilot profile                  | Not selected                                                                         | Identify consenting owner and genuine review for reply smoke tests          |
 
 ## Validation
@@ -36,3 +36,34 @@ The user expanded scope to remove internal feedback entirely and explicitly appr
 Migration cb0019 copies rows with actual request timestamps into `review_requests`, preserving IDs and tenant/client/booking references; it drops `reviews` and `businesses.review_hold_at`, and deletes old review command replay payloads. Unrequested feedback is not fabricated into invitation history. The downgrade refuses to pretend deleted feedback can be recovered; restoring it requires a backup. API/sync contracts and message catalogs are regenerated. No live database or cloud changes have been made.
 
 Focused validation: 55 backend tests and 59 frontend tests passed. The commit hook enforces formatting, lint/type checks, generated-contract consistency, backend coverage, frontend timezone tests and infrastructure tests on the exact staged tree; final results are recorded in PR #39. GBP OAuth, review reads/replies, Pulumi provisioning and reliable queued invitation delivery remain planned work, not shipped capabilities.
+
+## Google-first UI and provider boundary
+
+Web and mobile now share an online Google review view-model. The manual Google URL editor is removed. The UI supports mandatory Google authorization, account/location selection with pagination, review pagination and ratings, public reply create/edit/delete confirmation, disconnect and reconnect states, and invitation controls gated on a loaded active profile with a Google-provided review URL. Google content stays in memory, separate from PowerSync invitation history. Reply mutations retain their idempotency key on retry, preserve uncertain drafts and only show provider-confirmed changes. Business switches invalidate pending reads.
+
+The HTTP provider adapter implements Google OAuth with PKCE, account/location discovery, review reads and reply writes/deletes, with fixed Google hosts, resource validation, bounded responses, timeouts and redacted errors. Boundary tests exercise Google HTTP responses. This adapter is not yet registered with application dependencies.
+
+**Runtime limitation:** only the manager-gated `GET /v1/reviews/google` availability endpoint is implemented. It truthfully returns `unavailable`; all other UI actions are unreachable in the current runtime. The browser/native UI contracts below are implemented against recording HTTP boundaries in tests, not a running persistent OAuth service. No authorization, review fetch or reply publication can succeed against the application yet. The existing backend invitation worker still uses the saved manual URL until the approved Google schema/backend replacement lands; this UI change does not claim to change that worker.
+
+Pending approval is the exact three-part schema proposal in [schema.md](schema.md): connection table, operation table and manual URL column removal. No new model or migration for those changes has been created. Google API access, dedicated OAuth credentials, KMS/Pulumi deployment and a consenting pilot remain external prerequisites.
+
+### UI contract for the backend slice
+
+All paths use `/v1/reviews/google`; they supersede the draft plan's alternate route spelling. Only `/` below is implemented server-side in this slice.
+
+| Method/path                        | Contract                                                                                                                                                    |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET `/`                            | state (`unavailable`, `disconnected`, `selecting`, `active`, `reconnect_required`), connection_id, generation, location `{name,title}` or null, can_request |
+| POST `/authorization`              | `{platform: web/native}` → `{authorization_url,flow_token}`; authenticated actor/business, PKCE and independent opaque completion secret                    |
+| POST `/authorization/complete`     | `{flow_token}` → `{state: pending/complete/failed}`; authenticated same actor/business; no tokens in URLs or replica                                        |
+| GET `/accounts`                    | optional page_token → `{choices:[{name,title}],next_page_token}`                                                                                            |
+| GET `/locations`                   | account_name and optional page_token → choices                                                                                                              |
+| POST `/location`                   | `{account_name,location_name}` + Idempotency-Key; validate ownership/verification before activation                                                         |
+| GET `/reviews`                     | optional page_token → `{reviews,average_rating,total_count,next_page_token}` using snake_case Google DTO fields; no local client matching                   |
+| POST `/replies`, `/replies/delete` | `{review_id,comment,expected_reply_revision}` + Idempotency-Key → `{id,state}` durable operation; deletion uses null comment                                |
+| GET `/operations/{id}`             | owner-scoped operation state; queued/running/confirmed/failed/unknown/canceled                                                                              |
+| POST `/disconnect`                 | `{}` + Idempotency-Key; invalidate generation and credentials; leave Google content untouched                                                               |
+
+OAuth callback registration must use a fixed backend HTTPS callback and a fixed completion destination; mobile completion destination is `clientbridge://reviews/google`. Web opens a dedicated authorization window. Do not accept caller-supplied redirect URLs. Google review payloads use `review_id`, reviewer `{display_name,anonymous}`, `star_rating`, `comment`, create/update timestamps and nullable reply `{comment,update_time}`.
+
+Focused validation for this slice: 33 backend tests and 12 shared view-model tests passed. Backend lint/type/structure checks and all 11 frontend package type checks passed. Full staged-tree pre-commit results are recorded in PR #39; browser/device flows require CI and live Google verification remains outstanding.

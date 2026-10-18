@@ -147,3 +147,25 @@ async def test_internal_review_collection_removed(api: httpx.AsyncClient) -> Non
     assert (
         await api.post("/review/old-token", json={"rating": 5, "body": "Feedback"})
     ).status_code == 404
+
+
+async def test_google_status_is_unavailable_without_integration(
+    as_owner: httpx.AsyncClient,
+) -> None:
+    response = await as_owner.get("/v1/reviews/google")
+    assert response.status_code == 200
+    assert response.json() == {
+        "state": "unavailable",
+        "connection_id": None,
+        "generation": 0,
+        "location": None,
+        "can_request": False,
+    }
+
+
+async def test_google_status_requires_manager(as_staff: httpx.AsyncClient) -> None:
+    assert (await as_staff.get("/v1/reviews/google")).status_code == 403
+
+
+async def test_google_status_requires_authentication(unauth: httpx.AsyncClient) -> None:
+    assert (await unauth.get("/v1/reviews/google")).status_code == 401

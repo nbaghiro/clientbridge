@@ -2564,6 +2564,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/reviews/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Google Status */
+        get: operations["google_status_v1_reviews_google_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/messages": {
         parameters: {
             query?: never;
@@ -4799,6 +4816,29 @@ export interface components {
             code: string;
             /** Amount Cents */
             amount_cents: number;
+        };
+        /** GoogleReviewAvailability */
+        GoogleReviewAvailability: {
+            /**
+             * State
+             * @default unavailable
+             * @constant
+             */
+            state: "unavailable";
+            /** Connection Id */
+            connection_id?: null;
+            /**
+             * Generation
+             * @default 0
+             */
+            generation: number;
+            /** Location */
+            location?: null;
+            /**
+             * Can Request
+             * @default false
+             */
+            can_request: boolean;
         };
         /** GstHstReport */
         GstHstReport: {
@@ -13846,6 +13886,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReviewRequestOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    google_status_v1_reviews_google_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleReviewAvailability"];
                 };
             };
             /** @description Validation Error */
