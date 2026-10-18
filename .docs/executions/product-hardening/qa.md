@@ -1,6 +1,6 @@
 # Hardening QA
 
-Local automated gates pass. This checklist is the manual QA handoff for the draft PR; remote CI and manual acceptance remain pending.
+QA record for [draft PR #26](https://github.com/nbaghiro/clientbridge/pull/26). The checks below distinguish automated and browser verification from remaining real-provider/device acceptance. The PR check list is the source for CI on the exact published head. See [plan and findings](plan.md) for the complete scope, resolutions and schemas.
 
 Use disposable demo data and provider test mode. Real email tests require an explicitly chosen recipient.
 
@@ -22,3 +22,22 @@ Use disposable demo data and provider test mode. Real email tests require an exp
 - Inspect existing pending checkouts before enabling stock enforcement against production data.
 - Unknown delivery acceptance is never blindly retried. Resolve ambiguous sends against provider records.
 - Append-only audit triggers and additional growth indexes are separate concrete schema decisions. Gift-card split tender and resource management are separate product capabilities.
+
+## Verification results, 18 October 2026
+
+| Surface | Evidence |
+| --- | --- |
+| Backend invariants | Full suite: 2,055 passed, 31 external-service tests deselected, 94.11% coverage. Fresh migrated/seeded disposable database on the existing Docker Postgres; development database was not reset. Covers stock races, replay, refunds, signatures/forms, SMS tenancy, delivery claims/callbacks and admin authorization. |
+| Provider contracts | Reproduced 11 Stripe contract failures caused by a cached pool crossing closed test loops. API/worker shutdown now closes and clears the Stripe transport; fixtures do the same. All 23 real-adapter contract tests pass against stripe-mock; 29 gateway/rate-limit tests pass. |
+| CI dependencies | The backend CI job lacked Redis for the cross-process rate-limit regression. Added the locally pinned Redis service and health check; production limiting still fails closed on Redis failure. |
+| Frontend/build | Strict formatting/lint/type checks, generated contracts and all four production builds passed. App-core tests passed across three time zones; API-client, mobile and site tests passed. Infrastructure: 102 tests. |
+| Provider web | Original PR CI: 30 browser tests passed, one opt-in presentation demo skipped. Local sweep: 28 passed, two environment-gated tests skipped; one history assertion captured a Stripe cancellation console message during navigation. The dedicated history rerun passed with the optional live Stripe UI disabled, matching CI; the original CI history test also passed. |
+| Public Connect | Local: 50 passed, one opt-in media check skipped. Booking/manage, shop, invoices, estimates, receipts, forms, contracts, preferences, error paths, phone layouts, accessibility and pseudo-locale coverage. Original PR CI also passed. |
+| Marketing | 67 site browser tests passed; contact API/provider-failure and production-image routing checks passed during implementation. |
+| Admin | Browser verified all eight pages, sign-in redirect and ordinary-staff denial. All ten email template previews, SMTP test send to local Mailpit and history passed; exactly one matching test message was received. People, Payments and Email lab fit 390px without document overflow. Scoped client activity link and payment detail opened; mobile email body rendered. No uncaught page errors in the completed admin sweep. |
+| Sync/native | Original CI passed real PowerSync verification, native build, inbox/client and setup/payment/recovery shards. Final exact-head matrix is linked from the PR; simulator results do not certify physical terminal or banking behavior. |
+| Migration/rollout | Approved cb0009–cb0011 migrations and real existing-form backfill tested. Local development upgraded from cb0008 without reset/reseed. No production deployment, phone-number purchase or external test email. |
+
+Earlier red/green regressions include full-payment replay, held stock and last-unit contention, correction-before-settlement refund, immutable form evidence, required signatures, stale contract consent, durable admin deduplication/history, worker fencing, client contact ambiguity, related activity scoping and pickup query counts (104 before, at most six afterward in the seeded scenario). Prior harness failures were corrected and superseded by the passing full backend run.
+
+Raw logs, traces, screenshots and pre-consolidation documentation backups remain under the gitignored `.scratchpad/` folder. They are supporting artifacts, not extra maintained execution documents.

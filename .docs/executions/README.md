@@ -5,7 +5,6 @@ Each execution that is planned or in progress owns its plan and progress so unre
 | Execution       | Plan and tracking                                                                                                                         |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | Scheduling      | [Plan](scheduling/plan.md), [design gaps](scheduling/design.md), [task queue](scheduling/tasks.json), [progress](scheduling/progress.md). |
-| Codebase review | [Plan](codebase-review/plan.md), [task queue](codebase-review/tasks.json), [progress](codebase-review/progress.md).                       |
 | Deploy          | [Plan](deploy/plan.md), [task queue](deploy/tasks.json), [progress](deploy/progress.md).                                                  |
 | Mobile deploy   | [Progress](deploy-mobile/progress.md).                                                                                                    |
 
@@ -13,4 +12,4 @@ Each execution that is planned or in progress owns its plan and progress so unre
 
 Use a new folder for a separate execution. Record tested behavior, remaining work and snapshot-specific evidence in its progress document; keep reusable system decisions in the main docs.
 
-- [Product hardening](product-hardening/plan.md) — fixes on `hardening/product-invariants`; [finding disposition](product-hardening/disposition.md) and [QA checklist](product-hardening/qa.md).
+- [Product hardening](product-hardening/plan.md) — fixes on `hardening/product-invariants`; all findings, resolutions and approved schemas in the plan; [QA checklist and results](product-hardening/qa.md).
