@@ -4,6 +4,8 @@ import {
     strings,
     useClassBoard,
     formatParts,
+    kindWord,
+    useSubjectKind,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -147,6 +149,7 @@ export function ClassesScreen() {
 }
 
 function RosterBody({ roster }: { roster: ClassRoster }) {
+    const kind = useSubjectKind();
     const x = roster.session;
     return (
         <View style={styles.gap}>
@@ -176,15 +179,22 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
             <SearchField
                 value={roster.query}
                 onChange={roster.setQuery}
-                placeholder={s.addPlaceholder}
+                placeholder={s.addPlaceholder(kindWord(kind))}
             />
             {roster.matches.length > 0 ? (
                 <View style={styles.list}>
                     {roster.matches.map((m) => (
                         <ListRow
                             key={m.clientId}
-                            title={m.pet === "" ? m.name : formatParts([m.pet, m.name])}
-                            leading={<Avatar name={m.pet === "" ? m.name : m.pet} size="sm" />}
+                            title={
+                                m.subjectName === "" ? m.name : formatParts([m.subjectName, m.name])
+                            }
+                            leading={
+                                <Avatar
+                                    name={m.subjectName === "" ? m.name : m.subjectName}
+                                    size="sm"
+                                />
+                            }
                             meta={x.full ? s.waitlist : s.add}
                             onPress={() => {
                                 roster.add(m.clientId);
@@ -232,9 +242,9 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
                 {roster.waitlist.map((w, i) => (
                     <View key={w.key} style={[styles.row, i > 0 && styles.divider]}>
                         <Text style={styles.pos}>{i + 1}</Text>
-                        <Avatar name={w.petName} size="sm" />
+                        <Avatar name={w.subjectName} size="sm" />
                         <View style={styles.flex}>
-                            <Text style={styles.pet}>{w.petName}</Text>
+                            <Text style={styles.subject}>{w.subjectName}</Text>
                             <Text style={styles.muted}>{w.clientName}</Text>
                         </View>
                         <Button
@@ -257,11 +267,11 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
 function Attendee({ a, roster, first }: { a: RosterEntry; roster: ClassRoster; first: boolean }) {
     return (
         <View style={[styles.row, !first && styles.divider]}>
-            <Avatar name={a.petName} size="sm" />
+            <Avatar name={a.subjectName} size="sm" />
             <View style={styles.flex}>
-                <Text style={styles.pet} numberOfLines={1}>
-                    {a.petName}
-                    {a.petName !== a.clientName ? (
+                <Text style={styles.subject} numberOfLines={1}>
+                    {a.subjectName}
+                    {a.subjectName !== a.clientName ? (
                         <Text style={styles.muted}>
                             {`${strings.common.separator}${a.clientName}`}
                         </Text>
@@ -356,7 +366,7 @@ const styles = StyleSheet.create({
     row: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12 },
     divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
     pos: { width: 16, textAlign: "right", color: c.muted, fontSize: 12 },
-    pet: { color: c.ink, fontSize: 15, fontWeight: "600" },
+    subject: { color: c.ink, fontSize: 15, fontWeight: "600" },
     badges: { flexDirection: "row", gap: 6, marginTop: 4 },
     actions: { flexDirection: "row", alignItems: "center", gap: 6 },
     sheet: { gap: 12 },

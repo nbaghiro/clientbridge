@@ -421,7 +421,7 @@ interface Strings {
         readonly qstNo: (n: string) => string;
         readonly scanToPay: string;
         readonly paidStamp: string;
-        readonly forPet: (pet: string) => string;
+        readonly forSubject: (name: string) => string;
         readonly reference: (number: string) => string;
         readonly saleNumber: (n: number) => string;
         readonly receiptNumber: (invoice: string, n: number) => string;
@@ -529,6 +529,7 @@ interface Strings {
             readonly savedCardCharge: (card: string) => string;
             readonly payError: string;
             readonly addItemFirst: string;
+            readonly overLimit: (pct: number) => string;
             readonly backToTicket: string;
             readonly cancel: string;
             readonly charging: string;
@@ -580,6 +581,12 @@ interface Strings {
             readonly discountTooBig: (money: string) => string;
             readonly discountReasonRequired: string;
             readonly taxFollows: string;
+            readonly limitNote: (pct: number) => string;
+            readonly approvalTitle: string;
+            readonly approvalBody: (pct: number, money: string) => string;
+            readonly approvalPin: string;
+            readonly approve: string;
+            readonly approvalOk: string;
             readonly ordersTitle: string;
             readonly filterAll: string;
             readonly filterDesk: string;
@@ -639,6 +646,8 @@ interface Strings {
             readonly tipSplitTitle: string;
             readonly tipShareOf: (pct: number) => string;
             readonly tipPickPerson: string;
+            readonly pinInvalid: string;
+            readonly pinHint: string;
             readonly before: string;
             readonly after: string;
             readonly youSave: string;
@@ -861,6 +870,7 @@ interface Strings {
         readonly problemTimeOff: (who: string, why: string) => string;
         readonly problemClosed: (why: string) => string;
         readonly problemPast: string;
+        readonly problemRoom: string;
         readonly problemClassFull: string;
         readonly problemClass: string;
         readonly moved: (when: string) => string;
@@ -883,6 +893,7 @@ interface Strings {
         readonly waitlist: string;
         readonly detailWhen: string;
         readonly detailWith: string;
+        readonly detailWhere: string;
         readonly detailNotes: string;
         readonly detailDeposit: string;
         readonly detailAddons: string;
@@ -947,8 +958,7 @@ interface Strings {
         readonly startsIn: (label: string) => string;
         readonly composerTitle: string;
         readonly composerClient: string;
-        readonly composerClientSearch: string;
-        readonly composerPet: string;
+        readonly composerClientSearch: (kind: string) => string;
         readonly composerService: string;
         readonly composerServicePlaceholder: string;
         readonly composerWith: string;
@@ -1005,6 +1015,7 @@ interface Strings {
         readonly groupTeam: string;
         readonly railJump: string;
         readonly railNothingNext: string;
+        readonly stationNone: string;
     };
     readonly recurrences: {
         readonly newTitle: string;
@@ -1013,7 +1024,7 @@ interface Strings {
         readonly listSubtitle: (n: number) => string;
         readonly newSeries: string;
         readonly newShort: string;
-        readonly search: string;
+        readonly search: (kind: string) => string;
         readonly filterAll: string;
         readonly filterAttention: string;
         readonly filterEnding: string;
@@ -1043,7 +1054,7 @@ interface Strings {
         readonly lastDate: string;
         readonly oneConfirmation: string;
         readonly oneConfirmationHint: string;
-        readonly pet: (name: string) => string;
+        readonly subject: (kind: string, name: string) => string;
         readonly dates: string;
         readonly datesHint: string;
         readonly patternWeekly: (n: number, day: string, time: string) => string;
@@ -1130,6 +1141,7 @@ interface Strings {
         readonly add: string;
         readonly checkedIn: (n: number, of: number) => string;
         readonly with: (when: string, name: string) => string;
+        readonly withRoom: (when: string, name: string, room: string) => string;
         readonly roster: string;
         readonly waitlist: string;
         readonly waitlistHint: string;
@@ -1148,7 +1160,7 @@ interface Strings {
         readonly promoteFull: string;
         readonly unpaid: string;
         readonly gentleNote: string;
-        readonly addPlaceholder: string;
+        readonly addPlaceholder: (kind: string) => string;
         readonly added: (name: string) => string;
         readonly addedWaitlist: (name: string) => string;
         readonly messageClass: string;
@@ -1165,6 +1177,12 @@ interface Strings {
         readonly emptyClassesBody: string;
         readonly rosterError: string;
         readonly startsLater: string;
+        readonly pickTitle: string;
+        readonly pickSubtitle: string;
+        readonly takenBy: (name: string, time: string) => string;
+        readonly freeThen: string;
+        readonly saveStation: string;
+        readonly stationError: string;
     };
     readonly reminders: {
         readonly subtitle: string;
@@ -1387,11 +1405,10 @@ interface Strings {
         readonly consumeSession: string;
         readonly consumeShort: string;
         readonly record: {
-            readonly searchPlaceholder: string;
+            readonly searchPlaceholder: (kind: string) => string;
             readonly emptyTitle: string;
             readonly emptyBody: string;
             readonly colClient: string;
-            readonly colPets: string;
             readonly colNext: string;
             readonly colBalance: string;
             readonly colTags: string;
@@ -1401,8 +1418,6 @@ interface Strings {
             readonly visits: string;
             readonly balance: string;
             readonly since: string;
-            readonly pets: string;
-            readonly addPet: string;
             readonly upcoming: string;
             readonly lastVisit: (when: string) => string;
             readonly notes: string;
@@ -1424,11 +1439,9 @@ interface Strings {
             readonly depositDue: (amount: string) => string;
             readonly depositPaid: (amount: string) => string;
             readonly noNotes: string;
-            readonly noPets: string;
             readonly loadingRecord: string;
             readonly loadError: string;
             readonly editShort: string;
-            readonly editPetNamed: (name: string) => string;
             readonly addNoteTitle: string;
             readonly back: string;
             readonly goneBody: string;
@@ -1452,12 +1465,6 @@ interface Strings {
             readonly consentLabel: string;
             readonly consentHint: string;
             readonly consentRecorded: (when: string, who: string) => string;
-            readonly petSection: string;
-            readonly petSectionHint: string;
-            readonly petName: string;
-            readonly petNamePlaceholder: string;
-            readonly petBreed: string;
-            readonly petBreedPlaceholder: string;
             readonly nameRequired: string;
             readonly contactRequired: string;
             readonly emailInvalid: string;
@@ -1491,66 +1498,6 @@ interface Strings {
             readonly emptyArchived: string;
             readonly dangerHint: string;
         };
-        readonly pets: {
-            readonly pets: string;
-            readonly addPet: string;
-            readonly editPet: string;
-            readonly editNamed: (name: string) => string;
-            readonly removePet: string;
-            readonly removeTitle: (name: string) => string;
-            readonly removeBody: string;
-            readonly removeConfirm: string;
-            readonly removeError: string;
-            readonly nameLabel: string;
-            readonly nameRequired: string;
-            readonly speciesLabel: string;
-            readonly dog: string;
-            readonly cat: string;
-            readonly other: string;
-            readonly breedLabel: string;
-            readonly weightLabel: string;
-            readonly weightUnit: string;
-            readonly weightInvalid: string;
-            readonly dateInvalid: string;
-            readonly birthdayLabel: string;
-            readonly sexLabel: string;
-            readonly female: string;
-            readonly male: string;
-            readonly temperamentLabel: string;
-            readonly temperaments: {
-                readonly calm: string;
-                readonly friendly: string;
-                readonly energetic: string;
-                readonly anxious: string;
-                readonly reactive: string;
-            } & Labels;
-            readonly coatLabel: string;
-            readonly allergiesLabel: string;
-            readonly allergiesPlaceholder: string;
-            readonly vetLabel: string;
-            readonly rabiesLabel: string;
-            readonly styleLabel: string;
-            readonly stylePlaceholder: string;
-            readonly save: string;
-            readonly saveShort: string;
-            readonly saving: string;
-            readonly saveError: string;
-            readonly edit: string;
-            readonly age: (years: number) => string;
-            readonly weight: (kg: number) => string;
-            readonly allergy: (what: string) => string;
-            readonly temperamentAlert: (t: string) => string;
-            readonly rabiesExpired: string;
-            readonly rabiesSoon: (when: string) => string;
-            readonly visits: string;
-            readonly lastVisit: string;
-            readonly nextVisit: string;
-            readonly nothingBooked: string;
-            readonly noPetsTitle: string;
-            readonly noPetsBody: string;
-            readonly loading: string;
-            readonly loadError: string;
-        };
         readonly history: {
             readonly title: string;
             readonly filterAll: string;
@@ -1559,7 +1506,7 @@ interface Strings {
             readonly filterMessages: string;
             readonly filterNotes: string;
             readonly withCount: (label: string, n: string) => string;
-            readonly notePlaceholder: string;
+            readonly notePlaceholder: (kind: string) => string;
             readonly noteRequired: string;
             readonly pin: string;
             readonly pinHint: string;
@@ -1586,7 +1533,7 @@ interface Strings {
             readonly since: (when: string) => string;
             readonly you: string;
             readonly teammate: string;
-            readonly visit: (service: string, pet: string) => string;
+            readonly visit: (service: string, name: string) => string;
             readonly canceled: string;
             readonly noShow: string;
             readonly invoiceDrafted: (n: string) => string;
@@ -1666,11 +1613,12 @@ interface Strings {
             readonly nothingMoves: string;
             readonly moves: {
                 readonly bookings: (n: number) => string;
-                readonly pets: (names: string) => string;
+                readonly subjects: (kind: string, names: string) => string;
                 readonly messages: (n: number) => string;
                 readonly notes: (n: number) => string;
             };
-            readonly footprint: (bookings: number, pets: number) => string;
+            readonly footprint: (bookings: number) => string;
+            readonly footprintWith: (kind: string, bookings: number, count: number) => string;
             readonly created: (when: string) => string;
             readonly same: string;
             readonly none: string;
@@ -1689,10 +1637,96 @@ interface Strings {
             readonly merged: (name: string) => string;
         };
     };
+    readonly subjects: {
+        readonly many: (kind: string) => string;
+        readonly one: (kind: string) => string;
+        readonly add: (kind: string) => string;
+        readonly edit: string;
+        readonly editNamed: (name: string) => string;
+        readonly remove: (kind: string) => string;
+        readonly removeTitle: (name: string) => string;
+        readonly removeBody: (kind: string) => string;
+        readonly removeConfirm: string;
+        readonly removeError: (kind: string) => string;
+        readonly nameLabel: string;
+        readonly nameRequired: (kind: string) => string;
+        readonly dateInvalid: string;
+        readonly save: (kind: string) => string;
+        readonly saveShort: string;
+        readonly saving: string;
+        readonly saveError: (kind: string) => string;
+        readonly visits: string;
+        readonly lastVisit: string;
+        readonly nextVisit: string;
+        readonly nothingBooked: string;
+        readonly noneTitle: (kind: string) => string;
+        readonly noneBody: (kind: string) => string;
+        readonly none: (kind: string) => string;
+        readonly loading: (kind: string) => string;
+        readonly loadError: (kind: string) => string;
+        readonly first: (kind: string) => string;
+        readonly firstHint: (kind: string) => string;
+        readonly firstName: (kind: string) => string;
+        readonly firstNamePlaceholder: (kind: string) => string;
+        readonly firstDetailPlaceholder: (kind: string) => string;
+        readonly age: (years: number) => string;
+        readonly weight: (kg: number) => string;
+        readonly rooms: (rooms: number) => string;
+        readonly allergy: (what: string) => string;
+        readonly temperamentAlert: (t: string) => string;
+        readonly rabiesExpired: string;
+        readonly rabiesSoon: (when: string) => string;
+        readonly fields: {
+            readonly birthday: string;
+            readonly allergies: string;
+            readonly pet: {
+                readonly species: string;
+                readonly dog: string;
+                readonly cat: string;
+                readonly other: string;
+                readonly breed: string;
+                readonly weight: string;
+                readonly weightUnit: string;
+                readonly weightInvalid: string;
+                readonly sex: string;
+                readonly female: string;
+                readonly male: string;
+                readonly temperament: string;
+                readonly temperaments: {
+                    readonly calm: string;
+                    readonly friendly: string;
+                    readonly energetic: string;
+                    readonly anxious: string;
+                    readonly reactive: string;
+                } & Labels;
+                readonly coat: string;
+                readonly allergiesPlaceholder: string;
+                readonly vet: string;
+                readonly rabies: string;
+                readonly style: string;
+                readonly stylePlaceholder: string;
+            };
+            readonly student: {
+                readonly grade: string;
+                readonly gradePlaceholder: string;
+                readonly school: string;
+            } & Labels;
+            readonly property: {
+                readonly address: string;
+                readonly rooms: string;
+                readonly roomsInvalid: string;
+                readonly access: string;
+                readonly accessPlaceholder: string;
+                readonly pets: string;
+                readonly petsPlaceholder: string;
+            } & Labels;
+        };
+    };
     readonly messaging: {
         readonly title: string;
         readonly channelSms: string;
         readonly channelEmail: string;
+        readonly channelChat: string;
         readonly loading: string;
         readonly loadError: string;
         readonly unreadCount: (n: number) => string;
@@ -1704,7 +1738,7 @@ interface Strings {
         readonly smsBlockedNew: string;
         readonly sendMessage: string;
         readonly sentNew: (name: string) => string;
-        readonly searchPlaceholder: string;
+        readonly searchPlaceholder: (kind: string) => string;
         readonly filters: {
             readonly all: string;
             readonly unread: string;
@@ -1745,7 +1779,6 @@ interface Strings {
         readonly details: string;
         readonly openRecord: string;
         readonly book: string;
-        readonly pets: string;
         readonly nextVisit: string;
         readonly nothingBooked: string;
         readonly balance: string;
@@ -1869,6 +1902,7 @@ interface Strings {
             readonly online_booking: string;
             readonly reply: string;
             readonly unsubscribe: string;
+            readonly import: string;
             readonly preferences: string;
             readonly complaint: string;
         } & Labels;
@@ -2058,11 +2092,6 @@ interface Strings {
             readonly mountain: string;
             readonly yukon: string;
             readonly pacific: string;
-            readonly creston: string;
-            readonly dawsonCreek: string;
-            readonly fortNelson: string;
-            readonly atikokan: string;
-            readonly blancSablon: string;
         } & Labels;
         readonly billingEmailLabel: string;
         readonly billingEmailPlaceholder: string;
@@ -2116,11 +2145,6 @@ interface Strings {
             readonly mountain: string;
             readonly yukon: string;
             readonly pacific: string;
-            readonly creston: string;
-            readonly dawsonCreek: string;
-            readonly fortNelson: string;
-            readonly atikokan: string;
-            readonly blancSablon: string;
         } & Labels;
     };
     readonly hours: {
@@ -4026,9 +4050,6 @@ interface Strings {
         readonly errorBody: string;
         readonly privacy: (business: string) => string;
         readonly allDone: (business: string) => string;
-        readonly signerName: string;
-        readonly agree: (business: string) => string;
-        readonly signatureRequired: string;
     };
     readonly publicPreferences: {
         readonly title: string;
@@ -4428,14 +4449,6 @@ interface Strings {
         readonly cancel: string;
         readonly testInfo: string;
         readonly testAccepted: string;
-        readonly deliveryHistory: string;
-        readonly refreshDeliveries: string;
-        readonly valueQueued: string;
-        readonly valueSending: string;
-        readonly valueAccepted: string;
-        readonly valueDelivered: string;
-        readonly valueAmbiguous: string;
-        readonly testQueued: string;
         readonly testFailed: string;
         readonly transportUnavailable: string;
         readonly preview: string;

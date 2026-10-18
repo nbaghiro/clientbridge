@@ -109,7 +109,7 @@ function LinesTable({ doc }: { doc: Doc }) {
                         <td className="py-2 pr-3">
                             <p className="font-medium text-ink">{line.description}</p>
                             {line.subject !== null ? (
-                                <p className="text-muted">{l.forPet(line.subject)}</p>
+                                <p className="text-muted">{l.forSubject(line.subject)}</p>
                             ) : null}
                         </td>
                         <td className="py-2 text-right tabular-nums text-ink-soft">

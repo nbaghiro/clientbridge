@@ -462,7 +462,7 @@ export interface AvatarProps {
     src?: string | null | undefined;
     name: string;
     size?: "sm" | "md" | "lg" | "xl" | undefined;
-    // A staff or pet colour; defaults to the accent tint.
+    // A staff or subject colour; defaults to the accent tint.
     color?: string | null | undefined;
 }
 
@@ -957,7 +957,7 @@ export interface PrintedDocLabels {
     scanToPay: string;
     paymentMethod: string;
     page: string;
-    forPet: (pet: string) => string;
+    forSubject: (name: string) => string;
     qtyTimes: (qty: number, price: string) => string;
 }
 

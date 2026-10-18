@@ -10,6 +10,8 @@ import {
     useSeriesRecord,
     formatParts,
     useBusinessZone,
+    kindWord,
+    useSubjectKind,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -40,6 +42,7 @@ const s = strings.recurrences;
 
 /** Repeat visits: the list with progress, one series' dates with change and cancel, and a new series. */
 export function RecurrencesScreen() {
+    const kind = useSubjectKind();
     const list = useSeriesList();
     const [openId, setOpenId] = useState<string | null>(null);
     const [composing, setComposing] = useState(false);
@@ -83,7 +86,11 @@ export function RecurrencesScreen() {
                     {s.newShort}
                 </Button>
             </View>
-            <SearchField value={list.q} onChange={list.setQ} placeholder={s.search} />
+            <SearchField
+                value={list.q}
+                onChange={list.setQ}
+                placeholder={s.search(kindWord(kind))}
+            />
             <Choice
                 label={s.filterAll}
                 options={[
@@ -132,7 +139,7 @@ export function RecurrencesScreen() {
                     {list.rows.map((r) => (
                         <ListRow
                             key={r.id}
-                            title={formatParts([r.petName, r.clientName])}
+                            title={formatParts([r.subjectName, r.clientName])}
                             detail={[r.pattern, r.nextLabel].join("\n")}
                             meta={
                                 r.attention > 0 ? (
@@ -189,7 +196,7 @@ function Record({ id, onBack }: { id: string; onBack: () => void }) {
                 {s.backToList}
             </Button>
             <Text style={styles.muted}>{r.serviceName}</Text>
-            <Text style={styles.title}>{formatParts([r.petName, r.clientName])}</Text>
+            <Text style={styles.title}>{formatParts([r.subjectName, r.clientName])}</Text>
             <View style={styles.rowGap}>
                 <Icon name="repeat" size={15} color={c.inkSoft} />
                 <Text style={styles.soft}>{r.pattern}</Text>
@@ -442,7 +449,7 @@ function SeriesComposer({ onDone }: { onDone: () => void }) {
                     value={f.clientId}
                     onChange={f.setClientId}
                 />
-                {f.petName !== null ? <Text style={styles.muted}>{s.pet(f.petName)}</Text> : null}
+                {f.subjectHint !== null ? <Text style={styles.muted}>{f.subjectHint}</Text> : null}
                 <Text style={styles.label}>{s.service}</Text>
                 <Choice
                     label={s.service}

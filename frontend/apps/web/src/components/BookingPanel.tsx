@@ -14,7 +14,6 @@ import {
     useNewMessage,
     useSavedCards,
     formatParts,
-    temperamentLabel,
     BUSINESS_CURRENCY,
     useBusinessZone,
 } from "@clientbridge/app-core";
@@ -112,7 +111,7 @@ function BookingFacts({ detail, layout }: { detail: BookingDetail; layout: "inli
 }
 
 function BookingClient({ detail }: { detail: BookingDetail }) {
-    const { client, pet } = detail;
+    const { client, subject } = detail;
     const [messaging, setMessaging] = useState(false);
     const cards = useSavedCards(client?.id ?? "");
     const card = cards.find((x) => x.preferred === 1) ?? cards[0];
@@ -148,19 +147,21 @@ function BookingClient({ detail }: { detail: BookingDetail }) {
                         <div className="truncate text-xs text-muted">{detail.clientLine}</div>
                     </div>
                 </div>
-                {pet ? (
+                {subject ? (
                     <div className="flex items-center gap-3 border-t border-line-soft px-3 py-2.5">
-                        <Avatar name={pet.name} size="sm" />
+                        <Avatar name={subject.name} size="sm" />
                         <div className="min-w-0 flex-1">
-                            <div className="text-sm font-medium text-ink">{pet.name}</div>
-                            {detail.petLine !== null ? (
-                                <div className="truncate text-xs text-muted">{detail.petLine}</div>
+                            <div className="text-sm font-medium text-ink">{subject.name}</div>
+                            {detail.subjectLine !== null ? (
+                                <div className="truncate text-xs text-muted">
+                                    {detail.subjectLine}
+                                </div>
                             ) : null}
                         </div>
-                        {pet.temperament !== null ? (
+                        {detail.temperament !== null ? (
                             <Badge
-                                label={temperamentLabel(pet.temperament)}
-                                intent={detail.petNervous ? "warning" : "neutral"}
+                                label={detail.temperament.label}
+                                intent={detail.temperament.nervous ? "warning" : "neutral"}
                             />
                         ) : null}
                     </div>
@@ -264,12 +265,15 @@ function BookingRoster({ detail }: { detail: BookingDetail }) {
                 <ul className="divide-y divide-line-soft rounded-md border border-line">
                     {detail.roster.map((r) => (
                         <li key={r.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-                            <Avatar name={r.pet === "" ? r.name : r.pet} size="sm" />
+                            <Avatar
+                                name={r.subjectName === "" ? r.name : r.subjectName}
+                                size="sm"
+                            />
                             <span className="min-w-0 flex-1 truncate">
                                 <span className="font-medium text-ink">
-                                    {r.pet === "" ? r.name : r.pet}
+                                    {r.subjectName === "" ? r.name : r.subjectName}
                                 </span>
-                                {r.pet !== "" ? (
+                                {r.subjectName !== "" ? (
                                     <span className="text-muted">
                                         {strings.common.separator}
                                         {r.name}

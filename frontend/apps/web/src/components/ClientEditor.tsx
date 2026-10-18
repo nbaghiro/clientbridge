@@ -2,6 +2,8 @@ import {
     type ClientEditor,
     type ClientListRow,
     type DuplicateMatch,
+    type SubjectField,
+    type SubjectKind,
     canManagePayments,
     strings,
     useClientEditor,
@@ -149,6 +151,46 @@ function ClientFields({ editor }: { editor: ClientEditor }) {
 }
 
 /** The one add and edit form, in a dialog; every client screen opens this. */
+/** A new client's first subject: its name and the one detail their kind leads with. */
+function FirstSubjectFields({
+    editor,
+    first,
+}: {
+    editor: ClientEditor;
+    first: { kind: SubjectKind; detail: SubjectField };
+}) {
+    const sj = strings.subjects;
+    return (
+        <fieldset className="space-y-3 border-t border-line-soft pt-4">
+            <legend className="sr-only">{sj.first(first.kind)}</legend>
+            <div>
+                <p className="text-sm font-semibold text-ink">{sj.first(first.kind)}</p>
+                <p className="text-xs text-muted">{sj.firstHint(first.kind)}</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+                <TextField
+                    label={sj.firstName(first.kind)}
+                    optional
+                    value={editor.draft.subjectName}
+                    onChange={(v) => {
+                        editor.set("subjectName", v);
+                    }}
+                    placeholder={sj.firstNamePlaceholder(first.kind)}
+                />
+                <TextField
+                    label={first.detail.label}
+                    optional
+                    value={editor.draft.subjectDetail}
+                    onChange={(v) => {
+                        editor.set("subjectDetail", v);
+                    }}
+                    placeholder={sj.firstDetailPlaceholder(first.kind)}
+                />
+            </div>
+        </fieldset>
+    );
+}
+
 export function ClientEditorDialog({
     directory,
     clientId,
@@ -220,34 +262,8 @@ export function ClientEditorDialog({
                         />
                     ) : null}
                     <ClientFields editor={editor} />
-                    {editor.mode === "add" ? (
-                        <fieldset className="space-y-3 border-t border-line-soft pt-4">
-                            <legend className="sr-only">{s.petSection}</legend>
-                            <div>
-                                <p className="text-sm font-semibold text-ink">{s.petSection}</p>
-                                <p className="text-xs text-muted">{s.petSectionHint}</p>
-                            </div>
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <TextField
-                                    label={s.petName}
-                                    optional
-                                    value={editor.draft.petName}
-                                    onChange={(v) => {
-                                        editor.set("petName", v);
-                                    }}
-                                    placeholder={s.petNamePlaceholder}
-                                />
-                                <TextField
-                                    label={s.petBreed}
-                                    optional
-                                    value={editor.draft.petBreed}
-                                    onChange={(v) => {
-                                        editor.set("petBreed", v);
-                                    }}
-                                    placeholder={s.petBreedPlaceholder}
-                                />
-                            </div>
-                        </fieldset>
+                    {editor.firstSubject !== null ? (
+                        <FirstSubjectFields editor={editor} first={editor.firstSubject} />
                     ) : null}
                 </div>
                 {editor.error !== null ? (

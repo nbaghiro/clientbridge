@@ -19,6 +19,8 @@ import {
     quickReplies,
     BUSINESS_CURRENCY,
     useBusinessZone,
+    kindWord,
+    useSubjectKind,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -100,6 +102,7 @@ export function InboxScreen() {
 }
 
 function Messages() {
+    const kind = useSubjectKind();
     const nav = useNavigation<BottomTabNavigationProp<TabParamList, "Inbox">>();
     const inbox = useInbox();
     const [openId, setOpenId] = useState<string | null>(null);
@@ -169,7 +172,7 @@ function Messages() {
                 <SearchField
                     value={inbox.q}
                     onChange={inbox.setQ}
-                    placeholder={s.searchPlaceholder}
+                    placeholder={s.searchPlaceholder(kindWord(kind))}
                 />
             </View>
             <Tabs
@@ -387,6 +390,7 @@ function ContextPanel({
     thread: InboxThread;
     conversation: Conversation;
 }) {
+    const kind = useSubjectKind();
     const zone = useBusinessZone();
     const openLink = useOpenLink();
     const client = conversation.client;
@@ -422,7 +426,14 @@ function ContextPanel({
             </View>
             <KeyValueList
                 rows={[
-                    { label: s.pets, value: client?.pet_names ?? "—" },
+                    ...(kind === null
+                        ? []
+                        : [
+                              {
+                                  label: strings.subjects.many(kind),
+                                  value: client?.subject_names ?? "—",
+                              },
+                          ]),
                     {
                         label: s.balance,
                         value:

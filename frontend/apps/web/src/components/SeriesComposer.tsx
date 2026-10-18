@@ -72,7 +72,7 @@ export function SeriesComposer({ onDone }: { onDone?: () => void }) {
                             value={f.clientId}
                             options={[{ key: "", label: s.pickClient }, ...f.clientOptions]}
                             onChange={f.setClientId}
-                            hint={f.petName !== null ? s.pet(f.petName) : undefined}
+                            hint={f.subjectHint ?? undefined}
                         />
                         <Select
                             label={s.service}

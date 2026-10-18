@@ -61,7 +61,7 @@ const PRINT_LABELS: PrintedDocLabels = {
     get page() {
         return s.page(1, 1);
     },
-    forPet: s.forPet,
+    forSubject: s.forSubject,
     qtyTimes: strings.billing.qtyTimes,
 };
 

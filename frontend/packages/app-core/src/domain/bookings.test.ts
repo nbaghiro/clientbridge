@@ -70,7 +70,7 @@ function event(id: string, start: Date, end: Date, extra: Partial<ScheduleEvent>
         priceCents: 7500,
         serviceName: "Groom",
         clientName: "Ann",
-        petName: null,
+        subjectName: null,
         staffName: "Amy Lee",
         staffShort: "Amy",
         staffColor: null,

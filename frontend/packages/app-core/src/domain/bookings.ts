@@ -45,9 +45,16 @@ import type { CalendarEventFlag, Intent, TimelineEntry } from "../ui";
 import type { Viewer } from "./auth";
 import { type ItemRow, bookableItems, useCatalogItems } from "./catalog";
 import { type Checkout, useCheckout } from "./checkout";
-import { type ClientRow, temperamentLabel, useClients } from "./clients";
+import { type ClientRow, useClients } from "./clients";
 import { canManagePayments } from "./payments";
 import { type StaffRow, staffName, useStaff } from "./staff";
+import {
+    type SubjectKind,
+    parseAttributes,
+    subjectSummary,
+    subjectTemperament,
+    useSubjectKind,
+} from "./subjects";
 import { type Arrival, expectArrival, useArrival, useReplicaLoad, useHistoryRange } from "./sync";
 
 const MIN = 60_000;
@@ -181,7 +188,7 @@ export interface ScheduleEvent extends CalendarEvent {
     priceCents: number;
     serviceName: string;
     clientName: string | null;
-    petName: string | null;
+    subjectName: string | null;
     staffName: string;
     staffShort: string;
     staffColor: string | null;
@@ -223,7 +230,7 @@ interface EventRow {
     booking_status: string | null;
     client_id: string | null;
     client_name: string | null;
-    pet_name: string | null;
+    subject_name: string | null;
     source: string | null;
     deposit_amount_cents: number | null;
     deposit_status: string | null;
@@ -255,7 +262,7 @@ SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.status
        (SELECT COUNT(*) FROM bookings x WHERE x.slot_id = s.id
           AND x.status NOT IN ('canceled', 'waitlisted') AND x.deleted_at IS NULL) AS booked_count,
        b.id AS booking_id, b.status AS booking_status, b.client_id, c.name AS client_name,
-       sj.name AS pet_name, b.source, b.deposit_amount_cents, b.deposit_status,
+       sj.name AS subject_name, b.source, b.deposit_amount_cents, b.deposit_status,
        b.price_cents AS booking_price, b.checked_in_at, b.created_at AS booked_at, b.reminded_at,
        (SELECT COUNT(*) FROM addons a WHERE a.booking_id = b.id) AS addon_count,
        (SELECT n.body FROM notes n WHERE n.parent_type = 'booking' AND n.parent_id = b.id
@@ -276,7 +283,7 @@ function enrich(r: EventRow, staff: Map<string, StaffRow>, now: Date, zone: stri
     const member = staff.get(r.staff_id);
     const name = member ? staffName(member) : "";
     const open = status === "confirmed" || status === "pending" || status === "scheduled";
-    const headline = isClass ? r.item_name : formatParts([r.pet_name, r.client_name]);
+    const headline = isClass ? r.item_name : formatParts([r.subject_name, r.client_name]);
     return {
         id: r.booking_id ?? r.slot_id,
         slotId: r.slot_id,
@@ -301,7 +308,7 @@ function enrich(r: EventRow, staff: Map<string, StaffRow>, now: Date, zone: stri
         priceCents: isClass ? r.item_price : (r.booking_price ?? r.item_price),
         serviceName: r.item_name,
         clientName: r.client_name,
-        petName: r.pet_name,
+        subjectName: r.subject_name,
         staffName: name,
         staffShort: firstName(name),
         staffColor: member?.color ?? null,
@@ -349,7 +356,7 @@ function useActiveStaff(): ActiveStaff {
     }, [staff]);
 }
 
-/** Every visit between two times, with client, pet, series and add-on count. */
+/** Every visit between two times, with client, subject, series and add-on count. */
 export function useScheduleEvents(
     start: Date,
     end: Date,
@@ -1326,11 +1333,10 @@ export const upNext = (events: readonly ScheduleEvent[], now: Date, n = 3): Sche
         .filter((e) => e.start > now && (e.status === "confirmed" || e.status === "pending"))
         .slice(0, n);
 
-interface VisitPet {
+interface VisitSubject {
     id: string;
     name: string;
-    breed: string | null;
-    temperament: string | null;
+    attributes: Record<string, unknown>;
 }
 
 interface DetailClientRow {
@@ -1341,7 +1347,7 @@ interface DetailClientRow {
     tags: string | null;
 }
 
-interface PetRow {
+interface SubjectDetailRow {
     id: string;
     name: string;
     attributes: string | null;
@@ -1364,7 +1370,7 @@ interface RosterRow {
     booking_id: string;
     status: string;
     client_name: string;
-    pet_name: string | null;
+    subject_name: string | null;
     deposit_status: string;
 }
 
@@ -1375,7 +1381,7 @@ interface VisitStatsRow {
 
 export const DETAIL_CLIENT_SQL = "SELECT id, name, phone, email, tags FROM clients WHERE id = ?";
 
-export const DETAIL_PET_SQL = `
+export const DETAIL_SUBJECT_SQL = `
 SELECT sj.id, sj.name, sj.attributes FROM subjects sj
 JOIN bookings b ON b.subject_id = sj.id WHERE b.id = ?`;
 
@@ -1393,7 +1399,7 @@ SELECT r.id, r.frequency, r.interval, r.count,
 FROM recurrences r JOIN slots s ON s.recurrence_id = r.id WHERE s.id = ?`;
 
 export const DETAIL_ROSTER_SQL = `
-SELECT b.id AS booking_id, b.status, c.name AS client_name, sj.name AS pet_name, b.deposit_status
+SELECT b.id AS booking_id, b.status, c.name AS client_name, sj.name AS subject_name, b.deposit_status
 FROM bookings b JOIN clients c ON c.id = b.client_id
 LEFT JOIN subjects sj ON sj.id = b.subject_id
 WHERE b.slot_id = ? AND b.status != 'canceled' AND b.deleted_at IS NULL
@@ -1404,23 +1410,9 @@ SELECT COUNT(*) AS visits, MAX(s.starts_at) AS last_visit
 FROM bookings b JOIN slots s ON s.id = b.slot_id
 WHERE b.client_id = ? AND b.status = 'completed' AND b.deleted_at IS NULL`;
 
-function petOf(row: PetRow | undefined): VisitPet | null {
+function subjectOf(row: SubjectDetailRow | undefined): VisitSubject | null {
     if (row === undefined) return null;
-    let attrs: Record<string, unknown> = {};
-    try {
-        const parsed: unknown = row.attributes === null ? {} : JSON.parse(row.attributes);
-        if (parsed !== null && typeof parsed === "object")
-            attrs = parsed as Record<string, unknown>;
-    } catch {
-        attrs = {};
-    }
-    const text = (v: unknown): string | null => (typeof v === "string" && v !== "" ? v : null);
-    return {
-        id: row.id,
-        name: row.name,
-        breed: text(attrs.breed),
-        temperament: text(attrs.temperament),
-    };
+    return { id: row.id, name: row.name, attributes: parseAttributes(row.attributes) };
 }
 
 function parseTags(raw: string | null): string[] {
@@ -1451,9 +1443,9 @@ export interface BookingDetail {
     event: ScheduleEvent;
     client: DetailClientRow | null;
     clientLine: string;
-    pet: VisitPet | null;
-    petLine: string | null;
-    petNervous: boolean;
+    subject: VisitSubject | null;
+    subjectLine: string | null;
+    temperament: { label: string; nervous: boolean } | null;
     tags: string[];
     notes: NoteRow[];
     series: string | null;
@@ -1461,7 +1453,7 @@ export interface BookingDetail {
     depositIntent: Intent;
     history: TimelineEntry[];
     timing: string;
-    roster: { id: string; name: string; pet: string; waiting: boolean; unpaid: boolean }[];
+    roster: { id: string; name: string; subjectName: string; waiting: boolean; unpaid: boolean }[];
 }
 
 function timingLabel(e: ScheduleEvent, now: Date, zone: string): string {
@@ -1476,12 +1468,15 @@ function timingLabel(e: ScheduleEvent, now: Date, zone: string): string {
     return formatFullDate(e.start, zone);
 }
 
-/** Everything the booking panel shows about one visit: client, pet, notes, deposit and history. */
+/** Everything the booking panel shows about one visit: client, subject, notes, deposit and history. */
 export function useBookingDetail(event: ScheduleEvent | null, now: Date): BookingDetail | null {
     const bookingId = event?.bookingId ?? "";
     const clientId = event?.clientId ?? "";
     const client = useQuery<DetailClientRow>(DETAIL_CLIENT_SQL, [clientId]).data.at(0) ?? null;
-    const pet = petOf(useQuery<PetRow>(DETAIL_PET_SQL, [bookingId]).data.at(0));
+    const subject = subjectOf(
+        useQuery<SubjectDetailRow>(DETAIL_SUBJECT_SQL, [bookingId]).data.at(0),
+    );
+    const kind = useSubjectKind();
     const notes = useQuery<NoteRow>(DETAIL_NOTES_SQL, [bookingId, clientId]).data;
     const series = useQuery<SeriesRow>(DETAIL_SERIES_SQL, [event?.slotId ?? ""]).data.at(0);
     const roster = useQuery<RosterRow>(DETAIL_ROSTER_SQL, [
@@ -1556,11 +1551,10 @@ export function useBookingDetail(event: ScheduleEvent | null, now: Date): Bookin
             visits > 0 ? s.visitsCount(visits) : s.firstVisit,
             last !== null ? s.lastVisit(formatDate(last, zone)) : null,
         ]),
-        pet,
-        petLine: pet
-            ? formatParts([pet.breed, pet.temperament && temperamentLabel(pet.temperament)]) || null
-            : null,
-        petNervous: pet?.temperament === "anxious" || pet?.temperament === "skittish",
+        subject,
+        subjectLine:
+            subject === null ? null : subjectSummary(kind, subject.attributes, zone, now) || null,
+        temperament: subject === null ? null : subjectTemperament(kind, subject.attributes),
         tags: parseTags(client?.tags ?? null),
         notes,
         series: series
@@ -1586,7 +1580,7 @@ export function useBookingDetail(event: ScheduleEvent | null, now: Date): Bookin
         roster: roster.map((r) => ({
             id: r.booking_id,
             name: r.client_name,
-            pet: r.pet_name ?? "",
+            subjectName: r.subject_name ?? "",
             waiting: r.status === "waitlisted",
             unpaid: r.deposit_status === "pending",
         })),
@@ -1670,14 +1664,14 @@ export interface ComposerSlot {
     start: Date;
 }
 
-interface PetOption {
+interface SubjectOption {
     id: string;
     client_id: string;
     name: string;
 }
 
-export const CLIENT_PETS_SQL =
-    "SELECT id, client_id, name FROM subjects ORDER BY name COLLATE NOCASE";
+export const CLIENT_SUBJECT_OPTIONS_SQL =
+    "SELECT id, client_id, name FROM subjects WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 
@@ -1695,12 +1689,13 @@ export function composerTimes(window: VisibleWindow): { key: string; label: stri
 export interface BookingComposer {
     query: string;
     setQuery: (q: string) => void;
-    matches: { client: ClientRow; pets: string[] }[];
+    matches: { client: ClientRow; subjects: string[] }[];
     client: ClientRow | null;
     pickClient: (id: string | null) => void;
-    pets: PetOption[];
-    petId: string;
-    setPetId: (id: string) => void;
+    kind: SubjectKind | null;
+    subjects: SubjectOption[];
+    subjectId: string;
+    setSubjectId: (id: string) => void;
     services: ItemRow[];
     item: ItemRow | null;
     setItemId: (id: string) => void;
@@ -1820,11 +1815,12 @@ export function useBookingComposer(
     onCreated: () => void,
 ): BookingComposer {
     const clients = useClients();
-    const allPets = useQuery<PetOption>(CLIENT_PETS_SQL).data;
+    const kind = useSubjectKind();
+    const allSubjects = useQuery<SubjectOption>(CLIENT_SUBJECT_OPTIONS_SQL).data;
     const services = bookableItems(useCatalogItems());
     const [query, setQuery] = useState("");
     const [clientId, setClientId] = useState<string | null>(null);
-    const [petId, setPetId] = useState("");
+    const [subjectId, setSubjectId] = useState("");
     const [itemId, setItemId] = useState("");
     const zone = useBusinessZone();
     const [staffId, setStaffId] = useState(slot.staffId);
@@ -1850,14 +1846,15 @@ export function useBookingComposer(
     const length = item?.duration_min ?? 60;
     const end = new Date(start.getTime() + length * MIN);
     const q = query.trim().toLowerCase();
-    const petsOf = (id: string): PetOption[] => allPets.filter((p) => p.client_id === id);
+    const subjectsOf = (id: string): SubjectOption[] =>
+        kind === null ? [] : allSubjects.filter((p) => p.client_id === id);
     const matches = clients
         .filter((c) => c.status === "active")
-        .map((c) => ({ client: c, pets: petsOf(c.id).map((p) => p.name) }))
+        .map((c) => ({ client: c, subjects: subjectsOf(c.id).map((p) => p.name) }))
         .filter(
             (x) =>
                 q === "" ||
-                [x.client.name, x.client.phone ?? "", ...x.pets].some((v) =>
+                [x.client.name, x.client.phone ?? "", ...x.subjects].some((v) =>
                     v.toLowerCase().includes(q),
                 ),
         )
@@ -1888,12 +1885,13 @@ export function useBookingComposer(
         client,
         pickClient: (id) => {
             setClientId(id);
-            setPetId(id === null ? "" : (petsOf(id).at(0)?.id ?? ""));
+            setSubjectId(id === null ? "" : (subjectsOf(id).at(0)?.id ?? ""));
             setQuery("");
         },
-        pets: client ? petsOf(client.id) : [],
-        petId,
-        setPetId,
+        kind,
+        subjects: client ? subjectsOf(client.id) : [],
+        subjectId,
+        setSubjectId,
         services,
         item,
         setItemId,
@@ -1931,7 +1929,7 @@ export function useBookingComposer(
             }
             const body = {
                 client_id: client.id,
-                subject_id: petId === "" ? null : petId,
+                subject_id: subjectId === "" ? null : subjectId,
                 item_id: item.id,
                 staff_id: staffId,
                 starts_at: start.toISOString(),

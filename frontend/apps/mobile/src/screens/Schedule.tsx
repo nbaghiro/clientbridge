@@ -281,7 +281,7 @@ export function ScheduleScreen() {
                                             ]}
                                         >
                                             <CalendarEventCard
-                                                headline={p.event.petName ?? p.event.headline}
+                                                headline={p.event.subjectName ?? p.event.headline}
                                                 detail={
                                                     p.event.kind === "class"
                                                         ? s.classSeats(

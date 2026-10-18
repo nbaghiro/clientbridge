@@ -19,9 +19,9 @@ import {
     useSavedCards,
     formatParts,
     formatList,
-    temperamentLabel,
     BUSINESS_CURRENCY,
     useBusinessZone,
+    kindWord,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -166,7 +166,7 @@ function Addons({ event }: { event: ScheduleEvent }) {
 export function BookingBody({ detail }: { detail: BookingDetail }) {
     const zone = useBusinessZone();
     const e = detail.event;
-    const { client, pet } = detail;
+    const { client, subject } = detail;
     const [messaging, setMessaging] = useState(false);
     const cards = useSavedCards(client?.id ?? "");
     const card = cards.find((x) => x.preferred === 1) ?? cards[0];
@@ -242,22 +242,22 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                                 </Text>
                             </View>
                         </View>
-                        {pet ? (
+                        {subject ? (
                             <View style={[styles.cardRow, styles.divider]}>
-                                <Avatar name={pet.name} size="sm" />
+                                <Avatar name={subject.name} size="sm" />
                                 <View style={styles.flex}>
-                                    <Text style={styles.petName}>{pet.name}</Text>
-                                    {detail.petLine !== null ? (
+                                    <Text style={styles.subjectName}>{subject.name}</Text>
+                                    {detail.subjectLine !== null ? (
                                         <Text style={styles.sub} numberOfLines={1}>
-                                            {detail.petLine}
+                                            {detail.subjectLine}
                                         </Text>
                                     ) : null}
                                 </View>
-                                {pet.temperament !== null ? (
+                                {detail.temperament !== null ? (
                                     <Badge
                                         style={{ alignSelf: "center" }}
-                                        label={temperamentLabel(pet.temperament)}
-                                        intent={detail.petNervous ? "warning" : "neutral"}
+                                        label={detail.temperament.label}
+                                        intent={detail.temperament.nervous ? "warning" : "neutral"}
                                     />
                                 ) : null}
                             </View>
@@ -285,9 +285,14 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                     <View style={styles.card}>
                         {detail.roster.map((r, i) => (
                             <View key={r.id} style={[styles.cardRow, i > 0 && styles.divider]}>
-                                <Avatar name={r.pet === "" ? r.name : r.pet} size="sm" />
-                                <Text style={[styles.flex, styles.petName]} numberOfLines={1}>
-                                    {r.pet === "" ? r.name : formatParts([r.pet, r.name])}
+                                <Avatar
+                                    name={r.subjectName === "" ? r.name : r.subjectName}
+                                    size="sm"
+                                />
+                                <Text style={[styles.flex, styles.subjectName]} numberOfLines={1}>
+                                    {r.subjectName === ""
+                                        ? r.name
+                                        : formatParts([r.subjectName, r.name])}
                                 </Text>
                                 {r.waiting ? (
                                     <Badge
@@ -557,7 +562,7 @@ export function BookingComposerSheet({
                             <Text style={styles.name}>{form.client.name}</Text>
                             <Text style={styles.sub}>
                                 {formatList(
-                                    form.pets.map((p) => p.name),
+                                    form.subjects.map((x) => x.name),
                                     "unit",
                                 )}
                             </Text>
@@ -578,7 +583,7 @@ export function BookingComposerSheet({
                         <SearchField
                             value={form.query}
                             onChange={form.setQuery}
-                            placeholder={s.composerClientSearch}
+                            placeholder={s.composerClientSearch(kindWord(form.kind))}
                         />
                         <View style={styles.card}>
                             {form.matches.slice(0, 4).map((m) => (
@@ -587,7 +592,7 @@ export function BookingComposerSheet({
                                     density="compact"
                                     leading={<Avatar name={m.client.name} size="sm" />}
                                     title={m.client.name}
-                                    detail={formatList(m.pets, "unit")}
+                                    detail={formatList(m.subjects, "unit")}
                                     onPress={() => {
                                         form.pickClient(m.client.id);
                                     }}
@@ -596,12 +601,12 @@ export function BookingComposerSheet({
                         </View>
                     </>
                 )}
-                {form.pets.length > 1 ? (
+                {form.kind !== null && form.subjects.length > 1 ? (
                     <Choice
-                        label={s.composerPet}
-                        options={form.pets.map((p) => ({ key: p.id, label: p.name }))}
-                        value={form.petId}
-                        onChange={form.setPetId}
+                        label={strings.subjects.one(form.kind)}
+                        options={form.subjects.map((x) => ({ key: x.id, label: x.name }))}
+                        value={form.subjectId}
+                        onChange={form.setSubjectId}
                     />
                 ) : null}
 
@@ -745,7 +750,7 @@ const styles = StyleSheet.create({
     flex: { flex: 1, minWidth: 0 },
     rowGap: { flexDirection: "row", alignItems: "center", gap: 6 },
     name: { color: c.ink, fontSize: 15, fontWeight: "600", flexShrink: 1 },
-    petName: { color: c.ink, fontSize: 14, fontWeight: "600" },
+    subjectName: { color: c.ink, fontSize: 14, fontWeight: "600" },
     sub: { color: c.muted, fontSize: 13, marginTop: 1 },
     note: {
         backgroundColor: c.warnBg,

@@ -27,21 +27,21 @@ export interface ReviewRow {
     client_name: string | null;
     service: string | null;
     staff_name: string | null;
-    pet_name: string | null;
+    subject_name: string | null;
     visit_at: string | null;
 }
 
 export const REVIEWS_SQL = `
 SELECT r.id, r.client_id, r.booking_id, r.rating, r.body, r.response, r.responded_at,
        r.sent_to_google, r.status, r.created_at, r.submitted_at, c.name AS client_name,
-       i.name AS service, ${staffNameSql("st")} AS staff_name, p.name AS pet_name, sl.starts_at AS visit_at
+       i.name AS service, ${staffNameSql("st")} AS staff_name, sj.name AS subject_name, sl.starts_at AS visit_at
 FROM reviews r
 LEFT JOIN clients c ON c.id = r.client_id
 LEFT JOIN bookings b ON b.id = r.booking_id
 LEFT JOIN slots sl ON sl.id = b.slot_id
 LEFT JOIN items i ON i.id = sl.item_id
 LEFT JOIN staff st ON st.id = b.staff_id
-LEFT JOIN subjects p ON p.id = b.subject_id
+LEFT JOIN subjects sj ON sj.id = b.subject_id
 WHERE r.status IN ('submitted', 'published', 'hidden')
 ORDER BY COALESCE(r.submitted_at, r.created_at) DESC`;
 

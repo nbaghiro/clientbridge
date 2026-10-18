@@ -94,6 +94,7 @@ function seed(): void {
             brand: "{}",
             stripe_account_id: "acct_1",
             tax_registered: 1,
+            subject: "pet",
         },
     ]);
     scoped("staff", [
@@ -1196,9 +1197,9 @@ describe("app-core SQL against the replica schema", () => {
             { id: "th_2", unread_count: 0, last_body: "Receipt", client_name: "ben" },
         ]);
         expect(run("CONVERSATION_SQL", ["th_1"]).map((r) => r.id)).toEqual(["m_1", "m_2", "m_3"]);
-        expect(pick(run("INBOX_SQL"), "id", "unread_count", "pet_names")).toEqual([
-            { id: "th_1", unread_count: 2, pet_names: null },
-            { id: "th_2", unread_count: 0, pet_names: null },
+        expect(pick(run("INBOX_SQL"), "id", "unread_count", "subject_names")).toEqual([
+            { id: "th_1", unread_count: 2, subject_names: null },
+            { id: "th_2", unread_count: 0, subject_names: null },
         ]);
         expect(
             pick(
@@ -1426,6 +1427,7 @@ describe("app-core SQL against the replica schema", () => {
             { id: "con_1", version: 2 },
         ]);
         expect(run("BUSINESS_NAME_SQL")).toEqual([{ name: "Birch Studio" }]);
+        expect(run("SUBJECT_KIND_SQL")).toEqual([{ subject: "pet" }]);
         expect(run("RECURRING_HOURS_SQL", ["st_amy"])).toEqual([
             { weekday: 1, start_time: "09:00:00", end_time: "17:00:00", available: 1 },
         ]);
@@ -1584,7 +1586,7 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("TAX_SETUP_SQL")).toEqual([{ province: null, tax_registered: 1 }]);
     });
 
-    it("reads a client's record: pets, visits, notes, methods, plans and history", () => {
+    it("reads a client's record: subjects, visits, notes, methods, plans and history", () => {
         scoped("slots", [
             {
                 id: "ss_future",
@@ -1646,10 +1648,10 @@ describe("app-core SQL against the replica schema", () => {
 
         const ann = run("CLIENT_SQL", [new Date().toISOString(), "cl_ann"])[0];
         expect(
-            pick([ann ?? {}], "pet_names", "next_visit_at", "tags", "preferred_channel"),
+            pick([ann ?? {}], "subject_names", "next_visit_at", "tags", "preferred_channel"),
         ).toEqual([
             {
-                pet_names: "Rex",
+                subject_names: "Rex",
                 next_visit_at: "2026-11-05T17:00:00Z",
                 tags: '["vip","regular"]',
                 preferred_channel: "email",
@@ -1715,12 +1717,12 @@ describe("app-core SQL against the replica schema", () => {
                 run("CLIENT_FOOTPRINT_SQL", ["cl_ann", "cl_ben"]),
                 "id",
                 "bookings",
-                "pet_count",
+                "subject_count",
                 "notes",
             ),
         ).toEqual([
-            { id: "cl_ann", bookings: 2, pet_count: 1, notes: 1 },
-            { id: "cl_ben", bookings: 1, pet_count: 0, notes: 1 },
+            { id: "cl_ann", bookings: 2, subject_count: 1, notes: 1 },
+            { id: "cl_ben", bookings: 1, subject_count: 0, notes: 1 },
         ]);
     });
 
@@ -1882,7 +1884,7 @@ describe("app-core SQL against the replica schema", () => {
         db.run("DELETE FROM consents WHERE id IN ('cns_x1', 'cns_x2')");
     });
 
-    it("reads the schedule's people, pets, hours, time off and series", () => {
+    it("reads the schedule's people, subjects, hours, time off and series", () => {
         scheduleRows();
         const range = ["2027-01-07T00:00:00.000Z", "2027-01-05T00:00:00.000Z"];
         expect(
@@ -1890,7 +1892,7 @@ describe("app-core SQL against the replica schema", () => {
                 run("EVENTS_SQL", range),
                 "slot_id",
                 "booking_id",
-                "pet_name",
+                "subject_name",
                 "recurrence_id",
                 "booked_count",
                 "note",
@@ -1899,7 +1901,7 @@ describe("app-core SQL against the replica schema", () => {
             {
                 slot_id: "ss_c1",
                 booking_id: "bk_c1",
-                pet_name: "Rex",
+                subject_name: "Rex",
                 recurrence_id: "sch_1",
                 booked_count: 1,
                 note: "Nervous",
@@ -1907,7 +1909,7 @@ describe("app-core SQL against the replica schema", () => {
             {
                 slot_id: "ss_k",
                 booking_id: null,
-                pet_name: null,
+                subject_name: null,
                 recurrence_id: null,
                 booked_count: 1,
                 note: null,
@@ -1920,7 +1922,7 @@ describe("app-core SQL against the replica schema", () => {
             ),
         ).toEqual(["av_shut", "av_off"]);
         expect(run("DETAIL_CLIENT_SQL", ["cl_ann"]).map((r) => r.name)).toEqual(["Ann"]);
-        expect(run("DETAIL_PET_SQL", ["bk_c1"]).map((r) => r.name)).toEqual(["Rex"]);
+        expect(run("DETAIL_SUBJECT_SQL", ["bk_c1"]).map((r) => r.name)).toEqual(["Rex"]);
         expect(
             run("DETAIL_NOTES_SQL", ["bk_c1", "cl_ann"])
                 .map((r) => r.id)
@@ -1934,7 +1936,7 @@ describe("app-core SQL against the replica schema", () => {
             { booking_id: "bk_k2", status: "waitlisted" },
         ]);
         expect(pick(run("VISIT_STATS_SQL", ["cl_ann"]), "visits")).toEqual([{ visits: 2 }]);
-        expect(run("CLIENT_PETS_SQL").map((r) => r.id)).toEqual(["sj_rex"]);
+        expect(run("CLIENT_SUBJECT_OPTIONS_SQL").map((r) => r.id)).toEqual(["sj_rex"]);
         expect(run("BOOKING_START_SQL", ["bk_c1"])).toEqual([
             { starts_at: "2027-01-05T17:00:00Z" },
         ]);
@@ -1965,21 +1967,21 @@ describe("app-core SQL against the replica schema", () => {
         ]);
         const visits = run("SERIES_VISITS_SQL");
         expect(
-            pick(visits, "slot_id", "recurrence_id", "booking_id", "status", "pet_name"),
+            pick(visits, "slot_id", "recurrence_id", "booking_id", "status", "subject_name"),
         ).toEqual([
             {
                 slot_id: "ss_c1",
                 recurrence_id: "sch_1",
                 booking_id: "bk_c1",
                 status: "confirmed",
-                pet_name: "Rex",
+                subject_name: "Rex",
             },
             {
                 slot_id: "ss_c2",
                 recurrence_id: "sch_1",
                 booking_id: "bk_c2",
                 status: "completed",
-                pet_name: null,
+                subject_name: null,
             },
         ]);
         expect(visits.filter((v) => v.status === "completed")).toHaveLength(1);
@@ -2002,18 +2004,18 @@ describe("app-core SQL against the replica schema", () => {
             "2027-01-01T00:00:00.000Z",
             "2027-02-01T00:00:00.000Z",
         ]);
-        expect(pick(roster, "booking_id", "slot_id", "status", "pet_name")).toEqual([
-            { booking_id: "bk_k1", slot_id: "ss_k", status: "confirmed", pet_name: "Rex" },
-            { booking_id: "bk_k2", slot_id: "ss_k", status: "waitlisted", pet_name: null },
+        expect(pick(roster, "booking_id", "slot_id", "status", "subject_name")).toEqual([
+            { booking_id: "bk_k1", slot_id: "ss_k", status: "confirmed", subject_name: "Rex" },
+            { booking_id: "bk_k2", slot_id: "ss_k", status: "waitlisted", subject_name: null },
         ]);
         expect(roster.filter((r) => r.status === "confirmed")).toHaveLength(1);
         expect(roster.filter((r) => r.status === "waitlisted")).toHaveLength(1);
         expect(
             run("CLASS_ROSTER_SQL", ["2027-01-07T00:00:00.000Z", "2027-02-01T00:00:00.000Z"]),
         ).toEqual([]);
-        expect(pick(run("CLASS_CLIENTS_SQL"), "id", "pet_name")).toEqual([
-            { id: "cl_ann", pet_name: "Rex" },
-            { id: "cl_ben", pet_name: null },
+        expect(pick(run("CLASS_CLIENTS_SQL"), "id", "subject_name")).toEqual([
+            { id: "cl_ann", subject_name: "Rex" },
+            { id: "cl_ben", subject_name: null },
         ]);
         expect(run("REMINDERS_SENT_SQL", ["2027-01-01T00:00:00.000Z"])).toEqual([{ sent: 1 }]);
         insert("items", [

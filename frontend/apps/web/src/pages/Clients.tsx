@@ -4,15 +4,18 @@ import {
     type ClientRecord,
     type ClientSegment,
     type ClientSelection,
+    type SubjectKind,
     type SubjectRow,
     canManagePayments,
     formatDate,
     formatRelativeTime,
     formatTime,
     formatWeekday,
+    kindWord,
     nextVisitLabel,
-    petSummary,
     savedCardLabel,
+    subjectSummary,
+    subjectTemperament,
     strings,
     useClientDirectory,
     useClientRecord,
@@ -21,9 +24,9 @@ import {
     visitPill,
     formatParts,
     formatList,
-    temperamentLabel,
     BUSINESS_CURRENCY,
     useBusinessZone,
+    useSubjectKind,
 } from "@clientbridge/app-core";
 import {
     ActionMenu,
@@ -54,7 +57,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ClientEditorDialog } from "../components/ClientEditor";
 import { ClientHistory, NoteDialog } from "../components/ClientHistory";
 import { ClientMergeDialog } from "../components/ClientMerge";
-import { ClientPets, PetDialog } from "../components/ClientPets";
+import { ClientSubjects, SubjectDialog } from "../components/ClientSubjects";
 import { ClientWallet } from "../components/ClientWallet";
 import { api } from "../lib/api";
 import { useRole, useViewer } from "../lib/auth";
@@ -65,11 +68,11 @@ const t = strings.clients.tidy;
 
 type Dialog =
     | { kind: "client"; id: string | null }
-    | { kind: "pet"; clientId: string; pet: SubjectRow | null }
-    | { kind: "note"; clientId: string; pets: readonly SubjectRow[] }
+    | { kind: "subject"; clientId: string; subject: SubjectRow | null }
+    | { kind: "note"; clientId: string; subjects: readonly SubjectRow[] }
     | { kind: "merge"; a: ClientListRow; b: ClientListRow };
 
-const VIEWS = ["history", "pets", "payment-methods"] as const;
+const VIEWS = ["history", "subjects", "payment-methods"] as const;
 type View = (typeof VIEWS)[number];
 
 export function Clients() {
@@ -81,6 +84,7 @@ export function Clients() {
 
 function ClientList() {
     const zone = useBusinessZone();
+    const kind = useSubjectKind();
     const dir = useClientDirectory();
     const manager = canManagePayments(useRole());
     const [openId, setOpenId] = useState<string | null>(null);
@@ -94,11 +98,18 @@ function ClientList() {
         },
         onOpen: setOpenId,
     });
-    const grid = selecting
-        ? "grid grid-cols-[28px_2fr_1.2fr_1.6fr] items-center gap-3"
-        : manager
-          ? "grid grid-cols-[2.2fr_1.2fr_1.2fr_0.9fr] items-center gap-4"
-          : "grid grid-cols-[2.2fr_1.4fr_1.2fr] items-center gap-4";
+    const grid =
+        kind === null
+            ? selecting
+                ? "grid grid-cols-[28px_2fr_1.6fr] items-center gap-3"
+                : manager
+                  ? "grid grid-cols-[2.2fr_1.2fr_0.9fr] items-center gap-4"
+                  : "grid grid-cols-[2.2fr_1.2fr] items-center gap-4"
+            : selecting
+              ? "grid grid-cols-[28px_2fr_1.2fr_1.6fr] items-center gap-3"
+              : manager
+                ? "grid grid-cols-[2.2fr_1.2fr_1.2fr_0.9fr] items-center gap-4"
+                : "grid grid-cols-[2.2fr_1.4fr_1.2fr] items-center gap-4";
     const ids = dir.rows.map((c) => c.id);
     const allOn = ids.length > 0 && ids.every((id) => sel.isSelected(id));
 
@@ -153,7 +164,11 @@ function ClientList() {
                 }
                 search={
                     dir.load.ready
-                        ? { value: dir.q, onChange: dir.setQ, placeholder: r.searchPlaceholder }
+                        ? {
+                              value: dir.q,
+                              onChange: dir.setQ,
+                              placeholder: r.searchPlaceholder(kindWord(kind)),
+                          }
                         : undefined
                 }
                 banner={
@@ -184,7 +199,7 @@ function ClientList() {
                             />
                         ) : null}
                         <span>{r.colClient}</span>
-                        <span>{r.colPets}</span>
+                        {kind !== null ? <span>{strings.subjects.many(kind)}</span> : null}
                         <span>{selecting ? r.colTags : r.colNext}</span>
                         {manager && !selecting ? (
                             <span className="text-right">{r.colBalance}</span>
@@ -241,9 +256,11 @@ function ClientList() {
                                 </div>
                             </div>
                         </div>
-                        <span className="truncate text-sm text-ink-soft">
-                            {c.pets || strings.clients.dash}
-                        </span>
+                        {kind !== null ? (
+                            <span className="truncate text-sm text-ink-soft">
+                                {c.subjects || strings.clients.dash}
+                            </span>
+                        ) : null}
                         {selecting ? (
                             <span className="flex min-w-0 flex-wrap gap-1">
                                 {c.tags.map((tag) => (
@@ -522,17 +539,23 @@ function Dialogs({
                     onClose={onClose}
                 />
             );
-        case "pet":
+        case "subject":
             return (
-                <PetDialog
-                    key={dialog.pet?.id ?? "new"}
+                <SubjectDialog
+                    key={dialog.subject?.id ?? "new"}
                     clientId={dialog.clientId}
-                    pet={dialog.pet}
+                    subject={dialog.subject}
                     onClose={onClose}
                 />
             );
         case "note":
-            return <NoteDialog clientId={dialog.clientId} pets={dialog.pets} onClose={onClose} />;
+            return (
+                <NoteDialog
+                    clientId={dialog.clientId}
+                    subjects={dialog.subjects}
+                    onClose={onClose}
+                />
+            );
         case "merge":
             return (
                 <ClientMergeDialog
@@ -651,7 +674,9 @@ function NoteItem({ note, manager }: { note: ClientNote; manager: boolean }) {
                         note.author,
                         formatRelativeTime(note.at.toISOString(), zone),
                     )}
-                    {note.pet !== null ? <Badge label={note.pet} intent="neutral" /> : null}
+                    {note.subjectName !== null ? (
+                        <Badge label={note.subjectName} intent="neutral" />
+                    ) : null}
                     {note.pinned ? <Badge label={r.pinned} intent="warning" /> : null}
                 </p>
                 {actions.error !== null ? <Notice tone="danger">{actions.error}</Notice> : null}
@@ -725,6 +750,7 @@ function RecordPanel({
     onDialog: (d: Dialog) => void;
 }) {
     const zone = useBusinessZone();
+    const kind = useSubjectKind();
     const viewer = useViewer();
     const { load, record } = useClientRecord(api, clientId, viewer?.staffId ?? null);
     const navigate = useNavigate();
@@ -758,7 +784,7 @@ function RecordPanel({
             subtitle={formatParts([
                 c.phoneLabel,
                 formatList(
-                    record.pets.map((p) => p.name),
+                    record.subjects.map((x) => x.name),
                     "unit",
                 ),
             ])}
@@ -791,67 +817,71 @@ function RecordPanel({
             <div className="rounded-md border border-line bg-bg px-4 py-3">
                 <RecordFacts record={record} manager={manager} />
             </div>
-            <DetailSection
-                title={r.pets}
-                action={
-                    <span className="flex gap-3">
-                        {record.pets.length > 0 ? (
+            {kind !== null ? (
+                <DetailSection
+                    title={strings.subjects.many(kind)}
+                    action={
+                        <span className="flex gap-3">
+                            {record.subjects.length > 0 ? (
+                                <Button
+                                    size="sm"
+                                    variant="link"
+                                    onPress={() => {
+                                        go(`/clients/${c.id}/subjects`);
+                                    }}
+                                >
+                                    {strings.subjects.many(kind)}
+                                </Button>
+                            ) : null}
                             <Button
                                 size="sm"
                                 variant="link"
                                 onPress={() => {
-                                    go(`/clients/${c.id}/pets`);
+                                    onDialog({ kind: "subject", clientId: c.id, subject: null });
                                 }}
                             >
-                                {strings.clients.pets.pets}
+                                {strings.subjects.add(kind)}
                             </Button>
-                        ) : null}
-                        <Button
-                            size="sm"
-                            variant="link"
-                            onPress={() => {
-                                onDialog({ kind: "pet", clientId: c.id, pet: null });
-                            }}
-                        >
-                            {r.addPet}
-                        </Button>
-                    </span>
-                }
-            >
-                {record.pets.length === 0 ? <p className="text-sm text-muted">{r.noPets}</p> : null}
-                <div className="grid gap-2">
-                    {record.pets.map((pet) => (
-                        <div
-                            key={pet.id}
-                            className="overflow-hidden rounded-md border border-line bg-bg"
-                        >
-                            <ListRow
-                                density="compact"
-                                leading={<Avatar name={pet.name} size="sm" />}
-                                title={pet.name}
-                                detail={petSummary(pet)}
-                                meta={
-                                    typeof pet.attributes.temperament === "string" ? (
-                                        <Badge
-                                            label={temperamentLabel(pet.attributes.temperament)}
-                                            intent={
-                                                pet.attributes.temperament === "anxious" ||
-                                                pet.attributes.temperament === "reactive"
-                                                    ? "warning"
-                                                    : "neutral"
-                                            }
-                                        />
-                                    ) : undefined
-                                }
-                                label={r.editPetNamed(pet.name)}
-                                onPress={() => {
-                                    onDialog({ kind: "pet", clientId: c.id, pet });
-                                }}
-                            />
-                        </div>
-                    ))}
-                </div>
-            </DetailSection>
+                        </span>
+                    }
+                >
+                    {record.subjects.length === 0 ? (
+                        <p className="text-sm text-muted">{strings.subjects.none(kind)}</p>
+                    ) : null}
+                    <div className="grid gap-2">
+                        {record.subjects.map((subject) => {
+                            const temperament = subjectTemperament(kind, subject.attributes);
+                            return (
+                                <div
+                                    key={subject.id}
+                                    className="overflow-hidden rounded-md border border-line bg-bg"
+                                >
+                                    <ListRow
+                                        density="compact"
+                                        leading={<Avatar name={subject.name} size="sm" />}
+                                        title={subject.name}
+                                        detail={subjectSummary(kind, subject.attributes, zone)}
+                                        meta={
+                                            temperament !== null ? (
+                                                <Badge
+                                                    label={temperament.label}
+                                                    intent={
+                                                        temperament.nervous ? "warning" : "neutral"
+                                                    }
+                                                />
+                                            ) : undefined
+                                        }
+                                        label={strings.subjects.editNamed(subject.name)}
+                                        onPress={() => {
+                                            onDialog({ kind: "subject", clientId: c.id, subject });
+                                        }}
+                                    />
+                                </div>
+                            );
+                        })}
+                    </div>
+                </DetailSection>
+            ) : null}
             <DetailSection title={r.upcoming}>
                 {record.upcoming.length === 0 ? (
                     <p className="text-sm text-muted">{r.noUpcoming}</p>
@@ -903,7 +933,7 @@ function RecordPanel({
                         size="sm"
                         variant="link"
                         onPress={() => {
-                            onDialog({ kind: "note", clientId: c.id, pets: record.pets });
+                            onDialog({ kind: "note", clientId: c.id, subjects: record.subjects });
                         }}
                     >
                         {r.addNote}
@@ -965,20 +995,15 @@ function RecordPanel({
     );
 }
 
-const VIEW_TITLE: Record<View, string> = {
-    get history() {
-        return strings.clients.history.title;
-    },
-    get pets() {
-        return strings.clients.pets.pets;
-    },
-    get "payment-methods"() {
-        return strings.clients.wallet.title;
-    },
-};
+function viewTitle(view: View, kind: SubjectKind | null): string {
+    if (view === "history") return strings.clients.history.title;
+    if (view === "subjects") return strings.subjects.many(kindWord(kind));
+    return strings.clients.wallet.title;
+}
 
 function ClientPage({ clientId, view }: { clientId: string; view: View }) {
     const zone = useBusinessZone();
+    const kind = useSubjectKind();
     const viewer = useViewer();
     const manager = canManagePayments(useRole());
     const { load, record } = useClientRecord(api, clientId, viewer?.staffId ?? null);
@@ -1018,7 +1043,7 @@ function ClientPage({ clientId, view }: { clientId: string; view: View }) {
                             </h1>
                             <p className="text-sm text-muted">
                                 {formatParts([
-                                    VIEW_TITLE[view],
+                                    viewTitle(view, kind),
                                     c.phoneLabel,
                                     strings.clients.history.since(formatDate(c.since, zone)),
                                 ])}
@@ -1053,7 +1078,9 @@ function ClientPage({ clientId, view }: { clientId: string; view: View }) {
                                 }
                             />
                         ) : null}
-                        {view === "pets" ? <ClientPets clientId={clientId} /> : null}
+                        {view === "subjects" && kind !== null ? (
+                            <ClientSubjects clientId={clientId} kind={kind} />
+                        ) : null}
                         {view === "payment-methods" ? (
                             manager ? (
                                 <ClientWallet clientId={clientId} />
