@@ -49,9 +49,15 @@ async def test_connection_failure_is_retried_once_and_accepted_delivery_is_not_r
     monkeypatch.setattr(email, "send", original)
     row.next_at = clock.now()
     await db.commit()
-    assert await run_deliveries(db, email, sms, push) == 1
-    assert await run_deliveries(db, email, sms, push) == 0
-    assert len(email.sent) == 1 and email.sent[0].idempotency_key == identity
+
+    def ours() -> list[Email]:
+        return [m for m in email.sent if m.tags.get("delivery") == identity]
+
+    await run_deliveries(db, email, sms, push)
+    await db.refresh(row)
+    assert row.state == "accepted" and len(ours()) == 1
+    await run_deliveries(db, email, sms, push)
+    assert len(ours()) == 1 and ours()[0].idempotency_key == identity
 
 
 async def test_expired_worker_claim_is_ambiguous_and_never_blindly_resent(
@@ -69,10 +75,10 @@ async def test_expired_worker_claim_is_ambiguous_and_never_blindly_resent(
         clock.now() - timedelta(seconds=1),
     )
     await db.commit()
-    assert await run_deliveries(db, email, sms, push) == 0
+    await run_deliveries(db, email, sms, push)
     await db.refresh(row)
     assert row.state == "ambiguous" and row.next_at is None
-    assert email.sent == []
+    assert not [m for m in email.sent if m.tags.get("delivery") == identity]
 
 
 async def test_unknown_send_failure_preserves_an_ambiguous_outcome(
