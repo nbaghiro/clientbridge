@@ -4,15 +4,7 @@ import { usePowerSync, useQuery as useGlobalQuery } from "@powersync/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { type Load, useAsyncAction, useLoad } from "../hooks";
-import {
-    BUSINESS_CURRENCY,
-    formatNumber,
-    parseNumber,
-    formatList,
-    formatMoney,
-    formatParts,
-    formatRating,
-} from "../format";
+import { BUSINESS_CURRENCY, formatList, formatMoney, formatParts, formatRating } from "../format";
 import { strings } from "../strings";
 import { type ApiLike, failedCode, failureMessage } from "../api";
 import type { ChoiceOption, Fact, SelectOption } from "../ui";
@@ -1004,64 +996,5 @@ export function useBusinessSelection(bindApi: (businessId: string | null) => voi
             (firstSyncTimedOut && !synced && businesses.data.length === 0)
                 ? strings.business.switchError
                 : null),
-    };
-}
-
-export function useDiscountSettings(api: ApiLike) {
-    const row = useQuery<{ staff_discount_limit_bps: number }>(
-        "SELECT staff_discount_limit_bps FROM businesses LIMIT 1",
-    ).data[0];
-    const [draft, setDraft] = useState<string | null>(null);
-    const [pin, setPin] = useState("");
-    const [saved, setSaved] = useState(false);
-    const action = useAsyncAction();
-    const limit = draft ?? (row ? formatNumber(row.staff_discount_limit_bps / 100) : "");
-    return {
-        limit,
-        pin,
-        ready: row !== undefined,
-        busy: action.busy,
-        error: action.error,
-        saved,
-        setLimit: (value: string) => {
-            setDraft(value);
-            setSaved(false);
-        },
-        setPin: (value: string) => {
-            setPin(value);
-            setSaved(false);
-        },
-        saveLimit: () => {
-            const percent = parseNumber(limit);
-            if (percent === null || percent < 0 || percent > 100) {
-                action.setError(strings.business.discountInvalid);
-                return;
-            }
-            action.run(
-                () =>
-                    api.patch("/v1/business", {
-                        staff_discount_limit_bps: Math.round(percent * 100),
-                    }),
-                {
-                    errorMessage: strings.business.discountFailed,
-                    onSuccess: () => {
-                        setSaved(true);
-                    },
-                },
-            );
-        },
-        savePin: () => {
-            if (!/^[0-9]{4}$/.test(pin)) {
-                action.setError(strings.business.pinInvalid);
-                return;
-            }
-            action.run(() => api.post("/v1/orders/approval-pin", { pin }), {
-                errorMessage: strings.business.discountFailed,
-                onSuccess: () => {
-                    setPin("");
-                    setSaved(true);
-                },
-            });
-        },
     };
 }

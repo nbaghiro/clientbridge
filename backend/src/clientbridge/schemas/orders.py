@@ -11,8 +11,6 @@ from clientbridge.schemas.billing import DiscountIn, LineInput, LineOut
 from clientbridge.schemas.payments import PublicDocLine, PublicDocTax, TipShareIn
 from clientbridge.schemas.public import PublicBrand
 
-_PIN = r"^[0-9]{4}$"
-
 
 class OrderCreate(Mirror):
     mirrors = Order
@@ -20,11 +18,6 @@ class OrderCreate(Mirror):
     client_id: str | None = Field(default=None, description="Null for a walk-in")
     lines: list[LineInput] = Field(default_factory=list)
     discount: DiscountIn | None = Field(default=None, description="Off the whole sale")
-    approval_pin: str | None = Field(
-        default=None,
-        pattern=_PIN,
-        description="An owner's or admin's PIN for an over-limit discount",
-    )
     note: str | None = Field(default=None, max_length=200, description="Why the sale is held")
     receipt_email: str | None = Field(default=None, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     receipt_phone: str | None = Field(default=None, min_length=7, max_length=20)
@@ -38,7 +31,6 @@ class OrderUpdate(Mirror):
     )
     lines: list[LineInput] | None = None
     discount: DiscountIn | None = Field(default=None, description="Off the whole sale")
-    approval_pin: str | None = Field(default=None, pattern=_PIN)
     note: str | None = Field(default=None, max_length=200)
     receipt_email: str | None = Field(default=None, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     receipt_phone: str | None = Field(default=None, min_length=7, max_length=20)
@@ -77,10 +69,6 @@ class OrderReceiptIn(BaseModel):
     to: str = Field(min_length=3, max_length=200, description="An email address or phone number")
 
 
-class PinIn(BaseModel):
-    pin: str = Field(pattern=_PIN)
-
-
 class OrderPickupIn(BaseModel):
     status: Literal["preparing", "ready", "picked_up"]
 
@@ -111,7 +99,6 @@ class OrderOut(Mirror):
     note: str | None = None
     discount: DiscountIn | None = None
     discount_cents: int = 0
-    approved_by: str | None = None
     deposit_cents: int = Field(default=0, description="Visit deposits applied or still to apply")
     due_cents: int = Field(default=0, description="What is left to charge, before any tip")
     tip_cents: int = 0

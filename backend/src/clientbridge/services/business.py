@@ -13,7 +13,7 @@ from clientbridge.core.scoping import scoped
 from clientbridge.core.zones import SUPPORTED_ZONES, zone
 from clientbridge.integrations.stripe import ConnectAccount, PostalAddress
 from clientbridge.models.business import Business, ProvinceCode, Staff, User
-from clientbridge.models.platform import Audit, File
+from clientbridge.models.platform import File
 from clientbridge.schemas.business import BusinessSettingsUpdate, OnboardBody, public_email
 
 _POSTAL_CODE = re.compile(r"\b([A-Z]\d[A-Z])\s?(\d[A-Z]\d)\b", re.IGNORECASE)
@@ -249,17 +249,11 @@ class BusinessService:
         business = await self.db.get(Business, self.principal.business_id)
         if business is None:
             raise NotFound("business not found")
-        previous_limit = business.staff_discount_limit_bps
         fields = data.model_dump(exclude_unset=True, exclude={"brand", "setup_dismissed"})
         if "timezone" in fields:
             valid_timezone(data.timezone)
         for key, value in fields.items():
-            if value is None and key in (
-                "review_hold_at",
-                "filing_frequency",
-                "tax_registered",
-                "staff_discount_limit_bps",
-            ):
+            if value is None and key in ("review_hold_at", "filing_frequency", "tax_registered"):
                 continue
             cleared = value == "" and key in (
                 "gst_hst_number",
@@ -305,18 +299,6 @@ class BusinessService:
                 # the Terminal location holds the old address; the next reader session mints one
                 business.stripe_terminal_location_id = None
             business.brand = merged
-        if business.staff_discount_limit_bps != previous_limit:
-            self.db.add(
-                Audit(
-                    id=new_id("audit"),
-                    business_id=business.id,
-                    performed_by=self.principal.user_id,
-                    action="business.discount_limit",
-                    entity_type="business",
-                    entity_id=business.id,
-                    changes={"old": previous_limit, "new": business.staff_discount_limit_bps},
-                )
-            )
         await self.db.flush()
         await self.db.refresh(business)
         await self.db.commit()

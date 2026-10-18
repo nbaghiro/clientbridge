@@ -9,7 +9,6 @@ import {
     discountFrom,
     discountLabel,
     nextPickupStatus,
-    overStaffLimit,
     pickupOrder,
     previewDiscount,
     issuedSale,
@@ -185,27 +184,20 @@ describe("priceSale", () => {
         expect(discountCents(999, { kind: "percent", value: 50, reason: null })).toBe(500);
     });
 
-    it("previews a discount and flags it over the staff limit", () => {
-        const preview = previewDiscount(
-            [groom, shampoo],
-            null,
-            RATES,
-            true,
-            { scope: "sale", lineKeys: [], discount: { kind: "percent", value: 20, reason: "x" } },
-            1500,
-        );
-        expect(preview.overLimit).toBe(true);
+    it("previews what a discount takes off and its tax change", () => {
+        const preview = previewDiscount([groom, shampoo], null, RATES, true, {
+            scope: "sale",
+            lineKeys: [],
+            discount: { kind: "percent", value: 20, reason: "x" },
+        });
         expect(preview.offCents).toBeGreaterThan(0);
         expect(preview.taxChangeCents).toBeLessThan(0);
-        const owner = previewDiscount(
-            [groom],
-            null,
-            RATES,
-            true,
-            { scope: "lines", lineKeys: ["groom"], discount: null },
-            null,
-        );
-        expect(owner.overLimit).toBe(false);
+        const cleared = previewDiscount([groom], null, RATES, true, {
+            scope: "lines",
+            lineKeys: ["groom"],
+            discount: null,
+        });
+        expect([cleared.offCents, cleared.taxChangeCents]).toEqual([-750, 37]);
     });
 });
 
@@ -241,26 +233,6 @@ describe("sale discounts, tips and status", () => {
         expect(tipCentsFor({ kind: "custom", cents: 300 }, 8650)).toBe(300);
         expect(tipCentsFor({ kind: "custom", cents: -50 }, 8650)).toBe(0);
         expect(tipCentsFor({ kind: "none" }, 8650)).toBe(0);
-    });
-
-    it("flags a discount only when it goes past the staff limit", () => {
-        const totalsWith = (off: number) =>
-            priceSale(
-                [
-                    line("a", 10000, "exempt", {
-                        discount: { kind: "amount", value: off, reason: null },
-                    }),
-                ],
-                null,
-                RATES,
-                true,
-                { kind: "none" },
-            ).totals;
-        expect(overStaffLimit(totalsWith(1500), 1500)).toBe(false);
-        expect(overStaffLimit(totalsWith(1501), 1500)).toBe(true);
-        expect(overStaffLimit(totalsWith(1), 0)).toBe(true);
-        expect(overStaffLimit(totalsWith(0), 0)).toBe(false);
-        expect(overStaffLimit(totalsWith(9000), null)).toBe(false);
     });
 
     it("numbers a sale and reads its status off the ledger status and refunds", () => {

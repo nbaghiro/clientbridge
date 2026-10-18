@@ -562,7 +562,6 @@ interface DiscountPreview {
     after: SaleTotals;
     offCents: number;
     taxChangeCents: number;
-    overLimit: boolean;
 }
 
 /** What a discount would do before it's applied: on the whole sale, or on the chosen lines. */
@@ -572,7 +571,6 @@ export function previewDiscount(
     rates: readonly DocRate[],
     registered: boolean,
     change: { scope: "sale" | "lines"; lineKeys: readonly string[]; discount: SaleDiscount | null },
-    limitBps: number | null,
 ): DiscountPreview {
     const before = priceSale(lines, saleDiscount, rates, registered, { kind: "none" }).totals;
     const next = lines.map((l) =>
@@ -592,21 +590,7 @@ export function previewDiscount(
         after,
         offCents: after.discountCents - before.discountCents,
         taxChangeCents: after.taxCents - before.taxCents,
-        overLimit: overStaffLimit(after, limitBps),
     };
-}
-
-/** Staff may take off up to the business's limit; `null` means the viewer needs no approval. */
-export function overStaffLimit(t: SaleTotals, limitBps: number | null): boolean {
-    return limitBps !== null && t.discountCents * 10000 > t.grossCents * limitBps;
-}
-
-export const DISCOUNT_LIMIT_SQL = "SELECT staff_discount_limit_bps FROM businesses LIMIT 1";
-
-function useDiscountLimit(role: string | null): number | null {
-    const row = useQuery<{ staff_discount_limit_bps: number | null }>(DISCOUNT_LIMIT_SQL).data[0];
-    if (isManager(role)) return null;
-    return row?.staff_discount_limit_bps ?? 1500;
 }
 
 export interface DiscountEditor {
@@ -772,13 +756,11 @@ function saleBody(t: {
     clientId: string | null;
     lines: readonly SaleLine[];
     saleDiscount: SaleDiscount | null;
-    pin: string | null;
     note?: string | null | undefined;
 }): Record<string, unknown> {
     return {
         client_id: t.clientId,
         discount: t.saleDiscount,
-        approval_pin: t.pin,
         note: t.note ?? null,
         lines: t.lines.map((l) => ({
             description: l.description,
@@ -855,10 +837,6 @@ export interface SaleTicket {
     setLineDiscount: (key: string, discount: SaleDiscount | null) => void;
     saleDiscount: SaleDiscount | null;
     setSaleDiscount: (discount: SaleDiscount | null) => void;
-    limitBps: number | null;
-    overLimit: boolean;
-    approvalPin: string | null;
-    approve: (pin: string) => void;
     tip: TipChoice;
     setTip: (tip: TipChoice) => void;
     tipKey: string;
@@ -976,11 +954,10 @@ WHERE client_id = ? AND method = 'card' ORDER BY preferred DESC, created_at DESC
 /** The register: lines, discounts, tip, payment and receipt in one view-model for web and mobile. */
 export function useSale(
     api: ApiLike,
-    opts: { role: string | null; viewerStaffId?: string | null; platform: "web" | "mobile" },
+    opts: { viewerStaffId?: string | null; platform: "web" | "mobile" },
 ): SaleTicket {
     const { rates, registered, ready: ratesReady } = useTaxSetup();
     const staffRows = useQuery<SaleStaffRow>(SALE_STAFF_SQL).data;
-    const limitBps = useDiscountLimit(opts.role);
     const [lines, setLines] = useState<SaleLine[]>([]);
     const [clientId, setClientIdState] = useState<string | null>(null);
     const [saleDiscount, setSaleDiscountState] = useState<SaleDiscount | null>(null);
@@ -989,7 +966,6 @@ export function useSale(
     const [phase, setPhaseState] = useState<SalePhase>("cart");
     const [chosen, setChosen] = useState<SalePayMethod | null>(null);
     const [cashGiven, setCashGivenState] = useState("");
-    const [approvalPin, setApprovalPin] = useState<string | null>(null);
     const [tipMode, setTipMode] = useState<TipSplitMode>("byService");
     const [tipToChoice, setTipTo] = useState<string | null>(null);
     const [order, setOrder] = useState<OrderOut | null>(null);
@@ -1019,7 +995,6 @@ export function useSale(
     const saved = cards[0] ?? null;
     const web = opts.platform === "web";
     const method: SalePayMethod = chosen ?? (saved !== null ? "saved" : web ? "card" : "tap");
-    const overLimit = overStaffLimit(t, limitBps) && approvalPin === null;
     const cash = parseCents(cashGiven, BUSINESS_CURRENCY);
     const servedIds = [
         ...new Set(priced.lines.flatMap((l) => (l.staffId === null ? [] : [l.staffId]))),
@@ -1036,7 +1011,6 @@ export function useSale(
     const edit = (fn: (ls: SaleLine[]) => SaleLine[]): void => {
         keyRef.current = null;
         setError(null);
-        setApprovalPin(null);
         setLines(fn);
     };
 
@@ -1052,7 +1026,6 @@ export function useSale(
         setPhaseState("cart");
         setChosen(null);
         setCashGivenState("");
-        setApprovalPin(null);
         setTipTo(null);
         setTipMode("byService");
         setOrder(null);
@@ -1066,7 +1039,7 @@ export function useSale(
     };
 
     const save = async (note?: string | null): Promise<OrderOut> => {
-        const body = saleBody({ clientId, lines, saleDiscount, pin: approvalPin, note });
+        const body = saleBody({ clientId, lines, saleDiscount, note });
         const fingerprint = JSON.stringify(body);
         if (savedAttempt.current?.body === fingerprint) return savedAttempt.current.order;
         const out = await saveSale(
@@ -1085,10 +1058,6 @@ export function useSale(
         if (m !== undefined) setChosen(m);
         if (lines.length === 0) {
             setError(d.addItemFirst);
-            return;
-        }
-        if (overLimit) {
-            setError(d.overLimit((limitBps ?? 0) / 100));
             return;
         }
         if (use === "cash" && (cash === null || cash < t.dueCents)) {
@@ -1225,16 +1194,8 @@ export function useSale(
         saleDiscount,
         setSaleDiscount: (discount) => {
             keyRef.current = null;
-            setApprovalPin(null);
             setError(null);
             setSaleDiscountState(discount);
-        },
-        limitBps,
-        overLimit,
-        approvalPin,
-        approve: (pin) => {
-            setError(null);
-            setApprovalPin(pin);
         },
         tip,
         setTip: (next) => {
@@ -1307,7 +1268,7 @@ export function useSale(
         },
         changeCents: cash === null ? null : cash - t.dueCents,
         ratesReady,
-        canCharge: lines.length > 0 && !overLimit && ratesReady,
+        canCharge: lines.length > 0 && ratesReady,
         charge,
         checkout,
         terminal,
@@ -1954,7 +1915,7 @@ GROUP BY a.code ORDER BY a.code`;
 export const SALE_RECORD_SQL = `
 SELECT o.id, o.number, o.client_id, c.name AS client_name, c.email AS client_email, c.phone AS client_phone,
        o.source, o.pickup_status, o.created_at, o.subtotal_cents, o.tax_total_cents, o.total_cents,
-       o.staff_id, o.note, o.approved_by,
+       o.staff_id, o.note,
        o.discount_kind, o.discount_value, o.discount_reason, o.receipt_channel, o.receipt_email,
        o.receipt_phone, o.receipt_sent_at, ${orderStatusSql("o")} AS status
 FROM orders o LEFT JOIN clients c ON c.id = o.client_id WHERE o.id = ?`;
@@ -1974,7 +1935,6 @@ interface SaleRecordRow {
     total_cents: number;
     staff_id: string;
     note: string | null;
-    approved_by: string | null;
     discount_kind: string | null;
     discount_value: number | null;
     discount_reason: string | null;
@@ -2046,7 +2006,6 @@ interface SaleDetail {
     priced: PricedSale;
     totalLines: DocTotalLine[];
     rungBy: string;
-    approved: boolean;
     payments: {
         id: string;
         label: string;
@@ -2180,7 +2139,6 @@ export function useSaleDetail(
                 { saleDiscountReason: saleDiscount?.reason ?? null },
             ),
             rungBy: rung === undefined ? d.noStaff : staffName(rung),
-            approved: row.approved_by !== null,
             payments: pays.map((p) => ({
                 id: p.id,
                 label:
@@ -2379,78 +2337,39 @@ export interface DiscountSheet {
     toggleKey: (key: string) => void;
     editor: DiscountEditor;
     preview: DiscountPreview;
-    approval: {
-        needed: boolean;
-        pin: string;
-        setPin: (v: string) => void;
-        approve: () => void;
-        approved: boolean;
-        error: string | null;
-    };
     apply: () => boolean;
 }
 
-/** Scope, amount and reason with a before and after preview; over the staff limit an owner's PIN is asked. */
+/** Scope, amount and reason with a before and after preview. */
 export function useDiscountSheet(sale: SaleTicket): DiscountSheet {
     const { rates, registered } = useTaxSetup();
     const [scope, setScopeState] = useState<"sale" | "lines">("sale");
     const [keys, setKeys] = useState<string[]>([]);
-    const [pin, setPinState] = useState("");
-    const [approvedPin, setApprovedPin] = useState<string | null>(null);
-    const [pinError, setPinError] = useState<string | null>(null);
     const base =
         scope === "sale"
             ? sale.totals.subtotalCents + sale.totals.saleDiscountCents
             : sale.lines.filter((l) => keys.includes(l.key)).reduce((n, l) => n + l.grossCents, 0);
     const editor = useDiscountEditor(scope === "sale" ? sale.saleDiscount : null, base);
-    const preview = previewDiscount(
-        sale.lines,
-        sale.saleDiscount,
-        rates,
-        registered,
-        { scope, lineKeys: keys, discount: editor.draft },
-        sale.limitBps,
-    );
+    const preview = previewDiscount(sale.lines, sale.saleDiscount, rates, registered, {
+        scope,
+        lineKeys: keys,
+        discount: editor.draft,
+    });
     return {
         scope,
-        setScope: (v) => {
-            setApprovedPin(null);
-            setScopeState(v);
-        },
+        setScope: setScopeState,
         keys,
         toggleKey: (k) => {
-            setApprovedPin(null);
             setKeys((ks) => (ks.includes(k) ? ks.filter((x) => x !== k) : [...ks, k]));
         },
         editor,
         preview,
-        approval: {
-            needed: preview.overLimit && approvedPin === null,
-            pin,
-            setPin: (v) => {
-                setPinError(null);
-                setPinState(v.replace(/\D/g, "").slice(0, 4));
-            },
-            // The server checks the PIN when the sale is saved; a wrong one comes back as an error there.
-            approve: () => {
-                if (pin.length !== 4) {
-                    setPinError(d.pinInvalid);
-                    return;
-                }
-                setApprovedPin(pin);
-                setPinState("");
-            },
-            approved: approvedPin !== null,
-            error: pinError,
-        },
         apply: () => {
             const discount = editor.apply();
             if (discount === null) return false;
             if (scope === "lines" && keys.length === 0) return false;
-            if (preview.overLimit && approvedPin === null) return false;
             if (scope === "sale") sale.setSaleDiscount(discount);
             else for (const k of keys) sale.setLineDiscount(k, discount);
-            if (approvedPin !== null) sale.approve(approvedPin);
             return true;
         },
     };

@@ -2003,23 +2003,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/orders/approval-pin": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Set Approval Pin */
-        post: operations["set_approval_pin_v1_orders_approval_pin_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/orders/{order_id}/pay": {
         parameters: {
             query?: never;
@@ -4078,8 +4061,6 @@ export interface components {
             setup_dismissed_at: string | null;
             /** Review Hold At */
             review_hold_at: number;
-            /** Staff Discount Limit Bps */
-            staff_discount_limit_bps: number;
             /** Google Review Url */
             google_review_url: string | null;
             /** Brand */
@@ -4113,8 +4094,6 @@ export interface components {
              * @description Hide (true) or show (false) the Get set up list
              */
             setup_dismissed?: boolean | null;
-            /** Staff Discount Limit Bps */
-            staff_discount_limit_bps?: number | null;
             /**
              * Review Hold At
              * @description Hold reviews rated at or below this; 0 holds none
@@ -5989,11 +5968,6 @@ export interface components {
             /** @description Off the whole sale */
             discount?: components["schemas"]["DiscountIn"] | null;
             /**
-             * Approval Pin
-             * @description An owner's or admin's PIN for an over-limit discount
-             */
-            approval_pin?: string | null;
-            /**
              * Note
              * @description Why the sale is held
              */
@@ -6055,8 +6029,6 @@ export interface components {
              * @default 0
              */
             discount_cents: number;
-            /** Approved By */
-            approved_by?: string | null;
             /**
              * Deposit Cents
              * @description Visit deposits applied or still to apply
@@ -6132,8 +6104,6 @@ export interface components {
             lines?: components["schemas"]["LineInput"][] | null;
             /** @description Off the whole sale */
             discount?: components["schemas"]["DiscountIn"] | null;
-            /** Approval Pin */
-            approval_pin?: string | null;
             /** Note */
             note?: string | null;
             /** Receipt Email */
@@ -6224,11 +6194,6 @@ export interface components {
              * @description paid, or failed when the bank returned it
              */
             status: string;
-        };
-        /** PinIn */
-        PinIn: {
-            /** Pin */
-            pin: string;
         };
         /** PlanChoice */
         PlanChoice: {
@@ -12876,41 +12841,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["OrderOut"];
                 };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    set_approval_pin_v1_orders_approval_pin_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-business-id"?: string;
-                "x-expected-user"?: string;
-                "x-session-token"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PinIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -529,7 +529,6 @@ interface Strings {
             readonly savedCardCharge: (card: string) => string;
             readonly payError: string;
             readonly addItemFirst: string;
-            readonly overLimit: (pct: number) => string;
             readonly backToTicket: string;
             readonly cancel: string;
             readonly charging: string;
@@ -581,12 +580,6 @@ interface Strings {
             readonly discountTooBig: (money: string) => string;
             readonly discountReasonRequired: string;
             readonly taxFollows: string;
-            readonly limitNote: (pct: number) => string;
-            readonly approvalTitle: string;
-            readonly approvalBody: (pct: number, money: string) => string;
-            readonly approvalPin: string;
-            readonly approve: string;
-            readonly approvalOk: string;
             readonly ordersTitle: string;
             readonly filterAll: string;
             readonly filterDesk: string;
@@ -646,8 +639,6 @@ interface Strings {
             readonly tipSplitTitle: string;
             readonly tipShareOf: (pct: number) => string;
             readonly tipPickPerson: string;
-            readonly pinInvalid: string;
-            readonly pinHint: string;
             readonly before: string;
             readonly after: string;
             readonly youSave: string;
@@ -2124,15 +2115,6 @@ interface Strings {
             readonly verifyFirst: string;
             readonly verifyEmail: string;
         };
-        readonly discountTitle: string;
-        readonly discountLimit: string;
-        readonly saveDiscount: string;
-        readonly approvalPin: string;
-        readonly pinHint: string;
-        readonly savePin: string;
-        readonly discountInvalid: string;
-        readonly pinInvalid: string;
-        readonly discountFailed: string;
     };
     readonly datetime: {
         readonly zoneNames: {

@@ -12,8 +12,8 @@ The earlier review examined `7ec6612e`; this execution started from `964e5427` a
 | Delivery and SMS | Durable settlement/refund, merchant-booking, manual-form, trial and admin delivery intent; fenced worker claims and callbacks; test-send history; dedicated business numbers and retired ownership protection. Other scheduled notification paths retain their existing per-item status markers. |
 | Documents | Version-bound contract signing and stale-consent reset; immutable form definitions, typed answers and signature evidence. |
 | Clients and subscriptions | Normalized contact locks and ambiguity rejection; merge/money coordination; refreshed plan/seat locks, distinct checkout attempts and safe replacement subscriptions. |
-| Security and integrations | Shared Redis limits, trusted proxy parsing, manager-only gift-card codes, bounded Stripe calls, lifecycle-managed HTTP pools, nonblocking storage/PIN operations. |
-| UI and performance | Batched pickup/held-order queries, async race guards, inbox timestamps, long visits, move/undo, public-calendar retry, mobile inbox virtualization, shared discount/PIN settings and Canadian zones. |
+| Security and integrations | Shared Redis limits, trusted proxy parsing, manager-only gift-card codes, bounded Stripe calls, lifecycle-managed HTTP pools, nonblocking storage operations. |
+| UI and performance | Batched pickup/held-order queries, async race guards, inbox timestamps, long visits, move/undo, public-calendar retry, mobile inbox virtualization and Canadian zones. |
 | Admin and deployment | Client-related activity, admin image/runtime/origin routing, and bounded marketing contact handling. |
 
 ## Execution sequence
@@ -186,7 +186,7 @@ A staff discount over the limit can never be approved in production. No app call
 
 Historical evidence: `api/orders.py:106-110`; `services/orders.py:345-356`, `:461`, `:476-487`; `models/business.py:74-75`
 
-**Current resolution (implemented / regression retained):** Web/mobile discount ceiling and PIN setup share a hook; PIN changes audited, hashing offloaded and guesses limited.
+**Current resolution (addressed by removal):** We dropped the feature: staff apply any discount up to the sale amount, and the approval PIN route, the limit, the PIN check and the order approver are gone, with `users.pin_hash`, `orders.approved_by` and `businesses.staff_discount_limit_bps` dropped in migration cb0013.
 
 ### M4
 
@@ -250,7 +250,7 @@ The rate limiter counts per process and keys on the leftmost `X-Forwarded-For`, 
 
 Historical evidence: `core/ratelimit.py:48-54`; `api/public.py:218`; `services/public.py:976`
 
-**Current resolution (implemented / regression retained):** Redis-backed limits outside development and trusted-hop request IP parsing; shared PIN/admin limits.
+**Current resolution (implemented / regression retained):** Redis-backed limits outside development and trusted-hop request IP parsing; shared admin limits.
 
 ### M12
 
@@ -386,7 +386,7 @@ Argon2 PIN checks run on the event loop, about 50 ms per manager.
 
 Historical evidence: `core/security.py:21-25`; `services/orders.py:486-488`
 
-**Current resolution (implemented / regression retained):** PIN hashing and verification run in a worker thread.
+**Current resolution (addressed by removal):** No PIN is hashed or checked any more (see M3), and the argon2 dependency is gone.
 
 ### L8
 
