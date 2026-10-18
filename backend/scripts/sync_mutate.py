@@ -7,7 +7,7 @@ from sqlalchemy import update
 
 from clientbridge.core import clock
 from clientbridge.core.db import SessionLocal, engine
-from clientbridge.models.business import Staff
+from clientbridge.models.business import Staff, User
 from clientbridge.models.clients import Client
 
 
@@ -23,6 +23,12 @@ async def mutate(action: str) -> None:
                     role="staff" if action == "downgrade" else "admin",
                     status="removed" if action == "remove" else "active",
                 )
+            )
+        elif action in {"rename", "restore_name"}:
+            await db.execute(
+                update(User)
+                .where(User.id == "us_owner")
+                .values(name="renamed" if action == "rename" else "owner")
             )
         elif action in {"delete_client", "restore_client"}:
             await db.execute(

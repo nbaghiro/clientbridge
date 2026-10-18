@@ -54,7 +54,7 @@ from clientbridge.services.bookings import (
     release_slot,
     slot_problem,
 )
-from clientbridge.services.business import load_staff
+from clientbridge.services.business import load_staff, staff_names
 from clientbridge.services.catalog import load_item
 from clientbridge.services.notifications import Notice, business_email, invite_link, staff_invite
 from clientbridge.services.payments import cancel_open_deposits, refund_deposit
@@ -214,7 +214,6 @@ class StaffService:
         else:
             staff.user_id, staff.status = user.id, "active"
             member = staff
-        member.name = member.name or user.name
         # principal-less surface — the invitee becomes one only here, so record the audit directly.
         self.db.add(
             Audit(
@@ -246,6 +245,7 @@ class StaffService:
             u.id: u
             for u in (await self.db.execute(select(User).where(User.id.in_(user_ids)))).scalars()
         }
+        names = await staff_names(self.db, principal.business_id, (s.id for s in staff))
         managers = is_manager(principal.role)
 
         def out(s: Staff) -> TeamMember:
@@ -254,7 +254,7 @@ class StaffService:
             sent = s.invited_at or s.created_at
             return TeamMember(
                 id=s.id,
-                name=s.name,
+                name=names.get(s.id),
                 email=(user.email if user else s.invite_email) if managers else None,
                 role=s.role,
                 status=s.status,

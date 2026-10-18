@@ -18,9 +18,8 @@ SECOND = "2027-03-04T19:00:00Z"
 async def _member(db: AsyncSession, factory: Factory, name: str) -> str:
     business = await db.get(Business, BIZ)
     assert business is not None
-    member = await factory.staff(business=business, role="staff")
-    member.name = name
-    await db.flush()
+    user = await factory.user(name=name)
+    member = await factory.staff(business=business, user=user, role="staff")
     return member.id
 
 

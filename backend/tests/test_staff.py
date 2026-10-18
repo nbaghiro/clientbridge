@@ -114,7 +114,7 @@ async def test_accept_invite_activates_staff(
     row = (
         await db.execute(
             text(
-                "SELECT s.status, s.name, u.email FROM staff s JOIN users u ON u.id = s.user_id "
+                "SELECT s.status, u.name, u.email FROM staff s JOIN users u ON u.id = s.user_id "
                 "WHERE s.id = :i"
             ),
             {"i": inv["id"]},

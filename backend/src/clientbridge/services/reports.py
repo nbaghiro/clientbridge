@@ -35,6 +35,7 @@ from clientbridge.schemas.reports import (
     T4ARow,
 )
 from clientbridge.services import ledger
+from clientbridge.services.business import staff_name
 from clientbridge.services.tax import FAMILY_CODES, rates_on
 
 _CASH = ("stripe", "bank", "cash")
@@ -156,9 +157,8 @@ class ReportService:
             .subquery()
         )
         rows = await self.db.execute(
-            select(paid.c.owner_id, User.name, paid.c.total)
+            select(paid.c.owner_id, staff_name(), paid.c.total)
             .join(Staff, Staff.id == paid.c.owner_id)
-            .join(User, User.id == Staff.user_id, isouter=True)
             .order_by(paid.c.owner_id)
         )
         unnamed = message(await self._locale(), "report.unnamed_payee")
@@ -523,8 +523,7 @@ class ReportService:
             return []
         names = await self.db.execute(
             scoped(Staff, self.biz)
-            .with_only_columns(Staff.id, func.coalesce(Staff.name, User.name))
-            .join(User, User.id == Staff.user_id, isouter=True)
+            .with_only_columns(Staff.id, staff_name())
             .where(Staff.id.in_(paid))
         )
         named = {staff_id: name for staff_id, name in names.tuples().all()}

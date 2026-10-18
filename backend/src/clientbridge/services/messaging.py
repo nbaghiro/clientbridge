@@ -36,7 +36,7 @@ from clientbridge.schemas.messaging import (
     MessageSend,
     ThreadOut,
 )
-from clientbridge.services.business import after_quiet_hours, quiet_hours
+from clientbridge.services.business import after_quiet_hours, quiet_hours, staff_name
 from clientbridge.services.consents import (
     allows_marketing,
     latest_consents,
@@ -547,7 +547,11 @@ class MessageService:
     ) -> ConversationPage:
         """A thread's older messages, newest first: the history the device no longer keeps."""
         thread = await self._thread(thread_id)
-        author = scoped(Staff, self.biz).subquery()
+        author = (
+            scoped(Staff, self.biz)
+            .with_only_columns(Staff.user_id, staff_name().label("name"))
+            .subquery()
+        )
         rows = (
             await self.db.execute(
                 scoped(Message, self.biz)

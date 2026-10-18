@@ -1,8 +1,9 @@
 import re
+from collections.abc import Iterable
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
@@ -103,6 +104,22 @@ async def load_staff(db: AsyncSession, biz: str, staff_id: str) -> Staff:
     if row is None:
         raise NotFound("staff not found")
     return row
+
+
+def staff_name() -> ColumnElement[str | None]:
+    """A member's name from their account, or the address an open invite went to."""
+    account = select(User.name).where(User.id == Staff.user_id).correlate(Staff).scalar_subquery()
+    return func.coalesce(account, case((Staff.status == "invited", Staff.invite_email)))
+
+
+async def staff_names(db: AsyncSession, biz: str, ids: Iterable[str]) -> dict[str, str | None]:
+    wanted = set(ids)
+    if not wanted:
+        return {}
+    rows = await db.execute(
+        scoped(Staff, biz).with_only_columns(Staff.id, staff_name()).where(Staff.id.in_(wanted))
+    )
+    return dict(rows.tuples().all())
 
 
 def local_today(business: Business) -> date:
@@ -327,13 +344,11 @@ class OnboardingService:
         )
         self.db.add(biz)
         await self.db.flush()  # insert the business first so the Staff FK resolves
-        user = await self.db.get(User, user_id)
         self.db.add(
             Staff(
                 id=new_id("staff"),
                 business_id=biz.id,
                 user_id=user_id,
-                name=user.name if user is not None else None,
                 role="owner",
                 status="active",
                 payee=True,
