@@ -1457,9 +1457,6 @@
     "pos.desk.addItemFirst": {
         "message": "[Åðð åñ îţéɱ ƀéƒöŕé ţåķîñĝ þåýɱéñţ. one two three]"
     },
-    "pos.desk.overLimit": {
-        "message": "[Đîšçöûñţš öṽéŕ {pct, number, ::percent scale/0.01 .###} ñééð åñ öŵñéŕ öŕ åðɱîñ ţö åþþŕöṽé. one two three four]"
-    },
     "pos.desk.backToTicket": {
         "message": "[Ɓåçķ ţö ţîçķéţ one two]"
     },
@@ -1627,24 +1624,6 @@
     },
     "pos.desk.taxFollows": {
         "message": "[Ţåẋ îš ŵöŕķéð öûţ öñ ţĥé ðîšçöûñţéð þŕîçé. one two three]"
-    },
-    "pos.desk.limitNote": {
-        "message": "[Šţåƒƒ çåñ ðîšçöûñţ ûþ ţö {pct, number, ::percent scale/0.01 .###} öƒ å šåļé. one two three]"
-    },
-    "pos.desk.approvalTitle": {
-        "message": "[Öŵñéŕ öŕ åðɱîñ åþþŕöṽåļ one two]"
-    },
-    "pos.desk.approvalBody": {
-        "message": "[Ţĥîš šåļé îš ðîšçöûñţéð ɱöŕé ţĥåñ {pct, number, ::percent scale/0.01 .###} (öṽéŕ {money}). Åšķ åñ öŵñéŕ öŕ åðɱîñ ţö åþþŕöṽé îţ. one two three four five]"
-    },
-    "pos.desk.approvalPin": {
-        "message": "[Åþþŕöṽéŕ ÞÎÑ one two]"
-    },
-    "pos.desk.approve": {
-        "message": "[Åþþŕöṽé one]"
-    },
-    "pos.desk.approvalOk": {
-        "message": "[Åþþŕöṽéð. Ţĥé ÞÎÑ îš çĥéçķéð åĝåîñ ŵĥéñ ýöû çĥåŕĝé. one two three four]"
     },
     "pos.desk.ordersTitle": {
         "message": "[Öŕðéŕš one]"
@@ -1816,12 +1795,6 @@
     },
     "pos.desk.tipPickPerson": {
         "message": "[Ĝîṽé îţ åļļ ţö one two]"
-    },
-    "pos.desk.pinInvalid": {
-        "message": "[Éñţéŕ ţĥé 4-ðîĝîţ ÞÎÑ one two]"
-    },
-    "pos.desk.pinHint": {
-        "message": "[Åñ öŵñéŕ öŕ åðɱîñ éñţéŕš ţĥéîŕ ÞÎÑ öñ ţĥîš šçŕééñ. one two three four]"
     },
     "pos.desk.before": {
         "message": "[Ɓéƒöŕé one]"
@@ -2432,9 +2405,6 @@
     "bookings.problemPast": {
         "message": "[Ţĥåţ ţîɱé ĥåš þåššéð one two]"
     },
-    "bookings.problemRoom": {
-        "message": "[Ţĥåţ ŕööɱ öŕ šţåţîöñ îš ţåķéñ ţĥéñ one two three]"
-    },
     "bookings.problemClassFull": {
         "message": "[Ţĥåţ çļåšš îš ƒûļļ one two]"
     },
@@ -2500,9 +2470,6 @@
     },
     "bookings.detailWith": {
         "message": "[Ŵîţĥ one]"
-    },
-    "bookings.detailWhere": {
-        "message": "[Šţåţîöñ one]"
     },
     "bookings.detailNotes": {
         "message": "[Ñöţéš one]"
@@ -2867,9 +2834,6 @@
     "bookings.railNothingNext": {
         "message": "[Ñö ɱöŕé ṽîšîţš ţöðåý. one two]"
     },
-    "bookings.stationNone": {
-        "message": "[Ñö šţåţîöñ one two]"
-    },
     "recurrences.newTitle": {
         "message": "[Ñéŵ ŕéþéåţîñĝ ƀööķîñĝ one two]"
     },
@@ -3215,9 +3179,6 @@
     "classes.with": {
         "message": "{when} · {name}"
     },
-    "classes.withRoom": {
-        "message": "{when} · {name} · {room}"
-    },
     "classes.roster": {
         "message": "[Ŕöšţéŕ one]"
     },
@@ -3322,24 +3283,6 @@
     },
     "classes.startsLater": {
         "message": "[Çĥéçķ-îñ öþéñš öñ ţĥé ðåý öƒ ţĥé çļåšš. one two three]"
-    },
-    "classes.pickTitle": {
-        "message": "[Šţåţîöñ ƒöŕ ţĥîš ṽîšîţ one two]"
-    },
-    "classes.pickSubtitle": {
-        "message": "[Ţåķéñ šţåţîöñš šĥöŵ ŵĥö ĥåš ţĥéɱ åţ ţĥåţ ţîɱé. one two three]"
-    },
-    "classes.takenBy": {
-        "message": "{name} · {time}"
-    },
-    "classes.freeThen": {
-        "message": "[Ƒŕéé ţĥéñ one]"
-    },
-    "classes.saveStation": {
-        "message": "[Šåṽé šţåţîöñ one two]"
-    },
-    "classes.stationError": {
-        "message": "[Çöûļðñ'ţ šåṽé ţĥé šţåţîöñ. Þļéåšé ţŕý åĝåîñ. one two three]"
     },
     "reminders.subtitle": {
         "message": "[Ŵĥåţ çļîéñţš ĥéåŕ ƀéƒöŕé å ṽîšîţ, åñð çļöšîñĝ ṽîšîţš ŵĥéñ ţĥé ðåý îš öṽéŕ. one two three four five]"
@@ -4853,9 +4796,6 @@
     "messaging.channelEmail": {
         "message": "[Éɱåîļ one]"
     },
-    "messaging.channelChat": {
-        "message": "[Çĥåţ one]"
-    },
     "messaging.loading": {
         "message": "[Ļöåðîñĝ çöñṽéŕšåţîöñš one two]"
     },
@@ -5335,9 +5275,6 @@
     },
     "broadcasts.sources.unsubscribe": {
         "message": "[Ûñšûƀšçŕîƀé ļîñķ one two]"
-    },
-    "broadcasts.sources.import": {
-        "message": "[Îɱþöŕţ one]"
     },
     "broadcasts.sources.preferences": {
         "message": "[Þŕéƒéŕéñçéš þåĝé one two]"
@@ -12455,6 +12392,60 @@
     "admin.testAccepted": {
         "message": "[Ţéšţ åççéþţéð ƀý ţĥé çöñƒîĝûŕéð ɱåîļ ţŕåñšþöŕţ. one two three four]"
     },
+    "admin.deliveryHistory": {
+        "message": "[Ţéšţ ðéļîṽéŕý ĥîšţöŕý one two]"
+    },
+    "admin.refreshDeliveries": {
+        "message": "[Ŕéƒŕéšĥ ðéļîṽéŕîéš one two]"
+    },
+    "admin.valueQueued": {
+        "message": "[Ǫûéûéð one]"
+    },
+    "admin.valueSending": {
+        "message": "[Šéñðîñĝ one]"
+    },
+    "admin.valueAccepted": {
+        "message": "[Åççéþţéð one]"
+    },
+    "admin.valueDelivered": {
+        "message": "[Đéļîṽéŕéð one two]"
+    },
+    "admin.valueAmbiguous": {
+        "message": "[Ûñçöñƒîŕɱéð one two]"
+    },
+    "datetime.zoneNames.creston": {
+        "message": "[Çŕéšţöñ one]"
+    },
+    "datetime.zoneNames.dawsonCreek": {
+        "message": "[Đåŵšöñ Çŕééķ one two]"
+    },
+    "datetime.zoneNames.fortNelson": {
+        "message": "[Ƒöŕţ Ñéļšöñ one two]"
+    },
+    "datetime.zoneNames.atikokan": {
+        "message": "[Åţîķöķåñ one]"
+    },
+    "datetime.zoneNames.blancSablon": {
+        "message": "[Ɓļåñç-Šåƀļöñ one two]"
+    },
+    "business.timeZones.creston": {
+        "message": "[Çŕéšţöñ one]"
+    },
+    "business.timeZones.dawsonCreek": {
+        "message": "[Đåŵšöñ Çŕééķ one two]"
+    },
+    "business.timeZones.fortNelson": {
+        "message": "[Ƒöŕţ Ñéļšöñ one two]"
+    },
+    "business.timeZones.atikokan": {
+        "message": "[Åţîķöķåñ one]"
+    },
+    "business.timeZones.blancSablon": {
+        "message": "[Ɓļåñç-Šåƀļöñ one two]"
+    },
+    "admin.testQueued": {
+        "message": "[Ţéšţ ǫûéûéð ƒöŕ ðéļîṽéŕý. Çĥéçķ ðéļîṽéŕý ĥîšţöŕý ƒöŕ îţš šţåţûš. one two three four five]"
+    },
     "admin.testFailed": {
         "message": "[Đéļîṽéŕý çöûļð ñöţ ƀé çöñƒîŕɱéð. Çĥéçķ ţĥé ɱåîļ þŕöṽîðéŕ ƀéƒöŕé ţŕýîñĝ åĝåîñ. one two three four five]"
     },
@@ -12592,5 +12583,14 @@
     },
     "admin.searchBusiness": {
         "message": "[Ɓûšîñéšš ñåɱé, šļûĝ öŕ ÎĐ one two]"
+    },
+    "publicForm.signerName": {
+        "message": "[Ƒûļļ ļéĝåļ ñåɱé one two]"
+    },
+    "publicForm.agree": {
+        "message": "[Î çöñƒîŕɱ ţĥéšé åñšŵéŕš åñð åĝŕéé ţö šîĝñ ţĥîš ƒöŕɱ éļéçţŕöñîçåļļý ŵîţĥ {business}. one two three four five]"
+    },
+    "publicForm.signatureRequired": {
+        "message": "[Éñţéŕ ýöûŕ ƒûļļ ñåɱé åñð åĝŕéé ţö šîĝñ ţĥîš ƒöŕɱ. one two three four]"
     }
 }

@@ -529,7 +529,6 @@ interface Strings {
             readonly savedCardCharge: (card: string) => string;
             readonly payError: string;
             readonly addItemFirst: string;
-            readonly overLimit: (pct: number) => string;
             readonly backToTicket: string;
             readonly cancel: string;
             readonly charging: string;
@@ -581,12 +580,6 @@ interface Strings {
             readonly discountTooBig: (money: string) => string;
             readonly discountReasonRequired: string;
             readonly taxFollows: string;
-            readonly limitNote: (pct: number) => string;
-            readonly approvalTitle: string;
-            readonly approvalBody: (pct: number, money: string) => string;
-            readonly approvalPin: string;
-            readonly approve: string;
-            readonly approvalOk: string;
             readonly ordersTitle: string;
             readonly filterAll: string;
             readonly filterDesk: string;
@@ -646,8 +639,6 @@ interface Strings {
             readonly tipSplitTitle: string;
             readonly tipShareOf: (pct: number) => string;
             readonly tipPickPerson: string;
-            readonly pinInvalid: string;
-            readonly pinHint: string;
             readonly before: string;
             readonly after: string;
             readonly youSave: string;
@@ -870,7 +861,6 @@ interface Strings {
         readonly problemTimeOff: (who: string, why: string) => string;
         readonly problemClosed: (why: string) => string;
         readonly problemPast: string;
-        readonly problemRoom: string;
         readonly problemClassFull: string;
         readonly problemClass: string;
         readonly moved: (when: string) => string;
@@ -893,7 +883,6 @@ interface Strings {
         readonly waitlist: string;
         readonly detailWhen: string;
         readonly detailWith: string;
-        readonly detailWhere: string;
         readonly detailNotes: string;
         readonly detailDeposit: string;
         readonly detailAddons: string;
@@ -1015,7 +1004,6 @@ interface Strings {
         readonly groupTeam: string;
         readonly railJump: string;
         readonly railNothingNext: string;
-        readonly stationNone: string;
     };
     readonly recurrences: {
         readonly newTitle: string;
@@ -1141,7 +1129,6 @@ interface Strings {
         readonly add: string;
         readonly checkedIn: (n: number, of: number) => string;
         readonly with: (when: string, name: string) => string;
-        readonly withRoom: (when: string, name: string, room: string) => string;
         readonly roster: string;
         readonly waitlist: string;
         readonly waitlistHint: string;
@@ -1177,12 +1164,6 @@ interface Strings {
         readonly emptyClassesBody: string;
         readonly rosterError: string;
         readonly startsLater: string;
-        readonly pickTitle: string;
-        readonly pickSubtitle: string;
-        readonly takenBy: (name: string, time: string) => string;
-        readonly freeThen: string;
-        readonly saveStation: string;
-        readonly stationError: string;
     };
     readonly reminders: {
         readonly subtitle: string;
@@ -1734,7 +1715,6 @@ interface Strings {
         readonly title: string;
         readonly channelSms: string;
         readonly channelEmail: string;
-        readonly channelChat: string;
         readonly loading: string;
         readonly loadError: string;
         readonly unreadCount: (n: number) => string;
@@ -1910,7 +1890,6 @@ interface Strings {
             readonly online_booking: string;
             readonly reply: string;
             readonly unsubscribe: string;
-            readonly import: string;
             readonly preferences: string;
             readonly complaint: string;
         } & Labels;
@@ -2100,6 +2079,11 @@ interface Strings {
             readonly mountain: string;
             readonly yukon: string;
             readonly pacific: string;
+            readonly creston: string;
+            readonly dawsonCreek: string;
+            readonly fortNelson: string;
+            readonly atikokan: string;
+            readonly blancSablon: string;
         } & Labels;
         readonly billingEmailLabel: string;
         readonly billingEmailPlaceholder: string;
@@ -2153,6 +2137,11 @@ interface Strings {
             readonly mountain: string;
             readonly yukon: string;
             readonly pacific: string;
+            readonly creston: string;
+            readonly dawsonCreek: string;
+            readonly fortNelson: string;
+            readonly atikokan: string;
+            readonly blancSablon: string;
         } & Labels;
     };
     readonly hours: {
@@ -4061,6 +4050,9 @@ interface Strings {
         readonly errorBody: string;
         readonly privacy: (business: string) => string;
         readonly allDone: (business: string) => string;
+        readonly signerName: string;
+        readonly agree: (business: string) => string;
+        readonly signatureRequired: string;
     };
     readonly publicPreferences: {
         readonly title: string;
@@ -4460,6 +4452,14 @@ interface Strings {
         readonly cancel: string;
         readonly testInfo: string;
         readonly testAccepted: string;
+        readonly deliveryHistory: string;
+        readonly refreshDeliveries: string;
+        readonly valueQueued: string;
+        readonly valueSending: string;
+        readonly valueAccepted: string;
+        readonly valueDelivered: string;
+        readonly valueAmbiguous: string;
+        readonly testQueued: string;
         readonly testFailed: string;
         readonly transportUnavailable: string;
         readonly preview: string;
