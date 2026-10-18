@@ -4,6 +4,8 @@ import {
     type InboxSegmentKey,
     type InboxThread,
     BUSINESS_CURRENCY,
+    canManagePayments,
+    useClientDirectory,
     broadcastIntent,
     broadcastWhen,
     consentDetail,
@@ -30,10 +32,13 @@ import {
     Stars,
     StatusPill,
 } from "@clientbridge/ui";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { api } from "../lib/api";
+import { useRole } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
+import { type ClientDialog, ClientDialogs, ClientRecordView } from "./ClientRecord";
 
 const s = strings.messaging;
 const CHANNELS: Channel[] = ["sms", "email"];
@@ -264,9 +269,27 @@ export function InboxRail({
     thread: InboxThread | null;
     onOpen: (key: InboxSegmentKey) => void;
 }) {
+    const [record, setRecord] = useState<string | null>(null);
+    if (thread !== null && record === thread.client_id)
+        return (
+            <RailRecord
+                clientId={record}
+                onClose={() => {
+                    setRecord(null);
+                }}
+            />
+        );
     return (
         <div className="space-y-2 px-2 py-3">
-            {thread !== null ? <ClientRail key={thread.id} thread={thread} /> : null}
+            {thread !== null ? (
+                <ClientRail
+                    key={thread.id}
+                    thread={thread}
+                    onOpenRecord={() => {
+                        setRecord(thread.client_id);
+                    }}
+                />
+            ) : null}
             {areas.map((area) => {
                 const Teaser = TEASERS[area.key];
                 return Teaser === undefined ? null : (
@@ -284,21 +307,70 @@ export function InboxRail({
     );
 }
 
-function ClientRail({ thread }: { thread: InboxThread }) {
+function ClientRail({ thread, onOpenRecord }: { thread: InboxThread; onOpenRecord: () => void }) {
     const conversation = useConversation(api, thread);
     return (
         <aside aria-label={s.details} className="border-b border-line-soft px-3 pb-5 pt-2">
-            <ContextPanel thread={thread} conversation={conversation} />
+            <ContextPanel thread={thread} conversation={conversation} onOpenRecord={onOpenRecord} />
         </aside>
+    );
+}
+
+// The client's record in place of the rail, so the conversation stays on screen.
+function RailRecord({ clientId, onClose }: { clientId: string; onClose: () => void }) {
+    const navigate = useNavigate();
+    const manager = canManagePayments(useRole());
+    const directory = useClientDirectory();
+    const [dialog, setDialog] = useState<ClientDialog | null>(null);
+    return (
+        <section aria-label={strings.clients.record.pane} className="flex h-full flex-col">
+            <div className="flex justify-end border-b border-line-soft px-4 py-2">
+                <Button
+                    size="sm"
+                    variant="link"
+                    onPress={() => {
+                        const done = navigate(`/clients?open=${encodeURIComponent(clientId)}`);
+                        if (done) done.catch(() => undefined);
+                    }}
+                >
+                    {s.rail.allClients}
+                </Button>
+            </div>
+            <div className="min-h-0 flex-1">
+                <ClientRecordView
+                    visible
+                    variant="inline"
+                    clientId={clientId}
+                    manager={manager}
+                    onClose={onClose}
+                    onDialog={setDialog}
+                />
+            </div>
+            <ClientDialogs
+                dialog={dialog}
+                directory={directory.all}
+                onOpenClient={() => {
+                    setDialog(null);
+                }}
+                onMerged={() => {
+                    setDialog(null);
+                }}
+                onClose={() => {
+                    setDialog(null);
+                }}
+            />
+        </section>
     );
 }
 
 export function ContextPanel({
     thread,
     conversation,
+    onOpenRecord,
 }: {
     thread: InboxThread;
     conversation: Conversation;
+    onOpenRecord?: () => void;
 }) {
     const zone = useBusinessZone();
     const kind = useSubjectKind();
@@ -331,7 +403,8 @@ export function ContextPanel({
                     variant="outline"
                     grow
                     onPress={() => {
-                        openLink("client", thread.client_id);
+                        if (onOpenRecord === undefined) openLink("client", thread.client_id);
+                        else onOpenRecord();
                     }}
                 >
                     {s.openRecord}

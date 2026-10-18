@@ -413,7 +413,7 @@ function NewContractDialog({
 }) {
     const draft = useNewContract(api, onCreated);
     return (
-        <Modal open onClose={onClose} size="lg">
+        <Modal variant="drawer" open onClose={onClose} size="lg">
             <h2 className="font-display text-lg font-bold text-ink">{s.newTitle}</h2>
             <div className="mt-4 space-y-4">
                 <TextField

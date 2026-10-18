@@ -120,7 +120,7 @@ function CatalogRow({ item }: { item: ItemRow }) {
 function KindPicker({ onClose, onPick }: { onClose: () => void; onPick: (kind: string) => void }) {
     const picker = useKindPicker();
     return (
-        <Modal open size="lg" onClose={onClose}>
+        <Modal variant="drawer" open size="lg" onClose={onClose}>
             <div className="space-y-4">
                 <div>
                     <h2 className="font-display text-lg font-bold text-ink">{s.whatAdding}</h2>

@@ -60,6 +60,8 @@ interface DetailStatus {
 
 export interface DetailViewProps {
     open: boolean;
+    // "inline" fills its parent pane instead of sliding over the page.
+    variant?: "drawer" | "inline" | undefined;
     title: string;
     subtitle?: string | undefined;
     status?: DetailStatus | undefined;
@@ -107,6 +109,8 @@ export interface LoadFailedProps {
 
 export interface ModalProps {
     flow?: boolean | undefined;
+    // "drawer" slides in from the right on web for create and edit flows; phones keep their sheet.
+    variant?: "dialog" | "drawer" | undefined;
     open?: boolean | undefined;
     onClose: () => void;
     // sm/md/lg set the web width; xl is the large panel (wide on web, a tall sheet on mobile).

@@ -303,7 +303,7 @@ function RecordReturn({
     const zone = useBusinessZone();
     const form = useFilingForm(api, period, onDone);
     return (
-        <Modal open size="lg" onClose={onClose}>
+        <Modal variant="drawer" open size="lg" onClose={onClose}>
             <h2 className="font-display text-lg font-bold text-ink">
                 {s.recordTitle(period.title)}
             </h2>

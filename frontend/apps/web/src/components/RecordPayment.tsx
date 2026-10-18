@@ -47,7 +47,7 @@ export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: (
     ];
 
     return (
-        <Modal onClose={onClose} size="lg">
+        <Modal variant="drawer" onClose={onClose} size="lg">
             <div className="flex items-start justify-between gap-4">
                 <div>
                     <h2 className="font-display text-xl font-bold text-ink">{r.title}</h2>

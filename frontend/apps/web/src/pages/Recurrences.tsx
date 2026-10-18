@@ -220,6 +220,7 @@ export function Recurrences() {
             </section>
             {composing ? (
                 <Modal
+                    variant="drawer"
                     size="xl"
                     onClose={() => {
                         setComposing(false);
@@ -422,7 +423,7 @@ function Fact({ label, value }: { label: string; value: ReactNode }) {
 function ChangeDialog({ rec, onClose }: { rec: SeriesRecord; onClose: () => void }) {
     const zone = useBusinessZone();
     return (
-        <Modal size="lg" onClose={onClose}>
+        <Modal variant="drawer" size="lg" onClose={onClose}>
             <div className="space-y-4">
                 <div>
                     <h2 className="font-display text-lg font-bold text-ink">{s.changeSeries}</h2>

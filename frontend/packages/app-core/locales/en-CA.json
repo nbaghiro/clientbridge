@@ -4215,18 +4215,6 @@
     "clients.record.emptyBody": {
         "message": "Add your first client, or they appear here when they book online."
     },
-    "clients.record.colClient": {
-        "message": "Client"
-    },
-    "clients.record.colNext": {
-        "message": "Next visit"
-    },
-    "clients.record.colBalance": {
-        "message": "Balance"
-    },
-    "clients.record.colTags": {
-        "message": "Tags"
-    },
     "clients.record.noUpcoming": {
         "message": "Nothing booked"
     },
@@ -4328,6 +4316,12 @@
     },
     "clients.record.back": {
         "message": "Clients"
+    },
+    "clients.record.pane": {
+        "message": "Client record"
+    },
+    "clients.record.choose": {
+        "message": "Choose a client to see their record."
     },
     "clients.record.goneBody": {
         "message": "They may have been merged into another record or removed on another device."
@@ -5417,6 +5411,9 @@
         "message": "Open {area}",
         "description": "Button that opens an inbox area's full page from the side rail.",
         "args": ["area"]
+    },
+    "messaging.rail.allClients": {
+        "message": "All clients"
     },
     "messaging.rail.reviewCount": {
         "message": "{n, plural, one {# review} other {# reviews}}",

@@ -373,13 +373,14 @@ export function Schedule() {
             </Modal>
             {!wide && composer ? (
                 <Modal
+                    variant="drawer"
                     size="lg"
                     framed={false}
                     onClose={() => {
                         setComposer(null);
                     }}
                 >
-                    <div className="h-[80vh] overflow-hidden rounded-lg bg-surface">
+                    <div className="h-full overflow-hidden bg-surface">
                         <BookingComposer
                             slot={composer}
                             board={board}

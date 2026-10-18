@@ -1391,10 +1391,6 @@ interface Strings {
             readonly searchPlaceholder: (kind: string) => string;
             readonly emptyTitle: string;
             readonly emptyBody: string;
-            readonly colClient: string;
-            readonly colNext: string;
-            readonly colBalance: string;
-            readonly colTags: string;
             readonly noUpcoming: string;
             readonly settled: string;
             readonly lifetime: string;
@@ -1427,6 +1423,8 @@ interface Strings {
             readonly editShort: string;
             readonly addNoteTitle: string;
             readonly back: string;
+            readonly pane: string;
+            readonly choose: string;
             readonly goneBody: string;
             readonly archived: string;
         };
@@ -1787,6 +1785,7 @@ interface Strings {
         readonly back: string;
         readonly rail: {
             readonly open: (area: string) => string;
+            readonly allClients: string;
             readonly reviewCount: (n: number) => string;
             readonly reviewsHeld: (n: number) => string;
             readonly reach: (sms: number, email: number) => string;

@@ -9,12 +9,14 @@ export function useModalFlow(): boolean {
 }
 
 const WIDTH = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-lg", xl: "max-w-6xl" } as const;
+const DRAWER_WIDTH = { sm: "max-w-md", md: "max-w-lg", lg: "max-w-xl", xl: "max-w-5xl" } as const;
 const FOCUSABLE =
     'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function Modal({
     open = true,
     flow = false,
+    variant = "dialog",
     onClose,
     size = "md",
     framed = true,
@@ -97,6 +99,30 @@ export function Modal({
             </div>
         );
     if (!open) return null;
+    if (variant === "drawer" && !flow)
+        return (
+            <div
+                className={cx("fixed inset-0 z-40 flex justify-end bg-scrim", className)}
+                onClick={onClose}
+            >
+                <div
+                    ref={dialogRef}
+                    role="dialog"
+                    aria-modal="true"
+                    tabIndex={-1}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                    }}
+                    className={cx(
+                        "flex h-full w-full animate-drawer-in flex-col overflow-y-auto border-l border-line bg-surface shadow-pop outline-hidden",
+                        DRAWER_WIDTH[size],
+                        framed && "p-6",
+                    )}
+                >
+                    {children}
+                </div>
+            </div>
+        );
     return (
         <div
             className={cx(

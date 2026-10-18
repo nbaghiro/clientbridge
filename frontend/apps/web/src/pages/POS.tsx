@@ -308,6 +308,7 @@ function Register({ sale }: { sale: SaleTicket }) {
             ) : null}
             {selling !== null ? (
                 <Modal
+                    variant="drawer"
                     open
                     size="lg"
                     onClose={() => {

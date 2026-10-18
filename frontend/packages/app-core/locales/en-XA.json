@@ -3905,18 +3905,6 @@
     "clients.record.emptyBody": {
         "message": "[Åðð ýöûŕ ƒîŕšţ çļîéñţ, öŕ ţĥéý åþþéåŕ ĥéŕé ŵĥéñ ţĥéý ƀööķ öñļîñé. one two three four five]"
     },
-    "clients.record.colClient": {
-        "message": "[Çļîéñţ one]"
-    },
-    "clients.record.colNext": {
-        "message": "[Ñéẋţ ṽîšîţ one two]"
-    },
-    "clients.record.colBalance": {
-        "message": "[Ɓåļåñçé one]"
-    },
-    "clients.record.colTags": {
-        "message": "[Ţåĝš one]"
-    },
     "clients.record.noUpcoming": {
         "message": "[Ñöţĥîñĝ ƀööķéð one two]"
     },
@@ -4012,6 +4000,12 @@
     },
     "clients.record.back": {
         "message": "[Çļîéñţš one]"
+    },
+    "clients.record.pane": {
+        "message": "[Çļîéñţ ŕéçöŕð one two]"
+    },
+    "clients.record.choose": {
+        "message": "[Çĥööšé å çļîéñţ ţö šéé ţĥéîŕ ŕéçöŕð. one two three]"
     },
     "clients.record.goneBody": {
         "message": "[Ţĥéý ɱåý ĥåṽé ƀééñ ɱéŕĝéð îñţö åñöţĥéŕ ŕéçöŕð öŕ ŕéɱöṽéð öñ åñöţĥéŕ ðéṽîçé. one two three four five]"
@@ -4993,6 +4987,9 @@
     },
     "messaging.rail.open": {
         "message": "[Öþéñ {area} one]"
+    },
+    "messaging.rail.allClients": {
+        "message": "[Åļļ çļîéñţš one two]"
     },
     "messaging.rail.reviewCount": {
         "message": "[{n,plural,one{# ŕéṽîéŵ} other{# ŕéṽîéŵš}} one two]"

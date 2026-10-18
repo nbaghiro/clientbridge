@@ -12,6 +12,7 @@ import { StatusPill } from "./StatusPill";
 
 export function DetailView({
     open,
+    variant = "drawer",
     title,
     subtitle,
     status,
@@ -21,7 +22,9 @@ export function DetailView({
     children,
     className,
 }: WebProps<DetailViewProps>) {
-    const inFlow = useModalFlow();
+    const flow = useModalFlow();
+    const inline = variant === "inline";
+    const inFlow = flow || inline;
     useEffect(() => {
         if (!open || inFlow) return undefined;
         const onKey = (e: KeyboardEvent): void => {
@@ -49,7 +52,11 @@ export function DetailView({
                 onClick={(e) => {
                     e.stopPropagation();
                 }}
-                className="flex h-full w-full max-w-[520px] flex-col border-l border-line bg-surface shadow-card"
+                className={
+                    inline
+                        ? "flex h-full w-full flex-col bg-surface"
+                        : "flex h-full w-full max-w-[520px] flex-col border-l border-line bg-surface shadow-card"
+                }
             >
                 <div className="flex items-center justify-between gap-3 border-b border-line px-6 py-4">
                     <div className="flex min-w-0 items-center gap-3">
