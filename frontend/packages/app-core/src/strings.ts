@@ -2115,15 +2115,6 @@ interface Strings {
             readonly verifyFirst: string;
             readonly verifyEmail: string;
         };
-        readonly discountTitle: string;
-        readonly discountLimit: string;
-        readonly saveDiscount: string;
-        readonly approvalPin: string;
-        readonly pinHint: string;
-        readonly savePin: string;
-        readonly discountInvalid: string;
-        readonly pinInvalid: string;
-        readonly discountFailed: string;
     };
     readonly datetime: {
         readonly zoneNames: {

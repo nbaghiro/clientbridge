@@ -4061,8 +4061,6 @@ export interface components {
             setup_dismissed_at: string | null;
             /** Review Hold At */
             review_hold_at: number;
-            /** Staff Discount Limit Bps */
-            staff_discount_limit_bps: number;
             /** Google Review Url */
             google_review_url: string | null;
             /** Brand */
@@ -4096,8 +4094,6 @@ export interface components {
              * @description Hide (true) or show (false) the Get set up list
              */
             setup_dismissed?: boolean | null;
-            /** Staff Discount Limit Bps */
-            staff_discount_limit_bps?: number | null;
             /**
              * Review Hold At
              * @description Hold reviews rated at or below this; 0 holds none

@@ -12425,33 +12425,6 @@
     "business.timeZones.blancSablon": {
         "message": "[Ɓļåñç-Šåƀļöñ one two]"
     },
-    "business.discountTitle": {
-        "message": "[Đîšçöûñţ åþþŕöṽåļš one two]"
-    },
-    "business.discountLimit": {
-        "message": "[Šţåƒƒ ðîšçöûñţ ļîɱîţ (%) one two]"
-    },
-    "business.saveDiscount": {
-        "message": "[Šåṽé ðîšçöûñţ ļîɱîţ one two]"
-    },
-    "business.approvalPin": {
-        "message": "[Ýöûŕ åþþŕöṽåļ ÞÎÑ one two]"
-    },
-    "business.pinHint": {
-        "message": "[Ûšé ƒöûŕ ðîĝîţš ţö åþþŕöṽé šţåƒƒ ðîšçöûñţš åƀöṽé ţĥé ļîɱîţ. one two three four]"
-    },
-    "business.savePin": {
-        "message": "[Šéţ åþþŕöṽåļ ÞÎÑ one two]"
-    },
-    "business.discountInvalid": {
-        "message": "[Éñţéŕ å þéŕçéñţåĝé ƒŕöɱ 0 ţö 100. one two three]"
-    },
-    "business.pinInvalid": {
-        "message": "[Éñţéŕ å ƒöûŕ-ðîĝîţ ÞÎÑ. one two]"
-    },
-    "business.discountFailed": {
-        "message": "[Çöûļð ñöţ šåṽé ðîšçöûñţ šéţţîñĝš. one two three]"
-    },
     "admin.testQueued": {
         "message": "[Ţéšţ ǫûéûéð ƒöŕ ðéļîṽéŕý. Çĥéçķ ðéļîṽéŕý ĥîšţöŕý ƒöŕ îţš šţåţûš. one two three four five]"
     },

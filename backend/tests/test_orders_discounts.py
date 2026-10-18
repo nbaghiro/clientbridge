@@ -98,4 +98,3 @@ async def test_the_pay_link_shows_discounts(
     assert page["lines"][0]["discount_cents"] == 1000
     assert (page["discount_cents"], page["discount_reason"]) == (500, "Wait")
     assert page["subtotal_cents"] == 8500
-

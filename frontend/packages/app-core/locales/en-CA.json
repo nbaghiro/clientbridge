@@ -13190,33 +13190,6 @@
     "business.timeZones.blancSablon": {
         "message": "Blanc-Sablon"
     },
-    "business.discountTitle": {
-        "message": "Discount approvals"
-    },
-    "business.discountLimit": {
-        "message": "Staff discount limit (%)"
-    },
-    "business.saveDiscount": {
-        "message": "Save discount limit"
-    },
-    "business.approvalPin": {
-        "message": "Your approval PIN"
-    },
-    "business.pinHint": {
-        "message": "Use four digits to approve staff discounts above the limit."
-    },
-    "business.savePin": {
-        "message": "Set approval PIN"
-    },
-    "business.discountInvalid": {
-        "message": "Enter a percentage from 0 to 100."
-    },
-    "business.pinInvalid": {
-        "message": "Enter a four-digit PIN."
-    },
-    "business.discountFailed": {
-        "message": "Could not save discount settings."
-    },
     "admin.testQueued": {
         "message": "Test queued for delivery. Check delivery history for its status."
     },
