@@ -1,4 +1,4 @@
-"""cb0009 moves the subject kind onto the business, refuses non-pet rows and reverses cleanly."""
+"""cb0016 moves the subject kind onto the business, refuses non-pet rows and reverses cleanly."""
 
 import os
 import secrets
@@ -18,7 +18,7 @@ def _run(env: dict[str, str], *args: str) -> None:
     subprocess.run([sys.executable, "-m", *args], env=env, check=True, stdout=sys.stderr)
 
 
-async def test_cb0009_backfills_pet_businesses_refuses_other_kinds_and_downgrades() -> None:
+async def test_cb0016_backfills_pet_businesses_refuses_other_kinds_and_downgrades() -> None:
     settings = get_settings()
     database = f"clientbridge_migration_{secrets.token_hex(4)}"
     url = on(settings.migration_database_url, database)
@@ -31,7 +31,7 @@ async def test_cb0009_backfills_pet_businesses_refuses_other_kinds_and_downgrade
     engine = create_async_engine(url)
     try:
         _run(env, "scripts.db_access", "roles")
-        _run(env, "alembic", "upgrade", "cb0008")
+        _run(env, "alembic", "upgrade", "cb0015")
         async with engine.begin() as conn:
             for biz in ("bz_pets", "bz_plain"):
                 await conn.execute(
@@ -56,10 +56,10 @@ async def test_cb0009_backfills_pet_businesses_refuses_other_kinds_and_downgrade
                 )
             )
         with pytest.raises(subprocess.CalledProcessError):
-            _run(env, "alembic", "upgrade", "cb0009")
+            _run(env, "alembic", "upgrade", "cb0016")
         async with engine.begin() as conn:
             await conn.execute(text("UPDATE subjects SET kind = 'pet'"))
-        _run(env, "alembic", "upgrade", "cb0009")
+        _run(env, "alembic", "upgrade", "cb0016")
 
         async def kinds() -> dict[str, object]:
             async with engine.connect() as conn:
@@ -71,7 +71,7 @@ async def test_cb0009_backfills_pet_businesses_refuses_other_kinds_and_downgrade
             await conn.execute(
                 text("UPDATE businesses SET subject = 'student' WHERE id = 'bz_pets'")
             )
-        _run(env, "alembic", "downgrade", "cb0008")
+        _run(env, "alembic", "downgrade", "cb0015")
         async with engine.connect() as conn:
             kind = await conn.scalar(text("SELECT kind FROM subjects WHERE id = 'sj_a'"))
         assert kind == "child"
