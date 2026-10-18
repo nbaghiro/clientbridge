@@ -35,6 +35,7 @@ def build_identity(ctx: DemoContext) -> None:
             id="bz_demo_second",
             name="Cedar Coast Pet Care",
             slug="cedar-coast-demo",
+            subject="pet",
             timezone="America/Vancouver",
             province="BC",
             status="active",

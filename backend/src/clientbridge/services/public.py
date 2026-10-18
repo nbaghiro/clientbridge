@@ -135,6 +135,7 @@ from clientbridge.services.payments import (
 )
 from clientbridge.services.plans import assert_serving
 from clientbridge.services.returning import ReturningService
+from clientbridge.services.subjects import new_subject
 from clientbridge.services.tax import (
     LineTax,
     TaxResult,
@@ -574,14 +575,7 @@ async def _pet(db: AsyncSession, business_id: str, client_id: str, name: str | N
     )
     if found is not None:
         return found.id
-    pet = Subject(
-        id=new_id("subject"),
-        business_id=business_id,
-        client_id=client_id,
-        kind="pet",
-        name=clean,
-        attributes={},
-    )
+    pet = await new_subject(db, business_id, client_id, clean, {})
     db.add(pet)
     await db.flush()
     return pet.id

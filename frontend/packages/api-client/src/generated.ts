@@ -4055,6 +4055,8 @@ export interface components {
             brand: {
                 [key: string]: unknown;
             };
+            /** Subject */
+            subject: ("pet" | "student" | "property") | null;
         };
         /** BusinessSettingsUpdate */
         BusinessSettingsUpdate: {
@@ -4093,6 +4095,11 @@ export interface components {
              */
             google_review_url?: string | null;
             brand?: components["schemas"]["BrandInput"] | null;
+            /**
+             * Subject
+             * @description What bookings are for besides the client; null books only them
+             */
+            subject?: ("pet" | "student" | "property") | null;
         };
         /** CheckoutOut */
         CheckoutOut: {
@@ -4686,15 +4693,12 @@ export interface components {
         };
         /** FirstSubject */
         FirstSubject: {
-            /**
-             * Kind
-             * @default pet
-             * @enum {string}
-             */
-            kind: "pet" | "vehicle" | "child" | "property";
             /** Name */
             name: string;
-            attributes?: components["schemas"]["SubjectAttributes"];
+            /** Attributes */
+            attributes?: {
+                [key: string]: unknown;
+            };
         };
         /** FormFieldIn */
         FormFieldIn: {
@@ -8113,49 +8117,19 @@ export interface components {
             /** Series Ended */
             series_ended: string[];
         };
-        /**
-         * SubjectAttributes
-         * @description The typed details of a subject; keys a kind doesn't use stay empty, unknown keys are kept.
-         */
-        SubjectAttributes: {
-            /** Species */
-            species?: ("dog" | "cat" | "other") | null;
-            /** Breed */
-            breed?: string | null;
-            /** Weight Kg */
-            weight_kg?: number | null;
-            /** Birthday */
-            birthday?: string | null;
-            /** Sex */
-            sex?: ("female" | "male") | null;
-            /** Temperament */
-            temperament?: string | null;
-            /** Coat */
-            coat?: string | null;
-            /** Allergies */
-            allergies?: string | null;
-            /** Vet */
-            vet?: string | null;
-            /** Rabies Until */
-            rabies_until?: string | null;
-            /** Style */
-            style?: string | null;
-        } & {
-            [key: string]: unknown;
-        };
         /** SubjectCreate */
         SubjectCreate: {
             /** Client Id */
             client_id: string;
-            /**
-             * Kind
-             * @default pet
-             * @enum {string}
-             */
-            kind: "pet" | "vehicle" | "child" | "property";
             /** Name */
             name: string;
-            attributes?: components["schemas"]["SubjectAttributes"];
+            /**
+             * Attributes
+             * @description Validated against the business's subject kind
+             */
+            attributes?: {
+                [key: string]: unknown;
+            };
         };
         /** SubjectOut */
         SubjectOut: {
@@ -8165,11 +8139,6 @@ export interface components {
             business_id: string;
             /** Client Id */
             client_id: string;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "pet" | "vehicle" | "child" | "property";
             /** Name */
             name: string;
             /** Attributes */
@@ -8191,7 +8160,10 @@ export interface components {
         SubjectUpdate: {
             /** Name */
             name?: string | null;
-            attributes?: components["schemas"]["SubjectAttributes"] | null;
+            /** Attributes */
+            attributes?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** SubscriptionCreate */
         SubscriptionCreate: {

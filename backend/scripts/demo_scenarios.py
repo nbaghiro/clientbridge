@@ -91,7 +91,6 @@ def add_scenarios(ctx: DemoContext) -> None:
                 business_id=ctx.business_id,
                 client_id=client_id,
                 name=pet_name,
-                kind="pet",
                 attributes={
                     "species": "dog",
                     "breed": "Mixed breed",

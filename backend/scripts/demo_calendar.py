@@ -73,7 +73,6 @@ def build_calendar(ctx: DemoContext) -> None:
                 id=pet_id,
                 business_id=ctx.business_id,
                 client_id=client_id,
-                kind="pet",
                 name=PET_NAMES[index % 8],
                 attributes={
                     "species": "cat" if cat else "dog",
@@ -166,7 +165,6 @@ def build_calendar(ctx: DemoContext) -> None:
                     id=pet_id,
                     business_id=ctx.business_id,
                     client_id=booking.client_id,
-                    kind="pet",
                     name="Scout" if booking.id == "bk_class_1" else "Juniper",
                     attributes={
                         "species": "dog",

@@ -26,7 +26,6 @@ async def test_booking_rejects_a_pet_outside_the_client_record(
         id=new_id("subject"),
         business_id=biz,
         client_id=client,
-        kind="pet",
         name="Private pet",
         attributes={},
         deleted_at=clock.now() if kind == "deleted" else None,

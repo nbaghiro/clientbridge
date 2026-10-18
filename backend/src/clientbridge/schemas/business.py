@@ -5,7 +5,13 @@ from urllib.parse import urlparse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from clientbridge.core.mirrors import Mirror
-from clientbridge.models.business import Business, BusinessStatus, FilingFrequency, ProvinceCode
+from clientbridge.models.business import (
+    Business,
+    BusinessStatus,
+    FilingFrequency,
+    ProvinceCode,
+    SubjectKind,
+)
 from clientbridge.schemas.public import HEX_COLOR
 
 # CRA business number + RT program account, Revenu Quebec TQ account, BC PST registration.
@@ -58,6 +64,7 @@ class BusinessOut(Mirror):
     review_hold_at: int
     google_review_url: str | None
     brand: dict[str, object]
+    subject: SubjectKind | None
 
 
 class BrandInput(BaseModel):
@@ -149,6 +156,9 @@ class BusinessSettingsUpdate(Mirror):
         default=None, description="The Google review link shared after a good review; empty clears"
     )
     brand: BrandInput | None = None
+    subject: SubjectKind | None = Field(
+        default=None, description="What bookings are for besides the client; null books only them"
+    )
 
     @field_validator("google_review_url")
     @classmethod

@@ -19,7 +19,6 @@
     ],
     "subjects": [
       "client_id",
-      "kind",
       "name",
       "attributes",
       "id",
@@ -201,7 +200,8 @@
       "tax_registered",
       "setup_dismissed_at",
       "plan_status",
-      "trial_ends_at"
+      "trial_ends_at",
+      "subject"
     ],
     "staff": [
       "id",
@@ -351,7 +351,8 @@
       "setup_dismissed_at",
       "plan",
       "plan_status",
-      "trial_ends_at"
+      "trial_ends_at",
+      "subject"
     ],
     "staff": [
       "id",

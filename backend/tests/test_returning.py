@@ -153,9 +153,7 @@ async def test_verified_booking_binds_client_and_pet_not_forged_contact(
     api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
     client = await _client(db)
-    pet = Subject(
-        id=new_id("subject"), business_id=BIZ, client_id=client.id, kind="pet", name="Known pet"
-    )
+    pet = Subject(id=new_id("subject"), business_id=BIZ, client_id=client.id, name="Known pet")
     db.add(pet)
     await db.flush()
     challenge, code = await _request(api, email)

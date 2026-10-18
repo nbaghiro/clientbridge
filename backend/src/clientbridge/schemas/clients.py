@@ -5,8 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from clientbridge.core.mirrors import Mirror
 from clientbridge.core.phones import Phone
-from clientbridge.models.clients import Channel, Client, ClientStatus, Subject, SubjectKind
-from clientbridge.schemas.subjects import SubjectAttributes
+from clientbridge.models.clients import Channel, Client, ClientStatus, Subject
 
 MergeSide = Literal["kept", "other"]
 
@@ -26,9 +25,8 @@ class ClientBase(Mirror):
 class FirstSubject(Mirror):
     mirrors = Subject
 
-    kind: SubjectKind = "pet"
     name: str = Field(min_length=1)
-    attributes: SubjectAttributes = Field(default_factory=SubjectAttributes)
+    attributes: dict[str, object] = Field(default_factory=dict)
 
 
 class ClientCreate(ClientBase):

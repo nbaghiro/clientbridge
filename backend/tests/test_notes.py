@@ -105,8 +105,8 @@ async def test_note_on_a_foreign_pet_404(
     foreign = await factory.client(business=other)
     await db.execute(
         text(
-            "INSERT INTO subjects (id, business_id, client_id, kind, name, attributes)"
-            " VALUES ('sj_foreign_note', :b, :c, 'pet', 'Theirs', '{}')"
+            "INSERT INTO subjects (id, business_id, client_id, name, attributes)"
+            " VALUES ('sj_foreign_note', :b, :c, 'Theirs', '{}')"
         ),
         {"b": other.id, "c": foreign.id},
     )

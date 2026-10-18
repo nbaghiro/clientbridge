@@ -63,7 +63,7 @@ from clientbridge.integrations.stripe import (
 from clientbridge.integrations.twilio import Sms, get_sms_sender
 from clientbridge.main import app
 from clientbridge.models.billing import Invoice
-from clientbridge.models.business import Business, PlanStatus, Staff, User
+from clientbridge.models.business import Business, PlanStatus, Staff, SubjectKind, User
 from clientbridge.models.clients import Client
 from clientbridge.models.platform import Audit
 from clientbridge.services import ledger
@@ -773,6 +773,7 @@ class Factory:
         province: str = "BC",
         name: str = "Test Studio",
         plan_status: PlanStatus = "active",
+        subject: SubjectKind | None = "pet",
     ) -> Business:
         # complimentary Team like the demo, so a test's fixed clock never finds it lapsed
         biz = Business(
@@ -783,6 +784,7 @@ class Factory:
             timezone="America/Vancouver",
             plan="team" if plan_status == "active" else None,
             plan_status=plan_status,
+            subject=subject,
         )
         self.db.add(biz)
         await self.db.flush()

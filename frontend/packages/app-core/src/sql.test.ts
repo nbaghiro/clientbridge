@@ -800,7 +800,6 @@ function scheduleRows(): void {
         {
             id: "sj_rex",
             client_id: "cl_ann",
-            kind: "pet",
             name: "Rex",
             attributes: '{"breed":"Lab"}',
         },
@@ -1598,11 +1597,10 @@ describe("app-core SQL against the replica schema", () => {
             },
         ]);
         scoped("subjects", [
-            { id: "sj_rex", client_id: "cl_ann", kind: "pet", name: "Rex", attributes: "{}" },
+            { id: "sj_rex", client_id: "cl_ann", name: "Rex", attributes: "{}" },
             {
                 id: "sj_gone",
                 client_id: "cl_ann",
-                kind: "pet",
                 name: "Old",
                 attributes: "{}",
                 deleted_at: TS,

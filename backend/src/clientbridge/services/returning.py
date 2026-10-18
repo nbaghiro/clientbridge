@@ -208,7 +208,6 @@ class ReturningService:
                 scoped(Subject, client.business_id, soft_delete=True).where(
                     Subject.id == subject_id,
                     Subject.client_id == client.id,
-                    Subject.kind == "pet",
                 )
             )
         ).scalar_one_or_none()
@@ -221,10 +220,7 @@ class ReturningService:
             (
                 await self.db.execute(
                     scoped(Subject, client.business_id, soft_delete=True)
-                    .where(
-                        Subject.client_id == client.id,
-                        Subject.kind == "pet",
-                    )
+                    .where(Subject.client_id == client.id)
                     .order_by(Subject.name)
                 )
             )

@@ -337,13 +337,12 @@ export function visitPill(
 }
 
 export const CLIENT_SUBJECTS_SQL = `
-SELECT id, client_id, kind, name, attributes, created_at FROM subjects
+SELECT id, client_id, name, attributes, created_at FROM subjects
 WHERE client_id = ? AND deleted_at IS NULL ORDER BY created_at, name`;
 
 interface SubjectDbRow {
     id: string;
     client_id: string;
-    kind: string;
     name: string;
     attributes: string | null;
     created_at: string;
@@ -352,7 +351,6 @@ interface SubjectDbRow {
 export interface SubjectRow {
     id: string;
     clientId: string;
-    kind: string;
     name: string;
     attributes: Record<string, unknown>;
 }
@@ -361,7 +359,6 @@ function toSubject(r: SubjectDbRow): SubjectRow {
     return {
         id: r.id,
         clientId: r.client_id,
-        kind: r.kind,
         name: r.name,
         attributes: parseObject(r.attributes),
     };
@@ -746,7 +743,6 @@ export function useClientEditor(
                             petName === ""
                                 ? null
                                 : {
-                                      kind: "pet",
                                       name: petName,
                                       attributes: { breed: blankToNull(draft.petBreed) },
                                   },
@@ -1124,7 +1120,6 @@ export function useSubjectForm(
                 if (pet === null) {
                     await api.post("/v1/subjects", {
                         client_id: clientId,
-                        kind: "pet",
                         name: name.trim(),
                         attributes,
                     });
