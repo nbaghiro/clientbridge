@@ -400,7 +400,7 @@ test("owner: schedule, booking panel, classes and repeat visits", async ({ page 
 
     const rs = strings.recurrences;
     await walk.step("repeat visits: a series record, its change and cancel dialogs", async () => {
-        const rows = main.locator("section").first().locator(":scope > div").getByRole("button");
+        const rows = main.getByRole("navigation", { name: rs.listTitle }).getByRole("button");
         await expect(rows.first()).toBeVisible();
         const change = main.getByRole("button", { name: rs.changeSeries, exact: true });
         // The fixtures guarantee one active series with visits ahead; earlier ones may have ended.

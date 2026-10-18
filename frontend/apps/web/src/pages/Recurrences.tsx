@@ -148,7 +148,10 @@ export function Recurrences() {
                                         onChange={list.setFilter}
                                     />
                                 </div>
-                                <div className="min-h-0 flex-1 overflow-y-auto">
+                                <nav
+                                    aria-label={s.listTitle}
+                                    className="min-h-0 flex-1 overflow-y-auto"
+                                >
                                     {list.rows.length === 0 ? (
                                         <div className="p-5">
                                             <Empty message={s.emptySearch} />
@@ -200,7 +203,7 @@ export function Recurrences() {
                                             ))}
                                         </div>
                                     )}
-                                </div>
+                                </nav>
                             </aside>
                             <div className="min-w-0 flex-1 overflow-y-auto">
                                 {openId === null ? (

@@ -4991,6 +4991,24 @@
     "messaging.back": {
         "message": "[Îñƀöẋ one]"
     },
+    "messaging.rail.open": {
+        "message": "[Öþéñ {area} one]"
+    },
+    "messaging.rail.reviewCount": {
+        "message": "[{n,plural,one{# ŕéṽîéŵ} other{# ŕéṽîéŵš}} one two]"
+    },
+    "messaging.rail.reviewsHeld": {
+        "message": "[{n,plural,one{# ŕéṽîéŵ ŵåîţîñĝ ƒöŕ ýöûŕ ÖĶ} other{# ŕéṽîéŵš ŵåîţîñĝ ƒöŕ ýöûŕ ÖĶ}} one two three four]"
+    },
+    "messaging.rail.reach": {
+        "message": "[{sms, number} çåñ ĝéţ ţéẋţš, {email, number} çåñ ĝéţ éɱåîļ one two three]"
+    },
+    "messaging.rail.formsWaiting": {
+        "message": "[{n,plural,one{# åñšŵéŕ ŵåîţîñĝ} other{# åñšŵéŕš ŵåîţîñĝ} =0{Ñö åñšŵéŕš ŵåîţîñĝ}} one two three four]"
+    },
+    "messaging.rail.signaturesWaiting": {
+        "message": "[{n,plural,one{# šîĝñåţûŕé ŵåîţîñĝ} other{# šîĝñåţûŕéš ŵåîţîñĝ} =0{Ñö šîĝñåţûŕéš ŵåîţîñĝ}} one two three four five]"
+    },
     "messaging.cancel": {
         "message": "[Çåñçéļ one]"
     },

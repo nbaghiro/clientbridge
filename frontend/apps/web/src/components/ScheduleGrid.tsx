@@ -29,7 +29,7 @@ import {
     useRef,
     useState,
 } from "react";
-import { SummaryStrip } from "./Workspace";
+import { SummaryStrip } from "./SummaryStrip";
 
 const s = strings.bookings;
 
