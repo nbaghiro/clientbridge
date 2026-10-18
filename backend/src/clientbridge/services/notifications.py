@@ -1491,6 +1491,7 @@ class Notifier:
         if not lines or document is None:
             return Itemised((), ())
         tax = await issued_tax(db, payment.business_id, lines, issued_at(document))
+        tips = await ledger.document_tips(db, payment.business_id, parent)
         cur = payment.currency
         return receipt_detail_lines(
             locale,
@@ -1507,8 +1508,8 @@ class Notifier:
                 (code, format_money(locale, cents, cur))
                 for code, cents in sorted(tax.by_jurisdiction.items())
             ],
-            format_money(locale, tax.total_cents + payment.tip_cents, cur),
-            format_money(locale, payment.tip_cents, cur) if payment.tip_cents else None,
+            format_money(locale, tax.total_cents + tips, cur),
+            format_money(locale, tips, cur) if tips else None,
         )
 
     async def _to_contact(
