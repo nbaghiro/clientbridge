@@ -227,11 +227,7 @@ export function useLetterhead(apiBaseUrl: string): Letterhead {
     const row = useQuery<LetterheadRow>(LETTERHEAD_SQL).data[0];
     return {
         name: row?.name ?? "",
-        avatarUrl: mediaUrl(
-            apiBaseUrl,
-            brandField(row?.brand ?? null, "avatar_file_id") ??
-                brandField(row?.brand ?? null, "logo_file_id"),
-        ),
+        avatarUrl: mediaUrl(apiBaseUrl, brandField(row?.brand ?? null, "logo_file_id")),
         tagline: brandField(row?.brand ?? null, "tagline"),
         brandColor: brandField(row?.brand ?? null, "primary"),
         email: row?.billing_email ?? null,

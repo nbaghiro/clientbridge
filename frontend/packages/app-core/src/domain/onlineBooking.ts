@@ -248,7 +248,7 @@ export function useOnlineBookingSettings(api: ApiLike, bookBase: string, links: 
         previewServices: bookable.slice(0, 6),
         previewMore: Math.max(0, bookable.length - 6),
         businessName: out?.business_name ?? "",
-        businessAvatarFileId: business.avatarFileId,
+        businessLogoFileId: business.logoFileId,
         dirty: d.dirty,
         discard: d.discard,
         save: () => {

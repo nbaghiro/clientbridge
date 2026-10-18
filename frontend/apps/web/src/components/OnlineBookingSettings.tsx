@@ -305,8 +305,8 @@ function Preview({ st }: { st: Settings }) {
                     name={st.businessName}
                     size="sm"
                     src={
-                        st.businessAvatarFileId
-                            ? mediaUrl(config.apiUrl, st.businessAvatarFileId)
+                        st.businessLogoFileId
+                            ? mediaUrl(config.apiUrl, st.businessLogoFileId)
                             : null
                     }
                 />

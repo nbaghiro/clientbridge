@@ -236,8 +236,8 @@ function ShellBody({
                             size="sm"
                             color={nav.brandColor}
                             src={
-                                nav.setup.avatarFileId
-                                    ? mediaUrl(apiBaseUrl, nav.setup.avatarFileId)
+                                nav.setup.logoFileId
+                                    ? mediaUrl(apiBaseUrl, nav.setup.logoFileId)
                                     : null
                             }
                         />
