@@ -338,3 +338,36 @@ async def test_an_account_cannot_be_born_with_a_balance(db: AsyncSession) -> Non
             ),
             {"id": new_id("account"), "biz": BIZ},
         )
+
+
+async def test_a_closed_dispute_ignores_a_late_creation_snapshot(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    inv_id = await sent_invoice(db, total=8000)
+    row = await _charge(db, "pi_closed_first", invoice_id=inv_id)
+    before = await business_balance(db, "stripe")
+    pulled = {"amount": -8000, "fee": 1500, "net": -9500}
+    returned = {"amount": 8000, "fee": -1500, "net": 9500}
+    await stripe_event(
+        api, "charge.dispute.closed", _dispute("pi_closed_first", "won", [pulled, returned])
+    )
+    await stripe_event(
+        api, "charge.dispute.created", _dispute("pi_closed_first", "needs_response", [pulled])
+    )
+    await db.refresh(row)
+    assert row.dispute_status == "won"
+    assert await business_balance(db, "stripe") == before
+
+
+async def test_dispute_fees_arriving_after_creation_are_booked(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    inv_id = await sent_invoice(db, total=8000)
+    await _charge(db, "pi_late_fee", invoice_id=inv_id)
+    before = await business_balance(db, "stripe")
+    await stripe_event(api, "charge.dispute.created", _dispute("pi_late_fee", "needs_response", []))
+    pulled = {"amount": -8000, "fee": 1500, "net": -9500}
+    await stripe_event(
+        api, "charge.dispute.funds_withdrawn", _dispute("pi_late_fee", "needs_response", [pulled])
+    )
+    assert await business_balance(db, "stripe") == before - 9500

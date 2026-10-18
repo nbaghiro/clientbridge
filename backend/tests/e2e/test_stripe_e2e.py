@@ -49,7 +49,10 @@ async def test_pad_capability_request_is_accepted(
     assert pad.get("status") in {"pending", "active"}
     if pad.get("status") == "active":
         customer_id = await live_gateway.create_customer(
-            connected_account_id, name="PAD Tester", email="pad@x.test"
+            connected_account_id,
+            name="PAD Tester",
+            email="pad@x.test",
+            idempotency_key=f"pad-customer-{uuid4()}",
         )
         result = await live_gateway.create_pad_setup_intent(
             connected_account_id,
@@ -80,7 +83,10 @@ async def test_declined_test_card_maps_to_card_declined(
 ) -> None:
     """Stripe's decline test card surfaces as our CardDeclined (a 402 the client can act on)."""
     customer_id = await live_gateway.create_customer(
-        connected_account_id, name="Decline Tester", email="decline@x.test"
+        connected_account_id,
+        name="Decline Tester",
+        email="decline@x.test",
+        idempotency_key=f"decline-customer-{uuid4()}",
     )
     # pm_card_chargeDeclined is Stripe's canonical always-declines test payment method
     await stripe.PaymentMethod.attach_async(

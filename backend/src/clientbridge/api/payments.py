@@ -18,6 +18,7 @@ from clientbridge.schemas.payments import (
     DetachResult,
     PaymentMethodOut,
     PaymentSetupLinkOut,
+    PayoutOut,
     RefundIn,
     RefundOut,
     RefundPreview,
@@ -51,6 +52,13 @@ async def connect_status(
     principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
 ) -> ConnectStatus:
     return await PaymentService(db, principal, gateway).status()
+
+
+@connect_router.get("/payouts", response_model=list[PayoutOut])
+async def payouts(
+    principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> list[PayoutOut]:
+    return await PaymentService(db, principal, gateway).payouts()
 
 
 payments_router = APIRouter(prefix="/payments", tags=["payments"])

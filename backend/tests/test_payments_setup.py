@@ -170,6 +170,8 @@ def test_missing_account_is_created_as_a_v2_merchant_with_test_identity() -> Non
     )
     assert identity["individual"]["phone"] == "+12505550110"
     assert "attestations" not in identity  # Stripe collects the terms in onboarding
+    assert identity["individual"]["relationship"] == {"title": "Owner"}
+    assert merchant["support"]["phone"] == BIRCHBARK.phone
 
 
 def _v2_account(**changes: object) -> dict[str, object]:
@@ -734,3 +736,9 @@ def test_linking_runs_only_on_dev_or_staging_with_a_test_key() -> None:
         "ENV is 'prod'; linking runs only with ENV=dev or ENV=staging"
     ]
     assert link_problems("staging", "sk_live_1") == ["STRIPE_SECRET_KEY is not a test-mode key"]
+
+
+def test_demo_without_website_uses_stripe_test_url() -> None:
+    body = _body(plan_account(DEMO_BUSINESSES[1], []).params)
+    defaults = cast(dict[str, dict[str, object]], body["defaults"])
+    assert defaults["profile"]["business_url"] == "https://accessible.stripe.com"

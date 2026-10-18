@@ -188,6 +188,14 @@ export function GettingPaidScreen() {
                                         ? g.balanceUnknown
                                         : formatMoney(paid.availableCents, BUSINESS_CURRENCY),
                             },
+                            ...(paid.pendingCents !== null && paid.pendingCents > 0
+                                ? [
+                                      {
+                                          label: g.pending,
+                                          value: formatMoney(paid.pendingCents, BUSINESS_CURRENCY),
+                                      },
+                                  ]
+                                : []),
                         ]}
                     />
                 </View>

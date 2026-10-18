@@ -12,6 +12,7 @@ from clientbridge.integrations.stripe import (
     PlanPriceRef,
     PostalAddress,
     StripeGateway,
+    StripeResource,
 )
 
 pytestmark = pytest.mark.contract
@@ -21,7 +22,9 @@ CUS = "cus_contract"
 
 
 async def test_create_customer(contract_gateway: StripeGateway) -> None:
-    cus = await contract_gateway.create_customer(ACCT, name="Robin Maple", email="robin@x.test")
+    cus = await contract_gateway.create_customer(
+        ACCT, name="Robin Maple", email="robin@x.test", idempotency_key="contract-customer"
+    )
     assert cus.startswith("cus_")
 
 
@@ -173,3 +176,39 @@ async def test_create_portal_session(contract_gateway: StripeGateway) -> None:
     gateway = StripeGateway("sk_test_contract", "", "CA", portal_configuration="bpc_contract")
     url = await gateway.create_portal_session(ACCT, return_url="https://app.example/setup/plan")
     assert url.startswith("https://")
+
+
+@pytest.mark.parametrize(
+    "resource, identity",
+    [
+        ("payment_intent", "pi_contract"),
+        ("charge", "ch_contract"),
+        ("refund", "re_contract"),
+        ("payout", "po_contract"),
+        ("dispute", "dp_contract"),
+        ("subscription", "sub_contract"),
+        ("invoice", "in_contract"),
+    ],
+)
+async def test_retrieve_connected_object(
+    contract_gateway: StripeGateway, resource: StripeResource, identity: str
+) -> None:
+    assert (await contract_gateway.retrieve(ACCT, resource, identity))["id"] == identity
+
+
+async def test_lists_balance_transactions(contract_gateway: StripeGateway) -> None:
+    assert await contract_gateway.balance_transactions(ACCT)
+
+
+async def test_lists_payouts(contract_gateway: StripeGateway) -> None:
+    assert await contract_gateway.list_payouts(ACCT)
+
+
+async def test_lists_events(contract_gateway: StripeGateway) -> None:
+    events = await contract_gateway.recent_events(ACCT, datetime(2026, 1, 1, tzinfo=UTC))
+    assert events
+    assert all(event.account == ACCT for event in events)
+
+
+async def test_finds_invoice_from_payment(contract_gateway: StripeGateway) -> None:
+    assert await contract_gateway.invoice_for_payment(ACCT, "pi_contract") is not None

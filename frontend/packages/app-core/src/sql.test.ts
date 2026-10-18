@@ -1315,10 +1315,6 @@ describe("app-core SQL against the replica schema", () => {
             { id: "pay_1", kind: "payment" },
             { id: "pay_r1", kind: "refund" },
         ]);
-        expect(pick(run("PAYOUTS_SQL"), "id", "amount_cents", "status")).toEqual([
-            { id: "j_po2", amount_cents: 9000, status: "failed" },
-            { id: "j_po1", amount_cents: 40000, status: "paid" },
-        ]);
         expect(run("FEES_SINCE_SQL", ["2026-06-01T00:00:00.000Z"])).toEqual([{ cents: 175 }]);
         expect(run("FEES_SINCE_SQL", ["2026-07-01T00:00:00.000Z"])).toEqual([{ cents: 0 }]);
         expect(run("STRIPE_BALANCE_SQL")).toEqual([{ cents: 0 }]);

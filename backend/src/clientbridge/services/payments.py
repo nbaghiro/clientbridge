@@ -4,7 +4,7 @@ import secrets
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, time, timedelta
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.dialects.postgresql import insert
@@ -25,6 +25,7 @@ from clientbridge.core.security import hash_token
 from clientbridge.core.zones import zone
 from clientbridge.integrations.stripe import (
     ACCOUNT_EVENTS,
+    PAYMENT_EVENTS,
     PLAN_EVENTS,
     SETTLEMENT_CURRENCY,
     STRIPE_API_VERSION,
@@ -33,6 +34,7 @@ from clientbridge.integrations.stripe import (
     GatewayEvent,
     PaymentGateway,
     PriceTerms,
+    StripeResource,
     WebhookVersionError,
     period_timestamp,
 )
@@ -66,6 +68,7 @@ from clientbridge.schemas.payments import (
     InvoicePaymentOut,
     PaymentMethodOut,
     PaymentSetupLinkOut,
+    PayoutOut,
     PublicCredit,
     PublicPaymentSetup,
     RefundOut,
@@ -92,6 +95,10 @@ from clientbridge.services.inventory import assert_parent_stock, sync_parent_sto
 from clientbridge.services.ledger import BUSINESS_CURRENCY
 from clientbridge.services.lines import allocate, apply_totals
 from clientbridge.services.tax import tax_for_amount, tax_within
+
+if TYPE_CHECKING:
+    from clientbridge.services.notifications import Notifier
+
 
 _log = logging.getLogger(__name__)
 _ORPHAN_GRACE = timedelta(hours=1)
@@ -200,11 +207,11 @@ class PaymentService:
         reason = req.get("disabled_reason")
         deadline = req.get("current_deadline")
         available: int | None = None
+        pending: int | None = None
         if business.stripe_account_id is not None and business.stripe_charges_enabled:
             try:
-                available = await self.gateway.get_balance_cents(
-                    business.stripe_account_id, currency="cad"
-                )
+                balance = await self.gateway.get_balance(business.stripe_account_id, currency="cad")
+                available, pending = balance.available_cents, balance.pending_cents
             except Exception:
                 available = None
         return ConnectStatus(
@@ -219,7 +226,29 @@ class PaymentService:
             if isinstance(deadline, int)
             else None,
             available_cents=available,
+            pending_cents=pending,
         )
+
+    async def payouts(self) -> list[PayoutOut]:
+        self._assert_admin()
+        business = await self._business()
+        account = merchant_account(business)
+        if account is None:
+            return []
+        rows = await self.gateway.list_payouts(account)
+        return [
+            PayoutOut.model_validate(
+                {
+                    "id": row["id"],
+                    "amount_cents": row["amount"],
+                    "arrival_at": _stamp(row, "arrival_date"),
+                    "occurred_at": _stamp(row, "created"),
+                    "status": row["status"],
+                }
+            )
+            for row in rows
+            if row.get("currency") == BUSINESS_CURRENCY.lower()
+        ]
 
     async def record_invoice_payment(
         self, invoice_id: str, data: InvoicePaymentIn, idempotency_key: str | None
@@ -930,7 +959,10 @@ async def ensure_customer(
     ).scalar_one()
     if locked.stripe_customer_id is None:
         locked.stripe_customer_id = await gateway.create_customer(
-            account_id, name=locked.name, email=locked.email
+            account_id,
+            name=locked.name,
+            email=locked.email,
+            idempotency_key=f"customer:{locked.business_id}:{locked.id}",
         )
         await db.flush()
     assert locked.stripe_customer_id is not None
@@ -1308,6 +1340,12 @@ async def open_terminal_payment(
         "card_present",
         converted=order.currency.lower() != SETTLEMENT_CURRENCY,
     )
+    customer_id = None
+    if order.client_id is not None:
+        client = await db.scalar(scoped(Client, business_id).where(Client.id == order.client_id))
+        if client is None:
+            raise NotFound("client not found")
+        customer_id = await ensure_customer(db, gateway, account_id, client)
     intent = await gateway.create_terminal_payment_intent(
         account_id,
         amount_cents=amount,
@@ -1316,6 +1354,7 @@ async def open_terminal_payment(
         metadata={"order_id": order.id, "business_id": business_id, **_tip_metadata(tip)},
         # A re-checkout after an edit gets a new intent, which _assert_order_room then rejects.
         idempotency_key=f"order_{order.id}_{idempotency_key or amount}",
+        customer_id=customer_id,
     )
     existing = (
         await db.execute(select(Payment).where(Payment.provider_ref == intent.id))
@@ -1467,6 +1506,15 @@ async def process_stripe_event(
 ) -> WebhookOutcome | None:
     """Verify, dedupe and apply a Stripe webhook; returns the notification to send after commit."""
     event = gateway.verify_webhook(payload, signature)
+    return await apply_stripe_event(db, gateway, event, notify)
+
+
+async def apply_stripe_event(
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    event: GatewayEvent,
+    notify: Callable[[WebhookOutcome], Awaitable[None]] | None = None,
+) -> WebhookOutcome | None:
     if not event.thin and event.api_version != STRIPE_API_VERSION:
         _log.warning(
             "rejected Stripe event %s (%s) rendered at API version %s; handlers parse %s",
@@ -1653,14 +1701,16 @@ async def _record_dispute(db: AsyncSession, data: dict[str, object]) -> str | No
     if _inquiry(data):
         return None  # no funds are withdrawn unless it escalates to a dispute
     payment = await _disputed_payment(db, data)
-    if payment is None:
+    if payment is None or payment.dispute_status in ("won", "lost"):
         return None
     amount = data.get("amount")
     txns = data.get("balance_transactions")
     fee = sum(
         int(t["fee"])
         for t in (txns if isinstance(txns, list) else [])
-        if isinstance(t, dict) and isinstance(t.get("fee"), int)
+        if isinstance(t, dict)
+        and isinstance(t.get("fee"), int)
+        and (not isinstance(t.get("amount"), int) or int(t["amount"]) < 0)
     )
     await ledger.post_dispute(
         db,
@@ -1681,6 +1731,8 @@ async def _record_dispute(db: AsyncSession, data: dict[str, object]) -> str | No
 
 def _track_dispute(payment: Payment, data: dict[str, object]) -> None:
     """Mirror Stripe's dispute status on the charge so the app can show the case."""
+    if payment.dispute_status in ("won", "lost"):
+        return
     status = data.get("status")
     match status:
         case str("won" | "lost" | "under_review" as settled):
@@ -1693,13 +1745,11 @@ def _track_dispute(payment: Payment, data: dict[str, object]) -> None:
 async def _update_dispute(db: AsyncSession, data: dict[str, object]) -> str | None:
     """Track the case; an inquiry escalated to a chargeback is booked now, as the funds leave."""
     payment = await _disputed_payment(db, data)
-    if payment is None:
+    if payment is None or payment.dispute_status in ("won", "lost"):
         return None
-    if payment.dispute_status is None:
-        return await _record_dispute(db, data)
-    _track_dispute(payment, data)
-    await db.flush()
-    return None
+    first = payment.dispute_status is None
+    recorded = await _record_dispute(db, data)
+    return recorded if first else None
 
 
 def _inquiry(data: dict[str, object]) -> bool:
@@ -1711,8 +1761,8 @@ async def _close_dispute(db: AsyncSession, data: dict[str, object]) -> None:
     payment = await _disputed_payment(db, data)
     if payment is None:
         return
-    if payment.dispute_status is None:
-        await _record_dispute(db, data)  # closed before we booked it: book, then settle it
+    if payment.dispute_status not in ("won", "lost"):
+        await _record_dispute(db, data)
     if payment.dispute_status is not None:
         _track_dispute(payment, data)
         await db.flush()
@@ -1761,7 +1811,10 @@ async def _disputed_payment(db: AsyncSession, data: dict[str, object]) -> Paymen
         return None
     return (
         await db.execute(
-            select(Payment).where(Payment.provider_ref == intent, Payment.kind != "refund")
+            select(Payment)
+            .where(Payment.provider_ref == intent, Payment.kind != "refund")
+            .with_for_update()
+            .execution_options(populate_existing=True)
         )
     ).scalar_one_or_none()
 
@@ -1811,15 +1864,15 @@ async def _dispatch(
     elif event.type in ("charge.dispute.closed", "charge.dispute.funds_reinstated"):
         await _close_dispute(db, event.data)
     elif event.type == "customer.subscription.updated":
-        await _update_subscription(db, event.data)
+        await _update_subscription(db, gateway, event.data)
     elif event.type == "customer.subscription.deleted":
-        canceled = await _cancel_subscription(db, event.data)
+        canceled = await _cancel_subscription(db, gateway, event.data)
         return WebhookOutcome("subscription_canceled", canceled) if canceled is not None else None
     elif event.type == "invoice.payment_succeeded":
         recorded = await _record_recurring_payment(db, gateway, event.data)
         return WebhookOutcome("payment", recorded) if recorded is not None else None
     elif event.type == "invoice.payment_failed":
-        past_due = await _subscription_past_due(db, event.data)
+        past_due = await _subscription_past_due(db, gateway, event.data)
         return WebhookOutcome("subscription_past_due", past_due) if past_due is not None else None
     return None
 
@@ -2400,46 +2453,52 @@ def _invoice_subscription(invoice: dict[str, object]) -> str | None:
     return sub if isinstance(sub, str) else None
 
 
-async def _update_subscription(db: AsyncSession, data: dict[str, object]) -> None:
+async def _update_subscription(
+    db: AsyncSession, gateway: PaymentGateway, data: dict[str, object]
+) -> Subscription | None:
     sub_id = data.get("id")
     if not isinstance(sub_id, str):
-        return
-    sub = await _find_subscription(db, sub_id)
+        return None
+    sub = await db.scalar(
+        select(Subscription)
+        .where(Subscription.provider_ref == sub_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if sub is None:
-        return
-    status = data.get("status")
-    if isinstance(status, str):
-        sub.status = map_subscription_status(status)
-    end = _period(data, "end")
+        return None
+    account = await db.scalar(
+        select(Business.stripe_account_id).where(Business.id == sub.business_id)
+    )
+    if account is None:
+        raise Conflict("subscription has no connected account")
+    current = await gateway.retrieve(account, "subscription", sub_id)
+    status = current.get("status")
+    if not isinstance(status, str):
+        raise AppError("subscription status unavailable", status_code=503, code="retry_later")
+    sub.status = map_subscription_status(status)
+    end = _period(current, "end")
     if end is not None:
         sub.current_period_end = end
     await db.flush()
+    return sub
 
 
-async def _cancel_subscription(db: AsyncSession, data: dict[str, object]) -> str | None:
-    """Flag a deleted Stripe subscription canceled; return our id (to notify on), else None."""
-    sub_id = data.get("id")
-    if not isinstance(sub_id, str):
-        return None
-    sub = await _find_subscription(db, sub_id)
-    if sub is None:
-        return None
-    sub.status = "canceled"
-    await db.flush()
-    return sub.id
+async def _cancel_subscription(
+    db: AsyncSession, gateway: PaymentGateway, data: dict[str, object]
+) -> str | None:
+    sub = await _update_subscription(db, gateway, data)
+    return sub.id if sub is not None and sub.status == "canceled" else None
 
 
-async def _subscription_past_due(db: AsyncSession, data: dict[str, object]) -> str | None:
-    """Flag a failed charge's subscription past_due; return our id (to notify on), else None."""
+async def _subscription_past_due(
+    db: AsyncSession, gateway: PaymentGateway, data: dict[str, object]
+) -> str | None:
     sub_id = _invoice_subscription(data)
     if sub_id is None:
         return None
-    sub = await _find_subscription(db, sub_id)
-    if sub is None:
-        return None
-    sub.status = "past_due"
-    await db.flush()
-    return sub.id
+    sub = await _update_subscription(db, gateway, {"id": sub_id})
+    return sub.id if sub is not None and sub.status == "past_due" else None
 
 
 async def _recurring_method(db: AsyncSession, sub: Subscription) -> str:
@@ -2916,3 +2975,404 @@ async def booking_refund_status(
     ):
         return "failed"
     return None
+
+
+async def queue_payment_outcome(db: AsyncSession, outcome: WebhookOutcome) -> None:
+    from clientbridge.services.deliveries import DeliveryQueue, QueuedEmail, QueuedPush, QueuedSms
+    from clientbridge.services.notifications import Notifier
+
+    model = (
+        GiftCard
+        if outcome.notify == "gift_card_issued"
+        else Subscription
+        if outcome.notify in ("subscription_past_due", "subscription_canceled")
+        else Payment
+    )
+    target = await db.get(model, outcome.target_id)
+    if target is None:
+        raise NotFound("notification source not found")
+    queue = DeliveryQueue(db, f"stripe:{outcome.notify}:{outcome.target_id}", target.business_id)
+    notifier = Notifier(QueuedEmail(queue), QueuedSms(queue), QueuedPush(queue), raise_errors=True)
+    await notify_payment_outcome(notifier, db, outcome)
+
+
+async def _notify_recovery(
+    db: AsyncSession, outcome: WebhookOutcome, occurred_at: datetime | None
+) -> None:
+    if outcome.notify == "gift_card_issued" or (
+        occurred_at is not None and occurred_at >= clock.now() - timedelta(days=1)
+    ):
+        await queue_payment_outcome(db, outcome)
+
+
+async def _recovery_event(gateway: PaymentGateway, event: GatewayEvent) -> GatewayEvent | None:
+    resources: dict[str, StripeResource] = {
+        "payment_intent": "payment_intent",
+        "payout": "payout",
+        "refund": "refund",
+        "charge": "dispute",
+        "customer": "subscription",
+        "invoice": "invoice",
+        "setup_intent": "setup_intent",
+        "mandate": "mandate",
+        "payment_method": "payment_method",
+    }
+    resource = resources[event.type.split(".")[0]]
+    identity = event.data.get("id")
+    if not isinstance(identity, str):
+        raise ValueError("recovery event has no object id")
+    current = await gateway.retrieve(event.account, resource, identity)
+    status, kind, occurred_at = current.get("status"), event.type, event.created
+    if resource == "payment_intent":
+        if status == "succeeded":
+            kind = "payment_intent.succeeded"
+            charge_id = current.get("latest_charge")
+            if not isinstance(charge_id, str):
+                raise ValueError("succeeded payment has no charge")
+            charge = await gateway.retrieve(event.account, "charge", charge_id)
+            occurred_at = _stamp(charge, "created")
+            if occurred_at is None:
+                raise ValueError("charge has no creation time")
+        elif status == "canceled":
+            kind = "payment_intent.canceled"
+        elif status == "requires_payment_method" and current.get("last_payment_error"):
+            kind = "payment_intent.payment_failed"
+        else:
+            return None
+    elif resource == "payout":
+        kind = f"payout.{status}" if status in ("paid", "failed", "canceled") else "payout.created"
+    elif resource == "dispute":
+        kind = "charge.dispute.closed" if status in ("won", "lost") else "charge.dispute.updated"
+    elif resource == "subscription":
+        kind = (
+            "customer.subscription.deleted"
+            if status == "canceled"
+            else "customer.subscription.updated"
+        )
+    elif resource == "invoice":
+        if status == "paid":
+            kind = "invoice.payment_succeeded"
+        elif status == "open":
+            kind = "invoice.payment_failed"
+        else:
+            return None
+    elif resource == "payment_method" and current.get("customer") is None:
+        return None
+    return replace(
+        event, type=kind, data=current, created=occurred_at, api_version=STRIPE_API_VERSION
+    )
+
+
+async def run_recover_payments(db: AsyncSession, gateway: PaymentGateway) -> int:
+    accounts = list(
+        await db.scalars(
+            select(Business.stripe_account_id).where(Business.stripe_account_id.is_not(None))
+        )
+    )
+    recovered, failures = 0, 0
+    for account in [None, *accounts]:
+        try:
+            events = await gateway.recent_events(account, clock.now() - timedelta(days=30))
+        except Exception:
+            _log.exception("stripe recovery could not read account %s", account)
+            failures += 1
+            continue
+        for event in reversed(events):
+            if event.type not in (PLAN_EVENTS if account is None else PAYMENT_EVENTS):
+                continue
+            try:
+                record = await db.get(Webhook, event.id)
+                if record is not None and record.status == "processed":
+                    continue
+                current = await _recovery_event(gateway, event)
+                if current is None:
+                    continue
+
+                async def notify(
+                    outcome: WebhookOutcome, occurred_at: datetime | None = current.created
+                ) -> None:
+                    await _notify_recovery(db, outcome, occurred_at)
+
+                outcome = await apply_stripe_event(db, gateway, current, notify)
+                recovered += outcome is not None
+            except Exception as exc:
+                await db.rollback()
+                if isinstance(exc, AppError) and exc.code == "retry_later":
+                    continue
+                _log.exception("stripe recovery failed event %s account %s", event.id, account)
+                failures += 1
+    pending = list(
+        await db.scalars(
+            select(Payment.id).where(
+                Payment.provider == "stripe",
+                Payment.status.in_(("pending", "failed")),
+                Payment.provider_ref.is_not(None),
+            )
+        )
+    )
+    for identity in pending:
+        try:
+            payment = await db.get(Payment, identity)
+            if payment is None or payment.provider_ref is None:
+                continue
+            account_id = await db.scalar(
+                select(Business.stripe_account_id).where(Business.id == payment.business_id)
+            )
+            if account_id is None:
+                continue
+            resource = "refund" if payment.kind == "refund" else "payment_intent"
+            current = await gateway.retrieve(account_id, resource, payment.provider_ref)
+            outcome = None
+            occurred_at = _stamp(current, "created")
+            if resource == "refund":
+                outcome = await _reconcile_refund(db, current)
+            elif current.get("status") == "succeeded":
+                charge_id = current.get("latest_charge")
+                if not isinstance(charge_id, str):
+                    raise ValueError("succeeded payment has no charge")
+                charge = await gateway.retrieve(account_id, "charge", charge_id)
+                occurred_at = _stamp(charge, "created")
+                if occurred_at is None:
+                    raise ValueError("charge has no creation time")
+                settled = await _settle_payment(
+                    db, gateway, current, account=account_id, occurred_at=occurred_at
+                )
+                if settled is not None:
+                    outcome = (
+                        WebhookOutcome("gift_card_issued", settled.gift_card_id)
+                        if settled.gift_card_id
+                        else WebhookOutcome("payment", settled.payment_id)
+                    )
+            elif current.get("status") == "canceled":
+                await _fail_payment(db, payment.provider_ref, status="canceled")
+            if outcome is not None:
+                await _notify_recovery(db, outcome, occurred_at)
+                recovered += 1
+            await db.commit()
+        except Exception as exc:
+            await db.rollback()
+            if isinstance(exc, AppError) and exc.code == "retry_later":
+                continue
+            _log.exception("stripe recovery failed pending payment %s", identity)
+            failures += 1
+    if failures:
+        raise RuntimeError(f"stripe recovery failed for {failures} events, accounts or payments")
+    return recovered
+
+
+async def recover_stripe_source(
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    business_id: str,
+    account_id: str,
+    source: str,
+    occurred_at: datetime | None,
+) -> list[str]:
+    outcome = None
+    refs: list[str] = []
+    if source.startswith(("ch_", "py_")):
+        charge = await gateway.retrieve(account_id, "charge", source)
+        intent_id = charge.get("payment_intent")
+        if not isinstance(intent_id, str):
+            return []
+        known = await db.scalar(
+            scoped(Payment, business_id).where(Payment.provider_ref == intent_id)
+        )
+        if known is None:
+            invoice = await gateway.invoice_for_payment(account_id, intent_id)
+            if invoice is not None:
+                recorded = await _record_recurring_payment(db, gateway, invoice)
+                if recorded is not None:
+                    outcome = WebhookOutcome("payment", recorded)
+        intent = await gateway.retrieve(account_id, "payment_intent", intent_id)
+        if intent.get("status") == "succeeded":
+            settled = await _settle_payment(
+                db, gateway, intent, account=account_id, occurred_at=occurred_at
+            )
+            if settled is not None:
+                outcome = (
+                    WebhookOutcome("gift_card_issued", settled.gift_card_id)
+                    if settled.gift_card_id
+                    else WebhookOutcome("payment", settled.payment_id)
+                )
+        payment = await db.scalar(
+            scoped(Payment, business_id).where(Payment.provider_ref == intent_id)
+        )
+        if payment is not None:
+            refs = [f"payment:{payment.id}", f"fee:{payment.id}"]
+    elif source.startswith("re_"):
+        refund = await gateway.retrieve(account_id, "refund", source)
+        outcome = await _reconcile_refund(db, refund)
+        payment = await db.scalar(
+            scoped(Payment, business_id).where(Payment.provider_ref == source)
+        )
+        if payment is not None:
+            refs = [f"refund:{payment.id}", f"refund:{payment.id}:failed"]
+    elif source.startswith("po_"):
+        payout = await gateway.retrieve(account_id, "payout", source)
+        await _record_payout(db, account_id, payout)
+        if payout.get("status") in ("failed", "canceled"):
+            await _fail_payout(db, account_id, payout)
+        refs = [f"payout:{source}", f"payout:{source}:failed"]
+    elif source.startswith("dp_"):
+        dispute = await gateway.retrieve(account_id, "dispute", source)
+        if dispute.get("status") in ("won", "lost"):
+            await _close_dispute(db, dispute)
+        else:
+            disputed = await _update_dispute(db, dispute)
+            if disputed is not None:
+                outcome = WebhookOutcome("payment_disputed", disputed)
+        refs = [
+            f"dispute:{source}",
+            f"dispute_fee:{source}",
+            f"dispute:{source}:won",
+            f"dispute_fee:{source}:won",
+            f"dispute:{source}:lost",
+        ]
+    if outcome is not None:
+        await _notify_recovery(db, outcome, occurred_at)
+    return refs
+
+
+async def notify_payment_outcome(
+    notifier: Notifier, db: AsyncSession, outcome: WebhookOutcome
+) -> None:
+    match outcome.notify:
+        case "payment":
+            await notifier.on_payment_succeeded(db, outcome.target_id)
+        case "gift_card_issued":
+            await notifier.on_gift_card_issued(db, outcome.target_id)
+        case "payment_failed":
+            await notifier.on_payment_failed(db, outcome.target_id)
+        case "refund":
+            pass
+        case "refund_failed":
+            await notifier.on_refund_failed(db, outcome.target_id)
+        case "payment_disputed":
+            await notifier.on_payment_disputed(db, outcome.target_id)
+        case "subscription_past_due":
+            await notifier.on_subscription_past_due(db, outcome.target_id)
+        case "subscription_canceled":
+            await notifier.on_subscription_canceled(db, outcome.target_id)
+
+
+def _drift(business_id: str, action: str, changes: dict[str, object]) -> Audit:
+    _log.error("ledger drift %s business=%s %s", action, business_id, changes)
+    return Audit(
+        id=new_id("audit"),
+        business_id=business_id,
+        action=action,
+        entity_type="business",
+        entity_id=business_id,
+        changes=changes,
+    )
+
+
+async def reconcile_stripe_transactions(
+    db: AsyncSession, gateway: PaymentGateway, business_id: str, account_id: str
+) -> int:
+    rows = await gateway.balance_transactions(account_id)
+    sources: dict[str, list[dict[str, object]]] = {}
+    for row in reversed(rows):
+        source = row.get("source")
+        source = source if isinstance(source, str) else str(row.get("id"))
+        sources.setdefault(source, []).append(row)
+    drifted = 0
+    for source, transactions in sorted(
+        sources.items(), key=lambda pair: (not pair[0].startswith(("ch_", "py_")), pair[0])
+    ):
+        try:
+            created = transactions[0].get("created")
+            occurred_at = datetime.fromtimestamp(created, UTC) if isinstance(created, int) else None
+            if transactions[0].get("type") == "stripe_fee":
+                refs = []
+                for row in transactions:
+                    identity, net, stamp = row.get("id"), row.get("net"), _stamp(row, "created")
+                    if row.get("currency") != BUSINESS_CURRENCY.lower():
+                        continue
+                    if not isinstance(identity, str) or not isinstance(net, int) or stamp is None:
+                        raise ValueError("stripe fee transaction is incomplete")
+                    refs.append(await ledger.post_stripe_fee(db, business_id, identity, net, stamp))
+            else:
+                refs = await recover_stripe_source(
+                    db, gateway, business_id, account_id, source, occurred_at
+                )
+            expected = sum(
+                net
+                for row in transactions
+                if isinstance(net := row.get("net"), int)
+                and row.get("currency") == BUSINESS_CURRENCY.lower()
+            )
+            actual = await db.scalar(
+                scoped(Entry, business_id)
+                .join(Account, Entry.account_id == Account.id)
+                .where(
+                    Account.category == "stripe",
+                    Account.owner_type == "business",
+                    Account.owner_id == business_id,
+                    Entry.ref.in_(refs),
+                )
+                .with_only_columns(func.coalesce(func.sum(Entry.amount_cents), 0))
+            )
+            if not refs or actual != expected:
+                drifted += 1
+                db.add(
+                    _drift(
+                        business_id,
+                        "ledger.transaction_drift",
+                        {
+                            "source": source,
+                            "transaction_ids": [row.get("id") for row in transactions],
+                            "ledger_cents": int(actual or 0),
+                            "stripe_cents": expected,
+                        },
+                    )
+                )
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            drifted += 1
+            db.add(_drift(business_id, "ledger.transaction_failed", {"source": source}))
+            await db.commit()
+            _log.exception("stripe transaction recovery failed for %s", source)
+    return drifted
+
+
+async def run_reconcile_payments(db: AsyncSession, gateway: PaymentGateway) -> int:
+    """Check every cached balance against its entries and every connected account against Stripe."""
+    ids = list(await db.scalars(select(Business.id).order_by(Business.id)))
+    drifted = 0
+    for identity in ids:
+        try:
+            business = await db.get(Business, identity)
+            if business is None:
+                continue
+            found = 0
+            account_id = merchant_account(business)
+            if account_id is not None:
+                found += await reconcile_stripe_transactions(db, gateway, identity, account_id)
+            stale = await ledger.stale_accounts(db, identity)
+            if stale:
+                found += 1
+                db.add(_drift(identity, "ledger.cache_drift", {"account_ids": stale}))
+            if account_id is not None:
+                ours = await ledger.balance(
+                    db, identity, owner_type="business", owner_id=identity, category="stripe"
+                )
+                theirs = await gateway.get_balance_cents(account_id, currency=BUSINESS_CURRENCY)
+                if ours != theirs:
+                    found += 1
+                    db.add(
+                        _drift(
+                            identity, "ledger.drift", {"ledger_cents": ours, "stripe_cents": theirs}
+                        )
+                    )
+            await db.commit()
+            drifted += found
+        except Exception:
+            await db.rollback()
+            _log.exception("ledger reconciliation failed for %s", identity)
+            db.add(_drift(identity, "ledger.reconciliation_failed", {}))
+            await db.commit()
+            drifted += 1
+    return drifted

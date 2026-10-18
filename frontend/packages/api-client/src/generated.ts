@@ -1763,6 +1763,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/connect/payouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payouts */
+        get: operations["payouts_v1_connect_payouts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payments/setup-intent/{client_id}": {
         parameters: {
             query?: never;
@@ -4296,6 +4313,11 @@ export interface components {
              * @description The Stripe balance available to pay out, when connected
              */
             available_cents?: number | null;
+            /**
+             * Pending Cents
+             * @description The Stripe balance not yet available to pay out
+             */
+            pending_cents?: number | null;
         };
         /** ConnectionTokenOut */
         ConnectionTokenOut: {
@@ -6223,6 +6245,25 @@ export interface components {
              * Format: date-time
              */
             expires_at: string;
+        };
+        /** PayoutOut */
+        PayoutOut: {
+            /** Id */
+            id: string;
+            /** Amount Cents */
+            amount_cents: number;
+            /** Arrival At */
+            arrival_at: string | null;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "in_transit" | "paid" | "failed" | "canceled";
         };
         /** PayoutRow */
         PayoutRow: {
@@ -12153,6 +12194,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConnectStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    payouts_v1_connect_payouts_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                "x-expected-user"?: string;
+                "x-session-token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayoutOut"][];
                 };
             };
             /** @description Validation Error */

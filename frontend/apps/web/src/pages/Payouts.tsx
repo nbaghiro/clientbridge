@@ -31,7 +31,7 @@ import { useOpenLink } from "../lib/links";
 const s = strings.payouts;
 
 export function Payouts() {
-    const p = usePayouts();
+    const p = usePayouts(api);
     const account = usePaymentAccount(api);
     const setup = useSetupProgress();
     const openLink = useOpenLink();

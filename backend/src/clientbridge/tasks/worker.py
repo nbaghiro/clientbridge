@@ -26,10 +26,10 @@ from clientbridge.services.deliveries import run_deliveries
 from clientbridge.services.entitlements import run_expiry_sweeps
 from clientbridge.services.files import run_prune_pending_files
 from clientbridge.services.forms import run_intake_forms
-from clientbridge.services.ledger import run_reconcile_ledger
 from clientbridge.services.messaging import run_due_broadcasts
 from clientbridge.services.notifications import Notifier, run_prune_devices
 from clientbridge.services.orders import run_pickup_reminders, run_reap_unpaid_orders
+from clientbridge.services.payments import run_reconcile_payments, run_recover_payments
 from clientbridge.services.plans import run_sync_seats, run_trial_reminders
 from clientbridge.services.receipts import run_prune_receipts
 from clientbridge.services.reviews import run_review_requests
@@ -76,9 +76,14 @@ async def prune_devices(ctx: Context) -> int:
         return await run_prune_devices(db, clock.now())
 
 
+async def recover_payments(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_recover_payments(db, get_payment_gateway())
+
+
 async def reconcile_ledger(ctx: Context) -> int:
     async with SessionLocal() as db:
-        return await run_reconcile_ledger(db, get_payment_gateway())
+        return await run_reconcile_payments(db, get_payment_gateway())
 
 
 async def send_review_requests(ctx: Context) -> int:
@@ -157,6 +162,7 @@ class WorkerSettings:
         cron(prune_receipts, minute={10, 40}),
         cron(prune_pending_files, minute=20),
         cron(reconcile_ledger, hour=4, minute=0),
+        cron(recover_payments, minute={8, 23, 38, 53}),
         cron(send_review_requests, minute=0),
         cron(send_pickup_reminders, minute=0),
         cron(reap_unpaid_orders, minute={5, 20, 35, 50}),

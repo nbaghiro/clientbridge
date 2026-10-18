@@ -142,30 +142,10 @@ Each environment has its own provider accounts or modes: Stripe sandbox and Twil
 
 ### Stripe
 
-Staging uses a Stripe sandbox and production the live platform account, both on API version `2026-09-30.endive` (`STRIPE_API_VERSION` in `integrations/stripe.py`). Each needs:
-
-- A Connect webhook endpoint (`connect=true`) at `https://api.D/webhooks/stripe` for the snapshot events in `scripts/stripe_setup.py` `WEBHOOK_EVENTS`, at the pinned API version. Its signing secret is `STRIPE_WEBHOOK_SECRET`.
-- A thin event destination at the same URL for `v2.core.account[requirements].updated`, `v2.core.account[configuration.merchant].capability_status_updated` and `v2.core.account.closed`. Its secret is `STRIPE_THIN_WEBHOOK_SECRET`.
-- A platform endpoint (`connect=false`) at the same URL for `customer.subscription.created`, `.updated` and `.deleted`. Its secret is `STRIPE_PLATFORM_WEBHOOK_SECRET`.
-- The plan products, prices and Billing Portal configuration that `stripe_setup.py` plans (see [the demo account](engineering.md#the-demo--qa-account)); the configuration id is `STRIPE_PORTAL_CONFIGURATION`.
-- Payment method domains for `app.D`, `book.D`, `pay.D` and `shop.D`, so Apple Pay, Google Pay and Link show in Elements there. We use direct charges, and Stripe requires the domain to be registered on the connected account that runs the charge (`Stripe-Account` header), not on the platform. The API registers and enables the four domains on a business's account each time its owner opens the embedded onboarding session (`POST /v1/connect/session`) when `BASE_DOMAIN` is set (`register_payment_domains` in `integrations/stripe.py`), which covers live accounts with no Dashboard step. For accounts that existed before, such as the sandbox demo accounts, `stripe_setup.py --payment-domains D` plans the same registration on each demo account and `--apply` performs it; it refuses live mode like the rest of the script. Check Apple Pay on `book.` in staging after the first deploy.
-- The Dashboard-only settings `stripe_setup.py` prints (`DASHBOARD_STEPS`): Connect profile and branding, payment methods for connected accounts, Terminal, Connect and Billing emails, Smart Retries and Stripe Tax.
-- `STRIPE_SECRET_KEY` (a restricted key if every call the adapter makes is covered, otherwise the secret key) and the publishable key in the stack's `stripePublishableKey`.
-
-For staging, `stripe_setup.py` creates all of the endpoints and billing objects. It runs only with `ENV=dev` and a test-mode Stripe CLI profile, so run it from a local checkout against the staging sandbox's CLI profile, with the staging app URL for the portal's return link:
-
-```
-WEB_BASE_URL=https://app.staging.clientbridge.ca make stripe-setup \
-  ARGS="--project-name <staging profile> --webhook-url https://api.staging.clientbridge.ca/webhooks/stripe --show-secrets"   # review the plan
-WEB_BASE_URL=https://app.staging.clientbridge.ca make stripe-setup \
-  ARGS="--apply --project-name <staging profile> --webhook-url https://api.staging.clientbridge.ca/webhooks/stripe --show-secrets"
-WEB_BASE_URL=https://app.staging.clientbridge.ca make stripe-setup \
-  ARGS="--apply --project-name <staging profile> --payment-domains staging.clientbridge.ca"   # once the demo accounts exist
-```
-
-The script refuses live mode, so production's endpoints, destination, products, prices and portal configuration are created in the live Dashboard (Workbench > Webhooks, choosing API version `2026-09-30.endive`) with the same event lists, product ids and price lookup keys as `stripe_setup.py`.
-
-The webhook route picks the signing secret by the event's shape: thin events use `STRIPE_THIN_WEBHOOK_SECRET` (the event destination's secret), snapshot events with an `account` use `STRIPE_WEBHOOK_SECRET` (the Connect endpoint's secret), and snapshot events without one use `STRIPE_PLATFORM_WEBHOOK_SECRET` (the platform endpoint's secret). The snapshot listener forwards both Connect and platform events, so with `stripe listen` all three take the secret it prints. `STRIPE_PORTAL_CONFIGURATION` holds the portal configuration id the script prints, and production config validation requires it and the platform secret. A sandbox renders snapshot events at its own default API version, and `stripe listen` cannot pin another. The webhook rejects snapshot events rendered at any version other than `STRIPE_API_VERSION`, which matches the Clientbridge sandbox default (`2026-09-30.endive`); when Stripe releases a newer version, we upgrade the pin and the SDK together after checking its changelog against the handlers. Thin events are unversioned and skip this check.
+See [Payments and Stripe](payments.md#staging-and-production-setup) for connected/platform endpoints,
+thin event destinations, API versions, payment domains, Dashboard setup and sandbox/live provisioning.
+The [credentials table](payments.md#credentials-and-runtime-settings) maps Stripe settings to their roles;
+this document remains the reference for Secret Manager, infrastructure and deployment procedures.
 
 ### Resend
 
@@ -289,7 +269,8 @@ The worker runs one replica per environment on Spot pods, with the schedule in `
 | `prune_devices`          | 03:30                                  | Stale push tokens stay one more day; no user effect.                                                                                                                                         |
 | `prune_receipts`         | :10, :40                               | Used sync receipts stay longer; no user effect.                                                                                                                                              |
 | `prune_pending_files`    | hourly at :20                          | Unfinished uploads stay in the bucket longer; check the storage HMAC keys if it keeps failing.                                                                                               |
-| `reconcile_ledger`       | 04:00                                  | No drift check that day. Drift it finds is not a failure: it logs `ledger drift` at `ERROR`, writes a `ledger.drift` or `ledger.cache_drift` audit row, and raises the "Ledger drift" alert. |
+| `recover_payments` | :08, :23, :38, :53 | Replays supported Stripe events from the last 30 days and checks unresolved payments/refunds. Successful repairs commit independently; failures raise after the remaining accounts and payments have been attempted. |
+| `reconcile_ledger`       | 04:00                                  | No drift check that day. Drift it finds is not a failure: it logs `ledger drift` at `ERROR`, writes `ledger.drift`, `ledger.cache_drift`, or source-specific `ledger.transaction_*` / `ledger.reconciliation_failed` audits, and raises the "Ledger drift" alert. |
 | `send_review_requests`   | hourly at :00, for businesses at 08:00 | Same as the overdue sweep: the next chance is 08:00 local the next day.                                                                                                                      |
 | `send_pickup_reminders`  | hourly at :00, for businesses at 09:00 | Same: 09:00 local the next day.                                                                                                                                                              |
 | `reap_unpaid_orders`     | :05, :20, :35, :50                     | Unpaid shop orders hold stock longer; the next run releases them.                                                                                                                            |
@@ -319,7 +300,7 @@ Alerts (`cloud/observability.py`) go to the `alertEmail` channel:
 | Database disk                      | Above 80%                                                 | Disk autoresize is on; check retained WAL first (next row), since a stuck slot is the likely cause.                                                                                                 |
 | Replication slot lag               | More than 2 GiB of WAL retained for 15 minutes            | A PowerSync is stopped or stuck. `kubectl -n <namespace> get pods -l app=powersync` and its logs; restart it. If it cannot recover, drop its slot (see the restore runbook) and let it re-snapshot. |
 | Job runs that raised in the worker | Any arq `ERROR` in a namespace's worker                   | See [Jobs](#jobs).                                                                                                                                                                                  |
-| Ledger drift                       | `reconcile_ledger` logged `ledger drift` in a namespace   | Find the `ledger.drift` or `ledger.cache_drift` audit row and the log line's business id; compare the business's ledger with its Stripe balance before changing anything.                           |
+| Ledger drift                       | `reconcile_ledger` logged `ledger drift` in a namespace   | Inspect the ledger audit and business id. Transaction drift includes the Stripe source, transaction IDs, and both net amounts. Fix the cause and rerun reconciliation; investigate unsupported adjustments rather than entering an unexplained balance correction.                           |
 | Webhook failures                   | Any `/webhooks/*` answered with a 5xx                     | Find the request in Logs Explorer; providers retry, so fix the cause and confirm the retry succeeds (Stripe's Dashboard can resend an event).                                                       |
 | Monthly budget                     | 50%, 90% and 100% of $150 spent, and 100% forecast        | Compare the bill with the plan's cost table.                                                                                                                                                        |
 

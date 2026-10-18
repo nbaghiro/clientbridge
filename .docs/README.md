@@ -7,12 +7,14 @@ Keep the root for the main, maintained documentation. Reviews, explorations and 
 | [Architecture](architecture.md)         | System, data model, synchronization, authorization and client architecture.                    |
 | [Engineering](engineering.md)           | Development conventions, testing, local setup and shipping workflow.                           |
 | [Launch readiness](launch-readiness.md) | Product scope, launch work and deferred capabilities.                                          |
+| [Payments](payments.md) | Stripe accounts, merchant payments, payouts, platform billing, setup, recovery and QA. |
 | [Operations](operations.md)             | Environments, stacks, settings and secrets, provider setup, deploys, jobs, alerts and restore. |
 
 ## Supporting documentation
 
 | Folder                                 | Contents                                                                                         |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| [QA](qa/payments.md) | Maintained product checklists and automation plans, starting with payments and Stripe. |
 | [Design](design/app-explorer.html)     | Design system, information architecture and visual references.                                   |
 | [Reviews](reviews/README.md)           | Dated findings and implementation inventories; evidence of the system at the reviewed snapshot.  |
 | [Explorations](explorations/README.md) | Investigations, experiments and proposals that are not yet the maintained architecture.          |
@@ -20,6 +22,7 @@ Keep the root for the main, maintained documentation. Reviews, explorations and 
 
 ## Placement rules
 
+- Keep maintained QA checklists and their automation strategy in `qa/`; store generated evidence in CI artifacts or `.scratchpad/`.
 - Put a new review in `reviews/<area>/` and identify its date and source snapshot.
 - Put an exploration in `explorations/<topic>/`; promote an accepted decision into the relevant main document.
 - Put implementation plans and tracking in `executions/<name>/`. Use `plan.md`, `progress.md` and `tasks.json` when needed; add a date suffix for another execution of the same work.

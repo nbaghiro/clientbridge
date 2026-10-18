@@ -8193,7 +8193,7 @@
         "message": "[Ŵé çöûļðñ'ţ öþéñ ţĥé ŵéƀ åþþ. Ţŕý åĝåîñ öŕ šîĝñ îñ ţö Çļîéñţƀŕîðĝé îñ ýöûŕ ƀŕöŵšéŕ. one two three four five]"
     },
     "paymentAccount.viewPayouts": {
-        "message": "[Ṽîéŵ þåýöûţ åçţîṽîţý one two]"
+        "message": "[Þåýöûţš åñð šçĥéðûļé one two]"
     },
     "paymentAccount.manageDisputes": {
         "message": "[Ŕéšþöñð ţö ðîšþûţéš one two]"
@@ -8389,6 +8389,9 @@
     },
     "gettingPaid.available": {
         "message": "[Ŕéåðý ţö þåý öûţ one two]"
+    },
+    "gettingPaid.pending": {
+        "message": "[Þéñðîñĝ šéţţļéɱéñţ one two]"
     },
     "gettingPaid.held": {
         "message": "[Ĥéļð ûñţîļ ṽéŕîƒîéð one two]"
@@ -12796,5 +12799,17 @@
     },
     "reviews.googleSummary": {
         "message": "[{rating} · {count,plural,one{# Ĝööĝļé ŕéṽîéŵ} other{# Ĝööĝļé ŕéṽîéŵš}} one two three]"
+    },
+    "payouts.expected": {
+        "message": "[Éẋþéçţéð {when} one]"
+    },
+    "payouts.status.pending": {
+        "message": "[Þéñðîñĝ one]"
+    },
+    "payouts.status.in_transit": {
+        "message": "[Îñ ţŕåñšîţ one two]"
+    },
+    "payouts.status.canceled": {
+        "message": "[Çåñçéļéð one]"
     }
 }

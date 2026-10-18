@@ -167,6 +167,19 @@ function Body({ paid }: { paid: GettingPaidView }) {
                                             />
                                         ),
                                 },
+                                ...(paid.pendingCents !== null && paid.pendingCents > 0
+                                    ? [
+                                          {
+                                              label: g.pending,
+                                              value: (
+                                                  <Money
+                                                      currency={BUSINESS_CURRENCY}
+                                                      cents={paid.pendingCents}
+                                                  />
+                                              ),
+                                          },
+                                      ]
+                                    : []),
                             ]}
                         />
                     </Panel>

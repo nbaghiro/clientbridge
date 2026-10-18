@@ -36,7 +36,11 @@ from clientbridge.services.messaging import (
     process_inbound_sms,
 )
 from clientbridge.services.notifications import Notifier, send_auth_email
-from clientbridge.services.payments import WebhookOutcome, process_stripe_event
+from clientbridge.services.payments import (
+    WebhookOutcome,
+    notify_payment_outcome,
+    process_stripe_event,
+)
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
@@ -58,7 +62,7 @@ async def stripe_webhook(
     async def notify(outcome: WebhookOutcome) -> None:
         queue.scope = f"stripe:{outcome.notify}:{outcome.target_id}"
         queue.business_id = outcome.business_id
-        await _notify(notifier, db, outcome)
+        await notify_payment_outcome(notifier, db, outcome)
 
     try:
         outcome = await process_stripe_event(db, gateway, payload, stripe_signature, notify)
@@ -69,26 +73,6 @@ async def stripe_webhook(
     if outcome is not None and outcome.notify == "refund":
         await dispatch_scope(db, f"refund:{outcome.target_id}", email, sms, push)
     return Response(status_code=200)
-
-
-async def _notify(notifier: Notifier, db: DbSession, outcome: WebhookOutcome) -> None:
-    match outcome.notify:
-        case "payment":
-            await notifier.on_payment_succeeded(db, outcome.target_id)
-        case "gift_card_issued":
-            await notifier.on_gift_card_issued(db, outcome.target_id)
-        case "payment_failed":
-            await notifier.on_payment_failed(db, outcome.target_id)
-        case "refund":
-            pass
-        case "refund_failed":
-            await notifier.on_refund_failed(db, outcome.target_id)
-        case "payment_disputed":
-            await notifier.on_payment_disputed(db, outcome.target_id)
-        case "subscription_past_due":
-            await notifier.on_subscription_past_due(db, outcome.target_id)
-        case "subscription_canceled":
-            await notifier.on_subscription_canceled(db, outcome.target_id)
 
 
 @router.post("/sms")

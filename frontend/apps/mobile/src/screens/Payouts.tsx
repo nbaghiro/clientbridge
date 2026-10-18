@@ -38,7 +38,7 @@ const s = strings.payouts;
 const c = theme.colors;
 
 export function Payouts() {
-    const p = usePayouts();
+    const p = usePayouts(api);
     const account = usePaymentAccount(api);
     const setup = useSetupProgress();
     const connected = setup.steps.find((x) => x.key === "stripe")?.done ?? false;

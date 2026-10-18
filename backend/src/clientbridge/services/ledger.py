@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -12,22 +11,17 @@ from clientbridge.core import clock
 from clientbridge.core.errors import UnsupportedCurrency
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
-from clientbridge.integrations.stripe import ChargeFees, PaymentGateway
+from clientbridge.integrations.stripe import ChargeFees
 from clientbridge.models.billing import Invoice, Order
-from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
-from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking
-from clientbridge.services.business import merchant_account
 from clientbridge.services.lines import allocate, fetch_lines
 from clientbridge.services.tax import TaxResult, issued_tax, tax_for_amount, tax_within
 
 type AccountKey = tuple[str, str, str, str]
 type _Id = InstrumentedAttribute[str] | str
-
-_log = logging.getLogger(__name__)
 
 PLATFORM = "clientbridge"
 BUSINESS_CURRENCY = "CAD"  # every tenant books in CAD until multi-currency is a feature
@@ -1285,48 +1279,20 @@ async def stale_accounts(db: AsyncSession, business_id: str) -> list[str]:
     return list(rows.scalars().all())
 
 
-def _drift(business_id: str, action: str, changes: dict[str, object]) -> Audit:
-    _log.error("ledger drift %s business=%s %s", action, business_id, changes)
-    return Audit(
-        id=new_id("audit"),
-        business_id=business_id,
-        action=action,
-        entity_type="business",
-        entity_id=business_id,
-        changes=changes,
+async def post_stripe_fee(
+    db: AsyncSession, business_id: str, identity: str, net: int, occurred_at: datetime
+) -> str:
+    ref = f"stripe_fee:{identity}"
+    await post(
+        db,
+        business_id,
+        event="fee",
+        ref=ref,
+        legs=[
+            Leg("business", business_id, "stripe", net),
+            Leg("business", business_id, "processing_fee", -net),
+        ],
+        source=("stripe_transaction", identity),
+        occurred_at=occurred_at,
     )
-
-
-async def run_reconcile_ledger(db: AsyncSession, gateway: PaymentGateway) -> int:
-    """Check every cached balance against its entries and every connected account against Stripe."""
-    ids = list(await db.scalars(select(Business.id).order_by(Business.id)))
-    drifted = 0
-    for identity in ids:
-        try:
-            business = await db.get(Business, identity)
-            if business is None:
-                continue
-            found = 0
-            stale = await stale_accounts(db, identity)
-            if stale:
-                found += 1
-                db.add(_drift(identity, "ledger.cache_drift", {"account_ids": stale}))
-            account_id = merchant_account(business)
-            if account_id is not None:
-                ours = await balance(
-                    db, identity, owner_type="business", owner_id=identity, category="stripe"
-                )
-                theirs = await gateway.get_balance_cents(account_id, currency=BUSINESS_CURRENCY)
-                if ours != theirs:
-                    found += 1
-                    db.add(
-                        _drift(
-                            identity, "ledger.drift", {"ledger_cents": ours, "stripe_cents": theirs}
-                        )
-                    )
-            await db.commit()
-            drifted += found
-        except Exception:
-            await db.rollback()
-            _log.exception("ledger reconciliation failed for %s", identity)
-    return drifted
+    return ref

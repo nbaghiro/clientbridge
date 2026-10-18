@@ -38,6 +38,18 @@ class ConnectStatus(BaseModel):
         default=None, description="The Stripe balance available to pay out, when connected"
     )
 
+    pending_cents: int | None = Field(
+        default=None, description="The Stripe balance not yet available to pay out"
+    )
+
+
+class PayoutOut(BaseModel):
+    id: str
+    amount_cents: int
+    arrival_at: datetime | None
+    occurred_at: datetime
+    status: Literal["pending", "in_transit", "paid", "failed", "canceled"]
+
 
 class SetupIntentOut(BaseModel):
     client_secret: str

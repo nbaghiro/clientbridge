@@ -352,6 +352,7 @@ async def test_status_shows_deadline_and_available_balance(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     gateway.balance_cents = 12_345
+    gateway.pending_cents = 2_000
     await db.execute(
         update(Business)
         .where(Business.id == BIZ)
@@ -364,7 +365,8 @@ async def test_status_shows_deadline_and_available_balance(
         )
     )
     body = (await as_owner.get("/v1/connect/status")).json()
-    assert body["available_cents"] == 12_345
+    assert body["available_cents"] == 10_345
+    assert body["pending_cents"] == 2_000
     assert body["current_deadline"].startswith("2027-01-15")
 
 
@@ -377,7 +379,7 @@ async def test_status_without_the_balance_when_stripe_fails(
     async def broken(account_id: str, *, currency: str) -> int:
         raise RuntimeError("stripe down")
 
-    monkeypatch.setattr(gateway, "get_balance_cents", broken)
+    monkeypatch.setattr(gateway, "get_balance", broken)
     await db.execute(update(Business).where(Business.id == BIZ).values(stripe_charges_enabled=True))
     body = (await as_owner.get("/v1/connect/status")).json()
     assert body["available_cents"] is None
@@ -527,7 +529,12 @@ async def test_embedded_adapter_grants_only_requested_features(
     else:
         assert set(components) == {"payouts"}
         features = cast(dict[str, object], components["payouts"]["features"])
-        assert not any(features.values())
+        assert features == {
+            "edit_payout_schedule": True,
+            "standard_payouts": True,
+            "instant_payouts": False,
+            "external_account_collection": False,
+        }
 
 
 class SlowCreateGateway(FakePaymentGateway):

@@ -1,4 +1,6 @@
-import { useBusinessQuery as useQuery } from "../hooks";
+import { useBusinessQuery as useQuery, useRemote } from "../hooks";
+import { useBusinessId } from "./business";
+import type { ApiLike } from "../api";
 
 import { useState } from "react";
 
@@ -11,22 +13,11 @@ import { useReplicaLoad } from "./sync";
 
 interface PayoutRow {
     id: string;
-    payout_ref: string | null;
     amount_cents: number;
     arrival_at: string | null;
     occurred_at: string;
-    status: "paid" | "failed";
+    status: "pending" | "in_transit" | "paid" | "failed" | "canceled";
 }
-
-// A Stripe payout is its ledger journal (bank in, Stripe out); a returned one was reversed.
-export const PAYOUTS_SQL = `
-SELECT e.journal_id AS id, e.source_id AS payout_ref, e.amount_cents,
-       e.available_at AS arrival_at, e.occurred_at,
-       CASE WHEN EXISTS (SELECT 1 FROM entries x WHERE x.ref = e.ref || ':failed')
-            THEN 'failed' ELSE 'paid' END AS status
-FROM entries e JOIN accounts a ON a.id = e.account_id
-WHERE e.event = 'payout' AND a.category = 'bank'
-ORDER BY e.occurred_at DESC LIMIT 24`;
 
 export const STRIPE_BALANCE_SQL = `
 SELECT COALESCE(SUM(balance_cents), 0) AS cents FROM accounts
@@ -73,7 +64,7 @@ interface PayoutView {
     ref: string | null;
     amountCents: number;
     arrivalAt: Date | null;
-    status: "paid" | "failed";
+    status: "pending" | "in_transit" | "paid" | "failed" | "canceled";
     when: string;
 }
 
@@ -88,13 +79,18 @@ export interface ChargeView {
 }
 
 export function payoutStatusIntent(status: string): Intent {
-    return status === "failed" ? "danger" : "success";
+    return status === "failed" || status === "canceled"
+        ? "danger"
+        : status === "paid"
+          ? "success"
+          : "neutral";
 }
 
 function payoutWhen(row: PayoutRow, zone: string): string {
     const at = row.arrival_at ?? row.occurred_at;
     const when = formatShortDay(parseTimestamp(at), zone);
-    return row.status === "failed" ? strings.payouts.returned(when) : strings.payouts.arrived(when);
+    if (row.status === "failed" || row.status === "canceled") return strings.payouts.returned(when);
+    return row.status === "paid" ? strings.payouts.arrived(when) : strings.payouts.expected(when);
 }
 
 function chargeDescription(row: ChargeRow): string {
@@ -117,15 +113,20 @@ export interface Payouts {
 }
 
 /** Stripe payouts to the bank and the recent card charges with their fees, from the ledger. */
-export function usePayouts(): Payouts {
+export function usePayouts(api: ApiLike): Payouts {
+    const businessId = useBusinessId();
     const zone = useBusinessZone();
     const [since] = useState(() => addDays(new Date(), -30, zone).toISOString());
-    const payouts = useQuery<PayoutRow>(PAYOUTS_SQL);
+    const payouts = useRemote(
+        () =>
+            businessId === null ? Promise.resolve([]) : api.get<PayoutRow[]>("/v1/connect/payouts"),
+        businessId ?? "",
+    );
     const balance = useQuery<{ cents: number }>(STRIPE_BALANCE_SQL);
     const fees = useQuery<{ cents: number }>(FEES_SINCE_SQL, [since]);
     const charges = useQuery<ChargeRow>(CARD_CHARGES_SQL, [since]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
-    const views = payouts.data.map((p) => ({
+    const views = (payouts.data ?? []).map((p) => ({
         id: p.id,
         ref: p.id,
         amountCents: p.amount_cents,
