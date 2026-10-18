@@ -148,12 +148,44 @@ async def test_unknown_timezone_is_422_and_not_stored(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     before = (await db.execute(select(Business.timezone).where(Business.id == BIZ))).scalar_one()
-    for zone in ("Mars/Olympus_Mons", "america/vancouver", "Europe/London", "EST5EDT ", "", None):
+    for zone in ("Mars/Olympus_Mons", "america/vancouver", "Europe/London", "EST5EDT ", ""):
         res = await as_owner.patch("/v1/business", json={"timezone": zone})
         assert res.status_code == 422, zone
         assert res.json()["error"] == "invalid_timezone"
     after = (await db.execute(select(Business.timezone).where(Business.id == BIZ))).scalar_one()
     assert after == before
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["name", "timezone", "tax_registered", "review_hold_at", "filing_frequency", "province"],
+)
+async def test_null_leaves_a_required_setting_unchanged(
+    as_owner: httpx.AsyncClient, db: AsyncSession, field: str
+) -> None:
+    column = getattr(Business, field)
+    before = (await db.execute(select(column).where(Business.id == BIZ))).scalar_one()
+    res = await as_owner.patch("/v1/business", json={field: None})
+    assert res.status_code == 200, res.text
+    assert res.json()[field] == before
+    db.expire_all()
+    after = (await db.execute(select(column).where(Business.id == BIZ))).scalar_one()
+    assert after == before
+
+
+async def test_null_clears_an_optional_setting(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    set_ = await as_owner.patch("/v1/business", json={"billing_email": "owner@birchbark.test"})
+    assert set_.json()["billing_email"] == "owner@birchbark.test"
+    res = await as_owner.patch("/v1/business", json={"billing_email": None})
+    assert res.status_code == 200, res.text
+    assert res.json()["billing_email"] is None
+    db.expire_all()
+    stored = (
+        await db.execute(select(Business.billing_email).where(Business.id == BIZ))
+    ).scalar_one()
+    assert stored is None
 
 
 async def test_a_malformed_request_names_a_code(as_owner: httpx.AsyncClient) -> None:

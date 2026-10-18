@@ -23,7 +23,14 @@ _log = logging.getLogger(__name__)
 
 _ADDRESS = ("unit", "street_number", "street_name", "city", "province", "postal_code")
 # columns that cannot be emptied, so an explicit null leaves them as they are
-_KEPT_ON_NULL = ("province", "review_hold_at", "filing_frequency", "tax_registered")
+_KEPT_ON_NULL = (
+    "name",
+    "timezone",
+    "province",
+    "review_hold_at",
+    "filing_frequency",
+    "tax_registered",
+)
 # Canada Post assigns each postal code's first letter to one province or territory
 _POSTAL_PROVINCES: dict[str, tuple[ProvinceCode, ...]] = {
     "A": ("NL",),
@@ -303,7 +310,7 @@ class BusinessService:
         previous_province = business.province
         fields = data.model_dump(exclude_unset=True, exclude={"brand", "setup_dismissed"})
         located = [getattr(business, key) for key in _ADDRESS]
-        if "timezone" in fields:
+        if data.timezone is not None:
             valid_timezone(data.timezone)
         if (
             data.province is not None
