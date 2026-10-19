@@ -432,7 +432,11 @@ test("owner: clients, records, notes, subjects, wallet and merge", async ({ page
     });
 
     await walk.step("record: add note", async () => {
-        await main.locator("button.block").first().click();
+        await main
+            .getByRole("navigation", { name: strings.clients.title })
+            .getByRole("button")
+            .first()
+            .click();
         const record = main.getByRole("region", { name: r.pane });
         await record.getByRole("button", { name: r.addNote }).click();
         await expect(page.getByRole("dialog", { name: r.addNoteTitle })).toBeVisible();
@@ -915,7 +919,11 @@ test("owner: key pages and records pass axe, show keyboard focus and keep hovere
 
     await walk.step("client record", async () => {
         await navigate(page, "/clients");
-        await main.locator("button.block").first().click();
+        await main
+            .getByRole("navigation", { name: strings.clients.title })
+            .getByRole("button")
+            .first()
+            .click();
         await expect(main.getByRole("region", { name: strings.clients.record.pane })).toBeVisible();
         await record("client record", `section[aria-label="${strings.clients.record.pane}"]`);
     });
@@ -1007,7 +1015,11 @@ test("staff: today, schedule and clients", async ({ page }) => {
     await walk.step("clients: add, record and notes", async () => {
         await navigate(page, "/clients");
         await openAndClose(page, strings.clients.add);
-        await main.locator("button.block").first().click();
+        await main
+            .getByRole("navigation", { name: strings.clients.title })
+            .getByRole("button")
+            .first()
+            .click();
         const record = main.getByRole("region", { name: strings.clients.record.pane });
         await expect(
             record.getByRole("heading", { name: strings.clients.record.wallet }),
