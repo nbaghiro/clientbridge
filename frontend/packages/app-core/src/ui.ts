@@ -62,7 +62,7 @@ interface DetailStatus {
 
 export interface DetailViewProps {
     open: boolean;
-    // "inline" fills its parent pane instead of sliding over the page.
+    // "inline" fills its parent pane instead of sliding over the page; either takes focus on open.
     variant?: "drawer" | "inline" | undefined;
     title: string;
     subtitle?: string | undefined;

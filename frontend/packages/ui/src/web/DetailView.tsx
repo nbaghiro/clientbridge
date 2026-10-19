@@ -3,7 +3,7 @@ import {
     type DetailViewProps,
     strings,
 } from "@clientbridge/app-core/public";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { useModalFlow } from "./Modal";
 import { Button } from "./Button";
@@ -25,6 +25,10 @@ export function DetailView({
     const flow = useModalFlow();
     const inline = variant === "inline";
     const inFlow = flow || inline;
+    const panel = useRef<HTMLElement>(null);
+    useEffect(() => {
+        if (open && !flow) panel.current?.focus({ preventScroll: true });
+    }, [open, flow]);
     useEffect(() => {
         if (!open || inFlow) return undefined;
         const onKey = (e: KeyboardEvent): void => {
@@ -47,6 +51,8 @@ export function DetailView({
             onClick={inFlow ? undefined : onClose}
         >
             <aside
+                ref={panel}
+                tabIndex={-1}
                 role={inFlow ? undefined : "dialog"}
                 aria-label={title}
                 onClick={(e) => {
@@ -54,8 +60,8 @@ export function DetailView({
                 }}
                 className={
                     inline
-                        ? "flex h-full w-full flex-col bg-surface"
-                        : "flex h-full w-full max-w-[520px] flex-col border-l border-line bg-surface shadow-card"
+                        ? "flex h-full w-full flex-col bg-surface outline-hidden"
+                        : "flex h-full w-full max-w-[520px] flex-col border-l border-line bg-surface shadow-card outline-hidden"
                 }
             >
                 <div className="flex items-center justify-between gap-3 border-b border-line px-6 py-4">

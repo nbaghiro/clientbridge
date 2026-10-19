@@ -493,8 +493,10 @@ test("owner: clients, records, notes, subjects, wallet and merge", async ({ page
         await navigate(page, "/clients/cl_amelie/history");
         await main.getByRole("button", { name: r.message, exact: true }).click();
         await expect(page).toHaveURL(/\/inbox$/);
-        await expect(page.getByRole("dialog")).toBeVisible();
-        await escapeDialog(page);
+        await expect(
+            main.getByRole("heading", { level: 2, name: "Amélie Tremblay", exact: true }),
+        ).toBeVisible();
+        await expect(page.getByRole("dialog")).toHaveCount(0);
     });
 
     await walk.step("subjects: add", async () => {
