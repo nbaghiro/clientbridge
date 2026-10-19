@@ -147,16 +147,27 @@ function Messages({
     const [details, setDetails] = useState(false);
     const [composing, setComposing] = useState<string | null>(null);
     const [sentTo, setSentTo] = useState<string | null>(null);
-    const nothingYet = inbox.load.hasData && inbox.threads.length === 0;
+    // A client opened from elsewhere with no conversation yet gets a blank one to write in.
+    const [drafting, setDrafting] = useState<string | null>(null);
+    const nothingYet = inbox.load.hasData && inbox.threads.length === 0 && drafting === null;
+    const pick = (id: string): void => {
+        setDrafting(null);
+        setPicked(id);
+    };
     useLinkIntent({
         onCreate: () => {
             setComposing("");
         },
         onOpen: (clientId) => {
             const thread = inbox.threads.find((t) => t.client_id === clientId);
-            if (thread === undefined) setComposing(clientId);
-            else setPicked(thread.id);
+            if (thread === undefined) setDrafting(clientId);
+            else pick(thread.id);
         },
+    });
+    const draftThread =
+        drafting === null ? undefined : inbox.threads.find((t) => t.client_id === drafting);
+    useEffect(() => {
+        if (draftThread !== undefined) pick(draftThread.id);
     });
 
     return (
@@ -232,7 +243,13 @@ function Messages({
                                 flush
                             >
                                 {inbox.filtered.length === 0 ? (
-                                    <Empty message={s.noThreadsFiltered} />
+                                    <Empty
+                                        message={
+                                            inbox.threads.length === 0
+                                                ? s.noThreadsTitle
+                                                : s.noThreadsFiltered
+                                        }
+                                    />
                                 ) : (
                                     inbox.filtered.map((t) => (
                                         <ConversationRow
@@ -246,7 +263,7 @@ function Messages({
                                             selected={t.id === open?.id}
                                             tag={rowFlag(t)}
                                             onPress={() => {
-                                                setPicked(t.id);
+                                                pick(t.id);
                                             }}
                                         />
                                     ))
@@ -261,6 +278,14 @@ function Messages({
                             details={details}
                             onDetails={setDetails}
                             wide={wide}
+                        />
+                    ) : drafting !== null ? (
+                        <NewThread
+                            key={drafting}
+                            clientId={drafting}
+                            onSent={(sent) => {
+                                setSentTo(sent.name);
+                            }}
                         />
                     ) : (
                         // No conversation opens on its own: someone may be looking at the screen too.
@@ -282,7 +307,7 @@ function Messages({
                         setComposing(null);
                         const thread = inbox.threads.find((t) => t.client_id === sent.clientId);
                         if (thread === undefined) setSentTo(sent.name);
-                        else setPicked(thread.id);
+                        else pick(thread.id);
                     }}
                 />
             ) : null}
@@ -443,6 +468,67 @@ function Composer({ composer }: { composer: ThreadComposer }) {
                 </span>
             </div>
         </div>
+    );
+}
+
+function NewThread({
+    clientId,
+    onSent,
+}: {
+    clientId: string;
+    onSent: (sent: { clientId: string; name: string }) => void;
+}) {
+    const msg = useNewMessage(api, onSent, clientId);
+    const name = msg.clients.find((c) => c.key === clientId)?.label ?? "";
+    return (
+        <section className="flex min-w-0 flex-1 flex-col bg-bg">
+            <div className="flex items-center gap-3 border-b border-line bg-surface px-5 py-3">
+                <Avatar name={name} />
+                <h2 className="min-w-0 flex-1 truncate font-display text-base font-bold text-ink">
+                    {name}
+                </h2>
+            </div>
+            <div className="flex flex-1 items-center justify-center px-5 pb-16">
+                <Empty icon="inbox" message={s.noMessagesYet(name)} />
+            </div>
+            <div className="space-y-2.5 border-t border-line bg-surface px-5 py-3">
+                {msg.smsBlocked ? <Notice tone="danger">{s.smsBlockedNew}</Notice> : null}
+                <TextField
+                    multiline
+                    rows={2}
+                    name={s.replyPlaceholder(msg.channel)}
+                    value={msg.body}
+                    onChange={msg.setBody}
+                    placeholder={s.replyPlaceholder(msg.channel)}
+                    disabled={msg.smsBlocked}
+                />
+                {msg.error !== null ? <Notice tone="danger">{msg.error}</Notice> : null}
+                <div className="flex flex-wrap items-center gap-3">
+                    <Choice
+                        layout="segmented"
+                        label={s.channelLabel}
+                        options={CHANNELS.map((c) => ({ key: c, label: s.channels[c] }))}
+                        value={msg.channel}
+                        onChange={msg.setChannel}
+                    />
+                    {msg.channel === "sms" && msg.body.length > 0 ? (
+                        <span className="text-xs text-muted">
+                            {s.smsCount(msg.segments.chars, msg.segments.segments)}
+                        </span>
+                    ) : null}
+                    <span className="ml-auto">
+                        <Button
+                            icon="send"
+                            busy={msg.busy}
+                            disabled={msg.smsBlocked}
+                            onPress={msg.submit}
+                        >
+                            {msg.busy ? s.sending : s.send}
+                        </Button>
+                    </span>
+                </div>
+            </div>
+        </section>
     );
 }
 

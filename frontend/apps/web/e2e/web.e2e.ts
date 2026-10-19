@@ -432,12 +432,8 @@ test("owner: clients, records, notes, subjects, wallet and merge", async ({ page
     });
 
     await walk.step("record: add note", async () => {
-        await main
-            .getByRole("navigation", { name: strings.clients.title })
-            .getByRole("button")
-            .first()
-            .click();
-        const record = main.getByRole("region", { name: r.pane });
+        await main.locator("button.block").first().click();
+        const record = main.getByRole("complementary", { name: r.pane });
         await record.getByRole("button", { name: r.addNote }).click();
         await expect(page.getByRole("dialog", { name: r.addNoteTitle })).toBeVisible();
         await page.keyboard.press("Escape");
@@ -447,7 +443,7 @@ test("owner: clients, records, notes, subjects, wallet and merge", async ({ page
 
     await walk.step("record: note actions", async () => {
         await main.getByRole("button", { name: /^Amélie Tremblay/ }).click();
-        const record = main.getByRole("region", { name: r.pane });
+        const record = main.getByRole("complementary", { name: r.pane });
         await record
             .getByRole("listitem")
             .getByRole("button", { name: strings.clients.history.editNote })
@@ -687,13 +683,15 @@ test("owner: inbox messages, reviews, broadcasts, forms and contracts", async ({
         const details = main.getByRole("complementary", { name: m.details });
         await expect(details).toBeVisible();
         await details.getByRole("button", { name: m.openRecord }).click();
-        const record = main.getByRole("region", { name: strings.clients.record.pane });
+        const record = main.getByRole("complementary", { name: strings.clients.record.pane });
         await expect(
             record.getByRole("button", { name: strings.clients.record.addNote }),
         ).toBeVisible();
         await record.getByRole("button", { name: m.rail.allClients }).click();
         await expect(page).toHaveURL(/\/clients/);
-        await expect(main.getByRole("region", { name: strings.clients.record.pane })).toBeVisible();
+        await expect(
+            main.getByRole("complementary", { name: strings.clients.record.pane }),
+        ).toBeVisible();
     });
 
     await walk.step("reviews: request and reply", async () => {
@@ -919,13 +917,11 @@ test("owner: key pages and records pass axe, show keyboard focus and keep hovere
 
     await walk.step("client record", async () => {
         await navigate(page, "/clients");
-        await main
-            .getByRole("navigation", { name: strings.clients.title })
-            .getByRole("button")
-            .first()
-            .click();
-        await expect(main.getByRole("region", { name: strings.clients.record.pane })).toBeVisible();
-        await record("client record", `section[aria-label="${strings.clients.record.pane}"]`);
+        await main.locator("button.block").first().click();
+        await expect(
+            main.getByRole("complementary", { name: strings.clients.record.pane }),
+        ).toBeVisible();
+        await record("client record", `aside[aria-label="${strings.clients.record.pane}"]`);
     });
 
     for (const [path, name] of [["/payments/invoices", "invoice record"]] as const) {
@@ -1015,12 +1011,8 @@ test("staff: today, schedule and clients", async ({ page }) => {
     await walk.step("clients: add, record and notes", async () => {
         await navigate(page, "/clients");
         await openAndClose(page, strings.clients.add);
-        await main
-            .getByRole("navigation", { name: strings.clients.title })
-            .getByRole("button")
-            .first()
-            .click();
-        const record = main.getByRole("region", { name: strings.clients.record.pane });
+        await main.locator("button.block").first().click();
+        const record = main.getByRole("complementary", { name: strings.clients.record.pane });
         await expect(
             record.getByRole("heading", { name: strings.clients.record.wallet }),
         ).toHaveCount(0);

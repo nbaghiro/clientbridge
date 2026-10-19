@@ -4001,11 +4001,20 @@
     "clients.record.back": {
         "message": "[Çļîéñţš one]"
     },
+    "clients.record.colClient": {
+        "message": "[Çļîéñţ one]"
+    },
+    "clients.record.colNext": {
+        "message": "[Ñéẋţ ṽîšîţ one two]"
+    },
+    "clients.record.colBalance": {
+        "message": "[Ɓåļåñçé one]"
+    },
+    "clients.record.colTags": {
+        "message": "[Ţåĝš one]"
+    },
     "clients.record.pane": {
         "message": "[Çļîéñţ ŕéçöŕð one two]"
-    },
-    "clients.record.choose": {
-        "message": "[Çĥööšé å çļîéñţ ţö šéé ţĥéîŕ ŕéçöŕð. one two three]"
     },
     "clients.record.goneBody": {
         "message": "[Ţĥéý ɱåý ĥåṽé ƀééñ ɱéŕĝéð îñţö åñöţĥéŕ ŕéçöŕð öŕ ŕéɱöṽéð öñ åñöţĥéŕ ðéṽîçé. one two three four five]"
@@ -4855,6 +4864,9 @@
     },
     "messaging.noThreadsBody": {
         "message": "[Ŵĥéñ å çļîéñţ ŕéþļîéš ţö å ţéẋţ öŕ åñ éɱåîļ, îţ ļåñðš ĥéŕé. one two three four]"
+    },
+    "messaging.noMessagesYet": {
+        "message": "[Ñö ɱéššåĝéš ŵîţĥ {name} ýéţ. Ŵŕîţé ţĥé ƒîŕšţ öñé ƀéļöŵ. one two three four]"
     },
     "messaging.selectThread": {
         "message": "[Çĥööšé å çöñṽéŕšåţîöñ ţö ŕéåð åñð ŕéþļý. one two three]"

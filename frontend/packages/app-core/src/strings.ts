@@ -1423,8 +1423,11 @@ interface Strings {
             readonly editShort: string;
             readonly addNoteTitle: string;
             readonly back: string;
+            readonly colClient: string;
+            readonly colNext: string;
+            readonly colBalance: string;
+            readonly colTags: string;
             readonly pane: string;
-            readonly choose: string;
             readonly goneBody: string;
             readonly archived: string;
         };
@@ -1737,6 +1740,7 @@ interface Strings {
         readonly noThreadsFiltered: string;
         readonly noThreadsTitle: string;
         readonly noThreadsBody: string;
+        readonly noMessagesYet: (name: string) => string;
         readonly selectThread: string;
         readonly thread: {
             readonly automatic: string;

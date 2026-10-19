@@ -4317,11 +4317,20 @@
     "clients.record.back": {
         "message": "Clients"
     },
+    "clients.record.colClient": {
+        "message": "Client"
+    },
+    "clients.record.colNext": {
+        "message": "Next visit"
+    },
+    "clients.record.colBalance": {
+        "message": "Balance"
+    },
+    "clients.record.colTags": {
+        "message": "Tags"
+    },
     "clients.record.pane": {
         "message": "Client record"
-    },
-    "clients.record.choose": {
-        "message": "Choose a client to see their record."
     },
     "clients.record.goneBody": {
         "message": "They may have been merged into another record or removed on another device."
@@ -5273,6 +5282,10 @@
     },
     "messaging.noThreadsBody": {
         "message": "When a client replies to a text or an email, it lands here."
+    },
+    "messaging.noMessagesYet": {
+        "message": "No messages with {name} yet. Write the first one below.",
+        "args": ["name"]
     },
     "messaging.selectThread": {
         "message": "Choose a conversation to read and reply."

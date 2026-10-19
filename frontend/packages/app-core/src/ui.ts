@@ -45,6 +45,8 @@ export interface ListPageProps<T, K extends string = string> {
     rowKey: (row: T) => string;
     renderRow: (row: T) => ReactNode;
     onRowPress?: ((row: T) => void) | undefined;
+    // The row whose record is open beside the list.
+    selectedKey?: string | undefined;
     // A string is the plain empty line; EmptyProps adds an icon, body and next-step actions.
     empty: string | EmptyProps;
     // "loading" draws placeholder rows, "error" a failed load with onRetry; rows are ignored for both.

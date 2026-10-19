@@ -323,7 +323,7 @@ function RailRecord({ clientId, onClose }: { clientId: string; onClose: () => vo
     const directory = useClientDirectory();
     const [dialog, setDialog] = useState<ClientDialog | null>(null);
     return (
-        <section aria-label={strings.clients.record.pane} className="flex h-full flex-col">
+        <aside aria-label={strings.clients.record.pane} className="flex h-full flex-col">
             <div className="flex justify-end border-b border-line-soft px-4 py-2">
                 <Button
                     size="sm"
@@ -359,7 +359,7 @@ function RailRecord({ clientId, onClose }: { clientId: string; onClose: () => vo
                     setDialog(null);
                 }}
             />
-        </section>
+        </aside>
     );
 }
 

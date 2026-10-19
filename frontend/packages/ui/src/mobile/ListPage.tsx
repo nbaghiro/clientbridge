@@ -25,6 +25,7 @@ export function ListPage<T, K extends string = string>({
     rowKey,
     renderRow,
     onRowPress,
+    selectedKey,
     empty,
     state,
     onRetry,
@@ -117,8 +118,13 @@ export function ListPage<T, K extends string = string>({
                 renderItem={({ item, index }) =>
                     onRowPress !== undefined ? (
                         <Pressable
-                            style={[styles.row, index === 0 && styles.first]}
+                            style={[
+                                styles.row,
+                                index === 0 && styles.first,
+                                rowKey(item) === selectedKey && styles.selected,
+                            ]}
                             accessibilityRole="button"
+                            accessibilityState={{ selected: rowKey(item) === selectedKey }}
                             onPress={() => {
                                 onRowPress(item);
                             }}
@@ -174,6 +180,7 @@ const styles = StyleSheet.create({
     },
     banner: { paddingTop: 4, paddingBottom: 8 },
     // Rows run edge to edge on the card colour, past the list's side padding.
+    selected: { backgroundColor: c.accentWeak },
     row: {
         paddingVertical: 11,
         paddingHorizontal: 20,
