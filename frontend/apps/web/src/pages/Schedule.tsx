@@ -187,7 +187,13 @@ export function Schedule() {
                             />
                         </div>
                     ) : (
-                        <div ref={gridRef} className="min-h-0 flex-1 overflow-y-auto">
+                        <div
+                            ref={gridRef}
+                            role="region"
+                            aria-label={s.title}
+                            tabIndex={0}
+                            className="min-h-0 flex-1 overflow-y-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
+                        >
                             <div
                                 className="relative flex pt-2"
                                 style={{ height: (endHour - startHour) * hourPx + 8 }}
