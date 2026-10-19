@@ -28,6 +28,7 @@ import {
     MessageBubble,
     Modal,
     Notice,
+    PageHeader,
     SearchField,
     SearchSelect,
     Skeleton,
@@ -37,7 +38,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { ContextPanel, InboxRail } from "../components/InboxRail";
+import { ContextPanel, INBOX_FRAME, ThreadDetails } from "../components/ThreadDetails";
 import { Loaded } from "../components/Loaded";
 import { useWide } from "../components/ScheduleGrid";
 import { api } from "../lib/api";
@@ -67,64 +68,27 @@ export function Inbox() {
     const area = segments.find((x) => x.key === segment);
 
     return (
-        <div className="flex h-full min-h-[600px]">
-            <section className="flex min-w-0 flex-1 flex-col p-5">
-                {!wide && segments.length > 1 ? (
-                    <div className="mb-4">
-                        <Tabs
-                            items={segments}
-                            active={segment}
-                            onSelect={setSegment}
-                            variant="pill"
-                            label={s.title}
-                        />
+        <div className="mx-auto max-w-6xl px-8 py-8">
+            <PageHeader title={s.title}>
+                {segments.length > 1 ? (
+                    <div className="border-b border-line">
+                        <Tabs items={segments} active={segment} onSelect={setSegment} />
                     </div>
                 ) : null}
+            </PageHeader>
+            <div className="mt-6">
                 {segment === "messages" || area === undefined ? (
                     <Messages inbox={inbox} picked={open} onPick={setPicked} wide={wide} />
+                ) : segment === "reviews" ? (
+                    <Reviews />
+                ) : segment === "broadcasts" ? (
+                    <Broadcasts />
+                ) : segment === "forms" ? (
+                    <Forms />
                 ) : (
-                    <div className="min-h-0 flex-1 overflow-y-auto">
-                        <header className="mb-5 flex items-center gap-3">
-                            <Button
-                                size="sm"
-                                variant="quiet"
-                                icon="chevronLeft"
-                                onPress={() => {
-                                    setSegment("messages");
-                                }}
-                            >
-                                {strings.navigation.inboxSegments.messages}
-                            </Button>
-                            <span className="h-5 w-px bg-line" />
-                            <h1 className="font-display text-xl font-bold text-ink">
-                                {area.label}
-                            </h1>
-                        </header>
-                        {segment === "reviews" ? (
-                            <Reviews />
-                        ) : segment === "broadcasts" ? (
-                            <Broadcasts />
-                        ) : segment === "forms" ? (
-                            <Forms />
-                        ) : (
-                            <Contracts />
-                        )}
-                    </div>
+                    <Contracts />
                 )}
-            </section>
-            {wide && (open !== null || segments.length > 1) ? (
-                <aside
-                    aria-label={s.title}
-                    className="w-[340px] shrink-0 overflow-y-auto border-l border-line bg-surface"
-                >
-                    <InboxRail
-                        areas={segments}
-                        active={segment}
-                        thread={open}
-                        onOpen={setSegment}
-                    />
-                </aside>
-            ) : null}
+            </div>
         </div>
     );
 }
@@ -171,7 +135,7 @@ function Messages({
     });
 
     return (
-        <div className={nothingYet ? "min-h-0 flex-1 overflow-y-auto" : "flex min-h-0 flex-1"}>
+        <div>
             {nothingYet ? (
                 <Empty
                     variant="card"
@@ -190,16 +154,15 @@ function Messages({
                     }
                 />
             ) : (
-                <div className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-line bg-surface shadow-card">
+                <div
+                    className={`flex ${INBOX_FRAME} overflow-hidden rounded-lg border border-line bg-surface shadow-card`}
+                >
                     <aside className="flex w-[300px] shrink-0 flex-col border-r border-line bg-surface">
                         <header className="space-y-3 border-b border-line px-4 pb-3 pt-4">
                             <div className="flex items-center justify-between gap-2">
                                 <div className="min-w-0">
-                                    <h1 className="font-display text-lg font-bold text-ink">
-                                        {s.title}
-                                    </h1>
                                     {inbox.load.hasData ? (
-                                        <p className="text-xs text-muted">
+                                        <p className="text-sm font-semibold text-ink">
                                             {s.unreadCount(inbox.unread)}
                                         </p>
                                     ) : (
@@ -272,13 +235,18 @@ function Messages({
                         </nav>
                     </aside>
                     {open !== null ? (
-                        <Thread
-                            key={open.id}
-                            thread={open}
-                            details={details}
-                            onDetails={setDetails}
-                            wide={wide}
-                        />
+                        <>
+                            <Thread
+                                key={open.id}
+                                thread={open}
+                                details={details}
+                                onDetails={setDetails}
+                                wide={wide}
+                            />
+                            {wide ? (
+                                <ThreadDetails key={`details-${open.id}`} thread={open} />
+                            ) : null}
+                        </>
                     ) : drafting !== null ? (
                         <NewThread
                             key={drafting}

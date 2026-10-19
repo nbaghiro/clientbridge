@@ -1843,13 +1843,7 @@ interface Strings {
         } & Labels;
         readonly consentImpliedUntil: (date: string) => string;
         readonly back: string;
-        readonly rail: {
-            readonly open: (area: string) => string;
-            readonly allClients: string;
-            readonly reach: (sms: number, email: number) => string;
-            readonly formsWaiting: (n: number) => string;
-            readonly signaturesWaiting: (n: number) => string;
-        };
+        readonly rail: { readonly allClients: string } & Labels;
         readonly cancel: string;
         readonly selectClient: string;
         readonly writeMessage: string;

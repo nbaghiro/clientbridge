@@ -34,6 +34,7 @@ import {
 import { useState } from "react";
 
 import { Loaded } from "../components/Loaded";
+import { INBOX_FRAME } from "../components/ThreadDetails";
 import { SendToClientDialog } from "../components/SendToClient";
 import { config } from "../config";
 import { api } from "../lib/api";
@@ -67,7 +68,9 @@ export function Contracts() {
                         actions={<Button onPress={add}>{s.newContract}</Button>}
                     />
                 ) : (
-                    <div className="flex h-[calc(100vh-6.5rem)] min-h-[560px] overflow-hidden rounded-xl border border-line bg-surface shadow-card">
+                    <div
+                        className={`flex ${INBOX_FRAME} overflow-hidden rounded-lg border border-line bg-surface shadow-card`}
+                    >
                         <aside className="flex w-[280px] shrink-0 flex-col border-r border-line">
                             <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
                                 <h2 className="text-sm font-semibold text-ink">{s.templates}</h2>

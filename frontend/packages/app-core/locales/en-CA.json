@@ -5592,25 +5592,8 @@
     "messaging.back": {
         "message": "Inbox"
     },
-    "messaging.rail.open": {
-        "message": "Open {area}",
-        "description": "Button that opens an inbox area's full page from the side rail.",
-        "args": ["area"]
-    },
     "messaging.rail.allClients": {
         "message": "All clients"
-    },
-    "messaging.rail.reach": {
-        "message": "{sms, number} can get texts, {email, number} can get email",
-        "args": ["sms", "email"]
-    },
-    "messaging.rail.formsWaiting": {
-        "message": "{n, plural, =0 {No answers waiting} one {# answer waiting} other {# answers waiting}}",
-        "args": ["n"]
-    },
-    "messaging.rail.signaturesWaiting": {
-        "message": "{n, plural, =0 {No signatures waiting} one {# signature waiting} other {# signatures waiting}}",
-        "args": ["n"]
     },
     "messaging.cancel": {
         "message": "Cancel"
