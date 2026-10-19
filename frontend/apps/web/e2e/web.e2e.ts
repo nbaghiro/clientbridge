@@ -724,6 +724,7 @@ test("owner: inbox messages, reviews, broadcasts, forms and contracts", async ({
 
     await walk.step("forms: editor, send and new form", async () => {
         await navigate(page, "/inbox?segment=forms");
+        await main.locator("button.block").first().click();
         await expect(page.getByText(strings.forms.preview)).toBeVisible();
         await main.getByRole("button", { name: /^1 / }).click();
         await expect(main.getByRole("combobox").first()).toBeVisible();
@@ -732,6 +733,7 @@ test("owner: inbox messages, reviews, broadcasts, forms and contracts", async ({
             page.getByRole("dialog", { name: prefixOf(strings.forms.sendTitle) }),
         ).toBeVisible();
         await escapeDialog(page);
+        await main.getByRole("button", { name: strings.forms.library, exact: true }).click();
         await main.getByRole("button", { name: strings.forms.newForm }).first().click();
         await expect(main.getByRole("button", { name: strings.forms.addQuestion })).toBeVisible();
     });
@@ -739,9 +741,8 @@ test("owner: inbox messages, reviews, broadcasts, forms and contracts", async ({
     await walk.step("contracts: new, signed copy, send and edit text", async () => {
         await navigate(page, "/inbox?segment=contracts");
         await openAndClose(page, strings.contracts.newContract);
-        await main.getByRole("tab", { name: strings.contracts.signatures }).click();
+        await main.locator("button.block").first().click();
         await openAndClose(page, strings.contracts.signedCopy);
-        await main.getByRole("tab", { name: strings.contracts.text }).click();
         await main.getByRole("button", { name: strings.contracts.send }).click();
         await expect(
             page.getByRole("dialog", { name: prefixOf(strings.contracts.sendTitle) }),

@@ -1245,6 +1245,8 @@ interface Strings {
         readonly loading: string;
         readonly loadError: string;
         readonly library: string;
+        readonly colForm: string;
+        readonly colAnswers: string;
         readonly newForm: string;
         readonly noFormsTitle: string;
         readonly empty: string;
@@ -1311,6 +1313,8 @@ interface Strings {
         readonly loadError: string;
         readonly newContract: string;
         readonly templates: string;
+        readonly colContract: string;
+        readonly colUpdated: string;
         readonly version: (n: number) => string;
         readonly versionShort: (n: number) => string;
         readonly signedCount: (n: number) => string;

@@ -3806,6 +3806,12 @@
     "forms.library": {
         "message": "Forms"
     },
+    "forms.colForm": {
+        "message": "Form"
+    },
+    "forms.colAnswers": {
+        "message": "Answers"
+    },
     "forms.newForm": {
         "message": "New form"
     },
@@ -3998,6 +4004,12 @@
     },
     "contracts.templates": {
         "message": "Contracts"
+    },
+    "contracts.colContract": {
+        "message": "Contract"
+    },
+    "contracts.colUpdated": {
+        "message": "Last updated"
     },
     "contracts.version": {
         "message": "Version {n, number}",

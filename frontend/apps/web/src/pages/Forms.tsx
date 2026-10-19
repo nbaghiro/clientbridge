@@ -11,7 +11,6 @@ import {
     useFormDraft,
     useFormEditor,
     useFormLibrary,
-    formatParts,
     useBusinessZone,
 } from "@clientbridge/app-core";
 import {
@@ -22,88 +21,115 @@ import {
     FormQuestion,
     Icon,
     IconButton,
+    ListPage,
     ListRow,
     Loading,
     Notice,
     Select,
-    Tabs,
     TextField,
     Toggle,
 } from "@clientbridge/ui";
 import { useState } from "react";
 
 import { Loaded } from "../components/Loaded";
-import { FILL } from "../components/PageFrame";
 import { SendToClientDialog } from "../components/SendToClient";
 import { api } from "../lib/api";
 
 const s = strings.forms;
 const f = strings.publicForm;
 
+const GRID = "grid grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1.2fr)] items-center gap-4";
+
 export function Forms() {
     const library = useFormLibrary();
     const [picked, setPicked] = useState<string | null>(null);
-    const formId = picked ?? library.forms[0]?.id ?? null;
     const newForm = (): void => {
         setPicked(NEW_FORM);
     };
-
     const none = library.load.hasData && library.forms.length === 0;
 
-    if (picked !== NEW_FORM && (none || library.load.state !== "ready"))
+    if (picked !== null)
         return (
-            <Loaded load={library.load} loading={s.loading} failed={s.loadError}>
-                <Empty
-                    variant="card"
-                    icon="note"
-                    message={s.noFormsTitle}
-                    body={s.empty}
-                    actions={<Button onPress={newForm}>{s.newForm}</Button>}
-                />
-            </Loaded>
+            <div>
+                <Button
+                    variant="link"
+                    icon="chevronLeft"
+                    onPress={() => {
+                        setPicked(null);
+                    }}
+                >
+                    {s.library}
+                </Button>
+                <div className="mt-2">
+                    <EditorSource key={picked} formId={picked} onCreated={setPicked} />
+                </div>
+            </div>
         );
 
     return (
-        <div
-            className={`flex ${FILL} overflow-hidden rounded-lg border border-line bg-surface shadow-card`}
-        >
-            <aside className="flex w-[280px] shrink-0 flex-col border-r border-line">
-                <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
-                    <h2 className="text-sm font-semibold text-ink">{s.library}</h2>
-                    <Button size="sm" variant="quiet" icon="plus" onPress={newForm}>
+        <div className="space-y-6">
+            <div className="flex items-center justify-between gap-4">
+                <p className="text-sm text-muted">{s.subtitle}</p>
+                {none ? null : (
+                    <Button size="sm" icon="plus" onPress={newForm}>
                         {s.newForm}
                     </Button>
-                </div>
-                <ul className="min-h-0 flex-1 divide-y divide-line-soft overflow-y-auto">
-                    {library.forms.map((form) => {
-                        const send = formSendLabel(form);
-                        return (
-                            <li key={form.id}>
-                                <ListRow
-                                    title={form.name}
-                                    selected={form.id === formId}
-                                    onPress={() => {
-                                        setPicked(form.id);
-                                    }}
-                                    detail={formatParts([
-                                        s.fields(form.field_count),
-                                        form.submitted > 0
-                                            ? s.responses(form.submitted)
-                                            : s.noResponsesYet,
-                                        form.waiting > 0 ? s.waiting(form.waiting) : null,
-                                    ])}
-                                    meta={<Badge label={send.label} intent={send.intent} />}
-                                />
-                            </li>
-                        );
-                    })}
-                </ul>
-            </aside>
-            <div className="flex min-w-0 flex-1 flex-col">
-                {formId === null ? null : (
-                    <EditorSource key={formId} formId={formId} onCreated={setPicked} />
                 )}
             </div>
+            <Loaded load={library.load} loading={s.loading} failed={s.loadError}>
+                <ListPage
+                    head={
+                        none ? undefined : (
+                            <div className={GRID}>
+                                <span>{s.colForm}</span>
+                                <span>{s.sendWhen}</span>
+                                <span>{s.colAnswers}</span>
+                            </div>
+                        )
+                    }
+                    rows={library.forms}
+                    rowKey={(form) => form.id}
+                    onRowPress={(form) => {
+                        setPicked(form.id);
+                    }}
+                    empty={{
+                        message: s.noFormsTitle,
+                        body: s.empty,
+                        icon: "note",
+                        actions: (
+                            <Button size="sm" icon="plus" onPress={newForm}>
+                                {s.newForm}
+                            </Button>
+                        ),
+                    }}
+                    renderRow={(form) => {
+                        const send = formSendLabel(form);
+                        return (
+                            <div className={GRID}>
+                                <div className="min-w-0">
+                                    <div className="truncate font-medium text-ink">{form.name}</div>
+                                    <div className="text-xs text-muted">
+                                        {s.fields(form.field_count)}
+                                    </div>
+                                </div>
+                                <div>
+                                    <Badge label={send.label} intent={send.intent} />
+                                </div>
+                                <div className="flex min-w-0 items-center gap-2 text-sm text-ink-soft">
+                                    <span className="truncate">
+                                        {form.submitted > 0
+                                            ? s.responses(form.submitted)
+                                            : s.noResponsesYet}
+                                    </span>
+                                    {form.waiting > 0 ? (
+                                        <Badge label={s.waiting(form.waiting)} intent="warning" />
+                                    ) : null}
+                                </div>
+                            </div>
+                        );
+                    }}
+                />
+            </Loaded>
         </div>
     );
 }
@@ -113,8 +139,6 @@ function EditorSource({ formId, onCreated }: { formId: string; onCreated: (id: s
     if (draft === null) return <Loading />;
     return <Editor formId={formId} initial={draft} onCreated={onCreated} />;
 }
-
-type EditorView = "questions" | "preview";
 
 function Editor({
     formId,
@@ -128,27 +152,16 @@ function Editor({
     const zone = useBusinessZone();
     const editor = useFormEditor(api, formId, initial, onCreated);
     const [sending, setSending] = useState(false);
-    const [view, setView] = useState<EditorView>("questions");
 
     return (
         <>
-            <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-5 py-3">
-                <div className="flex min-w-40 flex-1 items-baseline gap-3">
-                    <h2 className="truncate font-display text-lg font-bold text-ink">
+            <header className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex min-w-0 items-baseline gap-3">
+                    <h2 className="truncate font-display text-xl font-bold text-ink">
                         {editor.name || s.untitledForm}
                     </h2>
                     <SaveState editor={editor} />
                 </div>
-                <Tabs
-                    variant="pill"
-                    label={s.formName}
-                    items={[
-                        { key: "questions", label: s.questions },
-                        { key: "preview", label: s.preview },
-                    ]}
-                    active={view}
-                    onSelect={setView}
-                />
                 <div className="flex items-center gap-2">
                     <Button
                         size="sm"
@@ -181,145 +194,143 @@ function Editor({
                     }}
                 />
             ) : null}
-            <div className="min-h-0 flex-1 overflow-y-auto bg-bg/40">
-                {view === "preview" ? (
-                    <div className="mx-auto max-w-xl px-6 py-8">
-                        <div className="rounded-lg border border-line bg-surface p-6 shadow-card">
-                            <h3 className="font-display text-lg font-bold text-ink">
-                                {editor.name || s.untitledForm}
-                            </h3>
-                            <div className="mt-4 space-y-1">
-                                {editor.preview.map((q) => (
-                                    <div key={q.id} className="py-2.5">
-                                        <FormQuestion
-                                            zone={zone}
-                                            field={{ ...q, label: q.label || s.untitled }}
-                                            value={undefined}
-                                            chooseFileLabel={f.chooseFile}
-                                            selectPlaceholder={f.selectPlaceholder}
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="mt-6">
-                                <Button full size="lg" disabled>
-                                    {f.sendAnswers}
-                                </Button>
-                            </div>
+            <div className="mt-5 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]">
+                <div className="space-y-6">
+                    {editor.error !== null ? (
+                        <Notice tone="danger" banner>
+                            {s.errors[editor.error]}
+                        </Notice>
+                    ) : null}
+                    <section className="space-y-4 rounded-lg border border-line bg-surface p-5 shadow-card">
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <TextField
+                                label={s.formName}
+                                value={editor.name}
+                                onChange={editor.setName}
+                                surface="surface"
+                            />
+                            <Select
+                                label={s.sendWhen}
+                                value={editor.sendOn}
+                                onChange={editor.setSendOn}
+                                surface="surface"
+                                hint={
+                                    editor.sendOn === "booking"
+                                        ? s.sendOnBookingHint
+                                        : s.sendManualHint
+                                }
+                                options={[
+                                    { key: "booking", label: s.sendOnBooking },
+                                    { key: "manual", label: s.sendManual },
+                                ]}
+                            />
+                        </div>
+                        <Toggle
+                            label={s.requireSignature}
+                            hint={s.requireSignatureHint}
+                            value={editor.requireSignature}
+                            onChange={editor.setRequireSignature}
+                        />
+                    </section>
+                    <section>
+                        <div className="mb-2 flex items-baseline justify-between px-1">
+                            <h3 className="text-sm font-semibold text-ink">{s.questions}</h3>
+                            <span className="text-xs text-muted">
+                                {s.fields(editor.fields.length)}
+                            </span>
+                        </div>
+                        {editor.fields.length === 0 ? (
+                            <Empty variant="card" message={s.emptyFields} />
+                        ) : (
+                            <ol className="divide-y divide-line-soft overflow-hidden rounded-lg border border-line bg-surface shadow-card">
+                                {editor.fields.map((field, i) => {
+                                    const open = field.key === editor.selectedKey;
+                                    return (
+                                        <li
+                                            key={field.key}
+                                            className={open ? "bg-accent-weak/30" : ""}
+                                        >
+                                            <ListRow
+                                                density="compact"
+                                                leading={
+                                                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-bg text-xs font-semibold text-muted">
+                                                        {i + 1}
+                                                    </span>
+                                                }
+                                                title={field.label || s.untitled}
+                                                detail={fieldTypeLabel(field.input)}
+                                                meta={
+                                                    field.required ? (
+                                                        <Badge
+                                                            label={s.required}
+                                                            intent="neutral"
+                                                        />
+                                                    ) : undefined
+                                                }
+                                                selected={open}
+                                                onPress={() => {
+                                                    editor.select(open ? null : field.key);
+                                                }}
+                                                trailing={
+                                                    <OrderButtons
+                                                        editor={editor}
+                                                        field={field}
+                                                        index={i}
+                                                    />
+                                                }
+                                            />
+                                            {open ? (
+                                                <div className="border-t border-line-soft bg-surface p-4">
+                                                    <QuestionControls
+                                                        editor={editor}
+                                                        field={field}
+                                                    />
+                                                </div>
+                                            ) : null}
+                                        </li>
+                                    );
+                                })}
+                            </ol>
+                        )}
+                        <div className="mt-3">
+                            <Button
+                                variant="quiet"
+                                icon="plus"
+                                onPress={() => {
+                                    editor.addField("text");
+                                }}
+                            >
+                                {s.addQuestion}
+                            </Button>
+                        </div>
+                    </section>
+                </div>
+                <aside className="space-y-3 lg:sticky lg:top-6">
+                    <h3 className="px-1 text-sm font-semibold text-ink">{s.preview}</h3>
+                    <div className="rounded-lg border border-line bg-surface p-6 shadow-card">
+                        <h3 className="font-display text-lg font-bold text-ink">
+                            {editor.name || s.untitledForm}
+                        </h3>
+                        <div className="mt-4 space-y-1">
+                            {editor.preview.map((q) => (
+                                <div key={q.id} className="py-2.5">
+                                    <FormQuestion
+                                        zone={zone}
+                                        field={{ ...q, label: q.label || s.untitled }}
+                                        value={undefined}
+                                        chooseFileLabel={f.chooseFile}
+                                        selectPlaceholder={f.selectPlaceholder}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-6">
+                            <Button full size="lg" disabled>
+                                {f.sendAnswers}
+                            </Button>
                         </div>
                     </div>
-                ) : (
-                    <div className="mx-auto max-w-3xl space-y-6 px-6 py-6">
-                        {editor.error !== null ? (
-                            <Notice tone="danger" banner>
-                                {s.errors[editor.error]}
-                            </Notice>
-                        ) : null}
-                        <section className="space-y-4 rounded-lg border border-line bg-surface p-5">
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <TextField
-                                    label={s.formName}
-                                    value={editor.name}
-                                    onChange={editor.setName}
-                                    surface="surface"
-                                />
-                                <Select
-                                    label={s.sendWhen}
-                                    value={editor.sendOn}
-                                    onChange={editor.setSendOn}
-                                    surface="surface"
-                                    hint={
-                                        editor.sendOn === "booking"
-                                            ? s.sendOnBookingHint
-                                            : s.sendManualHint
-                                    }
-                                    options={[
-                                        { key: "booking", label: s.sendOnBooking },
-                                        { key: "manual", label: s.sendManual },
-                                    ]}
-                                />
-                            </div>
-                            <Toggle
-                                label={s.requireSignature}
-                                hint={s.requireSignatureHint}
-                                value={editor.requireSignature}
-                                onChange={editor.setRequireSignature}
-                            />
-                        </section>
-                        <section>
-                            <div className="mb-2 flex items-baseline justify-between px-1">
-                                <h3 className="text-sm font-semibold text-ink">{s.questions}</h3>
-                                <span className="text-xs text-muted">
-                                    {s.fields(editor.fields.length)}
-                                </span>
-                            </div>
-                            {editor.fields.length === 0 ? (
-                                <Empty variant="card" message={s.emptyFields} />
-                            ) : (
-                                <ol className="divide-y divide-line-soft overflow-hidden rounded-lg border border-line bg-surface">
-                                    {editor.fields.map((field, i) => {
-                                        const open = field.key === editor.selectedKey;
-                                        return (
-                                            <li
-                                                key={field.key}
-                                                className={open ? "bg-accent-weak/30" : ""}
-                                            >
-                                                <ListRow
-                                                    density="compact"
-                                                    leading={
-                                                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-bg text-xs font-semibold text-muted">
-                                                            {i + 1}
-                                                        </span>
-                                                    }
-                                                    title={field.label || s.untitled}
-                                                    detail={fieldTypeLabel(field.input)}
-                                                    meta={
-                                                        field.required ? (
-                                                            <Badge
-                                                                label={s.required}
-                                                                intent="neutral"
-                                                            />
-                                                        ) : undefined
-                                                    }
-                                                    selected={open}
-                                                    onPress={() => {
-                                                        editor.select(open ? null : field.key);
-                                                    }}
-                                                    trailing={
-                                                        <OrderButtons
-                                                            editor={editor}
-                                                            field={field}
-                                                            index={i}
-                                                        />
-                                                    }
-                                                />
-                                                {open ? (
-                                                    <div className="border-t border-line-soft bg-surface p-4">
-                                                        <QuestionControls
-                                                            editor={editor}
-                                                            field={field}
-                                                        />
-                                                    </div>
-                                                ) : null}
-                                            </li>
-                                        );
-                                    })}
-                                </ol>
-                            )}
-                            <div className="mt-3">
-                                <Button
-                                    variant="quiet"
-                                    icon="plus"
-                                    onPress={() => {
-                                        editor.addField("text");
-                                    }}
-                                >
-                                    {s.addQuestion}
-                                </Button>
-                            </div>
-                        </section>
-                    </div>
-                )}
+                </aside>
             </div>
         </>
     );

@@ -3515,6 +3515,12 @@
     "forms.library": {
         "message": "[Ƒöŕɱš one]"
     },
+    "forms.colForm": {
+        "message": "[Ƒöŕɱ one]"
+    },
+    "forms.colAnswers": {
+        "message": "[Åñšŵéŕš one]"
+    },
     "forms.newForm": {
         "message": "[Ñéŵ ƒöŕɱ one]"
     },
@@ -3700,6 +3706,12 @@
     },
     "contracts.templates": {
         "message": "[Çöñţŕåçţš one two]"
+    },
+    "contracts.colContract": {
+        "message": "[Çöñţŕåçţ one]"
+    },
+    "contracts.colUpdated": {
+        "message": "[Ļåšţ ûþðåţéð one two]"
     },
     "contracts.version": {
         "message": "[Ṽéŕšîöñ {n, number} one]"
