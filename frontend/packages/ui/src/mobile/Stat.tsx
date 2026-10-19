@@ -38,7 +38,11 @@ export function Stat({
             {shown === null ? (
                 <View style={[styles.skeleton, large && styles.skeletonLarge]} />
             ) : (
-                <Text style={[large ? styles.valueLarge : styles.value, { color: TONE[tone] }]}>
+                <Text
+                    style={[large ? styles.valueLarge : styles.value, { color: TONE[tone] }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                >
                     {shown}
                 </Text>
             )}

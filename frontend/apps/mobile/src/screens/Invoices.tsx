@@ -196,6 +196,7 @@ function InvoiceDeskView({
                         <View style={styles.stats}>
                             <View style={styles.stat}>
                                 <Stat
+                                    size="lg"
                                     currency={BUSINESS_CURRENCY}
                                     label={s.statOutstanding}
                                     cents={ready ? desk.stats.outstandingCents : null}
@@ -208,6 +209,7 @@ function InvoiceDeskView({
                             </View>
                             <View style={styles.stat}>
                                 <Stat
+                                    size="lg"
                                     currency={BUSINESS_CURRENCY}
                                     label={s.statOverdue}
                                     cents={ready ? desk.stats.overdueCents : null}
