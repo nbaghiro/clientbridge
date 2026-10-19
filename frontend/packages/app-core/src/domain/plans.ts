@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { type ApiLike, type Attempt, failureMessage, sendAttempt } from "../api";
 import { formatDate, parseTimestamp, useBusinessZone } from "../datetime";
@@ -278,9 +278,11 @@ export function usePlan(api: ApiLike, open: (url: string) => void = () => undefi
     const [picked, setInterval] = useState<PlanInterval | null>(null);
     const attempt = useRef<Attempt | null>(null);
     const state = remote.data;
-    const refresh = (): void => {
-        remote.refresh().catch(() => undefined);
-    };
+    const reload = remote.refresh;
+    // Stable, because the Plans screen refreshes from a focus effect keyed on it.
+    const refresh = useCallback((): void => {
+        reload().catch(() => undefined);
+    }, [reload]);
     const interval = picked ?? state?.interval ?? "month";
     const managed = state?.managed ?? false;
     const choose = (plan: PlanTier): void => {
