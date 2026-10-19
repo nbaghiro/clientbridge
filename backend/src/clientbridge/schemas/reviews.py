@@ -1,72 +1,32 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from clientbridge.core.mirrors import Mirror
-from clientbridge.models.business import SubjectKind
-from clientbridge.models.clients import Channel
-from clientbridge.models.reviews import Review, ReviewStatus
-from clientbridge.schemas.public import PublicBrand
+from clientbridge.models.reviews import ReviewRequest
 
 
 class ReviewRequestCreate(Mirror):
-    mirrors = Review
+    mirrors = ReviewRequest
 
     client_id: str
     booking_id: str | None = None
 
 
-class ReviewOut(Mirror):
-    mirrors = Review
+class ReviewRequestOut(Mirror):
+    mirrors = ReviewRequest
 
     id: str
     business_id: str
     client_id: str
     booking_id: str | None
-    rating: int | None
-    body: str | None
-    response: str | None
-    responded_at: datetime | None
-    sent_to_google: bool
-    status: ReviewStatus
-    channel: Channel | None
-    requested_at: datetime | None
-    submitted_at: datetime | None
+    requested_at: datetime
 
 
-class ReviewLinkOut(ReviewOut):
-    token: str = Field(description="The public review link token, returned when requested")
-
-
-class ReviewRespond(Mirror):
-    mirrors = Review
-
-    response: str = Field(min_length=1)
-
-
-class ReviewShareOut(BaseModel):
-    review: ReviewOut
-    google_review_url: str
-
-
-class PublicReviewContext(BaseModel):
-    business_name: str
-    brand: PublicBrand
-    completed: bool
-    rating: int | None = None
-    first_name: str | None = None
-    subject: SubjectKind | None = None
-    subject_name: str | None = None
-    service: str | None = None
-    staff: str | None = None
-    google_review_url: str | None = Field(
-        default=None, description="Offered after a published review; null while it is held"
-    )
-    published: bool = False
-
-
-class PublicReviewSubmit(Mirror):
-    mirrors = Review
-
-    rating: int = Field(ge=1, le=5)
-    body: str | None = None
+class GoogleReviewAvailability(BaseModel):
+    state: Literal["unavailable"] = "unavailable"
+    connection_id: None = None
+    generation: int = 0
+    location: None = None
+    can_request: bool = False

@@ -641,11 +641,6 @@ export interface ConversationRowProps {
     onPress?: (() => void) | undefined;
 }
 
-export interface RatingDistributionProps {
-    rows: readonly { stars: number; count: number }[];
-    label: (stars: number, count: number) => string;
-}
-
 export type CalendarEventFlag =
     "needs_move" | "online" | "recurring" | "deposit_due" | "addons" | "note" | "walk_in" | "class";
 

@@ -105,8 +105,6 @@ interface PublicBookingPage {
     now: string | null;
     timezone: string;
     policy: PublicPolicy | null;
-    rating: number | null;
-    review_count: number;
     subject: SubjectKind | null;
 }
 

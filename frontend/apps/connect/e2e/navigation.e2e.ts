@@ -47,10 +47,10 @@ test("business navigation connects the shop, booking, and homepage sections on m
     await nav.getByRole("link", { name: strings.publicLanding.home, exact: true }).click();
     await page
         .getByRole("navigation", { name: strings.publicLanding.jumpTo })
-        .getByRole("link", { name: strings.publicLanding.reviews, exact: true })
+        .getByRole("link", { name: strings.publicLanding.team, exact: true })
         .click();
-    await expect(page).toHaveURL(`${home}#reviews`);
-    await expect(page.locator("#reviews")).toBeInViewport();
+    await expect(page).toHaveURL(`${home}#team`);
+    await expect(page.locator("#team")).toBeInViewport();
     await expect(nav).toHaveCount(0);
     await page
         .locator("header")
@@ -61,7 +61,7 @@ test("business navigation connects the shop, booking, and homepage sections on m
         page.getByRole("heading", { name: strings.publicBooking.stepService }),
     ).toBeVisible();
     await page.goBack();
-    await expect(page.locator("#reviews")).toBeInViewport();
+    await expect(page.locator("#team")).toBeInViewport();
     expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
@@ -212,8 +212,6 @@ test("empty businesses do not advertise unavailable services or products", async
             ...profile,
             services: [],
             staff: [],
-            review_count: 0,
-            reviews: [],
             policy: null,
         })),
     );

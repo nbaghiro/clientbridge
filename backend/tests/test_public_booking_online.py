@@ -48,7 +48,7 @@ async def test_page_carries_policy_clock_staff_and_offers(api: httpx.AsyncClient
     assert service["category"] and service["color"]
     assert "st_owner" in service["staff_ids"]
     assert {a["id"] for a in page["addons"]} == {"it_shampoo", "it_brush"}
-    assert page["review_count"] >= 0
+    assert "review_count" not in page and "rating" not in page
     assert page["subject"] == "pet"
 
 

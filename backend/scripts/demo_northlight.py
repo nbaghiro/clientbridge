@@ -17,7 +17,7 @@ from clientbridge.models.documents import Contract, Form, FormField, FormRespons
 from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import Audit, File
-from clientbridge.models.reviews import Review
+from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Addon, Booking, BookingStatus, Hours, Slot
 from clientbridge.schemas.business import BrandInput
 from clientbridge.schemas.subjects import Building, Equipment, SiteAttributes
@@ -877,7 +877,6 @@ class Northlight:
                     "card_status": "active",
                     "current_deadline": None,
                 },
-                review_hold_at=3,
                 status="active",
                 plan="team",
                 plan_status="active",
@@ -2492,7 +2491,7 @@ class Northlight:
         )
         self.broadcast()
         self.conversations()
-        self.reviews()
+        self.review_requests()
 
     def thread(self, client_key: str, channel: Literal["sms", "email"], when: datetime) -> Thread:
         thread_id = f"th_nl_{client_key}_{channel}"
@@ -2696,135 +2695,37 @@ class Northlight:
             when + timedelta(minutes=6),
         )
 
-    def reviews(self) -> None:
+    def review_requests(self) -> None:
         ctx = self.ctx
-        written: tuple[tuple[str, int, str, str | None], ...] = (
-            (
-                "sarah",
-                5,
-                "Liam explained where each camera would go before drilling anything, and set up "
-                "the app on both our phones. The cable runs are tidy and hard to spot.",
-                None,
-            ),
-            (
-                "ingrid",
-                5,
-                "Ava was careful around our dogs and finished on time. The night picture on the "
-                "back yard camera is much clearer than our old system.",
-                "Thank you, Ingrid. Say hello to the dogs for us.",
-            ),
-            (
-                "marco",
-                5,
-                "Clear estimate, no surprises on the invoice, and the doorbell works with our old "
-                "chime.",
-                None,
-            ),
-            (
-                "rebecca",
-                5,
-                "The survey was thorough and the install matched the plan exactly. Good advice on "
-                "where to put the recorder.",
-                None,
-            ),
-            (
-                "nora",
-                4,
-                "Good install and a helpful walkthrough of the app. It took a second visit to "
-                "get the driveway angle right.",
-                "Thanks, Nora. We now check the angles with you on the phone before we leave.",
-            ),
-            (
-                "kevin",
-                3,
-                "The install itself was tidy and the cameras work well. The installer arrived "
-                "about an hour after the window we were given, and nobody called ahead to say so.",
-                "Thank you, Kevin, and sorry about the wait. Our installers now send an On my way "
-                "text with the expected arrival time, and we call if a job runs over.",
-            ),
-            (
-                "gorgeauto",
-                5,
-                "They worked around our bays being open and had the lot and loading door "
-                "covered by the end of the day.",
-                None,
-            ),
-            (
-                "harbourbikes",
-                5,
-                "We can check the shop from home now and the clips are easy to save when we need "
-                "them.",
-                None,
-            ),
-            (
-                "tariq",
-                5,
-                "Quick, clean install. Liam walked me through the app and the remote viewing "
-                "plan without any sales pressure.",
-                None,
-            ),
-        )
-        generated = [
-            f"home_{index:02}"
-            for index in range(BOOKED.stop, GENERATED, 5)
-            if any(b.id == f"bk_nl_home_{index:02}" for b in ctx.all(Booking))
-        ]
-        rows: list[tuple[str, int, str, str | None]] = [
-            *written,
+        keys = [
+            "sarah",
+            "ingrid",
+            "marco",
+            "rebecca",
+            "nora",
+            "kevin",
+            "gorgeauto",
+            "harbourbikes",
+            "tariq",
+            "colin",
             *(
-                (
-                    key,
-                    5,
-                    "Friendly, on time and careful in the house. The cameras have worked well "
-                    "since the install.",
-                    None,
-                )
-                for key in generated
+                f"home_{index:02}"
+                for index in range(BOOKED.stop, GENERATED, 5)
+                if any(b.id == f"bk_nl_home_{index:02}" for b in ctx.all(Booking))
             ),
         ]
-        for index, (key, rating, body, response) in enumerate(rows):
+        for key in keys:
             booking = ctx.get(Booking, f"bk_nl_{key}")
             if booking.completed_at is None:
                 continue
             requested = booking.completed_at + timedelta(hours=2)
-            submitted = min(requested + timedelta(hours=20), self.now - timedelta(hours=3))
-            responded = submitted + timedelta(hours=3) if response else None
-            if responded is not None and responded >= self.now:
-                responded = self.now - timedelta(minutes=30)
             ctx.add(
-                Review(
-                    id=f"rv_nl_{index:02}",
+                ReviewRequest(
+                    id=f"rr_nl_{key}",
                     business_id=NORTHLIGHT,
                     client_id=booking.client_id,
                     booking_id=booking.id,
-                    channel="email",
-                    token=f"rev_tok_nl_{index:02}",
-                    status="published",
                     requested_at=requested,
-                    submitted_at=submitted,
-                    rating=rating,
-                    body=body,
-                    response=response,
-                    responded_at=responded,
-                    sent_to_google=False,
-                    created_at=requested,
-                    updated_at=responded or submitted,
-                )
-            )
-        colin = ctx.get(Booking, "bk_nl_colin")
-        if colin.completed_at is not None:
-            requested = colin.completed_at + timedelta(hours=2)
-            ctx.add(
-                Review(
-                    id="rv_nl_requested",
-                    business_id=NORTHLIGHT,
-                    client_id=colin.client_id,
-                    booking_id=colin.id,
-                    channel="email",
-                    token="rev_tok_nl_requested",
-                    status="requested",
-                    requested_at=requested,
-                    sent_to_google=False,
                     created_at=requested,
                     updated_at=requested,
                 )

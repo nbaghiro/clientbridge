@@ -790,14 +790,9 @@ SELECT m.id, m.direction, m.channel, m.body, m.created_at AS at
 FROM messages m JOIN threads t ON t.id = m.thread_id
 WHERE t.client_id = ? AND m.broadcast_id IS NULL`;
 
-export const CLIENT_REVIEWS_SQL = `
-SELECT r.id, r.rating, r.body, COALESCE(r.submitted_at, r.created_at) AS at
-FROM reviews r WHERE r.client_id = ? AND r.rating IS NOT NULL`;
-
 export type ClientHistoryFilter = "all" | "visits" | "money" | "messages" | "notes";
 
-type HistoryKind =
-    "visit" | "booked" | "invoice" | "payment" | "refund" | "message" | "review" | "note";
+type HistoryKind = "visit" | "booked" | "invoice" | "payment" | "refund" | "message" | "note";
 
 interface HistoryEntry {
     key: string;
@@ -819,7 +814,6 @@ const FILTER_OF: Record<HistoryKind, HistoryEntry["filter"]> = {
     payment: "money",
     refund: "money",
     message: "messages",
-    review: "messages",
     note: "notes",
 };
 
@@ -830,7 +824,6 @@ const ICON_OF: Record<HistoryKind, IconName> = {
     payment: "dollar",
     refund: "refresh",
     message: "inbox",
-    review: "star",
     note: "edit",
 };
 
@@ -1001,10 +994,6 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
         body: string | null;
         at: string;
     }>(CLIENT_MESSAGES_SQL, [clientId]);
-    const reviews = useQuery<{ id: string; rating: number; body: string | null; at: string }>(
-        CLIENT_REVIEWS_SQL,
-        [clientId],
-    );
     const [months, setMonths] = useState(3);
     const [filter, setFilter] = useState<ClientHistoryFilter>("all");
     const subjectRows = useMemo(() => subjects.data.map(toSubject), [subjects.data]);
@@ -1108,16 +1097,6 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
                 }),
             );
         }
-        for (const r of reviews.data)
-            out.push(
-                entry("review", {
-                    key: r.id,
-                    at: parseTimestamp(r.at),
-                    label: s.history.review(r.rating),
-                    quote: r.body ?? undefined,
-                    intent: r.rating >= 4 ? "success" : "warning",
-                }),
-            );
         for (const n of noteRows)
             out.push(
                 entry("note", {
@@ -1132,15 +1111,7 @@ export function useClientHistory(clientId: string, viewerStaffId: string | null)
             all: out.sort((a, b) => +b.at - +a.at),
             upcoming: ahead.sort((a, b) => +a.at - +b.at),
         };
-    }, [
-        visits.data,
-        invoices.data,
-        payments.data,
-        messages.data,
-        reviews.data,
-        noteRows,
-        subjectRows,
-    ]);
+    }, [visits.data, invoices.data, payments.data, messages.data, noteRows, subjectRows]);
 
     const load = useReplicaLoad(
         [visits, notes, invoices, payments, messages],

@@ -5106,10 +5106,6 @@
     "clients.history.emailSent": {
         "message": "Email sent"
     },
-    "clients.history.review": {
-        "message": "Left a {rating, number}-star review",
-        "args": ["rating"]
-    },
     "clients.history.note": {
         "message": "Note"
     },
@@ -5593,14 +5589,6 @@
     "messaging.rail.allClients": {
         "message": "All clients"
     },
-    "messaging.rail.reviewCount": {
-        "message": "{n, plural, one {# review} other {# reviews}}",
-        "args": ["n"]
-    },
-    "messaging.rail.reviewsHeld": {
-        "message": "{n, plural, one {# review waiting for your OK} other {# reviews waiting for your OK}}",
-        "args": ["n"]
-    },
     "messaging.rail.reach": {
         "message": "{sms, number} can get texts, {email, number} can get email",
         "args": ["sms", "email"]
@@ -6005,7 +5993,7 @@
         "message": "The send wasn't canceled. Try again."
     },
     "reviews.subtitle": {
-        "message": "Approve, reply to and share what clients say."
+        "message": "Read and reply to Google reviews, and invite clients to review your business on Google."
     },
     "reviews.loading": {
         "message": "Loading reviews"
@@ -6020,7 +6008,7 @@
         "message": "Ask for a review"
     },
     "reviews.requestBody": {
-        "message": "They get a text or email with a link to rate their visit. Low ratings come to you first."
+        "message": "They get a text or email with your Google review link."
     },
     "reviews.requestClient": {
         "message": "Client"
@@ -6032,7 +6020,7 @@
         "message": "Send request"
     },
     "reviews.requestSent": {
-        "message": "Review request sent to {name}.",
+        "message": "Review invitation requested for {name}.",
         "args": ["name"]
     },
     "reviews.done": {
@@ -6041,112 +6029,8 @@
     "reviews.cancel": {
         "message": "Cancel"
     },
-    "reviews.noReviewsTitle": {
-        "message": "No reviews yet"
-    },
-    "reviews.noReviewsBody": {
-        "message": "Ask a client from a recent visit. Their rating shows up here, and low ones wait for your OK."
-    },
     "reviews.noRequests": {
-        "message": "No requests waiting."
-    },
-    "reviews.reviewCount": {
-        "message": "{n, plural, one {# published review} other {# published reviews}}",
-        "args": ["n"]
-    },
-    "reviews.distributionRow": {
-        "message": "{stars, plural, one {# star} other {# stars}}: {n, plural, one {# review} other {# reviews}}",
-        "args": ["stars", "n"]
-    },
-    "reviews.holdToggle": {
-        "message": "Hold 3 stars and below for my OK"
-    },
-    "reviews.holdHint": {
-        "message": "They stay private until you publish them. Clients aren't told."
-    },
-    "reviews.googleUrl": {
-        "message": "Google review link"
-    },
-    "reviews.googleUrlHint": {
-        "message": "Clients who leave 4 or 5 stars are offered this link to post it on Google."
-    },
-    "reviews.googleUrlPlaceholder": {
-        "message": "https://g.page/r/…/review"
-    },
-    "reviews.googleUrlInvalid": {
-        "message": "The link must start with https://"
-    },
-    "reviews.saveLink": {
-        "message": "Save link"
-    },
-    "reviews.linkSaved": {
-        "message": "Saved"
-    },
-    "reviews.settingsError": {
-        "message": "The review settings didn't save. Try again."
-    },
-    "reviews.heldTitle": {
-        "message": "Waiting for your OK"
-    },
-    "reviews.heldEmpty": {
-        "message": "Nothing waiting. Low ratings land here before anyone else sees them."
-    },
-    "reviews.publishedTitle": {
-        "message": "Published"
-    },
-    "reviews.hiddenTitle": {
-        "message": "Hidden"
-    },
-    "reviews.hiddenLink": {
-        "message": "{n, plural, one {# hidden review} other {# hidden reviews}}",
-        "args": ["n"]
-    },
-    "reviews.noPublished": {
-        "message": "No published reviews yet."
-    },
-    "reviews.noComment": {
-        "message": "No comment left."
-    },
-    "reviews.publish": {
-        "message": "Publish"
-    },
-    "reviews.hide": {
-        "message": "Hide"
-    },
-    "reviews.reply": {
-        "message": "Reply"
-    },
-    "reviews.editReply": {
-        "message": "Edit reply"
-    },
-    "reviews.yourReply": {
-        "message": "Your reply"
-    },
-    "reviews.replyPlaceholder": {
-        "message": "Thank them, or say what you'll do differently. Replies are public."
-    },
-    "reviews.postReply": {
-        "message": "Post reply"
-    },
-    "reviews.messageClient": {
-        "message": "Message {first}",
-        "args": ["first"]
-    },
-    "reviews.messageShort": {
-        "message": "Message"
-    },
-    "reviews.shareGoogle": {
-        "message": "Share to Google"
-    },
-    "reviews.sharedGoogle": {
-        "message": "On Google"
-    },
-    "reviews.shareNeedsLink": {
-        "message": "Add your Google review link to share good reviews to Google."
-    },
-    "reviews.replied": {
-        "message": "You replied {date}",
-        "args": ["date"]
+        "message": "No review invitations yet."
     },
     "reviews.askTitle": {
         "message": "Ask for a review"
@@ -6161,58 +6045,17 @@
         "message": "Ask"
     },
     "reviews.asked": {
-        "message": "Asked"
+        "message": "Requested"
     },
     "reviews.requestsTitle": {
-        "message": "Waiting on clients"
-    },
-    "reviews.requestState.requested": {
-        "message": "Sent"
-    },
-    "reviews.requestState.opened": {
-        "message": "Opened"
+        "message": "Request history"
     },
     "reviews.requestedOn": {
         "message": "Asked {date}",
         "args": ["date"]
     },
-    "reviews.visitLine": {
-        "message": "{service} with {staff} · {when}",
-        "args": ["service", "staff", "when"]
-    },
-    "reviews.suggestedReply": {
-        "message": "Suggested reply"
-    },
-    "reviews.suggestedReplyFor": {
-        "message": "{low, select, true {Thank you for the honest feedback, {first}. We''re sorry this visit fell short of what you expect from us, and we''d like to make it right. We''ll be in touch today.} other {Thank you, {first}. It means a lot to the whole team, and we look forward to seeing you again.}}",
-        "args": ["first", "low"]
-    },
-    "reviews.useSuggestion": {
-        "message": "Use this"
-    },
-    "reviews.state.held": {
-        "message": "Needs your OK"
-    },
-    "reviews.state.published": {
-        "message": "Published"
-    },
-    "reviews.state.hidden": {
-        "message": "Hidden"
-    },
     "reviews.clientFallback": {
         "message": "Client"
-    },
-    "reviews.postReplyError": {
-        "message": "Couldn't post your reply. Please try again."
-    },
-    "reviews.hideError": {
-        "message": "Couldn't hide this review. Please try again."
-    },
-    "reviews.publishError": {
-        "message": "Couldn't publish this review. Please try again."
-    },
-    "reviews.shareError": {
-        "message": "Couldn't share this review. Please try again."
     },
     "reviews.sendRequestError": {
         "message": "Couldn't send the review request. Please try again."
@@ -9397,13 +9240,6 @@
     "today.attention.unreadAction": {
         "message": "Open"
     },
-    "today.attention.reviewTitle": {
-        "message": "{stars, number}-star review to answer",
-        "args": ["stars"]
-    },
-    "today.attention.reviewAction": {
-        "message": "Reply"
-    },
     "today.attention.stockTitle": {
         "message": "{item} is low",
         "args": ["item"]
@@ -11233,10 +11069,6 @@
         "message": "{m, plural, =0 {{h, number} h} other {{h, number} h # min}}",
         "args": ["h", "m"]
     },
-    "publicBooking.reviews": {
-        "message": "{rating} · {n, plural, one {# review} other {# reviews}}",
-        "args": ["rating", "n"]
-    },
     "publicBooking.today": {
         "message": "today"
     },
@@ -12489,114 +12321,6 @@
     "publicPreferences.saveError": {
         "message": "That didn't save. Try again."
     },
-    "publicReview.prompt": {
-        "message": "How was your visit to {businessName}?",
-        "args": ["businessName"]
-    },
-    "publicReview.promptSubject": {
-        "message": "{kind, select, pet {How was {name}'s visit?} student {How was {name}'s lesson?} property {How did the visit to {name} go?} site {How did the visit to {name} go?} other {How was the visit for {name}?}}",
-        "args": ["kind", "name"],
-        "description": "kind is what the business books besides the client: pet, student, property, site, site, or none"
-    },
-    "publicReview.context": {
-        "message": "{service} with {staff}",
-        "args": ["service", "staff"]
-    },
-    "publicReview.ratingLabel": {
-        "message": "Your rating"
-    },
-    "publicReview.ratingWords.0": {
-        "message": ""
-    },
-    "publicReview.ratingWords.1": {
-        "message": "Not good"
-    },
-    "publicReview.ratingWords.2": {
-        "message": "Could be better"
-    },
-    "publicReview.ratingWords.3": {
-        "message": "It was fine"
-    },
-    "publicReview.ratingWords.4": {
-        "message": "Really good"
-    },
-    "publicReview.ratingWords.5": {
-        "message": "Loved it"
-    },
-    "publicReview.tellMore": {
-        "message": "Tell us more"
-    },
-    "publicReview.tellMoreOptional": {
-        "message": "Anything else?"
-    },
-    "publicReview.privateNote": {
-        "message": "Only {business} sees this.",
-        "args": ["business"]
-    },
-    "publicReview.placeholderPositive": {
-        "message": "What went well?"
-    },
-    "publicReview.placeholderNegative": {
-        "message": "What happened, and what would have made it better?"
-    },
-    "publicReview.submit": {
-        "message": "Send review"
-    },
-    "publicReview.submitting": {
-        "message": "Sending"
-    },
-    "publicReview.pickRating": {
-        "message": "Tap a star to rate your visit."
-    },
-    "publicReview.submitError": {
-        "message": "Couldn't send your review. Please try again."
-    },
-    "publicReview.notFoundTitle": {
-        "message": "This review link has expired"
-    },
-    "publicReview.notFoundBody": {
-        "message": "It may already have been used. If you'd still like to share how the visit went, reply to the message it came in."
-    },
-    "publicReview.errorTitle": {
-        "message": "This page didn't load"
-    },
-    "publicReview.errorBody": {
-        "message": "Check your connection and try again."
-    },
-    "publicReview.thanksTitle": {
-        "message": "Thank you, {first}",
-        "args": ["first"]
-    },
-    "publicReview.thanks": {
-        "message": "Thank you"
-    },
-    "publicReview.thanksPublicBody": {
-        "message": "{business} will see your review shortly. Would you share it on Google too? It helps other people find them.",
-        "args": ["business"]
-    },
-    "publicReview.thanksGoogleLess": {
-        "message": "{business} will see your review shortly.",
-        "args": ["business"]
-    },
-    "publicReview.thanksPrivateBody": {
-        "message": "{business} has your feedback and will be in touch. Nothing you wrote is posted publicly.",
-        "args": ["business"]
-    },
-    "publicReview.copyReview": {
-        "message": "Copy my review"
-    },
-    "publicReview.copied": {
-        "message": "Copied"
-    },
-    "publicReview.postGoogle": {
-        "message": "Post on Google"
-    },
-    "publicReview.noThanks": {
-        "message": "No thanks"
-    },
-    "publicReview.closePage": {
-        "message": "All done. You can close this page."
-    },
     "publicLanding.poweredBy": {
         "message": "Powered by Clientbridge"
     },
@@ -12623,9 +12347,6 @@
     },
     "publicLanding.team": {
         "message": "Meet the team"
-    },
-    "publicLanding.reviews": {
-        "message": "Client reviews"
     },
     "publicLanding.visit": {
         "message": "Plan your visit"
@@ -12668,16 +12389,6 @@
     },
     "publicLanding.noOpenings": {
         "message": "No openings in the next 7 days"
-    },
-    "publicLanding.reviewer": {
-        "message": "Verified client"
-    },
-    "publicLanding.response": {
-        "message": "Business response"
-    },
-    "publicLanding.rating": {
-        "message": "{rating} · {count, number} reviews",
-        "args": ["rating", "count"]
     },
     "publicLanding.cancelPolicy": {
         "message": "Cancel at least {hours, number} hours before your visit.",
@@ -13027,14 +12738,6 @@
         "message": "Message from {client}",
         "args": ["client"]
     },
-    "notifications.kinds.review": {
-        "message": "New {stars, number}-star review",
-        "args": ["stars"]
-    },
-    "notifications.kinds.reviewBody": {
-        "message": "{client}: “{body}”",
-        "args": ["client", "body"]
-    },
     "notifications.kinds.overdue": {
         "message": "Invoice #{n, number, ::group-off} is overdue",
         "args": ["n"]
@@ -13125,9 +12828,6 @@
     },
     "embed.titles.contract": {
         "message": "Review & sign"
-    },
-    "embed.titles.review": {
-        "message": "Leave a review"
     },
     "embed.close": {
         "message": "Close"
@@ -13800,5 +13500,156 @@
     },
     "publicForm.signatureRequired": {
         "message": "Enter your full name and agree to sign this form."
+    },
+    "reviews.retry": {
+        "message": "Try again"
+    },
+    "reviews.unavailable": {
+        "message": "Google Business Profile connections are not available yet. Please try again later."
+    },
+    "reviews.connectTitle": {
+        "message": "Connect your Google Business Profile"
+    },
+    "reviews.connectBody": {
+        "message": "Sign in with the Google account that manages your business, then choose a location to read reviews, reply publicly, and request new reviews."
+    },
+    "reviews.reconnectBody": {
+        "message": "Your Google connection needs attention. Sign in again to access reviews and send invitations."
+    },
+    "reviews.connect": {
+        "message": "Connect Google Business Profile"
+    },
+    "reviews.reconnect": {
+        "message": "Reconnect Google"
+    },
+    "reviews.authorizationWaiting": {
+        "message": "Finish signing in with Google in the authorization window."
+    },
+    "reviews.chooseProfile": {
+        "message": "Choose your business profile"
+    },
+    "reviews.chooseProfileBody": {
+        "message": "Choose the Google account and verified location whose reviews you want to manage."
+    },
+    "reviews.googleAccount": {
+        "message": "Google account"
+    },
+    "reviews.chooseAccount": {
+        "message": "Choose an account"
+    },
+    "reviews.noAccounts": {
+        "message": "No managed Google accounts were found. Check that you signed in with the account that manages your Business Profile."
+    },
+    "reviews.moreAccounts": {
+        "message": "Load more accounts"
+    },
+    "reviews.googleLocation": {
+        "message": "Business location"
+    },
+    "reviews.chooseLocation": {
+        "message": "Choose a location"
+    },
+    "reviews.noLocations": {
+        "message": "No locations were found in this account. Choose another account or check your access in Google Business Profile."
+    },
+    "reviews.moreLocations": {
+        "message": "Load more locations"
+    },
+    "reviews.useLocation": {
+        "message": "Use this location"
+    },
+    "reviews.attribution": {
+        "message": "Reviews from Google"
+    },
+    "reviews.refresh": {
+        "message": "Refresh reviews"
+    },
+    "reviews.noGoogleReviews": {
+        "message": "This Google Business Profile has no reviews yet."
+    },
+    "reviews.ratingOnly": {
+        "message": "Rating without a written review"
+    },
+    "reviews.ownerReply": {
+        "message": "Your public reply"
+    },
+    "reviews.editReply": {
+        "message": "Edit reply"
+    },
+    "reviews.reply": {
+        "message": "Reply"
+    },
+    "reviews.moreReviews": {
+        "message": "Load more reviews"
+    },
+    "reviews.requestsLoading": {
+        "message": "Loading review invitations"
+    },
+    "reviews.invitationUnavailable": {
+        "message": "Google has not supplied a review link for this location. Invitations are unavailable."
+    },
+    "reviews.disconnect": {
+        "message": "Disconnect Google"
+    },
+    "reviews.replyTitle": {
+        "message": "Reply on Google"
+    },
+    "reviews.replyPublic": {
+        "message": "Your reply will be published publicly on Google on behalf of your business."
+    },
+    "reviews.replyText": {
+        "message": "Reply"
+    },
+    "reviews.replyPending": {
+        "message": "Waiting for Google to confirm your reply."
+    },
+    "reviews.publishReply": {
+        "message": "Publish reply"
+    },
+    "reviews.deleteReply": {
+        "message": "Delete reply"
+    },
+    "reviews.disconnectBody": {
+        "message": "Disconnect this Google Business Profile? Access to reviews and new review invitations will stop. Your reviews and replies remain on Google."
+    },
+    "reviews.deleteReplyBody": {
+        "message": "Delete your public reply from Google? The client’s review will remain."
+    },
+    "reviews.confirm": {
+        "message": "Confirm"
+    },
+    "reviews.accessDenied": {
+        "message": "Google denied access. Check your Business Profile permissions and that the location is verified."
+    },
+    "reviews.rateLimited": {
+        "message": "Google is receiving too many requests. Please try again later."
+    },
+    "reviews.staleReply": {
+        "message": "This reply changed on Google. Refresh reviews before editing it again."
+    },
+    "reviews.googleError": {
+        "message": "Could not load or update Google reviews. Please try again."
+    },
+    "reviews.replyInvalid": {
+        "message": "Enter a reply of no more than 4,096 UTF-8 bytes."
+    },
+    "reviews.replyFailed": {
+        "message": "Google could not publish this change. Your draft is still here."
+    },
+    "reviews.replyUncertain": {
+        "message": "The change has not been confirmed. Refresh to check Google before trying again."
+    },
+    "reviews.authorizationExpired": {
+        "message": "Google authorization timed out. Please connect again."
+    },
+    "reviews.noRating": {
+        "message": "No rating"
+    },
+    "reviews.anonymous": {
+        "message": "Google reviewer"
+    },
+    "reviews.googleSummary": {
+        "message": "{rating} · {count, plural, one {# Google review} other {# Google reviews}}",
+        "args": ["rating", "count"]
     }
 }

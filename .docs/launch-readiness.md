@@ -56,7 +56,7 @@ This file is the source of truth for every ticket. Each story below has its full
 | 5. See the money                | Staff pay: earnings, approval, payment                         | CLI-44 | M    |
 | 6. Talk to clients              | Two-way inbox with a text number per business                  | CLI-45 | L    |
 | 6. Talk to clients              | Broadcasts with consent and opt-out                            | CLI-46 | L    |
-| 6. Talk to clients              | Review requests and moderation                                 | CLI-47 | M    |
+| 6. Talk to clients              | Google review invitations                                 | CLI-47 | M    |
 | 6. Talk to clients              | Intake forms                                                   | CLI-48 | S    |
 | 6. Talk to clients              | Contracts, signing and signed PDFs                             | CLI-49 | M    |
 | 7. Go live                      | Production hosting, deploys and security                       | CLI-50 | L    |
@@ -1171,7 +1171,7 @@ QA pass:
 1. Text a client and reply from their phone: the reply lands in the thread on web and mobile.
 2. Have two businesses text the same phone: each reply reaches only its business.
 3. Unsubscribe one client by link and reply STOP from another; a broadcast to their tag reaches everyone else, and each record shows the consent and opt-out date.
-4. Leave a 2-star and a 5-star review: the 2-star waits for approval and the 5-star publishes; reply to one and share the other to Google.
+4. Configure a Google review link and request a review after a completed visit; confirm the invitation links directly to Google.
 5. Build an intake form with text, choice and a file upload; book as a new client, fill it in on a phone, and see the answers on web and mobile.
 6. Send a contract, sign it on a phone, and download the signed PDF with the signature, time and IP.
 
@@ -1225,28 +1225,25 @@ Size: L · Area: Messaging and documents
 
 **Depends on:** Tags and duplicate merging (CLI-15); Two-way inbox with a text number per business (CLI-45)
 
-### Review requests and moderation (CLI-47)
+### Google review invitations (CLI-47)
 
 Size: M · Area: Messaging and documents
 
-**When this is done:** Nothing low-rated publishes without the owner's choice.
+**When this is done:** Clients receive neutral invitations directly to Google after appointments.
 
-**Surfaces:** Backend, Connect (review page), web, iPhone and Android
+**Surfaces:** Backend, web, iPhone and Android
 
-**Flow:** After a visit the client is asked for a review; the owner approves, replies or hides it.
+**Flow:** Save a Google review link, request a review manually or after a completed visit, and view invitation history.
 
-**Built:** Review requests after visits, reply, hide and publish.
+**Built:** Direct Google invitations, booking/client validation and request history. Internal collection, approval, publication, replies and public ratings are removed.
 
-**To do:**
-
-- Hold low ratings for approval.
-- Share a review to Google.
+**To do:** Google Business Profile account/location connection, online review reads and explicit Google reply management; see the Google Business reviews execution plan.
 
 **QA:**
 
-1. Leave a 2-star and a 5-star review.
-2. The 2-star waits for approval; the 5-star publishes.
-3. Reply to one and share the other to Google.
+1. Requests require a saved Google URL and appropriate manager access.
+2. An invitation links directly to Google and records the client and optional completed booking.
+3. Duplicate booking requests are rejected; old internal submission and moderation endpoints return 404.
 
 **Depends on:** Calendar: create, move, cancel, complete, no-show (CLI-21)
 
@@ -1443,7 +1440,7 @@ Size: M · Area: Platform and launch
 
 1. Owner day on web: schedule, walk-in, invoices, a gift card and a package, one refund.
 2. Staff day on iPhone, then Android: own bookings, a note, a deposit, a Tap to Pay sale.
-3. Client side on a phone: book, add a product, fill a form, sign, pay, review, order from the shop.
+3. Client side on a phone: book, add a product, fill a form, sign, pay, order from the shop.
 4. Money: Today, reports, staff pay and Stripe agree to the cent.
 5. Sync: changes made at once and offline end up the same everywhere.
 
@@ -1455,7 +1452,7 @@ The last step of stage 7: one full pass of the product as owners, staff and clie
 
 1. Owner day on web: schedule, walk-in, invoices, a gift card and a package, one refund.
 2. Staff day on iPhone, then Android: own bookings, a note, a deposit, a Tap to Pay sale.
-3. Client side on a phone: book, add a product, fill a form, sign, pay, review, order from the shop.
+3. Client side on a phone: book, add a product, fill a form, sign, pay, order from the shop.
 4. Money: Today, reports, staff pay and Stripe agree to the cent.
 5. Sync: changes made at once and offline end up the same everywhere.
 
@@ -1532,7 +1529,7 @@ Not tracked yet. These are pulled in by demand once the launch stages are done.
 
 ### Connect, the client experience
 
-Connect is the client-facing layer: booking, pay, shop, forms, contracts, reviews and a per-business
+Connect is the client-facing layer: booking, pay, shop, forms, contracts and a per-business
 landing page, as a lean PowerSync-free app that can be embedded through `embed.js`. Still to come:
 
 - **A signed-in client portal across businesses.** A new customer identity (magic link or one-time code)

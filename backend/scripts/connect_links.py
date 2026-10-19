@@ -15,13 +15,12 @@ from clientbridge.models.billing import Estimate, Invoice, Order
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
 from clientbridge.models.documents import Contract, Form, FormResponse, Signature
-from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger
 from clientbridge.services.consents import prefs_token
 from clientbridge.services.forms import snapshot_form
 
-type Tokened = Invoice | Estimate | Order | Review | Booking | FormResponse | Signature
+type Tokened = Invoice | Estimate | Order | Booking | FormResponse | Signature
 
 
 async def _minted[T: Tokened](db: AsyncSession, query: Select[tuple[T]], column: str) -> str | None:
@@ -126,13 +125,6 @@ async def main(biz: str) -> None:
                 .where(Order.business_id == biz, Order.source == "online")
                 .order_by(Order.created_at.desc()),
                 "status_token",
-            ),
-            "review": await _minted(
-                db,
-                select(Review).where(
-                    Review.business_id == biz, Review.status.in_(("requested", "opened"))
-                ),
-                "token",
             ),
             "manage": await _minted(
                 db,

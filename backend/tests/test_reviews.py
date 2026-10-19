@@ -1,18 +1,14 @@
 from datetime import UTC, datetime, timedelta
 
 import httpx
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ids import new_id
-from clientbridge.core.ratelimit import RateLimiter, public_review_rate_limit
-from clientbridge.main import app
 from clientbridge.models.catalog import Item
-from clientbridge.models.clients import Client
-from clientbridge.models.reviews import Review
+from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Slot
-from clientbridge.services.reviews import build_review_request
 from tests.conftest import Factory, FakeEmailSender
 from tests.helpers import client_id, new_client
 
@@ -57,172 +53,119 @@ async def _booking(db: AsyncSession, *, status: str = "completed") -> str:
     return booking.id
 
 
-async def _a_review(
-    db: AsyncSession, *, business_id: str = BIZ, rating: int = 5, status: str = "published"
-) -> str:
-    cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == business_id).limit(1)))
-        .scalars()
-        .first()
-    )
-    assert cid
-    review = Review(
-        id=new_id("review"),
-        business_id=business_id,
-        client_id=cid,
-        rating=rating,
-        status=status,
-    )
-    db.add(review)
-    await db.flush()
-    return review.id
+GOOGLE = "https://g.page/r/example/review"
 
 
-async def _a_request(db: AsyncSession, *, booking_id: str | None = None) -> str:
-    request = build_review_request(BIZ, await client_id(db), booking_id, NOW)
-    db.add(request)
-    await db.flush()
-    assert request.token
-    return request.token
+async def _configure(api: httpx.AsyncClient) -> None:
+    response = await api.patch("/v1/business", json={"google_review_url": GOOGLE})
+    assert response.status_code == 200, response.text
 
 
-async def test_request_creates_request_and_notifies(
+async def test_request_creates_invitation_and_links_to_google(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
+    await _configure(as_owner)
     cid = await new_client(db)
-    res = await as_owner.post("/v1/reviews/request", json={"client_id": cid})
-    assert res.status_code == 201, res.text
-    body = res.json()
-    assert body["status"] == "requested" and body["token"]
-    row = (await db.execute(select(Review).where(Review.id == body["id"]))).scalar_one()
-    assert row.business_id == BIZ and row.requested_at is not None and row.rating is None
-    assert any(f"/review/{body['token']}" in m.body for m in email.sent)
-
-
-async def test_request_rejects_duplicate_open_for_booking(
-    as_owner: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    cid = await client_id(db)
-    bid = await _booking(db)
-    first = await as_owner.post("/v1/reviews/request", json={"client_id": cid, "booking_id": bid})
+    headers = {"Idempotency-Key": "google-invitation"}
+    first = await as_owner.post("/v1/reviews/request", json={"client_id": cid}, headers=headers)
     assert first.status_code == 201, first.text
-    dup = await as_owner.post("/v1/reviews/request", json={"client_id": cid, "booking_id": bid})
-    assert dup.status_code == 409
+    body = first.json()
+    assert set(body) == {"id", "business_id", "client_id", "booking_id", "requested_at"}
+    request = await db.get(ReviewRequest, body["id"])
+    assert request is not None and request.business_id == BIZ
+    assert any(GOOGLE in message.body for message in email.sent)
+    count = len(email.sent)
+    replay = await as_owner.post("/v1/reviews/request", json={"client_id": cid}, headers=headers)
+    assert replay.json() == body and len(email.sent) == count
 
 
-async def test_request_unknown_client_404(as_owner: httpx.AsyncClient) -> None:
-    res = await as_owner.post("/v1/reviews/request", json={"client_id": "cl_nope"})
-    assert res.status_code == 404
+async def test_request_needs_google_link(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    await as_owner.patch("/v1/business", json={"google_review_url": ""})
+    result = await as_owner.post("/v1/reviews/request", json={"client_id": await client_id(db)})
+    assert result.status_code == 409
 
 
-async def test_request_requires_admin(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await client_id(db)
-    assert (await as_staff.post("/v1/reviews/request", json={"client_id": cid})).status_code == 403
-
-
-async def test_public_get_returns_context(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    token = await _a_request(db)
-    body = (await api.get(f"/review/{token}")).json()
-    assert body["business_name"] and body["completed"] is False
-    assert body["brand"]["primary"] == "#2E4A3F"  # brand exposed on the review surface
-
-
-async def test_public_submit_creates_published_review(
-    api: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    bid = await _booking(db)
-    token = await _a_request(db, booking_id=bid)
-    res = await api.post(f"/review/{token}", json={"rating": 5, "body": "Great!"})
-    assert res.status_code == 200, res.text
-    assert res.json()["completed"] is True and res.json()["rating"] == 5
-    review = (await db.execute(select(Review).where(Review.token == token))).scalar_one()
-    assert review.status == "published" and review.rating == 5 and review.booking_id == bid
-    assert review.submitted_at is not None
-
-
-async def test_public_get_marks_the_request_opened(
-    api: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    token = await _a_request(db)
-    assert (await api.get(f"/review/{token}")).status_code == 200
-    review = (await db.execute(select(Review).where(Review.token == token))).scalar_one()
-    await db.refresh(review)
-    assert review.status == "opened" and review.rating is None
-
-
-async def test_moderation_ignores_a_review_not_yet_submitted(
+async def test_request_rejects_duplicate_booking(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    token = await _a_request(db)
-    review_id = (await db.execute(select(Review.id).where(Review.token == token))).scalar_one()
-    for action in ("publish", "hide", "google"):
-        res = await as_owner.post(f"/v1/reviews/{review_id}/{action}")
-        assert res.status_code == 404, action
+    await _configure(as_owner)
+    data = {"client_id": await client_id(db), "booking_id": await _booking(db)}
+    first = await as_owner.post("/v1/reviews/request", json=data)
+    assert first.status_code == 201, first.text
+    assert (await as_owner.post("/v1/reviews/request", json=data)).status_code == 409
 
 
-async def test_public_second_submit_409(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    token = await _a_request(db)
-    assert (await api.post(f"/review/{token}", json={"rating": 4})).status_code == 200
-    assert (await api.post(f"/review/{token}", json={"rating": 4})).status_code == 409
-
-
-async def test_public_bad_rating_422(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    token = await _a_request(db)
-    assert (await api.post(f"/review/{token}", json={"rating": 6})).status_code == 422
-    assert (await api.post(f"/review/{token}", json={"rating": 0})).status_code == 422
-
-
-async def test_public_unknown_token_404(api: httpx.AsyncClient) -> None:
-    assert (await api.get("/review/nope")).status_code == 404
-    assert (await api.post("/review/nope", json={"rating": 5})).status_code == 404
-
-
-async def test_public_get_is_rate_limited(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    rl = RateLimiter(limit=1, window_s=60.0)
-
-    def limited() -> None:
-        if not rl.check("x", 0.0):
-            raise TooManyRequests("slow down")
-
-    app.dependency_overrides[public_review_rate_limit] = limited
-    token = await _a_request(db)
-    assert (await api.get(f"/review/{token}")).status_code == 200
-    assert (await api.get(f"/review/{token}")).status_code == 429
-
-
-async def test_respond_sets_response_and_timestamp(
+async def test_request_requires_completed_booking(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    rid = await _a_review(db)
-    body = (
-        await as_owner.post(f"/v1/reviews/{rid}/respond", json={"response": "Thank you!"})
-    ).json()
-    assert body["response"] == "Thank you!" and body["responded_at"] is not None
+    await _configure(as_owner)
+    data = {"client_id": await client_id(db), "booking_id": await _booking(db, status="confirmed")}
+    assert (await as_owner.post("/v1/reviews/request", json=data)).status_code == 409
 
 
-async def test_hide_then_publish_toggles_status(
+async def test_request_rejects_mismatched_client(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    rid = await _a_review(db)
-    assert (await as_owner.post(f"/v1/reviews/{rid}/hide")).json()["status"] == "hidden"
-    assert (await as_owner.post(f"/v1/reviews/{rid}/publish")).json()["status"] == "published"
+    await _configure(as_owner)
+    data = {"client_id": await new_client(db), "booking_id": await _booking(db)}
+    assert (await as_owner.post("/v1/reviews/request", json=data)).status_code == 404
 
 
-async def test_moderation_requires_admin(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
-    rid = await _a_review(db)
-    for action in ("hide", "publish", "share"):
-        assert (await as_staff.post(f"/v1/reviews/{rid}/{action}")).status_code == 403, action
-
-
-async def test_moderation_is_tenant_isolated(
+async def test_request_is_tenant_scoped(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
-    other = await factory.business(name="Rival Reviews")
-    await factory.client(business=other)
-    rid = await _a_review(db, business_id=other.id)
-    for action in ("hide", "publish", "share"):
-        assert (await as_owner.post(f"/v1/reviews/{rid}/{action}")).status_code == 404, action
-    reply = await as_owner.post(f"/v1/reviews/{rid}/respond", json={"response": "Thanks"})
-    assert reply.status_code == 404
-    after = await db.get(Review, rid, populate_existing=True)
-    assert after is not None and after.response is None
+    await _configure(as_owner)
+    business = await factory.business(name="Other")
+    client = await factory.client(business=business)
+    assert (
+        await as_owner.post("/v1/reviews/request", json={"client_id": client.id})
+    ).status_code == 404
+    data = {"client_id": await client_id(db), "booking_id": "bk_missing"}
+    assert (await as_owner.post("/v1/reviews/request", json=data)).status_code == 404
+
+
+async def test_request_unknown_client(as_owner: httpx.AsyncClient) -> None:
+    await _configure(as_owner)
+    assert (
+        await as_owner.post("/v1/reviews/request", json={"client_id": "cl_missing"})
+    ).status_code == 404
+
+
+async def test_request_requires_manager(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
+    assert (
+        await as_staff.post("/v1/reviews/request", json={"client_id": await client_id(db)})
+    ).status_code == 403
+
+
+@pytest.mark.parametrize("action", ["publish", "hide", "google", "share", "respond"])
+async def test_internal_review_actions_removed(as_owner: httpx.AsyncClient, action: str) -> None:
+    assert (await as_owner.post(f"/v1/reviews/rv_old/{action}", json={})).status_code == 404
+
+
+async def test_internal_review_collection_removed(api: httpx.AsyncClient) -> None:
+    assert (await api.get("/review/old-token")).status_code == 404
+    assert (
+        await api.post("/review/old-token", json={"rating": 5, "body": "Feedback"})
+    ).status_code == 404
+
+
+async def test_google_status_is_unavailable_without_integration(
+    as_owner: httpx.AsyncClient,
+) -> None:
+    response = await as_owner.get("/v1/reviews/google")
+    assert response.status_code == 200
+    assert response.json() == {
+        "state": "unavailable",
+        "connection_id": None,
+        "generation": 0,
+        "location": None,
+        "can_request": False,
+    }
+
+
+async def test_google_status_requires_manager(as_staff: httpx.AsyncClient) -> None:
+    assert (await as_staff.get("/v1/reviews/google")).status_code == 403
+
+
+async def test_google_status_requires_authentication(unauth: httpx.AsyncClient) -> None:
+    assert (await unauth.get("/v1/reviews/google")).status_code == 401

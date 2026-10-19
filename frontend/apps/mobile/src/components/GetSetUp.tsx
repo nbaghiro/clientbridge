@@ -68,12 +68,6 @@ function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null
                         </Text>
                     ) : null}
                 </View>
-                {preview.rating !== null ? (
-                    <View style={styles.rating}>
-                        <Icon name="star" size={12} color={c.inkSoft} />
-                        <Text style={styles.ratingText}>{preview.rating}</Text>
-                    </View>
-                ) : null}
             </View>
             <View style={styles.previewBody}>
                 <Text style={styles.stepTitle}>{b.chooseService}</Text>
@@ -494,8 +488,6 @@ const styles = StyleSheet.create({
     },
     name: { color: c.ink, fontSize: 16, fontWeight: "700" },
     tagline: { color: c.muted, fontSize: 12, marginTop: 1 },
-    rating: { flexDirection: "row", alignItems: "center", gap: 4 },
-    ratingText: { color: c.inkSoft, fontSize: 12 },
     previewBody: {
         padding: 14,
         borderTopWidth: 1,

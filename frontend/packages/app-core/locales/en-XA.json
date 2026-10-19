@@ -4706,9 +4706,6 @@
     "clients.history.emailSent": {
         "message": "[Éɱåîļ šéñţ one two]"
     },
-    "clients.history.review": {
-        "message": "[Ļéƒţ å {rating, number}-šţåŕ ŕéṽîéŵ one two]"
-    },
     "clients.history.note": {
         "message": "[Ñöţé one]"
     },
@@ -5153,12 +5150,6 @@
     "messaging.rail.allClients": {
         "message": "[Åļļ çļîéñţš one two]"
     },
-    "messaging.rail.reviewCount": {
-        "message": "[{n,plural,one{# ŕéṽîéŵ} other{# ŕéṽîéŵš}} one two]"
-    },
-    "messaging.rail.reviewsHeld": {
-        "message": "[{n,plural,one{# ŕéṽîéŵ ŵåîţîñĝ ƒöŕ ýöûŕ ÖĶ} other{# ŕéṽîéŵš ŵåîţîñĝ ƒöŕ ýöûŕ ÖĶ}} one two three four]"
-    },
     "messaging.rail.reach": {
         "message": "[{sms, number} çåñ ĝéţ ţéẋţš, {email, number} çåñ ĝéţ éɱåîļ one two three]"
     },
@@ -5532,7 +5523,7 @@
         "message": "[Ţĥé šéñð ŵåšñ'ţ çåñçéļéð. Ţŕý åĝåîñ. one two three]"
     },
     "reviews.subtitle": {
-        "message": "[Åþþŕöṽé, ŕéþļý ţö åñð šĥåŕé ŵĥåţ çļîéñţš šåý. one two three]"
+        "message": "[Ŕéåð åñð ŕéþļý ţö Ĝööĝļé ŕéṽîéŵš, åñð îñṽîţé çļîéñţš ţö ŕéṽîéŵ ýöûŕ ƀûšîñéšš öñ Ĝööĝļé. one two three four five six]"
     },
     "reviews.loading": {
         "message": "[Ļöåðîñĝ ŕéṽîéŵš one two]"
@@ -5547,7 +5538,7 @@
         "message": "[Åšķ ƒöŕ å ŕéṽîéŵ one two]"
     },
     "reviews.requestBody": {
-        "message": "[Ţĥéý ĝéţ å ţéẋţ öŕ éɱåîļ ŵîţĥ å ļîñķ ţö ŕåţé ţĥéîŕ ṽîšîţ. Ļöŵ ŕåţîñĝš çöɱé ţö ýöû ƒîŕšţ. one two three four five six]"
+        "message": "[Ţĥéý ĝéţ å ţéẋţ öŕ éɱåîļ ŵîţĥ ýöûŕ Ĝööĝļé ŕéṽîéŵ ļîñķ. one two three four]"
     },
     "reviews.requestClient": {
         "message": "[Çļîéñţ one]"
@@ -5559,7 +5550,7 @@
         "message": "[Šéñð ŕéǫûéšţ one two]"
     },
     "reviews.requestSent": {
-        "message": "[Ŕéṽîéŵ ŕéǫûéšţ šéñţ ţö {name}. one two]"
+        "message": "[Ŕéṽîéŵ îñṽîţåţîöñ ŕéǫûéšţéð ƒöŕ {name}. one two three]"
     },
     "reviews.done": {
         "message": "[Đöñé one]"
@@ -5567,107 +5558,8 @@
     "reviews.cancel": {
         "message": "[Çåñçéļ one]"
     },
-    "reviews.noReviewsTitle": {
-        "message": "[Ñö ŕéṽîéŵš ýéţ one two]"
-    },
-    "reviews.noReviewsBody": {
-        "message": "[Åšķ å çļîéñţ ƒŕöɱ å ŕéçéñţ ṽîšîţ. Ţĥéîŕ ŕåţîñĝ šĥöŵš ûþ ĥéŕé, åñð ļöŵ öñéš ŵåîţ ƒöŕ ýöûŕ ÖĶ. one two three four five six]"
-    },
     "reviews.noRequests": {
-        "message": "[Ñö ŕéǫûéšţš ŵåîţîñĝ. one two]"
-    },
-    "reviews.reviewCount": {
-        "message": "[{n,plural,one{# þûƀļîšĥéð ŕéṽîéŵ} other{# þûƀļîšĥéð ŕéṽîéŵš}} one two three]"
-    },
-    "reviews.distributionRow": {
-        "message": "[{stars,plural,one{# šţåŕ} other{# šţåŕš}}: {n,plural,one{# ŕéṽîéŵ} other{# ŕéṽîéŵš}} one two three]"
-    },
-    "reviews.holdToggle": {
-        "message": "[Ĥöļð 3 šţåŕš åñð ƀéļöŵ ƒöŕ ɱý ÖĶ one two three]"
-    },
-    "reviews.holdHint": {
-        "message": "[Ţĥéý šţåý þŕîṽåţé ûñţîļ ýöû þûƀļîšĥ ţĥéɱ. Çļîéñţš åŕéñ'ţ ţöļð. one two three four]"
-    },
-    "reviews.googleUrl": {
-        "message": "[Ĝööĝļé ŕéṽîéŵ ļîñķ one two]"
-    },
-    "reviews.googleUrlHint": {
-        "message": "[Çļîéñţš ŵĥö ļéåṽé 4 öŕ 5 šţåŕš åŕé öƒƒéŕéð ţĥîš ļîñķ ţö þöšţ îţ öñ Ĝööĝļé. one two three four five]"
-    },
-    "reviews.googleUrlPlaceholder": {
-        "message": "[ĥţţþš://ĝ.þåĝé/ŕ/…/ŕéṽîéŵ one two]"
-    },
-    "reviews.googleUrlInvalid": {
-        "message": "[Ţĥé ļîñķ ɱûšţ šţåŕţ ŵîţĥ ĥţţþš:// one two three]"
-    },
-    "reviews.saveLink": {
-        "message": "[Šåṽé ļîñķ one]"
-    },
-    "reviews.linkSaved": {
-        "message": "[Šåṽéð one]"
-    },
-    "reviews.settingsError": {
-        "message": "[Ţĥé ŕéṽîéŵ šéţţîñĝš ðîðñ'ţ šåṽé. Ţŕý åĝåîñ. one two three]"
-    },
-    "reviews.heldTitle": {
-        "message": "[Ŵåîţîñĝ ƒöŕ ýöûŕ ÖĶ one two]"
-    },
-    "reviews.heldEmpty": {
-        "message": "[Ñöţĥîñĝ ŵåîţîñĝ. Ļöŵ ŕåţîñĝš ļåñð ĥéŕé ƀéƒöŕé åñýöñé éļšé šééš ţĥéɱ. one two three four five]"
-    },
-    "reviews.publishedTitle": {
-        "message": "[Þûƀļîšĥéð one two]"
-    },
-    "reviews.hiddenTitle": {
-        "message": "[Ĥîððéñ one]"
-    },
-    "reviews.hiddenLink": {
-        "message": "[{n,plural,one{# ĥîððéñ ŕéṽîéŵ} other{# ĥîððéñ ŕéṽîéŵš}} one two three]"
-    },
-    "reviews.noPublished": {
-        "message": "[Ñö þûƀļîšĥéð ŕéṽîéŵš ýéţ. one two three]"
-    },
-    "reviews.noComment": {
-        "message": "[Ñö çöɱɱéñţ ļéƒţ. one two]"
-    },
-    "reviews.publish": {
-        "message": "[Þûƀļîšĥ one]"
-    },
-    "reviews.hide": {
-        "message": "[Ĥîðé one]"
-    },
-    "reviews.reply": {
-        "message": "[Ŕéþļý one]"
-    },
-    "reviews.editReply": {
-        "message": "[Éðîţ ŕéþļý one two]"
-    },
-    "reviews.yourReply": {
-        "message": "[Ýöûŕ ŕéþļý one two]"
-    },
-    "reviews.replyPlaceholder": {
-        "message": "[Ţĥåñķ ţĥéɱ, öŕ šåý ŵĥåţ ýöû'ļļ ðö ðîƒƒéŕéñţļý. Ŕéþļîéš åŕé þûƀļîç. one two three four five]"
-    },
-    "reviews.postReply": {
-        "message": "[Þöšţ ŕéþļý one two]"
-    },
-    "reviews.messageClient": {
-        "message": "[Ṁéššåĝé {first} one]"
-    },
-    "reviews.messageShort": {
-        "message": "[Ṁéššåĝé one]"
-    },
-    "reviews.shareGoogle": {
-        "message": "[Šĥåŕé ţö Ĝööĝļé one two]"
-    },
-    "reviews.sharedGoogle": {
-        "message": "[Öñ Ĝööĝļé one]"
-    },
-    "reviews.shareNeedsLink": {
-        "message": "[Åðð ýöûŕ Ĝööĝļé ŕéṽîéŵ ļîñķ ţö šĥåŕé ĝööð ŕéṽîéŵš ţö Ĝööĝļé. one two three four]"
-    },
-    "reviews.replied": {
-        "message": "[Ýöû ŕéþļîéð {date} one two]"
+        "message": "[Ñö ŕéṽîéŵ îñṽîţåţîöñš ýéţ. one two three]"
     },
     "reviews.askTitle": {
         "message": "[Åšķ ƒöŕ å ŕéṽîéŵ one two]"
@@ -5682,55 +5574,16 @@
         "message": "[Åšķ one]"
     },
     "reviews.asked": {
-        "message": "[Åšķéð one]"
+        "message": "[Ŕéǫûéšţéð one two]"
     },
     "reviews.requestsTitle": {
-        "message": "[Ŵåîţîñĝ öñ çļîéñţš one two]"
-    },
-    "reviews.requestState.requested": {
-        "message": "[Šéñţ one]"
-    },
-    "reviews.requestState.opened": {
-        "message": "[Öþéñéð one]"
+        "message": "[Ŕéǫûéšţ ĥîšţöŕý one two]"
     },
     "reviews.requestedOn": {
         "message": "[Åšķéð {date} one]"
     },
-    "reviews.visitLine": {
-        "message": "[{service} ŵîţĥ {staff} · {when} one]"
-    },
-    "reviews.suggestedReply": {
-        "message": "[Šûĝĝéšţéð ŕéþļý one two]"
-    },
-    "reviews.suggestedReplyFor": {
-        "message": "[{low,select,other{Ţĥåñķ ýöû, {first}. Îţ ɱéåñš å ļöţ ţö ţĥé ŵĥöļé ţéåɱ, åñð ŵé ļööķ ƒöŕŵåŕð ţö šééîñĝ ýöû åĝåîñ.} true{Ţĥåñķ ýöû ƒöŕ ţĥé ĥöñéšţ ƒééðƀåçķ, {first}. Ŵé'ŕé šöŕŕý ţĥîš ṽîšîţ ƒéļļ šĥöŕţ öƒ ŵĥåţ ýöû éẋþéçţ ƒŕöɱ ûš, åñð ŵé'ð ļîķé ţö ɱåķé îţ ŕîĝĥţ. Ŵé'ļļ ƀé îñ ţöûçĥ ţöðåý.}} one two three four five six seven eight nine ten one two three four]"
-    },
-    "reviews.useSuggestion": {
-        "message": "[Ûšé ţĥîš one]"
-    },
-    "reviews.state.held": {
-        "message": "[Ñééðš ýöûŕ ÖĶ one two]"
-    },
-    "reviews.state.published": {
-        "message": "[Þûƀļîšĥéð one two]"
-    },
-    "reviews.state.hidden": {
-        "message": "[Ĥîððéñ one]"
-    },
     "reviews.clientFallback": {
         "message": "[Çļîéñţ one]"
-    },
-    "reviews.postReplyError": {
-        "message": "[Çöûļðñ'ţ þöšţ ýöûŕ ŕéþļý. Þļéåšé ţŕý åĝåîñ. one two three]"
-    },
-    "reviews.hideError": {
-        "message": "[Çöûļðñ'ţ ĥîðé ţĥîš ŕéṽîéŵ. Þļéåšé ţŕý åĝåîñ. one two three]"
-    },
-    "reviews.publishError": {
-        "message": "[Çöûļðñ'ţ þûƀļîšĥ ţĥîš ŕéṽîéŵ. Þļéåšé ţŕý åĝåîñ. one two three four]"
-    },
-    "reviews.shareError": {
-        "message": "[Çöûļðñ'ţ šĥåŕé ţĥîš ŕéṽîéŵ. Þļéåšé ţŕý åĝåîñ. one two three]"
     },
     "reviews.sendRequestError": {
         "message": "[Çöûļðñ'ţ šéñð ţĥé ŕéṽîéŵ ŕéǫûéšţ. Þļéåšé ţŕý åĝåîñ. one two three four]"
@@ -8750,12 +8603,6 @@
     "today.attention.unreadAction": {
         "message": "[Öþéñ one]"
     },
-    "today.attention.reviewTitle": {
-        "message": "[{stars, number}-šţåŕ ŕéṽîéŵ ţö åñšŵéŕ one two]"
-    },
-    "today.attention.reviewAction": {
-        "message": "[Ŕéþļý one]"
-    },
     "today.attention.stockTitle": {
         "message": "[{item} îš ļöŵ one]"
     },
@@ -10469,9 +10316,6 @@
     "publicBooking.hoursMinutes": {
         "message": "[{m,plural,other{{h, number} ĥ # ɱîñ} =0{{h, number} ĥ}} one]"
     },
-    "publicBooking.reviews": {
-        "message": "[{rating} · {n,plural,one{# ŕéṽîéŵ} other{# ŕéṽîéŵš}} one two]"
-    },
     "publicBooking.today": {
         "message": "[ţöðåý one]"
     },
@@ -11666,105 +11510,6 @@
     "publicPreferences.saveError": {
         "message": "[Ţĥåţ ðîðñ'ţ šåṽé. Ţŕý åĝåîñ. one two three]"
     },
-    "publicReview.prompt": {
-        "message": "[Ĥöŵ ŵåš ýöûŕ ṽîšîţ ţö {businessName}? one two]"
-    },
-    "publicReview.promptSubject": {
-        "message": "[{kind,select,other{Ĥöŵ ŵåš ţĥé ṽîšîţ ƒöŕ {name}?} pet{Ĥöŵ ŵåš {name}''š ṽîšîţ?} property{Ĥöŵ ðîð ţĥé ṽîšîţ ţö {name} ĝö?} site{Ĥöŵ ðîð ţĥé ṽîšîţ ţö {name} ĝö?} student{Ĥöŵ ŵåš {name}''š ļéššöñ?}} one two three four five six seven]"
-    },
-    "publicReview.context": {
-        "message": "[{service} ŵîţĥ {staff} one]"
-    },
-    "publicReview.ratingLabel": {
-        "message": "[Ýöûŕ ŕåţîñĝ one two]"
-    },
-    "publicReview.ratingWords.0": {
-        "message": ""
-    },
-    "publicReview.ratingWords.1": {
-        "message": "[Ñöţ ĝööð one]"
-    },
-    "publicReview.ratingWords.2": {
-        "message": "[Çöûļð ƀé ƀéţţéŕ one two]"
-    },
-    "publicReview.ratingWords.3": {
-        "message": "[Îţ ŵåš ƒîñé one two]"
-    },
-    "publicReview.ratingWords.4": {
-        "message": "[Ŕéåļļý ĝööð one two]"
-    },
-    "publicReview.ratingWords.5": {
-        "message": "[Ļöṽéð îţ one]"
-    },
-    "publicReview.tellMore": {
-        "message": "[Ţéļļ ûš ɱöŕé one two]"
-    },
-    "publicReview.tellMoreOptional": {
-        "message": "[Åñýţĥîñĝ éļšé? one two]"
-    },
-    "publicReview.privateNote": {
-        "message": "[Öñļý {business} šééš ţĥîš. one two]"
-    },
-    "publicReview.placeholderPositive": {
-        "message": "[Ŵĥåţ ŵéñţ ŵéļļ? one two]"
-    },
-    "publicReview.placeholderNegative": {
-        "message": "[Ŵĥåţ ĥåþþéñéð, åñð ŵĥåţ ŵöûļð ĥåṽé ɱåðé îţ ƀéţţéŕ? one two three four]"
-    },
-    "publicReview.submit": {
-        "message": "[Šéñð ŕéṽîéŵ one two]"
-    },
-    "publicReview.submitting": {
-        "message": "[Šéñðîñĝ one]"
-    },
-    "publicReview.pickRating": {
-        "message": "[Ţåþ å šţåŕ ţö ŕåţé ýöûŕ ṽîšîţ. one two three]"
-    },
-    "publicReview.submitError": {
-        "message": "[Çöûļðñ'ţ šéñð ýöûŕ ŕéṽîéŵ. Þļéåšé ţŕý åĝåîñ. one two three]"
-    },
-    "publicReview.notFoundTitle": {
-        "message": "[Ţĥîš ŕéṽîéŵ ļîñķ ĥåš éẋþîŕéð one two three]"
-    },
-    "publicReview.notFoundBody": {
-        "message": "[Îţ ɱåý åļŕéåðý ĥåṽé ƀééñ ûšéð. Îƒ ýöû'ð šţîļļ ļîķé ţö šĥåŕé ĥöŵ ţĥé ṽîšîţ ŵéñţ, ŕéþļý ţö ţĥé ɱéššåĝé îţ çåɱé îñ. one two three four five six seven]"
-    },
-    "publicReview.errorTitle": {
-        "message": "[Ţĥîš þåĝé ðîðñ'ţ ļöåð one two]"
-    },
-    "publicReview.errorBody": {
-        "message": "[Çĥéçķ ýöûŕ çöññéçţîöñ åñð ţŕý åĝåîñ. one two three]"
-    },
-    "publicReview.thanksTitle": {
-        "message": "[Ţĥåñķ ýöû, {first} one]"
-    },
-    "publicReview.thanks": {
-        "message": "[Ţĥåñķ ýöû one]"
-    },
-    "publicReview.thanksPublicBody": {
-        "message": "[{business} ŵîļļ šéé ýöûŕ ŕéṽîéŵ šĥöŕţļý. Ŵöûļð ýöû šĥåŕé îţ öñ Ĝööĝļé ţöö? Îţ ĥéļþš öţĥéŕ þéöþļé ƒîñð ţĥéɱ. one two three four five six]"
-    },
-    "publicReview.thanksGoogleLess": {
-        "message": "[{business} ŵîļļ šéé ýöûŕ ŕéṽîéŵ šĥöŕţļý. one two three]"
-    },
-    "publicReview.thanksPrivateBody": {
-        "message": "[{business} ĥåš ýöûŕ ƒééðƀåçķ åñð ŵîļļ ƀé îñ ţöûçĥ. Ñöţĥîñĝ ýöû ŵŕöţé îš þöšţéð þûƀļîçļý. one two three four five]"
-    },
-    "publicReview.copyReview": {
-        "message": "[Çöþý ɱý ŕéṽîéŵ one two]"
-    },
-    "publicReview.copied": {
-        "message": "[Çöþîéð one]"
-    },
-    "publicReview.postGoogle": {
-        "message": "[Þöšţ öñ Ĝööĝļé one two]"
-    },
-    "publicReview.noThanks": {
-        "message": "[Ñö ţĥåñķš one]"
-    },
-    "publicReview.closePage": {
-        "message": "[Åļļ ðöñé. Ýöû çåñ çļöšé ţĥîš þåĝé. one two three]"
-    },
     "publicLanding.poweredBy": {
         "message": "[Þöŵéŕéð ƀý Çļîéñţƀŕîðĝé one two three]"
     },
@@ -11791,9 +11536,6 @@
     },
     "publicLanding.team": {
         "message": "[Ṁééţ ţĥé ţéåɱ one two]"
-    },
-    "publicLanding.reviews": {
-        "message": "[Çļîéñţ ŕéṽîéŵš one two]"
     },
     "publicLanding.visit": {
         "message": "[Þļåñ ýöûŕ ṽîšîţ one two]"
@@ -11836,15 +11578,6 @@
     },
     "publicLanding.noOpenings": {
         "message": "[Ñö öþéñîñĝš îñ ţĥé ñéẋţ 7 ðåýš one two three]"
-    },
-    "publicLanding.reviewer": {
-        "message": "[Ṽéŕîƒîéð çļîéñţ one two]"
-    },
-    "publicLanding.response": {
-        "message": "[Ɓûšîñéšš ŕéšþöñšé one two]"
-    },
-    "publicLanding.rating": {
-        "message": "[{rating} · {count, number} ŕéṽîéŵš one]"
     },
     "publicLanding.cancelPolicy": {
         "message": "[Çåñçéļ åţ ļéåšţ {hours, number} ĥöûŕš ƀéƒöŕé ýöûŕ ṽîšîţ. one two three]"
@@ -12167,12 +11900,6 @@
     "notifications.kinds.message": {
         "message": "[Ṁéššåĝé ƒŕöɱ {client} one two]"
     },
-    "notifications.kinds.review": {
-        "message": "[Ñéŵ {stars, number}-šţåŕ ŕéṽîéŵ one two]"
-    },
-    "notifications.kinds.reviewBody": {
-        "message": "{client}: “{body}”"
-    },
     "notifications.kinds.overdue": {
         "message": "[Îñṽöîçé #{n, number, ::group-off} îš öṽéŕðûé one two]"
     },
@@ -12256,9 +11983,6 @@
     },
     "embed.titles.contract": {
         "message": "[Ŕéṽîéŵ & šîĝñ one two]"
-    },
-    "embed.titles.review": {
-        "message": "[Ļéåṽé å ŕéṽîéŵ one two]"
     },
     "embed.close": {
         "message": "[Çļöšé one]"
@@ -12913,5 +12637,155 @@
     },
     "publicForm.signatureRequired": {
         "message": "[Éñţéŕ ýöûŕ ƒûļļ ñåɱé åñð åĝŕéé ţö šîĝñ ţĥîš ƒöŕɱ. one two three four]"
+    },
+    "reviews.retry": {
+        "message": "[Ţŕý åĝåîñ one]"
+    },
+    "reviews.unavailable": {
+        "message": "[Ĝööĝļé Ɓûšîñéšš Þŕöƒîļé çöññéçţîöñš åŕé ñöţ åṽåîļåƀļé ýéţ. Þļéåšé ţŕý åĝåîñ ļåţéŕ. one two three four five six]"
+    },
+    "reviews.connectTitle": {
+        "message": "[Çöññéçţ ýöûŕ Ĝööĝļé Ɓûšîñéšš Þŕöƒîļé one two three]"
+    },
+    "reviews.connectBody": {
+        "message": "[Šîĝñ îñ ŵîţĥ ţĥé Ĝööĝļé åççöûñţ ţĥåţ ɱåñåĝéš ýöûŕ ƀûšîñéšš, ţĥéñ çĥööšé å ļöçåţîöñ ţö ŕéåð ŕéṽîéŵš, ŕéþļý þûƀļîçļý, åñð ŕéǫûéšţ ñéŵ ŕéṽîéŵš. one two three four five six seven eight nine]"
+    },
+    "reviews.reconnectBody": {
+        "message": "[Ýöûŕ Ĝööĝļé çöññéçţîöñ ñééðš åţţéñţîöñ. Šîĝñ îñ åĝåîñ ţö åççéšš ŕéṽîéŵš åñð šéñð îñṽîţåţîöñš. one two three four five six seven]"
+    },
+    "reviews.connect": {
+        "message": "[Çöññéçţ Ĝööĝļé Ɓûšîñéšš Þŕöƒîļé one two three]"
+    },
+    "reviews.reconnect": {
+        "message": "[Ŕéçöññéçţ Ĝööĝļé one two]"
+    },
+    "reviews.authorizationWaiting": {
+        "message": "[Ƒîñîšĥ šîĝñîñĝ îñ ŵîţĥ Ĝööĝļé îñ ţĥé åûţĥöŕîžåţîöñ ŵîñðöŵ. one two three four]"
+    },
+    "reviews.chooseProfile": {
+        "message": "[Çĥööšé ýöûŕ ƀûšîñéšš þŕöƒîļé one two three]"
+    },
+    "reviews.chooseProfileBody": {
+        "message": "[Çĥööšé ţĥé Ĝööĝļé åççöûñţ åñð ṽéŕîƒîéð ļöçåţîöñ ŵĥöšé ŕéṽîéŵš ýöû ŵåñţ ţö ɱåñåĝé. one two three four five six]"
+    },
+    "reviews.googleAccount": {
+        "message": "[Ĝööĝļé åççöûñţ one two]"
+    },
+    "reviews.chooseAccount": {
+        "message": "[Çĥööšé åñ åççöûñţ one two]"
+    },
+    "reviews.noAccounts": {
+        "message": "[Ñö ɱåñåĝéð Ĝööĝļé åççöûñţš ŵéŕé ƒöûñð. Çĥéçķ ţĥåţ ýöû šîĝñéð îñ ŵîţĥ ţĥé åççöûñţ ţĥåţ ɱåñåĝéš ýöûŕ Ɓûšîñéšš Þŕöƒîļé. one two three four five six seven eight]"
+    },
+    "reviews.moreAccounts": {
+        "message": "[Ļöåð ɱöŕé åççöûñţš one two]"
+    },
+    "reviews.googleLocation": {
+        "message": "[Ɓûšîñéšš ļöçåţîöñ one two]"
+    },
+    "reviews.chooseLocation": {
+        "message": "[Çĥööšé å ļöçåţîöñ one two]"
+    },
+    "reviews.noLocations": {
+        "message": "[Ñö ļöçåţîöñš ŵéŕé ƒöûñð îñ ţĥîš åççöûñţ. Çĥööšé åñöţĥéŕ åççöûñţ öŕ çĥéçķ ýöûŕ åççéšš îñ Ĝööĝļé Ɓûšîñéšš Þŕöƒîļé. one two three four five six seven]"
+    },
+    "reviews.moreLocations": {
+        "message": "[Ļöåð ɱöŕé ļöçåţîöñš one two]"
+    },
+    "reviews.useLocation": {
+        "message": "[Ûšé ţĥîš ļöçåţîöñ one two]"
+    },
+    "reviews.attribution": {
+        "message": "[Ŕéṽîéŵš ƒŕöɱ Ĝööĝļé one two]"
+    },
+    "reviews.refresh": {
+        "message": "[Ŕéƒŕéšĥ ŕéṽîéŵš one two]"
+    },
+    "reviews.noGoogleReviews": {
+        "message": "[Ţĥîš Ĝööĝļé Ɓûšîñéšš Þŕöƒîļé ĥåš ñö ŕéṽîéŵš ýéţ. one two three four]"
+    },
+    "reviews.ratingOnly": {
+        "message": "[Ŕåţîñĝ ŵîţĥöûţ å ŵŕîţţéñ ŕéṽîéŵ one two three]"
+    },
+    "reviews.ownerReply": {
+        "message": "[Ýöûŕ þûƀļîç ŕéþļý one two]"
+    },
+    "reviews.editReply": {
+        "message": "[Éðîţ ŕéþļý one two]"
+    },
+    "reviews.reply": {
+        "message": "[Ŕéþļý one]"
+    },
+    "reviews.moreReviews": {
+        "message": "[Ļöåð ɱöŕé ŕéṽîéŵš one two]"
+    },
+    "reviews.requestsLoading": {
+        "message": "[Ļöåðîñĝ ŕéṽîéŵ îñṽîţåţîöñš one two three]"
+    },
+    "reviews.invitationUnavailable": {
+        "message": "[Ĝööĝļé ĥåš ñöţ šûþþļîéð å ŕéṽîéŵ ļîñķ ƒöŕ ţĥîš ļöçåţîöñ. Îñṽîţåţîöñš åŕé ûñåṽåîļåƀļé. one two three four five six]"
+    },
+    "reviews.disconnect": {
+        "message": "[Đîšçöññéçţ Ĝööĝļé one two]"
+    },
+    "reviews.replyTitle": {
+        "message": "[Ŕéþļý öñ Ĝööĝļé one two]"
+    },
+    "reviews.replyPublic": {
+        "message": "[Ýöûŕ ŕéþļý ŵîļļ ƀé þûƀļîšĥéð þûƀļîçļý öñ Ĝööĝļé öñ ƀéĥåļƒ öƒ ýöûŕ ƀûšîñéšš. one two three four five]"
+    },
+    "reviews.replyText": {
+        "message": "[Ŕéþļý one]"
+    },
+    "reviews.replyPending": {
+        "message": "[Ŵåîţîñĝ ƒöŕ Ĝööĝļé ţö çöñƒîŕɱ ýöûŕ ŕéþļý. one two three]"
+    },
+    "reviews.publishReply": {
+        "message": "[Þûƀļîšĥ ŕéþļý one two]"
+    },
+    "reviews.deleteReply": {
+        "message": "[Đéļéţé ŕéþļý one two]"
+    },
+    "reviews.disconnectBody": {
+        "message": "[Đîšçöññéçţ ţĥîš Ĝööĝļé Ɓûšîñéšš Þŕöƒîļé? Åççéšš ţö ŕéṽîéŵš åñð ñéŵ ŕéṽîéŵ îñṽîţåţîöñš ŵîļļ šţöþ. Ýöûŕ ŕéṽîéŵš åñð ŕéþļîéš ŕéɱåîñ öñ Ĝööĝļé. one two three four five six seven eight nine]"
+    },
+    "reviews.deleteReplyBody": {
+        "message": "[Đéļéţé ýöûŕ þûƀļîç ŕéþļý ƒŕöɱ Ĝööĝļé? Ţĥé çļîéñţ’š ŕéṽîéŵ ŵîļļ ŕéɱåîñ. one two three four five]"
+    },
+    "reviews.confirm": {
+        "message": "[Çöñƒîŕɱ one]"
+    },
+    "reviews.accessDenied": {
+        "message": "[Ĝööĝļé ðéñîéð åççéšš. Çĥéçķ ýöûŕ Ɓûšîñéšš Þŕöƒîļé þéŕɱîššîöñš åñð ţĥåţ ţĥé ļöçåţîöñ îš ṽéŕîƒîéð. one two three four five six seven]"
+    },
+    "reviews.rateLimited": {
+        "message": "[Ĝööĝļé îš ŕéçéîṽîñĝ ţöö ɱåñý ŕéǫûéšţš. Þļéåšé ţŕý åĝåîñ ļåţéŕ. one two three four]"
+    },
+    "reviews.staleReply": {
+        "message": "[Ţĥîš ŕéþļý çĥåñĝéð öñ Ĝööĝļé. Ŕéƒŕéšĥ ŕéṽîéŵš ƀéƒöŕé éðîţîñĝ îţ åĝåîñ. one two three four five]"
+    },
+    "reviews.googleError": {
+        "message": "[Çöûļð ñöţ ļöåð öŕ ûþðåţé Ĝööĝļé ŕéṽîéŵš. Þļéåšé ţŕý åĝåîñ. one two three four]"
+    },
+    "reviews.replyInvalid": {
+        "message": "[Éñţéŕ å ŕéþļý öƒ ñö ɱöŕé ţĥåñ 4,096 ÛŢƑ-8 ƀýţéš. one two three]"
+    },
+    "reviews.replyFailed": {
+        "message": "[Ĝööĝļé çöûļð ñöţ þûƀļîšĥ ţĥîš çĥåñĝé. Ýöûŕ ðŕåƒţ îš šţîļļ ĥéŕé. one two three four]"
+    },
+    "reviews.replyUncertain": {
+        "message": "[Ţĥé çĥåñĝé ĥåš ñöţ ƀééñ çöñƒîŕɱéð. Ŕéƒŕéšĥ ţö çĥéçķ Ĝööĝļé ƀéƒöŕé ţŕýîñĝ åĝåîñ. one two three four five]"
+    },
+    "reviews.authorizationExpired": {
+        "message": "[Ĝööĝļé åûţĥöŕîžåţîöñ ţîɱéð öûţ. Þļéåšé çöññéçţ åĝåîñ. one two three four]"
+    },
+    "reviews.noRating": {
+        "message": "[Ñö ŕåţîñĝ one]"
+    },
+    "reviews.anonymous": {
+        "message": "[Ĝööĝļé ŕéṽîéŵéŕ one two]"
+    },
+    "reviews.googleSummary": {
+        "message": "[{rating} · {count,plural,one{# Ĝööĝļé ŕéṽîéŵ} other{# Ĝööĝļé ŕéṽîéŵš}} one two three]"
     }
 }

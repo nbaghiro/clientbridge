@@ -694,17 +694,12 @@ test("owner: inbox messages, reviews, broadcasts, forms and contracts", async ({
         ).toBeVisible();
     });
 
-    await walk.step("reviews: request and reply", async () => {
+    await walk.step("reviews: Google connection required", async () => {
         await navigate(page, "/inbox?segment=reviews");
-        await openAndClose(page, exactly(strings.reviews.requestReview));
-        await main
-            .getByRole("button", { name: strings.reviews.reply, exact: true })
-            .first()
-            .click();
-        await main.getByRole("button", { name: strings.reviews.cancel, exact: true }).click();
+        await expect(page.getByText(strings.reviews.unavailable)).toBeVisible();
         await expect(
-            main.getByRole("button", { name: strings.reviews.cancel, exact: true }),
-        ).toBeHidden();
+            page.getByRole("button", { name: exactly(strings.reviews.requestReview) }),
+        ).toHaveCount(0);
     });
 
     await walk.step("broadcasts: compose and detail", async () => {

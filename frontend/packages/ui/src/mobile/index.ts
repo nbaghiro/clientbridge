@@ -61,7 +61,6 @@ export { OccurrenceList } from "./OccurrenceList";
 export { PayCode } from "./PayCode";
 export { PrintedDocument } from "./PrintedDocument";
 export { ProgressSteps } from "./ProgressSteps";
-export { RatingDistribution } from "./RatingDistribution";
 export { SignaturePad } from "./SignaturePad";
 export { Skeleton } from "./Skeleton";
 export { SwatchPicker } from "./SwatchPicker";

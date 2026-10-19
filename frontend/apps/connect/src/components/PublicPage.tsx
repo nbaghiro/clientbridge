@@ -1,6 +1,6 @@
 import { BusinessNavigation } from "./BusinessNavigation";
 import { type PublicBrand, strings } from "@clientbridge/app-core/public";
-import { Icon, IconButton } from "@clientbridge/ui";
+import { IconButton } from "@clientbridge/ui";
 import { useState, type CSSProperties, type ReactNode } from "react";
 
 import { isEmbedded } from "../embed";
@@ -137,14 +137,5 @@ export function PoweredBy() {
         <footer className="mt-auto py-8 text-center text-xs text-muted print:hidden">
             {strings.publicLanding.poweredBy}
         </footer>
-    );
-}
-
-export function Rating({ label }: { label: string }) {
-    return (
-        <span className="flex shrink-0 items-center gap-1.5 text-sm text-ink-soft">
-            <Icon name="star" size={15} />
-            {label}
-        </span>
     );
 }

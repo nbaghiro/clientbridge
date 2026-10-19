@@ -34,7 +34,6 @@ import { useEarnings } from "./earnings";
 import { useThreads } from "./messaging";
 import { type usePaymentNotices, useAccountNotices } from "./gettingPaid";
 import { canManagePayments, isRefundRow } from "./payments";
-import { useReviews } from "./reviews";
 import { staffName, staffNameSql, useStaff } from "./staff";
 import { useReplicaLoad } from "./sync";
 import { type ShellTarget, VIEWER_STAFF_SQL } from "./navigation";
@@ -285,7 +284,6 @@ function ownerAttention(input: {
     agenda: AgendaItem[];
     invoices: ReturnType<typeof useInvoices>;
     threads: ReturnType<typeof useThreads>;
-    reviews: ReturnType<typeof useReviews>;
     items: ReturnType<typeof useCatalogItems>;
     pendingEarnings: { count: number; cents: number };
     filingDue: Date | null;
@@ -346,19 +344,6 @@ function ownerAttention(input: {
             act: "open",
             target: "inbox",
             refId: null,
-        });
-    }
-    for (const r of input.reviews.filter((rv) => rv.response === null && rv.rating <= 3)) {
-        out.push({
-            key: `rv-${r.id}`,
-            intent: "warning",
-            icon: "star",
-            title: a.reviewTitle(r.rating),
-            detail: r.client_name ?? "",
-            action: a.reviewAction,
-            act: "open",
-            target: "reviews",
-            refId: r.id,
         });
     }
     const low = input.items.filter(
@@ -559,7 +544,6 @@ export function useOwnerToday(api: ApiLike, viewer: Viewer | null): OwnerToday {
     const { result, agenda, base } = useTodayView(viewer, now, zone);
     const invoices = useInvoices();
     const threads = useThreads();
-    const reviews = useReviews();
     const items = useCatalogItems();
     const earnings = useEarnings();
     const summary = useTodaySummary(api);
@@ -576,7 +560,6 @@ export function useOwnerToday(api: ApiLike, viewer: Viewer | null): OwnerToday {
         agenda,
         invoices,
         threads,
-        reviews,
         items,
         pendingEarnings: {
             count: pending.length,

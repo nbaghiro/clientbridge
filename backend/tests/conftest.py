@@ -29,7 +29,6 @@ from clientbridge.core.ratelimit import (
     public_invite_rate_limit,
     public_pay_rate_limit,
     public_prefs_rate_limit,
-    public_review_rate_limit,
 )
 from clientbridge.integrations.expo import Push, get_push_sender
 from clientbridge.integrations.identity import Credential, Identity, unavailable
@@ -732,7 +731,6 @@ async def api(
     app.dependency_overrides[get_auth_email_secret] = lambda: "testsecret"
     app.dependency_overrides[get_resend_webhook_secret] = lambda: RESEND_SECRET
     app.dependency_overrides[public_pay_rate_limit] = lambda: None  # no throttling under test
-    app.dependency_overrides[public_review_rate_limit] = lambda: None
     app.dependency_overrides[public_form_rate_limit] = lambda: None
     app.dependency_overrides[public_contract_rate_limit] = lambda: None
     app.dependency_overrides[public_booking_rate_limit] = lambda: None

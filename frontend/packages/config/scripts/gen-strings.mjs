@@ -313,7 +313,7 @@ const loader = ts
 writeFileSync(
     join(frontend, "apps/connect/public/embed.js"),
     `// Generated from src/embedLoader.ts by \`make gen-strings\`. Use: <script src=".../embed.js" async></script>
-// then <connect-booking slug="…"> or <connect-pay|form|contract|review token="…">; each fires connect:success.
+// then <connect-booking slug="…"> or <connect-pay|form|contract token="…">; each fires connect:success.
 (function () {
 "use strict";
 ${loader}

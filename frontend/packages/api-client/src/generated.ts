@@ -347,24 +347,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/review/{token}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Public Review Context */
-        get: operations["public_review_context_review__token__get"];
-        put?: never;
-        /** Public Review Submit */
-        post: operations["public_review_submit_review__token__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/form/{token}": {
         parameters: {
             query?: never;
@@ -2599,68 +2581,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/reviews/{review_id}/respond": {
+    "/v1/reviews/google": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Google Status */
+        get: operations["google_status_v1_reviews_google_get"];
         put?: never;
-        /** Respond To Review */
-        post: operations["respond_to_review_v1_reviews__review_id__respond_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/reviews/{review_id}/hide": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Hide Review */
-        post: operations["hide_review_v1_reviews__review_id__hide_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/reviews/{review_id}/publish": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Publish Review */
-        post: operations["publish_review_v1_reviews__review_id__publish_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/reviews/{review_id}/share": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Share Review */
-        post: operations["share_review_v1_reviews__review_id__share_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4086,8 +4017,6 @@ export interface components {
             filing_frequency: "monthly" | "quarterly" | "annual";
             /** Setup Dismissed At */
             setup_dismissed_at: string | null;
-            /** Review Hold At */
-            review_hold_at: number;
             /** Google Review Url */
             google_review_url: string | null;
             /** Unit */
@@ -4136,13 +4065,8 @@ export interface components {
              */
             setup_dismissed?: boolean | null;
             /**
-             * Review Hold At
-             * @description Hold reviews rated at or below this; 0 holds none
-             */
-            review_hold_at?: number | null;
-            /**
              * Google Review Url
-             * @description The Google review link shared after a good review; empty clears
+             * @description The Google review link sent in invitations; empty clears
              */
             google_review_url?: string | null;
             /**
@@ -4938,6 +4862,29 @@ export interface components {
             code: string;
             /** Amount Cents */
             amount_cents: number;
+        };
+        /** GoogleReviewAvailability */
+        GoogleReviewAvailability: {
+            /**
+             * State
+             * @default unavailable
+             * @constant
+             */
+            state: "unavailable";
+            /** Connection Id */
+            connection_id?: null;
+            /**
+             * Generation
+             * @default 0
+             */
+            generation: number;
+            /** Location */
+            location?: null;
+            /**
+             * Can Request
+             * @default false
+             */
+            can_request: boolean;
         };
         /** GstHstReport */
         GstHstReport: {
@@ -6498,16 +6445,6 @@ export interface components {
             timezone: string;
             policy?: components["schemas"]["PublicPolicy"] | null;
             /**
-             * Rating
-             * @description Average of published reviews
-             */
-            rating?: number | null;
-            /**
-             * Review Count
-             * @default 0
-             */
-            review_count: number;
-            /**
              * Subject
              * @description What a booking names besides the client; null asks for nothing
              */
@@ -7144,16 +7081,6 @@ export interface components {
             timezone: string;
             policy?: components["schemas"]["PublicPolicy"] | null;
             /**
-             * Rating
-             * @description Average of published reviews
-             */
-            rating?: number | null;
-            /**
-             * Review Count
-             * @default 0
-             */
-            review_count: number;
-            /**
              * Subject
              * @description What a booking names besides the client; null asks for nothing
              */
@@ -7174,8 +7101,6 @@ export interface components {
             neighbourhood?: string | null;
             /** Gallery Urls */
             gallery_urls?: string[];
-            /** Reviews */
-            reviews?: components["schemas"]["PublicProfileReview"][];
             /** Hours */
             hours?: components["schemas"]["PublicProfileHours"][];
         };
@@ -7187,19 +7112,6 @@ export interface components {
             start: string;
             /** End */
             end: string;
-        };
-        /** PublicProfileReview */
-        PublicProfileReview: {
-            /** Id */
-            id: string;
-            /** Rating */
-            rating: number;
-            /** Body */
-            body: string | null;
-            /** Response */
-            response: string | null;
-            /** Submitted At */
-            submitted_at: string | null;
         };
         /** PublicReceipt */
         PublicReceipt: {
@@ -7273,43 +7185,6 @@ export interface components {
             tip_cents: number;
             /** At */
             at: string | null;
-        };
-        /** PublicReviewContext */
-        PublicReviewContext: {
-            /** Business Name */
-            business_name: string;
-            brand: components["schemas"]["PublicBrand"];
-            /** Completed */
-            completed: boolean;
-            /** Rating */
-            rating?: number | null;
-            /** First Name */
-            first_name?: string | null;
-            /** Subject */
-            subject?: ("pet" | "student" | "property" | "site") | null;
-            /** Subject Name */
-            subject_name?: string | null;
-            /** Service */
-            service?: string | null;
-            /** Staff */
-            staff?: string | null;
-            /**
-             * Google Review Url
-             * @description Offered after a published review; null while it is held
-             */
-            google_review_url?: string | null;
-            /**
-             * Published
-             * @default false
-             */
-            published: boolean;
-        };
-        /** PublicReviewSubmit */
-        PublicReviewSubmit: {
-            /** Rating */
-            rating: number;
-            /** Body */
-            body?: string | null;
         };
         /** PublicService */
         PublicService: {
@@ -7983,75 +7858,6 @@ export interface components {
              */
             starts_at: string;
         };
-        /** ReviewLinkOut */
-        ReviewLinkOut: {
-            /** Id */
-            id: string;
-            /** Business Id */
-            business_id: string;
-            /** Client Id */
-            client_id: string;
-            /** Booking Id */
-            booking_id: string | null;
-            /** Rating */
-            rating: number | null;
-            /** Body */
-            body: string | null;
-            /** Response */
-            response: string | null;
-            /** Responded At */
-            responded_at: string | null;
-            /** Sent To Google */
-            sent_to_google: boolean;
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "requested" | "opened" | "submitted" | "published" | "hidden";
-            /** Channel */
-            channel: ("sms" | "email") | null;
-            /** Requested At */
-            requested_at: string | null;
-            /** Submitted At */
-            submitted_at: string | null;
-            /**
-             * Token
-             * @description The public review link token, returned when requested
-             */
-            token: string;
-        };
-        /** ReviewOut */
-        ReviewOut: {
-            /** Id */
-            id: string;
-            /** Business Id */
-            business_id: string;
-            /** Client Id */
-            client_id: string;
-            /** Booking Id */
-            booking_id: string | null;
-            /** Rating */
-            rating: number | null;
-            /** Body */
-            body: string | null;
-            /** Response */
-            response: string | null;
-            /** Responded At */
-            responded_at: string | null;
-            /** Sent To Google */
-            sent_to_google: boolean;
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "requested" | "opened" | "submitted" | "published" | "hidden";
-            /** Channel */
-            channel: ("sms" | "email") | null;
-            /** Requested At */
-            requested_at: string | null;
-            /** Submitted At */
-            submitted_at: string | null;
-        };
         /** ReviewRequestCreate */
         ReviewRequestCreate: {
             /** Client Id */
@@ -8059,16 +7865,21 @@ export interface components {
             /** Booking Id */
             booking_id?: string | null;
         };
-        /** ReviewRespond */
-        ReviewRespond: {
-            /** Response */
-            response: string;
-        };
-        /** ReviewShareOut */
-        ReviewShareOut: {
-            review: components["schemas"]["ReviewOut"];
-            /** Google Review Url */
-            google_review_url: string;
+        /** ReviewRequestOut */
+        ReviewRequestOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Client Id */
+            client_id: string;
+            /** Booking Id */
+            booking_id: string | null;
+            /**
+             * Requested At
+             * Format: date-time
+             */
+            requested_at: string;
         };
         /** RosterAction */
         RosterAction: {
@@ -9183,72 +8994,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicOrderStatus"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    public_review_context_review__token__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicReviewContext"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    public_review_submit_review__token__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PublicReviewSubmit"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicReviewContext"];
                 };
             };
             /** @description Validation Error */
@@ -14230,7 +13975,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReviewLinkOut"];
+                    "application/json": components["schemas"]["ReviewRequestOut"];
                 };
             };
             /** @description Validation Error */
@@ -14244,7 +13989,7 @@ export interface operations {
             };
         };
     };
-    respond_to_review_v1_reviews__review_id__respond_post: {
+    google_status_v1_reviews_google_get: {
         parameters: {
             query?: never;
             header?: {
@@ -14252,48 +13997,7 @@ export interface operations {
                 "x-expected-user"?: string;
                 "x-session-token"?: string;
             };
-            path: {
-                review_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReviewRespond"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReviewOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    hide_review_v1_reviews__review_id__hide_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-business-id"?: string;
-                "x-expected-user"?: string;
-                "x-session-token"?: string;
-            };
-            path: {
-                review_id: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -14304,77 +14008,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReviewOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    publish_review_v1_reviews__review_id__publish_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-business-id"?: string;
-                "x-expected-user"?: string;
-                "x-session-token"?: string;
-            };
-            path: {
-                review_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReviewOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    share_review_v1_reviews__review_id__share_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-business-id"?: string;
-                "x-expected-user"?: string;
-                "x-session-token"?: string;
-            };
-            path: {
-                review_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReviewShareOut"];
+                    "application/json": components["schemas"]["GoogleReviewAvailability"];
                 };
             };
             /** @description Validation Error */

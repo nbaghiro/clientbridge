@@ -17,7 +17,6 @@ from clientbridge.api.public import (
     payment_setup_router,
     prefs_router,
     receipt_router,
-    review_router,
 )
 from clientbridge.api.public_orders import router as public_orders_router
 from clientbridge.api.returning import router as returning_router
@@ -85,7 +84,6 @@ def create_app() -> FastAPI:
     app.include_router(estimate_router)
     app.include_router(receipt_router)
     app.include_router(public_orders_router)
-    app.include_router(review_router)
     app.include_router(form_router)
     app.include_router(contract_router)
     app.include_router(booking_router)

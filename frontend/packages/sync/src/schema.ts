@@ -311,7 +311,6 @@ const businesses = new Table(
         tax_registered: column.integer,
         pst_number: column.text,
         setup_dismissed_at: column.text,
-        review_hold_at: column.integer,
         google_review_url: column.text,
         brand: column.text,
         billing_email: column.text,
@@ -704,28 +703,19 @@ const gift_cards = new Table(
     },
 );
 
-const reviews = new Table(
+const review_requests = new Table(
     {
         client_id: column.text,
         booking_id: column.text,
-        channel: column.text,
-        status: column.text,
         requested_at: column.text,
-        submitted_at: column.text,
-        rating: column.integer,
-        body: column.text,
-        response: column.text,
-        responded_at: column.text,
-        sent_to_google: column.integer,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
     },
     {
         indexes: {
-            reviews_business_id: ["business_id"],
-            reviews_status_created: ["status", "created_at"],
-            uq_reviews_open_booking: ["booking_id"],
+            review_requests_booking: ["booking_id"],
+            review_requests_business_id: ["business_id"],
         },
     },
 );
@@ -951,7 +941,7 @@ export const AppSchema = new Schema({
     payments,
     payment_methods,
     gift_cards,
-    reviews,
+    review_requests,
     broadcasts,
     responses,
     signatures,

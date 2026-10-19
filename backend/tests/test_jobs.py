@@ -12,9 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge import services
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Estimate, Invoice
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.platform import Device
-from clientbridge.models.reviews import Review
+from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger
 from clientbridge.services.billing import estimate_status, run_overdue_sweep
@@ -232,20 +233,41 @@ async def _completed_booking(
 async def test_review_requests_for_recently_completed(
     db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
 ) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.google_review_url = "https://g.page/r/example/review"
+    await db.flush()
     cid = await client_id(db, email="rev-job@example.ca")
     bid = await _completed_booking(db, cid, completed_at=NOW)
     notifier = _notifier(email, sms, push)
 
     assert await run_review_requests(db, notifier, REVIEWS_AT) == 1
-    req = (await db.execute(select(Review).where(Review.booking_id == bid))).scalar_one()
-    assert req.status == "requested" and req.token
+    req = (
+        await db.execute(select(ReviewRequest).where(ReviewRequest.booking_id == bid))
+    ).scalar_one()
+    assert req.requested_at == REVIEWS_AT
     assert any(m.to == "rev-job@example.ca" for m in email.sent)
     assert await run_review_requests(db, notifier, REVIEWS_AT) == 0  # any existing request dedups
+
+
+async def test_review_requests_skips_business_without_google_link(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.google_review_url = None
+    await _completed_booking(db, await client_id(db), completed_at=NOW)
+    assert await run_review_requests(db, _notifier(email, sms, push), REVIEWS_AT) == 0
+    assert not email.sent
 
 
 async def test_review_requests_skips_already_requested(
     db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
 ) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.google_review_url = "https://g.page/r/example/review"
+    await db.flush()
     cid = await client_id(db)
     bid = await _completed_booking(db, cid, completed_at=NOW)
     db.add(build_review_request(BIZ, cid, bid, NOW))
@@ -256,6 +278,10 @@ async def test_review_requests_skips_already_requested(
 async def test_review_requests_skips_non_completed_and_stale(
     db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
 ) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.google_review_url = "https://g.page/r/example/review"
+    await db.flush()
     cid = await client_id(db)
     await _completed_booking(db, cid, completed_at=NOW, status="confirmed")  # not completed
     await _completed_booking(db, cid, completed_at=NOW - timedelta(days=30))  # outside 7d window

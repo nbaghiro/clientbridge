@@ -229,14 +229,8 @@ test("a client reads an estimate and a receipt", async ({ page }) => {
     expect(errors).toEqual([]);
 });
 
-test("a client starts a review, a form and a contract", async ({ page }) => {
+test("a client starts a form and a contract", async ({ page }) => {
     const errors = watchErrors(page);
-    const review = strings.publicReview;
-    await page.goto(`/review/${links.review}`);
-    await page.getByRole("radio", { name: strings.common.stars(4) }).click();
-    await page.getByRole("textbox", { name: review.tellMoreOptional }).fill("Lovely visit");
-    await expect(page.getByRole("button", { name: review.submit })).toBeEnabled();
-
     await page.goto(`/form/${links.form}`);
     await expect(page.getByRole("progressbar")).toBeVisible();
     await page.getByRole("textbox").first().fill("Pepper");
@@ -278,7 +272,6 @@ const PUBLIC_PAGES = [
         landmark: strings.publicEstimate.estimateTotal,
     },
     { name: "receipt", path: `/r/${links.receipt}`, landmark: strings.publicReceipt.print },
-    { name: "review", path: `/review/${links.review}`, landmark: strings.publicReview.submit },
     { name: "form", path: `/form/${links.form}`, landmark: strings.publicForm.sendAnswers },
     {
         name: "contract",
@@ -354,7 +347,7 @@ const MISSING_PAGES = [
     ["/i/missing-token", strings.publicPay.notFoundTitle],
     ["/e/missing-token", strings.publicEstimate.notFoundTitle],
     ["/r/missing-token", strings.publicReceipt.notFoundTitle],
-    ["/review/missing-token", strings.publicReview.notFoundTitle],
+    ["/review/retired-token", strings.publicLanding.pageNotFoundTitle],
     ["/form/missing-token", strings.publicForm.notFoundTitle],
     ["/contract/missing-token", strings.publicContract.notFoundTitle],
     ["/prefs/missing-token", strings.publicPreferences.notFoundTitle],

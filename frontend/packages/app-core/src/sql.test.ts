@@ -555,18 +555,14 @@ function seed(): void {
             created_at: "2026-06-25T11:00:00Z",
         },
     ]);
-    scoped("reviews", [
+    scoped("review_requests", [
         {
-            id: "rv_1",
+            id: "rrq_1",
             client_id: "cl_ann",
             booking_id: "bk_1",
-            rating: 5,
-            body: "Great",
-            sent_to_google: 0,
-            status: "published",
+            requested_at: "2026-06-26T12:00:00Z",
         },
-        { id: "rv_asked", client_id: "cl_ann", sent_to_google: 0, status: "requested" },
-        { id: "rv_seen", client_id: "cl_ann", sent_to_google: 0, status: "opened" },
+        { id: "rrq_2", client_id: "cl_ann", requested_at: "2026-06-25T12:00:00Z" },
     ]);
     scoped("forms", [
         { id: "frm_b", name: "beta", require_signature: 0, active: 1 },
@@ -1455,18 +1451,10 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
-    it("lists reviews", () => {
-        expect(pick(run("REVIEWS_SQL"), "id", "rating", "client_name", "visit_at")).toEqual([
-            { id: "rv_1", rating: 5, client_name: "Ann", visit_at: "2026-06-26 10:00:00+00" },
-        ]);
-        expect(run("REVIEWS_SQL")[0]?.service).toEqual(expect.any(String));
-        expect(
-            run("REVIEW_REQUESTS_SQL")
-                .map((r) => r.id)
-                .sort(),
-        ).toEqual(["rv_asked", "rv_seen"]);
-        expect(run("REVIEW_SETTINGS_SQL")).toEqual([
-            { review_hold_at: null, google_review_url: null },
+    it("lists invitation history and Google settings", () => {
+        expect(pick(run("REVIEW_REQUESTS_SQL"), "id", "client_name")).toEqual([
+            { id: "rrq_1", client_name: "Ann" },
+            { id: "rrq_2", client_name: "Ann" },
         ]);
     });
 
@@ -1646,7 +1634,7 @@ describe("app-core SQL against the replica schema", () => {
     });
 
     it("derives the bell from synced rows since a date", () => {
-        const since = Array<string>(7).fill("2026-06-24T00:00:00.000Z");
+        const since = Array<string>(6).fill("2026-06-24T00:00:00.000Z");
         const feed = run("NOTIFICATION_FEED_SQL", since)
             .map((r) => `${String(r.kind)}:${String(r.id)}`)
             .sort();
@@ -1658,7 +1646,6 @@ describe("app-core SQL against the replica schema", () => {
             "order_new:ord-ord_web",
             "payment:pay-pay_1",
             "refund:pay-pay_r1",
-            "review:rv-rv_1",
         ]);
         expect(run("NOTIFICATION_FEED_SQL", since).find((r) => r.id === "ord-ord_web")?.at).toBe(
             "2026-06-24T09:00:00Z",
@@ -1855,7 +1842,6 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("CLIENT_MESSAGES_SQL", ["cl_ann"]).every((r) => r.direction !== null)).toBe(
             true,
         );
-        expect(run("CLIENT_REVIEWS_SQL", ["cl_ann"]).every((r) => r.rating !== null)).toBe(true);
         expect(
             pick(
                 run("CLIENT_FOOTPRINT_SQL", ["cl_ann", "cl_ben"]),
@@ -1927,7 +1913,6 @@ describe("app-core SQL against the replica schema", () => {
         ]);
         db.run("UPDATE items SET online_bookable = 1 WHERE id = 'it_cut'");
         expect(run("BOOKING_PREVIEW_SQL").map((r) => r.id)).toEqual(["it_cut"]);
-        expect(run("PREVIEW_RATING_SQL").length).toBe(1);
         expect(pick(run("TEAM_SQL"), "id", "status")).toEqual([
             { id: "st_owner", status: "active" },
             { id: "st_amy", status: "active" },

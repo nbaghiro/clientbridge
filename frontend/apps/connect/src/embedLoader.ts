@@ -1,6 +1,6 @@
 // The host-page half of the embed protocol in embed.ts, built into public/embed.js with the catalog text.
 
-type Widget = "booking" | "pay" | "form" | "contract" | "review";
+type Widget = "booking" | "pay" | "form" | "contract";
 
 export interface EmbedText {
     titles: Record<Widget, string>;
@@ -36,7 +36,6 @@ const TYPES: Record<string, WidgetType> = {
     "connect-pay": { widget: "pay", path: "/i/", attr: "token" },
     "connect-form": { widget: "form", path: "/form/", attr: "token" },
     "connect-contract": { widget: "contract", path: "/contract/", attr: "token" },
-    "connect-review": { widget: "review", path: "/review/", attr: "token" },
 };
 
 const DRAWER_STYLE = `

@@ -10,15 +10,12 @@ import {
     broadcastWhen,
     consentDetail,
     consentLabel,
-    formatAverageRating,
-    roundedRating,
     strings,
     useBroadcastsHome,
     useBusinessZone,
     useContractLibrary,
     useConversation,
     useFormLibrary,
-    useReviewQueue,
     useSubjectKind,
 } from "@clientbridge/app-core";
 import {
@@ -29,7 +26,6 @@ import {
     KeyValueList,
     Money,
     Skeleton,
-    Stars,
     StatusPill,
 } from "@clientbridge/ui";
 import { type ReactNode, useState } from "react";
@@ -93,51 +89,9 @@ function RailSection({
 }
 
 function ReviewsTeaser({ area, active, onOpen }: TeaserProps) {
-    const queue = useReviewQueue();
-    const latest = queue.all[0];
     return (
-        <RailSection
-            title={area.label}
-            count={queue.held.length}
-            active={active}
-            onOpen={onOpen}
-            loading={queue.load.state === "loading" ? strings.reviews.loading : null}
-        >
-            {queue.count === 0 ? (
-                <p className="text-sm text-muted">{strings.reviews.noReviewsTitle}</p>
-            ) : (
-                <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                        <span className="font-display text-2xl font-bold text-ink">
-                            {formatAverageRating(queue.average)}
-                        </span>
-                        <div>
-                            <Stars value={roundedRating(queue.average)} size="sm" />
-                            <p className="text-xs text-muted">{s.rail.reviewCount(queue.count)}</p>
-                        </div>
-                    </div>
-                    {queue.held.length > 0 ? (
-                        <p className="text-sm font-medium text-warn-fg">
-                            {s.rail.reviewsHeld(queue.held.length)}
-                        </p>
-                    ) : null}
-                    {latest !== undefined ? (
-                        <div className="rounded-md border border-line bg-surface p-3">
-                            <div className="flex items-center justify-between gap-2">
-                                <span className="truncate text-sm font-semibold text-ink">
-                                    {latest.client_name}
-                                </span>
-                                <Stars value={latest.rating} size="sm" />
-                            </div>
-                            {latest.body !== null && latest.body !== "" ? (
-                                <p className="mt-1 line-clamp-3 text-sm text-ink-soft">
-                                    {latest.body}
-                                </p>
-                            ) : null}
-                        </div>
-                    ) : null}
-                </div>
-            )}
+        <RailSection title={area.label} active={active} onOpen={onOpen} loading={null}>
+            <p className="text-sm text-muted">{strings.reviews.subtitle}</p>
         </RailSection>
     );
 }

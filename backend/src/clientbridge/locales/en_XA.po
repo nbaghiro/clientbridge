@@ -645,16 +645,16 @@ msgid "returning_code.subject"
 msgstr "[Ýöûŕ ƀööķîñĝ ṽéŕîƒîçåţîöñ çöðé ƒöŕ {business}~~~~~~~~~~~~~]"
 
 msgid "review.action"
-msgstr "[Ļéåṽé å ŕéṽîéŵ~~~~~]"
+msgstr "[Ŕéṽîéŵ öñ Ĝööĝļé~~~~~~]"
 
 msgid "review_requested.body"
-msgstr "[Ţĥåñķš ƒöŕ çĥööšîñĝ {business}! Ļéåṽé å ŕéṽîéŵ: {link}~~~~~~~~~~~~~~]"
+msgstr "[Ţĥåñķš ƒöŕ çĥööšîñĝ {business}! Ļéåṽé å ŕéṽîéŵ öñ Ĝööĝļé: {link}~~~~~~~~~~~~~~~~~]"
 
 msgid "review_requested.heading"
 msgstr "[Ĥöŵ ŵåš ýöûŕ ṽîšîţ?~~~~~~~]"
 
 msgid "review_requested.lead"
-msgstr "[Ţĥåñķš ƒöŕ çĥööšîñĝ {business}. Ļéåṽîñĝ å ŕéṽîéŵ ţåķéš å ɱîñûţé åñð ĥéļþš öţĥéŕš ƒîñð ţĥéɱ.~~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
+msgstr "[Ţĥåñķš ƒöŕ çĥööšîñĝ {business}. Ýöû çåñ ļéåṽé å ŕéṽîéŵ öñ Ĝööĝļé ţö šĥåŕé ýöûŕ éẋþéŕîéñçé.~~~~~~~~~~~~~~~~~~~~~~~~~~~~]"
 
 msgid "review_requested.subject"
 msgstr "[Ĥöŵ ŵåš ýöûŕ ṽîšîţ ţö {business}?~~~~~~~~~]"

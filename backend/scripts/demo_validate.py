@@ -171,13 +171,13 @@ SQL_CHECKS = {
         "SELECT p.id FROM payments p JOIN invoices i ON i.id=p.invoice_id WHERE "
         "p.client_id != i.client_id OR p.business_id != i.business_id"
     ),
-    "review_chronology": (
-        "SELECT r.id FROM reviews r JOIN bookings b ON b.id=r.booking_id WHERE "
-        "r.submitted_at < b.completed_at OR b.completed_at IS NULL OR r.client_id != "
+    "review_request_chronology": (
+        "SELECT r.id FROM review_requests r JOIN bookings b ON b.id=r.booking_id WHERE "
+        "r.requested_at < b.completed_at OR b.completed_at IS NULL OR r.client_id != "
         "b.client_id"
     ),
-    "duplicate_reviews": (
-        "SELECT booking_id FROM reviews WHERE booking_id IS NOT NULL "
+    "duplicate_review_requests": (
+        "SELECT booking_id FROM review_requests WHERE booking_id IS NOT NULL "
         "GROUP BY booking_id HAVING count(*) > 1"
     ),
     "pickup_visibility": (

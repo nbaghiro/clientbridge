@@ -364,3 +364,7 @@ The Cloud SQL instance keeps daily backups for 7 days and point-in-time recovery
 ## Scaled configurations
 
 Every cost saving in the current setup is a sizing choice, lifted by changing a value in the Pulumi program when its trigger is reached. The current size, the scaled configuration and the trigger for each part (cluster, workloads, database, edge, storage, observability) are in the plan's [architecture and cost choices](executions/deploy/plan.md#architecture-and-cost-choices), and the cost of each column in its [cost table](executions/deploy/plan.md#cost).
+
+## Internal review removal deployment
+
+Migration cb0019 removes internal review feedback and moderation data, preserving only actual invitation history in `review_requests`. Take and verify a database backup before the deployment migration; the migration is deliberately irreversible. Old review command replay payloads are deleted too. Deploy the matching API, PowerSync rules and web/mobile clients together; old feedback forms and review embeds are retired, and public profiles no longer display internal ratings or testimonials. Existing invitation links to the retired form stop working. New invitations use the saved Google URL directly. No Google Business Profile API connection is introduced by this cleanup.

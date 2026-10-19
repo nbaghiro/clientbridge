@@ -287,7 +287,7 @@
         "message": "Booking and payment pages with your name on them."
     },
     "home.features.4.body": {
-        "message": "Clients see your logo and colour, not ours. Booking, paying an invoice, signing a form and leaving a review each have their own page, and each one can be embedded on your existing website with a short snippet."
+        "message": "Clients see your logo and colour, not ours. Booking, paying an invoice and signing a form each have their own page, and each one can be embedded on your existing website with a short snippet."
     },
     "home.payments.eyebrow": {
         "message": "How payments work"
@@ -386,7 +386,7 @@
         "message": "Reviews"
     },
     "home.included.items.9.body": {
-        "message": "A review request goes out after each visit, and you choose what to show."
+        "message": "Save your Google review link to invite clients after completed appointments. Clients leave their reviews directly on Google."
     },
     "home.included.items.10.title": {
         "message": "Works offline"
@@ -850,7 +850,7 @@
         "message": "Review requests after each visit"
     },
     "pages.featuresPage.groups.messaging.items.3": {
-        "message": "Choose which reviews appear on your page"
+        "message": "Send clients directly to your Google review page"
     },
     "pages.featuresPage.groups.messaging.link.label": {
         "message": "See it by trade"
@@ -946,7 +946,7 @@
         "message": "Payment and payout information: when a business sets up payments, Stripe collects the identity, bank and tax details it requires. We receive the status of the account and the details needed to show payments and payouts, not full card or bank account numbers."
     },
     "pages.privacyPage.sections.1.items.3": {
-        "message": "Client information that a business enters, or that its clients submit through booking, payment, shop, form, contract and review pages."
+        "message": "Client information that a business enters, or that its clients submit through booking, payment, shop, form and contract pages."
     },
     "pages.privacyPage.sections.1.items.4": {
         "message": "Messages: the emails, text messages and push notifications sent through Clientbridge, with their delivery status, and replies that clients send to a business's text number."
@@ -1106,7 +1106,7 @@
         "message": "These terms are an agreement between ClientBridge Inc. (\"ClientBridge\", \"we\", \"us\") and the business or person that creates a Clientbridge account (\"you\"). By creating an account or using Clientbridge, you agree to them. If you accept them on behalf of a business, you confirm that you have the authority to bind it."
     },
     "pages.termsPage.sections.0.body.1": {
-        "message": "Clients of a business who use its booking, payment, shop, form, contract or review pages do so under the section of these terms written for them. Their agreement for the services and products they buy is with the business, not with ClientBridge."
+        "message": "Clients of a business who use its booking, payment, shop, form or contract pages do so under the section of these terms written for them. Their agreement for the services and products they buy is with the business, not with ClientBridge."
     },
     "pages.termsPage.sections.1.title": {
         "message": "The service"
@@ -1211,7 +1211,7 @@
         "message": "Clients of a business"
     },
     "pages.termsPage.sections.11.body.0": {
-        "message": "If you use a booking, payment, shop, form, contract or review page as a client of a business, the business is responsible for its services, prices, cancellation and refund policies, and for how it uses your information. Payments you make are processed by Stripe on the business's behalf. Questions about a booking, a charge or a refund should go to the business first. You agree to give accurate information and not to misuse these pages."
+        "message": "If you use a booking, payment, shop, form or contract page as a client of a business, the business is responsible for its services, prices, cancellation and refund policies, and for how it uses your information. Payments you make are processed by Stripe on the business's behalf. Questions about a booking, a charge or a refund should go to the business first. You agree to give accurate information and not to misuse these pages."
     },
     "pages.termsPage.sections.12.title": {
         "message": "Ending your account"
@@ -1638,7 +1638,7 @@
         "message": "Reviews after each visit"
     },
     "trades.pet-grooming.capabilities.9.body": {
-        "message": "A review request goes out after pickup. You choose which reviews appear on your page, and clients can share theirs to Google."
+        "message": "Save your Google review link to invite clients after completed appointments. Clients leave their reviews directly on Google."
     },
     "trades.pet-grooming.capabilities.10.title": {
         "message": "Retail, stock and an online shop"
@@ -1896,7 +1896,7 @@
         "message": "Reviews after each visit"
     },
     "trades.salons.capabilities.9.body": {
-        "message": "A review request goes out after the appointment. You choose which reviews appear on your page, and clients can share theirs to Google."
+        "message": "Save your Google review link to invite clients after completed appointments. Clients leave their reviews directly on Google."
     },
     "trades.salons.capabilities.10.title": {
         "message": "Stock and retail commission"
@@ -2388,7 +2388,7 @@
         "message": "Reviews"
     },
     "trades.cleaning.capabilities.9.body": {
-        "message": "A review request goes out after each clean. Good reviews can be shown on your booking page and shared to Google."
+        "message": "Save your Google review link to invite clients after completed appointments. Clients leave their reviews directly on Google."
     },
     "trades.cleaning.capabilities.10.title": {
         "message": "Booking on your own website"
@@ -2634,7 +2634,7 @@
         "message": "Reviews from families"
     },
     "trades.tutoring.capabilities.9.body": {
-        "message": "A review request goes to the parent after the first few lessons, and you choose which reviews appear on your page."
+        "message": "Save your Google review link to invite clients after completed appointments. Clients leave their reviews directly on Google."
     },
     "trades.tutoring.capabilities.10.title": {
         "message": "Booking on your own website"
@@ -2919,7 +2919,7 @@
         "message": "Reviews"
     },
     "trades.wellness.capabilities.10.body": {
-        "message": "A review request goes out after the visit. You choose which reviews appear on your booking page."
+        "message": "Save your Google review link to invite clients after completed appointments. Clients leave their reviews directly on Google."
     },
     "trades.wellness.capabilities.11.title": {
         "message": "Products for home care"
@@ -3168,7 +3168,7 @@
         "message": "Reviews"
     },
     "trades.photography.capabilities.9.body": {
-        "message": "A review request goes out after delivery. You choose which reviews appear on your booking page, and clients can share theirs to Google."
+        "message": "Save your Google review link to invite clients after completed appointments. Clients leave their reviews directly on Google."
     },
     "trades.photography.capabilities.10.title": {
         "message": "Booking on your own website"
@@ -3402,7 +3402,7 @@
         "message": "Reviews for the next job"
     },
     "trades.trades.capabilities.9.body": {
-        "message": "A review request goes out when the job is paid. Good reviews appear on your booking page and can be shared to Google."
+        "message": "Save your Google review link to invite clients after completed appointments. Clients leave their reviews directly on Google."
     },
     "trades.trades.capabilities.10.title": {
         "message": "Booking on your own website"

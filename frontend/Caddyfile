@@ -115,7 +115,7 @@ Disallow: /
 
 	# Businesses frame the widgets public/embed.js loads; every other Connect page stays unframed.
 	handle @connect {
-		@unembeddable not path /b/* /i/* /form/* /contract/* /review/*
+		@unembeddable not path /b/* /i/* /form/* /contract/*
 		header @unembeddable Content-Security-Policy "frame-ancestors 'none'"
 		header @unembeddable X-Frame-Options DENY
 		import spa connect

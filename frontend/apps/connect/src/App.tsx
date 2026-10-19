@@ -13,7 +13,6 @@ import { PublicManage } from "./pages/PublicManage";
 import { PublicPay } from "./pages/PublicPay";
 import { PublicPreferences } from "./pages/PublicPreferences";
 import { PublicReceipt } from "./pages/PublicReceipt";
-import { PublicReview } from "./pages/PublicReview";
 import { PublicOrder } from "./pages/PublicOrder";
 import { PublicPaymentSetup } from "./pages/PublicPaymentSetup";
 import { PublicShop } from "./pages/PublicShop";
@@ -33,7 +32,6 @@ export function App() {
                 <Route path="/r/:token" element={<PublicReceipt />} />
                 <Route path="/form/:token" element={<PublicForm />} />
                 <Route path="/contract/:token" element={<PublicContract />} />
-                <Route path="/review/:token" element={<PublicReview />} />
                 <Route path="/prefs/:token" element={<PublicPreferences />} />
                 <Route path="/order/:token" element={<PublicOrder />} />
                 <Route path="*" element={<NotFound />} />

@@ -18,13 +18,6 @@ interface PublicProfile extends BookingPage {
     neighbourhood: string | null;
     gallery_urls: string[];
     timezone: string;
-    reviews: {
-        id: string;
-        rating: number;
-        body: string | null;
-        response: string | null;
-        submitted_at: string | null;
-    }[];
     hours: { weekday: number; start: string; end: string }[];
 }
 interface Opening {
@@ -128,7 +121,6 @@ export function usePublicProfile(client: PublicProfileClient, slug: string) {
 interface BusinessNavigationAvailability {
     booking: boolean;
     shop: boolean;
-    reviews: boolean;
     team: boolean;
     policies: boolean;
 }
@@ -162,7 +154,6 @@ export function usePublicBusinessNavigation(
                 .then(([profile, products]) => ({
                     booking: profile.services.length > 0,
                     shop: products.items.length > 0,
-                    reviews: profile.review_count > 0,
                     team: profile.staff.length > 0,
                     policies: Boolean(profile.policy),
                 }))
@@ -179,7 +170,6 @@ export function usePublicBusinessNavigation(
         usePublicResource(load, slug).data ?? {
             booking: false,
             shop: false,
-            reviews: false,
             team: false,
             policies: false,
         }

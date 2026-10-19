@@ -158,7 +158,7 @@ async def test_unknown_timezone_is_422_and_not_stored(
 
 @pytest.mark.parametrize(
     "field",
-    ["name", "timezone", "tax_registered", "review_hold_at", "filing_frequency", "province"],
+    ["name", "timezone", "tax_registered", "filing_frequency", "province"],
 )
 async def test_null_leaves_a_required_setting_unchanged(
     as_owner: httpx.AsyncClient, db: AsyncSession, field: str

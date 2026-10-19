@@ -3,10 +3,9 @@
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.models.reviews import Review
 from clientbridge.services.messaging import run_due_broadcasts
 from tests.conftest import FakeEmailSender, FakeSmsSender
-from tests.helpers import local_hour, ok, review_id, text_in, unread
+from tests.helpers import local_hour, ok, text_in, unread
 
 
 async def _client(api: httpx.AsyncClient, **contact: str | list[str] | bool) -> str:
@@ -68,29 +67,16 @@ async def test_contract_is_sent_and_signed(
     assert again.status_code == 409
 
 
-async def test_review_is_requested_submitted_answered_and_hidden(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+async def test_review_invitation_links_directly_to_google(
+    as_owner: httpx.AsyncClient, email: FakeEmailSender
 ) -> None:
-    api = as_owner
-    cid = await _client(api, email="review-flow@example.ca")
-    request = ok(await api.post("/v1/reviews/request", json={"client_id": cid}), 201).json()
-    assert request["status"] == "requested"
-    assert any(f"/review/{request['token']}" in m.body for m in email.sent)
-
-    page = ok(await api.get(f"/review/{request['token']}")).json()
-    assert page["completed"] is False
-    submitted = ok(
-        await api.post(f"/review/{request['token']}", json={"rating": 5, "body": "Lovely"})
-    ).json()
-    assert submitted["completed"] is True and submitted["rating"] == 5
-    assert (await api.post(f"/review/{request['token']}", json={"rating": 5})).status_code == 409
-    rid = await review_id(db, request["token"])
-    review = await db.get(Review, rid, populate_existing=True)
-    assert review is not None and review.status == "published"
-    replied = ok(await api.post(f"/v1/reviews/{rid}/respond", json={"response": "Thanks"})).json()
-    assert replied["response"] == "Thanks" and replied["responded_at"] is not None
-    assert ok(await api.post(f"/v1/reviews/{rid}/hide")).json()["status"] == "hidden"
-    assert ok(await api.post(f"/v1/reviews/{rid}/publish")).json()["status"] == "published"
+    url = "https://g.page/r/example/review"
+    ok(await as_owner.patch("/v1/business", json={"google_review_url": url}))
+    cid = await _client(as_owner, email="review-flow@example.ca")
+    request = ok(await as_owner.post("/v1/reviews/request", json={"client_id": cid}), 201).json()
+    assert request["requested_at"]
+    assert "token" not in request and "rating" not in request
+    assert any(url in m.body for m in email.sent)
 
 
 async def test_messages_and_broadcasts(

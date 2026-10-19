@@ -148,7 +148,6 @@ export function BusinessSections({ brand }: { brand: PublicBrand }) {
                 {[
                     ...(available.booking ? [{ key: "services", label: s.servicesTitle }] : []),
                     ...(available.team ? [{ key: "team", label: s.team }] : []),
-                    ...(available.reviews ? [{ key: "reviews", label: s.reviews }] : []),
                     { key: "visit", label: s.visit },
                     ...(available.policies ? [{ key: "policies", label: s.policies }] : []),
                 ].map((section) => (

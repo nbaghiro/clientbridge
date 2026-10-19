@@ -7,7 +7,7 @@ from clientbridge.models.clients import Client, Consent, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
 from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.models.platform import File
-from clientbridge.models.reviews import Review
+from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.business import BrandInput
 from clientbridge.services.consents import allows_marketing
@@ -607,63 +607,27 @@ def _reviews(ctx: DemoContext) -> None:
         if not visits:
             continue
         booking, slot = visits[-1]
-        pet = ctx.get(Subject, booking.subject_id) if booking.subject_id else None
-        item = ctx.get(Item, slot.item_id)
-        rating = 2 if client_id == "cl_noah" else 4 if client_id in {"cl_grace", "cl_yuki"} else 5
-        body = (
-            f"Thank you for {item.name} for {pet.name if pet else 'our pet'}. "
-            "The team was careful and welcoming."
-        )
-        response = None
-        if client_id == "cl_grace":
-            body += " Finding parking took a little longer than expected."
-            response = (
-                "Thank you, Grace. We can explain the nearby parking options "
-                "before Pepper's next appointment."
-            )
-        if client_id == "cl_yuki":
-            response = (
-                "Thank you, Yuki. We are glad the calm handling helped Miso feel more comfortable."
-            )
-        if client_id == "cl_noah":
-            body = (
-                f"{item.name} was completed carefully, but check-in took longer than I expected. "
-                "Please explain the arrival process."
-            )
         when = max(slot.ends_at, booking.completed_at or slot.ends_at) + timedelta(hours=1)
         ctx.add(
-            Review(
-                id=f"rv_{index}",
+            ReviewRequest(
+                id=f"rrq_{index}",
                 business_id=ctx.business_id,
                 client_id=client_id,
                 booking_id=booking.id,
-                channel="sms",
-                token=f"rev_tok_{index}",
-                status="submitted" if rating <= 2 else "published",
                 requested_at=when,
-                submitted_at=when + timedelta(hours=2),
-                rating=rating,
-                body=body,
-                response=response,
-                responded_at=when + timedelta(hours=5) if response else None,
-                sent_to_google=False,
                 created_at=when,
-                updated_at=when + timedelta(hours=5 if response else 2),
+                updated_at=when,
             )
         )
     for index, client_id in enumerate(("cl_ethan", "cl_priscilla")):
         ctx.add(
-            Review(
-                id=f"rv_p_{index}",
+            ReviewRequest(
+                id=f"rrq_manual_{index}",
                 business_id=ctx.business_id,
                 client_id=client_id,
-                channel="email",
-                token=f"rev_tok_p_{index}",
-                status="requested" if index == 0 else "opened",
                 requested_at=ctx.now - timedelta(days=1),
-                sent_to_google=False,
                 created_at=ctx.now - timedelta(days=1),
-                updated_at=ctx.now - timedelta(hours=4),
+                updated_at=ctx.now - timedelta(days=1),
             )
         )
 
@@ -690,7 +654,6 @@ def _profile(ctx: DemoContext) -> None:
         }
     )
     business.brand = brand.model_dump(exclude_none=True)
-    business.review_hold_at = 3
 
 
 def build_engagement(ctx: DemoContext) -> None:

@@ -8,7 +8,6 @@ interface Links {
     estimate: string;
     receipt: string;
     order: string;
-    review: string;
     manage: string;
     form: string;
     contract: string;

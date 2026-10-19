@@ -1,69 +1,338 @@
 import {
     type ReviewQueue,
-    type ReviewRow,
-    firstName,
-    formatAverageRating,
     formatDate,
     parseTimestamp,
-    reviewState,
-    reviewVisitLine,
-    roundedRating,
     strings,
-    suggestedReply,
-    useModeratedReview,
     useRequestReview,
     useReviewQueue,
-    useReviewSettings,
+    useGoogleReviews,
     useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     Avatar,
     Badge,
     Button,
-    Empty,
     Modal,
     Notice,
     Panel,
-    RatingDistribution,
+    Select,
     SearchSelect,
     Stars,
-    StatusPill,
     TextField,
-    Toggle,
 } from "@clientbridge/ui";
 import { useState } from "react";
-
 import { Loaded } from "../components/Loaded";
 import { api } from "../lib/api";
-import { useOpenLink } from "../lib/links";
-
 const s = strings.reviews;
-
 const dateOf = (value: string, zone: string): string => formatDate(parseTimestamp(value), zone);
 
-const openExternal = (url: string): void => {
-    globalThis.open(url, "_blank", "noopener");
-};
-
 export function Reviews() {
-    const queue = useReviewQueue();
-    const [showHidden, setShowHidden] = useState(false);
+    const google = useGoogleReviews(api);
+    const queue = useReviewQueue(google.canRequest);
     const [asking, setAsking] = useState(false);
-    const ask = (): void => {
-        setAsking(true);
+    const connect = () => {
+        const popup = window.open("about:blank", "google-business", "width=600,height=760");
+        google.connect(
+            "web",
+            (url) => {
+                if (popup === null) throw new Error("authorization window blocked");
+                popup.location.href = url;
+            },
+            () => {
+                popup?.close();
+            },
+        );
     };
-
     return (
-        <div>
-            <div className="flex items-center justify-between gap-4 pb-5">
-                <p className="text-sm text-muted">{s.subtitle}</p>
-                {queue.load.state === "empty" ? null : (
-                    <Button size="sm" icon="send" onPress={ask}>
-                        {s.requestReview}
+        <div className="space-y-5">
+            <p className="text-sm text-muted">{s.subtitle}</p>
+            {google.loading ? <Notice tone="info">{s.loading}</Notice> : null}
+            {google.error !== null ? <Notice tone="danger">{google.error}</Notice> : null}
+            {!google.loading && google.error !== null && google.busy === null ? (
+                <Button onPress={google.refresh}>{s.retry}</Button>
+            ) : null}
+            {google.connection?.state === "unavailable" ? (
+                <Notice tone="info">{s.unavailable}</Notice>
+            ) : null}
+            {google.connection?.state === "disconnected" ||
+            google.connection?.state === "reconnect_required" ? (
+                <Panel>
+                    <div className="space-y-3">
+                        <h2 className="text-lg font-semibold text-ink">{s.connectTitle}</h2>
+                        <p className="text-sm text-muted">
+                            {google.connection.state === "reconnect_required"
+                                ? s.reconnectBody
+                                : s.connectBody}
+                        </p>
+                        <Button busy={google.busy === "connect"} onPress={connect}>
+                            {google.connection.state === "reconnect_required"
+                                ? s.reconnect
+                                : s.connect}
+                        </Button>
+                    </div>
+                </Panel>
+            ) : null}
+            {google.busy === "connect" ? (
+                <Panel>
+                    <p className="mb-3 text-sm text-muted">{s.authorizationWaiting}</p>
+                    <Button variant="outline" onPress={google.cancelConnect}>
+                        {s.cancel}
                     </Button>
-                )}
-            </div>
-            {asking ? (
+                </Panel>
+            ) : null}
+            {google.connection?.state === "selecting" ? (
+                <Panel>
+                    <div className="space-y-4">
+                        <h2 className="text-lg font-semibold text-ink">{s.chooseProfile}</h2>
+                        <p className="text-sm text-muted">{s.chooseProfileBody}</p>
+                        <Select
+                            label={s.googleAccount}
+                            value={google.account}
+                            disabled={google.busy !== null}
+                            options={[
+                                { key: "", label: s.chooseAccount },
+                                ...google.accountOptions,
+                            ]}
+                            onChange={google.chooseAccount}
+                        />
+                        {google.accountOptions.length === 0 && !google.loading ? (
+                            <Notice tone="info">{s.noAccounts}</Notice>
+                        ) : null}
+                        {google.moreAccounts ? (
+                            <Button
+                                variant="outline"
+                                busy={google.busy === "accounts"}
+                                onPress={google.loadAccounts}
+                            >
+                                {s.moreAccounts}
+                            </Button>
+                        ) : null}
+                        {google.account !== "" ? (
+                            <Select
+                                label={s.googleLocation}
+                                value={google.location}
+                                disabled={google.busy !== null}
+                                options={[
+                                    { key: "", label: s.chooseLocation },
+                                    ...google.locationOptions,
+                                ]}
+                                onChange={google.setLocation}
+                            />
+                        ) : null}
+                        {google.account !== "" &&
+                        google.locationOptions.length === 0 &&
+                        google.busy === null ? (
+                            <Notice tone="info">{s.noLocations}</Notice>
+                        ) : null}
+                        {google.moreLocations ? (
+                            <Button
+                                variant="outline"
+                                busy={google.busy === "locations"}
+                                onPress={google.loadLocations}
+                            >
+                                {s.moreLocations}
+                            </Button>
+                        ) : null}
+                        <Button
+                            disabled={google.location === "" || google.busy !== null}
+                            busy={google.busy === "select"}
+                            onPress={google.selectLocation}
+                        >
+                            {s.useLocation}
+                        </Button>
+                    </div>
+                </Panel>
+            ) : null}
+            {google.connected ? (
+                <>
+                    <Panel>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h2 className="text-lg font-semibold text-ink">
+                                    {google.connection?.location?.title}
+                                </h2>
+                                <p className="text-sm text-muted">{google.summary}</p>
+                                <p className="text-xs text-muted">{s.attribution}</p>
+                            </div>
+                            <Button
+                                variant="outline"
+                                disabled={google.busy !== null}
+                                onPress={google.refresh}
+                            >
+                                {s.refresh}
+                            </Button>
+                        </div>
+                    </Panel>
+                    {google.reviews.length === 0 ? (
+                        <Notice tone="info">{s.noGoogleReviews}</Notice>
+                    ) : null}
+                    {google.reviews.map((review) => (
+                        <Panel key={review.review_id}>
+                            <div className="space-y-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <h3 className="font-semibold text-ink">{review.author}</h3>
+                                    <Stars value={review.stars} />
+                                </div>
+                                <p className="text-xs text-muted">{review.date}</p>
+                                {review.comment ? (
+                                    <p className="whitespace-pre-wrap text-sm text-ink">
+                                        {review.comment}
+                                    </p>
+                                ) : (
+                                    <p className="text-sm text-muted">{s.ratingOnly}</p>
+                                )}
+                                {review.reply ? (
+                                    <div className="rounded-md bg-bg p-3">
+                                        <p className="mb-1 text-xs font-semibold text-muted">
+                                            {s.ownerReply}
+                                        </p>
+                                        <p className="whitespace-pre-wrap text-sm text-ink">
+                                            {review.reply.comment}
+                                        </p>
+                                    </div>
+                                ) : null}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={google.busy !== null}
+                                    onPress={() => {
+                                        google.editReply(review);
+                                    }}
+                                >
+                                    {review.reply ? s.editReply : s.reply}
+                                </Button>
+                            </div>
+                        </Panel>
+                    ))}
+                    {google.moreReviews ? (
+                        <Button
+                            variant="outline"
+                            busy={google.busy === "more"}
+                            onPress={google.loadMore}
+                        >
+                            {s.moreReviews}
+                        </Button>
+                    ) : null}
+                    <Loaded load={queue.load} loading={s.requestsLoading} failed={s.loadError}>
+                        <Button
+                            icon="send"
+                            disabled={!google.canRequest}
+                            onPress={() => {
+                                setAsking(true);
+                            }}
+                        >
+                            {s.requestReview}
+                        </Button>
+                        {!google.canRequest ? (
+                            <Notice tone="info">{s.invitationUnavailable}</Notice>
+                        ) : null}
+                        <Panel>
+                            <AskPanel queue={queue} />
+                        </Panel>
+                    </Loaded>
+                </>
+            ) : null}
+            {google.connection !== null &&
+            !["unavailable", "disconnected"].includes(google.connection.state) ? (
+                <Button
+                    variant="outline"
+                    disabled={google.busy !== null}
+                    onPress={() => {
+                        google.setConfirm("disconnect");
+                    }}
+                >
+                    {s.disconnect}
+                </Button>
+            ) : null}
+            {google.reply !== null ? (
+                <Modal open onClose={google.closeReply}>
+                    <div className="space-y-4">
+                        <h2 className="text-lg font-semibold text-ink">{s.replyTitle}</h2>
+                        <p className="text-sm text-muted">{s.replyPublic}</p>
+                        <TextField
+                            label={s.replyText}
+                            multiline
+                            value={google.comment}
+                            disabled={google.busy === "reply"}
+                            onChange={google.setComment}
+                        />
+                        {google.error !== null ? (
+                            <Notice tone="danger">{google.error}</Notice>
+                        ) : null}
+                        {google.pendingReply ? <Notice tone="info">{s.replyPending}</Notice> : null}
+                        <div className="flex flex-wrap gap-2">
+                            <Button
+                                busy={google.busy === "reply"}
+                                disabled={google.comment.trim() === ""}
+                                onPress={google.sendReply}
+                            >
+                                {s.publishReply}
+                            </Button>
+                            {google.reply.reply ? (
+                                <Button
+                                    variant="outline"
+                                    disabled={google.busy !== null}
+                                    onPress={() => {
+                                        google.setConfirm("deleteReply");
+                                    }}
+                                >
+                                    {s.deleteReply}
+                                </Button>
+                            ) : null}
+                            <Button
+                                variant="outline"
+                                disabled={google.busy === "reply"}
+                                onPress={google.closeReply}
+                            >
+                                {s.cancel}
+                            </Button>
+                        </div>
+                        {google.confirm === "deleteReply" ? (
+                            <>
+                                <Notice tone="info">{s.deleteReplyBody}</Notice>
+                                <Button busy={google.busy !== null} onPress={google.deleteReply}>
+                                    {s.confirm}
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    disabled={google.busy !== null}
+                                    onPress={() => {
+                                        google.setConfirm(null);
+                                    }}
+                                >
+                                    {s.cancel}
+                                </Button>
+                            </>
+                        ) : null}
+                    </div>
+                </Modal>
+            ) : null}
+            {google.confirm === "disconnect" ? (
+                <Modal
+                    open
+                    onClose={() => {
+                        if (google.busy === null) google.setConfirm(null);
+                    }}
+                >
+                    <div className="space-y-4">
+                        <h2 className="text-lg font-semibold text-ink">{s.disconnect}</h2>
+                        <p className="text-sm text-ink">{s.disconnectBody}</p>
+                        <Button busy={google.busy !== null} onPress={google.disconnect}>
+                            {s.confirm}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            disabled={google.busy !== null}
+                            onPress={() => {
+                                google.setConfirm(null);
+                            }}
+                        >
+                            {s.cancel}
+                        </Button>
+                    </div>
+                </Modal>
+            ) : null}
+            {asking && google.canRequest ? (
                 <RequestReviewDialog
                     queue={queue}
                     onClose={() => {
@@ -71,332 +340,7 @@ export function Reviews() {
                     }}
                 />
             ) : null}
-            <Loaded load={queue.load} loading={s.loading} failed={s.loadError}>
-                {queue.load.state === "empty" ? (
-                    <Empty
-                        variant="card"
-                        icon="star"
-                        message={s.noReviewsTitle}
-                        body={s.noReviewsBody}
-                        actions={<Button onPress={ask}>{s.requestReview}</Button>}
-                    />
-                ) : (
-                    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_340px]">
-                        <div className="space-y-8">
-                            <section aria-labelledby="reviews-held">
-                                <div className="mb-3 flex items-center gap-2">
-                                    <h2
-                                        id="reviews-held"
-                                        className="font-display text-base font-bold text-ink"
-                                    >
-                                        {s.heldTitle}
-                                    </h2>
-                                    {queue.held.length > 0 ? (
-                                        <Badge label={queue.held.length} intent="warning" />
-                                    ) : null}
-                                </div>
-                                {queue.held.length === 0 ? (
-                                    <Empty variant="card" message={s.heldEmpty} />
-                                ) : (
-                                    <div className="space-y-3">
-                                        {queue.held.map((r) => (
-                                            <ReviewCard key={r.id} review={r} queue={queue} />
-                                        ))}
-                                    </div>
-                                )}
-                            </section>
-                            <section aria-labelledby="reviews-published">
-                                <h2
-                                    id="reviews-published"
-                                    className="mb-3 font-display text-base font-bold text-ink"
-                                >
-                                    {s.publishedTitle}
-                                </h2>
-                                {queue.published.length === 0 ? (
-                                    <Empty variant="card" message={s.noPublished} />
-                                ) : (
-                                    <div className="space-y-3">
-                                        {queue.published.map((r) => (
-                                            <ReviewCard key={r.id} review={r} queue={queue} />
-                                        ))}
-                                    </div>
-                                )}
-                            </section>
-                            {queue.hidden.length > 0 ? (
-                                <section>
-                                    <Button
-                                        variant="link"
-                                        onPress={() => {
-                                            setShowHidden((v) => !v);
-                                        }}
-                                    >
-                                        {showHidden
-                                            ? s.hiddenTitle
-                                            : s.hiddenLink(queue.hidden.length)}
-                                    </Button>
-                                    {showHidden ? (
-                                        <div className="mt-3 space-y-3">
-                                            {queue.hidden.map((r) => (
-                                                <ReviewCard
-                                                    key={r.id}
-                                                    review={r}
-                                                    queue={queue}
-                                                    showState
-                                                />
-                                            ))}
-                                        </div>
-                                    ) : null}
-                                </section>
-                            ) : null}
-                        </div>
-                        <aside className="space-y-5 lg:sticky lg:top-6">
-                            <Panel>
-                                <ReviewSummary queue={queue} />
-                            </Panel>
-                            <Panel>
-                                <AskPanel queue={queue} />
-                            </Panel>
-                        </aside>
-                    </div>
-                )}
-            </Loaded>
         </div>
-    );
-}
-
-function ReviewSummary({ queue }: { queue: ReviewQueue }) {
-    const settings = useReviewSettings(api, queue);
-    return (
-        <div className="space-y-4">
-            {queue.count > 0 ? (
-                <div className="flex items-center gap-4">
-                    <div>
-                        <div className="font-display text-4xl font-bold text-ink">
-                            {formatAverageRating(queue.average)}
-                        </div>
-                        <Stars value={roundedRating(queue.average)} size="sm" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                        <RatingDistribution rows={queue.distribution} label={s.distributionRow} />
-                    </div>
-                </div>
-            ) : null}
-            <p className="text-xs text-muted">{s.reviewCount(queue.count)}</p>
-            <div className="space-y-4 border-t border-line pt-4">
-                <Toggle
-                    label={s.holdToggle}
-                    hint={s.holdHint}
-                    value={settings.holdLow}
-                    onChange={settings.setHoldLow}
-                />
-                <TextField
-                    label={s.googleUrl}
-                    hint={settings.googleUrl === "" ? s.shareNeedsLink : s.googleUrlHint}
-                    value={settings.googleUrl}
-                    onChange={settings.setGoogleUrl}
-                    onSubmit={settings.saveGoogleUrl}
-                    placeholder={s.googleUrlPlaceholder}
-                    type="url"
-                />
-                <div className="flex items-center gap-3">
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        busy={settings.busy}
-                        onPress={settings.saveGoogleUrl}
-                    >
-                        {s.saveLink}
-                    </Button>
-                    {settings.savedGoogle ? (
-                        <span className="text-xs text-muted">{s.linkSaved}</span>
-                    ) : null}
-                </div>
-                {settings.error !== null ? <Notice tone="danger">{settings.error}</Notice> : null}
-            </div>
-        </div>
-    );
-}
-
-function ReplyEditor({
-    review,
-    busy,
-    onPost,
-    onCancel,
-}: {
-    review: ReviewRow;
-    busy: boolean;
-    onPost: (text: string) => void;
-    onCancel: () => void;
-}) {
-    const [text, setText] = useState(review.response ?? "");
-    const suggestion = review.response === null ? suggestedReply(review) : null;
-    return (
-        <div className="space-y-2">
-            {suggestion !== null && text.length === 0 ? (
-                <div className="rounded-md border border-dashed border-accent-line bg-accent-weak/50 px-3 py-2.5">
-                    <div className="text-xs font-semibold text-accent-strong">
-                        {s.suggestedReply}
-                    </div>
-                    <p className="mt-1 text-sm text-ink-soft">{suggestion}</p>
-                    <div className="mt-1.5">
-                        <Button
-                            size="sm"
-                            variant="link"
-                            onPress={() => {
-                                setText(suggestion);
-                            }}
-                        >
-                            {s.useSuggestion}
-                        </Button>
-                    </div>
-                </div>
-            ) : null}
-            <TextField
-                label={s.yourReply}
-                multiline
-                rows={3}
-                value={text}
-                onChange={setText}
-                placeholder={s.replyPlaceholder}
-                autoFocus
-            />
-            <div className="flex justify-end gap-2">
-                <Button size="sm" variant="quiet" onPress={onCancel}>
-                    {s.cancel}
-                </Button>
-                <Button
-                    size="sm"
-                    busy={busy}
-                    disabled={text.trim().length === 0}
-                    onPress={() => {
-                        onPost(text);
-                    }}
-                >
-                    {s.postReply}
-                </Button>
-            </div>
-        </div>
-    );
-}
-
-function ReviewCard({
-    review,
-    queue,
-    showState = false,
-}: {
-    review: ReviewRow;
-    queue: ReviewQueue;
-    showState?: boolean;
-}) {
-    const zone = useBusinessZone();
-    const m = useModeratedReview(api, review, openExternal);
-    const openLink = useOpenLink();
-    const [replying, setReplying] = useState(false);
-    const state = reviewState(review);
-    const name = review.client_name ?? s.clientFallback;
-    const first = firstName(name);
-
-    return (
-        <article
-            className={`rounded-lg border bg-surface p-5 shadow-card ${m.held ? "border-warn-fg/40" : "border-line"}`}
-        >
-            <header className="flex items-start gap-3">
-                <Avatar name={name} />
-                <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className="font-semibold text-ink">{name}</span>
-                        <Stars value={review.rating} size="sm" />
-                        {showState ? (
-                            <StatusPill status={state.label} intent={state.intent} />
-                        ) : null}
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted">{reviewVisitLine(review, zone)}</p>
-                </div>
-                {review.sent_to_google === 1 ? (
-                    <Badge label={s.sharedGoogle} intent="neutral" />
-                ) : null}
-            </header>
-            <p
-                className={`mt-3 text-sm leading-relaxed ${review.body !== null ? "text-ink" : "italic text-muted"}`}
-            >
-                {review.body ?? s.noComment}
-            </p>
-            {review.response !== null && !replying ? (
-                <div className="mt-3 border-l-2 border-accent-line pl-3">
-                    <div className="text-xs font-semibold text-ink-soft">
-                        {s.replied(dateOf(review.responded_at ?? review.created_at, zone))}
-                    </div>
-                    <p className="mt-0.5 text-sm text-ink-soft">{review.response}</p>
-                </div>
-            ) : null}
-            {replying ? (
-                <div className="mt-4">
-                    <ReplyEditor
-                        review={review}
-                        busy={m.busy}
-                        onPost={(t) => {
-                            m.respond(t);
-                            setReplying(false);
-                        }}
-                        onCancel={() => {
-                            setReplying(false);
-                        }}
-                    />
-                </div>
-            ) : (
-                <footer className="mt-4 flex flex-wrap items-center gap-2">
-                    {m.held || review.status === "hidden" ? (
-                        <Button size="sm" busy={m.busy} onPress={m.publish}>
-                            {s.publish}
-                        </Button>
-                    ) : null}
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        onPress={() => {
-                            setReplying(true);
-                        }}
-                    >
-                        {review.response === null ? s.reply : s.editReply}
-                    </Button>
-                    {m.canShare ? (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            icon="external"
-                            busy={m.busy}
-                            disabled={queue.googleUrl === null}
-                            onPress={m.share}
-                        >
-                            {s.shareGoogle}
-                        </Button>
-                    ) : null}
-                    {m.held ? (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onPress={() => {
-                                openLink("message", review.client_id);
-                            }}
-                        >
-                            {s.messageClient(first)}
-                        </Button>
-                    ) : null}
-                    {review.status !== "hidden" ? (
-                        <span className="ml-auto">
-                            <Button size="sm" variant="quiet" busy={m.busy} onPress={m.hide}>
-                                {s.hide}
-                            </Button>
-                        </span>
-                    ) : null}
-                </footer>
-            )}
-            {m.error !== null ? (
-                <div className="mt-2">
-                    <Notice tone="danger">{m.error}</Notice>
-                </div>
-            ) : null}
-        </article>
     );
 }
 
@@ -415,7 +359,7 @@ function AskPanel({ queue }: { queue: ReviewQueue }) {
                 ) : (
                     <ul className="mt-2 divide-y divide-line-soft rounded-md border border-line">
                         {queue.suggestions.map((x) => (
-                            <li key={x.clientId} className="flex items-center gap-2.5 px-3 py-2.5">
+                            <li key={x.bookingId} className="flex items-center gap-2.5 px-3 py-2.5">
                                 <Avatar name={x.clientName} size="sm" />
                                 <div className="min-w-0 flex-1">
                                     <div className="truncate text-sm font-medium text-ink">
@@ -423,15 +367,16 @@ function AskPanel({ queue }: { queue: ReviewQueue }) {
                                     </div>
                                     <div className="truncate text-xs text-muted">{x.visit}</div>
                                 </div>
-                                {req.sent.has(x.clientId) ? (
+                                {req.sent.has(x.bookingId) ? (
                                     <Badge label={s.asked} intent="success" />
                                 ) : (
                                     <Button
                                         size="sm"
                                         variant="outline"
-                                        busy={req.busyId === x.clientId}
+                                        busy={req.busyId === x.bookingId}
+                                        disabled={!queue.canRequest}
                                         onPress={() => {
-                                            req.request(x.clientId);
+                                            req.request(x.clientId, x.bookingId);
                                         }}
                                     >
                                         {s.ask}
@@ -461,10 +406,6 @@ function AskPanel({ queue }: { queue: ReviewQueue }) {
                                         {s.requestedOn(dateOf(r.requested_at, zone))}
                                     </div>
                                 </div>
-                                <StatusPill
-                                    status={s.requestState[r.status] ?? r.status}
-                                    intent={r.status === "opened" ? "accent" : "neutral"}
-                                />
                             </li>
                         ))}
                     </ul>
@@ -500,7 +441,7 @@ function RequestReviewDialog({ queue, onClose }: { queue: ReviewQueue; onClose: 
                     </Button>
                     <Button
                         icon="send"
-                        disabled={clientId === "" || sent}
+                        disabled={clientId === "" || sent || !queue.canRequest}
                         busy={req.busyId === clientId}
                         onPress={() => {
                             req.request(clientId);

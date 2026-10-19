@@ -50,7 +50,7 @@ TABLE_POLICIES: Mapping[str, TablePolicy] = MappingProxyType(
         "recurrences": TablePolicy("tenant", "business_id", "scheduling"),
         "responses": TablePolicy("tenant", "business_id", "documents"),
         "returning_challenges": TablePolicy("tenant", "business_id", "returning"),
-        "reviews": TablePolicy("tenant", "business_id", "reviews"),
+        "review_requests": TablePolicy("tenant", "business_id", "reviews"),
         "signatures": TablePolicy("tenant", "business_id", "documents"),
         "slots": TablePolicy("tenant", "business_id", "scheduling"),
         "staff": TablePolicy("tenant", "business_id", "business"),
