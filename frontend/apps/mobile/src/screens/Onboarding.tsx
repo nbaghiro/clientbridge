@@ -87,7 +87,6 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                         label={strings.business.onboarding.businessName}
                         value={form.name}
                         onChange={form.setName}
-                        placeholder={strings.business.onboarding.businessNamePlaceholder}
                         size="lg"
                         surface="surface"
                     />

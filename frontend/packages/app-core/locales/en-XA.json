@@ -5987,9 +5987,6 @@
     "business.onboarding.businessName": {
         "message": "[Ɓûšîñéšš ñåɱé one two]"
     },
-    "business.onboarding.businessNamePlaceholder": {
-        "message": "[Ɓîŕçĥ Ɓåŕķ Šţûðîö one two]"
-    },
     "business.onboarding.webAddress": {
         "message": "[Ŵéƀ åððŕéšš one two]"
     },
@@ -5997,7 +5994,7 @@
         "message": "[{host}/ƀ/ one]"
     },
     "business.onboarding.slugPlaceholder": {
-        "message": "[ƀîŕçĥ-ƀåŕķ one two]"
+        "message": "[ýöûŕ-ƀûšîñéšš one two]"
     },
     "business.onboarding.province": {
         "message": "[Þŕöṽîñçé one]"

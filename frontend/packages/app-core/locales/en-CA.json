@@ -6470,9 +6470,6 @@
     "business.onboarding.businessName": {
         "message": "Business name"
     },
-    "business.onboarding.businessNamePlaceholder": {
-        "message": "Birch Bark Studio"
-    },
     "business.onboarding.webAddress": {
         "message": "Web address"
     },
@@ -6482,7 +6479,8 @@
         "args": ["host"]
     },
     "business.onboarding.slugPlaceholder": {
-        "message": "birch-bark"
+        "message": "your-business",
+        "description": "An example web address for an empty field, so it never reads as a filled-in value"
     },
     "business.onboarding.province": {
         "message": "Province"

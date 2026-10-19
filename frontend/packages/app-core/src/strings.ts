@@ -2195,7 +2195,6 @@ interface Strings {
             readonly subtitleWeb: string;
             readonly subtitleMobile: string;
             readonly businessName: string;
-            readonly businessNamePlaceholder: string;
             readonly webAddress: string;
             readonly slugPrefix: (host: string) => string;
             readonly slugPlaceholder: string;
