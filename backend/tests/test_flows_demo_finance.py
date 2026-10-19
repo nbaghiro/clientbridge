@@ -9,6 +9,7 @@ from scripts.demo_finance import (
     price_documents,
     seed_payouts,
 )
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.scoping import scoped
@@ -85,7 +86,7 @@ def test_package_visits_are_concrete_and_new_client_uses_only_one_session() -> N
 async def test_weekly_payouts_sweep_actual_available_balance_once(db: AsyncSession) -> None:
     business = await Factory(db).business()
     ctx = DemoContext(datetime(2026, 10, 8, tzinfo=UTC), business.id, "us_dev")
-    for index, (day, amount) in enumerate(((-120, 10000), (-100, 4000), (-30, 2000))):
+    for index, (day, amount) in enumerate(((-120, 10000), (-100, 4000), (-30, 2000), (-1, 500))):
         await ledger.post(
             db,
             business.id,
@@ -109,11 +110,19 @@ async def test_weekly_payouts_sweep_actual_available_balance_once(db: AsyncSessi
         await ledger.balance(
             db, business.id, owner_type="business", owner_id=business.id, category="bank"
         )
-        == 16000
+        == 16500
     )
     rows = (await db.execute(scoped(Entry, business.id))).scalars().all()
     assert any(row.ref.endswith(":failed") and row.occurred_at == ctx.at(-27, 10) for row in rows)
     assert all(row.occurred_at < ctx.now for row in rows)
+
+
+async def test_seeded_businesses_leave_nothing_in_stripe(db: AsyncSession) -> None:
+    for business in (await db.execute(select(Business))).scalars().all():
+        held = await ledger.balance(
+            db, business.id, owner_type="business", owner_id=business.id, category="stripe"
+        )
+        assert held == 0, business.id
 
 
 async def test_package_tax_and_dated_visit_consumption_use_real_posting(

@@ -272,7 +272,7 @@ test("booking drafts restore contact details and remain scoped to their business
     await page.reload();
     await expect(page.getByRole("heading", { name: strings.publicBooking.stepTime })).toBeVisible();
     await page.goto("/b/cedar-coast-demo/book");
-    await expect(page.getByText(strings.publicBooking.nothingBookable)).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Dog Walk/ })).toBeVisible();
     await expect(
         page
             .getByRole("navigation", { name: strings.publicLanding.navigation })
@@ -289,6 +289,17 @@ test("booking drafts restore contact details and remain scoped to their business
     expect(
         await page.evaluate(() => sessionStorage.getItem("connect-booking:cedar-coast-demo")),
     ).toContain("Other Client");
+});
+
+test("a business with nothing bookable online says so", async ({ page }) => {
+    await page.route(`${api}/book/${slug}/services`, (route) =>
+        rewrite(route, (body) => ({ ...body, services: [] })),
+    );
+    await page.goto(`${home}/book`);
+    await expect(page.getByText(strings.publicBooking.nothingBookable)).toBeVisible();
+    await expect(
+        page.getByRole("heading", { name: strings.publicBooking.stepService }),
+    ).toHaveCount(0);
 });
 
 test("business favicon follows the homepage and booking branding", async ({ page }) => {

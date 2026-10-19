@@ -22,7 +22,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Recurrence, Slot
 
 BIZ = "bz_birchbark"
-OWNER = {"email": "hannah@birchbarkpets.ca", "password": "demo1234"}
+OWNER = {"email": "hannah@birchbark.example", "password": "demo1234"}
 API = os.environ.get("API_URL", "http://localhost:8701")
 # a near-duplicate with no money or saved cards, so the merge flow is not blocked
 DUPLICATE = "Robin Test"

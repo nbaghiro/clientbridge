@@ -28,6 +28,7 @@ from clientbridge.core.locale import (
     format_day_and_time,
     format_money,
     format_number,
+    format_time,
     locale_for,
     message,
     plural,
@@ -40,7 +41,7 @@ from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.billing import Estimate, Invoice, Order
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import GiftCard, Subscription
-from clientbridge.models.clients import Client
+from clientbridge.models.clients import Client, Subject
 from clientbridge.models.documents import Contract, FormResponse, Signature
 from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.payments import Payment
@@ -54,6 +55,7 @@ from clientbridge.services.business import reply_address, staff_names
 from clientbridge.services.consents import texts_stopped
 from clientbridge.services.files import media_url
 from clientbridge.services.lines import LineParent, fetch_lines, issued_at
+from clientbridge.services.subjects import place_address
 from clientbridge.services.tax import issued_tax
 
 _log = logging.getLogger(__name__)
@@ -163,6 +165,22 @@ def _business_line(locale: str, business: Business) -> str:
 def _client_footer(locale: str, business: Business) -> tuple[str, ...]:
     reason = message(locale, "email.footer.client", business=business.name)
     return (_business_line(locale, business), reason)
+
+
+async def at_the_visit(
+    db: AsyncSession, business: Business, booking: Booking, notice: Notice
+) -> Notice:
+    """A visit notice whose email footer names the place visited, for property and site visits."""
+    subject = await db.get(Subject, booking.subject_id) if booking.subject_id else None
+    place = place_address(business, subject)
+    if place is None:
+        return notice
+    locale = locale_for(business=business)
+    footer = (
+        message(locale, "email.footer.visit_at", address=place),
+        *_client_footer(locale, business),
+    )
+    return replace(notice, view=replace(notice.view, footer=footer))
 
 
 def email_html(brand: Brand, view: EmailView, locale: str) -> str:
@@ -829,6 +847,24 @@ def booking_reassigned_message(
     )
 
 
+def booking_departed_message(
+    locale: str, business_name: str, member: str, arrival: str | None
+) -> Notice:
+    body = (
+        message(
+            locale, "booking_departed.body", member=member, business=business_name, time=arrival
+        )
+        if arrival is not None
+        else message(locale, "booking_departed.body_now", member=member, business=business_name)
+    )
+    return _visit_plain(
+        locale,
+        message(locale, "booking_departed.subject", member=member, business=business_name),
+        body,
+        message(locale, "booking_departed.heading"),
+    )
+
+
 def booking_requested_message(locale: str, business_name: str, when: str) -> Notice:
     return _visit_plain(
         locale,
@@ -1329,8 +1365,10 @@ class Notifier:
         if booking is None:
             return Outcome.SKIPPED
         notice = await reminder_message(db, booking)
-        if notice is None:
+        business = await db.get(Business, booking.business_id)
+        if notice is None or business is None:
             return Outcome.SKIPPED
+        notice = await at_the_visit(db, business, booking, notice)
         return await self._to_client(db, booking.client_id, notice)
 
     async def on_booking_confirmed(self, db: AsyncSession, booking_id: str) -> None:
@@ -1346,7 +1384,25 @@ class Notifier:
         notice = booking_confirmed_message(
             locale, business.name, when, _manage_link(business, booking)
         )
+        notice = await at_the_visit(db, business, booking, notice)
         await self._to_client(db, booking.client_id, notice)
+
+    async def on_booking_departed(self, db: AsyncSession, booking_id: str) -> None:
+        """Text the client that their member is on the way, with the arrival time still ahead."""
+        booking = await db.get(Booking, booking_id)
+        if booking is None or booking.staff_id is None:
+            return
+        slot = await db.get(Slot, booking.slot_id)
+        business = await db.get(Business, booking.business_id)
+        if slot is None or business is None:
+            return
+        locale = locale_for(business=business)
+        name = (await staff_names(db, business.id, [booking.staff_id])).get(booking.staff_id)
+        member = name.split()[0] if name else message(locale, "booking_departed.someone")
+        ahead = slot.starts_at > clock.now()
+        arrival = format_time(locale, slot.starts_at, business.timezone) if ahead else None
+        notice = booking_departed_message(locale, business.name, member, arrival)
+        await self._to_client(db, booking.client_id, notice, channel="sms")
 
     async def on_booking_rescheduled(self, db: AsyncSession, booking_id: str) -> None:
         await self._visit_notice(db, booking_id, booking_rescheduled_message)
@@ -1372,6 +1428,7 @@ class Notifier:
             return
         locale = locale_for(business=business)
         notice = build(locale, business.name, _when(locale, business, slot))
+        notice = await at_the_visit(db, business, booking, notice)
         await self._to_client(db, booking.client_id, notice)
 
     async def on_series_booked(

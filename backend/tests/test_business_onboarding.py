@@ -163,7 +163,7 @@ async def test_onboard_unknown_timezone_422_no_partial(
     assert n == 0
 
 
-@pytest.mark.parametrize("kind", ["pet", "student", "property", None])
+@pytest.mark.parametrize("kind", ["pet", "student", "property", "site", None])
 async def test_onboard_stores_the_chosen_subject_kind(
     api: httpx.AsyncClient,
     factory: Factory,

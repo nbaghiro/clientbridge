@@ -14,7 +14,7 @@ const PAGES = [
 test("key pages read every text from the en-XA catalog", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("html")).toHaveAttribute("lang", "en-XA");
-    await page.fill('input[type="email"]', "hannah@birchbarkpets.ca");
+    await page.fill('input[type="email"]', "hannah@birchbark.example");
     await page.fill('input[type="password"]', "demo1234");
     await page.locator('button[type="submit"]').first().click();
     await expect(page).toHaveURL(/\/today$/, { timeout: 60_000 });

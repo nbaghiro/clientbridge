@@ -1,6 +1,7 @@
 import {
     type ComposerSlot,
     addDays,
+    arrivalLabel,
     blockSpan,
     eventFlags,
     eventLabelFor,
@@ -20,6 +21,7 @@ import {
     BUSINESS_CURRENCY,
     useBusinessZone,
     minutesInto,
+    useSubjectKind,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -61,6 +63,7 @@ const GUTTER = 44;
 
 export function ScheduleScreen() {
     const zone = useBusinessZone();
+    const kind = useSubjectKind();
     const viewer = useViewer();
     const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     const route = useRoute<RouteProp<TabParamList, "Schedule">>();
@@ -73,19 +76,21 @@ export function ScheduleScreen() {
     const [moving, setMoving] = useState(false);
     const hours = hourMarks(startHour, endHour);
     const waiting = board.load.state === "loading" || board.load.state === "error";
-    const openNew = (): void => {
+    const openNew = (estimateId?: string): void => {
         const first = day.lanes.find((l) => l.hours) ?? day.lanes[0];
         setComposer({
             staffId: first?.id ?? viewer?.staffId ?? "",
             start: minutesInto(day.date, 10 * 60, board.zone),
+            estimateId,
         });
     };
     const create = route.params?.create;
+    const estimate = route.params?.estimate;
     const open = route.params?.open ?? null;
     const openStart = useBookingStart(open);
     const { setAnchor, select } = board;
     useEffect(() => {
-        if (create !== undefined) openNew();
+        if (create !== undefined) openNew(estimate);
     }, [create]);
     useEffect(() => {
         if (open === null || openStart === null) return;
@@ -119,7 +124,14 @@ export function ScheduleScreen() {
                         nav.navigate("Recurrences");
                     }}
                 />
-                <Button style={{ alignSelf: "center" }} size="sm" icon="plus" onPress={openNew}>
+                <Button
+                    style={{ alignSelf: "center" }}
+                    size="sm"
+                    icon="plus"
+                    onPress={() => {
+                        openNew();
+                    }}
+                >
                     {s.newShort}
                 </Button>
             </View>
@@ -285,7 +297,10 @@ export function ScheduleScreen() {
                                                               p.event.bookedCount,
                                                               p.event.capacity,
                                                           )
-                                                        : p.event.serviceName
+                                                        : formatParts([
+                                                              p.event.serviceName,
+                                                              arrivalLabel(p.event, kind),
+                                                          ])
                                                 }
                                                 time={formatTime(p.event.start, zone)}
                                                 intent={p.event.intent}

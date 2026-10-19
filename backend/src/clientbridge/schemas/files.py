@@ -35,6 +35,10 @@ class FileUpload(BaseModel):
     upload_url: str
 
 
+class FileLink(BaseModel):
+    url: str
+
+
 class PublicFileCreate(Mirror):
     mirrors = File
 

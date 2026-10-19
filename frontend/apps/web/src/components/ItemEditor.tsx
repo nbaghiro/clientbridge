@@ -15,6 +15,8 @@ import {
     useServiceEditor,
     BUSINESS_CURRENCY,
     currencyAffix,
+    kindWord,
+    useSubjectKind,
 } from "@clientbridge/app-core";
 import {
     Button,
@@ -274,6 +276,7 @@ function PhotoField({ ed }: { ed: ProductEditor }) {
 }
 
 function ProductFields({ ed }: { ed: ProductEditor }) {
+    const word = kindWord(useSubjectKind());
     const v = ed.form.values;
     const set = ed.form.set;
     return (
@@ -282,7 +285,7 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                 <PhotoField ed={ed} />
             </DetailSection>
             <DetailSection title={s.sectionBasics}>
-                <BasicsFields form={ed.form} placeholder={s.namePlaceholderProduct} />
+                <BasicsFields form={ed.form} placeholder={s.namePlaceholderProduct(word)} />
                 <div className="mt-3">
                     <TextField
                         label={s.sku}

@@ -459,7 +459,7 @@ def _documents(ctx: DemoContext) -> None:
                     "weight_kg": pet.attributes.get("weight_kg", 10),
                     "vaccinated": True,
                     "emergency_phone": client.phone or "+12505550100",
-                    "owner_email": client.email or "demo@example.com",
+                    "owner_email": client.email or "demo@example.test",
                     "behaviour": ["Anxious"]
                     if pet.attributes.get("temperament") == "anxious"
                     else ["Friendly"],

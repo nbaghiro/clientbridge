@@ -90,7 +90,9 @@ test("existing business never flashes onboarding during sign-in or a slow reload
         observer.observe(document, { subtree: true, childList: true });
     }, strings.business.onboarding.title);
     await page.goto("/");
-    await page.getByRole("textbox", { name: a.email, exact: true }).fill("hannah@birchbarkpets.ca");
+    await page
+        .getByRole("textbox", { name: a.email, exact: true })
+        .fill("hannah@birchbark.example");
     await page.getByLabel(a.password, { exact: true }).fill("demo1234");
     await page.getByRole("button", { name: a.signIn, exact: true }).click();
     await expect(

@@ -85,15 +85,24 @@ export function Schedule() {
     });
 
     const slotAt = (min: number): Date => minutesInto(day.date, startHour * 60 + min, zone);
-    const openSlot = (staffId: string, min: number): void => {
+    const openSlot = (staffId: string, min: number, estimateId?: string): void => {
         board.select(null);
-        setComposer({ staffId, start: slotAt(min) });
+        setComposer({ staffId, start: slotAt(min), estimateId });
     };
-    const openNew = (): void => {
+    const openNew = (estimateId?: string): void => {
         const first = day.lanes.find((l) => l.hours) ?? day.lanes[0];
-        openSlot(first?.id ?? viewer?.staffId ?? "", Math.max(0, (10 - startHour) * 60));
+        openSlot(
+            first?.id ?? viewer?.staffId ?? "",
+            Math.max(0, (10 - startHour) * 60),
+            estimateId,
+        );
     };
-    useLinkIntent({ onCreate: openNew, onOpen: setLinked });
+    const params = useLinkIntent({
+        onCreate: () => {
+            openNew(params.get("estimate") ?? undefined);
+        },
+        onOpen: setLinked,
+    });
     const { setAnchor, select: selectId } = board;
     useEffect(() => {
         if (linked === null || linkedStart === null) return;
@@ -160,7 +169,9 @@ export function Schedule() {
                 <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-card">
                     <CalendarToolbar
                         board={board}
-                        onNew={openNew}
+                        onNew={() => {
+                            openNew();
+                        }}
                         leading={<ScheduleViews active="board" />}
                     />
                     <DaySummaryBar summary={board.summary} waiting={waiting} />

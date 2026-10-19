@@ -28,6 +28,21 @@ msgstr "You're booked"
 msgid "booking_confirmed.subject"
 msgstr "Booking confirmed — {business}"
 
+msgid "booking_departed.body"
+msgstr "{member} from {business} expects to arrive around {time} and is on the way now."
+
+msgid "booking_departed.body_now"
+msgstr "{member} from {business} is on the way to you now."
+
+msgid "booking_departed.heading"
+msgstr "On the way"
+
+msgid "booking_departed.someone"
+msgstr "A member of the team"
+
+msgid "booking_departed.subject"
+msgstr "{member} from {business} is on the way"
+
 msgid "booking_reassigned.body"
 msgstr "Your appointment with {business} on {when} is now with {member}."
 
@@ -153,6 +168,9 @@ msgstr "You're getting this email because you're a client of {business}."
 
 msgid "email.footer.company"
 msgstr "ClientBridge Inc., 3704 Lakepoint Dr, Severn, Ontario L3V 8M9, Canada"
+
+msgid "email.footer.visit_at"
+msgstr "Visit address: {address}"
 
 msgid "email.footer.separator"
 msgstr " · "

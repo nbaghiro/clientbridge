@@ -20,6 +20,7 @@ from clientbridge.core.locale import (
     format_money,
     format_number,
     format_percent,
+    format_time,
     locale_for,
     message,
     plural,
@@ -144,6 +145,10 @@ def _builders() -> dict[str, Render]:
         "booking_reassigned_message": lambda c: (
             n.booking_reassigned_message(c, NAME, [when(c)], NAME),
             n.booking_reassigned_message(c, NAME, [when(c), when(c)], NAME),
+        ),
+        "booking_departed_message": lambda c: (
+            n.booking_departed_message(c, NAME, NAME, format_time(c, MOMENT, "America/Vancouver")),
+            n.booking_departed_message(c, NAME, NAME, None),
         ),
         "booking_requested_message": lambda c: n.booking_requested_message(c, NAME, when(c)),
         "booking_released_message": lambda c: n.booking_released_message(c, NAME, when(c)),
@@ -270,6 +275,11 @@ def test_money_uses_the_amount_currency(cents: int, currency: str, expected: str
 )
 def test_dates_render_in_the_business_zone(moment: datetime, zone: str, expected: str) -> None:
     assert format_day_and_time(SOURCE_LOCALE, moment, zone) == expected
+
+
+def test_times_render_on_the_business_clock() -> None:
+    assert format_time(SOURCE_LOCALE, MOMENT, "America/Vancouver") == "2:30 p.m."
+    assert format_time(SOURCE_LOCALE, MOMENT, "Asia/Tokyo") == "6:30 a.m."
 
 
 def test_numbers_and_percentages() -> None:

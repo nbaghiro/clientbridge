@@ -30,6 +30,10 @@ class BookingCreate(Mirror):
     subject_id: str | None = None
     note: str | None = Field(default=None, max_length=2000, description="Kept as a booking note")
     notify: bool = Field(default=True, description="Send the client a confirmation")
+    estimate_id: str | None = Field(
+        default=None,
+        description="An accepted estimate whose product lines join the visit as add-ons",
+    )
 
 
 class BookingMove(BaseModel):
@@ -100,6 +104,7 @@ class BookingOut(Mirror):
     price_cents: int
     deposit_amount_cents: int
     deposit_status: DepositStatus
+    departed_at: datetime | None
     checked_in_at: datetime | None
     starts_at: datetime
     ends_at: datetime

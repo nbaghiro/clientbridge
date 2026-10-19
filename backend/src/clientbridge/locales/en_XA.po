@@ -43,6 +43,21 @@ msgstr "[Ýöû'ŕé ƀööķéð~~~~~]"
 msgid "booking_confirmed.subject"
 msgstr "[Ɓööķîñĝ çöñƒîŕɱéð — {business}~~~~~~~]"
 
+msgid "booking_departed.body"
+msgstr "[{member} ƒŕöɱ {business} éẋþéçţš ţö åŕŕîṽé åŕöûñð {time} åñð îš öñ ţĥé ŵåý ñöŵ.~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "booking_departed.body_now"
+msgstr "[{member} ƒŕöɱ {business} îš öñ ţĥé ŵåý ţö ýöû ñöŵ.~~~~~~~~~~~~]"
+
+msgid "booking_departed.heading"
+msgstr "[Öñ ţĥé ŵåý~~~~]"
+
+msgid "booking_departed.someone"
+msgstr "[Å ɱéɱƀéŕ öƒ ţĥé ţéåɱ~~~~~~~]"
+
+msgid "booking_departed.subject"
+msgstr "[{member} ƒŕöɱ {business} îš öñ ţĥé ŵåý~~~~~~~]"
+
 msgid "booking_reassigned.body"
 msgstr "[Ýöûŕ åþþöîñţɱéñţ ŵîţĥ {business} öñ {when} îš ñöŵ ŵîţĥ {member}.~~~~~~~~~~~~~~]"
 
@@ -177,6 +192,9 @@ msgstr "[ · ~~]"
 
 msgid "email.footer.team"
 msgstr "[Ýöû'ŕé ĝéţţîñĝ ţĥîš éɱåîļ ƀéçåûšé ýöû ŵöŕķ ŵîţĥ {business} öñ Çļîéñţƀŕîðĝé.~~~~~~~~~~~~~~~~~~~~~~~]"
+
+msgid "email.footer.visit_at"
+msgstr "[Ṽîšîţ åððŕéšš: {address}~~~~~~]"
 
 msgid "email.kind.account"
 msgstr "[Åççöûñţ~~~]"

@@ -253,6 +253,7 @@ interface Strings {
         readonly declinedOn: (when: string) => string;
         readonly convertedTo: (n: string) => string;
         readonly convert: string;
+        readonly bookVisit: (kind: string) => string;
         readonly convertTitle: string;
         readonly convertBody: string;
         readonly markAccepted: string;
@@ -883,6 +884,14 @@ interface Strings {
         readonly detailWhen: string;
         readonly detailWith: string;
         readonly detailNotes: string;
+        readonly detailPhotos: string;
+        readonly photosHint: string;
+        readonly photosNone: string;
+        readonly photoTake: string;
+        readonly photoChoose: string;
+        readonly photoAdd: string;
+        readonly photoAlt: (n: number) => string;
+        readonly photoCameraDenied: string;
         readonly detailDeposit: string;
         readonly detailAddons: string;
         readonly detailSeries: string;
@@ -903,6 +912,17 @@ interface Strings {
         readonly historyReminderSent: string;
         readonly historyReminderDue: string;
         readonly historyCheckedIn: string;
+        readonly historyArrived: string;
+        readonly historyDeparted: (name: string) => string;
+        readonly onTheWay: string;
+        readonly arrivedOnSite: string;
+        readonly arrivedAtPlace: string;
+        readonly departTitle: string;
+        readonly departBody: string;
+        readonly departAction: string;
+        readonly departError: string;
+        readonly directions: string;
+        readonly directionsTo: (address: string) => string;
         readonly depositPaid: (amount: string) => string;
         readonly depositDue: (amount: string) => string;
         readonly depositKept: (amount: string) => string;
@@ -960,6 +980,8 @@ interface Strings {
         readonly composerConfirm: string;
         readonly composerDeposit: (amount: string) => string;
         readonly composerEnds: (time: string, min: number) => string;
+        readonly composerFromEstimate: (number: number) => string;
+        readonly composerFromEstimateHint: string;
         readonly composerBook: string;
         readonly composerBookSeries: (n: number) => string;
         readonly composerBooking: string;
@@ -1712,7 +1734,40 @@ interface Strings {
                 readonly pets: string;
                 readonly petsPlaceholder: string;
             } & Labels;
+            readonly site: {
+                readonly building: string;
+                readonly buildings: (building: string) => string;
+                readonly internet: string;
+                readonly internetPlaceholder: string;
+                readonly recorder: string;
+                readonly recorderPlaceholder: string;
+                readonly pets: string;
+                readonly petsPlaceholder: string;
+                readonly accessPlaceholder: string;
+            };
         };
+        readonly devices: (count: number) => string;
+        readonly equipment: {
+            readonly title: string;
+            readonly hint: string;
+            readonly add: string;
+            readonly remove: string;
+            readonly item: (n: number) => string;
+            readonly model: string;
+            readonly modelPlaceholder: string;
+            readonly location: string;
+            readonly locationPlaceholder: string;
+            readonly serial: string;
+            readonly installedOn: string;
+            readonly warrantyUntil: string;
+            readonly modelRequired: string;
+            readonly tooLong: (max: number) => string;
+            readonly serialShort: (serial: string) => string;
+            readonly installed: (date: string) => string;
+            readonly warrantyEnds: (date: string) => string;
+            readonly warrantyEnded: (date: string) => string;
+        };
+        readonly photos: string;
     };
     readonly messaging: {
         readonly title: string;
@@ -1808,14 +1863,14 @@ interface Strings {
         readonly back: string;
         readonly nameLabel: string;
         readonly nameHint: string;
-        readonly namePlaceholder: string;
+        readonly namePlaceholder: (kind: string) => string;
         readonly channelPick: string;
         readonly channels: { readonly sms: string; readonly email: string } & Labels;
         readonly audienceLabel: string;
         readonly everyone: string;
         readonly tagChip: (tag: string, n: number) => string;
         readonly messageLabel: string;
-        readonly messagePlaceholder: string;
+        readonly messagePlaceholder: (kind: string) => string;
         readonly optOutSms: string;
         readonly optOutEmail: string;
         readonly smsPreview: (business: string, text: string, optOut: string) => string;
@@ -2525,7 +2580,7 @@ interface Strings {
         readonly sectionPlan: string;
         readonly name: string;
         readonly namePlaceholderService: string;
-        readonly namePlaceholderProduct: string;
+        readonly namePlaceholderProduct: (kind: string) => string;
         readonly description: string;
         readonly descriptionHint: string;
         readonly category: string;
@@ -3059,6 +3114,10 @@ interface Strings {
         readonly checkIn: string;
         readonly checkout: string;
         readonly checkedIn: string;
+        readonly arrive: string;
+        readonly onSite: string;
+        readonly depart: string;
+        readonly onTheWay: string;
         readonly inMinutes: (hours: number, minutes: number) => string;
         readonly endsAt: (time: string) => string;
         readonly withStaff: (name: string) => string;
@@ -3654,7 +3713,7 @@ interface Strings {
         readonly subject: (kind: string) => string;
         readonly subjectPlaceholder: (kind: string) => string;
         readonly note: string;
-        readonly notePlaceholder: string;
+        readonly notePlaceholder: (kind: string) => string;
         readonly reachHint: string;
         readonly nameRequired: string;
         readonly contactRequired: string;
@@ -3663,7 +3722,7 @@ interface Strings {
         readonly subjectRequired: (kind: string) => string;
         readonly address: string;
         readonly addressPlaceholder: string;
-        readonly addressRequired: string;
+        readonly addressRequired: (kind: string) => string;
         readonly summary: string;
         readonly dueNow: string;
         readonly dueAtVisit: string;
@@ -3925,6 +3984,7 @@ interface Strings {
     };
     readonly publicManage: {
         readonly gettingThere: string;
+        readonly visitPlace: string;
         readonly payment: string;
         readonly directions: string;
         readonly message: string;

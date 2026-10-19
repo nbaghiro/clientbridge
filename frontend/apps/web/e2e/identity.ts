@@ -124,7 +124,7 @@ export async function sessionActive(request: APIRequestContext, token: string): 
 }
 
 async function asOwner(request: APIRequestContext): Promise<Record<string, string>> {
-    const token = await nativeSession(request, "hannah@birchbarkpets.ca", "demo1234");
+    const token = await nativeSession(request, "hannah@birchbark.example", "demo1234");
     return { "X-Session-Token": token, "X-Business-Id": "bz_birchbark" };
 }
 

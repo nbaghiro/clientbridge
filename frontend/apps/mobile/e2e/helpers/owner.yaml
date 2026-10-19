@@ -14,7 +14,7 @@ appId: ca.clientbridge.app
           visible: "Sign in"
       commands:
           - tapOn: "you@business.ca"
-          - inputText: "hannah@birchbarkpets.ca"
+          - inputText: "hannah@birchbark.example"
           - tapOn: "••••••••"
           - eraseText
           - inputText: "demo1234"

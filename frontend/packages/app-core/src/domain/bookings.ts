@@ -46,7 +46,9 @@ import type { Viewer } from "./auth";
 import { type ItemRow, bookableItems, useCatalogItems } from "./catalog";
 import { type Checkout, useCheckout } from "./checkout";
 import { type ClientRow, useClients } from "./clients";
+import { type Photo, bookingPhotoTarget, useFileLinks, useFileUpload } from "./files";
 import { canManagePayments } from "./payments";
+import { isPlace, mapsUrl, visitAddress } from "./publicBooking";
 import { type StaffRow, staffName, useStaff } from "./staff";
 import {
     type SubjectKind,
@@ -196,6 +198,7 @@ export interface ScheduleEvent extends CalendarEvent {
     seriesId: string | null;
     addonCount: number;
     note: string | null;
+    departedAt: Date | null;
     checkedIn: boolean;
     bookedAt: Date | null;
     remindedAt: Date | null;
@@ -235,6 +238,7 @@ interface EventRow {
     deposit_amount_cents: number | null;
     deposit_status: string | null;
     booking_price: number | null;
+    departed_at: string | null;
     checked_in_at: string | null;
     booked_at: string | null;
     reminded_at: string | null;
@@ -263,7 +267,8 @@ SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.status
           AND x.status NOT IN ('canceled', 'waitlisted') AND x.deleted_at IS NULL) AS booked_count,
        b.id AS booking_id, b.status AS booking_status, b.client_id, c.name AS client_name,
        sj.name AS subject_name, b.source, b.deposit_amount_cents, b.deposit_status,
-       b.price_cents AS booking_price, b.checked_in_at, b.created_at AS booked_at, b.reminded_at,
+       b.price_cents AS booking_price, b.departed_at, b.checked_in_at, b.created_at AS booked_at,
+       b.reminded_at,
        (SELECT COUNT(*) FROM addons a WHERE a.booking_id = b.id) AS addon_count,
        (SELECT n.body FROM notes n WHERE n.parent_type = 'booking' AND n.parent_id = b.id
           ORDER BY n.created_at LIMIT 1) AS note
@@ -316,6 +321,7 @@ function enrich(r: EventRow, staff: Map<string, StaffRow>, now: Date, zone: stri
         seriesId: r.recurrence_id,
         addonCount: r.addon_count,
         note: r.note,
+        departedAt: r.departed_at !== null ? parseTimestamp(r.departed_at) : null,
         checkedIn: r.checked_in_at !== null,
         bookedAt: r.booked_at !== null ? parseTimestamp(r.booked_at) : null,
         remindedAt: r.reminded_at !== null ? parseTimestamp(r.reminded_at) : null,
@@ -1439,12 +1445,16 @@ function seriesEvery(frequency: string, interval: number): string {
           : s.everyDays(interval);
 }
 
+export const BUSINESS_ADDRESS_SQL =
+    "SELECT json_extract(brand, '$.address') AS address FROM businesses LIMIT 1";
+
 export interface BookingDetail {
     event: ScheduleEvent;
     client: DetailClientRow | null;
     clientLine: string;
     subject: VisitSubject | null;
     subjectLine: string | null;
+    directions: { address: string; url: string } | null;
     temperament: { label: string; nervous: boolean } | null;
     tags: string[];
     notes: NoteRow[];
@@ -1477,6 +1487,8 @@ export function useBookingDetail(event: ScheduleEvent | null, now: Date): Bookin
         useQuery<SubjectDetailRow>(DETAIL_SUBJECT_SQL, [bookingId]).data.at(0),
     );
     const kind = useSubjectKind();
+    const businessAddress =
+        useQuery<{ address: string | null }>(BUSINESS_ADDRESS_SQL).data.at(0)?.address ?? null;
     const notes = useQuery<NoteRow>(DETAIL_NOTES_SQL, [bookingId, clientId]).data;
     const series = useQuery<SeriesRow>(DETAIL_SERIES_SQL, [event?.slotId ?? ""]).data.at(0);
     const roster = useQuery<RosterRow>(DETAIL_ROSTER_SQL, [
@@ -1530,8 +1542,20 @@ export function useBookingDetail(event: ScheduleEvent | null, now: Date): Bookin
             intent: "neutral",
         });
     }
+    if (event.departedAt !== null)
+        history.push({
+            key: "departed",
+            label: s.historyDeparted(event.staffShort),
+            at: stamp(event.departedAt),
+            intent: "accent",
+        });
     if (event.checkedIn)
-        history.push({ key: "here", label: s.historyCheckedIn, at: "", intent: "accent" });
+        history.push({
+            key: "here",
+            label: kind === "site" ? s.historyArrived : s.historyCheckedIn,
+            at: "",
+            intent: "accent",
+        });
     if (event.status === "completed")
         history.push({ key: "done", label: s.completed, at: stamp(event.end), intent: "success" });
     if (event.status === "no_show")
@@ -1541,6 +1565,10 @@ export function useBookingDetail(event: ScheduleEvent | null, now: Date): Bookin
             at: stamp(event.start),
             intent: "danger",
         });
+    const address =
+        event.kind === "visit"
+            ? visitAddress(kind, subject?.attributes ?? null, businessAddress)
+            : null;
     const visits = stats?.visits ?? 0;
     const last = stats?.last_visit ? parseTimestamp(stats.last_visit) : null;
     return {
@@ -1552,6 +1580,7 @@ export function useBookingDetail(event: ScheduleEvent | null, now: Date): Bookin
             last !== null ? s.lastVisit(formatDate(last, zone)) : null,
         ]),
         subject,
+        directions: address === null ? null : { address, url: mapsUrl(address) },
         subjectLine:
             subject === null ? null : subjectSummary(kind, subject.attributes, zone, now) || null,
         temperament: subject === null ? null : subjectTemperament(kind, subject.attributes),
@@ -1662,7 +1691,18 @@ export function useBookingActions(
 export interface ComposerSlot {
     staffId: string;
     start: Date;
+    // an accepted estimate to book: its client is picked and its products join as add-ons
+    estimateId?: string | undefined;
 }
+
+export const ESTIMATE_BOOKING_SQL = `
+SELECT e.client_id, e.number FROM estimates e
+WHERE e.id = ? AND e.status = 'accepted' AND e.converted_invoice_id IS NULL`;
+
+export const ESTIMATE_PRODUCTS_SQL = `
+SELECT l.id, l.description, l.quantity FROM lines l JOIN items i ON i.id = l.item_id
+WHERE l.estimate_id = ? AND i.kind = 'product' AND (COALESCE(l.optional, 0) = 0 OR l.selected = 1)
+ORDER BY l.position, l.id`;
 
 interface SubjectOption {
     id: string;
@@ -1707,6 +1747,8 @@ export interface BookingComposer {
     time: string;
     setTime: (hhmm: string) => void;
     endsLabel: string;
+    // the estimate being booked and the products it adds, which a series can't carry
+    fromEstimate: { title: string; lines: string[] } | null;
     repeat: boolean;
     setRepeat: (v: boolean) => void;
     every: number;
@@ -1821,6 +1863,14 @@ export function useBookingComposer(
     const [query, setQuery] = useState("");
     const [clientId, setClientId] = useState<string | null>(null);
     const [subjectId, setSubjectId] = useState("");
+    const estimateId = slot.estimateId ?? "";
+    const estimate =
+        useQuery<{ client_id: string; number: number | null }>(ESTIMATE_BOOKING_SQL, [estimateId])
+            .data[0] ?? null;
+    const products = useQuery<{ id: string; description: string; quantity: number }>(
+        ESTIMATE_PRODUCTS_SQL,
+        [estimateId],
+    ).data;
     const [itemId, setItemId] = useState("");
     const zone = useBusinessZone();
     const [staffId, setStaffId] = useState(slot.staffId);
@@ -1874,6 +1924,18 @@ export function useBookingComposer(
                   null,
                   target,
               );
+    const prefilled = useRef(false);
+    useEffect(() => {
+        if (prefilled.current || estimate === null) return;
+        prefilled.current = true;
+        setClientId(estimate.client_id);
+        setSubjectId(
+            kind === null
+                ? ""
+                : (allSubjects.find((p) => p.client_id === estimate.client_id)?.id ?? ""),
+        );
+    }, [estimate, kind, allSubjects]);
+    const booking = estimate !== null && client?.id === estimate.client_id;
     const verdict = check(staffId);
     const problem = item !== null && verdict.problem !== null ? verdict.message : null;
     const deposit = depositOf(item);
@@ -1907,7 +1969,13 @@ export function useBookingComposer(
         time,
         setTime,
         endsLabel: s.composerEnds(formatTime(end, zone), length),
-        repeat,
+        fromEstimate: booking
+            ? {
+                  title: s.composerFromEstimate(estimate.number ?? 0),
+                  lines: products.map((l) => strings.common.quantityOf(l.quantity, l.description)),
+              }
+            : null,
+        repeat: repeat && !booking,
         setRepeat,
         every,
         setEvery,
@@ -1933,13 +2001,14 @@ export function useBookingComposer(
                 item_id: item.id,
                 staff_id: staffId,
                 starts_at: start.toISOString(),
+                ...(booking ? { estimate_id: estimateId } : {}),
             };
             const idempotencyKey = attemptKey(key, { body, repeat, every, count, notify, note });
             let skipped = 0;
             let created = 0;
             run(
                 async () => {
-                    if (repeat) {
+                    if (repeat && !booking) {
                         const out = await api.post<{ created: number; skipped: number }>(
                             "/v1/recurrences",
                             {
@@ -2222,5 +2291,95 @@ export function useBookingAddons(
         },
         busy,
         error,
+    };
+}
+
+export const BOOKING_PHOTOS_SQL = `
+SELECT id FROM files
+WHERE parent_type = 'booking' AND parent_id = ? AND uploaded_at IS NOT NULL
+ORDER BY created_at, id`;
+
+export interface BookingPhotos {
+    photos: Photo[];
+    canAdd: boolean;
+    busy: boolean;
+    error: string | null;
+    add: (body: Blob, contentType: string, sizeBytes?: number) => void;
+}
+
+/** Before and after photos on a visit; the member on it or a manager can add more. */
+export function useBookingPhotos(
+    api: ApiLike,
+    event: CalendarEvent,
+    viewer: Viewer | null,
+): BookingPhotos {
+    const bookingId = event.bookingId ?? "";
+    const rows = useQuery<{ id: string }>(BOOKING_PHOTOS_SQL, [bookingId]).data;
+    const links = useFileLinks(
+        api,
+        rows.map((r) => r.id),
+    );
+    const upload = useFileUpload(api);
+    const canAdd =
+        bookingId !== "" &&
+        viewer !== null &&
+        (canManagePayments(viewer.role) || viewer.staffId === event.staffId);
+    return {
+        photos: rows.map((r) => ({ id: r.id, src: links[r.id] ?? null })),
+        canAdd,
+        busy: upload.busy,
+        error: upload.error,
+        add: (body, contentType, sizeBytes) => {
+            if (!canAdd) return;
+            upload.upload(body, bookingPhotoTarget(bookingId), contentType, sizeBytes);
+        },
+    };
+}
+
+/** Where a visit stands on the way in, for businesses that go to the client's place. */
+export function arrivalLabel(event: ScheduleEvent, kind: SubjectKind | null): string | null {
+    if (!isPlace(kind) || event.kind !== "visit") return null;
+    if (event.checkedIn) return kind === "site" ? s.arrivedOnSite : s.arrivedAtPlace;
+    if (event.departedAt !== null && (event.status === "confirmed" || event.status === "pending"))
+        return s.onTheWay;
+    return null;
+}
+
+export interface Departure {
+    canDepart: boolean;
+    busy: boolean;
+    error: string | null;
+    depart: () => void;
+}
+
+/** "On my way": the member on the visit, or a manager, tells the client they have set off. */
+export function useDeparture(
+    api: ApiLike,
+    event: ScheduleEvent,
+    viewer: Viewer | null,
+    kind: SubjectKind | null,
+): Departure {
+    const { busy, error, run } = useAsyncAction();
+    const open = event.status === "confirmed" || event.status === "pending";
+    const canDepart =
+        isPlace(kind) &&
+        event.kind === "visit" &&
+        event.bookingId !== null &&
+        open &&
+        event.departedAt === null &&
+        !event.checkedIn &&
+        viewer !== null &&
+        (canManagePayments(viewer.role) || viewer.staffId === event.staffId);
+    return {
+        canDepart,
+        busy,
+        error,
+        depart: () => {
+            if (!canDepart || event.bookingId === null) return;
+            const bookingId = event.bookingId;
+            run(() => api.post(`/v1/bookings/${bookingId}/depart`, {}), {
+                errorMessage: (e) => failureMessage(e, s.departError),
+            });
+        },
     };
 }

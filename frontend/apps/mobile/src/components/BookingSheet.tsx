@@ -11,7 +11,12 @@ import {
     formatMoney,
     savedCardLabel,
     strings,
+    type Photo,
+    useAsyncAction,
     useBookingAddons,
+    useBookingPhotos,
+    useDeparture,
+    useSubjectKind,
     useBookingComposer,
     useCollectDeposit,
     useNewMessage,
@@ -48,14 +53,36 @@ import {
     Toggle,
     SearchSelect,
 } from "@clientbridge/ui";
+import {
+    launchCameraAsync,
+    launchImageLibraryAsync,
+    requestCameraPermissionsAsync,
+} from "expo-image-picker";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 
 const c = theme.colors;
 const s = strings.bookings;
+
+function Departure({ event }: { event: ScheduleEvent }) {
+    const departure = useDeparture(api, event, useViewer(), useSubjectKind());
+    if (!departure.canDepart) return null;
+    return (
+        <View style={styles.depart}>
+            <Text style={styles.name}>{s.departTitle}</Text>
+            <Text style={styles.sub}>{s.departBody}</Text>
+            <View style={styles.dueActions}>
+                <Button grow icon="send" busy={departure.busy} onPress={departure.depart}>
+                    {s.departAction}
+                </Button>
+            </View>
+            {departure.error !== null ? <Notice tone="danger">{departure.error}</Notice> : null}
+        </View>
+    );
+}
 
 function DepositDue({ event }: { event: ScheduleEvent }) {
     const viewer = useViewer();
@@ -110,6 +137,89 @@ function DepositDue({ event }: { event: ScheduleEvent }) {
                 </>
             )}
         </View>
+    );
+}
+
+/** Job photo thumbnails; a photo whose link is still loading shows a blank tile. */
+export function PhotoGrid({ photos }: { photos: readonly Photo[] }) {
+    return (
+        <View style={styles.photos}>
+            {photos.map((p, i) => (
+                <View key={p.id} style={styles.photo}>
+                    {p.src !== null ? (
+                        <Image
+                            source={{ uri: p.src }}
+                            style={styles.photoImage}
+                            accessibilityLabel={s.photoAlt(i + 1)}
+                        />
+                    ) : null}
+                </View>
+            ))}
+        </View>
+    );
+}
+
+function Photos({ event }: { event: ScheduleEvent }) {
+    const photos = useBookingPhotos(api, event, useViewer());
+    const picker = useAsyncAction();
+    if (photos.photos.length === 0 && !photos.canAdd) return null;
+    const pick = (camera: boolean): void => {
+        picker.run(
+            async () => {
+                if (camera && !(await requestCameraPermissionsAsync()).granted) {
+                    picker.setError(s.photoCameraDenied);
+                    return;
+                }
+                const options = { mediaTypes: ["images" as const], quality: 0.8 };
+                const result = camera
+                    ? await launchCameraAsync(options)
+                    : await launchImageLibraryAsync(options);
+                const asset = result.assets?.[0];
+                if (!asset) return;
+                const blob = await (await fetch(asset.uri)).blob();
+                photos.add(blob, asset.mimeType ?? "image/jpeg", asset.fileSize);
+            },
+            { errorMessage: strings.common.fileUploadError },
+        );
+    };
+    return (
+        <DetailSection title={s.detailPhotos}>
+            {photos.photos.length === 0 ? (
+                <Text style={styles.hint}>{s.photosNone}</Text>
+            ) : (
+                <PhotoGrid photos={photos.photos} />
+            )}
+            <Text style={styles.hint}>{s.photosHint}</Text>
+            {photos.canAdd ? (
+                <View style={styles.photoActions}>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        grow
+                        busy={photos.busy || picker.busy}
+                        onPress={() => {
+                            pick(true);
+                        }}
+                    >
+                        {s.photoTake}
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        grow
+                        disabled={photos.busy || picker.busy}
+                        onPress={() => {
+                            pick(false);
+                        }}
+                    >
+                        {s.photoChoose}
+                    </Button>
+                </View>
+            ) : null}
+            {(photos.error ?? picker.error) !== null ? (
+                <Notice tone="danger">{photos.error ?? picker.error}</Notice>
+            ) : null}
+        </DetailSection>
     );
 }
 
@@ -205,6 +315,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                     ]}
                 />
             </View>
+            <Departure event={e} />
             <DepositDue event={e} />
             {client ? (
                 <DetailSection
@@ -262,6 +373,28 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                                         intent={detail.temperament.nervous ? "warning" : "neutral"}
                                     />
                                 ) : null}
+                            </View>
+                        ) : null}
+                        {detail.directions !== null ? (
+                            <View style={[styles.cardRow, styles.divider]}>
+                                <Icon name="pin" size={15} color={c.muted} />
+                                <Text style={[styles.sub, styles.flex]} numberOfLines={2}>
+                                    {detail.directions.address}
+                                </Text>
+                                <Button
+                                    style={{ alignSelf: "center" }}
+                                    size="sm"
+                                    variant="link"
+                                    label={s.directionsTo(detail.directions.address)}
+                                    onPress={() => {
+                                        if (detail.directions !== null)
+                                            Linking.openURL(detail.directions.url).catch(
+                                                () => undefined,
+                                            );
+                                    }}
+                                >
+                                    {s.directions}
+                                </Button>
                             </View>
                         ) : null}
                         <View style={[styles.cardRow, styles.divider]}>
@@ -323,6 +456,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                     ))}
                 </DetailSection>
             ) : null}
+            {e.bookingId !== null ? <Photos event={e} /> : null}
             {e.bookingId !== null ? <Addons event={e} /> : null}
             {detail.history.length > 0 ? (
                 <DetailSection title={s.detailHistory}>
@@ -660,19 +794,31 @@ export function BookingComposerSheet({
                 )}
                 {form.problem !== null ? <Notice tone="danger">{form.problem}</Notice> : null}
 
-                <Toggle
-                    label={s.composerRepeat}
-                    hint={
-                        form.repeat
-                            ? formatParts([
-                                  s.everyWeeks(form.every),
-                                  s.composerBookSeries(form.count),
-                              ])
-                            : undefined
-                    }
-                    value={form.repeat}
-                    onChange={form.setRepeat}
-                />
+                {form.fromEstimate !== null ? (
+                    <View style={styles.depart}>
+                        <Text style={styles.name}>{form.fromEstimate.title}</Text>
+                        {form.fromEstimate.lines.map((line, i) => (
+                            <Text key={i} style={styles.sub}>
+                                {line}
+                            </Text>
+                        ))}
+                        <Text style={styles.hint}>{s.composerFromEstimateHint}</Text>
+                    </View>
+                ) : (
+                    <Toggle
+                        label={s.composerRepeat}
+                        hint={
+                            form.repeat
+                                ? formatParts([
+                                      s.everyWeeks(form.every),
+                                      s.composerBookSeries(form.count),
+                                  ])
+                                : undefined
+                        }
+                        value={form.repeat}
+                        onChange={form.setRepeat}
+                    />
+                )}
                 {form.repeat ? null : (
                     <TextField
                         label={s.composerNote}
@@ -714,6 +860,25 @@ export function BookingComposerSheet({
 
 const styles = StyleSheet.create({
     body: { gap: 4 },
+    photos: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    depart: {
+        gap: 4,
+        padding: 12,
+        marginBottom: 8,
+        borderRadius: theme.radius,
+        borderWidth: 1,
+        borderColor: c.border,
+        backgroundColor: c.surface,
+    },
+    photo: {
+        width: "31%",
+        aspectRatio: 1,
+        borderRadius: theme.radius,
+        overflow: "hidden",
+        backgroundColor: c.bg,
+    },
+    photoImage: { width: "100%", height: "100%" },
+    photoActions: { flexDirection: "row", gap: 8, marginTop: 8 },
     statusLine: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
     timing: { color: c.muted, fontSize: 13, fontWeight: "600" },
     facts: {

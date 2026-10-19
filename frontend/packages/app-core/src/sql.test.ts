@@ -956,6 +956,100 @@ function run(name: keyof typeof core, params: SqlValue[] = []): Row[] {
 }
 
 describe("app-core SQL against the replica schema", () => {
+    it("reads an accepted estimate's client and its chosen products for booking", () => {
+        scoped("lines", [
+            {
+                id: "ln_e1",
+                estimate_id: "est_1",
+                description: "Soap",
+                item_id: "it_soap",
+                quantity: 2,
+                position: 0,
+            },
+            { id: "ln_e2", estimate_id: "est_1", description: "Labour", quantity: 3, position: 1 },
+            {
+                id: "ln_e3",
+                estimate_id: "est_1",
+                description: "Cut",
+                item_id: "it_cut",
+                quantity: 1,
+                position: 2,
+            },
+            {
+                id: "ln_e4",
+                estimate_id: "est_1",
+                description: "Extra soap",
+                item_id: "it_soap",
+                quantity: 1,
+                optional: 1,
+                selected: 0,
+                position: 3,
+            },
+            {
+                id: "ln_e5",
+                estimate_id: "est_1",
+                description: "Big soap",
+                item_id: "it_soap",
+                quantity: 1,
+                optional: 1,
+                selected: 1,
+                position: 4,
+            },
+        ]);
+        expect(run("ESTIMATE_BOOKING_SQL", ["est_1"])).toEqual([
+            { client_id: "cl_ben", number: 3 },
+        ]);
+        expect(run("ESTIMATE_PRODUCTS_SQL", ["est_1"]).map((r) => r.id)).toEqual([
+            "ln_e1",
+            "ln_e5",
+        ]);
+        db.run("UPDATE estimates SET status = 'sent' WHERE id = 'est_1'");
+        expect(run("ESTIMATE_BOOKING_SQL", ["est_1"])).toEqual([]);
+    });
+
+    it("reads the business address from its brand", () => {
+        expect(run("BUSINESS_ADDRESS_SQL")).toEqual([{ address: null }]);
+        db.run(`UPDATE businesses SET brand = '{"address": "880 Douglas St"}'`);
+        expect(run("BUSINESS_ADDRESS_SQL")).toEqual([{ address: "880 Douglas St" }]);
+    });
+
+    it("lists a visit's uploaded photos and its subject's latest photos", () => {
+        db.run("UPDATE bookings SET subject_id = 'sj_site' WHERE id = 'bk_1'");
+        scoped("files", [
+            {
+                id: "fl_before",
+                parent_type: "booking",
+                parent_id: "bk_1",
+                purpose: "photo",
+                uploaded_at: TS,
+            },
+            {
+                id: "fl_after",
+                parent_type: "booking",
+                parent_id: "bk_1",
+                purpose: "photo",
+                created_at: "2026-06-26T10:00:00Z",
+                uploaded_at: "2026-06-26T10:00:00Z",
+            },
+            { id: "fl_unsent", parent_type: "booking", parent_id: "bk_1", purpose: "photo" },
+            {
+                id: "fl_other",
+                parent_type: "booking",
+                parent_id: "bk_4",
+                purpose: "photo",
+                uploaded_at: TS,
+            },
+        ]);
+        expect(run("BOOKING_PHOTOS_SQL", ["bk_1"]).map((r) => r.id)).toEqual([
+            "fl_before",
+            "fl_after",
+        ]);
+        expect(run("SUBJECT_PHOTOS_SQL", ["sj_site"]).map((r) => r.id)).toEqual([
+            "fl_after",
+            "fl_before",
+        ]);
+    });
+
     it("keeps visits longer than a week in an overlapping schedule window", () => {
         db.run(
             "UPDATE slots SET starts_at = '2026-06-01 10:00:00+00', ends_at = '2026-06-30 10:00:00+00' WHERE id = 'ss_1'",

@@ -41,7 +41,7 @@ def add_catalog_images(ctx: DemoContext) -> None:
 async def refresh_catalog() -> None:
     from scripts.seed_demo import BIZ, build_demo, validate_seed_target
 
-    validate_seed_target(reset_demo=False)
+    validate_seed_target()
     ctx = build_demo()
     images = [file for file in ctx.all(File) if file.parent_type == "item"]
     storage = get_file_storage()

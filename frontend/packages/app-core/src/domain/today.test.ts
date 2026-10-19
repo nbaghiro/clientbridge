@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAgenda, firstRunLayout, greeting, visitAction } from "./today";
+import { strings } from "../strings";
+import {
+    arrivalWords,
+    buildAgenda,
+    firstRunLayout,
+    greeting,
+    visitAction,
+    visitActionLabel,
+} from "./today";
 
 const ZONE = "America/Vancouver";
 
@@ -22,6 +30,7 @@ const row = (over: Record<string, unknown>) => ({
     client_phone: null,
     deposit_amount_cents: 2000,
     deposit_status: "collected",
+    departed_at: null,
     checked_in_at: null,
     staff_name: "Hannah Wong",
     staff_title: null,
@@ -113,6 +122,31 @@ describe("buildAgenda", () => {
         expect(noShow?.state).toBe("no_show");
         expect(noShow === undefined ? undefined : visitAction(noShow)).toBeNull();
         expect(later === undefined ? undefined : visitAction(later)).toBe("checkout");
+    });
+});
+
+describe("a visit at the client's place", () => {
+    const now = new Date("2026-10-06T15:00:00Z");
+    const [ahead] = buildAgenda([row({})], now, ZONE);
+    const [onTheWay] = buildAgenda([row({ departed_at: "2026-10-06T15:40:00Z" })], now, ZONE);
+    const [arrived] = buildAgenda(
+        [row({ departed_at: "2026-10-06T15:40:00Z", checked_in_at: "2026-10-06T15:58:00Z" })],
+        now,
+        ZONE,
+    );
+
+    it("is set off for, then arrived at, then checked out", () => {
+        expect(ahead && visitAction(ahead, "site")).toBe("depart");
+        expect(onTheWay && visitAction(onTheWay, "site")).toBe("checkIn");
+        expect(arrived && visitAction(arrived, "site")).toBe("checkout");
+        expect(ahead && visitAction(ahead, "pet")).toBe("checkIn");
+    });
+
+    it("names arriving on site for a site business and checking in for the others", () => {
+        expect(arrivalWords("site").done).toBe(strings.today.onSite);
+        expect(visitActionLabel("checkIn", "site")).toBe(strings.today.arrive);
+        expect(visitActionLabel("checkIn", "property")).toBe(strings.today.checkIn);
+        expect(visitActionLabel("depart", "site")).toBe(strings.today.depart);
     });
 });
 

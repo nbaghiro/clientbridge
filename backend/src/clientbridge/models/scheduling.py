@@ -77,6 +77,8 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     # lifecycle only, set as the ledger books the deposit; the amounts live in the ledger
     deposit_status: Mapped[DepositStatus] = mapped_column(String, default="none", nullable=False)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # when the member set off for the visit, and when they (or the client) arrived
+    departed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # the desk sale carrying this visit, and when it was paid (staff replicas have no ledger)
     order_id: Mapped[str | None] = mapped_column(ForeignKey("orders.id"))

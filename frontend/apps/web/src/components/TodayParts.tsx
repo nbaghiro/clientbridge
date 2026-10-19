@@ -10,6 +10,9 @@ import {
     strings,
     useFlash,
     visitAction,
+    visitActionLabel,
+    arrivalWords,
+    useSubjectKind,
     formatList,
     formatParts,
     BUSINESS_CURRENCY,
@@ -70,8 +73,11 @@ export function KpiStripLoading() {
 }
 
 function StateTag({ item }: { item: AgendaItem }) {
+    const kind = useSubjectKind();
     if (item.checkedIn && item.state !== "done")
-        return <StatusPill status={t.checkedIn} intent="success" />;
+        return <StatusPill status={arrivalWords(kind).done} intent="success" />;
+    if (item.departed && item.state !== "done")
+        return <StatusPill status={t.onTheWay} intent="accent" />;
     if (item.state === "now") return <StatusPill status={t.stateNow} intent="success" />;
     if (item.state === "next")
         return <StatusPill status={formatParts([t.stateNext, item.startsIn])} intent="accent" />;
@@ -82,7 +88,8 @@ function StateTag({ item }: { item: AgendaItem }) {
 
 function VisitButton({ item, actions }: { item: AgendaItem; actions: TodayActions }) {
     const openLink = useOpenLink();
-    const action = visitAction(item);
+    const kind = useSubjectKind();
+    const action = visitAction(item, kind);
     if (action === "checkout")
         return (
             <Button
@@ -94,7 +101,11 @@ function VisitButton({ item, actions }: { item: AgendaItem; actions: TodayAction
                 {t.checkout}
             </Button>
         );
-    if (action === "checkIn" && item.state === "next" && item.bookingId !== null) {
+    if (
+        (action === "depart" || action === "checkIn") &&
+        (item.state === "next" || item.departed) &&
+        item.bookingId !== null
+    ) {
         const id = item.bookingId;
         return (
             <Button
@@ -102,10 +113,11 @@ function VisitButton({ item, actions }: { item: AgendaItem; actions: TodayAction
                 variant="outline"
                 busy={actions.busyKey === id}
                 onPress={() => {
-                    actions.checkIn(id);
+                    if (action === "depart") actions.depart(id);
+                    else actions.checkIn(id);
                 }}
             >
-                {t.checkIn}
+                {visitActionLabel(action, kind)}
             </Button>
         );
     }

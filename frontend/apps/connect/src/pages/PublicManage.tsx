@@ -7,6 +7,7 @@ import {
     strings,
     useManageBooking,
     formatParts,
+    mapsUrl,
     SUBJECT_ICON,
 } from "@clientbridge/app-core/public";
 import {
@@ -135,7 +136,7 @@ export function PublicManage() {
                                     label={s.directions}
                                     onPress={() => {
                                         window.open(
-                                            `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(v.address ?? "")}`,
+                                            mapsUrl(v.address ?? ""),
                                             "_blank",
                                             "noopener,noreferrer",
                                         );
@@ -223,8 +224,12 @@ export function PublicManage() {
                 </div>
                 <aside className="space-y-5">
                     <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
-                        <h2 className="mb-3 font-display text-lg font-bold">{s.gettingThere}</h2>
-                        <p className="font-semibold">{v.business_name}</p>
+                        <h2 className="mb-3 font-display text-lg font-bold">
+                            {v.at_place ? s.visitPlace : s.gettingThere}
+                        </h2>
+                        <p className="font-semibold">
+                            {v.at_place ? (v.subject_name ?? v.business_name) : v.business_name}
+                        </p>
                         {v.address ? (
                             <>
                                 <p className="mt-1 text-sm text-muted">{v.address}</p>
@@ -235,7 +240,7 @@ export function PublicManage() {
                                     className="mt-4"
                                     onPress={() => {
                                         window.open(
-                                            `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(v.address ?? "")}`,
+                                            mapsUrl(v.address ?? ""),
                                             "_blank",
                                             "noopener,noreferrer",
                                         );

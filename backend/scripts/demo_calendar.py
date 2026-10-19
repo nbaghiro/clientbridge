@@ -5,6 +5,7 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Hours, Slot
+from clientbridge.services.catalog import deposit_cents
 from scripts.demo_context import BUSINESS_TIMEZONE, DemoContext
 
 FIRST_NAMES = ("Alex", "Jordan", "Taylor", "Casey", "Morgan", "Robin", "Jamie", "Avery")
@@ -79,7 +80,6 @@ def build_calendar(ctx: DemoContext) -> None:
                     "breed": "Domestic Shorthair" if cat else "Miniature Poodle",
                     "weight_kg": 4.5 if cat else 9.0,
                     "birthday": ctx.at(-365 * (2 + index % 7)).date().isoformat(),
-                    "vaccinated": True,
                     "rabies_until": ctx.at(90 + index).date().isoformat(),
                     "temperament": "Gentle; comfortable with the dryer",
                 },
@@ -171,7 +171,6 @@ def build_calendar(ctx: DemoContext) -> None:
                         "breed": "Labrador Retriever",
                         "weight_kg": 7,
                         "birthday": ctx.at(-120).date().isoformat(),
-                        "vaccinated": True,
                         "rabies_until": ctx.at(270).date().isoformat(),
                     },
                 )
@@ -284,9 +283,10 @@ def _allocate(ctx: DemoContext, items: dict[str, Item]) -> None:
             booking.canceled_at = (
                 min(start - timedelta(days=1), ctx.at(-1)) if booking.status == "canceled" else None
             )
-            if booking.deposit_status in {"pending", "collected"}:
-                booking.deposit_amount_cents = (
-                    round(item.price_cents * float(item.deposit_value or 0) / 100)
-                    if item.deposit_type == "percent"
-                    else int(item.deposit_value or 0)
-                )
+            booking.deposit_amount_cents = deposit_cents(item)
+            open_visit = booking.status in {"pending", "confirmed", "waitlisted"}
+            if booking.deposit_amount_cents == 0:
+                booking.deposit_status = "none"
+            elif booking.deposit_status not in {"collected", "applied"}:
+                # a deposit is due until the visit ends; one never collected is then no longer due
+                booking.deposit_status = "pending" if open_visit else "none"

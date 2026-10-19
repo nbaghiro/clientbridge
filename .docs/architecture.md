@@ -263,7 +263,7 @@ shown after it.
 ### Tables by domain
 
 **business (3)** — `businesses` (all Stripe-Connect/KYC mirror fields + Canadian tax fields + `slug` + brand
-JSONB + `subject`, what a booking names besides the client: pet, student or property, NULL when the
+JSONB + `subject`, what a booking names besides the client: pet, student, property or site, NULL when the
 business books only the client), `users` (one per auth identity via unique `identity_id`; `email` copied from the auth service, `last_seen_at`), `staff` (user↔business, `role`
 owner/admin/staff/contractor, payout config `payee`/`rate_type` with the rate in `rate_bps` (percent) or
 `rate_cents` (fixed or hourly), one membership per user per business, pending invites via
@@ -286,7 +286,9 @@ by line and reason; `items.stock_on_hand` is the running total).
 **scheduling (6)** — `slots` (the calendar event: capacity-bearing block; appointment = capacity 1, class
 = capacity N; seats taken are counted from its live bookings; `recurrence_id`), `bookings` _(soft-del)_ (client↔slot via `slot_id`; denormalized
 `staff_id`; status pending→confirmed→completed/canceled/no_show, or waitlisted on a full class until a seat is given; `source`; deposit terms (the deposit's
-state is derived from the ledger, and a deposit is due when `deposit_amount_cents > 0`); `reminded_at`),
+state is derived from the ledger, and a deposit is due when `deposit_amount_cents > 0`); `reminded_at`;
+`departed_at`, set once by `POST /v1/bookings/{id}/depart` ("On my way", which texts the client), and
+`checked_in_at`, the client arriving or, for a property or site business, the member arriving),
 `hours` (per-staff working hours: `basis` recurring weekday or one-off date, `available`; `basis`
 exception is time off for one member, or a closure for everyone when `staff_id` is null, with
 `starts_at`/`ends_at` and a `reason`, written only through `/v1/time-off`), `recurrences` (recurrence rule with `frequency` day/week/month, the same words
@@ -299,7 +301,9 @@ the visit's invoice).
 subtotal/tax/total fixed at issue, `pay_token`, `overdue_notified_at`; what is owed is the invoice's
 receivable in the ledger, and partial/paid/refunded/overdue and the paid time are read from it, through
 `ledger.invoice_status_expr()` on the server and `invoiceStatusSql` on the device), `estimates`
-(accept/decline/convert → invoice; a sent estimate past `valid_until` reads as expired), `orders`
+(accept/decline/convert → invoice; a sent estimate past `valid_until` reads as expired; an accepted,
+unconverted estimate can be booked, its chosen product lines joining the visit as `addons` at the quoted
+unit price, through `estimate_id` on `POST /v1/bookings`, owner or admin only), `orders`
 (POS/Terminal sale; stored status open/void, paid/refunded read from the ledger the same way),
 `lines` (three nullable foreign keys `estimate_id`/`invoice_id`/`order_id` with a CHECK that exactly one
 is set; `item_id`/`booking_id`, `tax_amount_cents`).
@@ -559,6 +563,11 @@ uploaded by an owner or admin. `GET /media/{file_id}` serves only those two kind
 short-lived presigned S3 URL, so they have stable links for the public pages and the apps. Only files whose
 upload was completed are served. Every other
 file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it into the media URL.
+
+Job photos are `files` rows on a booking (`parent_type` booking, `purpose` photo, image types only). The
+member on the booking or a manager can add one, and `GET /v1/files/{id}/link` returns a presigned download
+URL to the same people. The booking detail on web and mobile lists them, and the subject's card on the
+client record shows the latest photos from its visits.
 
 ### Payments — Stripe Connect custody
 

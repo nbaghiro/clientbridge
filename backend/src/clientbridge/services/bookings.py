@@ -28,7 +28,7 @@ from clientbridge.core.zones import zone
 from clientbridge.integrations.resend import EmailSender
 from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.integrations.twilio import SmsSender
-from clientbridge.models.billing import Invoice, Line
+from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Channel, Client, Note, Subject
@@ -83,6 +83,7 @@ from clientbridge.services import ledger
 from clientbridge.services.business import business_tz, load_staff, staff_name
 from clientbridge.services.catalog import deposit_cents, load_item
 from clientbridge.services.clients import load_client
+from clientbridge.services.lines import fetch_lines
 from clientbridge.services.messaging import dispatch_message, open_thread
 from clientbridge.services.notifications import (
     Notifier,
@@ -131,6 +132,7 @@ async def booking_out(db: AsyncSession, booking: Booking, slot: Slot) -> Booking
         price_cents=booking.price_cents,
         deposit_amount_cents=booking.deposit_amount_cents,
         deposit_status=booking.deposit_status,
+        departed_at=booking.departed_at,
         checked_in_at=booking.checked_in_at,
         starts_at=slot.starts_at,
         ends_at=slot.ends_at,
@@ -515,6 +517,11 @@ class BookingService:
         await self._staff(data.staff_id)
         if data.subject_id is not None:
             await assert_subject(self.db, self.biz, data.subject_id, data.client_id)
+        quoted = (
+            await self._estimate_addons(data.estimate_id, data.client_id)
+            if data.estimate_id is not None
+            else []
+        )
 
         async def run(cmd: Command) -> BookingOut:
             booking, slot = await create_booking_core(
@@ -538,6 +545,21 @@ class BookingService:
                         body=data.note.strip(),
                     )
                 )
+                await self.db.flush()
+            for line, product, quantity in quoted:
+                self.db.add(
+                    Addon(
+                        id=new_id("addon"),
+                        business_id=self.biz,
+                        booking_id=booking.id,
+                        staff_id=booking.staff_id,
+                        item_id=product.id,
+                        description=line.description,
+                        quantity=quantity,
+                        unit_amount_cents=line.unit_amount_cents,
+                    )
+                )
+            if quoted:
                 await self.db.flush()
             cmd.record("booking.create", entity_type="booking", entity_id=booking.id)
             if data.notify:
@@ -793,6 +815,76 @@ class BookingService:
             self.db,
             self.principal,
             action="booking.check_in",
+            run=run,
+            response_model=BookingOut,
+        )
+
+    async def _estimate_addons(
+        self, estimate_id: str, client_id: str
+    ) -> list[tuple[Line, Item, int]]:
+        """An accepted estimate's chosen product lines, in whole units, to book as add-ons."""
+        assert_role(
+            self.principal,
+            "owner",
+            "admin",
+            message="only an owner or admin can book from an estimate",
+        )
+        estimate = (
+            await self.db.execute(scoped(Estimate, self.biz).where(Estimate.id == estimate_id))
+        ).scalar_one_or_none()
+        if estimate is None:
+            raise NotFound("estimate not found")
+        if estimate.client_id != client_id:
+            raise Unprocessable("the estimate is for another client", code="invalid_request")
+        if estimate.status != "accepted":
+            raise Conflict("only an accepted estimate can be booked")
+        if estimate.converted_invoice_id is not None:
+            raise Conflict("the estimate was already invoiced, so its products are billed there")
+        lines = [
+            ln
+            for ln in await fetch_lines(self.db, self.biz, "estimate", estimate.id)
+            if ln.item_id is not None and (ln.selected or not ln.optional)
+        ]
+        items = (
+            (
+                await self.db.execute(
+                    scoped(Item, self.biz).where(
+                        Item.id.in_([ln.item_id for ln in lines]), Item.kind == "product"
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        products = {i.id: i for i in items}
+        return [
+            (ln, products[ln.item_id], int(ln.quantity))
+            for ln in lines
+            if ln.item_id in products and ln.quantity > 0 and ln.quantity == int(ln.quantity)
+        ]
+
+    async def depart(self, booking_id: str) -> BookingOut:
+        """Record that the member set off and text the client; setting off again sends nothing."""
+        booking = await self._booking(booking_id)
+        self._assert_can_act_as(booking.staff_id)
+        if booking.status in _TERMINAL:
+            raise Conflict(f"a {booking.status} booking can't be started")
+        slot = await self._slot(booking.slot_id)
+
+        async def run(cmd: Command) -> BookingOut:
+            if booking.departed_at is None:
+                booking.departed_at = clock.now()
+                await self.db.flush()
+                cmd.record("booking.depart", entity_type="booking", entity_id=booking.id)
+                await queued_notifier(
+                    self.db, f"booking:{booking.id}:depart", self.biz
+                ).on_booking_departed(self.db, booking.id)
+            return await booking_out(self.db, booking, slot)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="booking.depart",
             run=run,
             response_model=BookingOut,
         )

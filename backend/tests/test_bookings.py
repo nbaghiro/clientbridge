@@ -444,6 +444,11 @@ CL_AMELIE = "cl_amelie"  # seeded client with email + phone
 SEEDED_CARD = "pm_demo_4242"  # cl_amelie's seeded default-card provider ref
 
 
+async def deliverable_email(db: AsyncSession, client_id: str) -> None:
+    """Seeded contacts use reserved addresses, which the delivery job never sends to."""
+    await db.execute(update(Client).where(Client.id == client_id).values(email="pat@example.ca"))
+
+
 async def deposit_booking(
     api: httpx.AsyncClient,
     db: AsyncSession,
@@ -488,6 +493,7 @@ async def test_collect_deposit_default_card_settles_and_receipts(
     email: FakeEmailSender,
 ) -> None:
     await enable_payments(db)
+    await deliverable_email(db, CL_AMELIE)
     bid = await deposit_booking(as_owner, db, starts="2027-06-01T10:00:00Z")
     res = await as_owner.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")
     assert res.status_code == 200, res.text
@@ -762,6 +768,7 @@ async def test_deposit_settle_redelivery_collects_once_no_second_receipt(
 ) -> None:
     # A new event id for the same intent gets past webhook dedup and must hit the settled guard
     await enable_payments(db)
+    await deliverable_email(db, CL_AMELIE)
     bid = await deposit_booking(as_owner, db, starts="2027-06-14T10:00:00Z")
     pay = (await as_owner.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")).json()
     pi_id = await provider_ref(db, pay["payment_id"])
@@ -1032,7 +1039,7 @@ async def test_reaper_keeps_a_booking_whose_payment_already_went_through(
     bid, ref = await _unpaid_online(api, db)
     gateway.confirmed.add(ref)
     await _reap(db, gateway, now=clock.now())
-    assert await _fresh(db, bid) == "confirmed"
+    assert await _fresh(db, bid) == "pending"  # a new client's first visit waits for approval
     assert (await payment(db, await deposit_payment(db, bid))).status == "pending"
 
 

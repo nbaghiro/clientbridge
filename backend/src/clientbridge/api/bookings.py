@@ -128,6 +128,13 @@ async def check_in_booking(
     return await BookingService(db, principal, gateway).check_in(booking_id)
 
 
+@router.post("/{booking_id}/depart", response_model=BookingOut)
+async def depart_for_booking(
+    booking_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> BookingOut:
+    return await BookingService(db, principal, gateway).depart(booking_id)
+
+
 @router.post("/{booking_id}/deposit", response_model=DepositOut)
 async def collect_deposit(
     booking_id: str,

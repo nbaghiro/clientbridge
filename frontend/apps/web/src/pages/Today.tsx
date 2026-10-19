@@ -12,6 +12,9 @@ import {
     useStaffToday,
     useTodayActions,
     visitAction,
+    visitActionLabel,
+    arrivalWords,
+    useSubjectKind,
     formatParts,
     BUSINESS_CURRENCY,
 } from "@clientbridge/app-core";
@@ -422,7 +425,8 @@ function NextClient({
     lastVisit: string | null;
 }) {
     const openLink = useOpenLink();
-    const action = visitAction(item);
+    const kind = useSubjectKind();
+    const action = visitAction(item, kind);
     return (
         <section
             aria-label={t.staff.nextClient}
@@ -433,10 +437,12 @@ function NextClient({
                 <StatusPill
                     status={
                         item.checkedIn
-                            ? t.checkedIn
-                            : item.state === "now"
-                              ? t.stateNow
-                              : formatParts([item.time, item.startsIn])
+                            ? arrivalWords(kind).done
+                            : item.departed
+                              ? t.onTheWay
+                              : item.state === "now"
+                                ? t.stateNow
+                                : formatParts([item.time, item.startsIn])
                     }
                     intent={item.checkedIn || item.state === "now" ? "success" : "accent"}
                 />
@@ -476,10 +482,11 @@ function NextClient({
                             const id = item.bookingId;
                             if (id === null) return;
                             if (action === "checkout") openLink("checkout", id);
+                            else if (action === "depart") actions.depart(id);
                             else actions.checkIn(id);
                         }}
                     >
-                        {action === "checkout" ? t.checkout : t.checkIn}
+                        {visitActionLabel(action, kind)}
                     </Button>
                 )}
                 <Button

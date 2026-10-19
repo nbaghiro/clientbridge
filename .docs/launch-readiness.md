@@ -300,12 +300,13 @@ bookings. An owner or admin can change the kind later in business settings; exis
 details are kept, and the app asks for confirmation with a count first. A business that books only the
 client shows no subject fields anywhere.
 
-**Built:** `businesses.subject` (pet, student, property or NULL) synced to devices; per-kind details
+**Built:** `businesses.subject` (pet, student, property, site or NULL) synced to devices; per-kind details
 validated on the server (pet: species, breed, weight, birthday, sex, temperament, coat, allergies, vet,
 rabies vaccine, style; student: birthday, grade, school, allergies; property: address, rooms, access,
-pets); add, edit and remove from the client record on web and mobile; the subject picker in the booking
-composer, series and classes; Connect asks for the subject's name, and a property business also asks for
-the address of a new property; seeded demo pets.
+pets; site: address, building type, access, pets, internet, recorder location and an equipment list with
+model, serial, location, install date and warranty end); add, edit and remove from the client record on web and mobile; the subject picker in the booking
+composer, series and classes; Connect asks for the subject's name, and a property or site business also
+asks for the address of a new one and matches it to the client's existing place by name and address; seeded demo pets.
 
 **To do:**
 
@@ -1432,7 +1433,7 @@ Size: M · Area: Platform and launch
 
 **Flow:** One full pass of the product as owners, staff and clients use it, across devices, before launch.
 
-**Built:** Demo business Birchbark Pet Studio; owner [hannah@birchbarkpets.ca](mailto:hannah@birchbarkpets.ca) and staff [priya@birchbarkpets.ca](mailto:priya@birchbarkpets.ca), password demo1234.
+**Built:** Demo business Birchbark Pet Studio; owner hannah@birchbark.example and staff priya@birchbark.example, password demo1234.
 
 **To do:**
 

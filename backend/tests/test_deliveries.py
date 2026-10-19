@@ -6,16 +6,85 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
+from clientbridge.core.emails import reserved_email
 from clientbridge.core.errors import Unprocessable
+from clientbridge.core.phones import reserved_phone
 from clientbridge.integrations.resend import Email
+from clientbridge.integrations.twilio import Sms
 from clientbridge.models.messaging import Delivery
-from clientbridge.schemas.deliveries import EmailDelivery
+from clientbridge.schemas.deliveries import DeliveryPayload, EmailDelivery, SmsDelivery
 from clientbridge.services.deliveries import dispatch, enqueue, run_deliveries
 from tests.conftest import BIZ, FakeEmailSender, FakePushSender, FakeSmsSender
 
 
 def mail(body: str = "Receipt") -> EmailDelivery:
     return EmailDelivery(message=Email(to="pat@example.ca", subject="Payment", body=body))
+
+
+def text(to: str) -> SmsDelivery:
+    return SmsDelivery(message=Sms(to=to, body="Reminder", from_number="+12505550999"))
+
+
+async def test_reserved_recipients_fail_without_reaching_the_provider(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    reserved: list[DeliveryPayload] = [
+        EmailDelivery(message=Email(to="Pat@EXAMPLE.COM", subject="Hi", body="Hi")),
+        EmailDelivery(message=Email(to="pat@mail.example.org", subject="Hi", body="Hi")),
+        EmailDelivery(message=Email(to="hannah@birchbark.example", subject="Hi", body="Hi")),
+        EmailDelivery(message=Email(to="pat@clinic.test", subject="Hi", body="Hi")),
+        text("+12505550142"),
+    ]
+    real: list[DeliveryPayload] = [mail(), text("+12505550200"), text("+12505551234")]
+    ids = {
+        await enqueue(db, payload, key=f"reserved:{index}", business_id=BIZ): payload
+        for index, payload in enumerate([*reserved, *real])
+    }
+    await db.commit()
+    await run_deliveries(db, email, sms, push)
+    rows = {row.id: row for row in await db.scalars(select(Delivery).where(Delivery.id.in_(ids)))}
+    for identity, payload in ids.items():
+        expected = ("failed", "reserved_address") if payload in reserved else ("accepted", None)
+        assert (rows[identity].state, rows[identity].error) == expected
+    assert {m.to for m in email.sent if m.tags.get("delivery") in ids} == {"pat@example.ca"}
+    texted = {m.to for m in sms.sent}
+    assert {"+12505550200", "+12505551234"} <= texted and "+12505550142" not in texted
+
+
+@pytest.mark.parametrize(
+    ("address", "reserved"),
+    [
+        ("pat@example.com", True),
+        ("pat@EXAMPLE.NET", True),
+        ("pat@shop.example.org.", True),
+        ("pat@birchbark.example", True),
+        ("pat@clinic.test", True),
+        ("pat@host.invalid", True),
+        ("pat@localhost", True),
+        ("pat@example.ca", False),
+        ("pat@notexample.com", False),
+        ("pat@example.com.au", False),
+        ("pat@testing.ca", False),
+    ],
+)
+def test_reserved_email_domains(address: str, reserved: bool) -> None:
+    assert reserved_email(address) is reserved
+
+
+@pytest.mark.parametrize(
+    ("number", "reserved"),
+    [
+        ("+12505550100", True),
+        ("(604) 555-0199", True),
+        ("+12505550200", False),
+        ("+12505550099", False),
+        ("+12505551234", False),
+        ("+442079460100", False),
+        ("not a number", False),
+    ],
+)
+def test_reserved_phone_numbers(number: str, reserved: bool) -> None:
+    assert reserved_phone(number) is reserved
 
 
 async def test_delivery_key_replays_same_content_and_rejects_a_different_request(

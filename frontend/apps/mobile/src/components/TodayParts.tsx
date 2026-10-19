@@ -8,6 +8,9 @@ import {
     strings,
     useShellNav,
     visitAction,
+    visitActionLabel,
+    arrivalWords,
+    useSubjectKind,
     formatList,
     formatParts,
     BUSINESS_CURRENCY,
@@ -304,6 +307,7 @@ export function Section({
 }
 
 export function NextCard({ item, children }: { item: AgendaItem; children?: ReactNode }) {
+    const kind = useSubjectKind();
     return (
         <View style={styles.next}>
             <View style={styles.nextBody}>
@@ -317,10 +321,12 @@ export function NextCard({ item, children }: { item: AgendaItem; children?: Reac
                             style={{ alignSelf: "center" }}
                             status={
                                 item.checkedIn
-                                    ? t.checkedIn
-                                    : item.state === "now"
-                                      ? t.stateNow
-                                      : item.startsIn
+                                    ? arrivalWords(kind).done
+                                    : item.departed
+                                      ? t.onTheWay
+                                      : item.state === "now"
+                                        ? t.stateNow
+                                        : item.startsIn
                             }
                             intent={item.checkedIn || item.state === "now" ? "success" : "accent"}
                         />
@@ -340,7 +346,8 @@ export function NextCard({ item, children }: { item: AgendaItem; children?: Reac
 
 export function NextActions({ item, actions }: { item: AgendaItem; actions: TodayActions }) {
     const openLink = useOpenLink();
-    const action = visitAction(item);
+    const kind = useSubjectKind();
+    const action = visitAction(item, kind);
     const id = item.bookingId;
     return (
         <View style={styles.nextActions}>
@@ -350,10 +357,11 @@ export function NextActions({ item, actions }: { item: AgendaItem; actions: Toda
                     busy={actions.busyKey === id}
                     onPress={() => {
                         if (action === "checkout") openLink("checkout", id);
+                        else if (action === "depart") actions.depart(id);
                         else actions.checkIn(id);
                     }}
                 >
-                    {action === "checkout" ? t.checkout : t.checkIn}
+                    {visitActionLabel(action, kind)}
                 </Button>
             )}
             <Button
