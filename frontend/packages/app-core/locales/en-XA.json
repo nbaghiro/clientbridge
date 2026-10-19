@@ -3221,6 +3221,9 @@
     "recurrences.selectSeries": {
         "message": "[Çĥööšé å šéŕîéš ţö šéé îţš ðåţéš. one two three]"
     },
+    "classes.title": {
+        "message": "[Çļåššéš one]"
+    },
     "classes.subtitle": {
         "message": "[Ŵĥö'š çöɱîñĝ, ŵĥö'š ĥéŕé, åñð ŵĥö'š ŵåîţîñĝ ƒöŕ å šéåţ. one two three four]"
     },

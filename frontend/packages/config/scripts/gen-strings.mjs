@@ -193,7 +193,8 @@ function sourceFiles() {
         .split("\n")
         .filter(
             (f) =>
-                /\/src\/.*\.tsx?$/.test(f) &&
+                // an app's root entry (mobile App.tsx) renders copy too; *.config.ts never does
+                (/\/src\/.*\.tsx?$/.test(f) || /^apps\/[^/]+\/[^/.]+\.tsx?$/.test(f)) &&
                 !/\.test\.tsx?$/.test(f) &&
                 !f.endsWith("/strings.ts"),
         )

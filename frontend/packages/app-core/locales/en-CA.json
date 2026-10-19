@@ -3493,6 +3493,9 @@
     "recurrences.selectSeries": {
         "message": "Choose a series to see its dates."
     },
+    "classes.title": {
+        "message": "Classes"
+    },
     "classes.subtitle": {
         "message": "Who's coming, who's here, and who's waiting for a seat."
     },

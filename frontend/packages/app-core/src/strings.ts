@@ -1143,6 +1143,7 @@ interface Strings {
         readonly selectSeries: string;
     };
     readonly classes: {
+        readonly title: string;
         readonly subtitle: string;
         readonly upcoming: string;
         readonly summaryRange: string;
