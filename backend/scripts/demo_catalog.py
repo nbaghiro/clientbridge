@@ -1,6 +1,7 @@
 """Catalog image fixtures and a targeted refresh that preserves the rest of the demo."""
 
 import asyncio
+from collections.abc import Callable
 from hashlib import sha256
 from pathlib import Path
 
@@ -19,10 +20,9 @@ from scripts.demo_context import DemoContext
 ASSETS = Path(__file__).parent / "demo_assets"
 
 
-def add_catalog_images(ctx: DemoContext) -> None:
+def add_catalog_images(ctx: DemoContext, asset: Callable[[str], str] = str) -> None:
     for item in ctx.all(Item):
-        asset_id = item.variant_parent_id or item.id
-        path = ASSETS / f"{asset_id}.jpg"
+        path = ASSETS / f"{asset(item.variant_parent_id or item.id)}.jpg"
         digest = sha256(path.read_bytes()).hexdigest()[:12]
         ctx.add(
             File(

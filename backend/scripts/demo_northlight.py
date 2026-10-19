@@ -24,6 +24,7 @@ from clientbridge.schemas.subjects import Building, Equipment, SiteAttributes
 from clientbridge.services.catalog import deposit_cents
 from clientbridge.services.consents import allows_marketing
 from clientbridge.services.forms import form_definition
+from scripts.demo_catalog import add_catalog_images
 from scripts.demo_chronology import align_timestamps, chronology_errors
 from scripts.demo_context import BUSINESS_TIMEZONE, LEGAL_ADDRESSES, DemoContext
 from scripts.demo_finance import (
@@ -1028,6 +1029,10 @@ class Northlight:
             )
             self.items[item_id] = item
             self.ctx.add(item)
+        add_catalog_images(self.ctx, lambda item_id: "nl_it_" + item_id.removeprefix("it_nl_"))
+        for image in self.ctx.all(File):
+            if image.parent_type == "item":
+                image.created_at = image.updated_at = opened
 
     def documents(self) -> None:
         ctx = self.ctx
@@ -2100,9 +2105,9 @@ class Northlight:
         self.handover("sarah", booking, quote)
         for index, (asset, caption) in enumerate(
             (
-                ("nl_photo_before.png", "before"),
-                ("nl_photo_after.png", "after"),
-                ("nl_photo_recorder.png", "recorder"),
+                ("nl_photo_before.jpg", "before"),
+                ("nl_photo_after.jpg", "after"),
+                ("nl_photo_recorder.jpg", "recorder"),
             )
         ):
             when = start + timedelta(minutes=10 if caption == "before" else 200 + index * 5)
@@ -2114,7 +2119,7 @@ class Northlight:
                     parent_id=booking.id,
                     purpose="photo",
                     s3_key=f"{NORTHLIGHT}/demo/{asset}",
-                    content_type="image/png",
+                    content_type="image/jpeg",
                     size=(ASSETS / asset).stat().st_size,
                     created_at=when,
                     updated_at=when,
@@ -2154,8 +2159,8 @@ class Northlight:
         }
         if photos:
             for field, asset in (
-                ("photo_front", "nl_survey_front.png"),
-                ("photo_side", "nl_survey_side.png"),
+                ("photo_front", "nl_survey_front.jpg"),
+                ("photo_side", "nl_survey_side.jpg"),
             ):
                 file_id = f"fl_nl_{key}_{field}"
                 self.ctx.add(
@@ -2166,7 +2171,7 @@ class Northlight:
                         parent_id=response_id,
                         purpose="attachment",
                         s3_key=f"{NORTHLIGHT}/demo/{asset}",
-                        content_type="image/png",
+                        content_type="image/jpeg",
                         size=(ASSETS / asset).stat().st_size,
                         created_at=submitted - timedelta(minutes=6),
                         updated_at=submitted - timedelta(minutes=5),
