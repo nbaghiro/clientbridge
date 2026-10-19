@@ -396,7 +396,9 @@ async def _seed_sub(db: AsyncSession, *, ref: str, status: str = "active") -> Su
     return sub
 
 
-async def test_subscription_updated_flips_status(api: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_subscription_updated_flips_status(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
     await enable_payments(db)
     sub = await _seed_sub(db, ref="sub_wh1")
     event = _sub_event(
@@ -410,6 +412,8 @@ async def test_subscription_updated_flips_status(api: httpx.AsyncClient, db: Asy
             },
         },
     )
+    current = dict(json.loads(event)["data"]["object"])
+    gateway.objects[("acct_test", "subscription", str(current["id"]))] = current
     res = await api.post("/webhooks/stripe", content=event, headers=GOOD)
     assert res.status_code == 200
     row = (await db.execute(select(Subscription).where(Subscription.id == sub.id))).scalar_one()
@@ -552,7 +556,7 @@ async def test_recurring_charge_taxed_and_in_gst_report(
 
 
 async def test_invoice_payment_failed_sets_past_due_and_notifies(
-    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, gateway: FakePaymentGateway
 ) -> None:
     await enable_payments(db)
     cid = await _new_client(db, name="Past Due Client")
@@ -573,6 +577,8 @@ async def test_invoice_payment_failed_sets_past_due_and_notifies(
         "invoice.payment_failed",
         {"id": "in_2", "parent": {"subscription_details": {"subscription": "sub_fail1"}}},
     )
+    current: dict[str, object] = {"id": "sub_fail1", "status": "past_due"}
+    gateway.objects[("acct_test", "subscription", str(current["id"]))] = current
     res = await api.post("/webhooks/stripe", content=event, headers=GOOD)
     assert res.status_code == 200
     status = (
@@ -583,7 +589,7 @@ async def test_invoice_payment_failed_sets_past_due_and_notifies(
 
 
 async def test_subscription_deleted_notifies_client(
-    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, gateway: FakePaymentGateway
 ) -> None:
     await enable_payments(db)
     cid = await _new_client(db, name="Canceled Client")
@@ -600,6 +606,9 @@ async def test_subscription_deleted_notifies_client(
     db.add(sub)
     await db.flush()
     event = _sub_event("evt_del1", "customer.subscription.deleted", {"id": "sub_del1"})
+    current = dict(json.loads(event)["data"]["object"])
+    current["status"] = "canceled"
+    gateway.objects[("acct_test", "subscription", str(current["id"]))] = current
     res = await api.post("/webhooks/stripe", content=event, headers=GOOD)
     assert res.status_code == 200
     status = (
@@ -609,7 +618,9 @@ async def test_subscription_deleted_notifies_client(
     assert any(e.to == "canceled@test.ca" for e in email.sent)
 
 
-async def test_unknown_status_maps_to_past_due(api: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_unknown_status_maps_to_past_due(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
     await enable_payments(db)
     sub = await _seed_sub(db, ref="sub_odd")
     event = _sub_event(
@@ -617,6 +628,8 @@ async def test_unknown_status_maps_to_past_due(api: httpx.AsyncClient, db: Async
         "customer.subscription.updated",
         {"id": "sub_odd", "status": "incomplete_expired"},
     )
+    current = dict(json.loads(event)["data"]["object"])
+    gateway.objects[("acct_test", "subscription", str(current["id"]))] = current
     res = await api.post("/webhooks/stripe", content=event, headers=GOOD)
     assert res.status_code == 200
     status = (
@@ -816,3 +829,40 @@ async def test_a_renewal_is_issued_and_taxed_at_the_period_stripe_billed(
     assert paid.invoice_id is not None
     renewed = await invoice(db, paid.invoice_id)
     assert renewed.issued_at == start and paid.paid_at == PAID_AT
+
+
+async def test_stale_subscription_update_cannot_restore_canceled_membership(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    sub = await _seed_sub(db, ref="sub_stale")
+    gateway.objects[("acct_test", "subscription", "sub_stale")] = {
+        "id": "sub_stale",
+        "status": "canceled",
+    }
+    event = _sub_event(
+        "evt_stale", "customer.subscription.updated", {"id": "sub_stale", "status": "active"}
+    )
+    assert (await api.post("/webhooks/stripe", content=event, headers=GOOD)).status_code == 200
+    await db.refresh(sub)
+    assert sub.status == "canceled"
+
+
+async def test_old_failed_invoice_does_not_mark_recovered_subscription_past_due(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, email: FakeEmailSender
+) -> None:
+    await enable_payments(db)
+    sub = await _seed_sub(db, ref="sub_recovered")
+    gateway.objects[("acct_test", "subscription", "sub_recovered")] = {
+        "id": "sub_recovered",
+        "status": "active",
+    }
+    event = _sub_event(
+        "evt_old_failure",
+        "invoice.payment_failed",
+        {"id": "in_old", "parent": {"subscription_details": {"subscription": "sub_recovered"}}},
+    )
+    assert (await api.post("/webhooks/stripe", content=event, headers=GOOD)).status_code == 200
+    await db.refresh(sub)
+    assert sub.status == "active"
+    assert email.sent == []

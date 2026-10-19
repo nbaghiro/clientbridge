@@ -3067,6 +3067,7 @@ interface Strings {
         readonly capOff: string;
         readonly balance: string;
         readonly available: string;
+        readonly pending: string;
         readonly held: string;
         readonly balanceUnknown: string;
     };
@@ -3373,11 +3374,16 @@ interface Strings {
         readonly depositedHint: string;
         readonly fees: string;
         readonly feesHint: string;
-        readonly status: { readonly paid: string; readonly failed: string } & Labels;
+        readonly status: {
+            readonly paid: string;
+            readonly failed: string;
+            readonly pending: string;
+            readonly in_transit: string;
+            readonly canceled: string;
+        } & Labels;
         readonly arrived: (when: string) => string;
         readonly returned: (when: string) => string;
         readonly payoutRef: string;
-        readonly settledNotice: string;
         readonly returnedNotice: string;
         readonly chargesTitle: string;
         readonly chargesHint: string;
@@ -3398,6 +3404,20 @@ interface Strings {
         readonly noCharges: string;
         readonly loadError: string;
         readonly loading: string;
+        readonly expected: (when: string) => string;
+        readonly contentsTitle: string;
+        readonly contentsPending: string;
+        readonly contentsUnavailable: string;
+        readonly contentsEmpty: string;
+        readonly contentsNext: string;
+        readonly contentsPrevious: string;
+        readonly transactionCharge: string;
+        readonly transactionRefund: string;
+        readonly transactionFee: string;
+        readonly transactionOther: string;
+        readonly transactionFees: (amount: string) => string;
+        readonly historyNext: string;
+        readonly historyPrevious: string;
     };
     readonly auth: {
         readonly invalidCredentials: string;

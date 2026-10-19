@@ -465,3 +465,95 @@ async def test_shutdown_replaces_stripe_clients_and_transport() -> None:
     assert stripe.default_http_client is not transport
     await stripe_module.close_stripe_client()
     await stripe_module.close_stripe_client()
+
+
+async def test_customer_creation_has_a_stable_provider_key(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[dict[str, object]] = []
+    updates: list[dict[str, object]] = []
+
+    async def create(**kwargs: object) -> stripe.Customer:
+        calls.append(kwargs)
+        return stripe.Customer.construct_from({"id": "cus_client"}, "sk_test_unit")
+
+    async def update(identity: str, **kwargs: object) -> stripe.Customer:
+        assert identity == "cus_client"
+        updates.append(kwargs)
+        return stripe.Customer.construct_from({"id": identity}, "sk_test_unit")
+
+    monkeypatch.setattr(stripe.Customer, "create_async", create)
+    monkeypatch.setattr(stripe.Customer, "modify_async", update)
+    for name in ("Robin", "Robin Updated"):
+        assert (
+            await gateway.create_customer(
+                "acct_business", name=name, email=None, idempotency_key="customer:bz_one:cl_one"
+            )
+            == "cus_client"
+        )
+    assert calls[0] == calls[1]
+    assert "name" not in calls[0] and "email" not in calls[0]
+    assert calls[0]["stripe_account"] == "acct_business"
+    assert calls[0]["idempotency_key"] == "customer:bz_one:cl_one"
+    assert updates[-1]["name"] == "Robin Updated"
+
+
+async def test_available_balance_excludes_pending_funds(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def retrieve(**kwargs: object) -> stripe.Balance:
+        assert kwargs["stripe_account"] == "acct_business"
+        return stripe.Balance.construct_from(
+            {
+                "available": [{"currency": "cad", "amount": 400}],
+                "pending": [{"currency": "cad", "amount": 600}],
+            },
+            "sk_test_unit",
+        )
+
+    monkeypatch.setattr(stripe.Balance, "retrieve_async", retrieve)
+    assert (await gateway.get_balance("acct_business", currency="CAD")).available_cents == 400
+    assert await gateway.get_balance_cents("acct_business", currency="CAD") == 1000
+
+
+async def test_terminal_charge_attaches_the_business_customer(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def create(**kwargs: object) -> stripe.PaymentIntent:
+        assert kwargs["stripe_account"] == "acct_business"
+        assert kwargs["customer"] == "cus_client"
+        return stripe.PaymentIntent.construct_from(
+            {"id": "pi_sale", "client_secret": "secret", "payment_method_types": ["card_present"]},
+            "sk_test_unit",
+        )
+
+    monkeypatch.setattr(stripe.PaymentIntent, "create_async", create)
+    await gateway.create_terminal_payment_intent(
+        "acct_business",
+        amount_cents=1000,
+        currency="CAD",
+        application_fee_cents=20,
+        metadata={},
+        idempotency_key="sale",
+        customer_id="cus_client",
+    )
+
+
+async def test_payout_list_reads_only_the_recent_page(
+    gateway: StripeGateway, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    async def listing(**kwargs: object) -> stripe.ListObject[stripe.Payout]:
+        calls.append(kwargs)
+        return stripe.ListObject[stripe.Payout].construct_from(
+            {"data": [{"id": "po_recent", "object": "payout"}], "has_more": True}, "sk_test_unit"
+        )
+
+    monkeypatch.setattr(stripe.Payout, "list_async", listing)
+    page = await gateway.list_payouts("acct_business", "po_previous")
+    assert page.payouts == [{"id": "po_recent", "object": "payout"}]
+    assert page.next_cursor == "po_recent"
+    assert calls == [
+        {"stripe_account": "acct_business", "limit": 24, "starting_after": "po_previous"}
+    ]

@@ -38,7 +38,7 @@ const s = strings.payouts;
 const c = theme.colors;
 
 export function Payouts() {
-    const p = usePayouts();
+    const p = usePayouts(api);
     const account = usePaymentAccount(api);
     const setup = useSetupProgress();
     const connected = setup.steps.find((x) => x.key === "stripe")?.done ?? false;
@@ -138,7 +138,15 @@ export function Payouts() {
                             </View>
                         </Panel>
                         <Panel flush>
-                            {p.payouts.length === 0 ? (
+                            {p.historyLoad.state === "loading" ? (
+                                <Skeleton variant="row" count={3} label={s.loading} />
+                            ) : p.historyLoad.state === "error" ? (
+                                <LoadFailed
+                                    message={s.loadError}
+                                    onRetry={p.historyLoad.retry}
+                                    retrying={p.historyLoad.retrying}
+                                />
+                            ) : p.payouts.length === 0 ? (
                                 <Empty message={s.noPayouts} body={s.noPayoutsBody} />
                             ) : (
                                 p.payouts.map((row) => (
@@ -161,6 +169,16 @@ export function Payouts() {
                                     />
                                 ))
                             )}
+                            {p.previous !== null ? (
+                                <Button variant="outline" onPress={p.previous}>
+                                    {s.historyPrevious}
+                                </Button>
+                            ) : null}
+                            {p.next !== null ? (
+                                <Button variant="outline" onPress={p.next}>
+                                    {s.historyNext}
+                                </Button>
+                            ) : null}
                         </Panel>
                         <Text style={styles.caption}>{s.chargesTitle}</Text>
                         <Panel flush>
@@ -216,9 +234,44 @@ export function Payouts() {
                         {sel.ref !== null ? (
                             <KeyValueList rows={[{ label: s.payoutRef, value: sel.ref }]} />
                         ) : null}
-                        <Notice tone="info" banner>
-                            {s.settledNotice}
-                        </Notice>
+                        <Panel flush title={s.contentsTitle}>
+                            {p.contents.load.state === "loading" ? (
+                                <Skeleton variant="row" count={3} label={s.loading} />
+                            ) : p.contents.load.state === "error" ? (
+                                <LoadFailed
+                                    message={s.loadError}
+                                    onRetry={p.contents.load.retry}
+                                    retrying={p.contents.load.retrying}
+                                />
+                            ) : p.contents.status !== "available" ? (
+                                <Notice tone="info" banner>
+                                    {p.contents.status === "pending"
+                                        ? s.contentsPending
+                                        : s.contentsUnavailable}
+                                </Notice>
+                            ) : p.contents.rows.length === 0 ? (
+                                <Empty message={s.contentsEmpty} />
+                            ) : (
+                                p.contents.rows.map((row) => (
+                                    <ListRow
+                                        key={row.id}
+                                        title={row.title}
+                                        detail={row.detail}
+                                        meta={row.net}
+                                    />
+                                ))
+                            )}
+                            {p.contents.previous !== null ? (
+                                <Button variant="outline" onPress={p.contents.previous}>
+                                    {s.contentsPrevious}
+                                </Button>
+                            ) : null}
+                            {p.contents.next !== null ? (
+                                <Button variant="outline" onPress={p.contents.next}>
+                                    {s.contentsNext}
+                                </Button>
+                            ) : null}
+                        </Panel>
                     </DetailSection>
                 </DetailView>
             ) : null}

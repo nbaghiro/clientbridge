@@ -8810,7 +8810,7 @@
         "message": "We couldn't open the web app. Try again or sign in to Clientbridge in your browser."
     },
     "paymentAccount.viewPayouts": {
-        "message": "View payout activity"
+        "message": "Payouts and schedule"
     },
     "paymentAccount.manageDisputes": {
         "message": "Respond to disputes"
@@ -9008,6 +9008,9 @@
     },
     "gettingPaid.available": {
         "message": "Ready to pay out"
+    },
+    "gettingPaid.pending": {
+        "message": "Pending settlement"
     },
     "gettingPaid.held": {
         "message": "Held until verified"
@@ -9924,9 +9927,6 @@
     },
     "payouts.payoutRef": {
         "message": "Payout reference"
-    },
-    "payouts.settledNotice": {
-        "message": "Which charges a payout settled isn't recorded yet. The recent card charges below show each one's fee."
     },
     "payouts.returnedNotice": {
         "message": "Your bank returned this payout. Check your payout bank details before the next payout."
@@ -13662,5 +13662,54 @@
     "reviews.googleSummary": {
         "message": "{rating} · {count, plural, one {# Google review} other {# Google reviews}}",
         "args": ["rating", "count"]
-    }
+    },
+    "payouts.expected": {
+        "message": "Expected {when}",
+        "args": ["when"]
+    },
+    "payouts.status.pending": {
+        "message": "Pending"
+    },
+    "payouts.status.in_transit": {
+        "message": "In transit"
+    },
+    "payouts.status.canceled": {
+        "message": "Canceled"
+    },
+    "payouts.contentsTitle": {
+        "message": "Included transactions"
+    },
+    "payouts.contentsPending": {
+        "message": "Stripe is preparing the transaction breakdown."
+    },
+    "payouts.contentsUnavailable": {
+        "message": "Stripe provides a transaction breakdown for automatic payouts only."
+    },
+    "payouts.contentsEmpty": {
+        "message": "No transactions in this payout."
+    },
+    "payouts.contentsNext": {
+        "message": "Next transactions"
+    },
+    "payouts.contentsPrevious": {
+        "message": "Previous transactions"
+    },
+    "payouts.transactionCharge": {
+        "message": "Payment"
+    },
+    "payouts.transactionRefund": {
+        "message": "Refund"
+    },
+    "payouts.transactionFee": {
+        "message": "Stripe fee"
+    },
+    "payouts.transactionOther": {
+        "message": "Adjustment"
+    },
+    "payouts.transactionFees": {
+        "message": "Fees {amount}",
+        "args": ["amount"]
+    },
+    "payouts.historyNext": { "message": "Older payouts" },
+    "payouts.historyPrevious": { "message": "Newer payouts" }
 }

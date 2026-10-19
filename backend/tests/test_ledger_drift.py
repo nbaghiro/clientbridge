@@ -338,3 +338,68 @@ async def test_an_account_cannot_be_born_with_a_balance(db: AsyncSession) -> Non
             ),
             {"id": new_id("account"), "biz": BIZ},
         )
+
+
+async def test_a_closed_dispute_ignores_a_late_creation_snapshot(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    inv_id = await sent_invoice(db, total=8000)
+    row = await _charge(db, "pi_closed_first", invoice_id=inv_id)
+    before = await business_balance(db, "stripe")
+    pulled = {"amount": -8000, "fee": 1500, "net": -9500}
+    returned = {"amount": 8000, "fee": -1500, "net": 9500}
+    await stripe_event(
+        api, "charge.dispute.closed", _dispute("pi_closed_first", "won", [pulled, returned])
+    )
+    await stripe_event(
+        api, "charge.dispute.created", _dispute("pi_closed_first", "needs_response", [pulled])
+    )
+    await db.refresh(row)
+    assert row.dispute_status == "won"
+    assert await business_balance(db, "stripe") == before
+
+
+async def test_dispute_fees_arriving_after_creation_are_booked(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    inv_id = await sent_invoice(db, total=8000)
+    await _charge(db, "pi_late_fee", invoice_id=inv_id)
+    before = await business_balance(db, "stripe")
+    await stripe_event(api, "charge.dispute.created", _dispute("pi_late_fee", "needs_response", []))
+    pulled = {"amount": -8000, "fee": 1500, "net": -9500}
+    await stripe_event(
+        api, "charge.dispute.funds_withdrawn", _dispute("pi_late_fee", "needs_response", [pulled])
+    )
+    assert await business_balance(db, "stripe") == before - 9500
+
+
+@pytest.mark.parametrize("status", ["won", "lost"])
+@pytest.mark.parametrize("event", ["charge.dispute.closed", "charge.dispute.funds_withdrawn"])
+async def test_closed_dispute_reconciles_late_fees_without_reopening(
+    api: httpx.AsyncClient, db: AsyncSession, status: str, event: str
+) -> None:
+    inv_id = await sent_invoice(db, total=8000)
+    row = await _charge(db, "pi_closed_late_fee", invoice_id=inv_id)
+    before = await business_balance(db, "stripe")
+    await stripe_event(api, "charge.dispute.closed", _dispute(row.provider_ref or "", status, []))
+    for fee in (1500, 2000, 1500, 2000):
+        pulled = {"amount": -8000, "fee": fee, "net": -8000 - fee}
+        await stripe_event(api, event, _dispute(row.provider_ref or "", status, [pulled]))
+    await db.refresh(row)
+    assert row.dispute_status == status
+    assert await business_balance(db, "stripe") == before - 2000 - (8000 if status == "lost" else 0)
+
+
+async def test_won_dispute_reconciles_incremental_fee_returns(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    inv_id = await sent_invoice(db, total=8000)
+    row = await _charge(db, "pi_fee_return", invoice_id=inv_id)
+    before = await business_balance(db, "stripe")
+    pulled = {"amount": -8000, "fee": 2000, "net": -10000}
+    for returned in (500, 2000, 500, 2000):
+        credit = {"amount": 8000, "fee": -returned, "net": 8000 + returned}
+        await stripe_event(
+            api, "charge.dispute.closed", _dispute(row.provider_ref or "", "won", [pulled, credit])
+        )
+    assert await business_balance(db, "stripe") == before

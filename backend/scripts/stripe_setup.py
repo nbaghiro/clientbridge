@@ -24,6 +24,7 @@ from clientbridge.core.locale import SOURCE_LOCALE
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import (
     ACCOUNT_EVENTS,
+    PAYMENT_EVENTS,
     PLAN_EVENTS,
     RESPONSIBILITIES,
     STRIPE_API_VERSION,
@@ -60,31 +61,7 @@ PORTAL_FEATURES: dict[str, object] = {
 }
 DESTINATION_KEY = "account_events"
 DEMO_TAG = "clientbridge_demo"
-WEBHOOK_EVENTS = (
-    "charge.dispute.closed",
-    "charge.dispute.created",
-    "charge.dispute.funds_reinstated",
-    "charge.dispute.funds_withdrawn",
-    "charge.dispute.updated",
-    "customer.subscription.deleted",
-    "customer.subscription.updated",
-    "invoice.payment_failed",
-    "invoice.payment_succeeded",
-    "mandate.updated",
-    "payment_intent.canceled",
-    "payment_intent.payment_failed",
-    "payment_intent.succeeded",
-    "payment_method.attached",
-    "payment_method.automatically_updated",
-    "payout.canceled",
-    "payout.created",
-    "payout.failed",
-    "payout.paid",
-    "refund.created",
-    "refund.updated",
-    "setup_intent.setup_failed",
-    "setup_intent.succeeded",
-)
+WEBHOOK_EVENTS = PAYMENT_EVENTS
 CAPABILITIES = ("card_payments", "link_payments", "acss_debit_payments")
 ACCOUNT_INCLUDE = ["configuration.merchant", "defaults", "requirements"]
 # Stripe's documented v2 test values: 1901-01-01 and SIN 000000000 verify, address_full_match passes
@@ -576,8 +553,11 @@ def plan_destination(destinations: Sequence[Mapping[str, object]], url: str | No
 def account_body(biz: DemoBusiness) -> dict[str, object]:
     descriptor = payment_descriptor(biz.name) or ""
     legal = LEGAL_ADDRESSES[biz.id]
-    support: dict[str, object] = {"email": biz.email}
-    profile: dict[str, object] = {"product_description": biz.product_description}
+    support: dict[str, object] = {"email": biz.email, "phone": legal.legal_phone}
+    profile: dict[str, object] = {
+        "product_description": biz.product_description,
+        "business_url": biz.url or "https://accessible.stripe.com",
+    }
     if biz.url is not None:
         support["url"] = biz.url
         profile["business_url"] = biz.url
@@ -593,6 +573,7 @@ def account_body(biz: DemoBusiness) -> dict[str, object]:
                 **TEST_INDIVIDUAL,
                 "given_name": biz.first_name,
                 "surname": biz.last_name,
+                "relationship": {"title": "Owner"},
                 "email": biz.email,
                 "phone": legal.legal_phone,
                 "address": {

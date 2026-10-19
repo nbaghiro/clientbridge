@@ -31,29 +31,56 @@ import { useOpenLink } from "../lib/links";
 const s = strings.payouts;
 
 export function Payouts() {
-    const p = usePayouts();
+    const p = usePayouts(api);
     const account = usePaymentAccount(api);
     const setup = useSetupProgress();
     const openLink = useOpenLink();
     const connected = setup.steps.find((x) => x.key === "stripe")?.done ?? false;
     const sel = p.selected;
     if (account.props !== null) return <PaymentAccount {...account.props} />;
+    const controls = (
+        <div className="flex flex-wrap gap-2">
+            <Button
+                disabled={!account.ready}
+                variant="outline"
+                icon="bank"
+                onPress={() => {
+                    account.open("account");
+                }}
+            >
+                {strings.paymentAccount.manage}
+            </Button>
+            <Button
+                disabled={!account.ready}
+                variant="outline"
+                onPress={() => {
+                    account.open("payouts");
+                }}
+            >
+                {strings.paymentAccount.viewPayouts}
+            </Button>
+        </div>
+    );
 
     if (p.load.state === "loading")
         return (
             <div className="space-y-6">
+                {controls}
                 <Skeleton variant="stat" count={3} columns={3} label={s.loading} />
                 <Skeleton variant="row" count={5} label={s.loading} />
             </div>
         );
     if (p.load.state === "error")
         return (
-            <LoadFailed
-                variant="card"
-                message={s.loadError}
-                onRetry={p.load.retry}
-                retrying={p.load.retrying}
-            />
+            <div className="space-y-6">
+                {controls}
+                <LoadFailed
+                    variant="card"
+                    message={s.loadError}
+                    onRetry={p.load.retry}
+                    retrying={p.load.retrying}
+                />
+            </div>
         );
     if (p.load.state === "empty" && !connected)
         return (
@@ -81,53 +108,13 @@ export function Payouts() {
                 icon="bank"
                 message={s.noPayouts}
                 body={s.noPayoutsBody}
-                actions={
-                    <div className="flex flex-wrap gap-2">
-                        <Button
-                            disabled={!account.ready}
-                            onPress={() => {
-                                account.open("account");
-                            }}
-                        >
-                            {strings.paymentAccount.manage}
-                        </Button>
-                        <Button
-                            disabled={!account.ready}
-                            variant="outline"
-                            onPress={() => {
-                                account.open("payouts");
-                            }}
-                        >
-                            {strings.paymentAccount.viewPayouts}
-                        </Button>
-                    </div>
-                }
+                actions={controls}
             />
         );
 
     return (
         <div>
-            <div className="mb-5 flex flex-wrap gap-2">
-                <Button
-                    disabled={!account.ready}
-                    variant="outline"
-                    icon="bank"
-                    onPress={() => {
-                        account.open("account");
-                    }}
-                >
-                    {strings.paymentAccount.manage}
-                </Button>
-                <Button
-                    disabled={!account.ready}
-                    variant="outline"
-                    onPress={() => {
-                        account.open("payouts");
-                    }}
-                >
-                    {strings.paymentAccount.viewPayouts}
-                </Button>
-            </div>
+            <div className="mb-5">{controls}</div>
             <p className="text-sm text-muted">{s.subtitle}</p>
             <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <Stat
@@ -154,7 +141,15 @@ export function Payouts() {
             <div className="mt-6 grid gap-6 xl:grid-cols-[340px_1fr]">
                 <div className="self-start">
                     <Panel flush>
-                        {p.payouts.length === 0 ? (
+                        {p.historyLoad.state === "loading" ? (
+                            <Skeleton variant="row" count={3} label={s.loading} />
+                        ) : p.historyLoad.state === "error" ? (
+                            <LoadFailed
+                                message={s.loadError}
+                                onRetry={p.historyLoad.retry}
+                                retrying={p.historyLoad.retrying}
+                            />
+                        ) : p.payouts.length === 0 ? (
                             <Empty message={s.noPayouts} body={s.noPayoutsBody} />
                         ) : (
                             <div className="divide-y divide-line-soft">
@@ -189,6 +184,16 @@ export function Payouts() {
                                 ))}
                             </div>
                         )}
+                        {p.previous !== null ? (
+                            <Button variant="outline" onPress={p.previous}>
+                                {s.historyPrevious}
+                            </Button>
+                        ) : null}
+                        {p.next !== null ? (
+                            <Button variant="outline" onPress={p.next}>
+                                {s.historyNext}
+                            </Button>
+                        ) : null}
                     </Panel>
                 </div>
 
@@ -213,9 +218,44 @@ export function Payouts() {
                                 {sel.ref !== null ? (
                                     <KeyValueList rows={[{ label: s.payoutRef, value: sel.ref }]} />
                                 ) : null}
-                                <Notice tone="info" banner>
-                                    {s.settledNotice}
-                                </Notice>
+                                <Panel flush title={s.contentsTitle}>
+                                    {p.contents.load.state === "loading" ? (
+                                        <Skeleton variant="row" count={3} label={s.loading} />
+                                    ) : p.contents.load.state === "error" ? (
+                                        <LoadFailed
+                                            message={s.loadError}
+                                            onRetry={p.contents.load.retry}
+                                            retrying={p.contents.load.retrying}
+                                        />
+                                    ) : p.contents.status !== "available" ? (
+                                        <Notice tone="info" banner>
+                                            {p.contents.status === "pending"
+                                                ? s.contentsPending
+                                                : s.contentsUnavailable}
+                                        </Notice>
+                                    ) : p.contents.rows.length === 0 ? (
+                                        <Empty message={s.contentsEmpty} />
+                                    ) : (
+                                        p.contents.rows.map((row) => (
+                                            <ListRow
+                                                key={row.id}
+                                                title={row.title}
+                                                detail={row.detail}
+                                                meta={row.net}
+                                            />
+                                        ))
+                                    )}
+                                    {p.contents.previous !== null ? (
+                                        <Button variant="outline" onPress={p.contents.previous}>
+                                            {s.contentsPrevious}
+                                        </Button>
+                                    ) : null}
+                                    {p.contents.next !== null ? (
+                                        <Button variant="outline" onPress={p.contents.next}>
+                                            {s.contentsNext}
+                                        </Button>
+                                    ) : null}
+                                </Panel>
                             </div>
                         </Panel>
                     ) : null}

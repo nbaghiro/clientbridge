@@ -521,6 +521,11 @@ test("owner: clients, records, notes, subjects, wallet and merge", async ({ page
 });
 
 test("owner: payments desk, records and their dialogs", async ({ page }) => {
+    await page.route("**/v1/connect/payouts", (route) =>
+        route.fulfill({
+            json: { payouts: [], next_cursor: null },
+        }),
+    );
     const walk = await signIn(page, OWNER);
     const { main } = walk;
     const s = strings.billing;
@@ -657,10 +662,7 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
     await walk.step("payouts and staff pay", async () => {
         await navigate(page, "/payments/payouts");
         await expect(main.getByText(strings.payouts.chargesTitle, { exact: true })).toBeVisible();
-        await main
-            .getByRole("button", { name: /^\$[\d,.]+ / })
-            .nth(1)
-            .click();
+        await expect(main.getByText(strings.payouts.noPayouts, { exact: true })).toBeVisible();
         await navigate(page, "/payments/staff-pay");
         await expect(main.getByText(strings.earnings.selectAll)).toBeVisible();
         await main

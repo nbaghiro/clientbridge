@@ -20,7 +20,13 @@ from clientbridge.core.deps import (
     get_twilio_auth_token,
 )
 from clientbridge.core.emails import normalize_email
-from clientbridge.core.errors import CardDeclined, Conflict, PaymentActionRequired, Unauthorized
+from clientbridge.core.errors import (
+    CardDeclined,
+    Conflict,
+    NotFound,
+    PaymentActionRequired,
+    Unauthorized,
+)
 from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import (
     public_booking_rate_limit,
@@ -38,6 +44,7 @@ from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.integrations.stripe import (
     STRIPE_API_VERSION,
     THIN_EVENT,
+    AccountBalance,
     AccountConfiguration,
     ChargeFees,
     ConnectAccount,
@@ -46,6 +53,7 @@ from clientbridge.integrations.stripe import (
     MandateState,
     PaymentGateway,
     PaymentIntentResult,
+    PayoutPage,
     PlanItem,
     PlanSubscription,
     PostalAddress,
@@ -53,8 +61,11 @@ from clientbridge.integrations.stripe import (
     RefundResult,
     SetupIntentResult,
     SetupIntentState,
+    StripeResource,
+    StripeTransaction,
     SubscribedItem,
     SubscriptionResult,
+    TransactionPage,
     WebhookVerificationError,
     event_from,
     get_payment_gateway,
@@ -372,7 +383,16 @@ class FakePaymentGateway:
         self.location_addresses: list[PostalAddress] = []
         self.accounts: dict[str, ConnectAccount] = {}  # per-account get_account() results
         self.account_status: ConnectAccount | None = None  # override get_account() in a test
+        self.payout_transaction_calls: list[tuple[str, str, str | None]] = []
+        self.pending_fees: set[str] = set()
         self.charges: dict[str, tuple[int, int]] = {}  # intent id -> (amount, application fee)
+        self.payouts: dict[str, list[dict[str, object]]] = {}
+        self.transactions: dict[str, list[dict[str, object]]] = {}
+        self.objects: dict[tuple[str | None, str, str], dict[str, object]] = {}
+        self.customer_keys: dict[str, str] = {}
+        self.terminal_customers: dict[str, str | None] = {}
+        self.balances: dict[str, AccountBalance] = {}
+        self.pending_cents = 0
         self.balance_cents = 0  # get_balance_cents() result
         self.invoice_intents: dict[str, str] = {}  # Stripe invoice id -> the intent that paid it
         self.canceled_intents: list[str] = []
@@ -507,9 +527,43 @@ class FakePaymentGateway:
             api_version=str(body.get("api_version", STRIPE_API_VERSION)),
         )
 
-    async def create_customer(self, account_id: str, *, name: str, email: str | None) -> str:
+    async def balance_transactions(self, account_id: str) -> list[dict[str, object]]:
+        return self.transactions.get(account_id, [])
+
+    async def list_payouts(self, account_id: str, after: str | None = None) -> PayoutPage:
+        rows = self.payouts.get(account_id, [])
+        start = 0
+        if after is not None:
+            matches = [i for i, row in enumerate(rows) if row.get("id") == after]
+            if not matches:
+                raise Conflict("invalid payout cursor")
+            start = matches[0] + 1
+        page = rows[start : start + 24]
+        return PayoutPage(page, str(page[-1]["id"]) if start + 24 < len(rows) else None)
+
+    async def payout_transactions(
+        self, account_id: str, payout_id: str, after: str | None
+    ) -> TransactionPage:
+        self.payout_transaction_calls.append((account_id, payout_id, after))
+        rows = [
+            StripeTransaction.model_validate(row) for row in self.transactions.get(payout_id, [])
+        ]
+        start = next((i + 1 for i, row in enumerate(rows) if row.id == after), 0)
+        page = rows[start : start + 24]
+        return TransactionPage(page, page[-1].id if start + 24 < len(rows) else None)
+
+    async def retrieve(
+        self, account_id: str | None, resource: StripeResource, identity: str
+    ) -> dict[str, object]:
+        if resource == "payout" and (account_id, resource, identity) not in self.objects:
+            raise NotFound("payout not found")
+        return self.objects[(account_id, resource, identity)]
+
+    async def create_customer(
+        self, account_id: str, *, name: str, email: str | None, idempotency_key: str
+    ) -> str:
         self._seq += 1
-        return f"cus_fake{self._seq}"
+        return self.customer_keys.setdefault(idempotency_key, f"cus_fake{self._seq}")
 
     async def create_setup_intent(self, account_id: str, *, customer_id: str) -> SetupIntentResult:
         self._seq += 1
@@ -599,6 +653,11 @@ class FakePaymentGateway:
     async def cancel_subscription(self, account_id: str, *, subscription_id: str) -> None:
         self.canceled_subscriptions.append(subscription_id)
 
+    async def invoice_for_payment(
+        self, account_id: str, intent_id: str
+    ) -> dict[str, object] | None:
+        return self.objects.get((account_id, "invoice_payment", intent_id))
+
     async def get_invoice_payment_intent(self, account_id: str, *, invoice_id: str) -> str | None:
         return self.invoice_intents.get(invoice_id)
 
@@ -672,6 +731,7 @@ class FakePaymentGateway:
         application_fee_cents: int,
         metadata: dict[str, str],
         idempotency_key: str,
+        customer_id: str | None = None,
     ) -> PaymentIntentResult:
         if idempotency_key in self._intents:
             return self._intents[idempotency_key]
@@ -680,17 +740,26 @@ class FakePaymentGateway:
         result = PaymentIntentResult(id=pid, client_secret=f"{pid}_secret")
         self._intents[idempotency_key] = result
         self.charges[pid] = (amount_cents, application_fee_cents)
+        self.terminal_customers[pid] = customer_id
         return result
 
     async def get_payment_fees(
         self, account_id: str, *, payment_intent_id: str
     ) -> ChargeFees | None:
+        if payment_intent_id in self.pending_fees:
+            return None
         amount, app_fee = self.charges.get(payment_intent_id, (0, 0))
         processing = round(amount * 0.029) + 30 if amount else 0
         return ChargeFees(processing, app_fee, None)
 
+    async def get_balance(self, account_id: str, *, currency: str) -> AccountBalance:
+        return self.balances.get(
+            account_id, AccountBalance(self.balance_cents - self.pending_cents, self.pending_cents)
+        )
+
     async def get_balance_cents(self, account_id: str, *, currency: str) -> int:
-        return self.balance_cents
+        value = await self.get_balance(account_id, currency=currency)
+        return value.available_cents + value.pending_cents
 
 
 @pytest.fixture

@@ -12,11 +12,14 @@ from types import CoroutineType
 from typing import Concatenate, Literal, Protocol, cast
 
 import stripe
+from pydantic import BaseModel, ConfigDict, ValidationError
 from stripe.params import (
     AccountSessionCreateParamsComponents,
     AccountSessionCreateParamsComponentsAccountManagementFeatures,
+    BalanceTransactionListParams,
     CustomerCreateParams,
     PaymentIntentCreateParams,
+    PayoutListParams,
     SubscriptionModifyParamsItem,
 )
 from stripe.params.checkout import SessionCreateParamsSubscriptionData
@@ -35,8 +38,10 @@ from stripe.params.v2.core import (
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import (
+    AppError,
     CardDeclined,
     Conflict,
+    NotFound,
     PaymentActionRequired,
     PaymentsNotConfigured,
 )
@@ -61,6 +66,33 @@ PLAN_EVENTS = (
     "customer.subscription.created",
     "customer.subscription.deleted",
     "customer.subscription.updated",
+)
+
+
+PAYMENT_EVENTS = (
+    "charge.dispute.closed",
+    "charge.dispute.created",
+    "charge.dispute.funds_reinstated",
+    "charge.dispute.funds_withdrawn",
+    "charge.dispute.updated",
+    "customer.subscription.deleted",
+    "customer.subscription.updated",
+    "invoice.payment_failed",
+    "invoice.payment_succeeded",
+    "mandate.updated",
+    "payment_intent.canceled",
+    "payment_intent.payment_failed",
+    "payment_intent.succeeded",
+    "payment_method.attached",
+    "payment_method.automatically_updated",
+    "payout.canceled",
+    "payout.created",
+    "payout.failed",
+    "payout.paid",
+    "refund.created",
+    "refund.updated",
+    "setup_intent.setup_failed",
+    "setup_intent.succeeded",
 )
 
 
@@ -246,6 +278,12 @@ class MandateState:
 
 
 @dataclass(frozen=True)
+class AccountBalance:
+    available_cents: int
+    pending_cents: int
+
+
+@dataclass(frozen=True)
 class ChargeFees:
     processing_fee_cents: int
     application_fee_cents: int
@@ -414,6 +452,45 @@ class WebhookVersionError(Exception):
     """A webhook payload was rendered at an API version the handlers do not parse."""
 
 
+StripeResource = Literal[
+    "payment_intent",
+    "charge",
+    "refund",
+    "dispute",
+    "payout",
+    "invoice",
+    "subscription",
+    "setup_intent",
+    "mandate",
+    "payment_method",
+]
+
+
+class StripeTransaction(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    id: str
+    amount: int
+    fee: int
+    net: int
+    currency: str
+    type: str
+    source: str | None
+    created: int
+
+
+@dataclass(frozen=True)
+class PayoutPage:
+    payouts: list[dict[str, object]]
+    next_cursor: str | None
+
+
+@dataclass(frozen=True)
+class TransactionPage:
+    transactions: list[StripeTransaction]
+    next_cursor: str | None
+
+
 class PaymentGateway(Protocol):
     async def create_connected_account(
         self,
@@ -476,7 +553,21 @@ class PaymentGateway(Protocol):
     async def get_account(self, account_id: str) -> ConnectAccount: ...
     def verify_webhook(self, payload: bytes, signature: str) -> GatewayEvent: ...
 
-    async def create_customer(self, account_id: str, *, name: str, email: str | None) -> str: ...
+    async def balance_transactions(self, account_id: str) -> list[dict[str, object]]: ...
+
+    async def list_payouts(self, account_id: str, after: str | None = None) -> PayoutPage: ...
+
+    async def payout_transactions(
+        self, account_id: str, payout_id: str, after: str | None
+    ) -> TransactionPage: ...
+
+    async def retrieve(
+        self, account_id: str | None, resource: StripeResource, identity: str
+    ) -> dict[str, object]: ...
+
+    async def create_customer(
+        self, account_id: str, *, name: str, email: str | None, idempotency_key: str
+    ) -> str: ...
     async def create_setup_intent(self, account_id: str, *, customer_id: str) -> SetupIntentResult:
         """Save a card for later off-session use, without charging now."""
         ...
@@ -558,13 +649,17 @@ class PaymentGateway(Protocol):
         """Stripe's processing fee + our application fee off the charge's balance transaction."""
         ...
 
+    async def invoice_for_payment(
+        self, account_id: str, intent_id: str
+    ) -> dict[str, object] | None: ...
+
     async def get_invoice_payment_intent(self, account_id: str, *, invoice_id: str) -> str | None:
         """The PaymentIntent that paid a subscription invoice (no longer on the invoice itself)."""
         ...
 
-    async def get_balance_cents(self, account_id: str, *, currency: str) -> int:
-        """The connected account's available + pending balance in one currency."""
-        ...
+    async def get_balance(self, account_id: str, *, currency: str) -> AccountBalance: ...
+
+    async def get_balance_cents(self, account_id: str, *, currency: str) -> int: ...
 
     async def detach_payment_method(self, account_id: str, *, payment_method_id: str) -> None:
         """Detach a saved card from its Customer so it can no longer be charged."""
@@ -589,8 +684,9 @@ class PaymentGateway(Protocol):
         application_fee_cents: int,
         metadata: dict[str, str],
         idempotency_key: str,
+        customer_id: str | None = None,
     ) -> PaymentIntentResult:
-        """A card_present PaymentIntent (no customer); the reader confirms, the webhook settles."""
+        """A card_present PaymentIntent; the reader confirms, the webhook settles."""
         ...
 
 
@@ -915,9 +1011,9 @@ class StripeGateway:
             components["payouts"] = {
                 "enabled": True,
                 "features": {
-                    "edit_payout_schedule": False,
+                    "edit_payout_schedule": True,
                     "instant_payouts": False,
-                    "standard_payouts": False,
+                    "standard_payouts": True,
                     "external_account_collection": False,
                 },
             }
@@ -949,11 +1045,97 @@ class StripeGateway:
         return account_status_from(str(account.id), account.to_dict())
 
     @_keyed
-    async def create_customer(self, account_id: str, *, name: str, email: str | None) -> str:
-        params: CustomerCreateParams = {"name": name, "stripe_account": account_id}
-        if email is not None:
-            params["email"] = email
+    async def balance_transactions(self, account_id: str) -> list[dict[str, object]]:
+        result = await stripe.BalanceTransaction.list_async(stripe_account=account_id, limit=100)
+        return [cast(dict[str, object], row.to_dict()) async for row in result.auto_paging_iter()]
+
+    @_keyed
+    async def list_payouts(self, account_id: str, after: str | None = None) -> PayoutPage:
+        params: PayoutListParams = {"stripe_account": account_id, "limit": 24}
+        if after is not None:
+            params["starting_after"] = after
+        try:
+            result = await stripe.Payout.list_async(**params)
+        except stripe.InvalidRequestError as exc:
+            raise Conflict("payout history unavailable for this cursor") from exc
+        return PayoutPage(
+            [cast(dict[str, object], row.to_dict()) for row in result.data],
+            str(result.data[-1].id) if result.has_more and result.data else None,
+        )
+
+    @_keyed
+    async def payout_transactions(
+        self, account_id: str, payout_id: str, after: str | None
+    ) -> TransactionPage:
+        params: BalanceTransactionListParams = {
+            "stripe_account": account_id,
+            "payout": payout_id,
+            "limit": 24,
+        }
+        if after is not None:
+            params["starting_after"] = after
+        try:
+            result = await stripe.BalanceTransaction.list_async(**params)
+        except stripe.InvalidRequestError as exc:
+            raise Conflict("payout transactions unavailable for this cursor") from exc
+        try:
+            rows = [StripeTransaction.model_validate(row.to_dict()) for row in result.data]
+        except ValidationError as exc:
+            raise AppError(
+                "invalid payout transactions", status_code=502, code="provider_unavailable"
+            ) from exc
+        return TransactionPage(rows, rows[-1].id if result.has_more and rows else None)
+
+    @_keyed
+    async def retrieve(
+        self, account_id: str | None, resource: StripeResource, identity: str
+    ) -> dict[str, object]:
+        match resource:
+            case "subscription":
+                value = await stripe.Subscription.retrieve_async(
+                    identity, stripe_account=account_id
+                )
+            case "payment_intent":
+                value = await stripe.PaymentIntent.retrieve_async(
+                    identity, stripe_account=account_id
+                )
+            case "charge":
+                value = await stripe.Charge.retrieve_async(identity, stripe_account=account_id)
+            case "refund":
+                value = await stripe.Refund.retrieve_async(identity, stripe_account=account_id)
+            case "dispute":
+                value = await stripe.Dispute.retrieve_async(identity, stripe_account=account_id)
+            case "payout":
+                try:
+                    value = await stripe.Payout.retrieve_async(identity, stripe_account=account_id)
+                except stripe.InvalidRequestError as exc:
+                    if _missing(exc):
+                        raise NotFound("payout not found") from exc
+                    raise
+            case "invoice":
+                value = await stripe.Invoice.retrieve_async(identity, stripe_account=account_id)
+            case "setup_intent":
+                value = await stripe.SetupIntent.retrieve_async(identity, stripe_account=account_id)
+            case "mandate":
+                value = await stripe.Mandate.retrieve_async(identity, stripe_account=account_id)
+            case "payment_method":
+                value = await stripe.PaymentMethod.retrieve_async(
+                    identity, stripe_account=account_id
+                )
+        return cast(dict[str, object], value.to_dict())
+
+    @_keyed
+    async def create_customer(
+        self, account_id: str, *, name: str, email: str | None, idempotency_key: str
+    ) -> str:
+        params: CustomerCreateParams = {
+            "stripe_account": account_id,
+            "idempotency_key": idempotency_key,
+        }
         customer = await stripe.Customer.create_async(**params)
+        await stripe.Customer.modify_async(
+            str(customer.id), stripe_account=account_id, name=name, email=email or ""
+        )
         return str(customer.id)
 
     @_keyed
@@ -1236,6 +1418,21 @@ class StripeGateway:
         )
 
     @_keyed
+    async def invoice_for_payment(
+        self, account_id: str, intent_id: str
+    ) -> dict[str, object] | None:
+        payments = await stripe.InvoicePayment.list_async(
+            stripe_account=account_id,
+            payment={"type": "payment_intent", "payment_intent": intent_id},
+            status="paid",
+            limit=100,
+        )
+        async for payment in payments.auto_paging_iter():
+            invoice_id = payment.invoice if isinstance(payment.invoice, str) else payment.invoice.id
+            return await self.retrieve(account_id, "invoice", invoice_id)
+        return None
+
+    @_keyed
     async def get_invoice_payment_intent(self, account_id: str, *, invoice_id: str) -> str | None:
         payments = await stripe.InvoicePayment.list_async(
             invoice=invoice_id, stripe_account=account_id
@@ -1247,10 +1444,24 @@ class StripeGateway:
         return None
 
     @_keyed
-    async def get_balance_cents(self, account_id: str, *, currency: str) -> int:
+    async def get_balance(self, account_id: str, *, currency: str) -> AccountBalance:
         balance = await stripe.Balance.retrieve_async(stripe_account=account_id)
-        funds = [*balance["available"], *balance["pending"]]
-        return sum(int(f["amount"]) for f in funds if str(f["currency"]) == currency.lower())
+        return AccountBalance(
+            sum(
+                int(f["amount"])
+                for f in balance["available"]
+                if str(f["currency"]) == currency.lower()
+            ),
+            sum(
+                int(f["amount"])
+                for f in balance["pending"]
+                if str(f["currency"]) == currency.lower()
+            ),
+        )
+
+    async def get_balance_cents(self, account_id: str, *, currency: str) -> int:
+        balance = await self.get_balance(account_id, currency=currency)
+        return balance.available_cents + balance.pending_cents
 
     @_keyed
     async def create_connection_token(self, account_id: str) -> str:
@@ -1285,16 +1496,20 @@ class StripeGateway:
         application_fee_cents: int,
         metadata: dict[str, str],
         idempotency_key: str,
+        customer_id: str | None = None,
     ) -> PaymentIntentResult:
-        intent = await stripe.PaymentIntent.create_async(
-            amount=amount_cents,
-            currency=currency.lower(),
-            allowed_payment_method_types=["card_present"],
-            application_fee_amount=application_fee_cents,
-            metadata=metadata,
-            stripe_account=account_id,
-            idempotency_key=idempotency_key,
-        )
+        params: PaymentIntentCreateParams = {
+            "amount": amount_cents,
+            "currency": currency.lower(),
+            "allowed_payment_method_types": ["card_present"],
+            "application_fee_amount": application_fee_cents,
+            "metadata": metadata,
+            "stripe_account": account_id,
+            "idempotency_key": idempotency_key,
+        }
+        if customer_id is not None:
+            params["customer"] = customer_id
+        intent = await stripe.PaymentIntent.create_async(**params)
         if "card_present" not in intent.payment_method_types:
             raise Conflict("complete payments setup before taking in-person card payments")
         return PaymentIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))

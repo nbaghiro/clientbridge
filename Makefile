@@ -229,6 +229,11 @@ auth-standalone:
 test-e2e:
 	cd backend && uv run pytest -m e2e -q
 
+.PHONY: test-stripe-qa
+# Real sandbox API flows; missing prerequisites and skipped tests fail this target.
+test-stripe-qa:
+	cd backend && uv run python -m scripts.stripe_qa $(STRIPE_QA_ARGS)
+
 lint: lint-backend lint-frontend lint-infra
 
 # One config at the repo root (pyrightconfig.json), shared with the editor.

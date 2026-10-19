@@ -6,9 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Order
+from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
-from tests.conftest import Factory
+from tests.conftest import Factory, FakePaymentGateway
 from tests.helpers import client_id, enable_payments, stripe_event
 from tests.helpers import key as retry_key
 
@@ -268,3 +269,16 @@ async def test_a_disputed_sale_stays_paid_until_the_case_is_lost(
     await stripe_event(as_owner, "charge.dispute.closed", {**dispute, "status": "lost"})
     assert await _order_status(db, order["id"]) == "refunded"
     assert await ledger.collected(db, BIZ, "order", order["id"]) == (0, True)
+
+
+async def test_terminal_checkout_associates_a_known_client(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    order = (await as_owner.post("/v1/orders", json={"client_id": cid, "lines": [LATTE]})).json()
+    result = await as_owner.post(f"/v1/orders/{order['id']}/checkout")
+    assert result.status_code == 200, result.text
+    customer = await db.scalar(select(Client.stripe_customer_id).where(Client.id == cid))
+    assert customer is not None
+    assert list(gateway.terminal_customers.values()) == [customer]

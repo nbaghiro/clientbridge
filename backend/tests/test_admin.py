@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
+from clientbridge.core.ids import new_id
 from clientbridge.models.platform import Audit
 from tests.conftest import Factory, FakeEmailSender, FakeIdentityProvider
 from tests.test_auth import fresh
@@ -345,3 +346,52 @@ async def test_client_activity_includes_related_records_and_keeps_business_scope
         headers=admin_headers,
     )
     assert other.json()["items"] == []
+
+
+async def test_drift_acknowledgement_is_scoped_and_idempotent(
+    api: httpx.AsyncClient, db: AsyncSession, admin_headers: dict[str, str]
+) -> None:
+    finding_id = new_id("audit")
+    db.add(
+        Audit(
+            id=finding_id,
+            business_id="bz_birchbark",
+            action="ledger.transaction_drift",
+            entity_type="stripe_source",
+            entity_id="txn_unknown",
+            changes={"stripe_cents": -50},
+        )
+    )
+    await db.commit()
+    path = f"/admin/v1/businesses/bz_birchbark/drift/{finding_id}/acknowledge"
+    body = {"reason": "reviewed provider adjustment"}
+    assert (await api.post(path, json=body)).status_code == 401
+    assert (await api.post(path, json={"reason": " "}, headers=admin_headers)).status_code == 422
+    assert (
+        await api.post(
+            path.replace("bz_birchbark", "bz_cedarcoast"), json=body, headers=admin_headers
+        )
+    ).status_code == 404
+    for _ in range(2):
+        response = await api.post(path, json=body, headers=admin_headers)
+        assert response.status_code == 200, response.text
+        assert response.json() == {"finding_id": finding_id}
+    rows = list(
+        await db.scalars(
+            select(Audit).where(
+                Audit.action == "ledger.drift_acknowledged",
+                Audit.entity_id == finding_id,
+            )
+        )
+    )
+    assert len(rows) == 1
+    assert rows[0].changes["reason"] == body["reason"]
+    assert rows[0].changes["identity_id"]
+
+
+async def test_business_owner_cannot_acknowledge_drift(as_owner: httpx.AsyncClient) -> None:
+    response = await as_owner.post(
+        "/admin/v1/businesses/bz_birchbark/drift/audit_missing/acknowledge",
+        json={"reason": "reviewed"},
+    )
+    assert response.status_code == 403

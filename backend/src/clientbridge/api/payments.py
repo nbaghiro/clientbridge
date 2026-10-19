@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Response
+from fastapi import APIRouter, Header, Query, Response
 
 from clientbridge.core.deps import (
     CurrentPrincipal,
@@ -18,6 +18,8 @@ from clientbridge.schemas.payments import (
     DetachResult,
     PaymentMethodOut,
     PaymentSetupLinkOut,
+    PayoutContentsOut,
+    PayoutsOut,
     RefundIn,
     RefundOut,
     RefundPreview,
@@ -51,6 +53,27 @@ async def connect_status(
     principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
 ) -> ConnectStatus:
     return await PaymentService(db, principal, gateway).status()
+
+
+@connect_router.get("/payouts", response_model=PayoutsOut)
+async def payouts(
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    after: Annotated[str | None, Query(pattern=r"^po_[A-Za-z0-9_]+$", max_length=255)] = None,
+) -> PayoutsOut:
+    return await PaymentService(db, principal, gateway).payouts(after)
+
+
+@connect_router.get("/payouts/{payout_id}/transactions", response_model=PayoutContentsOut)
+async def payout_transactions(
+    payout_id: str,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    after: Annotated[str | None, Query(pattern=r"^txn_[a-zA-Z0-9]+$", max_length=255)] = None,
+) -> PayoutContentsOut:
+    return await PaymentService(db, principal, gateway).payout_contents(payout_id, after)
 
 
 payments_router = APIRouter(prefix="/payments", tags=["payments"])

@@ -17,6 +17,7 @@ interface ConnectStatus {
     past_due: string[];
     current_deadline: string | null;
     available_cents: number | null;
+    pending_cents: number | null;
 }
 
 /** `null` while loading, `"error"` if the fetch failed; bump `reloadKey` to refetch. */
@@ -129,6 +130,7 @@ export interface GettingPaidView {
     chargesEnabled: boolean;
     payoutsEnabled: boolean;
     availableCents: number | null;
+    pendingCents: number | null;
     refreshing: boolean;
     finish: () => void;
     account: ReturnType<typeof usePaymentAccount>;
@@ -218,6 +220,7 @@ export function useGettingPaid(api: ApiLike): GettingPaidView {
         chargesEnabled: s?.charges_enabled ?? false,
         payoutsEnabled: s?.payouts_enabled ?? false,
         availableCents: s?.available_cents ?? null,
+        pendingCents: s?.pending_cents ?? null,
         refreshing: status === null,
         finish: () => {
             account.open("onboarding");

@@ -1122,7 +1122,7 @@ Size: S · Area: Money, tax and staff pay
 
 **Flow:** Every payment's Stripe fee and every payout to the bank is recorded and agrees with Stripe.
 
-**Built:** Fees per payment from Stripe, payouts under Reports › Bank deposits, a nightly check against Stripe's balance.
+**Built:** Actual fees per payment, live payout statuses, separate available/pending balances, embedded schedule editing and standard manual payouts. Recovery runs every 15 minutes; nightly reconciliation repairs recognized missing movements and compares source-level and aggregate balances. See [Payments and Stripe](payments.md).
 
 **To do:**
 
@@ -1131,8 +1131,8 @@ Size: S · Area: Money, tax and staff pay
 **QA:**
 
 1. After test payments, each fee matches Stripe's dashboard.
-2. When a test payout lands, it shows under Bank deposits.
-3. The nightly check reports no difference.
+2. Change an automatic schedule, then exercise manual payouts in Stripe sandbox; verify persistence, role gates and pending/in-transit/paid/failed/canceled display.
+3. Delay and replay a payment event; verify recovery without duplicate entries and that nightly reconciliation reports no unexplained difference.
 
 **Depends on:** Stripe connect and payout status (CLI-8)
 

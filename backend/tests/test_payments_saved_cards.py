@@ -439,3 +439,20 @@ async def test_pay_with_default_no_default_404(
     await book_invoice(db, inv)
     res = await _charge(as_owner, inv.id, "default")
     assert res.status_code == 404
+
+
+async def test_customer_survives_a_database_rollback_without_provider_duplication(
+    db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    from clientbridge.services.payments import ensure_customer
+
+    cid = await new_client(db)
+    client = await db.get(Client, cid)
+    assert client is not None
+    savepoint = await db.begin_nested()
+    first = await ensure_customer(db, gateway, "acct_test", client)
+    await savepoint.rollback()
+    await db.refresh(client)
+    assert client.stripe_customer_id is None
+    assert await ensure_customer(db, gateway, "acct_test", client) == first
+    assert len(gateway.customer_keys) == 1

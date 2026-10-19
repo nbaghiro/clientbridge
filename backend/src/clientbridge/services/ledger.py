@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -12,22 +11,17 @@ from clientbridge.core import clock
 from clientbridge.core.errors import UnsupportedCurrency
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
-from clientbridge.integrations.stripe import ChargeFees, PaymentGateway
+from clientbridge.integrations.stripe import ChargeFees
 from clientbridge.models.billing import Invoice, Order
-from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
-from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking
-from clientbridge.services.business import merchant_account
 from clientbridge.services.lines import allocate, fetch_lines
 from clientbridge.services.tax import TaxResult, issued_tax, tax_for_amount, tax_within
 
 type AccountKey = tuple[str, str, str, str]
 type _Id = InstrumentedAttribute[str] | str
-
-_log = logging.getLogger(__name__)
 
 PLATFORM = "clientbridge"
 BUSINESS_CURRENCY = "CAD"  # every tenant books in CAD until multi-currency is a feature
@@ -905,14 +899,25 @@ async def post_dispute(
         subject=subject,
         occurred_at=occurred_at,
     )
+    fee_ref = f"dispute_fee:{dispute_id}"
+    rows = await _rows(
+        db, biz, or_(Entry.ref == fee_ref, Entry.ref.startswith(f"{fee_ref}:", autoescape=True))
+    )
+    recorded = sum(
+        entry.amount_cents
+        for entry, account in rows
+        if account.category == "processing_fee" and entry.amount_cents > 0
+    )
+    if fee <= recorded:
+        return
     await post(
         db,
         biz,
         event="fee",
-        ref=f"dispute_fee:{dispute_id}",
+        ref=fee_ref if recorded == 0 else f"{fee_ref}:{fee}",
         legs=[
-            Leg("business", biz, "processing_fee", fee),
-            Leg("business", biz, "stripe", -fee),
+            Leg("business", biz, "processing_fee", fee - recorded),
+            Leg("business", biz, "stripe", recorded - fee),
         ],
         currency=payment.currency,
         source=("payment", payment.id),
@@ -936,18 +941,28 @@ async def close_dispute(
             event="dispute",
             source=("payment", payment.id),
         )
-    fee_rows = await _rows(db, business_id, Entry.ref == f"dispute_fee:{dispute_id}")
-    if returned_fee <= 0 or not fee_rows:
+    fee_ref = f"dispute_fee:{dispute_id}"
+    fee_rows = await _rows(
+        db,
+        business_id,
+        or_(Entry.ref == fee_ref, Entry.ref.startswith(f"{fee_ref}:", autoescape=True)),
+    )
+    returned = -sum(
+        entry.amount_cents
+        for entry, account in fee_rows
+        if account.category == "processing_fee" and entry.amount_cents < 0
+    )
+    if returned_fee <= returned or not fee_rows:
         return
     entry = fee_rows[0][0]
     await post(
         db,
         business_id,
         event="fee",
-        ref=f"dispute_fee:{dispute_id}:won",
+        ref=f"{fee_ref}:won" if returned == 0 else f"{fee_ref}:won:{returned_fee}",
         legs=[
-            Leg("business", business_id, "processing_fee", -returned_fee),
-            Leg("business", business_id, "stripe", returned_fee),
+            Leg("business", business_id, "processing_fee", returned - returned_fee),
+            Leg("business", business_id, "stripe", returned_fee - returned),
         ],
         currency=entry.currency,
         source=(entry.source_type, entry.source_id)
@@ -1285,48 +1300,51 @@ async def stale_accounts(db: AsyncSession, business_id: str) -> list[str]:
     return list(rows.scalars().all())
 
 
-def _drift(business_id: str, action: str, changes: dict[str, object]) -> Audit:
-    _log.error("ledger drift %s business=%s %s", action, business_id, changes)
-    return Audit(
-        id=new_id("audit"),
-        business_id=business_id,
-        action=action,
-        entity_type="business",
-        entity_id=business_id,
-        changes=changes,
+async def post_stripe_fee(
+    db: AsyncSession, business_id: str, identity: str, net: int, occurred_at: datetime
+) -> str:
+    ref = f"stripe_fee:{identity}"
+    await post(
+        db,
+        business_id,
+        event="fee",
+        ref=ref,
+        legs=[
+            Leg("business", business_id, "stripe", net),
+            Leg("business", business_id, "processing_fee", -net),
+        ],
+        source=("stripe_transaction", identity),
+        occurred_at=occurred_at,
     )
+    return ref
 
 
-async def run_reconcile_ledger(db: AsyncSession, gateway: PaymentGateway) -> int:
-    """Check every cached balance against its entries and every connected account against Stripe."""
-    ids = list(await db.scalars(select(Business.id).order_by(Business.id)))
-    drifted = 0
-    for identity in ids:
-        try:
-            business = await db.get(Business, identity)
-            if business is None:
-                continue
-            found = 0
-            stale = await stale_accounts(db, identity)
-            if stale:
-                found += 1
-                db.add(_drift(identity, "ledger.cache_drift", {"account_ids": stale}))
-            account_id = merchant_account(business)
-            if account_id is not None:
-                ours = await balance(
-                    db, identity, owner_type="business", owner_id=identity, category="stripe"
-                )
-                theirs = await gateway.get_balance_cents(account_id, currency=BUSINESS_CURRENCY)
-                if ours != theirs:
-                    found += 1
-                    db.add(
-                        _drift(
-                            identity, "ledger.drift", {"ledger_cents": ours, "stripe_cents": theirs}
-                        )
-                    )
-            await db.commit()
-            drifted += found
-        except Exception:
-            await db.rollback()
-            _log.exception("ledger reconciliation failed for %s", identity)
-    return drifted
+async def post_orphan(
+    db: AsyncSession,
+    business_id: str,
+    transaction_id: str,
+    intent_id: str,
+    amount: int,
+    processing_fee: int,
+    application_fee: int,
+    occurred_at: datetime,
+) -> str:
+    ref = f"orphan:{transaction_id}"
+    await post(
+        db,
+        business_id,
+        event="payment" if amount > 0 else "refund",
+        ref=ref,
+        legs=[
+            Leg("business", business_id, "stripe", amount - processing_fee - application_fee),
+            Leg("business", business_id, "payable", -amount, code="orphan"),
+            Leg("business", business_id, "processing_fee", processing_fee),
+            Leg("business", business_id, "platform_fee", application_fee),
+            Leg("platform", PLATFORM, "stripe", application_fee),
+            Leg("platform", PLATFORM, "fee_revenue", -application_fee),
+        ],
+        source=("stripe_transaction", transaction_id),
+        subject=("payment_intent", intent_id),
+        occurred_at=occurred_at,
+    )
+    return ref

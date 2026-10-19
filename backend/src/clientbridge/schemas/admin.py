@@ -238,3 +238,11 @@ class AdminDelivery(Mirror):
 
 class AdminSmsAssignment(BaseModel):
     number: Phone = Field(max_length=32)
+
+
+class AdminDriftAcknowledgement(BaseModel):
+    reason: str = Field(min_length=1, max_length=1000, pattern=r"\S")
+
+
+class AdminDriftResult(BaseModel):
+    finding_id: str

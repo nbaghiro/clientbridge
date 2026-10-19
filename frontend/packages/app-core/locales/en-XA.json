@@ -8193,7 +8193,7 @@
         "message": "[Ŵé çöûļðñ'ţ öþéñ ţĥé ŵéƀ åþþ. Ţŕý åĝåîñ öŕ šîĝñ îñ ţö Çļîéñţƀŕîðĝé îñ ýöûŕ ƀŕöŵšéŕ. one two three four five]"
     },
     "paymentAccount.viewPayouts": {
-        "message": "[Ṽîéŵ þåýöûţ åçţîṽîţý one two]"
+        "message": "[Þåýöûţš åñð šçĥéðûļé one two]"
     },
     "paymentAccount.manageDisputes": {
         "message": "[Ŕéšþöñð ţö ðîšþûţéš one two]"
@@ -8389,6 +8389,9 @@
     },
     "gettingPaid.available": {
         "message": "[Ŕéåðý ţö þåý öûţ one two]"
+    },
+    "gettingPaid.pending": {
+        "message": "[Þéñðîñĝ šéţţļéɱéñţ one two]"
     },
     "gettingPaid.held": {
         "message": "[Ĥéļð ûñţîļ ṽéŕîƒîéð one two]"
@@ -9238,9 +9241,6 @@
     },
     "payouts.payoutRef": {
         "message": "[Þåýöûţ ŕéƒéŕéñçé one two]"
-    },
-    "payouts.settledNotice": {
-        "message": "[Ŵĥîçĥ çĥåŕĝéš å þåýöûţ šéţţļéð îšñ'ţ ŕéçöŕðéð ýéţ. Ţĥé ŕéçéñţ çåŕð çĥåŕĝéš ƀéļöŵ šĥöŵ éåçĥ öñé'š ƒéé. one two three four five six seven]"
     },
     "payouts.returnedNotice": {
         "message": "[Ýöûŕ ƀåñķ ŕéţûŕñéð ţĥîš þåýöûţ. Çĥéçķ ýöûŕ þåýöûţ ƀåñķ ðéţåîļš ƀéƒöŕé ţĥé ñéẋţ þåýöûţ. one two three four five six]"
@@ -12796,5 +12796,56 @@
     },
     "reviews.googleSummary": {
         "message": "[{rating} · {count,plural,one{# Ĝööĝļé ŕéṽîéŵ} other{# Ĝööĝļé ŕéṽîéŵš}} one two three]"
+    },
+    "payouts.expected": {
+        "message": "[Éẋþéçţéð {when} one]"
+    },
+    "payouts.status.pending": {
+        "message": "[Þéñðîñĝ one]"
+    },
+    "payouts.status.in_transit": {
+        "message": "[Îñ ţŕåñšîţ one two]"
+    },
+    "payouts.status.canceled": {
+        "message": "[Çåñçéļéð one]"
+    },
+    "payouts.contentsTitle": {
+        "message": "[Îñçļûðéð ţŕåñšåçţîöñš one two]"
+    },
+    "payouts.contentsPending": {
+        "message": "[Šţŕîþé îš þŕéþåŕîñĝ ţĥé ţŕåñšåçţîöñ ƀŕéåķðöŵñ. one two three four]"
+    },
+    "payouts.contentsUnavailable": {
+        "message": "[Šţŕîþé þŕöṽîðéš å ţŕåñšåçţîöñ ƀŕéåķðöŵñ ƒöŕ åûţöɱåţîç þåýöûţš öñļý. one two three four five]"
+    },
+    "payouts.contentsEmpty": {
+        "message": "[Ñö ţŕåñšåçţîöñš îñ ţĥîš þåýöûţ. one two three]"
+    },
+    "payouts.contentsNext": {
+        "message": "[Ñéẋţ ţŕåñšåçţîöñš one two]"
+    },
+    "payouts.contentsPrevious": {
+        "message": "[Þŕéṽîöûš ţŕåñšåçţîöñš one two]"
+    },
+    "payouts.transactionCharge": {
+        "message": "[Þåýɱéñţ one]"
+    },
+    "payouts.transactionRefund": {
+        "message": "[Ŕéƒûñð one]"
+    },
+    "payouts.transactionFee": {
+        "message": "[Šţŕîþé ƒéé one two]"
+    },
+    "payouts.transactionOther": {
+        "message": "[Åðĵûšţɱéñţ one two]"
+    },
+    "payouts.transactionFees": {
+        "message": "[Ƒééš {amount} one]"
+    },
+    "payouts.historyNext": {
+        "message": "[Öļðéŕ þåýöûţš one two]"
+    },
+    "payouts.historyPrevious": {
+        "message": "[Ñéŵéŕ þåýöûţš one two]"
     }
 }
