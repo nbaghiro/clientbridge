@@ -3971,18 +3971,6 @@
     "clients.record.emptyBody": {
         "message": "[Åðð ýöûŕ ƒîŕšţ çļîéñţ, öŕ ţĥéý åþþéåŕ ĥéŕé ŵĥéñ ţĥéý ƀööķ öñļîñé. one two three four five]"
     },
-    "clients.record.colClient": {
-        "message": "[Çļîéñţ one]"
-    },
-    "clients.record.colNext": {
-        "message": "[Ñéẋţ ṽîšîţ one two]"
-    },
-    "clients.record.colBalance": {
-        "message": "[Ɓåļåñçé one]"
-    },
-    "clients.record.colTags": {
-        "message": "[Ţåĝš one]"
-    },
     "clients.record.noUpcoming": {
         "message": "[Ñöţĥîñĝ ƀööķéð one two]"
     },
@@ -4078,6 +4066,21 @@
     },
     "clients.record.back": {
         "message": "[Çļîéñţš one]"
+    },
+    "clients.record.colClient": {
+        "message": "[Çļîéñţ one]"
+    },
+    "clients.record.colNext": {
+        "message": "[Ñéẋţ ṽîšîţ one two]"
+    },
+    "clients.record.colBalance": {
+        "message": "[Ɓåļåñçé one]"
+    },
+    "clients.record.colTags": {
+        "message": "[Ţåĝš one]"
+    },
+    "clients.record.pane": {
+        "message": "[Çļîéñţ ŕéçöŕð one two]"
     },
     "clients.record.goneBody": {
         "message": "[Ţĥéý ɱåý ĥåṽé ƀééñ ɱéŕĝéð îñţö åñöţĥéŕ ŕéçöŕð öŕ ŕéɱöṽéð öñ åñöţĥéŕ ðéṽîçé. one two three four five]"
@@ -5015,11 +5018,11 @@
     "messaging.noThreadsBody": {
         "message": "[Ŵĥéñ å çļîéñţ ŕéþļîéš ţö å ţéẋţ öŕ åñ éɱåîļ, îţ ļåñðš ĥéŕé. one two three four]"
     },
+    "messaging.noMessagesYet": {
+        "message": "[Ñö ɱéššåĝéš ŵîţĥ {name} ýéţ. Ŵŕîţé ţĥé ƒîŕšţ öñé ƀéļöŵ. one two three four]"
+    },
     "messaging.selectThread": {
         "message": "[Çĥööšé å çöñṽéŕšåţîöñ ţö ŕéåð åñð ŕéþļý. one two three]"
-    },
-    "messaging.showUnread": {
-        "message": "[Šĥöŵ ûñŕéåð one two]"
     },
     "messaging.thread.automatic": {
         "message": "[Åûţöɱåţîç one two]"
@@ -5143,6 +5146,27 @@
     },
     "messaging.back": {
         "message": "[Îñƀöẋ one]"
+    },
+    "messaging.rail.open": {
+        "message": "[Öþéñ {area} one]"
+    },
+    "messaging.rail.allClients": {
+        "message": "[Åļļ çļîéñţš one two]"
+    },
+    "messaging.rail.reviewCount": {
+        "message": "[{n,plural,one{# ŕéṽîéŵ} other{# ŕéṽîéŵš}} one two]"
+    },
+    "messaging.rail.reviewsHeld": {
+        "message": "[{n,plural,one{# ŕéṽîéŵ ŵåîţîñĝ ƒöŕ ýöûŕ ÖĶ} other{# ŕéṽîéŵš ŵåîţîñĝ ƒöŕ ýöûŕ ÖĶ}} one two three four]"
+    },
+    "messaging.rail.reach": {
+        "message": "[{sms, number} çåñ ĝéţ ţéẋţš, {email, number} çåñ ĝéţ éɱåîļ one two three]"
+    },
+    "messaging.rail.formsWaiting": {
+        "message": "[{n,plural,one{# åñšŵéŕ ŵåîţîñĝ} other{# åñšŵéŕš ŵåîţîñĝ} =0{Ñö åñšŵéŕš ŵåîţîñĝ}} one two three four]"
+    },
+    "messaging.rail.signaturesWaiting": {
+        "message": "[{n,plural,one{# šîĝñåţûŕé ŵåîţîñĝ} other{# šîĝñåţûŕéš ŵåîţîñĝ} =0{Ñö šîĝñåţûŕéš ŵåîţîñĝ}} one two three four five]"
     },
     "messaging.cancel": {
         "message": "[Çåñçéļ one]"

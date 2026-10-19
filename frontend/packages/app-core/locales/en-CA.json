@@ -4287,18 +4287,6 @@
     "clients.record.emptyBody": {
         "message": "Add your first client, or they appear here when they book online."
     },
-    "clients.record.colClient": {
-        "message": "Client"
-    },
-    "clients.record.colNext": {
-        "message": "Next visit"
-    },
-    "clients.record.colBalance": {
-        "message": "Balance"
-    },
-    "clients.record.colTags": {
-        "message": "Tags"
-    },
     "clients.record.noUpcoming": {
         "message": "Nothing booked"
     },
@@ -4400,6 +4388,21 @@
     },
     "clients.record.back": {
         "message": "Clients"
+    },
+    "clients.record.colClient": {
+        "message": "Client"
+    },
+    "clients.record.colNext": {
+        "message": "Next visit"
+    },
+    "clients.record.colBalance": {
+        "message": "Balance"
+    },
+    "clients.record.colTags": {
+        "message": "Tags"
+    },
+    "clients.record.pane": {
+        "message": "Client record"
     },
     "clients.record.goneBody": {
         "message": "They may have been merged into another record or removed on another device."
@@ -5448,11 +5451,12 @@
     "messaging.noThreadsBody": {
         "message": "When a client replies to a text or an email, it lands here."
     },
+    "messaging.noMessagesYet": {
+        "message": "No messages with {name} yet. Write the first one below.",
+        "args": ["name"]
+    },
     "messaging.selectThread": {
         "message": "Choose a conversation to read and reply."
-    },
-    "messaging.showUnread": {
-        "message": "Show unread"
     },
     "messaging.thread.automatic": {
         "message": "Automatic"
@@ -5580,6 +5584,34 @@
     },
     "messaging.back": {
         "message": "Inbox"
+    },
+    "messaging.rail.open": {
+        "message": "Open {area}",
+        "description": "Button that opens an inbox area's full page from the side rail.",
+        "args": ["area"]
+    },
+    "messaging.rail.allClients": {
+        "message": "All clients"
+    },
+    "messaging.rail.reviewCount": {
+        "message": "{n, plural, one {# review} other {# reviews}}",
+        "args": ["n"]
+    },
+    "messaging.rail.reviewsHeld": {
+        "message": "{n, plural, one {# review waiting for your OK} other {# reviews waiting for your OK}}",
+        "args": ["n"]
+    },
+    "messaging.rail.reach": {
+        "message": "{sms, number} can get texts, {email, number} can get email",
+        "args": ["sms", "email"]
+    },
+    "messaging.rail.formsWaiting": {
+        "message": "{n, plural, =0 {No answers waiting} one {# answer waiting} other {# answers waiting}}",
+        "args": ["n"]
+    },
+    "messaging.rail.signaturesWaiting": {
+        "message": "{n, plural, =0 {No signatures waiting} one {# signature waiting} other {# signatures waiting}}",
+        "args": ["n"]
     },
     "messaging.cancel": {
         "message": "Cancel"

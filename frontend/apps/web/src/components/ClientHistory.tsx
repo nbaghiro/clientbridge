@@ -108,7 +108,7 @@ export function NoteDialog({
 }) {
     const composer = useNoteComposer(api, clientId, onClose);
     return (
-        <Modal onClose={onClose} size="lg">
+        <Modal variant="drawer" onClose={onClose} size="lg">
             <h2 className="mb-4 font-display text-lg font-bold text-ink">
                 {strings.clients.record.addNoteTitle}
             </h2>

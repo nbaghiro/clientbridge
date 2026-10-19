@@ -77,8 +77,8 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
     };
 
     return (
-        <Modal onClose={close} size="xl" framed={false}>
-            <div className="@container flex h-[92vh] flex-col overflow-hidden rounded-lg border border-line bg-bg shadow-card">
+        <Modal variant="drawer" onClose={close} size="xl" framed={false}>
+            <div className="@container flex h-full flex-col overflow-hidden bg-bg">
                 <header className="flex flex-wrap items-center gap-3 border-b border-line bg-surface px-6 py-4">
                     <h2 className="font-display text-xl font-bold text-ink">{c.title}</h2>
                     <StatusPill status={s.statusLabel.draft} intent="neutral" />

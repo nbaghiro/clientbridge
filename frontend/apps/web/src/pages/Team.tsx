@@ -73,7 +73,7 @@ function InviteDialog({
 }) {
     const first = form.sent[0];
     return (
-        <Modal onClose={onClose} size="lg">
+        <Modal variant="drawer" onClose={onClose} size="lg">
             {first !== undefined ? (
                 <div className="space-y-4">
                     <Icon name="check" size={32} className="block text-ink-soft" />
@@ -266,7 +266,7 @@ function RemoveDialog({
     const outcome = removal.outcome;
     if (outcome !== null) {
         return (
-            <Modal onClose={finish} size="lg">
+            <Modal variant="drawer" onClose={finish} size="lg">
                 <div className="space-y-4">
                     <div>
                         <h2 className="font-display text-xl font-bold text-ink">
@@ -288,7 +288,7 @@ function RemoveDialog({
         );
     }
     return (
-        <Modal onClose={onClose} size="lg">
+        <Modal variant="drawer" onClose={onClose} size="lg">
             <div className="space-y-4">
                 <div>
                     <h2 className="font-display text-xl font-bold text-ink">

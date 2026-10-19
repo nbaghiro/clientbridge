@@ -45,6 +45,8 @@ export interface ListPageProps<T, K extends string = string> {
     rowKey: (row: T) => string;
     renderRow: (row: T) => ReactNode;
     onRowPress?: ((row: T) => void) | undefined;
+    // The row whose record is open beside the list.
+    selectedKey?: string | undefined;
     // A string is the plain empty line; EmptyProps adds an icon, body and next-step actions.
     empty: string | EmptyProps;
     // "loading" draws placeholder rows, "error" a failed load with onRetry; rows are ignored for both.
@@ -60,6 +62,8 @@ interface DetailStatus {
 
 export interface DetailViewProps {
     open: boolean;
+    // "inline" fills its parent pane instead of sliding over the page.
+    variant?: "drawer" | "inline" | undefined;
     title: string;
     subtitle?: string | undefined;
     status?: DetailStatus | undefined;
@@ -107,6 +111,8 @@ export interface LoadFailedProps {
 
 export interface ModalProps {
     flow?: boolean | undefined;
+    // "drawer" slides in from the right on web for create and edit flows; phones keep their sheet.
+    variant?: "dialog" | "drawer" | undefined;
     open?: boolean | undefined;
     onClose: () => void;
     // sm/md/lg set the web width; xl is the large panel (wide on web, a tall sheet on mobile).
@@ -1068,8 +1074,8 @@ export interface OccurrenceListProps {
 }
 
 export interface SkeletonProps {
-    // "row": avatar and two lines; "stat": a label and a figure; "line": one bar.
-    variant: "row" | "stat" | "line";
+    // "row": avatar and two lines; "stat": a label and a figure; "line": one bar; "tile": a catalog tile.
+    variant: "row" | "stat" | "line" | "tile";
     count?: number | undefined;
     // Lays the placeholders out side by side, e.g. a row of stats.
     columns?: 2 | 3 | 4 | undefined;

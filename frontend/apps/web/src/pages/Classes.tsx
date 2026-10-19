@@ -30,7 +30,7 @@ import { useState } from "react";
 
 import { ScheduleHeader } from "../components/ScheduleGrid";
 import { ScheduleViews } from "../components/ScheduleViews";
-import { SummaryStrip } from "../components/Workspace";
+import { SummaryStrip } from "../components/SummaryStrip";
 import { api } from "../lib/api";
 import { useOpenLink } from "../lib/links";
 

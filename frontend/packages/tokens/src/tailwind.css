@@ -41,7 +41,15 @@
     --radius-avatar: var(--avatar-radius);
     --shadow-card: var(--shadow);
     --shadow-pop: 0 12px 32px -12px rgba(20, 25, 30, 0.28);
+    --animate-drawer-in: drawer-in 180ms ease-out;
     --shadow-page: 0 1px 3px rgba(20, 25, 30, 0.08), 0 12px 32px -12px rgba(20, 25, 30, 0.18);
+
+    @keyframes drawer-in {
+        from {
+            transform: translateX(24px);
+            opacity: 0;
+        }
+    }
 }
 
 /* Taken at the theme root, so a region that re-themes --surface or --ink leaves inverse controls intact. */

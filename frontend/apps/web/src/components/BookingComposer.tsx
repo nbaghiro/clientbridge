@@ -280,7 +280,7 @@ export function RescheduleDialog({
 }) {
     const r = useReschedule(api, event, useViewer(), onClose);
     return (
-        <Modal size="lg" onClose={onClose}>
+        <Modal variant="drawer" size="lg" onClose={onClose}>
             <div className="space-y-5">
                 <div>
                     <h2 className="font-display text-lg font-bold text-ink">{s.rescheduleTitle}</h2>

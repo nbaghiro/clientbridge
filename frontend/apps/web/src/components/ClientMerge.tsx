@@ -37,7 +37,7 @@ export function ClientMergeDialog({
     });
 
     return (
-        <Modal onClose={onClose} size="lg">
+        <Modal variant="drawer" onClose={onClose} size="lg">
             <h2 className="mb-4 font-display text-lg font-bold text-ink">{s.mergeTitle}</h2>
             <div className="-mx-6 max-h-[calc(100vh-10rem)] space-y-5 overflow-y-auto px-6">
                 <section>

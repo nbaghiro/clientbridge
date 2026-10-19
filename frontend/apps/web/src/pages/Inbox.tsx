@@ -1,13 +1,10 @@
 import {
     type Channel,
-    type Conversation,
     INBOX_FILTERS,
     type InboxSegmentKey,
     type InboxThread,
     type ThreadComposer,
     channelLabel,
-    consentDetail,
-    consentLabel,
     formatPhone,
     strings,
     useConversation,
@@ -18,37 +15,34 @@ import {
     visibleInboxSegments,
     formatParts,
     quickReplies,
-    BUSINESS_CURRENCY,
-    useBusinessZone,
     kindWord,
     useSubjectKind,
 } from "@clientbridge/app-core";
 import {
     Avatar,
-    Badge,
     Button,
     Choice,
     ConversationRow,
     DetailView,
     Empty,
-    KeyValueList,
     MessageBubble,
     Modal,
-    Money,
     Notice,
-    PageHeader,
     SearchField,
     SearchSelect,
+    Skeleton,
     Tabs,
     TextField,
 } from "@clientbridge/ui";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { ContextPanel, InboxRail } from "../components/InboxRail";
 import { Loaded } from "../components/Loaded";
+import { useWide } from "../components/ScheduleGrid";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
-import { useLinkIntent, useOpenLink } from "../lib/links";
+import { useLinkIntent } from "../lib/links";
 import { Broadcasts } from "./Broadcasts";
 import { Contracts } from "./Contracts";
 import { Forms } from "./Forms";
@@ -65,33 +59,72 @@ export function Inbox() {
     const setSegment = (key: InboxSegmentKey): void => {
         setParams(key === "messages" ? {} : { segment: key });
     };
+    const inbox = useInbox();
+    const [picked, setPicked] = useState<string | null>(null);
+    const open =
+        segment === "messages" ? (inbox.threads.find((t) => t.id === picked) ?? null) : null;
+    const wide = useWide();
+    const area = segments.find((x) => x.key === segment);
 
     return (
-        <div className="flex h-full flex-col">
-            <header className="border-b border-line px-8 pt-6">
-                <PageHeader title={s.title}>
-                    {segments.length > 1 ? (
-                        <Tabs items={segments} active={segment} onSelect={setSegment} />
-                    ) : (
-                        <div className="h-1" />
-                    )}
-                </PageHeader>
-            </header>
-            {segment === "messages" ? (
-                <Messages />
-            ) : (
-                <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
-                    {segment === "reviews" ? (
-                        <Reviews />
-                    ) : segment === "broadcasts" ? (
-                        <Broadcasts />
-                    ) : segment === "forms" ? (
-                        <Forms />
-                    ) : (
-                        <Contracts />
-                    )}
-                </div>
-            )}
+        <div className="flex h-full min-h-[600px]">
+            <section className="flex min-w-0 flex-1 flex-col p-5">
+                {!wide && segments.length > 1 ? (
+                    <div className="mb-4">
+                        <Tabs
+                            items={segments}
+                            active={segment}
+                            onSelect={setSegment}
+                            variant="pill"
+                            label={s.title}
+                        />
+                    </div>
+                ) : null}
+                {segment === "messages" || area === undefined ? (
+                    <Messages inbox={inbox} picked={open} onPick={setPicked} wide={wide} />
+                ) : (
+                    <div className="min-h-0 flex-1 overflow-y-auto">
+                        <header className="mb-5 flex items-center gap-3">
+                            <Button
+                                size="sm"
+                                variant="quiet"
+                                icon="chevronLeft"
+                                onPress={() => {
+                                    setSegment("messages");
+                                }}
+                            >
+                                {strings.navigation.inboxSegments.messages}
+                            </Button>
+                            <span className="h-5 w-px bg-line" />
+                            <h1 className="font-display text-xl font-bold text-ink">
+                                {area.label}
+                            </h1>
+                        </header>
+                        {segment === "reviews" ? (
+                            <Reviews />
+                        ) : segment === "broadcasts" ? (
+                            <Broadcasts />
+                        ) : segment === "forms" ? (
+                            <Forms />
+                        ) : (
+                            <Contracts />
+                        )}
+                    </div>
+                )}
+            </section>
+            {wide && (open !== null || segments.length > 1) ? (
+                <aside
+                    aria-label={s.title}
+                    className="w-[340px] shrink-0 overflow-y-auto border-l border-line bg-surface"
+                >
+                    <InboxRail
+                        areas={segments}
+                        active={segment}
+                        thread={open}
+                        onOpen={setSegment}
+                    />
+                </aside>
+            ) : null}
         </div>
     );
 }
@@ -99,32 +132,46 @@ export function Inbox() {
 const rowFlag = (t: InboxThread): { label: string; intent: "danger" } | undefined =>
     t.textsOff ? { label: s.textsOffShort, intent: "danger" } : undefined;
 
-function Messages() {
-    const inbox = useInbox();
+function Messages({
+    inbox,
+    picked: open,
+    onPick: setPicked,
+    wide,
+}: {
+    inbox: ReturnType<typeof useInbox>;
+    picked: InboxThread | null;
+    onPick: (id: string) => void;
+    wide: boolean;
+}) {
     const kind = useSubjectKind();
-    const [picked, setPicked] = useState<string | null>(null);
     const [details, setDetails] = useState(false);
     const [composing, setComposing] = useState<string | null>(null);
     const [sentTo, setSentTo] = useState<string | null>(null);
-    const open = inbox.threads.find((t) => t.id === picked) ?? null;
-    const nothingYet = inbox.load.hasData && inbox.threads.length === 0;
+    // A client opened from elsewhere with no conversation yet gets a blank one to write in.
+    const [drafting, setDrafting] = useState<string | null>(null);
+    const nothingYet = inbox.load.hasData && inbox.threads.length === 0 && drafting === null;
+    const pick = (id: string): void => {
+        setDrafting(null);
+        setPicked(id);
+    };
     useLinkIntent({
         onCreate: () => {
             setComposing("");
         },
         onOpen: (clientId) => {
             const thread = inbox.threads.find((t) => t.client_id === clientId);
-            if (thread === undefined) setComposing(clientId);
-            else setPicked(thread.id);
+            if (thread === undefined) setDrafting(clientId);
+            else pick(thread.id);
         },
+    });
+    const draftThread =
+        drafting === null ? undefined : inbox.threads.find((t) => t.client_id === drafting);
+    useEffect(() => {
+        if (draftThread !== undefined) pick(draftThread.id);
     });
 
     return (
-        <div
-            className={
-                nothingYet ? "min-h-0 flex-1 overflow-y-auto px-8 py-6" : "flex min-h-0 flex-1 p-5"
-            }
-        >
+        <div className={nothingYet ? "min-h-0 flex-1 overflow-y-auto" : "flex min-h-0 flex-1"}>
             {nothingYet ? (
                 <Empty
                     variant="card"
@@ -147,7 +194,18 @@ function Messages() {
                     <aside className="flex w-[300px] shrink-0 flex-col border-r border-line bg-surface">
                         <header className="space-y-3 border-b border-line px-4 pb-3 pt-4">
                             <div className="flex items-center justify-between gap-2">
-                                <p className="text-xs text-muted">{s.unreadCount(inbox.unread)}</p>
+                                <div className="min-w-0">
+                                    <h1 className="font-display text-lg font-bold text-ink">
+                                        {s.title}
+                                    </h1>
+                                    {inbox.load.hasData ? (
+                                        <p className="text-xs text-muted">
+                                            {s.unreadCount(inbox.unread)}
+                                        </p>
+                                    ) : (
+                                        <Skeleton variant="line" label={s.loading} />
+                                    )}
+                                </div>
                                 <Button
                                     size="sm"
                                     icon="edit"
@@ -181,10 +239,17 @@ function Messages() {
                                 load={inbox.load}
                                 loading={s.loading}
                                 failed={s.loadError}
-                                rows={6}
+                                rows={8}
+                                flush
                             >
                                 {inbox.filtered.length === 0 ? (
-                                    <Empty message={s.noThreadsFiltered} />
+                                    <Empty
+                                        message={
+                                            inbox.threads.length === 0
+                                                ? s.noThreadsTitle
+                                                : s.noThreadsFiltered
+                                        }
+                                    />
                                 ) : (
                                     inbox.filtered.map((t) => (
                                         <ConversationRow
@@ -195,10 +260,10 @@ function Messages() {
                                             unread={t.unread_count}
                                             channel={t.channelKind}
                                             channelLabel={channelLabel(t.channel)}
-                                            selected={t.id === picked}
+                                            selected={t.id === open?.id}
                                             tag={rowFlag(t)}
                                             onPress={() => {
-                                                setPicked(t.id);
+                                                pick(t.id);
                                             }}
                                         />
                                     ))
@@ -212,46 +277,21 @@ function Messages() {
                             thread={open}
                             details={details}
                             onDetails={setDetails}
+                            wide={wide}
+                        />
+                    ) : drafting !== null ? (
+                        <NewThread
+                            key={drafting}
+                            clientId={drafting}
+                            onSent={(sent) => {
+                                setSentTo(sent.name);
+                            }}
                         />
                     ) : (
                         // No conversation opens on its own: someone may be looking at the screen too.
-                        <section className="flex flex-1 items-center justify-center bg-bg/60">
+                        <section className="flex flex-1 items-center justify-center bg-bg/60 pb-16">
                             {inbox.load.hasData ? (
-                                <div className="pb-16">
-                                    {
-                                        <Empty
-                                            icon="inbox"
-                                            message={s.selectThread}
-                                            body={s.unreadCount(inbox.unread)}
-                                            actions={
-                                                <>
-                                                    {inbox.unread > 0 &&
-                                                    inbox.filter !== "unread" ? (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onPress={() => {
-                                                                inbox.setFilter("unread");
-                                                            }}
-                                                        >
-                                                            {s.showUnread}
-                                                        </Button>
-                                                    ) : null}
-                                                    <Button
-                                                        size="sm"
-                                                        icon="edit"
-                                                        onPress={() => {
-                                                            setSentTo(null);
-                                                            setComposing("");
-                                                        }}
-                                                    >
-                                                        {s.newMessageTitle}
-                                                    </Button>
-                                                </>
-                                            }
-                                        />
-                                    }
-                                </div>
+                                <Empty icon="inbox" message={s.selectThread} />
                             ) : null}
                         </section>
                     )}
@@ -267,7 +307,7 @@ function Messages() {
                         setComposing(null);
                         const thread = inbox.threads.find((t) => t.client_id === sent.clientId);
                         if (thread === undefined) setSentTo(sent.name);
-                        else setPicked(thread.id);
+                        else pick(thread.id);
                     }}
                 />
             ) : null}
@@ -279,10 +319,12 @@ function Thread({
     thread,
     details,
     onDetails,
+    wide,
 }: {
     thread: InboxThread;
     details: boolean;
     onDetails: (v: boolean) => void;
+    wide: boolean;
 }) {
     const conversation = useConversation(api, thread);
     const composer = useThreadComposer(api, thread);
@@ -307,7 +349,7 @@ function Thread({
                             {formatParts([channelLabel(thread.channel), contact])}
                         </p>
                     </div>
-                    <span className="xl:hidden">
+                    {wide ? null : (
                         <Button
                             size="sm"
                             variant="outline"
@@ -317,7 +359,7 @@ function Thread({
                         >
                             {s.details}
                         </Button>
-                    </span>
+                    )}
                 </div>
                 {thread.textsOff ? (
                     <div className="mx-5 mt-4">
@@ -367,14 +409,8 @@ function Thread({
                 </div>
                 <Composer composer={composer} />
             </section>
-            <aside
-                aria-label={s.details}
-                className="hidden w-[300px] shrink-0 overflow-y-auto border-l border-line bg-surface xl:block"
-            >
-                <ContextPanel thread={thread} conversation={conversation} />
-            </aside>
             <DetailView
-                open={details}
+                open={details && !wide}
                 title={thread.title}
                 onClose={() => {
                     onDetails(false);
@@ -435,104 +471,64 @@ function Composer({ composer }: { composer: ThreadComposer }) {
     );
 }
 
-function ContextPanel({
-    thread,
-    conversation,
+function NewThread({
+    clientId,
+    onSent,
 }: {
-    thread: InboxThread;
-    conversation: Conversation;
+    clientId: string;
+    onSent: (sent: { clientId: string; name: string }) => void;
 }) {
-    const zone = useBusinessZone();
-    const kind = useSubjectKind();
-    const openLink = useOpenLink();
-    const client = conversation.client;
-    const balance = client?.balance_cents ?? 0;
+    const msg = useNewMessage(api, onSent, clientId);
+    const name = msg.clients.find((c) => c.key === clientId)?.label ?? "";
     return (
-        <div className="space-y-5 p-5">
-            <div className="flex items-center gap-3">
-                <Avatar name={thread.title} size="lg" />
-                <div className="min-w-0">
-                    <p className="truncate font-display text-base font-bold text-ink">
-                        {thread.title}
-                    </p>
-                    <p className="truncate text-xs text-muted">{client?.email}</p>
+        <section className="flex min-w-0 flex-1 flex-col bg-bg">
+            <div className="flex items-center gap-3 border-b border-line bg-surface px-5 py-3">
+                <Avatar name={name} />
+                <h2 className="min-w-0 flex-1 truncate font-display text-base font-bold text-ink">
+                    {name}
+                </h2>
+            </div>
+            <div className="flex flex-1 items-center justify-center px-5 pb-16">
+                <Empty icon="inbox" message={s.noMessagesYet(name)} />
+            </div>
+            <div className="space-y-2.5 border-t border-line bg-surface px-5 py-3">
+                {msg.smsBlocked ? <Notice tone="danger">{s.smsBlockedNew}</Notice> : null}
+                <TextField
+                    multiline
+                    rows={2}
+                    name={s.replyPlaceholder(msg.channel)}
+                    value={msg.body}
+                    onChange={msg.setBody}
+                    placeholder={s.replyPlaceholder(msg.channel)}
+                    disabled={msg.smsBlocked}
+                />
+                {msg.error !== null ? <Notice tone="danger">{msg.error}</Notice> : null}
+                <div className="flex flex-wrap items-center gap-3">
+                    <Choice
+                        layout="segmented"
+                        label={s.channelLabel}
+                        options={CHANNELS.map((c) => ({ key: c, label: s.channels[c] }))}
+                        value={msg.channel}
+                        onChange={msg.setChannel}
+                    />
+                    {msg.channel === "sms" && msg.body.length > 0 ? (
+                        <span className="text-xs text-muted">
+                            {s.smsCount(msg.segments.chars, msg.segments.segments)}
+                        </span>
+                    ) : null}
+                    <span className="ml-auto">
+                        <Button
+                            icon="send"
+                            busy={msg.busy}
+                            disabled={msg.smsBlocked}
+                            onPress={msg.submit}
+                        >
+                            {msg.busy ? s.sending : s.send}
+                        </Button>
+                    </span>
                 </div>
             </div>
-            <div className="flex gap-2">
-                <Button
-                    size="sm"
-                    grow
-                    onPress={() => {
-                        openLink("booking");
-                    }}
-                >
-                    {s.book}
-                </Button>
-                <Button
-                    size="sm"
-                    variant="outline"
-                    grow
-                    onPress={() => {
-                        openLink("client", thread.client_id);
-                    }}
-                >
-                    {s.openRecord}
-                </Button>
-            </div>
-            <KeyValueList
-                rows={[
-                    ...(kind === null
-                        ? []
-                        : [
-                              {
-                                  label: strings.subjects.many(kind),
-                                  value: client?.subject_names ?? "—",
-                              },
-                          ]),
-                    {
-                        label: s.balance,
-                        value:
-                            balance > 0 ? (
-                                <Money currency={BUSINESS_CURRENCY} cents={balance} />
-                            ) : (
-                                s.settled
-                            ),
-                        intent: balance > 0 ? "warning" : undefined,
-                    },
-                    { label: s.nextVisit, value: conversation.nextVisit ?? s.nothingBooked },
-                ]}
-            />
-            <section>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-                    {s.consentTitle}
-                </h3>
-                <ul className="divide-y divide-line-soft rounded-md border border-line">
-                    {CHANNELS.map((ch) => {
-                        const v = conversation.consent[ch];
-                        const state = consentLabel(v);
-                        const detail = consentDetail(v, zone);
-                        return (
-                            <li
-                                key={ch}
-                                className="flex items-start justify-between gap-3 px-3 py-2.5"
-                            >
-                                <div className="min-w-0">
-                                    <div className="text-sm font-medium text-ink">
-                                        {s.consentChannel[ch]}
-                                    </div>
-                                    {detail !== null ? (
-                                        <div className="text-xs text-muted">{detail}</div>
-                                    ) : null}
-                                </div>
-                                <span className="shrink-0">
-                                    <Badge label={state.label} intent={state.intent} />
-                                </span>
-                            </li>
-                        );
-                    })}
-                </ul>
-            </section>
-        </div>
+        </section>
     );
 }
 

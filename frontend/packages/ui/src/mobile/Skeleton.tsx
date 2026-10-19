@@ -49,6 +49,25 @@ export function Skeleton({
                         </View>
                         {bar(44, 12)}
                     </View>
+                ) : variant === "tile" ? (
+                    <View
+                        key={i}
+                        style={[
+                            styles.tileCell,
+                            columns
+                                ? { width: `${String(100 / columns)}%` as DimensionValue }
+                                : null,
+                        ]}
+                    >
+                        <View style={styles.tileCard}>
+                            <Animated.View style={[styles.bar, styles.tile, { opacity: pulse }]} />
+                            {bar(pct(64 - ((i * 11) % 26)), 12)}
+                            <View style={styles.tileFoot}>
+                                {bar(56, 10)}
+                                {bar(44, 12)}
+                            </View>
+                        </View>
+                    </View>
                 ) : variant === "stat" ? (
                     <View
                         key={i}
@@ -87,4 +106,19 @@ const styles = StyleSheet.create({
     lines: { flex: 1, gap: 8 },
     stat: { gap: 10, padding: 14 },
     line: { paddingVertical: 6 },
+    tileCell: { padding: 6 },
+    tileCard: {
+        height: 134,
+        gap: 12,
+        padding: 12,
+        borderRadius: theme.radius,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: c.border,
+        backgroundColor: c.surface,
+    },
+    tileFoot: {
+        marginTop: "auto",
+        flexDirection: "row",
+        justifyContent: "space-between",
+    },
 });

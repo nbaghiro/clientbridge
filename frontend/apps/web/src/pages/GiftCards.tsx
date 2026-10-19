@@ -198,6 +198,7 @@ export function GiftCards() {
                 </DetailView>
             ) : null}
             <Modal
+                variant="drawer"
                 open={mode === "sell"}
                 size="lg"
                 framed={false}

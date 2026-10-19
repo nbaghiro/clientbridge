@@ -31,13 +31,13 @@ import {
     Notice,
     SearchField,
     Skeleton,
+    Stat,
     confirm,
 } from "@clientbridge/ui";
 import { useState } from "react";
 
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
-import { SummaryStrip } from "./Workspace";
 
 const d = strings.pos.desk;
 
@@ -105,24 +105,24 @@ export function SalesBoard({ onResume }: { onResume: (order: OrderOut) => void }
     const [open, setOpen] = useState<string | null>(null);
     if (board.load.state === "loading")
         return (
-            <div className="p-5">
-                <Skeleton variant="row" count={4} label={d.loadingOrders} />
+            <div className="grid gap-4 lg:grid-cols-3">
+                {[0, 1, 2].map((i) => (
+                    <div key={i} className="rounded-lg bg-surface2 p-3 pt-[60px]">
+                        <div className="rounded-lg border border-line bg-surface">
+                            <Skeleton variant="row" count={2 - (i % 2)} label={d.loadingOrders} />
+                        </div>
+                    </div>
+                ))}
             </div>
         );
     if (board.load.state === "error")
-        return (
-            <div className="p-5">
-                <LoadFailed message={d.ordersError} onRetry={board.refresh} />
-            </div>
-        );
+        return <LoadFailed message={d.ordersError} onRetry={board.refresh} />;
     return (
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+        <div className="space-y-4">
             {board.done !== null ? <Notice tone="success">{board.done}</Notice> : null}
             {board.error !== null ? <Notice tone="danger">{board.error}</Notice> : null}
             {board.isEmpty ? (
-                <div className="pt-16">
-                    <Empty icon="bag" message={d.ordersEmpty} body={d.ordersEmptyBody} />
-                </div>
+                <Empty variant="card" icon="bag" message={d.ordersEmpty} body={d.ordersEmptyBody} />
             ) : (
                 <div className="grid gap-4 lg:grid-cols-3">
                     {board.columns.map((col) => (
@@ -201,29 +201,22 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
     };
     const t = history.today;
     const none = history.load.state !== "loading" && history.days.length === 0 && history.q === "";
+    const figure = (cents: number): { cents: number | null; currency: string } => ({
+        cents: history.load.state === "ready" ? cents : null,
+        currency: BUSINESS_CURRENCY,
+    });
     return (
-        <div className="flex min-h-0 flex-1 flex-col">
-            {history.load.state === "ready" && !none ? (
-                <SummaryStrip
-                    items={[
-                        {
-                            label: d.todaySales,
-                            value: formatMoney(t.salesCents, BUSINESS_CURRENCY),
-                        },
-                        { label: d.todayTips, value: formatMoney(t.tipsCents, BUSINESS_CURRENCY) },
-                        {
-                            label: d.todayDiscounts,
-                            value: formatMoney(t.discountsCents, BUSINESS_CURRENCY),
-                        },
-                        {
-                            label: d.todayAverage,
-                            value: formatMoney(t.averageCents, BUSINESS_CURRENCY),
-                        },
-                    ]}
-                />
-            ) : null}
+        <div className="@container space-y-6">
+            {history.load.state === "error" || none ? null : (
+                <div className="grid grid-cols-2 gap-3 @4xl:grid-cols-4">
+                    <Stat label={d.todaySales} {...figure(t.salesCents)} />
+                    <Stat label={d.todayTips} {...figure(t.tipsCents)} />
+                    <Stat label={d.todayDiscounts} {...figure(t.discountsCents)} />
+                    <Stat label={d.todayAverage} {...figure(t.averageCents)} />
+                </div>
+            )}
             {none ? null : (
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line-soft px-5 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                     <Choice
                         layout="segmented"
                         label={d.history}
@@ -232,26 +225,29 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
                         onChange={history.setFilter}
                     />
                     <SearchField
-                        className="w-full sm:w-80"
+                        className="w-full sm:w-72"
                         value={history.q}
                         onChange={history.setQ}
                         placeholder={d.historySearch}
                     />
                 </div>
             )}
-            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+            <div className="space-y-5">
                 {history.load.state === "loading" ? (
-                    <Skeleton variant="row" count={6} label={d.loadingSales} />
+                    <section className="pt-7">
+                        <div className="overflow-hidden rounded-lg border border-line bg-surface shadow-card">
+                            <Skeleton variant="row" count={6} label={d.loadingSales} />
+                        </div>
+                    </section>
                 ) : history.load.state === "error" ? (
                     <LoadFailed message={d.salesError} />
                 ) : history.days.length === 0 ? (
-                    <div className="pt-16">
-                        <Empty
-                            icon="receipt"
-                            message={history.q === "" ? d.historyEmptyTitle : history.empty}
-                            {...(history.q === "" ? { body: history.empty } : {})}
-                        />
-                    </div>
+                    <Empty
+                        variant="card"
+                        icon="receipt"
+                        message={history.q === "" ? d.historyEmptyTitle : history.empty}
+                        {...(history.q === "" ? { body: history.empty } : {})}
+                    />
                 ) : (
                     history.days.map((day) => (
                         <section key={day.key}>
@@ -264,7 +260,7 @@ export function SalesHistory({ onResume }: { onResume: (order: OrderOut) => void
                                     )}
                                 </span>
                             </div>
-                            <div className="divide-y divide-line-soft overflow-hidden rounded-lg border border-line bg-surface">
+                            <div className="divide-y divide-line-soft overflow-hidden rounded-lg border border-line bg-surface shadow-card">
                                 {day.rows.map((r) => (
                                     <ListRow
                                         key={r.id}

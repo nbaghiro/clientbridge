@@ -22,6 +22,7 @@ export function ListPage<T, K extends string = string>({
     rowKey,
     renderRow,
     onRowPress,
+    selectedKey,
     empty,
     state,
     onRetry,
@@ -110,10 +111,11 @@ export function ListPage<T, K extends string = string>({
                             <button
                                 key={rowKey(row)}
                                 type="button"
+                                aria-current={rowKey(row) === selectedKey || undefined}
                                 onClick={() => {
                                     onRowPress(row);
                                 }}
-                                className="block w-full border-b border-line-soft px-4 py-3 text-left text-sm transition last:border-0 hover:bg-bg hover:text-ink"
+                                className={`block w-full border-b border-line-soft px-4 py-3 text-left text-sm transition last:border-0 hover:bg-bg hover:text-ink ${rowKey(row) === selectedKey ? "bg-accent-weak/60" : ""}`}
                             >
                                 {renderRow(row)}
                             </button>

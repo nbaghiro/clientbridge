@@ -1413,10 +1413,6 @@ interface Strings {
             readonly searchPlaceholder: (kind: string) => string;
             readonly emptyTitle: string;
             readonly emptyBody: string;
-            readonly colClient: string;
-            readonly colNext: string;
-            readonly colBalance: string;
-            readonly colTags: string;
             readonly noUpcoming: string;
             readonly settled: string;
             readonly lifetime: string;
@@ -1449,6 +1445,11 @@ interface Strings {
             readonly editShort: string;
             readonly addNoteTitle: string;
             readonly back: string;
+            readonly colClient: string;
+            readonly colNext: string;
+            readonly colBalance: string;
+            readonly colTags: string;
+            readonly pane: string;
             readonly goneBody: string;
             readonly archived: string;
         };
@@ -1794,8 +1795,8 @@ interface Strings {
         readonly noThreadsFiltered: string;
         readonly noThreadsTitle: string;
         readonly noThreadsBody: string;
+        readonly noMessagesYet: (name: string) => string;
         readonly selectThread: string;
-        readonly showUnread: string;
         readonly thread: {
             readonly automatic: string;
             readonly showEarlier: string;
@@ -1840,6 +1841,15 @@ interface Strings {
         } & Labels;
         readonly consentImpliedUntil: (date: string) => string;
         readonly back: string;
+        readonly rail: {
+            readonly open: (area: string) => string;
+            readonly allClients: string;
+            readonly reviewCount: (n: number) => string;
+            readonly reviewsHeld: (n: number) => string;
+            readonly reach: (sms: number, email: number) => string;
+            readonly formsWaiting: (n: number) => string;
+            readonly signaturesWaiting: (n: number) => string;
+        };
         readonly cancel: string;
         readonly selectClient: string;
         readonly writeMessage: string;
