@@ -39,6 +39,8 @@ def validate_graph(ctx: DemoContext) -> list[str]:
     slot_pets: dict[str, set[str]] = {s: set() for s in slots}
     for booking in bookings:
         slot = slots[booking.slot_id]
+        if booking.starts_at != slot.starts_at or booking.staff_id != slot.staff_id:
+            errors.append(f"{booking.id}: start or member differs from its slot")
         if booking.subject_id:
             slot_pets[slot.id].add(booking.subject_id)
             pet = pets[booking.subject_id]
@@ -119,6 +121,11 @@ def validate_graph(ctx: DemoContext) -> list[str]:
             for s in occurrences
         ):
             errors.append(f"{recurrence.id}: weekday mismatch")
+        if recurrence.until and any(
+            s.status != "canceled" and s.starts_at.astimezone(zone).date() > recurrence.until
+            for s in occurrences
+        ):
+            errors.append(f"{recurrence.id}: live visit after the series ends")
     estimates = {r.id: r for r in ctx.all(Estimate)}
     booked = Counter(
         b.estimate_id

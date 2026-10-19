@@ -1,10 +1,11 @@
 from datetime import timedelta
+from typing import get_args
 
 from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Subject
 from clientbridge.models.payments import Payment
-from clientbridge.models.scheduling import Booking, Hours, Slot
+from clientbridge.models.scheduling import Booking, Hours, Recurrence, Slot, Weekday
 from clientbridge.services.catalog import deposit_cents
 from scripts.demo_context import BUSINESS_TIMEZONE, DemoContext
 
@@ -189,7 +190,12 @@ def _allocate(ctx: DemoContext, items: dict[str, Item]) -> None:
     occupied: list[tuple[Slot, set[str], int, int]] = []
     bookings = ctx.all(Booking)
     hours = ctx.all(Hours)
-    slots = sorted(ctx.all(Slot), key=lambda s: (s.recurrence_id is None, s.starts_at, s.id))
+    # series and class sessions keep their weekday and time; one-off visits fit around them
+    fixed = {r.id: get_args(Weekday).index(r.byday[0]) for r in ctx.all(Recurrence) if r.byday}
+    slots = sorted(
+        ctx.all(Slot),
+        key=lambda s: (s.recurrence_id is None and s.capacity <= 1, s.starts_at, s.id),
+    )
     for slot in slots:
         linked = [b for b in bookings if b.slot_id == slot.id]
         pets = {b.subject_id for b in linked if b.subject_id}
@@ -199,17 +205,13 @@ def _allocate(ctx: DemoContext, items: dict[str, Item]) -> None:
             item.buffer_before_min or 0,
             item.buffer_after_min or 0,
         )
-        past = any(b.status in {"completed", "no_show"} for b in linked)
+        past = any(b.status in {"completed", "no_show"} for b in linked) or (
+            slot.status == "canceled" and slot.ends_at < ctx.now
+        )
         candidate = slot.starts_at.astimezone(BUSINESS_TIMEZONE)
         if not past and candidate <= ctx.now:
             candidate = ctx.at(1, candidate.hour, candidate.minute).astimezone(BUSINESS_TIMEZONE)
-        weekday = (
-            5
-            if slot.recurrence_id == "sch_puppy"
-            else 2
-            if slot.recurrence_id == "sch_mochi"
-            else None
-        )
+        weekday = fixed.get(slot.recurrence_id or "")
         if weekday is not None:
             candidate += timedelta(days=(weekday - candidate.weekday()) % 7)
         for _attempt in range(2000):
@@ -271,6 +273,7 @@ def _allocate(ctx: DemoContext, items: dict[str, Item]) -> None:
         if slot.status != "canceled":
             occupied.append((slot, pets, before, after))
         for booking in linked:
+            booking.starts_at, booking.staff_id = start, slot.staff_id
             booking.price_cents = item.price_cents
             booking.created_at = slot.created_at
             booking.updated_at = min(end, ctx.now)

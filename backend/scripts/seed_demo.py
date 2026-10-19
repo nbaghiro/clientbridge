@@ -55,6 +55,7 @@ from scripts.demo_northlight import (
     seed_northlight_finance,
 )
 from scripts.demo_scenarios import add_scenarios
+from scripts.demo_schedule import add_class_timetable, add_repeat_visits, finish_schedule
 from scripts.demo_validate import validate_database, validate_graph
 
 VANCOUVER = ZoneInfo("America/Vancouver")
@@ -2163,9 +2164,12 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
     seed_dispute()
     ctx = DemoContext(now, BIZ, owner, rows)
     add_scenarios(ctx)
+    add_class_timetable(ctx)
+    add_repeat_visits(ctx)
     add_catalog_images(ctx)
     add_finance_scenarios(ctx)
     build_calendar(ctx)
+    finish_schedule(ctx)
     prepare_finance(ctx)
     build_identity(ctx)
     build_engagement(ctx)
