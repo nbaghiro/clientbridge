@@ -70,6 +70,7 @@ interface Strings {
         readonly staffHasFutureWork: string;
         readonly broadcastAddressMissing: string;
         readonly broadcastContactMissing: string;
+        readonly reviewRecentlyRequested: string;
         readonly provinceLocked: string;
         readonly postalCodeProvinceMismatch: string;
         readonly businessAddressIncomplete: string;

@@ -157,7 +157,7 @@ def _builders() -> dict[str, Render]:
         "series_canceled_message": lambda c: n.series_canceled_message(c, NAME, whens(c)),
         "form_sent_message": lambda c: n.form_sent_message(c, NAME, "Intake", LINK),
         "contract_sent_message": lambda c: n.contract_sent_message(c, NAME, "Waiver", LINK),
-        "review_requested_message": lambda c: n.review_requested_message(c, NAME, LINK),
+        "review_requested_message": lambda c: n.review_requested_message(c, NAME, LINK, LINK),
         "inbound_message_alert_text": lambda c: n.inbound_message_alert_text(c, NAME, "Sale"),
         "message_notice": lambda c: n.message_notice(c, NAME, "Sale"),
         "broadcast_notice": lambda c: n.broadcast_notice(

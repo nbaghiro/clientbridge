@@ -4128,11 +4128,6 @@ export interface components {
              */
             setup_dismissed?: boolean | null;
             /**
-             * Google Review Url
-             * @description The Google review link sent in invitations; empty clears
-             */
-            google_review_url?: string | null;
-            /**
              * Province
              * @description Sets the sales tax for new prices; issued documents keep the tax they charged
              */

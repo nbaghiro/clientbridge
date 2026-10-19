@@ -52,7 +52,7 @@ from clientbridge.schemas.auth import AuthEmailIn
 from clientbridge.schemas.forms import FormDefinition
 from clientbridge.services import ledger
 from clientbridge.services.business import reply_address, staff_names
-from clientbridge.services.consents import texts_stopped
+from clientbridge.services.consents import emails_withdrawn, prefs_url, texts_stopped
 from clientbridge.services.files import media_url
 from clientbridge.services.lines import LineParent, fetch_lines, issued_at
 from clientbridge.services.subjects import place_address
@@ -938,16 +938,17 @@ def contract_sent_message(locale: str, business_name: str, contract_name: str, l
     )
 
 
-def review_requested_message(locale: str, business_name: str, link: str) -> Notice:
+def review_requested_message(locale: str, business_name: str, link: str, prefs_link: str) -> Notice:
+    view = _view(
+        message(locale, "email.kind.review"),
+        message(locale, "review_requested.heading"),
+        message(locale, "review_requested.lead", business=business_name),
+        action=Action(message(locale, "review.action"), link),
+    )
     return Notice(
         message(locale, "review_requested.subject", business=business_name),
         message(locale, "review_requested.body", business=business_name, link=link),
-        _view(
-            message(locale, "email.kind.review"),
-            message(locale, "review_requested.heading"),
-            message(locale, "review_requested.lead", business=business_name),
-            action=Action(message(locale, "review.action"), link),
-        ),
+        replace(view, footer_link=Action(message(locale, "email.unsubscribe"), prefs_link)),
     )
 
 
@@ -1496,8 +1497,13 @@ class Notifier:
         if business is None or not business.google_review_url:
             return
         link = business.google_review_url
-        notice = review_requested_message(locale_for(business=business), business.name, link)
-        await self._to_client(db, review.client_id, notice)
+        prefs_link = f"{prefs_url(review.client_id)}?unsubscribe=email"
+        notice = review_requested_message(
+            locale_for(business=business), business.name, link, prefs_link
+        )
+        # an invitation asks the client for something, so an email opt-out leaves only texts
+        opted_out = await emails_withdrawn(db, business.id, review.client_id)
+        await self._to_client(db, review.client_id, notice, channel="sms" if opted_out else None)
 
     async def on_form_sent(self, db: AsyncSession, form_response_id: str) -> Outcome:
         response = await db.get(FormResponse, form_response_id)

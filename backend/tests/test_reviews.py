@@ -2,14 +2,17 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
+from clientbridge.models.clients import Client
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Slot
-from tests.conftest import Factory, FakeEmailSender
+from clientbridge.services.consents import record_consent
+from tests.conftest import Factory, FakeEmailSender, FakeSmsSender
 from tests.helpers import client_id, new_client
 
 BIZ = "bz_birchbark"
@@ -17,7 +20,7 @@ ST_OWNER = "st_owner"
 NOW = datetime(2030, 1, 1, tzinfo=UTC)
 
 
-async def _booking(db: AsyncSession, *, status: str = "completed") -> str:
+async def _booking(db: AsyncSession, client: str, *, status: str = "completed") -> str:
     iid = (
         (await db.execute(select(Item.id).where(Item.business_id == BIZ).limit(1)))
         .scalars()
@@ -42,7 +45,7 @@ async def _booking(db: AsyncSession, *, status: str = "completed") -> str:
         slot_id=sess.id,
         starts_at=sess.starts_at,
         staff_id=ST_OWNER,
-        client_id=await client_id(db),
+        client_id=client,
         status=status,
         source="manual",
         price_cents=5000,
@@ -56,15 +59,17 @@ async def _booking(db: AsyncSession, *, status: str = "completed") -> str:
 GOOGLE = "https://g.page/r/example/review"
 
 
-async def _configure(api: httpx.AsyncClient) -> None:
-    response = await api.patch("/v1/business", json={"google_review_url": GOOGLE})
-    assert response.status_code == 200, response.text
+async def _configure(db: AsyncSession, url: str | None = GOOGLE) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.google_review_url = url
+    await db.flush()
 
 
 async def test_request_creates_invitation_and_links_to_google(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
-    await _configure(as_owner)
+    await _configure(db)
     cid = await new_client(db)
     headers = {"Idempotency-Key": "google-invitation"}
     first = await as_owner.post("/v1/reviews/request", json={"client_id": cid}, headers=headers)
@@ -79,8 +84,67 @@ async def test_request_creates_invitation_and_links_to_google(
     assert replay.json() == body and len(email.sent) == count
 
 
+async def test_request_waits_thirty_days_per_client(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _configure(db)
+    cid = await new_client(db)
+    first = await as_owner.post("/v1/reviews/request", json={"client_id": cid})
+    assert first.status_code == 201, first.text
+    again = await as_owner.post("/v1/reviews/request", json={"client_id": cid})
+    assert again.status_code == 409
+    assert again.json()["error"] == "review_recently_requested"
+    await db.execute(
+        update(ReviewRequest)
+        .where(ReviewRequest.client_id == cid)
+        .values(requested_at=ReviewRequest.requested_at - timedelta(days=31))
+    )
+    later = await as_owner.post("/v1/reviews/request", json={"client_id": cid})
+    assert later.status_code == 201, later.text
+
+
+async def test_invitation_email_carries_an_unsubscribe_link(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    await _configure(db)
+    cid = await new_client(db, email="unsub-review@example.ca")
+    sent = await as_owner.post("/v1/reviews/request", json={"client_id": cid})
+    assert sent.status_code == 201, sent.text
+    mail = next(m for m in email.sent if m.to == "unsub-review@example.ca")
+    assert "?unsubscribe=email" in (mail.html or "")
+
+
+async def test_invitation_skips_email_after_opt_out(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender
+) -> None:
+    await _configure(db)
+    cid = await new_client(db, email="optout-review@example.ca")
+    await db.execute(update(Client).where(Client.id == cid).values(phone="+16045550188"))
+    await record_consent(
+        db, BIZ, cid, channel="email", status="withdrawn", source="unsubscribe", recorded_by=None
+    )
+    sent = await as_owner.post("/v1/reviews/request", json={"client_id": cid})
+    assert sent.status_code == 201, sent.text
+    assert not any(m.to == "optout-review@example.ca" for m in email.sent)
+    assert any(GOOGLE in text.body for text in sms.sent)
+
+
+async def test_business_update_no_longer_sets_the_review_link(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _configure(db, None)
+    response = await as_owner.patch(
+        "/v1/business", json={"google_review_url": "https://example.com/not-google"}
+    )
+    assert response.status_code == 200, response.text
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    await db.refresh(business)
+    assert business.google_review_url is None
+
+
 async def test_request_needs_google_link(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await as_owner.patch("/v1/business", json={"google_review_url": ""})
+    await _configure(db, None)
     result = await as_owner.post("/v1/reviews/request", json={"client_id": await client_id(db)})
     assert result.status_code == 409
 
@@ -88,8 +152,9 @@ async def test_request_needs_google_link(as_owner: httpx.AsyncClient, db: AsyncS
 async def test_request_rejects_duplicate_booking(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _configure(as_owner)
-    data = {"client_id": await client_id(db), "booking_id": await _booking(db)}
+    await _configure(db)
+    cid = await new_client(db)
+    data = {"client_id": cid, "booking_id": await _booking(db, cid)}
     first = await as_owner.post("/v1/reviews/request", json=data)
     assert first.status_code == 201, first.text
     assert (await as_owner.post("/v1/reviews/request", json=data)).status_code == 409
@@ -98,23 +163,27 @@ async def test_request_rejects_duplicate_booking(
 async def test_request_requires_completed_booking(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _configure(as_owner)
-    data = {"client_id": await client_id(db), "booking_id": await _booking(db, status="confirmed")}
+    await _configure(db)
+    cid = await new_client(db)
+    data = {"client_id": cid, "booking_id": await _booking(db, cid, status="confirmed")}
     assert (await as_owner.post("/v1/reviews/request", json=data)).status_code == 409
 
 
 async def test_request_rejects_mismatched_client(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _configure(as_owner)
-    data = {"client_id": await new_client(db), "booking_id": await _booking(db)}
+    await _configure(db)
+    data = {
+        "client_id": await new_client(db),
+        "booking_id": await _booking(db, await client_id(db)),
+    }
     assert (await as_owner.post("/v1/reviews/request", json=data)).status_code == 404
 
 
 async def test_request_is_tenant_scoped(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
-    await _configure(as_owner)
+    await _configure(db)
     business = await factory.business(name="Other")
     client = await factory.client(business=business)
     assert (
@@ -124,8 +193,8 @@ async def test_request_is_tenant_scoped(
     assert (await as_owner.post("/v1/reviews/request", json=data)).status_code == 404
 
 
-async def test_request_unknown_client(as_owner: httpx.AsyncClient) -> None:
-    await _configure(as_owner)
+async def test_request_unknown_client(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    await _configure(db)
     assert (
         await as_owner.post("/v1/reviews/request", json={"client_id": "cl_missing"})
     ).status_code == 404

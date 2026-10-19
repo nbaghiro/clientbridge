@@ -140,6 +140,11 @@ async def stopped_clients(
     return {client_id for client_id, status in newest.items() if status == "withdrawn"}
 
 
+async def emails_withdrawn(db: AsyncSession, business_id: str, client_id: str) -> bool:
+    latest = (await latest_consents(db, business_id, [client_id], "email")).get(client_id)
+    return latest is not None and latest.status == "withdrawn"
+
+
 async def texts_stopped(db: AsyncSession, business_id: str, client_id: str) -> bool:
     """A STOP reply blocks every text to the client until they reply START."""
     return client_id in await stopped_clients(db, business_id, [client_id])

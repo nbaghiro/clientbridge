@@ -164,6 +164,9 @@
     "api.broadcastContactMissing": {
         "message": "[Åðð å ƀûšîñéšš éɱåîļ, þĥöñé ñûɱƀéŕ öŕ ŵéƀšîţé îñ Ɓûšîñéšš šéţţîñĝš ƀéƒöŕé šéñðîñĝ å ƀŕöåðçåšţ. one two three four five six seven]"
     },
+    "api.reviewRecentlyRequested": {
+        "message": "[Ýöû åšķéð ţĥîš çļîéñţ ƒöŕ å ŕéṽîéŵ îñ ţĥé ļåšţ 30 ðåýš, šö ţĥéý ŵöñ'ţ ĝéţ åñöţĥéŕ öñé ýéţ. one two three four five six]"
+    },
     "api.provinceLocked": {
         "message": "[Ţĥé þŕöṽîñçé çåñ'ţ çĥåñĝé åƒţéŕ å ðöçûɱéñţ ţĥåţ çĥåŕĝéð ţåẋ ĥåš ƀééñ îššûéð. one two three four five]"
     },

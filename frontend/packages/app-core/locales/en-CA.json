@@ -189,6 +189,9 @@
     "api.broadcastContactMissing": {
         "message": "Add a business email, phone number or website in Business settings before sending a broadcast."
     },
+    "api.reviewRecentlyRequested": {
+        "message": "You asked this client for a review in the last 30 days, so they won't get another one yet."
+    },
     "api.provinceLocked": {
         "message": "The province can't change after a document that charged tax has been issued."
     },

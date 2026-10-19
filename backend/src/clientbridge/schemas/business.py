@@ -158,9 +158,6 @@ class BusinessSettingsUpdate(Mirror):
     setup_dismissed: bool | None = Field(
         default=None, description="Hide (true) or show (false) the Get set up list"
     )
-    google_review_url: str | None = Field(
-        default=None, description="The Google review link sent in invitations; empty clears"
-    )
     province: ProvinceCode | None = Field(
         default=None,
         description="Sets the sales tax for new prices; issued documents keep the tax they charged",
@@ -193,14 +190,6 @@ class BusinessSettingsUpdate(Mirror):
         if match is None:
             raise ValueError("enter the postal code like V8W 1Y9")
         return f"{match.group(1)} {match.group(2)}"
-
-    @field_validator("google_review_url")
-    @classmethod
-    def _check_google(cls, v: str | None) -> str | None:
-        v = (v or "").strip()
-        if v and not v.startswith("https://"):
-            raise ValueError("the review link must start with https://")
-        return v or None
 
     @staticmethod
     def _tax_number(v: str | None, pattern: re.Pattern[str], example: str) -> str | None:
