@@ -22,7 +22,7 @@ PARENTS = {
 }
 
 
-def align_chronology(ctx: DemoContext) -> None:
+def align_timestamps(ctx: DemoContext) -> None:
     by_key = {(row.__tablename__, getattr(row, "id", None)): row for row in ctx.rows}
     for _ in range(10):
         changed = False
@@ -60,6 +60,10 @@ def align_chronology(ctx: DemoContext) -> None:
                 if payment.invoice_id == audit.entity_id and payment.paid_at is not None
             ]
             audit.created_at = max(dates, default=audit.created_at)
+
+
+def align_chronology(ctx: DemoContext) -> None:
+    align_timestamps(ctx)
     for index, pet in enumerate(ctx.all(Subject)):
         prior = str(pet.attributes.get("temperament", "friendly"))
         pet.attributes = {

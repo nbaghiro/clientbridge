@@ -30,6 +30,10 @@ class BookingCreate(Mirror):
     subject_id: str | None = None
     note: str | None = Field(default=None, max_length=2000, description="Kept as a booking note")
     notify: bool = Field(default=True, description="Send the client a confirmation")
+    estimate_id: str | None = Field(
+        default=None,
+        description="An accepted estimate whose product lines join the visit as add-ons",
+    )
 
 
 class BookingMove(BaseModel):

@@ -67,7 +67,7 @@ export function Contracts() {
                         actions={<Button onPress={add}>{s.newContract}</Button>}
                     />
                 ) : (
-                    <div className="flex h-[calc(100vh-12rem)] min-h-[560px] overflow-hidden rounded-xl border border-line bg-surface shadow-card">
+                    <div className="flex h-[calc(100vh-6.5rem)] min-h-[560px] overflow-hidden rounded-xl border border-line bg-surface shadow-card">
                         <aside className="flex w-[280px] shrink-0 flex-col border-r border-line">
                             <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
                                 <h2 className="text-sm font-semibold text-ink">{s.templates}</h2>
@@ -154,7 +154,7 @@ function ContractDetail({
     return (
         <div className="flex min-w-0 flex-1 flex-col">
             <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-5 py-3">
-                <div className="min-w-0 flex-1">
+                <div className="min-w-40 flex-1">
                     <h2 className="truncate font-display text-lg font-bold text-ink">{c.name}</h2>
                     <p className="truncate text-xs text-muted">
                         {formatParts([
@@ -413,7 +413,7 @@ function NewContractDialog({
 }) {
     const draft = useNewContract(api, onCreated);
     return (
-        <Modal open onClose={onClose} size="lg">
+        <Modal variant="drawer" open onClose={onClose} size="lg">
             <h2 className="font-display text-lg font-bold text-ink">{s.newTitle}</h2>
             <div className="mt-4 space-y-4">
                 <TextField

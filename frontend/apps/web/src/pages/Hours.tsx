@@ -356,7 +356,7 @@ function AwayPanel({
 function HoursModal({ member, onClose }: { member: TeamHoursMember; onClose: () => void }) {
     const editor = useWeekEditor(api, member.id);
     return (
-        <Modal onClose={onClose} size="lg">
+        <Modal variant="drawer" onClose={onClose} size="lg">
             <div className="space-y-4">
                 <div className="flex items-center gap-3">
                     <Avatar name={member.name} color={member.color} />
@@ -454,7 +454,7 @@ function TimeOffModal({ staffId, onClose }: { staffId: string; onClose: () => vo
         form.submit();
     };
     return (
-        <Modal onClose={onClose} size="lg">
+        <Modal variant="drawer" onClose={onClose} size="lg">
             <form
                 className="space-y-4"
                 onSubmit={submit}

@@ -2,6 +2,7 @@ import { useBusinessFavicon } from "../branding";
 import { BusinessShopAction, BusinessSections } from "../components/BusinessNavigation";
 import {
     createPublicProfileClient,
+    mapsUrl,
     serviceSummary,
     strings,
     usePublicProfile,
@@ -62,7 +63,7 @@ export function PublicLanding() {
                         icon="pin"
                         label={s.directions}
                         onPress={() => {
-                            window.location.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(page.address ?? "")}`;
+                            window.location.href = mapsUrl(page.address ?? "");
                         }}
                     />
                 ) : null}

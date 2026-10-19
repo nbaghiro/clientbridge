@@ -223,7 +223,7 @@ export function ClientEditorDialog({
     };
 
     return (
-        <Modal onClose={onClose} size="lg">
+        <Modal variant="drawer" onClose={onClose} size="lg">
             <form
                 onSubmit={(e) => {
                     e.preventDefault();

@@ -193,6 +193,9 @@ msgstr "[ · ~~]"
 msgid "email.footer.team"
 msgstr "[Ýöû'ŕé ĝéţţîñĝ ţĥîš éɱåîļ ƀéçåûšé ýöû ŵöŕķ ŵîţĥ {business} öñ Çļîéñţƀŕîðĝé.~~~~~~~~~~~~~~~~~~~~~~~]"
 
+msgid "email.footer.visit_at"
+msgstr "[Ṽîšîţ åððŕéšš: {address}~~~~~~]"
+
 msgid "email.kind.account"
 msgstr "[Åççöûñţ~~~]"
 

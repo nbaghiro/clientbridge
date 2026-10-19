@@ -158,6 +158,15 @@ DEMO_BUSINESSES = (
         product_description="Dog walking and drop-in pet care",
         primary_color="#35576B",
     ),
+    DemoBusiness(
+        id="bz_northlight",
+        name="Northlight Security",
+        email="hello@northlight.example",
+        first_name="Erik",
+        last_name="Lindqvist",
+        product_description="Security camera installation and service",
+        primary_color="#1F2F4A",
+    ),
 )
 
 

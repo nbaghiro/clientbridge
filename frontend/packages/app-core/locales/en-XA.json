@@ -680,6 +680,9 @@
     "billing.convert": {
         "message": "[Çöñṽéŕţ ţö îñṽöîçé one two]"
     },
+    "billing.bookVisit": {
+        "message": "[{kind,select,other{Ɓööķ ţĥé ṽîšîţ} site{Ɓööķ ţĥé îñšţåļļ}} one two three]"
+    },
     "billing.convertTitle": {
         "message": "[Çöñṽéŕţ ţö îñṽöîçé? one two]"
     },
@@ -2582,6 +2585,12 @@
     "bookings.departError": {
         "message": "[Çöûļðñ'ţ ţéļļ ţĥé çļîéñţ ýöû'ŕé öñ ţĥé ŵåý. Þļéåšé ţŕý åĝåîñ. one two three four]"
     },
+    "bookings.directions": {
+        "message": "[Đîŕéçţîöñš one two]"
+    },
+    "bookings.directionsTo": {
+        "message": "[Đîŕéçţîöñš ţö {address} one two]"
+    },
     "bookings.depositPaid": {
         "message": "[{amount} þåîð one]"
     },
@@ -2752,6 +2761,12 @@
     },
     "bookings.composerEnds": {
         "message": "[Éñðš {time} · {min, number} ɱîñ one]"
+    },
+    "bookings.composerFromEstimate": {
+        "message": "[Þŕöðûçţš ƒŕöɱ éšţîɱåţé #{number, number, ::group-off} one two]"
+    },
+    "bookings.composerFromEstimateHint": {
+        "message": "[Ţĥéšé ĵöîñ ţĥé ṽîšîţ åš åðð-öñš, åţ ţĥé éšţîɱåţé'š þŕîçéš, åñð ĝö öñ ţĥé ṽîšîţ'š îñṽöîçé. one two three four five six]"
     },
     "bookings.composerBook": {
         "message": "[Ɓööķ ṽîšîţ one two]"
@@ -3956,18 +3971,6 @@
     "clients.record.emptyBody": {
         "message": "[Åðð ýöûŕ ƒîŕšţ çļîéñţ, öŕ ţĥéý åþþéåŕ ĥéŕé ŵĥéñ ţĥéý ƀööķ öñļîñé. one two three four five]"
     },
-    "clients.record.colClient": {
-        "message": "[Çļîéñţ one]"
-    },
-    "clients.record.colNext": {
-        "message": "[Ñéẋţ ṽîšîţ one two]"
-    },
-    "clients.record.colBalance": {
-        "message": "[Ɓåļåñçé one]"
-    },
-    "clients.record.colTags": {
-        "message": "[Ţåĝš one]"
-    },
     "clients.record.noUpcoming": {
         "message": "[Ñöţĥîñĝ ƀööķéð one two]"
     },
@@ -4063,6 +4066,21 @@
     },
     "clients.record.back": {
         "message": "[Çļîéñţš one]"
+    },
+    "clients.record.colClient": {
+        "message": "[Çļîéñţ one]"
+    },
+    "clients.record.colNext": {
+        "message": "[Ñéẋţ ṽîšîţ one two]"
+    },
+    "clients.record.colBalance": {
+        "message": "[Ɓåļåñçé one]"
+    },
+    "clients.record.colTags": {
+        "message": "[Ţåĝš one]"
+    },
+    "clients.record.pane": {
+        "message": "[Çļîéñţ ŕéçöŕð one two]"
     },
     "clients.record.goneBody": {
         "message": "[Ţĥéý ɱåý ĥåṽé ƀééñ ɱéŕĝéð îñţö åñöţĥéŕ ŕéçöŕð öŕ ŕéɱöṽéð öñ åñöţĥéŕ ðéṽîçé. one two three four five]"
@@ -4997,11 +5015,11 @@
     "messaging.noThreadsBody": {
         "message": "[Ŵĥéñ å çļîéñţ ŕéþļîéš ţö å ţéẋţ öŕ åñ éɱåîļ, îţ ļåñðš ĥéŕé. one two three four]"
     },
+    "messaging.noMessagesYet": {
+        "message": "[Ñö ɱéššåĝéš ŵîţĥ {name} ýéţ. Ŵŕîţé ţĥé ƒîŕšţ öñé ƀéļöŵ. one two three four]"
+    },
     "messaging.selectThread": {
         "message": "[Çĥööšé å çöñṽéŕšåţîöñ ţö ŕéåð åñð ŕéþļý. one two three]"
-    },
-    "messaging.showUnread": {
-        "message": "[Šĥöŵ ûñŕéåð one two]"
     },
     "messaging.thread.automatic": {
         "message": "[Åûţöɱåţîç one two]"
@@ -5126,6 +5144,21 @@
     "messaging.back": {
         "message": "[Îñƀöẋ one]"
     },
+    "messaging.rail.open": {
+        "message": "[Öþéñ {area} one]"
+    },
+    "messaging.rail.allClients": {
+        "message": "[Åļļ çļîéñţš one two]"
+    },
+    "messaging.rail.reach": {
+        "message": "[{sms, number} çåñ ĝéţ ţéẋţš, {email, number} çåñ ĝéţ éɱåîļ one two three]"
+    },
+    "messaging.rail.formsWaiting": {
+        "message": "[{n,plural,one{# åñšŵéŕ ŵåîţîñĝ} other{# åñšŵéŕš ŵåîţîñĝ} =0{Ñö åñšŵéŕš ŵåîţîñĝ}} one two three four]"
+    },
+    "messaging.rail.signaturesWaiting": {
+        "message": "[{n,plural,one{# šîĝñåţûŕé ŵåîţîñĝ} other{# šîĝñåţûŕéš ŵåîţîñĝ} =0{Ñö šîĝñåţûŕéš ŵåîţîñĝ}} one two three four five]"
+    },
     "messaging.cancel": {
         "message": "[Çåñçéļ one]"
     },
@@ -5160,7 +5193,7 @@
         "message": "[Öñļý ýöûŕ ţéåɱ šééš ţĥîš. one two]"
     },
     "broadcasts.namePlaceholder": {
-        "message": "[Ƒåļļ ðé-šĥéð öƒƒéŕ one two]"
+        "message": "[{kind,select,other{Ƒåļļ öþéñîñĝš} pet{Ƒåļļ ðé-šĥéð öƒƒéŕ} property{Šþŕîñĝ çļéåñîñĝ öþéñîñĝš} site{Šþŕîñĝ šýšţéɱ çĥéçķš} student{Šþŕîñĝ ļéššöñ öþéñîñĝš}} one two three four five six seven]"
     },
     "broadcasts.channelPick": {
         "message": "[Šéñð åš one]"
@@ -5184,7 +5217,7 @@
         "message": "[Ṁéššåĝé one]"
     },
     "broadcasts.messagePlaceholder": {
-        "message": "[Ɓööķ å ðé-šĥéð ţĥîš ŵééķ åñð ŵé'ļļ åðð å ƒŕéé ñåîļ ţŕîɱ. one two three four]"
+        "message": "[{kind,select,other{Ñéŵ ţîɱéš åŕé öþéñ ţĥîš ɱöñţĥ. Ŕéþļý ţö ƀööķ.} pet{Ɓööķ å ðé-šĥéð ţĥîš ŵééķ åñð ŵé'ļļ åðð å ƒŕéé ñåîļ ţŕîɱ.} property{Šþŕîñĝ çļéåñîñĝ ðåţéš åŕé öþéñ. Ŕéþļý ţö ƀööķ å ṽîšîţ.} site{Šþŕîñĝ šýšţéɱ çĥéçķš åŕé öþéñ. Ŕéþļý ţö ƀööķ å ṽîšîţ åñð ŵé'ļļ çĥéçķ éåçĥ çåɱéŕå åñð ţĥé ŕéçöŕðéŕ.} student{Šþŕîñĝ ļéššöñ ţîɱéš åŕé öþéñ. Ŕéþļý ţö ƀööķ å šþöţ.}} one two three four five six seven eight nine ten one two three four five six seven eight]"
     },
     "broadcasts.optOutSms": {
         "message": "[Ŕéþļý ŠŢÖÞ ţö öþţ öûţ. one two]"
@@ -7023,7 +7056,7 @@
         "message": "[é.ĝ. 60-ɱîñûţé šéššîöñ one two]"
     },
     "catalog.namePlaceholderProduct": {
-        "message": "[é.ĝ. Öåţɱéåļ Šĥåɱþöö (500 ɱļ) one two]"
+        "message": "[{kind,select,other{é.ĝ. Ĝîƒţ ƀöẋ} pet{é.ĝ. Öåţɱéåļ Šĥåɱþöö (500 ɱļ)} property{é.ĝ. Ṁîçŕöƒîƀŕé çļöţĥ þåçķ} site{é.ĝ. 4ṀÞ ţûŕŕéţ çåɱéŕå} student{é.ĝ. Ĝŕåðé 4 ŵöŕķƀööķ}} one two three four five six seven]"
     },
     "catalog.description": {
         "message": "[Đéšçŕîþţîöñ one two]"
@@ -10146,7 +10179,7 @@
         "message": "[Åñýţĥîñĝ ŵé šĥöûļð ķñöŵ one two]"
     },
     "publicBooking.notePlaceholder": {
-        "message": "[Ṁåţţîñĝ, ñéŕṽöûš ŵîţĥ ðŕýéŕš, åļļéŕĝîéš one two three]"
+        "message": "[{kind,select,other{Åñýţĥîñĝ ŵé šĥöûļð ķñöŵ ƀéƒöŕé ýöûŕ ṽîšîţ} pet{Ṁåţţîñĝ, ñéŕṽöûš ŵîţĥ ðŕýéŕš, åļļéŕĝîéš} property{Þåŕķîñĝ, þéţš, ŕööɱš ţö ƒöçûš öñ} site{Ĝåţé çöðé, þéţš, ŵĥéŕé ýöû'ð ļîķé çåɱéŕåš} student{Ĝöåļš ƒöŕ ţĥé ļéššöñ, åļļéŕĝîéš}} one two three four five six seven eight nine ten one two]"
     },
     "publicBooking.reachHint": {
         "message": "[Ŵé ţéẋţ å ŕéɱîñðéŕ ţĥé ðåý ƀéƒöŕé. Åðð åñ éɱåîļ ƒöŕ ŕéçéîþţš. one two three four]"
@@ -10894,6 +10927,9 @@
     },
     "publicManage.gettingThere": {
         "message": "[Ĝéţţîñĝ ĥéŕé one two]"
+    },
+    "publicManage.visitPlace": {
+        "message": "[Ṽîšîţ åððŕéšš one two]"
     },
     "publicManage.payment": {
         "message": "[Ýöûŕ þåýɱéñţ one two]"

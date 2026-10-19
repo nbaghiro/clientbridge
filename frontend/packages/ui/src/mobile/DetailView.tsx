@@ -12,6 +12,7 @@ const c = theme.colors;
 
 export function DetailView({
     open,
+    variant = "drawer",
     title,
     subtitle,
     status,
@@ -39,60 +40,65 @@ export function DetailView({
         };
     }, [open]);
 
+    const frame = (
+        <View style={[styles.frame, (inFlow || variant === "inline") && styles.flowFrame]}>
+            <View style={styles.head}>
+                <View style={styles.headMain}>
+                    {leading}
+                    <View style={styles.headText}>
+                        <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
+                            {title}
+                        </Text>
+                        {subtitle !== undefined ? (
+                            <Text style={styles.subtitle} numberOfLines={1}>
+                                {subtitle}
+                            </Text>
+                        ) : null}
+                    </View>
+                </View>
+                {status !== undefined ? (
+                    <StatusPill
+                        style={{ alignSelf: "center" }}
+                        status={status.status}
+                        intent={status.intent}
+                    />
+                ) : null}
+                <IconButton
+                    icon="x"
+                    label={strings.common.close}
+                    onPress={onClose}
+                    style={styles.close}
+                />
+            </View>
+            <ScrollView
+                ref={body}
+                onLayout={() => {
+                    if (open) restoreScroll();
+                }}
+                onScrollBeginDrag={() => {
+                    scrolling.current = true;
+                }}
+                onScroll={(event) => {
+                    if (open && scrolling.current)
+                        scrollOffset.current = event.nativeEvent.contentOffset.y;
+                }}
+                scrollEventThrottle={16}
+                style={styles.body}
+                contentContainerStyle={styles.bodyContent}
+                keyboardShouldPersistTaps="handled"
+            >
+                {children}
+            </ScrollView>
+            {actions !== undefined && actions !== null ? (
+                <View style={styles.footer}>{actions}</View>
+            ) : null}
+        </View>
+    );
+    if (variant === "inline")
+        return open ? <View style={[styles.inline, style]}>{frame}</View> : null;
     return (
         <Modal style={style} open={open} onClose={onClose} framed={false}>
-            <View style={[styles.frame, inFlow && styles.flowFrame]}>
-                <View style={styles.head}>
-                    <View style={styles.headMain}>
-                        {leading}
-                        <View style={styles.headText}>
-                            <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
-                                {title}
-                            </Text>
-                            {subtitle !== undefined ? (
-                                <Text style={styles.subtitle} numberOfLines={1}>
-                                    {subtitle}
-                                </Text>
-                            ) : null}
-                        </View>
-                    </View>
-                    {status !== undefined ? (
-                        <StatusPill
-                            style={{ alignSelf: "center" }}
-                            status={status.status}
-                            intent={status.intent}
-                        />
-                    ) : null}
-                    <IconButton
-                        icon="x"
-                        label={strings.common.close}
-                        onPress={onClose}
-                        style={styles.close}
-                    />
-                </View>
-                <ScrollView
-                    ref={body}
-                    onLayout={() => {
-                        if (open) restoreScroll();
-                    }}
-                    onScrollBeginDrag={() => {
-                        scrolling.current = true;
-                    }}
-                    onScroll={(event) => {
-                        if (open && scrolling.current)
-                            scrollOffset.current = event.nativeEvent.contentOffset.y;
-                    }}
-                    scrollEventThrottle={16}
-                    style={styles.body}
-                    contentContainerStyle={styles.bodyContent}
-                    keyboardShouldPersistTaps="handled"
-                >
-                    {children}
-                </ScrollView>
-                {actions !== undefined && actions !== null ? (
-                    <View style={styles.footer}>{actions}</View>
-                ) : null}
-            </View>
+            {frame}
         </Modal>
     );
 }
@@ -116,6 +122,7 @@ export function DetailSection({ title, action, children, style }: NativeProps<De
 }
 
 const styles = StyleSheet.create({
+    inline: { flex: 1, minHeight: 0 },
     frame: {
         flexShrink: 1,
         backgroundColor: c.surface,

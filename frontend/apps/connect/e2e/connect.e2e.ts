@@ -31,15 +31,19 @@ function watchErrors(page: Page): string[] {
     return errors;
 }
 
-test("a client books a visit online and opens the manage link", async ({ page }) => {
-    const errors = watchErrors(page);
+async function bookVisit(
+    page: Page,
+    slug: string,
+    service: RegExp,
+    extras: "add an extra" | "no extras",
+): Promise<void> {
     const b = strings.publicBooking;
-    await page.goto(`/b/${links.slug}/book`);
+    await page.goto(`/b/${slug}/book`);
     await expect(page.getByRole("heading", { name: b.stepService })).toBeVisible();
     const openingsResponse = page.waitForResponse(
-        (response) => response.url().includes(`/book/${links.slug}/days?`) && response.ok(),
+        (response) => response.url().includes(`/book/${slug}/days?`) && response.ok(),
     );
-    await page.getByRole("button", { name: /^Full Groom — Small Dog/ }).click();
+    await page.getByRole("button", { name: service }).click();
     await expect(page.getByRole("heading", { name: b.stepTime })).toBeVisible();
     const openings = (await (await openingsResponse).json()) as {
         days: { count: number; closed: boolean }[];
@@ -56,36 +60,56 @@ test("a client books a visit online and opens the manage link", async ({ page })
         .click();
     await page.getByRole("radiogroup", { name: b.openTimes }).getByRole("radio").first().click();
     await page.getByRole("button", { name: b.continue }).first().click();
-    await expect(page.getByRole("heading", { name: b.stepExtras, level: 2 })).toBeVisible();
-    await page
-        .getByRole("button", { name: new RegExp(`^${b.addNamed("")}`) })
-        .first()
-        .click();
-    await page.getByRole("button", { name: b.continue }).first().click();
+    if (extras === "add an extra") {
+        await expect(page.getByRole("heading", { name: b.stepExtras, level: 2 })).toBeVisible();
+        await page
+            .getByRole("button", { name: new RegExp(`^${b.addNamed("")}`) })
+            .first()
+            .click();
+        await page.getByRole("button", { name: b.continue }).first().click();
+    }
     await expect(page.getByRole("heading", { name: b.stepDetails, level: 2 })).toBeVisible();
     await page.getByRole("textbox", { name: b.name }).fill("Robin Test");
     await page.getByRole("textbox", { name: b.subject("pet") }).fill("Pepper");
-    await page.getByRole("textbox", { name: b.phone }).fill("2505550199");
-    await page.getByRole("textbox", { name: new RegExp(`^${b.email}`) }).fill("robin@example.com");
-    const booked = page.waitForResponse(
-        (response) =>
-            response.url().endsWith(`/book/${links.slug}`) &&
-            response.request().method() === "POST",
-    );
+    // fresh contact details, so an earlier run's booking never makes this client a returning one
+    const fresh = String(Date.now() % 1_000_000).padStart(6, "0");
+    await page.getByRole("textbox", { name: b.phone }).fill(`2507${fresh}`);
+    await page
+        .getByRole("textbox", { name: new RegExp(`^${b.email}`) })
+        .fill(`robin.${fresh}@example.com`);
     await page.getByRole("button", { name: b.confirm, exact: true }).click();
-    expect((await booked).status()).toBe(200);
-    await expect(
-        page.getByRole("heading", {
-            name: new RegExp(`^(${b.doneTitle}|${b.pendingTitle})$`),
-        }),
-    ).toBeVisible();
+}
+
+async function cancelThroughManageLink(page: Page): Promise<void> {
     const m = strings.publicManage;
-    await page.getByRole("button", { name: b.manage }).click();
+    await page.getByRole("button", { name: strings.publicBooking.manage }).click();
     await expect(page).toHaveURL(/\/m\//);
     await expect(page.getByText(m.title, { exact: true })).toBeVisible();
     await page.getByRole("button", { name: m.cancel }).click();
     await page.getByRole("button", { name: m.cancelConfirm }).click();
     await expect(page.getByRole("heading", { name: m.canceledTitle })).toBeVisible();
+}
+
+test("a new client's online booking waits for approval and opens the manage link", async ({
+    page,
+}) => {
+    const errors = watchErrors(page);
+    // Birchbark approves new clients by hand, so a first booking is a request
+    await bookVisit(page, links.slug, /^Bath & Tidy/, "add an extra");
+    await expect(
+        page.getByRole("heading", { name: strings.publicBooking.pendingTitle }),
+    ).toBeVisible();
+    await cancelThroughManageLink(page);
+    expect(errors).toEqual([]);
+});
+
+test("a client books a confirmed visit where new clients need no approval", async ({ page }) => {
+    const errors = watchErrors(page);
+    await bookVisit(page, "cedar-coast-demo", /^Dog Walk/, "no extras");
+    await expect(
+        page.getByRole("heading", { name: strings.publicBooking.doneTitle }),
+    ).toBeVisible();
+    await cancelThroughManageLink(page);
     expect(errors).toEqual([]);
 });
 
@@ -316,7 +340,6 @@ test("the business cover photo keeps its hovered actions readable", async ({ pag
 });
 
 const MISSING_PAGES = [
-    ["/review/retired-token", strings.publicLanding.pageNotFoundTitle],
     ["/b/missing-business", strings.publicLanding.notFoundTitle],
     ["/b/missing-business/book", strings.publicBooking.notFoundTitle],
     ["/b/missing-business/shop", strings.publicShop.notFoundTitle],
@@ -324,6 +347,7 @@ const MISSING_PAGES = [
     ["/i/missing-token", strings.publicPay.notFoundTitle],
     ["/e/missing-token", strings.publicEstimate.notFoundTitle],
     ["/r/missing-token", strings.publicReceipt.notFoundTitle],
+    ["/review/retired-token", strings.publicLanding.pageNotFoundTitle],
     ["/form/missing-token", strings.publicForm.notFoundTitle],
     ["/contract/missing-token", strings.publicContract.notFoundTitle],
     ["/prefs/missing-token", strings.publicPreferences.notFoundTitle],

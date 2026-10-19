@@ -7,14 +7,30 @@ from clientbridge.core.deps import Principal
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
-from clientbridge.models.business import Business, SubjectKind
+from clientbridge.models.business import PLACE_KINDS, Business, SubjectKind
 from clientbridge.models.clients import Client, Subject
+from clientbridge.schemas.business import BrandInput
 from clientbridge.schemas.subjects import ATTRIBUTES, SubjectCreate, SubjectUpdate
 
 
 async def subject_kind(db: AsyncSession, business_id: str) -> SubjectKind | None:
     found = await db.execute(select(Business.subject).where(Business.id == business_id))
     return found.scalar_one_or_none()
+
+
+def place_address(business: Business, subject: Subject | None) -> str | None:
+    """The address of the place a visit goes to, for property and site businesses."""
+    if business.subject not in PLACE_KINDS or subject is None:
+        return None
+    address = subject.attributes.get("address")
+    return address.strip() if isinstance(address, str) and address.strip() else None
+
+
+def visit_address(business: Business, subject: Subject | None) -> str | None:
+    """Where a visit happens: the place's own address, or else the business's."""
+    return (
+        place_address(business, subject) or BrandInput.model_validate(business.brand or {}).address
+    )
 
 
 def typed_attributes(kind: SubjectKind | None, attributes: dict[str, object]) -> dict[str, object]:

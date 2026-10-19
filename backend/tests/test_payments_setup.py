@@ -646,7 +646,7 @@ def test_apply_creates_in_order_with_keys_and_reports_each_new_secret(
         *["/v1/products"] * 3,
         *["/v1/prices"] * 5,
         "/v1/billing_portal/configurations",
-        *["/v2/core/accounts"] * 2,
+        *["/v2/core/accounts"] * len(DEMO_BUSINESSES),
     ]
     keys = [_flag(call, "--idempotency") for call in posts]
     assert keys[:3] == [None, None, None]

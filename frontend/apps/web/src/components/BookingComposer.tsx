@@ -187,7 +187,21 @@ export function BookingComposer({
                     </Notice>
                 ) : null}
 
-                <div className="space-y-3 rounded-md border border-line px-3 py-2">
+                {form.fromEstimate !== null ? (
+                    <div className="rounded-md border border-line px-3 py-2 text-sm">
+                        <p className="font-semibold text-ink">{form.fromEstimate.title}</p>
+                        <ul className="mt-1 space-y-0.5 text-ink-soft">
+                            {form.fromEstimate.lines.map((line, i) => (
+                                <li key={i}>{line}</li>
+                            ))}
+                        </ul>
+                        <p className="mt-1 text-xs text-muted">{s.composerFromEstimateHint}</p>
+                    </div>
+                ) : null}
+                <div
+                    className="space-y-3 rounded-md border border-line px-3 py-2"
+                    hidden={form.fromEstimate !== null}
+                >
                     <Toggle
                         label={s.composerRepeat}
                         value={form.repeat}
@@ -266,7 +280,7 @@ export function RescheduleDialog({
 }) {
     const r = useReschedule(api, event, useViewer(), onClose);
     return (
-        <Modal size="lg" onClose={onClose}>
+        <Modal variant="drawer" size="lg" onClose={onClose}>
             <div className="space-y-5">
                 <div>
                     <h2 className="font-display text-lg font-bold text-ink">{s.rescheduleTitle}</h2>

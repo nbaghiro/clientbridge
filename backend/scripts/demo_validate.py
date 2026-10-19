@@ -6,17 +6,19 @@ from datetime import datetime, timedelta
 from typing import get_args
 from zoneinfo import ZoneInfo
 
+from pydantic import ValidationError
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.db import Base, SessionLocal, engine
 from clientbridge.models.billing import Estimate, Invoice, Line
-from clientbridge.models.business import Business
+from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import GiftCard, Item, StockMovement
 from clientbridge.models.clients import Subject
 from clientbridge.models.scheduling import Booking, Hours, Recurrence, Slot, Weekday
-from scripts.demo_context import DemoContext
+from clientbridge.schemas.subjects import ATTRIBUTES
+from scripts.demo_context import DEMO_BUSINESSES, DemoContext
 
 
 def validate_graph(ctx: DemoContext) -> list[str]:
@@ -26,7 +28,14 @@ def validate_graph(ctx: DemoContext) -> list[str]:
     pets = {r.id: r for r in ctx.all(Subject)}
     bookings = ctx.all(Booking)
     hours = ctx.all(Hours)
-    zone = ZoneInfo(ctx.get(Business, ctx.business_id).timezone)
+    business = ctx.get(Business, ctx.business_id)
+    zone = ZoneInfo(business.timezone)
+    if business.subject is not None:
+        for subject in pets.values():
+            try:
+                ATTRIBUTES[business.subject].model_validate(subject.attributes)
+            except ValidationError:
+                errors.append(f"{subject.id}: attributes do not fit the {business.subject} kind")
     slot_pets: dict[str, set[str]] = {s: set() for s in slots}
     for booking in bookings:
         slot = slots[booking.slot_id]
@@ -34,13 +43,16 @@ def validate_graph(ctx: DemoContext) -> list[str]:
             slot_pets[slot.id].add(booking.subject_id)
             pet = pets[booking.subject_id]
             if pet.client_id != booking.client_id:
-                errors.append(f"{booking.id}: pet owner mismatch")
-            if (slot.item_id == "it_cat") != (
-                pet.attributes.get("species") == "cat"
-            ) and slot.item_id in {"it_cat", "it_groom_sm", "it_groom_lg"}:
+                errors.append(f"{booking.id}: subject owner mismatch")
+            if (
+                business.subject == "pet"
+                and (slot.item_id == "it_cat") != (pet.attributes.get("species") == "cat")
+                and slot.item_id in {"it_cat", "it_groom_sm", "it_groom_lg"}
+            ):
                 errors.append(f"{booking.id}: incompatible species")
             if (
-                slot.item_id == "it_groom_sm"
+                business.subject == "pet"
+                and slot.item_id == "it_groom_sm"
                 and float(str(pet.attributes.get("weight_kg", 0))) > 11.34
             ):
                 errors.append(f"{booking.id}: small dog weight limit")
@@ -184,29 +196,40 @@ SQL_CHECKS = {
 async def validate_database(
     db: AsyncSession, *, as_of: datetime | None = None
 ) -> dict[str, object]:
-    ctx = DemoContext(as_of or clock.now(), "bz_birchbark", "us_dev")
-    for model in (
-        Business,
-        Item,
-        Subject,
-        Booking,
-        Slot,
-        Hours,
-        Recurrence,
-        Invoice,
-        Estimate,
-        Line,
-        GiftCard,
-        StockMovement,
-    ):
-        table = model.__table__
-        condition = (
-            table.c.id.in_(["bz_birchbark", "bz_demo_second"])
-            if model is Business
-            else table.c.business_id.in_(["bz_birchbark", "bz_demo_second"])
-        )
-        ctx.rows.extend((await db.scalars(select(model).where(condition))).all())
-    errors = validate_graph(ctx)
+    now = as_of or clock.now()
+    found = await db.execute(
+        select(Business.id, Staff.user_id)
+        .join(Staff, Staff.business_id == Business.id)
+        .where(Business.id.in_(DEMO_BUSINESSES), Staff.role == "owner")
+    )
+    owners = {business_id: user_id or "" for business_id, user_id in found.tuples().all()}
+    contexts = [
+        DemoContext(now, business_id, owners.get(business_id, ""))
+        for business_id in DEMO_BUSINESSES
+    ]
+    for ctx in contexts:
+        for model in (
+            Business,
+            Item,
+            Subject,
+            Booking,
+            Slot,
+            Hours,
+            Recurrence,
+            Invoice,
+            Estimate,
+            Line,
+            GiftCard,
+            StockMovement,
+        ):
+            table = model.__table__
+            condition = (
+                table.c.id == ctx.business_id
+                if model is Business
+                else table.c.business_id == ctx.business_id
+            )
+            ctx.rows.extend((await db.scalars(select(model).where(condition))).all())
+    errors = [error for ctx in contexts if ctx.all(Business) for error in validate_graph(ctx)]
     for table in Base.metadata.tables.values():
         if "business_id" not in table.c:
             continue
@@ -218,7 +241,7 @@ async def validate_database(
                         select(table.c.id)
                         .join(parent, column == fk.column)
                         .where(
-                            table.c.business_id.in_(["bz_birchbark", "bz_demo_second"]),
+                            table.c.business_id.in_(DEMO_BUSINESSES),
                             table.c.business_id != parent.c.business_id,
                         )
                     )
@@ -228,20 +251,21 @@ async def validate_database(
                     )
     scope = ", ".join(
         f"{table.name} AS (SELECT * FROM public.{table.name} "
-        "WHERE business_id IN ('bz_birchbark', 'bz_demo_second'))"
+        f"WHERE business_id IN ({', '.join(repr(b) for b in DEMO_BUSINESSES)}))"
         for table in Base.metadata.tables.values()
         if "business_id" in table.c
     )
     for name, sql in SQL_CHECKS.items():
-        failures = (
-            (await db.execute(text(f"WITH {scope} {sql}"), {"as_of": ctx.now})).scalars().all()
-        )
+        failures = (await db.execute(text(f"WITH {scope} {sql}"), {"as_of": now})).scalars().all()
         errors.extend(f"{name}: {value}" for value in failures)
     return {
         "ok": not errors,
-        "as_of": ctx.now.isoformat(),
+        "as_of": now.isoformat(),
         "errors": errors,
-        "counts": dict(Counter(type(row).__name__ for row in ctx.rows)),
+        "counts": {
+            ctx.business_id: dict(Counter(type(row).__name__ for row in ctx.rows))
+            for ctx in contexts
+        },
     }
 
 

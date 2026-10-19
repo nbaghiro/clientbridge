@@ -30,6 +30,7 @@ name: Owner setup surfaces
 - tapOn: "Back|Go back|Navigate up"
 - tapOn: "Getting paid"
 - assertVisible: "You're set up to get paid"
+- assertVisible: "Nothing is needed from you right now."
 - scrollUntilVisible:
       element: "Card payments"
       direction: DOWN

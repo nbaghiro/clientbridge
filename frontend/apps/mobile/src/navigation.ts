@@ -3,7 +3,7 @@ import type { NavigatorScreenParams } from "@react-navigation/native";
 
 export type TabParamList = {
     Today: undefined;
-    Schedule: { create?: number; open?: string } | undefined;
+    Schedule: { create?: number; open?: string; estimate?: string } | undefined;
     Clients: { create?: number; open?: string } | undefined;
     Inbox:
         | {

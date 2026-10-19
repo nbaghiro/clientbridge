@@ -8,14 +8,19 @@ export function Loaded({
     loading,
     failed,
     rows = 4,
+    flush = false,
     children,
 }: {
     load: Load;
     loading: string;
     failed: string;
     rows?: number;
+    // Inside a list that already has its own frame, the placeholder rows sit bare.
+    flush?: boolean;
     children: ReactNode;
 }) {
+    if (load.state === "loading" && flush)
+        return <Skeleton variant="row" count={rows} label={loading} />;
     if (load.state === "loading")
         return (
             <Panel flush>

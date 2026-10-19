@@ -29,7 +29,7 @@ import {
     useRef,
     useState,
 } from "react";
-import { SummaryStrip } from "./Workspace";
+import { SummaryStrip } from "./SummaryStrip";
 
 const s = strings.bookings;
 
@@ -78,10 +78,13 @@ export function ScheduleHeader({
     children,
     views,
     onNew,
+    newLabel,
 }: {
     children: ReactNode;
     views: ReactNode;
     onNew: () => void;
+    // The view's own main action in the same place, such as New series on Repeat visits.
+    newLabel?: string | undefined;
 }) {
     return (
         <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line px-5 py-3">
@@ -89,7 +92,7 @@ export function ScheduleHeader({
             <div className="flex items-center gap-2">
                 {views}
                 <Button size="sm" icon="plus" onPress={onNew}>
-                    {s.newBooking}
+                    {newLabel ?? s.newBooking}
                 </Button>
             </div>
         </header>

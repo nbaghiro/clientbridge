@@ -59,7 +59,7 @@ import {
     requestCameraPermissionsAsync,
 } from "expo-image-picker";
 import { useState } from "react";
-import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
@@ -373,6 +373,28 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                                         intent={detail.temperament.nervous ? "warning" : "neutral"}
                                     />
                                 ) : null}
+                            </View>
+                        ) : null}
+                        {detail.directions !== null ? (
+                            <View style={[styles.cardRow, styles.divider]}>
+                                <Icon name="pin" size={15} color={c.muted} />
+                                <Text style={[styles.sub, styles.flex]} numberOfLines={2}>
+                                    {detail.directions.address}
+                                </Text>
+                                <Button
+                                    style={{ alignSelf: "center" }}
+                                    size="sm"
+                                    variant="link"
+                                    label={s.directionsTo(detail.directions.address)}
+                                    onPress={() => {
+                                        if (detail.directions !== null)
+                                            Linking.openURL(detail.directions.url).catch(
+                                                () => undefined,
+                                            );
+                                    }}
+                                >
+                                    {s.directions}
+                                </Button>
                             </View>
                         ) : null}
                         <View style={[styles.cardRow, styles.divider]}>
@@ -772,19 +794,31 @@ export function BookingComposerSheet({
                 )}
                 {form.problem !== null ? <Notice tone="danger">{form.problem}</Notice> : null}
 
-                <Toggle
-                    label={s.composerRepeat}
-                    hint={
-                        form.repeat
-                            ? formatParts([
-                                  s.everyWeeks(form.every),
-                                  s.composerBookSeries(form.count),
-                              ])
-                            : undefined
-                    }
-                    value={form.repeat}
-                    onChange={form.setRepeat}
-                />
+                {form.fromEstimate !== null ? (
+                    <View style={styles.depart}>
+                        <Text style={styles.name}>{form.fromEstimate.title}</Text>
+                        {form.fromEstimate.lines.map((line, i) => (
+                            <Text key={i} style={styles.sub}>
+                                {line}
+                            </Text>
+                        ))}
+                        <Text style={styles.hint}>{s.composerFromEstimateHint}</Text>
+                    </View>
+                ) : (
+                    <Toggle
+                        label={s.composerRepeat}
+                        hint={
+                            form.repeat
+                                ? formatParts([
+                                      s.everyWeeks(form.every),
+                                      s.composerBookSeries(form.count),
+                                  ])
+                                : undefined
+                        }
+                        value={form.repeat}
+                        onChange={form.setRepeat}
+                    />
+                )}
                 {form.repeat ? null : (
                     <TextField
                         label={s.composerNote}

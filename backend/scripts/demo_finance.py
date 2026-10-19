@@ -634,7 +634,7 @@ async def _gift_tender(db: AsyncSession, ctx: DemoContext) -> None:
         await ledger.post_payment(db, payment, available_at=when)
 
 
-async def _earnings(db: AsyncSession, ctx: DemoContext) -> None:
+async def seed_earnings(db: AsyncSession, ctx: DemoContext) -> None:
     for invoice in ctx.all(Invoice):
         if (await ledger.invoice_state(db, invoice))[0] != "paid":
             continue
@@ -699,8 +699,10 @@ async def _stripe_held(
     return int(await db.scalar(query) or 0)
 
 
-async def seed_payouts(db: AsyncSession, ctx: DemoContext) -> None:
-    for index, day in enumerate(range(-112, -6, 7)):
+async def seed_payouts(
+    db: AsyncSession, ctx: DemoContext, *, first_day: int = -112, failed_day: int | None = -28
+) -> None:
+    for index, day in enumerate(range(first_day, -6, 7)):
         arrival = ctx.at(day, 10)
         amount = await _stripe_held(db, ctx, arrival, available_by=arrival)
         if amount <= 0:
@@ -715,7 +717,7 @@ async def seed_payouts(db: AsyncSession, ctx: DemoContext) -> None:
             arrival_at=arrival,
             occurred_at=arrival - timedelta(days=2),
         )
-        if day == -28:
+        if day == failed_day:
             await ledger.fail_payout(
                 db, ctx.business_id, payout_id, occurred_at=arrival + timedelta(days=1)
             )
@@ -734,7 +736,7 @@ async def seed_payouts(db: AsyncSession, ctx: DemoContext) -> None:
         )
 
 
-async def seed_finance(db: AsyncSession, ctx: DemoContext) -> None:
+async def post_invoices(db: AsyncSession, ctx: DemoContext) -> None:
     for invoice in sorted(ctx.all(Invoice), key=lambda i: i.issued_at or ctx.now):
         if invoice.status in {"draft", "void"}:
             continue
@@ -744,7 +746,9 @@ async def seed_finance(db: AsyncSession, ctx: DemoContext) -> None:
         if tax.total_cents != invoice.total_cents:
             raise ValueError(f"{invoice.id}: header differs from its tax snapshot")
         await ledger.post_invoice(db, invoice, tax)
-    await _purchases(db, ctx)
+
+
+async def post_payments(db: AsyncSession, ctx: DemoContext) -> None:
     for payment in sorted(ctx.all(Payment), key=lambda p: p.paid_at or ctx.now):
         if payment.status != "succeeded" or payment.kind == "refund":
             continue
@@ -779,16 +783,26 @@ async def seed_finance(db: AsyncSession, ctx: DemoContext) -> None:
     for refund in ctx.all(Payment):
         if refund.kind == "refund" and refund.status == "succeeded":
             await ledger.post_refund(db, refund, ctx.get(Payment, refund.parent_payment_id or ""))
-    await _gift_tender(db, ctx)
-    applied = ctx.get(Booking, APPLIED_DEPOSIT)
-    invoice = ctx.get(Invoice, applied.invoice_id or "")
+
+
+async def apply_deposit_at(db: AsyncSession, booking: Booking, invoice: Invoice) -> None:
+    """Apply a held deposit as of the invoice's issue, the way checkout applies it."""
     resume = clock.now()
-    clock.freeze(invoice.issued_at or ctx.now)
+    clock.freeze(invoice.issued_at or clock.now())
     try:
-        if not await bookings.apply_deposit(db, applied, invoice):
-            raise ValueError(f"{applied.id}: its deposit was not applied to {invoice.id}")
+        if not await bookings.apply_deposit(db, booking, invoice):
+            raise ValueError(f"{booking.id}: its deposit was not applied to {invoice.id}")
     finally:
         clock.travel(resume)
+
+
+async def seed_finance(db: AsyncSession, ctx: DemoContext) -> None:
+    await post_invoices(db, ctx)
+    await _purchases(db, ctx)
+    await post_payments(db, ctx)
+    await _gift_tender(db, ctx)
+    applied = ctx.get(Booking, APPLIED_DEPOSIT)
+    await apply_deposit_at(db, applied, ctx.get(Invoice, applied.invoice_id or ""))
     for booking in sorted(ctx.all(Booking), key=lambda b: b.completed_at or ctx.now):
         if booking.package_id and booking.status == "completed":
             await ledger.post_consumption(
@@ -797,5 +811,5 @@ async def seed_finance(db: AsyncSession, ctx: DemoContext) -> None:
                 occurred_at=booking.completed_at,
                 booking_id=booking.id,
             )
-    await _earnings(db, ctx)
+    await seed_earnings(db, ctx)
     await seed_payouts(db, ctx)

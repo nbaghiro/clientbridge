@@ -1131,6 +1131,8 @@ export interface EstimateRecord {
     canSend: boolean;
     canMark: boolean;
     canConvert: boolean;
+    // an accepted estimate can be booked, its products joining the visit as add-ons
+    canBook: boolean;
     rateNote: string;
 }
 
@@ -1256,6 +1258,7 @@ export function useEstimateRecord(id: string | null, payBase: string): EstimateR
         canConvert:
             (view.status === "sent" || view.status === "accepted") &&
             row.converted_invoice_id === null,
+        canBook: view.status === "accepted" && row.converted_invoice_id === null,
         rateNote: rateNote(rates),
     };
 }

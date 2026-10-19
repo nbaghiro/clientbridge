@@ -169,6 +169,27 @@ function BookingClient({ detail }: { detail: BookingDetail }) {
                         ) : null}
                     </div>
                 ) : null}
+                {detail.directions !== null ? (
+                    <div className="flex items-center gap-2 border-t border-line-soft px-3 py-2 text-xs text-muted">
+                        <Icon name="pin" size={14} />
+                        <span className="min-w-0 flex-1 truncate">{detail.directions.address}</span>
+                        <Button
+                            size="sm"
+                            variant="link"
+                            label={s.directionsTo(detail.directions.address)}
+                            onPress={() => {
+                                if (detail.directions !== null)
+                                    window.open(
+                                        detail.directions.url,
+                                        "_blank",
+                                        "noopener,noreferrer",
+                                    );
+                            }}
+                        >
+                            {s.directions}
+                        </Button>
+                    </div>
+                ) : null}
                 <div className="flex items-center gap-2 border-t border-line-soft px-3 py-2 text-xs text-muted">
                     <Icon name="card" size={14} />
                     {card ? s.cardOnFile(savedCardLabel(card)) : s.noCard}

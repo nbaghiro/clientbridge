@@ -29,6 +29,7 @@ import {
 } from "@clientbridge/ui";
 import { type ReactNode, useState } from "react";
 
+import { ScheduleHeader } from "../components/ScheduleGrid";
 import { ScheduleViews } from "../components/ScheduleViews";
 import { SeriesComposer } from "../components/SeriesComposer";
 import { api } from "../lib/api";
@@ -73,70 +74,31 @@ export function Recurrences() {
     const none = list.load.state === "empty";
 
     return (
-        <div className="flex h-full">
-            <section
-                className={`flex flex-col border-r border-line bg-surface ${none ? "flex-1" : "w-[300px] shrink-0 xl:w-[380px]"}`}
-            >
-                <header className="space-y-3 border-b border-line px-5 pb-4 pt-6">
-                    <div className="flex items-center justify-between gap-3">
-                        <div>
-                            <h1 className="font-display text-2xl font-bold text-ink">
-                                {s.listTitle}
-                            </h1>
-                            <p className="text-sm text-muted">{s.listSubtitle(list.counts.all)}</p>
-                        </div>
-                        {none ? null : (
-                            <Button
-                                size="sm"
-                                icon="plus"
-                                onPress={() => {
-                                    setComposing(true);
-                                }}
-                            >
-                                {s.newShort}
-                            </Button>
-                        )}
-                    </div>
-                    <ScheduleViews active="series" />
-                    {none ? null : (
-                        <>
-                            <SearchField
-                                value={list.q}
-                                onChange={list.setQ}
-                                placeholder={s.search(kindWord(kind))}
-                            />
-                            <Choice
-                                label={s.filterAll}
-                                options={[
-                                    { key: "all", label: s.filterAll },
-                                    {
-                                        key: "attention",
-                                        label: formatParts([
-                                            s.filterAttention,
-                                            String(list.counts.attention),
-                                        ]),
-                                    },
-                                    {
-                                        key: "ending",
-                                        label: formatParts([
-                                            s.filterEnding,
-                                            String(list.counts.ending),
-                                        ]),
-                                    },
-                                ]}
-                                value={list.filter}
-                                onChange={list.setFilter}
-                            />
-                        </>
-                    )}
-                </header>
-                <div className="flex-1 overflow-y-auto">
+        <div className="flex h-full min-h-[600px]">
+            <section className="flex min-w-0 flex-1 flex-col p-5">
+                <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-card">
+                    <ScheduleHeader
+                        views={<ScheduleViews active="series" />}
+                        newLabel={s.newSeries}
+                        onNew={() => {
+                            setComposing(true);
+                        }}
+                    >
+                        <h1 className="truncate font-display text-lg font-bold text-ink">
+                            {s.listTitle}
+                        </h1>
+                        {list.load.hasData && !none ? (
+                            <span className="truncate text-sm text-muted">
+                                {s.listSubtitle(list.counts.all)}
+                            </span>
+                        ) : null}
+                    </ScheduleHeader>
                     {list.load.state === "loading" ? (
-                        <div className="p-5">
+                        <div className="min-h-0 flex-1 p-5">
                             <Skeleton variant="row" count={5} label={s.loading} />
                         </div>
                     ) : list.load.state === "error" ? (
-                        <div className="p-5">
+                        <div className="min-h-0 flex-1 p-5">
                             <LoadFailed
                                 message={s.loadError}
                                 onRetry={list.load.retry}
@@ -144,80 +106,121 @@ export function Recurrences() {
                             />
                         </div>
                     ) : none ? (
-                        <div className="mx-auto max-w-md p-5 pt-16">
-                            <Empty
-                                icon="repeat"
-                                message={s.emptyListTitle}
-                                body={s.emptyList}
-                                actions={
-                                    <Button
-                                        size="sm"
-                                        onPress={() => {
-                                            setComposing(true);
-                                        }}
-                                    >
-                                        {s.newSeries}
-                                    </Button>
-                                }
-                            />
-                        </div>
-                    ) : list.rows.length === 0 ? (
-                        <div className="p-5">
-                            <Empty message={s.emptySearch} />
+                        <div className="flex min-h-0 flex-1 items-start justify-center bg-bg/40 pt-24">
+                            <div className="w-[360px] rounded-lg bg-surface shadow-card">
+                                <Empty
+                                    variant="card"
+                                    icon="repeat"
+                                    message={s.emptyListTitle}
+                                    body={s.emptyList}
+                                />
+                            </div>
                         </div>
                     ) : (
-                        <div className="divide-y divide-line-soft">
-                            {list.rows.map((r) => (
-                                <ListRow
-                                    key={r.id}
-                                    selected={r.id === openId}
-                                    leading={
-                                        <span
-                                            aria-hidden
-                                            className="h-9 w-1 shrink-0 rounded-full bg-accent"
-                                            style={
-                                                r.serviceColor !== null
-                                                    ? { backgroundColor: r.serviceColor }
-                                                    : undefined
-                                            }
-                                        />
-                                    }
-                                    title={formatParts([r.subjectName, r.clientName])}
-                                    detail={formatParts([r.pattern, r.nextLabel])}
-                                    meta={
-                                        r.attention > 0 ? (
-                                            <Badge
-                                                label={s.needsDecision(r.attention)}
-                                                intent="danger"
-                                            />
-                                        ) : r.ending ? (
-                                            <Badge label={s.endingSoon} intent="warning" />
-                                        ) : (
-                                            r.progress
-                                        )
-                                    }
-                                    onPress={() => {
-                                        setPicked(r.id);
-                                    }}
-                                />
-                            ))}
+                        <div className="flex min-h-0 flex-1">
+                            <aside className="flex w-80 shrink-0 flex-col border-r border-line xl:w-96">
+                                <div className="space-y-3 border-b border-line-soft p-4">
+                                    <SearchField
+                                        value={list.q}
+                                        onChange={list.setQ}
+                                        placeholder={s.search(kindWord(kind))}
+                                    />
+                                    <Choice
+                                        label={s.filterAll}
+                                        options={[
+                                            { key: "all", label: s.filterAll },
+                                            {
+                                                key: "attention",
+                                                label: formatParts([
+                                                    s.filterAttention,
+                                                    String(list.counts.attention),
+                                                ]),
+                                            },
+                                            {
+                                                key: "ending",
+                                                label: formatParts([
+                                                    s.filterEnding,
+                                                    String(list.counts.ending),
+                                                ]),
+                                            },
+                                        ]}
+                                        value={list.filter}
+                                        onChange={list.setFilter}
+                                    />
+                                </div>
+                                <nav
+                                    aria-label={s.listTitle}
+                                    className="min-h-0 flex-1 overflow-y-auto"
+                                >
+                                    {list.rows.length === 0 ? (
+                                        <div className="p-5">
+                                            <Empty message={s.emptySearch} />
+                                        </div>
+                                    ) : (
+                                        <div className="divide-y divide-line-soft">
+                                            {list.rows.map((r) => (
+                                                <ListRow
+                                                    key={r.id}
+                                                    selected={r.id === openId}
+                                                    leading={
+                                                        <span
+                                                            aria-hidden
+                                                            className="h-9 w-1 shrink-0 rounded-full bg-accent"
+                                                            style={
+                                                                r.serviceColor !== null
+                                                                    ? {
+                                                                          backgroundColor:
+                                                                              r.serviceColor,
+                                                                      }
+                                                                    : undefined
+                                                            }
+                                                        />
+                                                    }
+                                                    title={formatParts([
+                                                        r.subjectName,
+                                                        r.clientName,
+                                                    ])}
+                                                    detail={formatParts([r.pattern, r.nextLabel])}
+                                                    meta={
+                                                        r.attention > 0 ? (
+                                                            <Badge
+                                                                label={s.needsDecision(r.attention)}
+                                                                intent="danger"
+                                                            />
+                                                        ) : r.ending ? (
+                                                            <Badge
+                                                                label={s.endingSoon}
+                                                                intent="warning"
+                                                            />
+                                                        ) : (
+                                                            r.progress
+                                                        )
+                                                    }
+                                                    onPress={() => {
+                                                        setPicked(r.id);
+                                                    }}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+                                </nav>
+                            </aside>
+                            <div className="min-w-0 flex-1 overflow-y-auto">
+                                {openId === null ? (
+                                    <div className="flex h-full items-center justify-center">
+                                        <Empty message={s.selectSeries} />
+                                    </div>
+                                ) : (
+                                    <Record key={openId} id={openId} />
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
             </section>
-            {none ? null : (
-                <section className="min-w-0 flex-1 overflow-y-auto">
-                    {openId === null || !list.load.hasData ? (
-                        <div className="flex h-full items-center justify-center">
-                            <Empty message={s.selectSeries} />
-                        </div>
-                    ) : (
-                        <Record key={openId} id={openId} />
-                    )}
-                </section>
-            )}
             {composing ? (
                 <Modal
+                    variant="drawer"
                     size="xl"
                     onClose={() => {
                         setComposing(false);
@@ -420,7 +423,7 @@ function Fact({ label, value }: { label: string; value: ReactNode }) {
 function ChangeDialog({ rec, onClose }: { rec: SeriesRecord; onClose: () => void }) {
     const zone = useBusinessZone();
     return (
-        <Modal size="lg" onClose={onClose}>
+        <Modal variant="drawer" size="lg" onClose={onClose}>
             <div className="space-y-4">
                 <div>
                     <h2 className="font-display text-lg font-bold text-ink">{s.changeSeries}</h2>
