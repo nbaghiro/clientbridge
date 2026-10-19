@@ -41,6 +41,7 @@ import {
     DocTotals,
     KeyValueList,
     ListPage,
+    ListRow,
     Money,
     Notice,
     Stat,
@@ -640,6 +641,7 @@ function EstimatePanel({
     const letterhead = useLetterhead(apiBaseUrl);
     const bookEstimate = useBookEstimate();
     const kind = useSubjectKind();
+    const openLink = useOpenLink();
     const [overlay, setOverlay] = useState<"pdf" | "menu" | null>(null);
     if (rec === null) return null;
     const menu = [
@@ -738,6 +740,18 @@ function EstimatePanel({
                         { label: s.colValid, value: rec.validLabel },
                     ]}
                 />
+                {rec.booked !== null ? (
+                    <DetailSection title={s.bookedVisit(kindWord(kind))}>
+                        <ListRow
+                            icon="calendar"
+                            title={rec.booked.when}
+                            detail={s.bookedVisitHint}
+                            onPress={() => {
+                                if (rec.booked !== null) openLink("booking", rec.booked.id);
+                            }}
+                        />
+                    </DetailSection>
+                ) : null}
                 {rec.row.decline_reason !== null ? (
                     <DetailSection title={s.declineReason}>
                         <Text style={styles.rowSub}>{rec.row.decline_reason}</Text>

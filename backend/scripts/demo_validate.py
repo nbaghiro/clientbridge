@@ -119,6 +119,23 @@ def validate_graph(ctx: DemoContext) -> list[str]:
             for s in occurrences
         ):
             errors.append(f"{recurrence.id}: weekday mismatch")
+    estimates = {r.id: r for r in ctx.all(Estimate)}
+    booked = Counter(
+        b.estimate_id
+        for b in bookings
+        if b.estimate_id is not None and b.status != "canceled" and b.deleted_at is None
+    )
+    for booking in bookings:
+        if booking.estimate_id is None:
+            continue
+        estimate = estimates.get(booking.estimate_id)
+        if estimate is None or estimate.client_id != booking.client_id:
+            errors.append(f"{booking.id}: booked from another client's or a missing estimate")
+        elif estimate.status != "accepted":
+            errors.append(f"{booking.id}: booked from an estimate that is not accepted")
+    for estimate_id, count in booked.items():
+        if count > 1:
+            errors.append(f"{estimate_id}: booked {count} times")
     documents: list[Invoice | Estimate] = [*ctx.all(Invoice), *ctx.all(Estimate)]
     for doc in documents:
         field = "invoice_id" if isinstance(doc, Invoice) else "estimate_id"

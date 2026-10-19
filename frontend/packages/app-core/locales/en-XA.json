@@ -152,6 +152,9 @@
     "api.visitNotStarted": {
         "message": "[Ţĥîš ṽîšîţ ĥåšñ'ţ šţåŕţéð ýéţ. Çöɱþļéţé îţ öŕ ɱåŕķ å ñö-šĥöŵ öñçé îţ šţåŕţš. one two three four five]"
     },
+    "api.estimateBooked": {
+        "message": "[Ţĥîš éšţîɱåţé åļŕéåðý ĥåš å ƀööķéð ṽîšîţ. Çåñçéļ ţĥåţ ṽîšîţ ţö ƀööķ ţĥé éšţîɱåţé åĝåîñ. one two three four five six]"
+    },
     "api.staffHasFutureWork": {
         "message": "[Ţĥîš ɱéɱƀéŕ šţîļļ ĥåš ûþçöɱîñĝ ṽîšîţš. Çĥööšé ŵĥéţĥéŕ ţö ɱöṽé öŕ çåñçéļ ţĥéɱ. one two three four five]"
     },
@@ -682,6 +685,12 @@
     },
     "billing.bookVisit": {
         "message": "[{kind,select,other{Ɓööķ ţĥé ṽîšîţ} site{Ɓööķ ţĥé îñšţåļļ}} one two three]"
+    },
+    "billing.bookedVisit": {
+        "message": "[{kind,select,other{Ɓööķéð ṽîšîţ} site{Ɓööķéð îñšţåļļ}} one two three]"
+    },
+    "billing.bookedVisitHint": {
+        "message": "[Ţĥé éšţîɱåţé'š þŕöðûçţš åŕé öñ ţĥîš ṽîšîţ åš åðð-öñš. Çåñçéļ ţĥé ṽîšîţ ţö ƀööķ ţĥé éšţîɱåţé åĝåîñ. one two three four five six seven]"
     },
     "billing.convertTitle": {
         "message": "[Çöñṽéŕţ ţö îñṽöîçé? one two]"

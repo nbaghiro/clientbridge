@@ -848,6 +848,7 @@ const bookings = new Table(
         subject_id: column.text,
         package_id: column.text,
         invoice_id: column.text,
+        estimate_id: column.text,
         status: column.text,
         source: column.text,
         price_cents: column.integer,
@@ -871,6 +872,7 @@ const bookings = new Table(
         indexes: {
             bookings_business_id: ["business_id"],
             bookings_client: ["client_id"],
+            bookings_estimate: ["estimate_id"],
             bookings_slot: ["slot_id"],
             bookings_staff: ["staff_id"],
             bookings_status: ["status"],

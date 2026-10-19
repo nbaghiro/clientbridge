@@ -59,6 +59,7 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
         Index("ix_bookings_client", "business_id", "client_id"),
         Index("ix_bookings_status", "business_id", "status"),
         Index("ix_bookings_staff", "business_id", "staff_id"),
+        Index("ix_bookings_estimate", "business_id", "estimate_id"),
     )
 
     slot_id: Mapped[str] = mapped_column(ForeignKey("slots.id"), nullable=False)
@@ -70,6 +71,8 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     subject_id: Mapped[str | None] = mapped_column(ForeignKey("subjects.id"))
     package_id: Mapped[str | None] = mapped_column(ForeignKey("packages.id"))
     invoice_id: Mapped[str | None] = mapped_column(ForeignKey("invoices.id"))
+    # the accepted estimate this visit was booked from; one live booking per estimate
+    estimate_id: Mapped[str | None] = mapped_column(ForeignKey("estimates.id"))
     status: Mapped[BookingStatus] = mapped_column(String, default="pending", nullable=False)
     source: Mapped[BookingSource] = mapped_column(String, default="manual", nullable=False)
     price_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)

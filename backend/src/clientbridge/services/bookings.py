@@ -115,6 +115,7 @@ _ALREADY_IN_CLASS = "you already have a booking for this class"
 _TERMINAL = frozenset({"completed", "canceled", "no_show"})
 _AFTER_START = frozenset({"completed", "no_show"})
 _NOT_STARTED = "a visit can be completed or marked a no-show only once it has started"
+_ESTIMATE_BOOKED = "the estimate already has a booked visit; cancel it to book the estimate again"
 _CLOSED_OR_WAITING = ("completed", "canceled", "no_show", "waitlisted")
 BookingNotice = Literal["confirmed", "canceled", "rescheduled"]
 
@@ -127,6 +128,7 @@ async def booking_out(db: AsyncSession, booking: Booking, slot: Slot) -> Booking
         client_id=booking.client_id,
         staff_id=booking.staff_id,
         item_id=slot.item_id,
+        estimate_id=booking.estimate_id,
         status=booking.status,
         source=booking.source,
         price_cents=booking.price_cents,
@@ -524,6 +526,8 @@ class BookingService:
         )
 
         async def run(cmd: Command) -> BookingOut:
+            if data.estimate_id is not None:
+                await self._assert_estimate_unbooked(data.estimate_id)
             booking, slot = await create_booking_core(
                 self.db,
                 self.biz,
@@ -534,6 +538,7 @@ class BookingService:
                 source="manual",
                 subject_id=data.subject_id,
             )
+            booking.estimate_id = data.estimate_id
             if data.note is not None and data.note.strip() != "":
                 self.db.add(
                     Note(
@@ -559,8 +564,7 @@ class BookingService:
                         unit_amount_cents=line.unit_amount_cents,
                     )
                 )
-            if quoted:
-                await self.db.flush()
+            await self.db.flush()
             cmd.record("booking.create", entity_type="booking", entity_id=booking.id)
             if data.notify:
                 await queued_notifier(
@@ -862,6 +866,23 @@ class BookingService:
             for ln in lines
             if ln.item_id in products and ln.quantity > 0 and ln.quantity == int(ln.quantity)
         ]
+
+    async def _assert_estimate_unbooked(self, estimate_id: str) -> None:
+        # the estimate row lock serialises two bookings racing for one estimate
+        await self.db.execute(
+            scoped(Estimate, self.biz)
+            .with_only_columns(Estimate.id)
+            .where(Estimate.id == estimate_id)
+            .with_for_update()
+        )
+        live = await self.db.scalar(
+            scoped(Booking, self.biz, soft_delete=True)
+            .with_only_columns(Booking.id)
+            .where(Booking.estimate_id == estimate_id, Booking.status != "canceled")
+            .limit(1)
+        )
+        if live is not None:
+            raise Conflict(_ESTIMATE_BOOKED, code="estimate_booked")
 
     async def depart(self, booking_id: str) -> BookingOut:
         """Record that the member set off and text the client; setting off again sends nothing."""

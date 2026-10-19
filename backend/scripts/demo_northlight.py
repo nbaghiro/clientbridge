@@ -1524,7 +1524,8 @@ class Northlight:
             )
         )
 
-    def addons(self, booking: Booking, quote: Quote) -> None:
+    def addons(self, booking: Booking, estimate: Estimate, quote: Quote) -> None:
+        booking.estimate_id = estimate.id
         for index, (part, qty) in enumerate(quote.parts):
             item = self.items[part]
             self.ctx.add(
@@ -1877,13 +1878,13 @@ class Northlight:
         ):
             survey = self.survey(key, key, survey_day)
             assert survey is not None
-            _, booked = self.quoted(key, key, survey, quote)
+            estimate, booked = self.quoted(key, key, survey, quote)
             if not today:
                 found = self.place(staff, HOME, 1, f"sj_nl_{key}", past=False)
                 assert found is not None
                 start = found
             booking = self.book(key, key, HOME, staff, start, "confirmed", booked)
-            self.addons(booking, quote)
+            self.addons(booking, estimate, quote)
             self.payment(
                 key,
                 booked + timedelta(minutes=10),
@@ -1957,11 +1958,11 @@ class Northlight:
         claire_quote = Quote(HOME, ((TURRET, 4), (BULLET, 1), (NVR8, 1), (CABLE, 5), (JBOX, 4)))
         claire_survey = self.survey("claire", "claire", -16)
         assert claire_survey is not None
-        _, booked = self.quoted("claire", "claire", claire_survey, claire_quote)
+        estimate, booked = self.quoted("claire", "claire", claire_survey, claire_quote)
         start = self.place(LIAM, HOME, 6, "sj_nl_claire", past=False)
         assert start is not None
         claire = self.book("claire", "claire", HOME, LIAM, start, "confirmed", booked)
-        self.addons(claire, claire_quote)
+        self.addons(claire, estimate, claire_quote)
         self.payment(
             "claire",
             booked + timedelta(minutes=10),
@@ -2047,10 +2048,11 @@ class Northlight:
         )
         simon_survey = self.survey("simon", "simon", -18)
         assert simon_survey is not None
-        _, booked = self.quoted("simon", "simon", simon_survey, simon_quote)
+        estimate, booked = self.quoted("simon", "simon", simon_survey, simon_quote)
         start = self.place(AVA, HOME, 14, "sj_nl_simon", past=False)
         assert start is not None
-        self.addons(self.book("simon", "simon", HOME, AVA, start, "confirmed", booked), simon_quote)
+        simon = self.book("simon", "simon", HOME, AVA, start, "confirmed", booked)
+        self.addons(simon, estimate, simon_quote)
         diane = self.survey("diane", "diane", 5, online=True, status="confirmed", lead_days=4)
         assert diane is not None
         self.survey_draft("diane", diane)
@@ -2059,10 +2061,11 @@ class Northlight:
         quote = Quote(HOME, ((TURRET, 4), (DOORBELL, 1), (NVR8, 1), (CABLE, 5), (JBOX, 4)))
         survey = self.survey("sarah", "sarah", -30, online=True)
         assert survey is not None
-        _, booked = self.quoted("sarah", "sarah", survey, quote)
+        estimate, booked = self.quoted("sarah", "sarah", survey, quote)
         start = self.place(LIAM, HOME, -9, "sj_nl_sarah", past=True)
         assert start is not None
         booking = self.book("sarah", "sarah", HOME, LIAM, start, "completed", booked)
+        booking.estimate_id = estimate.id
         assert booking.completed_at is not None
         self.payment(
             "sarah",
@@ -2394,12 +2397,12 @@ class Northlight:
             quote = HOME_QUOTES[index % len(HOME_QUOTES)]
             survey = self.survey(key, key, -20 + offset * 3)
             assert survey is not None
-            _, booked = self.quoted(key, key, survey, quote)
+            estimate, booked = self.quoted(key, key, survey, quote)
             staff = LIAM if offset % 2 else AVA
             start = self.place(staff, HOME, 3 + offset * 7, f"sj_nl_{key}", past=False)
             assert start is not None
             booking = self.book(key, key, HOME, staff, start, "confirmed", booked)
-            self.addons(booking, quote)
+            self.addons(booking, estimate, quote)
             if offset != 2:
                 self.payment(
                     key,

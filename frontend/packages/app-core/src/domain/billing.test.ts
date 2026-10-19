@@ -14,6 +14,7 @@ import {
     listRow,
     priceDoc,
     documentRates,
+    estimateCanBook,
     estimateTotals,
 } from "./billing";
 import { type SavedCardRow, canBeDefault, checkoutMethods } from "./payments";
@@ -361,5 +362,26 @@ describe("estimateTotals", () => {
             total_cents: 11_300,
         };
         expect(cents(accepted)).toEqual([10_000, 1300, 11_300]);
+    });
+});
+
+describe("estimateCanBook", () => {
+    const open = { converted_invoice_id: null, booking_id: null };
+
+    it("offers to book an accepted estimate that has no live visit and no invoice", () => {
+        expect(estimateCanBook("accepted", open)).toBe(true);
+    });
+
+    it("hides the action once a live visit was booked from the estimate", () => {
+        expect(estimateCanBook("accepted", { ...open, booking_id: "bk_1" })).toBe(false);
+    });
+
+    it("hides the action once the estimate was invoiced", () => {
+        expect(estimateCanBook("accepted", { ...open, converted_invoice_id: "inv_1" })).toBe(false);
+    });
+
+    it("hides the action for an estimate that is not accepted", () => {
+        for (const status of ["draft", "sent", "declined", "expired"])
+            expect(estimateCanBook(status, open)).toBe(false);
     });
 });

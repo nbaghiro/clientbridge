@@ -95,11 +95,11 @@ streams:
       own: SELECT id FROM staff WHERE user_id = auth.user_id() AND status = 'active'
     queries:
       - SELECT item_id, staff_id, recurrence_id, starts_at, ends_at, capacity, status, id, business_id, created_at, updated_at FROM slots WHERE staff_id IN own AND substring(starts_at, 1, 7) IN subscription.parameter('months')
-      - SELECT slot_id, starts_at, staff_id, client_id, subject_id, package_id, invoice_id, status, source, price_cents, deposit_amount_cents, deposit_status, confirmed_at, departed_at, checked_in_at, order_id, charged_at, completed_at, canceled_at, reminded_at, reschedule_count, id, business_id, created_at, updated_at, deleted_at FROM bookings WHERE staff_id IN own AND deleted_at IS NULL AND substring(starts_at, 1, 7) IN subscription.parameter('months')
+      - SELECT slot_id, starts_at, staff_id, client_id, subject_id, package_id, invoice_id, estimate_id, status, source, price_cents, deposit_amount_cents, deposit_status, confirmed_at, departed_at, checked_in_at, order_id, charged_at, completed_at, canceled_at, reminded_at, reschedule_count, id, business_id, created_at, updated_at, deleted_at FROM bookings WHERE staff_id IN own AND deleted_at IS NULL AND substring(starts_at, 1, 7) IN subscription.parameter('months')
 
   history_full:
     with:
       managed: SELECT business_id FROM staff WHERE user_id = auth.user_id() AND status = 'active' AND role != 'staff' AND role != 'contractor'
     queries:
       - SELECT item_id, staff_id, recurrence_id, starts_at, ends_at, capacity, status, id, business_id, created_at, updated_at FROM slots WHERE business_id IN managed AND substring(starts_at, 1, 7) IN subscription.parameter('months')
-      - SELECT slot_id, starts_at, staff_id, client_id, subject_id, package_id, invoice_id, status, source, price_cents, deposit_amount_cents, deposit_status, confirmed_at, departed_at, checked_in_at, order_id, charged_at, completed_at, canceled_at, reminded_at, reschedule_count, id, business_id, created_at, updated_at, deleted_at FROM bookings WHERE business_id IN managed AND deleted_at IS NULL AND substring(starts_at, 1, 7) IN subscription.parameter('months')
+      - SELECT slot_id, starts_at, staff_id, client_id, subject_id, package_id, invoice_id, estimate_id, status, source, price_cents, deposit_amount_cents, deposit_status, confirmed_at, departed_at, checked_in_at, order_id, charged_at, completed_at, canceled_at, reminded_at, reschedule_count, id, business_id, created_at, updated_at, deleted_at FROM bookings WHERE business_id IN managed AND deleted_at IS NULL AND substring(starts_at, 1, 7) IN subscription.parameter('months')

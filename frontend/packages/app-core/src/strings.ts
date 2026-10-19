@@ -66,6 +66,7 @@ interface Strings {
         readonly idempotencyKeyReused: string;
         readonly concurrentChange: string;
         readonly visitNotStarted: string;
+        readonly estimateBooked: string;
         readonly staffHasFutureWork: string;
         readonly broadcastAddressMissing: string;
         readonly broadcastContactMissing: string;
@@ -254,6 +255,8 @@ interface Strings {
         readonly convertedTo: (n: string) => string;
         readonly convert: string;
         readonly bookVisit: (kind: string) => string;
+        readonly bookedVisit: (kind: string) => string;
+        readonly bookedVisitHint: string;
         readonly convertTitle: string;
         readonly convertBody: string;
         readonly markAccepted: string;

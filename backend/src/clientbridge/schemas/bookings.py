@@ -99,6 +99,7 @@ class BookingOut(Mirror):
     client_id: str
     staff_id: str | None
     item_id: str
+    estimate_id: str | None
     status: BookingStatus
     source: BookingSource
     price_cents: int

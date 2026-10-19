@@ -8,6 +8,7 @@ import {
     combineDayAndTime,
     dateKey,
     daysUntil,
+    formatDateTime,
     parseTimestamp,
     stampLabel,
     useBusinessZone,
@@ -107,6 +108,9 @@ interface EstimateRow {
     converted_number: number | null;
     notes: string | null;
     created_at: string;
+    // the live visit booked from this estimate, if the replica holds it
+    booking_id: string | null;
+    booking_starts_at: string | null;
 }
 
 interface LineRow {
@@ -164,10 +168,15 @@ SELECT e.id, e.client_id, c.name AS client_name, c.email AS client_email, c.phon
             ELSE e.status END AS status,
        e.subtotal_cents, e.tax_total_cents, e.total_cents, e.valid_until, e.accepted_at,
        e.declined_at, e.decline_reason, e.view_token, e.converted_invoice_id,
-       ci.number AS converted_number, e.notes, e.created_at
+       ci.number AS converted_number, e.notes, e.created_at,
+       b.id AS booking_id, b.starts_at AS booking_starts_at
 FROM estimates e
 LEFT JOIN clients c ON c.id = e.client_id
 LEFT JOIN invoices ci ON ci.id = e.converted_invoice_id
+LEFT JOIN bookings b ON b.id = (
+    SELECT lb.id FROM bookings lb
+    WHERE lb.estimate_id = e.id AND lb.status != 'canceled' AND lb.deleted_at IS NULL
+    ORDER BY lb.starts_at LIMIT 1)
 ORDER BY e.created_at DESC`;
 
 export const LINES_SQL = `
@@ -1131,9 +1140,17 @@ export interface EstimateRecord {
     canSend: boolean;
     canMark: boolean;
     canConvert: boolean;
-    // an accepted estimate can be booked, its products joining the visit as add-ons
     canBook: boolean;
+    booked: { id: string; when: string } | null;
     rateNote: string;
+}
+
+/** An accepted estimate is booked once; canceling that visit frees it to be booked again. */
+export function estimateCanBook(
+    status: string,
+    row: Pick<EstimateRow, "converted_invoice_id" | "booking_id">,
+): boolean {
+    return status === "accepted" && row.converted_invoice_id === null && row.booking_id === null;
 }
 
 /** An open estimate is quoted at today's rates, so its totals come from that pricing. */
@@ -1258,7 +1275,14 @@ export function useEstimateRecord(id: string | null, payBase: string): EstimateR
         canConvert:
             (view.status === "sent" || view.status === "accepted") &&
             row.converted_invoice_id === null,
-        canBook: view.status === "accepted" && row.converted_invoice_id === null,
+        canBook: estimateCanBook(view.status, row),
+        booked:
+            row.booking_id === null || row.booking_starts_at === null
+                ? null
+                : {
+                      id: row.booking_id,
+                      when: formatDateTime(parseTimestamp(row.booking_starts_at), zone),
+                  },
         rateNote: rateNote(rates),
     };
 }

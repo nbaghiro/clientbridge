@@ -3749,6 +3749,8 @@ export interface components {
             staff_id: string | null;
             /** Item Id */
             item_id: string;
+            /** Estimate Id */
+            estimate_id: string | null;
             /**
              * Status
              * @enum {string}

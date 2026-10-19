@@ -60,6 +60,7 @@ const FAILURES: Record<string, () => string> = {
     idempotency_key_reused: () => strings.api.idempotencyKeyReused,
     concurrent_change: () => strings.api.concurrentChange,
     visit_not_started: () => strings.api.visitNotStarted,
+    estimate_booked: () => strings.api.estimateBooked,
     staff_has_future_work: () => strings.api.staffHasFutureWork,
     broadcast_address_missing: () => strings.api.broadcastAddressMissing,
     broadcast_contact_missing: () => strings.api.broadcastContactMissing,

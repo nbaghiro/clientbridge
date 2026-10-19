@@ -303,7 +303,9 @@ receivable in the ledger, and partial/paid/refunded/overdue and the paid time ar
 `ledger.invoice_status_expr()` on the server and `invoiceStatusSql` on the device), `estimates`
 (accept/decline/convert → invoice; a sent estimate past `valid_until` reads as expired; an accepted,
 unconverted estimate can be booked, its chosen product lines joining the visit as `addons` at the quoted
-unit price, through `estimate_id` on `POST /v1/bookings`, owner or admin only), `orders`
+unit price, through `estimate_id` on `POST /v1/bookings`, owner or admin only; the booking keeps
+`bookings.estimate_id`, and while a live (not canceled, not deleted) booking holds the estimate a second
+one is refused with 409 `estimate_booked`), `orders`
 (POS/Terminal sale; stored status open/void, paid/refunded read from the ledger the same way),
 `lines` (three nullable foreign keys `estimate_id`/`invoice_id`/`order_id` with a CHECK that exactly one
 is set; `item_id`/`booking_id`, `tax_amount_cents`).

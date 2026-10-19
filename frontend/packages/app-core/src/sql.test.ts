@@ -1003,6 +1003,19 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("ESTIMATE_BOOKING_SQL", ["est_1"])).toEqual([]);
     });
 
+    it("names the live visit booked from an estimate, and frees it once that visit is canceled", () => {
+        const booking = (): Row[] => pick(run("ESTIMATES_SQL"), "id", "booking_id");
+        expect(booking()).toEqual([{ id: "est_1", booking_id: null }]);
+        db.run("UPDATE bookings SET estimate_id = 'est_1' WHERE id = 'bk_4'");
+        expect(booking()).toEqual([{ id: "est_1", booking_id: "bk_4" }]);
+        expect(run("ESTIMATE_BOOKING_SQL", ["est_1"])).toEqual([]);
+        db.run("UPDATE bookings SET status = 'canceled' WHERE id = 'bk_4'");
+        expect(booking()).toEqual([{ id: "est_1", booking_id: null }]);
+        expect(run("ESTIMATE_BOOKING_SQL", ["est_1"])).toEqual([
+            { client_id: "cl_ben", number: 3 },
+        ]);
+    });
+
     it("reads the business address from its brand", () => {
         expect(run("BUSINESS_ADDRESS_SQL")).toEqual([{ address: null }]);
         db.run(`UPDATE businesses SET brand = '{"address": "880 Douglas St"}'`);

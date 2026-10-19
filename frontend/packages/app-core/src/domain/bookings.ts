@@ -1697,7 +1697,10 @@ export interface ComposerSlot {
 
 export const ESTIMATE_BOOKING_SQL = `
 SELECT e.client_id, e.number FROM estimates e
-WHERE e.id = ? AND e.status = 'accepted' AND e.converted_invoice_id IS NULL`;
+WHERE e.id = ? AND e.status = 'accepted' AND e.converted_invoice_id IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM bookings b
+    WHERE b.estimate_id = e.id AND b.status != 'canceled' AND b.deleted_at IS NULL)`;
 
 export const ESTIMATE_PRODUCTS_SQL = `
 SELECT l.id, l.description, l.quantity FROM lines l JOIN items i ON i.id = l.item_id

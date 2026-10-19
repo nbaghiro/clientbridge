@@ -177,6 +177,9 @@
     "api.visitNotStarted": {
         "message": "This visit hasn't started yet. Complete it or mark a no-show once it starts."
     },
+    "api.estimateBooked": {
+        "message": "This estimate already has a booked visit. Cancel that visit to book the estimate again."
+    },
     "api.staffHasFutureWork": {
         "message": "This member still has upcoming visits. Choose whether to move or cancel them."
     },
@@ -758,6 +761,14 @@
         "message": "{kind, select, site {Book the install} other {Book the visit}}",
         "args": ["kind"],
         "description": "kind is what the business books besides the client: pet, student, property, site, or none"
+    },
+    "billing.bookedVisit": {
+        "message": "{kind, select, site {Booked install} other {Booked visit}}",
+        "args": ["kind"],
+        "description": "Title over the visit booked from this estimate. kind is what the business books besides the client: pet, student, property, site, or none"
+    },
+    "billing.bookedVisitHint": {
+        "message": "The estimate's products are on this visit as add-ons. Cancel the visit to book the estimate again."
     },
     "billing.convertTitle": {
         "message": "Convert to invoice?"

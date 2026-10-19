@@ -3,10 +3,11 @@ import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core import clock
 from clientbridge.models.billing import Estimate, Line
 from clientbridge.models.catalog import Item
-from clientbridge.models.scheduling import Addon
-from tests.conftest import BIZ
+from clientbridge.models.scheduling import Addon, Booking
+from tests.conftest import BIZ, Factory
 from tests.helpers import client_id, new_client
 
 ST_OWNER = "st_owner"
@@ -98,8 +99,12 @@ async def test_replaying_the_booking_adds_the_products_once(
     headers = {"Idempotency-Key": "book-the-install"}
     first = await as_owner.post("/v1/bookings", json=body, headers=headers)
     again = await as_owner.post("/v1/bookings", json=body, headers=headers)
-    assert first.status_code == 201 and again.json()["id"] == first.json()["id"]
+    assert first.status_code == 201 and again.status_code == 201
+    assert again.json()["id"] == first.json()["id"]
+    assert again.json()["estimate_id"] == eid
     assert await _addons(db, first.json()["id"]) == [("it_shampoo", 2, 1800)]
+    other = await as_owner.post("/v1/bookings", json=body, headers={"Idempotency-Key": "twice"})
+    assert other.status_code == 409 and other.json()["error"] == "estimate_booked"
 
 
 async def test_staff_cannot_book_from_an_estimate_403(
@@ -145,3 +150,120 @@ async def test_an_estimate_not_accepted_or_already_invoiced_409(
         "/v1/bookings", json=_body(cid, await _service(db), "2027-03-08T17:00:00Z", estimate_id=eid)
     )
     assert res.status_code == 409
+
+
+async def test_the_booking_records_its_estimate(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await client_id(db)
+    eid = await _accepted(as_owner, cid)
+    res = await as_owner.post(
+        "/v1/bookings", json=_body(cid, await _service(db), "2027-03-09T17:00:00Z", estimate_id=eid)
+    )
+    assert res.status_code == 201, res.text
+    assert res.json()["estimate_id"] == eid
+    stored = await db.scalar(select(Booking.estimate_id).where(Booking.id == res.json()["id"]))
+    assert stored == eid
+
+
+async def test_a_plain_booking_has_no_estimate(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await client_id(db)
+    res = await as_owner.post(
+        "/v1/bookings", json=_body(cid, await _service(db), "2027-03-10T17:00:00Z")
+    )
+    assert res.status_code == 201, res.text
+    assert res.json()["estimate_id"] is None
+
+
+async def test_a_booked_estimate_cannot_be_booked_again_409(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await client_id(db)
+    eid = await _accepted(as_owner, cid)
+    iid = await _service(db)
+    first = await as_owner.post(
+        "/v1/bookings", json=_body(cid, iid, "2027-03-11T17:00:00Z", estimate_id=eid)
+    )
+    assert first.status_code == 201, first.text
+    second = await as_owner.post(
+        "/v1/bookings", json=_body(cid, iid, "2027-03-12T17:00:00Z", estimate_id=eid)
+    )
+    assert second.status_code == 409
+    assert second.json()["error"] == "estimate_booked"
+    booked = await db.scalars(select(Booking.id).where(Booking.estimate_id == eid))
+    assert booked.all() == [first.json()["id"]]
+
+
+async def test_a_canceled_booking_frees_the_estimate(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await client_id(db)
+    eid = await _accepted(as_owner, cid)
+    iid = await _service(db)
+    first = await as_owner.post(
+        "/v1/bookings", json=_body(cid, iid, "2027-03-15T17:00:00Z", estimate_id=eid)
+    )
+    bid = first.json()["id"]
+    canceled = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "canceled"})
+    assert canceled.status_code == 200, canceled.text
+    again = await as_owner.post(
+        "/v1/bookings", json=_body(cid, iid, "2027-03-16T17:00:00Z", estimate_id=eid)
+    )
+    assert again.status_code == 201, again.text
+    assert again.json()["estimate_id"] == eid
+    assert await _addons(db, again.json()["id"]) == [("it_shampoo", 2, 1800)]
+
+
+async def test_a_deleted_booking_frees_the_estimate(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await client_id(db)
+    eid = await _accepted(as_owner, cid)
+    iid = await _service(db)
+    first = await as_owner.post(
+        "/v1/bookings", json=_body(cid, iid, "2027-03-17T17:00:00Z", estimate_id=eid)
+    )
+    await db.execute(
+        update(Booking).where(Booking.id == first.json()["id"]).values(deleted_at=clock.now())
+    )
+    await db.flush()
+    again = await as_owner.post(
+        "/v1/bookings", json=_body(cid, iid, "2027-03-18T17:00:00Z", estimate_id=eid)
+    )
+    assert again.status_code == 201, again.text
+
+
+async def test_another_business_estimate_404_and_its_bookings_do_not_count(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    cid = await client_id(db)
+    iid = await _service(db)
+    other = await factory.business(name="Rival Co")
+    foreign = await factory.client(business=other)
+    db.add(Estimate(id="es_rival", business_id=other.id, client_id=foreign.id, status="accepted"))
+    await db.flush()
+    res = await as_owner.post(
+        "/v1/bookings", json=_body(cid, iid, "2027-03-19T17:00:00Z", estimate_id="es_rival")
+    )
+    assert res.status_code == 404
+    eid = await _accepted(as_owner, cid)
+    slot = await db.scalar(select(Booking.slot_id).where(Booking.business_id == BIZ).limit(1))
+    assert slot is not None
+    db.add(
+        Booking(
+            id="bk_rival",
+            business_id=other.id,
+            slot_id=slot,
+            starts_at=clock.now(),
+            client_id=foreign.id,
+            estimate_id=eid,
+            status="confirmed",
+        )
+    )
+    await db.flush()
+    mine = await as_owner.post(
+        "/v1/bookings", json=_body(cid, iid, "2027-03-22T17:00:00Z", estimate_id=eid)
+    )
+    assert mine.status_code == 201, mine.text
