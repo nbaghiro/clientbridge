@@ -152,15 +152,15 @@ def test_submitted_intakes_pass_live_validator_and_have_owned_local_attachments(
         if response.status != "submitted" or response.form_id != "frm_intake":
             continue
         validate_answers(fields, response.answers)
-        assert response.answers["vaccinated"] is True
-        consent_id = response.answers["matting_consent"]
-        assert isinstance(consent_id, str)
-        consent_file = engagement.get(File, consent_id)
-        assert (consent_file.parent_type, consent_file.parent_id) == ("form_response", response.id)
-        assert consent_file.content_type == "application/pdf"
-        consent_asset = ASSETS / consent_file.s3_key.rsplit("/", 1)[1]
-        assert consent_asset.read_bytes().startswith(b"%PDF-")
-        assert consent_asset.stat().st_size == consent_file.size
+        assert response.answers["consent_vet"] is True and response.signature
+        record_id = response.answers["vax_record"]
+        assert isinstance(record_id, str)
+        record = engagement.get(File, record_id)
+        assert (record.parent_type, record.parent_id) == ("form_response", response.id)
+        assert record.content_type == "application/pdf"
+        record_asset = ASSETS / record.s3_key.rsplit("/", 1)[1]
+        assert record_asset.read_bytes().startswith(b"%PDF-")
+        assert record_asset.stat().st_size == record.size
         assert response.opened_at is not None and response.submitted_at is not None
         assert response.created_at < response.opened_at < response.submitted_at <= engagement.now
         photo_id = response.answers["photo"]
@@ -184,12 +184,16 @@ def test_signed_waivers_preserve_text_identity_version_and_real_artifact(
 ) -> None:
     contract = engagement.get(Contract, "con_waiver")
     signed = [s for s in engagement.all(Signature) if s.status == "signed"]
-    assert len(signed) == 6
+    assert len(signed) == 6 and {s.contract_version for s in signed} == {1, contract.version}
     for signature in signed:
         client = engagement.get(Client, signature.client_id)
-        assert signature.signed_body == contract.body
-        assert signature.contract_version == contract.version
-        assert signature.signer_name == client.name and signature.method == "typed"
+        if signature.contract_version == contract.version:
+            assert signature.signed_body == contract.body
+        else:
+            assert signature.signed_body and signature.signed_body != contract.body
+            assert signature.signed_at and signature.signed_at < contract.updated_at
+        assert signature.signer_name == client.name
+        assert (signature.method == "drawn") == (signature.strokes is not None)
         assert signature.opened_at is not None and signature.signed_at is not None
         assert signature.created_at <= signature.opened_at < signature.signed_at <= engagement.now
     artifact = engagement.get(File, "fl_signed_waiver_amelie")
@@ -202,6 +206,8 @@ def test_signed_waivers_preserve_text_identity_version_and_real_artifact(
     assert path.stat().st_size == artifact.size
     pending = engagement.get(Signature, "sig_pending")
     assert pending.token and pending.status == "pending" and pending.signed_at is None
+    declined = engagement.get(Signature, "sig_declined")
+    assert declined.status == "declined" and declined.signed_body is None
 
 
 def test_broadcasts_have_consent_backed_fanout_and_reconciled_counts(

@@ -7,12 +7,47 @@ from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Subject
+from clientbridge.models.documents import FieldInput, Form, FormField
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit, Webhook
 from clientbridge.models.scheduling import Hours
 from scripts.demo_context import LEGAL_ADDRESSES, DemoContext
 
 SECOND = "bz_demo_second"
+# name, input, label, help, required, options
+SECOND_FORM: tuple[tuple[str, FieldInput, str, str | None, bool, tuple[str, ...]], ...] = (
+    ("owner_phone", "phone", "Mobile number", None, True, ()),
+    ("home_address", "address", "Address for visits", None, True, ()),
+    (
+        "entry",
+        "longtext",
+        "How do we get in?",
+        "Lockbox location, key pick-up or a door code. Only your walker sees this.",
+        True,
+        (),
+    ),
+    ("alarm", "text", "Alarm instructions", None, False, ()),
+    ("pet_names", "text", "Your pets' names", None, True, ()),
+    ("feeding", "longtext", "Feeding and treats", None, False, ()),
+    (
+        "walks",
+        "multiselect",
+        "On walks",
+        None,
+        False,
+        ("Pulls on the leash", "Reactive to dogs", "Nervous around traffic", "Fine off leash"),
+    ),
+    ("vet", "text", "Veterinary clinic", None, True, ()),
+    ("emergency_phone", "phone", "Emergency contact phone", None, True, ()),
+    (
+        "key_consent",
+        "checkbox",
+        "Cedar Coast may keep my key or lockbox code for booked visits.",
+        None,
+        True,
+        (),
+    ),
+)
 # id, name, price, minutes, description
 SECOND_ITEMS = (
     ("it_second_walk", "Dog Walk (45 min)", 3200, 45, "A neighbourhood walk, up to three dogs."),
@@ -125,6 +160,29 @@ def build_identity(ctx: DemoContext) -> None:
                 available=True,
             )
             for weekday in range(5)
+        ),
+        Form(
+            id="frm_second_visits",
+            business_id=SECOND,
+            name="Home visit details",
+            require_signature=False,
+            active=True,
+            send_on="booking",
+        ),
+        *(
+            FormField(
+                id=f"ff_second_{name}",
+                business_id=SECOND,
+                form_id="frm_second_visits",
+                name=name,
+                input=kind,
+                label=label,
+                help=hint,
+                required=required,
+                options=list(options),
+                position=position,
+            )
+            for position, (name, kind, label, hint, required, options) in enumerate(SECOND_FORM)
         ),
     )
     for row in ctx.rows:

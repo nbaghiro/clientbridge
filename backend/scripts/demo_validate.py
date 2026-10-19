@@ -12,12 +12,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.db import Base, SessionLocal, engine
+from clientbridge.core.errors import AppError
 from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import GiftCard, Item, StockMovement
 from clientbridge.models.clients import Subject
+from clientbridge.models.documents import Contract, FormResponse, Signature
 from clientbridge.models.scheduling import Booking, Hours, Recurrence, Slot, Weekday
+from clientbridge.schemas.forms import FormDefinition
 from clientbridge.schemas.subjects import ATTRIBUTES
+from clientbridge.services.public import validate_answers
 from scripts.demo_context import DEMO_BUSINESSES, DemoContext
 
 
@@ -158,6 +162,29 @@ def validate_graph(ctx: DemoContext) -> list[str]:
             or doc.subtotal_cents + doc.tax_total_cents != doc.total_cents
         ):
             errors.append(f"{doc.id}: document totals do not match selected lines")
+    for response in ctx.all(FormResponse):
+        definition = FormDefinition.model_validate(response.definition)
+        if response.status != "submitted":
+            continue
+        try:
+            validate_answers(definition.fields, response.answers)
+        except AppError:
+            errors.append(f"{response.id}: answers the form would reject")
+        if definition.require_signature and not response.signature:
+            errors.append(f"{response.id}: submitted without the signature the form requires")
+    contracts = {r.id: r for r in ctx.all(Contract)}
+    for signature in ctx.all(Signature):
+        contract = contracts[signature.contract_id]
+        if signature.status == "signed" and (
+            not signature.signed_body
+            or signature.contract_version is None
+            or signature.contract_version > contract.version
+            or (
+                signature.contract_version == contract.version
+                and signature.signed_body != contract.body
+            )
+        ):
+            errors.append(f"{signature.id}: signed text does not match its contract version")
     for card in ctx.all(GiftCard):
         if card.payment_id and card.expires_at:
             errors.append(f"{card.id}: purchased cash gift card expires")
@@ -240,6 +267,9 @@ async def validate_database(
             Slot,
             Hours,
             Recurrence,
+            Contract,
+            Signature,
+            FormResponse,
             Invoice,
             Estimate,
             Line,

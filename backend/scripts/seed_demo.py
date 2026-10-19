@@ -1287,32 +1287,6 @@ def seed_estimates() -> None:
     )
 
 
-INTAKE_FIELDS = [
-    ("pet_name", "text", "Pet's name", True),
-    ("species", "select", "Species", True),
-    ("breed", "text", "Breed", False),
-    ("dob", "date", "Date of birth", False),
-    ("weight_kg", "number", "Weight (kg)", False),
-    ("vaccinated", "checkbox", "Vaccinations up to date?", True),
-    ("allergies", "longtext", "Allergies or skin conditions", False),
-    ("behaviour", "multiselect", "Behaviour notes", False),
-    ("vet_name", "text", "Veterinarian", False),
-    ("emergency_phone", "phone", "Emergency contact", True),
-    ("owner_email", "email", "Your email", True),
-    ("home_address", "address", "Home address", False),
-    ("preferred_time", "time", "Preferred drop-off time", False),
-    ("grooming_budget", "currency", "Typical grooming budget", False),
-    ("vax_record", "file", "Vaccination record (PDF)", False),
-    ("photo", "image", "A recent photo", False),
-    (
-        "matting_consent",
-        "signature",
-        "I consent to humane de-matting / shave-downs if required",
-        True,
-    ),
-]
-
-
 REVIEWS = [
     (
         "cl_amelie",

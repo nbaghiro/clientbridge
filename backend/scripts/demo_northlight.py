@@ -13,7 +13,14 @@ from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import Item, StockMovement, Subscription
 from clientbridge.models.clients import Client, Consent, Note, Subject
-from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
+from clientbridge.models.documents import (
+    Contract,
+    FieldInput,
+    Form,
+    FormField,
+    FormResponse,
+    Signature,
+)
 from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import Audit, File
@@ -61,6 +68,7 @@ NVR8, NVR16, SWITCH, CABLE, JBOX = (
 REMOTE, MAINTENANCE = "it_nl_remote_viewing", "it_nl_maintenance"
 SURVEY_FORM, HANDOVER_FORM = "frm_nl_site_survey", "frm_nl_handover"
 AGREEMENT, NOTICE = "con_nl_agreement", "con_nl_surveillance"
+PLAN_AGREEMENT = "con_nl_maintenance"
 
 # id, kind, name, price, minutes, category, description
 ITEMS: tuple[tuple[str, str, str, int, int | None, str, str], ...] = (
@@ -270,7 +278,11 @@ HOURS: dict[str, dict[int, tuple[time, time]]] = {
 }
 TRAVEL_MIN = 30
 WARRANTY_DAYS = 730
-AGREEMENT_BODY = (
+# name, input, label, help, required, options
+type DocField = tuple[str, FieldInput, str, str | None, bool, tuple[str, ...]]
+# the agreement's version 2 took effect this many days ago; earlier clients signed version 1
+AGREEMENT_REVISED = 120
+AGREEMENT_V1 = (
     "Northlight Security will supply and install the equipment listed on your accepted "
     "estimate at the site named on it. A 25% deposit on the labour is due when you book the "
     "install and is applied to the final invoice. Equipment stays ours until the invoice is "
@@ -279,49 +291,221 @@ AGREEMENT_BODY = (
     "from storms, power surges or changes made by others. You can move or cancel the install "
     "at no charge up to 48 hours before it starts."
 )
-NOTICE_BODY = (
-    "This notice covers the cameras Northlight Security installs at your business. You agree "
-    "to post the signs we provide at each public entrance, saying that the area is recorded "
-    "and who to contact with questions. Cameras will not point into washrooms, change rooms "
-    "or neighbouring private property. Recordings are kept for 30 days and then overwritten, "
-    "unless you save a clip for an incident. Only the people you name can view footage, and "
-    "you are responsible for answering requests for footage from staff, customers or police. "
-    "Tell us if any of this changes so we can update the recorder settings."
+AGREEMENT_BODY = "\n\n".join(
+    (
+        "This agreement covers the camera system Northlight Security installs at the site named "
+        "on your accepted estimate. It is demo text for a fictional business, not legal advice.",
+        "Scope of work\nWe supply and install the equipment and labour listed on the accepted "
+        "estimate, set up the recorder and the viewing app, and show you how to use them. Work "
+        "that isn't on the estimate, such as patching drywall, trenching or electrical work "
+        "that needs a licensed electrician, is quoted separately before we do it.",
+        "Equipment ownership\nThe equipment stays the property of Northlight Security until the "
+        "final invoice is paid in full. After that it's yours, along with the recorder's admin "
+        "password, which we hand over at the end of the install.",
+        "Warranty\nCameras, recorders and doorbells carry a two-year parts warranty from the "
+        "install date, and our labour is covered for one year. The warranty doesn't cover "
+        "damage from storms, power surges, pests or changes made by someone else.",
+        "Access to the property\nYou agree to give our installers safe access to the areas on "
+        "the estimate, including the attic or crawl space where cable runs. Please tell us "
+        "about pets, alarms and gate codes before the day. If we can't get in at the booked "
+        "time, a return visit is charged at the service call rate.",
+        "Privacy and recording\nYou decide where the cameras point, and we'll aim them at your "
+        "own property. In British Columbia, a business that records customers or staff must "
+        "follow the Personal Information Protection Act, which includes posting notice and "
+        "limiting who can view footage. Cameras record video only; we don't enable audio, "
+        "because recording conversations you aren't part of can be an offence under the "
+        "Criminal Code.",
+        "Payment schedule and deposit\nA deposit of 25% of the labour is due when you book "
+        "the install and is applied to the final invoice. The rest is due within 14 days of "
+        "the install by card, e-Transfer or cheque.",
+        "Cancellation\nYou can move or cancel the install at no charge up to 48 hours before it "
+        "starts. After that, the deposit covers the time we set aside, and special-order "
+        "equipment can be returned only if the supplier accepts it.",
+        "Liability\nA camera system records events; it doesn't prevent them, and it isn't a "
+        "monitored alarm. We aren't responsible for losses from theft, break-ins or a "
+        "recording that wasn't captured. Our liability for our own work is limited to the "
+        "amount you paid us for it.",
+    )
 )
-SURVEY_FIELDS: tuple[tuple[str, str, str, bool, tuple[str, ...]], ...] = (
+NOTICE_BODY = "\n\n".join(
+    (
+        "This notice covers the cameras Northlight Security installs at your business, and "
+        "what you agree to do as the business that operates them. It is demo text for a "
+        "fictional business, not legal advice.",
+        "Signs\nYou'll post the signs we provide at each public entrance and in staff areas "
+        "with cameras. Each sign says that the area is recorded, why, and who to contact with "
+        "questions.",
+        "Where cameras point\nCameras won't point into washrooms, change rooms or neighbouring "
+        "private property. Cameras over a till or a safe show the counter, not keypads or "
+        "screens.",
+        "Purpose\nThe system is for the safety of staff and customers and the security of the "
+        "premises. Under BC's Personal Information Protection Act, footage should be used only "
+        "for that purpose, and staff should be told about the cameras before they're recorded.",
+        "Retention\nRecordings are kept for 30 days and then overwritten, unless you save a "
+        "clip for an incident. Saved clips should be deleted once the incident is resolved.",
+        "Access to footage\nOnly the people you name can view footage. You're responsible for "
+        "answering requests for footage from staff, customers or police, and for keeping a note "
+        "of what you shared and with whom.",
+        "Changes\nTell us if any of this changes, such as new staff areas or a different "
+        "retention period, so we can update the recorder settings and the signs.",
+    )
+)
+MAINTENANCE_BODY = "\n\n".join(
+    (
+        "This agreement covers the yearly maintenance plan for the camera system Northlight "
+        "Security installed at your site. It is demo text for a fictional business, not legal "
+        "advice.",
+        "What's included\nOne system check visit each year: we clean every camera, check the "
+        "angles and the night picture, test the recorder's drive, update the firmware and "
+        "confirm recordings are kept for the period you chose.",
+        "Repairs\nParts still under warranty are replaced at no charge. Labour on plan repairs "
+        "is included; parts out of warranty are quoted before we replace them.",
+        "Response times\nWe aim to call back within one business day and visit within three "
+        "business days for a camera or recorder that has stopped working.",
+        "Price and renewal\nThe plan is billed yearly to the card on file and renews on the "
+        "same date each year. We'll email you 30 days before a renewal, and a change in price "
+        "applies only from the next renewal.",
+        "Cancelling\nYou can cancel at any time before the renewal date. A plan year that has "
+        "started isn't refunded once its system check has been done.",
+    )
+)
+SURVEY_FIELDS: tuple[DocField, ...] = (
+    ("site_address", "address", "Site address", None, True, ()),
+    ("site_contact", "text", "Who will meet us on site?", None, True, ()),
+    ("site_phone", "phone", "Their phone number", None, True, ()),
     (
         "building_type",
         "select",
         "Building type",
+        None,
         True,
         ("House", "Townhouse", "Apartment", "Retail", "Office", "Warehouse"),
     ),
-    ("entrances", "number", "How many doors lead outside?", True, ()),
+    (
+        "ownership",
+        "select",
+        "Do you own the building?",
+        "Renters and strata owners usually need written permission to mount cameras outside.",
+        True,
+        (
+            "I own it",
+            "I rent, and the owner has agreed",
+            "I rent, and still need to ask",
+            "Strata or property manager approval needed",
+        ),
+    ),
+    ("storeys", "number", "Storeys above ground", None, False, ()),
+    ("entrances", "number", "How many doors lead outside?", None, True, ()),
+    (
+        "coverage",
+        "multiselect",
+        "What should the cameras cover?",
+        None,
+        True,
+        (
+            "Front door",
+            "Driveway or parking",
+            "Back yard",
+            "Side path or gate",
+            "Garage",
+            "Shop floor or till",
+            "Loading door",
+        ),
+    ),
     (
         "existing_wiring",
         "select",
         "Existing wiring",
+        None,
         False,
         ("None", "Cable from an old system", "Network cable in most rooms", "Not sure"),
     ),
-    ("internet", "text", "Internet provider and where the modem is", False, ()),
-    ("recorder_location", "text", "Where should the recorder go?", False, ()),
-    ("goals", "longtext", "What do you want the cameras to cover?", False, ()),
-    ("photo_front", "image", "A photo of the front of the building", False, ()),
-    ("photo_side", "image", "A photo of the side or back entrance", False, ()),
+    (
+        "internet",
+        "text",
+        "Internet provider and where the modem is",
+        "The recorder connects to your modem for remote viewing.",
+        False,
+        (),
+    ),
+    (
+        "recorder_location",
+        "text",
+        "Where should the recorder go?",
+        "A closet or utility room with a power outlet works best.",
+        False,
+        (),
+    ),
+    (
+        "lighting",
+        "select",
+        "Outdoor lighting at night",
+        None,
+        False,
+        ("Lit all night", "Motion lights", "Mostly dark"),
+    ),
+    (
+        "access_notes",
+        "longtext",
+        "Pets, alarms or gate codes",
+        "We use access details only on the day of the visit.",
+        False,
+        (),
+    ),
+    ("preferred_date", "date", "Earliest install date that suits you", None, False, ()),
+    ("budget", "currency", "Rough budget for equipment and install", None, False, ()),
+    ("goals", "longtext", "Anything else we should know?", None, False, ()),
+    ("photo_front", "image", "A photo of the front of the building", None, False, ()),
+    ("photo_side", "image", "A photo of the side or back entrance", None, False, ()),
 )
-HANDOVER_FIELDS: tuple[tuple[str, str, str, bool], ...] = (
-    ("cameras_installed", "number", "Cameras installed", True),
-    ("camera_locations", "longtext", "Where each camera is mounted", False),
-    ("recorder_location", "text", "Where the recorder is", False),
-    ("app_setup", "checkbox", "The viewing app is set up on my phone", True),
+HANDOVER_FIELDS: tuple[DocField, ...] = (
+    ("install_date", "date", "Install date", None, True, ()),
+    ("cameras_installed", "number", "Cameras installed", None, True, ()),
+    ("camera_locations", "longtext", "Where each camera is mounted", None, False, ()),
+    ("recorder_location", "text", "Where the recorder is", None, False, ()),
+    (
+        "storage",
+        "select",
+        "Recording storage",
+        "The installer sets how long recordings are kept before they're overwritten.",
+        True,
+        ("About 14 days", "About 30 days", "About 60 days"),
+    ),
+    ("app_setup", "checkbox", "The viewing app is set up on my phone", None, True, ()),
+    (
+        "viewers",
+        "text",
+        "Who else can view footage?",
+        "Names of anyone else with an app login.",
+        False,
+        (),
+    ),
     (
         "retention_explained",
         "checkbox",
         "I know how long recordings are kept and how to save a clip",
+        None,
         True,
+        (),
     ),
-    ("follow_up", "longtext", "Anything we need to follow up on", False),
+    (
+        "password_received",
+        "checkbox",
+        "I've received the recorder's admin password",
+        None,
+        True,
+        (),
+    ),
+    (
+        "signs_posted",
+        "checkbox",
+        "Recording signs are posted at each public entrance",
+        "For businesses only.",
+        False,
+        (),
+    ),
+    ("rating", "rating", "How was the install?", None, False, ()),
+    ("follow_up", "longtext", "Anything we need to follow up on", None, False, ()),
 )
 
 
@@ -1062,11 +1246,11 @@ class Northlight:
                 id=AGREEMENT,
                 business_id=NORTHLIGHT,
                 name="Installation and service agreement",
-                version=1,
+                version=2,
                 active=True,
                 body=AGREEMENT_BODY,
                 created_at=created,
-                updated_at=created,
+                updated_at=self.at(-AGREEMENT_REVISED, 9),
             ),
             Contract(
                 id=NOTICE,
@@ -1078,39 +1262,38 @@ class Northlight:
                 created_at=created,
                 updated_at=created,
             ),
+            Contract(
+                id=PLAN_AGREEMENT,
+                business_id=NORTHLIGHT,
+                name="Maintenance plan agreement",
+                version=1,
+                active=True,
+                body=MAINTENANCE_BODY,
+                created_at=self.at(-370),
+                updated_at=self.at(-370),
+            ),
         )
-        for position, (name, kind, label, required, options) in enumerate(SURVEY_FIELDS):
-            ctx.add(
-                FormField(
-                    id=f"ff_nl_{name}",
-                    business_id=NORTHLIGHT,
-                    form_id=SURVEY_FORM,
-                    name=name,
-                    input=kind,
-                    label=label,
-                    required=required,
-                    options=list(options),
-                    position=position,
-                    created_at=created,
-                    updated_at=created,
+        for form_id, prefix, fields in (
+            (SURVEY_FORM, "ff_nl_", SURVEY_FIELDS),
+            (HANDOVER_FORM, "ff_nl_handover_", HANDOVER_FIELDS),
+        ):
+            for position, (name, kind, label, hint, required, options) in enumerate(fields):
+                ctx.add(
+                    FormField(
+                        id=f"{prefix}{name}",
+                        business_id=NORTHLIGHT,
+                        form_id=form_id,
+                        name=name,
+                        input=kind,
+                        label=label,
+                        help=hint,
+                        required=required,
+                        options=list(options),
+                        position=position,
+                        created_at=created,
+                        updated_at=created,
+                    )
                 )
-            )
-        for position, (name, kind, label, required) in enumerate(HANDOVER_FIELDS):
-            ctx.add(
-                FormField(
-                    id=f"ff_nl_handover_{name}",
-                    business_id=NORTHLIGHT,
-                    form_id=HANDOVER_FORM,
-                    name=name,
-                    input=kind,
-                    label=label,
-                    required=required,
-                    options=[],
-                    position=position,
-                    created_at=created,
-                    updated_at=created,
-                )
-            )
 
     def households(self) -> None:
         for home in (*HOMEOWNERS, *(_generated_household(i) for i in range(GENERATED))):
@@ -1405,26 +1588,35 @@ class Northlight:
         return estimate
 
     def sign(
-        self, key: str, client_key: str, contract_id: str, signed: datetime, site: str
+        self,
+        key: str,
+        client_key: str,
+        contract_id: str,
+        signed: datetime,
+        site: str | None,
+        *,
+        status: Literal["signed", "pending", "declined"] = "signed",
     ) -> None:
         client = self.ctx.get(Client, f"cl_nl_{client_key}")
-        body = AGREEMENT_BODY if contract_id == AGREEMENT else NOTICE_BODY
+        contract = self.ctx.get(Contract, contract_id)
+        earlier = contract_id == AGREEMENT and signed < self.at(-AGREEMENT_REVISED, 9)
+        done = status == "signed"
         self.ctx.add(
             Signature(
                 id=f"sig_nl_{key}",
                 business_id=NORTHLIGHT,
                 contract_id=contract_id,
                 client_id=client.id,
-                parent_type="subject",
-                parent_id=site,
+                parent_type="client" if site is None else "subject",
+                parent_id=client.id if site is None else site,
                 token=f"demo_signature_nl_{key}",
-                status="signed",
-                signed_at=signed,
-                signed_body=body,
-                contract_version=1,
-                signer_name=client.name,
-                method="typed",
-                ip=f"192.0.2.{10 + len(key) * 3 % 200}",
+                status=status,
+                signed_at=signed if done else None,
+                signed_body=(AGREEMENT_V1 if earlier else contract.body) if done else None,
+                contract_version=1 if earlier else contract.version,
+                signer_name=client.name if done else None,
+                method="typed" if done else None,
+                ip=f"192.0.2.{10 + len(key) * 3 % 200}" if done else None,
                 opened_at=signed - timedelta(minutes=12),
                 created_at=signed - timedelta(minutes=30),
                 updated_at=signed,
@@ -1760,6 +1952,7 @@ class Northlight:
             if e.installed_on == day and e.location != recorder
         ]
         submitted = slot.ends_at - timedelta(minutes=10)
+        commercial = "commercial" in (client.tags or [])
         self.ctx.add(
             FormResponse(
                 id=f"fr_nl_handover_{key}",
@@ -1773,11 +1966,16 @@ class Northlight:
                 opened_at=submitted - timedelta(minutes=8),
                 submitted_at=submitted,
                 answers={
+                    "install_date": day.isoformat(),
                     "cameras_installed": cameras,
                     "camera_locations": "; ".join(locations),
                     "recorder_location": str(recorder or "Network cabinet"),
+                    "storage": "About 30 days",
                     "app_setup": True,
                     "retention_explained": True,
+                    "password_received": True,
+                    **({"signs_posted": True} if commercial else {}),
+                    "rating": 5 if len(key) % 3 else 4,
                 },
                 signature={"name": client.name, "strokes": None, "ip": "192.0.2.80"},
                 created_at=submitted - timedelta(minutes=20),
@@ -1816,6 +2014,10 @@ class Northlight:
         brand, last4 = brands[len(client_key) % len(brands)]
         method = self.card(client_key, start - timedelta(minutes=30), brand, last4)
         yearly = item_id == MAINTENANCE
+        if yearly:
+            self.sign(
+                f"{client_key}_plan", client_key, PLAN_AGREEMENT, start - timedelta(hours=1), None
+            )
         first = start.astimezone(BUSINESS_TIMEZONE).date()
         period = 0
         while True:
@@ -1954,6 +2156,7 @@ class Northlight:
                 parent_id="sj_nl_rajesh",
                 token="demo_signature_nl_rajesh",
                 status="pending",
+                contract_version=2,
                 opened_at=min(sent + timedelta(hours=5), self.now - timedelta(hours=1)),
                 created_at=sent,
                 updated_at=sent,
@@ -2150,11 +2353,25 @@ class Northlight:
         site = self.ctx.get(Subject, booking.subject_id or "")
         submitted = min(booking.created_at + timedelta(hours=20), self.now - timedelta(hours=2))
         response_id = f"fr_nl_survey_{key}"
+        client = self.ctx.get(Client, booking.client_id)
         answers: dict[str, object] = {
+            "site_address": str(site.attributes.get("address", "")),
+            "site_contact": client.name,
+            "site_phone": client.phone or "+12505550198",
             "building_type": str(site.attributes.get("building", "house")).capitalize(),
+            "ownership": "I own it",
+            "storeys": 2,
             "entrances": 3,
+            "coverage": ["Front door", "Driveway or parking", "Side path or gate"],
             "existing_wiring": "Not sure",
             "internet": str(site.attributes.get("internet") or "Telus fibre"),
+            "lighting": "Motion lights",
+            "access_notes": "A friendly dog at home; we'll put her in the back room for the visit.",
+            "preferred_date": (booking.starts_at + timedelta(days=10))
+            .astimezone(BUSINESS_TIMEZONE)
+            .date()
+            .isoformat(),
+            "budget": 2500,
             "goals": "The front door and driveway, and the side gate where parcels get left.",
         }
         if photos:
@@ -2463,6 +2680,9 @@ class Northlight:
         dental = self.ctx.get(Booking, "bk_nl_cookdental")
         if dental.completed_at is not None:
             self.subscribe("cookdental", MAINTENANCE, dental.completed_at + timedelta(days=1))
+        # a plan offered after the install: one still unsigned, one turned down
+        self.sign("kevin_plan", "kevin", PLAN_AGREEMENT, self.at(-3, 11), None, status="pending")
+        self.sign("colin_plan", "colin", PLAN_AGREEMENT, self.at(-2, 15), None, status="declined")
 
     def engagement(self) -> None:
         ctx = self.ctx

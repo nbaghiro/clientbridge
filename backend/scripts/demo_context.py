@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 from clientbridge.core.db import Base
 
-DEMO_VERSION = "2026-10-19.2"
+DEMO_VERSION = "2026-10-19.3"
 BUSINESS_TIMEZONE = ZoneInfo("America/Vancouver")
 DEMO_BUSINESSES = ("bz_birchbark", "bz_demo_second", "bz_northlight")
 

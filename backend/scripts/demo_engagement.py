@@ -1,10 +1,18 @@
+import math
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Consent, Subject
-from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
+from clientbridge.models.documents import (
+    Contract,
+    Form,
+    FormField,
+    FormResponse,
+    SendOn,
+    Signature,
+)
 from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.models.platform import File
 from clientbridge.models.reviews import ReviewRequest
@@ -12,34 +20,17 @@ from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.business import BrandInput
 from clientbridge.services.consents import allows_marketing
 from scripts.demo_context import BUSINESS_TIMEZONE, DemoContext
+from scripts.demo_documents import (
+    CLASS_FIELDS,
+    FEEDBACK_FIELDS,
+    INTAKE_FIELDS,
+    INTAKES,
+    WAIVER_V1,
+    WAIVER_V2,
+    Field,
+)
 
 ASSETS = Path(__file__).parent / "demo_assets"
-WAIVER_BODY = (
-    "I authorize Birchbark Pet Studio to groom my pet. I understand that severely "
-    "matted coats may require a humane shave-down, and that grooming can occasionally "
-    "expose pre-existing skin or health conditions. In an emergency I authorize "
-    "Birchbark to seek veterinary care at my expense. Cancellations within 24 hours "
-    "may incur a 50% fee."
-)
-INTAKE_FIELDS = (
-    ("pet_name", "text", "Pet's name", True),
-    ("species", "select", "Species", True),
-    ("breed", "text", "Breed", False),
-    ("dob", "date", "Date of birth", False),
-    ("weight_kg", "number", "Weight (kg)", False),
-    ("vaccinated", "checkbox", "Vaccinations up to date?", True),
-    ("allergies", "longtext", "Allergies or skin conditions", False),
-    ("behaviour", "multiselect", "Behaviour notes", False),
-    ("vet_name", "text", "Veterinarian", False),
-    ("emergency_phone", "phone", "Emergency contact", True),
-    ("owner_email", "email", "Your email", True),
-    ("home_address", "address", "Home address", False),
-    ("preferred_time", "time", "Preferred drop-off time", False),
-    ("grooming_budget", "currency", "Typical grooming budget", False),
-    ("vax_record", "file", "Vaccination record (PDF)", False),
-    ("photo", "image", "A recent photo", False),
-    ("matting_consent", "signature", "I consent to humane de-matting if required", True),
-)
 
 
 def _visits(ctx: DemoContext, client_id: str) -> list[tuple[Booking, Slot]]:
@@ -323,78 +314,95 @@ def _broadcasts(ctx: DemoContext) -> None:
                 )
 
 
-def _documents(ctx: DemoContext) -> None:
-    created = min((_intake_time(ctx, c.id) for c in ctx.all(Client)), default=ctx.now) - timedelta(
-        days=1
-    )
+def _form(
+    ctx: DemoContext,
+    form_id: str,
+    name: str,
+    fields: tuple[Field, ...],
+    when: datetime,
+    *,
+    signature: bool,
+    send_on: SendOn = "manual",
+) -> None:
     ctx.add(
         Form(
-            id="frm_intake",
+            id=form_id,
             business_id=ctx.business_id,
-            name="New Pet Intake",
-            require_signature=True,
+            name=name,
+            require_signature=signature,
             active=True,
-            send_on="manual",
-            created_at=created,
-            updated_at=created,
+            send_on=send_on,
+            created_at=when,
+            updated_at=when,
         )
     )
-    for position, (name, kind, label, required) in enumerate(INTAKE_FIELDS):
-        options: list[object] = (
-            ["Dog", "Cat", "Other"]
-            if kind == "select"
-            else ["Anxious", "Reactive to dryers", "Dislikes nails", "Food motivated", "Friendly"]
-            if kind == "multiselect"
-            else []
-        )
+    for position, (field, kind, label, hint, required, options) in enumerate(fields):
         ctx.add(
             FormField(
-                id=f"ff_{name}",
+                id=f"ff_{form_id.removeprefix('frm_')}_{field}",
                 business_id=ctx.business_id,
-                form_id="frm_intake",
-                name=name,
+                form_id=form_id,
+                name=field,
                 input=kind,
                 label=label,
+                help=hint,
                 required=required,
-                options=options,
+                options=list(options),
                 position=position,
-                created_at=created,
-                updated_at=created,
+                created_at=when,
+                updated_at=when,
             )
         )
+
+
+def _attach(
+    ctx: DemoContext, file_id: str, response_id: str, s3_key: str, kind: str, when: datetime
+) -> str:
+    asset = ASSETS / s3_key.rsplit("/", 1)[1]
     ctx.add(
-        Form(
-            id="frm_satisfaction",
+        File(
+            id=file_id,
             business_id=ctx.business_id,
-            name="Grooming Satisfaction",
-            require_signature=False,
-            active=True,
-            send_on="manual",
-            created_at=created,
-            updated_at=created,
+            parent_type="form_response",
+            parent_id=response_id,
+            purpose="attachment",
+            s3_key=s3_key,
+            content_type=kind,
+            size=asset.stat().st_size,
+            created_at=when - timedelta(minutes=4),
+            updated_at=when - timedelta(minutes=3),
         )
     )
-    for position, (name, kind, label) in enumerate(
-        (
-            ("rating", "rating", "How did we do?"),
-            ("comments", "longtext", "Anything we could do better?"),
+    return file_id
+
+
+def _strokes(seed: int) -> list[object]:
+    """A short handwritten-looking signature, as the signing pad records it."""
+    strokes: list[object] = []
+    for part in range(3):
+        left = 0.08 + part * 0.3
+        strokes.append(
+            [
+                [
+                    round(left + step * 0.012, 3),
+                    round(0.5 + 0.22 * math.sin(step / (2.2 + seed % 3) + part), 3),
+                ]
+                for step in range(22)
+            ]
         )
-    ):
-        ctx.add(
-            FormField(
-                id=f"ff_{name}",
-                business_id=ctx.business_id,
-                form_id="frm_satisfaction",
-                name=name,
-                input=kind,
-                label=label,
-                required=name == "rating",
-                options=[],
-                position=position,
-                created_at=created,
-                updated_at=created,
-            )
-        )
+    return strokes
+
+
+def _intakes(ctx: DemoContext, created: datetime) -> None:
+    _form(
+        ctx,
+        "frm_intake",
+        "New client and pet intake",
+        INTAKE_FIELDS,
+        created,
+        signature=True,
+        send_on="booking",
+    )
     for index, (client_id, pet_id) in enumerate(
         (
             ("cl_amelie", "sj_bella"),
@@ -404,40 +412,50 @@ def _documents(ctx: DemoContext) -> None:
         )
     ):
         client, pet = ctx.get(Client, client_id), ctx.get(Subject, pet_id)
+        sex, health, medicine, handling, notes, style, groom, emergency = INTAKES[pet_id]
         when = _intake_time(ctx, client_id)
         response_id = f"fr_intake_{index}"
         photo = ctx.get(File, f"fl_{pet_id}")
-        file_id = f"fl_intake_photo_{index}"
-        ctx.add(
-            File(
-                id=file_id,
-                business_id=ctx.business_id,
-                parent_type="form_response",
-                parent_id=response_id,
-                purpose="attachment",
-                s3_key=photo.s3_key,
-                content_type=photo.content_type,
-                size=photo.size,
-                created_at=when,
-                updated_at=when,
-            )
-        )
-        consent_asset = ASSETS / f"consent-{client_id.removeprefix('cl_')}.pdf"
-        consent_id = f"fl_intake_consent_{index}"
-        ctx.add(
-            File(
-                id=consent_id,
-                business_id=ctx.business_id,
-                parent_type="form_response",
-                parent_id=response_id,
-                purpose="attachment",
-                s3_key=f"{ctx.business_id}/demo/{consent_asset.name}",
-                content_type="application/pdf",
-                size=consent_asset.stat().st_size,
-                created_at=when,
-                updated_at=when,
-            )
-        )
+        record = f"{ctx.business_id}/demo/vaccines-{pet.name.lower()}.pdf"
+        answers: dict[str, object] = {
+            "owner_name": client.name,
+            "owner_phone": client.phone,
+            "owner_email": client.email,
+            "home_address": "1840 Oak Bay Avenue, Victoria, BC" if index % 2 == 0 else None,
+            "pet_name": pet.name,
+            "species": "Cat" if pet.attributes.get("species") == "cat" else "Dog",
+            "breed": pet.attributes.get("breed"),
+            "dob": pet.attributes.get("birthday"),
+            "weight_kg": pet.attributes.get("weight_kg"),
+            "sex": sex,
+            "health": health,
+            "medications": medicine,
+            "vet_clinic": "Island Animal Clinic (demo)",
+            "vet_phone": "+12505550199",
+            "rabies_date": (when - timedelta(days=210)).date().isoformat(),
+            "dhpp_date": (when - timedelta(days=210)).date().isoformat(),
+            "bordetella_date": (when - timedelta(days=95)).date().isoformat(),
+            "vax_record": _attach(
+                ctx, f"fl_intake_record_{index}", response_id, record, "application/pdf", when
+            ),
+            "handling": handling,
+            "handling_notes": notes,
+            "groom_style": style,
+            "groom_notes": groom,
+            "emergency_name": emergency[0],
+            "emergency_phone": emergency[1],
+            "photo": _attach(
+                ctx,
+                f"fl_intake_photo_{index}",
+                response_id,
+                photo.s3_key,
+                photo.content_type or "image/png",
+                when,
+            ),
+            "consent_vet": True,
+            "consent_matting": True,
+            "consent_photos": index != 3,
+        }
         ctx.add(
             FormResponse(
                 id=response_id,
@@ -452,19 +470,11 @@ def _documents(ctx: DemoContext) -> None:
                 opened_at=when - timedelta(minutes=30),
                 submitted_at=when,
                 updated_at=when,
-                answers={
-                    "pet_name": pet.name,
-                    "species": "Cat" if pet.attributes.get("species") == "cat" else "Dog",
-                    "breed": pet.attributes.get("breed", "Mixed"),
-                    "weight_kg": pet.attributes.get("weight_kg", 10),
-                    "vaccinated": True,
-                    "emergency_phone": client.phone or "+12505550100",
-                    "owner_email": client.email or "demo@example.test",
-                    "behaviour": ["Anxious"]
-                    if pet.attributes.get("temperament") == "anxious"
-                    else ["Friendly"],
-                    "matting_consent": consent_id,
-                    "photo": file_id,
+                answers={k: v for k, v in answers.items() if v is not None},
+                signature={
+                    "name": client.name,
+                    "strokes": _strokes(index) if index == 1 else None,
+                    "ip": f"192.0.2.{20 + index}",
                 },
             )
         )
@@ -486,54 +496,174 @@ def _documents(ctx: DemoContext) -> None:
                 opened_at=when + timedelta(hours=1) if index == 0 else None,
             )
         )
-    completed = [
-        (b, slot)
-        for b, slot in _visits(ctx, "cl_amelie")
-        if b.status == "completed" and slot.ends_at < ctx.now - timedelta(days=2)
-    ]
-    if completed:
+
+
+# client, pet, class, age, how they are with dogs; the last one hasn't filled it in yet
+ENROLMENTS = (
+    ("cl_class_0", "sj_class_0", "Puppy Socialization (group)", "Under 6 months", "Plays well"),
+    ("cl_class_1", "sj_class_1", "Puppy Socialization (group)", "Under 6 months", "Shy at first"),
+    ("cl_class_2", "sj_class_2", "Puppy Socialization (group)", "Under 6 months", "Can be pushy"),
+    (
+        "cl_regular_05",
+        "sj_regular_05",
+        "Senior Dog Gentle Groom Workshop",
+        "Over 7 years",
+        "Shy at first",
+    ),
+    ("cl_regular_02", "sj_regular_02", "Small-Dog Play Group", "1 to 7 years", "Plays well"),
+    ("cl_class_3", "sj_class_3", "Puppy Socialization (group)", "Under 6 months", ""),
+)
+
+
+def _enrolments(ctx: DemoContext, created: datetime) -> None:
+    _form(
+        ctx,
+        "frm_class_enrolment",
+        "Class enrolment and waiver",
+        CLASS_FIELDS,
+        created,
+        signature=True,
+    )
+    clients = {c.id: c for c in ctx.all(Client)}
+    pets = {p.id: p for p in ctx.all(Subject)}
+    for index, (client_id, pet_id, title, age, manner) in enumerate(ENROLMENTS):
+        client, pet = clients.get(client_id), pets.get(pet_id)
+        if client is None or pet is None:
+            continue
+        when = _intake_time(ctx, client_id)
+        response_id = f"fr_class_{index}"
+        draft = manner == ""
+        answers: dict[str, object] = {
+            "class": title,
+            "pet_name": pet.name,
+            "age": age,
+            "bordetella_date": (when - timedelta(days=20)).date().isoformat(),
+            "around_dogs": manner,
+            "handler_name": client.name,
+            "handler_phone": client.phone,
+            "ack_play": True,
+            "ack_leash": True,
+            "ack_cancel": True,
+        }
+        ctx.add(
+            FormResponse(
+                id=response_id,
+                business_id=ctx.business_id,
+                form_id="frm_class_enrolment",
+                client_id=client_id,
+                parent_type="subject",
+                parent_id=pet_id,
+                status="draft" if draft else "submitted",
+                token=f"demo_class_{index}",
+                created_at=when - timedelta(hours=3),
+                opened_at=None if draft else when - timedelta(minutes=20),
+                submitted_at=None if draft else when,
+                updated_at=when - timedelta(hours=3) if draft else when,
+                answers={} if draft else {k: v for k, v in answers.items() if v is not None},
+                signature=None
+                if draft
+                else {
+                    "name": client.name,
+                    "strokes": _strokes(index) if index % 2 == 0 else None,
+                    "ip": f"192.0.2.{40 + index}",
+                },
+            )
+        )
+
+
+# client, rating, what went well, comment, happy to be contacted
+FEEDBACK = (
+    (
+        "cl_amelie",
+        5,
+        ["Gentle handling", "The finished groom"],
+        "Thank you for taking the time to settle Bella.",
+        False,
+    ),
+    (
+        "cl_marcus",
+        4,
+        ["The finished groom", "Value"],
+        "Rex looked great. The text saying he was ready came about 20 minutes after he was.",
+        True,
+    ),
+)
+
+
+def _feedback(ctx: DemoContext, created: datetime) -> None:
+    _form(ctx, "frm_satisfaction", "Visit feedback", FEEDBACK_FIELDS, created, signature=False)
+    for index, (client_id, rating, highlights, comment, follow_up) in enumerate(FEEDBACK):
+        completed = [
+            (b, slot)
+            for b, slot in _visits(ctx, client_id)
+            if b.status == "completed" and slot.ends_at < ctx.now - timedelta(days=2)
+        ]
+        if not completed:
+            continue
         booking, slot = completed[-1]
         when = slot.ends_at + timedelta(hours=6)
         ctx.add(
             FormResponse(
-                id="fr_satisfaction_0",
+                id=f"fr_satisfaction_{index}",
                 business_id=ctx.business_id,
                 form_id="frm_satisfaction",
                 client_id=booking.client_id,
                 parent_type="booking",
                 parent_id=booking.id,
                 status="submitted",
-                token="demo_satisfaction_0",
+                token=f"demo_satisfaction_{index}",
                 created_at=slot.ends_at,
                 opened_at=when - timedelta(minutes=5),
                 submitted_at=when,
                 updated_at=when,
-                answers={"rating": 5, "comments": "Thank you for taking the time to settle Bella."},
+                answers={
+                    "rating": rating,
+                    "highlights": highlights,
+                    "comments": comment,
+                    "follow_up": follow_up,
+                },
             )
         )
+
+
+# client, pet, signs the version before the current one
+SIGNERS = (
+    ("cl_amelie", "sj_bella", True),
+    ("cl_marcus", "sj_rex", True),
+    ("cl_david", "sj_zeus", True),
+    ("cl_sophie", "sj_mochi", False),
+    ("cl_priscilla", "sj_kobe", False),
+    ("cl_liam", "sj_maple", False),
+)
+
+
+def _waiver(ctx: DemoContext) -> datetime:
+    """The agreement at its second version, with earlier clients' copies kept at the first."""
+    published = min(
+        _intake_time(ctx, client_id) for client_id, _, old in SIGNERS if not old
+    ) - timedelta(days=1)
+    signed = {
+        client_id: min(_intake_time(ctx, client_id), published - timedelta(days=3))
+        if old
+        else _intake_time(ctx, client_id)
+        for client_id, _, old in SIGNERS
+    }
+    created = min(signed.values()) - timedelta(days=2)
     contract = Contract(
         id="con_waiver",
         business_id=ctx.business_id,
-        name="Grooming Services Agreement & Waiver",
+        name="Grooming services agreement and waiver",
         version=2,
         active=True,
-        body=WAIVER_BODY,
+        body=WAIVER_V2,
         created_at=created,
-        updated_at=created,
+        updated_at=published,
     )
     ctx.add(contract)
-    for index, (client_id, pet_id) in enumerate(
-        (
-            ("cl_amelie", "sj_bella"),
-            ("cl_marcus", "sj_rex"),
-            ("cl_david", "sj_zeus"),
-            ("cl_sophie", "sj_mochi"),
-            ("cl_priscilla", "sj_kobe"),
-            ("cl_liam", "sj_maple"),
-        )
-    ):
+    for index, (client_id, pet_id, old) in enumerate(SIGNERS):
         client = ctx.get(Client, client_id)
-        when = _intake_time(ctx, client_id) + timedelta(hours=1)
+        when = signed[client_id] + timedelta(hours=1)
+        drawn = client_id == "cl_priscilla"
         ctx.add(
             Signature(
                 id=f"sig_{index}",
@@ -545,10 +675,11 @@ def _documents(ctx: DemoContext) -> None:
                 token=f"demo_signature_{index}",
                 status="signed",
                 signed_at=when,
-                signed_body=contract.body,
-                contract_version=contract.version,
+                signed_body=WAIVER_V1 if old else WAIVER_V2,
+                contract_version=1 if old else 2,
                 signer_name=client.name,
-                method="typed",
+                method="drawn" if drawn else "typed",
+                strokes=_strokes(index) if drawn else None,
                 ip=f"192.0.2.{index + 1}",
                 created_at=when - timedelta(hours=1),
                 opened_at=when - timedelta(minutes=15),
@@ -565,10 +696,25 @@ def _documents(ctx: DemoContext) -> None:
             parent_id="cl_fatima",
             token="demo_signature_pending",
             status="pending",
+            contract_version=2,
             created_at=ctx.now - timedelta(days=1),
             updated_at=ctx.now - timedelta(hours=3),
             opened_at=ctx.now - timedelta(hours=3),
-        )
+        ),
+        Signature(
+            id="sig_declined",
+            business_id=ctx.business_id,
+            contract_id=contract.id,
+            client_id="cl_olivia",
+            parent_type="client",
+            parent_id="cl_olivia",
+            token="demo_signature_declined",
+            status="declined",
+            contract_version=2,
+            created_at=ctx.now - timedelta(days=20),
+            opened_at=ctx.now - timedelta(days=19, hours=20),
+            updated_at=ctx.now - timedelta(days=19, hours=19),
+        ),
     )
     artifact = ASSETS / "signed-waiver-amelie.txt"
     ctx.add(
@@ -585,6 +731,14 @@ def _documents(ctx: DemoContext) -> None:
             updated_at=ctx.get(Signature, "sig_0").signed_at,
         )
     )
+    return created
+
+
+def _documents(ctx: DemoContext) -> None:
+    created = _waiver(ctx)
+    _intakes(ctx, created)
+    _enrolments(ctx, created)
+    _feedback(ctx, created)
 
 
 def _reviews(ctx: DemoContext) -> None:

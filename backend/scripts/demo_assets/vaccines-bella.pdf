@@ -1,0 +1,46 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Length 720 >>
+stream
+BT /F2 16 Tf 72 740 Td (Island Animal Clinic \(demo\)) Tj ET
+BT /F1 10 Tf 72 714 Td (Vaccination record) Tj ET
+BT /F2 11 Tf 72 674 Td (Patient: Bella) Tj ET
+BT /F1 11 Tf 72 653 Td (Mini Goldendoodle, female) Tj ET
+BT /F1 11 Tf 72 632 Td (Owner: Am\351lie Tremblay) Tj ET
+BT /F2 11 Tf 72 591 Td (Vaccines given) Tj ET
+BT /F1 11 Tf 72 570 Td (Rabies, 3-year vaccine) Tj ET
+BT /F1 11 Tf 72 549 Td (DHPP \(distemper, hepatitis, parainfluenza, parvovirus\)) Tj ET
+BT /F1 11 Tf 72 528 Td (Bordetella \(kennel cough\), intranasal) Tj ET
+BT /F1 9 Tf 72 487 Td (Dates and next due dates are on the clinic's reminder card.) Tj ET
+BT /F1 9 Tf 72 468 Td (Demo document for the Birchbark Pet Studio demo. Not a medical record.) Tj ET
+endstream
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000000348 00000 n 
+0000000450 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+1221
+%%EOF
