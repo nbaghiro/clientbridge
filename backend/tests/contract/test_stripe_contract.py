@@ -206,12 +206,6 @@ async def test_lists_payouts(contract_gateway: StripeGateway) -> None:
     assert all(isinstance(row.get("id"), str) for row in page.payouts)
 
 
-async def test_lists_events(contract_gateway: StripeGateway) -> None:
-    events = await contract_gateway.recent_events(ACCT, datetime(2026, 1, 1, tzinfo=UTC))
-    assert events
-    assert all(event.account == ACCT for event in events)
-
-
 async def test_finds_invoice_from_payment(contract_gateway: StripeGateway) -> None:
     assert await contract_gateway.invoice_for_payment(ACCT, "pi_contract") is not None
 

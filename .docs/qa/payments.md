@@ -106,3 +106,6 @@ not establish that this checklist has run end to end. Attach fresh results to a 
   refund and admin investigation, plus native recordings where supported.
 - Provider state and local accounting reconcile for owned fixtures; cleanup and original schedules are
   verified. Sandbox limitations and outstanding product gaps are carried into [launch readiness](../launch-readiness.md).
+
+Periodic event replay and the pending-payment recovery job are deferred. Recovery scenarios should
+exercise webhook redelivery or retained source reconciliation, not the removed recovery job.

@@ -40,6 +40,9 @@ test("payment account entrypoints preserve navigation when payment tools are off
     ).toBeVisible();
 
     await page.goto("/payments/payouts");
+    await expect(page.getByText(strings.payouts.chargesTitle, { exact: true })).toBeVisible();
+    await expect(page.getByText(strings.payouts.subtitle, { exact: true })).toBeVisible();
+    await expect(page.getByText(strings.payouts.loadError, { exact: true })).toBeVisible();
     await page
         .getByRole("button", { name: strings.paymentAccount.viewPayouts, exact: true })
         .click();

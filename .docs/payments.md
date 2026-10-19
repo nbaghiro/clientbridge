@@ -193,7 +193,7 @@ available. The connected-account balance is compared with the business's Stripe 
 platform's own application-fee balance.
 
 Stripe and Postgres cannot commit atomically. Consistency is eventual: signed webhooks provide the fast
-path, recovery repairs missed outcomes, and audits expose unsupported or unexplained differences.
+path, nightly reconciliation repairs recognized sources, and audits expose unexplained differences.
 This is not a guarantee that both balances are identical at every instant.
 
 | Mechanism                              | Behavior                                                                                                                                                                                                                                 |
@@ -201,7 +201,6 @@ This is not a guarantee that both balances are identical at every instant.
 | Provider commands                      | Stable idempotency keys and provider-reference deduplication; Customer creation also uses a business/client key.                                                                                                                         |
 | Webhook application                    | Verify signature/version, dedupe by event ID, then apply state, journal and queued notification transactionally.                                                                                                                         |
 | Current subscription state             | Fetch Stripe's current subscription under a local row lock instead of overwriting it with an old event snapshot.                                                                                                                         |
-| `recover_payments`, every 15 minutes   | Read supported connected/platform events from the last 30 days and retrieve current objects at the pinned API version before applying their current state; inspect unresolved local PaymentIntents/refunds independently of delivery retries. Commit repairs separately; defer transient settlement timing, continue after individual failures, then raise for genuine errors. |
 | `reconcile_ledger`, daily at 04:00 UTC | Enumerate connected-account balance transactions, group by source, repair recognized charge/refund/dispute/payout sources, compare source net amounts and aggregate balances, and check cached ledger balances.                          |
 
 Older membership charges can be reconstructed through their InvoicePayments association even outside
@@ -220,9 +219,10 @@ repairs produce audits and the existing ledger-drift alert:
 | `ledger.cache_drift`           | Cached account balances differ from their immutable entries.                                  |
 | `ledger.reconciliation_failed` | Business reconciliation could not complete, including provider access failures.               |
 
-Limits: replay is bounded by Stripe's 30-day event history and only handles the subscribed snapshot
-event families; it is not a full resynchronization of every Stripe object or thin account event.
-Nightly balance reconciliation scans complete history, and payout reads also paginate complete history,
+The periodic event replay and pending-payment sweep are deferred. Webhook retries remain the normal
+retry path; reconciliation repairs recognized merchant balance-transaction sources. It does not
+replace missed platform subscription, setup, or mandate events; those require webhook redelivery.
+Nightly balance reconciliation scans complete history, and payout history uses bounded cursor pages; reconciliation
 so runtime and request volume grow with usage. Unsupported movements require investigation. Existing
 fixture references in demo data are not recoverable real Stripe transactions.
 
@@ -461,14 +461,14 @@ Sandbox payouts do not prove actual bank delivery. Real-device Terminal and wall
 provider/device prerequisites. Keep release sign-off in [launch readiness](launch-readiness.md), rather
 than treating this reference as a completed checklist.
 
-Recovery suppresses routine notifications older than one day while preserving gift-card issuance.
+Source reconciliation suppresses routine notifications older than one day while preserving gift-card issuance.
 Standalone Stripe fee transactions post by transaction ID, including fee credits. The payout list reads
 24 payouts per cursor page without fetching every historical page. The 30-day deposited figure is
 derived from all applicable bank journals, independently of the visible history page. Ledger repair orchestration lives in
 `services/payments.py`; journal primitives remain in `services/ledger.py`.
 
 The [review follow-up](qa/payments-automation.md#review-follow-up) records remaining merge blockers;
-these recovery improvements do not yet make the jobs bounded or fix payout transit accounting.
+these source-repair improvements do not yet make reconciliation bounded or fix payout transit accounting.
 
 ### Sandbox verification record — 2026-10-18
 
@@ -498,7 +498,7 @@ round trips alone do not complete that QA.
 | Cannot accept payments / payouts disabled      | Current account requirements and capabilities; finish embedded onboarding/account management. Inspect thin destination delivery and the mirrored KYC state.                                                       |
 | Signature rejection                            | Correct endpoint family and signing secret, raw request body, environment/mode and local versus deployed listener.                                                                                                |
 | Snapshot rejected for API version              | Compare event `api_version` with `STRIPE_API_VERSION`; align sandbox default or deployed endpoint. Upgrade SDK, fixtures and handlers together.                                                                   |
-| Successful Stripe charge still pending locally | Event delivery/failed Webhook row; required fee availability; pending recovery job; associated product record and provider reference. Do not create another charge to repair bookkeeping.                         |
+| Successful Stripe charge still pending locally | Event delivery/failed Webhook row; required fee availability; webhook redelivery or source reconciliation; associated product record and provider reference. Do not create another charge to repair bookkeeping.                         |
 | Payout has not arrived                         | Stripe's live status, available versus pending funds, selected schedule and bank requirements. A local bank journal or estimated date is not proof of receipt.                                                    |
 | Ledger drift                                   | Use source/transaction IDs in the audit to compare provider net movement with business-owned Stripe journal legs. Check refunds, disputes and reversals, then rerun normal reconciliation after fixing the cause. |
 | Customer/payment method missing                | Verify the connected-account scope and platform/mode. After a demo reset, relink fixtures or create fresh test transactions.                                                                                      |
@@ -561,3 +561,6 @@ pagination are independent on web and mobile. The account-balance residual check
 findings (including acknowledged ones) and detects ledger-only discrepancies. Durable job checkpoints
 and payout-transit accounting remain pending explicit schema approval; do not merge until implemented
 and validated.
+
+Scope update: the scheduled recovery job and its event-listing adapter were removed. Reconciliation
+and shared payment/webhook handlers remain. No checkpoint table or other schema change was added.

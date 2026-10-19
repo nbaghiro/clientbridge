@@ -1,4 +1,4 @@
-import { useBusinessQuery as useQuery, useRemote } from "../hooks";
+import { useBusinessQuery as useQuery, useRemote, useLoad } from "../hooks";
 import { useBusinessId } from "./business";
 import type { ApiLike } from "../api";
 
@@ -205,6 +205,7 @@ function usePayoutContents(
 
 export interface Payouts {
     load: Load;
+    historyLoad: Load;
     payouts: PayoutView[];
     selected: PayoutView | null;
     select: (id: string) => void;
@@ -268,22 +269,23 @@ export function usePayouts(api: ApiLike): Payouts {
         feeCents: c.fee_cents,
         netCents: c.amount_cents - c.refunded_cents - (c.fee_cents ?? 0),
     }));
-    const load = useReplicaLoad(
+    const historyLoad = useLoad(
         [
             {
                 ...payouts,
                 isLoading:
                     payouts.isLoading || (payouts.error === null && payouts.data?.key !== key),
             },
-            balance,
-            fees,
-            charges,
-            deposits,
         ],
-        views.length === 0 && chargeViews.length === 0,
+        views.length === 0,
+    );
+    const load = useReplicaLoad(
+        [balance, fees, charges, deposits],
+        historyLoad.state === "empty" && chargeViews.length === 0,
     );
     return {
         load,
+        historyLoad,
         payouts: views,
         selected,
         contents,

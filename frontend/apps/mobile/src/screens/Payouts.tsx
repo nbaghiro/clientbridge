@@ -138,7 +138,15 @@ export function Payouts() {
                             </View>
                         </Panel>
                         <Panel flush>
-                            {p.payouts.length === 0 ? (
+                            {p.historyLoad.state === "loading" ? (
+                                <Skeleton variant="row" count={3} label={s.loading} />
+                            ) : p.historyLoad.state === "error" ? (
+                                <LoadFailed
+                                    message={s.loadError}
+                                    onRetry={p.historyLoad.retry}
+                                    retrying={p.historyLoad.retrying}
+                                />
+                            ) : p.payouts.length === 0 ? (
                                 <Empty message={s.noPayouts} body={s.noPayoutsBody} />
                             ) : (
                                 p.payouts.map((row) => (

@@ -391,3 +391,12 @@ def test_the_worker_schedules_every_service_job() -> None:
 
 def test_the_worker_heartbeat_is_fresh_enough_for_the_liveness_probe() -> None:
     assert WorkerSettings.health_check_interval == 60
+
+
+def test_stripe_recovery_is_not_scheduled() -> None:
+    names = set()
+    for job in WorkerSettings.cron_jobs:
+        assert isinstance(job, CronJob)
+        names.add(job.name.removeprefix("cron:"))
+    assert "recover_payments" not in names
+    assert "reconcile_ledger" in names

@@ -141,7 +141,15 @@ export function Payouts() {
             <div className="mt-6 grid gap-6 xl:grid-cols-[340px_1fr]">
                 <div className="self-start">
                     <Panel flush>
-                        {p.payouts.length === 0 ? (
+                        {p.historyLoad.state === "loading" ? (
+                            <Skeleton variant="row" count={3} label={s.loading} />
+                        ) : p.historyLoad.state === "error" ? (
+                            <LoadFailed
+                                message={s.loadError}
+                                onRetry={p.historyLoad.retry}
+                                retrying={p.historyLoad.retrying}
+                            />
+                        ) : p.payouts.length === 0 ? (
                             <Empty message={s.noPayouts} body={s.noPayoutsBody} />
                         ) : (
                             <div className="divide-y divide-line-soft">

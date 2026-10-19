@@ -5,7 +5,7 @@ import json
 import re
 import unicodedata
 from collections.abc import Callable, Coroutine, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cache
 from types import CoroutineType
@@ -555,10 +555,6 @@ class PaymentGateway(Protocol):
 
     async def balance_transactions(self, account_id: str) -> list[dict[str, object]]: ...
 
-    async def recent_events(
-        self, account_id: str | None, since: datetime
-    ) -> list[GatewayEvent]: ...
-
     async def list_payouts(self, account_id: str, after: str | None = None) -> PayoutPage: ...
 
     async def payout_transactions(
@@ -1052,19 +1048,6 @@ class StripeGateway:
     async def balance_transactions(self, account_id: str) -> list[dict[str, object]]:
         result = await stripe.BalanceTransaction.list_async(stripe_account=account_id, limit=100)
         return [cast(dict[str, object], row.to_dict()) async for row in result.auto_paging_iter()]
-
-    @_keyed
-    async def recent_events(self, account_id: str | None, since: datetime) -> list[GatewayEvent]:
-        result = await stripe.Event.list_async(
-            stripe_account=account_id,
-            created={"gte": int(since.timestamp())},
-            delivery_success=False,
-            limit=100,
-        )
-        return [
-            replace(event_from(cast(dict[str, object], row.to_dict())), account=account_id)
-            async for row in result.auto_paging_iter()
-        ]
 
     @_keyed
     async def list_payouts(self, account_id: str, after: str | None = None) -> PayoutPage:

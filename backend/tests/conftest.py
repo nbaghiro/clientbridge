@@ -388,7 +388,6 @@ class FakePaymentGateway:
         self.charges: dict[str, tuple[int, int]] = {}  # intent id -> (amount, application fee)
         self.payouts: dict[str, list[dict[str, object]]] = {}
         self.transactions: dict[str, list[dict[str, object]]] = {}
-        self.events: dict[str | None, list[GatewayEvent]] = {}
         self.objects: dict[tuple[str | None, str, str], dict[str, object]] = {}
         self.customer_keys: dict[str, str] = {}
         self.terminal_customers: dict[str, str | None] = {}
@@ -530,9 +529,6 @@ class FakePaymentGateway:
 
     async def balance_transactions(self, account_id: str) -> list[dict[str, object]]:
         return self.transactions.get(account_id, [])
-
-    async def recent_events(self, account_id: str | None, since: datetime) -> list[GatewayEvent]:
-        return self.events.get(account_id, [])
 
     async def list_payouts(self, account_id: str, after: str | None = None) -> PayoutPage:
         rows = self.payouts.get(account_id, [])

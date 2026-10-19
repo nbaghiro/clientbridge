@@ -69,8 +69,7 @@ is untouched. Initial onboarding is a dependency, not an automatically passing s
   workers limited to the CI businesses/fixtures; prove global replay cannot import unrelated activity.
 - Use real application commands and genuine resulting provider events for end-to-end success. Artificial
   events belong to regression coverage; CLI-generated unrelated objects do not prove product fulfillment.
-- Exercise missing delivery and retry with a controlled relay. Run actual recovery/reconciliation job
-  bodies deterministically rather than sleeping for their 15-minute/nightly schedule.
+- Exercise missing delivery and retry with a controlled relay. Run the reconciliation job deterministically rather than waiting for its nightly schedule.
 
 Done when a fresh app payment settles through a signed event, duplicates are harmless, a withheld event
 is repaired and an unrelated sandbox event is ignored without bypassing application authorization.
@@ -217,8 +216,7 @@ The follow-up adds `GET /v1/connect/payouts/{id}/transactions?after=...` and the
 `POST /admin/v1/businesses/{business_id}/drift/{finding_id}/acknowledge` (body: `reason`).
 Acknowledgements preserve money and the original finding; changing its amounts or transaction IDs
 creates a new finding. Only identical, acknowledged findings stop alerting. Successful repair records
-resolution. Event recovery filters failed/pending webhook deliveries; the fallback payment sweep is
-limited to pending payments created in the past 30 days. Durable/fair batching remains outstanding.
+resolution. The event recovery job and pending-payment sweep have since been removed from scope. Durable/fair batching remains outstanding.
 
 Targeted backend regression: 101 tests passed across payment recovery, ledger jobs/drift and admin.
 Stripe-mock contracts: 35 passed. The added browser test in `paymentAccount.e2e.ts` passed through
@@ -320,3 +318,10 @@ timezone reruns. The isolated pre-commit gate also runs before committing.
 The initial browser retry used non-allowlisted ports and failed at login; it is not payout evidence.
 Checkpoint persistence and payout-transit accounting still require explicit schema approval before
 implementation. The PR stays draft until those findings and validation are complete.
+
+## Current scope update
+
+Scheduled event recovery and pending-payment sweeps are deferred, including their dedicated adapter
+and tests. Reconciliation remains. Earlier event-recovery implementation/test evidence is historical,
+not current functionality. Use genuine webhook redelivery for recovery QA; source-reconciliation QA
+remains applicable. Payout history errors must not hide locally synced totals or charges on web/mobile.

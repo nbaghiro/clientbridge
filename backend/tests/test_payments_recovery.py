@@ -7,13 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core import clock
 from clientbridge.core.ids import new_id
-from clientbridge.integrations.stripe import STRIPE_API_VERSION, GatewayEvent
 from clientbridge.models.catalog import Item, Subscription
-from clientbridge.models.messaging import Delivery
-from clientbridge.models.payments import Payment, PaymentStatus
-from clientbridge.models.platform import Audit, Webhook
+from clientbridge.models.payments import Payment
+from clientbridge.models.platform import Audit
 from clientbridge.services import ledger
-from clientbridge.services.payments import reconcile_stripe_transactions, run_recover_payments
+from clientbridge.services.payments import reconcile_stripe_transactions
 from tests.conftest import BIZ, FakePaymentGateway
 from tests.helpers import client_id, enable_payments, sent_invoice
 
@@ -46,46 +44,6 @@ async def _pending(db: AsyncSession, gateway: FakePaymentGateway) -> Payment:
         "created": int((clock.now() - timedelta(days=60)).timestamp()),
     }
     return row
-
-
-async def test_recovers_a_payment_after_webhook_retries_end(
-    db: AsyncSession, gateway: FakePaymentGateway
-) -> None:
-    payment = await _pending(db, gateway)
-    identity = payment.id
-    assert await run_recover_payments(db, gateway) == 1
-    await db.refresh(payment)
-    assert payment.status == "succeeded"
-    assert payment.paid_at is not None
-    assert payment.paid_at < clock.now() - timedelta(days=59)
-    assert await run_recover_payments(db, gateway) == 0
-    journal = await ledger.journal_for(db, BIZ, f"payment:{identity}")
-    assert journal is not None
-
-
-async def test_recovers_a_missed_event_once(db: AsyncSession, gateway: FakePaymentGateway) -> None:
-    payment = await _pending(db, gateway)
-    occurred_at = clock.now() - timedelta(days=2)
-    gateway.events["acct_test"] = [
-        GatewayEvent(
-            id="evt_recovery",
-            type="payment_intent.succeeded",
-            data={"id": "pi_recovery"},
-            account="acct_test",
-            api_version=STRIPE_API_VERSION,
-            created=occurred_at,
-        )
-    ]
-    assert await run_recover_payments(db, gateway) == 1
-    assert await run_recover_payments(db, gateway) == 0
-    await db.refresh(payment)
-    assert payment.paid_at is not None
-    assert (
-        int(payment.paid_at.timestamp())
-        == gateway.objects[("acct_test", "charge", "ch_recovered")]["created"]
-    )
-    record = await db.get(Webhook, "evt_recovery")
-    assert record is not None and record.status == "processed"
 
 
 async def test_reconciliation_repairs_charge_and_identifies_exact_unmatched_movement(
@@ -204,70 +162,6 @@ async def test_recovers_an_old_membership_charge_from_its_stripe_invoice(
     assert await reconcile_stripe_transactions(db, gateway, BIZ, "acct_test") == 0
 
 
-@pytest.mark.parametrize(
-    "event_type", ["payment_intent.succeeded", "payment_intent.payment_failed"]
-)
-async def test_recovery_uses_current_object_across_event_versions(
-    db: AsyncSession, gateway: FakePaymentGateway, event_type: str
-) -> None:
-    payment = await _pending(db, gateway)
-    gateway.events["acct_test"] = [
-        GatewayEvent(
-            id="evt_old_version",
-            type=event_type,
-            data={"id": "pi_recovery", "status": "requires_payment_method"},
-            account="acct_test",
-            api_version="2020-08-27",
-            created=clock.now() - timedelta(days=2),
-        )
-    ]
-    assert await run_recover_payments(db, gateway) == 1
-    await db.refresh(payment)
-    assert payment.status == "succeeded"
-    assert payment.paid_at is not None
-    assert (
-        int(payment.paid_at.timestamp())
-        == gateway.objects[("acct_test", "charge", "ch_recovered")]["created"]
-    )
-    record = await db.get(Webhook, "evt_old_version")
-    assert record is not None and record.status == "processed"
-
-
-@pytest.mark.parametrize("with_event", [False, True])
-async def test_recovery_defers_unavailable_fees_without_failing_the_job(
-    db: AsyncSession, gateway: FakePaymentGateway, with_event: bool
-) -> None:
-    payment = await _pending(db, gateway)
-    identity = payment.id
-    await db.commit()
-    gateway.pending_fees.add("pi_recovery")
-    if with_event:
-        gateway.events["acct_test"] = [
-            GatewayEvent(
-                id="evt_deferred",
-                type="payment_intent.succeeded",
-                data={"id": "pi_recovery"},
-                account="acct_test",
-                api_version=STRIPE_API_VERSION,
-                created=clock.now(),
-            )
-        ]
-    assert await run_recover_payments(db, gateway) == 0
-    assert await ledger.journal_for(db, BIZ, f"payment:{identity}") is None
-    gateway.pending_fees.clear()
-    assert await run_recover_payments(db, gateway) == 1
-    assert await run_recover_payments(db, gateway) == 0
-
-
-async def test_old_recovery_settles_without_sending_a_late_receipt(
-    db: AsyncSession, gateway: FakePaymentGateway
-) -> None:
-    payment = await _pending(db, gateway)
-    identity = payment.id
-    assert await run_recover_payments(db, gateway) == 1
-    assert await db.scalar(select(Delivery.id).where(Delivery.key.contains(identity))) is None
-
-
 @pytest.mark.parametrize("net", [-150, 150])
 async def test_standalone_stripe_fee_is_booked_once(
     db: AsyncSession, gateway: FakePaymentGateway, net: int
@@ -290,34 +184,6 @@ async def test_standalone_stripe_fee_is_booked_once(
             await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")
             == before + net
         )
-
-
-async def test_recent_recovery_queues_the_receipt_once(
-    db: AsyncSession, gateway: FakePaymentGateway
-) -> None:
-    payment = await _pending(db, gateway)
-    identity = payment.id
-    gateway.objects[("acct_test", "charge", "ch_recovered")]["created"] = int(
-        clock.now().timestamp()
-    )
-    assert await run_recover_payments(db, gateway) == 1
-    deliveries = list(await db.scalars(select(Delivery.id).where(Delivery.key.contains(identity))))
-    assert deliveries
-    assert await run_recover_payments(db, gateway) == 0
-    assert (
-        list(await db.scalars(select(Delivery.id).where(Delivery.key.contains(identity))))
-        == deliveries
-    )
-
-
-async def test_recovery_still_reports_a_malformed_provider_object(
-    db: AsyncSession, gateway: FakePaymentGateway
-) -> None:
-    await _pending(db, gateway)
-    await db.commit()
-    del gateway.objects[("acct_test", "payment_intent", "pi_recovery")]["latest_charge"]
-    with pytest.raises(RuntimeError, match="stripe recovery failed"):
-        await run_recover_payments(db, gateway)
 
 
 async def test_payout_contents_are_scoped_and_paginated(
@@ -499,19 +365,6 @@ async def test_repeated_drift_keeps_one_finding_and_changed_drift_reopens(
     assert await reconcile_stripe_transactions(db, gateway, BIZ, "acct_test") == 0
     gateway.transactions["acct_test"][0]["net"] = -75
     assert await reconcile_stripe_transactions(db, gateway, BIZ, "acct_test") == 1
-
-
-@pytest.mark.parametrize("status, age", [("pending", 31), ("failed", 1)])
-async def test_recovery_does_not_poll_abandoned_or_failed_payments(
-    db: AsyncSession, gateway: FakePaymentGateway, status: PaymentStatus, age: int
-) -> None:
-    payment = await _pending(db, gateway)
-    payment.status = status
-    payment.created_at = clock.now() - timedelta(days=age)
-    await db.commit()
-    assert await run_recover_payments(db, gateway) == 0
-    await db.refresh(payment)
-    assert payment.status == status
 
 
 async def test_malformed_payout_returns_provider_error(
