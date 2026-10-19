@@ -48,6 +48,12 @@ from scripts.demo_context import DEMO_VERSION, LEGAL_ADDRESSES, DemoContext
 from scripts.demo_engagement import build_engagement
 from scripts.demo_finance import add_finance_scenarios, prepare_finance, seed_finance
 from scripts.demo_identity import build_identity, placeholder_identity
+from scripts.demo_northlight import (
+    NORTHLIGHT,
+    NORTHLIGHT_OWNER,
+    build_northlight,
+    seed_northlight_finance,
+)
 from scripts.demo_scenarios import add_scenarios
 from scripts.demo_validate import validate_database, validate_graph
 
@@ -2192,6 +2198,7 @@ def build_demo(as_of: datetime | None = None) -> DemoContext:
     errors = validate_graph(ctx) + chronology_errors(ctx)
     if errors:
         raise ValueError("Invalid demo graph: " + "; ".join(errors[:20]))
+    rows.extend(build_northlight(now).rows)
     return ctx
 
 
@@ -2314,6 +2321,9 @@ async def main(*, as_of: datetime | None = None) -> None:
                 session.add_all(batch)
                 await session.flush()
         await seed_finance(session, ctx)
+        await seed_northlight_finance(
+            session, DemoContext(ctx.now, NORTHLIGHT, NORTHLIGHT_OWNER, ctx.rows)
+        )
         await session.flush()
         await date_seed_writes(session, [row.id for row in ctx.all(Business)], ctx.now)
         report = await validate_database(session, as_of=ctx.now)
