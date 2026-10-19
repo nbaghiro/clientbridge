@@ -663,10 +663,10 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
         await navigate(page, "/payments/staff-pay");
         await expect(main.getByText(strings.earnings.selectAll)).toBeVisible();
         await main
-            .getByRole("button", { name: /Hannah Wong/ })
+            .getByRole("button", { name: /Diego Ramirez/ })
             .first()
             .click();
-        await expect(main.getByRole("heading", { name: "Hannah Wong" })).toBeVisible();
+        await expect(main.getByRole("heading", { name: "Diego Ramirez" })).toBeVisible();
     });
 
     walk.expectNoErrors();
