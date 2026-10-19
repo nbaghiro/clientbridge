@@ -38,7 +38,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { ContextPanel, INBOX_FRAME, ThreadDetails } from "../components/ThreadDetails";
+import { ContextPanel, ThreadDetails } from "../components/ThreadDetails";
 import { Loaded } from "../components/Loaded";
 import { useWide } from "../components/ScheduleGrid";
 import { api } from "../lib/api";
@@ -48,7 +48,7 @@ import { Broadcasts } from "./Broadcasts";
 import { Contracts } from "./Contracts";
 import { Forms } from "./Forms";
 import { Reviews } from "./Reviews";
-import { PageFrame } from "../components/PageFrame";
+import { FILL, PageFrame } from "../components/PageFrame";
 
 const s = strings.messaging;
 const CHANNELS: Channel[] = ["sms", "email"];
@@ -156,7 +156,7 @@ function Messages({
                 />
             ) : (
                 <div
-                    className={`flex ${INBOX_FRAME} overflow-hidden rounded-lg border border-line bg-surface shadow-card`}
+                    className={`flex ${FILL} overflow-hidden rounded-lg border border-line bg-surface shadow-card`}
                 >
                     <aside className="flex w-[300px] shrink-0 flex-col border-r border-line bg-surface">
                         <header className="space-y-3 border-b border-line px-4 pb-3 pt-4">

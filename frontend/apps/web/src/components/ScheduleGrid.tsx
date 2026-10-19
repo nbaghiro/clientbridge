@@ -74,42 +74,9 @@ export function useWide(query = "(min-width: 1280px)"): boolean {
 }
 
 /** The header every Schedule view shares, so the view switch and New booking never move. */
-export function ScheduleHeader({
-    children,
-    views,
-    onNew,
-    newLabel,
-}: {
-    children: ReactNode;
-    views: ReactNode;
-    onNew: () => void;
-    // The view's own main action in the same place, such as New series on Repeat visits.
-    newLabel?: string | undefined;
-}) {
+export function CalendarToolbar({ board }: { board: ScheduleBoard }) {
     return (
-        <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line px-5 py-3">
-            <div className="flex min-w-0 items-center gap-2">{children}</div>
-            <div className="flex items-center gap-2">
-                {views}
-                <Button size="sm" icon="plus" onPress={onNew}>
-                    {newLabel ?? s.newBooking}
-                </Button>
-            </div>
-        </header>
-    );
-}
-
-export function CalendarToolbar({
-    board,
-    onNew,
-    leading,
-}: {
-    board: ScheduleBoard;
-    onNew: () => void;
-    leading?: ReactNode;
-}) {
-    return (
-        <ScheduleHeader views={leading} onNew={onNew}>
+        <header className="flex min-w-0 items-center gap-2 border-b border-line px-5 py-3">
             <Button variant="outline" size="sm" onPress={board.goToday}>
                 {s.today}
             </Button>
@@ -131,8 +98,8 @@ export function CalendarToolbar({
                     }}
                 />
             </div>
-            <h1 className="truncate font-display text-lg font-bold text-ink">{board.label}</h1>
-        </ScheduleHeader>
+            <h2 className="truncate font-display text-lg font-bold text-ink">{board.label}</h2>
+        </header>
     );
 }
 

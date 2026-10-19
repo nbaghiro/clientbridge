@@ -24,9 +24,6 @@ import { type ClientDialog, ClientDialogs, ClientRecordView } from "./ClientReco
 const s = strings.messaging;
 const CHANNELS: Channel[] = ["sms", "email"];
 
-// Inbox cards fill the window under the page header and tabs.
-export const INBOX_FRAME = "h-[calc(100vh-11.5rem)] min-h-[520px]";
-
 /** The open conversation's client beside the thread; Open record swaps in the full record. */
 export function ThreadDetails({ thread }: { thread: InboxThread }) {
     const [record, setRecord] = useState(false);

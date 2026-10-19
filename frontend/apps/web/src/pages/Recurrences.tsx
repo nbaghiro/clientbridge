@@ -29,8 +29,8 @@ import {
 } from "@clientbridge/ui";
 import { type ReactNode, useState } from "react";
 
-import { ScheduleHeader } from "../components/ScheduleGrid";
-import { ScheduleViews } from "../components/ScheduleViews";
+import { FILL } from "../components/PageFrame";
+import { ScheduleFrame } from "../components/ScheduleViews";
 import { SeriesComposer } from "../components/SeriesComposer";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
@@ -74,150 +74,144 @@ export function Recurrences() {
     const none = list.load.state === "empty";
 
     return (
-        <div className="flex h-full min-h-[600px]">
-            <section className="flex min-w-0 flex-1 flex-col p-5">
-                <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-card">
-                    <ScheduleHeader
-                        views={<ScheduleViews active="series" />}
-                        newLabel={s.newSeries}
-                        onNew={() => {
-                            setComposing(true);
-                        }}
-                    >
-                        <h1 className="truncate font-display text-lg font-bold text-ink">
-                            {s.listTitle}
-                        </h1>
-                        {list.load.hasData && !none ? (
-                            <span className="truncate text-sm text-muted">
-                                {s.listSubtitle(list.counts.all)}
-                            </span>
-                        ) : null}
-                    </ScheduleHeader>
-                    {list.load.state === "loading" ? (
-                        <div className="min-h-0 flex-1 p-5">
-                            <Skeleton variant="row" count={5} label={s.loading} />
-                        </div>
-                    ) : list.load.state === "error" ? (
-                        <div className="min-h-0 flex-1 p-5">
-                            <LoadFailed
-                                message={s.loadError}
-                                onRetry={list.load.retry}
-                                retrying={list.load.retrying}
+        <ScheduleFrame
+            active="series"
+            actions={
+                <Button
+                    icon="plus"
+                    onPress={() => {
+                        setComposing(true);
+                    }}
+                >
+                    {s.newSeries}
+                </Button>
+            }
+        >
+            <div
+                className={`relative flex ${FILL} flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-card`}
+            >
+                {list.load.state === "loading" ? (
+                    <div className="min-h-0 flex-1 p-5">
+                        <Skeleton variant="row" count={5} label={s.loading} />
+                    </div>
+                ) : list.load.state === "error" ? (
+                    <div className="min-h-0 flex-1 p-5">
+                        <LoadFailed
+                            message={s.loadError}
+                            onRetry={list.load.retry}
+                            retrying={list.load.retrying}
+                        />
+                    </div>
+                ) : none ? (
+                    <div className="flex min-h-0 flex-1 items-start justify-center bg-bg/40 pt-24">
+                        <div className="w-[360px] rounded-lg bg-surface shadow-card">
+                            <Empty
+                                variant="card"
+                                icon="repeat"
+                                message={s.emptyListTitle}
+                                body={s.emptyList}
                             />
                         </div>
-                    ) : none ? (
-                        <div className="flex min-h-0 flex-1 items-start justify-center bg-bg/40 pt-24">
-                            <div className="w-[360px] rounded-lg bg-surface shadow-card">
-                                <Empty
-                                    variant="card"
-                                    icon="repeat"
-                                    message={s.emptyListTitle}
-                                    body={s.emptyList}
+                    </div>
+                ) : (
+                    <div className="flex min-h-0 flex-1">
+                        <aside className="flex w-80 shrink-0 flex-col border-r border-line xl:w-96">
+                            <div className="space-y-3 border-b border-line-soft p-4">
+                                <SearchField
+                                    value={list.q}
+                                    onChange={list.setQ}
+                                    placeholder={s.search(kindWord(kind))}
+                                />
+                                <Choice
+                                    label={s.filterAll}
+                                    options={[
+                                        { key: "all", label: s.filterAll },
+                                        {
+                                            key: "attention",
+                                            label: formatParts([
+                                                s.filterAttention,
+                                                String(list.counts.attention),
+                                            ]),
+                                        },
+                                        {
+                                            key: "ending",
+                                            label: formatParts([
+                                                s.filterEnding,
+                                                String(list.counts.ending),
+                                            ]),
+                                        },
+                                    ]}
+                                    value={list.filter}
+                                    onChange={list.setFilter}
                                 />
                             </div>
-                        </div>
-                    ) : (
-                        <div className="flex min-h-0 flex-1">
-                            <aside className="flex w-80 shrink-0 flex-col border-r border-line xl:w-96">
-                                <div className="space-y-3 border-b border-line-soft p-4">
-                                    <SearchField
-                                        value={list.q}
-                                        onChange={list.setQ}
-                                        placeholder={s.search(kindWord(kind))}
-                                    />
-                                    <Choice
-                                        label={s.filterAll}
-                                        options={[
-                                            { key: "all", label: s.filterAll },
-                                            {
-                                                key: "attention",
-                                                label: formatParts([
-                                                    s.filterAttention,
-                                                    String(list.counts.attention),
-                                                ]),
-                                            },
-                                            {
-                                                key: "ending",
-                                                label: formatParts([
-                                                    s.filterEnding,
-                                                    String(list.counts.ending),
-                                                ]),
-                                            },
-                                        ]}
-                                        value={list.filter}
-                                        onChange={list.setFilter}
-                                    />
-                                </div>
-                                <nav
-                                    aria-label={s.listTitle}
-                                    className="min-h-0 flex-1 overflow-y-auto"
-                                >
-                                    {list.rows.length === 0 ? (
-                                        <div className="p-5">
-                                            <Empty message={s.emptySearch} />
-                                        </div>
-                                    ) : (
-                                        <div className="divide-y divide-line-soft">
-                                            {list.rows.map((r) => (
-                                                <ListRow
-                                                    key={r.id}
-                                                    selected={r.id === openId}
-                                                    leading={
-                                                        <span
-                                                            aria-hidden
-                                                            className="h-9 w-1 shrink-0 rounded-full bg-accent"
-                                                            style={
-                                                                r.serviceColor !== null
-                                                                    ? {
-                                                                          backgroundColor:
-                                                                              r.serviceColor,
-                                                                      }
-                                                                    : undefined
-                                                            }
-                                                        />
-                                                    }
-                                                    title={formatParts([
-                                                        r.subjectName,
-                                                        r.clientName,
-                                                    ])}
-                                                    detail={formatParts([r.pattern, r.nextLabel])}
-                                                    meta={
-                                                        r.attention > 0 ? (
-                                                            <Badge
-                                                                label={s.needsDecision(r.attention)}
-                                                                intent="danger"
-                                                            />
-                                                        ) : r.ending ? (
-                                                            <Badge
-                                                                label={s.endingSoon}
-                                                                intent="warning"
-                                                            />
-                                                        ) : (
-                                                            r.progress
-                                                        )
-                                                    }
-                                                    onPress={() => {
-                                                        setPicked(r.id);
-                                                    }}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
-                                </nav>
-                            </aside>
-                            <div className="min-w-0 flex-1 overflow-y-auto">
-                                {openId === null ? (
-                                    <div className="flex h-full items-center justify-center">
-                                        <Empty message={s.selectSeries} />
+                            <nav
+                                aria-label={s.listTitle}
+                                className="min-h-0 flex-1 overflow-y-auto"
+                            >
+                                {list.rows.length === 0 ? (
+                                    <div className="p-5">
+                                        <Empty message={s.emptySearch} />
                                     </div>
                                 ) : (
-                                    <Record key={openId} id={openId} />
+                                    <div className="divide-y divide-line-soft">
+                                        {list.rows.map((r) => (
+                                            <ListRow
+                                                key={r.id}
+                                                selected={r.id === openId}
+                                                leading={
+                                                    <span
+                                                        aria-hidden
+                                                        className="h-9 w-1 shrink-0 rounded-full bg-accent"
+                                                        style={
+                                                            r.serviceColor !== null
+                                                                ? {
+                                                                      backgroundColor:
+                                                                          r.serviceColor,
+                                                                  }
+                                                                : undefined
+                                                        }
+                                                    />
+                                                }
+                                                title={formatParts([r.subjectName, r.clientName])}
+                                                detail={formatParts([r.pattern, r.nextLabel])}
+                                                meta={
+                                                    r.attention > 0 ? (
+                                                        <Badge
+                                                            label={s.needsDecision(r.attention)}
+                                                            intent="danger"
+                                                        />
+                                                    ) : r.ending ? (
+                                                        <Badge
+                                                            label={s.endingSoon}
+                                                            intent="warning"
+                                                        />
+                                                    ) : (
+                                                        r.progress
+                                                    )
+                                                }
+                                                onPress={() => {
+                                                    setPicked(r.id);
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
                                 )}
-                            </div>
+                            </nav>
+                        </aside>
+                        <div className="min-w-0 flex-1 overflow-y-auto">
+                            {openId === null ? (
+                                <div className="flex h-full items-center justify-center">
+                                    <Empty message={s.selectSeries} />
+                                </div>
+                            ) : (
+                                <Record key={openId} id={openId} />
+                            )}
                         </div>
-                    )}
-                </div>
-            </section>
+                    </div>
+                )}
+            </div>
+
             {composing ? (
                 <Modal
                     variant="drawer"
@@ -233,7 +227,7 @@ export function Recurrences() {
                     />
                 </Modal>
             ) : null}
-        </div>
+        </ScheduleFrame>
     );
 }
 

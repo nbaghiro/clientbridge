@@ -49,7 +49,8 @@ import {
     useWide,
 } from "../components/ScheduleGrid";
 import { ScheduleRail } from "../components/ScheduleRail";
-import { ScheduleViews } from "../components/ScheduleViews";
+import { FILL } from "../components/PageFrame";
+import { ScheduleFrame } from "../components/ScheduleViews";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { useLinkIntent } from "../lib/links";
@@ -164,16 +165,24 @@ export function Schedule() {
     );
 
     return (
-        <div className="flex h-full min-h-[600px]">
-            <section className="flex min-w-0 flex-1 flex-col p-5">
-                <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-card">
-                    <CalendarToolbar
-                        board={board}
-                        onNew={() => {
-                            openNew();
-                        }}
-                        leading={<ScheduleViews active="board" />}
-                    />
+        <ScheduleFrame
+            active="board"
+            actions={
+                <Button
+                    icon="plus"
+                    onPress={() => {
+                        openNew();
+                    }}
+                >
+                    {s.newBooking}
+                </Button>
+            }
+        >
+            <div
+                className={`flex ${FILL} overflow-hidden rounded-lg border border-line bg-surface shadow-card`}
+            >
+                <section className="relative flex min-w-0 flex-1 flex-col">
+                    <CalendarToolbar board={board} />
                     <DaySummaryBar summary={board.summary} waiting={waiting} />
                     <LaneHeads day={day} waiting={waiting} />
                     {day.closedNote !== null && !waiting ? (
@@ -342,14 +351,13 @@ export function Schedule() {
                             {s.moved(mover.last.label.replace(/\.$/, ""))}
                         </Toast>
                     ) : null}
-                </div>
-            </section>
-
-            {wide ? (
-                <aside className="flex w-[340px] shrink-0 flex-col border-l border-line bg-surface">
-                    {rail}
-                </aside>
-            ) : null}
+                </section>
+                {wide ? (
+                    <aside className="flex w-[320px] shrink-0 flex-col border-l border-line bg-surface">
+                        {rail}
+                    </aside>
+                ) : null}
+            </div>
 
             <Modal
                 flow
@@ -411,7 +419,7 @@ export function Schedule() {
                     </div>
                 </Modal>
             ) : null}
-        </div>
+        </ScheduleFrame>
     );
 }
 

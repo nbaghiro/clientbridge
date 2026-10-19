@@ -1,6 +1,9 @@
 import { strings } from "@clientbridge/app-core";
-import { Choice } from "@clientbridge/ui";
+import { PageHeader, Tabs } from "@clientbridge/ui";
+import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
+
+import { PageFrame } from "./PageFrame";
 
 const s = strings.bookings;
 
@@ -12,23 +15,37 @@ const PATH: Record<View, string> = {
     series: "/schedule/series",
 };
 
-/** Switches the Schedule page between the day board, class rosters and repeat visits. */
-export function ScheduleViews({ active }: { active: View }) {
+/** The Schedule page frame: its title, a tab for the day board, class rosters and repeat visits. */
+export function ScheduleFrame({
+    active,
+    actions,
+    children,
+}: {
+    active: View;
+    actions: ReactNode;
+    children: ReactNode;
+}) {
     const navigate = useNavigate();
     return (
-        <Choice
-            layout="segmented"
-            label={s.viewLabel}
-            options={[
-                { key: "board", label: s.viewBoard },
-                { key: "classes", label: s.viewClasses },
-                { key: "series", label: s.viewSeries },
-            ]}
-            value={active}
-            onChange={(key) => {
-                const done = navigate(PATH[key]);
-                if (done) done.catch(() => undefined);
-            }}
-        />
+        <PageFrame>
+            <PageHeader title={strings.navigation.schedule} actions={actions}>
+                <div className="border-b border-line">
+                    <Tabs
+                        label={s.viewLabel}
+                        items={[
+                            { key: "board", label: s.viewBoard },
+                            { key: "classes", label: s.viewClasses },
+                            { key: "series", label: s.viewSeries },
+                        ]}
+                        active={active}
+                        onSelect={(key) => {
+                            const done = navigate(PATH[key]);
+                            if (done) done.catch(() => undefined);
+                        }}
+                    />
+                </div>
+            </PageHeader>
+            <div className="mt-6">{children}</div>
+        </PageFrame>
     );
 }

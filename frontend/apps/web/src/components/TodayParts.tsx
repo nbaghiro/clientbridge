@@ -5,8 +5,6 @@ import {
     type TeamDay,
     type TodayActions,
     type TodayView,
-    formatMonthDay,
-    formatMoney,
     strings,
     useFlash,
     visitAction,
@@ -15,8 +13,6 @@ import {
     useSubjectKind,
     formatList,
     formatParts,
-    BUSINESS_CURRENCY,
-    useBusinessZone,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -378,41 +374,6 @@ export function TeamPanel({ team }: { team: TeamDay[] }) {
                 ))}
             </ul>
         </Panel>
-    );
-}
-
-export function FilingCard({
-    setAsideCents,
-    filingDue,
-    filingDays,
-}: {
-    setAsideCents: number;
-    filingDue: Date | null;
-    filingDays: number | null;
-}) {
-    const zone = useBusinessZone();
-    return (
-        <div className="rounded-lg border border-line bg-surface p-4 shadow-card">
-            <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-medium text-muted">{t.setAside}</p>
-                {filingDue === null ? null : (
-                    <StatusPill
-                        status={t.filingShort(formatMonthDay(filingDue, zone))}
-                        intent={filingDays !== null && filingDays <= 14 ? "warning" : "neutral"}
-                    />
-                )}
-            </div>
-            <p className="mt-1 font-display text-2xl font-bold tabular-nums text-ink">
-                {formatMoney(setAsideCents, BUSINESS_CURRENCY)}
-            </p>
-            <p className="mt-0.5 text-xs text-muted">
-                {filingDue === null || filingDays === null
-                    ? t.notRegistered
-                    : filingDays < 0
-                      ? t.filingLate(formatMonthDay(filingDue, zone))
-                      : t.filing(formatMonthDay(filingDue, zone), filingDays)}
-            </p>
-        </div>
     );
 }
 

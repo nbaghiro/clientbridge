@@ -28,8 +28,8 @@ import {
 import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
 import { useState } from "react";
 
-import { ScheduleHeader } from "../components/ScheduleGrid";
-import { ScheduleViews } from "../components/ScheduleViews";
+import { FILL } from "../components/PageFrame";
+import { ScheduleFrame } from "../components/ScheduleViews";
 import { SummaryStrip } from "../components/SummaryStrip";
 import { api } from "../lib/api";
 import { useOpenLink } from "../lib/links";
@@ -45,102 +45,105 @@ export function Classes() {
     const days = groupByDay(board.sessions);
 
     return (
-        <div className="flex h-full min-h-[600px]">
-            <section className="flex min-w-0 flex-1 flex-col p-5">
-                <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-card">
-                    <ScheduleHeader
-                        views={<ScheduleViews active="classes" />}
-                        onNew={() => {
-                            open("booking");
-                        }}
-                    >
-                        <h1 className="truncate font-display text-lg font-bold text-ink">
-                            {s.title}
-                        </h1>
-                    </ScheduleHeader>
-                    {board.load.hasData && board.sessions.length === 0 ? null : (
-                        <SummaryStrip items={board.summary} />
-                    )}
-                    {sent !== null ? (
-                        <Notice tone="success" banner className="rounded-none">
-                            {sent}
-                        </Notice>
-                    ) : null}
-                    {board.load.state === "loading" ? (
-                        <div className="min-h-0 flex-1 p-5">
-                            <Skeleton variant="row" count={4} label={s.loading} />
-                        </div>
-                    ) : board.load.state === "error" ? (
-                        <div className="min-h-0 flex-1 p-5">
-                            <LoadFailed
-                                message={s.loadError}
-                                onRetry={board.load.retry}
-                                retrying={board.load.retrying}
+        <ScheduleFrame
+            active="classes"
+            actions={
+                <Button
+                    icon="plus"
+                    onPress={() => {
+                        open("booking");
+                    }}
+                >
+                    {strings.bookings.newBooking}
+                </Button>
+            }
+        >
+            <div
+                className={`relative flex ${FILL} flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-card`}
+            >
+                {board.load.hasData && board.sessions.length === 0 ? null : (
+                    <SummaryStrip items={board.summary} />
+                )}
+                {sent !== null ? (
+                    <Notice tone="success" banner className="rounded-none">
+                        {sent}
+                    </Notice>
+                ) : null}
+                {board.load.state === "loading" ? (
+                    <div className="min-h-0 flex-1 p-5">
+                        <Skeleton variant="row" count={4} label={s.loading} />
+                    </div>
+                ) : board.load.state === "error" ? (
+                    <div className="min-h-0 flex-1 p-5">
+                        <LoadFailed
+                            message={s.loadError}
+                            onRetry={board.load.retry}
+                            retrying={board.load.retrying}
+                        />
+                    </div>
+                ) : board.sessions.length === 0 ? (
+                    <div className="flex min-h-0 flex-1 items-start justify-center bg-bg/40 pt-24">
+                        <div className="w-[360px] rounded-lg bg-surface shadow-card">
+                            <Empty
+                                variant="card"
+                                icon="users"
+                                message={s.emptyClasses}
+                                body={s.emptyClassesBody}
+                                actions={
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onPress={() => {
+                                            open("catalog");
+                                        }}
+                                    >
+                                        {strings.pos.desk.addCatalog}
+                                    </Button>
+                                }
                             />
                         </div>
-                    ) : board.sessions.length === 0 ? (
-                        <div className="flex min-h-0 flex-1 items-start justify-center bg-bg/40 pt-24">
-                            <div className="w-[360px] rounded-lg bg-surface shadow-card">
-                                <Empty
-                                    variant="card"
-                                    icon="users"
-                                    message={s.emptyClasses}
-                                    body={s.emptyClassesBody}
-                                    actions={
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
+                    </div>
+                ) : (
+                    <div className="flex min-h-0 flex-1">
+                        <nav
+                            aria-label={s.upcoming}
+                            className="w-72 shrink-0 overflow-y-auto border-r border-line"
+                        >
+                            {days.map((group) => (
+                                <div key={group.day}>
+                                    <h2 className="sticky top-0 z-10 border-b border-line-soft bg-head px-4 py-1.5 text-xs font-semibold text-muted">
+                                        {group.day}
+                                    </h2>
+                                    {group.sessions.map((x) => (
+                                        <SessionRow
+                                            key={x.slotId}
+                                            x={x}
+                                            on={x.slotId === board.selected}
                                             onPress={() => {
-                                                open("catalog");
+                                                board.select(x.slotId);
                                             }}
-                                        >
-                                            {strings.pos.desk.addCatalog}
-                                        </Button>
-                                    }
+                                        />
+                                    ))}
+                                </div>
+                            ))}
+                        </nav>
+                        <div className="min-w-0 flex-1 overflow-y-auto">
+                            {roster === null ? (
+                                <Empty message={s.emptyRoster} />
+                            ) : (
+                                <RosterPanel
+                                    roster={roster}
+                                    onMessage={() => {
+                                        setSent(null);
+                                        setMessaging(true);
+                                    }}
                                 />
-                            </div>
+                            )}
                         </div>
-                    ) : (
-                        <div className="flex min-h-0 flex-1">
-                            <nav
-                                aria-label={s.upcoming}
-                                className="w-72 shrink-0 overflow-y-auto border-r border-line"
-                            >
-                                {days.map((group) => (
-                                    <div key={group.day}>
-                                        <h2 className="sticky top-0 z-10 border-b border-line-soft bg-head px-4 py-1.5 text-xs font-semibold text-muted">
-                                            {group.day}
-                                        </h2>
-                                        {group.sessions.map((x) => (
-                                            <SessionRow
-                                                key={x.slotId}
-                                                x={x}
-                                                on={x.slotId === board.selected}
-                                                onPress={() => {
-                                                    board.select(x.slotId);
-                                                }}
-                                            />
-                                        ))}
-                                    </div>
-                                ))}
-                            </nav>
-                            <div className="min-w-0 flex-1 overflow-y-auto">
-                                {roster === null ? (
-                                    <Empty message={s.emptyRoster} />
-                                ) : (
-                                    <RosterPanel
-                                        roster={roster}
-                                        onMessage={() => {
-                                            setSent(null);
-                                            setMessaging(true);
-                                        }}
-                                    />
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </section>
+                    </div>
+                )}
+            </div>
+
             {messaging && roster !== null ? (
                 <Modal
                     size="sm"
@@ -165,7 +168,7 @@ export function Classes() {
                     />
                 </Modal>
             ) : null}
-        </div>
+        </ScheduleFrame>
     );
 }
 

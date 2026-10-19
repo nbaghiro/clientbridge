@@ -279,12 +279,12 @@ test("owner: schedule, booking panel, classes and repeat visits", async ({ page 
 
     await walk.step("schedule views", async () => {
         await navigate(page, "/schedule");
-        const views = main.getByRole("group", { name: b.viewLabel });
-        await views.getByRole("button", { name: b.viewClasses }).click();
+        const views = main.getByRole("tablist", { name: b.viewLabel });
+        await views.getByRole("tab", { name: b.viewClasses }).click();
         await expect(page).toHaveURL(/\/schedule\/classes$/);
-        await views.getByRole("button", { name: b.viewSeries }).click();
+        await views.getByRole("tab", { name: b.viewSeries }).click();
         await expect(page).toHaveURL(/\/schedule\/series$/);
-        await views.getByRole("button", { name: b.viewBoard }).click();
+        await views.getByRole("tab", { name: b.viewBoard }).click();
         await expect(page).toHaveURL(/\/schedule$/);
     });
 
@@ -386,7 +386,7 @@ test("owner: schedule, booking panel, classes and repeat visits", async ({ page 
     await walk.step("classes: roster and message everyone", async () => {
         await navigate(page, "/schedule/classes");
         await expect(
-            main.getByRole("heading", { name: strings.classes.title, exact: true }),
+            main.getByRole("tab", { name: strings.bookings.viewClasses, selected: true }),
         ).toBeVisible();
         await main.getByRole("button", { name: strings.classes.messageClass }).click();
         await expect(page.getByRole("dialog")).toBeVisible();
@@ -996,13 +996,13 @@ test("staff: today, schedule and clients", async ({ page }) => {
     });
 
     await walk.step("schedule: classes and repeat visits", async () => {
-        const views = main.getByRole("group", { name: b.viewLabel });
-        await views.getByRole("button", { name: b.viewClasses }).click();
+        const views = main.getByRole("tablist", { name: b.viewLabel });
+        await views.getByRole("tab", { name: b.viewClasses }).click();
         await expect(page).toHaveURL(/\/schedule\/classes$/);
         await expect(
-            main.getByRole("heading", { name: strings.classes.title, exact: true }),
+            main.getByRole("tab", { name: strings.bookings.viewClasses, selected: true }),
         ).toBeVisible();
-        await views.getByRole("button", { name: b.viewSeries }).click();
+        await views.getByRole("tab", { name: b.viewSeries }).click();
         await expect(page).toHaveURL(/\/schedule\/series$/);
         await openAndClose(page, exactly(strings.recurrences.newSeries));
     });

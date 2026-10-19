@@ -33,7 +33,7 @@ import {
 import { useState } from "react";
 
 import { Loaded } from "../components/Loaded";
-import { INBOX_FRAME } from "../components/ThreadDetails";
+import { FILL } from "../components/PageFrame";
 import { SendToClientDialog } from "../components/SendToClient";
 import { api } from "../lib/api";
 
@@ -65,7 +65,7 @@ export function Forms() {
 
     return (
         <div
-            className={`flex ${INBOX_FRAME} overflow-hidden rounded-lg border border-line bg-surface shadow-card`}
+            className={`flex ${FILL} overflow-hidden rounded-lg border border-line bg-surface shadow-card`}
         >
             <aside className="flex w-[280px] shrink-0 flex-col border-r border-line">
                 <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">

@@ -134,208 +134,216 @@ function ClientList() {
         ) : null;
 
     return (
-        <div className="flex h-full min-h-[600px]">
-            <section className="min-w-0 flex-1 overflow-y-auto px-8 py-8">
-                <ListPage<ClientListRow, ClientSegment>
-                    title={strings.clients.title}
-                    summary={
-                        dir.load.hasData && !none
-                            ? strings.clients.edit.listSummary(
-                                  dir.counts.active,
-                                  dir.counts.archived,
-                              )
-                            : undefined
-                    }
-                    action={
-                        none
-                            ? undefined
-                            : {
-                                  label: strings.clients.add,
-                                  onPress: add,
-                              }
-                    }
-                    accessory={
-                        dir.load.ready && !none ? (
-                            <Button
-                                variant={selecting ? "outline" : "quiet"}
-                                icon="check"
-                                onPress={() => {
-                                    setSelecting(!selecting);
-                                    sel.clear();
-                                }}
-                            >
-                                {selecting ? strings.common.done : t.select}
-                            </Button>
-                        ) : undefined
-                    }
-                    segments={
-                        dir.load.ready && !none
-                            ? {
-                                  items: [
-                                      {
-                                          key: "active",
-                                          label: strings.clients.edit.segmentActive(
-                                              dir.counts.active,
-                                          ),
-                                      },
-                                      {
-                                          key: "archived",
-                                          label: strings.clients.edit.segmentArchived(
-                                              dir.counts.archived,
-                                          ),
-                                      },
-                                  ],
-                                  active: dir.segment,
-                                  onSelect: dir.setSegment,
-                              }
-                            : undefined
-                    }
-                    search={
-                        dir.load.ready && !none
-                            ? {
-                                  value: dir.q,
-                                  onChange: dir.setQ,
-                                  placeholder: r.searchPlaceholder(kindWord(kind)),
-                              }
-                            : undefined
-                    }
-                    banner={
-                        sel.done !== null ? (
-                            <Notice tone="success" banner>
-                                {sel.done}
-                            </Notice>
-                        ) : undefined
-                    }
-                    state={
-                        dir.load.state === "loading" || dir.load.state === "error"
-                            ? dir.load.state
-                            : undefined
-                    }
-                    onRetry={dir.load.retry}
-                    head={
-                        none ? undefined : (
+        <PageFrame>
+            <div className="flex items-start gap-6">
+                <section className="min-w-0 flex-1">
+                    <ListPage<ClientListRow, ClientSegment>
+                        title={strings.clients.title}
+                        summary={
+                            dir.load.hasData && !none
+                                ? strings.clients.edit.listSummary(
+                                      dir.counts.active,
+                                      dir.counts.archived,
+                                  )
+                                : undefined
+                        }
+                        action={
+                            none
+                                ? undefined
+                                : {
+                                      label: strings.clients.add,
+                                      onPress: add,
+                                  }
+                        }
+                        accessory={
+                            dir.load.ready && !none ? (
+                                <Button
+                                    variant={selecting ? "outline" : "quiet"}
+                                    icon="check"
+                                    onPress={() => {
+                                        setSelecting(!selecting);
+                                        sel.clear();
+                                    }}
+                                >
+                                    {selecting ? strings.common.done : t.select}
+                                </Button>
+                            ) : undefined
+                        }
+                        segments={
+                            dir.load.ready && !none
+                                ? {
+                                      items: [
+                                          {
+                                              key: "active",
+                                              label: strings.clients.edit.segmentActive(
+                                                  dir.counts.active,
+                                              ),
+                                          },
+                                          {
+                                              key: "archived",
+                                              label: strings.clients.edit.segmentArchived(
+                                                  dir.counts.archived,
+                                              ),
+                                          },
+                                      ],
+                                      active: dir.segment,
+                                      onSelect: dir.setSegment,
+                                  }
+                                : undefined
+                        }
+                        search={
+                            dir.load.ready && !none
+                                ? {
+                                      value: dir.q,
+                                      onChange: dir.setQ,
+                                      placeholder: r.searchPlaceholder(kindWord(kind)),
+                                  }
+                                : undefined
+                        }
+                        banner={
+                            sel.done !== null ? (
+                                <Notice tone="success" banner>
+                                    {sel.done}
+                                </Notice>
+                            ) : undefined
+                        }
+                        state={
+                            dir.load.state === "loading" || dir.load.state === "error"
+                                ? dir.load.state
+                                : undefined
+                        }
+                        onRetry={dir.load.retry}
+                        head={
+                            none ? undefined : (
+                                <div className={grid}>
+                                    {selecting ? (
+                                        <Checkbox
+                                            label={t.selectAll}
+                                            hideLabel
+                                            value={allOn}
+                                            mixed={!allOn && sel.selected.length > 0}
+                                            onChange={() => {
+                                                if (sel.selected.length > 0) sel.clear();
+                                                else sel.setAll(ids);
+                                            }}
+                                        />
+                                    ) : null}
+                                    <span>{r.colClient}</span>
+                                    {kind !== null ? (
+                                        <span>{strings.subjects.many(kind)}</span>
+                                    ) : null}
+                                    <span>{selecting ? r.colTags : r.colNext}</span>
+                                    {manager && !selecting ? (
+                                        <span className="text-right">{r.colBalance}</span>
+                                    ) : null}
+                                </div>
+                            )
+                        }
+                        rows={dir.rows}
+                        rowKey={(c) => c.id}
+                        onRowPress={
+                            selecting
+                                ? undefined
+                                : (c) => {
+                                      setOpenId(c.id);
+                                  }
+                        }
+                        selectedKey={openId ?? undefined}
+                        empty={
+                            dir.load.state === "empty"
+                                ? {
+                                      icon: "clients",
+                                      message: r.emptyTitle,
+                                      body: r.emptyBody,
+                                      actions: (
+                                          <Button
+                                              onPress={() => {
+                                                  add();
+                                              }}
+                                          >
+                                              {strings.clients.add}
+                                          </Button>
+                                      ),
+                                  }
+                                : dir.segment === "archived" && dir.q === ""
+                                  ? strings.clients.edit.emptyArchived
+                                  : strings.clients.emptySearch
+                        }
+                        renderRow={(c) => (
                             <div className={grid}>
                                 {selecting ? (
                                     <Checkbox
-                                        label={t.selectAll}
+                                        label={c.name}
                                         hideLabel
-                                        value={allOn}
-                                        mixed={!allOn && sel.selected.length > 0}
+                                        value={sel.isSelected(c.id)}
                                         onChange={() => {
-                                            if (sel.selected.length > 0) sel.clear();
-                                            else sel.setAll(ids);
+                                            sel.toggle(c.id);
                                         }}
                                     />
                                 ) : null}
-                                <span>{r.colClient}</span>
-                                {kind !== null ? <span>{strings.subjects.many(kind)}</span> : null}
-                                <span>{selecting ? r.colTags : r.colNext}</span>
-                                {manager && !selecting ? (
-                                    <span className="text-right">{r.colBalance}</span>
-                                ) : null}
-                            </div>
-                        )
-                    }
-                    rows={dir.rows}
-                    rowKey={(c) => c.id}
-                    onRowPress={
-                        selecting
-                            ? undefined
-                            : (c) => {
-                                  setOpenId(c.id);
-                              }
-                    }
-                    selectedKey={openId ?? undefined}
-                    empty={
-                        dir.load.state === "empty"
-                            ? {
-                                  icon: "clients",
-                                  message: r.emptyTitle,
-                                  body: r.emptyBody,
-                                  actions: (
-                                      <Button
-                                          onPress={() => {
-                                              add();
-                                          }}
-                                      >
-                                          {strings.clients.add}
-                                      </Button>
-                                  ),
-                              }
-                            : dir.segment === "archived" && dir.q === ""
-                              ? strings.clients.edit.emptyArchived
-                              : strings.clients.emptySearch
-                    }
-                    renderRow={(c) => (
-                        <div className={grid}>
-                            {selecting ? (
-                                <Checkbox
-                                    label={c.name}
-                                    hideLabel
-                                    value={sel.isSelected(c.id)}
-                                    onChange={() => {
-                                        sel.toggle(c.id);
-                                    }}
-                                />
-                            ) : null}
-                            <div className="flex min-w-0 items-center gap-3">
-                                <Avatar name={c.name} />
-                                <div className="min-w-0">
-                                    <div className="truncate font-medium text-ink">{c.name}</div>
-                                    <div className="truncate text-xs text-muted">
-                                        {c.phoneLabel || (c.email ?? strings.clients.dash)}
+                                <div className="flex min-w-0 items-center gap-3">
+                                    <Avatar name={c.name} />
+                                    <div className="min-w-0">
+                                        <div className="truncate font-medium text-ink">
+                                            {c.name}
+                                        </div>
+                                        <div className="truncate text-xs text-muted">
+                                            {c.phoneLabel || (c.email ?? strings.clients.dash)}
+                                        </div>
                                     </div>
                                 </div>
+                                {kind !== null ? (
+                                    <span className="truncate text-sm text-ink-soft">
+                                        {c.subjects || strings.clients.dash}
+                                    </span>
+                                ) : null}
+                                {selecting ? (
+                                    <span className="flex min-w-0 flex-wrap gap-1">
+                                        {c.tags.map((tag) => (
+                                            <Badge key={tag} label={tag} intent="neutral" />
+                                        ))}
+                                    </span>
+                                ) : (
+                                    <span
+                                        className={
+                                            c.next === null
+                                                ? "text-sm text-muted"
+                                                : "text-sm text-ink-soft"
+                                        }
+                                    >
+                                        {nextVisitLabel(c.next, zone)}
+                                    </span>
+                                )}
+                                {manager && !selecting ? (
+                                    <span className="text-right text-sm">
+                                        {c.balanceCents > 0 ? (
+                                            <Money
+                                                currency={BUSINESS_CURRENCY}
+                                                cents={c.balanceCents}
+                                                tone="danger"
+                                            />
+                                        ) : (
+                                            <span className="text-muted">
+                                                {strings.clients.dash}
+                                            </span>
+                                        )}
+                                    </span>
+                                ) : null}
                             </div>
-                            {kind !== null ? (
-                                <span className="truncate text-sm text-ink-soft">
-                                    {c.subjects || strings.clients.dash}
-                                </span>
-                            ) : null}
-                            {selecting ? (
-                                <span className="flex min-w-0 flex-wrap gap-1">
-                                    {c.tags.map((tag) => (
-                                        <Badge key={tag} label={tag} intent="neutral" />
-                                    ))}
-                                </span>
-                            ) : (
-                                <span
-                                    className={
-                                        c.next === null
-                                            ? "text-sm text-muted"
-                                            : "text-sm text-ink-soft"
-                                    }
-                                >
-                                    {nextVisitLabel(c.next, zone)}
-                                </span>
-                            )}
-                            {manager && !selecting ? (
-                                <span className="text-right text-sm">
-                                    {c.balanceCents > 0 ? (
-                                        <Money
-                                            currency={BUSINESS_CURRENCY}
-                                            cents={c.balanceCents}
-                                            tone="danger"
-                                        />
-                                    ) : (
-                                        <span className="text-muted">{strings.clients.dash}</span>
-                                    )}
-                                </span>
-                            ) : null}
-                        </div>
-                    )}
-                />
-            </section>
-            {wide && record !== null ? (
-                <aside
-                    aria-label={r.pane}
-                    className="flex w-[380px] shrink-0 flex-col border-l border-line bg-surface xl:w-[420px]"
-                >
-                    {record}
-                </aside>
-            ) : (
-                record
-            )}
+                        )}
+                    />
+                </section>
+                {wide && record !== null ? (
+                    <aside
+                        aria-label={r.pane}
+                        className="sticky top-8 flex h-[calc(100vh-4rem)] w-[380px] shrink-0 flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-card xl:w-[420px]"
+                    >
+                        {record}
+                    </aside>
+                ) : (
+                    record
+                )}
+            </div>
 
             {selecting && sel.selected.length > 0 ? (
                 <SelectionBar
@@ -355,7 +363,7 @@ function ClientList() {
                     </Notice>
                 </div>
             ) : null}
-        </div>
+        </PageFrame>
     );
 }
 

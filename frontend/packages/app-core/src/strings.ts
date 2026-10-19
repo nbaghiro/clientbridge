@@ -1143,7 +1143,6 @@ interface Strings {
         readonly selectSeries: string;
     };
     readonly classes: {
-        readonly title: string;
         readonly subtitle: string;
         readonly upcoming: string;
         readonly summaryRange: string;
@@ -3081,11 +3080,6 @@ interface Strings {
         readonly collectedHint: (n: number) => string;
         readonly awaiting: string;
         readonly awaitingHint: (n: number) => string;
-        readonly setAside: string;
-        readonly filing: (due: string, days: number) => string;
-        readonly filingLate: (due: string) => string;
-        readonly filingShort: (due: string) => string;
-        readonly notRegistered: string;
         readonly schedule: string;
         readonly openSchedule: string;
         readonly needsYou: string;
