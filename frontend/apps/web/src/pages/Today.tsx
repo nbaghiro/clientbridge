@@ -48,6 +48,7 @@ import { config } from "../config";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
+import { PageFrame } from "../components/PageFrame";
 
 const t = strings.today;
 
@@ -135,7 +136,7 @@ function OwnerTodayPage() {
     const loading = load.state === "loading";
 
     return (
-        <div className="mx-auto max-w-6xl px-8 py-8">
+        <PageFrame>
             <Header view={view}>
                 <div className="flex gap-2">
                     <Button
@@ -240,7 +241,7 @@ function OwnerTodayPage() {
                     )}
                 </>
             )}
-        </div>
+        </PageFrame>
     );
 }
 
@@ -253,7 +254,7 @@ function StaffTodayPage() {
     const loading = load.state === "loading";
 
     return (
-        <div className="mx-auto max-w-6xl px-8 py-8">
+        <PageFrame>
             <Header view={view} />
             {load.hasData ? (
                 <p className="mt-1 text-sm text-muted">{t.staff.subtitle(view.agenda.length)}</p>
@@ -411,7 +412,7 @@ function StaffTodayPage() {
                     </div>
                 </div>
             )}
-        </div>
+        </PageFrame>
     );
 }
 

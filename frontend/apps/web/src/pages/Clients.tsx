@@ -47,6 +47,7 @@ import { useWide } from "../components/ScheduleGrid";
 import { api } from "../lib/api";
 import { useRole, useViewer } from "../lib/auth";
 import { useLinkIntent, useOpenLink } from "../lib/links";
+import { PageFrame } from "../components/PageFrame";
 
 const r = strings.clients.record;
 const t = strings.clients.tidy;
@@ -534,7 +535,7 @@ function ClientPage({ clientId, view }: { clientId: string; view: View }) {
     const c = record?.client;
 
     return (
-        <div className="mx-auto max-w-6xl px-8 py-8">
+        <PageFrame>
             <Link
                 to={`/clients?open=${encodeURIComponent(clientId)}`}
                 className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline"
@@ -616,6 +617,6 @@ function ClientPage({ clientId, view }: { clientId: string; view: View }) {
                     </div>
                 </>
             )}
-        </div>
+        </PageFrame>
     );
 }

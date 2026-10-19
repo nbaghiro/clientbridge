@@ -48,6 +48,7 @@ import { Broadcasts } from "./Broadcasts";
 import { Contracts } from "./Contracts";
 import { Forms } from "./Forms";
 import { Reviews } from "./Reviews";
+import { PageFrame } from "../components/PageFrame";
 
 const s = strings.messaging;
 const CHANNELS: Channel[] = ["sms", "email"];
@@ -68,7 +69,7 @@ export function Inbox() {
     const area = segments.find((x) => x.key === segment);
 
     return (
-        <div className="mx-auto max-w-6xl px-8 py-8">
+        <PageFrame>
             <PageHeader title={s.title}>
                 {segments.length > 1 ? (
                     <div className="border-b border-line">
@@ -89,7 +90,7 @@ export function Inbox() {
                     <Contracts />
                 )}
             </div>
-        </div>
+        </PageFrame>
     );
 }
 

@@ -15,6 +15,7 @@ import { Hours } from "./Hours";
 import { Plans } from "./Plans";
 import { Taxes } from "./Taxes";
 import { Team } from "./Team";
+import { PageFrame } from "../components/PageFrame";
 
 const SETUP_SLUGS: Record<SetupSectionKey, string> = {
     start: "start",
@@ -69,7 +70,7 @@ export function Setup() {
     if (current === undefined) return <Navigate to={`/setup/${SETUP_SLUGS[first.key]}`} replace />;
 
     return (
-        <div className="mx-auto flex max-w-6xl gap-8 px-8 py-8">
+        <PageFrame className="flex gap-8">
             <nav className="w-52 shrink-0">
                 <h1 className="mb-3 px-3 font-display text-lg font-bold text-ink">
                     {strings.navigation.setup}
@@ -96,6 +97,6 @@ export function Setup() {
                 <h2 className="mb-1 font-display text-2xl font-bold text-ink">{current.label}</h2>
                 {sectionBody(current.key)}
             </div>
-        </div>
+        </PageFrame>
     );
 }

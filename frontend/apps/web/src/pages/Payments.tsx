@@ -12,6 +12,7 @@ import { Payouts } from "./Payouts";
 import { Refunds } from "./Refunds";
 import { Remittances } from "./Remittances";
 import { Reports } from "./Reports";
+import { PageFrame } from "../components/PageFrame";
 
 const PAYMENTS_SLUGS: Record<PaymentsTabKey, string> = {
     invoices: "invoices",
@@ -60,7 +61,7 @@ export function Payments() {
     }
 
     return (
-        <div className="mx-auto max-w-6xl px-8 py-8">
+        <PageFrame>
             <PageHeader title={strings.navigation.payments}>
                 <div className="border-b border-line">
                     <Tabs
@@ -74,6 +75,6 @@ export function Payments() {
                 </div>
             </PageHeader>
             <div className="mt-6">{tabBody(current.key)}</div>
-        </div>
+        </PageFrame>
     );
 }
