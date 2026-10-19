@@ -38,22 +38,49 @@ export function Payouts() {
     const connected = setup.steps.find((x) => x.key === "stripe")?.done ?? false;
     const sel = p.selected;
     if (account.props !== null) return <PaymentAccount {...account.props} />;
+    const controls = (
+        <div className="flex flex-wrap gap-2">
+            <Button
+                disabled={!account.ready}
+                variant="outline"
+                icon="bank"
+                onPress={() => {
+                    account.open("account");
+                }}
+            >
+                {strings.paymentAccount.manage}
+            </Button>
+            <Button
+                disabled={!account.ready}
+                variant="outline"
+                onPress={() => {
+                    account.open("payouts");
+                }}
+            >
+                {strings.paymentAccount.viewPayouts}
+            </Button>
+        </div>
+    );
 
     if (p.load.state === "loading")
         return (
             <div className="space-y-6">
+                {controls}
                 <Skeleton variant="stat" count={3} columns={3} label={s.loading} />
                 <Skeleton variant="row" count={5} label={s.loading} />
             </div>
         );
     if (p.load.state === "error")
         return (
-            <LoadFailed
-                variant="card"
-                message={s.loadError}
-                onRetry={p.load.retry}
-                retrying={p.load.retrying}
-            />
+            <div className="space-y-6">
+                {controls}
+                <LoadFailed
+                    variant="card"
+                    message={s.loadError}
+                    onRetry={p.load.retry}
+                    retrying={p.load.retrying}
+                />
+            </div>
         );
     if (p.load.state === "empty" && !connected)
         return (
@@ -81,53 +108,13 @@ export function Payouts() {
                 icon="bank"
                 message={s.noPayouts}
                 body={s.noPayoutsBody}
-                actions={
-                    <div className="flex flex-wrap gap-2">
-                        <Button
-                            disabled={!account.ready}
-                            onPress={() => {
-                                account.open("account");
-                            }}
-                        >
-                            {strings.paymentAccount.manage}
-                        </Button>
-                        <Button
-                            disabled={!account.ready}
-                            variant="outline"
-                            onPress={() => {
-                                account.open("payouts");
-                            }}
-                        >
-                            {strings.paymentAccount.viewPayouts}
-                        </Button>
-                    </div>
-                }
+                actions={controls}
             />
         );
 
     return (
         <div>
-            <div className="mb-5 flex flex-wrap gap-2">
-                <Button
-                    disabled={!account.ready}
-                    variant="outline"
-                    icon="bank"
-                    onPress={() => {
-                        account.open("account");
-                    }}
-                >
-                    {strings.paymentAccount.manage}
-                </Button>
-                <Button
-                    disabled={!account.ready}
-                    variant="outline"
-                    onPress={() => {
-                        account.open("payouts");
-                    }}
-                >
-                    {strings.paymentAccount.viewPayouts}
-                </Button>
-            </div>
+            <div className="mb-5">{controls}</div>
             <p className="text-sm text-muted">{s.subtitle}</p>
             <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <Stat
@@ -189,6 +176,16 @@ export function Payouts() {
                                 ))}
                             </div>
                         )}
+                        {p.previous !== null ? (
+                            <Button variant="outline" onPress={p.previous}>
+                                {s.historyPrevious}
+                            </Button>
+                        ) : null}
+                        {p.next !== null ? (
+                            <Button variant="outline" onPress={p.next}>
+                                {s.historyNext}
+                            </Button>
+                        ) : null}
                     </Panel>
                 </div>
 

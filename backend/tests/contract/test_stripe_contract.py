@@ -201,7 +201,9 @@ async def test_lists_balance_transactions(contract_gateway: StripeGateway) -> No
 
 
 async def test_lists_payouts(contract_gateway: StripeGateway) -> None:
-    assert await contract_gateway.list_payouts(ACCT)
+    page = await contract_gateway.list_payouts(ACCT)
+    assert page.payouts
+    assert all(isinstance(row.get("id"), str) for row in page.payouts)
 
 
 async def test_lists_events(contract_gateway: StripeGateway) -> None:

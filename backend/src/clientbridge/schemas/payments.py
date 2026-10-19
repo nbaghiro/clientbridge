@@ -51,6 +51,11 @@ class PayoutOut(BaseModel):
     status: Literal["pending", "in_transit", "paid", "failed", "canceled"]
 
 
+class PayoutsOut(BaseModel):
+    payouts: list[PayoutOut] = Field(default_factory=list)
+    next_cursor: str | None = None
+
+
 class PayoutTransactionOut(BaseModel):
     id: str
     source: str | None

@@ -6357,6 +6357,13 @@ export interface components {
              */
             occurred_at: string;
         };
+        /** PayoutsOut */
+        PayoutsOut: {
+            /** Payouts */
+            payouts?: components["schemas"]["PayoutOut"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
         /** PlanChoice */
         PlanChoice: {
             /**
@@ -12287,7 +12294,9 @@ export interface operations {
     };
     payouts_v1_connect_payouts_get: {
         parameters: {
-            query?: never;
+            query?: {
+                after?: string | null;
+            };
             header?: {
                 "x-business-id"?: string;
                 "x-expected-user"?: string;
@@ -12304,7 +12313,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PayoutOut"][];
+                    "application/json": components["schemas"]["PayoutsOut"];
                 };
             };
             /** @description Validation Error */

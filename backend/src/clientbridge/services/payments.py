@@ -6,7 +6,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime, time, timedelta
 from typing import TYPE_CHECKING, Literal
 
-from sqlalchemy import Integer, cast, func, select
+from sqlalchemy import BigInteger, Integer, cast, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -71,6 +71,7 @@ from clientbridge.schemas.payments import (
     PaymentSetupLinkOut,
     PayoutContentsOut,
     PayoutOut,
+    PayoutsOut,
     PayoutTransactionOut,
     PublicCredit,
     PublicPaymentSetup,
@@ -232,15 +233,15 @@ class PaymentService:
             pending_cents=pending,
         )
 
-    async def payouts(self) -> list[PayoutOut]:
+    async def payouts(self, after: str | None = None) -> PayoutsOut:
         self._assert_admin()
         business = await self._business()
         account = merchant_account(business)
         if account is None:
-            return []
-        rows = await self.gateway.list_payouts(account)
+            return PayoutsOut()
+        page = await self.gateway.list_payouts(account, after)
         try:
-            return [
+            payouts = [
                 PayoutOut.model_validate(
                     {
                         "id": row["id"],
@@ -250,9 +251,10 @@ class PaymentService:
                         "status": row["status"],
                     }
                 )
-                for row in rows
+                for row in page.payouts
                 if row.get("currency") == BUSINESS_CURRENCY.lower()
             ]
+            return PayoutsOut(payouts=payouts, next_cursor=page.next_cursor)
         except (KeyError, ValueError, OverflowError, OSError) as exc:
             raise AppError(
                 "invalid payout response", status_code=502, code="provider_unavailable"
@@ -1745,7 +1747,7 @@ async def _record_dispute(db: AsyncSession, data: dict[str, object]) -> str | No
     if _inquiry(data):
         return None  # no funds are withdrawn unless it escalates to a dispute
     payment = await _disputed_payment(db, data)
-    if payment is None or payment.dispute_status in ("won", "lost"):
+    if payment is None:
         return None
     amount = data.get("amount")
     txns = data.get("balance_transactions")
@@ -1763,6 +1765,8 @@ async def _record_dispute(db: AsyncSession, data: dict[str, object]) -> str | No
         amount=amount if isinstance(amount, int) else payment.amount_cents,
         fee=fee,
     )
+    if payment.dispute_status in ("won", "lost"):
+        return None
     _track_dispute(payment, data)
     reason = data.get("reason")
     payment.dispute_reason = reason if isinstance(reason, str) else None
@@ -1789,7 +1793,7 @@ def _track_dispute(payment: Payment, data: dict[str, object]) -> None:
 async def _update_dispute(db: AsyncSession, data: dict[str, object]) -> str | None:
     """Track the case; an inquiry escalated to a chargeback is booked now, as the funds leave."""
     payment = await _disputed_payment(db, data)
-    if payment is None or payment.dispute_status in ("won", "lost"):
+    if payment is None:
         return None
     first = payment.dispute_status is None
     recorded = await _record_dispute(db, data)
@@ -1805,8 +1809,7 @@ async def _close_dispute(db: AsyncSession, data: dict[str, object]) -> None:
     payment = await _disputed_payment(db, data)
     if payment is None:
         return
-    if payment.dispute_status not in ("won", "lost"):
-        await _record_dispute(db, data)
+    await _record_dispute(db, data)
     if payment.dispute_status is not None:
         _track_dispute(payment, data)
         await db.flush()
@@ -3269,10 +3272,19 @@ async def recover_stripe_source(
                 outcome = WebhookOutcome("payment_disputed", disputed)
         refs = [
             f"dispute:{source}",
-            f"dispute_fee:{source}",
             f"dispute:{source}:won",
-            f"dispute_fee:{source}:won",
             f"dispute:{source}:lost",
+            *list(
+                await db.scalars(
+                    scoped(Entry, business_id)
+                    .where(
+                        (Entry.ref == f"dispute_fee:{source}")
+                        | Entry.ref.startswith(f"dispute_fee:{source}:", autoescape=True)
+                    )
+                    .with_only_columns(Entry.ref)
+                    .distinct()
+                )
+            ),
         ]
     if outcome is not None:
         await _notify_recovery(db, outcome, occurred_at)
@@ -3498,6 +3510,46 @@ async def reconcile_stripe_transactions(
     return drifted
 
 
+async def _reconcile_balance(
+    db: AsyncSession, gateway: PaymentGateway, business_id: str, account_id: str
+) -> int:
+    latest = (
+        scoped(Audit, business_id)
+        .where(Audit.action == "ledger.transaction_drift", Audit.entity_id != "balance")
+        .order_by(Audit.entity_id, Audit.id.desc())
+        .distinct(Audit.entity_id)
+        .subquery()
+    )
+    resolved = (
+        scoped(Audit, business_id)
+        .where(Audit.action == "ledger.drift_resolved", Audit.entity_id == latest.c.id)
+        .exists()
+    )
+    explained = await db.scalar(
+        select(
+            func.coalesce(
+                func.sum(
+                    cast(latest.c.changes["stripe_cents"].astext, BigInteger)
+                    - cast(latest.c.changes["ledger_cents"].astext, BigInteger)
+                ),
+                0,
+            )
+        ).where(~resolved)
+    )
+    ours = await ledger.balance(
+        db, business_id, owner_type="business", owner_id=business_id, category="stripe"
+    )
+    theirs = await gateway.get_balance_cents(account_id, currency=BUSINESS_CURRENCY)
+    return await _source_drift(
+        db,
+        business_id,
+        "balance",
+        {"ledger_cents": ours, "stripe_cents": theirs, "explained_cents": int(explained or 0)}
+        if theirs - ours != int(explained or 0)
+        else None,
+    )
+
+
 async def run_reconcile_payments(db: AsyncSession, gateway: PaymentGateway) -> int:
     """Repair provider sources and check journal and cached balances."""
     ids = list(await db.scalars(select(Business.id).order_by(Business.id)))
@@ -3511,6 +3563,7 @@ async def run_reconcile_payments(db: AsyncSession, gateway: PaymentGateway) -> i
             account_id = merchant_account(business)
             if account_id is not None:
                 found += await reconcile_stripe_transactions(db, gateway, identity, account_id)
+                found += await _reconcile_balance(db, gateway, identity, account_id)
             stale = await ledger.stale_accounts(db, identity)
             if stale:
                 found += 1

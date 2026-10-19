@@ -551,5 +551,9 @@ async def test_payout_list_reads_only_the_recent_page(
         )
 
     monkeypatch.setattr(stripe.Payout, "list_async", listing)
-    assert await gateway.list_payouts("acct_business") == [{"id": "po_recent", "object": "payout"}]
-    assert calls == [{"stripe_account": "acct_business", "limit": 24}]
+    page = await gateway.list_payouts("acct_business", "po_previous")
+    assert page.payouts == [{"id": "po_recent", "object": "payout"}]
+    assert page.next_cursor == "po_recent"
+    assert calls == [
+        {"stripe_account": "acct_business", "limit": 24, "starting_after": "po_previous"}
+    ]

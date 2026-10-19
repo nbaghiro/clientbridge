@@ -53,6 +53,7 @@ from clientbridge.integrations.stripe import (
     MandateState,
     PaymentGateway,
     PaymentIntentResult,
+    PayoutPage,
     PlanItem,
     PlanSubscription,
     PostalAddress,
@@ -391,6 +392,7 @@ class FakePaymentGateway:
         self.objects: dict[tuple[str | None, str, str], dict[str, object]] = {}
         self.customer_keys: dict[str, str] = {}
         self.terminal_customers: dict[str, str | None] = {}
+        self.balances: dict[str, AccountBalance] = {}
         self.pending_cents = 0
         self.balance_cents = 0  # get_balance_cents() result
         self.invoice_intents: dict[str, str] = {}  # Stripe invoice id -> the intent that paid it
@@ -532,8 +534,16 @@ class FakePaymentGateway:
     async def recent_events(self, account_id: str | None, since: datetime) -> list[GatewayEvent]:
         return self.events.get(account_id, [])
 
-    async def list_payouts(self, account_id: str) -> list[dict[str, object]]:
-        return self.payouts.get(account_id, [])
+    async def list_payouts(self, account_id: str, after: str | None = None) -> PayoutPage:
+        rows = self.payouts.get(account_id, [])
+        start = 0
+        if after is not None:
+            matches = [i for i, row in enumerate(rows) if row.get("id") == after]
+            if not matches:
+                raise Conflict("invalid payout cursor")
+            start = matches[0] + 1
+        page = rows[start : start + 24]
+        return PayoutPage(page, str(page[-1]["id"]) if start + 24 < len(rows) else None)
 
     async def payout_transactions(
         self, account_id: str, payout_id: str, after: str | None
@@ -747,10 +757,13 @@ class FakePaymentGateway:
         return ChargeFees(processing, app_fee, None)
 
     async def get_balance(self, account_id: str, *, currency: str) -> AccountBalance:
-        return AccountBalance(self.balance_cents - self.pending_cents, self.pending_cents)
+        return self.balances.get(
+            account_id, AccountBalance(self.balance_cents - self.pending_cents, self.pending_cents)
+        )
 
     async def get_balance_cents(self, account_id: str, *, currency: str) -> int:
-        return self.balance_cents
+        value = await self.get_balance(account_id, currency=currency)
+        return value.available_cents + value.pending_cents
 
 
 @pytest.fixture

@@ -3416,6 +3416,8 @@ interface Strings {
         readonly transactionFee: string;
         readonly transactionOther: string;
         readonly transactionFees: (amount: string) => string;
+        readonly historyNext: string;
+        readonly historyPrevious: string;
     };
     readonly auth: {
         readonly invalidCredentials: string;

@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.integrations.stripe import AccountBalance
 from clientbridge.models.business import Business
 from clientbridge.models.platform import Audit
 from clientbridge.services import ledger
@@ -48,6 +49,7 @@ async def test_mismatch_is_audited_with_both_figures(
     gateway.transactions["acct_recon_off"] = [
         {"id": "txn_missing", "source": None, "net": -1234, "currency": "cad"}
     ]
+    gateway.balances["acct_recon_off"] = AccountBalance(await _ledger_stripe(db) - 1234, 0)
     assert await run_reconcile_payments(db, gateway) == 1
     (drift,) = await _drifts(db, BIZ)
     assert drift.changes == {
@@ -109,6 +111,32 @@ async def test_one_provider_failure_does_not_skip_other_businesses(
             raise httpx.ConnectError("provider unavailable")
         return [{"id": "txn_missing", "source": None, "net": -999, "currency": "cad"}]
 
+    gateway.balance_cents = -999
     monkeypatch.setattr(gateway, "balance_transactions", transactions)
     assert await run_reconcile_payments(db, gateway) >= 1
     assert len(await _drifts(db, other_id)) == 1
+
+
+async def test_reconciliation_detects_a_ledger_only_stripe_journal(
+    db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _connect(db, BIZ, "acct_local_only")
+    gateway.balance_cents = await _ledger_stripe(db)
+    await ledger.post(
+        db,
+        BIZ,
+        event="fee",
+        ref="fee:local_only",
+        legs=[
+            ledger.Leg("business", BIZ, "stripe", -500),
+            ledger.Leg("business", BIZ, "processing_fee", 500),
+        ],
+    )
+    assert await run_reconcile_payments(db, gateway) == 1
+    findings = await _drifts(db, BIZ)
+    assert len(findings) == 1
+    assert findings[0].entity_id == "balance"
+    assert findings[0].changes["stripe_cents"] == gateway.balance_cents
+    assert findings[0].changes["ledger_cents"] == gateway.balance_cents - 500
+    assert await run_reconcile_payments(db, gateway) == 1
+    assert len(await _drifts(db, BIZ)) == 1

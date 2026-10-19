@@ -19,6 +19,7 @@ from stripe.params import (
     BalanceTransactionListParams,
     CustomerCreateParams,
     PaymentIntentCreateParams,
+    PayoutListParams,
     SubscriptionModifyParamsItem,
 )
 from stripe.params.checkout import SessionCreateParamsSubscriptionData
@@ -479,6 +480,12 @@ class StripeTransaction(BaseModel):
 
 
 @dataclass(frozen=True)
+class PayoutPage:
+    payouts: list[dict[str, object]]
+    next_cursor: str | None
+
+
+@dataclass(frozen=True)
 class TransactionPage:
     transactions: list[StripeTransaction]
     next_cursor: str | None
@@ -552,7 +559,7 @@ class PaymentGateway(Protocol):
         self, account_id: str | None, since: datetime
     ) -> list[GatewayEvent]: ...
 
-    async def list_payouts(self, account_id: str) -> list[dict[str, object]]: ...
+    async def list_payouts(self, account_id: str, after: str | None = None) -> PayoutPage: ...
 
     async def payout_transactions(
         self, account_id: str, payout_id: str, after: str | None
@@ -1060,9 +1067,18 @@ class StripeGateway:
         ]
 
     @_keyed
-    async def list_payouts(self, account_id: str) -> list[dict[str, object]]:
-        result = await stripe.Payout.list_async(stripe_account=account_id, limit=24)
-        return [cast(dict[str, object], row.to_dict()) for row in result.data]
+    async def list_payouts(self, account_id: str, after: str | None = None) -> PayoutPage:
+        params: PayoutListParams = {"stripe_account": account_id, "limit": 24}
+        if after is not None:
+            params["starting_after"] = after
+        try:
+            result = await stripe.Payout.list_async(**params)
+        except stripe.InvalidRequestError as exc:
+            raise Conflict("payout history unavailable for this cursor") from exc
+        return PayoutPage(
+            [cast(dict[str, object], row.to_dict()) for row in result.data],
+            str(result.data[-1].id) if result.has_more and result.data else None,
+        )
 
     @_keyed
     async def payout_transactions(

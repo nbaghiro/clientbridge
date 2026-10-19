@@ -171,7 +171,7 @@ def test_missing_account_is_created_as_a_v2_merchant_with_test_identity() -> Non
     assert identity["individual"]["phone"] == "+12505550110"
     assert "attestations" not in identity  # Stripe collects the terms in onboarding
     assert identity["individual"]["relationship"] == {"title": "Owner"}
-    assert merchant["support"]["phone"] == BIRCHBARK.phone
+    assert merchant["support"]["phone"] == "+12505550110"
 
 
 def _v2_account(**changes: object) -> dict[str, object]:

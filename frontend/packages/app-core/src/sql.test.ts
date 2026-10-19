@@ -1310,6 +1310,17 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("PAYEES_SQL").map((r) => r.id)).toEqual(["st_amy", "st_owner"]);
     });
 
+    it("totals all deposits independently of payout history pagination", () => {
+        expect(run("DEPOSITS_SINCE_SQL", ["2026-06-01T00:00:00.000Z"])).toEqual([{ cents: 40000 }]);
+        for (let index = 0; index < 30; index += 1) {
+            journal(`j_extra_${index}`, "payout", `payout:po_extra_${index}`, [["a_bank", 100]], {
+                occurred_at: "2026-06-26T00:00:00Z",
+            });
+        }
+        expect(run("DEPOSITS_SINCE_SQL", ["2026-06-01T00:00:00.000Z"])).toEqual([{ cents: 43000 }]);
+        expect(run("DEPOSITS_SINCE_SQL", ["2026-07-01T00:00:00.000Z"])).toEqual([{ cents: 0 }]);
+    });
+
     it("feeds today's payments and the payouts", () => {
         expect(run("TODAY_PAYMENTS_SQL", ["2026-06-26T00:00:00.000Z"])).toEqual([
             { id: "pay_1", kind: "payment" },

@@ -19,7 +19,7 @@ from clientbridge.schemas.payments import (
     PaymentMethodOut,
     PaymentSetupLinkOut,
     PayoutContentsOut,
-    PayoutOut,
+    PayoutsOut,
     RefundIn,
     RefundOut,
     RefundPreview,
@@ -55,11 +55,14 @@ async def connect_status(
     return await PaymentService(db, principal, gateway).status()
 
 
-@connect_router.get("/payouts", response_model=list[PayoutOut])
+@connect_router.get("/payouts", response_model=PayoutsOut)
 async def payouts(
-    principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
-) -> list[PayoutOut]:
-    return await PaymentService(db, principal, gateway).payouts()
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    after: Annotated[str | None, Query(pattern=r"^po_[A-Za-z0-9_]+$", max_length=255)] = None,
+) -> PayoutsOut:
+    return await PaymentService(db, principal, gateway).payouts(after)
 
 
 @connect_router.get("/payouts/{payout_id}/transactions", response_model=PayoutContentsOut)

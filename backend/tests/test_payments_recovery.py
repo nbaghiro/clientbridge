@@ -134,8 +134,8 @@ async def test_payouts_return_authoritative_status(
     ]
     result = await as_owner.get("/v1/connect/payouts")
     assert result.status_code == 200
-    assert result.json()[0]["id"] == "po_one"
-    assert result.json()[0]["status"] == status
+    assert result.json()["payouts"][0]["id"] == "po_one"
+    assert result.json()["payouts"][0]["status"] == status
 
 
 async def test_staff_cannot_read_connected_account_payouts(as_staff: httpx.AsyncClient) -> None:
@@ -147,7 +147,10 @@ async def test_payouts_do_not_read_another_business_account(
 ) -> None:
     await enable_payments(db)
     gateway.payouts["acct_other"] = [{"id": "po_other"}]
-    assert (await as_owner.get("/v1/connect/payouts")).json() == []
+    assert (await as_owner.get("/v1/connect/payouts")).json() == {
+        "payouts": [],
+        "next_cursor": None,
+    }
 
 
 async def test_recovers_an_old_membership_charge_from_its_stripe_invoice(
@@ -566,3 +569,31 @@ async def test_unreadable_source_fees_defer_without_a_drift_alert(
     ]
     assert await reconcile_stripe_transactions(db, gateway, BIZ, "acct_test") == 0
     assert list(await db.scalars(select(Audit).where(Audit.action.like("ledger.%")))) == []
+
+
+async def test_payout_history_pages_without_losing_older_payouts(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db)
+    gateway.payouts["acct_test"] = [
+        {
+            "id": f"po_{index}",
+            "amount": 100,
+            "currency": "cad",
+            "status": "paid",
+            "created": int(clock.now().timestamp()),
+            "arrival_date": int(clock.now().timestamp()),
+        }
+        for index in range(30)
+    ]
+    first = await as_owner.get("/v1/connect/payouts")
+    assert first.status_code == 200
+    assert len(first.json()["payouts"]) == 24
+    assert first.json()["next_cursor"] == "po_23"
+    last = await as_owner.get("/v1/connect/payouts?after=po_23")
+    assert last.status_code == 200
+    assert [row["id"] for row in last.json()["payouts"]] == [f"po_{i}" for i in range(24, 30)]
+    assert last.json()["next_cursor"] is None
+    assert (await as_owner.get("/v1/connect/payouts?after=po_23")).json() == last.json()
+    assert (await as_owner.get("/v1/connect/payouts?after=po_other_account")).status_code == 409
+    assert (await as_owner.get("/v1/connect/payouts?after=invalid")).status_code == 422

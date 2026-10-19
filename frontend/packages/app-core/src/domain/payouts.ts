@@ -24,6 +24,14 @@ export const STRIPE_BALANCE_SQL = `
 SELECT COALESCE(SUM(balance_cents), 0) AS cents FROM accounts
 WHERE owner_type = 'business' AND category = 'stripe'`;
 
+export const DEPOSITS_SINCE_SQL = `
+SELECT COALESCE(SUM(e.amount_cents), 0) AS cents
+FROM entries e JOIN accounts a ON a.id = e.account_id
+WHERE a.owner_type = 'business' AND a.category = 'bank' AND e.event = 'payout'
+  AND e.amount_cents > 0
+  AND NOT EXISTS (SELECT 1 FROM entries r WHERE r.ref = e.ref || ':failed')
+  AND ${utcFromSql("e.occurred_at", "?1")} AND ${utcSql("e.occurred_at")} >= datetime(?1)`;
+
 // Stripe's and the platform's fee on each charge, from the charge's balance transaction.
 export const FEES_SINCE_SQL = `
 SELECT COALESCE(SUM(e.amount_cents), 0) AS cents
@@ -206,6 +214,8 @@ export interface Payouts {
     charges: ChargeView[];
     feesPending: number;
     contents: PayoutContents;
+    next: (() => void) | null;
+    previous: (() => void) | null;
 }
 
 /** Stripe payouts to the bank and the recent card charges with their fees, from the ledger. */
@@ -213,16 +223,33 @@ export function usePayouts(api: ApiLike): Payouts {
     const businessId = useBusinessId();
     const zone = useBusinessZone();
     const [since] = useState(() => addDays(new Date(), -30, zone).toISOString());
+    const [paging, setPaging] = useState<{ businessId: string | null; cursors: string[] }>({
+        businessId,
+        cursors: [],
+    });
+    const cursors = paging.businessId === businessId ? paging.cursors : [];
+    const cursor = cursors.at(-1);
+    const key = `${businessId ?? ""}:${cursor ?? ""}`;
     const payouts = useRemote(
-        () =>
-            businessId === null ? Promise.resolve([]) : api.get<PayoutRow[]>("/v1/connect/payouts"),
-        businessId ?? "",
+        async () => ({
+            key,
+            body:
+                businessId === null
+                    ? { payouts: [], next_cursor: null }
+                    : await api.get<{ payouts: PayoutRow[]; next_cursor: string | null }>(
+                          `/v1/connect/payouts${cursor === undefined ? "" : `?after=${encodeURIComponent(cursor)}`}`,
+                      ),
+        }),
+        key,
     );
+    const page = payouts.data?.key === key ? payouts.data.body : null;
+    const nextCursor = page?.next_cursor;
+    const deposits = useQuery<{ cents: number }>(DEPOSITS_SINCE_SQL, [since]);
     const balance = useQuery<{ cents: number }>(STRIPE_BALANCE_SQL);
     const fees = useQuery<{ cents: number }>(FEES_SINCE_SQL, [since]);
     const charges = useQuery<ChargeRow>(CARD_CHARGES_SQL, [since]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
-    const views = (payouts.data ?? []).map((p) => ({
+    const views = (page?.payouts ?? []).map((p) => ({
         id: p.id,
         ref: p.id,
         amountCents: p.amount_cents,
@@ -241,9 +268,18 @@ export function usePayouts(api: ApiLike): Payouts {
         feeCents: c.fee_cents,
         netCents: c.amount_cents - c.refunded_cents - (c.fee_cents ?? 0),
     }));
-    const cutoff = new Date(since);
     const load = useReplicaLoad(
-        [payouts, balance, fees, charges],
+        [
+            {
+                ...payouts,
+                isLoading:
+                    payouts.isLoading || (payouts.error === null && payouts.data?.key !== key),
+            },
+            balance,
+            fees,
+            charges,
+            deposits,
+        ],
         views.length === 0 && chargeViews.length === 0,
     );
     return {
@@ -253,9 +289,18 @@ export function usePayouts(api: ApiLike): Payouts {
         contents,
         select: setSelectedId,
         balanceCents: balance.data[0]?.cents ?? 0,
-        depositedCents: views
-            .filter((p) => p.status === "paid" && (p.arrivalAt ?? new Date(0)) >= cutoff)
-            .reduce((n, p) => n + p.amountCents, 0),
+        depositedCents: deposits.data[0]?.cents ?? 0,
+        next: nextCursor
+            ? () => {
+                  setPaging({ businessId, cursors: [...cursors, nextCursor] });
+              }
+            : null,
+        previous:
+            cursors.length > 0
+                ? () => {
+                      setPaging({ businessId, cursors: cursors.slice(0, -1) });
+                  }
+                : null,
         feesCents: fees.data[0]?.cents ?? 0,
         charges: chargeViews,
         feesPending: chargeViews.filter((c) => c.feeCents === null).length,

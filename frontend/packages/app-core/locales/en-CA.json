@@ -13709,5 +13709,7 @@
     "payouts.transactionFees": {
         "message": "Fees {amount}",
         "args": ["amount"]
-    }
+    },
+    "payouts.historyNext": { "message": "Older payouts" },
+    "payouts.historyPrevious": { "message": "Newer payouts" }
 }

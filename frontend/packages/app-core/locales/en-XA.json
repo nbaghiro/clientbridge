@@ -12841,5 +12841,11 @@
     },
     "payouts.transactionFees": {
         "message": "[Ƒééš {amount} one]"
+    },
+    "payouts.historyNext": {
+        "message": "[Öļðéŕ þåýöûţš one two]"
+    },
+    "payouts.historyPrevious": {
+        "message": "[Ñéŵéŕ þåýöûţš one two]"
     }
 }

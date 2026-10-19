@@ -185,7 +185,7 @@ Implementation status after the review-fix follow-ups (2026-10-18):
 | Transient recovery timing                               | Implemented across recovery and source reconciliation | Fees unavailable defer without failing the job; the next run retries. Durable deferred-source checkpoints remain outstanding. |
 | Customer creation parameter drift                       | Fixed                                          | `test_payments_gateway.py`: rename retries use identical create parameters and update the same Customer separately.                           |
 | Old recovery receipts                                   | Fixed for routine notifications                | Old charges settle without receipt delivery; recent recovery still queues delivery. Gift-card issuance is preserved.                          |
-| Unbounded payout history read                           | Capped                                         | Adapter reads the latest 24 payouts. A full history/detail pagination feature remains separate.                                               |
+| Unbounded payout history read                           | Capped                                         | Adapter returns 24 payouts per cursor page; web/mobile expose older/newer history. The 30-day figure derives from ledger journals rather than the page.                                               |
 | Circular ledger/payment dependency                      | Fixed                                          | Payments owns repair orchestration; ledger owns journal operations.                                                                           |
 | Standalone Stripe fees                                  | Fixed for `stripe_fee` transactions            | Debit and credit transactions post once by provider transaction ID.                                                                           |
 | Bounded reconciliation, event replay and pending sweeps | Pending schema approval / implementation       | Durable checkpoints, fair batches, unresolved-source retries and method-aware retry windows.                                                  |
@@ -302,3 +302,21 @@ Validation for the sandbox harness increment: 17 harness regressions passed; the
 timezone reruns, and 102 infrastructure tests. The read-only CLI-profile preflight rejected the
 existing demo merchant as not reserved for QA. No live financial scenarios were executed. These
 results validate the harness and baseline regression suite, not all 35 checklist groups.
+
+
+## PR #42 review fixes
+
+Rebased onto main, preserving the legal-address and reseeded-demo changes. Added failing regressions
+for terminal-dispute fees, incremental fee returns and ledger-only Stripe differences, then corrected
+their journal/reconciliation paths. Added payout-history pagination and an independent deposit-total
+query tested with more than 24 payouts. The targeted backend set passed 119 tests before the additional
+funds-withdrawn parameter cases. The full backend gate passed 2,247 tests with 93.35% coverage;
+35 Stripe-mock contracts and three payout browser checks passed. Browser checks use mocked provider
+responses, not live Stripe. Recordings are local under `.scratchpad/stripe-review/`.
+The combined gate was interrupted by a machine sleep during timezone tests; the frontend and
+infrastructure targets were rerun separately. The frontend passed 526 tests plus all three
+timezone reruns. The isolated pre-commit gate also runs before committing.
+
+The initial browser retry used non-allowlisted ports and failed at login; it is not payout evidence.
+Checkpoint persistence and payout-transit accounting still require explicit schema approval before
+implementation. The PR stays draft until those findings and validation are complete.

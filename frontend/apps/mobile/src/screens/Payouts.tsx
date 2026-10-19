@@ -161,6 +161,16 @@ export function Payouts() {
                                     />
                                 ))
                             )}
+                            {p.previous !== null ? (
+                                <Button variant="outline" onPress={p.previous}>
+                                    {s.historyPrevious}
+                                </Button>
+                            ) : null}
+                            {p.next !== null ? (
+                                <Button variant="outline" onPress={p.next}>
+                                    {s.historyNext}
+                                </Button>
+                            ) : null}
                         </Panel>
                         <Text style={styles.caption}>{s.chargesTitle}</Text>
                         <Panel flush>

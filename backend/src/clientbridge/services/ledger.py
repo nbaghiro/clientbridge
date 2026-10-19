@@ -899,14 +899,25 @@ async def post_dispute(
         subject=subject,
         occurred_at=occurred_at,
     )
+    fee_ref = f"dispute_fee:{dispute_id}"
+    rows = await _rows(
+        db, biz, or_(Entry.ref == fee_ref, Entry.ref.startswith(f"{fee_ref}:", autoescape=True))
+    )
+    recorded = sum(
+        entry.amount_cents
+        for entry, account in rows
+        if account.category == "processing_fee" and entry.amount_cents > 0
+    )
+    if fee <= recorded:
+        return
     await post(
         db,
         biz,
         event="fee",
-        ref=f"dispute_fee:{dispute_id}",
+        ref=fee_ref if recorded == 0 else f"{fee_ref}:{fee}",
         legs=[
-            Leg("business", biz, "processing_fee", fee),
-            Leg("business", biz, "stripe", -fee),
+            Leg("business", biz, "processing_fee", fee - recorded),
+            Leg("business", biz, "stripe", recorded - fee),
         ],
         currency=payment.currency,
         source=("payment", payment.id),
@@ -930,18 +941,28 @@ async def close_dispute(
             event="dispute",
             source=("payment", payment.id),
         )
-    fee_rows = await _rows(db, business_id, Entry.ref == f"dispute_fee:{dispute_id}")
-    if returned_fee <= 0 or not fee_rows:
+    fee_ref = f"dispute_fee:{dispute_id}"
+    fee_rows = await _rows(
+        db,
+        business_id,
+        or_(Entry.ref == fee_ref, Entry.ref.startswith(f"{fee_ref}:", autoescape=True)),
+    )
+    returned = -sum(
+        entry.amount_cents
+        for entry, account in fee_rows
+        if account.category == "processing_fee" and entry.amount_cents < 0
+    )
+    if returned_fee <= returned or not fee_rows:
         return
     entry = fee_rows[0][0]
     await post(
         db,
         business_id,
         event="fee",
-        ref=f"dispute_fee:{dispute_id}:won",
+        ref=f"{fee_ref}:won" if returned == 0 else f"{fee_ref}:won:{returned_fee}",
         legs=[
-            Leg("business", business_id, "processing_fee", -returned_fee),
-            Leg("business", business_id, "stripe", returned_fee),
+            Leg("business", business_id, "processing_fee", returned - returned_fee),
+            Leg("business", business_id, "stripe", returned_fee - returned),
         ],
         currency=entry.currency,
         source=(entry.source_type, entry.source_id)

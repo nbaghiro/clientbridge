@@ -320,9 +320,11 @@ because some objects were created.
 
 ### Finishing the two demo accounts
 
-The sandbox already contains Birchbark (`acct_1UPnLpFGqw5ObEW5`) and Cedar Coast
+The previously verified sandbox accounts include Birchbark (`acct_1UPnLpFGqw5ObEW5`) and Cedar Coast
 (`acct_1UPnLvFGqw7Th6aZ`), and the local demo database is linked to both. Do not create replacements
-just to finish onboarding. Products, prices, portal configuration and Terminal locations already exist. Final API verification
+just to finish onboarding. The current seed also includes Northlight Security; provisioning reads each
+business's legal address and phone from `scripts/demo_context.py`. Products, prices, portal configuration
+and Terminal locations already exist for the previously provisioned demos. Final API verification
 showed Cedar Coast needs only agreement acceptance; Birchbark still needs its support phone, owner
 title, bank and agreement. Both remain restricted until those requirements are completed.
 
@@ -342,13 +344,13 @@ and [account configuration](https://docs.stripe.com/connect/accounts-v2/connecte
 
 Complete the one-time manual step for each business:
 
-1. Sign into the local app as `hannah@birchbarkpets.ca` for Birchbark or
+1. Sign into the local app as `hannah@birchbark.example` for Birchbark or
    `owner@cedarcoast.example.test` for Cedar Coast, with the seeded password `demo1234`.
 2. Open **Setup → Getting paid**, then finish onboarding. Confirm the component says test/sandbox.
 3. Choose **Use test phone number** in Stripe's authentication prompt; use `000000` if prompted for
    a test verification code. Review and accept the displayed agreements yourself.
 4. Review the prefilled business/person details. If still requested, use title `Owner` and the demo
-   support phone (`+16045550123` for Birchbark; `+16045550199` for Cedar Coast).
+   support phone (`+12505550110` for Birchbark; `+16045550120` for Cedar Coast).
 5. Cedar Coast already has a test bank linked; review it rather than adding a duplicate. For Birchbark,
    enter Stripe's Canadian test bank: transit `11000`, institution `000`, account `000123456789`.
    If Stripe asks for a combined routing number, use `11000-000`. These are
@@ -461,7 +463,8 @@ than treating this reference as a completed checklist.
 
 Recovery suppresses routine notifications older than one day while preserving gift-card issuance.
 Standalone Stripe fee transactions post by transaction ID, including fee credits. The payout list reads
-the latest 24 payouts without fetching every historical page. Ledger repair orchestration lives in
+24 payouts per cursor page without fetching every historical page. The 30-day deposited figure is
+derived from all applicable bank journals, independently of the visible history page. Ledger repair orchestration lives in
 `services/payments.py`; journal primitives remain in `services/ledger.py`.
 
 The [review follow-up](qa/payments-automation.md#review-follow-up) records remaining merge blockers;
@@ -543,9 +546,18 @@ Source mismatches are append-only audit findings. Repeated identical findings re
 record. A platform administrator can acknowledge one with a reason through
 `POST /admin/v1/businesses/{business_id}/drift/{finding_id}/acknowledge`; this changes no ledger entries.
 A changed mismatch creates a fresh finding; a repaired source records resolution. The nightly job
-reports source findings and cache corruption, without a second all-time aggregate alert for the same
+reports source findings and cache corruption. An account-balance comparison subtracts already
+identified source differences, so ledger-only differences remain visible without a duplicate alert for the same
 source mismatch. Transient `retry_later` responses defer reconciliation until the next run.
 
 Audited orphan collections and their refunds post to an orphan payable, with processor and application
 fees taken from the provider balance transactions. They create no sale revenue or product entitlement.
 Unknown fee types and inconsistent provider amounts remain errors rather than balancing adjustments.
+
+
+PR #42 review follow-up: dispute fees and returned fees now post only their newly observed increments,
+including after terminal dispute status, without reopening a won/lost case. History and payout-content
+pagination are independent on web and mobile. The account-balance residual check uses active source
+findings (including acknowledged ones) and detects ledger-only discrepancies. Durable job checkpoints
+and payout-transit accounting remain pending explicit schema approval; do not merge until implemented
+and validated.
